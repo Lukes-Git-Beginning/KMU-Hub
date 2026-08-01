@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: backend/proto/email/v1/email.proto
+// source: proto/email/v1/email.proto
 
 package emailv1
 
@@ -58,6 +58,11 @@ const (
 	EmailService_ImportContactsVCard_FullMethodName      = "/email.v1.EmailService/ImportContactsVCard"
 	EmailService_ExportContactsCSV_FullMethodName        = "/email.v1.EmailService/ExportContactsCSV"
 	EmailService_ExportContactsVCard_FullMethodName      = "/email.v1.EmailService/ExportContactsVCard"
+	EmailService_ListEmailRules_FullMethodName           = "/email.v1.EmailService/ListEmailRules"
+	EmailService_CreateEmailRule_FullMethodName          = "/email.v1.EmailService/CreateEmailRule"
+	EmailService_UpdateEmailRule_FullMethodName          = "/email.v1.EmailService/UpdateEmailRule"
+	EmailService_DeleteEmailRule_FullMethodName          = "/email.v1.EmailService/DeleteEmailRule"
+	EmailService_ApplyEmailRules_FullMethodName          = "/email.v1.EmailService/ApplyEmailRules"
 )
 
 // EmailServiceClient is the client API for EmailService service.
@@ -112,6 +117,12 @@ type EmailServiceClient interface {
 	ImportContactsVCard(ctx context.Context, in *ImportContactsVCardRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
 	ExportContactsCSV(ctx context.Context, in *ExportContactsRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
 	ExportContactsVCard(ctx context.Context, in *ExportContactsRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
+	// Rules (Regeln & Filter)
+	ListEmailRules(ctx context.Context, in *ListEmailRulesRequest, opts ...grpc.CallOption) (*ListEmailRulesResponse, error)
+	CreateEmailRule(ctx context.Context, in *CreateEmailRuleRequest, opts ...grpc.CallOption) (*CreateEmailRuleResponse, error)
+	UpdateEmailRule(ctx context.Context, in *UpdateEmailRuleRequest, opts ...grpc.CallOption) (*UpdateEmailRuleResponse, error)
+	DeleteEmailRule(ctx context.Context, in *DeleteEmailRuleRequest, opts ...grpc.CallOption) (*DeleteEmailRuleResponse, error)
+	ApplyEmailRules(ctx context.Context, in *ApplyEmailRulesRequest, opts ...grpc.CallOption) (*ApplyEmailRulesResponse, error)
 }
 
 type emailServiceClient struct {
@@ -512,6 +523,56 @@ func (c *emailServiceClient) ExportContactsVCard(ctx context.Context, in *Export
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailRules(ctx context.Context, in *ListEmailRulesRequest, opts ...grpc.CallOption) (*ListEmailRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailRulesResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailRules_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) CreateEmailRule(ctx context.Context, in *CreateEmailRuleRequest, opts ...grpc.CallOption) (*CreateEmailRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateEmailRuleResponse)
+	err := c.cc.Invoke(ctx, EmailService_CreateEmailRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) UpdateEmailRule(ctx context.Context, in *UpdateEmailRuleRequest, opts ...grpc.CallOption) (*UpdateEmailRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateEmailRuleResponse)
+	err := c.cc.Invoke(ctx, EmailService_UpdateEmailRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) DeleteEmailRule(ctx context.Context, in *DeleteEmailRuleRequest, opts ...grpc.CallOption) (*DeleteEmailRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEmailRuleResponse)
+	err := c.cc.Invoke(ctx, EmailService_DeleteEmailRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) ApplyEmailRules(ctx context.Context, in *ApplyEmailRulesRequest, opts ...grpc.CallOption) (*ApplyEmailRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApplyEmailRulesResponse)
+	err := c.cc.Invoke(ctx, EmailService_ApplyEmailRules_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EmailServiceServer is the server API for EmailService service.
 // All implementations must embed UnimplementedEmailServiceServer
 // for forward compatibility.
@@ -564,6 +625,12 @@ type EmailServiceServer interface {
 	ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error)
 	ExportContactsCSV(context.Context, *ExportContactsRequest) (*ExportContactsResponse, error)
 	ExportContactsVCard(context.Context, *ExportContactsRequest) (*ExportContactsResponse, error)
+	// Rules (Regeln & Filter)
+	ListEmailRules(context.Context, *ListEmailRulesRequest) (*ListEmailRulesResponse, error)
+	CreateEmailRule(context.Context, *CreateEmailRuleRequest) (*CreateEmailRuleResponse, error)
+	UpdateEmailRule(context.Context, *UpdateEmailRuleRequest) (*UpdateEmailRuleResponse, error)
+	DeleteEmailRule(context.Context, *DeleteEmailRuleRequest) (*DeleteEmailRuleResponse, error)
+	ApplyEmailRules(context.Context, *ApplyEmailRulesRequest) (*ApplyEmailRulesResponse, error)
 	mustEmbedUnimplementedEmailServiceServer()
 }
 
@@ -690,6 +757,21 @@ func (UnimplementedEmailServiceServer) ExportContactsCSV(context.Context, *Expor
 }
 func (UnimplementedEmailServiceServer) ExportContactsVCard(context.Context, *ExportContactsRequest) (*ExportContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportContactsVCard not implemented")
+}
+func (UnimplementedEmailServiceServer) ListEmailRules(context.Context, *ListEmailRulesRequest) (*ListEmailRulesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailRules not implemented")
+}
+func (UnimplementedEmailServiceServer) CreateEmailRule(context.Context, *CreateEmailRuleRequest) (*CreateEmailRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmailRule not implemented")
+}
+func (UnimplementedEmailServiceServer) UpdateEmailRule(context.Context, *UpdateEmailRuleRequest) (*UpdateEmailRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmailRule not implemented")
+}
+func (UnimplementedEmailServiceServer) DeleteEmailRule(context.Context, *DeleteEmailRuleRequest) (*DeleteEmailRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmailRule not implemented")
+}
+func (UnimplementedEmailServiceServer) ApplyEmailRules(context.Context, *ApplyEmailRulesRequest) (*ApplyEmailRulesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApplyEmailRules not implemented")
 }
 func (UnimplementedEmailServiceServer) mustEmbedUnimplementedEmailServiceServer() {}
 func (UnimplementedEmailServiceServer) testEmbeddedByValue()                      {}
@@ -1414,6 +1496,96 @@ func _EmailService_ExportContactsVCard_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailRulesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailRules(ctx, req.(*ListEmailRulesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_CreateEmailRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmailRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).CreateEmailRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_CreateEmailRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).CreateEmailRule(ctx, req.(*CreateEmailRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_UpdateEmailRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmailRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).UpdateEmailRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_UpdateEmailRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).UpdateEmailRule(ctx, req.(*UpdateEmailRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_DeleteEmailRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmailRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).DeleteEmailRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_DeleteEmailRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).DeleteEmailRule(ctx, req.(*DeleteEmailRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_ApplyEmailRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyEmailRulesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ApplyEmailRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ApplyEmailRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ApplyEmailRules(ctx, req.(*ApplyEmailRulesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EmailService_ServiceDesc is the grpc.ServiceDesc for EmailService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1577,7 +1749,27 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ExportContactsVCard",
 			Handler:    _EmailService_ExportContactsVCard_Handler,
 		},
+		{
+			MethodName: "ListEmailRules",
+			Handler:    _EmailService_ListEmailRules_Handler,
+		},
+		{
+			MethodName: "CreateEmailRule",
+			Handler:    _EmailService_CreateEmailRule_Handler,
+		},
+		{
+			MethodName: "UpdateEmailRule",
+			Handler:    _EmailService_UpdateEmailRule_Handler,
+		},
+		{
+			MethodName: "DeleteEmailRule",
+			Handler:    _EmailService_DeleteEmailRule_Handler,
+		},
+		{
+			MethodName: "ApplyEmailRules",
+			Handler:    _EmailService_ApplyEmailRules_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "backend/proto/email/v1/email.proto",
+	Metadata: "proto/email/v1/email.proto",
 }

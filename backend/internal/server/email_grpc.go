@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/email/message"
+	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
@@ -35,6 +36,7 @@ type EmailGRPCServer struct {
 	linkRepo          EmailContactLinkRepository
 	importService     *emailcontact.ImportService
 	exportService     *emailcontact.ExportService
+	ruleService       *rule.Service
 }
 
 // EmailContactLinkRepository defines the interface for CRM email linking.
@@ -56,6 +58,7 @@ func NewEmailGRPCServer(
 	linkRepo EmailContactLinkRepository,
 	importService *emailcontact.ImportService,
 	exportService *emailcontact.ExportService,
+	ruleService *rule.Service,
 ) *EmailGRPCServer {
 	return &EmailGRPCServer{
 		accountService:    accountService,
@@ -67,6 +70,7 @@ func NewEmailGRPCServer(
 		linkRepo:          linkRepo,
 		importService:     importService,
 		exportService:     exportService,
+		ruleService:       ruleService,
 	}
 }
 
@@ -1336,6 +1340,19 @@ func mapEmailError(err error) error {
 	case errors.Is(err, emailsync.ErrSyncInProgress):
 		return status.Error(codes.AlreadyExists, err.Error())
 
+	// Rule errors
+	case errors.Is(err, rule.ErrRuleNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrTargetNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrInvalidField),
+		errors.Is(err, rule.ErrInvalidOperator),
+		errors.Is(err, rule.ErrInvalidActionType),
+		errors.Is(err, rule.ErrNameRequired),
+		errors.Is(err, rule.ErrValueRequired),
+		errors.Is(err, rule.ErrTargetRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+
 	// Import errors
 	case errors.Is(err, emailcontact.ErrImportFailed):
 		return status.Error(codes.Internal, err.Error())
@@ -1350,3 +1367,115 @@ func mapEmailError(err error) error {
 	}
 }
 
+
+// ============================================================================
+// Rules (Regeln & Filter)
+// ============================================================================
+
+func (s *EmailGRPCServer) ListEmailRules(ctx context.Context, _ *emailv1.ListEmailRulesRequest) (*emailv1.ListEmailRulesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	rules, err := s.ruleService.List(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	out := make([]*emailv1.EmailRuleInfo, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, toEmailRuleInfo(r))
+	}
+	return &emailv1.ListEmailRulesResponse{Rules: out}, nil
+}
+
+func (s *EmailGRPCServer) CreateEmailRule(ctx context.Context, req *emailv1.CreateEmailRuleRequest) (*emailv1.CreateEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	r, err := s.ruleService.Create(ctx, tenantID, rule.RuleInput{
+		Name:         &req.Name,
+		Field:        &req.Field,
+		Op:           &req.Op,
+		Value:        &req.Value,
+		ActionType:   &req.ActionType,
+		ActionTarget: &req.ActionTarget,
+	})
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.CreateEmailRuleResponse{Rule: toEmailRuleInfo(r)}, nil
+}
+
+func (s *EmailGRPCServer) UpdateEmailRule(ctx context.Context, req *emailv1.UpdateEmailRuleRequest) (*emailv1.UpdateEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
+	}
+
+	r, err := s.ruleService.Update(ctx, id, tenantID, rule.RuleInput{
+		Name:         req.Name,
+		Field:        req.Field,
+		Op:           req.Op,
+		Value:        req.Value,
+		ActionType:   req.ActionType,
+		ActionTarget: req.ActionTarget,
+	})
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.UpdateEmailRuleResponse{Rule: toEmailRuleInfo(r)}, nil
+}
+
+func (s *EmailGRPCServer) DeleteEmailRule(ctx context.Context, req *emailv1.DeleteEmailRuleRequest) (*emailv1.DeleteEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
+	}
+
+	if err := s.ruleService.Delete(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.DeleteEmailRuleResponse{Success: true}, nil
+}
+
+func (s *EmailGRPCServer) ApplyEmailRules(ctx context.Context, _ *emailv1.ApplyEmailRulesRequest) (*emailv1.ApplyEmailRulesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	res, err := s.ruleService.ApplyAll(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.ApplyEmailRulesResponse{
+		Affected: int32(res.Affected),
+		Scanned:  int32(res.Scanned),
+	}, nil
+}
+
+func toEmailRuleInfo(r *models.EmailRule) *emailv1.EmailRuleInfo {
+	return &emailv1.EmailRuleInfo{
+		Id:           r.ID.String(),
+		Name:         r.Name,
+		Field:        r.Field,
+		Op:           r.Op,
+		Value:        r.Value,
+		ActionType:   r.ActionType,
+		ActionTarget: r.ActionTarget.String(),
+	}
+}

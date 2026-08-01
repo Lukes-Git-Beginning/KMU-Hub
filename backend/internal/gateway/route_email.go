@@ -148,6 +148,16 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/default", e.HandleSetDefaultSignature)
 	})
 
+	// Rules (Regeln & Filter)
+	r.Route("/api/v1/email/rules", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailRules)
+		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailRule)
+		r.With(middleware.RequirePermission("email", "write")).Post("/apply", e.HandleApplyEmailRules)
+		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailRule)
+		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailRule)
+	})
+
 	// CRM Links
 	r.Route("/api/v1/email/links", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -1085,4 +1095,114 @@ func (e *EmailRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.R
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Rule Handlers (Regeln & Filter)
+// ============================================================================
+
+func (e *EmailRoutes) HandleListEmailRules(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.ListEmailRules(r.Context(), &emailv1.ListEmailRulesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Wrapped list via ProtoListWrapped so an empty rule set serialises as
+	// {"rules": []} instead of {} -- the frontend types rules as an array.
+	response.ProtoListWrapped(w, http.StatusOK, "rules", resp.Rules, nil)
+}
+
+func (e *EmailRoutes) HandleCreateEmailRule(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	// proto-direct: no local DTO (S4.1 boundary)
+	var req emailv1.CreateEmailRuleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.CreateEmailRule(r.Context(), &req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (e *EmailRoutes) HandleUpdateEmailRule(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	// proto-direct: no local DTO (S4.1 boundary). Every field carries presence,
+	// so an omitted key keeps its stored value.
+	var req emailv1.UpdateEmailRuleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Id = chi.URLParam(r, "id")
+
+	resp, err := client.UpdateEmailRule(r.Context(), &req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleDeleteEmailRule(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.DeleteEmailRule(r.Context(), &emailv1.DeleteEmailRuleRequest{
+		Id: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleApplyEmailRules(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.ApplyEmailRules(r.Context(), &emailv1.ApplyEmailRulesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Built explicitly rather than passed through response.Proto: protojson
+	// omits zero-valued scalars, so a run that changed nothing would answer {}
+	// and the frontend's `res.affected` would read undefined instead of 0.
+	response.JSON(w, http.StatusOK, map[string]any{
+		"affected": int(resp.Affected),
+		"scanned":  int(resp.Scanned),
+	})
 }

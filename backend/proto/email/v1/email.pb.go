@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: backend/proto/email/v1/email.proto
+// source: proto/email/v1/email.proto
 
 package emailv1
 
@@ -31,7 +31,7 @@ type EmailAddress struct {
 
 func (x *EmailAddress) Reset() {
 	*x = EmailAddress{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[0]
+	mi := &file_proto_email_v1_email_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +43,7 @@ func (x *EmailAddress) String() string {
 func (*EmailAddress) ProtoMessage() {}
 
 func (x *EmailAddress) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[0]
+	mi := &file_proto_email_v1_email_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +56,7 @@ func (x *EmailAddress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailAddress.ProtoReflect.Descriptor instead.
 func (*EmailAddress) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{0}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *EmailAddress) GetName() string {
@@ -88,7 +88,7 @@ type EmailAttachmentInfo struct {
 
 func (x *EmailAttachmentInfo) Reset() {
 	*x = EmailAttachmentInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[1]
+	mi := &file_proto_email_v1_email_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -100,7 +100,7 @@ func (x *EmailAttachmentInfo) String() string {
 func (*EmailAttachmentInfo) ProtoMessage() {}
 
 func (x *EmailAttachmentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[1]
+	mi := &file_proto_email_v1_email_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -113,7 +113,7 @@ func (x *EmailAttachmentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailAttachmentInfo.ProtoReflect.Descriptor instead.
 func (*EmailAttachmentInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{1}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EmailAttachmentInfo) GetId() string {
@@ -187,7 +187,7 @@ type EmailAccountInfo struct {
 
 func (x *EmailAccountInfo) Reset() {
 	*x = EmailAccountInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[2]
+	mi := &file_proto_email_v1_email_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -199,7 +199,7 @@ func (x *EmailAccountInfo) String() string {
 func (*EmailAccountInfo) ProtoMessage() {}
 
 func (x *EmailAccountInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[2]
+	mi := &file_proto_email_v1_email_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -212,7 +212,7 @@ func (x *EmailAccountInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailAccountInfo.ProtoReflect.Descriptor instead.
 func (*EmailAccountInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{2}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EmailAccountInfo) GetId() string {
@@ -332,7 +332,7 @@ type CreateEmailAccountRequest struct {
 
 func (x *CreateEmailAccountRequest) Reset() {
 	*x = CreateEmailAccountRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[3]
+	mi := &file_proto_email_v1_email_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -344,7 +344,7 @@ func (x *CreateEmailAccountRequest) String() string {
 func (*CreateEmailAccountRequest) ProtoMessage() {}
 
 func (x *CreateEmailAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[3]
+	mi := &file_proto_email_v1_email_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +357,7 @@ func (x *CreateEmailAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmailAccountRequest.ProtoReflect.Descriptor instead.
 func (*CreateEmailAccountRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{3}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateEmailAccountRequest) GetUserId() string {
@@ -446,7 +446,7 @@ type CreateEmailAccountResponse struct {
 
 func (x *CreateEmailAccountResponse) Reset() {
 	*x = CreateEmailAccountResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[4]
+	mi := &file_proto_email_v1_email_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -458,7 +458,7 @@ func (x *CreateEmailAccountResponse) String() string {
 func (*CreateEmailAccountResponse) ProtoMessage() {}
 
 func (x *CreateEmailAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[4]
+	mi := &file_proto_email_v1_email_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -471,7 +471,7 @@ func (x *CreateEmailAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmailAccountResponse.ProtoReflect.Descriptor instead.
 func (*CreateEmailAccountResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{4}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateEmailAccountResponse) GetAccount() *EmailAccountInfo {
@@ -490,7 +490,7 @@ type GetEmailAccountRequest struct {
 
 func (x *GetEmailAccountRequest) Reset() {
 	*x = GetEmailAccountRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[5]
+	mi := &file_proto_email_v1_email_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +502,7 @@ func (x *GetEmailAccountRequest) String() string {
 func (*GetEmailAccountRequest) ProtoMessage() {}
 
 func (x *GetEmailAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[5]
+	mi := &file_proto_email_v1_email_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +515,7 @@ func (x *GetEmailAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEmailAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetEmailAccountRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{5}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetEmailAccountRequest) GetUserId() string {
@@ -534,7 +534,7 @@ type GetEmailAccountResponse struct {
 
 func (x *GetEmailAccountResponse) Reset() {
 	*x = GetEmailAccountResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[6]
+	mi := &file_proto_email_v1_email_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -546,7 +546,7 @@ func (x *GetEmailAccountResponse) String() string {
 func (*GetEmailAccountResponse) ProtoMessage() {}
 
 func (x *GetEmailAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[6]
+	mi := &file_proto_email_v1_email_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -559,7 +559,7 @@ func (x *GetEmailAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEmailAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetEmailAccountResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{6}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetEmailAccountResponse) GetAccount() *EmailAccountInfo {
@@ -587,7 +587,7 @@ type UpdateEmailAccountRequest struct {
 
 func (x *UpdateEmailAccountRequest) Reset() {
 	*x = UpdateEmailAccountRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[7]
+	mi := &file_proto_email_v1_email_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -599,7 +599,7 @@ func (x *UpdateEmailAccountRequest) String() string {
 func (*UpdateEmailAccountRequest) ProtoMessage() {}
 
 func (x *UpdateEmailAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[7]
+	mi := &file_proto_email_v1_email_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -612,7 +612,7 @@ func (x *UpdateEmailAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEmailAccountRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEmailAccountRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{7}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateEmailAccountRequest) GetId() string {
@@ -694,7 +694,7 @@ type UpdateEmailAccountResponse struct {
 
 func (x *UpdateEmailAccountResponse) Reset() {
 	*x = UpdateEmailAccountResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[8]
+	mi := &file_proto_email_v1_email_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +706,7 @@ func (x *UpdateEmailAccountResponse) String() string {
 func (*UpdateEmailAccountResponse) ProtoMessage() {}
 
 func (x *UpdateEmailAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[8]
+	mi := &file_proto_email_v1_email_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,7 +719,7 @@ func (x *UpdateEmailAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEmailAccountResponse.ProtoReflect.Descriptor instead.
 func (*UpdateEmailAccountResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{8}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateEmailAccountResponse) GetAccount() *EmailAccountInfo {
@@ -738,7 +738,7 @@ type DeleteEmailAccountRequest struct {
 
 func (x *DeleteEmailAccountRequest) Reset() {
 	*x = DeleteEmailAccountRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[9]
+	mi := &file_proto_email_v1_email_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +750,7 @@ func (x *DeleteEmailAccountRequest) String() string {
 func (*DeleteEmailAccountRequest) ProtoMessage() {}
 
 func (x *DeleteEmailAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[9]
+	mi := &file_proto_email_v1_email_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +763,7 @@ func (x *DeleteEmailAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEmailAccountRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEmailAccountRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{9}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteEmailAccountRequest) GetId() string {
@@ -781,7 +781,7 @@ type DeleteEmailAccountResponse struct {
 
 func (x *DeleteEmailAccountResponse) Reset() {
 	*x = DeleteEmailAccountResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[10]
+	mi := &file_proto_email_v1_email_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -793,7 +793,7 @@ func (x *DeleteEmailAccountResponse) String() string {
 func (*DeleteEmailAccountResponse) ProtoMessage() {}
 
 func (x *DeleteEmailAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[10]
+	mi := &file_proto_email_v1_email_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -806,7 +806,7 @@ func (x *DeleteEmailAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEmailAccountResponse.ProtoReflect.Descriptor instead.
 func (*DeleteEmailAccountResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{10}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{10}
 }
 
 type TestEmailConnectionRequest struct {
@@ -824,7 +824,7 @@ type TestEmailConnectionRequest struct {
 
 func (x *TestEmailConnectionRequest) Reset() {
 	*x = TestEmailConnectionRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[11]
+	mi := &file_proto_email_v1_email_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +836,7 @@ func (x *TestEmailConnectionRequest) String() string {
 func (*TestEmailConnectionRequest) ProtoMessage() {}
 
 func (x *TestEmailConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[11]
+	mi := &file_proto_email_v1_email_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +849,7 @@ func (x *TestEmailConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestEmailConnectionRequest.ProtoReflect.Descriptor instead.
 func (*TestEmailConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{11}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TestEmailConnectionRequest) GetImapHost() string {
@@ -913,7 +913,7 @@ type TestEmailConnectionResponse struct {
 
 func (x *TestEmailConnectionResponse) Reset() {
 	*x = TestEmailConnectionResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[12]
+	mi := &file_proto_email_v1_email_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -925,7 +925,7 @@ func (x *TestEmailConnectionResponse) String() string {
 func (*TestEmailConnectionResponse) ProtoMessage() {}
 
 func (x *TestEmailConnectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[12]
+	mi := &file_proto_email_v1_email_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,7 +938,7 @@ func (x *TestEmailConnectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestEmailConnectionResponse.ProtoReflect.Descriptor instead.
 func (*TestEmailConnectionResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{12}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TestEmailConnectionResponse) GetImapOk() bool {
@@ -988,7 +988,7 @@ type EmailFolderInfo struct {
 
 func (x *EmailFolderInfo) Reset() {
 	*x = EmailFolderInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[13]
+	mi := &file_proto_email_v1_email_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1000,7 +1000,7 @@ func (x *EmailFolderInfo) String() string {
 func (*EmailFolderInfo) ProtoMessage() {}
 
 func (x *EmailFolderInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[13]
+	mi := &file_proto_email_v1_email_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1013,7 +1013,7 @@ func (x *EmailFolderInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailFolderInfo.ProtoReflect.Descriptor instead.
 func (*EmailFolderInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{13}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EmailFolderInfo) GetId() string {
@@ -1102,7 +1102,7 @@ type ListFoldersRequest struct {
 
 func (x *ListFoldersRequest) Reset() {
 	*x = ListFoldersRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[14]
+	mi := &file_proto_email_v1_email_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1114,7 +1114,7 @@ func (x *ListFoldersRequest) String() string {
 func (*ListFoldersRequest) ProtoMessage() {}
 
 func (x *ListFoldersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[14]
+	mi := &file_proto_email_v1_email_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1127,7 +1127,7 @@ func (x *ListFoldersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFoldersRequest.ProtoReflect.Descriptor instead.
 func (*ListFoldersRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{14}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListFoldersRequest) GetAccountId() string {
@@ -1146,7 +1146,7 @@ type ListFoldersResponse struct {
 
 func (x *ListFoldersResponse) Reset() {
 	*x = ListFoldersResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[15]
+	mi := &file_proto_email_v1_email_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1158,7 +1158,7 @@ func (x *ListFoldersResponse) String() string {
 func (*ListFoldersResponse) ProtoMessage() {}
 
 func (x *ListFoldersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[15]
+	mi := &file_proto_email_v1_email_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1171,7 +1171,7 @@ func (x *ListFoldersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFoldersResponse.ProtoReflect.Descriptor instead.
 func (*ListFoldersResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{15}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListFoldersResponse) GetFolders() []*EmailFolderInfo {
@@ -1190,7 +1190,7 @@ type GetFolderRequest struct {
 
 func (x *GetFolderRequest) Reset() {
 	*x = GetFolderRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[16]
+	mi := &file_proto_email_v1_email_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1202,7 +1202,7 @@ func (x *GetFolderRequest) String() string {
 func (*GetFolderRequest) ProtoMessage() {}
 
 func (x *GetFolderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[16]
+	mi := &file_proto_email_v1_email_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1215,7 +1215,7 @@ func (x *GetFolderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFolderRequest.ProtoReflect.Descriptor instead.
 func (*GetFolderRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{16}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetFolderRequest) GetId() string {
@@ -1234,7 +1234,7 @@ type GetFolderResponse struct {
 
 func (x *GetFolderResponse) Reset() {
 	*x = GetFolderResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[17]
+	mi := &file_proto_email_v1_email_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1246,7 +1246,7 @@ func (x *GetFolderResponse) String() string {
 func (*GetFolderResponse) ProtoMessage() {}
 
 func (x *GetFolderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[17]
+	mi := &file_proto_email_v1_email_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1259,7 +1259,7 @@ func (x *GetFolderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFolderResponse.ProtoReflect.Descriptor instead.
 func (*GetFolderResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{17}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetFolderResponse) GetFolder() *EmailFolderInfo {
@@ -1278,7 +1278,7 @@ type SyncFoldersRequest struct {
 
 func (x *SyncFoldersRequest) Reset() {
 	*x = SyncFoldersRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[18]
+	mi := &file_proto_email_v1_email_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1290,7 +1290,7 @@ func (x *SyncFoldersRequest) String() string {
 func (*SyncFoldersRequest) ProtoMessage() {}
 
 func (x *SyncFoldersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[18]
+	mi := &file_proto_email_v1_email_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1303,7 +1303,7 @@ func (x *SyncFoldersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncFoldersRequest.ProtoReflect.Descriptor instead.
 func (*SyncFoldersRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{18}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SyncFoldersRequest) GetAccountId() string {
@@ -1322,7 +1322,7 @@ type SyncFoldersResponse struct {
 
 func (x *SyncFoldersResponse) Reset() {
 	*x = SyncFoldersResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[19]
+	mi := &file_proto_email_v1_email_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1334,7 +1334,7 @@ func (x *SyncFoldersResponse) String() string {
 func (*SyncFoldersResponse) ProtoMessage() {}
 
 func (x *SyncFoldersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[19]
+	mi := &file_proto_email_v1_email_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1347,7 +1347,7 @@ func (x *SyncFoldersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncFoldersResponse.ProtoReflect.Descriptor instead.
 func (*SyncFoldersResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{19}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SyncFoldersResponse) GetFolders() []*EmailFolderInfo {
@@ -1390,7 +1390,7 @@ type EmailMessageInfo struct {
 
 func (x *EmailMessageInfo) Reset() {
 	*x = EmailMessageInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[20]
+	mi := &file_proto_email_v1_email_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1402,7 +1402,7 @@ func (x *EmailMessageInfo) String() string {
 func (*EmailMessageInfo) ProtoMessage() {}
 
 func (x *EmailMessageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[20]
+	mi := &file_proto_email_v1_email_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1415,7 +1415,7 @@ func (x *EmailMessageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailMessageInfo.ProtoReflect.Descriptor instead.
 func (*EmailMessageInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{20}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EmailMessageInfo) GetId() string {
@@ -1607,7 +1607,7 @@ type ListMessagesRequest struct {
 
 func (x *ListMessagesRequest) Reset() {
 	*x = ListMessagesRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[21]
+	mi := &file_proto_email_v1_email_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +1619,7 @@ func (x *ListMessagesRequest) String() string {
 func (*ListMessagesRequest) ProtoMessage() {}
 
 func (x *ListMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[21]
+	mi := &file_proto_email_v1_email_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1632,7 +1632,7 @@ func (x *ListMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMessagesRequest.ProtoReflect.Descriptor instead.
 func (*ListMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{21}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListMessagesRequest) GetFolderId() string {
@@ -1687,7 +1687,7 @@ type ListMessagesResponse struct {
 
 func (x *ListMessagesResponse) Reset() {
 	*x = ListMessagesResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[22]
+	mi := &file_proto_email_v1_email_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1699,7 +1699,7 @@ func (x *ListMessagesResponse) String() string {
 func (*ListMessagesResponse) ProtoMessage() {}
 
 func (x *ListMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[22]
+	mi := &file_proto_email_v1_email_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1712,7 +1712,7 @@ func (x *ListMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMessagesResponse.ProtoReflect.Descriptor instead.
 func (*ListMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{22}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListMessagesResponse) GetMessages() []*EmailMessageInfo {
@@ -1738,7 +1738,7 @@ type GetMessageRequest struct {
 
 func (x *GetMessageRequest) Reset() {
 	*x = GetMessageRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[23]
+	mi := &file_proto_email_v1_email_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1750,7 +1750,7 @@ func (x *GetMessageRequest) String() string {
 func (*GetMessageRequest) ProtoMessage() {}
 
 func (x *GetMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[23]
+	mi := &file_proto_email_v1_email_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1763,7 +1763,7 @@ func (x *GetMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageRequest.ProtoReflect.Descriptor instead.
 func (*GetMessageRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{23}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetMessageRequest) GetId() string {
@@ -1782,7 +1782,7 @@ type GetMessageResponse struct {
 
 func (x *GetMessageResponse) Reset() {
 	*x = GetMessageResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[24]
+	mi := &file_proto_email_v1_email_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1794,7 +1794,7 @@ func (x *GetMessageResponse) String() string {
 func (*GetMessageResponse) ProtoMessage() {}
 
 func (x *GetMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[24]
+	mi := &file_proto_email_v1_email_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1807,7 +1807,7 @@ func (x *GetMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageResponse.ProtoReflect.Descriptor instead.
 func (*GetMessageResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{24}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetMessageResponse) GetMessage() *EmailMessageInfo {
@@ -1826,7 +1826,7 @@ type GetThreadMessagesRequest struct {
 
 func (x *GetThreadMessagesRequest) Reset() {
 	*x = GetThreadMessagesRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[25]
+	mi := &file_proto_email_v1_email_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1838,7 +1838,7 @@ func (x *GetThreadMessagesRequest) String() string {
 func (*GetThreadMessagesRequest) ProtoMessage() {}
 
 func (x *GetThreadMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[25]
+	mi := &file_proto_email_v1_email_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1851,7 +1851,7 @@ func (x *GetThreadMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetThreadMessagesRequest.ProtoReflect.Descriptor instead.
 func (*GetThreadMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{25}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetThreadMessagesRequest) GetThreadId() string {
@@ -1870,7 +1870,7 @@ type GetThreadMessagesResponse struct {
 
 func (x *GetThreadMessagesResponse) Reset() {
 	*x = GetThreadMessagesResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[26]
+	mi := &file_proto_email_v1_email_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1882,7 +1882,7 @@ func (x *GetThreadMessagesResponse) String() string {
 func (*GetThreadMessagesResponse) ProtoMessage() {}
 
 func (x *GetThreadMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[26]
+	mi := &file_proto_email_v1_email_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1895,7 +1895,7 @@ func (x *GetThreadMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetThreadMessagesResponse.ProtoReflect.Descriptor instead.
 func (*GetThreadMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{26}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetThreadMessagesResponse) GetMessages() []*EmailMessageInfo {
@@ -1914,7 +1914,7 @@ type MarkReadRequest struct {
 
 func (x *MarkReadRequest) Reset() {
 	*x = MarkReadRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[27]
+	mi := &file_proto_email_v1_email_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1926,7 +1926,7 @@ func (x *MarkReadRequest) String() string {
 func (*MarkReadRequest) ProtoMessage() {}
 
 func (x *MarkReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[27]
+	mi := &file_proto_email_v1_email_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1939,7 +1939,7 @@ func (x *MarkReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkReadRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{27}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MarkReadRequest) GetId() string {
@@ -1957,7 +1957,7 @@ type MarkReadResponse struct {
 
 func (x *MarkReadResponse) Reset() {
 	*x = MarkReadResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[28]
+	mi := &file_proto_email_v1_email_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1969,7 +1969,7 @@ func (x *MarkReadResponse) String() string {
 func (*MarkReadResponse) ProtoMessage() {}
 
 func (x *MarkReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[28]
+	mi := &file_proto_email_v1_email_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1982,7 +1982,7 @@ func (x *MarkReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkReadResponse.ProtoReflect.Descriptor instead.
 func (*MarkReadResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{28}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{28}
 }
 
 type MarkUnreadRequest struct {
@@ -1994,7 +1994,7 @@ type MarkUnreadRequest struct {
 
 func (x *MarkUnreadRequest) Reset() {
 	*x = MarkUnreadRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[29]
+	mi := &file_proto_email_v1_email_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2006,7 +2006,7 @@ func (x *MarkUnreadRequest) String() string {
 func (*MarkUnreadRequest) ProtoMessage() {}
 
 func (x *MarkUnreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[29]
+	mi := &file_proto_email_v1_email_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2019,7 +2019,7 @@ func (x *MarkUnreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkUnreadRequest.ProtoReflect.Descriptor instead.
 func (*MarkUnreadRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{29}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MarkUnreadRequest) GetId() string {
@@ -2037,7 +2037,7 @@ type MarkUnreadResponse struct {
 
 func (x *MarkUnreadResponse) Reset() {
 	*x = MarkUnreadResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[30]
+	mi := &file_proto_email_v1_email_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2049,7 +2049,7 @@ func (x *MarkUnreadResponse) String() string {
 func (*MarkUnreadResponse) ProtoMessage() {}
 
 func (x *MarkUnreadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[30]
+	mi := &file_proto_email_v1_email_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2062,7 +2062,7 @@ func (x *MarkUnreadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkUnreadResponse.ProtoReflect.Descriptor instead.
 func (*MarkUnreadResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{30}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{30}
 }
 
 type ToggleStarRequest struct {
@@ -2074,7 +2074,7 @@ type ToggleStarRequest struct {
 
 func (x *ToggleStarRequest) Reset() {
 	*x = ToggleStarRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[31]
+	mi := &file_proto_email_v1_email_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2086,7 +2086,7 @@ func (x *ToggleStarRequest) String() string {
 func (*ToggleStarRequest) ProtoMessage() {}
 
 func (x *ToggleStarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[31]
+	mi := &file_proto_email_v1_email_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2099,7 +2099,7 @@ func (x *ToggleStarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToggleStarRequest.ProtoReflect.Descriptor instead.
 func (*ToggleStarRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{31}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ToggleStarRequest) GetId() string {
@@ -2118,7 +2118,7 @@ type ToggleStarResponse struct {
 
 func (x *ToggleStarResponse) Reset() {
 	*x = ToggleStarResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[32]
+	mi := &file_proto_email_v1_email_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2130,7 +2130,7 @@ func (x *ToggleStarResponse) String() string {
 func (*ToggleStarResponse) ProtoMessage() {}
 
 func (x *ToggleStarResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[32]
+	mi := &file_proto_email_v1_email_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2143,7 +2143,7 @@ func (x *ToggleStarResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToggleStarResponse.ProtoReflect.Descriptor instead.
 func (*ToggleStarResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{32}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ToggleStarResponse) GetIsStarred() bool {
@@ -2163,7 +2163,7 @@ type MoveToFolderRequest struct {
 
 func (x *MoveToFolderRequest) Reset() {
 	*x = MoveToFolderRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[33]
+	mi := &file_proto_email_v1_email_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2175,7 +2175,7 @@ func (x *MoveToFolderRequest) String() string {
 func (*MoveToFolderRequest) ProtoMessage() {}
 
 func (x *MoveToFolderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[33]
+	mi := &file_proto_email_v1_email_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2188,7 +2188,7 @@ func (x *MoveToFolderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveToFolderRequest.ProtoReflect.Descriptor instead.
 func (*MoveToFolderRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{33}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *MoveToFolderRequest) GetMessageId() string {
@@ -2213,7 +2213,7 @@ type MoveToFolderResponse struct {
 
 func (x *MoveToFolderResponse) Reset() {
 	*x = MoveToFolderResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[34]
+	mi := &file_proto_email_v1_email_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2225,7 +2225,7 @@ func (x *MoveToFolderResponse) String() string {
 func (*MoveToFolderResponse) ProtoMessage() {}
 
 func (x *MoveToFolderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[34]
+	mi := &file_proto_email_v1_email_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2238,7 +2238,7 @@ func (x *MoveToFolderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveToFolderResponse.ProtoReflect.Descriptor instead.
 func (*MoveToFolderResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{34}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{34}
 }
 
 type DeleteMessageRequest struct {
@@ -2250,7 +2250,7 @@ type DeleteMessageRequest struct {
 
 func (x *DeleteMessageRequest) Reset() {
 	*x = DeleteMessageRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[35]
+	mi := &file_proto_email_v1_email_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2262,7 +2262,7 @@ func (x *DeleteMessageRequest) String() string {
 func (*DeleteMessageRequest) ProtoMessage() {}
 
 func (x *DeleteMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[35]
+	mi := &file_proto_email_v1_email_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2275,7 +2275,7 @@ func (x *DeleteMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMessageRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMessageRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{35}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteMessageRequest) GetId() string {
@@ -2293,7 +2293,7 @@ type DeleteMessageResponse struct {
 
 func (x *DeleteMessageResponse) Reset() {
 	*x = DeleteMessageResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[36]
+	mi := &file_proto_email_v1_email_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2305,7 +2305,7 @@ func (x *DeleteMessageResponse) String() string {
 func (*DeleteMessageResponse) ProtoMessage() {}
 
 func (x *DeleteMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[36]
+	mi := &file_proto_email_v1_email_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2318,7 +2318,7 @@ func (x *DeleteMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMessageResponse.ProtoReflect.Descriptor instead.
 func (*DeleteMessageResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{36}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{36}
 }
 
 type SendEmailRequest struct {
@@ -2342,7 +2342,7 @@ type SendEmailRequest struct {
 
 func (x *SendEmailRequest) Reset() {
 	*x = SendEmailRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[37]
+	mi := &file_proto_email_v1_email_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2354,7 +2354,7 @@ func (x *SendEmailRequest) String() string {
 func (*SendEmailRequest) ProtoMessage() {}
 
 func (x *SendEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[37]
+	mi := &file_proto_email_v1_email_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2367,7 +2367,7 @@ func (x *SendEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendEmailRequest.ProtoReflect.Descriptor instead.
 func (*SendEmailRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{37}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *SendEmailRequest) GetAccountId() string {
@@ -2456,7 +2456,7 @@ type SendEmailResponse struct {
 
 func (x *SendEmailResponse) Reset() {
 	*x = SendEmailResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[38]
+	mi := &file_proto_email_v1_email_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2468,7 +2468,7 @@ func (x *SendEmailResponse) String() string {
 func (*SendEmailResponse) ProtoMessage() {}
 
 func (x *SendEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[38]
+	mi := &file_proto_email_v1_email_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2481,7 +2481,7 @@ func (x *SendEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendEmailResponse.ProtoReflect.Descriptor instead.
 func (*SendEmailResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{38}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SendEmailResponse) GetMessage() *EmailMessageInfo {
@@ -2509,7 +2509,7 @@ type SaveDraftRequest struct {
 
 func (x *SaveDraftRequest) Reset() {
 	*x = SaveDraftRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[39]
+	mi := &file_proto_email_v1_email_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2521,7 +2521,7 @@ func (x *SaveDraftRequest) String() string {
 func (*SaveDraftRequest) ProtoMessage() {}
 
 func (x *SaveDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[39]
+	mi := &file_proto_email_v1_email_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2534,7 +2534,7 @@ func (x *SaveDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveDraftRequest.ProtoReflect.Descriptor instead.
 func (*SaveDraftRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{39}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *SaveDraftRequest) GetAccountId() string {
@@ -2616,7 +2616,7 @@ type SaveDraftResponse struct {
 
 func (x *SaveDraftResponse) Reset() {
 	*x = SaveDraftResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[40]
+	mi := &file_proto_email_v1_email_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2628,7 +2628,7 @@ func (x *SaveDraftResponse) String() string {
 func (*SaveDraftResponse) ProtoMessage() {}
 
 func (x *SaveDraftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[40]
+	mi := &file_proto_email_v1_email_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2641,7 +2641,7 @@ func (x *SaveDraftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveDraftResponse.ProtoReflect.Descriptor instead.
 func (*SaveDraftResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{40}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SaveDraftResponse) GetMessage() *EmailMessageInfo {
@@ -2665,7 +2665,7 @@ type ReplyEmailRequest struct {
 
 func (x *ReplyEmailRequest) Reset() {
 	*x = ReplyEmailRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[41]
+	mi := &file_proto_email_v1_email_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2677,7 +2677,7 @@ func (x *ReplyEmailRequest) String() string {
 func (*ReplyEmailRequest) ProtoMessage() {}
 
 func (x *ReplyEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[41]
+	mi := &file_proto_email_v1_email_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2690,7 +2690,7 @@ func (x *ReplyEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyEmailRequest.ProtoReflect.Descriptor instead.
 func (*ReplyEmailRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{41}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ReplyEmailRequest) GetAccountId() string {
@@ -2744,7 +2744,7 @@ type ReplyEmailResponse struct {
 
 func (x *ReplyEmailResponse) Reset() {
 	*x = ReplyEmailResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[42]
+	mi := &file_proto_email_v1_email_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2756,7 +2756,7 @@ func (x *ReplyEmailResponse) String() string {
 func (*ReplyEmailResponse) ProtoMessage() {}
 
 func (x *ReplyEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[42]
+	mi := &file_proto_email_v1_email_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2769,7 +2769,7 @@ func (x *ReplyEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyEmailResponse.ProtoReflect.Descriptor instead.
 func (*ReplyEmailResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{42}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ReplyEmailResponse) GetMessage() *EmailMessageInfo {
@@ -2793,7 +2793,7 @@ type ForwardEmailRequest struct {
 
 func (x *ForwardEmailRequest) Reset() {
 	*x = ForwardEmailRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[43]
+	mi := &file_proto_email_v1_email_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2805,7 +2805,7 @@ func (x *ForwardEmailRequest) String() string {
 func (*ForwardEmailRequest) ProtoMessage() {}
 
 func (x *ForwardEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[43]
+	mi := &file_proto_email_v1_email_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2818,7 +2818,7 @@ func (x *ForwardEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardEmailRequest.ProtoReflect.Descriptor instead.
 func (*ForwardEmailRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{43}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ForwardEmailRequest) GetAccountId() string {
@@ -2872,7 +2872,7 @@ type ForwardEmailResponse struct {
 
 func (x *ForwardEmailResponse) Reset() {
 	*x = ForwardEmailResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[44]
+	mi := &file_proto_email_v1_email_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2884,7 +2884,7 @@ func (x *ForwardEmailResponse) String() string {
 func (*ForwardEmailResponse) ProtoMessage() {}
 
 func (x *ForwardEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[44]
+	mi := &file_proto_email_v1_email_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2897,7 +2897,7 @@ func (x *ForwardEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardEmailResponse.ProtoReflect.Descriptor instead.
 func (*ForwardEmailResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{44}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ForwardEmailResponse) GetMessage() *EmailMessageInfo {
@@ -2922,7 +2922,7 @@ type EmailSignatureInfo struct {
 
 func (x *EmailSignatureInfo) Reset() {
 	*x = EmailSignatureInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[45]
+	mi := &file_proto_email_v1_email_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2934,7 +2934,7 @@ func (x *EmailSignatureInfo) String() string {
 func (*EmailSignatureInfo) ProtoMessage() {}
 
 func (x *EmailSignatureInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[45]
+	mi := &file_proto_email_v1_email_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2947,7 +2947,7 @@ func (x *EmailSignatureInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailSignatureInfo.ProtoReflect.Descriptor instead.
 func (*EmailSignatureInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{45}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *EmailSignatureInfo) GetId() string {
@@ -3011,7 +3011,7 @@ type CreateSignatureRequest struct {
 
 func (x *CreateSignatureRequest) Reset() {
 	*x = CreateSignatureRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[46]
+	mi := &file_proto_email_v1_email_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3023,7 +3023,7 @@ func (x *CreateSignatureRequest) String() string {
 func (*CreateSignatureRequest) ProtoMessage() {}
 
 func (x *CreateSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[46]
+	mi := &file_proto_email_v1_email_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3036,7 +3036,7 @@ func (x *CreateSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSignatureRequest.ProtoReflect.Descriptor instead.
 func (*CreateSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{46}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CreateSignatureRequest) GetUserId() string {
@@ -3076,7 +3076,7 @@ type CreateSignatureResponse struct {
 
 func (x *CreateSignatureResponse) Reset() {
 	*x = CreateSignatureResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[47]
+	mi := &file_proto_email_v1_email_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3088,7 +3088,7 @@ func (x *CreateSignatureResponse) String() string {
 func (*CreateSignatureResponse) ProtoMessage() {}
 
 func (x *CreateSignatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[47]
+	mi := &file_proto_email_v1_email_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3101,7 +3101,7 @@ func (x *CreateSignatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSignatureResponse.ProtoReflect.Descriptor instead.
 func (*CreateSignatureResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{47}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateSignatureResponse) GetSignature() *EmailSignatureInfo {
@@ -3120,7 +3120,7 @@ type GetSignatureRequest struct {
 
 func (x *GetSignatureRequest) Reset() {
 	*x = GetSignatureRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[48]
+	mi := &file_proto_email_v1_email_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3132,7 +3132,7 @@ func (x *GetSignatureRequest) String() string {
 func (*GetSignatureRequest) ProtoMessage() {}
 
 func (x *GetSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[48]
+	mi := &file_proto_email_v1_email_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3145,7 +3145,7 @@ func (x *GetSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSignatureRequest.ProtoReflect.Descriptor instead.
 func (*GetSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{48}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetSignatureRequest) GetId() string {
@@ -3164,7 +3164,7 @@ type GetSignatureResponse struct {
 
 func (x *GetSignatureResponse) Reset() {
 	*x = GetSignatureResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[49]
+	mi := &file_proto_email_v1_email_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3176,7 +3176,7 @@ func (x *GetSignatureResponse) String() string {
 func (*GetSignatureResponse) ProtoMessage() {}
 
 func (x *GetSignatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[49]
+	mi := &file_proto_email_v1_email_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3189,7 +3189,7 @@ func (x *GetSignatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSignatureResponse.ProtoReflect.Descriptor instead.
 func (*GetSignatureResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{49}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetSignatureResponse) GetSignature() *EmailSignatureInfo {
@@ -3208,7 +3208,7 @@ type ListSignaturesRequest struct {
 
 func (x *ListSignaturesRequest) Reset() {
 	*x = ListSignaturesRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[50]
+	mi := &file_proto_email_v1_email_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3220,7 +3220,7 @@ func (x *ListSignaturesRequest) String() string {
 func (*ListSignaturesRequest) ProtoMessage() {}
 
 func (x *ListSignaturesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[50]
+	mi := &file_proto_email_v1_email_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3233,7 +3233,7 @@ func (x *ListSignaturesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSignaturesRequest.ProtoReflect.Descriptor instead.
 func (*ListSignaturesRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{50}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListSignaturesRequest) GetUserId() string {
@@ -3252,7 +3252,7 @@ type ListSignaturesResponse struct {
 
 func (x *ListSignaturesResponse) Reset() {
 	*x = ListSignaturesResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[51]
+	mi := &file_proto_email_v1_email_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3264,7 +3264,7 @@ func (x *ListSignaturesResponse) String() string {
 func (*ListSignaturesResponse) ProtoMessage() {}
 
 func (x *ListSignaturesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[51]
+	mi := &file_proto_email_v1_email_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3277,7 +3277,7 @@ func (x *ListSignaturesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSignaturesResponse.ProtoReflect.Descriptor instead.
 func (*ListSignaturesResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{51}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ListSignaturesResponse) GetSignatures() []*EmailSignatureInfo {
@@ -3299,7 +3299,7 @@ type UpdateSignatureRequest struct {
 
 func (x *UpdateSignatureRequest) Reset() {
 	*x = UpdateSignatureRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[52]
+	mi := &file_proto_email_v1_email_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3311,7 +3311,7 @@ func (x *UpdateSignatureRequest) String() string {
 func (*UpdateSignatureRequest) ProtoMessage() {}
 
 func (x *UpdateSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[52]
+	mi := &file_proto_email_v1_email_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3324,7 +3324,7 @@ func (x *UpdateSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSignatureRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{52}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *UpdateSignatureRequest) GetId() string {
@@ -3364,7 +3364,7 @@ type UpdateSignatureResponse struct {
 
 func (x *UpdateSignatureResponse) Reset() {
 	*x = UpdateSignatureResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[53]
+	mi := &file_proto_email_v1_email_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3376,7 +3376,7 @@ func (x *UpdateSignatureResponse) String() string {
 func (*UpdateSignatureResponse) ProtoMessage() {}
 
 func (x *UpdateSignatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[53]
+	mi := &file_proto_email_v1_email_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3389,7 +3389,7 @@ func (x *UpdateSignatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSignatureResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSignatureResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{53}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *UpdateSignatureResponse) GetSignature() *EmailSignatureInfo {
@@ -3408,7 +3408,7 @@ type DeleteSignatureRequest struct {
 
 func (x *DeleteSignatureRequest) Reset() {
 	*x = DeleteSignatureRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[54]
+	mi := &file_proto_email_v1_email_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3420,7 +3420,7 @@ func (x *DeleteSignatureRequest) String() string {
 func (*DeleteSignatureRequest) ProtoMessage() {}
 
 func (x *DeleteSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[54]
+	mi := &file_proto_email_v1_email_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3433,7 +3433,7 @@ func (x *DeleteSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSignatureRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{54}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DeleteSignatureRequest) GetId() string {
@@ -3451,7 +3451,7 @@ type DeleteSignatureResponse struct {
 
 func (x *DeleteSignatureResponse) Reset() {
 	*x = DeleteSignatureResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[55]
+	mi := &file_proto_email_v1_email_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3463,7 +3463,7 @@ func (x *DeleteSignatureResponse) String() string {
 func (*DeleteSignatureResponse) ProtoMessage() {}
 
 func (x *DeleteSignatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[55]
+	mi := &file_proto_email_v1_email_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3476,7 +3476,7 @@ func (x *DeleteSignatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSignatureResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSignatureResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{55}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{55}
 }
 
 type SetDefaultSignatureRequest struct {
@@ -3489,7 +3489,7 @@ type SetDefaultSignatureRequest struct {
 
 func (x *SetDefaultSignatureRequest) Reset() {
 	*x = SetDefaultSignatureRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[56]
+	mi := &file_proto_email_v1_email_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3501,7 +3501,7 @@ func (x *SetDefaultSignatureRequest) String() string {
 func (*SetDefaultSignatureRequest) ProtoMessage() {}
 
 func (x *SetDefaultSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[56]
+	mi := &file_proto_email_v1_email_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3514,7 +3514,7 @@ func (x *SetDefaultSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDefaultSignatureRequest.ProtoReflect.Descriptor instead.
 func (*SetDefaultSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{56}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *SetDefaultSignatureRequest) GetId() string {
@@ -3540,7 +3540,7 @@ type SetDefaultSignatureResponse struct {
 
 func (x *SetDefaultSignatureResponse) Reset() {
 	*x = SetDefaultSignatureResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[57]
+	mi := &file_proto_email_v1_email_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3552,7 +3552,7 @@ func (x *SetDefaultSignatureResponse) String() string {
 func (*SetDefaultSignatureResponse) ProtoMessage() {}
 
 func (x *SetDefaultSignatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[57]
+	mi := &file_proto_email_v1_email_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3565,7 +3565,7 @@ func (x *SetDefaultSignatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDefaultSignatureResponse.ProtoReflect.Descriptor instead.
 func (*SetDefaultSignatureResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{57}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SetDefaultSignatureResponse) GetSignature() *EmailSignatureInfo {
@@ -3588,7 +3588,7 @@ type EmailContactLinkInfo struct {
 
 func (x *EmailContactLinkInfo) Reset() {
 	*x = EmailContactLinkInfo{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[58]
+	mi := &file_proto_email_v1_email_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3600,7 +3600,7 @@ func (x *EmailContactLinkInfo) String() string {
 func (*EmailContactLinkInfo) ProtoMessage() {}
 
 func (x *EmailContactLinkInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[58]
+	mi := &file_proto_email_v1_email_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3613,7 +3613,7 @@ func (x *EmailContactLinkInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailContactLinkInfo.ProtoReflect.Descriptor instead.
 func (*EmailContactLinkInfo) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{58}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *EmailContactLinkInfo) GetId() string {
@@ -3660,7 +3660,7 @@ type GetEmailContactLinksRequest struct {
 
 func (x *GetEmailContactLinksRequest) Reset() {
 	*x = GetEmailContactLinksRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[59]
+	mi := &file_proto_email_v1_email_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3672,7 +3672,7 @@ func (x *GetEmailContactLinksRequest) String() string {
 func (*GetEmailContactLinksRequest) ProtoMessage() {}
 
 func (x *GetEmailContactLinksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[59]
+	mi := &file_proto_email_v1_email_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3685,7 +3685,7 @@ func (x *GetEmailContactLinksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEmailContactLinksRequest.ProtoReflect.Descriptor instead.
 func (*GetEmailContactLinksRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{59}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GetEmailContactLinksRequest) GetMessageId() string {
@@ -3704,7 +3704,7 @@ type GetEmailContactLinksResponse struct {
 
 func (x *GetEmailContactLinksResponse) Reset() {
 	*x = GetEmailContactLinksResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[60]
+	mi := &file_proto_email_v1_email_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3716,7 +3716,7 @@ func (x *GetEmailContactLinksResponse) String() string {
 func (*GetEmailContactLinksResponse) ProtoMessage() {}
 
 func (x *GetEmailContactLinksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[60]
+	mi := &file_proto_email_v1_email_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3729,7 +3729,7 @@ func (x *GetEmailContactLinksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEmailContactLinksResponse.ProtoReflect.Descriptor instead.
 func (*GetEmailContactLinksResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{60}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetEmailContactLinksResponse) GetLinks() []*EmailContactLinkInfo {
@@ -3750,7 +3750,7 @@ type LinkEmailToContactRequest struct {
 
 func (x *LinkEmailToContactRequest) Reset() {
 	*x = LinkEmailToContactRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[61]
+	mi := &file_proto_email_v1_email_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3762,7 +3762,7 @@ func (x *LinkEmailToContactRequest) String() string {
 func (*LinkEmailToContactRequest) ProtoMessage() {}
 
 func (x *LinkEmailToContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[61]
+	mi := &file_proto_email_v1_email_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3775,7 +3775,7 @@ func (x *LinkEmailToContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkEmailToContactRequest.ProtoReflect.Descriptor instead.
 func (*LinkEmailToContactRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{61}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *LinkEmailToContactRequest) GetMessageId() string {
@@ -3808,7 +3808,7 @@ type LinkEmailToContactResponse struct {
 
 func (x *LinkEmailToContactResponse) Reset() {
 	*x = LinkEmailToContactResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[62]
+	mi := &file_proto_email_v1_email_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3820,7 +3820,7 @@ func (x *LinkEmailToContactResponse) String() string {
 func (*LinkEmailToContactResponse) ProtoMessage() {}
 
 func (x *LinkEmailToContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[62]
+	mi := &file_proto_email_v1_email_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3833,7 +3833,7 @@ func (x *LinkEmailToContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkEmailToContactResponse.ProtoReflect.Descriptor instead.
 func (*LinkEmailToContactResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{62}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *LinkEmailToContactResponse) GetLink() *EmailContactLinkInfo {
@@ -3853,7 +3853,7 @@ type UnlinkEmailFromContactRequest struct {
 
 func (x *UnlinkEmailFromContactRequest) Reset() {
 	*x = UnlinkEmailFromContactRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[63]
+	mi := &file_proto_email_v1_email_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3865,7 +3865,7 @@ func (x *UnlinkEmailFromContactRequest) String() string {
 func (*UnlinkEmailFromContactRequest) ProtoMessage() {}
 
 func (x *UnlinkEmailFromContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[63]
+	mi := &file_proto_email_v1_email_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3878,7 +3878,7 @@ func (x *UnlinkEmailFromContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkEmailFromContactRequest.ProtoReflect.Descriptor instead.
 func (*UnlinkEmailFromContactRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{63}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *UnlinkEmailFromContactRequest) GetMessageId() string {
@@ -3903,7 +3903,7 @@ type UnlinkEmailFromContactResponse struct {
 
 func (x *UnlinkEmailFromContactResponse) Reset() {
 	*x = UnlinkEmailFromContactResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[64]
+	mi := &file_proto_email_v1_email_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3915,7 +3915,7 @@ func (x *UnlinkEmailFromContactResponse) String() string {
 func (*UnlinkEmailFromContactResponse) ProtoMessage() {}
 
 func (x *UnlinkEmailFromContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[64]
+	mi := &file_proto_email_v1_email_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3928,7 +3928,7 @@ func (x *UnlinkEmailFromContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkEmailFromContactResponse.ProtoReflect.Descriptor instead.
 func (*UnlinkEmailFromContactResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{64}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{64}
 }
 
 type GetContactEmailsRequest struct {
@@ -3942,7 +3942,7 @@ type GetContactEmailsRequest struct {
 
 func (x *GetContactEmailsRequest) Reset() {
 	*x = GetContactEmailsRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[65]
+	mi := &file_proto_email_v1_email_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3954,7 +3954,7 @@ func (x *GetContactEmailsRequest) String() string {
 func (*GetContactEmailsRequest) ProtoMessage() {}
 
 func (x *GetContactEmailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[65]
+	mi := &file_proto_email_v1_email_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3967,7 +3967,7 @@ func (x *GetContactEmailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactEmailsRequest.ProtoReflect.Descriptor instead.
 func (*GetContactEmailsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{65}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetContactEmailsRequest) GetContactId() string {
@@ -4001,7 +4001,7 @@ type GetContactEmailsResponse struct {
 
 func (x *GetContactEmailsResponse) Reset() {
 	*x = GetContactEmailsResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[66]
+	mi := &file_proto_email_v1_email_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4013,7 +4013,7 @@ func (x *GetContactEmailsResponse) String() string {
 func (*GetContactEmailsResponse) ProtoMessage() {}
 
 func (x *GetContactEmailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[66]
+	mi := &file_proto_email_v1_email_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4026,7 +4026,7 @@ func (x *GetContactEmailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactEmailsResponse.ProtoReflect.Descriptor instead.
 func (*GetContactEmailsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{66}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *GetContactEmailsResponse) GetMessages() []*EmailMessageInfo {
@@ -4052,7 +4052,7 @@ type TriggerSyncRequest struct {
 
 func (x *TriggerSyncRequest) Reset() {
 	*x = TriggerSyncRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[67]
+	mi := &file_proto_email_v1_email_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4064,7 +4064,7 @@ func (x *TriggerSyncRequest) String() string {
 func (*TriggerSyncRequest) ProtoMessage() {}
 
 func (x *TriggerSyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[67]
+	mi := &file_proto_email_v1_email_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4077,7 +4077,7 @@ func (x *TriggerSyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerSyncRequest.ProtoReflect.Descriptor instead.
 func (*TriggerSyncRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{67}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *TriggerSyncRequest) GetAccountId() string {
@@ -4096,7 +4096,7 @@ type TriggerSyncResponse struct {
 
 func (x *TriggerSyncResponse) Reset() {
 	*x = TriggerSyncResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[68]
+	mi := &file_proto_email_v1_email_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4108,7 +4108,7 @@ func (x *TriggerSyncResponse) String() string {
 func (*TriggerSyncResponse) ProtoMessage() {}
 
 func (x *TriggerSyncResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[68]
+	mi := &file_proto_email_v1_email_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4121,7 +4121,7 @@ func (x *TriggerSyncResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerSyncResponse.ProtoReflect.Descriptor instead.
 func (*TriggerSyncResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{68}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *TriggerSyncResponse) GetStatus() string {
@@ -4140,7 +4140,7 @@ type GetSyncStatusRequest struct {
 
 func (x *GetSyncStatusRequest) Reset() {
 	*x = GetSyncStatusRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[69]
+	mi := &file_proto_email_v1_email_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4152,7 +4152,7 @@ func (x *GetSyncStatusRequest) String() string {
 func (*GetSyncStatusRequest) ProtoMessage() {}
 
 func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[69]
+	mi := &file_proto_email_v1_email_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4165,7 +4165,7 @@ func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{69}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GetSyncStatusRequest) GetAccountId() string {
@@ -4186,7 +4186,7 @@ type GetSyncStatusResponse struct {
 
 func (x *GetSyncStatusResponse) Reset() {
 	*x = GetSyncStatusResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[70]
+	mi := &file_proto_email_v1_email_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4198,7 +4198,7 @@ func (x *GetSyncStatusResponse) String() string {
 func (*GetSyncStatusResponse) ProtoMessage() {}
 
 func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[70]
+	mi := &file_proto_email_v1_email_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4211,7 +4211,7 @@ func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{70}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *GetSyncStatusResponse) GetStatus() string {
@@ -4245,7 +4245,7 @@ type SetReadFlagRequest struct {
 
 func (x *SetReadFlagRequest) Reset() {
 	*x = SetReadFlagRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[71]
+	mi := &file_proto_email_v1_email_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4257,7 +4257,7 @@ func (x *SetReadFlagRequest) String() string {
 func (*SetReadFlagRequest) ProtoMessage() {}
 
 func (x *SetReadFlagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[71]
+	mi := &file_proto_email_v1_email_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4270,7 +4270,7 @@ func (x *SetReadFlagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReadFlagRequest.ProtoReflect.Descriptor instead.
 func (*SetReadFlagRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{71}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SetReadFlagRequest) GetMessageId() string {
@@ -4295,7 +4295,7 @@ type SetReadFlagResponse struct {
 
 func (x *SetReadFlagResponse) Reset() {
 	*x = SetReadFlagResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[72]
+	mi := &file_proto_email_v1_email_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4307,7 +4307,7 @@ func (x *SetReadFlagResponse) String() string {
 func (*SetReadFlagResponse) ProtoMessage() {}
 
 func (x *SetReadFlagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[72]
+	mi := &file_proto_email_v1_email_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4320,7 +4320,7 @@ func (x *SetReadFlagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReadFlagResponse.ProtoReflect.Descriptor instead.
 func (*SetReadFlagResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{72}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{72}
 }
 
 type UploadAttachmentRequest struct {
@@ -4335,7 +4335,7 @@ type UploadAttachmentRequest struct {
 
 func (x *UploadAttachmentRequest) Reset() {
 	*x = UploadAttachmentRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[73]
+	mi := &file_proto_email_v1_email_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4347,7 +4347,7 @@ func (x *UploadAttachmentRequest) String() string {
 func (*UploadAttachmentRequest) ProtoMessage() {}
 
 func (x *UploadAttachmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[73]
+	mi := &file_proto_email_v1_email_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4360,7 +4360,7 @@ func (x *UploadAttachmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadAttachmentRequest.ProtoReflect.Descriptor instead.
 func (*UploadAttachmentRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{73}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *UploadAttachmentRequest) GetAccountId() string {
@@ -4402,7 +4402,7 @@ type UploadAttachmentResponse struct {
 
 func (x *UploadAttachmentResponse) Reset() {
 	*x = UploadAttachmentResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[74]
+	mi := &file_proto_email_v1_email_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4414,7 +4414,7 @@ func (x *UploadAttachmentResponse) String() string {
 func (*UploadAttachmentResponse) ProtoMessage() {}
 
 func (x *UploadAttachmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[74]
+	mi := &file_proto_email_v1_email_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4427,7 +4427,7 @@ func (x *UploadAttachmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadAttachmentResponse.ProtoReflect.Descriptor instead.
 func (*UploadAttachmentResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{74}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *UploadAttachmentResponse) GetId() string {
@@ -4460,7 +4460,7 @@ type GetAttachmentDownloadURLRequest struct {
 
 func (x *GetAttachmentDownloadURLRequest) Reset() {
 	*x = GetAttachmentDownloadURLRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[75]
+	mi := &file_proto_email_v1_email_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4472,7 +4472,7 @@ func (x *GetAttachmentDownloadURLRequest) String() string {
 func (*GetAttachmentDownloadURLRequest) ProtoMessage() {}
 
 func (x *GetAttachmentDownloadURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[75]
+	mi := &file_proto_email_v1_email_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4485,7 +4485,7 @@ func (x *GetAttachmentDownloadURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttachmentDownloadURLRequest.ProtoReflect.Descriptor instead.
 func (*GetAttachmentDownloadURLRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{75}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *GetAttachmentDownloadURLRequest) GetId() string {
@@ -4507,7 +4507,7 @@ type GetAttachmentDownloadURLResponse struct {
 
 func (x *GetAttachmentDownloadURLResponse) Reset() {
 	*x = GetAttachmentDownloadURLResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[76]
+	mi := &file_proto_email_v1_email_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4519,7 +4519,7 @@ func (x *GetAttachmentDownloadURLResponse) String() string {
 func (*GetAttachmentDownloadURLResponse) ProtoMessage() {}
 
 func (x *GetAttachmentDownloadURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[76]
+	mi := &file_proto_email_v1_email_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4532,7 +4532,7 @@ func (x *GetAttachmentDownloadURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttachmentDownloadURLResponse.ProtoReflect.Descriptor instead.
 func (*GetAttachmentDownloadURLResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{76}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *GetAttachmentDownloadURLResponse) GetDownloadUrl() string {
@@ -4575,7 +4575,7 @@ type ImportContactsCSVRequest struct {
 
 func (x *ImportContactsCSVRequest) Reset() {
 	*x = ImportContactsCSVRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[77]
+	mi := &file_proto_email_v1_email_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4587,7 +4587,7 @@ func (x *ImportContactsCSVRequest) String() string {
 func (*ImportContactsCSVRequest) ProtoMessage() {}
 
 func (x *ImportContactsCSVRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[77]
+	mi := &file_proto_email_v1_email_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4600,7 +4600,7 @@ func (x *ImportContactsCSVRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportContactsCSVRequest.ProtoReflect.Descriptor instead.
 func (*ImportContactsCSVRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{77}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ImportContactsCSVRequest) GetFileContent() []byte {
@@ -4642,7 +4642,7 @@ type ImportContactsVCardRequest struct {
 
 func (x *ImportContactsVCardRequest) Reset() {
 	*x = ImportContactsVCardRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[78]
+	mi := &file_proto_email_v1_email_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4654,7 +4654,7 @@ func (x *ImportContactsVCardRequest) String() string {
 func (*ImportContactsVCardRequest) ProtoMessage() {}
 
 func (x *ImportContactsVCardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[78]
+	mi := &file_proto_email_v1_email_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4667,7 +4667,7 @@ func (x *ImportContactsVCardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportContactsVCardRequest.ProtoReflect.Descriptor instead.
 func (*ImportContactsVCardRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{78}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ImportContactsVCardRequest) GetFileContent() []byte {
@@ -4702,7 +4702,7 @@ type ImportError struct {
 
 func (x *ImportError) Reset() {
 	*x = ImportError{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[79]
+	mi := &file_proto_email_v1_email_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4714,7 +4714,7 @@ func (x *ImportError) String() string {
 func (*ImportError) ProtoMessage() {}
 
 func (x *ImportError) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[79]
+	mi := &file_proto_email_v1_email_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4727,7 +4727,7 @@ func (x *ImportError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportError.ProtoReflect.Descriptor instead.
 func (*ImportError) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{79}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *ImportError) GetRow() int32 {
@@ -4763,7 +4763,7 @@ type ImportContactsResponse struct {
 
 func (x *ImportContactsResponse) Reset() {
 	*x = ImportContactsResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[80]
+	mi := &file_proto_email_v1_email_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4775,7 +4775,7 @@ func (x *ImportContactsResponse) String() string {
 func (*ImportContactsResponse) ProtoMessage() {}
 
 func (x *ImportContactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[80]
+	mi := &file_proto_email_v1_email_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4788,7 +4788,7 @@ func (x *ImportContactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportContactsResponse.ProtoReflect.Descriptor instead.
 func (*ImportContactsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{80}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ImportContactsResponse) GetImportedCount() int32 {
@@ -4829,7 +4829,7 @@ type ExportContactsRequest struct {
 
 func (x *ExportContactsRequest) Reset() {
 	*x = ExportContactsRequest{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[81]
+	mi := &file_proto_email_v1_email_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4841,7 +4841,7 @@ func (x *ExportContactsRequest) String() string {
 func (*ExportContactsRequest) ProtoMessage() {}
 
 func (x *ExportContactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[81]
+	mi := &file_proto_email_v1_email_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4854,7 +4854,7 @@ func (x *ExportContactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportContactsRequest.ProtoReflect.Descriptor instead.
 func (*ExportContactsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{81}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ExportContactsRequest) GetContactIds() []string {
@@ -4881,7 +4881,7 @@ type ExportContactsResponse struct {
 
 func (x *ExportContactsResponse) Reset() {
 	*x = ExportContactsResponse{}
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[82]
+	mi := &file_proto_email_v1_email_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4893,7 +4893,7 @@ func (x *ExportContactsResponse) String() string {
 func (*ExportContactsResponse) ProtoMessage() {}
 
 func (x *ExportContactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_email_v1_email_proto_msgTypes[82]
+	mi := &file_proto_email_v1_email_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4906,7 +4906,7 @@ func (x *ExportContactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportContactsResponse.ProtoReflect.Descriptor instead.
 func (*ExportContactsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_email_v1_email_proto_rawDescGZIP(), []int{82}
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *ExportContactsResponse) GetFileContent() []byte {
@@ -4923,11 +4923,634 @@ func (x *ExportContactsResponse) GetFilename() string {
 	return ""
 }
 
-var File_backend_proto_email_v1_email_proto protoreflect.FileDescriptor
+// EmailRuleInfo mirrors the frontend EmailRuleInfo type field-for-field
+// (desktop/src/renderer/src/api/email-types.ts).
+type EmailRuleInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// "from" | "subject"
+	Field string `protobuf:"bytes,3,opt,name=field,proto3" json:"field,omitempty"`
+	// "contains"
+	Op    string `protobuf:"bytes,4,opt,name=op,proto3" json:"op,omitempty"`
+	Value string `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
+	// "label" | "move"
+	ActionType string `protobuf:"bytes,6,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`
+	// Label id (action_type="label") or folder id (action_type="move").
+	ActionTarget  string `protobuf:"bytes,7,opt,name=action_target,json=actionTarget,proto3" json:"action_target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_backend_proto_email_v1_email_proto_rawDesc = "" +
+func (x *EmailRuleInfo) Reset() {
+	*x = EmailRuleInfo{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmailRuleInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmailRuleInfo) ProtoMessage() {}
+
+func (x *EmailRuleInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmailRuleInfo.ProtoReflect.Descriptor instead.
+func (*EmailRuleInfo) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *EmailRuleInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetOp() string {
+	if x != nil {
+		return x.Op
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+func (x *EmailRuleInfo) GetActionTarget() string {
+	if x != nil {
+		return x.ActionTarget
+	}
+	return ""
+}
+
+type ListEmailRulesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEmailRulesRequest) Reset() {
+	*x = ListEmailRulesRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEmailRulesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEmailRulesRequest) ProtoMessage() {}
+
+func (x *ListEmailRulesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEmailRulesRequest.ProtoReflect.Descriptor instead.
+func (*ListEmailRulesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{84}
+}
+
+type ListEmailRulesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*EmailRuleInfo       `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEmailRulesResponse) Reset() {
+	*x = ListEmailRulesResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEmailRulesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEmailRulesResponse) ProtoMessage() {}
+
+func (x *ListEmailRulesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEmailRulesResponse.ProtoReflect.Descriptor instead.
+func (*ListEmailRulesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *ListEmailRulesResponse) GetRules() []*EmailRuleInfo {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+type CreateEmailRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Field         string                 `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty"`
+	Op            string                 `protobuf:"bytes,3,opt,name=op,proto3" json:"op,omitempty"`
+	Value         string                 `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	ActionType    string                 `protobuf:"bytes,5,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`
+	ActionTarget  string                 `protobuf:"bytes,6,opt,name=action_target,json=actionTarget,proto3" json:"action_target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateEmailRuleRequest) Reset() {
+	*x = CreateEmailRuleRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmailRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmailRuleRequest) ProtoMessage() {}
+
+func (x *CreateEmailRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmailRuleRequest.ProtoReflect.Descriptor instead.
+func (*CreateEmailRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *CreateEmailRuleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateEmailRuleRequest) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *CreateEmailRuleRequest) GetOp() string {
+	if x != nil {
+		return x.Op
+	}
+	return ""
+}
+
+func (x *CreateEmailRuleRequest) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *CreateEmailRuleRequest) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+func (x *CreateEmailRuleRequest) GetActionTarget() string {
+	if x != nil {
+		return x.ActionTarget
+	}
+	return ""
+}
+
+type CreateEmailRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *EmailRuleInfo         `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateEmailRuleResponse) Reset() {
+	*x = CreateEmailRuleResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmailRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmailRuleResponse) ProtoMessage() {}
+
+func (x *CreateEmailRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmailRuleResponse.ProtoReflect.Descriptor instead.
+func (*CreateEmailRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *CreateEmailRuleResponse) GetRule() *EmailRuleInfo {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+// UpdateEmailRuleRequest is a partial update: every field except id carries
+// presence, so an omitted field keeps its stored value.
+type UpdateEmailRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Field         *string                `protobuf:"bytes,3,opt,name=field,proto3,oneof" json:"field,omitempty"`
+	Op            *string                `protobuf:"bytes,4,opt,name=op,proto3,oneof" json:"op,omitempty"`
+	Value         *string                `protobuf:"bytes,5,opt,name=value,proto3,oneof" json:"value,omitempty"`
+	ActionType    *string                `protobuf:"bytes,6,opt,name=action_type,json=actionType,proto3,oneof" json:"action_type,omitempty"`
+	ActionTarget  *string                `protobuf:"bytes,7,opt,name=action_target,json=actionTarget,proto3,oneof" json:"action_target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEmailRuleRequest) Reset() {
+	*x = UpdateEmailRuleRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEmailRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEmailRuleRequest) ProtoMessage() {}
+
+func (x *UpdateEmailRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEmailRuleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateEmailRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *UpdateEmailRuleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetField() string {
+	if x != nil && x.Field != nil {
+		return *x.Field
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetOp() string {
+	if x != nil && x.Op != nil {
+		return *x.Op
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetValue() string {
+	if x != nil && x.Value != nil {
+		return *x.Value
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetActionType() string {
+	if x != nil && x.ActionType != nil {
+		return *x.ActionType
+	}
+	return ""
+}
+
+func (x *UpdateEmailRuleRequest) GetActionTarget() string {
+	if x != nil && x.ActionTarget != nil {
+		return *x.ActionTarget
+	}
+	return ""
+}
+
+type UpdateEmailRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *EmailRuleInfo         `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEmailRuleResponse) Reset() {
+	*x = UpdateEmailRuleResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEmailRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEmailRuleResponse) ProtoMessage() {}
+
+func (x *UpdateEmailRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEmailRuleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateEmailRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *UpdateEmailRuleResponse) GetRule() *EmailRuleInfo {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+type DeleteEmailRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEmailRuleRequest) Reset() {
+	*x = DeleteEmailRuleRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEmailRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEmailRuleRequest) ProtoMessage() {}
+
+func (x *DeleteEmailRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEmailRuleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteEmailRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *DeleteEmailRuleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteEmailRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEmailRuleResponse) Reset() {
+	*x = DeleteEmailRuleResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEmailRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEmailRuleResponse) ProtoMessage() {}
+
+func (x *DeleteEmailRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEmailRuleResponse.ProtoReflect.Descriptor instead.
+func (*DeleteEmailRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{91}
+}
+
+func (x *DeleteEmailRuleResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type ApplyEmailRulesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyEmailRulesRequest) Reset() {
+	*x = ApplyEmailRulesRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[92]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyEmailRulesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyEmailRulesRequest) ProtoMessage() {}
+
+func (x *ApplyEmailRulesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[92]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyEmailRulesRequest.ProtoReflect.Descriptor instead.
+func (*ApplyEmailRulesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{92}
+}
+
+type ApplyEmailRulesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of messages that actually changed, not the number of rule matches.
+	Affected int32 `protobuf:"varint,1,opt,name=affected,proto3" json:"affected,omitempty"`
+	// Number of messages inspected, so a caller can tell "no match" apart from
+	// "the scan limit cut the run short".
+	Scanned       int32 `protobuf:"varint,2,opt,name=scanned,proto3" json:"scanned,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyEmailRulesResponse) Reset() {
+	*x = ApplyEmailRulesResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[93]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyEmailRulesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyEmailRulesResponse) ProtoMessage() {}
+
+func (x *ApplyEmailRulesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[93]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyEmailRulesResponse.ProtoReflect.Descriptor instead.
+func (*ApplyEmailRulesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{93}
+}
+
+func (x *ApplyEmailRulesResponse) GetAffected() int32 {
+	if x != nil {
+		return x.Affected
+	}
+	return 0
+}
+
+func (x *ApplyEmailRulesResponse) GetScanned() int32 {
+	if x != nil {
+		return x.Scanned
+	}
+	return 0
+}
+
+var File_proto_email_v1_email_proto protoreflect.FileDescriptor
+
+const file_proto_email_v1_email_proto_rawDesc = "" +
 	"\n" +
-	"\"backend/proto/email/v1/email.proto\x12\bemail.v1\"8\n" +
+	"\x1aproto/email/v1/email.proto\x12\bemail.v1\"8\n" +
 	"\fEmailAddress\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\"\xdc\x01\n" +
@@ -5337,7 +5960,54 @@ const file_backend_proto_email_v1_email_proto_rawDesc = "" +
 	"\x06fields\x18\x02 \x03(\tR\x06fields\"W\n" +
 	"\x16ExportContactsResponse\x12!\n" +
 	"\ffile_content\x18\x01 \x01(\fR\vfileContent\x12\x1a\n" +
-	"\bfilename\x18\x02 \x01(\tR\bfilename2\x9f\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\"\xb5\x01\n" +
+	"\rEmailRuleInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05field\x18\x03 \x01(\tR\x05field\x12\x0e\n" +
+	"\x02op\x18\x04 \x01(\tR\x02op\x12\x14\n" +
+	"\x05value\x18\x05 \x01(\tR\x05value\x12\x1f\n" +
+	"\vaction_type\x18\x06 \x01(\tR\n" +
+	"actionType\x12#\n" +
+	"\raction_target\x18\a \x01(\tR\factionTarget\"\x17\n" +
+	"\x15ListEmailRulesRequest\"G\n" +
+	"\x16ListEmailRulesResponse\x12-\n" +
+	"\x05rules\x18\x01 \x03(\v2\x17.email.v1.EmailRuleInfoR\x05rules\"\xae\x01\n" +
+	"\x16CreateEmailRuleRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05field\x18\x02 \x01(\tR\x05field\x12\x0e\n" +
+	"\x02op\x18\x03 \x01(\tR\x02op\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\tR\x05value\x12\x1f\n" +
+	"\vaction_type\x18\x05 \x01(\tR\n" +
+	"actionType\x12#\n" +
+	"\raction_target\x18\x06 \x01(\tR\factionTarget\"F\n" +
+	"\x17CreateEmailRuleResponse\x12+\n" +
+	"\x04rule\x18\x01 \x01(\v2\x17.email.v1.EmailRuleInfoR\x04rule\"\xa2\x02\n" +
+	"\x16UpdateEmailRuleRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
+	"\x05field\x18\x03 \x01(\tH\x01R\x05field\x88\x01\x01\x12\x13\n" +
+	"\x02op\x18\x04 \x01(\tH\x02R\x02op\x88\x01\x01\x12\x19\n" +
+	"\x05value\x18\x05 \x01(\tH\x03R\x05value\x88\x01\x01\x12$\n" +
+	"\vaction_type\x18\x06 \x01(\tH\x04R\n" +
+	"actionType\x88\x01\x01\x12(\n" +
+	"\raction_target\x18\a \x01(\tH\x05R\factionTarget\x88\x01\x01B\a\n" +
+	"\x05_nameB\b\n" +
+	"\x06_fieldB\x05\n" +
+	"\x03_opB\b\n" +
+	"\x06_valueB\x0e\n" +
+	"\f_action_typeB\x10\n" +
+	"\x0e_action_target\"F\n" +
+	"\x17UpdateEmailRuleResponse\x12+\n" +
+	"\x04rule\x18\x01 \x01(\v2\x17.email.v1.EmailRuleInfoR\x04rule\"(\n" +
+	"\x16DeleteEmailRuleRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"3\n" +
+	"\x17DeleteEmailRuleResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x18\n" +
+	"\x16ApplyEmailRulesRequest\"O\n" +
+	"\x17ApplyEmailRulesResponse\x12\x1a\n" +
+	"\baffected\x18\x01 \x01(\x05R\baffected\x12\x18\n" +
+	"\ascanned\x18\x02 \x01(\x05R\ascanned2\xd4\x1d\n" +
 	"\fEmailService\x12_\n" +
 	"\x12CreateEmailAccount\x12#.email.v1.CreateEmailAccountRequest\x1a$.email.v1.CreateEmailAccountResponse\x12V\n" +
 	"\x0fGetEmailAccount\x12 .email.v1.GetEmailAccountRequest\x1a!.email.v1.GetEmailAccountResponse\x12_\n" +
@@ -5381,22 +6051,27 @@ const file_backend_proto_email_v1_email_proto_rawDesc = "" +
 	"\x11ImportContactsCSV\x12\".email.v1.ImportContactsCSVRequest\x1a .email.v1.ImportContactsResponse\x12]\n" +
 	"\x13ImportContactsVCard\x12$.email.v1.ImportContactsVCardRequest\x1a .email.v1.ImportContactsResponse\x12V\n" +
 	"\x11ExportContactsCSV\x12\x1f.email.v1.ExportContactsRequest\x1a .email.v1.ExportContactsResponse\x12X\n" +
-	"\x13ExportContactsVCard\x12\x1f.email.v1.ExportContactsRequest\x1a .email.v1.ExportContactsResponseB1Z/github.com/kmuhub/kmuhub/proto/email/v1;emailv1b\x06proto3"
+	"\x13ExportContactsVCard\x12\x1f.email.v1.ExportContactsRequest\x1a .email.v1.ExportContactsResponse\x12S\n" +
+	"\x0eListEmailRules\x12\x1f.email.v1.ListEmailRulesRequest\x1a .email.v1.ListEmailRulesResponse\x12V\n" +
+	"\x0fCreateEmailRule\x12 .email.v1.CreateEmailRuleRequest\x1a!.email.v1.CreateEmailRuleResponse\x12V\n" +
+	"\x0fUpdateEmailRule\x12 .email.v1.UpdateEmailRuleRequest\x1a!.email.v1.UpdateEmailRuleResponse\x12V\n" +
+	"\x0fDeleteEmailRule\x12 .email.v1.DeleteEmailRuleRequest\x1a!.email.v1.DeleteEmailRuleResponse\x12V\n" +
+	"\x0fApplyEmailRules\x12 .email.v1.ApplyEmailRulesRequest\x1a!.email.v1.ApplyEmailRulesResponseB1Z/github.com/kmuhub/kmuhub/proto/email/v1;emailv1b\x06proto3"
 
 var (
-	file_backend_proto_email_v1_email_proto_rawDescOnce sync.Once
-	file_backend_proto_email_v1_email_proto_rawDescData []byte
+	file_proto_email_v1_email_proto_rawDescOnce sync.Once
+	file_proto_email_v1_email_proto_rawDescData []byte
 )
 
-func file_backend_proto_email_v1_email_proto_rawDescGZIP() []byte {
-	file_backend_proto_email_v1_email_proto_rawDescOnce.Do(func() {
-		file_backend_proto_email_v1_email_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_backend_proto_email_v1_email_proto_rawDesc), len(file_backend_proto_email_v1_email_proto_rawDesc)))
+func file_proto_email_v1_email_proto_rawDescGZIP() []byte {
+	file_proto_email_v1_email_proto_rawDescOnce.Do(func() {
+		file_proto_email_v1_email_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_email_v1_email_proto_rawDesc), len(file_proto_email_v1_email_proto_rawDesc)))
 	})
-	return file_backend_proto_email_v1_email_proto_rawDescData
+	return file_proto_email_v1_email_proto_rawDescData
 }
 
-var file_backend_proto_email_v1_email_proto_msgTypes = make([]protoimpl.MessageInfo, 84)
-var file_backend_proto_email_v1_email_proto_goTypes = []any{
+var file_proto_email_v1_email_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
+var file_proto_email_v1_email_proto_goTypes = []any{
 	(*EmailAddress)(nil),                     // 0: email.v1.EmailAddress
 	(*EmailAttachmentInfo)(nil),              // 1: email.v1.EmailAttachmentInfo
 	(*EmailAccountInfo)(nil),                 // 2: email.v1.EmailAccountInfo
@@ -5480,9 +6155,20 @@ var file_backend_proto_email_v1_email_proto_goTypes = []any{
 	(*ImportContactsResponse)(nil),           // 80: email.v1.ImportContactsResponse
 	(*ExportContactsRequest)(nil),            // 81: email.v1.ExportContactsRequest
 	(*ExportContactsResponse)(nil),           // 82: email.v1.ExportContactsResponse
-	nil,                                      // 83: email.v1.ImportContactsCSVRequest.FieldMappingEntry
+	(*EmailRuleInfo)(nil),                    // 83: email.v1.EmailRuleInfo
+	(*ListEmailRulesRequest)(nil),            // 84: email.v1.ListEmailRulesRequest
+	(*ListEmailRulesResponse)(nil),           // 85: email.v1.ListEmailRulesResponse
+	(*CreateEmailRuleRequest)(nil),           // 86: email.v1.CreateEmailRuleRequest
+	(*CreateEmailRuleResponse)(nil),          // 87: email.v1.CreateEmailRuleResponse
+	(*UpdateEmailRuleRequest)(nil),           // 88: email.v1.UpdateEmailRuleRequest
+	(*UpdateEmailRuleResponse)(nil),          // 89: email.v1.UpdateEmailRuleResponse
+	(*DeleteEmailRuleRequest)(nil),           // 90: email.v1.DeleteEmailRuleRequest
+	(*DeleteEmailRuleResponse)(nil),          // 91: email.v1.DeleteEmailRuleResponse
+	(*ApplyEmailRulesRequest)(nil),           // 92: email.v1.ApplyEmailRulesRequest
+	(*ApplyEmailRulesResponse)(nil),          // 93: email.v1.ApplyEmailRulesResponse
+	nil,                                      // 94: email.v1.ImportContactsCSVRequest.FieldMappingEntry
 }
-var file_backend_proto_email_v1_email_proto_depIdxs = []int32{
+var file_proto_email_v1_email_proto_depIdxs = []int32{
 	2,  // 0: email.v1.CreateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
 	2,  // 1: email.v1.GetEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
 	2,  // 2: email.v1.UpdateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
@@ -5516,117 +6202,131 @@ var file_backend_proto_email_v1_email_proto_depIdxs = []int32{
 	58, // 30: email.v1.GetEmailContactLinksResponse.links:type_name -> email.v1.EmailContactLinkInfo
 	58, // 31: email.v1.LinkEmailToContactResponse.link:type_name -> email.v1.EmailContactLinkInfo
 	20, // 32: email.v1.GetContactEmailsResponse.messages:type_name -> email.v1.EmailMessageInfo
-	83, // 33: email.v1.ImportContactsCSVRequest.field_mapping:type_name -> email.v1.ImportContactsCSVRequest.FieldMappingEntry
+	94, // 33: email.v1.ImportContactsCSVRequest.field_mapping:type_name -> email.v1.ImportContactsCSVRequest.FieldMappingEntry
 	79, // 34: email.v1.ImportContactsResponse.errors:type_name -> email.v1.ImportError
-	3,  // 35: email.v1.EmailService.CreateEmailAccount:input_type -> email.v1.CreateEmailAccountRequest
-	5,  // 36: email.v1.EmailService.GetEmailAccount:input_type -> email.v1.GetEmailAccountRequest
-	7,  // 37: email.v1.EmailService.UpdateEmailAccount:input_type -> email.v1.UpdateEmailAccountRequest
-	9,  // 38: email.v1.EmailService.DeleteEmailAccount:input_type -> email.v1.DeleteEmailAccountRequest
-	11, // 39: email.v1.EmailService.TestEmailConnection:input_type -> email.v1.TestEmailConnectionRequest
-	14, // 40: email.v1.EmailService.ListFolders:input_type -> email.v1.ListFoldersRequest
-	16, // 41: email.v1.EmailService.GetFolder:input_type -> email.v1.GetFolderRequest
-	18, // 42: email.v1.EmailService.SyncFolders:input_type -> email.v1.SyncFoldersRequest
-	21, // 43: email.v1.EmailService.ListMessages:input_type -> email.v1.ListMessagesRequest
-	23, // 44: email.v1.EmailService.GetMessage:input_type -> email.v1.GetMessageRequest
-	25, // 45: email.v1.EmailService.GetThreadMessages:input_type -> email.v1.GetThreadMessagesRequest
-	27, // 46: email.v1.EmailService.MarkRead:input_type -> email.v1.MarkReadRequest
-	29, // 47: email.v1.EmailService.MarkUnread:input_type -> email.v1.MarkUnreadRequest
-	31, // 48: email.v1.EmailService.ToggleStar:input_type -> email.v1.ToggleStarRequest
-	33, // 49: email.v1.EmailService.MoveToFolder:input_type -> email.v1.MoveToFolderRequest
-	35, // 50: email.v1.EmailService.DeleteMessage:input_type -> email.v1.DeleteMessageRequest
-	37, // 51: email.v1.EmailService.SendEmail:input_type -> email.v1.SendEmailRequest
-	39, // 52: email.v1.EmailService.SaveDraft:input_type -> email.v1.SaveDraftRequest
-	41, // 53: email.v1.EmailService.ReplyEmail:input_type -> email.v1.ReplyEmailRequest
-	43, // 54: email.v1.EmailService.ForwardEmail:input_type -> email.v1.ForwardEmailRequest
-	46, // 55: email.v1.EmailService.CreateSignature:input_type -> email.v1.CreateSignatureRequest
-	48, // 56: email.v1.EmailService.GetSignature:input_type -> email.v1.GetSignatureRequest
-	50, // 57: email.v1.EmailService.ListSignatures:input_type -> email.v1.ListSignaturesRequest
-	52, // 58: email.v1.EmailService.UpdateSignature:input_type -> email.v1.UpdateSignatureRequest
-	54, // 59: email.v1.EmailService.DeleteSignature:input_type -> email.v1.DeleteSignatureRequest
-	56, // 60: email.v1.EmailService.SetDefaultSignature:input_type -> email.v1.SetDefaultSignatureRequest
-	59, // 61: email.v1.EmailService.GetEmailContactLinks:input_type -> email.v1.GetEmailContactLinksRequest
-	61, // 62: email.v1.EmailService.LinkEmailToContact:input_type -> email.v1.LinkEmailToContactRequest
-	63, // 63: email.v1.EmailService.UnlinkEmailFromContact:input_type -> email.v1.UnlinkEmailFromContactRequest
-	65, // 64: email.v1.EmailService.GetContactEmails:input_type -> email.v1.GetContactEmailsRequest
-	67, // 65: email.v1.EmailService.TriggerSync:input_type -> email.v1.TriggerSyncRequest
-	69, // 66: email.v1.EmailService.GetSyncStatus:input_type -> email.v1.GetSyncStatusRequest
-	71, // 67: email.v1.EmailService.SetReadFlag:input_type -> email.v1.SetReadFlagRequest
-	73, // 68: email.v1.EmailService.UploadAttachment:input_type -> email.v1.UploadAttachmentRequest
-	75, // 69: email.v1.EmailService.GetAttachmentDownloadURL:input_type -> email.v1.GetAttachmentDownloadURLRequest
-	77, // 70: email.v1.EmailService.ImportContactsCSV:input_type -> email.v1.ImportContactsCSVRequest
-	78, // 71: email.v1.EmailService.ImportContactsVCard:input_type -> email.v1.ImportContactsVCardRequest
-	81, // 72: email.v1.EmailService.ExportContactsCSV:input_type -> email.v1.ExportContactsRequest
-	81, // 73: email.v1.EmailService.ExportContactsVCard:input_type -> email.v1.ExportContactsRequest
-	4,  // 74: email.v1.EmailService.CreateEmailAccount:output_type -> email.v1.CreateEmailAccountResponse
-	6,  // 75: email.v1.EmailService.GetEmailAccount:output_type -> email.v1.GetEmailAccountResponse
-	8,  // 76: email.v1.EmailService.UpdateEmailAccount:output_type -> email.v1.UpdateEmailAccountResponse
-	10, // 77: email.v1.EmailService.DeleteEmailAccount:output_type -> email.v1.DeleteEmailAccountResponse
-	12, // 78: email.v1.EmailService.TestEmailConnection:output_type -> email.v1.TestEmailConnectionResponse
-	15, // 79: email.v1.EmailService.ListFolders:output_type -> email.v1.ListFoldersResponse
-	17, // 80: email.v1.EmailService.GetFolder:output_type -> email.v1.GetFolderResponse
-	19, // 81: email.v1.EmailService.SyncFolders:output_type -> email.v1.SyncFoldersResponse
-	22, // 82: email.v1.EmailService.ListMessages:output_type -> email.v1.ListMessagesResponse
-	24, // 83: email.v1.EmailService.GetMessage:output_type -> email.v1.GetMessageResponse
-	26, // 84: email.v1.EmailService.GetThreadMessages:output_type -> email.v1.GetThreadMessagesResponse
-	28, // 85: email.v1.EmailService.MarkRead:output_type -> email.v1.MarkReadResponse
-	30, // 86: email.v1.EmailService.MarkUnread:output_type -> email.v1.MarkUnreadResponse
-	32, // 87: email.v1.EmailService.ToggleStar:output_type -> email.v1.ToggleStarResponse
-	34, // 88: email.v1.EmailService.MoveToFolder:output_type -> email.v1.MoveToFolderResponse
-	36, // 89: email.v1.EmailService.DeleteMessage:output_type -> email.v1.DeleteMessageResponse
-	38, // 90: email.v1.EmailService.SendEmail:output_type -> email.v1.SendEmailResponse
-	40, // 91: email.v1.EmailService.SaveDraft:output_type -> email.v1.SaveDraftResponse
-	42, // 92: email.v1.EmailService.ReplyEmail:output_type -> email.v1.ReplyEmailResponse
-	44, // 93: email.v1.EmailService.ForwardEmail:output_type -> email.v1.ForwardEmailResponse
-	47, // 94: email.v1.EmailService.CreateSignature:output_type -> email.v1.CreateSignatureResponse
-	49, // 95: email.v1.EmailService.GetSignature:output_type -> email.v1.GetSignatureResponse
-	51, // 96: email.v1.EmailService.ListSignatures:output_type -> email.v1.ListSignaturesResponse
-	53, // 97: email.v1.EmailService.UpdateSignature:output_type -> email.v1.UpdateSignatureResponse
-	55, // 98: email.v1.EmailService.DeleteSignature:output_type -> email.v1.DeleteSignatureResponse
-	57, // 99: email.v1.EmailService.SetDefaultSignature:output_type -> email.v1.SetDefaultSignatureResponse
-	60, // 100: email.v1.EmailService.GetEmailContactLinks:output_type -> email.v1.GetEmailContactLinksResponse
-	62, // 101: email.v1.EmailService.LinkEmailToContact:output_type -> email.v1.LinkEmailToContactResponse
-	64, // 102: email.v1.EmailService.UnlinkEmailFromContact:output_type -> email.v1.UnlinkEmailFromContactResponse
-	66, // 103: email.v1.EmailService.GetContactEmails:output_type -> email.v1.GetContactEmailsResponse
-	68, // 104: email.v1.EmailService.TriggerSync:output_type -> email.v1.TriggerSyncResponse
-	70, // 105: email.v1.EmailService.GetSyncStatus:output_type -> email.v1.GetSyncStatusResponse
-	72, // 106: email.v1.EmailService.SetReadFlag:output_type -> email.v1.SetReadFlagResponse
-	74, // 107: email.v1.EmailService.UploadAttachment:output_type -> email.v1.UploadAttachmentResponse
-	76, // 108: email.v1.EmailService.GetAttachmentDownloadURL:output_type -> email.v1.GetAttachmentDownloadURLResponse
-	80, // 109: email.v1.EmailService.ImportContactsCSV:output_type -> email.v1.ImportContactsResponse
-	80, // 110: email.v1.EmailService.ImportContactsVCard:output_type -> email.v1.ImportContactsResponse
-	82, // 111: email.v1.EmailService.ExportContactsCSV:output_type -> email.v1.ExportContactsResponse
-	82, // 112: email.v1.EmailService.ExportContactsVCard:output_type -> email.v1.ExportContactsResponse
-	74, // [74:113] is the sub-list for method output_type
-	35, // [35:74] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	83, // 35: email.v1.ListEmailRulesResponse.rules:type_name -> email.v1.EmailRuleInfo
+	83, // 36: email.v1.CreateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
+	83, // 37: email.v1.UpdateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
+	3,  // 38: email.v1.EmailService.CreateEmailAccount:input_type -> email.v1.CreateEmailAccountRequest
+	5,  // 39: email.v1.EmailService.GetEmailAccount:input_type -> email.v1.GetEmailAccountRequest
+	7,  // 40: email.v1.EmailService.UpdateEmailAccount:input_type -> email.v1.UpdateEmailAccountRequest
+	9,  // 41: email.v1.EmailService.DeleteEmailAccount:input_type -> email.v1.DeleteEmailAccountRequest
+	11, // 42: email.v1.EmailService.TestEmailConnection:input_type -> email.v1.TestEmailConnectionRequest
+	14, // 43: email.v1.EmailService.ListFolders:input_type -> email.v1.ListFoldersRequest
+	16, // 44: email.v1.EmailService.GetFolder:input_type -> email.v1.GetFolderRequest
+	18, // 45: email.v1.EmailService.SyncFolders:input_type -> email.v1.SyncFoldersRequest
+	21, // 46: email.v1.EmailService.ListMessages:input_type -> email.v1.ListMessagesRequest
+	23, // 47: email.v1.EmailService.GetMessage:input_type -> email.v1.GetMessageRequest
+	25, // 48: email.v1.EmailService.GetThreadMessages:input_type -> email.v1.GetThreadMessagesRequest
+	27, // 49: email.v1.EmailService.MarkRead:input_type -> email.v1.MarkReadRequest
+	29, // 50: email.v1.EmailService.MarkUnread:input_type -> email.v1.MarkUnreadRequest
+	31, // 51: email.v1.EmailService.ToggleStar:input_type -> email.v1.ToggleStarRequest
+	33, // 52: email.v1.EmailService.MoveToFolder:input_type -> email.v1.MoveToFolderRequest
+	35, // 53: email.v1.EmailService.DeleteMessage:input_type -> email.v1.DeleteMessageRequest
+	37, // 54: email.v1.EmailService.SendEmail:input_type -> email.v1.SendEmailRequest
+	39, // 55: email.v1.EmailService.SaveDraft:input_type -> email.v1.SaveDraftRequest
+	41, // 56: email.v1.EmailService.ReplyEmail:input_type -> email.v1.ReplyEmailRequest
+	43, // 57: email.v1.EmailService.ForwardEmail:input_type -> email.v1.ForwardEmailRequest
+	46, // 58: email.v1.EmailService.CreateSignature:input_type -> email.v1.CreateSignatureRequest
+	48, // 59: email.v1.EmailService.GetSignature:input_type -> email.v1.GetSignatureRequest
+	50, // 60: email.v1.EmailService.ListSignatures:input_type -> email.v1.ListSignaturesRequest
+	52, // 61: email.v1.EmailService.UpdateSignature:input_type -> email.v1.UpdateSignatureRequest
+	54, // 62: email.v1.EmailService.DeleteSignature:input_type -> email.v1.DeleteSignatureRequest
+	56, // 63: email.v1.EmailService.SetDefaultSignature:input_type -> email.v1.SetDefaultSignatureRequest
+	59, // 64: email.v1.EmailService.GetEmailContactLinks:input_type -> email.v1.GetEmailContactLinksRequest
+	61, // 65: email.v1.EmailService.LinkEmailToContact:input_type -> email.v1.LinkEmailToContactRequest
+	63, // 66: email.v1.EmailService.UnlinkEmailFromContact:input_type -> email.v1.UnlinkEmailFromContactRequest
+	65, // 67: email.v1.EmailService.GetContactEmails:input_type -> email.v1.GetContactEmailsRequest
+	67, // 68: email.v1.EmailService.TriggerSync:input_type -> email.v1.TriggerSyncRequest
+	69, // 69: email.v1.EmailService.GetSyncStatus:input_type -> email.v1.GetSyncStatusRequest
+	71, // 70: email.v1.EmailService.SetReadFlag:input_type -> email.v1.SetReadFlagRequest
+	73, // 71: email.v1.EmailService.UploadAttachment:input_type -> email.v1.UploadAttachmentRequest
+	75, // 72: email.v1.EmailService.GetAttachmentDownloadURL:input_type -> email.v1.GetAttachmentDownloadURLRequest
+	77, // 73: email.v1.EmailService.ImportContactsCSV:input_type -> email.v1.ImportContactsCSVRequest
+	78, // 74: email.v1.EmailService.ImportContactsVCard:input_type -> email.v1.ImportContactsVCardRequest
+	81, // 75: email.v1.EmailService.ExportContactsCSV:input_type -> email.v1.ExportContactsRequest
+	81, // 76: email.v1.EmailService.ExportContactsVCard:input_type -> email.v1.ExportContactsRequest
+	84, // 77: email.v1.EmailService.ListEmailRules:input_type -> email.v1.ListEmailRulesRequest
+	86, // 78: email.v1.EmailService.CreateEmailRule:input_type -> email.v1.CreateEmailRuleRequest
+	88, // 79: email.v1.EmailService.UpdateEmailRule:input_type -> email.v1.UpdateEmailRuleRequest
+	90, // 80: email.v1.EmailService.DeleteEmailRule:input_type -> email.v1.DeleteEmailRuleRequest
+	92, // 81: email.v1.EmailService.ApplyEmailRules:input_type -> email.v1.ApplyEmailRulesRequest
+	4,  // 82: email.v1.EmailService.CreateEmailAccount:output_type -> email.v1.CreateEmailAccountResponse
+	6,  // 83: email.v1.EmailService.GetEmailAccount:output_type -> email.v1.GetEmailAccountResponse
+	8,  // 84: email.v1.EmailService.UpdateEmailAccount:output_type -> email.v1.UpdateEmailAccountResponse
+	10, // 85: email.v1.EmailService.DeleteEmailAccount:output_type -> email.v1.DeleteEmailAccountResponse
+	12, // 86: email.v1.EmailService.TestEmailConnection:output_type -> email.v1.TestEmailConnectionResponse
+	15, // 87: email.v1.EmailService.ListFolders:output_type -> email.v1.ListFoldersResponse
+	17, // 88: email.v1.EmailService.GetFolder:output_type -> email.v1.GetFolderResponse
+	19, // 89: email.v1.EmailService.SyncFolders:output_type -> email.v1.SyncFoldersResponse
+	22, // 90: email.v1.EmailService.ListMessages:output_type -> email.v1.ListMessagesResponse
+	24, // 91: email.v1.EmailService.GetMessage:output_type -> email.v1.GetMessageResponse
+	26, // 92: email.v1.EmailService.GetThreadMessages:output_type -> email.v1.GetThreadMessagesResponse
+	28, // 93: email.v1.EmailService.MarkRead:output_type -> email.v1.MarkReadResponse
+	30, // 94: email.v1.EmailService.MarkUnread:output_type -> email.v1.MarkUnreadResponse
+	32, // 95: email.v1.EmailService.ToggleStar:output_type -> email.v1.ToggleStarResponse
+	34, // 96: email.v1.EmailService.MoveToFolder:output_type -> email.v1.MoveToFolderResponse
+	36, // 97: email.v1.EmailService.DeleteMessage:output_type -> email.v1.DeleteMessageResponse
+	38, // 98: email.v1.EmailService.SendEmail:output_type -> email.v1.SendEmailResponse
+	40, // 99: email.v1.EmailService.SaveDraft:output_type -> email.v1.SaveDraftResponse
+	42, // 100: email.v1.EmailService.ReplyEmail:output_type -> email.v1.ReplyEmailResponse
+	44, // 101: email.v1.EmailService.ForwardEmail:output_type -> email.v1.ForwardEmailResponse
+	47, // 102: email.v1.EmailService.CreateSignature:output_type -> email.v1.CreateSignatureResponse
+	49, // 103: email.v1.EmailService.GetSignature:output_type -> email.v1.GetSignatureResponse
+	51, // 104: email.v1.EmailService.ListSignatures:output_type -> email.v1.ListSignaturesResponse
+	53, // 105: email.v1.EmailService.UpdateSignature:output_type -> email.v1.UpdateSignatureResponse
+	55, // 106: email.v1.EmailService.DeleteSignature:output_type -> email.v1.DeleteSignatureResponse
+	57, // 107: email.v1.EmailService.SetDefaultSignature:output_type -> email.v1.SetDefaultSignatureResponse
+	60, // 108: email.v1.EmailService.GetEmailContactLinks:output_type -> email.v1.GetEmailContactLinksResponse
+	62, // 109: email.v1.EmailService.LinkEmailToContact:output_type -> email.v1.LinkEmailToContactResponse
+	64, // 110: email.v1.EmailService.UnlinkEmailFromContact:output_type -> email.v1.UnlinkEmailFromContactResponse
+	66, // 111: email.v1.EmailService.GetContactEmails:output_type -> email.v1.GetContactEmailsResponse
+	68, // 112: email.v1.EmailService.TriggerSync:output_type -> email.v1.TriggerSyncResponse
+	70, // 113: email.v1.EmailService.GetSyncStatus:output_type -> email.v1.GetSyncStatusResponse
+	72, // 114: email.v1.EmailService.SetReadFlag:output_type -> email.v1.SetReadFlagResponse
+	74, // 115: email.v1.EmailService.UploadAttachment:output_type -> email.v1.UploadAttachmentResponse
+	76, // 116: email.v1.EmailService.GetAttachmentDownloadURL:output_type -> email.v1.GetAttachmentDownloadURLResponse
+	80, // 117: email.v1.EmailService.ImportContactsCSV:output_type -> email.v1.ImportContactsResponse
+	80, // 118: email.v1.EmailService.ImportContactsVCard:output_type -> email.v1.ImportContactsResponse
+	82, // 119: email.v1.EmailService.ExportContactsCSV:output_type -> email.v1.ExportContactsResponse
+	82, // 120: email.v1.EmailService.ExportContactsVCard:output_type -> email.v1.ExportContactsResponse
+	85, // 121: email.v1.EmailService.ListEmailRules:output_type -> email.v1.ListEmailRulesResponse
+	87, // 122: email.v1.EmailService.CreateEmailRule:output_type -> email.v1.CreateEmailRuleResponse
+	89, // 123: email.v1.EmailService.UpdateEmailRule:output_type -> email.v1.UpdateEmailRuleResponse
+	91, // 124: email.v1.EmailService.DeleteEmailRule:output_type -> email.v1.DeleteEmailRuleResponse
+	93, // 125: email.v1.EmailService.ApplyEmailRules:output_type -> email.v1.ApplyEmailRulesResponse
+	82, // [82:126] is the sub-list for method output_type
+	38, // [38:82] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
-func init() { file_backend_proto_email_v1_email_proto_init() }
-func file_backend_proto_email_v1_email_proto_init() {
-	if File_backend_proto_email_v1_email_proto != nil {
+func init() { file_proto_email_v1_email_proto_init() }
+func file_proto_email_v1_email_proto_init() {
+	if File_proto_email_v1_email_proto != nil {
 		return
 	}
-	file_backend_proto_email_v1_email_proto_msgTypes[7].OneofWrappers = []any{}
-	file_backend_proto_email_v1_email_proto_msgTypes[37].OneofWrappers = []any{}
-	file_backend_proto_email_v1_email_proto_msgTypes[39].OneofWrappers = []any{}
-	file_backend_proto_email_v1_email_proto_msgTypes[52].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[7].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[37].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[52].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[88].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_backend_proto_email_v1_email_proto_rawDesc), len(file_backend_proto_email_v1_email_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_email_v1_email_proto_rawDesc), len(file_proto_email_v1_email_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   84,
+			NumMessages:   95,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_backend_proto_email_v1_email_proto_goTypes,
-		DependencyIndexes: file_backend_proto_email_v1_email_proto_depIdxs,
-		MessageInfos:      file_backend_proto_email_v1_email_proto_msgTypes,
+		GoTypes:           file_proto_email_v1_email_proto_goTypes,
+		DependencyIndexes: file_proto_email_v1_email_proto_depIdxs,
+		MessageInfos:      file_proto_email_v1_email_proto_msgTypes,
 	}.Build()
-	File_backend_proto_email_v1_email_proto = out.File
-	file_backend_proto_email_v1_email_proto_goTypes = nil
-	file_backend_proto_email_v1_email_proto_depIdxs = nil
+	File_proto_email_v1_email_proto = out.File
+	file_proto_email_v1_email_proto_goTypes = nil
+	file_proto_email_v1_email_proto_depIdxs = nil
 }

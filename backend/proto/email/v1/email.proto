@@ -61,6 +61,13 @@ service EmailService {
   rpc ImportContactsVCard(ImportContactsVCardRequest) returns (ImportContactsResponse);
   rpc ExportContactsCSV(ExportContactsRequest) returns (ExportContactsResponse);
   rpc ExportContactsVCard(ExportContactsRequest) returns (ExportContactsResponse);
+
+  // Rules (Regeln & Filter)
+  rpc ListEmailRules(ListEmailRulesRequest) returns (ListEmailRulesResponse);
+  rpc CreateEmailRule(CreateEmailRuleRequest) returns (CreateEmailRuleResponse);
+  rpc UpdateEmailRule(UpdateEmailRuleRequest) returns (UpdateEmailRuleResponse);
+  rpc DeleteEmailRule(DeleteEmailRuleRequest) returns (DeleteEmailRuleResponse);
+  rpc ApplyEmailRules(ApplyEmailRulesRequest) returns (ApplyEmailRulesResponse);
 }
 
 // ============================================================================
@@ -583,4 +590,77 @@ message ExportContactsRequest {
 message ExportContactsResponse {
   bytes file_content = 1;
   string filename = 2;
+}
+
+// ============================================================================
+// Rules (Regeln & Filter)
+// ============================================================================
+
+// EmailRuleInfo mirrors the frontend EmailRuleInfo type field-for-field
+// (desktop/src/renderer/src/api/email-types.ts).
+message EmailRuleInfo {
+  string id = 1;
+  string name = 2;
+  // "from" | "subject"
+  string field = 3;
+  // "contains"
+  string op = 4;
+  string value = 5;
+  // "label" | "move"
+  string action_type = 6;
+  // Label id (action_type="label") or folder id (action_type="move").
+  string action_target = 7;
+}
+
+message ListEmailRulesRequest {}
+
+message ListEmailRulesResponse {
+  repeated EmailRuleInfo rules = 1;
+}
+
+message CreateEmailRuleRequest {
+  string name = 1;
+  string field = 2;
+  string op = 3;
+  string value = 4;
+  string action_type = 5;
+  string action_target = 6;
+}
+
+message CreateEmailRuleResponse {
+  EmailRuleInfo rule = 1;
+}
+
+// UpdateEmailRuleRequest is a partial update: every field except id carries
+// presence, so an omitted field keeps its stored value.
+message UpdateEmailRuleRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string field = 3;
+  optional string op = 4;
+  optional string value = 5;
+  optional string action_type = 6;
+  optional string action_target = 7;
+}
+
+message UpdateEmailRuleResponse {
+  EmailRuleInfo rule = 1;
+}
+
+message DeleteEmailRuleRequest {
+  string id = 1;
+}
+
+message DeleteEmailRuleResponse {
+  bool success = 1;
+}
+
+message ApplyEmailRulesRequest {}
+
+message ApplyEmailRulesResponse {
+  // Number of messages that actually changed, not the number of rule matches.
+  int32 affected = 1;
+  // Number of messages inspected, so a caller can tell "no match" apart from
+  // "the scan limit cut the run short".
+  int32 scanned = 2;
 }

@@ -2459,3 +2459,118 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     der Vendor-Overlay-Schreibpfad (R-5-Anbindung) sind im FE-Type-File vollstaendig spezifiziert,
     aber laut dieser Unit explizit nicht im Scope — eigene Folge-Units, falls gewuenscht.
   - Naechste Unit laut Reihenfolge: `fe-email-rules` (Block E, deps: [], model: opus).
+
+## Iteration 35 — fe-email-rules — done — 2026-08-02 01:05 (Nachtlauf 3)
+- commit: (siehe git log, dieser Lauf)
+- verify vorgaenger: `528a7868` (fe-customization-labels) gegen die sechs Fehlerklassen geprueft —
+  **kein Fund**. Handler geht ueber `settingsv1.NewSettingsServiceClient(conn)` (kein direkt
+  injizierter Service), Tenant kommt aus `middleware.GetTenantID(r.Context())`, Guard
+  `RequirePermission("admin:customization","manage")` nur auf PUT mit vorhandenem Seed,
+  `openapi.yaml` im selben Commit, kein Proto angefasst, keine Stubs/`TODO`/`panic` in den neuen
+  Dateien.
+- gebaut:
+  - **E-Mail-Regeln (Regeln & Filter)**, fuenf Routen im Gateway, alle ueber den email-gRPC-Client:
+    `GET /api/v1/email/rules`, `POST /api/v1/email/rules`, `PATCH /api/v1/email/rules/{id}`,
+    `DELETE /api/v1/email/rules/{id}`, `POST /api/v1/email/rules/apply`.
+    Vertrag ist `EmailRuleInfo` aus `desktop/src/renderer/src/api/email-types.ts:181` — Felder
+    1:1 uebernommen (`field`/`op`/`value`/`action_type`/`action_target`), gegen den FE-Typ und den
+    MSW-Handler geprueft, nicht geraten. Konsument ist der bereits verdrahtete
+    `modules/mails/RulesDialog.tsx` (`useEmailRules`/`useCreateRule`/`useDeleteRule`/
+    `useApplyRules`).
+  - **WIEDERVERWENDUNGS-ENTSCHEIDUNG (von der Unit ausdruecklich verlangt):**
+    - `internal/automation/condition` **wird wiederverwendet**. `Evaluator.Evaluate` mit
+      `ConditionConfig{Mode: simple, Simple: &Condition{Field, Operator, Value}}` deckt das
+      Regel-Matching vollstaendig ab, und `OpContains` ist bereits
+      `strings.Contains(ToLower(field), ToLower(needle))` — bit-genau die Semantik des FE-Mocks
+      (`email-store.ts:569 ruleMatches`). Es entsteht KEIN zweiter Matcher im Mail-Modul. Die
+      DB-CHECKs auf `field`/`op` sind bewusst CHECK statt Enum-Typ: der Evaluator kennt schon 15
+      Operatoren, das Aufbohren ist damit ein reines ALTER ohne Service-Koordination.
+    - `internal/automation/action` **wird NICHT wiederverwendet**. Das `ActionExecutor`-Interface
+      arbeitet ueber `json.RawMessage`-Configs plus globale `ActionRegistry`-Registrierung und
+      zielt auf modul-uebergreifende Workflow-Schritte; hier gibt es genau zwei fest verdrahtete
+      Aktionen (`label`, `move`) im selben Service auf derselben Tabelle. Der Registry-Umweg waere
+      mehr Code als der direkte Aufruf und wuerde eine Executor-Verdrahtung in `cmd/email`
+      erzwingen, die sonst niemand braucht. Es gibt dort ausserdem nur `email.send`, keine
+      Label-/Move-Aktion, die man haette nutzen koennen.
+  - Migration **000260** (Repo-Kopf war 259): Tabelle `email_rules` mit `tenant_id NOT NULL`
+    (FK auf `tenants`), CHECKs auf `field`/`op`/`action_type` sowie gegen leeren Namen und leeren
+    Suchwert (ein leerer Needle matcht JEDE Nachricht), Index `(tenant_id, created_at, id)`,
+    `CALL enable_tenant_rls('email_rules')`. Up und down lokal gefahren (`260/u`, `260/d`, `260/u`).
+  - `action_target` ist bewusst eine blanke UUID ohne FK: sie zeigt bei `move` auf einen Folder,
+    bei `label` auf ein Label. Eine polymorphe Referenz laesst sich nicht als FK ausdruecken; die
+    Alternative (zwei nullable Spalten + CHECK) haette Integritaet nur fuer die Folder-Haelfte
+    gebracht und eine Shape erzeugt, die der FE nicht nutzt. Stattdessen validiert der Service.
+  - **SICHERHEIT — Move-Ziel wird gegen den Tenant geprueft.** Ohne diese Pruefung koennte eine
+    Regel Nachrichten in den Ordner eines FREMDEN Tenants schieben, und RLS auf `email_messages`
+    faengt das nicht: die Zeile behaelt beim Folder-Wechsel ihre eigene `tenant_id`, die Policy
+    sieht also nichts Verdaechtiges. `FolderBelongsToTenant` laeuft direkt gegen
+    `email_folders.tenant_id` — **Fund beim Bau:** die Spalte ist entgegen der ersten Annahme
+    vorhanden und NOT NULL (Option-B-Retrofit, RLS aktiv), der zuerst gebaute Join ueber
+    `email_accounts` war unnoetig und wurde entfernt.
+  - `email_messages.label_ids UUID[] NOT NULL DEFAULT '{}'` in derselben Migration. **Begruendung,
+    warum das hier und nicht erst in `fe-email-labels` liegt:** `action_type: 'label'` ist die
+    Default-Aktion im FE-Formular (`RulesDialog.tsx:37`), eine Label-Regel haette ohne diese Spalte
+    kein Ziel und `apply` waere fuer den haeufigsten Fall wirkungslos gewesen. Diese Unit legt nur
+    den Speicher an und schreibt ihn; die Label-Stammdaten (`email_labels`) und die READ-Seite
+    (`label_ids` im Proto + in den `message`-SELECTs) bleiben bewusst bei `fe-email-labels` — dort
+    als Vorarbeit-Block in den Backlog-Notes hinterlegt, inklusive des Hinweises, dass die
+    Spaltenliste in `message/postgres_repository.go` an mehreren Stellen steht.
+  - Neues Paket `internal/email/rule/` nach dem Muster von `internal/email/signature/`
+    (errors/repository/postgres_repository/service). Thick service: Validierung, Merge-Semantik
+    des Patches und die gesamte Apply-Logik liegen in `service.go`; das Repository ist reine
+    Persistenz, der gRPC-Handler mappt nur.
+  - PATCH ist echtes Partial-Update (`optional`-Felder im Proto -> `*string` in `RuleInput`).
+    Validiert wird immer die GEMERGTE Regel, nie der Patch allein — sonst koennte man
+    `action_type` auf `move` schalten und die Label-UUID als Ordner-Ziel stehen lassen. Dafuer gibt
+    es einen eigenen Test.
+  - `apply`-Grenze: `applyScanLimit = 2000`, neueste zuerst, Papierkorb ausgenommen, mit
+    `lean:`-Marker und Upgrade-Trigger ("Background-Job mit Cursor, sobald ein Postfach das
+    regelmaessig reisst"). Die Antwort traegt neben `affected` auch `scanned`, damit "nichts
+    gematcht" von "das Limit hat den Lauf abgeschnitten" unterscheidbar bleibt.
+  - Regel-Semantik bewusst identisch zum FE-Mock gehalten (damit die Umstellung vom Mock aufs
+    Backend das sichtbare Verhalten nicht aendert): Regeln in Anlage-Reihenfolge, Labels
+    akkumulieren, ein spaeterer `move` ueberschreibt einen frueheren, `affected` zaehlt GEAENDERTE
+    NACHRICHTEN (nicht Treffer) und ein zweiter Lauf ist damit idempotent. Der `from`-Heuhaufen
+    ist `from_name + " " + from_email`, weil der FE nur ein einziges "Absender"-Feld anbietet.
+  - **WIRE-SHAPE-FALLE (zweimal umschifft, beide Male protojson):**
+    (a) `GET /rules` geht ueber `response.ProtoListWrapped(..., "rules", ...)`, damit eine leere
+        Regelmenge als `{"rules": []}` und nicht als `{}` rausgeht.
+    (b) `POST /rules/apply` baut die Antwort EXPLIZIT als Map. `response.Proto` haette bei
+        `affected == 0` wegen `EmitUnpopulated:false` ein blankes `{}` geliefert, der FE liest
+        aber `res.affected` und haette `undefined` in den ICU-Plural gereicht
+        (`toast.success(t('mails.rules.applied', {count: res.affected}))`).
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (`golangci-lint`, **0 issues**) |
+  test ok mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `./internal/email/... ./internal/gateway/ ./internal/server/... ./internal/models/...` alle `ok`;
+  die vier `TestRepository_*`-DB-Tests explizit mit `-v` gegengeprueft, dass sie PASS und nicht
+  SKIP melden. `TestOpenAPIRouteDrift` gruen. `npx @apidevtools/swagger-cli validate` gruen
+  (identisch zum CI-Job `openapi-validate`).
+  gofmt: die vier von mir angefassten Bestandsdateien (`route_email.go`, `email_grpc.go`,
+  `models/email.go`, `cmd/email/main.go`) meldet `gofmt -l` als unformatiert — das ist der lokale
+  CRLF-Zustand (`core.autocrlf=true`), nicht meine Aenderung: voellig unangetastete Nachbardateien
+  (`internal/email/signature/*`, `message/service.go`, `server/crm_grpc.go`) melden dasselbe. Meine
+  vier NEUEN Dateien unter `internal/email/rule/` sind sauber.
+  migration: 000260 up/down/up lokal gruen. rls-smoke auf `email_rules` als `kmuhub_app`: Tenant A
+  sieht 1 Zeile (die eigene), Tenant B sieht 1 Zeile (die eigene) — **keine 0/0-Nullmessung**;
+  Cross-Tenant-INSERT scheitert mit `new row violates row-level security policy`,
+  Cross-Tenant-UPDATE trifft `UPDATE 0`. Testzeilen danach geloescht (`SELECT count(*)` = 0).
+- tests: 11 Service-Unit-Tests (Validierung inkl. 7 Ablehnungsfaelle, Partial-Update-Merge,
+  Fremd-Tenant = NotFound, Apply-Semantik: Label+Move, Idempotenz, Akkumulation, Last-Move-Wins,
+  Scan-Limit), 4 DB-Tests (`postgres_repository_test.go`, eigene frisch geminzte Tenants statt
+  `TenantA`/`TenantB` — die Fixtures laufen in `UNIQUE(user_id)` auf `email_accounts` und
+  `UNIQUE(account_id, imap_name)` auf `email_folders`, geteilte Konstanten kollidieren dort unter
+  `t.Parallel()`), 12 Gateway-Guard-Faelle plus ein Routing-Test, dass `/rules/apply` nicht von der
+  `{id}`-Route verschluckt wird.
+- offen:
+  - **Der MSW-Mock bleibt aktiv** (`mocks/handlers/email.ts`) — die FE-Umstellung auf das echte
+    Backend ist nicht Teil dieser Backend-Unit. Beim Umschalten faellt auf: die Mock-Seeds nutzen
+    IDs wie `lbl-rechnung`/`rule-1`, das Backend verlangt echte UUIDs fuer `action_target` (400 bei
+    allem anderen). Das ist Absicht, aber der Mock-Datensatz ist so nicht 1:1 uebertragbar.
+  - `label`-Ziele werden NICHT auf Existenz geprueft (`lean:`-Marker in `service.go`), weil es
+    `email_labels` noch nicht gibt. Trigger steht in den Notes von `fe-email-labels`.
+  - Fund im Bestand, ausserhalb dieser Unit: `message.Repository.MoveToFolder(ctx, id, folderID)`
+    und `UpdateFlags`/`Delete` tragen **kein** `tenantID`-Argument — der Schutz haengt dort allein
+    an RLS. Nicht angefasst (Scope), aber ein Kandidat fuer eine eigene Haertungs-Unit; die neuen
+    Rule-Schreibpfade sind bewusst explizit tenant-gescoped gebaut.
+  - Naechste Unit laut Reihenfolge: `fe-email-labels` (Block E, deps: [fe-email-rules], model:
+    sonnet) — die Vorarbeit-Punkte (a)-(c) stehen jetzt in deren Backlog-Notes.

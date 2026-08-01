@@ -1434,7 +1434,7 @@ units:
     service: mails
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       E-Mail-Regeln: `GET/POST/PATCH/DELETE /api/v1/email/rules` plus
       `POST /api/v1/email/rules/apply` (Regeln auf bestehende Nachrichten anwenden).
@@ -1466,8 +1466,29 @@ units:
     notes: >
       Der inbox-Service hat bereits Tags (AddTag/RemoveTag aus Welle 8). Erst pruefen, ob Labels
       dasselbe Konzept sind — wenn ja, den Bestand nutzen statt einer zweiten Taxonomie.
+      KORREKTUR dazu (Fund aus `fe-email-rules`, 2026-08-02): `inbox_messages.tags TEXT[]` gehoert
+      dem inbox-Service (unified Inbox, Migration 000047) und ist eine ANDERE Tabelle als
+      `email_messages` (email-Service, Migration 000041). Das ist dasselbe *Muster*, aber nicht
+      dieselben Daten — die Mail-Labels koennen den inbox-Tag-Bestand nicht mitbenutzen.
       Unique-Index auf Labelname muss PRO TENANT sein, nicht global (der Fehler ist in diesem Repo
       real passiert, siehe Migration 000255).
+
+      VORARBEIT AUS `fe-email-rules` (2026-08-02), drei Punkte die dir Arbeit sparen:
+      (a) DIE ZUORDNUNGS-SPALTE EXISTIERT SCHON: `email_messages.label_ids UUID[] NOT NULL
+          DEFAULT '{}'` (Migration 000260). Sie wurde dort angelegt, weil eine Regel mit
+          `action_type='label'` sonst kein Ziel gehabt haette. `ApplyEmailRules` SCHREIBT sie
+          bereits. Keine zweite Zuordnungstabelle danebenbauen.
+      (b) DIE READ-SEITE FEHLT BEWUSST: weder `EmailMessageInfo` im Proto noch die SELECTs in
+          `internal/email/message/postgres_repository.go` kennen `label_ids`. Der FE-Typ hat das
+          Feld (`email-types.ts:143 label_ids?: string[]`), also ist das der erste Schritt dieser
+          Unit — sonst bleibt die von den Regeln gesetzte Zuordnung fuer den Nutzer unsichtbar.
+          Achtung: die Spaltenliste steht in `postgres_repository.go` mehrfach (Create/GetByID/
+          ListByFolder/ListByThread/Search/...), alle Stellen anfassen.
+      (c) Der Zuordnungs-Endpunkt ist FE-seitig schon spezifiziert: `email-client.ts:330` schickt
+          `body: {label_ids: [...]}` — also ein Ersetzen der ganzen Menge, kein add/remove-Paar.
+          Der Rule-Service validiert Label-Targets NICHT (es gab noch keine Tabelle, `lean:`-Marker
+          in `internal/email/rule/service.go`) — mit `email_labels` die gleiche
+          `FolderBelongsToTenant`-Existenzpruefung fuer Label-Targets nachziehen.
     done_when:
       - CRUD + Zuordnung, tenant-gescoped
       - Unique pro Tenant, nicht global

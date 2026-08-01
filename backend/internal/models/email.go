@@ -153,3 +153,45 @@ type EmailSignature struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+// Email rule field, operator and action values. They match the frontend's
+// EmailRuleInfo unions and the CHECK constraints of migration 000260.
+const (
+	EmailRuleFieldFrom    = "from"
+	EmailRuleFieldSubject = "subject"
+
+	EmailRuleOpContains = "contains"
+
+	EmailRuleActionLabel = "label"
+	EmailRuleActionMove  = "move"
+)
+
+// EmailRule is one stored "if <field> <op> <value> then <action>" rule of the
+// mails module, evaluated against a message by the shared automation condition
+// evaluator.
+type EmailRule struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Name     string    `json:"name"`
+	Field    string    `json:"field"`
+	Op       string    `json:"op"`
+	Value    string    `json:"value"`
+	// ActionType is EmailRuleActionLabel or EmailRuleActionMove.
+	ActionType string `json:"action_type"`
+	// ActionTarget is a label id (label action) or folder id (move action).
+	ActionTarget uuid.UUID `json:"action_target"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// EmailRuleCandidate is the slim projection of a message that rule evaluation
+// needs: the two matchable fields plus the two mutable targets. Loading whole
+// messages (bodies included) for a bulk apply would be wasteful.
+type EmailRuleCandidate struct {
+	ID        uuid.UUID
+	FromName  string
+	FromEmail string
+	Subject   string
+	FolderID  uuid.UUID
+	LabelIDs  []uuid.UUID
+}

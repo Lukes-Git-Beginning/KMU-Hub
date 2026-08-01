@@ -19759,6 +19759,136 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/email/rules:
+    get:
+      summary: List the tenant's email rules
+      tags: [mails]
+      operationId: listEmailRules
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Rule list in application order (oldest first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailRulesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an email rule
+      tags: [mails]
+      operationId: createEmailRule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailRuleRequest"
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailRuleEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Move action target is not a folder of this tenant
+
+  /api/v1/email/rules/{id}:
+    patch:
+      summary: Update an email rule
+      description: >
+        Partial update: omitted fields keep their stored value. The merged rule
+        is validated as a whole, so a patch cannot produce a combination a
+        create would have rejected.
+      tags: [mails]
+      operationId: updateEmailRule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailRuleRequest"
+      responses:
+        "200":
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailRuleEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an email rule
+      tags: [mails]
+      operationId: deleteEmailRule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Rule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/rules/apply:
+    post:
+      summary: Apply all rules to the tenant's stored messages
+      description: >
+        Runs every rule over the tenant's non-trashed messages, newest first,
+        capped at 2000 messages per run. Rules apply in creation order and
+        accumulate: labels add up, a later move overrides an earlier one.
+      tags: [mails]
+      operationId: applyEmailRules
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Apply result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplyEmailRulesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/email/links/message/{messageId}:
     get:
       summary: Get CRM contact links for a message
@@ -37435,6 +37565,103 @@ components:
       properties:
         message:
           $ref: "#/components/schemas/EmailMessageInfo"
+
+    EmailRuleInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        field:
+          type: string
+          enum: [from, subject]
+        op:
+          type: string
+          enum: [contains]
+        value:
+          type: string
+        action_type:
+          type: string
+          enum: [label, move]
+        action_target:
+          type: string
+          format: uuid
+          description: >
+            Label id when action_type is "label", folder id when it is "move".
+
+    ListEmailRulesResponse:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailRuleInfo"
+
+    EmailRuleEnvelope:
+      type: object
+      properties:
+        rule:
+          $ref: "#/components/schemas/EmailRuleInfo"
+
+    CreateEmailRuleRequest:
+      type: object
+      required: [name, field, value, action_type, action_target]
+      properties:
+        name:
+          type: string
+        field:
+          type: string
+          enum: [from, subject]
+        op:
+          type: string
+          enum: [contains]
+          default: contains
+        value:
+          type: string
+        action_type:
+          type: string
+          enum: [label, move]
+        action_target:
+          type: string
+          format: uuid
+
+    UpdateEmailRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        field:
+          type: string
+          enum: [from, subject]
+          nullable: true
+        op:
+          type: string
+          enum: [contains]
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        action_type:
+          type: string
+          enum: [label, move]
+          nullable: true
+        action_target:
+          type: string
+          format: uuid
+          nullable: true
+
+    ApplyEmailRulesResponse:
+      type: object
+      properties:
+        affected:
+          type: integer
+          description: Messages that actually changed, not the number of rule matches.
+        scanned:
+          type: integer
+          description: Messages inspected, capped by the per-run scan limit.
 
     EmailSignatureInfo:
       type: object
