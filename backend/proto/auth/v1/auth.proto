@@ -18,6 +18,8 @@ service AuthService {
   rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
   rpc RemoveRole(RemoveRoleRequest) returns (RemoveRoleResponse);
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+  // Resolves the fine-grained capability keys of a user across all assigned roles.
+  rpc GetEffectivePermissions(GetEffectivePermissionsRequest) returns (GetEffectivePermissionsResponse);
 
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
@@ -158,6 +160,34 @@ message CheckPermissionRequest {
 
 message CheckPermissionResponse {
   bool allowed = 1;
+}
+
+// Empty user_id means "the caller", resolved from the request context.
+message GetEffectivePermissionsRequest {
+  string user_id = 1;
+}
+
+// A role assigned to the user. Preset roles carry tenant_id IS NULL and are
+// reported as is_system.
+message EffectiveRole {
+  string id = 1;
+  string name = 2;
+  bool is_system = 3;
+  string color = 4;
+}
+
+// A resolved capability. key is the fine-grained "module:subject:action" form,
+// scope is the widest scope granted across all contributing roles
+// (own < team < all), sources lists the names of every contributing role.
+message EffectiveCapability {
+  string key = 1;
+  string scope = 2;
+  repeated string sources = 3;
+}
+
+message GetEffectivePermissionsResponse {
+  repeated EffectiveRole roles = 1;
+  repeated EffectiveCapability capabilities = 2;
 }
 
 message UserInfo {

@@ -29,7 +29,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Neuer RPC `GetEffectivePermissions` am auth-Service in
       `backend/proto/auth/v1/auth.proto`, plus die drei Messages:

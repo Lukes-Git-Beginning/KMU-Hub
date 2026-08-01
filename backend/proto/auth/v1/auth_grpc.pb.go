@@ -30,6 +30,7 @@ const (
 	AuthService_AssignRole_FullMethodName              = "/auth.v1.AuthService/AssignRole"
 	AuthService_RemoveRole_FullMethodName              = "/auth.v1.AuthService/RemoveRole"
 	AuthService_CheckPermission_FullMethodName         = "/auth.v1.AuthService/CheckPermission"
+	AuthService_GetEffectivePermissions_FullMethodName = "/auth.v1.AuthService/GetEffectivePermissions"
 	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
 	AuthService_UpdateProfile_FullMethodName           = "/auth.v1.AuthService/UpdateProfile"
 	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
@@ -68,6 +69,8 @@ type AuthServiceClient interface {
 	AssignRole(ctx context.Context, in *AssignRoleRequest, opts ...grpc.CallOption) (*AssignRoleResponse, error)
 	RemoveRole(ctx context.Context, in *RemoveRoleRequest, opts ...grpc.CallOption) (*RemoveRoleResponse, error)
 	CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error)
+	// Resolves the fine-grained capability keys of a user across all assigned roles.
+	GetEffectivePermissions(ctx context.Context, in *GetEffectivePermissionsRequest, opts ...grpc.CallOption) (*GetEffectivePermissionsResponse, error)
 	// Profile & Password
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileResponse, error)
@@ -210,6 +213,16 @@ func (c *authServiceClient) CheckPermission(ctx context.Context, in *CheckPermis
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CheckPermissionResponse)
 	err := c.cc.Invoke(ctx, AuthService_CheckPermission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetEffectivePermissions(ctx context.Context, in *GetEffectivePermissionsRequest, opts ...grpc.CallOption) (*GetEffectivePermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEffectivePermissionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetEffectivePermissions_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +454,8 @@ type AuthServiceServer interface {
 	AssignRole(context.Context, *AssignRoleRequest) (*AssignRoleResponse, error)
 	RemoveRole(context.Context, *RemoveRoleRequest) (*RemoveRoleResponse, error)
 	CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error)
+	// Resolves the fine-grained capability keys of a user across all assigned roles.
+	GetEffectivePermissions(context.Context, *GetEffectivePermissionsRequest) (*GetEffectivePermissionsResponse, error)
 	// Profile & Password
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileResponse, error)
@@ -511,6 +526,9 @@ func (UnimplementedAuthServiceServer) RemoveRole(context.Context, *RemoveRoleReq
 }
 func (UnimplementedAuthServiceServer) CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckPermission not implemented")
+}
+func (UnimplementedAuthServiceServer) GetEffectivePermissions(context.Context, *GetEffectivePermissionsRequest) (*GetEffectivePermissionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetEffectivePermissions not implemented")
 }
 func (UnimplementedAuthServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
@@ -790,6 +808,24 @@ func _AuthService_CheckPermission_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).CheckPermission(ctx, req.(*CheckPermissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetEffectivePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEffectivePermissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetEffectivePermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetEffectivePermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetEffectivePermissions(ctx, req.(*GetEffectivePermissionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1222,6 +1258,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckPermission",
 			Handler:    _AuthService_CheckPermission_Handler,
+		},
+		{
+			MethodName: "GetEffectivePermissions",
+			Handler:    _AuthService_GetEffectivePermissions_Handler,
 		},
 		{
 			MethodName: "GetProfile",
