@@ -184,3 +184,69 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   filtern; in `permissions` liegen jetzt 456 Zeilen, davon 102 grobe Alt-Keys (`resource` ohne
   Doppelpunkt) — `resource LIKE '%:%'` trennt beide Welten zuverlaessig (geprueft: `name` ist in
   allen 456 Zeilen exakt `resource || ':' || action`).
+
+## Iteration 4 — p1a-resolver — done — 2026-08-01 16:04
+
+- commit: <sha>
+- gebaut: die Aufloesung der feinen Capabilities, Repo-Query + Service-Union.
+  **Repo** (`internal/auth/postgres_repository.go`): `GetEffectivePermissions(ctx, userID)` liefert
+  `[]EffectiveGrantRow` — eine Zeile je (Rolle × feine Capability). Join
+  `user_roles -> roles LEFT JOIN (role_permissions JOIN permissions WHERE p.resource LIKE '%:%')`.
+  Der Filter steckt in der Subquery, nicht in der WHERE-Klausel: sonst faellt eine Rolle, die
+  ausschliesslich grobe Alt-Grants haelt, ganz aus dem Ergebnis und taucht in `roles[]` nicht auf,
+  obwohl der User sie nachweislich hat. Mit dem LEFT JOIN kommt sie mit leerem `Key` durch.
+  `p.resource LIKE '%:%'` trennt die beiden Permission-Welten, die seit 000256 koexistieren
+  (feiner Katalog `work:task:edit` -> resource `work:task`, grobe Alt-Keys `files:write` ->
+  resource `files`); der Vorgaenger-Journaleintrag hatte das als tragfaehig verifiziert (`name` ist
+  in allen 456 Zeilen exakt `resource || ':' || action`).
+  **Service** (`internal/auth/effective_permissions.go`, neue Datei): Union nach Regel
+  `own < team < all`, breitester Scope gewinnt, `sources` kumuliert **alle** beitragenden Rollen —
+  auch die, die den Scope-Vergleich verloren haben. Ausgabe deterministisch sortiert
+  (Capabilities nach Key, Rollen nach Name, Sources alphabetisch), beide Slices nie nil.
+  Unbekannter Scope faellt auf `own` zurueck statt durchgereicht zu werden: der CHECK auf
+  `role_permissions.scope` macht das heute unerreichbar, aber die Fehlerrichtung "zu viel gewaehrt"
+  ist die einzige, die man sich hier nicht leisten kann.
+  `GetUserRoles`/`GetUserPermissions`/`UserHasPermission` unangetastet — Login und die 812
+  bestehenden Gates haengen daran.
+- gate: build ok (`./internal/auth/... ./internal/server/... ./internal/gateway/...`) | vet ok |
+  lint ok (0 issues, auth + server) | test ok: `./internal/auth/...` 7,1 s und `./internal/server/...`
+  0,9 s und `./internal/gateway/` 0,3 s, alle mit `DATABASE_URL` gegen `kmuhub_app` gesetzt.
+  Die 11 neuen Tests einzeln nachgefahren, DB-Faelle mit 0,06–0,15 s Laufzeit — also real gelaufen
+  und nicht per `SkipIfNoDB` uebersprungen. migration n.a. (kein Schema-Eingriff).
+  **RLS-relevant:** zwei der DB-Tests pruefen genau die Policy-Asymmetrie aus 000256 — ein `member`
+  eines zweiten Tenants loest zu einer nicht-leeren Menge auf (Presets mit `tenant_id IS NULL`
+  bleiben lesbar), und eine tenant-eigene Custom-Rolle mit `fuhrpark:gps:read` ist fuer ihren
+  Besitzer sichtbar, unter fremdem Tenant-Kontext dagegen weder in `roles[]` noch in den
+  Capabilities. Der Fremd-Fall assertet zusaetzlich, dass die Presets dort **nicht** verschwunden
+  sind — zwei Nullen waeren ein kaputter Test statt eines Beweises.
+- tests: 5 Unit-Tests ueber `mockRepository` (breitester Scope gewinnt in beiden Reihenfolgen,
+  sources kumuliert, unbekannter Scope, Rolle ohne feine Grants bleibt gelistet, leeres Ergebnis
+  ist `[]` und nicht nil, Sortierung) + 5 DB-Tests gegen die echten Seeds
+  (`effective_permissions_db_test.go`, package `auth_test`). Zahlen aus der laufenden DB:
+  extern **11** Keys exakt, admin **354** (Assertion `>250`, plus: jeder Key ist 3-segmentig, kein
+  grober Alt-Key leakt), member **117**; `member+extern` loest auf **117** auf, also genau die
+  member-Menge, und die drei Keys, die extern enger fuehrt (`documents:file:read` team,
+  `work:task:read` team, `work:task:comment` own), stehen auf `all` mit `sources = [extern, member]`.
+  Eigene Tenants (`e4fec700-…-0001/-0002`), nicht die geteilten `TenantA/TenantB` — die Kollision
+  aus Nachtlauf 1 ist so ausgeschlossen.
+  `user_roles` wird per direktem INSERT gesetzt, nicht ueber `AssignRole`: dessen
+  `WHERE r.name = $2` ist ohne Tenant-Bedingung (bekannter Fund aus Iteration 3, Unit
+  `g-user-roles-rls`) und wuerde den Test an einer Stelle festnageln, die sich in Welle 1b aendert.
+- verify vorgaenger: `214d2931` (p1a-migration) — Dateiliste sauber und deckungsgleich mit der Unit
+  (2 Migrationsdateien, Generator, ARCHITECTURE.md, BACKLOG, JOURNAL; kein Go, kein Proto, keine
+  Route), Fehlerklassen 1/3/4 damit n.a. Die im Journal behaupteten Zahlen gegen die laufende DB
+  nachgezaehlt: 456 permissions (354 davon feine), 8 Rollen, 1179 Grants, 40 mit Scope != all,
+  12 `user_roles` — stimmt. Die RLS-Form der Migration gegengelesen: Read-Policy mit
+  `tenant_id IS NULL OR …`, Write-Policy ohne die NULL-Bedingung; die Begruendung (DELETE wertet nur
+  USING aus) traegt. Kein Fund.
+- offen: nichts blockierend. Zwei Beobachtungen fuer spaeter:
+  (1) Der Fremd-Tenant-Test belegt nebenbei, dass ein fremder Tenant-Kontext die **Preset**-Rollen
+  eines fremden Users aufloesen kann — die Custom-Rollen sind dicht, aber der Backstop fehlt, weil
+  `user_roles` weder `tenant_id` noch RLS hat. Genau die schon angelegte Unit `g-user-roles-rls`;
+  in der Praxis heute nicht erreichbar, weil jeder Aufrufer die `user_id` aus dem eigenen JWT nimmt.
+  Sobald `p1a-gateway` die Route `GET /admin/users/{id}/permissions` baut, wird daraus ein echter
+  Pfad mit fremder `user_id` — dort MUSS der Handler zusaetzlich pruefen, dass der Ziel-User im
+  eigenen Tenant liegt (`GetUserByID` steht unter der users-RLS und leistet genau das).
+  Das gehoert in die Notes von `p1a-gateway`, bevor die Route gebaut wird.
+  (2) `EffectiveGrantRow` liegt bewusst im Repo-Vertrag (Rohzeilen), die Faltung im Service — falls
+  `p1a-grpc` in Versuchung kommt, die Union im Handler zu wiederholen: nicht tun, sie ist fertig.

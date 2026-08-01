@@ -27,6 +27,9 @@ type Repository interface {
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 	UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	// GetEffectivePermissions returns one row per (role, fine-grained
+	// capability) pair; the union across roles happens in the service.
+	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error)
 
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.

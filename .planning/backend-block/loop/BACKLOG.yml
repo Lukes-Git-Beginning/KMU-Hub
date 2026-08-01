@@ -141,7 +141,7 @@ units:
     service: auth
     model: opus
     deps: [p1a-migration]
-    status: todo
+    status: done
     scope: >
       Repository-Methode `GetEffectivePermissions(ctx, userID)` in `internal/auth/postgres_repository.go`
       (JOIN ueber permissions/role_permissions/roles/user_roles, liefert je Zeile
@@ -179,6 +179,16 @@ units:
       Muster von den Nachbar-RPCs in derselben Datei abschauen. Der bereits existierende
       `CheckPermission`-RPC (`server/grpc.go:203`) ist die naechste Verwandtschaft.
       Kein eigener DB-Zugriff im Handler — nur Service-Aufruf und Mapping.
+      Fertig aus `p1a-resolver` (nichts davon neu bauen):
+      `svc.GetEffectivePermissions(ctx, uuid.UUID) (*auth.EffectivePermissions, error)` mit
+      `EffectivePermissions{Roles []EffectiveRole, Capabilities []EffectiveCapability}`,
+      `EffectiveRole{ID uuid.UUID, Name, Color string, IsSystem bool}`,
+      `EffectiveCapability{Key, Scope string, Sources []string}` — Reihenfolge ist bereits
+      deterministisch (Rollen nach Name, Capabilities nach Key, Sources sortiert), also im Handler
+      nicht nachsortieren. Beide Slices sind nie nil.
+      Leeres `user_id` im Request -> `middleware.GetUserID(ctx)`; ein nicht parsebares `user_id` ist
+      `InvalidArgument`, NICHT stillschweigend uuid.Nil (das laeuft sonst als leere Rechte-Antwort
+      durch und ist von "User hat keine Rollen" nicht zu unterscheiden).
     done_when:
       - RPC implementiert, kein Unimplemented mehr
       - Test gegen den Service
@@ -217,6 +227,12 @@ units:
       Kein neuer `RequirePermission`-Guard fuer `/auth/me/permissions` — jeder eingeloggte User darf
       seine eigenen Rechte lesen. Fuer die admin-Route einen BESTEHENDEN Guard verwenden
       (`RequireRole("admin")` wie bei den Nachbar-Routen), damit kein Seed noetig wird.
+      TENANT-PRUEFUNG AUF DER ADMIN-ROUTE ist Pflicht (Fund aus `p1a-resolver`): `user_roles` hat
+      weder `tenant_id` noch RLS, der Resolver filtert also nur die Rollen, nicht die Zugehoerigkeit
+      des Ziel-Users. Mit fremder `{id}` liefert er die Preset-Rollen eines fremden Tenant-Users
+      aus. Der Handler muss den Ziel-User zuerst ueber `GetUserByID` holen — die users-RLS wirft
+      einen fremden Tenant dort raus, das ergibt sauber 404. Ohne diesen Schritt ist die Route ein
+      tenant-uebergreifendes Leseleck.
       `go test ./internal/gateway/` ist Pflicht (TestOpenAPIRouteDrift).
     done_when:
       - Beide Routen liefern die Shape oben

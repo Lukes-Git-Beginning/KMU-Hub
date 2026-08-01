@@ -196,6 +196,10 @@ func (m *authMockRepo) GetUserPermissions(_ context.Context, userID uuid.UUID) (
 	return m.userPerms[userID], nil
 }
 
+func (m *authMockRepo) GetEffectivePermissions(_ context.Context, _ uuid.UUID) ([]auth.EffectiveGrantRow, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

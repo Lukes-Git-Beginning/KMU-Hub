@@ -25,6 +25,7 @@ type mockRepository struct {
 	refreshTokens       map[string]*models.RefreshToken // keyed by token_hash
 	userRoles           map[uuid.UUID][]string
 	userPerms           map[uuid.UUID][]string
+	effectiveGrants     map[uuid.UUID][]EffectiveGrantRow
 	invitations         map[uuid.UUID]*models.Invitation
 	invByToken          map[string]*models.Invitation
 	sessions            []*models.UserSession
@@ -44,6 +45,7 @@ func newMockRepository() *mockRepository {
 		refreshTokens:       make(map[string]*models.RefreshToken),
 		userRoles:           make(map[uuid.UUID][]string),
 		userPerms:           make(map[uuid.UUID][]string),
+		effectiveGrants:     make(map[uuid.UUID][]EffectiveGrantRow),
 		invitations:         make(map[uuid.UUID]*models.Invitation),
 		invByToken:          make(map[string]*models.Invitation),
 		sessions:            nil,
@@ -159,6 +161,10 @@ func (m *mockRepository) GetUserRoles(_ context.Context, userID uuid.UUID) ([]st
 
 func (m *mockRepository) GetUserPermissions(_ context.Context, userID uuid.UUID) ([]string, error) {
 	return m.userPerms[userID], nil
+}
+
+func (m *mockRepository) GetEffectivePermissions(_ context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
+	return m.effectiveGrants[userID], nil
 }
 
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {

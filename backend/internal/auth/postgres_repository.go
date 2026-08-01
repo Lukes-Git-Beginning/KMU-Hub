@@ -213,6 +213,47 @@ func (r *PostgresRepository) GetUserPermissions(ctx context.Context, userID uuid
 	return permissions, rows.Err()
 }
 
+// GetEffectivePermissions returns the raw (role × fine-grained grant) rows a
+// user holds. A role without a single fine-grained grant still produces one row
+// with empty Key/Scope, so it survives into the roles list — dropping it would
+// hide a role the user demonstrably has.
+//
+// The `p.resource LIKE '%:%'` filter separates the two permission worlds that
+// coexist since migration 000256: the three-segment catalogue keys
+// ("work:task:edit" → resource "work:task") belong in this response, the coarse
+// legacy keys ("files:write" → resource "files") are the currency of the
+// existing RequirePermission gates and do not.
+func (r *PostgresRepository) GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.name, r.color, (r.tenant_id IS NULL) AS is_system,
+		        COALESCE(g.key, ''), COALESCE(g.scope, '')
+		 FROM user_roles ur
+		 JOIN roles r ON r.id = ur.role_id
+		 LEFT JOIN (
+		     SELECT rp.role_id, p.name AS key, rp.scope
+		     FROM role_permissions rp
+		     JOIN permissions p ON p.id = rp.permission_id
+		     WHERE p.resource LIKE '%:%'
+		 ) g ON g.role_id = r.id
+		 WHERE ur.user_id = $1
+		 ORDER BY r.name, g.key`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var grants []EffectiveGrantRow
+	for rows.Next() {
+		var g EffectiveGrantRow
+		if err := rows.Scan(&g.RoleID, &g.RoleName, &g.RoleColor, &g.RoleIsSystem, &g.Key, &g.Scope); err != nil {
+			return nil, err
+		}
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
