@@ -1155,3 +1155,99 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (5) TOKEN-GROESSE bleibt unveraendert offen, waechst durch diese Unit nicht (keine neuen
       Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards).
   (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht.
+
+## Iteration 19 — p2c-inventar-einkauf-produktion-vertraege — done — 2026-08-01 (Nachtlauf 3)
+- commit: (dieser Commit)
+- gebaut: `RequirePermissionAny(alt, neu)` additiv auf inventar-, einkauf-, produktion- und
+  vertraege-Routen. Alle vier Module hatten aus fruehren Migrationen (000084/000185/000241
+  inventar, 000086/000209 einkauf, 000088/000191 produktion, 000090 vertraege) bereits
+  granulare `modul:subjekt:read/write`-Guards statt eines einzigen groben Legacy-Keys — anders
+  als bei wiki/zeiterfassung/helpdesk (Iteration 15/16) oder crm/finance (Iteration 17/18). Reads
+  entsprechen deshalb schon 1:1 dem Katalog-Key und blieben unveraendert; getightened wurden nur
+  die Writes, wo der Katalog eine feinere Aufteilung als das bestehende "write" vorschreibt.
+  Per SQL gegen die laufende DB verifiziert (nicht geraten): saemtliche 30 referenzierten
+  Katalog-Keys der vier Module existieren bereits in `permissions` (aus `p1a-migration`, die
+  den gesamten FE-Katalog seedet) — keine eigene Migration noetig.
+  inventar (`route_inventar.go`): `item:create/edit/delete` additiv auf das bestehende
+  `item:write`; `movement:adjust` (AdjustStock) getrennt von `movement:create` (RecordMovement) —
+  beide liefen bisher unter demselben `item:write` bzw. `movement:write`, aber das FE gated die
+  "Korrektur"-Bewegungsart per eigenem Fine-Switch (`InventarPage.tsx:403`, Kommentar "corrections
+  rewrite stock without a movement reason"); `attachment:manage` auf Attachment-Create+Delete;
+  `inventur:create` auf CreateInventurSession; `inventur:count` auf BEIDE Endpoints, die
+  `InventurSessionCard` gated (Status-Patch fuer die Zaehlen-Uebergaenge UND Counts-Upsert);
+  `inventur:book` auf BookInventurDifferences. `export:run` hat KEINEN Backend-Anker — alle drei
+  FE-Export-Buttons (Artikel/Bewegungen/Inventur) bauen die CSV client-seitig aus bereits
+  geladenen Daten (`inventar-export.ts`), `useStockReport`/`getExportUrl` sind tote Hooks;
+  `GetStockReport`/`ExportInventory`-Routen bleiben deshalb unveraendert. Legacy-only (kein
+  FE-Aufrufer, verifiziert per Grep): TransferStock, alle vier Warning-Handler (Katalog hat
+  gar kein `inventar:warning:*`), DeleteInventurSession, Location-Writes (Katalog hat nur
+  `location:read`).
+  einkauf (`route_einkauf.go`/`route_einkauf_extended.go`): `po:create/edit/delete` additiv;
+  `po:send` UND `po:approve` oeffnen denselben Submit-Endpoint (OrderDetailModal ruft
+  `submitPOMutation` sowohl fuers "Senden"-Button als auch den Genehmigungs-Banner — dritte
+  Instanz des "zwei FE-Aktionen, ein Endpoint"-Musters aus Iteration 18); `po:cancel`;
+  `po:receive` oeffnet BEIDE Endpoints, die `WareneingangDialog` nutzt (ReceiveGoods +
+  PartialReceive); `supplier:create/edit`; `supplier:deactivate` auf DeleteSupplier (FE-Label
+  "Deaktivieren" ist ein Soft-Delete-Wortlaut ueber dem echten DELETE-Call, per Code verifiziert);
+  `rating:create` (Ressourcen-Sprung: legacy war `supplier:write`, Katalog ist `rating:create`,
+  wie bei den crm/finance-Kreuz-Faellen aus Iteration 18); `contract:call` auf CreateContractCall
+  (ebenfalls Ressourcen-Sprung von `contract:write`). Legacy-only: PO-Lines (kein `line`-Subjekt
+  im Katalog), Catalog-CRUD und Framework-Contract-CRUD (Katalog hat nur `catalog:read`/
+  `contract:read`, kein write), Rating-Delete (Hook `useDeleteSupplierRating` existiert, hat aber
+  keinen FE-Aufrufer). `einkauf:export:run` ebenfalls ohne Backend-Anker (PDF-Export in
+  `EinkaufDetailModals.tsx` ist client-seitig via `buildPOPdf`).
+  produktion (`route_produktion.go`/`route_produktion_ext.go`): `order:create/edit/delete/
+  start/complete/cancel` additiv; `bom:create/edit` (BOM-Delete hat keinen FE-Aufrufer);
+  `machine:manage` oeffnet SOWOHL CreateMachine ALS AUCH UpdateMachine (Katalog hat keine
+  separate create/edit-Aufteilung fuer Maschinen, ein einziger Fine-Switch fuer beides, verifiziert
+  gegen `ProduktionPage.tsx` Neu-Button UND `MachineDetailModal`-Statuswechsel); `quality:create`;
+  `workstep:edit` auf UpdateWorkStep (Schritt vorwaerts schalten in `ProduktionDetailModals.tsx`).
+  Legacy-only: Machine Bookings und Production Plans (Katalog kennt beide Subjekte gar nicht),
+  WorkStep-Create/Delete, Machine-Delete, BOM-Delete. `produktion:export:run` wieder ohne
+  Backend-Anker (Laufkarten-PDF client-seitig via `buildOrderPdf`, BOM-CSV via
+  `buildBomItemsCsv`) — durchgaengiges Muster ueber alle drei Module: kein einziges
+  `<modul>:export:run` im Katalog hat je einen Backend-Endpoint gegated, weil jeder Export-Button
+  im FE aus bereits geladenen React-Query-Daten baut statt einen eigenen Endpoint aufzurufen.
+  vertraege (`route_vertraege.go`): `contract:create` additiv; `contract:edit` UND
+  `contract:terminate` oeffnen denselben UpdateContract-Endpoint (Kuendigungsdialog setzt nur
+  `status=terminated` + Grund ueber denselben RPC wie ein normales Edit, viertes Beispiel des
+  Mehrfach-Key-Musters); `contract:delete`. Legacy-only: Parties, Reminders, Export, Signature
+  (Katalog kennt fuer `vertraege` ausschliesslich das `contract`-Subjekt).
+  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`inventarRouter`,
+  `einkaufRouter`, `produktionRouter`, `vertraegeRouter`) und 71 neue Faelle erweitert. Da alle
+  vier Module hinter einem Feature-Flag registrieren (`flags.IsEnabled("modules.<x>")`), brauchten
+  sie — anders als crm/biz — eigene Test-Konstruktoren (`newInventarRoutes` etc. in den jeweiligen
+  `route_<modul>_test.go`, Muster von `newHelpdeskRoutes`/`newWikiRoutes` uebernommen), die den
+  Flag ueber `featureflag.NewRegistry().Load(...)` erzwingen — sonst haette `RegisterRoutes` still
+  gar keine Route registriert und jeder Testfall waere an einem 404 vorbeigelaufen, nicht am Guard.
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
+  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen
+  inkl. 71 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route)
+  und `./internal/middleware/...` gruen, 0 Skips. migration n.a. (alle referenzierten Keys per
+  SQL gegen die laufende DB verifiziert: vorhanden aus fruehen Modul-Migrationen + p1a-migration).
+  openapi n.a. (keine neue Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy
+  angefasst). gofmt: alle sechs geaenderten Route-Dateien von `gofmt -l` gemeldet — Diff-Pruefung
+  (CRLF strippen auf temporaeren Kopien, dann `gofmt -l` erneut) bestaetigt reinen
+  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-18, `core.autocrlf=true`),
+  committeter Inhalt ist LF und gofmt-clean. Testdateien waren bereits LF und wurden nicht
+  gemeldet.
+- verify vorgaenger: `f534ef8e` (p2c-work-documents-crm-finance-2, crm+finance) gegen die acht
+  Fehlerklassen geprueft. Diff: `route_crm.go`/`route_biz.go`/`route_capability_guard_test.go`.
+  Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden durch benannte
+  `RequirePermissionAny(alt, neu)`-Variablen ersetzt (additiv, kein Key verengt), Testfaelle
+  substantiell (76 neue Faelle inkl. Kreuz-Ressourcen- und Mehrfach-Key-Faelle). Kein Proto/
+  Migration/neue Route/Handler-Direktzugriff/Stub in diesem Commit, Fehlerklassen 1/2/3/5/6/7
+  n.a. Kein Fund.
+- offen fuer Luke:
+  (1) `p2c-schichten-fuhrpark-vermietung-rapporte` ist die naechste ziehbare Unit in Block B
+      (deps bereits erfuellt).
+  (2) Durchgaengiger Fund ueber jetzt sieben Module (crm, finance, work, documents, inventar,
+      einkauf, produktion): das `<modul>:export:run`-Fine-Switch-Muster im Katalog hat in KEINEM
+      der drei Industrie-Module (inventar/einkauf/produktion) einen Backend-Endpoint hinter sich —
+      alle Export-Buttons bauen client-seitig aus geladenen Daten. Falls das absichtlich so bleibt
+      (Server-Export nie gebraucht), waere Aufraeumen des toten `useStockReport`-Hooks und der
+      toten `getExportUrl`-Funktion in `inventar-client.ts` ein Kandidat fuer `/lean-debt` — kein
+      Blocker, nur Karteileiche.
+  (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht
+      (keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen).

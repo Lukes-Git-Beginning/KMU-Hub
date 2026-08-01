@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newVertraegeRoutes(registry *ServiceRegistry) *VertraegeRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_VERTRAEGE_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewVertraegeRoutes(registry, flags)
+}
 
 // --- HandleCreateContract ---
 

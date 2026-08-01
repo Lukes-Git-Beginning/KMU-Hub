@@ -47,33 +47,49 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// InventarPage.tsx/ItemDetailModal.tsx actually gate on). Reads already
+		// match the fine key 1:1 (e.g. "inventar:item","read") and stay plain
+		// RequirePermission — nothing to widen there.
+		itemCreate := middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:item", "create"})
+		itemEdit := middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:item", "edit"})
+		itemDelete := middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:item", "delete"})
+		// AdjustStock is the "adjustment" movement type — InventarPage.tsx gates
+		// it with inventar:movement:adjust, a distinct fine switch from recording
+		// a normal in/out/transfer movement.
+		stockAdjust := middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:movement", "adjust"})
+		movementCreate := middleware.RequirePermissionAny([2]string{"inventar:movement", "write"}, [2]string{"inventar:movement", "create"})
+		attachmentManage := middleware.RequirePermissionAny([2]string{"inventar:attachment", "write"}, [2]string{"inventar:attachment", "manage"})
+
 		// Items
 		r.Route("/items", func(r chi.Router) {
 			r.With(middleware.RequirePermission("inventar:item", "read")).Get("/", ir.HandleListItems)
-			r.With(middleware.RequirePermission("inventar:item", "write")).Post("/", ir.HandleCreateItem)
+			r.With(itemCreate).Post("/", ir.HandleCreateItem)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("inventar:item", "read")).Get("/", ir.HandleGetItem)
-				r.With(middleware.RequirePermission("inventar:item", "write")).Patch("/", ir.HandleUpdateItem)
-				r.With(middleware.RequirePermission("inventar:item", "write")).Delete("/", ir.HandleDeleteItem)
+				r.With(itemEdit).Patch("/", ir.HandleUpdateItem)
+				r.With(itemDelete).Delete("/", ir.HandleDeleteItem)
 
-				r.With(middleware.RequirePermission("inventar:item", "write")).Post("/adjust", ir.HandleAdjustStock)
+				r.With(stockAdjust).Post("/adjust", ir.HandleAdjustStock)
 
 				// Movements
 				r.With(middleware.RequirePermission("inventar:movement", "read")).Get("/movements", ir.HandleListMovements)
 				r.With(middleware.RequirePermission("inventar:movement", "read")).Get("/history", ir.HandleGetStockHistory)
-				r.With(middleware.RequirePermission("inventar:movement", "write")).Post("/movements", ir.HandleRecordMovement)
+				r.With(movementCreate).Post("/movements", ir.HandleRecordMovement)
 
 				// Attachments
 				r.With(middleware.RequirePermission("inventar:attachment", "read")).Get("/attachments", ir.HandleListItemAttachments)
-				r.With(middleware.RequirePermission("inventar:attachment", "write")).Post("/attachments", ir.HandleCreateItemAttachment)
+				r.With(attachmentManage).Post("/attachments", ir.HandleCreateItemAttachment)
 			})
 		})
 
 		// Attachment deletion (keyed by attachment id, not item id)
-		r.With(middleware.RequirePermission("inventar:attachment", "write")).Delete("/attachments/{id}", ir.HandleDeleteItemAttachment)
+		r.With(attachmentManage).Delete("/attachments/{id}", ir.HandleDeleteItemAttachment)
 
-		// Transfer between items
+		// Transfer between items — no FE caller (dead endpoint, verified against
+		// inventar-client.ts); legacy guard stays as-is.
 		r.With(middleware.RequirePermission("inventar:item", "write")).Post("/transfer", ir.HandleTransferStock)
 
 		// Warnings
@@ -104,16 +120,23 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		})
 
 		// Inventur sessions
+		inventurCreate := middleware.RequirePermissionAny([2]string{"inventar:inventur", "write"}, [2]string{"inventar:inventur", "create"})
+		// UpdateInventurSessionStatus backs both the open->counting auto-transition
+		// on the first count and the manual "finish counting" (review) button —
+		// InventurSessionCard in InventarPage.tsx gates both via inventar:inventur:count.
+		inventurCount := middleware.RequirePermissionAny([2]string{"inventar:inventur", "write"}, [2]string{"inventar:inventur", "count"})
+		inventurBook := middleware.RequirePermissionAny([2]string{"inventar:inventur", "write"}, [2]string{"inventar:inventur", "book"})
 		r.Route("/inventur", func(r chi.Router) {
 			r.With(middleware.RequirePermission("inventar:inventur", "read")).Get("/", ir.HandleListInventurSessions)
-			r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/", ir.HandleCreateInventurSession)
+			r.With(inventurCreate).Post("/", ir.HandleCreateInventurSession)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("inventar:inventur", "read")).Get("/", ir.HandleGetInventurSession)
-				r.With(middleware.RequirePermission("inventar:inventur", "write")).Patch("/status", ir.HandleUpdateInventurSessionStatus)
+				r.With(inventurCount).Patch("/status", ir.HandleUpdateInventurSessionStatus)
+				// No FE caller for session deletion — legacy guard stays as-is.
 				r.With(middleware.RequirePermission("inventar:inventur", "write")).Delete("/", ir.HandleDeleteInventurSession)
-				r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/counts", ir.HandleUpsertInventurCount)
-				r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/book", ir.HandleBookInventurDifferences)
+				r.With(inventurCount).Post("/counts", ir.HandleUpsertInventurCount)
+				r.With(inventurBook).Post("/book", ir.HandleBookInventurDifferences)
 			})
 		})
 	})

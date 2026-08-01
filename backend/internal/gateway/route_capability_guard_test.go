@@ -66,6 +66,18 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	bizRouter := chi.NewRouter()
 	NewBizRoutes(emptyRegistry()).RegisterRoutes(bizRouter, guardTestAuth)
 
+	inventarRouter := chi.NewRouter()
+	newInventarRoutes(emptyRegistry()).RegisterRoutes(inventarRouter, guardTestAuth)
+
+	einkaufRouter := chi.NewRouter()
+	newEinkaufRoutes(emptyRegistry()).RegisterRoutes(einkaufRouter, guardTestAuth)
+
+	produktionRouter := chi.NewRouter()
+	newProduktionRoutes(emptyRegistry()).RegisterRoutes(produktionRouter, guardTestAuth)
+
+	vertraegeRouter := chi.NewRouter()
+	newVertraegeRoutes(emptyRegistry()).RegisterRoutes(vertraegeRouter, guardTestAuth)
+
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
 	const (
@@ -344,6 +356,124 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"incoming invoices list with finance:read", bizRouter, "GET", "/api/v1/finance/incoming-invoices", []string{"finance:read"}, allowed},
 		{"open items list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:amounts:view"}, denied},
 		{"open items list with finance:read", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:read"}, allowed},
+
+		// --- inventar: items ---
+		{"item create, legacy key only", inventarRouter, "POST", "/api/v1/inventar/items", []string{"inventar:item:write"}, allowed},
+		{"item create, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/items", []string{"inventar:item:create"}, allowed},
+		{"item create, edit key does not grant create", inventarRouter, "POST", "/api/v1/inventar/items", []string{"inventar:item:edit"}, denied},
+		{"item edit, catalogue key only", inventarRouter, "PATCH", "/api/v1/inventar/items/" + articleID, []string{"inventar:item:edit"}, allowed},
+		{"item delete, catalogue key only", inventarRouter, "DELETE", "/api/v1/inventar/items/" + articleID, []string{"inventar:item:delete"}, allowed},
+		{"item delete, edit key does not grant delete", inventarRouter, "DELETE", "/api/v1/inventar/items/" + articleID, []string{"inventar:item:edit"}, denied},
+
+		// --- inventar: movements — adjust is a distinct fine switch from recording a normal movement ---
+		{"stock adjust, legacy item:write still grants it", inventarRouter, "POST", "/api/v1/inventar/items/" + articleID + "/adjust", []string{"inventar:item:write"}, allowed},
+		{"stock adjust, catalogue movement:adjust key only", inventarRouter, "POST", "/api/v1/inventar/items/" + articleID + "/adjust", []string{"inventar:movement:adjust"}, allowed},
+		{"stock adjust, movement:create does not grant adjust", inventarRouter, "POST", "/api/v1/inventar/items/" + articleID + "/adjust", []string{"inventar:movement:create"}, denied},
+		{"movement record, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/items/" + articleID + "/movements", []string{"inventar:movement:create"}, allowed},
+
+		// --- inventar: attachments ---
+		{"attachment create, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/items/" + articleID + "/attachments", []string{"inventar:attachment:manage"}, allowed},
+		{"attachment delete, catalogue key only", inventarRouter, "DELETE", "/api/v1/inventar/attachments/" + articleID, []string{"inventar:attachment:manage"}, allowed},
+
+		// --- inventar: inventur — count backs both the counting UI and the finish-counting
+		// (open->review) status transition; book is the separate stock-write step ---
+		{"inventur create, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/inventur", []string{"inventar:inventur:create"}, allowed},
+		{"inventur status update, catalogue count key only", inventarRouter, "PATCH", "/api/v1/inventar/inventur/" + articleID + "/status", []string{"inventar:inventur:count"}, allowed},
+		{"inventur count upsert, catalogue count key only", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/counts", []string{"inventar:inventur:count"}, allowed},
+		{"inventur count upsert, book key does not grant it", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/counts", []string{"inventar:inventur:book"}, denied},
+		{"inventur book differences, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/book", []string{"inventar:inventur:book"}, allowed},
+		{"inventur book differences, count key does not grant it", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/book", []string{"inventar:inventur:count"}, denied},
+
+		// --- inventar: transfer, warnings, session deletion have no FE caller, untouched ---
+		{"stock transfer still requires item:write only", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:movement:adjust"}, denied},
+		{"stock transfer with item:write", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:item:write"}, allowed},
+		{"warning create still requires warning:write only", inventarRouter, "POST", "/api/v1/inventar/warnings", []string{"inventar:item:create"}, denied},
+		{"warning create with warning:write", inventarRouter, "POST", "/api/v1/inventar/warnings", []string{"inventar:warning:write"}, allowed},
+		{"inventur session delete still requires inventur:write only", inventarRouter, "DELETE", "/api/v1/inventar/inventur/" + articleID, []string{"inventar:inventur:count"}, denied},
+		{"inventur session delete with inventur:write", inventarRouter, "DELETE", "/api/v1/inventar/inventur/" + articleID, []string{"inventar:inventur:write"}, allowed},
+
+		// --- einkauf: purchase orders ---
+		{"po create, legacy key only", einkaufRouter, "POST", "/api/v1/einkauf/pos", []string{"einkauf:po:write"}, allowed},
+		{"po create, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/pos", []string{"einkauf:po:create"}, allowed},
+		{"po create, edit key does not grant create", einkaufRouter, "POST", "/api/v1/einkauf/pos", []string{"einkauf:po:edit"}, denied},
+		{"po edit, catalogue key only", einkaufRouter, "PATCH", "/api/v1/einkauf/pos/" + articleID, []string{"einkauf:po:edit"}, allowed},
+		{"po delete, catalogue key only", einkaufRouter, "DELETE", "/api/v1/einkauf/pos/" + articleID, []string{"einkauf:po:delete"}, allowed},
+		{"po delete, edit key does not grant delete", einkaufRouter, "DELETE", "/api/v1/einkauf/pos/" + articleID, []string{"einkauf:po:edit"}, denied},
+
+		// --- einkauf: submit backs both "send" and the approval-banner "approve" button ---
+		{"po submit, catalogue send key only", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/submit", []string{"einkauf:po:send"}, allowed},
+		{"po submit, catalogue approve key also grants it", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/submit", []string{"einkauf:po:approve"}, allowed},
+		{"po submit, cancel key does not grant it", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/submit", []string{"einkauf:po:cancel"}, denied},
+		{"po cancel, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/cancel", []string{"einkauf:po:cancel"}, allowed},
+		{"po receive, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/receive", []string{"einkauf:po:receive"}, allowed},
+		{"po partial-receive, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/partial-receive", []string{"einkauf:po:receive"}, allowed},
+
+		// --- einkauf: suppliers — "deactivate" in EinkaufPage.tsx is a soft label over DeleteSupplier ---
+		{"supplier create, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/suppliers", []string{"einkauf:supplier:create"}, allowed},
+		{"supplier edit, catalogue key only", einkaufRouter, "PATCH", "/api/v1/einkauf/suppliers/" + articleID, []string{"einkauf:supplier:edit"}, allowed},
+		{"supplier deactivate, catalogue key only", einkaufRouter, "DELETE", "/api/v1/einkauf/suppliers/" + articleID, []string{"einkauf:supplier:deactivate"}, allowed},
+		{"supplier deactivate, edit key does not grant it", einkaufRouter, "DELETE", "/api/v1/einkauf/suppliers/" + articleID, []string{"einkauf:supplier:edit"}, denied},
+
+		// --- einkauf: rating and contract call cross into a different resource than their legacy guard ---
+		{"rating create, legacy supplier:write still grants it", einkaufRouter, "POST", "/api/v1/einkauf/suppliers/" + articleID + "/ratings", []string{"einkauf:supplier:write"}, allowed},
+		{"rating create, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/suppliers/" + articleID + "/ratings", []string{"einkauf:rating:create"}, allowed},
+		{"contract call create, legacy contract:write still grants it", einkaufRouter, "POST", "/api/v1/einkauf/contracts/" + articleID + "/calls", []string{"einkauf:contract:write"}, allowed},
+		{"contract call create, catalogue key only", einkaufRouter, "POST", "/api/v1/einkauf/contracts/" + articleID + "/calls", []string{"einkauf:contract:call"}, allowed},
+
+		// --- einkauf: PO lines, catalog CRUD, framework contract CRUD, rating deletion have no
+		// FE caller, untouched ---
+		{"po line add still requires line:write only", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/lines", []string{"einkauf:po:edit"}, denied},
+		{"po line add with line:write", einkaufRouter, "POST", "/api/v1/einkauf/pos/" + articleID + "/lines", []string{"einkauf:line:write"}, allowed},
+		{"catalog item create still requires catalog:write only", einkaufRouter, "POST", "/api/v1/einkauf/catalog", []string{"einkauf:catalog:read"}, denied},
+		{"catalog item create with catalog:write", einkaufRouter, "POST", "/api/v1/einkauf/catalog", []string{"einkauf:catalog:write"}, allowed},
+		{"framework contract create still requires contract:write only", einkaufRouter, "POST", "/api/v1/einkauf/contracts", []string{"einkauf:contract:call"}, denied},
+		{"framework contract create with contract:write", einkaufRouter, "POST", "/api/v1/einkauf/contracts", []string{"einkauf:contract:write"}, allowed},
+		{"rating delete still requires supplier:write only", einkaufRouter, "DELETE", "/api/v1/einkauf/suppliers/" + articleID + "/ratings/" + articleID, []string{"einkauf:rating:create"}, denied},
+		{"rating delete with supplier:write", einkaufRouter, "DELETE", "/api/v1/einkauf/suppliers/" + articleID + "/ratings/" + articleID, []string{"einkauf:supplier:write"}, allowed},
+
+		// --- produktion: orders ---
+		{"order create, legacy key only", produktionRouter, "POST", "/api/v1/produktion/orders", []string{"produktion:order:write"}, allowed},
+		{"order create, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/orders", []string{"produktion:order:create"}, allowed},
+		{"order create, edit key does not grant create", produktionRouter, "POST", "/api/v1/produktion/orders", []string{"produktion:order:edit"}, denied},
+		{"order edit, catalogue key only", produktionRouter, "PATCH", "/api/v1/produktion/orders/" + articleID, []string{"produktion:order:edit"}, allowed},
+		{"order delete, catalogue key only", produktionRouter, "DELETE", "/api/v1/produktion/orders/" + articleID, []string{"produktion:order:delete"}, allowed},
+		{"order start, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/start", []string{"produktion:order:start"}, allowed},
+		{"order start, complete key does not grant start", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/start", []string{"produktion:order:complete"}, denied},
+		{"order complete, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/complete", []string{"produktion:order:complete"}, allowed},
+		{"order cancel, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/cancel", []string{"produktion:order:cancel"}, allowed},
+
+		// --- produktion: BOMs, machines, quality, work steps ---
+		{"bom create, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/boms", []string{"produktion:bom:create"}, allowed},
+		{"bom edit, catalogue key only", produktionRouter, "PATCH", "/api/v1/produktion/boms/" + articleID, []string{"produktion:bom:edit"}, allowed},
+		{"bom delete still requires bom:write only", produktionRouter, "DELETE", "/api/v1/produktion/boms/" + articleID, []string{"produktion:bom:edit"}, denied},
+		{"bom delete with bom:write", produktionRouter, "DELETE", "/api/v1/produktion/boms/" + articleID, []string{"produktion:bom:write"}, allowed},
+		{"machine create, catalogue manage key only", produktionRouter, "POST", "/api/v1/produktion/machines", []string{"produktion:machine:manage"}, allowed},
+		{"machine edit, catalogue manage key only", produktionRouter, "PATCH", "/api/v1/produktion/machines/" + articleID, []string{"produktion:machine:manage"}, allowed},
+		{"machine delete still requires machine:write only", produktionRouter, "DELETE", "/api/v1/produktion/machines/" + articleID, []string{"produktion:machine:manage"}, denied},
+		{"machine delete with machine:write", produktionRouter, "DELETE", "/api/v1/produktion/machines/" + articleID, []string{"produktion:machine:write"}, allowed},
+		{"quality check create, catalogue key only", produktionRouter, "POST", "/api/v1/produktion/quality", []string{"produktion:quality:create"}, allowed},
+		{"workstep edit, catalogue key only", produktionRouter, "PATCH", "/api/v1/produktion/orders/" + articleID + "/steps/" + articleID, []string{"produktion:workstep:edit"}, allowed},
+		{"workstep create still requires workstep:write only", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/steps", []string{"produktion:workstep:edit"}, denied},
+		{"workstep create with workstep:write", produktionRouter, "POST", "/api/v1/produktion/orders/" + articleID + "/steps", []string{"produktion:workstep:write"}, allowed},
+
+		// --- produktion: machine bookings and production plans have no FE caller, untouched ---
+		{"machine booking create still requires booking:write only", produktionRouter, "POST", "/api/v1/produktion/bookings", []string{"produktion:machine:manage"}, denied},
+		{"machine booking create with booking:write", produktionRouter, "POST", "/api/v1/produktion/bookings", []string{"produktion:booking:write"}, allowed},
+
+		// --- vertraege: contracts ---
+		{"contract create, catalogue key only", vertraegeRouter, "POST", "/api/v1/vertraege/contracts", []string{"vertraege:contract:create"}, allowed},
+		{"contract create, legacy key only", vertraegeRouter, "POST", "/api/v1/vertraege/contracts", []string{"vertraege:contract:write"}, allowed},
+		{"contract edit, catalogue edit key only", vertraegeRouter, "PATCH", "/api/v1/vertraege/contracts/" + articleID, []string{"vertraege:contract:edit"}, allowed},
+		{"contract edit (termination dialog), catalogue terminate key also grants it", vertraegeRouter, "PATCH", "/api/v1/vertraege/contracts/" + articleID, []string{"vertraege:contract:terminate"}, allowed},
+		{"contract edit, delete key does not grant it", vertraegeRouter, "PATCH", "/api/v1/vertraege/contracts/" + articleID, []string{"vertraege:contract:delete"}, denied},
+		{"contract delete, catalogue key only", vertraegeRouter, "DELETE", "/api/v1/vertraege/contracts/" + articleID, []string{"vertraege:contract:delete"}, allowed},
+		{"contract delete, edit key does not grant it", vertraegeRouter, "DELETE", "/api/v1/vertraege/contracts/" + articleID, []string{"vertraege:contract:edit"}, denied},
+
+		// --- vertraege: parties, reminders, export, signature have no catalogue key, untouched ---
+		{"party add still requires party:write only", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/parties", []string{"vertraege:contract:edit"}, denied},
+		{"party add with party:write", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/parties", []string{"vertraege:party:write"}, allowed},
+		{"reminder create still requires reminder:write only", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/reminders", []string{"vertraege:contract:edit"}, denied},
+		{"reminder create with reminder:write", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/reminders", []string{"vertraege:reminder:write"}, allowed},
 	}
 
 	for _, tt := range tests {

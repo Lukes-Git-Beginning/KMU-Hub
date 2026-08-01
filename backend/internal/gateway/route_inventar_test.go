@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newInventarRoutes(registry *ServiceRegistry) *InventarRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_INVENTAR_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewInventarRoutes(registry, flags)
+}
 
 // --- HandleCreateItem ---
 

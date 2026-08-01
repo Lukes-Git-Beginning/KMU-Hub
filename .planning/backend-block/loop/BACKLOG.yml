@@ -796,7 +796,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2c-work-documents-crm-finance-2]
-    status: todo
+    status: done
     scope: >
       Wie p2a, fuer inventar, einkauf, produktion und vertraege.
     sources:

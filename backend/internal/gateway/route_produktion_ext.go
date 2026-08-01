@@ -18,15 +18,26 @@ import (
 // block's auth middleware — mounting a second /api/v1/produktion subtree would
 // make chi panic on the duplicate mount point.
 func (pr *ProduktionRoutes) registerExtRoutes(r chi.Router) {
+	// Additive RBAC guards — see route_produktion.go for the pattern rationale.
+	bomCreate := middleware.RequirePermissionAny([2]string{"produktion:bom", "write"}, [2]string{"produktion:bom", "create"})
+	// BomDetailModal gates the activate/deactivate toggle with bom:edit; there
+	// is no FE caller for BOM deletion, so that guard stays legacy-only.
+	bomEdit := middleware.RequirePermissionAny([2]string{"produktion:bom", "write"}, [2]string{"produktion:bom", "edit"})
+	// MachineDetailModal (status change) and the "new machine" button both gate
+	// on the single machine:manage fine switch — no separate create/edit split
+	// in the catalog, and no FE caller for machine deletion.
+	machineManage := middleware.RequirePermissionAny([2]string{"produktion:machine", "write"}, [2]string{"produktion:machine", "manage"})
+	qualityCreate := middleware.RequirePermissionAny([2]string{"produktion:quality", "write"}, [2]string{"produktion:quality", "create"})
+
 	// ----------------------------------------------------------------
 	// BOMs
 	// ----------------------------------------------------------------
 	r.Route("/boms", func(r chi.Router) {
 		r.With(middleware.RequirePermission("produktion:bom", "read")).Get("/", pr.HandleListBOMs)
-		r.With(middleware.RequirePermission("produktion:bom", "write")).Post("/", pr.HandleCreateBOM)
+		r.With(bomCreate).Post("/", pr.HandleCreateBOM)
 		r.Route("/{bomId}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("produktion:bom", "read")).Get("/", pr.HandleGetBOM)
-			r.With(middleware.RequirePermission("produktion:bom", "write")).Patch("/", pr.HandleUpdateBOM)
+			r.With(bomEdit).Patch("/", pr.HandleUpdateBOM)
 			r.With(middleware.RequirePermission("produktion:bom", "write")).Delete("/", pr.HandleDeleteBOM)
 		})
 	})
@@ -36,10 +47,10 @@ func (pr *ProduktionRoutes) registerExtRoutes(r chi.Router) {
 	// ----------------------------------------------------------------
 	r.Route("/machines", func(r chi.Router) {
 		r.With(middleware.RequirePermission("produktion:machine", "read")).Get("/", pr.HandleListMachines)
-		r.With(middleware.RequirePermission("produktion:machine", "write")).Post("/", pr.HandleCreateMachine)
+		r.With(machineManage).Post("/", pr.HandleCreateMachine)
 		r.Route("/{machineId}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("produktion:machine", "read")).Get("/", pr.HandleGetMachine)
-			r.With(middleware.RequirePermission("produktion:machine", "write")).Patch("/", pr.HandleUpdateMachine)
+			r.With(machineManage).Patch("/", pr.HandleUpdateMachine)
 			r.With(middleware.RequirePermission("produktion:machine", "write")).Delete("/", pr.HandleDeleteMachine)
 		})
 	})
@@ -49,7 +60,7 @@ func (pr *ProduktionRoutes) registerExtRoutes(r chi.Router) {
 	// ----------------------------------------------------------------
 	r.Route("/quality", func(r chi.Router) {
 		r.With(middleware.RequirePermission("produktion:quality", "read")).Get("/", pr.HandleListQualityChecks)
-		r.With(middleware.RequirePermission("produktion:quality", "write")).Post("/", pr.HandleCreateQualityCheck)
+		r.With(qualityCreate).Post("/", pr.HandleCreateQualityCheck)
 		r.Route("/{checkId}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("produktion:quality", "read")).Get("/", pr.HandleGetQualityCheck)
 		})
@@ -62,11 +73,15 @@ func (pr *ProduktionRoutes) registerExtRoutes(r chi.Router) {
 // /orders/{orderId}/... would land in the same chi subtree from the outside.
 // The URL is unchanged — /api/v1/produktion/orders/{orderId}/steps.
 func (pr *ProduktionRoutes) registerWorkStepRoutes(r chi.Router) {
+	// ProduktionDetailModals.tsx gates advancing a step (pending->in_progress,
+	// in_progress->completed) with workstep:edit; there is no FE caller for
+	// creating or deleting a step, so those guards stay legacy-only.
+	workstepEdit := middleware.RequirePermissionAny([2]string{"produktion:workstep", "write"}, [2]string{"produktion:workstep", "edit"})
 	r.Route("/{orderId}/steps", func(r chi.Router) {
 		r.With(middleware.RequirePermission("produktion:workstep", "read")).Get("/", pr.HandleListWorkSteps)
 		r.With(middleware.RequirePermission("produktion:workstep", "write")).Post("/", pr.HandleCreateWorkStep)
 		r.Route("/{stepId}", func(r chi.Router) {
-			r.With(middleware.RequirePermission("produktion:workstep", "write")).Patch("/", pr.HandleUpdateWorkStep)
+			r.With(workstepEdit).Patch("/", pr.HandleUpdateWorkStep)
 			r.With(middleware.RequirePermission("produktion:workstep", "write")).Delete("/", pr.HandleDeleteWorkStep)
 		})
 	})
