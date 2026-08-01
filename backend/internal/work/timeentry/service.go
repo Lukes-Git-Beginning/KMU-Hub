@@ -224,3 +224,9 @@ func (s *Service) ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, pa
 func (s *Service) GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.UUID) (*models.TimeEntrySummary, error) {
 	return s.repo.GetTaskTimeSummary(ctx, taskID, tenantID)
 }
+
+// ListBillable returns completed time entries across the tenant for invoicing
+// (Stunden -> Rechnung).
+func (s *Service) ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error) {
+	return s.repo.ListBillable(ctx, tenantID)
+}

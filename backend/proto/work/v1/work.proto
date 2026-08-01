@@ -86,6 +86,7 @@ service WorkService {
   rpc DeleteTimeEntry(DeleteTimeEntryRequest) returns (DeleteTimeEntryResponse);
   rpc ListTimeEntries(ListTimeEntriesRequest) returns (ListTimeEntriesResponse);
   rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
+  rpc ListBillableTimeEntries(ListBillableTimeEntriesRequest) returns (ListBillableTimeEntriesResponse);
 
   // Labels
   rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse);
@@ -845,6 +846,25 @@ message ListTimeEntriesRequest {
 message ListTimeEntriesResponse {
   repeated TimeEntryProto entries = 1;
   int32 total = 2;
+}
+
+// A completed time entry with its task/project/employee names resolved,
+// for the finance "Stunden -> Rechnung" view (invoicing across all projects,
+// not one task at a time like ListTimeEntries above).
+message BillableTimeEntryProto {
+  string id = 1;
+  string date = 2;          // YYYY-MM-DD, from started_at
+  string project = 3;
+  string task = 4;
+  string employee = 5;
+  double hours = 6;
+  string description = 7;
+}
+
+message ListBillableTimeEntriesRequest {}
+
+message ListBillableTimeEntriesResponse {
+  repeated BillableTimeEntryProto entries = 1;
 }
 
 message GetTaskTimeSummaryRequest {

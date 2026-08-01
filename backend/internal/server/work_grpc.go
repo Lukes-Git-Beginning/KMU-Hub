@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -1978,9 +1979,51 @@ func (s *WorkGRPCServer) GetTaskTimeSummary(ctx context.Context, req *workv1.Get
 	}, nil
 }
 
+// ListBillableTimeEntries serves the finance "Stunden -> Rechnung" view:
+// completed entries across every project of the tenant, not one task at a
+// time. tenant_id comes from the RLS context, same as every other RPC here.
+func (s *WorkGRPCServer) ListBillableTimeEntries(ctx context.Context, _ *workv1.ListBillableTimeEntriesRequest) (*workv1.ListBillableTimeEntriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	entries, err := s.timeEntryService.ListBillable(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list billable time entries")
+	}
+
+	protos := make([]*workv1.BillableTimeEntryProto, 0, len(entries))
+	for _, e := range entries {
+		protos = append(protos, billableTimeEntryToProto(&e))
+	}
+
+	return &workv1.ListBillableTimeEntriesResponse{Entries: protos}, nil
+}
+
 // ============================================================================
 // Time Entry Proto Converters
 // ============================================================================
+
+func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeEntryProto {
+	var hours float64
+	if e.DurationSeconds != nil {
+		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
+	}
+	description := ""
+	if e.Description != nil {
+		description = *e.Description
+	}
+	return &workv1.BillableTimeEntryProto{
+		Id:          e.ID.String(),
+		Date:        e.StartedAt.Format("2006-01-02"),
+		Project:     e.ProjectName,
+		Task:        e.TaskTitle,
+		Employee:    e.UserName,
+		Hours:       hours,
+		Description: description,
+	}
+}
 
 func timeEntryToProto(e *models.TimeEntry, userName string) *workv1.TimeEntryProto {
 	proto := &workv1.TimeEntryProto{

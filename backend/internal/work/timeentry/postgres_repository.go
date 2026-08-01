@@ -190,6 +190,49 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID, tenantID uu
 	return entries, total, nil
 }
 
+// ListBillable returns completed time entries (a duration was recorded, the
+// timer isn't still running) across every task/project of the tenant, joined
+// with the task title, project name, and employee display name. Used by the
+// finance "Stunden -> Rechnung" view, which invoices across projects rather
+// than one task at a time like ListByTask.
+func (r *PostgresRepository) ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		        te.duration_seconds, te.description, te.is_manual,
+		        te.created_at, te.updated_at,
+		        u.first_name || ' ' || u.last_name AS user_name,
+		        t.title AS task_title,
+		        COALESCE(p.name, '') AS project_name
+		 FROM time_entries te
+		 JOIN users u ON u.id = te.user_id
+		 JOIN tasks t ON t.id = te.task_id AND t.tenant_id = te.tenant_id
+		 LEFT JOIN projects p ON p.id = t.project_id AND p.tenant_id = te.tenant_id
+		 WHERE te.tenant_id = $1
+		   AND te.ended_at IS NOT NULL
+		   AND te.duration_seconds IS NOT NULL
+		 ORDER BY te.started_at DESC`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list billable time entries: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.BillableTimeEntry
+	for rows.Next() {
+		var e models.BillableTimeEntry
+		if scanErr := rows.Scan(
+			&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+			&e.DurationSeconds, &e.Description, &e.IsManual,
+			&e.CreatedAt, &e.UpdatedAt, &e.UserName, &e.TaskTitle, &e.ProjectName,
+		); scanErr != nil {
+			return nil, fmt.Errorf("scan billable time entry: %w", scanErr)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
 func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,

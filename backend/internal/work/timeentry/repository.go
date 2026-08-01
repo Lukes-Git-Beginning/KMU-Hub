@@ -20,6 +20,10 @@ type Repository interface {
 	ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
 	ListByUser(ctx context.Context, userID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
 
+	// ListBillable returns completed entries across all tasks/projects of the
+	// tenant, for invoicing (Stunden -> Rechnung).
+	ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error)
+
 	// Timer
 	GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error)
 	StopActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.TimeEntry, error)

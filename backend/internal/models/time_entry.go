@@ -39,3 +39,13 @@ type ActiveTimer struct {
 	TimeEntry
 	TaskTitle string `json:"task_title"`
 }
+
+// BillableTimeEntry is a completed time entry with its task/project/employee
+// names resolved, for the finance "Stunden -> Rechnung" view across all
+// projects (unlike TimeEntryWithUser, which is scoped to a single task).
+type BillableTimeEntry struct {
+	TimeEntry
+	UserName    string `json:"user_name"`
+	TaskTitle   string `json:"task_title"`
+	ProjectName string `json:"project_name"`
+}

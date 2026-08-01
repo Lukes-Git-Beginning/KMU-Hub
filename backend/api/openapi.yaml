@@ -9298,6 +9298,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/time-entries:
+    get:
+      summary: List billable time entries (Stunden -> Rechnung)
+      description: >
+        Completed time entries across every project of the tenant, joined
+        with task, project, and employee names, for building invoice line
+        items from tracked hours.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: billed
+          in: query
+          description: "false returns only unbilled entries (the only value the desktop client sends)."
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Billable time entries of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FinanceTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Work service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/open-items:
     get:
       summary: List open items (Offene Posten) with receivables aging
@@ -34219,6 +34258,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChainNode"
+
+    FinanceTimeEntry:
+      type: object
+      description: >
+        A completed time entry available for invoicing (Stunden -> Rechnung).
+        billed is always false today -- invoice creation from this list does
+        not yet persist which entries it covered.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+        project:
+          type: string
+        task:
+          type: string
+        employee:
+          type: string
+        hours:
+          type: number
+        description:
+          type: string
+        billed:
+          type: boolean
 
     BankStatementImportResult:
       type: object

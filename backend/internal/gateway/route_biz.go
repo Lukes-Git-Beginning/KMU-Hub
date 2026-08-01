@@ -182,6 +182,12 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListDocumentChains)
 	})
 
+	// Time entries (Stunden -> Rechnung): billable time entries for invoicing.
+	r.Route("/api/v1/finance/time-entries", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListTimeEntries)
+	})
+
 	// Bank statements (Zahlungsabgleich): CAMT.053 / MT940 import
 	r.Route("/api/v1/finance/bank-statements", func(r chi.Router) {
 		r.Use(authMiddleware)
