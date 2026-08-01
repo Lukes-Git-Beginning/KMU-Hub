@@ -2006,3 +2006,76 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Zeiteintraege zeigen Mitarbeiternamen und Projektzuordnung quer durchs Team — falls Block-B-
     artige Verfeinerung noch kommt, waere das ein Kandidat (aehnlich der Notiz bei
     `fe-finance-bank-transactions-matching`).
+
+## Iteration 29 — fe-finance-transactions — done — 2026-08-01 23:15 (Nachtlauf 3)
+- commit: 120b32a4
+- gebaut:
+  - `GET /api/v1/finance/transactions` liefert die konsolidierte Zahlungsbewegungs-Liste des
+    Tenants (`{transactions:[...], total}`), `DELETE /api/v1/finance/transactions/{id}` entfernt
+    einen Eintrag. SCOPE-KORREKTUR zur Backlog-Notiz: nicht Banktransaktionen, sondern
+    `finance_payments` + `finance_expenses` — der reale FE-Vertrag ist `financeTransactionApi`
+    (`finance-client.ts`) + `useTransactions`/`useDeleteTransaction` (`useFinanceLedger.ts`),
+    konsumiert von `TransactionsTab.tsx`/`BerichteTab.tsx`/`TransactionDetailPanel.tsx`. Die
+    Legacy-`useFinanceStore` (`stores/finance.ts`, "Mock-Store fuer BuchhaltungPage — nicht im
+    Router") liefert nur die geteilte `Transaction`-Typdefinition, keine Daten.
+  - Kein neuer Tisch: `internal/biz/invoice/postgres_transactions.go` (neue Datei, Muster wie
+    `postgres_document_chains.go`) liest `finance_payments` JOIN `finance_invoices` (Type
+    `income`, Description "Rechnung {number} {customer}", Category hartkodiert "Umsatzerlöse"
+    mangels besserer Spalte, Reference = Rechnungsnummer) und `finance_expenses WHERE
+    status='approved'` (Type `expense`) und merged sortiert nach Datum absteigend. Pending/
+    rejected Ausgaben bewegen nie Geld und fehlen bewusst aus der Liste.
+  - Neue RPCs `ListFinanceTransactions`/`DeleteFinanceTransaction` (`biz.proto`, im selben Commit
+    regeneriert: `biz.pb.go`/`biz_grpc.pb.go`), Server-Seite in
+    `internal/server/biz_grpc_transactions.go`, delegiert an `invoiceService.ListTransactions`
+    (neue Repository-/Service-Methode) fuer den Read.
+  - IDs sind praefixiert (`pay-<uuid>`/`exp-<uuid>`), damit Delete weiss, welche Tabelle gemeint
+    ist — Loeschen bedeutet je Seite etwas anderes: eine Zahlung loeschen revertiert ggf. den
+    Rechnungsstatus (bestehendes `payment.Service.Delete`, unveraendert wiederverwendet), eine
+    bereits entschiedene Ausgabe zu loeschen ist von `expense.Service.Delete` verboten
+    (`ErrDecided` -> 409) — bei dieser Ansicht IMMER, weil jede Expense-Zeile hier per Konstruktion
+    approved ist. Echtes, bestehendes Geschaeftsverhalten, kein Stub.
+  - Root-Cause-Fix im selben Commit (kein separates Scope-Kriechen — `DeleteFinanceTransaction`
+    ruft diesen Pfad direkt auf): `payment.Service`/`Repository.GetByID` gab bei "nicht gefunden"
+    einen rohen `errors.New("payment not found")` statt eines Sentinels zurueck, `mapBizError` traf
+    keinen Fall und liess die bestehende `DeletePayment`-Route bei unbekannter ID auf 500 statt 404
+    laufen. `payment.ErrNotFound`-Sentinel ergaenzt, Postgres-Repo + Mock-Repo (`service_test.go`)
+    darauf umgestellt, `mapBizError`-Fall ergaenzt — behebt denselben Bug auch fuer die bestehende
+    Payment-Route.
+  - Guard: `RequirePermission("finance","read"/"delete")` wie die Nachbarrouten (kein Katalog-Key
+    fuer transactions, gleiche Begruendung wie bei expenses/bank-accounts in `p2c-work-documents-
+    crm-finance-2`).
+  - Tests: `TestTenantIsolation_Transactions` (`internal/biz/`, echte DB) — Eigentuemer sieht genau
+    2 Eintraege (1 Payment + 1 approved Expense; pending/rejected Ausgaben fehlen), sortiert
+    neueste zuerst, Description/Category/Reference/InvoiceID wie oben. Fremder Tenant sieht exakt
+    seine eigenen 2, keine Spur der Tenant-A-Daten. `TestToFinanceTransactionWire_Income`/
+    `_ExpenseOmitsAbsentOptionals` (`internal/gateway/`) pinnen den Wire-Shape (camelCase
+    `invoiceId`, `amount` als JSON-Zahl, optionale Felder bei Expense-Zeilen abwesend).
+- verify vorgaenger: `c414b61d` (fe-finance-time-entries) gegen alle acht Fehlerklassen geprueft.
+  Handler ueber `b.getWorkClient()`; Proto+beide `.pb.go` im selben Commit; Guard unveraendert
+  (`RequirePermission("finance","read")`, kein neuer Key); Repo-Query tenant-gescoped ueber alle
+  drei gejointen Tabellen; openapi.yaml im selben Commit. Unabhaengig nachgefahren: `go build`,
+  `go vet`, `golangci-lint` (0 issues), `go test ./internal/work/... ./internal/server/...
+  ./internal/gateway/...` mit `DATABASE_URL` gegen `kmuhub_app` — alles gruen, 0 SKIP (per `-v`
+  gezaehlt), `TestListBillable_TenantIsolation` PASS. `TestOpenAPIRouteDrift` gruen. Kein Fund.
+- gate: build ok (`-p 2`, `internal/biz/...`, `internal/gateway/...`, `internal/server/...`,
+  `internal/models/...`, `proto/biz/v1/...`, `cmd/biz/...`, `cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
+  `internal/biz/...` (alle Unterpakete inkl. `invoice`, `payment`), `internal/gateway/...`,
+  `internal/server/...` gruen, 0 SKIP (per `-v` gezaehlt auf den neuen/beruehrten Paketen).
+  `TestOpenAPIRouteDrift` gruen: 752 registrierte Routen gegen 754 dokumentierte Pfade (+2
+  gegenueber Iteration 28, wie erwartet: GET + DELETE).
+  rls-smoke: `TestTenantIsolation_Transactions` — Details oben unter "gebaut".
+- offen:
+  - `finance-ledger.ts`-Mock (`mockTransactions`) bleibt aktiv im FE — Umschalten auf das echte
+    Backend war nicht Teil dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-Units in
+    Block D).
+  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance",
+    "read"/"delete")`. Der reale FE-Gate-Call fuer den Loeschen-Button ist `finance:incoming:book`
+    (verifiziert in `TransactionsTab.tsx`) — analog zur Notiz bei `p2c-work-documents-crm-finance-2`
+    gaten `finance:incoming:*` reale Buttons ohne eigenen Backend-Anschluss; ein Kandidat fuer eine
+    kuenftige Block-B-artige Verfeinerung.
+  - Das Loeschen eines Expense-Eintrags aus dieser Ansicht schlaegt IMMER mit 409 fehl (jede
+    Expense-Zeile hier ist per Konstruktion `approved`, und `expense.Service.Delete` verbietet das
+    Loeschen entschiedener Ausgaben). Der FE-Loeschen-Button unterscheidet nicht zwischen Payment-
+    und Expense-Zeilen — das ist eine FE-Produktentscheidung ausserhalb des Backend-Scopes dieser
+    Unit, aber ein sichtbares Verhalten, das Luke kennen sollte.
