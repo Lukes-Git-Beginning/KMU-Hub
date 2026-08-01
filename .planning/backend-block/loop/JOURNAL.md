@@ -1898,7 +1898,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       Merker existiert nicht; ob er gebraucht wird, zeigt der Pilot.
 
 ## Iteration 27 — fe-finance-document-chains — done — 2026-08-01 22:40 (Nachtlauf 3)
-- commit: (folgt)
+- commit: f7fd0ce3f0fcbec8a31877b8384e9f5372bb5c24
 - gebaut:
   - `GET /api/v1/finance/document-chains` liefert alle Belegketten des Tenants (mandantenweite
     Uebersicht, kein Parameter — FE filtert/sucht client-seitig). Keine neue Tabelle: Ketten
