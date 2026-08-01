@@ -390,7 +390,7 @@ units:
     service: einvoice
     model: opus
     deps: [w5-en16931-validation]
-    status: todo
+    status: done
     scope: >
       ZUGFeRD-Auslieferung als PDF/A-3 mit eingebettetem CII-XML — ABER zuerst pruefen, ob das mit
       der vorhandenen Toolchain ohne neue Dependency geht.
@@ -480,6 +480,20 @@ units:
       Alle Status-Codes dokumentieren, die der Handler wirklich liefert (auch 422 fuer
       unvollstaendige Rechnungen aus `w5-en16931-validation`).
       `go test ./internal/gateway/` ist Pflicht (TestOpenAPIRouteDrift).
+      NACHTRAG (aus `w5-pdfa3-embed`, 2026-08-01), vier Punkte, die dir Arbeit sparen:
+      (a) FORM DES ZUGFERD-ERGEBNISSES ist entschieden: PDF mit eingebettetem, korrekt deklariertem
+          `factur-x.xml` (kein PDF/A-3b — Begruendung im Journal). `pdf.NewGenerator(settings).
+          GenerateZUGFeRDInvoicePDF(inv)` liefert das fertige PDF; nichts davon neu bauen.
+          Content-Type `application/pdf` fuer zugferd, `application/xml` fuer xrechnung.
+      (b) `mapBizError` (internal/server/biz_grpc.go) kennt jetzt `ErrValidationFailed`,
+          `ErrGenerateFailed` und `ErrTotalsMismatch` und macht daraus `FailedPrecondition` mit der
+          vollstaendigen Verstossliste im Text. Der Gateway-Mapper uebersetzt das nach **409**,
+          nicht 422 — `grpcStatusToHTTP` hat kein 422. Entweder 409 uebernehmen (dann in openapi.yaml
+          409 dokumentieren, so wie es die `/pdf`-Route jetzt tut) oder bewusst einen eigenen
+          422-Pfad im Handler bauen. NICHT raten, eins von beiden begruenden.
+      (c) Der stille Fallback in `GenerateZUGFeRDInvoicePDF` (RPC) ist weg — ein Fehler kommt jetzt
+          als Fehler an. Kein `slog.Error` + Ersatz-PDF mehr nachbauen.
+      (d) `models.Invoice` hat weiterhin kein Leitweg-ID-Feld; die offene Entscheidung bleibt.
     done_when:
       - Route liefert XRechnung-XML und ZUGFeRD in der in w5-pdfa3-embed entschiedenen Form
       - Content-Type und Dateiname korrekt gesetzt

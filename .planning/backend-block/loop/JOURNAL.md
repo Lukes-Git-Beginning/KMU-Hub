@@ -630,3 +630,70 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
 - offen: `w5-pdfa3-embed` als naechste Unit. Weiterhin offen fuer `w5-route`: woher die Leitweg-ID
   (BT-10) kommt — sie hat kein Feld in `finance_invoices`. Mit den zwei Profilen ist die Frage jetzt
   scharf gestellt: Leitweg-ID mitgeliefert = oeffentlicher Auftraggeber = strenges Profil.
+
+## Iteration 11 — w5-pdfa3-embed — done — 2026-08-01 (Nachtlauf 3)
+- commit: <folgt unten>
+- ENTSCHEIDUNG (die Unit verlangte sie ausdruecklich): **kein PDF/A-3b.** Nachgesehen statt geraten —
+  maroto/v2 v2.3.3 zeichnet mit den nicht eingebetteten Standard-14-Fonts (Einbettung nur ueber
+  `AddUTF8Font` + TTF-Asset im Repo), pdfcpu v0.6.0 kennt `AFRelationship` und `OutputIntent`
+  ausschliesslich im Validierungspfad (`pkg/pdfcpu/validate/`) und hat keinen XMP-Writer. PDF/A-3b
+  braucht alle drei: eingebettete Fonts, sRGB-OutputIntent, XMP mit pdfaid- und Factur-X-Schema. Das
+  waere eine neue Dependency plus ein ICC-Profil-Asset gewesen — beides ausgeschlossen.
+  Der Ausschlag gab aber nicht der Aufwand: XMP-Konformitaet zu behaupten, ohne sie zu erfuellen,
+  waere schlechter als sie wegzulassen. Ein pruefender Empfaenger lehnt eine Datei ab, die ueber den
+  eigenen Standard luegt; die Datei ohne Anspruch nimmt er an. Als `lean:`-Marker an
+  `EmbedZUGFeRDXML` mit Trigger "sobald die Empfangssoftware eines Kunden PDF/A-3b verlangt".
+- Statt Konformitaets-Etikett die Ebene gebaut, die ueber Auffindbarkeit entscheidet — und dort lag
+  der eigentliche Fund: **der Anhang hiess `factur-x_RE-2026-0001_20260801.xml`.** Die Factur-X-Spec
+  fixiert `factur-x.xml`, Empfangssoftware matcht literal. Die Rechnung trug das XML also mit sich
+  und kam beim Empfaenger trotzdem als Rechnung ohne strukturierte Daten an. Dazu fehlten `/AF` im
+  Catalog und `/AFRelationship /Alternative` an der Filespec — ohne die ist der Anhang eine Beilage,
+  keine E-Rechnung. Alle drei sitzen jetzt (`declareFacturXAssociatedFile`), plus `/Subtype
+  /text#2Fxml` am Stream (`#2F` ist die Escape-Form des Solidus im PDF-Name-Token; pdfcpu reicht
+  Name-Bytes unveraendert durch, `Name.Value()` dekodiert zurueck — im Test als `text/xml` geprueft).
+- Kein Temp-File mehr: `NewEmbeddedStreamDict` nimmt einen `io.Reader`, also `bytes.NewReader`. Damit
+  fallen `MkdirTemp` und `WriteFile` als Fehlerquellen ersatzlos weg. Keine neue Dependency (go.mod
+  unveraendert), pdfcpu war laengst im Graph.
+- **Stille Degradierung entfernt, an beiden Stellen.** `EmbedZUGFeRDXML` gab bei jedem Fehler das PDF
+  OHNE Anhang zurueck (drei `slog.Warn`-Pfade, `error` immer nil); `server/biz_grpc.go:1365` fing
+  zusaetzlich jeden Generierungsfehler ab und lieferte das nackte PDF unter anderem Dateinamen aus.
+  Zusammen hiess das: der Aufrufer konnte eine E-Rechnung nicht von einer gewoehnlichen unterscheiden,
+  und der Kunde erfuhr es erst, wenn beim Empfaenger nichts zu importieren war. Jetzt kommt jeder
+  Fehler an. `mapBizError` kennt `ErrValidationFailed`/`ErrGenerateFailed`/`ErrTotalsMismatch` und
+  macht `FailedPrecondition` daraus — die vollstaendige Verstossliste aus `ValidationError.Error()`
+  geht mit raus, ueber `grpcStatusToHTTP` als **409**. Die beiden Vorpruefungen in
+  `GenerateZUGFeRDXML` (BT-9 Faelligkeit, §14-Stammdaten) wrappen dafuer `ErrGenerateFailed` statt
+  eines nackten `fmt.Errorf` — fehlende Stammdaten sind kein 500.
+- **Der Test, der sich selbst uebersprang, tut es nicht mehr.** `TestExtractXMLFromPDF_HappyPath`
+  baute auf einem handgeschriebenen PDF-Stub auf, den pdfcpu nicht lesen konnte; die Einbettung
+  degradierte still, `len(out) == len(in)`, `t.Skip`. Beide Tests rendern jetzt ueber
+  `pdf.NewGenerator(...).GenerateInvoicePDF` ein echtes maroto-PDF (`renderInvoicePDF`-Helfer), der
+  Stub ist geloescht. Neu in `internal/biz/pdf`: `TestGenerateZUGFeRDInvoicePDF_
+  DeclaresFacturXAttachment` faehrt den kompletten Pfad (maroto -> CII -> Einbettung -> Extraktion)
+  und prueft Name, Byte-Gleichheit gegen das Referenzdokument, `/AF`, `/AFRelationship` und Subtype;
+  dazu je ein Test fuer den harten Fehlerpfad und fuer eine EN-16931-widrige Rechnung.
+  `GenerateZUGFeRDInvoicePDF` hatte vorher keinen einzigen Test.
+- openapi.yaml: `/finance/invoices/{id}/pdf` dokumentiert jetzt den `format=zugferd`-Query-Parameter
+  und die Codes 404/409 — der 409 ist neu, weil dieser Pfad vorher gar nicht fehlschlagen konnte.
+- gate: build ok (`./internal/biz/... ./internal/server/... ./internal/gateway/...`) | vet ok |
+  lint ok (golangci-lint auf pdf+einvoice+server+gateway: 0 issues; 7x QF1008 unterwegs behoben) |
+  gofmt ok (fuenf beruehrte Dateien gegen LF-normalisierten Inhalt, keine echten Diffs — die
+  gofmt-Treffer sind CRLF im Bestand) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
+  einvoice 57 Tests **0 Skips** (darunter `TestTenantIsolation_IncomingInvoices` real gegen die DB),
+  pdf gruen, `./internal/server/...` gruen, `./internal/gateway/` gruen inkl. TestOpenAPIRouteDrift.
+  migration n.a., rls-smoke n.a. (keine Tabelle/Policy angefasst), proto n.a.
+- verify vorgaenger: `a7fe6318` (w5-en16931-validation) gegen die acht Fehlerklassen geprueft. Diff
+  beruehrt nur `internal/biz/einvoice/*` plus einen pdf-Test — keine Migration, keine Route, kein
+  Proto, kein Guard, keine Tabelle, kein Gateway-Handler, kein DB-Zugriff. Kein `Unimplemented`,
+  kein TODO, kein leerer Return; `Validate` und `validateInvoiceDoc` sind vollstaendig ausgefuehrt.
+  Sauber, keine Fix-Unit noetig.
+- offen fuer Luke:
+  (1) VERHALTENSAENDERUNG an `GET /finance/invoices/{id}/pdf?format=zugferd`: unvollstaendige
+      Rechnung liefert 409 statt eines PDF ohne XML. Im Desktop-Code gibt es aktuell **keinen**
+      Aufrufer mit `format=zugferd` (nur das Anzeige-Widget `EInvoiceIndicator.tsx`), das FE bricht
+      also nichts — sobald `w5-route` das UI anbindet, muss die Fehlermeldung dort aber sichtbar
+      werden, sonst ist die Verstossliste umsonst erhoben.
+  (2) 409 statt 422 fuer Validierungsfehler ist eine Folge von `grpcStatusToHTTP`, das kein 422
+      kennt. Fuer die neue Route in `w5-route` ist das die offene Wahl (Nachtrag steht dort).
+  (3) Das erzeugte PDF ist bewusst kein PDF/A-3b. Fuer oeffentliche Auftraggeber ist ohnehin
+      XRechnung (reines XML) der Weg; fuer B2B-Empfaenger reicht der deklarierte Anhang.

@@ -1351,7 +1351,6 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		return nil, err
 	}
 
-	// Generate plain PDF first — used as fallback on ZUGFeRD failure.
 	gen := pdf.NewGenerator(*settings)
 	plainPDF, err := gen.GenerateInvoicePDF(*inv)
 	if err != nil {
@@ -1359,26 +1358,21 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		return nil, status.Error(codes.Internal, "PDF generation failed")
 	}
 
-	plainFilename := fmt.Sprintf("Rechnung_%s.pdf", inv.InvoiceNumber)
-
-	// Generate ZUGFeRD XML (Factur-X EN16931 profile).
+	// No fallback to the plain PDF from here on. This path used to log the
+	// failure and hand back the invoice without XML under a different file name,
+	// which the caller could not distinguish from a real e-invoice — the
+	// recipient found out weeks later, when their accounting software found
+	// nothing to import. A failure now reaches the user, with the reason.
 	xmlBytes, err := pdf.GenerateZUGFeRDXML(*inv, *settings)
 	if err != nil {
-		slog.Error("zugferd xml generation failed, returning plain PDF", "invoice_id", id, "error", err)
-		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
-			PdfData:  plainPDF,
-			Filename: plainFilename,
-		}, nil
+		slog.Warn("zugferd xml generation failed", "invoice_id", id, "error", err)
+		return nil, mapBizError(err)
 	}
 
-	// Embed the XML attachment into the PDF.
 	zugferdPDF, err := pdf.EmbedZUGFeRDXML(plainPDF, xmlBytes, inv.InvoiceNumber)
 	if err != nil {
-		slog.Error("zugferd embed failed, returning plain PDF", "invoice_id", id, "error", err)
-		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
-			PdfData:  plainPDF,
-			Filename: plainFilename,
-		}, nil
+		slog.Error("zugferd embed failed", "invoice_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "e-invoice embedding failed")
 	}
 
 	filename := fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber)
@@ -2614,6 +2608,15 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, creditnote.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Outbound e-invoice errors. An invoice that misses a value the standard
+	// requires is a data problem the user can fix, so the message goes out
+	// whole — *einvoice.ValidationError renders every violation it found, and
+	// naming one field per round trip would cost the user a round trip per field.
+	case errors.Is(err, einvoice.ErrValidationFailed),
+		errors.Is(err, einvoice.ErrGenerateFailed),
+		errors.Is(err, einvoice.ErrTotalsMismatch):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Dunning errors
 	case errors.Is(err, dunning.ErrDunningNotFound):

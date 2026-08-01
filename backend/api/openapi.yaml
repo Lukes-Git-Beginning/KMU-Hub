@@ -7911,10 +7911,24 @@ paths:
   /api/v1/finance/invoices/{id}/pdf:
     get:
       summary: Generate PDF for an invoice
+      description: >
+        With `format=zugferd` the PDF carries the Factur-X/ZUGFeRD XML as an
+        embedded attachment named `factur-x.xml`, declared as the machine-readable
+        alternative of the document. An invoice that does not meet EN 16931 is
+        rejected with 409 listing every unmet requirement — no plain PDF is
+        returned in its place, because the caller could not tell it apart from
+        an e-invoice.
       tags: [invoices]
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceId"
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [zugferd]
+          description: Embed the Factur-X/ZUGFeRD XML into the PDF.
       responses:
         "200":
           description: PDF binary
@@ -7923,6 +7937,14 @@ paths:
               schema:
                 type: string
                 format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invoice does not meet the e-invoice requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/invoices/{id}/payments:
     post:

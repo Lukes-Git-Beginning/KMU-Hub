@@ -332,7 +332,9 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 }
 
 // handleZUGFeRDInvoicePDF delegates to the biz service which owns the domain logic.
-// Graceful degradation (plain PDF on XML failure) is handled inside the RPC.
+// An invoice that does not meet EN 16931 comes back as FailedPrecondition (409)
+// naming every unmet requirement — the RPC no longer falls back to the plain PDF,
+// which looked like a successful e-invoice and carried no invoice data.
 func (b *BizRoutes) handleZUGFeRDInvoicePDF(w http.ResponseWriter, r *http.Request, client bizv1.FinanceServiceClient, tenantID, id string) {
 	resp, err := client.GenerateZUGFeRDInvoicePDF(r.Context(), &bizv1.GenerateZUGFeRDInvoicePDFRequest{
 		Id:       id,
