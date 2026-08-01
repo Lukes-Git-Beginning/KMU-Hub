@@ -2335,3 +2335,43 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Notes verlangen explizit eine schmale, handgebaute Feldliste ohne interne Notizen/Kosten/
     Mitarbeiterdaten fuer die Rolle `extern` — dieselbe Guard-Kategorie (`projRead`) wie hier, selbes
     Risiko falls versehentlich HR- oder Kostenfelder durchgereicht werden.
+
+## Iteration 33 — fe-projects-guest-overview — blocked — 2026-08-02 00:20 (Nachtlauf 3)
+- commit: - (keine Code-Aenderung, nur BACKLOG.yml-Status)
+- verify vorgaenger: sauber. `3f26f98a` (fe-projects-team-utilization) gegen alle acht
+  Fehlerklassen geprueft: Handler ueber `getWorkClient()`, kein direkter Service-Zugriff;
+  `work.proto` + `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert; kein neuer
+  `RequirePermission`-Guard (haengt am bestehenden `projRead`), also auch keine Seed-Pflicht und
+  kein verlorener Alt-Key; kein neuer Table, Repository tenant-gescoped ueber
+  `te.tenant_id = $3 AND p.tenant_id = $3` im JOIN; Wire-Shape `{team:[...]}` mit
+  `member.{id,name,role,avatarInitial,weeklyTarget}` + `weeklyData`/`monthlyData` exakt gegen
+  `MemberUtilization`/`useProjectTeamUtilization` in `useProjects.ts:26-38,522-533` gegengelesen —
+  das bewusst fehlende `rate`-Feld ist dokumentierte Sicherheitsentscheidung (team:salary:view),
+  kein uebersehener Drift; openapi.yaml-Eintrag vorhanden. Unabhaengig nachgefahren:
+  `go test -count=1 -v ./internal/work/timeentry/... -run
+  'TestAggregateProjectHours_TenantIsolation|TestBuildMemberUtilization'` gegen `kmuhub_app` real
+  gelaufen (2 PASS, 0 SKIP, 0.24s). Kein Fund.
+- gebaut: nichts — Unit als `blocked` markiert, siehe `blocked_reason` in BACKLOG.yml.
+- Grund (Kurzfassung, Volltext im Backlog-Eintrag): Fuer `GET
+  /api/v1/projects/{id}/guest-overview` erwartet der reale FE-Vertrag
+  (`useProjectGuestOverview`, `useProjects.ts:536`) als GESAMTE Antwort
+  `{milestones: GuestMilestone[], statusUpdates: GuestStatusUpdate[]}`. Fuer beide Konzepte
+  existiert im Backend NICHTS — keine Tabelle, kein Model, kein interner Schreibpfad (verifiziert
+  per Volltextsuche ueber `backend/`, inkl. Migrations und `internal/models`). Der MSW-Mock
+  (`mocks/handlers/work.ts:1087`) erzeugt "Milestones" aus sechs hartkodierten Platzhaltertiteln
+  ("Konzept & Setup" ... "Go-Live"), gleichmaessig ueber Start-/Enddatum verteilt — reine
+  Design-Preview-Fiktion, kein Bezug zu echten Projektdaten. Diese Route ehrlich zu bauen braucht
+  zuerst ein echtes Datenmodell (mind. zwei neue Tabellen) UND einen internen Schreibpfad, damit
+  ein PM-User ueberhaupt Milestones/Status-Updates anlegen kann — beides existiert nirgends, auch
+  nicht ausserhalb der Guest-View. Ohne Schreibpfad waere die Route dauerhaft leer (Fehlerklasse 2,
+  "leerer Return" hinter einem echten GET). Interne Task-Kommentare als Ersatzquelle zu nehmen
+  wuerde die Sicherheitsvorgabe der Unit verletzen ("keine internen Notizen" fuer `extern`). Die
+  FE-Platzhalterfiktion serverseitig nachzubauen waere umgekehrt ein hartkodierter Beispieldatensatz
+  hinter einer echten Route. Alle drei Auswege (neues Feature aufsetzen / Milestones aus
+  vorhandenen Daten ableiten und Status-Updates streichen / Route auf echte Projekt-Kernfelder
+  beschraenken) sind Produkt-/Architekturentscheidungen — nicht spontan zu treffen.
+- gate: n.a. (kein Code geaendert)
+- offen:
+  - **Entscheidung fuer Luke:** siehe `blocked_reason` in BACKLOG.yml, drei Optionen zur Auswahl.
+  - Naechste Unit laut Reihenfolge: `fe-customization-labels` (deps: [], unabhaengig von dieser
+    blockierten Unit).

@@ -1361,7 +1361,35 @@ units:
     service: work
     model: sonnet
     deps: [fe-projects-team-utilization]
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Kein Backend-Datenmodell fuer "Milestones" oder "Status Updates" existiert — verifiziert per
+      Volltextsuche: keine Tabelle, kein models.go-Struct, kein interner Schreibpfad irgendwo im
+      Repo. Der reale FE-Vertrag (`useProjectGuestOverview`, `useProjects.ts:536`) erwartet
+      GENAU `{milestones: GuestMilestone[], statusUpdates: GuestStatusUpdate[]}` — das ist die
+      GESAMTE Antwort dieser Route, nicht ein Ausschnitt eines groesseren Projekt-Objekts (das
+      Projekt selbst kommt separat ueber das bestehende `useProject`). Der MSW-Mock
+      (`mocks/handlers/work.ts:1087`, Kommentar "derived per project, design preview") erzeugt
+      "Milestones" aus sechs FEST VERDRAHTETEN Titeln ("Konzept & Setup", "Design-Phase", ... ,
+      "Go-Live"), gleichmaessig ueber Start-/Enddatum verteilt, Fortschritt aus dem
+      Task-Completion-Verhaeltnis abgeleitet — reine Platzhalter-Fiktion ohne Bezug zu echten
+      Projektinhalten. "Status Updates" sind ebenso vier hartkodierte Beispieltexte.
+      Diese Route ehrlich zu bauen braucht zuerst ein ECHTES Datenmodell: mindestens zwei neue
+      Tabellen (`project_milestones`, `project_status_updates`, je tenant_id+RLS) UND einen
+      internen Schreibpfad, ueber den ein PM-User ueberhaupt Milestones anlegen oder eine
+      Status-Update-Nachricht fuer Gaeste verfassen kann — beides existiert nirgends im Code, auch
+      nicht ausserhalb der Guest-View. Ohne Schreibpfad waere die Route fuer immer leer
+      (Fehlerklasse 2, "leerer Return", nur als expliziter GET getarnt). Interne Task-Kommentare
+      als Ersatz-Quelle zu nehmen wuerde genau die Sicherheitsvorgabe dieser Unit verletzen ("keine
+      internen Notizen" fuer die Rolle `extern`) — Kommentare sind nicht fuer Gaeste kuratiert.
+      Server-seitig dieselbe Platzhalter-Fiktion wie der FE-Mock zu erzeugen waere ein
+      hartkodierter Beispieldatensatz hinter einer echten Route (Fehlerklasse 2 in der anderen
+      Richtung). Das ist eine Produkt-/Architektur-Entscheidung: (a) neues Milestones/Status-Update-
+      Feature inkl. interner CRUD als eigene Phase aufsetzen, (b) Milestones bewusst aus
+      vorhandenen Daten ableiten (z.B. ProjectStatus-Spalten oder eine neue Task-Markierung) und
+      Status-Updates ganz streichen, oder (c) die Guest-Overview-Route auf das beschraenken, was
+      real existiert (Projekt-Kernfelder + Fortschritt), und Milestones/Status-Updates aus dem
+      FE-Vertrag nehmen. Keine der drei Optionen sollte ohne Luke entschieden werden.
     scope: >
       `GET /api/v1/projects/{id}/guest-overview` — reduzierte Projektsicht fuer externe Gaeste.
     sources:
