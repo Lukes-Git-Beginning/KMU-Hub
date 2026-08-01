@@ -364,6 +364,12 @@ func (s *Service) ListDocumentChains(ctx context.Context, tenantID uuid.UUID) ([
 	return s.repo.ListDocumentChains(ctx, tenantID)
 }
 
+// ListTransactions returns the tenant's consolidated payment ledger. See
+// Repository.ListTransactions.
+func (s *Service) ListTransactions(ctx context.Context, tenantID uuid.UUID) ([]*models.FinanceTransaction, error) {
+	return s.repo.ListTransactions(ctx, tenantID)
+}
+
 // ListForDATEVExport returns one keyset-paged page of sent/paid/overdue invoices in
 // [fromDate, toDate] for the DATEV export. See Repository.ListForDATEVExport.
 func (s *Service) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error) {

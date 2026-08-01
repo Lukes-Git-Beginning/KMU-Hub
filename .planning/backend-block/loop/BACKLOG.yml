@@ -1167,7 +1167,7 @@ units:
     service: finance
     model: sonnet
     deps: [fe-finance-bank-transactions-matching]
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/finance/transactions` — konsolidierte Zahlungsbewegungen.
     sources:
@@ -1176,6 +1176,38 @@ units:
       Erst pruefen, ob sich das aus `finance_payments` und den Banktransaktionen aus
       `fe-finance-bank-transactions-matching` zusammensetzen laesst. Wenn ja: Read-Endpoint,
       keine neue Tabelle.
+
+      ERGEBNIS (2026-08-01): SCOPE-KORREKTUR — nicht Banktransaktionen, sondern `finance_payments`
+      + `finance_expenses`. Der reale FE-Vertrag ist NICHT der MSW-Handler allein, sondern
+      `financeTransactionApi` (`finance-client.ts`) + `useTransactions`/`useDeleteTransaction`
+      (`useFinanceLedger.ts`), konsumiert von `TransactionsTab.tsx`/`BerichteTab.tsx`/
+      `TransactionDetailPanel.tsx` (die Legacy-`useFinanceStore`/`stores/finance.ts` ist ein
+      unbenutzter Buchhaltung-Altmodul-Store, nur `Transaction`-Typdefinition wird geteilt). Der
+      Vertrag hat auch ein `DELETE /finance/transactions/{id}` (Loeschen-Button in
+      `TransactionsTab.tsx`, gated auf `finance:incoming:book`) — mitgebaut, nicht nur das GET aus
+      der urspruenglichen Notiz.
+      Kein neuer Tisch: `internal/biz/invoice/postgres_transactions.go` (neue Datei, Muster wie
+      `postgres_document_chains.go`) liest `finance_payments` JOIN `finance_invoices` (income,
+      Description "Rechnung {number} {customer}", Category hartkodiert "Umsatzerlöse" mangels
+      besserer Quelle) und `finance_expenses WHERE status='approved'` (expense) und merged
+      sortiert nach Datum. Pending/rejected Ausgaben bewegen nie Geld und fehlen bewusst.
+      IDs sind praefixiert (`pay-<uuid>`/`exp-<uuid>`), damit DELETE weiss, welche Tabelle gemeint
+      ist — Loeschen bedeutet je Seite etwas anderes: eine Zahlung loeschen revertiert ggf. den
+      Rechnungsstatus (`payment.Service.Delete`, bereits vorhanden), eine bereits entschiedene
+      Ausgabe zu loeschen ist von `expense.Service.Delete` verboten (`ErrDecided`, 409) — bei
+      dieser Ansicht IMMER, weil jede Expense-Zeile per Konstruktion approved ist. Das ist echtes,
+      bestehendes Geschaeftsverhalten, kein Stub.
+      Kleiner Root-Cause-Fix im selben Commit: `payment.Service`/`Repository.GetByID` gab bei
+      "nicht gefunden" einen rohen `errors.New("payment not found")` statt eines Sentinels zurueck
+      -> `mapBizError` traf keinen Fall -> 500 statt 404 fuer ein Delete auf eine nicht existente
+      ID. Da `DeleteFinanceTransaction` genau diesen Pfad neu aufruft, war korrektes Error-Mapping
+      Teil der Korrektheit dieser Unit, nicht separates Scope-Kriechen: `payment.ErrNotFound`
+      Sentinel ergaenzt, Postgres-Repo + Mock-Repo darauf umgestellt, `mapBizError`-Fall ergaenzt.
+      Guard: `RequirePermission("finance","read"/"delete")` wie die Nachbarrouten (kein Katalog-Key
+      fuer transactions, gleiche Begruendung wie bei expenses/bank-accounts).
+      RLS-Smoke: `TestTenantIsolation_Transactions` (`internal/biz/`) — Eigentuemer sieht genau 2
+      Eintraege (1 Payment + 1 approved Expense, pending/rejected fehlen), sortiert neueste zuerst;
+      fremder Tenant sieht exakt seine eigenen 2, keine Spur der Tenant-A-Daten.
     done_when:
       - Endpoint liefert die Bewegungen tenant-gescoped
       - openapi.yaml im selben Commit

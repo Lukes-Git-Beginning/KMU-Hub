@@ -370,6 +370,23 @@ type DocumentChain struct {
 	Nodes      []ChainNode     `json:"nodes"`
 }
 
+// FinanceTransaction is one entry in the consolidated payment ledger — GET
+// /finance/transactions: either a recorded customer payment (income) or an
+// approved expense (expense), merged and sorted by date. ID is prefixed
+// ("pay-"/"exp-") so a caller can tell which underlying record it names;
+// InvoiceID and Reference are set for income entries only.
+type FinanceTransaction struct {
+	ID          string          `json:"id"`
+	Type        string          `json:"type"`
+	Description string          `json:"description"`
+	Amount      decimal.Decimal `json:"amount"`
+	Date        time.Time       `json:"date"`
+	Category    string          `json:"category"`
+	Status      string          `json:"status"`
+	Reference   string          `json:"reference"`
+	InvoiceID   *uuid.UUID      `json:"invoice_id,omitempty"`
+}
+
 // ============================================================================
 // Dashboard Models
 // ============================================================================

@@ -245,6 +245,15 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteExpense)
 	})
 
+	// Transactions (Transaktionen): consolidated payment ledger over payments +
+	// approved expenses. Legacy-only guards, same reason as expenses above:
+	// capability-catalog.ts has no finance:transaction:* key.
+	r.Route("/api/v1/finance/transactions", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListTransactions)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteTransaction)
+	})
+
 	// Dashboard
 	r.Route("/api/v1/finance/dashboard", func(r chi.Router) {
 		r.Use(authMiddleware)

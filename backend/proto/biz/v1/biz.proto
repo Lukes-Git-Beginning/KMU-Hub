@@ -139,6 +139,10 @@ service FinanceService {
   rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
   rpc DecideExpense(DecideExpenseRequest) returns (DecideExpenseResponse);
   rpc AttachExpenseReceipt(AttachExpenseReceiptRequest) returns (AttachExpenseReceiptResponse);
+
+  // ==================== Finance transactions (consolidated) ====================
+  rpc ListFinanceTransactions(ListFinanceTransactionsRequest) returns (ListFinanceTransactionsResponse);
+  rpc DeleteFinanceTransaction(DeleteFinanceTransactionRequest) returns (DeleteFinanceTransactionResponse);
 }
 
 // ============================================================================
@@ -1720,6 +1724,44 @@ message AttachExpenseReceiptRequest {
 message AttachExpenseReceiptResponse {
   Expense expense = 1;
 }
+
+// ============================================================================
+// Finance transactions (Transaktionen) — consolidated payment ledger.
+// No new table: read-time union of finance_payments (income) and approved
+// finance_expenses (expense). See internal/biz/invoice/postgres_transactions.go.
+// ============================================================================
+
+message FinanceTransaction {
+  // Prefixed "pay-"/"exp-" so the caller (and DeleteFinanceTransaction) can
+  // tell which underlying record this entry names.
+  string id          = 1;
+  // "income" or "expense".
+  string type        = 2;
+  string description = 3;
+  string amount      = 4;   // Decimal as string
+  string date        = 5;   // Date string YYYY-MM-DD
+  string category    = 6;
+  // Always "completed" today -- only settled money movements are listed.
+  string status      = 7;
+  // Invoice number; set for income entries only.
+  optional string reference  = 8;
+  optional string invoice_id = 9;
+}
+
+message ListFinanceTransactionsRequest {
+  string tenant_id = 1;
+}
+
+message ListFinanceTransactionsResponse {
+  repeated FinanceTransaction transactions = 1;
+}
+
+message DeleteFinanceTransactionRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteFinanceTransactionResponse {}
 
 // ============================================================================
 // Bank accounts (Bankkonten) — Migration 000258

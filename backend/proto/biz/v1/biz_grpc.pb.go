@@ -105,6 +105,8 @@ const (
 	FinanceService_DeleteExpense_FullMethodName                = "/biz.v1.FinanceService/DeleteExpense"
 	FinanceService_DecideExpense_FullMethodName                = "/biz.v1.FinanceService/DecideExpense"
 	FinanceService_AttachExpenseReceipt_FullMethodName         = "/biz.v1.FinanceService/AttachExpenseReceipt"
+	FinanceService_ListFinanceTransactions_FullMethodName      = "/biz.v1.FinanceService/ListFinanceTransactions"
+	FinanceService_DeleteFinanceTransaction_FullMethodName     = "/biz.v1.FinanceService/DeleteFinanceTransaction"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -222,6 +224,9 @@ type FinanceServiceClient interface {
 	DeleteExpense(ctx context.Context, in *DeleteExpenseRequest, opts ...grpc.CallOption) (*DeleteExpenseResponse, error)
 	DecideExpense(ctx context.Context, in *DecideExpenseRequest, opts ...grpc.CallOption) (*DecideExpenseResponse, error)
 	AttachExpenseReceipt(ctx context.Context, in *AttachExpenseReceiptRequest, opts ...grpc.CallOption) (*AttachExpenseReceiptResponse, error)
+	// ==================== Finance transactions (consolidated) ====================
+	ListFinanceTransactions(ctx context.Context, in *ListFinanceTransactionsRequest, opts ...grpc.CallOption) (*ListFinanceTransactionsResponse, error)
+	DeleteFinanceTransaction(ctx context.Context, in *DeleteFinanceTransactionRequest, opts ...grpc.CallOption) (*DeleteFinanceTransactionResponse, error)
 }
 
 type financeServiceClient struct {
@@ -1092,6 +1097,26 @@ func (c *financeServiceClient) AttachExpenseReceipt(ctx context.Context, in *Att
 	return out, nil
 }
 
+func (c *financeServiceClient) ListFinanceTransactions(ctx context.Context, in *ListFinanceTransactionsRequest, opts ...grpc.CallOption) (*ListFinanceTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFinanceTransactionsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListFinanceTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteFinanceTransaction(ctx context.Context, in *DeleteFinanceTransactionRequest, opts ...grpc.CallOption) (*DeleteFinanceTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFinanceTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteFinanceTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -1207,6 +1232,9 @@ type FinanceServiceServer interface {
 	DeleteExpense(context.Context, *DeleteExpenseRequest) (*DeleteExpenseResponse, error)
 	DecideExpense(context.Context, *DecideExpenseRequest) (*DecideExpenseResponse, error)
 	AttachExpenseReceipt(context.Context, *AttachExpenseReceiptRequest) (*AttachExpenseReceiptResponse, error)
+	// ==================== Finance transactions (consolidated) ====================
+	ListFinanceTransactions(context.Context, *ListFinanceTransactionsRequest) (*ListFinanceTransactionsResponse, error)
+	DeleteFinanceTransaction(context.Context, *DeleteFinanceTransactionRequest) (*DeleteFinanceTransactionResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -1474,6 +1502,12 @@ func (UnimplementedFinanceServiceServer) DecideExpense(context.Context, *DecideE
 }
 func (UnimplementedFinanceServiceServer) AttachExpenseReceipt(context.Context, *AttachExpenseReceiptRequest) (*AttachExpenseReceiptResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AttachExpenseReceipt not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListFinanceTransactions(context.Context, *ListFinanceTransactionsRequest) (*ListFinanceTransactionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFinanceTransactions not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteFinanceTransaction(context.Context, *DeleteFinanceTransactionRequest) (*DeleteFinanceTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFinanceTransaction not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -3044,6 +3078,42 @@ func _FinanceService_AttachExpenseReceipt_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_ListFinanceTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFinanceTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListFinanceTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListFinanceTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListFinanceTransactions(ctx, req.(*ListFinanceTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteFinanceTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFinanceTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteFinanceTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteFinanceTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteFinanceTransaction(ctx, req.(*DeleteFinanceTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3394,6 +3464,14 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AttachExpenseReceipt",
 			Handler:    _FinanceService_AttachExpenseReceipt_Handler,
+		},
+		{
+			MethodName: "ListFinanceTransactions",
+			Handler:    _FinanceService_ListFinanceTransactions_Handler,
+		},
+		{
+			MethodName: "DeleteFinanceTransaction",
+			Handler:    _FinanceService_DeleteFinanceTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

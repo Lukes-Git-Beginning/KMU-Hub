@@ -79,6 +79,11 @@ type Repository interface {
 	// quote that has not (yet) become an invoice. See postgres_document_chains.go
 	// for the assembly rules.
 	ListDocumentChains(ctx context.Context, tenantID uuid.UUID) ([]*models.DocumentChain, error)
+
+	// ListTransactions returns the tenant's consolidated payment ledger: every
+	// recorded payment (income) and every approved expense (expense), merged
+	// and sorted by date. See postgres_transactions.go.
+	ListTransactions(ctx context.Context, tenantID uuid.UUID) ([]*models.FinanceTransaction, error)
 }
 
 // ListFilter contains filtering options for listing invoices.

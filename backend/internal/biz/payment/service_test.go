@@ -106,7 +106,7 @@ func (m *MockRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*
 	}
 	p, ok := m.payments[id]
 	if !ok {
-		return nil, errors.New("payment not found")
+		return nil, ErrNotFound
 	}
 	return p, nil
 }

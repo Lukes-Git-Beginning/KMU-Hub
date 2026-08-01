@@ -240,6 +240,10 @@ func (m *MockRepository) ListDocumentChains(_ context.Context, _ uuid.UUID) ([]*
 	return nil, nil
 }
 
+func (m *MockRepository) ListTransactions(_ context.Context, _ uuid.UUID) ([]*models.FinanceTransaction, error) {
+	return nil, nil
+}
+
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
 	nextNumber string

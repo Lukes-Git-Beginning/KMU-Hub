@@ -156,7 +156,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, errors.New("payment not found")
+		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err

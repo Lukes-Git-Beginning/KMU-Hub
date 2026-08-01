@@ -2681,6 +2681,10 @@ func mapBizError(err error) error {
 		errors.Is(err, einvoice.ErrTotalsMismatch):
 		return status.Error(codes.FailedPrecondition, err.Error())
 
+	// Payment errors
+	case errors.Is(err, payment.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+
 	// Dunning errors
 	case errors.Is(err, dunning.ErrDunningNotFound):
 		return status.Error(codes.NotFound, err.Error())

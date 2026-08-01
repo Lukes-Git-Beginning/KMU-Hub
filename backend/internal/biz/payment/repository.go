@@ -16,6 +16,10 @@ import (
 // guard (F5). The caller should fetch and return the existing payment.
 var ErrDuplicatePayment = errors.New("duplicate payment: idempotency key already used")
 
+// ErrNotFound is returned by GetByID (and so by Delete, which reads before
+// writing) when no payment matches the given tenant and id.
+var ErrNotFound = errors.New("payment not found")
+
 // Repository defines the interface for payment persistence.
 type Repository interface {
 	Create(ctx context.Context, payment *models.Payment) error

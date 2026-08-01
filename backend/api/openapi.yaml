@@ -9263,6 +9263,87 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/transactions:
+    get:
+      summary: List the consolidated payment ledger (Transaktionen)
+      description: >
+        Every recorded customer payment (income) and every approved expense
+        (expense) of the tenant, merged and sorted by date, newest first.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Transactions of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/transactions/{id}:
+    delete:
+      summary: Remove a ledger entry
+      description: >
+        A payment delete also reverts the invoice's paid status if it no
+        longer covers the total. An approved expense is refused with 409 — it
+        is the record of a decision somebody made, not a draft.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Opaque, prefixed ("pay-"/"exp-") — not a plain UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Unrecognized id prefix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The entry names an approved expense, which cannot be withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/document-chains:
     get:
       summary: List document chains (Belegkette)
@@ -34109,6 +34190,48 @@ components:
         receiptName:
           type: string
           maxLength: 255
+
+    Transaction:
+      type: object
+      description: >
+        One entry in the consolidated payment ledger (Transaktionen): either a
+        recorded customer payment (income) or an approved expense (expense).
+        id is opaque and prefixed ("pay-"/"exp-") to name the underlying
+        record for delete; do not parse it as a UUID.
+      properties:
+        id:
+          type: string
+          example: pay-3fa85f64-5717-4562-b3fc-2c963f66afa6
+        type:
+          type: string
+          enum: [income, expense]
+        description:
+          type: string
+        amount:
+          type: number
+          format: double
+          description: Always positive; sign is implied by type
+          example: 4280.0
+        date:
+          type: string
+          format: date
+          example: "2026-05-29"
+        category:
+          type: string
+          example: Umsatzerlöse
+        status:
+          type: string
+          enum: [completed, pending]
+          description: Always "completed" today — only settled money movements are listed
+        reference:
+          type: string
+          description: Invoice number; present for income entries only
+          example: RE-2026-042
+        invoiceId:
+          type: string
+          format: uuid
+          description: Present for income entries only
+      required: [id, type, description, amount, date, category, status]
 
     BankTransaction:
       type: object
