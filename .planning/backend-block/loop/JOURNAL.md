@@ -1069,7 +1069,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       Neubau, keine Guard-Tightening-Frage, keine Backlog-Unit dafuer angelegt.
 
 ## Iteration 18 — p2c-work-documents-crm-finance-2 — done (crm+finance) — 2026-08-01 (Nachtlauf 3)
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: f534ef8e
 - gebaut: `RequirePermissionAny(alt, neu)` additiv auf allen crm- und finance-Routen. crm sitzt
   komplett in `route_crm.go` (Contacts/Companies/Deals/Activities/Reports — die anderen
   `route_crm_*.go`-Dateien enthalten nur Handler, keine eigenen `r.Route`-Bloecke, Korrektur zur
