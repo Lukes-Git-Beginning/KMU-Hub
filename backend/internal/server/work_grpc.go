@@ -2032,6 +2032,43 @@ func (s *WorkGRPCServer) ListProjectTimeEntries(ctx context.Context, req *workv1
 	return &workv1.ListProjectTimeEntriesResponse{Entries: protos}, nil
 }
 
+// ListProjectTeamUtilization serves the project's "Auslastung" roll-up: every
+// member's tracked hours per week and per month. Same tenant/project-
+// affiliation check as ListProjectTimeEntries, plus the member list so a
+// member with zero tracked hours still appears (not just who has entries).
+func (s *WorkGRPCServer) ListProjectTeamUtilization(ctx context.Context, req *workv1.ListProjectTeamUtilizationRequest) (*workv1.ListProjectTeamUtilizationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projectID, err := uuid.Parse(req.ProjectId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	utilization, err := s.timeEntryService.ProjectUtilization(ctx, projectID, tenantID, members, time.Now())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to aggregate project utilization")
+	}
+
+	protos := make([]*workv1.ProjectMemberUtilizationProto, 0, len(utilization))
+	for _, u := range utilization {
+		protos = append(protos, memberUtilizationToProto(&u))
+	}
+
+	return &workv1.ListProjectTeamUtilizationResponse{Team: protos}, nil
+}
+
 // ============================================================================
 // Time Entry Proto Converters
 // ============================================================================
@@ -2054,6 +2091,25 @@ func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeE
 		Hours:       hours,
 		Description: description,
 	}
+}
+
+func memberUtilizationToProto(u *models.MemberUtilization) *workv1.ProjectMemberUtilizationProto {
+	return &workv1.ProjectMemberUtilizationProto{
+		UserId:       u.UserID.String(),
+		Name:         u.Name,
+		Role:         u.Role,
+		WeeklyTarget: int32(u.WeeklyTarget),
+		WeeklyData:   utilizationPointsToProto(u.WeeklyData),
+		MonthlyData:  utilizationPointsToProto(u.MonthlyData),
+	}
+}
+
+func utilizationPointsToProto(points []models.UtilizationPoint) []*workv1.UtilizationPointProto {
+	protos := make([]*workv1.UtilizationPointProto, 0, len(points))
+	for _, p := range points {
+		protos = append(protos, &workv1.UtilizationPointProto{Label: p.Label, Hours: p.Hours})
+	}
+	return protos
 }
 
 func projectTimeEntryToProto(e *models.ProjectTimeEntry) *workv1.ProjectTimeEntryProto {

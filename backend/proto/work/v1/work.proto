@@ -88,6 +88,7 @@ service WorkService {
   rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
   rpc ListBillableTimeEntries(ListBillableTimeEntriesRequest) returns (ListBillableTimeEntriesResponse);
   rpc ListProjectTimeEntries(ListProjectTimeEntriesRequest) returns (ListProjectTimeEntriesResponse);
+  rpc ListProjectTeamUtilization(ListProjectTeamUtilizationRequest) returns (ListProjectTeamUtilizationResponse);
 
   // Labels
   rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse);
@@ -887,6 +888,32 @@ message ListProjectTimeEntriesRequest {
 
 message ListProjectTimeEntriesResponse {
   repeated ProjectTimeEntryProto entries = 1;
+}
+
+// One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend.
+message UtilizationPointProto {
+  string label = 1;
+  double hours = 2;
+}
+
+// One project member's tracked-hours roll-up for the "Stunden abrechnen" /
+// Auslastung view. Deliberately carries no cost or salary figure -- this
+// RPC sits behind the project-read permission, not team:salary:view.
+message ProjectMemberUtilizationProto {
+  string user_id = 1;
+  string name = 2;
+  string role = 3;
+  int32 weekly_target = 4;
+  repeated UtilizationPointProto weekly_data = 5;
+  repeated UtilizationPointProto monthly_data = 6;
+}
+
+message ListProjectTeamUtilizationRequest {
+  string project_id = 1;
+}
+
+message ListProjectTeamUtilizationResponse {
+  repeated ProjectMemberUtilizationProto team = 1;
 }
 
 message GetTaskTimeSummaryRequest {

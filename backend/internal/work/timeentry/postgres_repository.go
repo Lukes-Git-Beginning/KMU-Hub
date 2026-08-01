@@ -276,6 +276,44 @@ func (r *PostgresRepository) ListByProject(ctx context.Context, projectID, tenan
 	return entries, rows.Err()
 }
 
+// AggregateProjectHours sums completed time-entry hours per member per
+// period bucket (trunc is "week" or "month"), for the project's
+// team-utilization roll-up. since bounds the window so a long-lived project
+// doesn't force scanning every entry ever logged. Bucketing happens via
+// date_trunc in SQL -- callers must not re-sum the raw rows in Go. Truncates
+// against UTC explicitly (not the session timezone) so bucket boundaries
+// match the Go-side period keys the caller zero-fills against.
+func (r *PostgresRepository) AggregateProjectHours(ctx context.Context, projectID, tenantID uuid.UUID, trunc string, since time.Time) ([]models.UtilizationBucket, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT te.user_id,
+		        date_trunc($1, te.started_at AT TIME ZONE 'UTC') AS period,
+		        SUM(te.duration_seconds) AS total_seconds
+		 FROM time_entries te
+		 JOIN tasks t ON t.id = te.task_id AND t.tenant_id = te.tenant_id
+		 JOIN projects p ON p.id = t.project_id AND p.tenant_id = te.tenant_id
+		 WHERE p.id = $2 AND p.tenant_id = $3 AND te.tenant_id = $3
+		   AND te.ended_at IS NOT NULL
+		   AND te.duration_seconds IS NOT NULL
+		   AND te.started_at >= $4
+		 GROUP BY te.user_id, period`,
+		trunc, projectID, tenantID, since,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate project hours: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []models.UtilizationBucket
+	for rows.Next() {
+		var b models.UtilizationBucket
+		if scanErr := rows.Scan(&b.UserID, &b.PeriodStart, &b.TotalSeconds); scanErr != nil {
+			return nil, fmt.Errorf("scan utilization bucket: %w", scanErr)
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, rows.Err()
+}
+
 func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,

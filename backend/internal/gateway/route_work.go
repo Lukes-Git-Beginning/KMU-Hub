@@ -91,6 +91,9 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 
 		// Time entries roll-up ("Stunden abrechnen" dialog).
 		r.With(projRead).Get("/{id}/time-entries", w.HandleListProjectTimeEntries)
+
+		// Team utilization roll-up (Auslastung view).
+		r.With(projRead).Get("/{id}/team-utilization", w.HandleListProjectTeamUtilization)
 	})
 
 	// Project Statuses (top-level for update/delete by status ID)

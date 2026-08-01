@@ -4524,6 +4524,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/projects/{id}/team-utilization:
+    get:
+      summary: Project team utilization roll-up (Auslastung)
+      description: >
+        Every project member's tracked hours per week (last 6 ISO weeks) and
+        per month (last 3 months), including members with zero tracked
+        hours. Carries no cost or salary figure -- this route sits behind
+        the project-read permission, not team:salary:view.
+      tags: [projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Team utilization roll-up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberUtilization"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Work service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/tasks:
     get:
       summary: List tasks with filters
@@ -34719,6 +34762,45 @@ components:
           type: number
         description:
           type: string
+
+    UtilizationPoint:
+      type: object
+      description: One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend.
+      properties:
+        label:
+          type: string
+        hours:
+          type: number
+
+    MemberUtilization:
+      type: object
+      description: >
+        One project member's tracked-hours roll-up for the Auslastung view.
+        Deliberately carries no cost or salary figure.
+      properties:
+        member:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            role:
+              type: string
+            avatarInitial:
+              type: string
+            weeklyTarget:
+              type: integer
+              description: Fixed full-time-week default (40h), not the member's real contracted hours.
+        weeklyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationPoint"
+        monthlyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationPoint"
 
     BankStatementImportResult:
       type: object

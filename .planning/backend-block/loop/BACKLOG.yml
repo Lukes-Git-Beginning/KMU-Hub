@@ -1315,7 +1315,7 @@ units:
     service: work
     model: sonnet
     deps: [fe-projects-time-entries]
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/projects/{id}/team-utilization` — Auslastungs-Aggregat je Teammitglied.
     sources:
@@ -1325,6 +1325,32 @@ units:
       Zeilen — das laeuft sonst bei einem Jahr Daten aus dem Ruder.
       Gehalts- oder Kostendaten gehoeren NICHT in diese Antwort (das FE zeigt Auslastung, nicht
       Kosten; `manager` hat bewusst kein salary-Recht).
+      KORREKTUR zur Sources-Notiz (Fund beim Bau, 2026-08-02): `desktop/src/renderer/src/api/clients`
+      existiert nicht — der reale FE-Vertrag ist `useProjectTeamUtilization`
+      (`api/hooks/useProjects.ts:522`), Typ `MemberUtilization`.
+      ECHTER KONFLIKT gefunden und zugunsten der Sicherheitsvorgabe aufgeloest: der FE-Mock liefert
+      pro Mitglied ein `rate`-Feld (EUR/h), das `AuslastungReport.tsx` zu `personnelCosts`
+      hochrechnet (`cost += hours * rate`) — genau die Kostendarstellung, die die Notiz oben
+      verbietet. Die einzige Quelle fuer einen echten Stundensatz ist
+      `EmployeeProfile.HourlyRate` (`internal/models/hr.go:103`), das hinter `team:salary:view`
+      liegt; dieser Endpoint haengt aber am bestehenden `projRead`-Guard
+      (`projects:read`/`work:project:read`). Rate durchzureichen waere ein Permission-Bypass: jeder
+      mit Projekt-Lesezugriff saehe Gehaltsdaten ohne die HR-Berechtigung. Backend liefert deshalb
+      `member.rate` NICHT — die Antwort hat exakt `id/name/role/avatarInitial/weeklyTarget` plus
+      `weeklyData`/`monthlyData`. Der FE bleibt fuers Personalkosten-Kaertchen Mock-served (gleiche
+      Lage wie bei allen `fe-*`-Units in diesem Lauf); wer die echte Kostenkarte anschliessen will,
+      braucht zuerst einen eigenen `team:salary:view`-gegateten Pfad, keinen Value-Fill hier.
+      `role` kommt aus `ProjectMember.Role` (owner/member/viewer, bereits ueber `GET
+      /projects/{id}/members` am selben `projRead`-Guard oeffentlich) — NICHT aus den erfundenen
+      Jobtiteln des Mocks ("Frontend Lead" etc.), fuer die es keine Datenquelle gibt.
+      `weeklyTarget` ist ein fixer Default (40h) mit `lean:`-Marker: die reale
+      Vertragsstundenzahl (`EmployeeProfile.WorkDaysPerWeek` x `HRCompanySettings.WorkHoursPerDay`)
+      liegt hinter `team:data_job:view`, ebenfalls ausserhalb des `projRead`-Scopes dieser Route.
+      Zeitraum: 6 ISO-Wochen (`date_trunc('week', ... AT TIME ZONE 'UTC')`) und 3 Monate
+      (`date_trunc('month', ...)`), Aggregation in SQL (`SUM(duration_seconds) GROUP BY user_id,
+      period`), Zero-Fill + Label-Erzeugung in Go (`buildMemberUtilization`, reine Funktion, DB-los
+      testbar). JEDES Projektmitglied erscheint, auch mit 0 Stunden — "je Teammitglied" heisst nicht
+      "je Mitglied mit Eintraegen".
     done_when:
       - Endpoint liefert das Aggregat, Berechnung in SQL
       - keine Gehaltsdaten in der Antwort

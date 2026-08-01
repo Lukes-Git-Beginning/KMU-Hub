@@ -2225,3 +2225,113 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     und braucht eine SQL-Aggregation ueber Zeiteintraege + Sollarbeitszeit — `hr_work_time_entries`
     (ArbZG) vs. `time_entries` (PM) ist dort erneut zu klaeren, vermutlich ist wieder `time_entries`
     gemeint (Team-Auslastung nach Projekt, nicht nach Anwesenheit).
+
+## Iteration 32 — fe-projects-team-utilization — done — 2026-08-02 00:05 (Nachtlauf 3)
+- commit: <pending>
+- gebaut:
+  - `GET /api/v1/projects/{id}/team-utilization` liefert das Auslastungs-Aggregat je Projektmitglied:
+    Stunden pro Woche (letzte 6 ISO-Wochen) und pro Monat (letzte 3 Monate), inklusive Mitglieder
+    ohne jeden Zeiteintrag (0-gefuellt statt weggelassen — "je Teammitglied" heisst nicht "je
+    Mitglied mit Eintraegen"). KORREKTUR zur Backlog-Sources-Notiz: `api/clients` existiert nicht —
+    realer FE-Vertrag ist `useProjectTeamUtilization` (`api/hooks/useProjects.ts:522`), Typ
+    `MemberUtilization`.
+  - **Echter Zielkonflikt gefunden und zugunsten der Sicherheitsvorgabe geloest.** Der FE-Mock
+    liefert pro Mitglied `rate` (EUR/h), das `AuslastungReport.tsx` zu einer "Personalkosten"-Kachel
+    hochrechnet (`cost += hours * rate`) — exakt die Kostendarstellung, die die Backlog-Notiz
+    verbietet. Einzige reale Quelle eines Stundensatzes ist `EmployeeProfile.HourlyRate`
+    (`internal/models/hr.go:103`), das hinter `team:salary:view` liegt; diese Route haengt aber am
+    bestehenden `projRead`-Guard (`projects:read`/`work:project:read`). `rate` durchzureichen waere
+    ein Permission-Bypass — jeder mit Projekt-Lesezugriff saehe Gehaltsdaten ohne HR-Berechtigung.
+    Die Antwort traegt deshalb bewusst KEIN `rate`-Feld; Wire-Shape-Test prueft das explizit (String-
+    Suche nach `"rate"` im marshalten JSON, nicht nur "Feld X fehlt"). `role` kommt aus
+    `ProjectMember.Role` (owner/member/viewer — bereits oeffentlich am selben Guard ueber `GET
+    /projects/{id}/members`), NICHT aus den erfundenen Jobtiteln des Mocks ("Frontend Lead" etc.),
+    fuer die es keine Datenquelle gibt. `weeklyTarget` ist ein fixer 40h-Default mit `lean:`-Marker:
+    die echte Vertragsstundenzahl (`EmployeeProfile.WorkDaysPerWeek` x
+    `HRCompanySettings.WorkHoursPerDay`) liegt hinter `team:data_job:view`, ebenfalls ausserhalb
+    dieses Route-Scopes. FE bleibt fuers Kosten-Kaertchen Mock-served (gleiche Lage wie alle
+    `fe-*`-Units dieses Laufs) — wer es anschliesst, braucht zuerst einen `team:salary:view`-Pfad.
+  - Neuer RPC `WorkService.ListProjectTeamUtilization` (`work.proto`, Request nur `project_id`), im
+    selben Commit regeneriert. Neue Messages `UtilizationPointProto{label,hours}` und
+    `ProjectMemberUtilizationProto{user_id,name,role,weekly_target,weekly_data,monthly_data}`
+    (bewusst KEIN `rate`-Feld im Proto selbst — der Schnitt sitzt schon an der Quelle, nicht erst am
+    Gateway-Mapping).
+  - `internal/work/timeentry`: neue Repository-Methode `AggregateProjectHours(ctx, projectID,
+    tenantID, trunc, since)` — EIN SQL-Query fuer Wochen- UND Monats-Buckets (Parameter `trunc`
+    "week"/"month" via `date_trunc($1, te.started_at AT TIME ZONE 'UTC')`, explizit UTC-truncated
+    statt Session-Timezone, damit die Bucket-Grenzen exakt zu den Go-seitig erzeugten Periods-Keys
+    passen), `SUM(duration_seconds) GROUP BY user_id, period` — Aggregation komplett SQL-seitig, kein
+    zeilenweises Summieren in Go. `since` grenzt das Zeitfenster ein (5 Wochen bzw. 2 Monate zurueck),
+    damit ein altes Projekt nicht jeden je erfassten Eintrag scannt.
+  - Service `ProjectUtilization(ctx, projectID, tenantID, members, now)`: ruft `AggregateProjectHours`
+    zweimal (week/month), delegiert Zero-Fill + Label-Erzeugung an die reine Funktion
+    `buildMemberUtilization` (kein ctx/DB-Zugriff, daher ohne DB unit-testbar). Wochenlabel `KW <n>`
+    ueber `time.Time.ISOWeek()` (Stdlib, keine neue Dependency), Monatslabel deutsche
+    3-Buchstaben-Abkuerzung aus einer festen Tabelle (`Jan…Dez`) plus Jahr. Bucket-Grenzen ueber
+    `startOfISOWeek`/`startOfMonth` (Montag-Anker bzw. Monatserster, beide UTC) — dieselbe Logik
+    erzeugt sowohl die SQL-`since`-Grenze als auch die Go-seitigen Vergleichsschluessel, damit beide
+    Seiten deckungsgleich bleiben.
+  - `WorkGRPCServer.ListProjectTeamUtilization` (`internal/server/work_grpc.go`): gleiches
+    Tenant/Projekt-Zugehoerigkeits-Muster wie `ListProjectTimeEntries`
+    (`projectService.Get(ctx,…,uuid.Nil,true)` vor jedem Datenzugriff), dann
+    `projectService.ListMembers(ctx,…,uuid.Nil,true)` fuer die vollstaendige Mitgliederliste (damit
+    auch Mitglieder ohne Eintraege erscheinen), dann `timeEntryService.ProjectUtilization`.
+  - Gateway: `WorkRoutes.HandleListProjectTeamUtilization` (`route_work_time.go`) haengt am
+    bestehenden `projRead`-Guard unter `/api/v1/projects/{id}/team-utilization` in `route_work.go` —
+    kein neuer Permission-Key, keine Seed-Pflicht. Eigenes Wire-Mapping (`toMemberUtilizationWire`)
+    statt `response.Proto`, weil `avatarInitial` (aus dem Namen abgeleitet, wie im Mock) im Proto
+    nicht existiert und `rate` bewusst fehlt.
+  - Tests: `TestBuildMemberUtilization` (rein, keine DB) — Bucket-Platzierung fuer ein Mitglied mit
+    Eintraegen (aeltester/aktueller Bucket korrekt, alles dazwischen 0-gefuellt), Wochenlabel
+    unabhaengig ueber `time.Time.ISOWeek()` nachgerechnet statt gegen die eigene Funktion zirkulaer
+    zu pruefen, Monatslabel exakt ("Jun/Jul/Aug 2026" bei 3 Buckets — Index 0 ist ZWEI Monate
+    zurueck, nicht einer; das war ein Bug im ersten Testentwurf, nicht im Produktionscode, per
+    fehlgeschlagenem Testlauf gefunden und korrigiert), Mitglied ohne jeden Eintrag komplett
+    0-gefuellt statt weggelassen. `TestAggregateProjectHours_TenantIsolation` (echte DB,
+    `kmuhub_app`) — Eintrag vor dem `since`-Fenster ausgeschlossen (nicht nur Tenant/Projekt-Filter),
+    laufender Timer ausgeschlossen, fremder Tenant mit geratener echter `project_id` sieht 0 Buckets.
+    Gateway-Wire-Shape-Test `TestToMemberUtilizationWire_Keys` prueft `member.{id,name,role,
+    avatarInitial,weeklyTarget}` vorhanden, `weeklyData[0]`/`monthlyData[0]` mit `label`/`hours`, UND
+    per String-Suche im marshalten JSON, dass `"rate"` an KEINER Stelle vorkommt (nicht nur "Feld X
+    im erwarteten Objekt fehlt" — eine zukuenftige unbedachte Struct-Erweiterung waere sonst nicht
+    abgefangen).
+- verify vorgaenger: `db17bb62`/`f204eac3` (fe-projects-time-entries) gegen alle sechs
+  Fehlerklassen der Architektur-Regeln geprueft. Handler ueber `getWorkClient()`, kein direkter
+  Service-Zugriff; `work.proto` + beide `.pb.go` im selben Commit regeneriert; Repository
+  tenant-gescoped ueber den `tasks`/`projects`-Join (`p.tenant_id = $2 AND te.tenant_id = $2`);
+  keine neue Tabelle; Guard `projRead` bestehend, kein neuer Key, keine Seed-Pflicht; Wire-Shape
+  `{entries:[...]}` mit `id/date/task/person/hours/description` exakt gegen
+  `useProjectTimeEntries`/`ProjectTimeEntry` in `useProjects.ts` gegengelesen; openapi.yaml im
+  selben Commit. Unabhaengig nachgefahren: `go build -p 2` gruen, `go vet`/`golangci-lint` 0 Issues,
+  `go test ./internal/work/... ./internal/gateway/... ./internal/server/...` gruen mit
+  `DATABASE_URL` gegen `kmuhub_app`, `TestListByProject_TenantIsolation` gezielt mit `-v` als real
+  gelaufen (0,12 s, kein SKIP) verifiziert, `TestOpenAPIRouteDrift` gruen (756 Routen/758 Pfade zu
+  diesem Zeitpunkt). Kein Fund.
+- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok (`go vet ./...`) | lint ok
+  (`golangci-lint`, 0 issues auf gateway+work+server) | gofmt: KEINE neue Unformatierung — `git
+  stash`/gofmt/`stash pop` gegenprobiert, dieselben zehn Dateien (`time_entry.go`,
+  `timeentry/errors.go|postgres_repository.go|repository.go|service.go|service_test.go|
+  tenant_write_test.go`, `server/work_grpc.go|work_label_test.go`, `gateway/route_work_time.go`)
+  waren bereits VOR meinen Aenderungen unformatiert (Bestandsschulden wie in Iteration 8
+  dokumentiert) — meine drei neuen/erweiterten Dateien (`route_work.go`,
+  `route_work_time_test.go`, `tenant_isolation_phase2_test.go`) tauchen in keiner der beiden Listen
+  auf. | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `internal/work/...` (alle Unterpakete inkl.
+  `timeentry`: 29 PASS, 0 SKIP per `-v`), `internal/gateway/`, `internal/server/...`,
+  `internal/models/...` (keine Testdateien) alle gruen. `TestOpenAPIRouteDrift` gruen: 757
+  registrierte Routen gegen 759 dokumentierte Pfade (+1 gegenueber Iteration 31, wie erwartet).
+  migration n.a. (keine Schema-Aenderung — reine Aggregation auf `time_entries`/`tasks`/`projects`).
+  rls-smoke: `TestAggregateProjectHours_TenantIsolation`, Details oben.
+- offen:
+  - **Produktentscheidung fuer Luke:** das FE-Personalkosten-Kaertchen in `AuslastungReport.tsx`
+    bleibt ohne echten Backend-Wert (Mock-`rate`), weil ein korrekter Wert `team:salary:view`
+    braucht, das dieser project-read-gegatete Endpoint nicht hat. Optionen: (a) eigene
+    salary-gegatete Zusatzroute, die das FE nur fuer berechtigte User abruft; (b) die Kostenkachel im
+    FE ganz entfernen/hinter eine eigene Capability legen; (c) so lassen bis ein Kunde das Feature
+    real verlangt. Keine dieser Optionen wurde umgesetzt — reine Beobachtung.
+  - `weeklyTarget` (40h-Default) und `role` (Projekt-Rolle statt Jobtitel) weichen bewusst vom
+    FE-Mock ab; sollte das FE spaeter von Mock auf diesen Endpoint umgestellt werden, aendert sich
+    dort sichtbar die Darstellung (kein "Frontend Lead" mehr, sondern "owner"/"member"/"viewer").
+  - Naechste Unit laut Backlog-Reihenfolge: `fe-projects-guest-overview` (deps erfuellt). Deren
+    Notes verlangen explizit eine schmale, handgebaute Feldliste ohne interne Notizen/Kosten/
+    Mitarbeiterdaten fuer die Rolle `extern` — dieselbe Guard-Kategorie (`projRead`) wie hier, selbes
+    Risiko falls versehentlich HR- oder Kostenfelder durchgereicht werden.

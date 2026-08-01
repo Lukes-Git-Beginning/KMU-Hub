@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -285,6 +286,92 @@ func toProjectTimeEntryWire(e *workv1.ProjectTimeEntryProto) projectTimeEntryWir
 		Hours:       e.GetHours(),
 		Description: e.GetDescription(),
 	}
+}
+
+// utilizationPointWire is one labeled period point in a member's hours trend.
+type utilizationPointWire struct {
+	Label string  `json:"label"`
+	Hours float64 `json:"hours"`
+}
+
+// memberUtilizationMemberWire is the exact shape the desktop client reads
+// for MemberUtilization.member (useProjects.ts, consumed via
+// useProjectTeamUtilization). Deliberately has no "rate" field -- this
+// route sits behind project-read, not team:salary:view, so no cost/salary
+// figure may flow through it. The desktop client stays mock-served for its
+// cost card until that permission boundary is wired up separately.
+type memberUtilizationMemberWire struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Role          string `json:"role"`
+	AvatarInitial string `json:"avatarInitial"`
+	WeeklyTarget  int    `json:"weeklyTarget"`
+}
+
+type memberUtilizationWire struct {
+	Member      memberUtilizationMemberWire `json:"member"`
+	WeeklyData  []utilizationPointWire      `json:"weeklyData"`
+	MonthlyData []utilizationPointWire      `json:"monthlyData"`
+}
+
+// HandleListProjectTeamUtilization serves the project's "Auslastung"
+// roll-up. GET /api/v1/projects/{id}/team-utilization
+func (w *WorkRoutes) HandleListProjectTeamUtilization(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListProjectTeamUtilization(r.Context(), &workv1.ListProjectTeamUtilizationRequest{
+		ProjectId: projectID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	team := make([]memberUtilizationWire, 0, len(resp.GetTeam()))
+	for _, m := range resp.GetTeam() {
+		team = append(team, toMemberUtilizationWire(m))
+	}
+
+	response.JSON(wr, http.StatusOK, map[string]any{"team": team})
+}
+
+func toMemberUtilizationWire(m *workv1.ProjectMemberUtilizationProto) memberUtilizationWire {
+	return memberUtilizationWire{
+		Member: memberUtilizationMemberWire{
+			ID:            m.GetUserId(),
+			Name:          m.GetName(),
+			Role:          m.GetRole(),
+			AvatarInitial: avatarInitial(m.GetName()),
+			WeeklyTarget:  int(m.GetWeeklyTarget()),
+		},
+		WeeklyData:  toUtilizationPointsWire(m.GetWeeklyData()),
+		MonthlyData: toUtilizationPointsWire(m.GetMonthlyData()),
+	}
+}
+
+func toUtilizationPointsWire(points []*workv1.UtilizationPointProto) []utilizationPointWire {
+	out := make([]utilizationPointWire, 0, len(points))
+	for _, p := range points {
+		out = append(out, utilizationPointWire{Label: p.GetLabel(), Hours: p.GetHours()})
+	}
+	return out
+}
+
+func avatarInitial(name string) string {
+	r := []rune(strings.TrimSpace(name))
+	if len(r) == 0 {
+		return ""
+	}
+	return strings.ToUpper(string(r[0]))
 }
 
 func (w *WorkRoutes) HandleGetTaskTimeSummary(wr http.ResponseWriter, r *http.Request) {

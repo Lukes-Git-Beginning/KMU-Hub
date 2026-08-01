@@ -7286,6 +7286,234 @@ func (x *ListProjectTimeEntriesResponse) GetEntries() []*ProjectTimeEntryProto {
 	return nil
 }
 
+// One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend.
+type UtilizationPointProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Hours         float64                `protobuf:"fixed64,2,opt,name=hours,proto3" json:"hours,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UtilizationPointProto) Reset() {
+	*x = UtilizationPointProto{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UtilizationPointProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UtilizationPointProto) ProtoMessage() {}
+
+func (x *UtilizationPointProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UtilizationPointProto.ProtoReflect.Descriptor instead.
+func (*UtilizationPointProto) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{122}
+}
+
+func (x *UtilizationPointProto) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *UtilizationPointProto) GetHours() float64 {
+	if x != nil {
+		return x.Hours
+	}
+	return 0
+}
+
+// One project member's tracked-hours roll-up for the "Stunden abrechnen" /
+// Auslastung view. Deliberately carries no cost or salary figure -- this
+// RPC sits behind the project-read permission, not team:salary:view.
+type ProjectMemberUtilizationProto struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	UserId        string                   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Name          string                   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Role          string                   `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	WeeklyTarget  int32                    `protobuf:"varint,4,opt,name=weekly_target,json=weeklyTarget,proto3" json:"weekly_target,omitempty"`
+	WeeklyData    []*UtilizationPointProto `protobuf:"bytes,5,rep,name=weekly_data,json=weeklyData,proto3" json:"weekly_data,omitempty"`
+	MonthlyData   []*UtilizationPointProto `protobuf:"bytes,6,rep,name=monthly_data,json=monthlyData,proto3" json:"monthly_data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProjectMemberUtilizationProto) Reset() {
+	*x = ProjectMemberUtilizationProto{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectMemberUtilizationProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectMemberUtilizationProto) ProtoMessage() {}
+
+func (x *ProjectMemberUtilizationProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectMemberUtilizationProto.ProtoReflect.Descriptor instead.
+func (*ProjectMemberUtilizationProto) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{123}
+}
+
+func (x *ProjectMemberUtilizationProto) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ProjectMemberUtilizationProto) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ProjectMemberUtilizationProto) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ProjectMemberUtilizationProto) GetWeeklyTarget() int32 {
+	if x != nil {
+		return x.WeeklyTarget
+	}
+	return 0
+}
+
+func (x *ProjectMemberUtilizationProto) GetWeeklyData() []*UtilizationPointProto {
+	if x != nil {
+		return x.WeeklyData
+	}
+	return nil
+}
+
+func (x *ProjectMemberUtilizationProto) GetMonthlyData() []*UtilizationPointProto {
+	if x != nil {
+		return x.MonthlyData
+	}
+	return nil
+}
+
+type ListProjectTeamUtilizationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProjectTeamUtilizationRequest) Reset() {
+	*x = ListProjectTeamUtilizationRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProjectTeamUtilizationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProjectTeamUtilizationRequest) ProtoMessage() {}
+
+func (x *ListProjectTeamUtilizationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProjectTeamUtilizationRequest.ProtoReflect.Descriptor instead.
+func (*ListProjectTeamUtilizationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{124}
+}
+
+func (x *ListProjectTeamUtilizationRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+type ListProjectTeamUtilizationResponse struct {
+	state         protoimpl.MessageState           `protogen:"open.v1"`
+	Team          []*ProjectMemberUtilizationProto `protobuf:"bytes,1,rep,name=team,proto3" json:"team,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProjectTeamUtilizationResponse) Reset() {
+	*x = ListProjectTeamUtilizationResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProjectTeamUtilizationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProjectTeamUtilizationResponse) ProtoMessage() {}
+
+func (x *ListProjectTeamUtilizationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProjectTeamUtilizationResponse.ProtoReflect.Descriptor instead.
+func (*ListProjectTeamUtilizationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *ListProjectTeamUtilizationResponse) GetTeam() []*ProjectMemberUtilizationProto {
+	if x != nil {
+		return x.Team
+	}
+	return nil
+}
+
 type GetTaskTimeSummaryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -7295,7 +7523,7 @@ type GetTaskTimeSummaryRequest struct {
 
 func (x *GetTaskTimeSummaryRequest) Reset() {
 	*x = GetTaskTimeSummaryRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	mi := &file_proto_work_v1_work_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7307,7 +7535,7 @@ func (x *GetTaskTimeSummaryRequest) String() string {
 func (*GetTaskTimeSummaryRequest) ProtoMessage() {}
 
 func (x *GetTaskTimeSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	mi := &file_proto_work_v1_work_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7320,7 +7548,7 @@ func (x *GetTaskTimeSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskTimeSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskTimeSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{122}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *GetTaskTimeSummaryRequest) GetTaskId() string {
@@ -7339,7 +7567,7 @@ type GetTaskTimeSummaryResponse struct {
 
 func (x *GetTaskTimeSummaryResponse) Reset() {
 	*x = GetTaskTimeSummaryResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	mi := &file_proto_work_v1_work_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7351,7 +7579,7 @@ func (x *GetTaskTimeSummaryResponse) String() string {
 func (*GetTaskTimeSummaryResponse) ProtoMessage() {}
 
 func (x *GetTaskTimeSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	mi := &file_proto_work_v1_work_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7364,7 +7592,7 @@ func (x *GetTaskTimeSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskTimeSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskTimeSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{123}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *GetTaskTimeSummaryResponse) GetSummary() *TimeSummaryProto {
@@ -7385,7 +7613,7 @@ type LabelProto struct {
 
 func (x *LabelProto) Reset() {
 	*x = LabelProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	mi := &file_proto_work_v1_work_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7397,7 +7625,7 @@ func (x *LabelProto) String() string {
 func (*LabelProto) ProtoMessage() {}
 
 func (x *LabelProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	mi := &file_proto_work_v1_work_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7410,7 +7638,7 @@ func (x *LabelProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelProto.ProtoReflect.Descriptor instead.
 func (*LabelProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{124}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *LabelProto) GetId() string {
@@ -7444,7 +7672,7 @@ type CreateLabelRequest struct {
 
 func (x *CreateLabelRequest) Reset() {
 	*x = CreateLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	mi := &file_proto_work_v1_work_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7456,7 +7684,7 @@ func (x *CreateLabelRequest) String() string {
 func (*CreateLabelRequest) ProtoMessage() {}
 
 func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	mi := &file_proto_work_v1_work_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7469,7 +7697,7 @@ func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelRequest.ProtoReflect.Descriptor instead.
 func (*CreateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{125}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *CreateLabelRequest) GetName() string {
@@ -7495,7 +7723,7 @@ type CreateLabelResponse struct {
 
 func (x *CreateLabelResponse) Reset() {
 	*x = CreateLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[126]
+	mi := &file_proto_work_v1_work_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7507,7 +7735,7 @@ func (x *CreateLabelResponse) String() string {
 func (*CreateLabelResponse) ProtoMessage() {}
 
 func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[126]
+	mi := &file_proto_work_v1_work_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7520,7 +7748,7 @@ func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelResponse.ProtoReflect.Descriptor instead.
 func (*CreateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{126}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *CreateLabelResponse) GetLabel() *LabelProto {
@@ -7539,7 +7767,7 @@ type GetLabelRequest struct {
 
 func (x *GetLabelRequest) Reset() {
 	*x = GetLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[127]
+	mi := &file_proto_work_v1_work_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7551,7 +7779,7 @@ func (x *GetLabelRequest) String() string {
 func (*GetLabelRequest) ProtoMessage() {}
 
 func (x *GetLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[127]
+	mi := &file_proto_work_v1_work_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7564,7 +7792,7 @@ func (x *GetLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelRequest.ProtoReflect.Descriptor instead.
 func (*GetLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{127}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *GetLabelRequest) GetId() string {
@@ -7583,7 +7811,7 @@ type GetLabelResponse struct {
 
 func (x *GetLabelResponse) Reset() {
 	*x = GetLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[128]
+	mi := &file_proto_work_v1_work_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7595,7 +7823,7 @@ func (x *GetLabelResponse) String() string {
 func (*GetLabelResponse) ProtoMessage() {}
 
 func (x *GetLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[128]
+	mi := &file_proto_work_v1_work_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7608,7 +7836,7 @@ func (x *GetLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelResponse.ProtoReflect.Descriptor instead.
 func (*GetLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{128}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *GetLabelResponse) GetLabel() *LabelProto {
@@ -7626,7 +7854,7 @@ type ListLabelsRequest struct {
 
 func (x *ListLabelsRequest) Reset() {
 	*x = ListLabelsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[129]
+	mi := &file_proto_work_v1_work_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7638,7 +7866,7 @@ func (x *ListLabelsRequest) String() string {
 func (*ListLabelsRequest) ProtoMessage() {}
 
 func (x *ListLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[129]
+	mi := &file_proto_work_v1_work_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7651,7 +7879,7 @@ func (x *ListLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLabelsRequest.ProtoReflect.Descriptor instead.
 func (*ListLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{129}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{133}
 }
 
 type ListLabelsResponse struct {
@@ -7663,7 +7891,7 @@ type ListLabelsResponse struct {
 
 func (x *ListLabelsResponse) Reset() {
 	*x = ListLabelsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[130]
+	mi := &file_proto_work_v1_work_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7675,7 +7903,7 @@ func (x *ListLabelsResponse) String() string {
 func (*ListLabelsResponse) ProtoMessage() {}
 
 func (x *ListLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[130]
+	mi := &file_proto_work_v1_work_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7688,7 +7916,7 @@ func (x *ListLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLabelsResponse.ProtoReflect.Descriptor instead.
 func (*ListLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{130}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *ListLabelsResponse) GetLabels() []*LabelProto {
@@ -7709,7 +7937,7 @@ type UpdateLabelRequest struct {
 
 func (x *UpdateLabelRequest) Reset() {
 	*x = UpdateLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[131]
+	mi := &file_proto_work_v1_work_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7721,7 +7949,7 @@ func (x *UpdateLabelRequest) String() string {
 func (*UpdateLabelRequest) ProtoMessage() {}
 
 func (x *UpdateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[131]
+	mi := &file_proto_work_v1_work_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7734,7 +7962,7 @@ func (x *UpdateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLabelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{131}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *UpdateLabelRequest) GetId() string {
@@ -7767,7 +7995,7 @@ type UpdateLabelResponse struct {
 
 func (x *UpdateLabelResponse) Reset() {
 	*x = UpdateLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[132]
+	mi := &file_proto_work_v1_work_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7779,7 +8007,7 @@ func (x *UpdateLabelResponse) String() string {
 func (*UpdateLabelResponse) ProtoMessage() {}
 
 func (x *UpdateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[132]
+	mi := &file_proto_work_v1_work_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7792,7 +8020,7 @@ func (x *UpdateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLabelResponse.ProtoReflect.Descriptor instead.
 func (*UpdateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{132}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *UpdateLabelResponse) GetLabel() *LabelProto {
@@ -7811,7 +8039,7 @@ type DeleteLabelRequest struct {
 
 func (x *DeleteLabelRequest) Reset() {
 	*x = DeleteLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[133]
+	mi := &file_proto_work_v1_work_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7823,7 +8051,7 @@ func (x *DeleteLabelRequest) String() string {
 func (*DeleteLabelRequest) ProtoMessage() {}
 
 func (x *DeleteLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[133]
+	mi := &file_proto_work_v1_work_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7836,7 +8064,7 @@ func (x *DeleteLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLabelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{133}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *DeleteLabelRequest) GetId() string {
@@ -7854,7 +8082,7 @@ type DeleteLabelResponse struct {
 
 func (x *DeleteLabelResponse) Reset() {
 	*x = DeleteLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[134]
+	mi := &file_proto_work_v1_work_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7866,7 +8094,7 @@ func (x *DeleteLabelResponse) String() string {
 func (*DeleteLabelResponse) ProtoMessage() {}
 
 func (x *DeleteLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[134]
+	mi := &file_proto_work_v1_work_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7879,7 +8107,7 @@ func (x *DeleteLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLabelResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{134}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{138}
 }
 
 type SetTaskLabelsRequest struct {
@@ -7892,7 +8120,7 @@ type SetTaskLabelsRequest struct {
 
 func (x *SetTaskLabelsRequest) Reset() {
 	*x = SetTaskLabelsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[135]
+	mi := &file_proto_work_v1_work_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7904,7 +8132,7 @@ func (x *SetTaskLabelsRequest) String() string {
 func (*SetTaskLabelsRequest) ProtoMessage() {}
 
 func (x *SetTaskLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[135]
+	mi := &file_proto_work_v1_work_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7917,7 +8145,7 @@ func (x *SetTaskLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskLabelsRequest.ProtoReflect.Descriptor instead.
 func (*SetTaskLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{135}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *SetTaskLabelsRequest) GetTaskId() string {
@@ -7942,7 +8170,7 @@ type SetTaskLabelsResponse struct {
 
 func (x *SetTaskLabelsResponse) Reset() {
 	*x = SetTaskLabelsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[136]
+	mi := &file_proto_work_v1_work_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7954,7 +8182,7 @@ func (x *SetTaskLabelsResponse) String() string {
 func (*SetTaskLabelsResponse) ProtoMessage() {}
 
 func (x *SetTaskLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[136]
+	mi := &file_proto_work_v1_work_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7967,7 +8195,7 @@ func (x *SetTaskLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskLabelsResponse.ProtoReflect.Descriptor instead.
 func (*SetTaskLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{136}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{140}
 }
 
 type CustomFieldDefinitionProto struct {
@@ -7983,7 +8211,7 @@ type CustomFieldDefinitionProto struct {
 
 func (x *CustomFieldDefinitionProto) Reset() {
 	*x = CustomFieldDefinitionProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[137]
+	mi := &file_proto_work_v1_work_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7995,7 +8223,7 @@ func (x *CustomFieldDefinitionProto) String() string {
 func (*CustomFieldDefinitionProto) ProtoMessage() {}
 
 func (x *CustomFieldDefinitionProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[137]
+	mi := &file_proto_work_v1_work_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8008,7 +8236,7 @@ func (x *CustomFieldDefinitionProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CustomFieldDefinitionProto.ProtoReflect.Descriptor instead.
 func (*CustomFieldDefinitionProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{137}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *CustomFieldDefinitionProto) GetId() string {
@@ -8058,7 +8286,7 @@ type CreateCustomFieldDefinitionRequest struct {
 
 func (x *CreateCustomFieldDefinitionRequest) Reset() {
 	*x = CreateCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[138]
+	mi := &file_proto_work_v1_work_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8070,7 +8298,7 @@ func (x *CreateCustomFieldDefinitionRequest) String() string {
 func (*CreateCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *CreateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[138]
+	mi := &file_proto_work_v1_work_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8083,7 +8311,7 @@ func (x *CreateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use CreateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*CreateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{138}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *CreateCustomFieldDefinitionRequest) GetName() string {
@@ -8123,7 +8351,7 @@ type CreateCustomFieldDefinitionResponse struct {
 
 func (x *CreateCustomFieldDefinitionResponse) Reset() {
 	*x = CreateCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[139]
+	mi := &file_proto_work_v1_work_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8135,7 +8363,7 @@ func (x *CreateCustomFieldDefinitionResponse) String() string {
 func (*CreateCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *CreateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[139]
+	mi := &file_proto_work_v1_work_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8148,7 +8376,7 @@ func (x *CreateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CreateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*CreateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{139}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *CreateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8167,7 +8395,7 @@ type GetCustomFieldDefinitionRequest struct {
 
 func (x *GetCustomFieldDefinitionRequest) Reset() {
 	*x = GetCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[140]
+	mi := &file_proto_work_v1_work_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8179,7 +8407,7 @@ func (x *GetCustomFieldDefinitionRequest) String() string {
 func (*GetCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *GetCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[140]
+	mi := &file_proto_work_v1_work_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8192,7 +8420,7 @@ func (x *GetCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*GetCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{140}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *GetCustomFieldDefinitionRequest) GetId() string {
@@ -8211,7 +8439,7 @@ type GetCustomFieldDefinitionResponse struct {
 
 func (x *GetCustomFieldDefinitionResponse) Reset() {
 	*x = GetCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[141]
+	mi := &file_proto_work_v1_work_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8223,7 +8451,7 @@ func (x *GetCustomFieldDefinitionResponse) String() string {
 func (*GetCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *GetCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[141]
+	mi := &file_proto_work_v1_work_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8236,7 +8464,7 @@ func (x *GetCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*GetCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{141}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *GetCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8254,7 +8482,7 @@ type ListCustomFieldDefinitionsRequest struct {
 
 func (x *ListCustomFieldDefinitionsRequest) Reset() {
 	*x = ListCustomFieldDefinitionsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[142]
+	mi := &file_proto_work_v1_work_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8266,7 +8494,7 @@ func (x *ListCustomFieldDefinitionsRequest) String() string {
 func (*ListCustomFieldDefinitionsRequest) ProtoMessage() {}
 
 func (x *ListCustomFieldDefinitionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[142]
+	mi := &file_proto_work_v1_work_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8279,7 +8507,7 @@ func (x *ListCustomFieldDefinitionsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListCustomFieldDefinitionsRequest.ProtoReflect.Descriptor instead.
 func (*ListCustomFieldDefinitionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{142}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{146}
 }
 
 type ListCustomFieldDefinitionsResponse struct {
@@ -8291,7 +8519,7 @@ type ListCustomFieldDefinitionsResponse struct {
 
 func (x *ListCustomFieldDefinitionsResponse) Reset() {
 	*x = ListCustomFieldDefinitionsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[143]
+	mi := &file_proto_work_v1_work_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8303,7 +8531,7 @@ func (x *ListCustomFieldDefinitionsResponse) String() string {
 func (*ListCustomFieldDefinitionsResponse) ProtoMessage() {}
 
 func (x *ListCustomFieldDefinitionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[143]
+	mi := &file_proto_work_v1_work_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8316,7 +8544,7 @@ func (x *ListCustomFieldDefinitionsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListCustomFieldDefinitionsResponse.ProtoReflect.Descriptor instead.
 func (*ListCustomFieldDefinitionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{143}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *ListCustomFieldDefinitionsResponse) GetDefinitions() []*CustomFieldDefinitionProto {
@@ -8339,7 +8567,7 @@ type UpdateCustomFieldDefinitionRequest struct {
 
 func (x *UpdateCustomFieldDefinitionRequest) Reset() {
 	*x = UpdateCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[144]
+	mi := &file_proto_work_v1_work_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8351,7 +8579,7 @@ func (x *UpdateCustomFieldDefinitionRequest) String() string {
 func (*UpdateCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *UpdateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[144]
+	mi := &file_proto_work_v1_work_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8364,7 +8592,7 @@ func (x *UpdateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{144}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *UpdateCustomFieldDefinitionRequest) GetId() string {
@@ -8411,7 +8639,7 @@ type UpdateCustomFieldDefinitionResponse struct {
 
 func (x *UpdateCustomFieldDefinitionResponse) Reset() {
 	*x = UpdateCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[145]
+	mi := &file_proto_work_v1_work_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8423,7 +8651,7 @@ func (x *UpdateCustomFieldDefinitionResponse) String() string {
 func (*UpdateCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *UpdateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[145]
+	mi := &file_proto_work_v1_work_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8436,7 +8664,7 @@ func (x *UpdateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{145}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *UpdateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8455,7 +8683,7 @@ type DeleteCustomFieldDefinitionRequest struct {
 
 func (x *DeleteCustomFieldDefinitionRequest) Reset() {
 	*x = DeleteCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[146]
+	mi := &file_proto_work_v1_work_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8467,7 +8695,7 @@ func (x *DeleteCustomFieldDefinitionRequest) String() string {
 func (*DeleteCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *DeleteCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[146]
+	mi := &file_proto_work_v1_work_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8480,7 +8708,7 @@ func (x *DeleteCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use DeleteCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{146}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *DeleteCustomFieldDefinitionRequest) GetId() string {
@@ -8498,7 +8726,7 @@ type DeleteCustomFieldDefinitionResponse struct {
 
 func (x *DeleteCustomFieldDefinitionResponse) Reset() {
 	*x = DeleteCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[147]
+	mi := &file_proto_work_v1_work_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8510,7 +8738,7 @@ func (x *DeleteCustomFieldDefinitionResponse) String() string {
 func (*DeleteCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *DeleteCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[147]
+	mi := &file_proto_work_v1_work_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8523,7 +8751,7 @@ func (x *DeleteCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use DeleteCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{147}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{151}
 }
 
 var File_proto_work_v1_work_proto protoreflect.FileDescriptor
@@ -9198,7 +9426,23 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\"Z\n" +
 	"\x1eListProjectTimeEntriesResponse\x128\n" +
-	"\aentries\x18\x01 \x03(\v2\x1e.work.v1.ProjectTimeEntryProtoR\aentries\"4\n" +
+	"\aentries\x18\x01 \x03(\v2\x1e.work.v1.ProjectTimeEntryProtoR\aentries\"C\n" +
+	"\x15UtilizationPointProto\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
+	"\x05hours\x18\x02 \x01(\x01R\x05hours\"\x89\x02\n" +
+	"\x1dProjectMemberUtilizationProto\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12#\n" +
+	"\rweekly_target\x18\x04 \x01(\x05R\fweeklyTarget\x12?\n" +
+	"\vweekly_data\x18\x05 \x03(\v2\x1e.work.v1.UtilizationPointProtoR\n" +
+	"weeklyData\x12A\n" +
+	"\fmonthly_data\x18\x06 \x03(\v2\x1e.work.v1.UtilizationPointProtoR\vmonthlyData\"B\n" +
+	"!ListProjectTeamUtilizationRequest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\"`\n" +
+	"\"ListProjectTeamUtilizationResponse\x12:\n" +
+	"\x04team\x18\x01 \x03(\v2&.work.v1.ProjectMemberUtilizationProtoR\x04team\"4\n" +
 	"\x19GetTaskTimeSummaryRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"Q\n" +
 	"\x1aGetTaskTimeSummaryResponse\x123\n" +
@@ -9272,7 +9516,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"definition\"4\n" +
 	"\"DeleteCustomFieldDefinitionRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"%\n" +
-	"#DeleteCustomFieldDefinitionResponse2\x9e.\n" +
+	"#DeleteCustomFieldDefinitionResponse2\x95/\n" +
 	"\vWorkService\x12N\n" +
 	"\rCreateProject\x12\x1d.work.v1.CreateProjectRequest\x1a\x1e.work.v1.CreateProjectResponse\x12E\n" +
 	"\n" +
@@ -9332,7 +9576,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0fListTimeEntries\x12\x1f.work.v1.ListTimeEntriesRequest\x1a .work.v1.ListTimeEntriesResponse\x12]\n" +
 	"\x12GetTaskTimeSummary\x12\".work.v1.GetTaskTimeSummaryRequest\x1a#.work.v1.GetTaskTimeSummaryResponse\x12l\n" +
 	"\x17ListBillableTimeEntries\x12'.work.v1.ListBillableTimeEntriesRequest\x1a(.work.v1.ListBillableTimeEntriesResponse\x12i\n" +
-	"\x16ListProjectTimeEntries\x12&.work.v1.ListProjectTimeEntriesRequest\x1a'.work.v1.ListProjectTimeEntriesResponse\x12H\n" +
+	"\x16ListProjectTimeEntries\x12&.work.v1.ListProjectTimeEntriesRequest\x1a'.work.v1.ListProjectTimeEntriesResponse\x12u\n" +
+	"\x1aListProjectTeamUtilization\x12*.work.v1.ListProjectTeamUtilizationRequest\x1a+.work.v1.ListProjectTeamUtilizationResponse\x12H\n" +
 	"\vCreateLabel\x12\x1b.work.v1.CreateLabelRequest\x1a\x1c.work.v1.CreateLabelResponse\x12?\n" +
 	"\bGetLabel\x12\x18.work.v1.GetLabelRequest\x1a\x19.work.v1.GetLabelResponse\x12E\n" +
 	"\n" +
@@ -9358,7 +9603,7 @@ func file_proto_work_v1_work_proto_rawDescGZIP() []byte {
 	return file_proto_work_v1_work_proto_rawDescData
 }
 
-var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 151)
+var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 155)
 var file_proto_work_v1_work_proto_goTypes = []any{
 	(*ProjectProto)(nil),                        // 0: work.v1.ProjectProto
 	(*ProjectMemberProto)(nil),                  // 1: work.v1.ProjectMemberProto
@@ -9482,54 +9727,58 @@ var file_proto_work_v1_work_proto_goTypes = []any{
 	(*ProjectTimeEntryProto)(nil),               // 119: work.v1.ProjectTimeEntryProto
 	(*ListProjectTimeEntriesRequest)(nil),       // 120: work.v1.ListProjectTimeEntriesRequest
 	(*ListProjectTimeEntriesResponse)(nil),      // 121: work.v1.ListProjectTimeEntriesResponse
-	(*GetTaskTimeSummaryRequest)(nil),           // 122: work.v1.GetTaskTimeSummaryRequest
-	(*GetTaskTimeSummaryResponse)(nil),          // 123: work.v1.GetTaskTimeSummaryResponse
-	(*LabelProto)(nil),                          // 124: work.v1.LabelProto
-	(*CreateLabelRequest)(nil),                  // 125: work.v1.CreateLabelRequest
-	(*CreateLabelResponse)(nil),                 // 126: work.v1.CreateLabelResponse
-	(*GetLabelRequest)(nil),                     // 127: work.v1.GetLabelRequest
-	(*GetLabelResponse)(nil),                    // 128: work.v1.GetLabelResponse
-	(*ListLabelsRequest)(nil),                   // 129: work.v1.ListLabelsRequest
-	(*ListLabelsResponse)(nil),                  // 130: work.v1.ListLabelsResponse
-	(*UpdateLabelRequest)(nil),                  // 131: work.v1.UpdateLabelRequest
-	(*UpdateLabelResponse)(nil),                 // 132: work.v1.UpdateLabelResponse
-	(*DeleteLabelRequest)(nil),                  // 133: work.v1.DeleteLabelRequest
-	(*DeleteLabelResponse)(nil),                 // 134: work.v1.DeleteLabelResponse
-	(*SetTaskLabelsRequest)(nil),                // 135: work.v1.SetTaskLabelsRequest
-	(*SetTaskLabelsResponse)(nil),               // 136: work.v1.SetTaskLabelsResponse
-	(*CustomFieldDefinitionProto)(nil),          // 137: work.v1.CustomFieldDefinitionProto
-	(*CreateCustomFieldDefinitionRequest)(nil),  // 138: work.v1.CreateCustomFieldDefinitionRequest
-	(*CreateCustomFieldDefinitionResponse)(nil), // 139: work.v1.CreateCustomFieldDefinitionResponse
-	(*GetCustomFieldDefinitionRequest)(nil),     // 140: work.v1.GetCustomFieldDefinitionRequest
-	(*GetCustomFieldDefinitionResponse)(nil),    // 141: work.v1.GetCustomFieldDefinitionResponse
-	(*ListCustomFieldDefinitionsRequest)(nil),   // 142: work.v1.ListCustomFieldDefinitionsRequest
-	(*ListCustomFieldDefinitionsResponse)(nil),  // 143: work.v1.ListCustomFieldDefinitionsResponse
-	(*UpdateCustomFieldDefinitionRequest)(nil),  // 144: work.v1.UpdateCustomFieldDefinitionRequest
-	(*UpdateCustomFieldDefinitionResponse)(nil), // 145: work.v1.UpdateCustomFieldDefinitionResponse
-	(*DeleteCustomFieldDefinitionRequest)(nil),  // 146: work.v1.DeleteCustomFieldDefinitionRequest
-	(*DeleteCustomFieldDefinitionResponse)(nil), // 147: work.v1.DeleteCustomFieldDefinitionResponse
-	nil,                           // 148: work.v1.TaskProto.CustomFieldsEntry
-	nil,                           // 149: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	nil,                           // 150: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	(*timestamppb.Timestamp)(nil), // 151: google.protobuf.Timestamp
+	(*UtilizationPointProto)(nil),               // 122: work.v1.UtilizationPointProto
+	(*ProjectMemberUtilizationProto)(nil),       // 123: work.v1.ProjectMemberUtilizationProto
+	(*ListProjectTeamUtilizationRequest)(nil),   // 124: work.v1.ListProjectTeamUtilizationRequest
+	(*ListProjectTeamUtilizationResponse)(nil),  // 125: work.v1.ListProjectTeamUtilizationResponse
+	(*GetTaskTimeSummaryRequest)(nil),           // 126: work.v1.GetTaskTimeSummaryRequest
+	(*GetTaskTimeSummaryResponse)(nil),          // 127: work.v1.GetTaskTimeSummaryResponse
+	(*LabelProto)(nil),                          // 128: work.v1.LabelProto
+	(*CreateLabelRequest)(nil),                  // 129: work.v1.CreateLabelRequest
+	(*CreateLabelResponse)(nil),                 // 130: work.v1.CreateLabelResponse
+	(*GetLabelRequest)(nil),                     // 131: work.v1.GetLabelRequest
+	(*GetLabelResponse)(nil),                    // 132: work.v1.GetLabelResponse
+	(*ListLabelsRequest)(nil),                   // 133: work.v1.ListLabelsRequest
+	(*ListLabelsResponse)(nil),                  // 134: work.v1.ListLabelsResponse
+	(*UpdateLabelRequest)(nil),                  // 135: work.v1.UpdateLabelRequest
+	(*UpdateLabelResponse)(nil),                 // 136: work.v1.UpdateLabelResponse
+	(*DeleteLabelRequest)(nil),                  // 137: work.v1.DeleteLabelRequest
+	(*DeleteLabelResponse)(nil),                 // 138: work.v1.DeleteLabelResponse
+	(*SetTaskLabelsRequest)(nil),                // 139: work.v1.SetTaskLabelsRequest
+	(*SetTaskLabelsResponse)(nil),               // 140: work.v1.SetTaskLabelsResponse
+	(*CustomFieldDefinitionProto)(nil),          // 141: work.v1.CustomFieldDefinitionProto
+	(*CreateCustomFieldDefinitionRequest)(nil),  // 142: work.v1.CreateCustomFieldDefinitionRequest
+	(*CreateCustomFieldDefinitionResponse)(nil), // 143: work.v1.CreateCustomFieldDefinitionResponse
+	(*GetCustomFieldDefinitionRequest)(nil),     // 144: work.v1.GetCustomFieldDefinitionRequest
+	(*GetCustomFieldDefinitionResponse)(nil),    // 145: work.v1.GetCustomFieldDefinitionResponse
+	(*ListCustomFieldDefinitionsRequest)(nil),   // 146: work.v1.ListCustomFieldDefinitionsRequest
+	(*ListCustomFieldDefinitionsResponse)(nil),  // 147: work.v1.ListCustomFieldDefinitionsResponse
+	(*UpdateCustomFieldDefinitionRequest)(nil),  // 148: work.v1.UpdateCustomFieldDefinitionRequest
+	(*UpdateCustomFieldDefinitionResponse)(nil), // 149: work.v1.UpdateCustomFieldDefinitionResponse
+	(*DeleteCustomFieldDefinitionRequest)(nil),  // 150: work.v1.DeleteCustomFieldDefinitionRequest
+	(*DeleteCustomFieldDefinitionResponse)(nil), // 151: work.v1.DeleteCustomFieldDefinitionResponse
+	nil,                           // 152: work.v1.TaskProto.CustomFieldsEntry
+	nil,                           // 153: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	nil,                           // 154: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	(*timestamppb.Timestamp)(nil), // 155: google.protobuf.Timestamp
 }
 var file_proto_work_v1_work_proto_depIdxs = []int32{
-	151, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
-	151, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
-	151, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
-	151, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
-	151, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
-	151, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
-	148, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
-	151, // 10: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 11: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 12: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
-	151, // 13: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 14: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 15: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
+	155, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
+	155, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
+	155, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
+	152, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
+	155, // 10: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 11: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 12: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 13: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 14: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 15: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
 	0,   // 16: work.v1.CreateProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 17: work.v1.GetProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 18: work.v1.ListProjectsResponse.projects:type_name -> work.v1.ProjectProto
@@ -9544,14 +9793,14 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	2,   // 27: work.v1.UpdateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
 	2,   // 28: work.v1.ReorderProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
 	2,   // 29: work.v1.ListProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
-	151, // 30: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	155, // 30: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 31: work.v1.CreateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
 	3,   // 32: work.v1.CreateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 33: work.v1.GetTaskResponse.task:type_name -> work.v1.TaskProto
-	151, // 34: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	151, // 35: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	155, // 34: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	155, // 35: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 36: work.v1.ListTasksResponse.tasks:type_name -> work.v1.TaskProto
-	151, // 37: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	155, // 37: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 38: work.v1.UpdateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
 	3,   // 39: work.v1.UpdateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 40: work.v1.MoveTaskResponse.task:type_name -> work.v1.TaskProto
@@ -9568,173 +9817,178 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	8,   // 51: work.v1.AttachFileToTaskResponse.file:type_name -> work.v1.TaskFileProto
 	8,   // 52: work.v1.ListTaskFilesResponse.files:type_name -> work.v1.TaskFileProto
 	10,  // 53: work.v1.SetTaskCustomFieldValuesRequest.values:type_name -> work.v1.CustomFieldValueInput
-	149, // 54: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	150, // 55: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	153, // 54: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	154, // 55: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
 	9,   // 56: work.v1.GetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
 	9,   // 57: work.v1.SetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
-	151, // 58: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	151, // 59: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	155, // 58: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	155, // 59: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 60: work.v1.SearchTasksResponse.tasks:type_name -> work.v1.TaskProto
-	151, // 61: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
-	151, // 62: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
-	151, // 63: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
-	151, // 64: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
-	151, // 65: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
+	155, // 61: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
+	155, // 62: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
+	155, // 63: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 64: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 65: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
 	99,  // 66: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
 	99,  // 67: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
 	99,  // 68: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
 	100, // 69: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
-	151, // 70: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	155, // 70: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
 	99,  // 71: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
-	151, // 72: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	155, // 72: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
 	99,  // 73: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
 	99,  // 74: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
 	116, // 75: work.v1.ListBillableTimeEntriesResponse.entries:type_name -> work.v1.BillableTimeEntryProto
 	119, // 76: work.v1.ListProjectTimeEntriesResponse.entries:type_name -> work.v1.ProjectTimeEntryProto
-	101, // 77: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
-	124, // 78: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
-	124, // 79: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
-	124, // 80: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
-	124, // 81: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
-	137, // 82: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	137, // 83: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	137, // 84: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
-	137, // 85: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	11,  // 86: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
-	13,  // 87: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
-	15,  // 88: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
-	17,  // 89: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
-	19,  // 90: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
-	21,  // 91: work.v1.WorkService.DeleteProject:input_type -> work.v1.DeleteProjectRequest
-	23,  // 92: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
-	25,  // 93: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
-	27,  // 94: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
-	29,  // 95: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
-	31,  // 96: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
-	33,  // 97: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
-	35,  // 98: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
-	37,  // 99: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
-	39,  // 100: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
-	41,  // 101: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
-	43,  // 102: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
-	45,  // 103: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
-	47,  // 104: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
-	49,  // 105: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
-	51,  // 106: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
-	53,  // 107: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
-	55,  // 108: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
-	57,  // 109: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
-	59,  // 110: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
-	61,  // 111: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
-	63,  // 112: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
-	65,  // 113: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
-	67,  // 114: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
-	69,  // 115: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
-	71,  // 116: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
-	73,  // 117: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
-	75,  // 118: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
-	77,  // 119: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
-	79,  // 120: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
-	81,  // 121: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
-	83,  // 122: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
-	85,  // 123: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
-	87,  // 124: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
-	89,  // 125: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
-	91,  // 126: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
-	93,  // 127: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
-	95,  // 128: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
-	97,  // 129: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
-	102, // 130: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
-	104, // 131: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
-	106, // 132: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
-	108, // 133: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
-	110, // 134: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
-	112, // 135: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
-	114, // 136: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
-	122, // 137: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
-	117, // 138: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
-	120, // 139: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
-	125, // 140: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
-	127, // 141: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
-	129, // 142: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
-	131, // 143: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
-	133, // 144: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
-	135, // 145: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
-	138, // 146: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
-	140, // 147: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
-	142, // 148: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
-	144, // 149: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
-	146, // 150: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
-	12,  // 151: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
-	14,  // 152: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
-	16,  // 153: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
-	18,  // 154: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
-	20,  // 155: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
-	22,  // 156: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
-	24,  // 157: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
-	26,  // 158: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
-	28,  // 159: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
-	30,  // 160: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
-	32,  // 161: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
-	34,  // 162: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
-	36,  // 163: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
-	38,  // 164: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
-	40,  // 165: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
-	42,  // 166: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
-	44,  // 167: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
-	46,  // 168: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
-	48,  // 169: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
-	50,  // 170: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
-	52,  // 171: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
-	54,  // 172: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
-	56,  // 173: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
-	58,  // 174: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
-	60,  // 175: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
-	62,  // 176: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
-	64,  // 177: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
-	66,  // 178: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
-	68,  // 179: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
-	70,  // 180: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
-	72,  // 181: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
-	74,  // 182: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
-	76,  // 183: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
-	78,  // 184: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
-	80,  // 185: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
-	82,  // 186: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
-	84,  // 187: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
-	86,  // 188: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
-	88,  // 189: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
-	90,  // 190: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
-	92,  // 191: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
-	94,  // 192: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
-	96,  // 193: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
-	98,  // 194: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
-	103, // 195: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
-	105, // 196: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
-	107, // 197: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
-	109, // 198: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
-	111, // 199: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
-	113, // 200: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
-	115, // 201: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
-	123, // 202: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
-	118, // 203: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
-	121, // 204: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
-	126, // 205: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
-	128, // 206: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
-	130, // 207: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
-	132, // 208: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
-	134, // 209: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
-	136, // 210: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
-	139, // 211: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
-	141, // 212: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
-	143, // 213: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
-	145, // 214: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
-	147, // 215: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
-	151, // [151:216] is the sub-list for method output_type
-	86,  // [86:151] is the sub-list for method input_type
-	86,  // [86:86] is the sub-list for extension type_name
-	86,  // [86:86] is the sub-list for extension extendee
-	0,   // [0:86] is the sub-list for field type_name
+	122, // 77: work.v1.ProjectMemberUtilizationProto.weekly_data:type_name -> work.v1.UtilizationPointProto
+	122, // 78: work.v1.ProjectMemberUtilizationProto.monthly_data:type_name -> work.v1.UtilizationPointProto
+	123, // 79: work.v1.ListProjectTeamUtilizationResponse.team:type_name -> work.v1.ProjectMemberUtilizationProto
+	101, // 80: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
+	128, // 81: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
+	128, // 82: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
+	128, // 83: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
+	128, // 84: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
+	141, // 85: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 86: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 87: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 88: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	11,  // 89: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
+	13,  // 90: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
+	15,  // 91: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
+	17,  // 92: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
+	19,  // 93: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
+	21,  // 94: work.v1.WorkService.DeleteProject:input_type -> work.v1.DeleteProjectRequest
+	23,  // 95: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
+	25,  // 96: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
+	27,  // 97: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
+	29,  // 98: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
+	31,  // 99: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
+	33,  // 100: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
+	35,  // 101: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
+	37,  // 102: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
+	39,  // 103: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
+	41,  // 104: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
+	43,  // 105: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
+	45,  // 106: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
+	47,  // 107: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
+	49,  // 108: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
+	51,  // 109: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
+	53,  // 110: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
+	55,  // 111: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
+	57,  // 112: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
+	59,  // 113: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
+	61,  // 114: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
+	63,  // 115: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
+	65,  // 116: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
+	67,  // 117: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
+	69,  // 118: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
+	71,  // 119: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
+	73,  // 120: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
+	75,  // 121: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
+	77,  // 122: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
+	79,  // 123: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
+	81,  // 124: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
+	83,  // 125: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
+	85,  // 126: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
+	87,  // 127: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
+	89,  // 128: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
+	91,  // 129: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
+	93,  // 130: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
+	95,  // 131: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
+	97,  // 132: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
+	102, // 133: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
+	104, // 134: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
+	106, // 135: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
+	108, // 136: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
+	110, // 137: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
+	112, // 138: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
+	114, // 139: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
+	126, // 140: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
+	117, // 141: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
+	120, // 142: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
+	124, // 143: work.v1.WorkService.ListProjectTeamUtilization:input_type -> work.v1.ListProjectTeamUtilizationRequest
+	129, // 144: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
+	131, // 145: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
+	133, // 146: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
+	135, // 147: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
+	137, // 148: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
+	139, // 149: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
+	142, // 150: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
+	144, // 151: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
+	146, // 152: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
+	148, // 153: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
+	150, // 154: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
+	12,  // 155: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
+	14,  // 156: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
+	16,  // 157: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
+	18,  // 158: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
+	20,  // 159: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
+	22,  // 160: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
+	24,  // 161: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
+	26,  // 162: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
+	28,  // 163: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
+	30,  // 164: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
+	32,  // 165: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
+	34,  // 166: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
+	36,  // 167: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
+	38,  // 168: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
+	40,  // 169: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
+	42,  // 170: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
+	44,  // 171: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
+	46,  // 172: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
+	48,  // 173: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
+	50,  // 174: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
+	52,  // 175: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
+	54,  // 176: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
+	56,  // 177: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
+	58,  // 178: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
+	60,  // 179: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
+	62,  // 180: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
+	64,  // 181: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
+	66,  // 182: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
+	68,  // 183: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
+	70,  // 184: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
+	72,  // 185: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
+	74,  // 186: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
+	76,  // 187: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
+	78,  // 188: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
+	80,  // 189: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
+	82,  // 190: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
+	84,  // 191: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
+	86,  // 192: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
+	88,  // 193: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
+	90,  // 194: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
+	92,  // 195: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
+	94,  // 196: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
+	96,  // 197: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
+	98,  // 198: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
+	103, // 199: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
+	105, // 200: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
+	107, // 201: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
+	109, // 202: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
+	111, // 203: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
+	113, // 204: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
+	115, // 205: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
+	127, // 206: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
+	118, // 207: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
+	121, // 208: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
+	125, // 209: work.v1.WorkService.ListProjectTeamUtilization:output_type -> work.v1.ListProjectTeamUtilizationResponse
+	130, // 210: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
+	132, // 211: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
+	134, // 212: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
+	136, // 213: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
+	138, // 214: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
+	140, // 215: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
+	143, // 216: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
+	145, // 217: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
+	147, // 218: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
+	149, // 219: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
+	151, // 220: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
+	155, // [155:221] is the sub-list for method output_type
+	89,  // [89:155] is the sub-list for method input_type
+	89,  // [89:89] is the sub-list for extension type_name
+	89,  // [89:89] is the sub-list for extension extendee
+	0,   // [0:89] is the sub-list for field type_name
 }
 
 func init() { file_proto_work_v1_work_proto_init() }
@@ -9771,7 +10025,7 @@ func file_proto_work_v1_work_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_work_v1_work_proto_rawDesc), len(file_proto_work_v1_work_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   151,
+			NumMessages:   155,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

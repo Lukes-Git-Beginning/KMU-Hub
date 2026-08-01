@@ -2,6 +2,7 @@ package timeentry
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -27,6 +28,12 @@ type Repository interface {
 	// ListByProject returns completed entries for a single project's tasks,
 	// for the project-level "Stunden abrechnen" roll-up.
 	ListByProject(ctx context.Context, projectID, tenantID uuid.UUID) ([]models.ProjectTimeEntry, error)
+
+	// AggregateProjectHours sums completed entries per member per period
+	// bucket ("week" or "month"), since the given time, for the project
+	// team-utilization roll-up. Bucketing happens in SQL via date_trunc, not
+	// by pulling every row into Go.
+	AggregateProjectHours(ctx context.Context, projectID, tenantID uuid.UUID, trunc string, since time.Time) ([]models.UtilizationBucket, error)
 
 	// Timer
 	GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error)

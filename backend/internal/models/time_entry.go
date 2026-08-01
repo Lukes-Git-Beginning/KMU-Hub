@@ -59,3 +59,34 @@ type ProjectTimeEntry struct {
 	UserName  string `json:"user_name"`
 	TaskTitle string `json:"task_title"`
 }
+
+// UtilizationBucket is one (member, period) raw hours aggregate row for a
+// project's team-utilization roll-up, before it is joined against the
+// project's member list and zero-filled into a fixed period window.
+type UtilizationBucket struct {
+	UserID       uuid.UUID
+	PeriodStart  time.Time
+	TotalSeconds int
+}
+
+// UtilizationPoint is one labeled period ("KW 6", "Aug 2026") in a member's
+// tracked-hours trend.
+type UtilizationPoint struct {
+	Label string  `json:"label"`
+	Hours float64 `json:"hours"`
+}
+
+// MemberUtilization is one project member's tracked-hours roll-up for the
+// "Stunden abrechnen" / Auslastung view. WeeklyTarget is a fixed full-time
+// default, not the member's real contracted hours -- see the lean note on
+// buildMemberUtilization. Deliberately carries no cost or salary figure:
+// this endpoint sits behind the project-read permission, not
+// team:salary:view, so employee hourly rates must never flow through it.
+type MemberUtilization struct {
+	UserID       uuid.UUID
+	Name         string
+	Role         string
+	WeeklyTarget int
+	WeeklyData   []UtilizationPoint
+	MonthlyData  []UtilizationPoint
+}

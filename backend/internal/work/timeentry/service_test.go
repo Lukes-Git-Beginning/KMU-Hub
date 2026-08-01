@@ -3,6 +3,7 @@ package timeentry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -115,6 +116,10 @@ func (m *mockRepository) ListBillable(_ context.Context, _ uuid.UUID) ([]models.
 }
 
 func (m *mockRepository) ListByProject(_ context.Context, _, _ uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) AggregateProjectHours(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) ([]models.UtilizationBucket, error) {
 	return nil, nil
 }
 
@@ -641,4 +646,79 @@ func TestCrossTenant_TimeEntry_TenantIDStoredOnCreate(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, tenantID, entry.TenantID, "entry must carry the tenantID set during StartTimer")
+}
+
+// ============================================================================
+// buildMemberUtilization (project team-utilization roll-up)
+// ============================================================================
+
+// TestBuildMemberUtilization covers the zero-fill/bucket-placement logic
+// that backs the project "Auslastung" roll-up: a member with entries gets
+// them placed in the right week/month bucket (oldest first, current last),
+// a member with none is zero-filled across every bucket rather than
+// omitted, and every member gets the fixed weekly target -- never a real
+// contracted-hours or cost figure (see the note on MemberUtilization).
+func TestBuildMemberUtilization(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) // Saturday
+
+	memberWithHours := uuid.New()
+	memberNoHours := uuid.New()
+	members := []models.ProjectMember{
+		{UserID: memberWithHours, Role: "owner", FirstName: "Anna", LastName: "Mueller"},
+		{UserID: memberNoHours, Role: "viewer", FirstName: "Ben", LastName: "Fischer"},
+	}
+
+	currentWeekStart := startOfISOWeek(now)
+	oldestWeekStart := currentWeekStart.AddDate(0, 0, -7*(utilizationWeeklyBuckets-1))
+	currentMonthStart := startOfMonth(now)
+	priorMonthStart := currentMonthStart.AddDate(0, -1, 0)
+
+	weekly := []models.UtilizationBucket{
+		{UserID: memberWithHours, PeriodStart: currentWeekStart, TotalSeconds: 3600 * 5},
+		{UserID: memberWithHours, PeriodStart: oldestWeekStart, TotalSeconds: 3600*2 + 1800},
+	}
+	monthly := []models.UtilizationBucket{
+		{UserID: memberWithHours, PeriodStart: currentMonthStart, TotalSeconds: 3600 * 10},
+		{UserID: memberWithHours, PeriodStart: priorMonthStart, TotalSeconds: 3600 * 20},
+	}
+
+	result := buildMemberUtilization(members, weekly, monthly, now)
+	require.Len(t, result, 2)
+
+	byID := make(map[uuid.UUID]models.MemberUtilization, len(result))
+	for _, r := range result {
+		byID[r.UserID] = r
+	}
+
+	withHours := byID[memberWithHours]
+	assert.Equal(t, "Anna Mueller", withHours.Name)
+	assert.Equal(t, "owner", withHours.Role)
+	assert.Equal(t, defaultWeeklyTargetHours, withHours.WeeklyTarget)
+	require.Len(t, withHours.WeeklyData, utilizationWeeklyBuckets)
+	require.Len(t, withHours.MonthlyData, utilizationMonthlyBuckets)
+
+	assert.Equal(t, 2.5, withHours.WeeklyData[0].Hours, "oldest week")
+	assert.Equal(t, 5.0, withHours.WeeklyData[utilizationWeeklyBuckets-1].Hours, "current week")
+	for i := 1; i < utilizationWeeklyBuckets-1; i++ {
+		assert.Zerof(t, withHours.WeeklyData[i].Hours, "week[%d] must be zero-filled", i)
+	}
+	_, wantOldestISOWeek := oldestWeekStart.ISOWeek()
+	assert.Equal(t, fmt.Sprintf("KW %d", wantOldestISOWeek), withHours.WeeklyData[0].Label)
+
+	// 3 monthly buckets = [2 months back (untouched, zero), prior month, current month].
+	assert.Zero(t, withHours.MonthlyData[0].Hours, "oldest month (untouched) must be zero-filled")
+	assert.Equal(t, 20.0, withHours.MonthlyData[1].Hours, "prior month")
+	assert.Equal(t, 10.0, withHours.MonthlyData[utilizationMonthlyBuckets-1].Hours, "current month")
+	assert.Equal(t, "Jun 2026", withHours.MonthlyData[0].Label)
+	assert.Equal(t, "Jul 2026", withHours.MonthlyData[1].Label)
+	assert.Equal(t, "Aug 2026", withHours.MonthlyData[utilizationMonthlyBuckets-1].Label)
+
+	noHours := byID[memberNoHours]
+	assert.Equal(t, "Ben Fischer", noHours.Name)
+	for _, p := range noHours.WeeklyData {
+		assert.Zero(t, p.Hours, "member without entries must be zero-filled, not omitted")
+	}
+	for _, p := range noHours.MonthlyData {
+		assert.Zero(t, p.Hours, "member without entries must be zero-filled, not omitted")
+	}
 }

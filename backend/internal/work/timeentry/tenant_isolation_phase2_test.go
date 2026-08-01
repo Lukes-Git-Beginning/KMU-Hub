@@ -287,3 +287,100 @@ func TestListByProject_TenantIsolation(t *testing.T) {
 		t.Fatalf("expected no entries when a foreign tenant guesses project A's id, got %d", len(foreign))
 	}
 }
+
+// TestAggregateProjectHours_TenantIsolation exercises the team-utilization
+// aggregation query directly: an entry outside the [since, now] window is
+// excluded (not just filtered by tenant/project), a running timer (no
+// ended_at/duration_seconds) is excluded like everywhere else time entries
+// are billed/rolled up, and a foreign tenant guessing the real project_id
+// sees no buckets at all.
+func TestAggregateProjectHours_TenantIsolation(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantMine := uuid.New()
+	tenantOther := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantMine, "Utilization Mine")
+	testutil.EnsureTenant(t, pool, tenantOther, "Utilization Other")
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantMine,
+		"email":         fmt.Sprintf("utilization-%s@tenant.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	projID := testutil.SeedRow(t, pool, "projects", map[string]any{
+		"tenant_id":   tenantMine,
+		"name":        "Utilization Project",
+		"project_key": "UT" + uuid.New().String()[:6],
+		"created_by":  userID,
+	})
+	defer testutil.CleanupRow(t, pool, "projects", projID)
+
+	taskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantMine,
+		"project_id":  projID,
+		"title":       "Utilization Task",
+		"created_by":  userID,
+		"task_number": 1,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	now := time.Now().UTC()
+	windowStart := startOfISOWeek(now).AddDate(0, 0, -7)
+
+	inWindow := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":        tenantMine,
+		"task_id":          taskID,
+		"user_id":          userID,
+		"started_at":       now.Add(-time.Hour),
+		"ended_at":         now,
+		"duration_seconds": 3600,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", inWindow)
+
+	beforeWindow := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":        tenantMine,
+		"task_id":          taskID,
+		"user_id":          userID,
+		"started_at":       windowStart.Add(-24 * time.Hour),
+		"ended_at":         windowStart.Add(-23 * time.Hour),
+		"duration_seconds": 3600,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", beforeWindow)
+
+	running := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":  tenantMine,
+		"task_id":    taskID,
+		"user_id":    userID,
+		"started_at": now,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", running)
+
+	repo := NewPostgresRepository(pool)
+
+	ctxMine := testutil.WithTenantCtx(context.Background(), tenantMine)
+	buckets, err := repo.AggregateProjectHours(ctxMine, projID, tenantMine, "week", windowStart)
+	if err != nil {
+		t.Fatalf("AggregateProjectHours: %v", err)
+	}
+	if len(buckets) != 1 {
+		t.Fatalf("expected 1 bucket (before-window entry and running timer excluded), got %d: %+v", len(buckets), buckets)
+	}
+	if buckets[0].UserID != userID || buckets[0].TotalSeconds != 3600 {
+		t.Fatalf("unexpected bucket: %+v", buckets[0])
+	}
+
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+	foreign, err := repo.AggregateProjectHours(ctxOther, projID, tenantOther, "week", windowStart)
+	if err != nil {
+		t.Fatalf("AggregateProjectHours(foreign): %v", err)
+	}
+	if len(foreign) != 0 {
+		t.Fatalf("expected no buckets when a foreign tenant guesses the project id, got %d", len(foreign))
+	}
+}
