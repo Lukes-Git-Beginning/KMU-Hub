@@ -771,3 +771,56 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (3) Kein Desktop-Aufrufer fuer `/erechnung` existiert (wie schon bei `/pdf?format=zugferd` in
       Iteration 11 notiert) — `EInvoiceIndicator.tsx` ist reines Mock-Widget ohne API-Calls. Sobald
       das FE anbindet, muss die 400/409-Fehlerdarstellung dort sichtbar werden.
+
+## Iteration 13 — w5-roundtrip-test — done — 2026-08-01 (Nachtlauf 3)
+- commit: 0c56cd6e
+- gebaut: zwei DB-Tests in `internal/biz/einvoice/roundtrip_outbound_test.go` (Paket
+  `einvoice_test`, external — importiert `internal/server` fuer `BizGRPCServer`, das seinerseits
+  `einvoice` importiert; ein in-package-Test haette einen Zyklus geschlossen, exakt der Grund, aus
+  dem `pdf_extract_test.go` schon dort liegt). Ablauf je Test: frischer Tenant + EN-16931-taugliche
+  Test-Rechnung (2 Steuersaetze: 2x100,00 @19%, 3x50,00 @7%, netto 350,00/Steuer 48,50/brutto
+  398,50) direkt ueber `invoice.NewPostgresRepository(pool).Create` + Company-Settings ueber
+  `quote.NewPostgresCompanySettingsRepo(pool).Upsert` persistiert (bewusst NICHT ueber
+  `invoice.Service.Create`, das zusaetzlich Nummernkreis/Tax-Berechnung mitbringt und fuer diesen
+  Test nur Rauschen waere) -> `BizGRPCServer.GenerateEInvoice` (mit `nil` fuer alle Dependencies
+  ausser `invoiceService`+`companySettings`, da `GenerateEInvoice` sonst nichts vom Server-Struct
+  liest) fuer `format=xrechnung` bzw. `zugferd` -> Ergebnis-Bytes direkt (ohne manuelles
+  `ExtractXMLFromPDF`) an `einvoice.Service.Import` mit MimeType `application/xml` bzw.
+  `application/pdf` — `Import` extrahiert bei "pdf" intern selbst, das ist also ein echter Test des
+  Extraktionspfads gegen ein real generiertes PDF (`pdf.NewGenerator(...).GenerateZUGFeRDInvoicePDF`),
+  nicht nur der beiden Text-Generatoren. Assertions: Subtotal/TotalTax/GrossTotal, Positionsliste
+  (Beschreibung + Zeilensumme je Position) und beide Tax-Breakdown-Eintraege (Satz + Steuerbetrag)
+  gegen die Ausgangsrechnung.
+  Zwei eigene Tenants (einer je Format), keine geteilten Konstanten — vermeidet die aus Nachtlauf 1
+  bekannte Duplicate-Key-Falle, hier zusaetzlich real: gleiche Rechnungsnummer+Lieferant in
+  BEIDEN Formaten haette in einem gemeinsamen Tenant den zweiten Import als Duplikat abgewiesen.
+- gate: build ok (`./internal/biz/einvoice/... ./internal/server/... ./internal/gateway/...
+  ./cmd/gateway/... ./cmd/biz/...`) | vet ok | lint ok (golangci-lint auf einvoice: 0 issues) |
+  gofmt ok | migration n.a. (lokaler Kopf 256 = Repo-Kopf, keine Migration in dieser Unit) |
+  test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/biz/einvoice/...` 59 Tests, **0 Skips**,
+  beide neuen Roundtrip-Tests PASS (0,10s/0,06s); `./internal/server/...` zur Sicherheit mitgelaufen
+  (unveraendertes Paket, nur als Aufrufer importiert), gruen. rls-smoke n.a. (keine neue Tabelle,
+  keine Policy angefasst — nur bestehende, seit Migration 000122/000132 RLS-gesicherte Tabellen
+  ueber den normalen Tenant-Ctx-Pfad gelesen/geschrieben, exakt das Muster aus
+  `tenant_isolation_test.go`). `go test ./internal/gateway/` nicht erneut als Pflichtschritt
+  gelaufen — diese Unit haben keine Route/keinen Handler angefasst (nur ein neuer Test importiert
+  bestehenden Server-Code), TestOpenAPIRouteDrift ist von Iteration 12 unveraendert.
+- verify vorgaenger: `38cae79b` (w5-route) gegen die acht Fehlerklassen geprueft. Diff:
+  `route_biz.go`, `route_biz_invoices.go`, `route_biz_test.go`, `biz_grpc.go`, `biz.proto`+`.pb.go`
+  (regeneriert im selben Commit, Fehlerklasse 3 n.a.), `openapi.yaml`. Handler geht ueber
+  `getBizClient()` -> `client.GenerateEInvoice` (gRPC-Client, Fehlerklasse 1 n.a.). Kein Stub: der
+  RPC-Server implementiert xrechnung/zugferd vollstaendig, kein `Unimplemented`, kein TODO
+  (Fehlerklasse 2 n.a.). Kein neuer Guard (wiederverwendet `RequirePermission("finance","read")`,
+  Fehlerklassen 4/8 n.a.). Keine neue Tabelle (Fehlerklasse 5 n.a.). `invoiceService.GetByID` ist
+  tenant-gescoped, liefert 404 fuer fremde Rechnungen ueber `mapBizError`. `openapi.yaml` traegt die
+  neue Route inkl. 409 im selben Commit, `TestOpenAPIRouteDrift` lief in Iteration 12 gruen
+  (Fehlerklasse 7 n.a.). Wire-Shape (Fehlerklasse 6): Content-Type wird serverseitig aus einer festen
+  Map vor dem gRPC-Call gesetzt (`application/xml`/`application/pdf`), unbekanntes Format 400 ohne
+  RPC-Aufruf — im Code nachvollzogen, kein Fund. Kein Fund.
+- offen fuer Luke:
+  (1) Damit ist Block C (E-Rechnung Ausgang) vollstaendig abgearbeitet — alle sechs `w5-*`-Units
+      sind `done`. Die drei aus Iteration 11/12 bekannten offenen Punkte bleiben unveraendert:
+      kein PDF/A-3b (bewusst, Begruendung dort), 409 statt 422 fuer Validierungsfehler (Begruendung
+      in Iteration 12), kein Desktop-Aufrufer fuer `/erechnung`.
+  (2) Naechste Unit laut Backlog-Reihenfolge waere `p2-guard-compat` (Block B, RBAC Phase 2) — die
+      naechste Iteration zieht sie automatisch, kein Handlungsbedarf hier.
