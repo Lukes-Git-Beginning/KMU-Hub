@@ -90,7 +90,7 @@ units:
     service: auth
     model: opus
     deps: [p1a-seed-generator]
-    status: todo
+    status: done
     scope: >
       Migration (Nummer zur Laufzeit ermitteln, Repo-Kopf war 000255):
       (a) `roles`: `tenant_id UUID NULL`, `based_on UUID NULL REFERENCES roles(id) ON DELETE SET NULL`,
@@ -1584,3 +1584,35 @@ units:
     done_when:
       - Routen registriert und erreichbar
       - openapi.yaml im selben Commit, TestOpenAPIRouteDrift gruen
+
+  - id: g-user-roles-rls
+    phase: 3
+    service: auth
+    model: opus
+    deps: [p1a-migration]
+    status: todo
+    scope: >
+      `user_roles` traegt weder `tenant_id` noch eine RLS-Policy — als einzige Tabelle des
+      RBAC-Kerns (`roles`/`role_permissions` sind seit 000256 abgesichert, `permissions` ist
+      bewusst system-global). Spalte, Backfill ueber `users.tenant_id`, RLS-Policy.
+    sources:
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+      - docs/ARCHITECTURE.md
+    notes: >
+      Gefunden in p1a-migration. Heute kein Leck, weil jeder Lesepfad
+      (`GetUserRoles`/`GetUserPermissions`/`UserHasPermission` in
+      `internal/auth/postgres_repository.go`) ueber eine `user_id` aus dem JWT filtert — die
+      Datenbank-Ebene traegt aber keinen Backstop, ein ungefilterter SELECT waere
+      tenant-uebergreifend.
+      Backfill: `tenant_id` aus `users` ziehen (dort ist RLS aktiv), NOT NULL erst nach dem
+      Backfill setzen. `AssignRole`/`RemoveRole` schreiben die Spalte danach aus
+      `middleware.GetTenantID(ctx)` mit.
+      Zweiter Fund derselben Stelle: `AssignRole` sucht die Rolle per `WHERE r.name = $2` ohne
+      Tenant-Bedingung. Solange nur System-Presets existieren, ist das eindeutig; sobald Welle 1b
+      tenant-eigene Rollen zulaesst, kann derselbe Name zweimal auftreten und die Subquery liefert
+      zwei Zeilen. Gehoert mit in diese Unit oder ausdruecklich in 1b.
+    done_when:
+      - user_roles traegt tenant_id NOT NULL + RLS-Policy, Bestand sauber gebackfillt
+      - AssignRole/RemoveRole schreiben und filtern tenant-gescoped
+      - RLS-Smoke: eigener Tenant > 0, fremder Tenant = 0
+      - go build/vet/lint/test gruen

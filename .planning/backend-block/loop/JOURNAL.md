@@ -113,3 +113,74 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   Postgres keinen Arbiter-Index und die INSERT schlaegt fehl.
   Keine Migration in dieser Iteration angefasst (das ist explizit `p1a-migration`s Scope) — DB-Gate
   daher nicht gelaufen, es gibt noch keine anzuwendende `.sql`-Datei.
+
+## Iteration 3 — p1a-migration — done — 2026-08-01 15:54
+
+- commit: (siehe unten)
+- gebaut: Migration `000256_rbac_phase1a_role_scope_and_presets` (lokaler Kopf war 255 = Repo-Kopf,
+  zur Laufzeit ermittelt). `.up.sql`: (a) `roles` bekommt `tenant_id UUID NULL REFERENCES tenants(id)
+  ON DELETE CASCADE`, `based_on UUID NULL REFERENCES roles(id) ON DELETE SET NULL`,
+  `color VARCHAR(40) NOT NULL DEFAULT ''`; (b) `idx_roles_name` (global unique) ersetzt durch
+  `idx_roles_tenant_name ON roles (COALESCE(tenant_id,'00000000-0000-0000-0000-000000000000'::uuid), name)`
+  — Ausdruck byte-identisch zur ON-CONFLICT-Klausel des Generators, sonst fehlt der Arbiter-Index;
+  (c) `role_permissions.scope VARCHAR(8) NOT NULL DEFAULT 'all'` mit benanntem CHECK
+  (`own`/`team`/`all`); (d) RLS auf beiden Tabellen; (e) Generator-Output von
+  `desktop/scripts/gen-rbac-seed.mjs` woertlich eingebettet. `.down.sql` gefuellt.
+  **RLS-Form (Abweichung vom Standardmuster, bewusst):** statt einer Policy zwei — `tenant_isolation_read`
+  (`FOR SELECT`, `tenant_id IS NULL OR tenant_id = current_tenant_id() OR is_system_context()`) und
+  `tenant_isolation_write` (`FOR ALL`, ohne die NULL-Bedingung). Grund: DELETE wertet **ausschliesslich**
+  USING aus, nie WITH CHECK. Eine einzelne permissive Policy, die die Presets lesbar macht, macht sie
+  damit auch fuer jeden Tenant loeschbar. Mit der Trennung gilt: lesen ja, schreiben/aendern/loeschen
+  nein. `role_permissions` analog ueber den `roles`-Join (die Subquery laeuft selbst unter der
+  roles-Read-Policy, deshalb greift sie).
+  `permissions` und `user_roles` bleiben ohne RLS — `permissions` ist echter System-Katalog und wurde
+  dafuer in die ADR-006-Liste in `docs/ARCHITECTURE.md` eingetragen, `user_roles` ist eine echte Luecke
+  (siehe unten), die dort als offen dokumentiert und als Backlog-Unit `g-user-roles-rls` angelegt ist.
+- **Korrektur am Generator aus Iteration 2 (echter Fund, nicht kosmetisch):** die
+  `role_permissions`-Bloecke liefen mit `ON CONFLICT (role_id, permission_id) DO NOTHING`. Die
+  Iteration-2-Pruefung dieses Risikos war ein Grep gegen die Migrations-DATEIEN und hat deshalb nichts
+  gefunden; der Abgleich gegen die laufende DB zeigt zwei Treffer: `member` hatte
+  `schichten:swap:create` und `schichten:swap:read` bereits als Grant, der Katalog fuehrt beide auf
+  `own`. Mit DO NOTHING waeren beide auf dem Spaltendefault `all` haengen geblieben — ein `member`
+  haette alle Schichttausch-Anfragen des Tenants gesehen und angelegt statt nur die eigenen. Der
+  Generator emittiert fuer die role_permissions-Bloecke jetzt
+  `DO UPDATE SET scope = EXCLUDED.scope`; der Katalog ist SSOT fuer System-Presets, ein Re-Run
+  konvergiert damit statt zu driften. Bloecke (a) permissions und (b) roles bleiben auf DO NOTHING.
+  Verifiziert nach dem Lauf: beide Keys stehen auf `own`.
+- gate: `migrate up` 256 gruen, `down 1` -> 255 gruen, `up` erneut gruen — Zustand danach
+  bit-identisch zum ersten Lauf (8 Rollen, 1179 Grants, 40 davon `own`/`team`, `user_roles`
+  unveraendert 12). Die 3 bestehenden Presets und `platform_admin` behalten ihre IDs, nur `color`
+  kam dazu; 7 von 8 Rollen tragen eine Farbe (`platform_admin` bewusst nicht, steht nicht im
+  FE-Katalog). permissions 212 -> 456, role_permissions 394 -> 1179.
+  **RLS-Smoke als `kmuhub_app` (NOSUPERUSER NOBYPASSRLS), Lesepfad:** Tenant A sieht 9 Rollen
+  (8 Presets + 1 Fixture-Custom-Rolle), Tenant B sieht 8 und die fremde Custom-Rolle **0**-mal, ihre
+  Grants ebenfalls 0-mal. Kein Tenant-Kontext gesetzt (Login vor Tenant-Aufloesung): 8 Rollen und
+  1179 Grants weiterhin lesbar — genau der Fall, den das Standardmuster kaputtgemacht haette.
+  Aufgeloeste Capability-Menge fuer `member` unter fremdem Tenant: **159**, nicht leer.
+  **Schreibpfad:** `DELETE FROM roles WHERE name='admin'` -> 0 Zeilen, `UPDATE` auf ein Preset ->
+  0 Zeilen, `DELETE` der fremden Custom-Rolle -> 0 Zeilen, `DELETE` der Preset-Grants -> 0 Zeilen,
+  INSERT mit `tenant_id = NULL` (Preset-Faelschung) und INSERT auf fremden Tenant -> beide
+  `new row violates row-level security policy`. INSERT auf den eigenen Tenant funktioniert.
+  Fixtures danach entfernt, `admin.color` unveraendert.
+  `go build -p 2` + `go vet` auf auth/gateway/settings gruen. `go test -count=1` mit gesetztem
+  `DATABASE_URL` (Rolle `kmuhub_app`): `internal/auth` ok 6.7s (Laufzeit belegt, dass die DB-Tests
+  wirklich liefen und nicht per SkipIfNoDB uebersprungen wurden), `internal/settings` ok,
+  `internal/gateway` ok (TestOpenAPIRouteDrift). Keine Go-Datei in dieser Unit geaendert, lint daher
+  ohne neuen Angriffspunkt.
+- verify vorgaenger: `29172d54` (p1a-seed-generator) — Dateiliste sauber (nur BACKLOG, JOURNAL,
+  `desktop/scripts/gen-rbac-seed.mjs`, kein Go/Proto/Route/Migration), Fehlerklassen 1-6 daher n.a.
+  Der Script-Lauf ist reproduziert: exit 0, dieselben Zahlen wie im Journal behauptet (282
+  permissions; admin 282 / it_admin 104 / hr_admin 71 / manager 205 / member 110 / readonly 74 /
+  extern 11). Ein Fund: die DO-NOTHING-Klausel der role_permissions-Bloecke, oben korrigiert.
+- offen: **`user_roles` hat weder `tenant_id` noch RLS** — als einzige Tabelle des RBAC-Kerns. Heute
+  kein Leck, weil `GetUserRoles`/`GetUserPermissions`/`UserHasPermission` alle ueber eine `user_id`
+  aus dem JWT filtern, aber der Datenbank-Backstop fehlt. Unit `g-user-roles-rls` angelegt.
+  Zweiter Fund an derselben Datei: `AssignRole` (`internal/auth/postgres_repository.go:157`) sucht die
+  Rolle per `WHERE r.name = $2` ohne Tenant-Bedingung. Solange nur System-Presets existieren, ist der
+  Name eindeutig — sobald Welle 1b tenant-eigene Rollen zulaesst, kann derselbe Name zweimal
+  auftreten und die Subquery liefert zwei Zeilen. Steht in `g-user-roles-rls` mit drin und gehoert
+  spaetestens in 1b geprueft.
+  Fuer `p1a-resolver` (naechste Unit): die Union-Aufloesung muss auf die 3-segmentigen Katalog-Keys
+  filtern; in `permissions` liegen jetzt 456 Zeilen, davon 102 grobe Alt-Keys (`resource` ohne
+  Doppelpunkt) — `resource LIKE '%:%'` trennt beide Welten zuverlaessig (geprueft: `name` ist in
+  allen 456 Zeilen exakt `resource || ':' || action`).

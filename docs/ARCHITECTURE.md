@@ -234,5 +234,10 @@ Folgende Tabellen sind bewusst NICHT RLS-aktiviert. Sie sind system-globaler Nat
 | `schema_migrations` | golang-migrate State-Tabelle, kein Tenant-Kontext |
 | `caldav_settings` | Server-globale CalDAV-Defaults, key-value-Store ohne Tenant-Bezug |
 | `industry_templates` | System-Seed-Daten (Branchen-Templates), shared read-only |
+| `permissions` | Capability-Katalog, reine Seed-Daten ohne Tenant-Bezug (jeder Tenant kennt dieselben Keys) |
 
 Jede neue Tabelle in `backend/migrations/` muss entweder `tenant_id UUID NOT NULL` + RLS-Policy haben oder explizit hier eingetragen werden mit Begruendung.
+
+**Sonderfall `roles` / `role_permissions` (seit Migration 000256):** RLS-aktiviert, aber `tenant_id` ist NULLable — NULL bedeutet "System-Preset, fuer jeden Tenant sichtbar". Deshalb greift hier NICHT `enable_tenant_rls()`, sondern ein Paar aus Lese- und Schreib-Policy: Lesen sieht `tenant_id IS NULL OR tenant_id = current_tenant_id()`, Schreiben nur den eigenen Tenant. Die Trennung ist noetig, weil DELETE ausschliesslich die USING-Klausel auswertet — eine einzelne permissive Policy wuerde einem Tenant erlauben, die Presets zu loeschen.
+
+**Offene Luecke:** `user_roles` hat weder `tenant_id` noch RLS. Heute ist das ungefaehrlich, weil alle Lesepfade ueber eine `user_id` aus dem JWT filtern; ein direkter, ungefilterter SELECT waere aber tenant-uebergreifend. Backlog-Unit `g-user-roles-rls`.

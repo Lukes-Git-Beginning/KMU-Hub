@@ -8,10 +8,18 @@
  * (it_admin/hr_admin/readonly/extern) plus a color backfill for the 3 that
  * already exist, (c) role_permissions grants with scope for all 7 presets.
  *
- * Every statement carries ON CONFLICT DO NOTHING so a re-run against a
- * partially-migrated database does not break (many fine keys already exist
- * from earlier per-module permission seeds; the coarse legacy permissions are
- * untouched and keep coexisting).
+ * Every statement is idempotent so a re-run against a partially-migrated
+ * database does not break (many fine keys already exist from earlier
+ * per-module permission seeds; the coarse legacy permissions are untouched and
+ * keep coexisting).
+ *
+ * The permissions and roles blocks use ON CONFLICT DO NOTHING; the
+ * role_permissions block uses DO UPDATE SET scope on purpose. A pre-existing
+ * grant carries the column default 'all', so DO NOTHING would silently leave a
+ * catalogue-narrowed grant at tenant-wide scope — member already held
+ * schichten:swap:create/read from an earlier per-module seed while the
+ * catalogue puts both at 'own'. The catalogue is the source of truth for
+ * system presets (tenant_id IS NULL), so the seed converges them.
  *
  * Run from desktop/ (tsx needs --tsconfig to resolve the `@/` alias used
  * inside rbac.ts):
@@ -124,7 +132,7 @@ function emitRolePermissions() {
           `SELECT r.id, p.id, ${sqlString(scope)}`,
           'FROM roles r, permissions p',
           `WHERE r.name = ${sqlString(roleId)} AND r.tenant_id IS NULL AND p.name IN (${nameList})`,
-          'ON CONFLICT (role_id, permission_id) DO NOTHING;',
+          'ON CONFLICT (role_id, permission_id) DO UPDATE SET scope = EXCLUDED.scope;',
         ].join('\n'),
       )
     }
