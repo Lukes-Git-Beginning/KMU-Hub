@@ -192,6 +192,26 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
 	})
 
+	// Expenses (Ausgaben) — Migration 000257.
+	//
+	// Legacy-only guards: capability-catalog.ts has no finance:expense:* key, so
+	// there is no fine key to add additively yet. Approve/reject sit on
+	// finance:write like every other state change here; the control that makes
+	// the approval mean something is the server-side refusal to decide one's own
+	// expense (expense.ErrSelfApproval), not the coarseness of this guard. A
+	// dedicated finance:expense:approve key belongs in the catalogue -- see
+	// JOURNAL.md.
+	r.Route("/api/v1/finance/expenses", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListExpenses)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/approve", b.HandleApproveExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reject", b.HandleRejectExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/receipt", b.HandleAttachExpenseReceipt)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteExpense)
+	})
+
 	// Dashboard
 	r.Route("/api/v1/finance/dashboard", func(r chi.Router) {
 		r.Use(authMiddleware)

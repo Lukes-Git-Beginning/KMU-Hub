@@ -1597,3 +1597,88 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       heute nur `crm:contact:create/edit` bei `member` und `wiki:article:edit` bei `manager`.
   (5) TOKEN-GROESSE (Iteration 14-16) unveraendert offen; diese Unit erhoeht sie fuer `member` um
       17 Map-Eintraege, fuer `admin` um nichts.
+
+## Iteration 24 — fe-finance-expenses — done — 2026-08-01 21:30 (Nachtlauf 3)
+- commit: siehe unten (feat(finance): add expenses with two-person approval)
+- gebaut: Ausgaben-Modul komplett von der Tabelle bis zur Route. Migration 000257
+  `finance_expenses` (tenant_id NOT NULL + FK auf tenants, RLS mit USING **und** WITH CHECK,
+  drei Indizes, CHECK auf status und auf amount > 0); `internal/biz/expense/` (Repository-
+  Interface, PostgresRepository, Service, Errors); sechs RPCs am FinanceService
+  (`CreateExpense`/`ListExpenses`/`UpdateExpense`/`DeleteExpense`/`DecideExpense`/
+  `AttachExpenseReceipt`) mit Regen im selben Commit; `internal/server/biz_grpc_expense.go`;
+  sieben Gateway-Routen in `route_biz_expenses.go` plus openapi.yaml-Pfade und drei Schemas.
+- fachliche entscheidungen (keine davon aus dem Backlog uebernommen, alle begruendet):
+  - VIER-AUGEN serverseitig: `decide()` lehnt den Einreicher ab (`ErrSelfApproval`) und
+    laesst nur `pending` zu. Deshalb traegt die Tabelle `submitted_by` UND `decided_by`
+    getrennt — aus einem "letzter Akteur"-Feld waere die Regel nachtraeglich nicht mehr
+    pruefbar. Beide Guards liegen in `decide()`, nicht in Approve/Reject, damit keiner in
+    einem der beiden vergessen werden kann.
+  - EDIT NACH DER ENTSCHEIDUNG: `account` (Kontierung) und `receipt_name` bleiben offen,
+    Betrag/Datum/Beschreibung/Kategorie/Lieferant/Projekt nicht (`ErrDecided`). Kontierung
+    passiert fachlich NACH der Genehmigung — die Seed-Daten des Mocks zeigen genau das
+    (approved + account gesetzt). Ein aenderbarer Betrag haette die Genehmigung entwertet.
+  - DELETE nur solange `pending`; eine getroffene Entscheidung ist ein Datensatz, kein Entwurf.
+  - BELEG-UPLOAD ist bewusst NUR ein Dateiname. Der FE-Vertrag (`financeExpenseApi.
+    attachReceipt`) postet `{receiptName}` als JSON, es gibt kein Upload-Widget und keinen
+    Download-Link. Das Presign-Muster aus der Unit-Note waere Infrastruktur ohne Aufrufer.
+    `lean:`-Marker mit Upgrade-Trigger steht im Paketkommentar von
+    `internal/biz/expense/service.go`, der Verweis auf `internal/biz/gobdarchive` als
+    zukuenftiger Ablageort ebenfalls.
+- WIRE-SHAPE-FUND (wichtigster Punkt fuer die restlichen Block-D-Units): `response.Proto` und
+  `ProtoListWrapped` sind fuer diese Endpunkte unbrauchbar. Der repo-weite protoMarshaler
+  laeuft mit `UseProtoNames: true` → snake_case, und Decimals reisen im Repo als String. Der
+  FE-Typ (`stores/finance.ts:304` + `finance-client.ts:434ff`) verlangt aber `receiptName`
+  in camelCase und `amount` als JSON-**Zahl**. Geloest mit einer hand-gemappten
+  `expenseWire`-Struct im Gateway plus zwei Tests darauf
+  (`route_biz_expenses_test.go`) — inklusive der Gegenprobe, dass `tenant_id`/`submitted_by`
+  NICHT in die Antwort lecken. `receipt` wird aus `receiptName` abgeleitet statt gespeichert,
+  damit Liste und Detail nicht auseinanderlaufen koennen. Antwortform exakt wie der Mock:
+  Liste `{expenses,total}` (leer als `[]`, nicht `null`), Einzelentitaet `{expense}`,
+  DELETE `{}`.
+- guards: bestehende `RequirePermission("finance", "read"/"write"/"delete")`, kein neuer Key
+  und damit keine Seed-Pflicht. `capability-catalog.ts` hat ueberhaupt keinen
+  `finance:expense:*`-Key — ein additives `RequirePermissionAny` haette einen Key versprochen,
+  den niemand bekommt.
+- gate: build ok (`-p 2`, `./internal/biz/expense/... ./internal/server/... ./internal/gateway/...
+  ./cmd/biz/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL`
+  gegen `kmuhub_app`: `./internal/biz/expense/...` (19 Testfaelle, davon 3 echte DB-Tests mit
+  9 Unterfaellen — **null Skips**, im `-v`-Lauf verifiziert), `./internal/gateway/` und
+  `./internal/server/...` gruen. TestOpenAPIRouteDrift gruen: 744 registrierte Routen gegen
+  746 dokumentierte Pfade. gofmt sauber auf allen neuen Dateien (die drei gemeldeten
+  Bestandsdateien `cmd/biz/main.go`, `route_biz.go`, `biz_grpc.go` sind das bekannte
+  CRLF-Checkout-Artefakt — ganze Datei als Diff, kein inhaltlicher Fund).
+- migration: 000257 up und `down 1` und wieder up lokal sauber durchgelaufen, Kopf zurueck
+  auf 257. Prod steht auf 243 — dieser Commit erhoeht den Nachhol-Stapel um eine Migration.
+- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): eigener Tenant **1** Zeile, fremder
+  Tenant **0**, und ein INSERT mit fremder `tenant_id` wurde von der WITH-CHECK-Klausel
+  **abgelehnt** (nicht still in den falschen Tenant geschrieben). Zusaetzlich im Go-Test:
+  fremde ID liest als ErrNotFound, fremde ID laesst sich nicht loeschen, und die Zeile ist
+  danach fuer ihren Besitzer noch da.
+- verify vorgaenger: `78985af4` (p2-own-scope-list-filter) gegen die acht Fehlerklassen
+  geprueft. Handler gehen ueber `client.ListTickets`/`ListReports`/`ListPendingApprovals`
+  (kein Layer-Bypass); `.proto` und `.pb.go` beider Dienste im selben Commit; kein neuer
+  Guard, keine neue Route, keine neue Tabelle; der `whereExtra`-Umbau in
+  `helpdesk/postgres_repository.go` numeriert die Platzhalter jetzt korrekt ueber
+  `len(args)+1` statt hart `$2`. Kein Fund.
+- offen fuer Luke:
+  (1) KEIN FEINER CAPABILITY-KEY. `finance:expense:*` fehlt in `capability-catalog.ts`. Der
+      Scope-Filter der Liste ist trotzdem verdrahtet (`ownerFilterForScope(w, r,
+      "finance:expense", "read")`, Repo-Filter `submitted_by`, Index dafuer angelegt) und
+      loest heute immer auf `all` auf. Sobald der Key katalogisiert und geseedet ist, greift
+      die Einschraenkung ohne weitere Code-Aenderung. Bewusst so herum: ein Scope, der still
+      NICHT wirkt, ist die Richtung, die Zeilen leakt.
+  (2) GENEHMIGUNG HAENGT AN `finance:write`. Ein eigener `finance:expense:approve`-Key
+      gehoert in den Katalog — heute darf jeder, der Ausgaben anlegen darf, auch fremde
+      genehmigen. Die Vier-Augen-Regel greift trotzdem (niemand genehmigt sich selbst), aber
+      das ist eine schwaechere Aussage als "nur Vorgesetzte genehmigen".
+  (3) KEIN GET-BY-ID UND KEIN DETAIL-ENDPOINT. Das FE hat keinen (`financeExpenseApi` kennt
+      nur list/create/update/approve/reject/receipt/delete), also wurde keiner gebaut. Der
+      Service kann es (`Service.Get`), die Route fehlt bewusst.
+  (4) BELEG IST METADATEN. Wer eine echte Beleg-Ablage will (GoBD §147), braucht Upload +
+      Dokument-ID; Trigger und Ablageort stehen als `lean:`-Marker im Paketkommentar.
+  (5) `finance_expenses.submitted_by` ist `NULL`-bar mit `ON DELETE SET NULL` — ein
+      geloeschter Mitarbeiter reisst seine Ausgaben nicht mit. Folge: nach dem Loeschen des
+      Einreichers greift die Vier-Augen-Pruefung fuer diese Zeile nicht mehr (sie kann
+      niemanden mehr vergleichen). Bei `pending`-Zeilen eines geloeschten Users ist das
+      vertretbar, wenn es auffaellt — sonst muesste die Zeile beim User-Delete auf
+      `rejected` laufen.

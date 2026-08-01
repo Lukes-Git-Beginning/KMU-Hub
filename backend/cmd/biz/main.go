@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
 	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/expense"
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
@@ -265,6 +266,7 @@ func main() {
 	)
 	bizGRPC.SetRecurringService(recurringSvc)
 	bizGRPC.SetBankingService(bankingSvc)
+	bizGRPC.SetExpenseService(expense.NewService(expense.NewPostgresRepository(pool)))
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
 	// =========================================================================

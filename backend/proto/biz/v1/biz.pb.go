@@ -12079,6 +12079,934 @@ func (x *IgnoreBankTransactionResponse) GetTransaction() *BankTransaction {
 	return nil
 }
 
+type Expense struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId    string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Amount      string                 `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`                              // Decimal as string (e.g., "234.50")
+	ExpenseDate string                 `protobuf:"bytes,5,opt,name=expense_date,json=expenseDate,proto3" json:"expense_date,omitempty"` // Date string YYYY-MM-DD
+	Category    string                 `protobuf:"bytes,6,opt,name=category,proto3" json:"category,omitempty"`
+	Supplier    string                 `protobuf:"bytes,7,opt,name=supplier,proto3" json:"supplier,omitempty"`
+	Project     *string                `protobuf:"bytes,8,opt,name=project,proto3,oneof" json:"project,omitempty"`
+	// SKR03/04 Sachkonto, assigned during Kontierung; absent until booked.
+	Account *string `protobuf:"bytes,9,opt,name=account,proto3,oneof" json:"account,omitempty"`
+	// Filename of the attached document; absent when none was handed in.
+	ReceiptName *string `protobuf:"bytes,10,opt,name=receipt_name,json=receiptName,proto3,oneof" json:"receipt_name,omitempty"`
+	// One of "pending", "approved", "rejected" — a string rather than an enum so
+	// it reaches the frontend's Expense.status union verbatim.
+	Status        string                 `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`
+	SubmittedBy   *string                `protobuf:"bytes,12,opt,name=submitted_by,json=submittedBy,proto3,oneof" json:"submitted_by,omitempty"`
+	DecidedBy     *string                `protobuf:"bytes,13,opt,name=decided_by,json=decidedBy,proto3,oneof" json:"decided_by,omitempty"`
+	DecidedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=decided_at,json=decidedAt,proto3,oneof" json:"decided_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Expense) Reset() {
+	*x = Expense{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[172]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Expense) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Expense) ProtoMessage() {}
+
+func (x *Expense) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[172]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Expense.ProtoReflect.Descriptor instead.
+func (*Expense) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{172}
+}
+
+func (x *Expense) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Expense) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Expense) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Expense) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *Expense) GetExpenseDate() string {
+	if x != nil {
+		return x.ExpenseDate
+	}
+	return ""
+}
+
+func (x *Expense) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *Expense) GetSupplier() string {
+	if x != nil {
+		return x.Supplier
+	}
+	return ""
+}
+
+func (x *Expense) GetProject() string {
+	if x != nil && x.Project != nil {
+		return *x.Project
+	}
+	return ""
+}
+
+func (x *Expense) GetAccount() string {
+	if x != nil && x.Account != nil {
+		return *x.Account
+	}
+	return ""
+}
+
+func (x *Expense) GetReceiptName() string {
+	if x != nil && x.ReceiptName != nil {
+		return *x.ReceiptName
+	}
+	return ""
+}
+
+func (x *Expense) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Expense) GetSubmittedBy() string {
+	if x != nil && x.SubmittedBy != nil {
+		return *x.SubmittedBy
+	}
+	return ""
+}
+
+func (x *Expense) GetDecidedBy() string {
+	if x != nil && x.DecidedBy != nil {
+		return *x.DecidedBy
+	}
+	return ""
+}
+
+func (x *Expense) GetDecidedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAt
+	}
+	return nil
+}
+
+func (x *Expense) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Expense) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateExpenseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Amount        string                 `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"` // Decimal as string
+	Date          string                 `protobuf:"bytes,5,opt,name=date,proto3" json:"date,omitempty"`     // YYYY-MM-DD
+	Category      string                 `protobuf:"bytes,6,opt,name=category,proto3" json:"category,omitempty"`
+	Supplier      string                 `protobuf:"bytes,7,opt,name=supplier,proto3" json:"supplier,omitempty"`
+	Project       string                 `protobuf:"bytes,8,opt,name=project,proto3" json:"project,omitempty"`
+	Account       string                 `protobuf:"bytes,9,opt,name=account,proto3" json:"account,omitempty"`
+	ReceiptName   string                 `protobuf:"bytes,10,opt,name=receipt_name,json=receiptName,proto3" json:"receipt_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateExpenseRequest) Reset() {
+	*x = CreateExpenseRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[173]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateExpenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateExpenseRequest) ProtoMessage() {}
+
+func (x *CreateExpenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[173]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateExpenseRequest.ProtoReflect.Descriptor instead.
+func (*CreateExpenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{173}
+}
+
+func (x *CreateExpenseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetSupplier() string {
+	if x != nil {
+		return x.Supplier
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *CreateExpenseRequest) GetReceiptName() string {
+	if x != nil {
+		return x.ReceiptName
+	}
+	return ""
+}
+
+type CreateExpenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expense       *Expense               `protobuf:"bytes,1,opt,name=expense,proto3" json:"expense,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateExpenseResponse) Reset() {
+	*x = CreateExpenseResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[174]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateExpenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateExpenseResponse) ProtoMessage() {}
+
+func (x *CreateExpenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[174]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateExpenseResponse.ProtoReflect.Descriptor instead.
+func (*CreateExpenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{174}
+}
+
+func (x *CreateExpenseResponse) GetExpense() *Expense {
+	if x != nil {
+		return x.Expense
+	}
+	return nil
+}
+
+type ListExpensesRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Status   string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	// Set from the caller's data scope when their grant is narrowed to "own".
+	SubmittedBy   *string `protobuf:"bytes,3,opt,name=submitted_by,json=submittedBy,proto3,oneof" json:"submitted_by,omitempty"`
+	Page          int32   `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage       int32   `protobuf:"varint,5,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListExpensesRequest) Reset() {
+	*x = ListExpensesRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[175]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListExpensesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListExpensesRequest) ProtoMessage() {}
+
+func (x *ListExpensesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[175]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListExpensesRequest.ProtoReflect.Descriptor instead.
+func (*ListExpensesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{175}
+}
+
+func (x *ListExpensesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListExpensesRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListExpensesRequest) GetSubmittedBy() string {
+	if x != nil && x.SubmittedBy != nil {
+		return *x.SubmittedBy
+	}
+	return ""
+}
+
+func (x *ListExpensesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListExpensesRequest) GetPerPage() int32 {
+	if x != nil {
+		return x.PerPage
+	}
+	return 0
+}
+
+type ListExpensesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expenses      []*Expense             `protobuf:"bytes,1,rep,name=expenses,proto3" json:"expenses,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListExpensesResponse) Reset() {
+	*x = ListExpensesResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[176]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListExpensesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListExpensesResponse) ProtoMessage() {}
+
+func (x *ListExpensesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[176]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListExpensesResponse.ProtoReflect.Descriptor instead.
+func (*ListExpensesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{176}
+}
+
+func (x *ListExpensesResponse) GetExpenses() []*Expense {
+	if x != nil {
+		return x.Expenses
+	}
+	return nil
+}
+
+func (x *ListExpensesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+// UpdateExpenseRequest mirrors the frontend's Partial<CreateExpenseRequest>:
+// every field is optional and an absent one is left untouched, so an edit of
+// one field does not clear the rest.
+type UpdateExpenseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Amount        *string                `protobuf:"bytes,4,opt,name=amount,proto3,oneof" json:"amount,omitempty"`
+	Date          *string                `protobuf:"bytes,5,opt,name=date,proto3,oneof" json:"date,omitempty"`
+	Category      *string                `protobuf:"bytes,6,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Supplier      *string                `protobuf:"bytes,7,opt,name=supplier,proto3,oneof" json:"supplier,omitempty"`
+	Project       *string                `protobuf:"bytes,8,opt,name=project,proto3,oneof" json:"project,omitempty"`
+	Account       *string                `protobuf:"bytes,9,opt,name=account,proto3,oneof" json:"account,omitempty"`
+	ReceiptName   *string                `protobuf:"bytes,10,opt,name=receipt_name,json=receiptName,proto3,oneof" json:"receipt_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateExpenseRequest) Reset() {
+	*x = UpdateExpenseRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[177]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateExpenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateExpenseRequest) ProtoMessage() {}
+
+func (x *UpdateExpenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[177]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateExpenseRequest.ProtoReflect.Descriptor instead.
+func (*UpdateExpenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{177}
+}
+
+func (x *UpdateExpenseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetAmount() string {
+	if x != nil && x.Amount != nil {
+		return *x.Amount
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetDate() string {
+	if x != nil && x.Date != nil {
+		return *x.Date
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetSupplier() string {
+	if x != nil && x.Supplier != nil {
+		return *x.Supplier
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetProject() string {
+	if x != nil && x.Project != nil {
+		return *x.Project
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetAccount() string {
+	if x != nil && x.Account != nil {
+		return *x.Account
+	}
+	return ""
+}
+
+func (x *UpdateExpenseRequest) GetReceiptName() string {
+	if x != nil && x.ReceiptName != nil {
+		return *x.ReceiptName
+	}
+	return ""
+}
+
+type UpdateExpenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expense       *Expense               `protobuf:"bytes,1,opt,name=expense,proto3" json:"expense,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateExpenseResponse) Reset() {
+	*x = UpdateExpenseResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[178]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateExpenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateExpenseResponse) ProtoMessage() {}
+
+func (x *UpdateExpenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[178]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateExpenseResponse.ProtoReflect.Descriptor instead.
+func (*UpdateExpenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{178}
+}
+
+func (x *UpdateExpenseResponse) GetExpense() *Expense {
+	if x != nil {
+		return x.Expense
+	}
+	return nil
+}
+
+type DeleteExpenseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteExpenseRequest) Reset() {
+	*x = DeleteExpenseRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[179]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteExpenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteExpenseRequest) ProtoMessage() {}
+
+func (x *DeleteExpenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[179]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteExpenseRequest.ProtoReflect.Descriptor instead.
+func (*DeleteExpenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{179}
+}
+
+func (x *DeleteExpenseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteExpenseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteExpenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteExpenseResponse) Reset() {
+	*x = DeleteExpenseResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[180]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteExpenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteExpenseResponse) ProtoMessage() {}
+
+func (x *DeleteExpenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[180]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteExpenseResponse.ProtoReflect.Descriptor instead.
+func (*DeleteExpenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{180}
+}
+
+// DecideExpenseRequest carries approve and reject through one RPC: the two
+// share every guard (pending only, never by the submitter) and differ solely in
+// the status they write.
+type DecideExpenseRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Id       string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	UserId   string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// "approved" or "rejected".
+	Status        string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecideExpenseRequest) Reset() {
+	*x = DecideExpenseRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[181]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecideExpenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecideExpenseRequest) ProtoMessage() {}
+
+func (x *DecideExpenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[181]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecideExpenseRequest.ProtoReflect.Descriptor instead.
+func (*DecideExpenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{181}
+}
+
+func (x *DecideExpenseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DecideExpenseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DecideExpenseRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *DecideExpenseRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type DecideExpenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expense       *Expense               `protobuf:"bytes,1,opt,name=expense,proto3" json:"expense,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecideExpenseResponse) Reset() {
+	*x = DecideExpenseResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[182]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecideExpenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecideExpenseResponse) ProtoMessage() {}
+
+func (x *DecideExpenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[182]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecideExpenseResponse.ProtoReflect.Descriptor instead.
+func (*DecideExpenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{182}
+}
+
+func (x *DecideExpenseResponse) GetExpense() *Expense {
+	if x != nil {
+		return x.Expense
+	}
+	return nil
+}
+
+type AttachExpenseReceiptRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	ReceiptName   string                 `protobuf:"bytes,3,opt,name=receipt_name,json=receiptName,proto3" json:"receipt_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachExpenseReceiptRequest) Reset() {
+	*x = AttachExpenseReceiptRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[183]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachExpenseReceiptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachExpenseReceiptRequest) ProtoMessage() {}
+
+func (x *AttachExpenseReceiptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[183]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachExpenseReceiptRequest.ProtoReflect.Descriptor instead.
+func (*AttachExpenseReceiptRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{183}
+}
+
+func (x *AttachExpenseReceiptRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *AttachExpenseReceiptRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *AttachExpenseReceiptRequest) GetReceiptName() string {
+	if x != nil {
+		return x.ReceiptName
+	}
+	return ""
+}
+
+type AttachExpenseReceiptResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expense       *Expense               `protobuf:"bytes,1,opt,name=expense,proto3" json:"expense,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachExpenseReceiptResponse) Reset() {
+	*x = AttachExpenseReceiptResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[184]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachExpenseReceiptResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachExpenseReceiptResponse) ProtoMessage() {}
+
+func (x *AttachExpenseReceiptResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[184]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachExpenseReceiptResponse.ProtoReflect.Descriptor instead.
+func (*AttachExpenseReceiptResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{184}
+}
+
+func (x *AttachExpenseReceiptResponse) GetExpense() *Expense {
+	if x != nil {
+		return x.Expense
+	}
+	return nil
+}
+
 var File_proto_biz_v1_biz_proto protoreflect.FileDescriptor
 
 const file_proto_biz_v1_biz_proto_rawDesc = "" +
@@ -13102,7 +14030,102 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\"Z\n" +
 	"\x1dIgnoreBankTransactionResponse\x129\n" +
-	"\vtransaction\x18\x01 \x01(\v2\x17.biz.v1.BankTransactionR\vtransaction*\x87\x01\n" +
+	"\vtransaction\x18\x01 \x01(\v2\x17.biz.v1.BankTransactionR\vtransaction\"\xa3\x05\n" +
+	"\aExpense\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\x12!\n" +
+	"\fexpense_date\x18\x05 \x01(\tR\vexpenseDate\x12\x1a\n" +
+	"\bcategory\x18\x06 \x01(\tR\bcategory\x12\x1a\n" +
+	"\bsupplier\x18\a \x01(\tR\bsupplier\x12\x1d\n" +
+	"\aproject\x18\b \x01(\tH\x00R\aproject\x88\x01\x01\x12\x1d\n" +
+	"\aaccount\x18\t \x01(\tH\x01R\aaccount\x88\x01\x01\x12&\n" +
+	"\freceipt_name\x18\n" +
+	" \x01(\tH\x02R\vreceiptName\x88\x01\x01\x12\x16\n" +
+	"\x06status\x18\v \x01(\tR\x06status\x12&\n" +
+	"\fsubmitted_by\x18\f \x01(\tH\x03R\vsubmittedBy\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"decided_by\x18\r \x01(\tH\x04R\tdecidedBy\x88\x01\x01\x12>\n" +
+	"\n" +
+	"decided_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x05R\tdecidedAt\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\n" +
+	"\n" +
+	"\b_projectB\n" +
+	"\n" +
+	"\b_accountB\x0f\n" +
+	"\r_receipt_nameB\x0f\n" +
+	"\r_submitted_byB\r\n" +
+	"\v_decided_byB\r\n" +
+	"\v_decided_at\"\xa9\x02\n" +
+	"\x14CreateExpenseRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\x12\x12\n" +
+	"\x04date\x18\x05 \x01(\tR\x04date\x12\x1a\n" +
+	"\bcategory\x18\x06 \x01(\tR\bcategory\x12\x1a\n" +
+	"\bsupplier\x18\a \x01(\tR\bsupplier\x12\x18\n" +
+	"\aproject\x18\b \x01(\tR\aproject\x12\x18\n" +
+	"\aaccount\x18\t \x01(\tR\aaccount\x12!\n" +
+	"\freceipt_name\x18\n" +
+	" \x01(\tR\vreceiptName\"B\n" +
+	"\x15CreateExpenseResponse\x12)\n" +
+	"\aexpense\x18\x01 \x01(\v2\x0f.biz.v1.ExpenseR\aexpense\"\xb2\x01\n" +
+	"\x13ListExpensesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12&\n" +
+	"\fsubmitted_by\x18\x03 \x01(\tH\x00R\vsubmittedBy\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x19\n" +
+	"\bper_page\x18\x05 \x01(\x05R\aperPageB\x0f\n" +
+	"\r_submitted_by\"Y\n" +
+	"\x14ListExpensesResponse\x12+\n" +
+	"\bexpenses\x18\x01 \x03(\v2\x0f.biz.v1.ExpenseR\bexpenses\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xaf\x03\n" +
+	"\x14UpdateExpenseRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12%\n" +
+	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x1b\n" +
+	"\x06amount\x18\x04 \x01(\tH\x01R\x06amount\x88\x01\x01\x12\x17\n" +
+	"\x04date\x18\x05 \x01(\tH\x02R\x04date\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x06 \x01(\tH\x03R\bcategory\x88\x01\x01\x12\x1f\n" +
+	"\bsupplier\x18\a \x01(\tH\x04R\bsupplier\x88\x01\x01\x12\x1d\n" +
+	"\aproject\x18\b \x01(\tH\x05R\aproject\x88\x01\x01\x12\x1d\n" +
+	"\aaccount\x18\t \x01(\tH\x06R\aaccount\x88\x01\x01\x12&\n" +
+	"\freceipt_name\x18\n" +
+	" \x01(\tH\aR\vreceiptName\x88\x01\x01B\x0e\n" +
+	"\f_descriptionB\t\n" +
+	"\a_amountB\a\n" +
+	"\x05_dateB\v\n" +
+	"\t_categoryB\v\n" +
+	"\t_supplierB\n" +
+	"\n" +
+	"\b_projectB\n" +
+	"\n" +
+	"\b_accountB\x0f\n" +
+	"\r_receipt_name\"B\n" +
+	"\x15UpdateExpenseResponse\x12)\n" +
+	"\aexpense\x18\x01 \x01(\v2\x0f.biz.v1.ExpenseR\aexpense\"C\n" +
+	"\x14DeleteExpenseRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\"\x17\n" +
+	"\x15DeleteExpenseResponse\"t\n" +
+	"\x14DecideExpenseRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"B\n" +
+	"\x15DecideExpenseResponse\x12)\n" +
+	"\aexpense\x18\x01 \x01(\v2\x0f.biz.v1.ExpenseR\aexpense\"m\n" +
+	"\x1bAttachExpenseReceiptRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12!\n" +
+	"\freceipt_name\x18\x03 \x01(\tR\vreceiptName\"I\n" +
+	"\x1cAttachExpenseReceiptResponse\x12)\n" +
+	"\aexpense\x18\x01 \x01(\v2\x0f.biz.v1.ExpenseR\aexpense*\x87\x01\n" +
 	"\vQuoteStatus\x12\x1c\n" +
 	"\x18QUOTE_STATUS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vQUOTE_DRAFT\x10\x01\x12\x0e\n" +
@@ -13137,7 +14160,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x1cPAYMENT_METHOD_BANK_TRANSFER\x10\x01\x12\x17\n" +
 	"\x13PAYMENT_METHOD_CASH\x10\x02\x12\x1e\n" +
 	"\x1aPAYMENT_METHOD_CREDIT_CARD\x10\x03\x12\x18\n" +
-	"\x14PAYMENT_METHOD_OTHER\x10\x042\xe62\n" +
+	"\x14PAYMENT_METHOD_OTHER\x10\x042\xcc6\n" +
 	"\x0eFinanceService\x12[\n" +
 	"\x12GetCompanySettings\x12!.biz.v1.GetCompanySettingsRequest\x1a\".biz.v1.GetCompanySettingsResponse\x12d\n" +
 	"\x15UpdateCompanySettings\x12$.biz.v1.UpdateCompanySettingsRequest\x1a%.biz.v1.UpdateCompanySettingsResponse\x12F\n" +
@@ -13213,7 +14236,13 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x12ListBankStatements\x12!.biz.v1.ListBankStatementsRequest\x1a\".biz.v1.ListBankStatementsResponse\x12a\n" +
 	"\x14ListBankTransactions\x12#.biz.v1.ListBankTransactionsRequest\x1a$.biz.v1.ListBankTransactionsResponse\x12m\n" +
 	"\x18ReconcileBankTransaction\x12'.biz.v1.ReconcileBankTransactionRequest\x1a(.biz.v1.ReconcileBankTransactionResponse\x12d\n" +
-	"\x15IgnoreBankTransaction\x12$.biz.v1.IgnoreBankTransactionRequest\x1a%.biz.v1.IgnoreBankTransactionResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
+	"\x15IgnoreBankTransaction\x12$.biz.v1.IgnoreBankTransactionRequest\x1a%.biz.v1.IgnoreBankTransactionResponse\x12L\n" +
+	"\rCreateExpense\x12\x1c.biz.v1.CreateExpenseRequest\x1a\x1d.biz.v1.CreateExpenseResponse\x12I\n" +
+	"\fListExpenses\x12\x1b.biz.v1.ListExpensesRequest\x1a\x1c.biz.v1.ListExpensesResponse\x12L\n" +
+	"\rUpdateExpense\x12\x1c.biz.v1.UpdateExpenseRequest\x1a\x1d.biz.v1.UpdateExpenseResponse\x12L\n" +
+	"\rDeleteExpense\x12\x1c.biz.v1.DeleteExpenseRequest\x1a\x1d.biz.v1.DeleteExpenseResponse\x12L\n" +
+	"\rDecideExpense\x12\x1c.biz.v1.DecideExpenseRequest\x1a\x1d.biz.v1.DecideExpenseResponse\x12a\n" +
+	"\x14AttachExpenseReceipt\x12#.biz.v1.AttachExpenseReceiptRequest\x1a$.biz.v1.AttachExpenseReceiptResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
 
 var (
 	file_proto_biz_v1_biz_proto_rawDescOnce sync.Once
@@ -13228,7 +14257,7 @@ func file_proto_biz_v1_biz_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_biz_v1_biz_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_proto_biz_v1_biz_proto_msgTypes = make([]protoimpl.MessageInfo, 174)
+var file_proto_biz_v1_biz_proto_msgTypes = make([]protoimpl.MessageInfo, 187)
 var file_proto_biz_v1_biz_proto_goTypes = []any{
 	(QuoteStatus)(0),                             // 0: biz.v1.QuoteStatus
 	(InvoiceStatus)(0),                           // 1: biz.v1.InvoiceStatus
@@ -13408,43 +14437,56 @@ var file_proto_biz_v1_biz_proto_goTypes = []any{
 	(*ReconcileBankTransactionResponse)(nil),     // 175: biz.v1.ReconcileBankTransactionResponse
 	(*IgnoreBankTransactionRequest)(nil),         // 176: biz.v1.IgnoreBankTransactionRequest
 	(*IgnoreBankTransactionResponse)(nil),        // 177: biz.v1.IgnoreBankTransactionResponse
-	nil,                                          // 178: biz.v1.TaxBreakdown.TaxByRateEntry
-	nil,                                          // 179: biz.v1.FinanceDashboard.StatusBreakdownEntry
-	(*timestamppb.Timestamp)(nil),                // 180: google.protobuf.Timestamp
+	(*Expense)(nil),                              // 178: biz.v1.Expense
+	(*CreateExpenseRequest)(nil),                 // 179: biz.v1.CreateExpenseRequest
+	(*CreateExpenseResponse)(nil),                // 180: biz.v1.CreateExpenseResponse
+	(*ListExpensesRequest)(nil),                  // 181: biz.v1.ListExpensesRequest
+	(*ListExpensesResponse)(nil),                 // 182: biz.v1.ListExpensesResponse
+	(*UpdateExpenseRequest)(nil),                 // 183: biz.v1.UpdateExpenseRequest
+	(*UpdateExpenseResponse)(nil),                // 184: biz.v1.UpdateExpenseResponse
+	(*DeleteExpenseRequest)(nil),                 // 185: biz.v1.DeleteExpenseRequest
+	(*DeleteExpenseResponse)(nil),                // 186: biz.v1.DeleteExpenseResponse
+	(*DecideExpenseRequest)(nil),                 // 187: biz.v1.DecideExpenseRequest
+	(*DecideExpenseResponse)(nil),                // 188: biz.v1.DecideExpenseResponse
+	(*AttachExpenseReceiptRequest)(nil),          // 189: biz.v1.AttachExpenseReceiptRequest
+	(*AttachExpenseReceiptResponse)(nil),         // 190: biz.v1.AttachExpenseReceiptResponse
+	nil,                                          // 191: biz.v1.TaxBreakdown.TaxByRateEntry
+	nil,                                          // 192: biz.v1.FinanceDashboard.StatusBreakdownEntry
+	(*timestamppb.Timestamp)(nil),                // 193: google.protobuf.Timestamp
 }
 var file_proto_biz_v1_biz_proto_depIdxs = []int32{
-	178, // 0: biz.v1.TaxBreakdown.tax_by_rate:type_name -> biz.v1.TaxBreakdown.TaxByRateEntry
+	191, // 0: biz.v1.TaxBreakdown.tax_by_rate:type_name -> biz.v1.TaxBreakdown.TaxByRateEntry
 	0,   // 1: biz.v1.Quote.status:type_name -> biz.v1.QuoteStatus
 	8,   // 2: biz.v1.Quote.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 3: biz.v1.Quote.line_items:type_name -> biz.v1.LineItem
 	4,   // 4: biz.v1.Quote.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 5: biz.v1.Quote.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	180, // 6: biz.v1.Quote.created_at:type_name -> google.protobuf.Timestamp
-	180, // 7: biz.v1.Quote.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 6: biz.v1.Quote.created_at:type_name -> google.protobuf.Timestamp
+	193, // 7: biz.v1.Quote.updated_at:type_name -> google.protobuf.Timestamp
 	1,   // 8: biz.v1.Invoice.status:type_name -> biz.v1.InvoiceStatus
 	8,   // 9: biz.v1.Invoice.customer:type_name -> biz.v1.CustomerSnapshot
 	9,   // 10: biz.v1.Invoice.company:type_name -> biz.v1.CompanySnapshot
 	6,   // 11: biz.v1.Invoice.line_items:type_name -> biz.v1.LineItem
 	4,   // 12: biz.v1.Invoice.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 13: biz.v1.Invoice.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	180, // 14: biz.v1.Invoice.created_at:type_name -> google.protobuf.Timestamp
-	180, // 15: biz.v1.Invoice.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 14: biz.v1.Invoice.created_at:type_name -> google.protobuf.Timestamp
+	193, // 15: biz.v1.Invoice.updated_at:type_name -> google.protobuf.Timestamp
 	2,   // 16: biz.v1.CreditNote.status:type_name -> biz.v1.CreditNoteStatus
 	8,   // 17: biz.v1.CreditNote.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 18: biz.v1.CreditNote.line_items:type_name -> biz.v1.LineItem
 	4,   // 19: biz.v1.CreditNote.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 20: biz.v1.CreditNote.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	180, // 21: biz.v1.CreditNote.created_at:type_name -> google.protobuf.Timestamp
-	180, // 22: biz.v1.CreditNote.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 21: biz.v1.CreditNote.created_at:type_name -> google.protobuf.Timestamp
+	193, // 22: biz.v1.CreditNote.updated_at:type_name -> google.protobuf.Timestamp
 	5,   // 23: biz.v1.Payment.method:type_name -> biz.v1.PaymentMethod
-	180, // 24: biz.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
+	193, // 24: biz.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 25: biz.v1.DunningRecord.status:type_name -> biz.v1.DunningStatus
-	180, // 26: biz.v1.DunningRecord.sent_at:type_name -> google.protobuf.Timestamp
-	180, // 27: biz.v1.DunningRecord.created_at:type_name -> google.protobuf.Timestamp
-	180, // 28: biz.v1.DunningConfig.updated_at:type_name -> google.protobuf.Timestamp
-	180, // 29: biz.v1.CompanySettings.created_at:type_name -> google.protobuf.Timestamp
-	180, // 30: biz.v1.CompanySettings.updated_at:type_name -> google.protobuf.Timestamp
-	179, // 31: biz.v1.FinanceDashboard.status_breakdown:type_name -> biz.v1.FinanceDashboard.StatusBreakdownEntry
+	193, // 26: biz.v1.DunningRecord.sent_at:type_name -> google.protobuf.Timestamp
+	193, // 27: biz.v1.DunningRecord.created_at:type_name -> google.protobuf.Timestamp
+	193, // 28: biz.v1.DunningConfig.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 29: biz.v1.CompanySettings.created_at:type_name -> google.protobuf.Timestamp
+	193, // 30: biz.v1.CompanySettings.updated_at:type_name -> google.protobuf.Timestamp
+	192, // 31: biz.v1.FinanceDashboard.status_breakdown:type_name -> biz.v1.FinanceDashboard.StatusBreakdownEntry
 	11,  // 32: biz.v1.FinanceDashboard.recent_invoices:type_name -> biz.v1.Invoice
 	10,  // 33: biz.v1.FinanceDashboard.expiring_quotes:type_name -> biz.v1.Quote
 	14,  // 34: biz.v1.FinanceDashboard.pending_dunnings:type_name -> biz.v1.DunningRecord
@@ -13507,8 +14549,8 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	10,  // 91: biz.v1.CreateQuoteFromDealResponse.quote:type_name -> biz.v1.Quote
 	14,  // 92: biz.v1.UpdateDunningStatusResponse.dunning:type_name -> biz.v1.DunningRecord
 	14,  // 93: biz.v1.SendDunningNoticeResponse.dunning:type_name -> biz.v1.DunningRecord
-	180, // 94: biz.v1.GobdDocumentProto.archived_at:type_name -> google.protobuf.Timestamp
-	180, // 95: biz.v1.GobdDocumentEventProto.created_at:type_name -> google.protobuf.Timestamp
+	193, // 94: biz.v1.GobdDocumentProto.archived_at:type_name -> google.protobuf.Timestamp
+	193, // 95: biz.v1.GobdDocumentEventProto.created_at:type_name -> google.protobuf.Timestamp
 	120, // 96: biz.v1.ArchiveDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
 	120, // 97: biz.v1.ArchiveInvoiceDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
 	120, // 98: biz.v1.GetGobdDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
@@ -13516,8 +14558,8 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	120, // 100: biz.v1.ListGobdDocumentsResponse.documents:type_name -> biz.v1.GobdDocumentProto
 	138, // 101: biz.v1.IncomingInvoice.line_items:type_name -> biz.v1.IncomingInvoiceLineItem
 	139, // 102: biz.v1.IncomingInvoice.tax_breakdown:type_name -> biz.v1.IncomingInvoiceTaxEntry
-	180, // 103: biz.v1.IncomingInvoice.created_at:type_name -> google.protobuf.Timestamp
-	180, // 104: biz.v1.IncomingInvoice.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 103: biz.v1.IncomingInvoice.created_at:type_name -> google.protobuf.Timestamp
+	193, // 104: biz.v1.IncomingInvoice.updated_at:type_name -> google.protobuf.Timestamp
 	140, // 105: biz.v1.ImportIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
 	140, // 106: biz.v1.GetIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
 	140, // 107: biz.v1.ListIncomingInvoicesResponse.invoices:type_name -> biz.v1.IncomingInvoice
@@ -13526,8 +14568,8 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	6,   // 110: biz.v1.RecurringInvoice.line_items:type_name -> biz.v1.LineItem
 	4,   // 111: biz.v1.RecurringInvoice.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 112: biz.v1.RecurringInvoice.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	180, // 113: biz.v1.RecurringInvoice.created_at:type_name -> google.protobuf.Timestamp
-	180, // 114: biz.v1.RecurringInvoice.updated_at:type_name -> google.protobuf.Timestamp
+	193, // 113: biz.v1.RecurringInvoice.created_at:type_name -> google.protobuf.Timestamp
+	193, // 114: biz.v1.RecurringInvoice.updated_at:type_name -> google.protobuf.Timestamp
 	8,   // 115: biz.v1.CreateRecurringInvoiceRequest.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 116: biz.v1.CreateRecurringInvoiceRequest.line_items:type_name -> biz.v1.LineItem
 	4,   // 117: biz.v1.CreateRecurringInvoiceRequest.tax_mode:type_name -> biz.v1.TaxMode
@@ -13549,157 +14591,177 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	165, // 133: biz.v1.ListBankTransactionsResponse.transactions:type_name -> biz.v1.BankTransaction
 	165, // 134: biz.v1.ReconcileBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
 	165, // 135: biz.v1.IgnoreBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
-	20,  // 136: biz.v1.FinanceService.GetCompanySettings:input_type -> biz.v1.GetCompanySettingsRequest
-	22,  // 137: biz.v1.FinanceService.UpdateCompanySettings:input_type -> biz.v1.UpdateCompanySettingsRequest
-	24,  // 138: biz.v1.FinanceService.CreateQuote:input_type -> biz.v1.CreateQuoteRequest
-	26,  // 139: biz.v1.FinanceService.GetQuote:input_type -> biz.v1.GetQuoteRequest
-	28,  // 140: biz.v1.FinanceService.ListQuotes:input_type -> biz.v1.ListQuotesRequest
-	30,  // 141: biz.v1.FinanceService.UpdateQuote:input_type -> biz.v1.UpdateQuoteRequest
-	32,  // 142: biz.v1.FinanceService.DeleteQuote:input_type -> biz.v1.DeleteQuoteRequest
-	34,  // 143: biz.v1.FinanceService.SendQuote:input_type -> biz.v1.SendQuoteRequest
-	36,  // 144: biz.v1.FinanceService.AcceptQuote:input_type -> biz.v1.AcceptQuoteRequest
-	38,  // 145: biz.v1.FinanceService.RejectQuote:input_type -> biz.v1.RejectQuoteRequest
-	40,  // 146: biz.v1.FinanceService.ExpireQuote:input_type -> biz.v1.ExpireQuoteRequest
-	42,  // 147: biz.v1.FinanceService.ConvertQuoteToInvoice:input_type -> biz.v1.ConvertQuoteToInvoiceRequest
-	44,  // 148: biz.v1.FinanceService.CreateInvoice:input_type -> biz.v1.CreateInvoiceRequest
-	46,  // 149: biz.v1.FinanceService.GetInvoice:input_type -> biz.v1.GetInvoiceRequest
-	48,  // 150: biz.v1.FinanceService.ListInvoices:input_type -> biz.v1.ListInvoicesRequest
-	50,  // 151: biz.v1.FinanceService.UpdateInvoice:input_type -> biz.v1.UpdateInvoiceRequest
-	52,  // 152: biz.v1.FinanceService.SendInvoice:input_type -> biz.v1.SendInvoiceRequest
-	54,  // 153: biz.v1.FinanceService.MarkInvoicePaid:input_type -> biz.v1.MarkInvoicePaidRequest
-	56,  // 154: biz.v1.FinanceService.CancelInvoice:input_type -> biz.v1.CancelInvoiceRequest
-	58,  // 155: biz.v1.FinanceService.CreateCreditNote:input_type -> biz.v1.CreateCreditNoteRequest
-	60,  // 156: biz.v1.FinanceService.GetCreditNote:input_type -> biz.v1.GetCreditNoteRequest
-	62,  // 157: biz.v1.FinanceService.ListCreditNotes:input_type -> biz.v1.ListCreditNotesRequest
-	64,  // 158: biz.v1.FinanceService.SendCreditNote:input_type -> biz.v1.SendCreditNoteRequest
-	66,  // 159: biz.v1.FinanceService.RecordPayment:input_type -> biz.v1.RecordPaymentRequest
-	68,  // 160: biz.v1.FinanceService.ListPayments:input_type -> biz.v1.ListPaymentsRequest
-	70,  // 161: biz.v1.FinanceService.DeletePayment:input_type -> biz.v1.DeletePaymentRequest
-	72,  // 162: biz.v1.FinanceService.ListDunnings:input_type -> biz.v1.ListDunningsRequest
-	74,  // 163: biz.v1.FinanceService.CreateDunning:input_type -> biz.v1.CreateDunningRequest
-	76,  // 164: biz.v1.FinanceService.SendDunning:input_type -> biz.v1.SendDunningRequest
-	78,  // 165: biz.v1.FinanceService.EscalateDunning:input_type -> biz.v1.EscalateDunningRequest
-	80,  // 166: biz.v1.FinanceService.GetDunningConfig:input_type -> biz.v1.GetDunningConfigRequest
-	82,  // 167: biz.v1.FinanceService.UpdateDunningConfig:input_type -> biz.v1.UpdateDunningConfigRequest
-	88,  // 168: biz.v1.FinanceService.ListOpenItems:input_type -> biz.v1.ListOpenItemsRequest
-	90,  // 169: biz.v1.FinanceService.GetFinanceDashboard:input_type -> biz.v1.GetFinanceDashboardRequest
-	92,  // 170: biz.v1.FinanceService.ExportDATEV:input_type -> biz.v1.ExportDATEVRequest
-	94,  // 171: biz.v1.FinanceService.GenerateQuotePDF:input_type -> biz.v1.GenerateQuotePDFRequest
-	96,  // 172: biz.v1.FinanceService.GenerateInvoicePDF:input_type -> biz.v1.GenerateInvoicePDFRequest
-	98,  // 173: biz.v1.FinanceService.GenerateCreditNotePDF:input_type -> biz.v1.GenerateCreditNotePDFRequest
-	100, // 174: biz.v1.FinanceService.GenerateDunningPDF:input_type -> biz.v1.GenerateDunningPDFRequest
-	134, // 175: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:input_type -> biz.v1.GenerateZUGFeRDInvoicePDFRequest
-	136, // 176: biz.v1.FinanceService.GenerateEInvoice:input_type -> biz.v1.GenerateEInvoiceRequest
-	102, // 177: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:input_type -> biz.v1.CreateInvoiceFromTimeEntriesRequest
-	104, // 178: biz.v1.FinanceService.CreateQuoteFromDeal:input_type -> biz.v1.CreateQuoteFromDealRequest
-	106, // 179: biz.v1.FinanceService.GetJournalSummary:input_type -> biz.v1.GetJournalSummaryRequest
-	108, // 180: biz.v1.FinanceService.ValidateInvoiceNumber:input_type -> biz.v1.ValidateInvoiceNumberRequest
-	110, // 181: biz.v1.FinanceService.LockInvoice:input_type -> biz.v1.LockInvoiceRequest
-	112, // 182: biz.v1.FinanceService.GetPaymentStats:input_type -> biz.v1.GetPaymentStatsRequest
-	114, // 183: biz.v1.FinanceService.UpdateDunningStatus:input_type -> biz.v1.UpdateDunningStatusRequest
-	116, // 184: biz.v1.FinanceService.SendDunningNotice:input_type -> biz.v1.SendDunningNoticeRequest
-	118, // 185: biz.v1.FinanceService.GenerateGoBDExport:input_type -> biz.v1.GenerateGoBDExportRequest
-	122, // 186: biz.v1.FinanceService.ArchiveDocument:input_type -> biz.v1.ArchiveDocumentRequest
-	124, // 187: biz.v1.FinanceService.ArchiveInvoiceDocument:input_type -> biz.v1.ArchiveInvoiceDocumentRequest
-	126, // 188: biz.v1.FinanceService.GetGobdDocument:input_type -> biz.v1.GetGobdDocumentRequest
-	128, // 189: biz.v1.FinanceService.ListGobdDocuments:input_type -> biz.v1.ListGobdDocumentsRequest
-	130, // 190: biz.v1.FinanceService.DownloadGobdDocument:input_type -> biz.v1.DownloadGobdDocumentRequest
-	132, // 191: biz.v1.FinanceService.AddDocumentAnnotation:input_type -> biz.v1.AddDocumentAnnotationRequest
-	141, // 192: biz.v1.FinanceService.ImportIncomingInvoice:input_type -> biz.v1.ImportIncomingInvoiceRequest
-	143, // 193: biz.v1.FinanceService.GetIncomingInvoice:input_type -> biz.v1.GetIncomingInvoiceRequest
-	145, // 194: biz.v1.FinanceService.ListIncomingInvoices:input_type -> biz.v1.ListIncomingInvoicesRequest
-	147, // 195: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:input_type -> biz.v1.UpdateIncomingInvoiceStatusRequest
-	150, // 196: biz.v1.FinanceService.CreateRecurringInvoice:input_type -> biz.v1.CreateRecurringInvoiceRequest
-	152, // 197: biz.v1.FinanceService.GetRecurringInvoice:input_type -> biz.v1.GetRecurringInvoiceRequest
-	154, // 198: biz.v1.FinanceService.ListRecurringInvoices:input_type -> biz.v1.ListRecurringInvoicesRequest
-	156, // 199: biz.v1.FinanceService.UpdateRecurringInvoice:input_type -> biz.v1.UpdateRecurringInvoiceRequest
-	158, // 200: biz.v1.FinanceService.DeleteRecurringInvoice:input_type -> biz.v1.DeleteRecurringInvoiceRequest
-	160, // 201: biz.v1.FinanceService.SetRecurringInvoiceStatus:input_type -> biz.v1.SetRecurringInvoiceStatusRequest
-	162, // 202: biz.v1.FinanceService.GenerateRecurringInvoice:input_type -> biz.v1.GenerateRecurringInvoiceRequest
-	166, // 203: biz.v1.FinanceService.ImportBankStatement:input_type -> biz.v1.ImportBankStatementRequest
-	168, // 204: biz.v1.FinanceService.GetBankStatement:input_type -> biz.v1.GetBankStatementRequest
-	170, // 205: biz.v1.FinanceService.ListBankStatements:input_type -> biz.v1.ListBankStatementsRequest
-	172, // 206: biz.v1.FinanceService.ListBankTransactions:input_type -> biz.v1.ListBankTransactionsRequest
-	174, // 207: biz.v1.FinanceService.ReconcileBankTransaction:input_type -> biz.v1.ReconcileBankTransactionRequest
-	176, // 208: biz.v1.FinanceService.IgnoreBankTransaction:input_type -> biz.v1.IgnoreBankTransactionRequest
-	21,  // 209: biz.v1.FinanceService.GetCompanySettings:output_type -> biz.v1.GetCompanySettingsResponse
-	23,  // 210: biz.v1.FinanceService.UpdateCompanySettings:output_type -> biz.v1.UpdateCompanySettingsResponse
-	25,  // 211: biz.v1.FinanceService.CreateQuote:output_type -> biz.v1.CreateQuoteResponse
-	27,  // 212: biz.v1.FinanceService.GetQuote:output_type -> biz.v1.GetQuoteResponse
-	29,  // 213: biz.v1.FinanceService.ListQuotes:output_type -> biz.v1.ListQuotesResponse
-	31,  // 214: biz.v1.FinanceService.UpdateQuote:output_type -> biz.v1.UpdateQuoteResponse
-	33,  // 215: biz.v1.FinanceService.DeleteQuote:output_type -> biz.v1.DeleteQuoteResponse
-	35,  // 216: biz.v1.FinanceService.SendQuote:output_type -> biz.v1.SendQuoteResponse
-	37,  // 217: biz.v1.FinanceService.AcceptQuote:output_type -> biz.v1.AcceptQuoteResponse
-	39,  // 218: biz.v1.FinanceService.RejectQuote:output_type -> biz.v1.RejectQuoteResponse
-	41,  // 219: biz.v1.FinanceService.ExpireQuote:output_type -> biz.v1.ExpireQuoteResponse
-	43,  // 220: biz.v1.FinanceService.ConvertQuoteToInvoice:output_type -> biz.v1.ConvertQuoteToInvoiceResponse
-	45,  // 221: biz.v1.FinanceService.CreateInvoice:output_type -> biz.v1.CreateInvoiceResponse
-	47,  // 222: biz.v1.FinanceService.GetInvoice:output_type -> biz.v1.GetInvoiceResponse
-	49,  // 223: biz.v1.FinanceService.ListInvoices:output_type -> biz.v1.ListInvoicesResponse
-	51,  // 224: biz.v1.FinanceService.UpdateInvoice:output_type -> biz.v1.UpdateInvoiceResponse
-	53,  // 225: biz.v1.FinanceService.SendInvoice:output_type -> biz.v1.SendInvoiceResponse
-	55,  // 226: biz.v1.FinanceService.MarkInvoicePaid:output_type -> biz.v1.MarkInvoicePaidResponse
-	57,  // 227: biz.v1.FinanceService.CancelInvoice:output_type -> biz.v1.CancelInvoiceResponse
-	59,  // 228: biz.v1.FinanceService.CreateCreditNote:output_type -> biz.v1.CreateCreditNoteResponse
-	61,  // 229: biz.v1.FinanceService.GetCreditNote:output_type -> biz.v1.GetCreditNoteResponse
-	63,  // 230: biz.v1.FinanceService.ListCreditNotes:output_type -> biz.v1.ListCreditNotesResponse
-	65,  // 231: biz.v1.FinanceService.SendCreditNote:output_type -> biz.v1.SendCreditNoteResponse
-	67,  // 232: biz.v1.FinanceService.RecordPayment:output_type -> biz.v1.RecordPaymentResponse
-	69,  // 233: biz.v1.FinanceService.ListPayments:output_type -> biz.v1.ListPaymentsResponse
-	71,  // 234: biz.v1.FinanceService.DeletePayment:output_type -> biz.v1.DeletePaymentResponse
-	73,  // 235: biz.v1.FinanceService.ListDunnings:output_type -> biz.v1.ListDunningsResponse
-	75,  // 236: biz.v1.FinanceService.CreateDunning:output_type -> biz.v1.CreateDunningResponse
-	77,  // 237: biz.v1.FinanceService.SendDunning:output_type -> biz.v1.SendDunningResponse
-	79,  // 238: biz.v1.FinanceService.EscalateDunning:output_type -> biz.v1.EscalateDunningResponse
-	81,  // 239: biz.v1.FinanceService.GetDunningConfig:output_type -> biz.v1.GetDunningConfigResponse
-	83,  // 240: biz.v1.FinanceService.UpdateDunningConfig:output_type -> biz.v1.UpdateDunningConfigResponse
-	89,  // 241: biz.v1.FinanceService.ListOpenItems:output_type -> biz.v1.ListOpenItemsResponse
-	91,  // 242: biz.v1.FinanceService.GetFinanceDashboard:output_type -> biz.v1.GetFinanceDashboardResponse
-	93,  // 243: biz.v1.FinanceService.ExportDATEV:output_type -> biz.v1.ExportDATEVResponse
-	95,  // 244: biz.v1.FinanceService.GenerateQuotePDF:output_type -> biz.v1.GenerateQuotePDFResponse
-	97,  // 245: biz.v1.FinanceService.GenerateInvoicePDF:output_type -> biz.v1.GenerateInvoicePDFResponse
-	99,  // 246: biz.v1.FinanceService.GenerateCreditNotePDF:output_type -> biz.v1.GenerateCreditNotePDFResponse
-	101, // 247: biz.v1.FinanceService.GenerateDunningPDF:output_type -> biz.v1.GenerateDunningPDFResponse
-	135, // 248: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:output_type -> biz.v1.GenerateZUGFeRDInvoicePDFResponse
-	137, // 249: biz.v1.FinanceService.GenerateEInvoice:output_type -> biz.v1.GenerateEInvoiceResponse
-	103, // 250: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:output_type -> biz.v1.CreateInvoiceFromTimeEntriesResponse
-	105, // 251: biz.v1.FinanceService.CreateQuoteFromDeal:output_type -> biz.v1.CreateQuoteFromDealResponse
-	107, // 252: biz.v1.FinanceService.GetJournalSummary:output_type -> biz.v1.GetJournalSummaryResponse
-	109, // 253: biz.v1.FinanceService.ValidateInvoiceNumber:output_type -> biz.v1.ValidateInvoiceNumberResponse
-	111, // 254: biz.v1.FinanceService.LockInvoice:output_type -> biz.v1.LockInvoiceResponse
-	113, // 255: biz.v1.FinanceService.GetPaymentStats:output_type -> biz.v1.GetPaymentStatsResponse
-	115, // 256: biz.v1.FinanceService.UpdateDunningStatus:output_type -> biz.v1.UpdateDunningStatusResponse
-	117, // 257: biz.v1.FinanceService.SendDunningNotice:output_type -> biz.v1.SendDunningNoticeResponse
-	119, // 258: biz.v1.FinanceService.GenerateGoBDExport:output_type -> biz.v1.GenerateGoBDExportResponse
-	123, // 259: biz.v1.FinanceService.ArchiveDocument:output_type -> biz.v1.ArchiveDocumentResponse
-	125, // 260: biz.v1.FinanceService.ArchiveInvoiceDocument:output_type -> biz.v1.ArchiveInvoiceDocumentResponse
-	127, // 261: biz.v1.FinanceService.GetGobdDocument:output_type -> biz.v1.GetGobdDocumentResponse
-	129, // 262: biz.v1.FinanceService.ListGobdDocuments:output_type -> biz.v1.ListGobdDocumentsResponse
-	131, // 263: biz.v1.FinanceService.DownloadGobdDocument:output_type -> biz.v1.DownloadGobdDocumentResponse
-	133, // 264: biz.v1.FinanceService.AddDocumentAnnotation:output_type -> biz.v1.AddDocumentAnnotationResponse
-	142, // 265: biz.v1.FinanceService.ImportIncomingInvoice:output_type -> biz.v1.ImportIncomingInvoiceResponse
-	144, // 266: biz.v1.FinanceService.GetIncomingInvoice:output_type -> biz.v1.GetIncomingInvoiceResponse
-	146, // 267: biz.v1.FinanceService.ListIncomingInvoices:output_type -> biz.v1.ListIncomingInvoicesResponse
-	148, // 268: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:output_type -> biz.v1.UpdateIncomingInvoiceStatusResponse
-	151, // 269: biz.v1.FinanceService.CreateRecurringInvoice:output_type -> biz.v1.CreateRecurringInvoiceResponse
-	153, // 270: biz.v1.FinanceService.GetRecurringInvoice:output_type -> biz.v1.GetRecurringInvoiceResponse
-	155, // 271: biz.v1.FinanceService.ListRecurringInvoices:output_type -> biz.v1.ListRecurringInvoicesResponse
-	157, // 272: biz.v1.FinanceService.UpdateRecurringInvoice:output_type -> biz.v1.UpdateRecurringInvoiceResponse
-	159, // 273: biz.v1.FinanceService.DeleteRecurringInvoice:output_type -> biz.v1.DeleteRecurringInvoiceResponse
-	161, // 274: biz.v1.FinanceService.SetRecurringInvoiceStatus:output_type -> biz.v1.SetRecurringInvoiceStatusResponse
-	163, // 275: biz.v1.FinanceService.GenerateRecurringInvoice:output_type -> biz.v1.GenerateRecurringInvoiceResponse
-	167, // 276: biz.v1.FinanceService.ImportBankStatement:output_type -> biz.v1.ImportBankStatementResponse
-	169, // 277: biz.v1.FinanceService.GetBankStatement:output_type -> biz.v1.GetBankStatementResponse
-	171, // 278: biz.v1.FinanceService.ListBankStatements:output_type -> biz.v1.ListBankStatementsResponse
-	173, // 279: biz.v1.FinanceService.ListBankTransactions:output_type -> biz.v1.ListBankTransactionsResponse
-	175, // 280: biz.v1.FinanceService.ReconcileBankTransaction:output_type -> biz.v1.ReconcileBankTransactionResponse
-	177, // 281: biz.v1.FinanceService.IgnoreBankTransaction:output_type -> biz.v1.IgnoreBankTransactionResponse
-	209, // [209:282] is the sub-list for method output_type
-	136, // [136:209] is the sub-list for method input_type
-	136, // [136:136] is the sub-list for extension type_name
-	136, // [136:136] is the sub-list for extension extendee
-	0,   // [0:136] is the sub-list for field type_name
+	193, // 136: biz.v1.Expense.decided_at:type_name -> google.protobuf.Timestamp
+	193, // 137: biz.v1.Expense.created_at:type_name -> google.protobuf.Timestamp
+	193, // 138: biz.v1.Expense.updated_at:type_name -> google.protobuf.Timestamp
+	178, // 139: biz.v1.CreateExpenseResponse.expense:type_name -> biz.v1.Expense
+	178, // 140: biz.v1.ListExpensesResponse.expenses:type_name -> biz.v1.Expense
+	178, // 141: biz.v1.UpdateExpenseResponse.expense:type_name -> biz.v1.Expense
+	178, // 142: biz.v1.DecideExpenseResponse.expense:type_name -> biz.v1.Expense
+	178, // 143: biz.v1.AttachExpenseReceiptResponse.expense:type_name -> biz.v1.Expense
+	20,  // 144: biz.v1.FinanceService.GetCompanySettings:input_type -> biz.v1.GetCompanySettingsRequest
+	22,  // 145: biz.v1.FinanceService.UpdateCompanySettings:input_type -> biz.v1.UpdateCompanySettingsRequest
+	24,  // 146: biz.v1.FinanceService.CreateQuote:input_type -> biz.v1.CreateQuoteRequest
+	26,  // 147: biz.v1.FinanceService.GetQuote:input_type -> biz.v1.GetQuoteRequest
+	28,  // 148: biz.v1.FinanceService.ListQuotes:input_type -> biz.v1.ListQuotesRequest
+	30,  // 149: biz.v1.FinanceService.UpdateQuote:input_type -> biz.v1.UpdateQuoteRequest
+	32,  // 150: biz.v1.FinanceService.DeleteQuote:input_type -> biz.v1.DeleteQuoteRequest
+	34,  // 151: biz.v1.FinanceService.SendQuote:input_type -> biz.v1.SendQuoteRequest
+	36,  // 152: biz.v1.FinanceService.AcceptQuote:input_type -> biz.v1.AcceptQuoteRequest
+	38,  // 153: biz.v1.FinanceService.RejectQuote:input_type -> biz.v1.RejectQuoteRequest
+	40,  // 154: biz.v1.FinanceService.ExpireQuote:input_type -> biz.v1.ExpireQuoteRequest
+	42,  // 155: biz.v1.FinanceService.ConvertQuoteToInvoice:input_type -> biz.v1.ConvertQuoteToInvoiceRequest
+	44,  // 156: biz.v1.FinanceService.CreateInvoice:input_type -> biz.v1.CreateInvoiceRequest
+	46,  // 157: biz.v1.FinanceService.GetInvoice:input_type -> biz.v1.GetInvoiceRequest
+	48,  // 158: biz.v1.FinanceService.ListInvoices:input_type -> biz.v1.ListInvoicesRequest
+	50,  // 159: biz.v1.FinanceService.UpdateInvoice:input_type -> biz.v1.UpdateInvoiceRequest
+	52,  // 160: biz.v1.FinanceService.SendInvoice:input_type -> biz.v1.SendInvoiceRequest
+	54,  // 161: biz.v1.FinanceService.MarkInvoicePaid:input_type -> biz.v1.MarkInvoicePaidRequest
+	56,  // 162: biz.v1.FinanceService.CancelInvoice:input_type -> biz.v1.CancelInvoiceRequest
+	58,  // 163: biz.v1.FinanceService.CreateCreditNote:input_type -> biz.v1.CreateCreditNoteRequest
+	60,  // 164: biz.v1.FinanceService.GetCreditNote:input_type -> biz.v1.GetCreditNoteRequest
+	62,  // 165: biz.v1.FinanceService.ListCreditNotes:input_type -> biz.v1.ListCreditNotesRequest
+	64,  // 166: biz.v1.FinanceService.SendCreditNote:input_type -> biz.v1.SendCreditNoteRequest
+	66,  // 167: biz.v1.FinanceService.RecordPayment:input_type -> biz.v1.RecordPaymentRequest
+	68,  // 168: biz.v1.FinanceService.ListPayments:input_type -> biz.v1.ListPaymentsRequest
+	70,  // 169: biz.v1.FinanceService.DeletePayment:input_type -> biz.v1.DeletePaymentRequest
+	72,  // 170: biz.v1.FinanceService.ListDunnings:input_type -> biz.v1.ListDunningsRequest
+	74,  // 171: biz.v1.FinanceService.CreateDunning:input_type -> biz.v1.CreateDunningRequest
+	76,  // 172: biz.v1.FinanceService.SendDunning:input_type -> biz.v1.SendDunningRequest
+	78,  // 173: biz.v1.FinanceService.EscalateDunning:input_type -> biz.v1.EscalateDunningRequest
+	80,  // 174: biz.v1.FinanceService.GetDunningConfig:input_type -> biz.v1.GetDunningConfigRequest
+	82,  // 175: biz.v1.FinanceService.UpdateDunningConfig:input_type -> biz.v1.UpdateDunningConfigRequest
+	88,  // 176: biz.v1.FinanceService.ListOpenItems:input_type -> biz.v1.ListOpenItemsRequest
+	90,  // 177: biz.v1.FinanceService.GetFinanceDashboard:input_type -> biz.v1.GetFinanceDashboardRequest
+	92,  // 178: biz.v1.FinanceService.ExportDATEV:input_type -> biz.v1.ExportDATEVRequest
+	94,  // 179: biz.v1.FinanceService.GenerateQuotePDF:input_type -> biz.v1.GenerateQuotePDFRequest
+	96,  // 180: biz.v1.FinanceService.GenerateInvoicePDF:input_type -> biz.v1.GenerateInvoicePDFRequest
+	98,  // 181: biz.v1.FinanceService.GenerateCreditNotePDF:input_type -> biz.v1.GenerateCreditNotePDFRequest
+	100, // 182: biz.v1.FinanceService.GenerateDunningPDF:input_type -> biz.v1.GenerateDunningPDFRequest
+	134, // 183: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:input_type -> biz.v1.GenerateZUGFeRDInvoicePDFRequest
+	136, // 184: biz.v1.FinanceService.GenerateEInvoice:input_type -> biz.v1.GenerateEInvoiceRequest
+	102, // 185: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:input_type -> biz.v1.CreateInvoiceFromTimeEntriesRequest
+	104, // 186: biz.v1.FinanceService.CreateQuoteFromDeal:input_type -> biz.v1.CreateQuoteFromDealRequest
+	106, // 187: biz.v1.FinanceService.GetJournalSummary:input_type -> biz.v1.GetJournalSummaryRequest
+	108, // 188: biz.v1.FinanceService.ValidateInvoiceNumber:input_type -> biz.v1.ValidateInvoiceNumberRequest
+	110, // 189: biz.v1.FinanceService.LockInvoice:input_type -> biz.v1.LockInvoiceRequest
+	112, // 190: biz.v1.FinanceService.GetPaymentStats:input_type -> biz.v1.GetPaymentStatsRequest
+	114, // 191: biz.v1.FinanceService.UpdateDunningStatus:input_type -> biz.v1.UpdateDunningStatusRequest
+	116, // 192: biz.v1.FinanceService.SendDunningNotice:input_type -> biz.v1.SendDunningNoticeRequest
+	118, // 193: biz.v1.FinanceService.GenerateGoBDExport:input_type -> biz.v1.GenerateGoBDExportRequest
+	122, // 194: biz.v1.FinanceService.ArchiveDocument:input_type -> biz.v1.ArchiveDocumentRequest
+	124, // 195: biz.v1.FinanceService.ArchiveInvoiceDocument:input_type -> biz.v1.ArchiveInvoiceDocumentRequest
+	126, // 196: biz.v1.FinanceService.GetGobdDocument:input_type -> biz.v1.GetGobdDocumentRequest
+	128, // 197: biz.v1.FinanceService.ListGobdDocuments:input_type -> biz.v1.ListGobdDocumentsRequest
+	130, // 198: biz.v1.FinanceService.DownloadGobdDocument:input_type -> biz.v1.DownloadGobdDocumentRequest
+	132, // 199: biz.v1.FinanceService.AddDocumentAnnotation:input_type -> biz.v1.AddDocumentAnnotationRequest
+	141, // 200: biz.v1.FinanceService.ImportIncomingInvoice:input_type -> biz.v1.ImportIncomingInvoiceRequest
+	143, // 201: biz.v1.FinanceService.GetIncomingInvoice:input_type -> biz.v1.GetIncomingInvoiceRequest
+	145, // 202: biz.v1.FinanceService.ListIncomingInvoices:input_type -> biz.v1.ListIncomingInvoicesRequest
+	147, // 203: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:input_type -> biz.v1.UpdateIncomingInvoiceStatusRequest
+	150, // 204: biz.v1.FinanceService.CreateRecurringInvoice:input_type -> biz.v1.CreateRecurringInvoiceRequest
+	152, // 205: biz.v1.FinanceService.GetRecurringInvoice:input_type -> biz.v1.GetRecurringInvoiceRequest
+	154, // 206: biz.v1.FinanceService.ListRecurringInvoices:input_type -> biz.v1.ListRecurringInvoicesRequest
+	156, // 207: biz.v1.FinanceService.UpdateRecurringInvoice:input_type -> biz.v1.UpdateRecurringInvoiceRequest
+	158, // 208: biz.v1.FinanceService.DeleteRecurringInvoice:input_type -> biz.v1.DeleteRecurringInvoiceRequest
+	160, // 209: biz.v1.FinanceService.SetRecurringInvoiceStatus:input_type -> biz.v1.SetRecurringInvoiceStatusRequest
+	162, // 210: biz.v1.FinanceService.GenerateRecurringInvoice:input_type -> biz.v1.GenerateRecurringInvoiceRequest
+	166, // 211: biz.v1.FinanceService.ImportBankStatement:input_type -> biz.v1.ImportBankStatementRequest
+	168, // 212: biz.v1.FinanceService.GetBankStatement:input_type -> biz.v1.GetBankStatementRequest
+	170, // 213: biz.v1.FinanceService.ListBankStatements:input_type -> biz.v1.ListBankStatementsRequest
+	172, // 214: biz.v1.FinanceService.ListBankTransactions:input_type -> biz.v1.ListBankTransactionsRequest
+	174, // 215: biz.v1.FinanceService.ReconcileBankTransaction:input_type -> biz.v1.ReconcileBankTransactionRequest
+	176, // 216: biz.v1.FinanceService.IgnoreBankTransaction:input_type -> biz.v1.IgnoreBankTransactionRequest
+	179, // 217: biz.v1.FinanceService.CreateExpense:input_type -> biz.v1.CreateExpenseRequest
+	181, // 218: biz.v1.FinanceService.ListExpenses:input_type -> biz.v1.ListExpensesRequest
+	183, // 219: biz.v1.FinanceService.UpdateExpense:input_type -> biz.v1.UpdateExpenseRequest
+	185, // 220: biz.v1.FinanceService.DeleteExpense:input_type -> biz.v1.DeleteExpenseRequest
+	187, // 221: biz.v1.FinanceService.DecideExpense:input_type -> biz.v1.DecideExpenseRequest
+	189, // 222: biz.v1.FinanceService.AttachExpenseReceipt:input_type -> biz.v1.AttachExpenseReceiptRequest
+	21,  // 223: biz.v1.FinanceService.GetCompanySettings:output_type -> biz.v1.GetCompanySettingsResponse
+	23,  // 224: biz.v1.FinanceService.UpdateCompanySettings:output_type -> biz.v1.UpdateCompanySettingsResponse
+	25,  // 225: biz.v1.FinanceService.CreateQuote:output_type -> biz.v1.CreateQuoteResponse
+	27,  // 226: biz.v1.FinanceService.GetQuote:output_type -> biz.v1.GetQuoteResponse
+	29,  // 227: biz.v1.FinanceService.ListQuotes:output_type -> biz.v1.ListQuotesResponse
+	31,  // 228: biz.v1.FinanceService.UpdateQuote:output_type -> biz.v1.UpdateQuoteResponse
+	33,  // 229: biz.v1.FinanceService.DeleteQuote:output_type -> biz.v1.DeleteQuoteResponse
+	35,  // 230: biz.v1.FinanceService.SendQuote:output_type -> biz.v1.SendQuoteResponse
+	37,  // 231: biz.v1.FinanceService.AcceptQuote:output_type -> biz.v1.AcceptQuoteResponse
+	39,  // 232: biz.v1.FinanceService.RejectQuote:output_type -> biz.v1.RejectQuoteResponse
+	41,  // 233: biz.v1.FinanceService.ExpireQuote:output_type -> biz.v1.ExpireQuoteResponse
+	43,  // 234: biz.v1.FinanceService.ConvertQuoteToInvoice:output_type -> biz.v1.ConvertQuoteToInvoiceResponse
+	45,  // 235: biz.v1.FinanceService.CreateInvoice:output_type -> biz.v1.CreateInvoiceResponse
+	47,  // 236: biz.v1.FinanceService.GetInvoice:output_type -> biz.v1.GetInvoiceResponse
+	49,  // 237: biz.v1.FinanceService.ListInvoices:output_type -> biz.v1.ListInvoicesResponse
+	51,  // 238: biz.v1.FinanceService.UpdateInvoice:output_type -> biz.v1.UpdateInvoiceResponse
+	53,  // 239: biz.v1.FinanceService.SendInvoice:output_type -> biz.v1.SendInvoiceResponse
+	55,  // 240: biz.v1.FinanceService.MarkInvoicePaid:output_type -> biz.v1.MarkInvoicePaidResponse
+	57,  // 241: biz.v1.FinanceService.CancelInvoice:output_type -> biz.v1.CancelInvoiceResponse
+	59,  // 242: biz.v1.FinanceService.CreateCreditNote:output_type -> biz.v1.CreateCreditNoteResponse
+	61,  // 243: biz.v1.FinanceService.GetCreditNote:output_type -> biz.v1.GetCreditNoteResponse
+	63,  // 244: biz.v1.FinanceService.ListCreditNotes:output_type -> biz.v1.ListCreditNotesResponse
+	65,  // 245: biz.v1.FinanceService.SendCreditNote:output_type -> biz.v1.SendCreditNoteResponse
+	67,  // 246: biz.v1.FinanceService.RecordPayment:output_type -> biz.v1.RecordPaymentResponse
+	69,  // 247: biz.v1.FinanceService.ListPayments:output_type -> biz.v1.ListPaymentsResponse
+	71,  // 248: biz.v1.FinanceService.DeletePayment:output_type -> biz.v1.DeletePaymentResponse
+	73,  // 249: biz.v1.FinanceService.ListDunnings:output_type -> biz.v1.ListDunningsResponse
+	75,  // 250: biz.v1.FinanceService.CreateDunning:output_type -> biz.v1.CreateDunningResponse
+	77,  // 251: biz.v1.FinanceService.SendDunning:output_type -> biz.v1.SendDunningResponse
+	79,  // 252: biz.v1.FinanceService.EscalateDunning:output_type -> biz.v1.EscalateDunningResponse
+	81,  // 253: biz.v1.FinanceService.GetDunningConfig:output_type -> biz.v1.GetDunningConfigResponse
+	83,  // 254: biz.v1.FinanceService.UpdateDunningConfig:output_type -> biz.v1.UpdateDunningConfigResponse
+	89,  // 255: biz.v1.FinanceService.ListOpenItems:output_type -> biz.v1.ListOpenItemsResponse
+	91,  // 256: biz.v1.FinanceService.GetFinanceDashboard:output_type -> biz.v1.GetFinanceDashboardResponse
+	93,  // 257: biz.v1.FinanceService.ExportDATEV:output_type -> biz.v1.ExportDATEVResponse
+	95,  // 258: biz.v1.FinanceService.GenerateQuotePDF:output_type -> biz.v1.GenerateQuotePDFResponse
+	97,  // 259: biz.v1.FinanceService.GenerateInvoicePDF:output_type -> biz.v1.GenerateInvoicePDFResponse
+	99,  // 260: biz.v1.FinanceService.GenerateCreditNotePDF:output_type -> biz.v1.GenerateCreditNotePDFResponse
+	101, // 261: biz.v1.FinanceService.GenerateDunningPDF:output_type -> biz.v1.GenerateDunningPDFResponse
+	135, // 262: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:output_type -> biz.v1.GenerateZUGFeRDInvoicePDFResponse
+	137, // 263: biz.v1.FinanceService.GenerateEInvoice:output_type -> biz.v1.GenerateEInvoiceResponse
+	103, // 264: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:output_type -> biz.v1.CreateInvoiceFromTimeEntriesResponse
+	105, // 265: biz.v1.FinanceService.CreateQuoteFromDeal:output_type -> biz.v1.CreateQuoteFromDealResponse
+	107, // 266: biz.v1.FinanceService.GetJournalSummary:output_type -> biz.v1.GetJournalSummaryResponse
+	109, // 267: biz.v1.FinanceService.ValidateInvoiceNumber:output_type -> biz.v1.ValidateInvoiceNumberResponse
+	111, // 268: biz.v1.FinanceService.LockInvoice:output_type -> biz.v1.LockInvoiceResponse
+	113, // 269: biz.v1.FinanceService.GetPaymentStats:output_type -> biz.v1.GetPaymentStatsResponse
+	115, // 270: biz.v1.FinanceService.UpdateDunningStatus:output_type -> biz.v1.UpdateDunningStatusResponse
+	117, // 271: biz.v1.FinanceService.SendDunningNotice:output_type -> biz.v1.SendDunningNoticeResponse
+	119, // 272: biz.v1.FinanceService.GenerateGoBDExport:output_type -> biz.v1.GenerateGoBDExportResponse
+	123, // 273: biz.v1.FinanceService.ArchiveDocument:output_type -> biz.v1.ArchiveDocumentResponse
+	125, // 274: biz.v1.FinanceService.ArchiveInvoiceDocument:output_type -> biz.v1.ArchiveInvoiceDocumentResponse
+	127, // 275: biz.v1.FinanceService.GetGobdDocument:output_type -> biz.v1.GetGobdDocumentResponse
+	129, // 276: biz.v1.FinanceService.ListGobdDocuments:output_type -> biz.v1.ListGobdDocumentsResponse
+	131, // 277: biz.v1.FinanceService.DownloadGobdDocument:output_type -> biz.v1.DownloadGobdDocumentResponse
+	133, // 278: biz.v1.FinanceService.AddDocumentAnnotation:output_type -> biz.v1.AddDocumentAnnotationResponse
+	142, // 279: biz.v1.FinanceService.ImportIncomingInvoice:output_type -> biz.v1.ImportIncomingInvoiceResponse
+	144, // 280: biz.v1.FinanceService.GetIncomingInvoice:output_type -> biz.v1.GetIncomingInvoiceResponse
+	146, // 281: biz.v1.FinanceService.ListIncomingInvoices:output_type -> biz.v1.ListIncomingInvoicesResponse
+	148, // 282: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:output_type -> biz.v1.UpdateIncomingInvoiceStatusResponse
+	151, // 283: biz.v1.FinanceService.CreateRecurringInvoice:output_type -> biz.v1.CreateRecurringInvoiceResponse
+	153, // 284: biz.v1.FinanceService.GetRecurringInvoice:output_type -> biz.v1.GetRecurringInvoiceResponse
+	155, // 285: biz.v1.FinanceService.ListRecurringInvoices:output_type -> biz.v1.ListRecurringInvoicesResponse
+	157, // 286: biz.v1.FinanceService.UpdateRecurringInvoice:output_type -> biz.v1.UpdateRecurringInvoiceResponse
+	159, // 287: biz.v1.FinanceService.DeleteRecurringInvoice:output_type -> biz.v1.DeleteRecurringInvoiceResponse
+	161, // 288: biz.v1.FinanceService.SetRecurringInvoiceStatus:output_type -> biz.v1.SetRecurringInvoiceStatusResponse
+	163, // 289: biz.v1.FinanceService.GenerateRecurringInvoice:output_type -> biz.v1.GenerateRecurringInvoiceResponse
+	167, // 290: biz.v1.FinanceService.ImportBankStatement:output_type -> biz.v1.ImportBankStatementResponse
+	169, // 291: biz.v1.FinanceService.GetBankStatement:output_type -> biz.v1.GetBankStatementResponse
+	171, // 292: biz.v1.FinanceService.ListBankStatements:output_type -> biz.v1.ListBankStatementsResponse
+	173, // 293: biz.v1.FinanceService.ListBankTransactions:output_type -> biz.v1.ListBankTransactionsResponse
+	175, // 294: biz.v1.FinanceService.ReconcileBankTransaction:output_type -> biz.v1.ReconcileBankTransactionResponse
+	177, // 295: biz.v1.FinanceService.IgnoreBankTransaction:output_type -> biz.v1.IgnoreBankTransactionResponse
+	180, // 296: biz.v1.FinanceService.CreateExpense:output_type -> biz.v1.CreateExpenseResponse
+	182, // 297: biz.v1.FinanceService.ListExpenses:output_type -> biz.v1.ListExpensesResponse
+	184, // 298: biz.v1.FinanceService.UpdateExpense:output_type -> biz.v1.UpdateExpenseResponse
+	186, // 299: biz.v1.FinanceService.DeleteExpense:output_type -> biz.v1.DeleteExpenseResponse
+	188, // 300: biz.v1.FinanceService.DecideExpense:output_type -> biz.v1.DecideExpenseResponse
+	190, // 301: biz.v1.FinanceService.AttachExpenseReceipt:output_type -> biz.v1.AttachExpenseReceiptResponse
+	223, // [223:302] is the sub-list for method output_type
+	144, // [144:223] is the sub-list for method input_type
+	144, // [144:144] is the sub-list for extension type_name
+	144, // [144:144] is the sub-list for extension extendee
+	0,   // [0:144] is the sub-list for field type_name
 }
 
 func init() { file_proto_biz_v1_biz_proto_init() }
@@ -13715,13 +14777,16 @@ func file_proto_biz_v1_biz_proto_init() {
 	file_proto_biz_v1_biz_proto_msgTypes[158].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[159].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[166].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[172].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[175].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[177].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_biz_v1_biz_proto_rawDesc), len(file_proto_biz_v1_biz_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   174,
+			NumMessages:   187,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

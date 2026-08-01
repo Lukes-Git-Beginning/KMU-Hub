@@ -933,7 +933,7 @@ units:
     service: finance
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Spesen: Tabelle, Service, Repo, gRPC, Routen `GET/POST /api/v1/finance/expenses`,
       `POST /finance/expenses/{id}/approve`, `.../reject`, Beleg-Upload `.../receipt`.
@@ -974,6 +974,30 @@ units:
       Kontonummern sind personenbezogene Finanzdaten: nicht in Logs schreiben, auch nicht bei
       slog.Debug.
       Tabelle mit tenant_id + RLS wie ueblich.
+
+      NACHTRAG (aus `fe-finance-expenses`, 2026-08-01) — gilt fuer JEDE Unit in Block D, das
+      spart dir die halbe Iteration:
+      (a) WIRE-SHAPE: `response.Proto`/`ProtoListWrapped` sind hier UNBRAUCHBAR. Der
+          repo-weite protoMarshaler laeuft mit `UseProtoNames: true` (snake_case) und traegt
+          Decimals als String — die MSW-Vertraege in `handlers/finance.ts` sind aber camelCase
+          (`receiptName`, `accountNumber`, …) mit `amount` als JSON-**Zahl**. Loesung: eine
+          hand-gemappte Wire-Struct mit `json:"…"`-Tags im Gateway plus ein Test darauf.
+          Fertiges Muster inkl. Test: `internal/gateway/route_biz_expenses.go`
+          (`expenseWire`/`toExpenseWire`) und `route_biz_expenses_test.go`. Nicht neu erfinden.
+      (b) GUARDS: `capability-catalog.ts` kennt nur `finance:invoice|quote|dunning|amounts|
+          export|incoming|settings` — es gibt KEINEN feinen Key fuer expenses, bank-accounts
+          oder transactions. Also `RequirePermission("finance","read"/"write"/"delete")` wie
+          die Nachbarrouten; `RequirePermissionAny` waere ein Versprechen auf einen Key, den
+          niemand je bekommt. Kein Seed noetig, keine Seed-Falle.
+      (c) WIRING: der biz-gRPC-Server nimmt keine Konstruktor-Parameter mehr an — Muster ist
+          `SetXService(svc)` (`internal/server/biz_grpc.go`) plus eine Zeile in
+          `cmd/biz/main.go` neben `SetExpenseService`. RPCs in eine eigene Datei
+          `internal/server/biz_grpc_<modul>.go` mit eigenem `<modul>Error(err)`-Mapper und
+          `require<Modul>()`-nil-Guard (Vorlage: `biz_grpc_expense.go`).
+      (d) Migrationskopf ist jetzt **257** (`000257_finance_expenses`), naechste freie Nummer
+          also 258 — trotzdem zur Laufzeit ermitteln.
+      (e) `FailedPrecondition` wird vom Gateway auf **409** abgebildet (`grpcStatusToHTTP`),
+          es gibt kein 422. Statuscodes entsprechend in openapi.yaml dokumentieren.
     done_when:
       - CRUD funktioniert, IBAN validiert
       - Migration mit tenant_id + RLS, RLS-Smoke gruen

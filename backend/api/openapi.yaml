@@ -8621,6 +8621,343 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/expenses:
+    get:
+      summary: List expenses (Ausgaben)
+      description: >
+        Expenses of the caller's tenant, newest first. A caller whose read grant
+        is narrowed to the "own" data scope only sees what they submitted, and
+        the total reflects the same restriction.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          description: Restrict to one approval state
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Expenses of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expenses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Expense"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Record a new expense
+      description: >
+        The expense always starts pending; it cannot be created already
+        approved. The submitter is taken from the token, not from the body.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: The created expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Missing description, non-positive amount or invalid date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}:
+    put:
+      summary: Edit an expense
+      description: >
+        Every field is optional; an omitted one is left untouched. Once the
+        expense has been approved or rejected only the SKR03/04 account and the
+        receipt filename stay editable — Kontierung and a late receipt are
+        normal after-the-fact work, while changing the amount would make the
+        decision describe something else.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseUpdateInput"
+      responses:
+        "200":
+          description: The updated expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id, amount or date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The expense was already decided and the edit reaches past account and receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete a pending expense
+      description: >
+        Only a pending expense can be removed. A decided one is the record of a
+        decision somebody made and stays.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The expense was already decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/approve:
+    post:
+      summary: Approve a pending expense
+      description: >
+        Only a pending expense can be decided, and never by the person who
+        submitted it — enforced server-side, so hiding the button is a courtesy
+        rather than the control.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The approved expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already decided, or the caller is the submitter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/reject:
+    post:
+      summary: Reject a pending expense
+      description: >
+        Same guards as approve: pending only, and never by the submitter.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The rejected expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already decided, or the caller is the submitter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/receipt:
+    post:
+      summary: Attach a receipt filename to an expense
+      description: >
+        Records the name of the document handed in. This carries metadata, not
+        bytes — there is no upload here. It stays open after a decision, because
+        a receipt arriving late is the normal case.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiptName]
+              properties:
+                receiptName:
+                  type: string
+                  maxLength: 255
+                  example: hetzner-2026-05.pdf
+      responses:
+        "200":
+          description: The expense with the receipt recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id or missing receiptName
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/open-items:
     get:
       summary: List open items (Offene Posten) with receivables aging
@@ -33217,6 +33554,117 @@ components:
         created_at:
           type: string
           format: date-time
+
+    Expense:
+      type: object
+      description: >
+        An expense (Ausgabe) as the desktop client reads it. Two fields
+        deliberately break the snake_case convention used elsewhere in this
+        spec, because this shape is the existing frontend contract: receiptName
+        is camelCase, and amount is a JSON number rather than a decimal string.
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        amount:
+          type: number
+          format: double
+          description: Gross amount, always positive
+          example: 234.5
+        date:
+          type: string
+          format: date
+          description: The day the money was spent
+          example: "2026-05-29"
+        category:
+          type: string
+          example: Büromaterial
+        supplier:
+          type: string
+          example: Hetzner Online GmbH
+        project:
+          type: string
+          description: Absent when the expense is not booked on a project
+        account:
+          type: string
+          description: SKR03/04 Sachkonto, absent until Kontierung
+          example: "4930"
+        receipt:
+          type: boolean
+          description: Derived from receiptName, never stored separately
+        receiptName:
+          type: string
+          description: Filename of the attached document, absent when none
+          example: hetzner-2026-05.pdf
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+      required: [id, description, amount, date, category, supplier, status]
+
+    ExpenseInput:
+      type: object
+      description: A new expense. The submitter and the pending status come from the server.
+      required: [description, amount, date]
+      properties:
+        description:
+          type: string
+          maxLength: 500
+        amount:
+          type: number
+          format: double
+          description: Must be greater than zero
+        date:
+          type: string
+          format: date
+          example: "2026-05-29"
+        category:
+          type: string
+          maxLength: 120
+        supplier:
+          type: string
+          maxLength: 255
+        project:
+          type: string
+          maxLength: 255
+        account:
+          type: string
+          maxLength: 20
+        receiptName:
+          type: string
+          maxLength: 255
+
+    ExpenseUpdateInput:
+      type: object
+      description: >
+        A partial edit — every field is optional and an omitted one is left
+        untouched, so the Kontierung dialog can send account alone.
+      properties:
+        description:
+          type: string
+          maxLength: 500
+        amount:
+          type: number
+          format: double
+        date:
+          type: string
+          format: date
+        category:
+          type: string
+          maxLength: 120
+        supplier:
+          type: string
+          maxLength: 255
+        project:
+          type: string
+          maxLength: 255
+        account:
+          type: string
+          maxLength: 20
+        receiptName:
+          type: string
+          maxLength: 255
 
     BankTransaction:
       type: object

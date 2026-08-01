@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
 	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/expense"
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
@@ -64,6 +65,8 @@ type BizGRPCServer struct {
 	// bankingSvc backs the bank statement import (Migration 000247), wired the
 	// same way and for the same reason as recurringSvc.
 	bankingSvc *banking.Service
+	// expenseSvc backs the Ausgaben RPCs (Migration 000257), wired the same way.
+	expenseSvc *expense.Service
 }
 
 // SetRecurringService wires the recurring invoice schedules (Migration 000246).
@@ -74,6 +77,11 @@ func (s *BizGRPCServer) SetRecurringService(svc *recurring.Service) {
 // SetBankingService wires the bank statement import (Migration 000247).
 func (s *BizGRPCServer) SetBankingService(svc *banking.Service) {
 	s.bankingSvc = svc
+}
+
+// SetExpenseService wires the Ausgaben module (Migration 000257).
+func (s *BizGRPCServer) SetExpenseService(svc *expense.Service) {
+	s.expenseSvc = svc
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.

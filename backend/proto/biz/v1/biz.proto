@@ -118,6 +118,14 @@ service FinanceService {
   rpc ListBankTransactions(ListBankTransactionsRequest) returns (ListBankTransactionsResponse);
   rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
   rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
+
+  // ==================== Expenses (Ausgaben) ====================
+  rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
+  rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
+  rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
+  rpc DecideExpense(DecideExpenseRequest) returns (DecideExpenseResponse);
+  rpc AttachExpenseReceipt(AttachExpenseReceiptRequest) returns (AttachExpenseReceiptResponse);
 }
 
 // ============================================================================
@@ -1563,4 +1571,114 @@ message IgnoreBankTransactionRequest {
 
 message IgnoreBankTransactionResponse {
   BankTransaction transaction = 1;
+}
+
+// ============================================================================
+// Expenses (Ausgaben) — Migration 000257
+// ============================================================================
+
+message Expense {
+  string id           = 1;
+  string tenant_id    = 2;
+  string description  = 3;
+  string amount       = 4;   // Decimal as string (e.g., "234.50")
+  string expense_date = 5;   // Date string YYYY-MM-DD
+  string category     = 6;
+  string supplier     = 7;
+  optional string project      = 8;
+  // SKR03/04 Sachkonto, assigned during Kontierung; absent until booked.
+  optional string account      = 9;
+  // Filename of the attached document; absent when none was handed in.
+  optional string receipt_name = 10;
+  // One of "pending", "approved", "rejected" — a string rather than an enum so
+  // it reaches the frontend's Expense.status union verbatim.
+  string status = 11;
+  optional string submitted_by                = 12;
+  optional string decided_by                  = 13;
+  optional google.protobuf.Timestamp decided_at = 14;
+  google.protobuf.Timestamp created_at        = 15;
+  google.protobuf.Timestamp updated_at        = 16;
+}
+
+message CreateExpenseRequest {
+  string tenant_id   = 1;
+  string user_id     = 2;
+  string description = 3;
+  string amount      = 4;   // Decimal as string
+  string date        = 5;   // YYYY-MM-DD
+  string category    = 6;
+  string supplier    = 7;
+  string project     = 8;
+  string account     = 9;
+  string receipt_name = 10;
+}
+
+message CreateExpenseResponse {
+  Expense expense = 1;
+}
+
+message ListExpensesRequest {
+  string tenant_id = 1;
+  string status    = 2;
+  // Set from the caller's data scope when their grant is narrowed to "own".
+  optional string submitted_by = 3;
+  int32 page     = 4;
+  int32 per_page = 5;
+}
+
+message ListExpensesResponse {
+  repeated Expense expenses = 1;
+  int32 total               = 2;
+}
+
+// UpdateExpenseRequest mirrors the frontend's Partial<CreateExpenseRequest>:
+// every field is optional and an absent one is left untouched, so an edit of
+// one field does not clear the rest.
+message UpdateExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  optional string description  = 3;
+  optional string amount       = 4;
+  optional string date         = 5;
+  optional string category     = 6;
+  optional string supplier     = 7;
+  optional string project      = 8;
+  optional string account      = 9;
+  optional string receipt_name = 10;
+}
+
+message UpdateExpenseResponse {
+  Expense expense = 1;
+}
+
+message DeleteExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteExpenseResponse {}
+
+// DecideExpenseRequest carries approve and reject through one RPC: the two
+// share every guard (pending only, never by the submitter) and differ solely in
+// the status they write.
+message DecideExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+  // "approved" or "rejected".
+  string status = 4;
+}
+
+message DecideExpenseResponse {
+  Expense expense = 1;
+}
+
+message AttachExpenseReceiptRequest {
+  string tenant_id    = 1;
+  string id           = 2;
+  string receipt_name = 3;
+}
+
+message AttachExpenseReceiptResponse {
+  Expense expense = 1;
 }
