@@ -346,3 +346,52 @@ func (b *BizRoutes) handleZUGFeRDInvoicePDF(w http.ResponseWriter, r *http.Reque
 	}
 	respondPDF(w, resp.PdfData, resp.Filename)
 }
+
+// eInvoiceContentTypes are the values the format query parameter accepts, and
+// the Content-Type that goes with each. xrechnung is a bare UBL 2.1 document;
+// zugferd is a PDF with the CII XML embedded and declared (see
+// GenerateZUGFeRDInvoicePDF).
+var eInvoiceContentTypes = map[string]string{
+	"xrechnung": "application/xml",
+	"zugferd":   "application/pdf",
+}
+
+// HandleGenerateEInvoice renders an invoice as an outbound e-invoice. An
+// invoice that does not meet EN 16931 — or, when buyer_reference (the
+// Leitweg-ID, BT-10) is supplied, the stricter German CIUS for public-sector
+// buyers — comes back as 409 listing every unmet requirement; no partial
+// document is returned in its place.
+func (b *BizRoutes) HandleGenerateEInvoice(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	id := chi.URLParam(r, "id")
+
+	format := r.URL.Query().Get("format")
+	contentType, ok := eInvoiceContentTypes[format]
+	if !ok {
+		response.Error(w, http.StatusBadRequest, "format must be xrechnung or zugferd")
+		return
+	}
+
+	resp, err := client.GenerateEInvoice(r.Context(), &bizv1.GenerateEInvoiceRequest{
+		Id:             id,
+		TenantId:       tenantID,
+		Format:         format,
+		BuyerReference: r.URL.Query().Get("buyer_reference"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondFile(w, resp.Data, resp.Filename, contentType)
+}

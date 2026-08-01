@@ -1382,6 +1382,61 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 	}, nil
 }
 
+// GenerateEInvoice renders an invoice in the outbound e-invoice format the
+// caller asks for: xrechnung (UBL 2.1 XML, EN 16931) or zugferd (PDF with an
+// embedded, declared Factur-X XML — see GenerateZUGFeRDInvoicePDF). Both
+// formats share the amount and tax-category logic in internal/biz/einvoice;
+// this RPC only picks the format and, for xrechnung, the profile.
+func (s *BizGRPCServer) GenerateEInvoice(ctx context.Context, req *bizv1.GenerateEInvoiceRequest) (*bizv1.GenerateEInvoiceResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.requireCompanySettings(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch req.GetFormat() {
+	case "xrechnung":
+		buyerRef := req.GetBuyerReference()
+		if buyerRef != "" {
+			// A routing id names a public-sector buyer, who enforces the German
+			// CIUS on top of the EN 16931 core GenerateUBL already checks.
+			if err := einvoice.Validate(*inv, *settings, buyerRef, einvoice.ProfileXRechnung); err != nil {
+				return nil, mapBizError(err)
+			}
+		}
+		xmlBytes, err := einvoice.GenerateUBL(*inv, *settings, buyerRef)
+		if err != nil {
+			return nil, mapBizError(err)
+		}
+		return &bizv1.GenerateEInvoiceResponse{
+			Data:     xmlBytes,
+			Filename: fmt.Sprintf("xrechnung_%s.xml", inv.InvoiceNumber),
+		}, nil
+
+	case "zugferd":
+		pdfBytes, err := pdf.NewGenerator(*settings).GenerateZUGFeRDInvoicePDF(*inv)
+		if err != nil {
+			return nil, mapBizError(err)
+		}
+		return &bizv1.GenerateEInvoiceResponse{
+			Data:     pdfBytes,
+			Filename: fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber),
+		}, nil
+
+	default:
+		return nil, status.Error(codes.InvalidArgument, "format must be xrechnung or zugferd")
+	}
+}
+
 // ============================================================================
 // Proto Conversion Helpers
 // ============================================================================

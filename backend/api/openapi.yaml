@@ -7946,6 +7946,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/invoices/{id}/erechnung:
+    post:
+      summary: Generate an outbound e-invoice (XRechnung or ZUGFeRD)
+      description: >
+        `format=xrechnung` returns a bare XRechnung UBL 2.1 XML document.
+        `format=zugferd` returns a PDF with the Factur-X/ZUGFeRD XML embedded and
+        declared, identical to `GET .../pdf?format=zugferd`. `buyer_reference`
+        is BT-10 (Leitweg-ID); it only applies to xrechnung, and supplying it
+        also enforces the stricter German CIUS for public-sector buyers on top
+        of the EN 16931 core. An invoice that does not meet the applicable
+        requirements is rejected with 409 listing every unmet one — no partial
+        document is returned in its place.
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [xrechnung, zugferd]
+        - name: buyer_reference
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Leitweg-ID (BT-10), xrechnung only.
+      responses:
+        "200":
+          description: XRechnung XML or ZUGFeRD PDF, depending on format
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: format missing or not one of xrechnung, zugferd
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invoice does not meet the e-invoice requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/invoices/{id}/payments:
     post:
       summary: Record a payment against an invoice

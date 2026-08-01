@@ -59,6 +59,7 @@ const (
 	FinanceService_GenerateCreditNotePDF_FullMethodName        = "/biz.v1.FinanceService/GenerateCreditNotePDF"
 	FinanceService_GenerateDunningPDF_FullMethodName           = "/biz.v1.FinanceService/GenerateDunningPDF"
 	FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateZUGFeRDInvoicePDF"
+	FinanceService_GenerateEInvoice_FullMethodName             = "/biz.v1.FinanceService/GenerateEInvoice"
 	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
 	FinanceService_CreateQuoteFromDeal_FullMethodName          = "/biz.v1.FinanceService/CreateQuoteFromDeal"
 	FinanceService_GetJournalSummary_FullMethodName            = "/biz.v1.FinanceService/GetJournalSummary"
@@ -147,6 +148,7 @@ type FinanceServiceClient interface {
 	GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
 	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	GenerateEInvoice(ctx context.Context, in *GenerateEInvoiceRequest, opts ...grpc.CallOption) (*GenerateEInvoiceResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
@@ -599,6 +601,16 @@ func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in
 	return out, nil
 }
 
+func (c *financeServiceClient) GenerateEInvoice(ctx context.Context, in *GenerateEInvoiceRequest, opts ...grpc.CallOption) (*GenerateEInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateEInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateEInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateInvoiceFromTimeEntriesResponse)
@@ -973,6 +985,7 @@ type FinanceServiceServer interface {
 	GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
 	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	GenerateEInvoice(context.Context, *GenerateEInvoiceRequest) (*GenerateEInvoiceResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
@@ -1144,6 +1157,9 @@ func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *Ge
 }
 func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateEInvoice(context.Context, *GenerateEInvoiceRequest) (*GenerateEInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateEInvoice not implemented")
 }
 func (UnimplementedFinanceServiceServer) CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvoiceFromTimeEntries not implemented")
@@ -1982,6 +1998,24 @@ func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_GenerateEInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateEInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateEInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateEInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateEInvoice(ctx, req.(*GenerateEInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_CreateInvoiceFromTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateInvoiceFromTimeEntriesRequest)
 	if err := dec(in); err != nil {
@@ -2724,6 +2758,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateZUGFeRDInvoicePDF",
 			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
+		},
+		{
+			MethodName: "GenerateEInvoice",
+			Handler:    _FinanceService_GenerateEInvoice_Handler,
 		},
 		{
 			MethodName: "CreateInvoiceFromTimeEntries",

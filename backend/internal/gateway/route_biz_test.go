@@ -119,6 +119,37 @@ func TestHandleGetInvoice_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
+func TestHandleGenerateEInvoice_ServiceUnavailable(t *testing.T) {
+	routes := NewBizRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/123/erechnung?format=xrechnung", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGenerateEInvoice(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGenerateEInvoice_MissingFormat(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/123/erechnung", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGenerateEInvoice(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "xrechnung")
+}
+
+func TestHandleGenerateEInvoice_InvalidFormat(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/123/erechnung?format=pdf", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGenerateEInvoice(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "xrechnung")
+}
+
 // --- Quotes ---
 
 func TestHandleCreateQuote_ServiceUnavailable(t *testing.T) {

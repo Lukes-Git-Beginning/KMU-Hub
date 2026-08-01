@@ -82,6 +82,8 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pay", b.HandleMarkInvoicePaid)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/cancel", b.HandleCancelInvoice)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateInvoicePDF)
+		// E-Rechnung Ausgang: XRechnung UBL-XML oder ZUGFeRD-PDF exportieren
+		r.With(middleware.RequirePermission("finance", "read")).Post("/{id}/erechnung", b.HandleGenerateEInvoice)
 		r.With(middleware.RequirePermission("finance", "admin")).Post("/{id}/lock", b.HandleLockInvoice)
 		// Payments nested under invoices
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/payments", b.HandleRecordPayment)
@@ -389,9 +391,15 @@ func paymentMethodToProto(method string) bizv1.PaymentMethod {
 
 // respondPDF writes PDF binary data as an HTTP response with proper headers.
 func respondPDF(w http.ResponseWriter, pdfData []byte, filename string) {
-	w.Header().Set("Content-Type", "application/pdf")
+	respondFile(w, pdfData, filename, "application/pdf")
+}
+
+// respondFile writes binary data as an HTTP response with the given content
+// type and a Content-Disposition attachment header.
+func respondFile(w http.ResponseWriter, data []byte, filename, contentType string) {
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	w.Header().Set("Content-Length", strconv.Itoa(len(pdfData)))
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(pdfData)
+	_, _ = w.Write(data)
 }

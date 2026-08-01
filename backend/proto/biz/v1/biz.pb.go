@@ -8992,9 +8992,10 @@ func (x *GenerateZUGFeRDInvoicePDFRequest) GetTenantId() string {
 	return ""
 }
 
-// If ZUGFeRD XML embedding fails, the service returns the plain invoice PDF
-// (graceful degradation) — the caller cannot distinguish the two cases from
-// the response shape alone.
+// A failure to produce a conforming e-invoice (missing EN 16931 field, no
+// company settings, totals drift) is returned as an error — never a plain PDF
+// standing in for the ZUGFeRD one, which the caller could not tell apart from
+// a real e-invoice.
 type GenerateZUGFeRDInvoicePDFResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PdfData       []byte                 `protobuf:"bytes,1,opt,name=pdf_data,json=pdfData,proto3" json:"pdf_data,omitempty"`
@@ -9047,6 +9048,132 @@ func (x *GenerateZUGFeRDInvoicePDFResponse) GetFilename() string {
 	return ""
 }
 
+type GenerateEInvoiceRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// format selects the outbound representation: "xrechnung" (UBL 2.1 XML) or
+	// "zugferd" (PDF with an embedded, declared Factur-X XML attachment).
+	Format string `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
+	// buyer_reference is BT-10 (Leitweg-ID). Only applies to xrechnung — ZUGFeRD
+	// is delivered in a PDF to a private-sector buyer, who has no routing id.
+	// Supplying it also runs the German CIUS on top of EN 16931, because only a
+	// public-sector buyer requires the routing id in the first place.
+	BuyerReference string `protobuf:"bytes,4,opt,name=buyer_reference,json=buyerReference,proto3" json:"buyer_reference,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GenerateEInvoiceRequest) Reset() {
+	*x = GenerateEInvoiceRequest{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[130]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateEInvoiceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateEInvoiceRequest) ProtoMessage() {}
+
+func (x *GenerateEInvoiceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[130]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateEInvoiceRequest.ProtoReflect.Descriptor instead.
+func (*GenerateEInvoiceRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{130}
+}
+
+func (x *GenerateEInvoiceRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GenerateEInvoiceRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GenerateEInvoiceRequest) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *GenerateEInvoiceRequest) GetBuyerReference() string {
+	if x != nil {
+		return x.BuyerReference
+	}
+	return ""
+}
+
+type GenerateEInvoiceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateEInvoiceResponse) Reset() {
+	*x = GenerateEInvoiceResponse{}
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[131]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateEInvoiceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateEInvoiceResponse) ProtoMessage() {}
+
+func (x *GenerateEInvoiceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[131]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateEInvoiceResponse.ProtoReflect.Descriptor instead.
+func (*GenerateEInvoiceResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{131}
+}
+
+func (x *GenerateEInvoiceResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *GenerateEInvoiceResponse) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
 type IncomingInvoiceLineItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Position      int32                  `protobuf:"varint,1,opt,name=position,proto3" json:"position,omitempty"`
@@ -9061,7 +9188,7 @@ type IncomingInvoiceLineItem struct {
 
 func (x *IncomingInvoiceLineItem) Reset() {
 	*x = IncomingInvoiceLineItem{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[130]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9073,7 +9200,7 @@ func (x *IncomingInvoiceLineItem) String() string {
 func (*IncomingInvoiceLineItem) ProtoMessage() {}
 
 func (x *IncomingInvoiceLineItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[130]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9086,7 +9213,7 @@ func (x *IncomingInvoiceLineItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IncomingInvoiceLineItem.ProtoReflect.Descriptor instead.
 func (*IncomingInvoiceLineItem) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{130}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *IncomingInvoiceLineItem) GetPosition() int32 {
@@ -9142,7 +9269,7 @@ type IncomingInvoiceTaxEntry struct {
 
 func (x *IncomingInvoiceTaxEntry) Reset() {
 	*x = IncomingInvoiceTaxEntry{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[131]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9154,7 +9281,7 @@ func (x *IncomingInvoiceTaxEntry) String() string {
 func (*IncomingInvoiceTaxEntry) ProtoMessage() {}
 
 func (x *IncomingInvoiceTaxEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[131]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9167,7 +9294,7 @@ func (x *IncomingInvoiceTaxEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IncomingInvoiceTaxEntry.ProtoReflect.Descriptor instead.
 func (*IncomingInvoiceTaxEntry) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{131}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *IncomingInvoiceTaxEntry) GetTaxRate() string {
@@ -9219,7 +9346,7 @@ type IncomingInvoice struct {
 
 func (x *IncomingInvoice) Reset() {
 	*x = IncomingInvoice{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[132]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9231,7 +9358,7 @@ func (x *IncomingInvoice) String() string {
 func (*IncomingInvoice) ProtoMessage() {}
 
 func (x *IncomingInvoice) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[132]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9244,7 +9371,7 @@ func (x *IncomingInvoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IncomingInvoice.ProtoReflect.Descriptor instead.
 func (*IncomingInvoice) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{132}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *IncomingInvoice) GetId() string {
@@ -9400,7 +9527,7 @@ type ImportIncomingInvoiceRequest struct {
 
 func (x *ImportIncomingInvoiceRequest) Reset() {
 	*x = ImportIncomingInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[133]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9412,7 +9539,7 @@ func (x *ImportIncomingInvoiceRequest) String() string {
 func (*ImportIncomingInvoiceRequest) ProtoMessage() {}
 
 func (x *ImportIncomingInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[133]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9425,7 +9552,7 @@ func (x *ImportIncomingInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportIncomingInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*ImportIncomingInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{133}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *ImportIncomingInvoiceRequest) GetTenantId() string {
@@ -9472,7 +9599,7 @@ type ImportIncomingInvoiceResponse struct {
 
 func (x *ImportIncomingInvoiceResponse) Reset() {
 	*x = ImportIncomingInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[134]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9484,7 +9611,7 @@ func (x *ImportIncomingInvoiceResponse) String() string {
 func (*ImportIncomingInvoiceResponse) ProtoMessage() {}
 
 func (x *ImportIncomingInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[134]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9497,7 +9624,7 @@ func (x *ImportIncomingInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportIncomingInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*ImportIncomingInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{134}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *ImportIncomingInvoiceResponse) GetInvoice() *IncomingInvoice {
@@ -9517,7 +9644,7 @@ type GetIncomingInvoiceRequest struct {
 
 func (x *GetIncomingInvoiceRequest) Reset() {
 	*x = GetIncomingInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[135]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9529,7 +9656,7 @@ func (x *GetIncomingInvoiceRequest) String() string {
 func (*GetIncomingInvoiceRequest) ProtoMessage() {}
 
 func (x *GetIncomingInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[135]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9542,7 +9669,7 @@ func (x *GetIncomingInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIncomingInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*GetIncomingInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{135}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *GetIncomingInvoiceRequest) GetTenantId() string {
@@ -9568,7 +9695,7 @@ type GetIncomingInvoiceResponse struct {
 
 func (x *GetIncomingInvoiceResponse) Reset() {
 	*x = GetIncomingInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[136]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9580,7 +9707,7 @@ func (x *GetIncomingInvoiceResponse) String() string {
 func (*GetIncomingInvoiceResponse) ProtoMessage() {}
 
 func (x *GetIncomingInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[136]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9593,7 +9720,7 @@ func (x *GetIncomingInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIncomingInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*GetIncomingInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{136}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *GetIncomingInvoiceResponse) GetInvoice() *IncomingInvoice {
@@ -9617,7 +9744,7 @@ type ListIncomingInvoicesRequest struct {
 
 func (x *ListIncomingInvoicesRequest) Reset() {
 	*x = ListIncomingInvoicesRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[137]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9629,7 +9756,7 @@ func (x *ListIncomingInvoicesRequest) String() string {
 func (*ListIncomingInvoicesRequest) ProtoMessage() {}
 
 func (x *ListIncomingInvoicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[137]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9642,7 +9769,7 @@ func (x *ListIncomingInvoicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIncomingInvoicesRequest.ProtoReflect.Descriptor instead.
 func (*ListIncomingInvoicesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{137}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *ListIncomingInvoicesRequest) GetTenantId() string {
@@ -9697,7 +9824,7 @@ type ListIncomingInvoicesResponse struct {
 
 func (x *ListIncomingInvoicesResponse) Reset() {
 	*x = ListIncomingInvoicesResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[138]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9709,7 +9836,7 @@ func (x *ListIncomingInvoicesResponse) String() string {
 func (*ListIncomingInvoicesResponse) ProtoMessage() {}
 
 func (x *ListIncomingInvoicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[138]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9722,7 +9849,7 @@ func (x *ListIncomingInvoicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIncomingInvoicesResponse.ProtoReflect.Descriptor instead.
 func (*ListIncomingInvoicesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{138}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *ListIncomingInvoicesResponse) GetInvoices() []*IncomingInvoice {
@@ -9750,7 +9877,7 @@ type UpdateIncomingInvoiceStatusRequest struct {
 
 func (x *UpdateIncomingInvoiceStatusRequest) Reset() {
 	*x = UpdateIncomingInvoiceStatusRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[139]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9762,7 +9889,7 @@ func (x *UpdateIncomingInvoiceStatusRequest) String() string {
 func (*UpdateIncomingInvoiceStatusRequest) ProtoMessage() {}
 
 func (x *UpdateIncomingInvoiceStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[139]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9775,7 +9902,7 @@ func (x *UpdateIncomingInvoiceStatusRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateIncomingInvoiceStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateIncomingInvoiceStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{139}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *UpdateIncomingInvoiceStatusRequest) GetTenantId() string {
@@ -9808,7 +9935,7 @@ type UpdateIncomingInvoiceStatusResponse struct {
 
 func (x *UpdateIncomingInvoiceStatusResponse) Reset() {
 	*x = UpdateIncomingInvoiceStatusResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[140]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9820,7 +9947,7 @@ func (x *UpdateIncomingInvoiceStatusResponse) String() string {
 func (*UpdateIncomingInvoiceStatusResponse) ProtoMessage() {}
 
 func (x *UpdateIncomingInvoiceStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[140]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9833,7 +9960,7 @@ func (x *UpdateIncomingInvoiceStatusResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateIncomingInvoiceStatusResponse.ProtoReflect.Descriptor instead.
 func (*UpdateIncomingInvoiceStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{140}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *UpdateIncomingInvoiceStatusResponse) GetInvoice() *IncomingInvoice {
@@ -9873,7 +10000,7 @@ type RecurringInvoice struct {
 
 func (x *RecurringInvoice) Reset() {
 	*x = RecurringInvoice{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[141]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9885,7 +10012,7 @@ func (x *RecurringInvoice) String() string {
 func (*RecurringInvoice) ProtoMessage() {}
 
 func (x *RecurringInvoice) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[141]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9898,7 +10025,7 @@ func (x *RecurringInvoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecurringInvoice.ProtoReflect.Descriptor instead.
 func (*RecurringInvoice) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{141}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *RecurringInvoice) GetId() string {
@@ -10054,7 +10181,7 @@ type CreateRecurringInvoiceRequest struct {
 
 func (x *CreateRecurringInvoiceRequest) Reset() {
 	*x = CreateRecurringInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[142]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10066,7 +10193,7 @@ func (x *CreateRecurringInvoiceRequest) String() string {
 func (*CreateRecurringInvoiceRequest) ProtoMessage() {}
 
 func (x *CreateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[142]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10079,7 +10206,7 @@ func (x *CreateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRecurringInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*CreateRecurringInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{142}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *CreateRecurringInvoiceRequest) GetTenantId() string {
@@ -10175,7 +10302,7 @@ type CreateRecurringInvoiceResponse struct {
 
 func (x *CreateRecurringInvoiceResponse) Reset() {
 	*x = CreateRecurringInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[143]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10187,7 +10314,7 @@ func (x *CreateRecurringInvoiceResponse) String() string {
 func (*CreateRecurringInvoiceResponse) ProtoMessage() {}
 
 func (x *CreateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[143]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10200,7 +10327,7 @@ func (x *CreateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRecurringInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*CreateRecurringInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{143}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *CreateRecurringInvoiceResponse) GetRecurring() *RecurringInvoice {
@@ -10220,7 +10347,7 @@ type GetRecurringInvoiceRequest struct {
 
 func (x *GetRecurringInvoiceRequest) Reset() {
 	*x = GetRecurringInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[144]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10232,7 +10359,7 @@ func (x *GetRecurringInvoiceRequest) String() string {
 func (*GetRecurringInvoiceRequest) ProtoMessage() {}
 
 func (x *GetRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[144]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10245,7 +10372,7 @@ func (x *GetRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRecurringInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*GetRecurringInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{144}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *GetRecurringInvoiceRequest) GetTenantId() string {
@@ -10271,7 +10398,7 @@ type GetRecurringInvoiceResponse struct {
 
 func (x *GetRecurringInvoiceResponse) Reset() {
 	*x = GetRecurringInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[145]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10283,7 +10410,7 @@ func (x *GetRecurringInvoiceResponse) String() string {
 func (*GetRecurringInvoiceResponse) ProtoMessage() {}
 
 func (x *GetRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[145]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10296,7 +10423,7 @@ func (x *GetRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRecurringInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*GetRecurringInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{145}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *GetRecurringInvoiceResponse) GetRecurring() *RecurringInvoice {
@@ -10318,7 +10445,7 @@ type ListRecurringInvoicesRequest struct {
 
 func (x *ListRecurringInvoicesRequest) Reset() {
 	*x = ListRecurringInvoicesRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[146]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10330,7 +10457,7 @@ func (x *ListRecurringInvoicesRequest) String() string {
 func (*ListRecurringInvoicesRequest) ProtoMessage() {}
 
 func (x *ListRecurringInvoicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[146]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10343,7 +10470,7 @@ func (x *ListRecurringInvoicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRecurringInvoicesRequest.ProtoReflect.Descriptor instead.
 func (*ListRecurringInvoicesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{146}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *ListRecurringInvoicesRequest) GetTenantId() string {
@@ -10384,7 +10511,7 @@ type ListRecurringInvoicesResponse struct {
 
 func (x *ListRecurringInvoicesResponse) Reset() {
 	*x = ListRecurringInvoicesResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[147]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10396,7 +10523,7 @@ func (x *ListRecurringInvoicesResponse) String() string {
 func (*ListRecurringInvoicesResponse) ProtoMessage() {}
 
 func (x *ListRecurringInvoicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[147]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10409,7 +10536,7 @@ func (x *ListRecurringInvoicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRecurringInvoicesResponse.ProtoReflect.Descriptor instead.
 func (*ListRecurringInvoicesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{147}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *ListRecurringInvoicesResponse) GetRecurring() []*RecurringInvoice {
@@ -10450,7 +10577,7 @@ type UpdateRecurringInvoiceRequest struct {
 
 func (x *UpdateRecurringInvoiceRequest) Reset() {
 	*x = UpdateRecurringInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[148]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10462,7 +10589,7 @@ func (x *UpdateRecurringInvoiceRequest) String() string {
 func (*UpdateRecurringInvoiceRequest) ProtoMessage() {}
 
 func (x *UpdateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[148]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10475,7 +10602,7 @@ func (x *UpdateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRecurringInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRecurringInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{148}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *UpdateRecurringInvoiceRequest) GetTenantId() string {
@@ -10578,7 +10705,7 @@ type UpdateRecurringInvoiceResponse struct {
 
 func (x *UpdateRecurringInvoiceResponse) Reset() {
 	*x = UpdateRecurringInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[149]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10590,7 +10717,7 @@ func (x *UpdateRecurringInvoiceResponse) String() string {
 func (*UpdateRecurringInvoiceResponse) ProtoMessage() {}
 
 func (x *UpdateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[149]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10603,7 +10730,7 @@ func (x *UpdateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRecurringInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRecurringInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{149}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *UpdateRecurringInvoiceResponse) GetRecurring() *RecurringInvoice {
@@ -10623,7 +10750,7 @@ type DeleteRecurringInvoiceRequest struct {
 
 func (x *DeleteRecurringInvoiceRequest) Reset() {
 	*x = DeleteRecurringInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[150]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10635,7 +10762,7 @@ func (x *DeleteRecurringInvoiceRequest) String() string {
 func (*DeleteRecurringInvoiceRequest) ProtoMessage() {}
 
 func (x *DeleteRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[150]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10648,7 +10775,7 @@ func (x *DeleteRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecurringInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRecurringInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{150}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *DeleteRecurringInvoiceRequest) GetTenantId() string {
@@ -10674,7 +10801,7 @@ type DeleteRecurringInvoiceResponse struct {
 
 func (x *DeleteRecurringInvoiceResponse) Reset() {
 	*x = DeleteRecurringInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[151]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10686,7 +10813,7 @@ func (x *DeleteRecurringInvoiceResponse) String() string {
 func (*DeleteRecurringInvoiceResponse) ProtoMessage() {}
 
 func (x *DeleteRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[151]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10699,7 +10826,7 @@ func (x *DeleteRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecurringInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRecurringInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{151}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *DeleteRecurringInvoiceResponse) GetSuccess() bool {
@@ -10720,7 +10847,7 @@ type SetRecurringInvoiceStatusRequest struct {
 
 func (x *SetRecurringInvoiceStatusRequest) Reset() {
 	*x = SetRecurringInvoiceStatusRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[152]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10732,7 +10859,7 @@ func (x *SetRecurringInvoiceStatusRequest) String() string {
 func (*SetRecurringInvoiceStatusRequest) ProtoMessage() {}
 
 func (x *SetRecurringInvoiceStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[152]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10745,7 +10872,7 @@ func (x *SetRecurringInvoiceStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRecurringInvoiceStatusRequest.ProtoReflect.Descriptor instead.
 func (*SetRecurringInvoiceStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{152}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *SetRecurringInvoiceStatusRequest) GetTenantId() string {
@@ -10778,7 +10905,7 @@ type SetRecurringInvoiceStatusResponse struct {
 
 func (x *SetRecurringInvoiceStatusResponse) Reset() {
 	*x = SetRecurringInvoiceStatusResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[153]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10790,7 +10917,7 @@ func (x *SetRecurringInvoiceStatusResponse) String() string {
 func (*SetRecurringInvoiceStatusResponse) ProtoMessage() {}
 
 func (x *SetRecurringInvoiceStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[153]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10803,7 +10930,7 @@ func (x *SetRecurringInvoiceStatusResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use SetRecurringInvoiceStatusResponse.ProtoReflect.Descriptor instead.
 func (*SetRecurringInvoiceStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{153}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *SetRecurringInvoiceStatusResponse) GetRecurring() *RecurringInvoice {
@@ -10824,7 +10951,7 @@ type GenerateRecurringInvoiceRequest struct {
 
 func (x *GenerateRecurringInvoiceRequest) Reset() {
 	*x = GenerateRecurringInvoiceRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[154]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10836,7 +10963,7 @@ func (x *GenerateRecurringInvoiceRequest) String() string {
 func (*GenerateRecurringInvoiceRequest) ProtoMessage() {}
 
 func (x *GenerateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[154]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10849,7 +10976,7 @@ func (x *GenerateRecurringInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateRecurringInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*GenerateRecurringInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{154}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *GenerateRecurringInvoiceRequest) GetTenantId() string {
@@ -10885,7 +11012,7 @@ type GenerateRecurringInvoiceResponse struct {
 
 func (x *GenerateRecurringInvoiceResponse) Reset() {
 	*x = GenerateRecurringInvoiceResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[155]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10897,7 +11024,7 @@ func (x *GenerateRecurringInvoiceResponse) String() string {
 func (*GenerateRecurringInvoiceResponse) ProtoMessage() {}
 
 func (x *GenerateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[155]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10910,7 +11037,7 @@ func (x *GenerateRecurringInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateRecurringInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*GenerateRecurringInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{155}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *GenerateRecurringInvoiceResponse) GetInvoice() *Invoice {
@@ -10952,7 +11079,7 @@ type BankStatement struct {
 
 func (x *BankStatement) Reset() {
 	*x = BankStatement{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[156]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10964,7 +11091,7 @@ func (x *BankStatement) String() string {
 func (*BankStatement) ProtoMessage() {}
 
 func (x *BankStatement) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[156]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10977,7 +11104,7 @@ func (x *BankStatement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BankStatement.ProtoReflect.Descriptor instead.
 func (*BankStatement) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{156}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *BankStatement) GetId() string {
@@ -11106,7 +11233,7 @@ type BankTransaction struct {
 
 func (x *BankTransaction) Reset() {
 	*x = BankTransaction{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[157]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11118,7 +11245,7 @@ func (x *BankTransaction) String() string {
 func (*BankTransaction) ProtoMessage() {}
 
 func (x *BankTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[157]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11131,7 +11258,7 @@ func (x *BankTransaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BankTransaction.ProtoReflect.Descriptor instead.
 func (*BankTransaction) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{157}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *BankTransaction) GetId() string {
@@ -11272,7 +11399,7 @@ type ImportBankStatementRequest struct {
 
 func (x *ImportBankStatementRequest) Reset() {
 	*x = ImportBankStatementRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[158]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11284,7 +11411,7 @@ func (x *ImportBankStatementRequest) String() string {
 func (*ImportBankStatementRequest) ProtoMessage() {}
 
 func (x *ImportBankStatementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[158]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11297,7 +11424,7 @@ func (x *ImportBankStatementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportBankStatementRequest.ProtoReflect.Descriptor instead.
 func (*ImportBankStatementRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{158}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *ImportBankStatementRequest) GetTenantId() string {
@@ -11341,7 +11468,7 @@ type ImportBankStatementResponse struct {
 
 func (x *ImportBankStatementResponse) Reset() {
 	*x = ImportBankStatementResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[159]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11353,7 +11480,7 @@ func (x *ImportBankStatementResponse) String() string {
 func (*ImportBankStatementResponse) ProtoMessage() {}
 
 func (x *ImportBankStatementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[159]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11366,7 +11493,7 @@ func (x *ImportBankStatementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportBankStatementResponse.ProtoReflect.Descriptor instead.
 func (*ImportBankStatementResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{159}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *ImportBankStatementResponse) GetStatement() *BankStatement {
@@ -11400,7 +11527,7 @@ type GetBankStatementRequest struct {
 
 func (x *GetBankStatementRequest) Reset() {
 	*x = GetBankStatementRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[160]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11412,7 +11539,7 @@ func (x *GetBankStatementRequest) String() string {
 func (*GetBankStatementRequest) ProtoMessage() {}
 
 func (x *GetBankStatementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[160]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11425,7 +11552,7 @@ func (x *GetBankStatementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBankStatementRequest.ProtoReflect.Descriptor instead.
 func (*GetBankStatementRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{160}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *GetBankStatementRequest) GetTenantId() string {
@@ -11452,7 +11579,7 @@ type GetBankStatementResponse struct {
 
 func (x *GetBankStatementResponse) Reset() {
 	*x = GetBankStatementResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[161]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11464,7 +11591,7 @@ func (x *GetBankStatementResponse) String() string {
 func (*GetBankStatementResponse) ProtoMessage() {}
 
 func (x *GetBankStatementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[161]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11477,7 +11604,7 @@ func (x *GetBankStatementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBankStatementResponse.ProtoReflect.Descriptor instead.
 func (*GetBankStatementResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{161}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *GetBankStatementResponse) GetStatement() *BankStatement {
@@ -11505,7 +11632,7 @@ type ListBankStatementsRequest struct {
 
 func (x *ListBankStatementsRequest) Reset() {
 	*x = ListBankStatementsRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[162]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11517,7 +11644,7 @@ func (x *ListBankStatementsRequest) String() string {
 func (*ListBankStatementsRequest) ProtoMessage() {}
 
 func (x *ListBankStatementsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[162]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11530,7 +11657,7 @@ func (x *ListBankStatementsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBankStatementsRequest.ProtoReflect.Descriptor instead.
 func (*ListBankStatementsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{162}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *ListBankStatementsRequest) GetTenantId() string {
@@ -11564,7 +11691,7 @@ type ListBankStatementsResponse struct {
 
 func (x *ListBankStatementsResponse) Reset() {
 	*x = ListBankStatementsResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[163]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11576,7 +11703,7 @@ func (x *ListBankStatementsResponse) String() string {
 func (*ListBankStatementsResponse) ProtoMessage() {}
 
 func (x *ListBankStatementsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[163]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11589,7 +11716,7 @@ func (x *ListBankStatementsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBankStatementsResponse.ProtoReflect.Descriptor instead.
 func (*ListBankStatementsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{163}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *ListBankStatementsResponse) GetStatements() []*BankStatement {
@@ -11619,7 +11746,7 @@ type ListBankTransactionsRequest struct {
 
 func (x *ListBankTransactionsRequest) Reset() {
 	*x = ListBankTransactionsRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[164]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11631,7 +11758,7 @@ func (x *ListBankTransactionsRequest) String() string {
 func (*ListBankTransactionsRequest) ProtoMessage() {}
 
 func (x *ListBankTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[164]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11644,7 +11771,7 @@ func (x *ListBankTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBankTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListBankTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{164}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *ListBankTransactionsRequest) GetTenantId() string {
@@ -11692,7 +11819,7 @@ type ListBankTransactionsResponse struct {
 
 func (x *ListBankTransactionsResponse) Reset() {
 	*x = ListBankTransactionsResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[165]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11704,7 +11831,7 @@ func (x *ListBankTransactionsResponse) String() string {
 func (*ListBankTransactionsResponse) ProtoMessage() {}
 
 func (x *ListBankTransactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[165]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11717,7 +11844,7 @@ func (x *ListBankTransactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBankTransactionsResponse.ProtoReflect.Descriptor instead.
 func (*ListBankTransactionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{165}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *ListBankTransactionsResponse) GetTransactions() []*BankTransaction {
@@ -11748,7 +11875,7 @@ type ReconcileBankTransactionRequest struct {
 
 func (x *ReconcileBankTransactionRequest) Reset() {
 	*x = ReconcileBankTransactionRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[166]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11760,7 +11887,7 @@ func (x *ReconcileBankTransactionRequest) String() string {
 func (*ReconcileBankTransactionRequest) ProtoMessage() {}
 
 func (x *ReconcileBankTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[166]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11773,7 +11900,7 @@ func (x *ReconcileBankTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileBankTransactionRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileBankTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{166}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *ReconcileBankTransactionRequest) GetTenantId() string {
@@ -11813,7 +11940,7 @@ type ReconcileBankTransactionResponse struct {
 
 func (x *ReconcileBankTransactionResponse) Reset() {
 	*x = ReconcileBankTransactionResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[167]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11825,7 +11952,7 @@ func (x *ReconcileBankTransactionResponse) String() string {
 func (*ReconcileBankTransactionResponse) ProtoMessage() {}
 
 func (x *ReconcileBankTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[167]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11838,7 +11965,7 @@ func (x *ReconcileBankTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileBankTransactionResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileBankTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{167}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *ReconcileBankTransactionResponse) GetTransaction() *BankTransaction {
@@ -11859,7 +11986,7 @@ type IgnoreBankTransactionRequest struct {
 
 func (x *IgnoreBankTransactionRequest) Reset() {
 	*x = IgnoreBankTransactionRequest{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[168]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11871,7 +11998,7 @@ func (x *IgnoreBankTransactionRequest) String() string {
 func (*IgnoreBankTransactionRequest) ProtoMessage() {}
 
 func (x *IgnoreBankTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[168]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11884,7 +12011,7 @@ func (x *IgnoreBankTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IgnoreBankTransactionRequest.ProtoReflect.Descriptor instead.
 func (*IgnoreBankTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{168}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *IgnoreBankTransactionRequest) GetTenantId() string {
@@ -11917,7 +12044,7 @@ type IgnoreBankTransactionResponse struct {
 
 func (x *IgnoreBankTransactionResponse) Reset() {
 	*x = IgnoreBankTransactionResponse{}
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[169]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11929,7 +12056,7 @@ func (x *IgnoreBankTransactionResponse) String() string {
 func (*IgnoreBankTransactionResponse) ProtoMessage() {}
 
 func (x *IgnoreBankTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_biz_v1_biz_proto_msgTypes[169]
+	mi := &file_proto_biz_v1_biz_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11942,7 +12069,7 @@ func (x *IgnoreBankTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IgnoreBankTransactionResponse.ProtoReflect.Descriptor instead.
 func (*IgnoreBankTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{169}
+	return file_proto_biz_v1_biz_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *IgnoreBankTransactionResponse) GetTransaction() *BankTransaction {
@@ -12694,6 +12821,14 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"Z\n" +
 	"!GenerateZUGFeRDInvoicePDFResponse\x12\x19\n" +
 	"\bpdf_data\x18\x01 \x01(\fR\apdfData\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\"\x87\x01\n" +
+	"\x17GenerateEInvoiceRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x16\n" +
+	"\x06format\x18\x03 \x01(\tR\x06format\x12'\n" +
+	"\x0fbuyer_reference\x18\x04 \x01(\tR\x0ebuyerReference\"J\n" +
+	"\x18GenerateEInvoiceResponse\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\"\xcc\x01\n" +
 	"\x17IncomingInvoiceLineItem\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\x05R\bposition\x12 \n" +
@@ -13002,7 +13137,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x1cPAYMENT_METHOD_BANK_TRANSFER\x10\x01\x12\x17\n" +
 	"\x13PAYMENT_METHOD_CASH\x10\x02\x12\x1e\n" +
 	"\x1aPAYMENT_METHOD_CREDIT_CARD\x10\x03\x12\x18\n" +
-	"\x14PAYMENT_METHOD_OTHER\x10\x042\x8f2\n" +
+	"\x14PAYMENT_METHOD_OTHER\x10\x042\xe62\n" +
 	"\x0eFinanceService\x12[\n" +
 	"\x12GetCompanySettings\x12!.biz.v1.GetCompanySettingsRequest\x1a\".biz.v1.GetCompanySettingsResponse\x12d\n" +
 	"\x15UpdateCompanySettings\x12$.biz.v1.UpdateCompanySettingsRequest\x1a%.biz.v1.UpdateCompanySettingsResponse\x12F\n" +
@@ -13045,7 +13180,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x12GenerateInvoicePDF\x12!.biz.v1.GenerateInvoicePDFRequest\x1a\".biz.v1.GenerateInvoicePDFResponse\x12d\n" +
 	"\x15GenerateCreditNotePDF\x12$.biz.v1.GenerateCreditNotePDFRequest\x1a%.biz.v1.GenerateCreditNotePDFResponse\x12[\n" +
 	"\x12GenerateDunningPDF\x12!.biz.v1.GenerateDunningPDFRequest\x1a\".biz.v1.GenerateDunningPDFResponse\x12p\n" +
-	"\x19GenerateZUGFeRDInvoicePDF\x12(.biz.v1.GenerateZUGFeRDInvoicePDFRequest\x1a).biz.v1.GenerateZUGFeRDInvoicePDFResponse\x12y\n" +
+	"\x19GenerateZUGFeRDInvoicePDF\x12(.biz.v1.GenerateZUGFeRDInvoicePDFRequest\x1a).biz.v1.GenerateZUGFeRDInvoicePDFResponse\x12U\n" +
+	"\x10GenerateEInvoice\x12\x1f.biz.v1.GenerateEInvoiceRequest\x1a .biz.v1.GenerateEInvoiceResponse\x12y\n" +
 	"\x1cCreateInvoiceFromTimeEntries\x12+.biz.v1.CreateInvoiceFromTimeEntriesRequest\x1a,.biz.v1.CreateInvoiceFromTimeEntriesResponse\x12^\n" +
 	"\x13CreateQuoteFromDeal\x12\".biz.v1.CreateQuoteFromDealRequest\x1a#.biz.v1.CreateQuoteFromDealResponse\x12X\n" +
 	"\x11GetJournalSummary\x12 .biz.v1.GetJournalSummaryRequest\x1a!.biz.v1.GetJournalSummaryResponse\x12d\n" +
@@ -13092,7 +13228,7 @@ func file_proto_biz_v1_biz_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_biz_v1_biz_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_proto_biz_v1_biz_proto_msgTypes = make([]protoimpl.MessageInfo, 172)
+var file_proto_biz_v1_biz_proto_msgTypes = make([]protoimpl.MessageInfo, 174)
 var file_proto_biz_v1_biz_proto_goTypes = []any{
 	(QuoteStatus)(0),                             // 0: biz.v1.QuoteStatus
 	(InvoiceStatus)(0),                           // 1: biz.v1.InvoiceStatus
@@ -13230,83 +13366,85 @@ var file_proto_biz_v1_biz_proto_goTypes = []any{
 	(*AddDocumentAnnotationResponse)(nil),        // 133: biz.v1.AddDocumentAnnotationResponse
 	(*GenerateZUGFeRDInvoicePDFRequest)(nil),     // 134: biz.v1.GenerateZUGFeRDInvoicePDFRequest
 	(*GenerateZUGFeRDInvoicePDFResponse)(nil),    // 135: biz.v1.GenerateZUGFeRDInvoicePDFResponse
-	(*IncomingInvoiceLineItem)(nil),              // 136: biz.v1.IncomingInvoiceLineItem
-	(*IncomingInvoiceTaxEntry)(nil),              // 137: biz.v1.IncomingInvoiceTaxEntry
-	(*IncomingInvoice)(nil),                      // 138: biz.v1.IncomingInvoice
-	(*ImportIncomingInvoiceRequest)(nil),         // 139: biz.v1.ImportIncomingInvoiceRequest
-	(*ImportIncomingInvoiceResponse)(nil),        // 140: biz.v1.ImportIncomingInvoiceResponse
-	(*GetIncomingInvoiceRequest)(nil),            // 141: biz.v1.GetIncomingInvoiceRequest
-	(*GetIncomingInvoiceResponse)(nil),           // 142: biz.v1.GetIncomingInvoiceResponse
-	(*ListIncomingInvoicesRequest)(nil),          // 143: biz.v1.ListIncomingInvoicesRequest
-	(*ListIncomingInvoicesResponse)(nil),         // 144: biz.v1.ListIncomingInvoicesResponse
-	(*UpdateIncomingInvoiceStatusRequest)(nil),   // 145: biz.v1.UpdateIncomingInvoiceStatusRequest
-	(*UpdateIncomingInvoiceStatusResponse)(nil),  // 146: biz.v1.UpdateIncomingInvoiceStatusResponse
-	(*RecurringInvoice)(nil),                     // 147: biz.v1.RecurringInvoice
-	(*CreateRecurringInvoiceRequest)(nil),        // 148: biz.v1.CreateRecurringInvoiceRequest
-	(*CreateRecurringInvoiceResponse)(nil),       // 149: biz.v1.CreateRecurringInvoiceResponse
-	(*GetRecurringInvoiceRequest)(nil),           // 150: biz.v1.GetRecurringInvoiceRequest
-	(*GetRecurringInvoiceResponse)(nil),          // 151: biz.v1.GetRecurringInvoiceResponse
-	(*ListRecurringInvoicesRequest)(nil),         // 152: biz.v1.ListRecurringInvoicesRequest
-	(*ListRecurringInvoicesResponse)(nil),        // 153: biz.v1.ListRecurringInvoicesResponse
-	(*UpdateRecurringInvoiceRequest)(nil),        // 154: biz.v1.UpdateRecurringInvoiceRequest
-	(*UpdateRecurringInvoiceResponse)(nil),       // 155: biz.v1.UpdateRecurringInvoiceResponse
-	(*DeleteRecurringInvoiceRequest)(nil),        // 156: biz.v1.DeleteRecurringInvoiceRequest
-	(*DeleteRecurringInvoiceResponse)(nil),       // 157: biz.v1.DeleteRecurringInvoiceResponse
-	(*SetRecurringInvoiceStatusRequest)(nil),     // 158: biz.v1.SetRecurringInvoiceStatusRequest
-	(*SetRecurringInvoiceStatusResponse)(nil),    // 159: biz.v1.SetRecurringInvoiceStatusResponse
-	(*GenerateRecurringInvoiceRequest)(nil),      // 160: biz.v1.GenerateRecurringInvoiceRequest
-	(*GenerateRecurringInvoiceResponse)(nil),     // 161: biz.v1.GenerateRecurringInvoiceResponse
-	(*BankStatement)(nil),                        // 162: biz.v1.BankStatement
-	(*BankTransaction)(nil),                      // 163: biz.v1.BankTransaction
-	(*ImportBankStatementRequest)(nil),           // 164: biz.v1.ImportBankStatementRequest
-	(*ImportBankStatementResponse)(nil),          // 165: biz.v1.ImportBankStatementResponse
-	(*GetBankStatementRequest)(nil),              // 166: biz.v1.GetBankStatementRequest
-	(*GetBankStatementResponse)(nil),             // 167: biz.v1.GetBankStatementResponse
-	(*ListBankStatementsRequest)(nil),            // 168: biz.v1.ListBankStatementsRequest
-	(*ListBankStatementsResponse)(nil),           // 169: biz.v1.ListBankStatementsResponse
-	(*ListBankTransactionsRequest)(nil),          // 170: biz.v1.ListBankTransactionsRequest
-	(*ListBankTransactionsResponse)(nil),         // 171: biz.v1.ListBankTransactionsResponse
-	(*ReconcileBankTransactionRequest)(nil),      // 172: biz.v1.ReconcileBankTransactionRequest
-	(*ReconcileBankTransactionResponse)(nil),     // 173: biz.v1.ReconcileBankTransactionResponse
-	(*IgnoreBankTransactionRequest)(nil),         // 174: biz.v1.IgnoreBankTransactionRequest
-	(*IgnoreBankTransactionResponse)(nil),        // 175: biz.v1.IgnoreBankTransactionResponse
-	nil,                                          // 176: biz.v1.TaxBreakdown.TaxByRateEntry
-	nil,                                          // 177: biz.v1.FinanceDashboard.StatusBreakdownEntry
-	(*timestamppb.Timestamp)(nil),                // 178: google.protobuf.Timestamp
+	(*GenerateEInvoiceRequest)(nil),              // 136: biz.v1.GenerateEInvoiceRequest
+	(*GenerateEInvoiceResponse)(nil),             // 137: biz.v1.GenerateEInvoiceResponse
+	(*IncomingInvoiceLineItem)(nil),              // 138: biz.v1.IncomingInvoiceLineItem
+	(*IncomingInvoiceTaxEntry)(nil),              // 139: biz.v1.IncomingInvoiceTaxEntry
+	(*IncomingInvoice)(nil),                      // 140: biz.v1.IncomingInvoice
+	(*ImportIncomingInvoiceRequest)(nil),         // 141: biz.v1.ImportIncomingInvoiceRequest
+	(*ImportIncomingInvoiceResponse)(nil),        // 142: biz.v1.ImportIncomingInvoiceResponse
+	(*GetIncomingInvoiceRequest)(nil),            // 143: biz.v1.GetIncomingInvoiceRequest
+	(*GetIncomingInvoiceResponse)(nil),           // 144: biz.v1.GetIncomingInvoiceResponse
+	(*ListIncomingInvoicesRequest)(nil),          // 145: biz.v1.ListIncomingInvoicesRequest
+	(*ListIncomingInvoicesResponse)(nil),         // 146: biz.v1.ListIncomingInvoicesResponse
+	(*UpdateIncomingInvoiceStatusRequest)(nil),   // 147: biz.v1.UpdateIncomingInvoiceStatusRequest
+	(*UpdateIncomingInvoiceStatusResponse)(nil),  // 148: biz.v1.UpdateIncomingInvoiceStatusResponse
+	(*RecurringInvoice)(nil),                     // 149: biz.v1.RecurringInvoice
+	(*CreateRecurringInvoiceRequest)(nil),        // 150: biz.v1.CreateRecurringInvoiceRequest
+	(*CreateRecurringInvoiceResponse)(nil),       // 151: biz.v1.CreateRecurringInvoiceResponse
+	(*GetRecurringInvoiceRequest)(nil),           // 152: biz.v1.GetRecurringInvoiceRequest
+	(*GetRecurringInvoiceResponse)(nil),          // 153: biz.v1.GetRecurringInvoiceResponse
+	(*ListRecurringInvoicesRequest)(nil),         // 154: biz.v1.ListRecurringInvoicesRequest
+	(*ListRecurringInvoicesResponse)(nil),        // 155: biz.v1.ListRecurringInvoicesResponse
+	(*UpdateRecurringInvoiceRequest)(nil),        // 156: biz.v1.UpdateRecurringInvoiceRequest
+	(*UpdateRecurringInvoiceResponse)(nil),       // 157: biz.v1.UpdateRecurringInvoiceResponse
+	(*DeleteRecurringInvoiceRequest)(nil),        // 158: biz.v1.DeleteRecurringInvoiceRequest
+	(*DeleteRecurringInvoiceResponse)(nil),       // 159: biz.v1.DeleteRecurringInvoiceResponse
+	(*SetRecurringInvoiceStatusRequest)(nil),     // 160: biz.v1.SetRecurringInvoiceStatusRequest
+	(*SetRecurringInvoiceStatusResponse)(nil),    // 161: biz.v1.SetRecurringInvoiceStatusResponse
+	(*GenerateRecurringInvoiceRequest)(nil),      // 162: biz.v1.GenerateRecurringInvoiceRequest
+	(*GenerateRecurringInvoiceResponse)(nil),     // 163: biz.v1.GenerateRecurringInvoiceResponse
+	(*BankStatement)(nil),                        // 164: biz.v1.BankStatement
+	(*BankTransaction)(nil),                      // 165: biz.v1.BankTransaction
+	(*ImportBankStatementRequest)(nil),           // 166: biz.v1.ImportBankStatementRequest
+	(*ImportBankStatementResponse)(nil),          // 167: biz.v1.ImportBankStatementResponse
+	(*GetBankStatementRequest)(nil),              // 168: biz.v1.GetBankStatementRequest
+	(*GetBankStatementResponse)(nil),             // 169: biz.v1.GetBankStatementResponse
+	(*ListBankStatementsRequest)(nil),            // 170: biz.v1.ListBankStatementsRequest
+	(*ListBankStatementsResponse)(nil),           // 171: biz.v1.ListBankStatementsResponse
+	(*ListBankTransactionsRequest)(nil),          // 172: biz.v1.ListBankTransactionsRequest
+	(*ListBankTransactionsResponse)(nil),         // 173: biz.v1.ListBankTransactionsResponse
+	(*ReconcileBankTransactionRequest)(nil),      // 174: biz.v1.ReconcileBankTransactionRequest
+	(*ReconcileBankTransactionResponse)(nil),     // 175: biz.v1.ReconcileBankTransactionResponse
+	(*IgnoreBankTransactionRequest)(nil),         // 176: biz.v1.IgnoreBankTransactionRequest
+	(*IgnoreBankTransactionResponse)(nil),        // 177: biz.v1.IgnoreBankTransactionResponse
+	nil,                                          // 178: biz.v1.TaxBreakdown.TaxByRateEntry
+	nil,                                          // 179: biz.v1.FinanceDashboard.StatusBreakdownEntry
+	(*timestamppb.Timestamp)(nil),                // 180: google.protobuf.Timestamp
 }
 var file_proto_biz_v1_biz_proto_depIdxs = []int32{
-	176, // 0: biz.v1.TaxBreakdown.tax_by_rate:type_name -> biz.v1.TaxBreakdown.TaxByRateEntry
+	178, // 0: biz.v1.TaxBreakdown.tax_by_rate:type_name -> biz.v1.TaxBreakdown.TaxByRateEntry
 	0,   // 1: biz.v1.Quote.status:type_name -> biz.v1.QuoteStatus
 	8,   // 2: biz.v1.Quote.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 3: biz.v1.Quote.line_items:type_name -> biz.v1.LineItem
 	4,   // 4: biz.v1.Quote.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 5: biz.v1.Quote.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	178, // 6: biz.v1.Quote.created_at:type_name -> google.protobuf.Timestamp
-	178, // 7: biz.v1.Quote.updated_at:type_name -> google.protobuf.Timestamp
+	180, // 6: biz.v1.Quote.created_at:type_name -> google.protobuf.Timestamp
+	180, // 7: biz.v1.Quote.updated_at:type_name -> google.protobuf.Timestamp
 	1,   // 8: biz.v1.Invoice.status:type_name -> biz.v1.InvoiceStatus
 	8,   // 9: biz.v1.Invoice.customer:type_name -> biz.v1.CustomerSnapshot
 	9,   // 10: biz.v1.Invoice.company:type_name -> biz.v1.CompanySnapshot
 	6,   // 11: biz.v1.Invoice.line_items:type_name -> biz.v1.LineItem
 	4,   // 12: biz.v1.Invoice.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 13: biz.v1.Invoice.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	178, // 14: biz.v1.Invoice.created_at:type_name -> google.protobuf.Timestamp
-	178, // 15: biz.v1.Invoice.updated_at:type_name -> google.protobuf.Timestamp
+	180, // 14: biz.v1.Invoice.created_at:type_name -> google.protobuf.Timestamp
+	180, // 15: biz.v1.Invoice.updated_at:type_name -> google.protobuf.Timestamp
 	2,   // 16: biz.v1.CreditNote.status:type_name -> biz.v1.CreditNoteStatus
 	8,   // 17: biz.v1.CreditNote.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 18: biz.v1.CreditNote.line_items:type_name -> biz.v1.LineItem
 	4,   // 19: biz.v1.CreditNote.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 20: biz.v1.CreditNote.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	178, // 21: biz.v1.CreditNote.created_at:type_name -> google.protobuf.Timestamp
-	178, // 22: biz.v1.CreditNote.updated_at:type_name -> google.protobuf.Timestamp
+	180, // 21: biz.v1.CreditNote.created_at:type_name -> google.protobuf.Timestamp
+	180, // 22: biz.v1.CreditNote.updated_at:type_name -> google.protobuf.Timestamp
 	5,   // 23: biz.v1.Payment.method:type_name -> biz.v1.PaymentMethod
-	178, // 24: biz.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
+	180, // 24: biz.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 25: biz.v1.DunningRecord.status:type_name -> biz.v1.DunningStatus
-	178, // 26: biz.v1.DunningRecord.sent_at:type_name -> google.protobuf.Timestamp
-	178, // 27: biz.v1.DunningRecord.created_at:type_name -> google.protobuf.Timestamp
-	178, // 28: biz.v1.DunningConfig.updated_at:type_name -> google.protobuf.Timestamp
-	178, // 29: biz.v1.CompanySettings.created_at:type_name -> google.protobuf.Timestamp
-	178, // 30: biz.v1.CompanySettings.updated_at:type_name -> google.protobuf.Timestamp
-	177, // 31: biz.v1.FinanceDashboard.status_breakdown:type_name -> biz.v1.FinanceDashboard.StatusBreakdownEntry
+	180, // 26: biz.v1.DunningRecord.sent_at:type_name -> google.protobuf.Timestamp
+	180, // 27: biz.v1.DunningRecord.created_at:type_name -> google.protobuf.Timestamp
+	180, // 28: biz.v1.DunningConfig.updated_at:type_name -> google.protobuf.Timestamp
+	180, // 29: biz.v1.CompanySettings.created_at:type_name -> google.protobuf.Timestamp
+	180, // 30: biz.v1.CompanySettings.updated_at:type_name -> google.protobuf.Timestamp
+	179, // 31: biz.v1.FinanceDashboard.status_breakdown:type_name -> biz.v1.FinanceDashboard.StatusBreakdownEntry
 	11,  // 32: biz.v1.FinanceDashboard.recent_invoices:type_name -> biz.v1.Invoice
 	10,  // 33: biz.v1.FinanceDashboard.expiring_quotes:type_name -> biz.v1.Quote
 	14,  // 34: biz.v1.FinanceDashboard.pending_dunnings:type_name -> biz.v1.DunningRecord
@@ -13369,48 +13507,48 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	10,  // 91: biz.v1.CreateQuoteFromDealResponse.quote:type_name -> biz.v1.Quote
 	14,  // 92: biz.v1.UpdateDunningStatusResponse.dunning:type_name -> biz.v1.DunningRecord
 	14,  // 93: biz.v1.SendDunningNoticeResponse.dunning:type_name -> biz.v1.DunningRecord
-	178, // 94: biz.v1.GobdDocumentProto.archived_at:type_name -> google.protobuf.Timestamp
-	178, // 95: biz.v1.GobdDocumentEventProto.created_at:type_name -> google.protobuf.Timestamp
+	180, // 94: biz.v1.GobdDocumentProto.archived_at:type_name -> google.protobuf.Timestamp
+	180, // 95: biz.v1.GobdDocumentEventProto.created_at:type_name -> google.protobuf.Timestamp
 	120, // 96: biz.v1.ArchiveDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
 	120, // 97: biz.v1.ArchiveInvoiceDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
 	120, // 98: biz.v1.GetGobdDocumentResponse.document:type_name -> biz.v1.GobdDocumentProto
 	121, // 99: biz.v1.GetGobdDocumentResponse.events:type_name -> biz.v1.GobdDocumentEventProto
 	120, // 100: biz.v1.ListGobdDocumentsResponse.documents:type_name -> biz.v1.GobdDocumentProto
-	136, // 101: biz.v1.IncomingInvoice.line_items:type_name -> biz.v1.IncomingInvoiceLineItem
-	137, // 102: biz.v1.IncomingInvoice.tax_breakdown:type_name -> biz.v1.IncomingInvoiceTaxEntry
-	178, // 103: biz.v1.IncomingInvoice.created_at:type_name -> google.protobuf.Timestamp
-	178, // 104: biz.v1.IncomingInvoice.updated_at:type_name -> google.protobuf.Timestamp
-	138, // 105: biz.v1.ImportIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
-	138, // 106: biz.v1.GetIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
-	138, // 107: biz.v1.ListIncomingInvoicesResponse.invoices:type_name -> biz.v1.IncomingInvoice
-	138, // 108: biz.v1.UpdateIncomingInvoiceStatusResponse.invoice:type_name -> biz.v1.IncomingInvoice
+	138, // 101: biz.v1.IncomingInvoice.line_items:type_name -> biz.v1.IncomingInvoiceLineItem
+	139, // 102: biz.v1.IncomingInvoice.tax_breakdown:type_name -> biz.v1.IncomingInvoiceTaxEntry
+	180, // 103: biz.v1.IncomingInvoice.created_at:type_name -> google.protobuf.Timestamp
+	180, // 104: biz.v1.IncomingInvoice.updated_at:type_name -> google.protobuf.Timestamp
+	140, // 105: biz.v1.ImportIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
+	140, // 106: biz.v1.GetIncomingInvoiceResponse.invoice:type_name -> biz.v1.IncomingInvoice
+	140, // 107: biz.v1.ListIncomingInvoicesResponse.invoices:type_name -> biz.v1.IncomingInvoice
+	140, // 108: biz.v1.UpdateIncomingInvoiceStatusResponse.invoice:type_name -> biz.v1.IncomingInvoice
 	8,   // 109: biz.v1.RecurringInvoice.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 110: biz.v1.RecurringInvoice.line_items:type_name -> biz.v1.LineItem
 	4,   // 111: biz.v1.RecurringInvoice.tax_mode:type_name -> biz.v1.TaxMode
 	7,   // 112: biz.v1.RecurringInvoice.tax_breakdown:type_name -> biz.v1.TaxBreakdown
-	178, // 113: biz.v1.RecurringInvoice.created_at:type_name -> google.protobuf.Timestamp
-	178, // 114: biz.v1.RecurringInvoice.updated_at:type_name -> google.protobuf.Timestamp
+	180, // 113: biz.v1.RecurringInvoice.created_at:type_name -> google.protobuf.Timestamp
+	180, // 114: biz.v1.RecurringInvoice.updated_at:type_name -> google.protobuf.Timestamp
 	8,   // 115: biz.v1.CreateRecurringInvoiceRequest.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 116: biz.v1.CreateRecurringInvoiceRequest.line_items:type_name -> biz.v1.LineItem
 	4,   // 117: biz.v1.CreateRecurringInvoiceRequest.tax_mode:type_name -> biz.v1.TaxMode
-	147, // 118: biz.v1.CreateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
-	147, // 119: biz.v1.GetRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
-	147, // 120: biz.v1.ListRecurringInvoicesResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	149, // 118: biz.v1.CreateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	149, // 119: biz.v1.GetRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	149, // 120: biz.v1.ListRecurringInvoicesResponse.recurring:type_name -> biz.v1.RecurringInvoice
 	8,   // 121: biz.v1.UpdateRecurringInvoiceRequest.customer:type_name -> biz.v1.CustomerSnapshot
 	6,   // 122: biz.v1.UpdateRecurringInvoiceRequest.line_items:type_name -> biz.v1.LineItem
 	4,   // 123: biz.v1.UpdateRecurringInvoiceRequest.tax_mode:type_name -> biz.v1.TaxMode
-	147, // 124: biz.v1.UpdateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
-	147, // 125: biz.v1.SetRecurringInvoiceStatusResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	149, // 124: biz.v1.UpdateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	149, // 125: biz.v1.SetRecurringInvoiceStatusResponse.recurring:type_name -> biz.v1.RecurringInvoice
 	11,  // 126: biz.v1.GenerateRecurringInvoiceResponse.invoice:type_name -> biz.v1.Invoice
-	147, // 127: biz.v1.GenerateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
-	162, // 128: biz.v1.ImportBankStatementResponse.statement:type_name -> biz.v1.BankStatement
-	163, // 129: biz.v1.ImportBankStatementResponse.transactions:type_name -> biz.v1.BankTransaction
-	162, // 130: biz.v1.GetBankStatementResponse.statement:type_name -> biz.v1.BankStatement
-	163, // 131: biz.v1.GetBankStatementResponse.transactions:type_name -> biz.v1.BankTransaction
-	162, // 132: biz.v1.ListBankStatementsResponse.statements:type_name -> biz.v1.BankStatement
-	163, // 133: biz.v1.ListBankTransactionsResponse.transactions:type_name -> biz.v1.BankTransaction
-	163, // 134: biz.v1.ReconcileBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
-	163, // 135: biz.v1.IgnoreBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
+	149, // 127: biz.v1.GenerateRecurringInvoiceResponse.recurring:type_name -> biz.v1.RecurringInvoice
+	164, // 128: biz.v1.ImportBankStatementResponse.statement:type_name -> biz.v1.BankStatement
+	165, // 129: biz.v1.ImportBankStatementResponse.transactions:type_name -> biz.v1.BankTransaction
+	164, // 130: biz.v1.GetBankStatementResponse.statement:type_name -> biz.v1.BankStatement
+	165, // 131: biz.v1.GetBankStatementResponse.transactions:type_name -> biz.v1.BankTransaction
+	164, // 132: biz.v1.ListBankStatementsResponse.statements:type_name -> biz.v1.BankStatement
+	165, // 133: biz.v1.ListBankTransactionsResponse.transactions:type_name -> biz.v1.BankTransaction
+	165, // 134: biz.v1.ReconcileBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
+	165, // 135: biz.v1.IgnoreBankTransactionResponse.transaction:type_name -> biz.v1.BankTransaction
 	20,  // 136: biz.v1.FinanceService.GetCompanySettings:input_type -> biz.v1.GetCompanySettingsRequest
 	22,  // 137: biz.v1.FinanceService.UpdateCompanySettings:input_type -> biz.v1.UpdateCompanySettingsRequest
 	24,  // 138: biz.v1.FinanceService.CreateQuote:input_type -> biz.v1.CreateQuoteRequest
@@ -13451,112 +13589,114 @@ var file_proto_biz_v1_biz_proto_depIdxs = []int32{
 	98,  // 173: biz.v1.FinanceService.GenerateCreditNotePDF:input_type -> biz.v1.GenerateCreditNotePDFRequest
 	100, // 174: biz.v1.FinanceService.GenerateDunningPDF:input_type -> biz.v1.GenerateDunningPDFRequest
 	134, // 175: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:input_type -> biz.v1.GenerateZUGFeRDInvoicePDFRequest
-	102, // 176: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:input_type -> biz.v1.CreateInvoiceFromTimeEntriesRequest
-	104, // 177: biz.v1.FinanceService.CreateQuoteFromDeal:input_type -> biz.v1.CreateQuoteFromDealRequest
-	106, // 178: biz.v1.FinanceService.GetJournalSummary:input_type -> biz.v1.GetJournalSummaryRequest
-	108, // 179: biz.v1.FinanceService.ValidateInvoiceNumber:input_type -> biz.v1.ValidateInvoiceNumberRequest
-	110, // 180: biz.v1.FinanceService.LockInvoice:input_type -> biz.v1.LockInvoiceRequest
-	112, // 181: biz.v1.FinanceService.GetPaymentStats:input_type -> biz.v1.GetPaymentStatsRequest
-	114, // 182: biz.v1.FinanceService.UpdateDunningStatus:input_type -> biz.v1.UpdateDunningStatusRequest
-	116, // 183: biz.v1.FinanceService.SendDunningNotice:input_type -> biz.v1.SendDunningNoticeRequest
-	118, // 184: biz.v1.FinanceService.GenerateGoBDExport:input_type -> biz.v1.GenerateGoBDExportRequest
-	122, // 185: biz.v1.FinanceService.ArchiveDocument:input_type -> biz.v1.ArchiveDocumentRequest
-	124, // 186: biz.v1.FinanceService.ArchiveInvoiceDocument:input_type -> biz.v1.ArchiveInvoiceDocumentRequest
-	126, // 187: biz.v1.FinanceService.GetGobdDocument:input_type -> biz.v1.GetGobdDocumentRequest
-	128, // 188: biz.v1.FinanceService.ListGobdDocuments:input_type -> biz.v1.ListGobdDocumentsRequest
-	130, // 189: biz.v1.FinanceService.DownloadGobdDocument:input_type -> biz.v1.DownloadGobdDocumentRequest
-	132, // 190: biz.v1.FinanceService.AddDocumentAnnotation:input_type -> biz.v1.AddDocumentAnnotationRequest
-	139, // 191: biz.v1.FinanceService.ImportIncomingInvoice:input_type -> biz.v1.ImportIncomingInvoiceRequest
-	141, // 192: biz.v1.FinanceService.GetIncomingInvoice:input_type -> biz.v1.GetIncomingInvoiceRequest
-	143, // 193: biz.v1.FinanceService.ListIncomingInvoices:input_type -> biz.v1.ListIncomingInvoicesRequest
-	145, // 194: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:input_type -> biz.v1.UpdateIncomingInvoiceStatusRequest
-	148, // 195: biz.v1.FinanceService.CreateRecurringInvoice:input_type -> biz.v1.CreateRecurringInvoiceRequest
-	150, // 196: biz.v1.FinanceService.GetRecurringInvoice:input_type -> biz.v1.GetRecurringInvoiceRequest
-	152, // 197: biz.v1.FinanceService.ListRecurringInvoices:input_type -> biz.v1.ListRecurringInvoicesRequest
-	154, // 198: biz.v1.FinanceService.UpdateRecurringInvoice:input_type -> biz.v1.UpdateRecurringInvoiceRequest
-	156, // 199: biz.v1.FinanceService.DeleteRecurringInvoice:input_type -> biz.v1.DeleteRecurringInvoiceRequest
-	158, // 200: biz.v1.FinanceService.SetRecurringInvoiceStatus:input_type -> biz.v1.SetRecurringInvoiceStatusRequest
-	160, // 201: biz.v1.FinanceService.GenerateRecurringInvoice:input_type -> biz.v1.GenerateRecurringInvoiceRequest
-	164, // 202: biz.v1.FinanceService.ImportBankStatement:input_type -> biz.v1.ImportBankStatementRequest
-	166, // 203: biz.v1.FinanceService.GetBankStatement:input_type -> biz.v1.GetBankStatementRequest
-	168, // 204: biz.v1.FinanceService.ListBankStatements:input_type -> biz.v1.ListBankStatementsRequest
-	170, // 205: biz.v1.FinanceService.ListBankTransactions:input_type -> biz.v1.ListBankTransactionsRequest
-	172, // 206: biz.v1.FinanceService.ReconcileBankTransaction:input_type -> biz.v1.ReconcileBankTransactionRequest
-	174, // 207: biz.v1.FinanceService.IgnoreBankTransaction:input_type -> biz.v1.IgnoreBankTransactionRequest
-	21,  // 208: biz.v1.FinanceService.GetCompanySettings:output_type -> biz.v1.GetCompanySettingsResponse
-	23,  // 209: biz.v1.FinanceService.UpdateCompanySettings:output_type -> biz.v1.UpdateCompanySettingsResponse
-	25,  // 210: biz.v1.FinanceService.CreateQuote:output_type -> biz.v1.CreateQuoteResponse
-	27,  // 211: biz.v1.FinanceService.GetQuote:output_type -> biz.v1.GetQuoteResponse
-	29,  // 212: biz.v1.FinanceService.ListQuotes:output_type -> biz.v1.ListQuotesResponse
-	31,  // 213: biz.v1.FinanceService.UpdateQuote:output_type -> biz.v1.UpdateQuoteResponse
-	33,  // 214: biz.v1.FinanceService.DeleteQuote:output_type -> biz.v1.DeleteQuoteResponse
-	35,  // 215: biz.v1.FinanceService.SendQuote:output_type -> biz.v1.SendQuoteResponse
-	37,  // 216: biz.v1.FinanceService.AcceptQuote:output_type -> biz.v1.AcceptQuoteResponse
-	39,  // 217: biz.v1.FinanceService.RejectQuote:output_type -> biz.v1.RejectQuoteResponse
-	41,  // 218: biz.v1.FinanceService.ExpireQuote:output_type -> biz.v1.ExpireQuoteResponse
-	43,  // 219: biz.v1.FinanceService.ConvertQuoteToInvoice:output_type -> biz.v1.ConvertQuoteToInvoiceResponse
-	45,  // 220: biz.v1.FinanceService.CreateInvoice:output_type -> biz.v1.CreateInvoiceResponse
-	47,  // 221: biz.v1.FinanceService.GetInvoice:output_type -> biz.v1.GetInvoiceResponse
-	49,  // 222: biz.v1.FinanceService.ListInvoices:output_type -> biz.v1.ListInvoicesResponse
-	51,  // 223: biz.v1.FinanceService.UpdateInvoice:output_type -> biz.v1.UpdateInvoiceResponse
-	53,  // 224: biz.v1.FinanceService.SendInvoice:output_type -> biz.v1.SendInvoiceResponse
-	55,  // 225: biz.v1.FinanceService.MarkInvoicePaid:output_type -> biz.v1.MarkInvoicePaidResponse
-	57,  // 226: biz.v1.FinanceService.CancelInvoice:output_type -> biz.v1.CancelInvoiceResponse
-	59,  // 227: biz.v1.FinanceService.CreateCreditNote:output_type -> biz.v1.CreateCreditNoteResponse
-	61,  // 228: biz.v1.FinanceService.GetCreditNote:output_type -> biz.v1.GetCreditNoteResponse
-	63,  // 229: biz.v1.FinanceService.ListCreditNotes:output_type -> biz.v1.ListCreditNotesResponse
-	65,  // 230: biz.v1.FinanceService.SendCreditNote:output_type -> biz.v1.SendCreditNoteResponse
-	67,  // 231: biz.v1.FinanceService.RecordPayment:output_type -> biz.v1.RecordPaymentResponse
-	69,  // 232: biz.v1.FinanceService.ListPayments:output_type -> biz.v1.ListPaymentsResponse
-	71,  // 233: biz.v1.FinanceService.DeletePayment:output_type -> biz.v1.DeletePaymentResponse
-	73,  // 234: biz.v1.FinanceService.ListDunnings:output_type -> biz.v1.ListDunningsResponse
-	75,  // 235: biz.v1.FinanceService.CreateDunning:output_type -> biz.v1.CreateDunningResponse
-	77,  // 236: biz.v1.FinanceService.SendDunning:output_type -> biz.v1.SendDunningResponse
-	79,  // 237: biz.v1.FinanceService.EscalateDunning:output_type -> biz.v1.EscalateDunningResponse
-	81,  // 238: biz.v1.FinanceService.GetDunningConfig:output_type -> biz.v1.GetDunningConfigResponse
-	83,  // 239: biz.v1.FinanceService.UpdateDunningConfig:output_type -> biz.v1.UpdateDunningConfigResponse
-	89,  // 240: biz.v1.FinanceService.ListOpenItems:output_type -> biz.v1.ListOpenItemsResponse
-	91,  // 241: biz.v1.FinanceService.GetFinanceDashboard:output_type -> biz.v1.GetFinanceDashboardResponse
-	93,  // 242: biz.v1.FinanceService.ExportDATEV:output_type -> biz.v1.ExportDATEVResponse
-	95,  // 243: biz.v1.FinanceService.GenerateQuotePDF:output_type -> biz.v1.GenerateQuotePDFResponse
-	97,  // 244: biz.v1.FinanceService.GenerateInvoicePDF:output_type -> biz.v1.GenerateInvoicePDFResponse
-	99,  // 245: biz.v1.FinanceService.GenerateCreditNotePDF:output_type -> biz.v1.GenerateCreditNotePDFResponse
-	101, // 246: biz.v1.FinanceService.GenerateDunningPDF:output_type -> biz.v1.GenerateDunningPDFResponse
-	135, // 247: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:output_type -> biz.v1.GenerateZUGFeRDInvoicePDFResponse
-	103, // 248: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:output_type -> biz.v1.CreateInvoiceFromTimeEntriesResponse
-	105, // 249: biz.v1.FinanceService.CreateQuoteFromDeal:output_type -> biz.v1.CreateQuoteFromDealResponse
-	107, // 250: biz.v1.FinanceService.GetJournalSummary:output_type -> biz.v1.GetJournalSummaryResponse
-	109, // 251: biz.v1.FinanceService.ValidateInvoiceNumber:output_type -> biz.v1.ValidateInvoiceNumberResponse
-	111, // 252: biz.v1.FinanceService.LockInvoice:output_type -> biz.v1.LockInvoiceResponse
-	113, // 253: biz.v1.FinanceService.GetPaymentStats:output_type -> biz.v1.GetPaymentStatsResponse
-	115, // 254: biz.v1.FinanceService.UpdateDunningStatus:output_type -> biz.v1.UpdateDunningStatusResponse
-	117, // 255: biz.v1.FinanceService.SendDunningNotice:output_type -> biz.v1.SendDunningNoticeResponse
-	119, // 256: biz.v1.FinanceService.GenerateGoBDExport:output_type -> biz.v1.GenerateGoBDExportResponse
-	123, // 257: biz.v1.FinanceService.ArchiveDocument:output_type -> biz.v1.ArchiveDocumentResponse
-	125, // 258: biz.v1.FinanceService.ArchiveInvoiceDocument:output_type -> biz.v1.ArchiveInvoiceDocumentResponse
-	127, // 259: biz.v1.FinanceService.GetGobdDocument:output_type -> biz.v1.GetGobdDocumentResponse
-	129, // 260: biz.v1.FinanceService.ListGobdDocuments:output_type -> biz.v1.ListGobdDocumentsResponse
-	131, // 261: biz.v1.FinanceService.DownloadGobdDocument:output_type -> biz.v1.DownloadGobdDocumentResponse
-	133, // 262: biz.v1.FinanceService.AddDocumentAnnotation:output_type -> biz.v1.AddDocumentAnnotationResponse
-	140, // 263: biz.v1.FinanceService.ImportIncomingInvoice:output_type -> biz.v1.ImportIncomingInvoiceResponse
-	142, // 264: biz.v1.FinanceService.GetIncomingInvoice:output_type -> biz.v1.GetIncomingInvoiceResponse
-	144, // 265: biz.v1.FinanceService.ListIncomingInvoices:output_type -> biz.v1.ListIncomingInvoicesResponse
-	146, // 266: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:output_type -> biz.v1.UpdateIncomingInvoiceStatusResponse
-	149, // 267: biz.v1.FinanceService.CreateRecurringInvoice:output_type -> biz.v1.CreateRecurringInvoiceResponse
-	151, // 268: biz.v1.FinanceService.GetRecurringInvoice:output_type -> biz.v1.GetRecurringInvoiceResponse
-	153, // 269: biz.v1.FinanceService.ListRecurringInvoices:output_type -> biz.v1.ListRecurringInvoicesResponse
-	155, // 270: biz.v1.FinanceService.UpdateRecurringInvoice:output_type -> biz.v1.UpdateRecurringInvoiceResponse
-	157, // 271: biz.v1.FinanceService.DeleteRecurringInvoice:output_type -> biz.v1.DeleteRecurringInvoiceResponse
-	159, // 272: biz.v1.FinanceService.SetRecurringInvoiceStatus:output_type -> biz.v1.SetRecurringInvoiceStatusResponse
-	161, // 273: biz.v1.FinanceService.GenerateRecurringInvoice:output_type -> biz.v1.GenerateRecurringInvoiceResponse
-	165, // 274: biz.v1.FinanceService.ImportBankStatement:output_type -> biz.v1.ImportBankStatementResponse
-	167, // 275: biz.v1.FinanceService.GetBankStatement:output_type -> biz.v1.GetBankStatementResponse
-	169, // 276: biz.v1.FinanceService.ListBankStatements:output_type -> biz.v1.ListBankStatementsResponse
-	171, // 277: biz.v1.FinanceService.ListBankTransactions:output_type -> biz.v1.ListBankTransactionsResponse
-	173, // 278: biz.v1.FinanceService.ReconcileBankTransaction:output_type -> biz.v1.ReconcileBankTransactionResponse
-	175, // 279: biz.v1.FinanceService.IgnoreBankTransaction:output_type -> biz.v1.IgnoreBankTransactionResponse
-	208, // [208:280] is the sub-list for method output_type
-	136, // [136:208] is the sub-list for method input_type
+	136, // 176: biz.v1.FinanceService.GenerateEInvoice:input_type -> biz.v1.GenerateEInvoiceRequest
+	102, // 177: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:input_type -> biz.v1.CreateInvoiceFromTimeEntriesRequest
+	104, // 178: biz.v1.FinanceService.CreateQuoteFromDeal:input_type -> biz.v1.CreateQuoteFromDealRequest
+	106, // 179: biz.v1.FinanceService.GetJournalSummary:input_type -> biz.v1.GetJournalSummaryRequest
+	108, // 180: biz.v1.FinanceService.ValidateInvoiceNumber:input_type -> biz.v1.ValidateInvoiceNumberRequest
+	110, // 181: biz.v1.FinanceService.LockInvoice:input_type -> biz.v1.LockInvoiceRequest
+	112, // 182: biz.v1.FinanceService.GetPaymentStats:input_type -> biz.v1.GetPaymentStatsRequest
+	114, // 183: biz.v1.FinanceService.UpdateDunningStatus:input_type -> biz.v1.UpdateDunningStatusRequest
+	116, // 184: biz.v1.FinanceService.SendDunningNotice:input_type -> biz.v1.SendDunningNoticeRequest
+	118, // 185: biz.v1.FinanceService.GenerateGoBDExport:input_type -> biz.v1.GenerateGoBDExportRequest
+	122, // 186: biz.v1.FinanceService.ArchiveDocument:input_type -> biz.v1.ArchiveDocumentRequest
+	124, // 187: biz.v1.FinanceService.ArchiveInvoiceDocument:input_type -> biz.v1.ArchiveInvoiceDocumentRequest
+	126, // 188: biz.v1.FinanceService.GetGobdDocument:input_type -> biz.v1.GetGobdDocumentRequest
+	128, // 189: biz.v1.FinanceService.ListGobdDocuments:input_type -> biz.v1.ListGobdDocumentsRequest
+	130, // 190: biz.v1.FinanceService.DownloadGobdDocument:input_type -> biz.v1.DownloadGobdDocumentRequest
+	132, // 191: biz.v1.FinanceService.AddDocumentAnnotation:input_type -> biz.v1.AddDocumentAnnotationRequest
+	141, // 192: biz.v1.FinanceService.ImportIncomingInvoice:input_type -> biz.v1.ImportIncomingInvoiceRequest
+	143, // 193: biz.v1.FinanceService.GetIncomingInvoice:input_type -> biz.v1.GetIncomingInvoiceRequest
+	145, // 194: biz.v1.FinanceService.ListIncomingInvoices:input_type -> biz.v1.ListIncomingInvoicesRequest
+	147, // 195: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:input_type -> biz.v1.UpdateIncomingInvoiceStatusRequest
+	150, // 196: biz.v1.FinanceService.CreateRecurringInvoice:input_type -> biz.v1.CreateRecurringInvoiceRequest
+	152, // 197: biz.v1.FinanceService.GetRecurringInvoice:input_type -> biz.v1.GetRecurringInvoiceRequest
+	154, // 198: biz.v1.FinanceService.ListRecurringInvoices:input_type -> biz.v1.ListRecurringInvoicesRequest
+	156, // 199: biz.v1.FinanceService.UpdateRecurringInvoice:input_type -> biz.v1.UpdateRecurringInvoiceRequest
+	158, // 200: biz.v1.FinanceService.DeleteRecurringInvoice:input_type -> biz.v1.DeleteRecurringInvoiceRequest
+	160, // 201: biz.v1.FinanceService.SetRecurringInvoiceStatus:input_type -> biz.v1.SetRecurringInvoiceStatusRequest
+	162, // 202: biz.v1.FinanceService.GenerateRecurringInvoice:input_type -> biz.v1.GenerateRecurringInvoiceRequest
+	166, // 203: biz.v1.FinanceService.ImportBankStatement:input_type -> biz.v1.ImportBankStatementRequest
+	168, // 204: biz.v1.FinanceService.GetBankStatement:input_type -> biz.v1.GetBankStatementRequest
+	170, // 205: biz.v1.FinanceService.ListBankStatements:input_type -> biz.v1.ListBankStatementsRequest
+	172, // 206: biz.v1.FinanceService.ListBankTransactions:input_type -> biz.v1.ListBankTransactionsRequest
+	174, // 207: biz.v1.FinanceService.ReconcileBankTransaction:input_type -> biz.v1.ReconcileBankTransactionRequest
+	176, // 208: biz.v1.FinanceService.IgnoreBankTransaction:input_type -> biz.v1.IgnoreBankTransactionRequest
+	21,  // 209: biz.v1.FinanceService.GetCompanySettings:output_type -> biz.v1.GetCompanySettingsResponse
+	23,  // 210: biz.v1.FinanceService.UpdateCompanySettings:output_type -> biz.v1.UpdateCompanySettingsResponse
+	25,  // 211: biz.v1.FinanceService.CreateQuote:output_type -> biz.v1.CreateQuoteResponse
+	27,  // 212: biz.v1.FinanceService.GetQuote:output_type -> biz.v1.GetQuoteResponse
+	29,  // 213: biz.v1.FinanceService.ListQuotes:output_type -> biz.v1.ListQuotesResponse
+	31,  // 214: biz.v1.FinanceService.UpdateQuote:output_type -> biz.v1.UpdateQuoteResponse
+	33,  // 215: biz.v1.FinanceService.DeleteQuote:output_type -> biz.v1.DeleteQuoteResponse
+	35,  // 216: biz.v1.FinanceService.SendQuote:output_type -> biz.v1.SendQuoteResponse
+	37,  // 217: biz.v1.FinanceService.AcceptQuote:output_type -> biz.v1.AcceptQuoteResponse
+	39,  // 218: biz.v1.FinanceService.RejectQuote:output_type -> biz.v1.RejectQuoteResponse
+	41,  // 219: biz.v1.FinanceService.ExpireQuote:output_type -> biz.v1.ExpireQuoteResponse
+	43,  // 220: biz.v1.FinanceService.ConvertQuoteToInvoice:output_type -> biz.v1.ConvertQuoteToInvoiceResponse
+	45,  // 221: biz.v1.FinanceService.CreateInvoice:output_type -> biz.v1.CreateInvoiceResponse
+	47,  // 222: biz.v1.FinanceService.GetInvoice:output_type -> biz.v1.GetInvoiceResponse
+	49,  // 223: biz.v1.FinanceService.ListInvoices:output_type -> biz.v1.ListInvoicesResponse
+	51,  // 224: biz.v1.FinanceService.UpdateInvoice:output_type -> biz.v1.UpdateInvoiceResponse
+	53,  // 225: biz.v1.FinanceService.SendInvoice:output_type -> biz.v1.SendInvoiceResponse
+	55,  // 226: biz.v1.FinanceService.MarkInvoicePaid:output_type -> biz.v1.MarkInvoicePaidResponse
+	57,  // 227: biz.v1.FinanceService.CancelInvoice:output_type -> biz.v1.CancelInvoiceResponse
+	59,  // 228: biz.v1.FinanceService.CreateCreditNote:output_type -> biz.v1.CreateCreditNoteResponse
+	61,  // 229: biz.v1.FinanceService.GetCreditNote:output_type -> biz.v1.GetCreditNoteResponse
+	63,  // 230: biz.v1.FinanceService.ListCreditNotes:output_type -> biz.v1.ListCreditNotesResponse
+	65,  // 231: biz.v1.FinanceService.SendCreditNote:output_type -> biz.v1.SendCreditNoteResponse
+	67,  // 232: biz.v1.FinanceService.RecordPayment:output_type -> biz.v1.RecordPaymentResponse
+	69,  // 233: biz.v1.FinanceService.ListPayments:output_type -> biz.v1.ListPaymentsResponse
+	71,  // 234: biz.v1.FinanceService.DeletePayment:output_type -> biz.v1.DeletePaymentResponse
+	73,  // 235: biz.v1.FinanceService.ListDunnings:output_type -> biz.v1.ListDunningsResponse
+	75,  // 236: biz.v1.FinanceService.CreateDunning:output_type -> biz.v1.CreateDunningResponse
+	77,  // 237: biz.v1.FinanceService.SendDunning:output_type -> biz.v1.SendDunningResponse
+	79,  // 238: biz.v1.FinanceService.EscalateDunning:output_type -> biz.v1.EscalateDunningResponse
+	81,  // 239: biz.v1.FinanceService.GetDunningConfig:output_type -> biz.v1.GetDunningConfigResponse
+	83,  // 240: biz.v1.FinanceService.UpdateDunningConfig:output_type -> biz.v1.UpdateDunningConfigResponse
+	89,  // 241: biz.v1.FinanceService.ListOpenItems:output_type -> biz.v1.ListOpenItemsResponse
+	91,  // 242: biz.v1.FinanceService.GetFinanceDashboard:output_type -> biz.v1.GetFinanceDashboardResponse
+	93,  // 243: biz.v1.FinanceService.ExportDATEV:output_type -> biz.v1.ExportDATEVResponse
+	95,  // 244: biz.v1.FinanceService.GenerateQuotePDF:output_type -> biz.v1.GenerateQuotePDFResponse
+	97,  // 245: biz.v1.FinanceService.GenerateInvoicePDF:output_type -> biz.v1.GenerateInvoicePDFResponse
+	99,  // 246: biz.v1.FinanceService.GenerateCreditNotePDF:output_type -> biz.v1.GenerateCreditNotePDFResponse
+	101, // 247: biz.v1.FinanceService.GenerateDunningPDF:output_type -> biz.v1.GenerateDunningPDFResponse
+	135, // 248: biz.v1.FinanceService.GenerateZUGFeRDInvoicePDF:output_type -> biz.v1.GenerateZUGFeRDInvoicePDFResponse
+	137, // 249: biz.v1.FinanceService.GenerateEInvoice:output_type -> biz.v1.GenerateEInvoiceResponse
+	103, // 250: biz.v1.FinanceService.CreateInvoiceFromTimeEntries:output_type -> biz.v1.CreateInvoiceFromTimeEntriesResponse
+	105, // 251: biz.v1.FinanceService.CreateQuoteFromDeal:output_type -> biz.v1.CreateQuoteFromDealResponse
+	107, // 252: biz.v1.FinanceService.GetJournalSummary:output_type -> biz.v1.GetJournalSummaryResponse
+	109, // 253: biz.v1.FinanceService.ValidateInvoiceNumber:output_type -> biz.v1.ValidateInvoiceNumberResponse
+	111, // 254: biz.v1.FinanceService.LockInvoice:output_type -> biz.v1.LockInvoiceResponse
+	113, // 255: biz.v1.FinanceService.GetPaymentStats:output_type -> biz.v1.GetPaymentStatsResponse
+	115, // 256: biz.v1.FinanceService.UpdateDunningStatus:output_type -> biz.v1.UpdateDunningStatusResponse
+	117, // 257: biz.v1.FinanceService.SendDunningNotice:output_type -> biz.v1.SendDunningNoticeResponse
+	119, // 258: biz.v1.FinanceService.GenerateGoBDExport:output_type -> biz.v1.GenerateGoBDExportResponse
+	123, // 259: biz.v1.FinanceService.ArchiveDocument:output_type -> biz.v1.ArchiveDocumentResponse
+	125, // 260: biz.v1.FinanceService.ArchiveInvoiceDocument:output_type -> biz.v1.ArchiveInvoiceDocumentResponse
+	127, // 261: biz.v1.FinanceService.GetGobdDocument:output_type -> biz.v1.GetGobdDocumentResponse
+	129, // 262: biz.v1.FinanceService.ListGobdDocuments:output_type -> biz.v1.ListGobdDocumentsResponse
+	131, // 263: biz.v1.FinanceService.DownloadGobdDocument:output_type -> biz.v1.DownloadGobdDocumentResponse
+	133, // 264: biz.v1.FinanceService.AddDocumentAnnotation:output_type -> biz.v1.AddDocumentAnnotationResponse
+	142, // 265: biz.v1.FinanceService.ImportIncomingInvoice:output_type -> biz.v1.ImportIncomingInvoiceResponse
+	144, // 266: biz.v1.FinanceService.GetIncomingInvoice:output_type -> biz.v1.GetIncomingInvoiceResponse
+	146, // 267: biz.v1.FinanceService.ListIncomingInvoices:output_type -> biz.v1.ListIncomingInvoicesResponse
+	148, // 268: biz.v1.FinanceService.UpdateIncomingInvoiceStatus:output_type -> biz.v1.UpdateIncomingInvoiceStatusResponse
+	151, // 269: biz.v1.FinanceService.CreateRecurringInvoice:output_type -> biz.v1.CreateRecurringInvoiceResponse
+	153, // 270: biz.v1.FinanceService.GetRecurringInvoice:output_type -> biz.v1.GetRecurringInvoiceResponse
+	155, // 271: biz.v1.FinanceService.ListRecurringInvoices:output_type -> biz.v1.ListRecurringInvoicesResponse
+	157, // 272: biz.v1.FinanceService.UpdateRecurringInvoice:output_type -> biz.v1.UpdateRecurringInvoiceResponse
+	159, // 273: biz.v1.FinanceService.DeleteRecurringInvoice:output_type -> biz.v1.DeleteRecurringInvoiceResponse
+	161, // 274: biz.v1.FinanceService.SetRecurringInvoiceStatus:output_type -> biz.v1.SetRecurringInvoiceStatusResponse
+	163, // 275: biz.v1.FinanceService.GenerateRecurringInvoice:output_type -> biz.v1.GenerateRecurringInvoiceResponse
+	167, // 276: biz.v1.FinanceService.ImportBankStatement:output_type -> biz.v1.ImportBankStatementResponse
+	169, // 277: biz.v1.FinanceService.GetBankStatement:output_type -> biz.v1.GetBankStatementResponse
+	171, // 278: biz.v1.FinanceService.ListBankStatements:output_type -> biz.v1.ListBankStatementsResponse
+	173, // 279: biz.v1.FinanceService.ListBankTransactions:output_type -> biz.v1.ListBankTransactionsResponse
+	175, // 280: biz.v1.FinanceService.ReconcileBankTransaction:output_type -> biz.v1.ReconcileBankTransactionResponse
+	177, // 281: biz.v1.FinanceService.IgnoreBankTransaction:output_type -> biz.v1.IgnoreBankTransactionResponse
+	209, // [209:282] is the sub-list for method output_type
+	136, // [136:209] is the sub-list for method input_type
 	136, // [136:136] is the sub-list for extension type_name
 	136, // [136:136] is the sub-list for extension extendee
 	0,   // [0:136] is the sub-list for field type_name
@@ -13571,17 +13711,17 @@ func file_proto_biz_v1_biz_proto_init() {
 	file_proto_biz_v1_biz_proto_msgTypes[38].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[42].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[78].OneofWrappers = []any{}
-	file_proto_biz_v1_biz_proto_msgTypes[148].OneofWrappers = []any{}
-	file_proto_biz_v1_biz_proto_msgTypes[156].OneofWrappers = []any{}
-	file_proto_biz_v1_biz_proto_msgTypes[157].OneofWrappers = []any{}
-	file_proto_biz_v1_biz_proto_msgTypes[164].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[150].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[158].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[159].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[166].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_biz_v1_biz_proto_rawDesc), len(file_proto_biz_v1_biz_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   172,
+			NumMessages:   174,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

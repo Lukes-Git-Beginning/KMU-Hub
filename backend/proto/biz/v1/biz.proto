@@ -65,6 +65,7 @@ service FinanceService {
   rpc GenerateCreditNotePDF(GenerateCreditNotePDFRequest) returns (GenerateCreditNotePDFResponse);
   rpc GenerateDunningPDF(GenerateDunningPDFRequest) returns (GenerateDunningPDFResponse);
   rpc GenerateZUGFeRDInvoicePDF(GenerateZUGFeRDInvoicePDFRequest) returns (GenerateZUGFeRDInvoicePDFResponse);
+  rpc GenerateEInvoice(GenerateEInvoiceRequest) returns (GenerateEInvoiceResponse);
 
   // ==================== Time-Tracking → Invoice ====================
   rpc CreateInvoiceFromTimeEntries(CreateInvoiceFromTimeEntriesRequest) returns (CreateInvoiceFromTimeEntriesResponse);
@@ -1196,11 +1197,34 @@ message GenerateZUGFeRDInvoicePDFRequest {
   string tenant_id = 2;
 }
 
-// If ZUGFeRD XML embedding fails, the service returns the plain invoice PDF
-// (graceful degradation) — the caller cannot distinguish the two cases from
-// the response shape alone.
+// A failure to produce a conforming e-invoice (missing EN 16931 field, no
+// company settings, totals drift) is returned as an error — never a plain PDF
+// standing in for the ZUGFeRD one, which the caller could not tell apart from
+// a real e-invoice.
 message GenerateZUGFeRDInvoicePDFResponse {
   bytes pdf_data = 1;
+  string filename = 2;
+}
+
+// ============================================================================
+// Outbound e-invoice generation (E-Rechnung Ausgang)
+// ============================================================================
+
+message GenerateEInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+  // format selects the outbound representation: "xrechnung" (UBL 2.1 XML) or
+  // "zugferd" (PDF with an embedded, declared Factur-X XML attachment).
+  string format = 3;
+  // buyer_reference is BT-10 (Leitweg-ID). Only applies to xrechnung — ZUGFeRD
+  // is delivered in a PDF to a private-sector buyer, who has no routing id.
+  // Supplying it also runs the German CIUS on top of EN 16931, because only a
+  // public-sector buyer requires the routing id in the first place.
+  string buyer_reference = 4;
+}
+
+message GenerateEInvoiceResponse {
+  bytes data = 1;
   string filename = 2;
 }
 
