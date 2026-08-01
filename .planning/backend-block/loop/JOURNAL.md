@@ -187,7 +187,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
 
 ## Iteration 4 — p1a-resolver — done — 2026-08-01 16:04
 
-- commit: <sha>
+- commit: 7b6cfb2e
 - gebaut: die Aufloesung der feinen Capabilities, Repo-Query + Service-Union.
   **Repo** (`internal/auth/postgres_repository.go`): `GetEffectivePermissions(ctx, userID)` liefert
   `[]EffectiveGrantRow` — eine Zeile je (Rolle × feine Capability). Join
