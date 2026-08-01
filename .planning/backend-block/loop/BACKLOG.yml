@@ -168,7 +168,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1a-resolver]
-    status: todo
+    status: done
     scope: >
       `GetEffectivePermissions` im auth-gRPC-Server implementieren (`internal/server/grpc.go`):
       user_id aus dem Request, bei leerem Feld aus `middleware.GetUserID(ctx)`, Service aufrufen,

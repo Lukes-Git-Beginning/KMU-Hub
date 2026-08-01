@@ -216,6 +216,51 @@ func (s *AuthGRPCServer) CheckPermission(ctx context.Context, req *authv1.CheckP
 	return &authv1.CheckPermissionResponse{Allowed: allowed}, nil
 }
 
+// GetEffectivePermissions resolves the caller's (or, for the admin route, a
+// target user's) fine-grained capabilities. An empty user_id means "me" and is
+// resolved from the caller's own JWT via the tenant/user metadata forwarded by
+// TenantInboundUnaryInterceptor — never a silent uuid.Nil, which would read as
+// "user with no roles" instead of "no caller identified".
+func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv1.GetEffectivePermissionsRequest) (*authv1.GetEffectivePermissionsResponse, error) {
+	rawUserID := req.UserId
+	if rawUserID == "" {
+		rawUserID = middleware.GetUserID(ctx)
+	}
+	userID, err := uuid.Parse(rawUserID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	perms, err := s.authService.GetEffectivePermissions(ctx, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	roles := make([]*authv1.EffectiveRole, len(perms.Roles))
+	for i, r := range perms.Roles {
+		roles[i] = &authv1.EffectiveRole{
+			Id:       r.ID.String(),
+			Name:     r.Name,
+			IsSystem: r.IsSystem,
+			Color:    r.Color,
+		}
+	}
+
+	capabilities := make([]*authv1.EffectiveCapability, len(perms.Capabilities))
+	for i, c := range perms.Capabilities {
+		capabilities[i] = &authv1.EffectiveCapability{
+			Key:     c.Key,
+			Scope:   c.Scope,
+			Sources: c.Sources,
+		}
+	}
+
+	return &authv1.GetEffectivePermissionsResponse{
+		Roles:        roles,
+		Capabilities: capabilities,
+	}, nil
+}
+
 func (s *AuthGRPCServer) GetProfile(ctx context.Context, req *authv1.GetProfileRequest) (*authv1.GetProfileResponse, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
