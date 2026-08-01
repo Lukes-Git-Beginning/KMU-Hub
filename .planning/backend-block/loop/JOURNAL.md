@@ -1599,7 +1599,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       17 Map-Eintraege, fuer `admin` um nichts.
 
 ## Iteration 24 — fe-finance-expenses — done — 2026-08-01 21:30 (Nachtlauf 3)
-- commit: siehe unten (feat(finance): add expenses with two-person approval)
+- commit: 8e3ab489
 - gebaut: Ausgaben-Modul komplett von der Tabelle bis zur Route. Migration 000257
   `finance_expenses` (tenant_id NOT NULL + FK auf tenants, RLS mit USING **und** WITH CHECK,
   drei Indizes, CHECK auf status und auf amount > 0); `internal/biz/expense/` (Repository-
