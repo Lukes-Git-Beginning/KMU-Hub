@@ -16,7 +16,7 @@ type Repository interface {
 
 	CreateTicket(ctx context.Context, t *Ticket) error
 	GetTicketByID(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error)
-	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, page, pageSize int) ([]*Ticket, int, error)
+	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error)
 	UpdateTicket(ctx context.Context, t *Ticket) error
 	DeleteTicket(ctx context.Context, id, tenantID uuid.UUID) error
 

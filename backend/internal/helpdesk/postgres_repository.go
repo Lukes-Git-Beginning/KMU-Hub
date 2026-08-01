@@ -80,7 +80,7 @@ func (r *PostgresRepository) GetTicketByID(ctx context.Context, id, tenantID uui
 	return scanTicket(row)
 }
 
-func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, page, pageSize int) ([]*Ticket, int, error) {
+func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error) {
 	offset := (page - 1) * pageSize
 
 	var (
@@ -89,8 +89,14 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	)
 	args = append(args, tenantID)
 	if statusFilter != nil {
-		whereExtra = " AND t.status = $2"
+		whereExtra += fmt.Sprintf(" AND t.status = $%d", len(args)+1)
 		args = append(args, *statusFilter)
+	}
+	// The "own" data scope. Assignment counts as ownership too: an agent who
+	// cannot see the ticket routed to them cannot work it.
+	if participantID != nil {
+		whereExtra += fmt.Sprintf(" AND (t.requester_id = $%d OR t.assignee_id = $%d)", len(args)+1, len(args)+1)
+		args = append(args, *participantID)
 	}
 
 	var total int

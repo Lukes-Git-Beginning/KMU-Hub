@@ -485,7 +485,16 @@ func (s *RapporteGRPCServer) ListPendingApprovals(ctx context.Context, req *rapp
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 
-	reports, total, err := s.svc.ListPendingApprovals(ctx, tenantID, int(req.GetPage()), int(req.GetPageSize()))
+	var authorID *uuid.UUID
+	if req.AuthorId != nil {
+		aid, parseErr := uuid.Parse(*req.AuthorId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid author_id: %v", parseErr)
+		}
+		authorID = &aid
+	}
+
+	reports, total, err := s.svc.ListPendingApprovals(ctx, tenantID, authorID, int(req.GetPage()), int(req.GetPageSize()))
 	if err != nil {
 		return nil, mapRapporteError(err)
 	}

@@ -732,10 +732,14 @@ func (x *GetTicketRequest) GetTicketId() string {
 type ListTicketsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Optional status filter: "open" | "pending" | "solved" | "closed" | "merged"
-	StatusFilter  *string `protobuf:"bytes,1,opt,name=status_filter,json=statusFilter,proto3,oneof" json:"status_filter,omitempty"`
-	Page          int32   `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32   `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	TenantId      string  `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	StatusFilter *string `protobuf:"bytes,1,opt,name=status_filter,json=statusFilter,proto3,oneof" json:"status_filter,omitempty"`
+	Page         int32   `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize     int32   `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	TenantId     string  `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+	// to "own": the list then holds only tickets they raised or are assigned.
+	// Never taken from the request body.
+	ParticipantId *string `protobuf:"bytes,5,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -794,6 +798,13 @@ func (x *ListTicketsRequest) GetPageSize() int32 {
 func (x *ListTicketsRequest) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListTicketsRequest) GetParticipantId() string {
+	if x != nil && x.ParticipantId != nil {
+		return *x.ParticipantId
 	}
 	return ""
 }
@@ -3500,13 +3511,15 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\f_descriptionB\v\n" +
 	"\t_category\"/\n" +
 	"\x10GetTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\x9e\x01\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\xdd\x01\n" +
 	"\x12ListTicketsRequest\x12(\n" +
 	"\rstatus_filter\x18\x01 \x01(\tH\x00R\fstatusFilter\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1b\n" +
-	"\ttenant_id\x18\x04 \x01(\tR\btenantIdB\x10\n" +
-	"\x0e_status_filter\"Z\n" +
+	"\ttenant_id\x18\x04 \x01(\tR\btenantId\x12*\n" +
+	"\x0eparticipant_id\x18\x05 \x01(\tH\x01R\rparticipantId\x88\x01\x01B\x10\n" +
+	"\x0e_status_filterB\x11\n" +
+	"\x0f_participant_id\"Z\n" +
 	"\x13ListTicketsResponse\x12-\n" +
 	"\atickets\x18\x01 \x03(\v2\x13.helpdesk.v1.TicketR\atickets\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\xee\x01\n" +

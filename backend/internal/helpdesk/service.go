@@ -86,16 +86,20 @@ func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticke
 }
 
 // ListTickets returns a paginated list of tickets for a tenant.
+// ListTickets returns one page of the tenant's tickets. A non-nil participantID
+// narrows the page to tickets that user raised or is assigned — what a caller
+// whose helpdesk:ticket:read grant is scoped to "own" may see.
 func (s *Service) ListTickets(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	statusFilter *string,
+	participantID *uuid.UUID,
 	page, pageSize int,
 ) ([]*Ticket, int, error) {
 	if statusFilter != nil && !ValidTicketStatuses[*statusFilter] {
 		return nil, 0, ErrInvalidStatus
 	}
-	tickets, total, err := s.repo.ListTickets(ctx, tenantID, statusFilter, page, pageSize)
+	tickets, total, err := s.repo.ListTickets(ctx, tenantID, statusFilter, participantID, page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list tickets: %w", err)
 	}

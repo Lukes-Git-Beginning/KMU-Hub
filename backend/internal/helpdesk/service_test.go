@@ -46,9 +46,12 @@ func (r *mockRepo) GetTicketByID(_ context.Context, id, _ uuid.UUID) (*Ticket, e
 	}
 	return nil, ErrTicketNotFound
 }
-func (r *mockRepo) ListTickets(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*Ticket, int, error) {
+func (r *mockRepo) ListTickets(_ context.Context, _ uuid.UUID, _ *string, participantID *uuid.UUID, _, _ int) ([]*Ticket, int, error) {
 	var list []*Ticket
 	for _, t := range r.tickets {
+		if participantID != nil && t.RequesterID != *participantID && (t.AssigneeID == nil || *t.AssigneeID != *participantID) {
+			continue
+		}
 		list = append(list, t)
 	}
 	return list, len(list), nil

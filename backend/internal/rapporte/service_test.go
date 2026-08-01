@@ -855,11 +855,34 @@ func TestService_ListPendingApprovals_OnlySubmitted(t *testing.T) {
 	addReport(repo, tenantID, "Sub2", StatusSubmitted)
 	addReport(repo, tenantID, "Approved", StatusApproved)
 
-	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, 1, 50)
+	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, nil, 1, 50)
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, total)
 	assert.Len(t, pending, 2)
+}
+
+// A caller whose rapporte:report:read grant is scoped to "own" gets the queue
+// narrowed to their own submissions — total included, so paging stays honest.
+func TestService_ListPendingApprovals_OwnScopeFiltersByAuthor(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	mine := uuid.New()
+	theirs := uuid.New()
+
+	own := addReport(repo, tenantID, "Mine", StatusSubmitted)
+	own.AuthorID = mine
+	foreign := addReport(repo, tenantID, "Theirs", StatusSubmitted)
+	foreign.AuthorID = theirs
+
+	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, &mine, 1, 50)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, pending, 1)
+	assert.Equal(t, "Mine", pending[0].Title)
 }
 
 // ============================================================================

@@ -159,6 +159,10 @@ message ListTicketsRequest {
   int32 page = 2;
   int32 page_size = 3;
   string tenant_id = 4;
+  // Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+  // to "own": the list then holds only tickets they raised or are assigned.
+  // Never taken from the request body.
+  optional string participant_id = 5;
 }
 
 message ListTicketsResponse {

@@ -381,7 +381,15 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User) (*mode
 	roles, _ := s.repo.GetUserRoles(ctx, user.ID)
 	permissions, _ := s.repo.GetUserPermissions(ctx, user.ID)
 
-	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions)
+	// Unlike roles and permissions above, a failed scope lookup is fatal: an
+	// empty scope map reads as "everything reaches all", so swallowing the
+	// error would hand out a token that shows more rows than it should.
+	scopes, err := s.NarrowedScopes(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve permission scopes: %w", err)
+	}
+
+	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions, scopes)
 	if err != nil {
 		return nil, err
 	}

@@ -571,11 +571,14 @@ func (s *Service) GetReportStats(ctx context.Context, tenantID uuid.UUID) (*Repo
 }
 
 // ListPendingApprovals returns paginated reports in Submitted status.
-func (s *Service) ListPendingApprovals(ctx context.Context, tenantID uuid.UUID, page, pageSize int) ([]*WorkReport, int, error) {
+// A non-nil authorID restricts the queue to that author's own reports, which is
+// what a caller whose rapporte:report:read grant is scoped to "own" may see.
+func (s *Service) ListPendingApprovals(ctx context.Context, tenantID uuid.UUID, authorID *uuid.UUID, page, pageSize int) ([]*WorkReport, int, error) {
 	submitted := StatusSubmitted
 	return s.ListReports(ctx, ListReportsInput{
 		TenantID: tenantID,
 		Status:   &submitted,
+		AuthorID: authorID,
 		Page:     page,
 		PageSize: pageSize,
 	})

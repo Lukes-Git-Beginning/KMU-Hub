@@ -375,6 +375,10 @@ message ListPendingApprovalsRequest {
   string tenant_id = 1;
   int32 page = 2;
   int32 page_size = 3;
+  // Set by the gateway when the caller's rapporte:report:read grant is scoped
+  // to "own": the queue then shows only their own submitted reports. Never
+  // taken from the request body.
+  optional string author_id = 4;
 }
 
 message ExportPDFRequest {

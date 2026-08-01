@@ -53,14 +53,24 @@ type EffectivePermissions struct {
 	Capabilities []EffectiveCapability
 }
 
+// The three data scopes a grant can carry. They answer "how many rows", never
+// "which action" — that is the permission key's job. A guard decides whether a
+// request may run at all; the scope decides how much of the tenant's data the
+// answer may contain.
+const (
+	ScopeOwn  = "own"
+	ScopeTeam = "team"
+	ScopeAll  = "all"
+)
+
 // scopeRank orders the three data scopes from narrowest to widest.
-var scopeRank = map[string]int{"own": 0, "team": 1, "all": 2}
+var scopeRank = map[string]int{ScopeOwn: 0, ScopeTeam: 1, ScopeAll: 2}
 
 // narrowestScope is what an unrecognised scope collapses to. The CHECK
 // constraint on role_permissions.scope makes that unreachable today; should it
 // ever become reachable, granting more than intended is the failure we cannot
 // afford, so the fallback errs downwards.
-const narrowestScope = "own"
+const narrowestScope = ScopeOwn
 
 func normalizeScope(scope string) string {
 	if _, ok := scopeRank[scope]; !ok {
@@ -134,4 +144,36 @@ func (s *Service) GetEffectivePermissions(ctx context.Context, userID uuid.UUID)
 		return strings.Compare(a.Name, b.Name)
 	})
 	return result, nil
+}
+
+// NarrowedScopes returns only those capability keys whose resolved scope is
+// narrower than "all", ready to travel in the access token.
+//
+// Everything absent from the map reaches "all" — that is what lets the map stay
+// small. A member holds ~159 keys of which 15 are narrowed today; carrying all
+// of them would inflate every request header for no gain, and an admin (454
+// keys, every one of them "all") ends up with no scope claim at all.
+//
+// The same asymmetry makes the map safe to read with an "all" default: a key
+// missing from a token minted here genuinely is unrestricted, and a legacy
+// token minted before this claim existed keeps behaving exactly as it did.
+// Narrowing on absence would instead shrink every list for every user still
+// holding a valid old token.
+func (s *Service) NarrowedScopes(ctx context.Context, userID uuid.UUID) (map[string]string, error) {
+	eff, err := s.GetEffectivePermissions(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var scopes map[string]string
+	for _, c := range eff.Capabilities {
+		if c.Scope == ScopeAll {
+			continue
+		}
+		if scopes == nil {
+			scopes = make(map[string]string)
+		}
+		scopes[c.Key] = c.Scope
+	}
+	return scopes, nil
 }

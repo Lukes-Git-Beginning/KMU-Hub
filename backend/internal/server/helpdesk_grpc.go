@@ -96,13 +96,22 @@ func (s *HelpdeskGRPCServer) ListTickets(ctx context.Context, req *helpdeskv1.Li
 		statusFilter = &sf
 	}
 
+	var participantID *uuid.UUID
+	if req.ParticipantId != nil {
+		pid, parseErr := uuid.Parse(req.GetParticipantId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid participant_id")
+		}
+		participantID = &pid
+	}
+
 	page := max(int(req.GetPage()), 1)
 	pageSize := int(req.GetPageSize())
 	if pageSize < 1 {
 		pageSize = 20
 	}
 
-	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, page, pageSize)
+	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, participantID, page, pageSize)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}

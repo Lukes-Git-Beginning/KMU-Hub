@@ -213,6 +213,13 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 	if aid := q.Get("author_id"); aid != "" {
 		grpcReq.AuthorId = &aid
 	}
+	// A grant scoped to "own" overrides the client's author_id filter — after
+	// this point the request can only ever ask for the caller's own reports.
+	if ownerID, ok := ownerFilterForScope(w, r, "rapporte:report", "read"); !ok {
+		return
+	} else if ownerID != nil {
+		grpcReq.AuthorId = ownerID
+	}
 
 	resp, err := client.ListReports(r.Context(), grpcReq)
 	if err != nil {
@@ -782,10 +789,18 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 
 	page, pageSize := parsePagination(r, 1, 50)
 
+	// Same key as the report list, so the same narrowing applies: at scope
+	// "own" the approval queue holds only the caller's own submissions.
+	ownerID, ok := ownerFilterForScope(w, r, "rapporte:report", "read")
+	if !ok {
+		return
+	}
+
 	resp, err := client.ListPendingApprovals(r.Context(), &rapportev1.ListPendingApprovalsRequest{
 		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
+		AuthorId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

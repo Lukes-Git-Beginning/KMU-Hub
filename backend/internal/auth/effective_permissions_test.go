@@ -174,3 +174,51 @@ func TestGetEffectivePermissions_CapabilitiesSortedByKey(t *testing.T) {
 	}
 	assert.Equal(t, []string{"crm:contact:read", "documents:file:read", "work:task:read"}, keys)
 }
+
+// The scopes claim only carries what is actually narrowed. Everything else is
+// absent and read back as "all", which is what keeps an admin's 454 keys out of
+// every request header.
+func TestNarrowedScopes_OmitsAll(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, nil)
+
+	userID := uuid.New()
+	member, manager := uuid.New(), uuid.New()
+	repo.effectiveGrants[userID] = []EffectiveGrantRow{
+		grantRow(member, "member", "rapporte:report:read", "own"),
+		grantRow(member, "member", "helpdesk:ticket:read", "own"),
+		grantRow(member, "member", "wiki:article:edit", "team"),
+		grantRow(member, "member", "work:task:read", "all"),
+		// Widened by a second role: the union resolves to "all", so the key must
+		// not appear as "own" in the token either.
+		grantRow(member, "member", "documents:file:read", "own"),
+		grantRow(manager, "manager", "documents:file:read", "all"),
+	}
+
+	got, err := svc.NarrowedScopes(context.Background(), userID)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{
+		"rapporte:report:read": ScopeOwn,
+		"helpdesk:ticket:read": ScopeOwn,
+		"wiki:article:edit":    ScopeTeam,
+	}, got)
+}
+
+// An admin grants everything at "all", so the claim is dropped from the token
+// entirely (`omitempty`) rather than shipped as an empty object.
+func TestNarrowedScopes_NilWhenNothingIsNarrowed(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, nil)
+
+	userID := uuid.New()
+	role := uuid.New()
+	repo.effectiveGrants[userID] = []EffectiveGrantRow{
+		grantRow(role, "admin", "work:task:read", "all"),
+		grantRow(role, "admin", "crm:contact:read", "all"),
+	}
+
+	got, err := svc.NarrowedScopes(context.Background(), userID)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}

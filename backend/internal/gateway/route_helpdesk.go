@@ -297,6 +297,13 @@ func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Reques
 	if sf := r.URL.Query().Get("status"); sf != "" {
 		grpcReq.StatusFilter = &sf
 	}
+	// At scope "own" the list shrinks to tickets the caller raised or is
+	// assigned — the same rows the ticket detail view would let them open.
+	ownerID, ok := ownerFilterForScope(w, r, "helpdesk:ticket", "read")
+	if !ok {
+		return
+	}
+	grpcReq.ParticipantId = ownerID
 
 	resp, err := client.ListTickets(r.Context(), grpcReq)
 	if err != nil {
