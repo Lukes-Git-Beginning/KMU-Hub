@@ -2160,3 +2160,68 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     existiert, kennt aber die Lead-Spalten nicht. Eigene Unit wert.
   - `lead_temperature` speichert ausschliesslich den manuellen Override; die effektive Temperatur
     wird serverseitig in `toLeadInfo` abgeleitet, damit sie nicht an zwei Orten driftet.
+
+## Iteration 31 — fe-projects-time-entries — done — 2026-08-01 23:45 (Nachtlauf 3)
+- commit: (siehe naechste Journal-Iteration)
+- gebaut:
+  - `GET /api/v1/projects/{id}/time-entries` liefert die abgeschlossenen Zeiteintraege eines
+    Projekts (`{entries:[...]}`, Felder `id/date/task/person/hours/description`). KORREKTUR zur
+    Backlog-Sources-Notiz: `desktop/src/renderer/src/api/clients` existiert nicht — der reale
+    FE-Vertrag ist `useProjectTimeEntries` (`api/hooks/useProjects.ts:507`), Typ `ProjectTimeEntry`.
+    Keine Migration noetig: `tasks.project_id` existiert bereits seit Migration 000025 — die andere
+    Kandidaten-Spalte `hr_work_time_entries.project_id` (000212) gehoert zur ArbZG-Clock-in/out-
+    Tabelle und ist der falsche Join fuer diesen FE-Vertrag (gleiche Verwechslungsgefahr wie bei
+    `fe-finance-time-entries`, Iteration 28).
+  - Neuer RPC `WorkService.ListProjectTimeEntries` (`work.proto`, Request nur `project_id`), im
+    selben Commit regeneriert (`work.pb.go`, `work_grpc.pb.go`). `billed` bleibt bewusst ausserhalb
+    des RPC-Vertrags und wird im Gateway gefiltert — Precedent `ListBillableTimeEntries`.
+  - `internal/work/timeentry`: neue Interface-Methode `Repository.ListByProject` + Postgres-Impl
+    (JOIN `time_entries`/`tasks`/`projects`/`users`, alle drei Tabellen tenant-gescoped ueber
+    `p.tenant_id = $2 AND te.tenant_id = $2`, nur `ended_at IS NOT NULL AND duration_seconds IS
+    NOT NULL` zaehlt) + `Service.ListByProject`-Passthrough. `models.ProjectTimeEntry` neu.
+  - `WorkGRPCServer.ListProjectTimeEntries` (`internal/server/work_grpc.go`) prueft
+    Projekt-Zugehoerigkeit SERVERSEITIG, nicht nur ueber RLS: ruft zuerst `projectService.Get(ctx,
+    projectID, tenantID, uuid.Nil, true)` (dasselbe Muster wie die bestehende `GetProject`-RPC) —
+    ein fremder Tenant oder eine falsche ID landet als `NotFound`, bevor ueberhaupt eine Zeitzeile
+    abgefragt wird. Die Repository-Query filtert zusaetzlich selbst ueber `p.tenant_id` (defense
+    in depth, kein Verlass allein auf RLS).
+  - Gateway: `WorkRoutes.HandleListProjectTimeEntries` (`route_work_time.go`) haengt am bestehenden
+    `projRead`-Guard (`RequirePermissionAny(projects:read, work:project:read)`) unter
+    `/api/v1/projects/{id}/time-entries` in `route_work.go` — kein neuer Permission-Key, keine
+    Seed-Pflicht. `billed=true` liefert konsequent `[]entries` (`lean:`-Marker mit demselben
+    Upgrade-Trigger wie `route_biz_time_entries.go`: Invoice-Erstellung persistiert bisher keine
+    Zeiteintrag-IDs, also kann kein Eintrag als tatsaechlich abgerechnet erkannt werden).
+  - Tests: `TestListByProject_TenantIsolation` (echte DB, `kmuhub_app`) — zwei Projekte DESSELBEN
+    Tenants duerfen sich nicht vermischen (project_id grenzt ein, nicht nur tenant_id: Projekt A
+    sieht nur seinen abgeschlossenen Eintrag, nicht den von Projekt B), ein laufender Timer ohne
+    `ended_at` erscheint nicht, ein fremder Tenant mit der geratenen echten Projekt-ID von A sieht
+    0 Zeilen. Gateway-Wire-Shape-Test `TestToProjectTimeEntryWire_Keys` pinnt die sechs erwarteten
+    Felder und beweist, dass weder `project` noch `billed` noch `employee` (das Finance-Pendant-Feld
+    aus `FinanceTimeEntry`) im Body landen.
+- verify vorgaenger: `344f17de`/`6b570fcc` (fe-leads-lifecycle) gegen alle acht Fehlerklassen
+  geprueft. Alle vier Lead-Routen ueber `c.getCRMClient()`; `crm.proto` + beide `.pb.go` im selben
+  Commit regeneriert; Repository tenant-gescoped (`ct.tenant_id = $1` bzw. `$2`, UPDATE/GetByID mit
+  `AND ct.tenant_id = $2`); keine neue Tabelle (Spalten an `contacts`, bereits RLS-geschuetzt); Guards
+  bestehende `contactRead`/`contactCreate`/`contactEdit`, kein neuer Key, keine Seed-Pflicht.
+  Unabhaengig nachgefahren: `go build -p 2` auf `internal/crm/...`, `internal/gateway/...`,
+  `internal/server/...`, `internal/models/...`, `proto/crm/...`, `cmd/crm/...`, `cmd/gateway/...`
+  gruen. Kein Fund.
+- gate: build ok (`-p 2`: `internal/gateway/...`, `internal/work/...`, `internal/server/...`,
+  `internal/models/...`, `proto/work/...`, `cmd/gateway/...`, `cmd/work/...`) | vet ok | lint ok
+  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app` (verifiziert
+  NOSUPERUSER/NOBYPASSRLS via `pg_roles`): `internal/work/...` (alle 17 Unterpakete inkl.
+  `timeentry`), `internal/gateway/`, `internal/server/...` gruen, **0 SKIP** (per `-v` gezaehlt auf
+  `internal/work/timeentry`: 26 PASS). `TestOpenAPIRouteDrift` gruen: 756 registrierte Routen gegen
+  758 dokumentierte Pfade (+1 gegenueber Iteration 30, wie erwartet).
+  rls-smoke: `TestListByProject_TenantIsolation`, Details oben.
+- offen:
+  - `useProjectTimeEntries`/`useProjectTeamUtilization`/`useProjectGuestOverview` bleiben laut
+    FE-Kommentar "Mock-served (design preview)" — Umstellung auf das echte Backend war nicht Teil
+    dieser Unit (gleiche Lage wie bei den `fe-finance-*`-Units).
+  - `billed` ist dauerhaft `false` bis zur selben Invoice-Zeiteintrag-Verknuepfung, die schon bei
+    `fe-finance-time-entries` (Iteration 28) offen blieb — eine Folge-Unit koennte beide Endpoints
+    in einem Rutsch fixen, sobald die Verknuepfung existiert.
+  - Naechste Unit `fe-projects-team-utilization` haengt an dieser (deps: [fe-projects-time-entries])
+    und braucht eine SQL-Aggregation ueber Zeiteintraege + Sollarbeitszeit — `hr_work_time_entries`
+    (ArbZG) vs. `time_entries` (PM) ist dort erneut zu klaeren, vermutlich ist wieder `time_entries`
+    gemeint (Team-Auslastung nach Projekt, nicht nach Anwesenheit).

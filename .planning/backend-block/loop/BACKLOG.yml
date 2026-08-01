@@ -1271,7 +1271,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/projects/{id}/time-entries` — Zeiteintraege eines Projekts.
     sources:
@@ -1280,6 +1280,32 @@ units:
       LEAN: `time_entries` existiert. Wenn eine `project_id`-Verknuepfung fehlt, ist das der einzige
       Migrationsbedarf. Erst pruefen.
       Read tenant-gescoped, Projekt-Zugehoerigkeit serverseitig pruefen (nicht nur RLS).
+      ---
+      ERLEDIGT Iteration 31. KORREKTUR zur Sources-Notiz: `desktop/src/renderer/src/api/clients`
+      existiert nicht — der reale FE-Vertrag ist `useProjectTimeEntries` in
+      `api/hooks/useProjects.ts:507` (`ProjectTimeEntry{id,date,task,person,hours,description}`,
+      Antwort `{entries:[...]}`, kein `{items,total}`). Keine Migration noetig: `tasks.project_id`
+      existiert bereits seit 000025 (nicht `hr_work_time_entries.project_id` aus 000212 — das ist die
+      ArbZG-Clock-in/out-Tabelle, falscher Join fuer diesen FE-Vertrag, gleiche Verwechslungsgefahr wie
+      bei `fe-finance-time-entries`).
+      Neuer RPC `WorkService.ListProjectTimeEntries` (`work.proto`, `project_id` im Request, `billed`
+      bleibt Gateway-seitig wie bei `ListBillableTimeEntries`), im selben Commit regeneriert
+      (`work.pb.go`/`work_grpc.pb.go`). Repository `timeentry.Repository.ListByProject` (JOIN
+      `time_entries`/`tasks`/`projects`/`users`, alle drei tenant-gescoped, nur abgeschlossene
+      Eintraege `ended_at IS NOT NULL`). `models.ProjectTimeEntry` neu.
+      Projekt-Zugehoerigkeit serverseitig: `WorkGRPCServer.ListProjectTimeEntries` ruft zuerst
+      `projectService.Get(ctx, projectID, tenantID, uuid.Nil, true)` (dasselbe Muster wie `GetProject`)
+      — fremder Tenant oder falsche ID liefert `NotFound`, bevor ueberhaupt eine Zeitzeile abgefragt
+      wird. Zusaetzlich filtert die Repository-Query selbst ueber `p.tenant_id = $2` (defense in depth).
+      Guard: bestehendes `projRead` (`RequirePermissionAny(projects:read, work:project:read)`) auf
+      `/api/v1/projects/{id}/time-entries` — kein neuer Key, kein Seed.
+      `billed` bleibt Gateway-seitig hartkodiert wie in `route_biz_time_entries.go` (`lean:`-Marker,
+      gleicher Upgrade-Trigger: Invoice-Erstellung persistiert bisher keine Zeiteintrag-IDs).
+      Tests: `TestListByProject_TenantIsolation` (echte DB, `kmuhub_app`) — zwei Projekte desselben
+      Tenants duerfen sich nicht vermischen (project_id grenzt ein, nicht nur tenant_id), ein laufender
+      Timer erscheint nicht, ein fremder Tenant mit geratener Projekt-ID sieht 0 Zeilen. Gateway-
+      Wire-Shape-Test `TestToProjectTimeEntryWire_Keys` pinnt die sechs Felder und dass weder `project`
+      noch `billed` noch `employee` (Finance-Pendant) im Body auftauchen.
     done_when:
       - Endpoint liefert die Eintraege des Projekts
       - openapi.yaml im selben Commit

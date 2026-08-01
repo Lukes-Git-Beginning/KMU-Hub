@@ -87,6 +87,7 @@ service WorkService {
   rpc ListTimeEntries(ListTimeEntriesRequest) returns (ListTimeEntriesResponse);
   rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
   rpc ListBillableTimeEntries(ListBillableTimeEntriesRequest) returns (ListBillableTimeEntriesResponse);
+  rpc ListProjectTimeEntries(ListProjectTimeEntriesRequest) returns (ListProjectTimeEntriesResponse);
 
   // Labels
   rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse);
@@ -865,6 +866,27 @@ message ListBillableTimeEntriesRequest {}
 
 message ListBillableTimeEntriesResponse {
   repeated BillableTimeEntryProto entries = 1;
+}
+
+// A completed time entry scoped to one project, with the task title and
+// contributor name resolved, for the project-level "Stunden abrechnen"
+// roll-up (unlike BillableTimeEntryProto, which spans every project of the
+// tenant).
+message ProjectTimeEntryProto {
+  string id = 1;
+  string date = 2;          // YYYY-MM-DD, from started_at
+  string task = 3;
+  string person = 4;
+  double hours = 5;
+  string description = 6;
+}
+
+message ListProjectTimeEntriesRequest {
+  string project_id = 1;
+}
+
+message ListProjectTimeEntriesResponse {
+  repeated ProjectTimeEntryProto entries = 1;
 }
 
 message GetTaskTimeSummaryRequest {

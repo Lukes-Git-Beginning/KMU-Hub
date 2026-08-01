@@ -49,3 +49,13 @@ type BillableTimeEntry struct {
 	TaskTitle   string `json:"task_title"`
 	ProjectName string `json:"project_name"`
 }
+
+// ProjectTimeEntry is a completed time entry scoped to one project, with the
+// task title and contributor name resolved, for the project-level "Stunden
+// abrechnen" roll-up (unlike BillableTimeEntry, which spans every project of
+// the tenant).
+type ProjectTimeEntry struct {
+	TimeEntry
+	UserName  string `json:"user_name"`
+	TaskTitle string `json:"task_title"`
+}

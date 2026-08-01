@@ -88,6 +88,9 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		// either call site — stays on the coarse key only.
 		r.With(projRead).Get("/{id}/preferences", w.HandleGetUserProjectPreference)
 		r.With(middleware.RequirePermission("projects", "write")).Put("/{id}/preferences", w.HandleSetUserProjectPreference)
+
+		// Time entries roll-up ("Stunden abrechnen" dialog).
+		r.With(projRead).Get("/{id}/time-entries", w.HandleListProjectTimeEntries)
 	})
 
 	// Project Statuses (top-level for update/delete by status ID)

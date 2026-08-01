@@ -2001,6 +2001,37 @@ func (s *WorkGRPCServer) ListBillableTimeEntries(ctx context.Context, _ *workv1.
 	return &workv1.ListBillableTimeEntriesResponse{Entries: protos}, nil
 }
 
+// ListProjectTimeEntries serves a single project's "Stunden abrechnen"
+// roll-up. Project affiliation is checked server-side via projectService.Get
+// (tenant + not-found), the same way GetProject does -- not just RLS.
+func (s *WorkGRPCServer) ListProjectTimeEntries(ctx context.Context, req *workv1.ListProjectTimeEntriesRequest) (*workv1.ListProjectTimeEntriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projectID, err := uuid.Parse(req.ProjectId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	entries, err := s.timeEntryService.ListByProject(ctx, projectID, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list project time entries")
+	}
+
+	protos := make([]*workv1.ProjectTimeEntryProto, 0, len(entries))
+	for _, e := range entries {
+		protos = append(protos, projectTimeEntryToProto(&e))
+	}
+
+	return &workv1.ListProjectTimeEntriesResponse{Entries: protos}, nil
+}
+
 // ============================================================================
 // Time Entry Proto Converters
 // ============================================================================
@@ -2020,6 +2051,25 @@ func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeE
 		Project:     e.ProjectName,
 		Task:        e.TaskTitle,
 		Employee:    e.UserName,
+		Hours:       hours,
+		Description: description,
+	}
+}
+
+func projectTimeEntryToProto(e *models.ProjectTimeEntry) *workv1.ProjectTimeEntryProto {
+	var hours float64
+	if e.DurationSeconds != nil {
+		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
+	}
+	description := ""
+	if e.Description != nil {
+		description = *e.Description
+	}
+	return &workv1.ProjectTimeEntryProto{
+		Id:          e.ID.String(),
+		Date:        e.StartedAt.Format("2006-01-02"),
+		Task:        e.TaskTitle,
+		Person:      e.UserName,
 		Hours:       hours,
 		Description: description,
 	}

@@ -126,6 +126,9 @@ func (r *timeentryStubRepo) ListByUser(_ context.Context, _, _ uuid.UUID, _, _ i
 func (r *timeentryStubRepo) ListBillable(_ context.Context, _ uuid.UUID) ([]models.BillableTimeEntry, error) {
 	return nil, nil
 }
+func (r *timeentryStubRepo) ListByProject(_ context.Context, _, _ uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return nil, nil
+}
 func (r *timeentryStubRepo) GetActiveTimer(_ context.Context, _, _ uuid.UUID) (*models.ActiveTimer, error) {
 	return nil, nil
 }

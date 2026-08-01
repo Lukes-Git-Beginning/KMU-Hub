@@ -24,6 +24,10 @@ type Repository interface {
 	// tenant, for invoicing (Stunden -> Rechnung).
 	ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error)
 
+	// ListByProject returns completed entries for a single project's tasks,
+	// for the project-level "Stunden abrechnen" roll-up.
+	ListByProject(ctx context.Context, projectID, tenantID uuid.UUID) ([]models.ProjectTimeEntry, error)
+
 	// Timer
 	GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error)
 	StopActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.TimeEntry, error)

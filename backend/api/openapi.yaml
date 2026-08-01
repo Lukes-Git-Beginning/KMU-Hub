@@ -4476,6 +4476,54 @@ paths:
         "200":
           description: Preference saved
 
+  /api/v1/projects/{id}/time-entries:
+    get:
+      summary: List a project's completed time entries (Stunden abrechnen)
+      description: >
+        Completed time entries whose task belongs to this project, joined
+        with task and contributor names, for the project's hours-to-invoice
+        roll-up.
+      tags: [projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: billed
+          in: query
+          description: "false (default) returns all completed entries; true always returns none -- nothing yet persists which entries an invoice covered."
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Time entries of the project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Work service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/tasks:
     get:
       summary: List tasks with filters
@@ -34650,6 +34698,27 @@ components:
           type: string
         billed:
           type: boolean
+
+    ProjectTimeEntry:
+      type: object
+      description: >
+        A completed time entry scoped to one project's tasks, for that
+        project's "Stunden abrechnen" roll-up.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+        task:
+          type: string
+        person:
+          type: string
+        hours:
+          type: number
+        description:
+          type: string
 
     BankStatementImportResult:
       type: object

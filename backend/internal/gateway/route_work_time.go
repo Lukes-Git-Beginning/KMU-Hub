@@ -226,6 +226,67 @@ func (w *WorkRoutes) HandleListTimeEntries(wr http.ResponseWriter, r *http.Reque
 	response.Proto(wr, http.StatusOK, resp)
 }
 
+// projectTimeEntryWire is the exact shape the desktop client reads
+// (ProjectTimeEntry in useProjects.ts, consumed via useProjectTimeEntries).
+type projectTimeEntryWire struct {
+	ID          string  `json:"id"`
+	Date        string  `json:"date"`
+	Task        string  `json:"task"`
+	Person      string  `json:"person"`
+	Hours       float64 `json:"hours"`
+	Description string  `json:"description"`
+}
+
+// HandleListProjectTimeEntries serves the project-level "Stunden abrechnen"
+// roll-up. GET /api/v1/projects/{id}/time-entries?billed=false
+func (w *WorkRoutes) HandleListProjectTimeEntries(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
+
+	// lean: same gap as GET /finance/time-entries (route_biz_time_entries.go)
+	// -- nothing persists which entries an invoice covered, so every entry is
+	// reported unbilled until that linkage exists. billed=true always reports
+	// none rather than guessing.
+	if r.URL.Query().Get("billed") == "true" {
+		response.JSON(wr, http.StatusOK, map[string]any{"entries": []projectTimeEntryWire{}})
+		return
+	}
+
+	resp, err := client.ListProjectTimeEntries(r.Context(), &workv1.ListProjectTimeEntriesRequest{
+		ProjectId: projectID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	entries := make([]projectTimeEntryWire, 0, len(resp.GetEntries()))
+	for _, e := range resp.GetEntries() {
+		entries = append(entries, toProjectTimeEntryWire(e))
+	}
+
+	response.JSON(wr, http.StatusOK, map[string]any{"entries": entries})
+}
+
+func toProjectTimeEntryWire(e *workv1.ProjectTimeEntryProto) projectTimeEntryWire {
+	return projectTimeEntryWire{
+		ID:          e.GetId(),
+		Date:        e.GetDate(),
+		Task:        e.GetTask(),
+		Person:      e.GetPerson(),
+		Hours:       e.GetHours(),
+		Description: e.GetDescription(),
+	}
+}
+
 func (w *WorkRoutes) HandleGetTaskTimeSummary(wr http.ResponseWriter, r *http.Request) {
 	client, err := w.getWorkClient()
 	if err != nil {

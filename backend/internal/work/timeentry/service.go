@@ -230,3 +230,9 @@ func (s *Service) GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.
 func (s *Service) ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error) {
 	return s.repo.ListBillable(ctx, tenantID)
 }
+
+// ListByProject returns completed time entries for a single project's tasks
+// (project-level "Stunden abrechnen" roll-up).
+func (s *Service) ListByProject(ctx context.Context, projectID, tenantID uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return s.repo.ListByProject(ctx, projectID, tenantID)
+}

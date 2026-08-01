@@ -114,6 +114,10 @@ func (m *mockRepository) ListBillable(_ context.Context, _ uuid.UUID) ([]models.
 	return nil, nil
 }
 
+func (m *mockRepository) ListByProject(_ context.Context, _, _ uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return nil, nil
+}
+
 func (m *mockRepository) GetActiveTimer(_ context.Context, _, _ uuid.UUID) (*models.ActiveTimer, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
