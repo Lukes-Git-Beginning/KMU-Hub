@@ -2227,7 +2227,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     gemeint (Team-Auslastung nach Projekt, nicht nach Anwesenheit).
 
 ## Iteration 32 — fe-projects-team-utilization — done — 2026-08-02 00:05 (Nachtlauf 3)
-- commit: <pending>
+- commit: 3f26f98a
 - gebaut:
   - `GET /api/v1/projects/{id}/team-utilization` liefert das Auslastungs-Aggregat je Projektmitglied:
     Stunden pro Woche (letzte 6 ISO-Wochen) und pro Monat (letzte 3 Monate), inklusive Mitglieder
