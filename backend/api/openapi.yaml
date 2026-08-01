@@ -8621,6 +8621,229 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/bank-accounts:
+    get:
+      summary: List bank accounts (Bankkonten)
+      description: >
+        The accounts the caller's tenant holds, ordered by bank name. There is
+        no pagination: a KMU holds a handful of accounts and the client renders
+        all of them. Balance and lastSync are derived from the newest imported
+        statement of the account's IBAN, so an account without an import
+        reports a zero balance and a null lastSync.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Bank accounts of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Add a bank account
+      description: >
+        The IBAN may be sent grouped or compact; it is normalised and its ISO
+        7064 check digits are verified before it is stored. An account starts
+        disconnected.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankAccountInput"
+      responses:
+        "201":
+          description: The created account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Missing bank name, malformed IBAN, BIC or currency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The tenant already holds an account with this IBAN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-accounts/{id}:
+    patch:
+      summary: Edit a bank account
+      description: >
+        Every field is optional; an omitted one is left untouched. Correcting
+        the IBAN also changes which imported statements the balance is read
+        from — that is the point, an account entered with a typo would
+        otherwise never find its own imports.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankAccountUpdateInput"
+      responses:
+        "200":
+          description: The updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Invalid id, IBAN, BIC or currency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Another account of the tenant already holds this IBAN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Remove a bank account
+      description: >
+        Statements already imported for this IBAN are unaffected — they record
+        what a bank reported and outlive the master-data row.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The account was removed
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-accounts/{id}/connect:
+    post:
+      summary: Mark a bank account as connected
+      description: >
+        Records the outcome of the bank login flow. There is no bank session
+        behind this: the PSD2 handshake is simulated in the desktop client and
+        the real FinAPI integration is a later phase. Connecting an already
+        connected account is a no-op that keeps the original timestamp.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The connected account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/expenses:
     get:
       summary: List expenses (Ausgaben)
@@ -33555,6 +33778,71 @@ components:
           type: string
           format: date-time
 
+    BankAccount:
+      type: object
+      description: >
+        One account a tenant holds. balance and lastSync are read from the
+        newest imported statement of this IBAN and are never stored on the
+        account itself, so a figure shown here is always one this system
+        actually imported.
+      properties:
+        id:
+          type: string
+          format: uuid
+        bankName:
+          type: string
+        iban:
+          type: string
+          description: Grouped in blocks of four for display; stored canonically.
+          example: DE89 3704 0044 0532 0130 00
+        bic:
+          type: string
+        balance:
+          type: number
+          format: double
+          description: Closing balance of the newest imported statement, 0 when none.
+        currency:
+          type: string
+          example: EUR
+        connected:
+          type: boolean
+          description: Master-data flag, not a live bank session.
+        lastSync:
+          type: string
+          format: date
+          nullable: true
+          description: Date of the newest imported statement, null when none.
+    BankAccountInput:
+      type: object
+      required: [bankName, iban]
+      properties:
+        bankName:
+          type: string
+          maxLength: 160
+        iban:
+          type: string
+          description: Grouped or compact; validated with the ISO 7064 mod-97 check.
+        bic:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217; defaults to EUR when omitted.
+          example: EUR
+    BankAccountUpdateInput:
+      type: object
+      description: Partial edit — an omitted field is left untouched.
+      properties:
+        bankName:
+          type: string
+          maxLength: 160
+        iban:
+          type: string
+        bic:
+          type: string
+        currency:
+          type: string
+        connected:
+          type: boolean
     Expense:
       type: object
       description: >

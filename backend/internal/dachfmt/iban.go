@@ -37,6 +37,33 @@ func ValidateIBAN(raw string) bool {
 	return mod97(s) == 1
 }
 
+// NormalizeIBAN returns the canonical form of raw: upper-case, no separators.
+// It does not validate -- pair it with ValidateIBAN when the input comes from
+// outside. Storing this form is what keeps "DE89 3704 …" and "DE893704…" from
+// becoming two rows for one account.
+func NormalizeIBAN(raw string) string {
+	return strings.ToUpper(strings.Join(strings.Fields(raw), ""))
+}
+
+// FormatIBAN groups a canonical IBAN into blocks of four for display, the way a
+// bank statement prints it. Input that is not a plain IBAN is returned
+// unchanged rather than mangled.
+func FormatIBAN(iban string) string {
+	s := NormalizeIBAN(iban)
+	if !ibanShape.MatchString(s) {
+		return iban
+	}
+	var b strings.Builder
+	b.Grow(len(s) + len(s)/4)
+	for i, c := range s {
+		if i > 0 && i%4 == 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(c)
+	}
+	return b.String()
+}
+
 // mod97 computes the ISO 7064 mod-97 remainder of an IBAN. The first four
 // characters are moved to the end, letters are expanded to two-digit numbers
 // (A=10 … Z=35), and the remainder is accumulated digit-group-wise to avoid

@@ -192,6 +192,21 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
 	})
 
+	// Bank accounts (Bankkonten) — Migration 000258.
+	//
+	// Legacy-only guards, same reason as the expenses below: capability-catalog.ts
+	// has no finance:bank-account:* key, so there is no fine key to add
+	// additively yet. connect sits on finance:write because it changes stored
+	// state, not on read.
+	r.Route("/api/v1/finance/bank-accounts", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankAccounts)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateBankAccount)
+		r.With(middleware.RequirePermission("finance", "write")).Patch("/{id}", b.HandleUpdateBankAccount)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/connect", b.HandleConnectBankAccount)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteBankAccount)
+	})
+
 	// Expenses (Ausgaben) — Migration 000257.
 	//
 	// Legacy-only guards: capability-catalog.ts has no finance:expense:* key, so

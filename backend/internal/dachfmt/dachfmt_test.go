@@ -70,6 +70,32 @@ func TestValidateIBAN(t *testing.T) {
 	}
 }
 
+func TestNormalizeAndFormatIBAN(t *testing.T) {
+	// Both spellings of one IBAN must normalise to the same string: that is
+	// what keeps a grouped entry and a compact one from becoming two accounts.
+	const canonical = "DE89370400440532013000"
+	for _, raw := range []string{canonical, "DE89 3704 0044 0532 0130 00", "de89370400440532013000"} {
+		if got := NormalizeIBAN(raw); got != canonical {
+			t.Errorf("NormalizeIBAN(%q) = %q, want %q", raw, got, canonical)
+		}
+	}
+
+	const grouped = "DE89 3704 0044 0532 0130 00"
+	if got := FormatIBAN(canonical); got != grouped {
+		t.Errorf("FormatIBAN(%q) = %q, want %q", canonical, got, grouped)
+	}
+	// Already grouped input regroups rather than doubling the spaces.
+	if got := FormatIBAN(grouped); got != grouped {
+		t.Errorf("FormatIBAN(%q) = %q, want it unchanged", grouped, got)
+	}
+	// Anything that is not IBAN-shaped comes back untouched instead of mangled.
+	for _, raw := range []string{"", "not an iban", "1234"} {
+		if got := FormatIBAN(raw); got != raw {
+			t.Errorf("FormatIBAN(%q) = %q, want it unchanged", raw, got)
+		}
+	}
+}
+
 func TestValidateBIC(t *testing.T) {
 	valid := []string{"DEUTDEFF", "DEUTDEFF500", "DEUTDEFFXXX", "deutdeff", "RZTIAT22263"}
 	for _, s := range valid {

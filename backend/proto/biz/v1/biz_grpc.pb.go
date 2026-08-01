@@ -92,6 +92,11 @@ const (
 	FinanceService_ListBankTransactions_FullMethodName         = "/biz.v1.FinanceService/ListBankTransactions"
 	FinanceService_ReconcileBankTransaction_FullMethodName     = "/biz.v1.FinanceService/ReconcileBankTransaction"
 	FinanceService_IgnoreBankTransaction_FullMethodName        = "/biz.v1.FinanceService/IgnoreBankTransaction"
+	FinanceService_ListBankAccounts_FullMethodName             = "/biz.v1.FinanceService/ListBankAccounts"
+	FinanceService_CreateBankAccount_FullMethodName            = "/biz.v1.FinanceService/CreateBankAccount"
+	FinanceService_UpdateBankAccount_FullMethodName            = "/biz.v1.FinanceService/UpdateBankAccount"
+	FinanceService_DeleteBankAccount_FullMethodName            = "/biz.v1.FinanceService/DeleteBankAccount"
+	FinanceService_ConnectBankAccount_FullMethodName           = "/biz.v1.FinanceService/ConnectBankAccount"
 	FinanceService_CreateExpense_FullMethodName                = "/biz.v1.FinanceService/CreateExpense"
 	FinanceService_ListExpenses_FullMethodName                 = "/biz.v1.FinanceService/ListExpenses"
 	FinanceService_UpdateExpense_FullMethodName                = "/biz.v1.FinanceService/UpdateExpense"
@@ -197,6 +202,12 @@ type FinanceServiceClient interface {
 	ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error)
+	// ==================== Bank accounts (Bankkonten) ====================
+	ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error)
+	CreateBankAccount(ctx context.Context, in *CreateBankAccountRequest, opts ...grpc.CallOption) (*CreateBankAccountResponse, error)
+	UpdateBankAccount(ctx context.Context, in *UpdateBankAccountRequest, opts ...grpc.CallOption) (*UpdateBankAccountResponse, error)
+	DeleteBankAccount(ctx context.Context, in *DeleteBankAccountRequest, opts ...grpc.CallOption) (*DeleteBankAccountResponse, error)
+	ConnectBankAccount(ctx context.Context, in *ConnectBankAccountRequest, opts ...grpc.CallOption) (*ConnectBankAccountResponse, error)
 	// ==================== Expenses (Ausgaben) ====================
 	CreateExpense(ctx context.Context, in *CreateExpenseRequest, opts ...grpc.CallOption) (*CreateExpenseResponse, error)
 	ListExpenses(ctx context.Context, in *ListExpensesRequest, opts ...grpc.CallOption) (*ListExpensesResponse, error)
@@ -944,6 +955,56 @@ func (c *financeServiceClient) IgnoreBankTransaction(ctx context.Context, in *Ig
 	return out, nil
 }
 
+func (c *financeServiceClient) ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankAccountsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) CreateBankAccount(ctx context.Context, in *CreateBankAccountRequest, opts ...grpc.CallOption) (*CreateBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateBankAccount(ctx context.Context, in *UpdateBankAccountRequest, opts ...grpc.CallOption) (*UpdateBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteBankAccount(ctx context.Context, in *DeleteBankAccountRequest, opts ...grpc.CallOption) (*DeleteBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ConnectBankAccount(ctx context.Context, in *ConnectBankAccountRequest, opts ...grpc.CallOption) (*ConnectBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConnectBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ConnectBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) CreateExpense(ctx context.Context, in *CreateExpenseRequest, opts ...grpc.CallOption) (*CreateExpenseResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateExpenseResponse)
@@ -1101,6 +1162,12 @@ type FinanceServiceServer interface {
 	ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error)
+	// ==================== Bank accounts (Bankkonten) ====================
+	ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error)
+	CreateBankAccount(context.Context, *CreateBankAccountRequest) (*CreateBankAccountResponse, error)
+	UpdateBankAccount(context.Context, *UpdateBankAccountRequest) (*UpdateBankAccountResponse, error)
+	DeleteBankAccount(context.Context, *DeleteBankAccountRequest) (*DeleteBankAccountResponse, error)
+	ConnectBankAccount(context.Context, *ConnectBankAccountRequest) (*ConnectBankAccountResponse, error)
 	// ==================== Expenses (Ausgaben) ====================
 	CreateExpense(context.Context, *CreateExpenseRequest) (*CreateExpenseResponse, error)
 	ListExpenses(context.Context, *ListExpensesRequest) (*ListExpensesResponse, error)
@@ -1336,6 +1403,21 @@ func (UnimplementedFinanceServiceServer) ReconcileBankTransaction(context.Contex
 }
 func (UnimplementedFinanceServiceServer) IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IgnoreBankTransaction not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankAccounts not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateBankAccount(context.Context, *CreateBankAccountRequest) (*CreateBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateBankAccount(context.Context, *UpdateBankAccountRequest) (*UpdateBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteBankAccount(context.Context, *DeleteBankAccountRequest) (*DeleteBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) ConnectBankAccount(context.Context, *ConnectBankAccountRequest) (*ConnectBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConnectBankAccount not implemented")
 }
 func (UnimplementedFinanceServiceServer) CreateExpense(context.Context, *CreateExpenseRequest) (*CreateExpenseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateExpense not implemented")
@@ -2690,6 +2772,96 @@ func _FinanceService_IgnoreBankTransaction_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_ListBankAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankAccounts(ctx, req.(*ListBankAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_CreateBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateBankAccount(ctx, req.(*CreateBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateBankAccount(ctx, req.(*UpdateBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteBankAccount(ctx, req.(*DeleteBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ConnectBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ConnectBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ConnectBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ConnectBankAccount(ctx, req.(*ConnectBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_CreateExpense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateExpenseRequest)
 	if err := dec(in); err != nil {
@@ -3096,6 +3268,26 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IgnoreBankTransaction",
 			Handler:    _FinanceService_IgnoreBankTransaction_Handler,
+		},
+		{
+			MethodName: "ListBankAccounts",
+			Handler:    _FinanceService_ListBankAccounts_Handler,
+		},
+		{
+			MethodName: "CreateBankAccount",
+			Handler:    _FinanceService_CreateBankAccount_Handler,
+		},
+		{
+			MethodName: "UpdateBankAccount",
+			Handler:    _FinanceService_UpdateBankAccount_Handler,
+		},
+		{
+			MethodName: "DeleteBankAccount",
+			Handler:    _FinanceService_DeleteBankAccount_Handler,
+		},
+		{
+			MethodName: "ConnectBankAccount",
+			Handler:    _FinanceService_ConnectBankAccount_Handler,
 		},
 		{
 			MethodName: "CreateExpense",

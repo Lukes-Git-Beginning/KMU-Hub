@@ -119,6 +119,13 @@ service FinanceService {
   rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
   rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
 
+  // ==================== Bank accounts (Bankkonten) ====================
+  rpc ListBankAccounts(ListBankAccountsRequest) returns (ListBankAccountsResponse);
+  rpc CreateBankAccount(CreateBankAccountRequest) returns (CreateBankAccountResponse);
+  rpc UpdateBankAccount(UpdateBankAccountRequest) returns (UpdateBankAccountResponse);
+  rpc DeleteBankAccount(DeleteBankAccountRequest) returns (DeleteBankAccountResponse);
+  rpc ConnectBankAccount(ConnectBankAccountRequest) returns (ConnectBankAccountResponse);
+
   // ==================== Expenses (Ausgaben) ====================
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
@@ -1681,4 +1688,84 @@ message AttachExpenseReceiptRequest {
 
 message AttachExpenseReceiptResponse {
   Expense expense = 1;
+}
+
+// ============================================================================
+// Bank accounts (Bankkonten) — Migration 000258
+// ============================================================================
+
+message BankAccount {
+  string id        = 1;
+  string tenant_id = 2;
+  string bank_name = 3;
+  // Canonical IBAN: upper-case, no separators. Group it for display at the
+  // edge, do not carry a second grouped copy.
+  string iban     = 4;
+  string bic      = 5;
+  string currency = 6;
+  // Master-data flag, not a live bank session — the real PSD2 link is P5.
+  bool connected = 7;
+  optional google.protobuf.Timestamp connected_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  // Derived from the newest imported statement of this IBAN, never stored.
+  // "0.00" and an absent last_sync mean nothing has been imported yet.
+  string balance = 11;   // Decimal as string
+  optional string last_sync = 12;  // Date string YYYY-MM-DD
+}
+
+message ListBankAccountsRequest {
+  string tenant_id = 1;
+}
+
+// No pagination: a KMU holds a handful of accounts and the client renders all
+// of them as cards.
+message ListBankAccountsResponse {
+  repeated BankAccount accounts = 1;
+}
+
+message CreateBankAccountRequest {
+  string tenant_id = 1;
+  string bank_name = 2;
+  // Accepted grouped or compact; normalised and mod-97 checked by the service.
+  string iban     = 3;
+  string bic      = 4;
+  // ISO 4217; empty defaults to EUR.
+  string currency = 5;
+}
+
+message CreateBankAccountResponse {
+  BankAccount account = 1;
+}
+
+// UpdateBankAccountRequest mirrors a partial edit: an absent field stays
+// untouched rather than being cleared.
+message UpdateBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  optional string bank_name = 3;
+  optional string iban      = 4;
+  optional string bic       = 5;
+  optional string currency  = 6;
+  optional bool   connected = 7;
+}
+
+message UpdateBankAccountResponse {
+  BankAccount account = 1;
+}
+
+message DeleteBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteBankAccountResponse {}
+
+message ConnectBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message ConnectBankAccountResponse {
+  BankAccount account = 1;
 }

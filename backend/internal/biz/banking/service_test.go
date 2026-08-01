@@ -3,6 +3,7 @@ package banking
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,8 +18,10 @@ import (
 type fakeRepo struct {
 	statements map[string]*models.BankStatement // keyed by content hash
 	txs        map[uuid.UUID][]*models.BankTransaction
+	accounts   map[uuid.UUID]*models.BankAccount
 	createErr  error
 	updateErr  error
+	accountErr error
 	creates    int
 }
 
@@ -26,6 +29,7 @@ func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		statements: map[string]*models.BankStatement{},
 		txs:        map[uuid.UUID][]*models.BankTransaction{},
+		accounts:   map[uuid.UUID]*models.BankAccount{},
 	}
 }
 
@@ -80,6 +84,78 @@ func (f *fakeRepo) ListTransactionsByStatement(_ context.Context, _, statementID
 
 func (f *fakeRepo) UpdateTransactionMatch(_ context.Context, _ *models.BankTransaction) error {
 	return f.updateErr
+}
+
+// Bank accounts (Migration 000258). Backed by a map so the account tests can
+// drive create/read/update/delete without a database; the statement tests above
+// never touch them.
+
+func (f *fakeRepo) CreateAccount(_ context.Context, acc *models.BankAccount) error {
+	if f.accountErr != nil {
+		return f.accountErr
+	}
+	for _, existing := range f.accounts {
+		if existing.TenantID == acc.TenantID && existing.IBAN == acc.IBAN {
+			return ErrAccountExists
+		}
+	}
+	if acc.ID == uuid.Nil {
+		acc.ID = uuid.New()
+	}
+	if f.accounts == nil {
+		f.accounts = map[uuid.UUID]*models.BankAccount{}
+	}
+	stored := *acc
+	f.accounts[acc.ID] = &stored
+	return nil
+}
+
+func (f *fakeRepo) GetAccount(_ context.Context, tenantID, id uuid.UUID) (*models.BankAccount, error) {
+	acc, ok := f.accounts[id]
+	if !ok || acc.TenantID != tenantID {
+		return nil, ErrAccountNotFound
+	}
+	out := *acc
+	return &out, nil
+}
+
+func (f *fakeRepo) ListAccounts(_ context.Context, tenantID uuid.UUID) ([]*models.BankAccount, error) {
+	out := make([]*models.BankAccount, 0, len(f.accounts))
+	for _, acc := range f.accounts {
+		if acc.TenantID == tenantID {
+			copied := *acc
+			out = append(out, &copied)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].IBAN < out[j].IBAN })
+	return out, nil
+}
+
+func (f *fakeRepo) UpdateAccount(_ context.Context, acc *models.BankAccount) error {
+	if f.accountErr != nil {
+		return f.accountErr
+	}
+	existing, ok := f.accounts[acc.ID]
+	if !ok || existing.TenantID != acc.TenantID {
+		return ErrAccountNotFound
+	}
+	for id, other := range f.accounts {
+		if id != acc.ID && other.TenantID == acc.TenantID && other.IBAN == acc.IBAN {
+			return ErrAccountExists
+		}
+	}
+	stored := *acc
+	f.accounts[acc.ID] = &stored
+	return nil
+}
+
+func (f *fakeRepo) DeleteAccount(_ context.Context, tenantID, id uuid.UUID) error {
+	acc, ok := f.accounts[id]
+	if !ok || acc.TenantID != tenantID {
+		return ErrAccountNotFound
+	}
+	delete(f.accounts, id)
+	return nil
 }
 
 type fakeOpenItems struct {

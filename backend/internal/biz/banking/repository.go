@@ -22,6 +22,18 @@ var (
 	// ErrNotACredit is returned when a debit is to be booked against a
 	// receivable. Money leaving the account cannot settle an invoice.
 	ErrNotACredit = errors.New("banking: only a credit can settle a receivable")
+	// ErrAccountNotFound is returned when no bank account carries the given id
+	// within the tenant.
+	ErrAccountNotFound = errors.New("banking: bank account not found")
+	// ErrAccountExists is returned when the tenant already holds an account
+	// with that IBAN.
+	ErrAccountExists = errors.New("banking: an account with this IBAN already exists")
+	// ErrInvalidIBAN is returned when the given IBAN fails the ISO 7064 check
+	// or is not a shape this system knows.
+	ErrInvalidIBAN = errors.New("banking: invalid IBAN")
+	// ErrInvalidAccount is returned when a required field of an account is
+	// missing or malformed.
+	ErrInvalidAccount = errors.New("banking: invalid bank account")
 )
 
 // Repository persists imported statements and their transactions. Every method
@@ -46,6 +58,29 @@ type Repository interface {
 	// UpdateTransactionMatch writes the reconciliation state. It only touches
 	// the match columns; what the bank reported stays as imported.
 	UpdateTransactionMatch(ctx context.Context, tx *models.BankTransaction) error
+
+	// Bank accounts (Migration 000258). The master data the statements above
+	// attach to. Balance and LastSync are read from the newest statement of the
+	// account's IBAN, so the two never disagree about what was imported.
+
+	// CreateAccount writes a new account. Returns ErrAccountExists when the
+	// tenant already holds that IBAN -- decided by the unique constraint, not by
+	// a preceding lookup, because two concurrent creates would race past one.
+	CreateAccount(ctx context.Context, acc *models.BankAccount) error
+	// GetAccount resolves one account. Returns ErrAccountNotFound when the id
+	// does not belong to the tenant.
+	GetAccount(ctx context.Context, tenantID, id uuid.UUID) (*models.BankAccount, error)
+	// ListAccounts returns the tenant's accounts ordered by bank name. There is
+	// no pagination: a KMU holds a handful of accounts and the frontend renders
+	// them all as cards.
+	ListAccounts(ctx context.Context, tenantID uuid.UUID) ([]*models.BankAccount, error)
+	// UpdateAccount writes the mutable master-data fields and the connected
+	// flag. Returns ErrAccountNotFound when the row is not the tenant's, and
+	// ErrAccountExists when the new IBAN collides.
+	UpdateAccount(ctx context.Context, acc *models.BankAccount) error
+	// DeleteAccount removes an account. Imported statements are unaffected:
+	// they record what a bank reported and outlive the master-data row.
+	DeleteAccount(ctx context.Context, tenantID, id uuid.UUID) error
 }
 
 // OpenItemReader supplies the receivables a credit can be matched against. It is
