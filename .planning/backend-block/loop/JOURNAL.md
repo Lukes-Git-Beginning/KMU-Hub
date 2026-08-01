@@ -1682,3 +1682,114 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       niemanden mehr vergleichen). Bei `pending`-Zeilen eines geloeschten Users ist das
       vertretbar, wenn es auffaellt — sonst muesste die Zeile beim User-Delete auf
       `rejected` laufen.
+
+## Iteration 25 — fe-finance-bank-accounts — done — 2026-08-01 21:50 (Nachtlauf 3)
+- gebaut: Bankkonten-Stammdaten von der Tabelle bis zur Route. Migration 000258
+  `finance_bank_accounts` (tenant_id NOT NULL + FK auf tenants, RLS mit USING **und** WITH CHECK,
+  `UNIQUE (tenant_id, iban)`, CHECK dass die IBAN kanonisch ist, CHECK auf ISO-4217-Form der
+  Waehrung) plus ein Index auf `finance_bank_statements (tenant_id, account_iban, statement_date
+  DESC, created_at DESC)`; `models.BankAccount`; Repo- und Service-Methoden **im bestehenden
+  Paket `internal/biz/banking`** (nicht daneben); fuenf RPCs am FinanceService
+  (`ListBankAccounts`/`CreateBankAccount`/`UpdateBankAccount`/`DeleteBankAccount`/
+  `ConnectBankAccount`) mit Regen im selben Commit; `internal/server/biz_grpc_bankaccount.go`;
+  fuenf Gateway-Routen in `route_biz_bank_accounts.go` plus vier openapi.yaml-Pfade und drei
+  Schemas.
+- lean-fund vorab: das Backlog liest sich wie ein Neubau, aber `internal/biz/banking` existiert
+  bereits (Migration 000247: Auszugs-Import CAMT.053/MT940 + Matcher). Es fehlte nur der
+  Kontenstamm — `finance_bank_statements.account_iban` ist Freitext aus der hochgeladenen Datei.
+  Deshalb kein neues Paket: die Saldo-Ableitung liest die Statements-Tabelle, die diesem Paket
+  gehoert; ein Fremdpaket haette quer hineingegriffen. Der IBAN-Validator kam aus
+  `internal/dachfmt` (S4.1), nicht neu geschrieben — nur `NormalizeIBAN`/`FormatIBAN` daneben
+  ergaenzt (je ~8 Zeilen, gehoeren fachlich genau dorthin).
+- fachliche entscheidungen (alle begruendet, keine aus dem Backlog uebernommen):
+  - KEINE `balance`-SPALTE. Der FE-Typ verlangt `balance: number`, aber eine gespeicherte Zahl
+    waere nur im Moment des Schreibens wahr und wuerde danach still zur Luege altern — und der
+    Buchhalter kann eine gealterte Zahl nicht von einer echten unterscheiden. Der Saldo kommt per
+    `LEFT JOIN LATERAL` aus dem `closing_balance` des juengsten importierten Auszugs derselben
+    IBAN, `last_sync` aus dessen `statement_date`. Ohne Import: `0.00` und `lastSync: null` — das
+    ist, was das System ehrlich weiss. Der Test dazu treibt genau das (kein Auszug -> 0, juengerer
+    Auszug gewinnt, fremder Tenant mit derselben IBAN bleibt unsichtbar).
+  - IBAN KANONISCH GESPEICHERT (Upper-Case, ohne Trennzeichen), gruppiert erst beim Ausliefern
+    (`dachfmt.FormatIBAN`). Grund: ein Mensch tippt "DE89 3704 …", eine CAMT.053-Datei traegt
+    "DE89370400440532013000". Duerften beide Formen in die Tabelle, existierte dasselbe Konto
+    zweimal und der Saldo verteilte sich auf die Kopien. Ein CHECK in der Migration haelt die
+    Spalte kanonisch, auch gegen einen kuenftigen Direkt-INSERT. Test:
+    `TestCreateAccount_SameIBANDifferentSpellingCollides`.
+  - MOD-97 SERVERSEITIG, nicht nur am Rand. Eine IBAN mit einer vertauschten Ziffer ist formal
+    speicherbar, findet aber nie einen ihrer Auszuege — und nichts sagte, warum. Deshalb im
+    Service (`ErrInvalidIBAN`) und zusaetzlich als `validate:"iban"` am Gateway, damit der Nutzer
+    einen Feldfehler statt eines nackten 400 aus dem RPC bekommt.
+  - IBAN-KORREKTUR ERLAUBT und sie verschiebt bewusst den Saldo: ein mit Tippfehler angelegtes
+    Konto bliebe sonst fuer immer von seinen eigenen Importen getrennt. `UpdateAccount` liest nach
+    dem Schreiben neu, damit die Antwort den Saldo der NEUEN IBAN traegt statt den der alten.
+  - `connect` IST EIN FLAG, keine Bankverbindung. Der PSD2-Handshake ist im Desktop-Client
+    simuliert (`BankConnectDialog.tsx`, "echte Anbindung folgt mit FinAPI (P5)"). Ein zweiter
+    Aufruf haelt den urspruenglichen Zeitstempel (der Dialog ist wieder oeffenbar); ein Disconnect
+    loescht `connected_at`, sonst liesse sich ein spaeteres Reconnect als "war die ganze Zeit
+    verbunden" lesen. `lean:`-Marker mit Upgrade-Trigger steht an `Service.ConnectAccount`.
+  - KEIN LOGGING VON KONTODATEN. Weder Service noch gRPC-Handler schreiben IBAN, BIC oder
+    Bankname in ein Log, auch nicht auf Debug — nur `account_id` und `tenant_id`. Als Kommentar am
+    Paketkopf beider Dateien festgehalten, damit es nicht beim naechsten Anfassen zurueckkommt.
+- scope-abweichung, bewusst: der MSW-Mock kennt nur `GET /bank-accounts` und
+  `POST /bank-accounts/{id}/connect` — es gibt im FE keinen Anlege-Dialog. Gebaut wurden trotzdem
+  POST/PATCH/DELETE (Backlog-Scope), denn ohne sie waere die Liste in Produktion fuer immer leer
+  und Konten kaemen nur per SQL in die Datenbank. `connect` ist mitgebaut, weil das FE sonst
+  gegen 404 laeuft.
+- wire-shape (gegen `types/finance-types.ts:386` geprueft, nicht geraten): Liste
+  `{accounts: [...]}` (leer als `[]`, nicht `null`), Einzelentitaet `{account}`, DELETE `{}`.
+  Felder camelCase (`bankName`, `lastSync`), `balance` als JSON-**Zahl**. `lastSync` ist ein
+  NICHT-`omitempty` Pointer: der FE-Typ ist `string | null` und rendert den
+  Nie-synchronisiert-Fall aus dem `null` — ein fehlender Key liefe dort in `undefined`. Zwei
+  Tests darauf (`route_biz_bank_accounts_test.go`), inklusive der Gegenprobe, dass
+  `tenant_id`/`tenantId` nicht in die Antwort lecken.
+- guards: bestehende `RequirePermission("finance","read"/"write"/"delete")`, kein neuer Key und
+  damit keine Seed-Pflicht. `capability-catalog.ts` hat keinen `finance:bank-account:*`-Key —
+  ein additives `RequirePermissionAny` haette einen Key versprochen, den niemand bekommt.
+  `connect` liegt auf `write`, nicht auf `read`: es aendert gespeicherten Zustand.
+- gate: build ok (`-p 2`, `./internal/biz/banking/... ./internal/server/... ./internal/gateway/...
+  ./internal/dachfmt/... ./cmd/biz/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok
+  mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/biz/banking/...` (11 Testfunktionen, davon
+  3 echte DB-Tests — im `-v`-Lauf verifiziert, **null Skips**), `./internal/dachfmt/...`,
+  `./internal/gateway/` und `./internal/server/...` gruen. TestOpenAPIRouteDrift gruen:
+  747 registrierte Routen gegen 749 dokumentierte Pfade. gofmt sauber auf allen neuen Dateien
+  (die zehn gemeldeten Bestandsdateien in `internal/biz/banking` sind das bekannte
+  CRLF-Checkout-Artefakt — mit `cat -A` verifiziert, ganze Datei als `^M`-Diff, kein inhaltlicher
+  Fund).
+- migration: 000258 up, `down 1` und wieder up lokal sauber durchgelaufen, Kopf zurueck auf 258.
+  Prod steht auf 243 — dieser Commit erhoeht den Nachhol-Stapel um eine Migration.
+- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS, alles in einer zurueckgerollten
+  Transaktion): eigener Tenant **1** Konto, fremder Tenant **0**, der abgeleitete Saldo lieferte
+  **1234.56** (den eigenen Auszug) und nicht die **999999.99** des Fremd-Tenants mit derselben
+  IBAN — das ist der eigentliche Beweis, dass die laterale Statement-Query nicht ueber die
+  Tenant-Grenze liest. Ein INSERT mit fremder `tenant_id` wurde von der WITH-CHECK-Klausel
+  **abgelehnt**. Zusaetzlich im Go-Test: fremde ID liest als ErrAccountNotFound, fremde ID laesst
+  sich nicht loeschen, die Zeile ist danach fuer ihren Besitzer noch da, und dieselbe IBAN unter
+  zwei Tenants ist erlaubt (Unique ist per Tenant).
+- test-hygiene: `t.Cleanup(pool.Close)` statt `defer pool.Close()`. Beim ersten Lauf meldeten die
+  Zeilen-Cleanups "closed pool" — `t.Cleanup` der Fixtures laeuft NACH einem `defer` der
+  Testfunktion, die Testdaten waeren also liegen geblieben. Mit `t.Cleanup` greift LIFO und der
+  Pool lebt noch, wenn aufgeraeumt wird. (Der Expense-Test loest dasselbe andersherum per
+  `defer` an den Fixtures — beides geht, mischen nicht.)
+- verify vorgaenger: `8e3ab489` (fe-finance-expenses) gegen die Fehlerklassen geprueft. Alle
+  sieben Handler gehen ueber `b.getBizClient()` (kein Layer-Bypass); jeder SELECT/UPDATE/DELETE in
+  `expense/postgres_repository.go` traegt `tenant_id = $1`; `.proto` und beide `.pb.go` im selben
+  Commit; openapi.yaml im selben Commit; Migration mit up UND down; einziger `Unimplemented` ist
+  der `requireExpense()`-nil-Guard, also erwartete Boilerplate. Kein Fund.
+- offen fuer Luke:
+  (1) KEIN FEINER CAPABILITY-KEY, gleiche Lage wie bei den Ausgaben: `finance:bank-account:*`
+      fehlt in `capability-catalog.ts`. Wer `finance:read` hat, sieht alle Konten des Tenants —
+      inklusive IBAN und Saldo. Fuer ein KMU mit getrennter Buchhaltung ist das vermutlich zu
+      grob; ein eigener Key waere hier wertvoller als bei den Ausgaben.
+  (2) DER MOCK BLEIBT AKTIV. `handlers/finance.ts` beantwortet `/finance/bank-accounts` weiterhin
+      aus `mockBanking.accounts`. Das Umschalten des FE auf das echte Backend war nicht Teil
+      dieser Unit — es faellt auf, sobald jemand die Liste real leer sieht.
+  (3) KEIN ANLEGE-DIALOG IM FE. POST/PATCH/DELETE existieren jetzt serverseitig, aber das
+      Frontend hat kein Formular dafuer (`BankConnectDialog` verbindet nur ein bestehendes
+      Konto). Bis das nachkommt, kommen Konten nur per API-Aufruf in die Datenbank.
+  (4) SALDO NUR SO FRISCH WIE DER LETZTE IMPORT. Das ist Absicht (siehe oben), aber es heisst:
+      wer nie einen Auszug hochlaedt, sieht dauerhaft `0,00 €` — auch bei einem verbundenen
+      Konto. Wenn das im Pilot als Fehler gelesen wird, ist die Antwort ein Hinweis in der UI
+      ("noch kein Auszug importiert"), nicht eine manuell gepflegte Saldo-Spalte.
+  (5) `connected` OHNE FOLGEN. Ein verbundenes Konto tut heute nichts anderes als ein
+      unverbundenes — kein Polling, kein automatischer Abruf. Der Upgrade-Trigger steht als
+      `lean:`-Marker an `Service.ConnectAccount`.

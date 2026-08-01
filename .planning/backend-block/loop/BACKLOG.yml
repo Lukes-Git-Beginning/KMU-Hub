@@ -963,7 +963,7 @@ units:
     service: finance
     model: opus
     deps: [fe-finance-expenses]
-    status: todo
+    status: done
     scope: >
       Bankkonten: `GET/POST/PATCH/DELETE /api/v1/finance/bank-accounts`.
     sources:
@@ -1022,10 +1022,32 @@ units:
       schreiben, sonst driftet der Rechnungsstatus bei einem Fehler in der Mitte.
       Bestehende Zahlungs-/Rechnungslogik im finance-Service wiederverwenden, keine zweite
       Statusmaschine danebenbauen.
+
+      SCOPE-KORREKTUR (Fund aus `fe-finance-bank-accounts`, 2026-08-01): **Das meiste existiert
+      schon.** Migration 000247 hat `finance_bank_transactions` inkl. RLS, `internal/biz/banking`
+      hat Import + Matcher + `ReconcileTransaction`/`IgnoreTransaction`, und im Gateway sind
+      `GET /api/v1/finance/bank-transactions`, `POST .../{id}/reconcile` und `POST .../{id}/ignore`
+      bereits registriert (`route_biz.go`, Guards `finance:read`/`finance:write`). Diese Unit ist
+      deshalb **KEINE neue Migration und kein neuer Service** — sie ist:
+      (a) die zwei Routennamen, die das FE wirklich ruft (`financeBankingApi.matchTransaction` ->
+          `POST .../{id}/match` mit optionalem `{invoice_number}`, `rejectMatch` ->
+          `POST .../{id}/reject-match`) auf die vorhandenen RPCs legen — oder begruenden, warum
+          stattdessen das FE auf `reconcile`/`ignore` gezogen wird. Nicht beide Namenspaare
+          nebeneinander stehen lassen.
+      (b) die Wire-Shape: der FE-Typ `BankTransaction` (`types/finance-types.ts:397`) ist flach und
+          camelCase (`matchStatus`, `matchedInvoice`, `counterpart`, `type: 'credit'|'debit'`,
+          `amount` als Zahl), das Repo-Modell dagegen signed `amount` + `counterparty_name` +
+          `matched_invoice_id`. Muster: `bankAccountWire`/`toBankAccountWire` in
+          `route_biz_bank_accounts.go` plus Test. Antwortform `{transactions: [...]}` (nicht
+          `{items,total}`), Einzelentitaet `{transaction}`.
+      (c) `matchedInvoice` ist die Rechnungs**nummer**, nicht die ID — der Join gehoert ins Repo,
+          nicht in einen zweiten Roundtrip im Handler.
+      Die Doppelzuordnung ist bereits abgedeckt (`ErrAlreadyReconciled` -> FailedPrecondition ->
+      409). Atomizitaet der Zahlungsbuchung laeuft schon ueber `payment.Service`.
     done_when:
       - Zuordnen und Loesen funktionieren, Doppelzuordnung 409
       - Rechnungsstatus und Zuordnung atomar
-      - Migration mit tenant_id + RLS, RLS-Smoke gruen
+      - Wire-Shape gegen den FE-Typ geprueft (Test darauf)
       - openapi.yaml im selben Commit
 
   - id: fe-finance-document-chains
