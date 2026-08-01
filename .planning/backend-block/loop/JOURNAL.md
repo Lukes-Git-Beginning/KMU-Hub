@@ -413,3 +413,77 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   Modul) bleiben wie im Backlog vermerkt gesperrt bzw. warten auf `p2-guard-compat`. R-6 (per-user
   Overrides) bleibt offen, siehe Iteration 6. Naechste ziehbare Unit laut Backlog-Reihenfolge:
   `w5-ubl-generator` (Block C, E-Rechnung-Ausgang, keine deps).
+
+## Iteration 8 — w5-ubl-generator — done — 2026-08-01 (Nachtlauf 3)
+
+- commits: `d321f482` (fix, Test-Isolation) + Feature-Commit dieser Iteration
+- gebaut: XRechnung-UBL-2.1-Ausgang (EN 16931). Zwei neue Dateien im einvoice-Paket:
+  - `generator_doc.go` — neutrales Zwischenmodell `invoiceDoc` + `buildInvoiceDoc`. Traegt die
+    gesamte Betrags- und Steuergruppenlogik, damit UBL und der kommende CII-Weg sich ueber die
+    Zahlen nie uneinig werden koennen (so vom Backlog fuer `w5-cii-generator` gefordert).
+  - `generator_ubl.go` — `GenerateUBL(invoice, settings, buyerReference)`.
+  - `errors.go` um `ErrGenerateFailed` und `ErrTotalsMismatch` ergaenzt.
+- ABWEICHUNG VON DER UNIT-NOTE (bewusst, technisch erzwungen): Die Note verlangte, die
+  UBL-Structs aus `parser.go:318ff` fuer die Schreibrichtung wiederzuverwenden. Das geht mit
+  `encoding/xml` nicht. Die Lesestructs tragen `xml:"ID"` **ohne** Namespace und matchen damit
+  jeden Absender-Namespace; XRechnung schreiben verlangt die Praefixe `cbc:`/`cac:` woertlich.
+  Ein Feld kann nur eines von beidem: mit namespace-qualifiziertem Tag wuerde der Eingangs-Parser
+  Dokumente fremder Namespaces ablehnen (Regression im Bestand), mit Praefix-Tag matcht er beim
+  Decoden nie. Also getrennte Write-Structs, mit dem Grund als Kommentarblock im Code, und der
+  Roundtrip-Test als Klammer. Vorher verifiziert (Scratch-Programm): Go schreibt bei
+  `xml:"cbc:ID"` tatsaechlich `<cbc:ID>`, escaped automatisch, und der namespace-agnostische
+  Parser liest es zurueck.
+- Format gegen `testdata/ubl_minimal.xml` gespiegelt (Default-NS am Root + cac/cbc-Praefixe),
+  Element-Reihenfolge nach den UBL-2.1-XSD-Sequences. Erzeugtes Dokument einmal vollstaendig
+  ausgegeben und Zeile fuer Zeile gegengelesen, nicht nur die Assertions geglaubt.
+- Entscheidungen, die nicht offensichtlich waren:
+  (1) **Summen werden aus den Zeilen neu berechnet**, nicht aus der Rechnung uebernommen — so
+      halten BR-CO-10/13/14/15 und BR-S-08 immer. Damit dabei aber nie still ein anderer Betrag
+      rausgeht als auf dem PDF steht, prueft `assertTotalsMatch` gegen die gespeicherten Summen
+      und bricht bei mehr als 1 Cent Abweichung mit `ErrTotalsMismatch` ab.
+  (2) **Kaeuferadresse:** `models.Invoice` speichert sie als einen Freitext, XRechnung macht
+      BT-50/52/53 zur Pflicht. `splitPostalAddress` trennt die uebliche Form "Strasse\nPLZ Ort";
+      was nicht passt, bleibt unveraendert in der Strassenzeile. Ohne das waere JEDES erzeugte
+      Dokument bei oeffentlichen Empfaengern unzustellbar — deshalb kein Nice-to-have.
+      `lean:`-Marker gesetzt, Trigger: sobald `finance_invoices` die Adressteile getrennt fuehrt.
+  (3) Steuerkategorien: `S` / `Z` bei 0 % / `AE` reverse charge / `E` Kleinunternehmer, bei den
+      steuerfreien Modi Zeilensatz auf 0 (BR-AE-05/BR-E-05) und Befreiungsgrund gesetzt.
+  (4) BT-10 (Leitweg-ID) als Parameter — kein Feld im Datenmodell. Bei leerem Wert entfaellt das
+      Element. Die Pflichtfeld-Meldung dazu gehoert in `w5-en16931-validation`.
+- keine neue Dependency (`go.mod`/`go.sum` unveraendert), reine Stdlib `encoding/xml`.
+- FUNDE IM BESTAND (beide ins BACKLOG uebertragen, weil sie den Zuschnitt der Folge-Units aendern):
+  (a) **Ein CII-Generator existiert bereits**: `pdf.GenerateZUGFeRDXML`
+      (`internal/biz/pdf/zugferd.go:27`), komplett mit EN16931-Profil-URN und BG-23-Aufschluesselung.
+      `w5-cii-generator` ist damit **Zusammenfuehrung, kein Neubau** — Unit-Notes entsprechend
+      umgeschrieben. Zwei Abweichungen dort sind beim Zusammenfuehren zu bereinigen: Steuerbasis
+      aus `Quantity*UnitPrice` gegen Zeilenbetrag aus `LineTotal` (verletzt BR-S-08, sobald sie
+      divergieren) und CategoryCode `S` auch bei 0 %.
+  (b) `pdf.EmbedZUGFeRDXML` **verschluckt jeden Fehler** und liefert das PDF ohne Anhang zurueck;
+      der einzige Test dafuer skippt still, weil das Stub-PDF fuer pdfcpu unlesbar ist. Die
+      Einbettung ist faktisch ungetestet. In die Notes von `w5-pdfa3-embed` uebertragen, samt der
+      Info, dass pdfcpu v0.6.0 (`api.AddAttachments`) bereits im Modulgraph liegt — fuer den
+      Anhang-Teil braucht die Unit also keine neue Dependency.
+- NEBENFIX (eigener Commit `d321f482`): `TestTenantIsolation_IncomingInvoices` importierte das
+  Fixture-XML mit konstanter Rechnungsnummer in die geteilten `testutil.TenantA/TenantB` und lief
+  deshalb nur beim ersten Mal pro Datenbank gruen — beim zweiten Lauf schlug der
+  Duplikat-Check zu statt der Isolation. Jetzt frische Tenants pro Lauf. Der Fehlschlag reproduziert
+  auf unveraendertem Tree (per `git stash` verifiziert, bevor ich ihn angefasst habe) und war
+  vorher unsichtbar, weil das Paket ohne `DATABASE_URL` still skippt.
+- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok | lint ok (0 issues) |
+  gofmt ok (nur eigene Dateien angefasst; `parser.go`/`service_test.go` sind im Bestand
+  unformatiert und blieben unberuehrt) |
+  test ok: `./internal/biz/einvoice/...` zweimal hintereinander gruen (Wiederholbarkeit nach dem
+  Isolationsfix belegt), zusaetzlich `./internal/biz/pdf/...` und `./internal/biz/invoice/...` gruen.
+  Alles mit `DATABASE_URL` gegen `kmuhub_app`. 30 neue Testfaelle, 0 SKIP unter den neuen;
+  einziger SKIP im Paket ist der bestehende `TestExtractXMLFromPDF_HappyPath` (Fund (b) oben).
+  migration n.a. (keine Schema-Aenderung). openapi n.a. (keine Route — die kommt in `w5-route`).
+- verify vorgaenger: `f069b086` (p1a-rls-verify) — Commit aendert ausschliesslich `BACKLOG.yml`
+  (Statuswechsel auf `done`), kein Quellcode. Deckt sich mit dem Journaleintrag, der die Unit als
+  reine Verifikation ohne Codeaenderung ausweist; der geforderte DB-Test existierte bereits aus
+  `p1a-resolver`/`p1a-gateway`. Der Prefix `test(auth):` ohne Testdatei im Diff ist unsauber, aber
+  kein Fund im Sinne der sechs Fehlerklassen — kein Stub, kein Proto-Diff ohne Regen, kein
+  Guard ohne Seed, keine Service-Direktinjektion, keine Wire-Shape-Aenderung. Kein Fund.
+- offen: `w5-cii-generator` als naechste Unit (jetzt Zusammenfuehrung, siehe Fund (a)). Die
+  Ausgangsroute (`w5-route`) haengt weiterhin hinter Validierung und PDF-Entscheidung. Fuer die
+  Route offen: woher die Leitweg-ID kommt — sie hat kein Feld in `finance_invoices` und muss
+  entweder als Request-Parameter durchgereicht oder am Kontakt/Tenant hinterlegt werden.

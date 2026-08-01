@@ -283,7 +283,7 @@ units:
     service: einvoice
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       XRechnung-UBL-2.1-Generator: aus einer Rechnung (`finance_invoices` + `finance_invoice_lines`)
       ein valides UBL-`Invoice`-XML nach EN 16931 erzeugen. Neue Datei
@@ -319,14 +319,34 @@ units:
     sources:
       - backend/internal/biz/einvoice/parser.go
     notes: >
-      Gleiche Regel wie bei UBL: die CII-Structs aus `parser.go:102ff` wiederverwenden statt neu
-      definieren. Gemeinsame Aufbereitung (Rechnung -> neutrales Zwischenmodell) mit dem
-      UBL-Generator teilen, damit die Betragslogik nur einmal existiert.
-      `GuidelineSpecifiedDocumentContextParameter` muss die EN-16931-Profil-URN tragen, sonst
-      erkennen Empfaenger das Dokument nicht als konform.
+      SCOPE-KORREKTUR (Fund aus `w5-ubl-generator`, 2026-08-01): **Ein CII-Generator existiert
+      bereits** — `internal/biz/pdf/zugferd.go:27 GenerateZUGFeRDXML(models.Invoice,
+      models.CompanySettings)`, vollstaendig mit EN16931-Profil-URN, BG-23-Steueraufschluesselung
+      und den drei Tax-Modi. Diese Unit ist deshalb **Zusammenfuehrung, kein Neubau**: den
+      Generator auf `buildInvoiceDoc` aus `internal/biz/einvoice/generator_doc.go` umstellen, damit
+      die Betragslogik nur einmal existiert. Nicht daneben einen zweiten CII-Writer bauen.
+
+      Der Bestand schreibt CII per `fmt.Sprintf`-Template mit manuellem `xmlEscape`, der neue
+      UBL-Writer per `encoding/xml` mit Praefix-Tags (`xml:"cbc:ID"` -> `<cbc:ID>`, verifiziert).
+      Der encoding/xml-Weg ist der bessere (Escaping automatisch, typsicher) — Umstellung ist
+      moeglich, aber optional; die Vereinheitlichung der Betragslogik ist der Pflichtteil.
+
+      ZWEI ABWEICHUNGEN, die beim Zusammenfuehren zu klaeren sind (UBL-Seite ist die korrektere):
+      (a) Der Bestand nimmt fuer die Steuerbasis `Quantity*UnitPrice`, schreibt als Zeilenbetrag
+          aber `item.LineTotal` — divergieren die, verletzt das erzeugte Dokument BR-S-08.
+          `buildInvoiceDoc` leitet beides aus derselben Zahl ab.
+      (b) Der Bestand nutzt im Standardmodus immer CategoryCode `S`, auch bei 0 % (formal
+          ungueltig); `buildInvoiceDoc` vergibt dort `Z`.
+      Ausserdem prueft `assertTotalsMatch` bereits, dass die gespeicherten Summen zu den Zeilen
+      passen — bei der Umstellung faellt dieser Schutz dem PDF-Pfad mit zu, also
+      `pdf.GenerateZUGFeRDInvoicePDF`-Tests mitlaufen lassen.
+
+      Alt (weiterhin gueltig): die CII-Structs aus `parser.go:102ff` fuer die Leserichtung
+      nicht duplizieren.
     done_when:
+      - CII-Generator nutzt buildInvoiceDoc, Betragslogik existiert genau einmal
       - Generator erzeugt CII-XML, durch ParseCII wieder einlesbar, Summen identisch
-      - Betragslogik mit UBL geteilt, nicht dupliziert
+      - ./internal/biz/pdf/... und ./internal/biz/einvoice/... gruen
       - go build/vet/lint/test gruen
 
   - id: w5-en16931-validation
@@ -366,6 +386,20 @@ units:
     sources:
       - backend/internal/biz/pdf/generator.go
     notes: >
+      VORBEFUND (aus `w5-ubl-generator`, 2026-08-01): Eine Einbettung existiert bereits —
+      `pdf.EmbedZUGFeRDXML` (`internal/biz/pdf/zugferd.go:261`) haengt das XML per
+      **pdfcpu v0.6.0 `api.AddAttachments`** an; pdfcpu ist also schon im Modulgraph, eine neue
+      Dependency ist fuer den Anhang-Teil nicht noetig. Offen bleibt nur die PDF/A-3b-Konformitaet
+      (Relationship `/Alternative`, XMP-Metadaten) — pdfcpu haengt die Datei an, deklariert sie aber
+      nicht als Factur-X-Alternative.
+      ZWEITER FUND, wichtiger: `EmbedZUGFeRDXML` **verschluckt jeden Fehler** und gibt bei
+      Misserfolg das PDF OHNE Anhang zurueck (drei `slog.Warn`-Pfade) — der Aufrufer kann eine
+      ZUGFeRD-Rechnung ohne XML nicht von einer mit unterscheiden. Und der einzige Test dafuer
+      (`TestExtractXMLFromPDF_HappyPath`) **skippt still**, weil das Stub-PDF fuer pdfcpu unlesbar
+      ist; die Einbettung ist damit faktisch ungetestet. Beides in dieser Unit adressieren:
+      Fehler nach oben geben statt still zu degradieren, und den Test gegen ein echtes
+      maroto-erzeugtes PDF fahren statt gegen den Stub.
+
       ENTSCHEIDUNGSPUNKT, nicht blind bauen. `internal/biz/pdf/generator.go` nutzt maroto/v2. Pruef
       zuerst, ob maroto/v2 (bzw. das darunterliegende gofpdf/pdfcpu, falls schon im Modulgraph)
       PDF/A-3-Konformitaet und Datei-Anhaenge kann.
