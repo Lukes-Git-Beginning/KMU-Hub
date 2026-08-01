@@ -616,13 +616,40 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2a-wiki-zeiterfassung-infra]
-    status: todo
+    status: done
     scope: >
       Wie p2a, fuer helpdesk, kommunikation und kalender (dort existieren bisher nur grobe Seeds).
     sources:
       - desktop/src/renderer/src/config/capability-catalog.ts
     notes: >
       Gleiche Regeln wie p2a. Additiv, Alt-Key bleibt, Seed-Existenz gegen die DB pruefen.
+
+      MUSTER AUS `p2b` (2026-08-01), vier Punkte on top von p2a's fuenf:
+      (a) NICHT JEDER CATALOGUE-KEY HAT EINE PERMISSION-BASIERTE ROUTE. Manche Routen sind mit
+          `RequireRole("admin","manager")` statt `RequirePermission(...)` gegated (kommunikation
+          `routing:manage`/Team-Inbox-Create+Delete). Es gibt KEINEN Helper, der Rolle und
+          Permission additiv kombiniert — den nicht spontan bauen (Scope-Kriechen fuer eine
+          Guard-Tightening-Unit). Route unveraendert lassen, Key im Journal als "kein additives
+          Ziel" vermerken. Nur wo die NACHBAR-Route desselben Resources bereits `RequirePermission`
+          nutzt (z.B. Team-Inbox-Update/Add-/RemoveMember neben Create/Delete), dort additiv
+          erweitern.
+      (b) EIN MODUL-KEY KANN MEHRERE GATEWAY-DATEIEN TREFFEN. "kommunikation" im Katalog bildet
+          NICHT 1:1 auf eine `route_kommunikation.go` ab, sondern verteilt sich auf `route_chat.go`
+          (channel:manage), `route_inbox.go` (canned:manage, team_inbox:manage) und hat fuer
+          webhook:manage gar keinen Endpoint. Vor dem Guarding den FE-Gate-Call
+          (`useHasCapability('modul:key')`) grep'en, die UI-Aktion identifizieren, dann DEREN
+          Backend-Route suchen — nicht von der Modul-Datei her raten. `WELLEN-BRIEFING.md` (Welle
+          2b/2c-Absaetze) nennt oft schon, welche Sub-Keys pro Modul ueberhaupt erwartet werden.
+      (c) EIN "manage"-KEY DECKT NICHT ZWINGEND ALLE CRUD-VERBEN GLEICH AB. Booking-Pages: write+
+          delete beide auf denselben `kalender:booking_page:manage`-Key. Ticket-Edit: PUT+close+
+          reopen+assign+merge alle auf `helpdesk:ticket:edit` (verifiziert gegen den FE-Gate in
+          `HelpdeskPage.tsx:1047` `canEditTicket`-Block, nicht geraten). Jede Aktion einzeln gegen
+          den FE-Gate-Call pruefen, nicht pauschal "alle Mutationen".
+      (d) Guard-Tests gehen weiterhin in `route_capability_guard_test.go` — pro neuem Router-Setup
+          (`chi.NewRouter()` + `RegisterRoutes`) EINMAL oben in der Testfunktion, danach nur neue
+          Tabellenzeilen. Fuer featureflag-gated Module (helpdesk) den bestehenden
+          `newHelpdeskRoutes(...)`-Test-Helper aus `route_helpdesk_test.go` wiederverwenden statt
+          neu zu bauen (gleiches Package, package-private Funktion ist sichtbar).
 
       MUSTER AUS `p2a` (2026-08-01), fuenf Punkte, die dir Arbeit sparen:
       (a) KEINE MIGRATION NOETIG. `p1a-migration` (000256) hat den GESAMTEN Katalog geseedet,

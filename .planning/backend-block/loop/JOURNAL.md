@@ -934,3 +934,70 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       dessen, was dieser Loop bauen darf ohne Rueckfrage.
   (3) TOKEN-GROESSE (Iteration 14, Punkt 1) bleibt unveraendert offen und wird durch diese Unit nicht
       groesser: keine neuen Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
+
+## Iteration 16 — p2b-helpdesk-kommunikation-kalender — done — 2026-08-01 (Nachtlauf 3)
+- commit: 89789994
+- gebaut: `RequirePermissionAny(alt, neu)` additiv auf helpdesk-, kommunikation- und
+  kalender-Routen, verteilt ueber vier Gateway-Dateien (kein 1:1 Modul-zu-Datei-Mapping):
+  `route_helpdesk.go` — sieben Guard-Variablen (`hdTicketRead/Create/Edit/Reply`,
+  `hdKbManage`, `hdCannedManage`, `hdStatsView`). Tickets: create/read wie erwartet;
+  edit deckt PUT + close/reopen/assign/merge ab (verifiziert gegen den FE-Gate-Block
+  `canEditTicket` in `HelpdeskPage.tsx:1047`, der genau diese vier Aktionen hinter
+  `helpdesk:ticket:edit` versammelt). Queues/SLA-Policies/Routing-Rules/Business-Hours haben
+  keine Katalog-Entsprechung (backend-gaps.md §RBAC: "helpdesk BE seedet nur das grobe Paar
+  ausserhalb Tickets/KB/Canned/Stats") und blieben unangetastet.
+  `route_chat.go` — `kommunikation:channel:manage` auf Channel-Create/Update/Delete/Archive/
+  Member-Role (Administration); Join/Leave/DM/Messages/Files bleiben auf dem reinen
+  `channels:*`-Key (persoenliche Nutzung, Katalog-Kommentar `capability-catalog.ts:118-121`).
+  `route_inbox.go` — `kommunikation:canned:manage` auf die INBOX-eigenen Canned-Responses
+  (separat von `helpdesk:canned:manage`, zwei verschiedene Canned-Response-Systeme).
+  `kommunikation:team_inbox:manage` additiv NUR auf die drei bereits `RequirePermission`-
+  gegateten Team-Inbox-Routen (Update, Add-/RemoveMember) — Create/Delete bleiben auf
+  `RequireRole("admin","manager")`, siehe Fund unten.
+  `route_calendar.go` + `route_booking.go` — `kalender:category:manage` auf Event-Kategorie
+  Create/Delete, `kalender:booking_page:manage` auf Booking-Page Create/Update/Delete. Rest
+  von Kalender (Calendars/Members/Events/Resources/Holidays/Preferences/LiveKit) hat keine
+  Katalog-Entsprechung, unangetastet.
+  Test: `route_capability_guard_test.go` um 4 Router-Setups (helpdesk via bestehendem
+  `newHelpdeskRoutes`-Helper, chat, inbox, calendar+booking) und 22 neue Faelle erweitert —
+  je Modul: Alt-Key-only, Neu-Key-only, Fremd-Key-denied, plus "personal-use bleibt eng"
+  Faelle (Channel-Join, Clock-in-Analog) und "kein-Katalog-Key-Route bleibt eng" Faelle
+  (Queue-Create, Calendar-Create).
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
+  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` 51 Faelle gruen,
+  `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route in dieser Unit)
+  und `./internal/middleware/...` beide gruen, 0 Skips. migration n.a. (Seeds bereits aus
+  000256 vorhanden, gegen die laufende DB verifiziert: alle referenzierten
+  helpdesk/kommunikation/kalender-Keys existieren). openapi n.a. (keine neue Route, nur Guards
+  ausgetauscht). gofmt: `route_helpdesk.go`/`route_inbox.go`/`route_calendar.go`/
+  `route_booking.go` von `gofmt -l` gemeldet — Diff-Pruefung (`gofmt -d`) zeigt reinen
+  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15: `core.autocrlf=true`,
+  `file`-Kommando bestaetigt CRLF-Terminatoren im Arbeitsverzeichnis, git normalisiert beim
+  Commit zurueck auf LF). `route_chat.go` und die Testdatei waren bereits LF und wurden nicht
+  gemeldet.
+- verify vorgaenger: `20685fab` (p2a-wiki-zeiterfassung-infra) gegen die acht Fehlerklassen
+  geprueft. Diff: nur `route_hr.go`/`route_wiki.go`/neue Testdatei/BACKLOG/JOURNAL. Alle neun
+  referenzierten Katalog-Keys per SQL gegen die laufende DB verifiziert (vorhanden). Additiv
+  durchgehend (`RequirePermissionAny(alt, neu)`, kein einziger `RequirePermission`-Alt-Key
+  entfernt). Kein Proto/Migration/neue Route/Handler-Direktzugriff in diesem Commit,
+  Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
+- offen fuer Luke:
+  (1) DREI KATALOG-KEYS OHNE ADDITIVES ZIEL, bewusst nicht verdrahtet:
+      `kommunikation:routing:manage` — JEDE Routing-Rule-Mutation in `route_inbox.go` haengt an
+      `RequireRole("admin","manager")`, keine einzige an `RequirePermission`, also kein
+      Alt-Key zum Erweitern vorhanden. `kommunikation:team_inbox:manage` deckt nur
+      Update/Add-/RemoveMember ab — Create/Delete bleiben aus demselben Grund rollenbasiert.
+      `kommunikation:webhook:manage` hat ueberhaupt keinen Backend-Endpoint (weder chat noch
+      inbox haben je eine Webhook-Route bekommen). Alle drei sind Entscheidungen fuer Luke:
+      entweder bleibt die Verwaltung dauerhaft rollen-exklusiv (dann sind die Keys im Katalog
+      irrefuehrend), oder es braucht einen neuen `RequireRoleOrPermissionAny`-Helper, der
+      Rolle UND Permission additiv kombiniert — bewusst NICHT in dieser Guard-Tightening-Unit
+      gebaut (Scope-Kriechen, neue Middleware-Semantik verdient eigene Ueberlegung/Review).
+  (2) Wie in p2a: Block B ist fuer helpdesk+kommunikation+kalender abgeschlossen,
+      `p2c-work-documents-crm-finance` ist die naechste ziehbare Unit. Ihre Notes tragen jetzt
+      einen "MUSTER AUS p2b"-Absatz (vier Punkte: RequireRole-Routen nicht anfassen,
+      Katalog-Key kann mehrere Gateway-Dateien treffen, "manage"-Key deckt nicht zwingend alle
+      CRUD-Verben ab, Guard-Test-Helper wiederverwenden) zusaetzlich zu p2a's fuenf Punkten.
+  (3) TOKEN-GROESSE (Iteration 14/15) bleibt unveraendert offen, waechst durch diese Unit nicht:
+      keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
