@@ -33,3 +33,29 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
      System-Presets mit `tenant_id IS NULL` aus und erzeugt 403 fuer alle.
 
 ---
+
+## Iteration 1 — p1a-proto — done — 2026-08-01 21:40
+
+- commit: f2b98a7b
+- gebaut: RPC `GetEffectivePermissions` in `proto/auth/v1/auth.proto` (direkt hinter
+  `CheckPermission`, weil naechste Verwandtschaft) plus die vier Messages
+  `GetEffectivePermissionsRequest{user_id}`, `EffectiveRole{id,name,is_system,color}`,
+  `EffectiveCapability{key,scope,repeated sources}` und
+  `GetEffectivePermissionsResponse{repeated roles, repeated capabilities}`.
+  `.pb.go` und `_grpc.pb.go` im selben Commit regeneriert.
+- gate: build ok (`./proto/auth/... ./internal/auth/...` **und** `./...` komplett) | vet ok |
+  lint ok (0 issues) | test ok (`./internal/auth/...` 7,6 s mit gesetzter `DATABASE_URL` gegen
+  `kmuhub_app` — also real gelaufen, nicht ueber `SkipIfNoDB` weggeskippt) |
+  migration n.a. | rls-smoke n.a. (reine Schnittstellendefinition, kein Datenpfad)
+- verify vorgaenger: n.a. — Vorgaenger-Commit `7e0b1a4a` ist der Backlog-Reset fuer Lauf 3, enthaelt
+  keinen Code. Erste Code-Iteration des Laufs.
+- offen: Der neue RPC steht erwartungsgemaess in `UnimplementedAuthServiceServer`
+  (`auth_grpc.pb.go:530`) — das ist Codegen-Boilerplate und **kein** Stub-Fund, so auch in den Notes
+  von `p1a-proto` vorab festgehalten. Die Implementierung kommt in `p1a-resolver` (Service) und
+  `p1a-grpc` (Handler); erst danach ist der RPC ueber die Leitung nutzbar.
+  Kein handgeschriebener Fake des `AuthServiceClient`/`AuthServiceServer`-Interfaces im Repo
+  (geprueft) — die Interface-Erweiterung bricht also keine Testdoubles.
+  Der 819-Zeilen-Diff in `auth.pb.go` ist harmlos: alle Loeschungen sind
+  `msgTypes[n]`-Index-Verschiebungen und `rawDesc`-Bytes, die protoc-gen-go-Version hat sich nicht
+  geaendert (Header-Diff leer).
+  Naechste Unit: `p1a-seed-generator` (deps erfuellt).
