@@ -826,7 +826,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       naechste Iteration zieht sie automatisch, kein Handlungsbedarf hier.
 
 ## Iteration 14 — p2-guard-compat — done — 2026-08-01 (Nachtlauf 3)
-- commit: <sha>
+- commit: dfb10919
 - gebaut: `RequirePermissionAny` in `internal/middleware/rbac.go` — laesst durch, sobald der
   Perms-Slice aus dem Context MINDESTENS EINEN der uebergebenen `resource:action`-Keys enthaelt.
   Aufbau wie beim Nachbarn `RequireRole`: das Key-Set wird einmal beim Wiring gebaut (Map), pro
