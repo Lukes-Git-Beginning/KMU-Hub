@@ -1003,7 +1003,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
 
 ## Iteration 17 — p2c-work-documents-crm-finance — done (GETEILT, work+documents) — 2026-08-01 (Nachtlauf 3)
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: 94c26a40
 - gebaut: `RequirePermissionAny(alt, neu)` additiv auf work- und documents-Routen (beide 1:1 in
   `route_work.go`/`route_document.go`, keine weiteren Dateien). Groesster Batch bisher — 13
   Katalog-Keys (work) + 9 (documents) — deshalb wie in den Notes vorgesehen NACH ZWEI MODULEN
