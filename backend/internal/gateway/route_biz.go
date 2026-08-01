@@ -176,6 +176,12 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListOpenItems)
 	})
 
+	// Document chains (Belegkette): quote -> invoice -> payment/dunning/credit note
+	r.Route("/api/v1/finance/document-chains", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListDocumentChains)
+	})
+
 	// Bank statements (Zahlungsabgleich): CAMT.053 / MT940 import
 	r.Route("/api/v1/finance/bank-statements", func(r chi.Router) {
 		r.Use(authMiddleware)

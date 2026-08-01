@@ -53,6 +53,11 @@ service FinanceService {
   // Open items (Offene Posten): the receivables the dunning run escalates.
   rpc ListOpenItems(ListOpenItemsRequest) returns (ListOpenItemsResponse);
 
+  // ==================== Document Chains ====================
+  // The lifecycle of a customer document from quote through invoice to
+  // payment, dunning, or credit note (Belegkette).
+  rpc ListDocumentChains(ListDocumentChainsRequest) returns (ListDocumentChainsResponse);
+
   // ==================== Dashboard ====================
   rpc GetFinanceDashboard(GetFinanceDashboardRequest) returns (GetFinanceDashboardResponse);
 
@@ -1794,4 +1799,38 @@ message ConnectBankAccountRequest {
 
 message ConnectBankAccountResponse {
   BankAccount account = 1;
+}
+
+// ChainNode is one step in a document's lifecycle: a quote, invoice, payment,
+// dunning notice, or credit note. number/date are unset for a step that has
+// not happened yet — the pending-payment placeholder on an invoice that is
+// not fully settled.
+message ChainNode {
+  // quote | invoice | payment | dunning | credit-note
+  string type            = 1;
+  optional string number = 2;
+  optional string date   = 3;  // YYYY-MM-DD
+  string amount          = 4;
+  // completed | active | pending | cancelled | overdue — presentational,
+  // independent of the underlying document's own status field.
+  string status = 5;
+}
+
+// DocumentChain traces one customer document from quote through invoice to
+// payment, dunning, or credit note (Belegkette).
+message DocumentChain {
+  string id                  = 1;
+  string customer            = 2;
+  string currency            = 3;
+  string total_value         = 4;
+  bool is_complete           = 5;
+  repeated ChainNode nodes   = 6;
+}
+
+message ListDocumentChainsRequest {
+  string tenant_id = 1;
+}
+
+message ListDocumentChainsResponse {
+  repeated DocumentChain chains = 1;
 }

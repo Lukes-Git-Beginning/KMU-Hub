@@ -1896,3 +1896,54 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (4) EINE ABGELEHNTE ZUORDNUNG KOMMT SOFORT ZURUECK. `RejectMatch` setzt `unmatched`, der naechste
       Import-Lauf matcht dieselbe Rechnung womoeglich erneut vor. Ein "nicht mehr vorschlagen"-
       Merker existiert nicht; ob er gebraucht wird, zeigt der Pilot.
+
+## Iteration 27 — fe-finance-document-chains — done — 2026-08-01 22:40 (Nachtlauf 3)
+- commit: (folgt)
+- gebaut:
+  - `GET /api/v1/finance/document-chains` liefert alle Belegketten des Tenants (mandantenweite
+    Uebersicht, kein Parameter — FE filtert/sucht client-seitig). Keine neue Tabelle: Ketten
+    entstehen als Read-Time-Assembly ueber fuenf tenant-gescopte Queries in
+    `internal/biz/invoice/postgres_document_chains.go`, verkettet ueber bestehende FKs
+    (`finance_invoices.source_quote_id`, `finance_payments`/`finance_dunning_records.invoice_id`,
+    `finance_credit_notes.original_invoice_id`).
+  - Proto: `ChainNode`/`DocumentChain`/`ListDocumentChainsRequest/Response` in `biz.proto` + RPC
+    `ListDocumentChains`, im selben Commit regeneriert (`biz.pb.go`, `biz_grpc.pb.go`).
+  - `BizGRPCServer.ListDocumentChains` (`internal/server/biz_grpc_document_chains.go`) ruft
+    `invoiceService.ListDocumentChains` (duenner Passthrough zum Repo, wie `List`/`ListForDATEVExport`
+    im selben Service).
+  - Gateway-Handler `route_biz_document_chains.go`: Hand-Mapping wie bei Bankkonten/-transaktionen
+    (repo-weiter protojson-Marshaller ist `UseProtoNames: true`, FE braucht aber `totalValue`/
+    `isComplete` camelCase), plus DACH-Betragsformatierung ("CHF 12.450,00") — die Komponente
+    rendert `amount`/`totalValue` unveraendert, kein `parseFloat` im Client (verifiziert).
+  - `models.DocumentChain`/`ChainNode` in `internal/models/finance.go`, Status-/Typ-Konstanten
+    passend zum FE-Union-Typ.
+  - Test: `internal/biz/tenant_isolation_document_chains_test.go` — frische Tenants, `kmuhub_app`.
+- verify vorgaenger: `d18c622e` (fe-finance-bank-transactions-matching) gegen alle acht
+  Fehlerklassen geprueft. Alle Handler ueber `b.getBizClient()`; Proto+beide `.pb.go` im selben
+  Commit; Guards unveraendert (`RequirePermission("finance", "write"/"read")`, keine Ersetzung,
+  kein neuer Key -> keine Seed-Pflicht); jeder Query/Join im Repo traegt `tenant_id`; openapi.yaml
+  im selben Commit, `TestOpenAPIRouteDrift` lokal nachgefahren: gruen (748/750 vor dem Commit).
+  Kein Fund.
+- SCOPE-KORREKTUR (Fund beim Bau): Backlog-Scope-Text ("Kette zu einem Beleg") stimmte nicht mit dem
+  bereits verdrahteten FE-Vertrag ueberein — `useDocumentChains()` ruft die Route ganz ohne Parameter,
+  `BelegketteTab.tsx` ist eine mandantenweite Liste mit Client-seitiger Suche. Gebaut wie der reale
+  Vertrag es verlangt (siehe Backlog-Notiz "ERGEBNIS" fuer Details: Sortierung, Platzhalter-Logik,
+  `isComplete`-Regel, abgeleitete Nummern fuer Zahlung/Mahnung ohne eigene Sequenz).
+- gate: build ok (`-p 2`, `internal/biz/...`, `internal/gateway/...`, `internal/server/...`,
+  `cmd/gateway/...`, `cmd/biz/...`) | vet ok | lint ok (`golangci-lint`, 0 issues) | test ok mit
+  `DATABASE_URL` gegen `kmuhub_app`: `internal/biz/...` + `internal/biz/invoice/...` **603 PASS,
+  0 SKIP** (per `-v`-Lauf gezaehlt); `internal/gateway/...`, `internal/server/...` gruen.
+  `TestOpenAPIRouteDrift` gruen: 749 registrierte Routen gegen 751 dokumentierte Pfade.
+  rls-smoke: `TestTenantIsolation_DocumentChains` — Eigentuemer sieht 2 Ketten (Rechnungs-Kette mit
+  6 Knoten in chronologischer Reihenfolge, Restbetrag 500 von 1000 EUR nach 400 Zahlung + 100
+  Gutschrift; Solo-Angebot-Kette, abgelehnt, `isComplete=true`), fremder Tenant sieht exakt 1 eigene
+  Kette ohne jede Spur der Kunden-/Betragsdaten des anderen Tenants.
+- offen:
+  - `finance-chains.ts`-Mock bleibt aktiv im FE — Umschalten auf das echte Backend war nicht Teil
+    dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-Units in Block D).
+  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance","read")`
+    wie ihre Nachbarn. Belegketten zeigen Kundennamen und Betraege quer durch alle Belegarten — falls
+    Block-B-artige Verfeinerung noch kommt, waere das ein Kandidat.
+  - Mahnungs- und Zahlungs-"Nummer" sind abgeleitet (`{Rechnungsnummer}/M{level}` bzw. Fallback auf
+    die Rechnungsnummer), da beide Belegarten keine eigene Nummernsequenz haben — falls das je stoert,
+    ist das der Punkt, an dem eine echte Sequenz eingefuehrt werden muesste.

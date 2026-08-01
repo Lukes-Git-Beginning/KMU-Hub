@@ -1073,7 +1073,7 @@ units:
     service: finance
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/finance/document-chains` — die Belegkette (Angebot -> Auftrag -> Lieferschein ->
       Rechnung -> Gutschrift) zu einem Beleg.
@@ -1085,6 +1085,37 @@ units:
       es KEINE neue Tabelle, nur einen Read-Endpoint. Neue Tabelle nur, wenn die Kette anders nicht
       rekonstruierbar ist; die Entscheidung ins Journal.
       Read-Pfad tenant-gescoped.
+
+      ERGEBNIS (2026-08-01): SCOPE-KORREKTUR beim Bau — der FE-Vertrag (`ListDocumentChainsResponse`
+      in `finance-types.ts`, konsumiert von `BelegketteTab.tsx` ueber `useDocumentChains()`) ist KEIN
+      "Kette zu einem Beleg"-Endpoint. Der Hook ruft `/finance/document-chains` ohne jeden Parameter,
+      die Komponente ist eine mandantenweite Uebersicht mit Client-seitiger Suche/Filter. Gebaut wie
+      der reale Vertrag es verlangt: ALLE Ketten des Tenants. Keine neue Tabelle — die Kette entsteht
+      aus den bestehenden FKs (`finance_invoices.source_quote_id`, `finance_payments`/
+      `finance_dunning_records.invoice_id`, `finance_credit_notes.original_invoice_id`) in
+      `internal/biz/invoice/postgres_document_chains.go`. Eine Kette ist an einer Rechnung verankert
+      (mit ihrem Angebot als Praefix-Knoten, falls eines konvertierte) oder — falls noch keine
+      Rechnung existiert — ein Einzelknoten-Kette aus dem Angebot selbst (der "Innovate Labs"-Fall im
+      Mock: eine abgelehnte Angebot-Kette ohne Fortsetzung).
+      Knoten-Reihenfolge ist chronologisch nach echtem Datum sortiert, ein ausstehender
+      Zahlungs-Platzhalter (Nummer/Datum leer) wird nur angehaengt, wenn Zahlungen+Gutschriften die
+      Rechnungssumme nicht decken. `isComplete` = stornierte Rechnung ODER Restbetrag <= 0 (bzw.
+      abgelehntes/abgelaufenes Angebot ohne Rechnung).
+      Zwei Knotentypen haben KEINE eigene Nummern-Sequenz im Bestand (anders als AN-/RE-/GS-Praefixe):
+      Zahlung (`finance_payments.reference` ist freier Text, oft leer -> Fallback auf die
+      Rechnungsnummer) und Mahnung (`finance_dunning_records` hat gar keine Nummernspalte -> abgeleitet
+      als `{Rechnungsnummer}/M{level}`, im Code als bewusste Ableitung kommentiert, keine erfundene
+      Sequenz).
+      Wire-Shape: `totalValue`/`amount` sind vorformatierte Anzeige-Strings ("CHF 12.450,00"), die die
+      Komponente unveraendert rendert (verifiziert: kein `parseFloat` o.ae. im Client) — Formatierung
+      (DACH-Tausenderpunkt/Dezimalkomma) sitzt im Gateway (`route_biz_document_chains.go`), analog zum
+      Hand-Mapping bei Bankkonten/-transaktionen, weil der repo-weite protojson-Marshaller
+      (`UseProtoNames: true`) snake_case liefert, der FE-Typ aber `totalValue`/`isComplete` camelCase
+      erwartet.
+      RLS-Smoke ueber `internal/biz/tenant_isolation_document_chains_test.go` (frische Tenants,
+      `kmuhub_app`): Eigentuemer-Tenant sieht die zusammengesetzte Kette (6 Knoten in der erwarteten
+      Reihenfolge, Restbetrag 500 von 1000) plus die Solo-Angebot-Kette; fremder Tenant sieht nur seine
+      eigene, keine Spur der Kunden-/Betragsdaten des anderen Tenants.
     done_when:
       - Endpoint liefert die Kette zu einem Beleg
       - Entscheidung Query-vs-Tabelle im Journal begruendet

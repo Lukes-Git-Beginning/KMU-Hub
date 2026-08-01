@@ -236,12 +236,16 @@ func (m *MockRepository) ListForDATEVExport(_ context.Context, tenantID uuid.UUI
 	return result, nil
 }
 
+func (m *MockRepository) ListDocumentChains(_ context.Context, _ uuid.UUID) ([]*models.DocumentChain, error) {
+	return nil, nil
+}
+
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
-	nextNumber   string
-	nextErr      error
-	seqInfo      *SequenceInfo // nil means "no sequence for this year"
-	seqInfoErr   error
+	nextNumber string
+	nextErr    error
+	seqInfo    *SequenceInfo // nil means "no sequence for this year"
+	seqInfoErr error
 }
 
 func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
@@ -326,16 +330,16 @@ func testLineItems() []models.LineItem {
 
 func testCreateInput(tenantID, userID uuid.UUID) CreateInput {
 	return CreateInput{
-		TenantID:        tenantID,
-		CustomerName:    "Test Customer",
-		CustomerAddress: "Test Street 1, 12345 Berlin",
-		CustomerEmail:   "customer@example.com",
-		TaxMode:         models.TaxModeStandard,
-		LineItems:       testLineItems(),
-		InvoiceDate:     time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		TenantID:         tenantID,
+		CustomerName:     "Test Customer",
+		CustomerAddress:  "Test Street 1, 12345 Berlin",
+		CustomerEmail:    "customer@example.com",
+		TaxMode:          models.TaxModeStandard,
+		LineItems:        testLineItems(),
+		InvoiceDate:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
 		PaymentTermsDays: 14,
-		Notes:           "Test invoice",
-		UserID:          userID,
+		Notes:            "Test invoice",
+		UserID:           userID,
 	}
 }
 

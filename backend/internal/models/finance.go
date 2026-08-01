@@ -327,6 +327,49 @@ type DunningConfig struct {
 	UpdatedAt             time.Time       `json:"updated_at"`
 }
 
+// Chain node statuses (presentational, independent of the underlying
+// document's own status field — e.g. a quote that led to an invoice is
+// "completed" as a chain step regardless of its own status column).
+const (
+	ChainNodeCompleted = "completed"
+	ChainNodeActive    = "active"
+	ChainNodePending   = "pending"
+	ChainNodeCancelled = "cancelled"
+	ChainNodeOverdue   = "overdue"
+)
+
+// Chain node document types.
+const (
+	ChainNodeQuote      = "quote"
+	ChainNodeInvoice    = "invoice"
+	ChainNodePayment    = "payment"
+	ChainNodeCreditNote = "credit-note"
+	ChainNodeDunning    = "dunning"
+)
+
+// ChainNode is one step in a document's lifecycle (Belegkette): a quote,
+// invoice, payment, dunning notice, or credit note. Number and Date are empty
+// for a step that has not happened yet — the pending-payment placeholder on
+// an invoice that is not fully settled.
+type ChainNode struct {
+	Type   string          `json:"type"`
+	Number string          `json:"number"`
+	Date   *time.Time      `json:"date,omitempty"`
+	Amount decimal.Decimal `json:"amount"`
+	Status string          `json:"status"`
+}
+
+// DocumentChain traces one customer document from quote through invoice to
+// payment, dunning, or credit note — GET /finance/document-chains.
+type DocumentChain struct {
+	ID         uuid.UUID       `json:"id"`
+	Customer   string          `json:"customer"`
+	Currency   string          `json:"currency"`
+	TotalValue decimal.Decimal `json:"total_value"`
+	IsComplete bool            `json:"is_complete"`
+	Nodes      []ChainNode     `json:"nodes"`
+}
+
 // ============================================================================
 // Dashboard Models
 // ============================================================================
@@ -610,11 +653,11 @@ type BankTransaction struct {
 	// MatchedInvoiceNumber is joined on read and never written: the number
 	// belongs to the invoice, and a copy here would age the moment that invoice
 	// is renumbered.
-	MatchedInvoiceNumber string `json:"matched_invoice_number,omitempty"`
-	PaymentID        *uuid.UUID      `json:"payment_id,omitempty"`
-	ReconciledAt     *time.Time      `json:"reconciled_at,omitempty"`
-	ReconciledBy     *uuid.UUID      `json:"reconciled_by,omitempty"`
-	CreatedAt        time.Time       `json:"created_at"`
+	MatchedInvoiceNumber string     `json:"matched_invoice_number,omitempty"`
+	PaymentID            *uuid.UUID `json:"payment_id,omitempty"`
+	ReconciledAt         *time.Time `json:"reconciled_at,omitempty"`
+	ReconciledBy         *uuid.UUID `json:"reconciled_by,omitempty"`
+	CreatedAt            time.Time  `json:"created_at"`
 }
 
 // IsCredit reports whether the entry moved money into the account. Only credits

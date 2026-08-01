@@ -9263,6 +9263,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/finance/document-chains:
+    get:
+      summary: List document chains (Belegkette)
+      description: >
+        Every customer document traced from quote through invoice to payment,
+        dunning, or credit note. One entry per invoice (prefixed with its
+        source quote, if one converted into it), plus one entry per quote that
+        has not become an invoice yet. Tenant-wide overview, not filtered by
+        any single document — the desktop client paginates and searches
+        client-side.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Document chains of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chains:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentChain"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/open-items:
     get:
       summary: List open items (Offene Posten) with receivables aging
@@ -34138,6 +34173,52 @@ components:
           description: >
             Number of the matched invoice — not its id. Absent while nothing is
             matched.
+
+    ChainNode:
+      type: object
+      description: >
+        One step in a document's lifecycle. number and date read "—" for a
+        step that has not happened yet — the pending-payment placeholder on an
+        invoice that is not fully settled.
+      properties:
+        type:
+          type: string
+          enum: [quote, invoice, payment, dunning, credit-note]
+        number:
+          type: string
+        date:
+          type: string
+          description: "YYYY-MM-DD, or — if the step has not happened yet."
+        amount:
+          type: string
+          description: >
+            Pre-formatted for display, e.g. "CHF 12.450,00" — the client
+            renders it verbatim.
+        status:
+          type: string
+          enum: [completed, active, pending, cancelled, overdue]
+          description: >
+            Presentational, independent of the underlying document's own
+            status field.
+
+    DocumentChain:
+      type: object
+      description: One customer document traced from quote to its current step.
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer:
+          type: string
+        totalValue:
+          type: string
+          description: Pre-formatted for display, e.g. "CHF 12.450,00".
+        isComplete:
+          type: boolean
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChainNode"
 
     BankStatementImportResult:
       type: object

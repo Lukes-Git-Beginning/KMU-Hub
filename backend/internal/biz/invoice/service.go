@@ -131,8 +131,8 @@ type CreateInput struct {
 	// Currency overrides the tenant default (ISO 4217). Empty means "use the
 	// company setting" — a recurring schedule bills in its own currency, which
 	// may differ from the tenant default.
-	Currency    string
-	UserID      uuid.UUID
+	Currency string
+	UserID   uuid.UUID
 }
 
 // Create creates a new draft invoice with tax calculation.
@@ -356,6 +356,12 @@ func (s *Service) LinkTimeTracking(ctx context.Context, tenantID, invoiceID uuid
 // List retrieves invoices with optional filtering.
 func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Invoice, int, error) {
 	return s.repo.List(ctx, tenantID, filter)
+}
+
+// ListDocumentChains returns every document chain of the tenant. See
+// Repository.ListDocumentChains.
+func (s *Service) ListDocumentChains(ctx context.Context, tenantID uuid.UUID) ([]*models.DocumentChain, error) {
+	return s.repo.ListDocumentChains(ctx, tenantID)
 }
 
 // ListForDATEVExport returns one keyset-paged page of sent/paid/overdue invoices in
