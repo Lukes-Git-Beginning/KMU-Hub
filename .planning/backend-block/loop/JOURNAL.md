@@ -1157,7 +1157,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht.
 
 ## Iteration 19 — p2c-inventar-einkauf-produktion-vertraege — done — 2026-08-01 (Nachtlauf 3)
-- commit: (dieser Commit)
+- commit: 07004000
 - gebaut: `RequirePermissionAny(alt, neu)` additiv auf inventar-, einkauf-, produktion- und
   vertraege-Routen. Alle vier Module hatten aus fruehren Migrationen (000084/000185/000241
   inventar, 000086/000209 einkauf, 000088/000191 produktion, 000090 vertraege) bereits
