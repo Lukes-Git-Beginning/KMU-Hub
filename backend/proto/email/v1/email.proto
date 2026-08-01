@@ -68,6 +68,13 @@ service EmailService {
   rpc UpdateEmailRule(UpdateEmailRuleRequest) returns (UpdateEmailRuleResponse);
   rpc DeleteEmailRule(DeleteEmailRuleRequest) returns (DeleteEmailRuleResponse);
   rpc ApplyEmailRules(ApplyEmailRulesRequest) returns (ApplyEmailRulesResponse);
+
+  // Labels
+  rpc ListEmailLabels(ListEmailLabelsRequest) returns (ListEmailLabelsResponse);
+  rpc CreateEmailLabel(CreateEmailLabelRequest) returns (CreateEmailLabelResponse);
+  rpc UpdateEmailLabel(UpdateEmailLabelRequest) returns (UpdateEmailLabelResponse);
+  rpc DeleteEmailLabel(DeleteEmailLabelRequest) returns (DeleteEmailLabelResponse);
+  rpc AssignMessageLabels(AssignMessageLabelsRequest) returns (AssignMessageLabelsResponse);
 }
 
 // ============================================================================
@@ -248,6 +255,7 @@ message EmailMessageInfo {
   repeated EmailAttachmentInfo attachments = 23;
   string created_at = 24;
   string updated_at = 25;
+  repeated string label_ids = 26;
 }
 
 message ListMessagesRequest {
@@ -663,4 +671,57 @@ message ApplyEmailRulesResponse {
   // Number of messages inspected, so a caller can tell "no match" apart from
   // "the scan limit cut the run short".
   int32 scanned = 2;
+}
+
+// ============================================================================
+// Labels
+// ============================================================================
+
+message EmailLabelInfo {
+  string id = 1;
+  string name = 2;
+  // Hex swatch colour, e.g. "#6B7280".
+  string color = 3;
+}
+
+message ListEmailLabelsRequest {}
+
+message ListEmailLabelsResponse {
+  repeated EmailLabelInfo labels = 1;
+}
+
+message CreateEmailLabelRequest {
+  string name = 1;
+  string color = 2;
+}
+
+message CreateEmailLabelResponse {
+  EmailLabelInfo label = 1;
+}
+
+message UpdateEmailLabelRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string color = 3;
+}
+
+message UpdateEmailLabelResponse {
+  EmailLabelInfo label = 1;
+}
+
+message DeleteEmailLabelRequest {
+  string id = 1;
+}
+
+message DeleteEmailLabelResponse {
+  bool success = 1;
+}
+
+message AssignMessageLabelsRequest {
+  string message_id = 1;
+  repeated string label_ids = 2;
+}
+
+message AssignMessageLabelsResponse {
+  EmailMessageInfo message = 1;
 }

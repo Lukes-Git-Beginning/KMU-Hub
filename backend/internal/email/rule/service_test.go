@@ -19,11 +19,12 @@ type mockRepo struct {
 	rules      []*models.EmailRule
 	candidates []*models.EmailRuleCandidate
 	folders    map[uuid.UUID]uuid.UUID // folder id -> tenant id
+	labels     map[uuid.UUID]uuid.UUID // label id -> tenant id
 	writes     int
 }
 
 func newMockRepo() *mockRepo {
-	return &mockRepo{folders: map[uuid.UUID]uuid.UUID{}}
+	return &mockRepo{folders: map[uuid.UUID]uuid.UUID{}, labels: map[uuid.UUID]uuid.UUID{}}
 }
 
 func (m *mockRepo) Create(_ context.Context, r *models.EmailRule) error {
@@ -75,6 +76,11 @@ func (m *mockRepo) FolderBelongsToTenant(_ context.Context, folderID, tenantID u
 	return ok && owner == tenantID, nil
 }
 
+func (m *mockRepo) LabelBelongsToTenant(_ context.Context, labelID, tenantID uuid.UUID) (bool, error) {
+	owner, ok := m.labels[labelID]
+	return ok && owner == tenantID, nil
+}
+
 func (m *mockRepo) ListApplyCandidates(_ context.Context, _ uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
 	if len(m.candidates) > limit {
 		return m.candidates[:limit], nil
@@ -120,6 +126,7 @@ func TestCreate_Valid(t *testing.T) {
 	svc := NewService(repo)
 	tenant := uuid.New()
 	label := uuid.New()
+	repo.labels[label] = tenant
 
 	r, err := svc.Create(context.Background(), tenant, validInput(label))
 	if err != nil {
@@ -192,11 +199,35 @@ func TestCreate_MoveTargetMustBeOwnFolder(t *testing.T) {
 	}
 }
 
+// A label rule must not be able to stamp a foreign or nonexistent label id:
+// label_ids has no foreign key, so an unvalidated target would silently
+// corrupt the message's label set.
+func TestCreate_LabelTargetMustBeOwnLabel(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := NewService(repo)
+	tenant, other := uuid.New(), uuid.New()
+	foreignLabel := uuid.New()
+	repo.labels[foreignLabel] = other
+
+	in := validInput(foreignLabel)
+
+	if _, err := svc.Create(context.Background(), tenant, in); !errors.Is(err, ErrTargetNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrTargetNotFound)
+	}
+
+	repo.labels[foreignLabel] = tenant
+	if _, err := svc.Create(context.Background(), tenant, in); err != nil {
+		t.Fatalf("own label rejected: %v", err)
+	}
+}
+
 func TestUpdate_PartialKeepsUntouchedFields(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
 	svc := NewService(repo)
 	tenant, label := uuid.New(), uuid.New()
+	repo.labels[label] = tenant
 
 	created, err := svc.Create(context.Background(), tenant, validInput(label))
 	if err != nil {
@@ -222,6 +253,7 @@ func TestUpdate_ValidatesMergedRuleNotOnlyThePatch(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo)
 	tenant, label := uuid.New(), uuid.New()
+	repo.labels[label] = tenant
 
 	created, err := svc.Create(context.Background(), tenant, validInput(label))
 	if err != nil {
@@ -240,9 +272,10 @@ func TestUpdate_ForeignTenantIsNotFound(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
 	svc := NewService(repo)
-	tenant := uuid.New()
+	tenant, label := uuid.New(), uuid.New()
+	repo.labels[label] = tenant
 
-	created, err := svc.Create(context.Background(), tenant, validInput(uuid.New()))
+	created, err := svc.Create(context.Background(), tenant, validInput(label))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

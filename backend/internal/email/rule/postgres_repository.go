@@ -114,6 +114,16 @@ func (p *PostgresRepository) FolderBelongsToTenant(ctx context.Context, folderID
 	return exists, err
 }
 
+// LabelBelongsToTenant checks the label action's target against
+// email_labels.tenant_id.
+func (p *PostgresRepository) LabelBelongsToTenant(ctx context.Context, labelID, tenantID uuid.UUID) (bool, error) {
+	var exists bool
+	err := p.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM email_labels WHERE id = $1 AND tenant_id = $2)`,
+		labelID, tenantID).Scan(&exists)
+	return exists, err
+}
+
 func (p *PostgresRepository) ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
 	rows, err := p.pool.Query(ctx,
 		`SELECT m.id, COALESCE(m.from_name, ''), m.from_email, COALESCE(m.subject, ''),

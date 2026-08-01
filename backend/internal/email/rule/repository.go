@@ -22,6 +22,10 @@ type Repository interface {
 	// tenant's own accounts. Used to validate a move action's target.
 	FolderBelongsToTenant(ctx context.Context, folderID, tenantID uuid.UUID) (bool, error)
 
+	// LabelBelongsToTenant reports whether a label id belongs to the tenant.
+	// Used to validate a label action's target.
+	LabelBelongsToTenant(ctx context.Context, labelID, tenantID uuid.UUID) (bool, error)
+
 	// ListApplyCandidates returns up to limit messages of the tenant, newest
 	// first, excluding trashed ones.
 	ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error)

@@ -63,6 +63,11 @@ const (
 	EmailService_UpdateEmailRule_FullMethodName          = "/email.v1.EmailService/UpdateEmailRule"
 	EmailService_DeleteEmailRule_FullMethodName          = "/email.v1.EmailService/DeleteEmailRule"
 	EmailService_ApplyEmailRules_FullMethodName          = "/email.v1.EmailService/ApplyEmailRules"
+	EmailService_ListEmailLabels_FullMethodName          = "/email.v1.EmailService/ListEmailLabels"
+	EmailService_CreateEmailLabel_FullMethodName         = "/email.v1.EmailService/CreateEmailLabel"
+	EmailService_UpdateEmailLabel_FullMethodName         = "/email.v1.EmailService/UpdateEmailLabel"
+	EmailService_DeleteEmailLabel_FullMethodName         = "/email.v1.EmailService/DeleteEmailLabel"
+	EmailService_AssignMessageLabels_FullMethodName      = "/email.v1.EmailService/AssignMessageLabels"
 )
 
 // EmailServiceClient is the client API for EmailService service.
@@ -123,6 +128,12 @@ type EmailServiceClient interface {
 	UpdateEmailRule(ctx context.Context, in *UpdateEmailRuleRequest, opts ...grpc.CallOption) (*UpdateEmailRuleResponse, error)
 	DeleteEmailRule(ctx context.Context, in *DeleteEmailRuleRequest, opts ...grpc.CallOption) (*DeleteEmailRuleResponse, error)
 	ApplyEmailRules(ctx context.Context, in *ApplyEmailRulesRequest, opts ...grpc.CallOption) (*ApplyEmailRulesResponse, error)
+	// Labels
+	ListEmailLabels(ctx context.Context, in *ListEmailLabelsRequest, opts ...grpc.CallOption) (*ListEmailLabelsResponse, error)
+	CreateEmailLabel(ctx context.Context, in *CreateEmailLabelRequest, opts ...grpc.CallOption) (*CreateEmailLabelResponse, error)
+	UpdateEmailLabel(ctx context.Context, in *UpdateEmailLabelRequest, opts ...grpc.CallOption) (*UpdateEmailLabelResponse, error)
+	DeleteEmailLabel(ctx context.Context, in *DeleteEmailLabelRequest, opts ...grpc.CallOption) (*DeleteEmailLabelResponse, error)
+	AssignMessageLabels(ctx context.Context, in *AssignMessageLabelsRequest, opts ...grpc.CallOption) (*AssignMessageLabelsResponse, error)
 }
 
 type emailServiceClient struct {
@@ -573,6 +584,56 @@ func (c *emailServiceClient) ApplyEmailRules(ctx context.Context, in *ApplyEmail
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailLabels(ctx context.Context, in *ListEmailLabelsRequest, opts ...grpc.CallOption) (*ListEmailLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailLabelsResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailLabels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) CreateEmailLabel(ctx context.Context, in *CreateEmailLabelRequest, opts ...grpc.CallOption) (*CreateEmailLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateEmailLabelResponse)
+	err := c.cc.Invoke(ctx, EmailService_CreateEmailLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) UpdateEmailLabel(ctx context.Context, in *UpdateEmailLabelRequest, opts ...grpc.CallOption) (*UpdateEmailLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateEmailLabelResponse)
+	err := c.cc.Invoke(ctx, EmailService_UpdateEmailLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) DeleteEmailLabel(ctx context.Context, in *DeleteEmailLabelRequest, opts ...grpc.CallOption) (*DeleteEmailLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEmailLabelResponse)
+	err := c.cc.Invoke(ctx, EmailService_DeleteEmailLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) AssignMessageLabels(ctx context.Context, in *AssignMessageLabelsRequest, opts ...grpc.CallOption) (*AssignMessageLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssignMessageLabelsResponse)
+	err := c.cc.Invoke(ctx, EmailService_AssignMessageLabels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EmailServiceServer is the server API for EmailService service.
 // All implementations must embed UnimplementedEmailServiceServer
 // for forward compatibility.
@@ -631,6 +692,12 @@ type EmailServiceServer interface {
 	UpdateEmailRule(context.Context, *UpdateEmailRuleRequest) (*UpdateEmailRuleResponse, error)
 	DeleteEmailRule(context.Context, *DeleteEmailRuleRequest) (*DeleteEmailRuleResponse, error)
 	ApplyEmailRules(context.Context, *ApplyEmailRulesRequest) (*ApplyEmailRulesResponse, error)
+	// Labels
+	ListEmailLabels(context.Context, *ListEmailLabelsRequest) (*ListEmailLabelsResponse, error)
+	CreateEmailLabel(context.Context, *CreateEmailLabelRequest) (*CreateEmailLabelResponse, error)
+	UpdateEmailLabel(context.Context, *UpdateEmailLabelRequest) (*UpdateEmailLabelResponse, error)
+	DeleteEmailLabel(context.Context, *DeleteEmailLabelRequest) (*DeleteEmailLabelResponse, error)
+	AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error)
 	mustEmbedUnimplementedEmailServiceServer()
 }
 
@@ -772,6 +839,21 @@ func (UnimplementedEmailServiceServer) DeleteEmailRule(context.Context, *DeleteE
 }
 func (UnimplementedEmailServiceServer) ApplyEmailRules(context.Context, *ApplyEmailRulesRequest) (*ApplyEmailRulesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApplyEmailRules not implemented")
+}
+func (UnimplementedEmailServiceServer) ListEmailLabels(context.Context, *ListEmailLabelsRequest) (*ListEmailLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailLabels not implemented")
+}
+func (UnimplementedEmailServiceServer) CreateEmailLabel(context.Context, *CreateEmailLabelRequest) (*CreateEmailLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmailLabel not implemented")
+}
+func (UnimplementedEmailServiceServer) UpdateEmailLabel(context.Context, *UpdateEmailLabelRequest) (*UpdateEmailLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmailLabel not implemented")
+}
+func (UnimplementedEmailServiceServer) DeleteEmailLabel(context.Context, *DeleteEmailLabelRequest) (*DeleteEmailLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmailLabel not implemented")
+}
+func (UnimplementedEmailServiceServer) AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignMessageLabels not implemented")
 }
 func (UnimplementedEmailServiceServer) mustEmbedUnimplementedEmailServiceServer() {}
 func (UnimplementedEmailServiceServer) testEmbeddedByValue()                      {}
@@ -1586,6 +1668,96 @@ func _EmailService_ApplyEmailRules_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailLabels(ctx, req.(*ListEmailLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_CreateEmailLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmailLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).CreateEmailLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_CreateEmailLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).CreateEmailLabel(ctx, req.(*CreateEmailLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_UpdateEmailLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmailLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).UpdateEmailLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_UpdateEmailLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).UpdateEmailLabel(ctx, req.(*UpdateEmailLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_DeleteEmailLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmailLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).DeleteEmailLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_DeleteEmailLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).DeleteEmailLabel(ctx, req.(*DeleteEmailLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_AssignMessageLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignMessageLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).AssignMessageLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_AssignMessageLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).AssignMessageLabels(ctx, req.(*AssignMessageLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EmailService_ServiceDesc is the grpc.ServiceDesc for EmailService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1768,6 +1940,26 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApplyEmailRules",
 			Handler:    _EmailService_ApplyEmailRules_Handler,
+		},
+		{
+			MethodName: "ListEmailLabels",
+			Handler:    _EmailService_ListEmailLabels_Handler,
+		},
+		{
+			MethodName: "CreateEmailLabel",
+			Handler:    _EmailService_CreateEmailLabel_Handler,
+		},
+		{
+			MethodName: "UpdateEmailLabel",
+			Handler:    _EmailService_UpdateEmailLabel_Handler,
+		},
+		{
+			MethodName: "DeleteEmailLabel",
+			Handler:    _EmailService_DeleteEmailLabel_Handler,
+		},
+		{
+			MethodName: "AssignMessageLabels",
+			Handler:    _EmailService_AssignMessageLabels_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

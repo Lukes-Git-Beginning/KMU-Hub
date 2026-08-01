@@ -153,14 +153,22 @@ func (s *Service) applyInput(ctx context.Context, r *models.EmailRule, in RuleIn
 		return ErrTargetRequired
 	}
 
-	// A move target has to be a folder of this tenant -- without the check a
-	// rule could push messages into a foreign mailbox, which RLS on
-	// email_messages would not catch (the row keeps its own tenant_id).
-	//
-	// lean: label targets stay unvalidated because email_labels does not exist
-	// yet. Add the same existence check once the labels unit lands.
-	if r.ActionType == models.EmailRuleActionMove {
+	// A move target has to be a folder of this tenant, and a label target has
+	// to be a label of this tenant -- without the check a rule could push
+	// messages into a foreign mailbox or stamp a nonexistent label id, neither
+	// of which RLS on email_messages would catch (the row keeps its own
+	// tenant_id through a folder change, and label_ids has no foreign key).
+	switch r.ActionType {
+	case models.EmailRuleActionMove:
 		ok, err := s.repo.FolderBelongsToTenant(ctx, r.ActionTarget, r.TenantID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrTargetNotFound
+		}
+	case models.EmailRuleActionLabel:
+		ok, err := s.repo.LabelBelongsToTenant(ctx, r.ActionTarget, r.TenantID)
 		if err != nil {
 			return err
 		}

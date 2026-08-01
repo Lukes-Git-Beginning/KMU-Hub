@@ -1458,7 +1458,7 @@ units:
     service: mails
     model: sonnet
     deps: [fe-email-rules]
-    status: todo
+    status: done
     scope: >
       `GET/POST/DELETE /api/v1/email/labels` und Zuordnung zu Nachrichten.
     sources:

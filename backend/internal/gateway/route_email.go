@@ -125,6 +125,7 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/unread", e.HandleMarkUnread)
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/star", e.HandleToggleStar)
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/move", e.HandleMoveToFolder)
+		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/labels", e.HandleAssignMessageLabels)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteMessage)
 	})
 
@@ -156,6 +157,15 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/apply", e.HandleApplyEmailRules)
 		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailRule)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailRule)
+	})
+
+	// Labels
+	r.Route("/api/v1/email/labels", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailLabels)
+		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailLabel)
+		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailLabel)
+		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailLabel)
 	})
 
 	// CRM Links
@@ -1205,4 +1215,121 @@ func (e *EmailRoutes) HandleApplyEmailRules(w http.ResponseWriter, r *http.Reque
 		"affected": int(resp.Affected),
 		"scanned":  int(resp.Scanned),
 	})
+}
+
+// ============================================================================
+// Label Handlers
+// ============================================================================
+
+func (e *EmailRoutes) HandleListEmailLabels(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.ListEmailLabels(r.Context(), &emailv1.ListEmailLabelsRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Wrapped list via ProtoListWrapped so an empty label set serialises as
+	// {"labels": []} instead of {} -- the frontend types labels as an array.
+	response.ProtoListWrapped(w, http.StatusOK, "labels", resp.Labels, nil)
+}
+
+func (e *EmailRoutes) HandleCreateEmailLabel(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	// proto-direct: no local DTO (S4.1 boundary)
+	var req emailv1.CreateEmailLabelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.CreateEmailLabel(r.Context(), &req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (e *EmailRoutes) HandleUpdateEmailLabel(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	// proto-direct: no local DTO (S4.1 boundary). Both fields carry presence,
+	// so an omitted key keeps its stored value.
+	var req emailv1.UpdateEmailLabelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Id = chi.URLParam(r, "id")
+
+	resp, err := client.UpdateEmailLabel(r.Context(), &req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleDeleteEmailLabel(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.DeleteEmailLabel(r.Context(), &emailv1.DeleteEmailLabelRequest{
+		Id: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+type assignMessageLabelsDTO struct {
+	LabelIDs []string `json:"label_ids"`
+}
+
+func (e *EmailRoutes) HandleAssignMessageLabels(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	var dto assignMessageLabelsDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.AssignMessageLabels(r.Context(), &emailv1.AssignMessageLabelsRequest{
+		MessageId: chi.URLParam(r, "id"),
+		LabelIds:  dto.LabelIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }

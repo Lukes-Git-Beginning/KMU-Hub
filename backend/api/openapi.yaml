@@ -19510,6 +19510,41 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/email/messages/{id}/labels:
+    post:
+      summary: Replace the label set of a message
+      description: >
+        Full replace, not an add/remove pair: the given label ids become the
+        message's entire label set. Every id must already be a label of the
+        tenant.
+      tags: [mails]
+      operationId: assignMessageLabels
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignMessageLabelsRequest"
+      responses:
+        "200":
+          description: Message with its updated label set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Message not found, or one of the label ids does not belong to the tenant
+
   /api/v1/email/send:
     post:
       summary: Send an email (with optional UWG §7 consent check when contact_id is set)
@@ -19888,6 +19923,113 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/email/labels:
+    get:
+      summary: List the tenant's email labels
+      tags: [mails]
+      operationId: listEmailLabels
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Label list, name-ordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailLabelsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an email label
+      tags: [mails]
+      operationId: createEmailLabel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailLabelRequest"
+      responses:
+        "201":
+          description: Label created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailLabelEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: A label with this name already exists for the tenant
+
+  /api/v1/email/labels/{id}:
+    patch:
+      summary: Update an email label
+      description: "Partial update: omitted fields keep their stored value."
+      tags: [mails]
+      operationId: updateEmailLabel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailLabelRequest"
+      responses:
+        "200":
+          description: Label updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailLabelEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: A label with this name already exists for the tenant
+    delete:
+      summary: Delete an email label
+      description: >
+        Also strips the label id from every message of the tenant that still
+        carries it (label_ids has no foreign key to do that on its own).
+      tags: [mails]
+      operationId: deleteEmailLabel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Label deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/email/links/message/{messageId}:
     get:
@@ -37364,6 +37506,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     EmailListMessagesResponse:
       type: object
@@ -37662,6 +37809,65 @@ components:
         scanned:
           type: integer
           description: Messages inspected, capped by the per-run scan limit.
+
+    EmailLabelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex swatch colour, e.g. "#6B7280".
+
+    ListEmailLabelsResponse:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailLabelInfo"
+
+    EmailLabelEnvelope:
+      type: object
+      properties:
+        label:
+          $ref: "#/components/schemas/EmailLabelInfo"
+
+    CreateEmailLabelRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex swatch colour. Defaults to a neutral grey if omitted.
+
+    UpdateEmailLabelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+
+    AssignMessageLabelsRequest:
+      type: object
+      required: [label_ids]
+      properties:
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: >
+            Full replacement set. Every id must already be a label of the
+            tenant.
 
     EmailSignatureInfo:
       type: object

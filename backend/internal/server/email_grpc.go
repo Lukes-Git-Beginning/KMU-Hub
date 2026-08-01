@@ -14,6 +14,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
+	"github.com/kmuhub/kmuhub/internal/email/label"
 	"github.com/kmuhub/kmuhub/internal/email/message"
 	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/send"
@@ -37,6 +38,7 @@ type EmailGRPCServer struct {
 	importService     *emailcontact.ImportService
 	exportService     *emailcontact.ExportService
 	ruleService       *rule.Service
+	labelService      *label.Service
 }
 
 // EmailContactLinkRepository defines the interface for CRM email linking.
@@ -59,6 +61,7 @@ func NewEmailGRPCServer(
 	importService *emailcontact.ImportService,
 	exportService *emailcontact.ExportService,
 	ruleService *rule.Service,
+	labelService *label.Service,
 ) *EmailGRPCServer {
 	return &EmailGRPCServer{
 		accountService:    accountService,
@@ -71,6 +74,7 @@ func NewEmailGRPCServer(
 		importService:     importService,
 		exportService:     exportService,
 		ruleService:       ruleService,
+		labelService:      labelService,
 	}
 }
 
@@ -1213,6 +1217,10 @@ func toEmailMessageInfo(m *models.EmailMessage) *emailv1.EmailMessageInfo {
 		UpdatedAt:       m.UpdatedAt.Format(time.RFC3339),
 	}
 
+	for _, id := range m.LabelIDs {
+		info.LabelIds = append(info.LabelIds, id.String())
+	}
+
 	if m.ThreadID != nil {
 		info.ThreadId = m.ThreadID.String()
 	}
@@ -1353,6 +1361,18 @@ func mapEmailError(err error) error {
 		errors.Is(err, rule.ErrTargetRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
 
+	// Label errors
+	case errors.Is(err, label.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, label.ErrMessageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, label.ErrDuplicateName):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, label.ErrNameRequired),
+		errors.Is(err, label.ErrColorInvalid),
+		errors.Is(err, label.ErrTargetInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+
 	// Import errors
 	case errors.Is(err, emailcontact.ErrImportFailed):
 		return status.Error(codes.Internal, err.Error())
@@ -1477,5 +1497,110 @@ func toEmailRuleInfo(r *models.EmailRule) *emailv1.EmailRuleInfo {
 		Value:        r.Value,
 		ActionType:   r.ActionType,
 		ActionTarget: r.ActionTarget.String(),
+	}
+}
+
+// ============================================================================
+// Labels
+// ============================================================================
+
+func (s *EmailGRPCServer) ListEmailLabels(ctx context.Context, _ *emailv1.ListEmailLabelsRequest) (*emailv1.ListEmailLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	labels, err := s.labelService.List(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	out := make([]*emailv1.EmailLabelInfo, 0, len(labels))
+	for _, l := range labels {
+		out = append(out, toEmailLabelInfo(l))
+	}
+	return &emailv1.ListEmailLabelsResponse{Labels: out}, nil
+}
+
+func (s *EmailGRPCServer) CreateEmailLabel(ctx context.Context, req *emailv1.CreateEmailLabelRequest) (*emailv1.CreateEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	l, err := s.labelService.Create(ctx, tenantID, req.Name, req.Color)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.CreateEmailLabelResponse{Label: toEmailLabelInfo(l)}, nil
+}
+
+func (s *EmailGRPCServer) UpdateEmailLabel(ctx context.Context, req *emailv1.UpdateEmailLabelRequest) (*emailv1.UpdateEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid label id")
+	}
+
+	l, err := s.labelService.Update(ctx, id, tenantID, req.Name, req.Color)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.UpdateEmailLabelResponse{Label: toEmailLabelInfo(l)}, nil
+}
+
+func (s *EmailGRPCServer) DeleteEmailLabel(ctx context.Context, req *emailv1.DeleteEmailLabelRequest) (*emailv1.DeleteEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid label id")
+	}
+
+	if err := s.labelService.Delete(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.DeleteEmailLabelResponse{Success: true}, nil
+}
+
+func (s *EmailGRPCServer) AssignMessageLabels(ctx context.Context, req *emailv1.AssignMessageLabelsRequest) (*emailv1.AssignMessageLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message id")
+	}
+
+	labelIDs := make([]uuid.UUID, 0, len(req.LabelIds))
+	for _, raw := range req.LabelIds {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid label id")
+		}
+		labelIDs = append(labelIDs, id)
+	}
+
+	msg, err := s.labelService.AssignToMessage(ctx, tenantID, messageID, labelIDs)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.AssignMessageLabelsResponse{Message: toEmailMessageInfo(msg)}, nil
+}
+
+func toEmailLabelInfo(l *models.EmailLabel) *emailv1.EmailLabelInfo {
+	return &emailv1.EmailLabelInfo{
+		Id:    l.ID.String(),
+		Name:  l.Name,
+		Color: l.Color,
 	}
 }

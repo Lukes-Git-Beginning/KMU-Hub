@@ -2574,3 +2574,97 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Rule-Schreibpfade sind bewusst explizit tenant-gescoped gebaut.
   - Naechste Unit laut Reihenfolge: `fe-email-labels` (Block E, deps: [fe-email-rules], model:
     sonnet) — die Vorarbeit-Punkte (a)-(c) stehen jetzt in deren Backlog-Notes.
+
+## Iteration 36 — fe-email-labels — done — 2026-08-02 01:35 (Nachtlauf 3)
+- commit: (siehe git log, dieser Lauf)
+- verify vorgaenger: `087e5e0a` (fe-email-rules) gegen die sechs Fehlerklassen geprueft — **kein
+  Fund**. Guards reused `email:read/write/delete` (keine neuen Keys, kein Seed noetig), Handler gehen
+  ausschliesslich ueber `e.getEmailClient()`, `.proto` und `.pb.go`/`.grpc.pb.go` im selben Commit
+  regeneriert, Migration 000260 `tenant_id NOT NULL` + `enable_tenant_rls`, `openapi.yaml` im selben
+  Commit, `TestOpenAPIRouteDrift` laut Journal gruen geprueft, kein `Unimplemented`/`TODO` im neuen
+  Pfad.
+- gebaut:
+  - **E-Mail-Labels**, Migration 000261: `email_labels` (`tenant_id NOT NULL` + FK auf `tenants`,
+    `color` mit Hex-CHECK, `UNIQUE(tenant_id, name)` — **pro Tenant, nicht global**, wie in den
+    Vorarbeit-Notes verlangt), `CALL enable_tenant_rls('email_labels')`. Die Zuordnungsspalte
+    (`email_messages.label_ids`) existiert bereits seit 000260 — keine zweite Zuordnungstabelle.
+  - Neues Package `internal/email/label/` (errors/repository/postgres_repository/service, Muster von
+    `internal/email/rule/` uebernommen): `Create/GetByID/List/Update/Delete` + `AssignToMessage`.
+    `Delete` laeuft in einer Transaktion und entfernt die Label-ID zusaetzlich per
+    `array_remove(label_ids, $1)` aus ALLEN Nachrichten des Tenants — `label_ids` hat bewusst keinen
+    FK (polymorphe Zuordnung, siehe 000260), sonst blieben tote IDs nach einem Delete stehen (Fund:
+    genau das macht der FE-Mock in `email-store.ts:deleteLabel` schon, Backend musste nachziehen).
+  - **READ-SEITE NACHGEZOGEN** (Vorarbeit-Punkt b aus `fe-email-rules`): `label_ids` jetzt in
+    `EmailMessageInfo` (Proto Feld 26) UND in allen SIEBEN SELECT-Stellen von
+    `internal/email/message/postgres_repository.go` (GetByID/GetByFolderUID/ListByFolder/
+    ListByThread/Search/GetByMessageIDHeader/FindBySubjectAndParticipants) plus `scanMessage`/
+    `collectMessages`. Die INSERT-Spaltenliste (`Create`) bewusst NICHT angefasst — die DB-Default
+    `'{}'` deckt neue Nachrichten ab.
+  - **AssignToMessage-Komposition**: `label.Service` bekommt neben dem eigenen Repository ein
+    schlankes `MessageReader`-Interface (`GetByID(ctx, id, tenantID) (*models.EmailMessage, error)`)
+    injiziert — *message.Service erfuellt es strukturell, exakt das Muster, das `send.Service` schon
+    fuer `MessageCreator` nutzt (`cmd/email/main.go`). Schreibt label_ids direkt (wie
+    `rule.ApplyToMessage` es fuer Regeln tut, kein Umweg ueber das message-Package) und liest danach
+    ueber `messageService.GetByID` die frische Nachricht fuer die Response — keine dritte Kopie der
+    ~20-Spalten-Liste noetig.
+  - **Sicherheit — Assign validiert Label-Eigentuemerschaft vorab**: `LabelIDsBelongToTenant` prueft
+    ALLE mitgeschickten IDs gegen `email_labels.tenant_id`, bevor irgendetwas geschrieben wird (Test
+    `TestAssignToMessage_RejectsForeignLabelID` beweist: 0 Writes bei Ablehnung). Ohne diese Pruefung
+    koennte `label_ids` eine fremde oder nichtexistente ID tragen — die Spalte hat keinen FK, der das
+    verhindern wuerde.
+  - **NACHGEZOGEN in `internal/email/rule/`** (der `lean:`-Marker aus `fe-email-rules` mit Trigger
+    "sobald `email_labels` existiert" ist jetzt eingeloest): `LabelBelongsToTenant` im Rule-Repository
+    ergaenzt, `applyInput` prueft jetzt Label-Targets genauso wie Move-Targets (`switch r.ActionType`
+    statt `if move`). Vier Bestandstests mussten dafuer `repo.labels[label] = tenant` vorregistrieren
+    (sonst waeren sie durch die neue Validierung gefallen), ein neuer Test
+    `TestCreate_LabelTargetMustBeOwnLabel` spiegelt `TestCreate_MoveTargetMustBeOwnFolder`. Neuer
+    DB-Test `TestRepository_LabelBelongsToTenant` in `rule/postgres_repository_test.go`.
+  - Gateway: `GET/POST /api/v1/email/labels`, `PATCH/DELETE /api/v1/email/labels/{id}`,
+    `POST /api/v1/email/messages/{id}/labels`. Alle ueber `email:read/write/delete` (kein neuer
+    Guard, kein Seed). Wire-Shapes gegen `email-client.ts:308-333` verifiziert: List gewrappt
+    `{labels:[]}`, `assign()` erwartet `{message: EmailMessageInfo}` exakt (nicht raten — Full-Replace
+    des Label-Sets, kein Add/Remove-Paar, `label_ids` im Body). `update()`/`delete()` sind FE-seitig
+    als `Record<string, never>` getypt (liest nichts aus der Antwort); Backend liefert trotzdem
+    `{label:...}` bzw. `{success:true}` — konsistent zu `UpdateEmailRuleResponse`/
+    `DeleteEmailRuleResponse` aus der Vorgaenger-Unit, harmlos fuer den FE-Client.
+  - `openapi.yaml`: 4 neue Pfade + 6 neue Schemas + `label_ids` an `EmailMessageInfo`,
+    `TestOpenAPIRouteDrift` gruen (764 Routen / 766 Pfade), `swagger-cli validate` gruen.
+- gate: `go build -p 2 ./...` (voller Baum, kein `-p 2`-Timeout diesmal) gruen | vet gruen |
+  `golangci-lint` `internal/email/... internal/gateway/... cmd/email/...` **0 issues** | Migration
+  000261 up lokal gruen (Kopf `261`) | test ok mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`):
+  `internal/email/... internal/gateway/... internal/server/...` alle `ok`, **0 Skips** ueber
+  `internal/email/label`+`rule`+`message` verifiziert (`-v | grep -c SKIP` = 0, 46 PASS).
+  `TestOpenAPIRouteDrift` gruen. gofmt: die beiden neuen Testdateien im `label`-Package hatten eine
+  echte (nicht CRLF-bedingte) Map-Alignment-Abweichung — mit `gofmt -w` behoben, danach `gofmt -l`
+  leer fuer das ganze Package.
+  rls-smoke auf `email_labels` (zwei frisch angelegte temporaere Tenants, danach geloescht): eigener
+  Tenant 1, fremder Tenant 0 — keine 0/0-Nullmessung. **Fund beim ersten Versuch**: die
+  GATE-COMMANDS.md-Fixwerte `...0001`/`...00ff` existieren NICHT in `tenants` (im Gegensatz zu
+  `contacts` hat `email_labels.tenant_id` einen FK auf `tenants`), ein Batch-INSERT mit beiden IDs
+  schlug komplett fehl und beide Zaehlungen waren 0 — mit echten Tenant-Zeilen wiederholt.
+- tests: 11 Service-Unit-Tests (Create/Update-Validierung, Duplicate-Name pro Tenant,
+  Assign-Validierung inkl. "0 Writes vor bestandener Validierung"), 6 DB-Tests (`postgres_repository_
+  test.go`, eigene Tenants+Mailbox-Fixture wie bei `rule`), 10 Gateway-Guard-Faelle
+  (`route_email_labels_test.go`), plus im `rule`-Package: 1 neuer Unit-Test + 1 neuer DB-Test fuer die
+  nachgezogene Label-Target-Validierung.
+- offen:
+  - **Fund im Bestand, ausserhalb dieser Unit (nicht behoben, dokumentiert)**: das Test-Muster
+    `defer pool.Close()` gefolgt von `t.Cleanup(func(){ CleanupRow... })` laesst die Cleanup-Zeile
+    gegen einen bereits geschlossenen Pool laufen — Go fuehrt Funktions-`defer`s beim Return der
+    Testfunktion aus, `t.Cleanup`-Callbacks erst danach. `CleanupRow` loggt den Fehler nur (`t.Logf`),
+    faellt der Test nicht. Ergebnis: liegen gebliebene Zeilen nach jedem gruenen Testlauf — lokal
+    beobachtet in `email_labels` (34 Zeilen) UND vorbestehend in `email_rules` (7 Zeilen, nicht aus
+    diesem Lauf). Manuell bereinigt (`DELETE FROM email_labels`), `email_rules`-Altlast nicht
+    angefasst (ausserhalb Scope). Das Muster stammt aus `internal/email/rule`'s Tests und wurde hier
+    fuer `label` identisch uebernommen — betrifft vermutlich jedes Package, das diesen Test-Stil
+    kopiert hat. Kandidat fuer eine eigene kleine Fix-Unit (`t.Cleanup` fuer den Pool-Close statt
+    `defer`, oder Cleanup-Reihenfolge umkehren).
+  - `label_id`-Filter in `ListMessagesParams` (FE-Typ, `email-types.ts:162`) bleibt unverdrahtet —
+    weder Proto (`ListMessagesRequest`) noch Gateway-Handler kennen ihn. Nicht Teil von `done_when`
+    dieser Unit (nur "CRUD + Zuordnung"); Filterung nach Label ist ein sinnvoller Kandidat fuer eine
+    eigene kleine Folge-Unit, sobald das FE tatsaechlich danach filtert.
+  - `email_labels`-Existenzpruefung fuer Rule-Label-Targets ist jetzt aktiv (siehe oben) — bestehende
+    Regeln mit `action_type='label'` und einer (aus der Zeit vor `email_labels`) nie validierten
+    Ziel-ID werden dadurch bei einem `UpdateEmailRule`-Aufruf erstmals abgelehnt, falls die ID kein
+    echtes Label ist. Reines Anwenden (`ApplyEmailRules`) ist NICHT betroffen (validiert nicht erneut
+    beim Apply, nur bei Create/Update) — kein Verhaltensbruch fuer bestehende Regeln im Ruhezustand.

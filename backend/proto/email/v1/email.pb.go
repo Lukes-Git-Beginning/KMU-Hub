@@ -1384,6 +1384,7 @@ type EmailMessageInfo struct {
 	Attachments     []*EmailAttachmentInfo `protobuf:"bytes,23,rep,name=attachments,proto3" json:"attachments,omitempty"`
 	CreatedAt       string                 `protobuf:"bytes,24,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       string                 `protobuf:"bytes,25,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	LabelIds        []string               `protobuf:"bytes,26,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1591,6 +1592,13 @@ func (x *EmailMessageInfo) GetUpdatedAt() string {
 		return x.UpdatedAt
 	}
 	return ""
+}
+
+func (x *EmailMessageInfo) GetLabelIds() []string {
+	if x != nil {
+		return x.LabelIds
+	}
+	return nil
 }
 
 type ListMessagesRequest struct {
@@ -5546,6 +5554,531 @@ func (x *ApplyEmailRulesResponse) GetScanned() int32 {
 	return 0
 }
 
+type EmailLabelInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Hex swatch colour, e.g. "#6B7280".
+	Color         string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmailLabelInfo) Reset() {
+	*x = EmailLabelInfo{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[94]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmailLabelInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmailLabelInfo) ProtoMessage() {}
+
+func (x *EmailLabelInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[94]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmailLabelInfo.ProtoReflect.Descriptor instead.
+func (*EmailLabelInfo) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{94}
+}
+
+func (x *EmailLabelInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *EmailLabelInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *EmailLabelInfo) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+type ListEmailLabelsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEmailLabelsRequest) Reset() {
+	*x = ListEmailLabelsRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[95]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEmailLabelsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEmailLabelsRequest) ProtoMessage() {}
+
+func (x *ListEmailLabelsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[95]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEmailLabelsRequest.ProtoReflect.Descriptor instead.
+func (*ListEmailLabelsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{95}
+}
+
+type ListEmailLabelsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Labels        []*EmailLabelInfo      `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEmailLabelsResponse) Reset() {
+	*x = ListEmailLabelsResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEmailLabelsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEmailLabelsResponse) ProtoMessage() {}
+
+func (x *ListEmailLabelsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEmailLabelsResponse.ProtoReflect.Descriptor instead.
+func (*ListEmailLabelsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{96}
+}
+
+func (x *ListEmailLabelsResponse) GetLabels() []*EmailLabelInfo {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+type CreateEmailLabelRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Color         string                 `protobuf:"bytes,2,opt,name=color,proto3" json:"color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateEmailLabelRequest) Reset() {
+	*x = CreateEmailLabelRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmailLabelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmailLabelRequest) ProtoMessage() {}
+
+func (x *CreateEmailLabelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmailLabelRequest.ProtoReflect.Descriptor instead.
+func (*CreateEmailLabelRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{97}
+}
+
+func (x *CreateEmailLabelRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateEmailLabelRequest) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+type CreateEmailLabelResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         *EmailLabelInfo        `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateEmailLabelResponse) Reset() {
+	*x = CreateEmailLabelResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[98]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmailLabelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmailLabelResponse) ProtoMessage() {}
+
+func (x *CreateEmailLabelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[98]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmailLabelResponse.ProtoReflect.Descriptor instead.
+func (*CreateEmailLabelResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{98}
+}
+
+func (x *CreateEmailLabelResponse) GetLabel() *EmailLabelInfo {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+type UpdateEmailLabelRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Color         *string                `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEmailLabelRequest) Reset() {
+	*x = UpdateEmailLabelRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[99]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEmailLabelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEmailLabelRequest) ProtoMessage() {}
+
+func (x *UpdateEmailLabelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[99]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEmailLabelRequest.ProtoReflect.Descriptor instead.
+func (*UpdateEmailLabelRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{99}
+}
+
+func (x *UpdateEmailLabelRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateEmailLabelRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateEmailLabelRequest) GetColor() string {
+	if x != nil && x.Color != nil {
+		return *x.Color
+	}
+	return ""
+}
+
+type UpdateEmailLabelResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         *EmailLabelInfo        `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEmailLabelResponse) Reset() {
+	*x = UpdateEmailLabelResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[100]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEmailLabelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEmailLabelResponse) ProtoMessage() {}
+
+func (x *UpdateEmailLabelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[100]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEmailLabelResponse.ProtoReflect.Descriptor instead.
+func (*UpdateEmailLabelResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{100}
+}
+
+func (x *UpdateEmailLabelResponse) GetLabel() *EmailLabelInfo {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+type DeleteEmailLabelRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEmailLabelRequest) Reset() {
+	*x = DeleteEmailLabelRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[101]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEmailLabelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEmailLabelRequest) ProtoMessage() {}
+
+func (x *DeleteEmailLabelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[101]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEmailLabelRequest.ProtoReflect.Descriptor instead.
+func (*DeleteEmailLabelRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{101}
+}
+
+func (x *DeleteEmailLabelRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteEmailLabelResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEmailLabelResponse) Reset() {
+	*x = DeleteEmailLabelResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[102]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEmailLabelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEmailLabelResponse) ProtoMessage() {}
+
+func (x *DeleteEmailLabelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[102]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEmailLabelResponse.ProtoReflect.Descriptor instead.
+func (*DeleteEmailLabelResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{102}
+}
+
+func (x *DeleteEmailLabelResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type AssignMessageLabelsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	LabelIds      []string               `protobuf:"bytes,2,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignMessageLabelsRequest) Reset() {
+	*x = AssignMessageLabelsRequest{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[103]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignMessageLabelsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignMessageLabelsRequest) ProtoMessage() {}
+
+func (x *AssignMessageLabelsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[103]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignMessageLabelsRequest.ProtoReflect.Descriptor instead.
+func (*AssignMessageLabelsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{103}
+}
+
+func (x *AssignMessageLabelsRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *AssignMessageLabelsRequest) GetLabelIds() []string {
+	if x != nil {
+		return x.LabelIds
+	}
+	return nil
+}
+
+type AssignMessageLabelsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       *EmailMessageInfo      `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignMessageLabelsResponse) Reset() {
+	*x = AssignMessageLabelsResponse{}
+	mi := &file_proto_email_v1_email_proto_msgTypes[104]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignMessageLabelsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignMessageLabelsResponse) ProtoMessage() {}
+
+func (x *AssignMessageLabelsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_email_v1_email_proto_msgTypes[104]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignMessageLabelsResponse.ProtoReflect.Descriptor instead.
+func (*AssignMessageLabelsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_email_v1_email_proto_rawDescGZIP(), []int{104}
+}
+
+func (x *AssignMessageLabelsResponse) GetMessage() *EmailMessageInfo {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
 var File_proto_email_v1_email_proto protoreflect.FileDescriptor
 
 const file_proto_email_v1_email_proto_rawDesc = "" +
@@ -5679,7 +6212,7 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"\n" +
 	"account_id\x18\x01 \x01(\tR\taccountId\"J\n" +
 	"\x13SyncFoldersResponse\x123\n" +
-	"\afolders\x18\x01 \x03(\v2\x19.email.v1.EmailFolderInfoR\afolders\"\xbb\x06\n" +
+	"\afolders\x18\x01 \x03(\v2\x19.email.v1.EmailFolderInfoR\afolders\"\xd8\x06\n" +
 	"\x10EmailMessageInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -5713,7 +6246,8 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x18 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x19 \x01(\tR\tupdatedAt\"\xaf\x01\n" +
+	"updated_at\x18\x19 \x01(\tR\tupdatedAt\x12\x1b\n" +
+	"\tlabel_ids\x18\x1a \x03(\tR\blabelIds\"\xaf\x01\n" +
 	"\x13ListMessagesRequest\x12\x1b\n" +
 	"\tfolder_id\x18\x01 \x01(\tR\bfolderId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x19\n" +
@@ -6007,7 +6541,37 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"\x16ApplyEmailRulesRequest\"O\n" +
 	"\x17ApplyEmailRulesResponse\x12\x1a\n" +
 	"\baffected\x18\x01 \x01(\x05R\baffected\x12\x18\n" +
-	"\ascanned\x18\x02 \x01(\x05R\ascanned2\xd4\x1d\n" +
+	"\ascanned\x18\x02 \x01(\x05R\ascanned\"J\n" +
+	"\x0eEmailLabelInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05color\x18\x03 \x01(\tR\x05color\"\x18\n" +
+	"\x16ListEmailLabelsRequest\"K\n" +
+	"\x17ListEmailLabelsResponse\x120\n" +
+	"\x06labels\x18\x01 \x03(\v2\x18.email.v1.EmailLabelInfoR\x06labels\"C\n" +
+	"\x17CreateEmailLabelRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05color\x18\x02 \x01(\tR\x05color\"J\n" +
+	"\x18CreateEmailLabelResponse\x12.\n" +
+	"\x05label\x18\x01 \x01(\v2\x18.email.v1.EmailLabelInfoR\x05label\"p\n" +
+	"\x17UpdateEmailLabelRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
+	"\x05color\x18\x03 \x01(\tH\x01R\x05color\x88\x01\x01B\a\n" +
+	"\x05_nameB\b\n" +
+	"\x06_color\"J\n" +
+	"\x18UpdateEmailLabelResponse\x12.\n" +
+	"\x05label\x18\x01 \x01(\v2\x18.email.v1.EmailLabelInfoR\x05label\")\n" +
+	"\x17DeleteEmailLabelRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"4\n" +
+	"\x18DeleteEmailLabelResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"X\n" +
+	"\x1aAssignMessageLabelsRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1b\n" +
+	"\tlabel_ids\x18\x02 \x03(\tR\blabelIds\"S\n" +
+	"\x1bAssignMessageLabelsResponse\x124\n" +
+	"\amessage\x18\x01 \x01(\v2\x1a.email.v1.EmailMessageInfoR\amessage2\xa1!\n" +
 	"\fEmailService\x12_\n" +
 	"\x12CreateEmailAccount\x12#.email.v1.CreateEmailAccountRequest\x1a$.email.v1.CreateEmailAccountResponse\x12V\n" +
 	"\x0fGetEmailAccount\x12 .email.v1.GetEmailAccountRequest\x1a!.email.v1.GetEmailAccountResponse\x12_\n" +
@@ -6056,7 +6620,12 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"\x0fCreateEmailRule\x12 .email.v1.CreateEmailRuleRequest\x1a!.email.v1.CreateEmailRuleResponse\x12V\n" +
 	"\x0fUpdateEmailRule\x12 .email.v1.UpdateEmailRuleRequest\x1a!.email.v1.UpdateEmailRuleResponse\x12V\n" +
 	"\x0fDeleteEmailRule\x12 .email.v1.DeleteEmailRuleRequest\x1a!.email.v1.DeleteEmailRuleResponse\x12V\n" +
-	"\x0fApplyEmailRules\x12 .email.v1.ApplyEmailRulesRequest\x1a!.email.v1.ApplyEmailRulesResponseB1Z/github.com/kmuhub/kmuhub/proto/email/v1;emailv1b\x06proto3"
+	"\x0fApplyEmailRules\x12 .email.v1.ApplyEmailRulesRequest\x1a!.email.v1.ApplyEmailRulesResponse\x12V\n" +
+	"\x0fListEmailLabels\x12 .email.v1.ListEmailLabelsRequest\x1a!.email.v1.ListEmailLabelsResponse\x12Y\n" +
+	"\x10CreateEmailLabel\x12!.email.v1.CreateEmailLabelRequest\x1a\".email.v1.CreateEmailLabelResponse\x12Y\n" +
+	"\x10UpdateEmailLabel\x12!.email.v1.UpdateEmailLabelRequest\x1a\".email.v1.UpdateEmailLabelResponse\x12Y\n" +
+	"\x10DeleteEmailLabel\x12!.email.v1.DeleteEmailLabelRequest\x1a\".email.v1.DeleteEmailLabelResponse\x12b\n" +
+	"\x13AssignMessageLabels\x12$.email.v1.AssignMessageLabelsRequest\x1a%.email.v1.AssignMessageLabelsResponseB1Z/github.com/kmuhub/kmuhub/proto/email/v1;emailv1b\x06proto3"
 
 var (
 	file_proto_email_v1_email_proto_rawDescOnce sync.Once
@@ -6070,7 +6639,7 @@ func file_proto_email_v1_email_proto_rawDescGZIP() []byte {
 	return file_proto_email_v1_email_proto_rawDescData
 }
 
-var file_proto_email_v1_email_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
+var file_proto_email_v1_email_proto_msgTypes = make([]protoimpl.MessageInfo, 106)
 var file_proto_email_v1_email_proto_goTypes = []any{
 	(*EmailAddress)(nil),                     // 0: email.v1.EmailAddress
 	(*EmailAttachmentInfo)(nil),              // 1: email.v1.EmailAttachmentInfo
@@ -6166,140 +6735,165 @@ var file_proto_email_v1_email_proto_goTypes = []any{
 	(*DeleteEmailRuleResponse)(nil),          // 91: email.v1.DeleteEmailRuleResponse
 	(*ApplyEmailRulesRequest)(nil),           // 92: email.v1.ApplyEmailRulesRequest
 	(*ApplyEmailRulesResponse)(nil),          // 93: email.v1.ApplyEmailRulesResponse
-	nil,                                      // 94: email.v1.ImportContactsCSVRequest.FieldMappingEntry
+	(*EmailLabelInfo)(nil),                   // 94: email.v1.EmailLabelInfo
+	(*ListEmailLabelsRequest)(nil),           // 95: email.v1.ListEmailLabelsRequest
+	(*ListEmailLabelsResponse)(nil),          // 96: email.v1.ListEmailLabelsResponse
+	(*CreateEmailLabelRequest)(nil),          // 97: email.v1.CreateEmailLabelRequest
+	(*CreateEmailLabelResponse)(nil),         // 98: email.v1.CreateEmailLabelResponse
+	(*UpdateEmailLabelRequest)(nil),          // 99: email.v1.UpdateEmailLabelRequest
+	(*UpdateEmailLabelResponse)(nil),         // 100: email.v1.UpdateEmailLabelResponse
+	(*DeleteEmailLabelRequest)(nil),          // 101: email.v1.DeleteEmailLabelRequest
+	(*DeleteEmailLabelResponse)(nil),         // 102: email.v1.DeleteEmailLabelResponse
+	(*AssignMessageLabelsRequest)(nil),       // 103: email.v1.AssignMessageLabelsRequest
+	(*AssignMessageLabelsResponse)(nil),      // 104: email.v1.AssignMessageLabelsResponse
+	nil,                                      // 105: email.v1.ImportContactsCSVRequest.FieldMappingEntry
 }
 var file_proto_email_v1_email_proto_depIdxs = []int32{
-	2,  // 0: email.v1.CreateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
-	2,  // 1: email.v1.GetEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
-	2,  // 2: email.v1.UpdateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
-	13, // 3: email.v1.ListFoldersResponse.folders:type_name -> email.v1.EmailFolderInfo
-	13, // 4: email.v1.GetFolderResponse.folder:type_name -> email.v1.EmailFolderInfo
-	13, // 5: email.v1.SyncFoldersResponse.folders:type_name -> email.v1.EmailFolderInfo
-	0,  // 6: email.v1.EmailMessageInfo.from:type_name -> email.v1.EmailAddress
-	0,  // 7: email.v1.EmailMessageInfo.to:type_name -> email.v1.EmailAddress
-	0,  // 8: email.v1.EmailMessageInfo.cc:type_name -> email.v1.EmailAddress
-	0,  // 9: email.v1.EmailMessageInfo.bcc:type_name -> email.v1.EmailAddress
-	1,  // 10: email.v1.EmailMessageInfo.attachments:type_name -> email.v1.EmailAttachmentInfo
-	20, // 11: email.v1.ListMessagesResponse.messages:type_name -> email.v1.EmailMessageInfo
-	20, // 12: email.v1.GetMessageResponse.message:type_name -> email.v1.EmailMessageInfo
-	20, // 13: email.v1.GetThreadMessagesResponse.messages:type_name -> email.v1.EmailMessageInfo
-	0,  // 14: email.v1.SendEmailRequest.to:type_name -> email.v1.EmailAddress
-	0,  // 15: email.v1.SendEmailRequest.cc:type_name -> email.v1.EmailAddress
-	0,  // 16: email.v1.SendEmailRequest.bcc:type_name -> email.v1.EmailAddress
-	20, // 17: email.v1.SendEmailResponse.message:type_name -> email.v1.EmailMessageInfo
-	0,  // 18: email.v1.SaveDraftRequest.to:type_name -> email.v1.EmailAddress
-	0,  // 19: email.v1.SaveDraftRequest.cc:type_name -> email.v1.EmailAddress
-	0,  // 20: email.v1.SaveDraftRequest.bcc:type_name -> email.v1.EmailAddress
-	20, // 21: email.v1.SaveDraftResponse.message:type_name -> email.v1.EmailMessageInfo
-	20, // 22: email.v1.ReplyEmailResponse.message:type_name -> email.v1.EmailMessageInfo
-	0,  // 23: email.v1.ForwardEmailRequest.to:type_name -> email.v1.EmailAddress
-	20, // 24: email.v1.ForwardEmailResponse.message:type_name -> email.v1.EmailMessageInfo
-	45, // 25: email.v1.CreateSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
-	45, // 26: email.v1.GetSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
-	45, // 27: email.v1.ListSignaturesResponse.signatures:type_name -> email.v1.EmailSignatureInfo
-	45, // 28: email.v1.UpdateSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
-	45, // 29: email.v1.SetDefaultSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
-	58, // 30: email.v1.GetEmailContactLinksResponse.links:type_name -> email.v1.EmailContactLinkInfo
-	58, // 31: email.v1.LinkEmailToContactResponse.link:type_name -> email.v1.EmailContactLinkInfo
-	20, // 32: email.v1.GetContactEmailsResponse.messages:type_name -> email.v1.EmailMessageInfo
-	94, // 33: email.v1.ImportContactsCSVRequest.field_mapping:type_name -> email.v1.ImportContactsCSVRequest.FieldMappingEntry
-	79, // 34: email.v1.ImportContactsResponse.errors:type_name -> email.v1.ImportError
-	83, // 35: email.v1.ListEmailRulesResponse.rules:type_name -> email.v1.EmailRuleInfo
-	83, // 36: email.v1.CreateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
-	83, // 37: email.v1.UpdateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
-	3,  // 38: email.v1.EmailService.CreateEmailAccount:input_type -> email.v1.CreateEmailAccountRequest
-	5,  // 39: email.v1.EmailService.GetEmailAccount:input_type -> email.v1.GetEmailAccountRequest
-	7,  // 40: email.v1.EmailService.UpdateEmailAccount:input_type -> email.v1.UpdateEmailAccountRequest
-	9,  // 41: email.v1.EmailService.DeleteEmailAccount:input_type -> email.v1.DeleteEmailAccountRequest
-	11, // 42: email.v1.EmailService.TestEmailConnection:input_type -> email.v1.TestEmailConnectionRequest
-	14, // 43: email.v1.EmailService.ListFolders:input_type -> email.v1.ListFoldersRequest
-	16, // 44: email.v1.EmailService.GetFolder:input_type -> email.v1.GetFolderRequest
-	18, // 45: email.v1.EmailService.SyncFolders:input_type -> email.v1.SyncFoldersRequest
-	21, // 46: email.v1.EmailService.ListMessages:input_type -> email.v1.ListMessagesRequest
-	23, // 47: email.v1.EmailService.GetMessage:input_type -> email.v1.GetMessageRequest
-	25, // 48: email.v1.EmailService.GetThreadMessages:input_type -> email.v1.GetThreadMessagesRequest
-	27, // 49: email.v1.EmailService.MarkRead:input_type -> email.v1.MarkReadRequest
-	29, // 50: email.v1.EmailService.MarkUnread:input_type -> email.v1.MarkUnreadRequest
-	31, // 51: email.v1.EmailService.ToggleStar:input_type -> email.v1.ToggleStarRequest
-	33, // 52: email.v1.EmailService.MoveToFolder:input_type -> email.v1.MoveToFolderRequest
-	35, // 53: email.v1.EmailService.DeleteMessage:input_type -> email.v1.DeleteMessageRequest
-	37, // 54: email.v1.EmailService.SendEmail:input_type -> email.v1.SendEmailRequest
-	39, // 55: email.v1.EmailService.SaveDraft:input_type -> email.v1.SaveDraftRequest
-	41, // 56: email.v1.EmailService.ReplyEmail:input_type -> email.v1.ReplyEmailRequest
-	43, // 57: email.v1.EmailService.ForwardEmail:input_type -> email.v1.ForwardEmailRequest
-	46, // 58: email.v1.EmailService.CreateSignature:input_type -> email.v1.CreateSignatureRequest
-	48, // 59: email.v1.EmailService.GetSignature:input_type -> email.v1.GetSignatureRequest
-	50, // 60: email.v1.EmailService.ListSignatures:input_type -> email.v1.ListSignaturesRequest
-	52, // 61: email.v1.EmailService.UpdateSignature:input_type -> email.v1.UpdateSignatureRequest
-	54, // 62: email.v1.EmailService.DeleteSignature:input_type -> email.v1.DeleteSignatureRequest
-	56, // 63: email.v1.EmailService.SetDefaultSignature:input_type -> email.v1.SetDefaultSignatureRequest
-	59, // 64: email.v1.EmailService.GetEmailContactLinks:input_type -> email.v1.GetEmailContactLinksRequest
-	61, // 65: email.v1.EmailService.LinkEmailToContact:input_type -> email.v1.LinkEmailToContactRequest
-	63, // 66: email.v1.EmailService.UnlinkEmailFromContact:input_type -> email.v1.UnlinkEmailFromContactRequest
-	65, // 67: email.v1.EmailService.GetContactEmails:input_type -> email.v1.GetContactEmailsRequest
-	67, // 68: email.v1.EmailService.TriggerSync:input_type -> email.v1.TriggerSyncRequest
-	69, // 69: email.v1.EmailService.GetSyncStatus:input_type -> email.v1.GetSyncStatusRequest
-	71, // 70: email.v1.EmailService.SetReadFlag:input_type -> email.v1.SetReadFlagRequest
-	73, // 71: email.v1.EmailService.UploadAttachment:input_type -> email.v1.UploadAttachmentRequest
-	75, // 72: email.v1.EmailService.GetAttachmentDownloadURL:input_type -> email.v1.GetAttachmentDownloadURLRequest
-	77, // 73: email.v1.EmailService.ImportContactsCSV:input_type -> email.v1.ImportContactsCSVRequest
-	78, // 74: email.v1.EmailService.ImportContactsVCard:input_type -> email.v1.ImportContactsVCardRequest
-	81, // 75: email.v1.EmailService.ExportContactsCSV:input_type -> email.v1.ExportContactsRequest
-	81, // 76: email.v1.EmailService.ExportContactsVCard:input_type -> email.v1.ExportContactsRequest
-	84, // 77: email.v1.EmailService.ListEmailRules:input_type -> email.v1.ListEmailRulesRequest
-	86, // 78: email.v1.EmailService.CreateEmailRule:input_type -> email.v1.CreateEmailRuleRequest
-	88, // 79: email.v1.EmailService.UpdateEmailRule:input_type -> email.v1.UpdateEmailRuleRequest
-	90, // 80: email.v1.EmailService.DeleteEmailRule:input_type -> email.v1.DeleteEmailRuleRequest
-	92, // 81: email.v1.EmailService.ApplyEmailRules:input_type -> email.v1.ApplyEmailRulesRequest
-	4,  // 82: email.v1.EmailService.CreateEmailAccount:output_type -> email.v1.CreateEmailAccountResponse
-	6,  // 83: email.v1.EmailService.GetEmailAccount:output_type -> email.v1.GetEmailAccountResponse
-	8,  // 84: email.v1.EmailService.UpdateEmailAccount:output_type -> email.v1.UpdateEmailAccountResponse
-	10, // 85: email.v1.EmailService.DeleteEmailAccount:output_type -> email.v1.DeleteEmailAccountResponse
-	12, // 86: email.v1.EmailService.TestEmailConnection:output_type -> email.v1.TestEmailConnectionResponse
-	15, // 87: email.v1.EmailService.ListFolders:output_type -> email.v1.ListFoldersResponse
-	17, // 88: email.v1.EmailService.GetFolder:output_type -> email.v1.GetFolderResponse
-	19, // 89: email.v1.EmailService.SyncFolders:output_type -> email.v1.SyncFoldersResponse
-	22, // 90: email.v1.EmailService.ListMessages:output_type -> email.v1.ListMessagesResponse
-	24, // 91: email.v1.EmailService.GetMessage:output_type -> email.v1.GetMessageResponse
-	26, // 92: email.v1.EmailService.GetThreadMessages:output_type -> email.v1.GetThreadMessagesResponse
-	28, // 93: email.v1.EmailService.MarkRead:output_type -> email.v1.MarkReadResponse
-	30, // 94: email.v1.EmailService.MarkUnread:output_type -> email.v1.MarkUnreadResponse
-	32, // 95: email.v1.EmailService.ToggleStar:output_type -> email.v1.ToggleStarResponse
-	34, // 96: email.v1.EmailService.MoveToFolder:output_type -> email.v1.MoveToFolderResponse
-	36, // 97: email.v1.EmailService.DeleteMessage:output_type -> email.v1.DeleteMessageResponse
-	38, // 98: email.v1.EmailService.SendEmail:output_type -> email.v1.SendEmailResponse
-	40, // 99: email.v1.EmailService.SaveDraft:output_type -> email.v1.SaveDraftResponse
-	42, // 100: email.v1.EmailService.ReplyEmail:output_type -> email.v1.ReplyEmailResponse
-	44, // 101: email.v1.EmailService.ForwardEmail:output_type -> email.v1.ForwardEmailResponse
-	47, // 102: email.v1.EmailService.CreateSignature:output_type -> email.v1.CreateSignatureResponse
-	49, // 103: email.v1.EmailService.GetSignature:output_type -> email.v1.GetSignatureResponse
-	51, // 104: email.v1.EmailService.ListSignatures:output_type -> email.v1.ListSignaturesResponse
-	53, // 105: email.v1.EmailService.UpdateSignature:output_type -> email.v1.UpdateSignatureResponse
-	55, // 106: email.v1.EmailService.DeleteSignature:output_type -> email.v1.DeleteSignatureResponse
-	57, // 107: email.v1.EmailService.SetDefaultSignature:output_type -> email.v1.SetDefaultSignatureResponse
-	60, // 108: email.v1.EmailService.GetEmailContactLinks:output_type -> email.v1.GetEmailContactLinksResponse
-	62, // 109: email.v1.EmailService.LinkEmailToContact:output_type -> email.v1.LinkEmailToContactResponse
-	64, // 110: email.v1.EmailService.UnlinkEmailFromContact:output_type -> email.v1.UnlinkEmailFromContactResponse
-	66, // 111: email.v1.EmailService.GetContactEmails:output_type -> email.v1.GetContactEmailsResponse
-	68, // 112: email.v1.EmailService.TriggerSync:output_type -> email.v1.TriggerSyncResponse
-	70, // 113: email.v1.EmailService.GetSyncStatus:output_type -> email.v1.GetSyncStatusResponse
-	72, // 114: email.v1.EmailService.SetReadFlag:output_type -> email.v1.SetReadFlagResponse
-	74, // 115: email.v1.EmailService.UploadAttachment:output_type -> email.v1.UploadAttachmentResponse
-	76, // 116: email.v1.EmailService.GetAttachmentDownloadURL:output_type -> email.v1.GetAttachmentDownloadURLResponse
-	80, // 117: email.v1.EmailService.ImportContactsCSV:output_type -> email.v1.ImportContactsResponse
-	80, // 118: email.v1.EmailService.ImportContactsVCard:output_type -> email.v1.ImportContactsResponse
-	82, // 119: email.v1.EmailService.ExportContactsCSV:output_type -> email.v1.ExportContactsResponse
-	82, // 120: email.v1.EmailService.ExportContactsVCard:output_type -> email.v1.ExportContactsResponse
-	85, // 121: email.v1.EmailService.ListEmailRules:output_type -> email.v1.ListEmailRulesResponse
-	87, // 122: email.v1.EmailService.CreateEmailRule:output_type -> email.v1.CreateEmailRuleResponse
-	89, // 123: email.v1.EmailService.UpdateEmailRule:output_type -> email.v1.UpdateEmailRuleResponse
-	91, // 124: email.v1.EmailService.DeleteEmailRule:output_type -> email.v1.DeleteEmailRuleResponse
-	93, // 125: email.v1.EmailService.ApplyEmailRules:output_type -> email.v1.ApplyEmailRulesResponse
-	82, // [82:126] is the sub-list for method output_type
-	38, // [38:82] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	2,   // 0: email.v1.CreateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
+	2,   // 1: email.v1.GetEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
+	2,   // 2: email.v1.UpdateEmailAccountResponse.account:type_name -> email.v1.EmailAccountInfo
+	13,  // 3: email.v1.ListFoldersResponse.folders:type_name -> email.v1.EmailFolderInfo
+	13,  // 4: email.v1.GetFolderResponse.folder:type_name -> email.v1.EmailFolderInfo
+	13,  // 5: email.v1.SyncFoldersResponse.folders:type_name -> email.v1.EmailFolderInfo
+	0,   // 6: email.v1.EmailMessageInfo.from:type_name -> email.v1.EmailAddress
+	0,   // 7: email.v1.EmailMessageInfo.to:type_name -> email.v1.EmailAddress
+	0,   // 8: email.v1.EmailMessageInfo.cc:type_name -> email.v1.EmailAddress
+	0,   // 9: email.v1.EmailMessageInfo.bcc:type_name -> email.v1.EmailAddress
+	1,   // 10: email.v1.EmailMessageInfo.attachments:type_name -> email.v1.EmailAttachmentInfo
+	20,  // 11: email.v1.ListMessagesResponse.messages:type_name -> email.v1.EmailMessageInfo
+	20,  // 12: email.v1.GetMessageResponse.message:type_name -> email.v1.EmailMessageInfo
+	20,  // 13: email.v1.GetThreadMessagesResponse.messages:type_name -> email.v1.EmailMessageInfo
+	0,   // 14: email.v1.SendEmailRequest.to:type_name -> email.v1.EmailAddress
+	0,   // 15: email.v1.SendEmailRequest.cc:type_name -> email.v1.EmailAddress
+	0,   // 16: email.v1.SendEmailRequest.bcc:type_name -> email.v1.EmailAddress
+	20,  // 17: email.v1.SendEmailResponse.message:type_name -> email.v1.EmailMessageInfo
+	0,   // 18: email.v1.SaveDraftRequest.to:type_name -> email.v1.EmailAddress
+	0,   // 19: email.v1.SaveDraftRequest.cc:type_name -> email.v1.EmailAddress
+	0,   // 20: email.v1.SaveDraftRequest.bcc:type_name -> email.v1.EmailAddress
+	20,  // 21: email.v1.SaveDraftResponse.message:type_name -> email.v1.EmailMessageInfo
+	20,  // 22: email.v1.ReplyEmailResponse.message:type_name -> email.v1.EmailMessageInfo
+	0,   // 23: email.v1.ForwardEmailRequest.to:type_name -> email.v1.EmailAddress
+	20,  // 24: email.v1.ForwardEmailResponse.message:type_name -> email.v1.EmailMessageInfo
+	45,  // 25: email.v1.CreateSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
+	45,  // 26: email.v1.GetSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
+	45,  // 27: email.v1.ListSignaturesResponse.signatures:type_name -> email.v1.EmailSignatureInfo
+	45,  // 28: email.v1.UpdateSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
+	45,  // 29: email.v1.SetDefaultSignatureResponse.signature:type_name -> email.v1.EmailSignatureInfo
+	58,  // 30: email.v1.GetEmailContactLinksResponse.links:type_name -> email.v1.EmailContactLinkInfo
+	58,  // 31: email.v1.LinkEmailToContactResponse.link:type_name -> email.v1.EmailContactLinkInfo
+	20,  // 32: email.v1.GetContactEmailsResponse.messages:type_name -> email.v1.EmailMessageInfo
+	105, // 33: email.v1.ImportContactsCSVRequest.field_mapping:type_name -> email.v1.ImportContactsCSVRequest.FieldMappingEntry
+	79,  // 34: email.v1.ImportContactsResponse.errors:type_name -> email.v1.ImportError
+	83,  // 35: email.v1.ListEmailRulesResponse.rules:type_name -> email.v1.EmailRuleInfo
+	83,  // 36: email.v1.CreateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
+	83,  // 37: email.v1.UpdateEmailRuleResponse.rule:type_name -> email.v1.EmailRuleInfo
+	94,  // 38: email.v1.ListEmailLabelsResponse.labels:type_name -> email.v1.EmailLabelInfo
+	94,  // 39: email.v1.CreateEmailLabelResponse.label:type_name -> email.v1.EmailLabelInfo
+	94,  // 40: email.v1.UpdateEmailLabelResponse.label:type_name -> email.v1.EmailLabelInfo
+	20,  // 41: email.v1.AssignMessageLabelsResponse.message:type_name -> email.v1.EmailMessageInfo
+	3,   // 42: email.v1.EmailService.CreateEmailAccount:input_type -> email.v1.CreateEmailAccountRequest
+	5,   // 43: email.v1.EmailService.GetEmailAccount:input_type -> email.v1.GetEmailAccountRequest
+	7,   // 44: email.v1.EmailService.UpdateEmailAccount:input_type -> email.v1.UpdateEmailAccountRequest
+	9,   // 45: email.v1.EmailService.DeleteEmailAccount:input_type -> email.v1.DeleteEmailAccountRequest
+	11,  // 46: email.v1.EmailService.TestEmailConnection:input_type -> email.v1.TestEmailConnectionRequest
+	14,  // 47: email.v1.EmailService.ListFolders:input_type -> email.v1.ListFoldersRequest
+	16,  // 48: email.v1.EmailService.GetFolder:input_type -> email.v1.GetFolderRequest
+	18,  // 49: email.v1.EmailService.SyncFolders:input_type -> email.v1.SyncFoldersRequest
+	21,  // 50: email.v1.EmailService.ListMessages:input_type -> email.v1.ListMessagesRequest
+	23,  // 51: email.v1.EmailService.GetMessage:input_type -> email.v1.GetMessageRequest
+	25,  // 52: email.v1.EmailService.GetThreadMessages:input_type -> email.v1.GetThreadMessagesRequest
+	27,  // 53: email.v1.EmailService.MarkRead:input_type -> email.v1.MarkReadRequest
+	29,  // 54: email.v1.EmailService.MarkUnread:input_type -> email.v1.MarkUnreadRequest
+	31,  // 55: email.v1.EmailService.ToggleStar:input_type -> email.v1.ToggleStarRequest
+	33,  // 56: email.v1.EmailService.MoveToFolder:input_type -> email.v1.MoveToFolderRequest
+	35,  // 57: email.v1.EmailService.DeleteMessage:input_type -> email.v1.DeleteMessageRequest
+	37,  // 58: email.v1.EmailService.SendEmail:input_type -> email.v1.SendEmailRequest
+	39,  // 59: email.v1.EmailService.SaveDraft:input_type -> email.v1.SaveDraftRequest
+	41,  // 60: email.v1.EmailService.ReplyEmail:input_type -> email.v1.ReplyEmailRequest
+	43,  // 61: email.v1.EmailService.ForwardEmail:input_type -> email.v1.ForwardEmailRequest
+	46,  // 62: email.v1.EmailService.CreateSignature:input_type -> email.v1.CreateSignatureRequest
+	48,  // 63: email.v1.EmailService.GetSignature:input_type -> email.v1.GetSignatureRequest
+	50,  // 64: email.v1.EmailService.ListSignatures:input_type -> email.v1.ListSignaturesRequest
+	52,  // 65: email.v1.EmailService.UpdateSignature:input_type -> email.v1.UpdateSignatureRequest
+	54,  // 66: email.v1.EmailService.DeleteSignature:input_type -> email.v1.DeleteSignatureRequest
+	56,  // 67: email.v1.EmailService.SetDefaultSignature:input_type -> email.v1.SetDefaultSignatureRequest
+	59,  // 68: email.v1.EmailService.GetEmailContactLinks:input_type -> email.v1.GetEmailContactLinksRequest
+	61,  // 69: email.v1.EmailService.LinkEmailToContact:input_type -> email.v1.LinkEmailToContactRequest
+	63,  // 70: email.v1.EmailService.UnlinkEmailFromContact:input_type -> email.v1.UnlinkEmailFromContactRequest
+	65,  // 71: email.v1.EmailService.GetContactEmails:input_type -> email.v1.GetContactEmailsRequest
+	67,  // 72: email.v1.EmailService.TriggerSync:input_type -> email.v1.TriggerSyncRequest
+	69,  // 73: email.v1.EmailService.GetSyncStatus:input_type -> email.v1.GetSyncStatusRequest
+	71,  // 74: email.v1.EmailService.SetReadFlag:input_type -> email.v1.SetReadFlagRequest
+	73,  // 75: email.v1.EmailService.UploadAttachment:input_type -> email.v1.UploadAttachmentRequest
+	75,  // 76: email.v1.EmailService.GetAttachmentDownloadURL:input_type -> email.v1.GetAttachmentDownloadURLRequest
+	77,  // 77: email.v1.EmailService.ImportContactsCSV:input_type -> email.v1.ImportContactsCSVRequest
+	78,  // 78: email.v1.EmailService.ImportContactsVCard:input_type -> email.v1.ImportContactsVCardRequest
+	81,  // 79: email.v1.EmailService.ExportContactsCSV:input_type -> email.v1.ExportContactsRequest
+	81,  // 80: email.v1.EmailService.ExportContactsVCard:input_type -> email.v1.ExportContactsRequest
+	84,  // 81: email.v1.EmailService.ListEmailRules:input_type -> email.v1.ListEmailRulesRequest
+	86,  // 82: email.v1.EmailService.CreateEmailRule:input_type -> email.v1.CreateEmailRuleRequest
+	88,  // 83: email.v1.EmailService.UpdateEmailRule:input_type -> email.v1.UpdateEmailRuleRequest
+	90,  // 84: email.v1.EmailService.DeleteEmailRule:input_type -> email.v1.DeleteEmailRuleRequest
+	92,  // 85: email.v1.EmailService.ApplyEmailRules:input_type -> email.v1.ApplyEmailRulesRequest
+	95,  // 86: email.v1.EmailService.ListEmailLabels:input_type -> email.v1.ListEmailLabelsRequest
+	97,  // 87: email.v1.EmailService.CreateEmailLabel:input_type -> email.v1.CreateEmailLabelRequest
+	99,  // 88: email.v1.EmailService.UpdateEmailLabel:input_type -> email.v1.UpdateEmailLabelRequest
+	101, // 89: email.v1.EmailService.DeleteEmailLabel:input_type -> email.v1.DeleteEmailLabelRequest
+	103, // 90: email.v1.EmailService.AssignMessageLabels:input_type -> email.v1.AssignMessageLabelsRequest
+	4,   // 91: email.v1.EmailService.CreateEmailAccount:output_type -> email.v1.CreateEmailAccountResponse
+	6,   // 92: email.v1.EmailService.GetEmailAccount:output_type -> email.v1.GetEmailAccountResponse
+	8,   // 93: email.v1.EmailService.UpdateEmailAccount:output_type -> email.v1.UpdateEmailAccountResponse
+	10,  // 94: email.v1.EmailService.DeleteEmailAccount:output_type -> email.v1.DeleteEmailAccountResponse
+	12,  // 95: email.v1.EmailService.TestEmailConnection:output_type -> email.v1.TestEmailConnectionResponse
+	15,  // 96: email.v1.EmailService.ListFolders:output_type -> email.v1.ListFoldersResponse
+	17,  // 97: email.v1.EmailService.GetFolder:output_type -> email.v1.GetFolderResponse
+	19,  // 98: email.v1.EmailService.SyncFolders:output_type -> email.v1.SyncFoldersResponse
+	22,  // 99: email.v1.EmailService.ListMessages:output_type -> email.v1.ListMessagesResponse
+	24,  // 100: email.v1.EmailService.GetMessage:output_type -> email.v1.GetMessageResponse
+	26,  // 101: email.v1.EmailService.GetThreadMessages:output_type -> email.v1.GetThreadMessagesResponse
+	28,  // 102: email.v1.EmailService.MarkRead:output_type -> email.v1.MarkReadResponse
+	30,  // 103: email.v1.EmailService.MarkUnread:output_type -> email.v1.MarkUnreadResponse
+	32,  // 104: email.v1.EmailService.ToggleStar:output_type -> email.v1.ToggleStarResponse
+	34,  // 105: email.v1.EmailService.MoveToFolder:output_type -> email.v1.MoveToFolderResponse
+	36,  // 106: email.v1.EmailService.DeleteMessage:output_type -> email.v1.DeleteMessageResponse
+	38,  // 107: email.v1.EmailService.SendEmail:output_type -> email.v1.SendEmailResponse
+	40,  // 108: email.v1.EmailService.SaveDraft:output_type -> email.v1.SaveDraftResponse
+	42,  // 109: email.v1.EmailService.ReplyEmail:output_type -> email.v1.ReplyEmailResponse
+	44,  // 110: email.v1.EmailService.ForwardEmail:output_type -> email.v1.ForwardEmailResponse
+	47,  // 111: email.v1.EmailService.CreateSignature:output_type -> email.v1.CreateSignatureResponse
+	49,  // 112: email.v1.EmailService.GetSignature:output_type -> email.v1.GetSignatureResponse
+	51,  // 113: email.v1.EmailService.ListSignatures:output_type -> email.v1.ListSignaturesResponse
+	53,  // 114: email.v1.EmailService.UpdateSignature:output_type -> email.v1.UpdateSignatureResponse
+	55,  // 115: email.v1.EmailService.DeleteSignature:output_type -> email.v1.DeleteSignatureResponse
+	57,  // 116: email.v1.EmailService.SetDefaultSignature:output_type -> email.v1.SetDefaultSignatureResponse
+	60,  // 117: email.v1.EmailService.GetEmailContactLinks:output_type -> email.v1.GetEmailContactLinksResponse
+	62,  // 118: email.v1.EmailService.LinkEmailToContact:output_type -> email.v1.LinkEmailToContactResponse
+	64,  // 119: email.v1.EmailService.UnlinkEmailFromContact:output_type -> email.v1.UnlinkEmailFromContactResponse
+	66,  // 120: email.v1.EmailService.GetContactEmails:output_type -> email.v1.GetContactEmailsResponse
+	68,  // 121: email.v1.EmailService.TriggerSync:output_type -> email.v1.TriggerSyncResponse
+	70,  // 122: email.v1.EmailService.GetSyncStatus:output_type -> email.v1.GetSyncStatusResponse
+	72,  // 123: email.v1.EmailService.SetReadFlag:output_type -> email.v1.SetReadFlagResponse
+	74,  // 124: email.v1.EmailService.UploadAttachment:output_type -> email.v1.UploadAttachmentResponse
+	76,  // 125: email.v1.EmailService.GetAttachmentDownloadURL:output_type -> email.v1.GetAttachmentDownloadURLResponse
+	80,  // 126: email.v1.EmailService.ImportContactsCSV:output_type -> email.v1.ImportContactsResponse
+	80,  // 127: email.v1.EmailService.ImportContactsVCard:output_type -> email.v1.ImportContactsResponse
+	82,  // 128: email.v1.EmailService.ExportContactsCSV:output_type -> email.v1.ExportContactsResponse
+	82,  // 129: email.v1.EmailService.ExportContactsVCard:output_type -> email.v1.ExportContactsResponse
+	85,  // 130: email.v1.EmailService.ListEmailRules:output_type -> email.v1.ListEmailRulesResponse
+	87,  // 131: email.v1.EmailService.CreateEmailRule:output_type -> email.v1.CreateEmailRuleResponse
+	89,  // 132: email.v1.EmailService.UpdateEmailRule:output_type -> email.v1.UpdateEmailRuleResponse
+	91,  // 133: email.v1.EmailService.DeleteEmailRule:output_type -> email.v1.DeleteEmailRuleResponse
+	93,  // 134: email.v1.EmailService.ApplyEmailRules:output_type -> email.v1.ApplyEmailRulesResponse
+	96,  // 135: email.v1.EmailService.ListEmailLabels:output_type -> email.v1.ListEmailLabelsResponse
+	98,  // 136: email.v1.EmailService.CreateEmailLabel:output_type -> email.v1.CreateEmailLabelResponse
+	100, // 137: email.v1.EmailService.UpdateEmailLabel:output_type -> email.v1.UpdateEmailLabelResponse
+	102, // 138: email.v1.EmailService.DeleteEmailLabel:output_type -> email.v1.DeleteEmailLabelResponse
+	104, // 139: email.v1.EmailService.AssignMessageLabels:output_type -> email.v1.AssignMessageLabelsResponse
+	91,  // [91:140] is the sub-list for method output_type
+	42,  // [42:91] is the sub-list for method input_type
+	42,  // [42:42] is the sub-list for extension type_name
+	42,  // [42:42] is the sub-list for extension extendee
+	0,   // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_proto_email_v1_email_proto_init() }
@@ -6312,13 +6906,14 @@ func file_proto_email_v1_email_proto_init() {
 	file_proto_email_v1_email_proto_msgTypes[39].OneofWrappers = []any{}
 	file_proto_email_v1_email_proto_msgTypes[52].OneofWrappers = []any{}
 	file_proto_email_v1_email_proto_msgTypes[88].OneofWrappers = []any{}
+	file_proto_email_v1_email_proto_msgTypes[99].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_email_v1_email_proto_rawDesc), len(file_proto_email_v1_email_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   95,
+			NumMessages:   106,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

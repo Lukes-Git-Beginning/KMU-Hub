@@ -101,6 +101,9 @@ type EmailMessage struct {
 	RawHeaders      string         `json:"raw_headers,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	// LabelIDs are the mails-module labels (email_labels) assigned to this
+	// message, written by rule application or the direct assignment endpoint.
+	LabelIDs []uuid.UUID `json:"label_ids"`
 }
 
 // ToAddressesJSON returns the ToAddresses as a JSON byte slice for DB storage.
@@ -194,4 +197,16 @@ type EmailRuleCandidate struct {
 	Subject   string
 	FolderID  uuid.UUID
 	LabelIDs  []uuid.UUID
+}
+
+// EmailLabel is a tenant-owned, colour-coded tag applicable to messages via
+// email_messages.label_ids. There is no foreign key from that array column to
+// this table (see migration 000261); ownership is enforced in code instead.
+type EmailLabel struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

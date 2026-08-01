@@ -171,6 +171,44 @@ func TestRepository_FolderBelongsToTenant(t *testing.T) {
 	}
 }
 
+// TestRepository_LabelBelongsToTenant guards the label action's target check,
+// mirroring TestRepository_FolderBelongsToTenant for the move side.
+func TestRepository_LabelBelongsToTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	repo := rule.NewPostgresRepository(pool)
+	mineTenant := uuid.New()
+	testutil.EnsureTenant(t, pool, mineTenant, "email rule label test own")
+	otherTenant := uuid.New()
+	testutil.EnsureTenant(t, pool, otherTenant, "email rule label test other")
+
+	mineLabel := testutil.SeedRow(t, pool, "email_labels", map[string]any{
+		"id": uuid.New(), "tenant_id": mineTenant, "name": "Wichtig", "color": "#EF4444",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "email_labels", mineLabel) })
+	otherLabel := testutil.SeedRow(t, pool, "email_labels", map[string]any{
+		"id": uuid.New(), "tenant_id": otherTenant, "name": "Wichtig", "color": "#EF4444",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "email_labels", otherLabel) })
+
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	ok, err := repo.LabelBelongsToTenant(sysCtx, mineLabel, mineTenant)
+	if err != nil || !ok {
+		t.Fatalf("own label: ok=%v err=%v, want true", ok, err)
+	}
+	ok, err = repo.LabelBelongsToTenant(sysCtx, otherLabel, mineTenant)
+	if err != nil || ok {
+		t.Fatalf("foreign label: ok=%v err=%v, want false", ok, err)
+	}
+	ok, err = repo.LabelBelongsToTenant(sysCtx, uuid.New(), mineTenant)
+	if err != nil || ok {
+		t.Fatalf("unknown label: ok=%v err=%v, want false", ok, err)
+	}
+}
+
 // TestRepository_ApplyCandidatesAndWrite exercises the two queries the unit
 // tests cannot reach: the trash-excluding candidate scan and the UUID[]
 // round-trip of label_ids.

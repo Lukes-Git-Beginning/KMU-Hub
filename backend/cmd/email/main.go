@@ -25,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/email/contactlink"
+	"github.com/kmuhub/kmuhub/internal/email/label"
 	"github.com/kmuhub/kmuhub/internal/email/message"
 	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/email/rule"
@@ -91,12 +92,14 @@ func main() {
 	signatureRepo := signature.NewPostgresRepository(pool)
 	linkRepo := contactlink.NewPostgresRepository(pool)
 	ruleRepo := rule.NewPostgresRepository(pool)
+	labelRepo := label.NewPostgresRepository(pool)
 
 	// Initialize services
 	accountService := account.NewService(accountRepo, vaultEncryptor)
 	messageService := message.NewService(messageRepo, folderRepo)
 	signatureService := signature.NewService(signatureRepo)
 	ruleService := rule.NewService(ruleRepo)
+	labelService := label.NewService(labelRepo, messageService)
 
 	// Send service (needs account for SMTP creds, message for local storage, signature for appending).
 	// R3-P0-4: enforce active email consent before sending contact-tagged mail. The asserter is
@@ -151,6 +154,7 @@ func main() {
 		importService,
 		exportService,
 		ruleService,
+		labelService,
 	)
 	emailv1.RegisterEmailServiceServer(grpcServer, emailGRPC)
 
