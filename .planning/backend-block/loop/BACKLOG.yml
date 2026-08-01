@@ -1126,7 +1126,7 @@ units:
     service: finance
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/finance/time-entries` — abrechenbare Zeiteintraege fuer die Rechnungsstellung.
     sources:
@@ -1136,6 +1136,27 @@ units:
       `CreateInvoiceFromTimeEntries` gibt es im biz-Proto. Das ist sehr wahrscheinlich ein
       Read-Endpoint auf Bestandsdaten mit Filter "abrechenbar und noch nicht abgerechnet" —
       KEINE neue Tabelle. Erst den Bestand lesen.
+
+      ERGEBNIS (2026-08-01): KORREKTUR zur Notiz oben — `CreateInvoiceFromTimeEntries` (biz-Proto)
+      aggregiert `hr_work_time_entries` (Clock-in/out, ArbZG), NICHT die hier gemeinte Tabelle. Der
+      FE-Vertrag (`FinanceTimeEntry` in `finance-types.ts`, `HoursToInvoiceDialog.tsx` in
+      `modules/finanzen/`) will task-basierte Eintraege mit Projekt/Task/Description — das ist die
+      WORK-Tabelle `time_entries` (Migration 000030, `task_id -> tasks -> projects`), ein komplett
+      anderer Datensatz als die HR-Aggregation. Kein neues Feld/keine neue Tabelle: Read-Query mit
+      JOIN auf `tasks`/`projects`/`users`, tenant-gescoped auf allen drei Tabellen.
+      Architektur-Entscheidung: `time_entries` gehoert dem WORK-Service (eigener `cmd/work`), nicht
+      Biz. Neuer RPC `WorkService.ListBillableTimeEntries` (work.proto, tenant aus RLS-Context wie
+      alle Nachbar-RPCs, keine explizite tenant_id im Request). Der Gateway-Handler haengt an
+      `/api/v1/finance/time-entries` (FE-Pfad), ruft aber `getWorkClient()` (neu auf `BizRoutes`,
+      Precedent: `BizExtRoutes` hat ebenfalls eine eigene Kopie von `getBizClient()` — mehrere
+      Routes-Structs mit demselben Client-Typ sind in diesem Repo bereits ueblich).
+      KEIN "billed"-Tracking im Bestand: die generische Invoice-Create-Route, die
+      `HoursToInvoiceDialog` tatsaechlich aufruft, persistiert keine Zeiteintrag-IDs (anders als der
+      HR-Pfad ueber `finance_invoices.time_tracking_source`). `billed` ist deshalb bewusst
+      hartkodiert `false` im Gateway-Handler (`lean:`-Marker, Upgrade-Trigger: sobald die
+      Rechnungs-Erstellung Eintrag-IDs persistiert). `?billed=true` liefert entsprechend `[]`.
+      Nur abgeschlossene Eintraege (`ended_at IS NOT NULL AND duration_seconds IS NOT NULL`) zaehlen
+      als abrechenbar — ein laufender Timer nicht.
     done_when:
       - Endpoint liefert die abrechenbaren Eintraege tenant-gescoped
       - keine neue Tabelle ohne Begruendung im Journal

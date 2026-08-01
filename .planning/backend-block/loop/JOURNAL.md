@@ -1947,3 +1947,62 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Mahnungs- und Zahlungs-"Nummer" sind abgeleitet (`{Rechnungsnummer}/M{level}` bzw. Fallback auf
     die Rechnungsnummer), da beide Belegarten keine eigene Nummernsequenz haben — falls das je stoert,
     ist das der Punkt, an dem eine echte Sequenz eingefuehrt werden muesste.
+
+## Iteration 28 — fe-finance-time-entries — done — 2026-08-01 23:05 (Nachtlauf 3)
+- commit: c414b61d
+- gebaut:
+  - `GET /api/v1/finance/time-entries` liefert abrechenbare Zeiteintraege des Tenants (Filter
+    `?billed=false`/`true`, matched das FE `financeTimeEntryApi.listUnbilled()`). KORREKTUR zur
+    Backlog-Notiz: nicht die HR-Aggregation (`CreateInvoiceFromTimeEntries`/`hr_work_time_entries`),
+    sondern die WORK-Tabelle `time_entries` (Migration 000030, `task_id -> tasks -> projects`) ist
+    die Datenquelle — der FE-Vertrag (`FinanceTimeEntry`: project/task/employee/description) passt
+    nur zu dieser, nicht zur ArbZG-Clock-in/out-Tabelle.
+  - Neuer RPC `WorkService.ListBillableTimeEntries` (`work.proto`, tenant aus RLS-Context wie alle
+    Nachbar-RPCs in dieser Datei, keine explizite `tenant_id` im Request), im selben Commit
+    regeneriert (`work.pb.go`, `work_grpc.pb.go`).
+  - `internal/work/timeentry`: `Repository.ListBillable` (neue Interface-Methode) + Postgres-Impl
+    (JOIN `time_entries`/`tasks`/`projects`/`users`, alle drei Tabellen tenant-gescoped, nur
+    `ended_at IS NOT NULL AND duration_seconds IS NOT NULL` zaehlt als abrechenbar) +
+    `Service.ListBillable`-Passthrough. `models.BillableTimeEntry` neu.
+  - `WorkGRPCServer.ListBillableTimeEntries` (`internal/server/work_grpc.go`) mapped auf Proto,
+    `hours` als `duration_seconds/3600` gerundet auf 2 Nachkommastellen.
+  - Gateway: `getWorkClient()` neu auf `BizRoutes` (`route_biz_time_entries.go`) — die Route haengt
+    unter `/finance/` (FE-Pfad), die Daten gehoeren aber Work; Precedent fuer mehrere Routes-Structs
+    mit demselben Client-Typ ist `BizExtRoutes`, das ebenfalls eine eigene `getBizClient()`-Kopie
+    neben `BizRoutes` haelt. Route haengt am bestehenden `RequirePermission("finance","read")`, kein
+    neuer Key, keine Seed-Pflicht.
+  - `billed` ist im Gateway-Handler hartkodiert `false` (`lean:`-Marker) — die Invoice-Erstellung aus
+    `HoursToInvoiceDialog` laeuft ueber die generische Create-Invoice-Route mit frei gebauten
+    Line-Items und persistiert keine Zeiteintrag-IDs, anders als der HR-Pfad ueber
+    `finance_invoices.time_tracking_source`. `?billed=true` liefert deshalb konsequent `[]`.
+  - Test: `TestListBillable_TenantIsolation` (`internal/work/timeentry/tenant_isolation_phase2_test.go`)
+    — frische Tenants (nicht die geteilten `TenantA`/`TenantB`), beweist: fremder Tenant sieht 0
+    Eintraege, Eigentuemer sieht genau 1 (die abgeschlossene, mit korrekt gejointen Projekt-/Task-/
+    Mitarbeiternamen), ein laufender Timer ohne `ended_at`/`duration_seconds` erscheint nicht.
+- verify vorgaenger: `f7fd0ce3` (fe-finance-document-chains) gegen alle acht Fehlerklassen geprueft.
+  Handler ueber `b.getBizClient()`; Proto+beide `.pb.go` im selben Commit; Guard unveraendert
+  (`RequirePermission("finance","read")`, kein neuer Key); alle fuenf Repo-Queries tenant-gescoped
+  (`tenant_id = $1` bzw. Join-Bedingung); openapi.yaml im selben Commit. Unabhaengig nachgefahren:
+  `go build`/`go test ./internal/biz/...` (alle Pakete inkl. `invoice` gruen, `TestTenantIsolation_
+  DocumentChains` PASS ohne Skip), `go test ./internal/gateway/... ./internal/server/...` gruen.
+  Kein Fund.
+- gate: build ok (`-p 2`, `internal/work/...`, `internal/models/...`, `internal/server/...`,
+  `internal/gateway/...`, `cmd/work/...`, `cmd/gateway/...`) | vet ok | lint ok (`golangci-lint`,
+  0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `internal/work/...` komplett gruen
+  (alle Unterpakete inkl. `timeentry`), `internal/server/...` + `internal/gateway/...` gruen.
+  `TestOpenAPIRouteDrift` gruen: 750 registrierte Routen gegen 752 dokumentierte Pfade (+1
+  gegenueber Iteration 27, wie erwartet).
+  rls-smoke: `TestListBillable_TenantIsolation` — Details oben unter "gebaut".
+- offen:
+  - `finance-time-entries.ts`-Mock (`mockFinanceTimeEntries`) bleibt aktiv im FE — Umschalten auf
+    das echte Backend war nicht Teil dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-
+    Units in Block D).
+  - `billed` ist dauerhaft `false`, bis die Invoice-Erstellung Zeiteintrag-IDs persistiert (siehe
+    `lean:`-Marker in `route_biz_time_entries.go`). Ohne diese Verknuepfung erscheint ein bereits
+    abgerechneter Eintrag beim naechsten Aufruf wieder in der Liste — funktional identisch zum
+    heutigen FE-Mock-Verhalten (der Mock hat dieselbe Luecke: `billed` steht dort statisch fest),
+    aber ein Kandidat fuer eine Folge-Unit, sobald die reale Verknuepfung gebraucht wird.
+  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance","read")`.
+    Zeiteintraege zeigen Mitarbeiternamen und Projektzuordnung quer durchs Team — falls Block-B-
+    artige Verfeinerung noch kommt, waere das ein Kandidat (aehnlich der Notiz bei
+    `fe-finance-bank-transactions-matching`).
