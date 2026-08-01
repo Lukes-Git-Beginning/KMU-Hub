@@ -824,3 +824,56 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       in Iteration 12), kein Desktop-Aufrufer fuer `/erechnung`.
   (2) Naechste Unit laut Backlog-Reihenfolge waere `p2-guard-compat` (Block B, RBAC Phase 2) — die
       naechste Iteration zieht sie automatisch, kein Handlungsbedarf hier.
+
+## Iteration 14 — p2-guard-compat — done — 2026-08-01 (Nachtlauf 3)
+- commit: <sha>
+- gebaut: `RequirePermissionAny` in `internal/middleware/rbac.go` — laesst durch, sobald der
+  Perms-Slice aus dem Context MINDESTENS EINEN der uebergebenen `resource:action`-Keys enthaelt.
+  Aufbau wie beim Nachbarn `RequireRole`: das Key-Set wird einmal beim Wiring gebaut (Map), pro
+  Request nur ein Lookup je Token-Key; kein DB-Query, kein Cache, `RequirePermission` unveraendert.
+  SIGNATUR-ABWEICHUNG vom Backlog-Vorschlag, bewusst: `(first [2]string, rest ...[2]string)` statt
+  `(pairs ...[2]string)`. Mit reinem Variadic waere `RequirePermissionAny()` gueltiger Go-Code, der
+  ein leeres Key-Set baut und damit JEDEN aussperrt — ein Fehler, der lokal nie auffaellt und erst in
+  Produktion als flaechiges 403 sichtbar wird. Mit dem gezogenen ersten Parameter faellt genau dieser
+  Fall beim Kompilieren durch, ohne Runtime-Check und ohne panic. Die Call-Site aus dem Backlog
+  bleibt Zeichen fuer Zeichen dieselbe.
+  Tests: sechs Faelle in `rbac_test.go` — Alt-Token (nur grober Key) kommt durch, frisches Token (nur
+  feiner Key) kommt durch, beide Keys durch, keiner von beiden 403, gar keine Permissions 403, und
+  "gleiche Resource, andere Action" (`documents:file:delete`) 403, damit der Match nicht versehentlich
+  auf Praefix-Ebene passiert.
+- gate: build ok (`./internal/middleware/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint auf middleware: 0 issues) | gofmt ok fuer die beiden geaenderten Dateien
+  (`gofmt -l` meldet 7 unveraenderte Bestandsdateien im Paket, u.a. `cors.go`/`ratelimit.go` — nicht
+  von dieser Unit, nicht angefasst) | migration n.a. | rls-smoke n.a. (kein SQL, keine Tabelle,
+  keine Policy) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/middleware/` 64 Tests,
+  **0 Skips**, alle PASS. `go test ./internal/gateway/` NICHT gelaufen — diese Unit hat keine Route,
+  keinen Handler und keine `openapi.yaml` angefasst (nur einen bisher nirgends aufgerufenen Helper
+  hinzugefuegt); `TestOpenAPIRouteDrift` ist seit Iteration 12 unveraendert. Ab `p2a` gilt die
+  Pflicht wieder, dort werden Routen angefasst.
+- verify vorgaenger: `0c56cd6e` (w5-roundtrip-test) gegen die acht Fehlerklassen geprueft. Diff sind
+  genau zwei Dateien: `BACKLOG.yml` und die neue `internal/biz/einvoice/roundtrip_outbound_test.go`
+  — kein Handler, kein Proto, keine Migration, keine Route, kein Guard, also Klassen 1/3/4/5/6/7/8
+  n.a. Klasse 2 (Stub/Fake) gezielt am Testinhalt geprueft, weil ein Test der plausibelste Ort fuer
+  einen Schein-Beweis ist: der Test ruft den echten `BizGRPCServer.GenerateEInvoice`, schiebt das
+  Ergebnis durch den echten DB-gestuetzten `einvoice.Service.Import` und vergleicht Subtotal,
+  TotalTax, GrossTotal, beide Positionen (Beschreibung + Zeilensumme) und beide
+  Tax-Breakdown-Eintraege gegen die Ausgangsrechnung — keine hartkodierten Erwartungswerte neben der
+  Quelle, kein `t.Skip` ausser dem regulaeren `SkipIfNoDB`, keine Fake-Bytes. Zwei frische Tenants
+  per `uuid.New()` statt der geteilten Konstanten, also keine Duplicate-Key-Falle unter
+  `t.Parallel()`. Kein Fund.
+- offen fuer Luke:
+  (1) TOKEN-GROESSE — Fund am Rande dieser Unit, gehoert NICHT zu Block B, entstand aber durch
+      `p1a-migration` und trifft dessen Annahmen. In der lokalen DB haengen nach Migration 000256
+      **454 Permission-Keys** an der Rolle `admin` (9040 Byte reiner Key-Text), 305 an `manager`,
+      159 an `member`. `createTokenPair` backt sie ALLE ungefiltert in den Access-Token —
+      als JSON-Claim rund 10 KB, base64-kodiert also ein Bearer-Header von grob **14 KB pro
+      Request**. Tragfaehig ist das aktuell: das Backend setzt nirgends `SetCookie` (das
+      4-KB-Cookie-Hardlimit der Browser greift also nicht), und weder das Gateway noch der Caddyfile
+      setzen `MaxHeaderBytes`, es gilt Gos 1-MB-Default. Risikoreich wird es, sobald irgendein Proxy
+      oder CDN mit dem branchenueblichen 8-KB-Header-Limit davorkommt (nginx, ALB, Cloudflare) —
+      dann bekommt ausgerechnet der Admin 431 und niemand sonst. Zwei saubere Auswege, beide
+      ausserhalb dieses Loops: die feinen Keys aus dem Token nehmen und per
+      `/auth/me/permissions` (existiert seit `p1a-gateway`) clientseitig laden, oder sie im Token
+      komprimiert/als Bitmaske fuehren. Vor dem Launch entscheiden, nicht danach.
+  (2) Der Helper hat noch keinen einzigen Aufrufer — das ist Absicht (`p2a` ff. verdrahten ihn).
+      Bis dahin veraendert dieser Commit das Verhalten in Produktion an keiner Stelle.

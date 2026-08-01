@@ -550,7 +550,7 @@ units:
     service: middleware
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       `RequirePermissionAny(pairs ...[2]string)` in `internal/middleware/rbac.go` — laesst durch,
       wenn der JWT MINDESTENS EINEN der angegebenen `resource:action`-Keys traegt.
@@ -590,6 +590,22 @@ units:
       schon angelegt wurden (der Generator emittiert den GESAMTEN Katalog). Ist das der Fall,
       braucht diese Unit KEINE eigene Migration und beschraenkt sich auf die Guards.
       Fehlt ein Key, eigene Seed-Migration im selben Commit — ein Guard ohne Seed ist 403 fuer alle.
+
+      NACHTRAG (aus `p2-guard-compat`, 2026-08-01), drei Dinge, die dir Arbeit sparen:
+      (a) SIGNATUR weicht bewusst vom urspruenglichen Vorschlag ab: nicht `pairs ...[2]string`,
+          sondern `RequirePermissionAny(first [2]string, rest ...[2]string)` — ein Aufruf ganz ohne
+          Paar wuerde jeden aussperren und faellt so schon beim Kompilieren durch. Die Call-Site
+          bleibt identisch:
+          `RequirePermissionAny([2]string{"files","write"}, [2]string{"documents:file","upload"})`.
+      (b) DER JWT TRAEGT DIE FEINEN KEYS BEREITS. `auth.Service.createTokenPair` ruft
+          `repo.GetUserPermissions` (`SELECT DISTINCT p.name ... JOIN role_permissions`) ohne
+          jeden Filter — nach Migration 000256 landen grobe UND feine Keys im Token. Der Neu-Key
+          eines additiven Guards ist ab dem naechsten Login also real erfuellt, nicht erst nach
+          weiterer Arbeit. Nichts daran aendern muessen.
+      (c) Keys pro Rolle in der lokalen DB nach 000256 (gemessen, nicht geschaetzt): admin 454,
+          manager 305, member 159, it_admin 104, readonly 74, hr_admin 71, extern 11. Beim Pruefen
+          "existiert der Key?" gegen `permissions` also mit `resource LIKE '%:%'` auf die feinen
+          Keys filtern (354 von 456).
     done_when:
       - Routen der drei Module tragen RequirePermissionAny mit Alt- und Neu-Key
       - jeder referenzierte Key existiert in permissions (gegen die lokale DB geprueft)
