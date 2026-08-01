@@ -2377,7 +2377,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     blockierten Unit).
 
 ## Iteration 34 — fe-customization-labels — done — 2026-08-02 00:40 (Nachtlauf 3)
-- commit: <pending>
+- commit: 528a7868
 - verify vorgaenger: `95ff9dbc` (Iteration 33) war reiner Doku-Commit (BACKLOG.yml/JOURNAL.md,
   keine Code-Zeile) — nichts zu verifizieren. Der letzte echte Code-Commit `3f26f98a`
   (fe-projects-team-utilization) wurde bereits in Iteration 33 gegen alle Fehlerklassen geprueft
