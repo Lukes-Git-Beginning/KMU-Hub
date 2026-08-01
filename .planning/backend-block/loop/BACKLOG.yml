@@ -829,7 +829,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2c-schichten-fuhrpark-vermietung-rapporte]
-    status: todo
+    status: done
     scope: >
       Wie p2a, fuer dialer, berichte, formulare und automatisierung.
     sources:

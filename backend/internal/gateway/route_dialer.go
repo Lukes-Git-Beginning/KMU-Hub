@@ -41,22 +41,38 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy key valid
+		// while granting the capability-catalog.ts fine keys). Dialer's legacy
+		// resources already live in module:subject shape, so campaigns:read,
+		// calls:write, agent:manage and outcomes:manage concatenate to the exact
+		// catalog key already and stay plain RequirePermission -- the one legacy
+		// verb that diverges is campaigns "write" vs. the catalog's "manage"
+		// action, so campaign-management routes get the additive wrapper.
+		// Skip/Requeue are reachable from two FE surfaces sharing one handler:
+		// the agent's live workspace queue (DialerWorkspacePage, calls:write,
+		// unchanged) and the supervisor's campaign-detail queue table
+		// (ContactQueueTable.tsx, "Derived from dialer:campaigns:manage") -- a
+		// manager without calls:write would otherwise 403 on the second path, so
+		// campaigns:manage is added as a second alternative on those two routes.
+		campaignManage := middleware.RequirePermissionAny([2]string{"dialer:campaigns", "write"}, [2]string{"dialer:campaigns", "manage"})
+		queueAction := middleware.RequirePermissionAny([2]string{"dialer:calls", "write"}, [2]string{"dialer:campaigns", "manage"})
+
 		// Campaigns
 		r.Route("/campaigns", func(r chi.Router) {
 			r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/", dr.HandleListCampaigns)
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Post("/", dr.HandleCreateCampaign)
+			r.With(campaignManage).Post("/", dr.HandleCreateCampaign)
 			r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/{id}", dr.HandleGetCampaign)
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Put("/{id}", dr.HandleUpdateCampaign)
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Post("/{id}/start", dr.HandleStartCampaign)
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Post("/{id}/pause", dr.HandlePauseCampaign)
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Delete("/{id}", dr.HandleArchiveCampaign)
+			r.With(campaignManage).Put("/{id}", dr.HandleUpdateCampaign)
+			r.With(campaignManage).Post("/{id}/start", dr.HandleStartCampaign)
+			r.With(campaignManage).Post("/{id}/pause", dr.HandlePauseCampaign)
+			r.With(campaignManage).Delete("/{id}", dr.HandleArchiveCampaign)
 
 			// Campaign contacts
-			r.With(middleware.RequirePermission("dialer:campaigns", "write")).Post("/{id}/contacts", dr.HandleAddContactsToCampaign)
+			r.With(campaignManage).Post("/{id}/contacts", dr.HandleAddContactsToCampaign)
 			r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/{id}/contacts", dr.HandleListCampaignContacts)
 			r.With(middleware.RequirePermission("dialer:calls", "write")).Get("/{id}/next", dr.HandleGetNextContact)
-			r.With(middleware.RequirePermission("dialer:calls", "write")).Post("/{id}/contacts/{cid}/skip", dr.HandleSkipContact)
-			r.With(middleware.RequirePermission("dialer:calls", "write")).Post("/{id}/contacts/{cid}/requeue", dr.HandleRequeueContact)
+			r.With(queueAction).Post("/{id}/contacts/{cid}/skip", dr.HandleSkipContact)
+			r.With(queueAction).Post("/{id}/contacts/{cid}/requeue", dr.HandleRequeueContact)
 
 			// Campaign dashboard
 			r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/{id}/dashboard", dr.HandleGetCampaignDashboard)

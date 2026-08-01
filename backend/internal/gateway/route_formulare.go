@@ -46,23 +46,44 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy
+		// "read"/"write" tokens valid while granting the capability-catalog.ts
+		// fine keys FormularePage.tsx actually gates on). Reads/submission
+		// writes already match their fine key 1:1 ("formulare:submissions:read"
+		// / "formulare:submissions:write") and stay plain RequirePermission.
+		// formulare:share:manage has NO backend route at all: the FE calls
+		// {BASE}/schemas/{id}/share-links and {BASE}/share-links/{id}
+		// (useFormulare.ts), neither of which exists here -- that is a missing
+		// feature, not a wiring gap, so nothing to additively guard. Webhooks
+		// stay legacy-only too: the catalog note says the webhook UI is an
+		// unmounted stub with no key issued yet.
+		schemasCreate := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "create"})
+		// PATCH carries both content edits and the draft/active/closed/archived
+		// lifecycle toggle (FormularePage.tsx canSchemasPublish gates the same
+		// updateSchema call as canSchemasEdit), so it needs both fine keys.
+		schemasUpdate := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "edit"}, [2]string{"formulare:schemas", "publish"})
+		schemasDelete := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "delete"})
+		exportRun := middleware.RequirePermissionAny([2]string{"formulare:submissions", "read"}, [2]string{"formulare:export", "run"})
+
 		// Schemas
 		r.Route("/schemas", func(r chi.Router) {
 			r.With(middleware.RequirePermission("formulare:schemas", "read")).Get("/", fr.HandleListFormSchemas)
-			r.With(middleware.RequirePermission("formulare:schemas", "write")).Post("/", fr.HandleCreateFormSchema)
+			r.With(schemasCreate).Post("/", fr.HandleCreateFormSchema)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("formulare:schemas", "read")).Get("/", fr.HandleGetFormSchema)
-				r.With(middleware.RequirePermission("formulare:schemas", "write")).Patch("/", fr.HandleUpdateFormSchema)
-				r.With(middleware.RequirePermission("formulare:schemas", "write")).Delete("/", fr.HandleDeleteFormSchema)
-				r.With(middleware.RequirePermission("formulare:schemas", "write")).Post("/duplicate", fr.HandleDuplicateFormSchema)
+				r.With(schemasUpdate).Patch("/", fr.HandleUpdateFormSchema)
+				r.With(schemasDelete).Delete("/", fr.HandleDeleteFormSchema)
+				// Duplicate is FE-gated by canSchemasCreate (formulare.actions.duplizieren
+				// sits in the canSchemasCreate action group), not schemas:edit.
+				r.With(schemasCreate).Post("/duplicate", fr.HandleDuplicateFormSchema)
 				r.With(middleware.RequirePermission("formulare:submissions", "read")).Get("/stats", fr.HandleGetFormStats)
 
 				// Submissions nested under schema
 				r.Route("/submissions", func(r chi.Router) {
 					r.With(middleware.RequirePermission("formulare:submissions", "write")).Post("/", fr.HandleCreateSubmission)
 					r.With(middleware.RequirePermission("formulare:submissions", "read")).Get("/", fr.HandleListSubmissions)
-					r.With(middleware.RequirePermission("formulare:submissions", "read")).Get("/export", fr.HandleExportSubmissions)
+					r.With(exportRun).Get("/export", fr.HandleExportSubmissions)
 				})
 
 				// Webhooks nested under schema

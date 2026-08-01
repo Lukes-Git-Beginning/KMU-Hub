@@ -41,32 +41,55 @@ func (ar *AutomationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy key valid
+		// while granting the capability-catalog.ts fine keys AutomatisierungPage.tsx/
+		// AutomationDetailModal.tsx actually gate on). Unlike every other module in
+		// this loop, the legacy resource here is the bare "automations" WITHOUT the
+		// module prefix (backend-gaps.md, seeded pre-000129) -- so NONE of the
+		// legacy keys concatenate to a catalog key by coincidence, and every route
+		// needs the additive wrapper. Triggers/actions/templates have no dedicated
+		// catalog verb of their own: they're read/authoring helpers consumed from
+		// AutomationDetailModal (opened from the automations list, automations:read)
+		// and the "templates" tab, which AutomatisierungPage.tsx gates on
+		// automations:create (browsing templates is only useful if you can
+		// instantiate one). Test-condition/dry-run run from AutomationWizard, which
+		// is reused for both the create flow and "Bearbeiten" edit hand-off, so they
+		// accept either automations:create or automations:edit. Stats stays on
+		// RequireRole("admin") -- a different mechanism entirely, no catalog key.
+		automationsRead := middleware.RequirePermissionAny([2]string{"automations", "read"}, [2]string{"automatisierung:automations", "read"})
+		automationsCreate := middleware.RequirePermissionAny([2]string{"automations", "write"}, [2]string{"automatisierung:automations", "create"})
+		automationsEdit := middleware.RequirePermissionAny([2]string{"automations", "write"}, [2]string{"automatisierung:automations", "edit"})
+		automationsDelete := middleware.RequirePermissionAny([2]string{"automations", "write"}, [2]string{"automatisierung:automations", "delete"})
+		automationsToggle := middleware.RequirePermissionAny([2]string{"automations", "write"}, [2]string{"automatisierung:automations", "toggle"})
+		executionsRead := middleware.RequirePermissionAny([2]string{"automations", "read"}, [2]string{"automatisierung:executions", "read"})
+		automationsAuthor := middleware.RequirePermissionAny([2]string{"automations", "write"}, [2]string{"automatisierung:automations", "create"}, [2]string{"automatisierung:automations", "edit"})
+
 		// CRUD
-		r.With(middleware.RequirePermission("automations", "write")).Post("/", ar.HandleCreateAutomation)
-		r.With(middleware.RequirePermission("automations", "read")).Get("/", ar.HandleListAutomations)
-		r.With(middleware.RequirePermission("automations", "read")).Get("/{id}", ar.HandleGetAutomation)
-		r.With(middleware.RequirePermission("automations", "write")).Put("/{id}", ar.HandleUpdateAutomation)
-		r.With(middleware.RequirePermission("automations", "write")).Delete("/{id}", ar.HandleDeleteAutomation)
+		r.With(automationsCreate).Post("/", ar.HandleCreateAutomation)
+		r.With(automationsRead).Get("/", ar.HandleListAutomations)
+		r.With(automationsRead).Get("/{id}", ar.HandleGetAutomation)
+		r.With(automationsEdit).Put("/{id}", ar.HandleUpdateAutomation)
+		r.With(automationsDelete).Delete("/{id}", ar.HandleDeleteAutomation)
 
 		// Enable/Disable
-		r.With(middleware.RequirePermission("automations", "write")).Post("/{id}/enable", ar.HandleEnableAutomation)
-		r.With(middleware.RequirePermission("automations", "write")).Post("/{id}/disable", ar.HandleDisableAutomation)
+		r.With(automationsToggle).Post("/{id}/enable", ar.HandleEnableAutomation)
+		r.With(automationsToggle).Post("/{id}/disable", ar.HandleDisableAutomation)
 
 		// Execution logs
-		r.With(middleware.RequirePermission("automations", "read")).Get("/{id}/executions", ar.HandleListExecutions)
-		r.With(middleware.RequirePermission("automations", "read")).Get("/executions/{executionId}", ar.HandleGetExecution)
+		r.With(executionsRead).Get("/{id}/executions", ar.HandleListExecutions)
+		r.With(executionsRead).Get("/executions/{executionId}", ar.HandleGetExecution)
 
 		// Catalog
-		r.With(middleware.RequirePermission("automations", "read")).Get("/triggers", ar.HandleListTriggers)
-		r.With(middleware.RequirePermission("automations", "read")).Get("/actions", ar.HandleListActions)
+		r.With(automationsRead).Get("/triggers", ar.HandleListTriggers)
+		r.With(automationsRead).Get("/actions", ar.HandleListActions)
 
 		// Templates
-		r.With(middleware.RequirePermission("automations", "read")).Get("/templates", ar.HandleListTemplates)
-		r.With(middleware.RequirePermission("automations", "write")).Post("/templates/{templateId}/create", ar.HandleCreateFromTemplate)
+		r.With(automationsCreate).Get("/templates", ar.HandleListTemplates)
+		r.With(automationsCreate).Post("/templates/{templateId}/create", ar.HandleCreateFromTemplate)
 
 		// Testing
-		r.With(middleware.RequirePermission("automations", "write")).Post("/test-condition", ar.HandleTestCondition)
-		r.With(middleware.RequirePermission("automations", "write")).Post("/dry-run", ar.HandleDryRun)
+		r.With(automationsAuthor).Post("/test-condition", ar.HandleTestCondition)
+		r.With(automationsAuthor).Post("/dry-run", ar.HandleDryRun)
 
 		// Stats (admin only)
 		r.With(middleware.RequireRole("admin")).Get("/stats", ar.HandleGetStats)

@@ -1353,3 +1353,107 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       Katalog-Keys aus Iteration 17/18/19. Kein Blocker, nur zur Kenntnis.
   (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum
       (nur zusaetzliche OR-Bedingungen, keine neuen Permission-Keys).
+
+## Iteration 21 — p2c-dialer-berichte-formulare-automatisierung — done — 2026-08-01 20:35 (Nachtlauf 3)
+- commit: (siehe naechster `git log`, wird nach diesem Eintrag erstellt)
+- gebaut: additive `RequirePermissionAny(legacy, catalogue)`-Guards fuer dialer, berichte, formulare
+  und automatisierung. Alle 19 neu referenzierten Katalog-Keys vorab per SQL gegen die lokale DB
+  verifiziert (aus `p1a-migration`/000256 geseedet) — keine neue Migration noetig. Damit ist der
+  komplette p2c-Modul-Sweep aus Block B (12 Industrie-/Querschnitt-Module) abgeschlossen.
+  dialer (`route_dialer.go`): einziges Modul, dessen Legacy-Ressourcen schon in `modul:subject`-Form
+  seedeten (`dialer:campaigns`, `dialer:calls`, `dialer:agent`, `dialer:outcomes`) — read/calls:write/
+  agent:manage/outcomes:manage konkatenieren dadurch 1:1 auf ihren Katalog-Key und blieben unangetastet.
+  Einzige echte Luecke: `dialer:campaigns:write` (Legacy) vs. `dialer:campaigns:manage` (Katalog) —
+  additiv auf alle Campaign-Management-Routen. **FUND (Cross-Resource):** Skip/Requeue teilen sich
+  EINEN Handler zwischen zwei FE-Oberflaechen mit unterschiedlichen Capabilities — dem Agenten-Live-
+  Workspace (`DialerWorkspacePage.tsx`, `dialer:calls:write`, unveraendert) und der Supervisor-Queue-
+  Tabelle im Kampagnen-Detail (`ContactQueueTable.tsx`, Kommentar "Derived from dialer:campaigns:manage",
+  verifiziert bis `CampaignDetailPage.tsx:247 canManage={canManageCampaigns}`). Ohne Erweiterung haette
+  ein Manager mit `campaigns:manage` aber ohne `calls:write` 403 auf Skip/Requeue aus der eigenen
+  Kampagnen-Ansicht bekommen — additiv `dialer:campaigns:manage` als zweite Alternative ergaenzt.
+  `GetNextContact` bleibt unangetastet (nur vom Workspace aufgerufen, kein Supervisor-Pfad).
+  berichte (`route_berichte.go`): `reports:create/edit/delete` additiv nach HTTP-Verb (POST/PATCH/
+  DELETE) auf definitions UND documents. `documents/{id}` PATCH traegt sowohl Content-Edits als auch
+  den Status-Lifecycle (`ReportDocumentEditor.tsx transitionTo()` ruft denselben UpdateDocument-Call
+  wie ein normaler Save) — additiv DREI Alternativen (write/edit/publish). `schedule:manage` additiv
+  auf alle vier Schedule-Routen, `share:manage` additiv auf Share-Create/-Revoke (Kommentar im Code
+  bestaetigt: Minting = write-aequivalent). **FUND:** `/definitions/{id}/export` wird von ZWEI FE-
+  Stellen aufgerufen — `DatevView.tsx` mit explizitem `canExport = useHasCapability('berichte:export:
+  run')`-Gate, `MyReportsLibrary.tsx` (`exportAs()`) OHNE jedes Capability-Gate. Der Legacy-Guard
+  (`reports:read`) ist damit ein striktes Superset von `export:run` — additiv beide Keys ergaenzt
+  (macht praktisch aktuell nichts, da read bereits alles abdeckt), aber die Additiv-Regel verbietet
+  ausdruecklich das Verengen von `read` auf `export:run` (JWT-Bake-in, Aussperr-Risiko) — ein
+  `readonly`-User mit `reports:read`, aber ohne `export:run`, kann den Export-Endpoint aktuell trotzdem
+  direkt per API aufrufen, obwohl die FE-Absicht ("readonly sieht, laedt nie herunter", Kommentar in
+  DatevView.tsx) das verhindern will. Kein Fix in dieser Unit moeglich (additiv-only), nur dokumentiert.
+  `datev:read` hat weiterhin keinen eigenen Backend-Anker (reiner Tab-Gate, Bestand aus Iteration-
+  Notiz). Cache-Invalidierung und der Dokument-PDF-Export haben keinen Katalog-Verb-Aequivalent — die
+  PDF-Route hat zusaetzlich GAR KEINEN FE-Aufrufer (nur `window.print()` ist verdrahtet, laut
+  Code-Kommentar in `route_berichte.go` selbst) — beide legacy-only.
+  formulare (`route_formulare.go`): `schemas:create/edit/delete` additiv nach Verb. PATCH traegt wie
+  bei berichte sowohl Content-Edit als auch den Draft/Active/Closed/Archived-Toggle (`canSchemasPublish`
+  ruft denselben `updateSchema`-Call wie `canSchemasEdit`) — additiv edit+publish. Duplicate ist laut
+  FE `canSchemasCreate`-gated (nicht edit) — additiv `schemas:create`. `submissions/export` additiv
+  `export:run` (echter Backend-Anker, `FormularePage.tsx canExportRun`), gleiche Read-ist-Superset-
+  Einschraenkung wie bei berichte. **FUND (fehlende Route, kein Wiring-Fall):** `formulare:share:manage`
+  gated in `FormularePage.tsx` einen echten Button ("Share opens the link-create dialog — that IS share
+  management"), der `useCreateShareLink`/`useUpdateShareLink`/`useDeleteShareLink` aufruft — diese
+  Hooks rufen `{BASE}/schemas/{id}/share-links` und `{BASE}/share-links/{id}`
+  (`formulare-client.ts:183-209`), und KEINE dieser Routen existiert in `route_formulare.go`. Anders
+  als die bisherigen "toter Katalog-Key"-Funde (FE-Aufrufer fehlt) ist hier der FE-Aufrufer real und
+  die Route fehlt — ein Feature-Gap, kein additiver Guard-Fall, also nichts zu verdrahten. Webhooks
+  bleiben komplett legacy-only (Katalog-Notiz: FE-UI ist ein unmontierter Stub, noch kein Key).
+  automatisierung (`route_automation.go`): einziges Modul, dessen Legacy-Ressource `automations` OHNE
+  Modul-Praefix seedete (vor 000129) — dadurch konkateniert KEIN einziger Legacy-Key zufaellig auf
+  seinen Katalog-Key (anders als bei allen anderen elf p2c-Modulen), jede Route brauchte den additiven
+  Wrapper. Triggers/Actions/Templates haben kein eigenes Katalog-Verb: additiv auf `automations:read`
+  (Triggers/Actions, aus `AutomationDetailModal.tsx`, nur nach Oeffnen aus der bereits-`read`-gated
+  Liste erreichbar) bzw. `automations:create` (Templates-Tab, `AutomatisierungPage.tsx` Zeile 52:
+  `templates: 'automatisierung:automations:create'` — Vorlagen durchstoebern ist nur mit
+  Instanziierungsrecht sinnvoll). Test-Condition/Dry-Run laufen aus `AutomationWizard.tsx`, der laut
+  eigenem Doc-Kommentar in `AutomationDetailModal.tsx` sowohl fuer Neu-Anlage als auch fuer den
+  "Bearbeiten"-Hand-off wiederverwendet wird — additiv `create` UND `edit`. Stats bleibt auf
+  `RequireRole("admin")`, ein komplett anderer Mechanismus ohne Katalog-Aequivalent — unangetastet.
+  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`dialerRouter`, `berichteRouter`,
+  `formulareRouter`, `automationRouter`) und 59 neue Faelle erweitert. `formulare` brauchte einen
+  neuen Test-Konstruktor (`newFormulareRoutes` in neuer `route_formulare_test.go`, Muster von
+  `newSchichtenRoutes` uebernommen — bislang existierten fuer formulare nur Handler-Unit-Tests, kein
+  eigener Router-Konstruktor). `berichte` nutzt den bereits vorhandenen `berichteFlagsON()`-Helper aus
+  `route_berichte_test.go`. `dialer`/`automatisierung` sind nicht feature-flag-gated, direkter
+  Konstruktor-Aufruf ohne Wrapper.
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
+  `./internal/gateway/...` komplett gruen (`TestCapabilityGuards_AdditiveWiring` alle Faelle inkl.
+  59 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert), 0 Skips. migration n.a.
+  (alle 19 neuen Keys per SQL gegen die laufende DB verifiziert). openapi n.a. (keine neue Route, nur
+  Guards). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt: `route_dialer.go`/
+  `route_berichte.go`/`route_formulare.go`/`route_automation.go` von `gofmt -l` gemeldet —
+  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-20, `git show HEAD:...` liefert
+  reines ASCII/LF fuer alle vier Dateien, git diff --stat zeigt gezielte 31-53-Zeilen-Diffs statt
+  vollstaendiger Umschreibung — kein echter Format-Fund).
+- verify vorgaenger: `3778c05d` (p2c-schichten-fuhrpark-vermietung-rapporte) gegen die acht
+  Fehlerklassen geprueft. Diff: vier Route-Dateien + `route_capability_guard_test.go`, kein Proto/
+  Migration/Handler-Direktzugriff/Stub. Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden
+  additiv durch `RequirePermissionAny(alt, neu)` ersetzt (Fehlerklasse 8 n.a.). Der im selben Commit
+  behobene Doppel-Mount-Bug (`/vehicles/{id}`) ist als vorbestehend dokumentiert und veraendert die
+  Routenzahl nicht (739/741 vor und nach dem Merge, Fehlerklasse 7 n.a.). Kein Fund.
+- offen fuer Luke:
+  (1) Damit ist der komplette p2c-Modul-Sweep (12 Industrie-/Querschnitt-Module: work/documents/crm/
+      finance/inventar/einkauf/produktion/vertraege/schichten/fuhrpark/vermietung/rapporte/dialer/
+      berichte/formulare/automatisierung) abgeschlossen. Naechste ziehbare Unit in Block B ist
+      `p2-owner-fk-crm` (deps `[p1a-migration]`, bereits erfuellt) — Voraussetzung fuer
+      `p2-own-scope-list-filter` danach.
+  (2) `berichte:export:run`/`formulare:export:run` sind additiv verdrahtet, aber wirkungslos: der
+      Legacy-Guard (`reports:read`/`submissions:read`) ist ein striktes Superset, additiv-only kann
+      das nicht verengen. Ein `readonly`-User kann den Export-Endpoint aktuell per direktem API-Call
+      umgehen, obwohl die FE-Absicht das verhindern will (DatevView.tsx-Kommentar "readonly sieht,
+      laedt nie herunter"). Braucht einen bewussten harten Cutover (Token-Rotation abwarten), kein
+      additiver Fix.
+  (3) `formulare:share:manage` hat einen echten FE-Aufrufer (`FormularePage.tsx` "Teilen"-Aktion ->
+      `useCreateShareLink`/`useUpdateShareLink`/`useDeleteShareLink`), aber die aufgerufenen Routen
+      (`/schemas/{id}/share-links`, `/share-links/{id}`) existieren nicht in `route_formulare.go` —
+      ein Feature-Gap (Endpoint fehlt komplett), kein additiver Guard-Fall. Kandidat fuer eine eigene
+      `g-formulare-share-links`-Unit, falls das Feature launch-relevant ist.
+  (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum (nur
+      zusaetzliche OR-Bedingungen + 6 neue Basis-Keys `automatisierung:automations:read/create/edit/
+      delete/toggle` + `executions:read`, die aber schon seit `p1a-migration` im Katalog-Seed stehen).

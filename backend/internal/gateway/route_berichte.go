@@ -50,18 +50,41 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy
+		// "read"/"write" tokens valid while granting the capability-catalog.ts
+		// fine keys that BerichtLibrary.tsx/ReportDocumentEditor.tsx/
+		// DatevView.tsx actually gate on). Reads already match the fine
+		// "reports:read" key 1:1 and stay plain RequirePermission;
+		// berichte:datev:read has no backend anchor of its own (DatevView.tsx
+		// gates the tab client-side, the underlying fetch reuses reports:read/
+		// export:run). Cache invalidation and the document PDF export have no
+		// matching catalog verb (the PDF route also has no FE caller at all
+		// yet -- window.print() is the only wired-up export affordance) and
+		// stay legacy-only.
+		reportsCreate := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:reports", "create"})
+		reportsEdit := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:reports", "edit"})
+		reportsDelete := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:reports", "delete"})
+		// Documents' PATCH carries both content edits and the draft->final->
+		// released->archived lifecycle transition (ReportDocumentEditor.tsx
+		// transitionTo() posts to the same UpdateDocument call as a plain
+		// save), so it needs both fine keys.
+		documentUpdate := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:reports", "edit"}, [2]string{"berichte:reports", "publish"})
+		exportRun := middleware.RequirePermissionAny([2]string{"berichte:reports", "read"}, [2]string{"berichte:export", "run"})
+		scheduleManage := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:schedule", "manage"})
+		shareManage := middleware.RequirePermissionAny([2]string{"berichte:reports", "write"}, [2]string{"berichte:share", "manage"})
+
 		// Definitions
 		r.Route("/definitions", func(r chi.Router) {
 			r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleListDefinitions)
-			r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/", br.HandleCreateDefinition)
+			r.With(reportsCreate).Post("/", br.HandleCreateDefinition)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleGetDefinition)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateDefinition)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteDefinition)
+				r.With(reportsEdit).Patch("/", br.HandleUpdateDefinition)
+				r.With(reportsDelete).Delete("/", br.HandleDeleteDefinition)
 
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Post("/run", br.HandleRunReport)
-				r.With(middleware.RequirePermission("berichte:reports", "read")).Post("/export", br.HandleExportReport)
+				r.With(exportRun).Post("/export", br.HandleExportReport)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/cache", br.HandleInvalidateCache)
 			})
 		})
@@ -69,35 +92,35 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Schedules
 		r.Route("/schedules", func(r chi.Router) {
 			r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleListSchedules)
-			r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/", br.HandleCreateSchedule)
+			r.With(scheduleManage).Post("/", br.HandleCreateSchedule)
 
 			r.Route("/{id}", func(r chi.Router) {
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateSchedule)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteSchedule)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/toggle", br.HandleToggleSchedule)
+				r.With(scheduleManage).Patch("/", br.HandleUpdateSchedule)
+				r.With(scheduleManage).Delete("/", br.HandleDeleteSchedule)
+				r.With(scheduleManage).Post("/toggle", br.HandleToggleSchedule)
 			})
 		})
 
 		// Documents (multi-page authoring)
 		r.Route("/documents", func(r chi.Router) {
 			r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleListDocuments)
-			r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/", br.HandleCreateDocument)
+			r.With(reportsCreate).Post("/", br.HandleCreateDocument)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleGetDocument)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateDocument)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteDocument)
+				r.With(documentUpdate).Patch("/", br.HandleUpdateDocument)
+				r.With(reportsDelete).Delete("/", br.HandleDeleteDocument)
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/export/pdf", br.HandleExportDocumentPDF)
 
 				// External share links. Minting one hands out an
 				// unauthenticated read path, so it sits behind the same
 				// "write" permission as changing the document itself.
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/shares", br.HandleListReportShares)
-				r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/shares", br.HandleCreateReportShare)
+				r.With(shareManage).Post("/shares", br.HandleCreateReportShare)
 			})
 		})
 
-		r.With(middleware.RequirePermission("berichte:reports", "write")).
+		r.With(shareManage).
 			Delete("/shares/{shareId}", br.HandleRevokeReportShare)
 
 		// KPIs

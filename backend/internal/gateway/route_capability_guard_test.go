@@ -90,6 +90,18 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	rapporteRouter := chi.NewRouter()
 	newRapporteRoutes(emptyRegistry()).RegisterRoutes(rapporteRouter, guardTestAuth)
 
+	dialerRouter := chi.NewRouter()
+	NewDialerRoutes(emptyRegistry()).RegisterRoutes(dialerRouter, guardTestAuth)
+
+	berichteRouter := chi.NewRouter()
+	NewBerichteRoutes(emptyRegistry(), berichteFlagsON()).RegisterRoutes(berichteRouter, guardTestAuth)
+
+	formulareRouter := chi.NewRouter()
+	newFormulareRoutes(emptyRegistry()).RegisterRoutes(formulareRouter, guardTestAuth)
+
+	automationRouter := chi.NewRouter()
+	NewAutomationRoutes(emptyRegistry()).RegisterRoutes(automationRouter, guardTestAuth)
+
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
 	const (
@@ -578,6 +590,118 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// --- rapporte: measurements have no FE caller (local mock store), untouched ---
 		{"measurement create still requires measurement:write only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, denied},
 		{"measurement create with measurement:write", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
+
+		// --- dialer: campaigns (legacy resource already lives in module:subject
+		// shape, so read/calls/agent/outcomes concatenate to their catalogue key
+		// 1:1 already -- only the "write" vs. "manage" verb mismatch needs wiring) ---
+		{"campaign create, legacy key only", dialerRouter, "POST", "/api/v1/dialer/campaigns/", []string{"dialer:campaigns:write"}, allowed},
+		{"campaign create, catalogue manage key only", dialerRouter, "POST", "/api/v1/dialer/campaigns/", []string{"dialer:campaigns:manage"}, allowed},
+		{"campaign create, denied without either key", dialerRouter, "POST", "/api/v1/dialer/campaigns/", []string{"dialer:calls:write"}, denied},
+		{"campaign update, legacy key only", dialerRouter, "PUT", "/api/v1/dialer/campaigns/" + articleID, []string{"dialer:campaigns:write"}, allowed},
+		{"campaign update, catalogue manage key only", dialerRouter, "PUT", "/api/v1/dialer/campaigns/" + articleID, []string{"dialer:campaigns:manage"}, allowed},
+
+		// --- dialer: skip/requeue are reachable from two FE surfaces sharing one
+		// handler (DialerWorkspacePage's live queue, calls:write; and
+		// ContactQueueTable.tsx in the supervisor's campaign-detail view, gated
+		// on campaigns:manage) -- both keys must open it, next-contact stays
+		// calls:write only since only the workspace calls it ---
+		{"contact skip, legacy calls:write", dialerRouter, "POST", "/api/v1/dialer/campaigns/" + articleID + "/contacts/" + articleID + "/skip", []string{"dialer:calls:write"}, allowed},
+		{"contact skip, campaigns:manage also grants it", dialerRouter, "POST", "/api/v1/dialer/campaigns/" + articleID + "/contacts/" + articleID + "/skip", []string{"dialer:campaigns:manage"}, allowed},
+		{"contact skip, denied without either key", dialerRouter, "POST", "/api/v1/dialer/campaigns/" + articleID + "/contacts/" + articleID + "/skip", []string{"dialer:outcomes:manage"}, denied},
+		{"contact requeue, campaigns:manage also grants it", dialerRouter, "POST", "/api/v1/dialer/campaigns/" + articleID + "/contacts/" + articleID + "/requeue", []string{"dialer:campaigns:manage"}, allowed},
+		{"get next contact still requires calls:write only", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:campaigns:manage"}, denied},
+		{"get next contact with calls:write", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:calls:write"}, allowed},
+
+		// --- berichte: definitions ---
+		{"definition create, legacy key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:write"}, allowed},
+		{"definition create, catalogue key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:create"}, allowed},
+		{"definition create, edit key does not grant create", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:edit"}, denied},
+		{"definition edit, catalogue key only", berichteRouter, "PATCH", "/api/v1/berichte/definitions/" + articleID, []string{"berichte:reports:edit"}, allowed},
+		{"definition delete, catalogue key only", berichteRouter, "DELETE", "/api/v1/berichte/definitions/" + articleID, []string{"berichte:reports:delete"}, allowed},
+
+		// --- berichte: export is a real endpoint behind DatevView.tsx's canExport,
+		// but MyReportsLibrary.tsx calls the same route with no capability check at
+		// all -- so the legacy "read" key stays as-is (additive-only, cannot be
+		// narrowed) and export:run is wired in as a second, real anchor ---
+		{"definition export, catalogue export:run key also grants it", berichteRouter, "POST", "/api/v1/berichte/definitions/" + articleID + "/export", []string{"berichte:export:run"}, allowed},
+		{"definition export, legacy read still grants it", berichteRouter, "POST", "/api/v1/berichte/definitions/" + articleID + "/export", []string{"berichte:reports:read"}, allowed},
+
+		// --- berichte: cache invalidation has no catalogue verb, untouched ---
+		{"definition cache invalidate still requires reports:write only", berichteRouter, "DELETE", "/api/v1/berichte/definitions/" + articleID + "/cache", []string{"berichte:reports:edit"}, denied},
+		{"definition cache invalidate with reports:write", berichteRouter, "DELETE", "/api/v1/berichte/definitions/" + articleID + "/cache", []string{"berichte:reports:write"}, allowed},
+
+		// --- berichte: schedules ---
+		{"schedule create, catalogue schedule:manage key only", berichteRouter, "POST", "/api/v1/berichte/schedules/", []string{"berichte:schedule:manage"}, allowed},
+		{"schedule create, denied without either key", berichteRouter, "POST", "/api/v1/berichte/schedules/", []string{"berichte:reports:read"}, denied},
+		{"schedule toggle, catalogue schedule:manage key only", berichteRouter, "POST", "/api/v1/berichte/schedules/" + articleID + "/toggle", []string{"berichte:schedule:manage"}, allowed},
+
+		// --- berichte: documents (multi-page authoring) ---
+		{"document create, catalogue key only", berichteRouter, "POST", "/api/v1/berichte/documents/", []string{"berichte:reports:create"}, allowed},
+		// PATCH carries both content edits and the draft->final->released->archived
+		// lifecycle transition (ReportDocumentEditor.tsx transitionTo()), so it
+		// needs both fine keys.
+		{"document update, edit key only", berichteRouter, "PATCH", "/api/v1/berichte/documents/" + articleID, []string{"berichte:reports:edit"}, allowed},
+		{"document update, publish key also grants it (lifecycle transition)", berichteRouter, "PATCH", "/api/v1/berichte/documents/" + articleID, []string{"berichte:reports:publish"}, allowed},
+		{"document update, denied without write/edit/publish", berichteRouter, "PATCH", "/api/v1/berichte/documents/" + articleID, []string{"berichte:reports:delete"}, denied},
+		{"document delete, catalogue key only", berichteRouter, "DELETE", "/api/v1/berichte/documents/" + articleID, []string{"berichte:reports:delete"}, allowed},
+		{"document share create, catalogue share:manage key only", berichteRouter, "POST", "/api/v1/berichte/documents/" + articleID + "/shares", []string{"berichte:share:manage"}, allowed},
+		{"document share revoke, catalogue share:manage key only", berichteRouter, "DELETE", "/api/v1/berichte/shares/" + articleID, []string{"berichte:share:manage"}, allowed},
+
+		// --- formulare: schemas ---
+		{"form schema create, legacy key only", formulareRouter, "POST", "/api/v1/formulare/schemas/", []string{"formulare:schemas:write"}, allowed},
+		{"form schema create, catalogue key only", formulareRouter, "POST", "/api/v1/formulare/schemas/", []string{"formulare:schemas:create"}, allowed},
+		{"form schema create, denied without either key", formulareRouter, "POST", "/api/v1/formulare/schemas/", []string{"formulare:submissions:read"}, denied},
+		// PATCH carries both content edits and the draft/active/closed/archived
+		// lifecycle toggle (FormularePage.tsx canSchemasPublish gates the same
+		// updateSchema call as canSchemasEdit), so it needs both fine keys.
+		{"form schema update, edit key only", formulareRouter, "PATCH", "/api/v1/formulare/schemas/" + articleID, []string{"formulare:schemas:edit"}, allowed},
+		{"form schema update, publish key also grants it (lifecycle toggle)", formulareRouter, "PATCH", "/api/v1/formulare/schemas/" + articleID, []string{"formulare:schemas:publish"}, allowed},
+		{"form schema delete, catalogue key only", formulareRouter, "DELETE", "/api/v1/formulare/schemas/" + articleID, []string{"formulare:schemas:delete"}, allowed},
+		// Duplicate is FE-gated by canSchemasCreate, not schemas:edit.
+		{"form schema duplicate, catalogue create key only", formulareRouter, "POST", "/api/v1/formulare/schemas/" + articleID + "/duplicate", []string{"formulare:schemas:create"}, allowed},
+		{"form schema duplicate, edit key does not grant it", formulareRouter, "POST", "/api/v1/formulare/schemas/" + articleID + "/duplicate", []string{"formulare:schemas:edit"}, denied},
+
+		// --- formulare: submissions export (real endpoint behind FormularePage.tsx
+		// canExportRun; legacy "read" stays as-is, additive-only) ---
+		{"submission export, catalogue export:run key also grants it", formulareRouter, "GET", "/api/v1/formulare/schemas/" + articleID + "/submissions/export", []string{"formulare:export:run"}, allowed},
+		{"submission export, legacy submissions:read still grants it", formulareRouter, "GET", "/api/v1/formulare/schemas/" + articleID + "/submissions/export", []string{"formulare:submissions:read"}, allowed},
+
+		// --- formulare: webhooks have no catalogue key (FE UI is an unmounted
+		// stub), untouched ---
+		{"webhook list still requires the legacy key only", formulareRouter, "GET", "/api/v1/formulare/schemas/" + articleID + "/webhooks/", []string{"formulare:schemas:read"}, denied},
+		{"webhook list with legacy webhooks:read", formulareRouter, "GET", "/api/v1/formulare/schemas/" + articleID + "/webhooks/", []string{"formulare:webhooks:read"}, allowed},
+
+		// --- automatisierung: legacy resource is the bare "automations" (no
+		// module prefix, pre-000129 seed), so unlike every other module in this
+		// loop NONE of the legacy keys concatenate to a catalogue key by
+		// coincidence -- every route needs the additive wrapper ---
+		{"automation create, legacy bare key only", automationRouter, "POST", "/api/v1/automations/", []string{"automations:write"}, allowed},
+		{"automation create, catalogue key only", automationRouter, "POST", "/api/v1/automations/", []string{"automatisierung:automations:create"}, allowed},
+		{"automation create, denied without either key", automationRouter, "POST", "/api/v1/automations/", []string{"automatisierung:automations:edit"}, denied},
+		{"automation list, legacy bare key only", automationRouter, "GET", "/api/v1/automations/", []string{"automations:read"}, allowed},
+		{"automation list, catalogue key only", automationRouter, "GET", "/api/v1/automations/", []string{"automatisierung:automations:read"}, allowed},
+		{"automation update, catalogue edit key only", automationRouter, "PUT", "/api/v1/automations/" + articleID, []string{"automatisierung:automations:edit"}, allowed},
+		{"automation delete, catalogue delete key only", automationRouter, "DELETE", "/api/v1/automations/" + articleID, []string{"automatisierung:automations:delete"}, allowed},
+		{"automation enable, catalogue toggle key only", automationRouter, "POST", "/api/v1/automations/" + articleID + "/enable", []string{"automatisierung:automations:toggle"}, allowed},
+		{"automation disable, catalogue toggle key only", automationRouter, "POST", "/api/v1/automations/" + articleID + "/disable", []string{"automatisierung:automations:toggle"}, allowed},
+		{"execution list, catalogue executions:read key only", automationRouter, "GET", "/api/v1/automations/" + articleID + "/executions", []string{"automatisierung:executions:read"}, allowed},
+		{"execution list, automations:read does not grant it", automationRouter, "GET", "/api/v1/automations/" + articleID + "/executions", []string{"automatisierung:automations:read"}, denied},
+
+		// --- automatisierung: templates tab is gated on automations:create in
+		// AutomatisierungPage.tsx (browsing templates is only useful if you can
+		// instantiate one) ---
+		{"templates list, catalogue create key only", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:create"}, allowed},
+		{"templates list, read key does not grant it", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:read"}, denied},
+
+		// --- automatisierung: test-condition/dry-run run from AutomationWizard,
+		// reused for both the create flow and the "Bearbeiten" edit hand-off ---
+		{"dry-run, catalogue create key grants it (create-flow wizard)", automationRouter, "POST", "/api/v1/automations/dry-run", []string{"automatisierung:automations:create"}, allowed},
+		{"dry-run, catalogue edit key also grants it (edit-flow wizard)", automationRouter, "POST", "/api/v1/automations/dry-run", []string{"automatisierung:automations:edit"}, allowed},
+		{"dry-run, denied without create or edit", automationRouter, "POST", "/api/v1/automations/dry-run", []string{"automatisierung:automations:read"}, denied},
+
+		// --- automatisierung: stats stays on RequireRole("admin"), a different
+		// mechanism entirely -- no permission key should grant it ---
+		{"stats stays role-gated, permission key alone does not grant it", automationRouter, "GET", "/api/v1/automations/stats", []string{"automatisierung:automations:read"}, denied},
 	}
 
 	for _, tt := range tests {
