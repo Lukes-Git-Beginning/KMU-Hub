@@ -1499,7 +1499,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `POST/DELETE /api/v1/messages/{id}/bookmark` — persoenliche Lesezeichen an Nachrichten.
     sources:
@@ -1508,6 +1508,13 @@ units:
       Pro User UND Tenant eindeutig. Idempotent: zweimal setzen ist kein Fehler.
       Muster von den Chat-Reactions abschauen (`internal/work/reaction`, in ChatGRPCServer
       wiederverwendet) — dasselbe Problem, bereits geloest.
+
+      KORREKTUR beim Bauen (2026-08-02): der Scope-Titel war falsch — es gibt kein DELETE.
+      `desktop/src/renderer/src/api/hooks/useBookmarks.ts` (bestehender FE-Hook, demo-only/raw
+      fetch, MSW-Mock in `mocks/handlers/chat.ts:141-150`) belegt eindeutig EIN Toggle-Endpoint
+      `POST /api/v1/messages/{id}/bookmark` -> `{bookmarked: boolean}`, plus einen zweiten,
+      im Scope-Text gar nicht erwaehnten Read-Endpoint `GET /api/v1/messages/bookmarks` ->
+      `{messages: MessageInfo[]}`. Gegen den FE-Vertrag gebaut, nicht gegen den Scope-Text.
     done_when:
       - Setzen/Entfernen idempotent, tenant- und user-gescoped
       - openapi.yaml im selben Commit

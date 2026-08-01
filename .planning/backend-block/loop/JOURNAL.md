@@ -2575,6 +2575,89 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Naechste Unit laut Reihenfolge: `fe-email-labels` (Block E, deps: [fe-email-rules], model:
     sonnet) — die Vorarbeit-Punkte (a)-(c) stehen jetzt in deren Backlog-Notes.
 
+## Iteration 37 — fe-messages-bookmark — done — 2026-08-02 (Nachtlauf 3)
+- commit: `41b7c4e1`
+- verify vorgaenger: `50dbc8e3` (fe-email-labels) gegen die acht Fehlerklassen geprueft — **kein
+  Fund**. Migration 000261 `tenant_id NOT NULL` + `CALL enable_tenant_rls('email_labels')`, alle
+  Repo-Methoden (Create/GetByID/List/Update/Delete/LabelIDsBelongToTenant/AssignToMessage)
+  tenant-gescopt gegengelesen. Gateway-Handler gehen ausschliesslich ueber `e.getEmailClient()`
+  (kein Fehlerklasse-1-Fund). Proto `optional string name/color` in `UpdateEmailLabelRequest`
+  passt exakt zur Service-Signatur `Update(..., name, color *string)` — `.pb.go` im selben Commit
+  regeneriert. Guards nutzen ausschliesslich bestehende `email:read/write/delete` (kein neuer Key,
+  kein Seed noetig). `openapi.yaml` traegt alle vier Pfade.
+- gebaut: **Message-Bookmarks** (persoenliche Lesezeichen an Chat-Nachrichten).
+  - SCOPE-KORREKTUR gegen den Backlog-Text (siehe BACKLOG-Notes): kein POST/DELETE-Paar. Der
+    bestehende FE-Hook `useBookmarks.ts` (raw fetch, demo-only, MSW-Mock in
+    `mocks/handlers/chat.ts:141-150`) legt eindeutig einen **Toggle**-Endpoint fest
+    (`POST /api/v1/messages/{id}/bookmark` -> `{bookmarked: boolean}`) plus einen zweiten, im
+    Scope-Text nicht erwaehnten Read-Endpoint (`GET /api/v1/messages/bookmarks` ->
+    `{messages: MessageInfo[]}`). Gegen den FE-Vertrag gebaut, nicht gegen den Scope-Titel.
+  - Migration 000262: `message_bookmarks` (`tenant_id`/`message_id`/`user_id` alle `NOT NULL` +
+    FK, zusammengesetzter PK `(user_id, message_id)`, Index auf `message_id`) — Form bewusst
+    identisch zu `message_reactions` (Migration 000038/000115/000122), aber `tenant_id NOT NULL`
+    von Anfang an, weil es hier kein Retrofit ist. `CALL enable_tenant_rls('message_bookmarks')`.
+  - Neues Package `internal/chat/bookmark/` (Repository + PostgresRepository + Service, Muster von
+    `internal/email/label/` uebernommen): `Service` komponiert **keine eigene SQL-Query fuers
+    Lesen**, sondern ein schlankes `MessageReader`-Interface
+    (`GetByID(ctx, id, tenantID, userID) (*models.MessageWithSender, error)`), das
+    `*message.Service` strukturell erfuellt. Das ist bewusst dieselbe Zusammensetzung wie
+    `label.Service`/`MessageReader` fuer Email, aber mit einem wichtigen Unterschied: die
+    wiederverwendete `message.Service.GetByID` prueft nicht nur Tenant-Zugehoerigkeit, sondern
+    auch **Channel-Mitgliedschaft** (`ErrNotChannelMember`) — genau die Zugriffspruefung, die ein
+    Lesezeichen-Feature ohnehin braucht ("darf dieser User diese Nachricht ueberhaupt sehen").
+    `Toggle` ruft `GetByID` VOR jedem Schreiben, `List` ruft `GetByID` pro Bookmark-Treffer und
+    ueberspringt `ErrMessageNotFound`/`ErrNotChannelMember` still (Kommentar im Code), damit ein
+    Channel-Austritt nach dem Bookmarken nicht die komplette Liste zum 403/404 macht — der
+    Mitgliedschafts-Check ist eine lebende Zugriffskontrolle, keine Momentaufnahme beim Bookmarken.
+  - Zwei neue RPCs `ToggleBookmark`/`ListBookmarks` in `chat.proto`, `.pb.go`/`_grpc.pb.go` im
+    selben Commit regeneriert. `ChatGRPCServer` bekam ein fuenftes Feld `bookmarkService
+    *bookmark.Service` (Konstruktor-Signaturbruch dokumentiert wie beim `reactionService`-Vorbild
+    aus Welle 8), `cmd/chat/main.go` verdrahtet `bookmarkService := bookmark.NewService(bookmarkRepo,
+    messageService)` — derselbe `messageService`, der auch fuer den `MessageInfo`-Chat-Pfad
+    verwendet wird, keine zweite Instanz.
+  - Gateway: `GET /api/v1/messages/bookmarks` (statischer Pfad VOR `/{id}/thread` registriert,
+    gleicher Chi-Ambiguitaets-Grund wie bei `POST /reactions/summary`) und
+    `POST /api/v1/messages/{id}/bookmark`, beide ueber `RequirePermission("messages","read"/
+    "write")` — bestehender Key, kein neuer Guard, kein Seed. Response-Pfad nutzt
+    `response.JSON(w, status, resp)` mit dem rohen Proto-Struct, identisch zu `HandleGetMessages`/
+    `HandleToggleReaction` in derselben Datei (die generierten `.pb.go`-json-Tags sind bereits
+    snake_case, `response.Proto`/protojson also hier nicht noetig).
+  - `openapi.yaml`: zwei neue Pfade (`chat-messages`-Tag) + zwei neue Schemas
+    (`ToggleBookmarkResponse`, `ListBookmarksResponse` mit `$ref` auf das bestehende
+    `MessageInfo`-Schema). Alle real moeglichen Codes dokumentiert: `POST .../bookmark` ->
+    200/400/401/403 (`ErrNotChannelMember`)/404 (`ErrMessageNotFound`) — anders als das
+    Reaction-Vorbild, das nur 200/400/401 dokumentiert, weil Reaktionen Existenz/Mitgliedschaft gar
+    nicht pruefen; hier sind 403/404 echte, ueber `mapChatError` bereits gemappte Ergebnisse.
+- gate: `go build -p 2 ./...` (voller Baum) gruen | vet gruen | `golangci-lint`
+  `internal/chat/... internal/gateway/... internal/server/... cmd/chat/...` **0 issues** |
+  Migration 000262 up/down/up lokal gruen (Kopf `262`, bit-identisch nach Roundtrip) | test ok mit
+  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/chat/bookmark` 9 Faelle **0 Skips**
+  (3 Service-Unit-Tests mit In-Memory-Mocks fuer Toggle, 3 fuer List inkl. des
+  "revoked access wird uebersprungen"-Falls, 3 DB-Tests mit echten Tenant/User/Channel/Message-
+  Fixtures — eigene Tenants pro Testfall, keine geteilten Konstanten), `internal/chat/...`
+  komplett gruen, `internal/server/...` gruen (kein neuer `mapChatError`-Fall noetig — Toggle
+  propagiert die bereits gemappten `message.ErrMessageNotFound`/`ErrNotChannelMember` direkt).
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`: PASS, 766 registrierte gegen 768
+  dokumentierte Pfade.
+  **RLS-Smoke** (manuell, `docker exec -i ... psql`, Transaktion mit `ROLLBACK`, keine
+  Datenspuren — Fixtures mit echten `tenants`/`users`/`channels`/`messages`-Zeilen statt der
+  GATE-COMMANDS.md-Fixwerte, die bei `email_labels` schon mal an einer fehlenden FK-Zeile
+  gescheitert waren): eigener Tenant 1, fremder Tenant 0. Verteilung vor dem Rollenwechsel zeigte
+  je 1 Zeile pro Tenant — keine Nullmessung.
+- verify eigen: n.a. (kein Vorgaenger-Commit auf dieser Iteration zu pruefen ausser dem oben
+  behandelten `50dbc8e3`).
+- offen:
+  - Der FE-Hook bleibt bewusst unveraendert (raw fetch, kein OpenAPI-generierter Client) — die
+    Response-Shape wurde exakt gegen das gebaut, was `useBookmarks.ts`/`useToggleBookmark`
+    erwarten, nicht umgekehrt migriert.
+  - `message_bookmarks` haengt an `messages.id`, nicht an `channel_memberships` — verlaesst ein
+    User einen Channel wieder, bleibt die Bookmark-Zeile bestehen (nur unsichtbar in `List`, weil
+    `GetByID` dann `ErrNotChannelMember` wirft). Kein Cleanup-Job dafuer; `lean:`-Marker bewusst
+    NICHT gesetzt, weil das keine Vereinfachung ist, sondern die gewaehlte Semantik ("Zugriff ist
+    live, nicht eingefroren") — sollte das je gewechselt werden (Bookmark-Sichtbarkeit einfrieren
+    zum Zeitpunkt des Bookmarkens), ist das eine bewusste Produktentscheidung, keine Nacharbeit.
+  - Naechste Unit laut Reihenfolge: `fe-notifications-snooze` (Block D, deps: [], model: sonnet).
+
 ## Iteration 36 — fe-email-labels — done — 2026-08-02 01:35 (Nachtlauf 3)
 - commit: (siehe git log, dieser Lauf)
 - verify vorgaenger: `087e5e0a` (fe-email-rules) gegen die sechs Fehlerklassen geprueft — **kein
