@@ -85,18 +85,30 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID, tenantID uu
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, calendar *models.Calendar) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE calendars SET name = $1, description = $2, color = $3, timezone = $4, updated_at = $5
 		 WHERE id = $6 AND tenant_id = $7`,
 		calendar.Name, calendar.Description, calendar.Color, calendar.Timezone,
 		calendar.UpdatedAt, calendar.ID, calendar.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCalendarNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM calendars WHERE id = $1 AND tenant_id = $2`, id, tenantID)
-	return err
+	tag, err := r.pool.Exec(ctx, `DELETE FROM calendars WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCalendarNotFound
+	}
+	return nil
 }
 
 // Members

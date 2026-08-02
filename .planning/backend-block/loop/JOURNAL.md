@@ -3750,3 +3750,67 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Backlog-Grooming-Hinweis (wie schon in Iteration 51 notiert): Befunde aus dem archivierten
     Lauf-1/2-Journal vor Uebernahme in eine neue Unit gegen den AKTUELLEN Code-Stand pruefen statt
     nur zu zitieren.
+
+## Iteration 53 — g-work-rest-tenant-writes — done — 2026-08-02 06:05
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `fb0bb7b1` (Iteration 52, einvoice-test-hygiene) gepruefter Diff
+  (`tenant_isolation_test.go`): zwei `t.Cleanup`-Zeilen, kein Gateway-Handler, kein Stub, kein
+  `.proto`, keine neue Tabelle/Migration, keine Route — reiner Testdatei-Fix wie im
+  Iteration-52-Eintrag beschrieben.
+- Auftrag: die vier work-Unterpakete calendar, meeting, resource, recording wurden im
+  Tenant-Write-Sweep der Laeufe 1/2 nie geprueft — je eine `tenant_write_test.go` nachziehen, echte
+  Luecken (Write ohne tenant_id, Read ohne Praedikat) fixen und per Falsifikation belegen.
+- Rechercheergebnis vor dem Bauen: alle vier Kern-Repos (calendar, meeting, resource, recording)
+  setzen `tenant_id` beim Insert korrekt und tragen — wo ueberhaupt ein `tenantID`-Parameter existiert
+  — ein explizites `WHERE tenant_id = ...`-Praedikat auf GetByID/List/Update/Delete. `resource`s
+  `ListBookings`/`ListBookingsByEvent` haben zwar kein eigenes Praedikat, werden aber im Service immer
+  erst nach einem tenant-gescopten `GetByID` auf die `resourceID` aufgerufen — kein eigenstaendiger
+  Angriffspfad. `recording`s Repo-Methoden (`GetRecording`, `UpdateRecording`, `DeleteRecording`, ...)
+  nehmen bewusst gar kein `tenantID` entgegen und verlassen sich vollstaendig auf RLS ueber den ctx;
+  der einzige System-Kontext-Aufrufer (`CleanupExpiredRecordings`, taegliches Cron in
+  `cmd/work/main.go`) iteriert ausschliesslich ueber IDs aus seiner eigenen `ListExpiredRecordings`-
+  Abfrage, nie ueber Caller-Input — kein Leseleck.
+- echter Fund (Klasse "stiller Erfolg statt Fehler", nicht Klasse "Datenleck"): `calendar.Update`/
+  `Delete` und `recording.UpdateRecording`/`DeleteRecording` riefen `pool.Exec` auf, warfen den
+  `pgconn.CommandTag` aber weg und gaben nur den SQL-`err` zurueck. Filtert RLS die WHERE-Klausel
+  eines Cross-Tenant-Writes auf 0 Zeilen, ist das fuer Postgres kein Fehler — `err` bleibt `nil`, der
+  Aufrufer haelt den Write faelschlich fuer erfolgreich. Jeder Nachbar-Repo in diesem Sweep
+  (`project`, `resource`, `meeting`, s. `tenant_write_test.go`-Vorlagen) prueft `tag.RowsAffected() ==
+  0` und gibt sein `ErrXNotFound` zurueck — nur `calendar.Update`/`Delete` (die beiden sicherheits-
+  kritischsten Methoden der Kern-Entitaet) und `recording.UpdateRecording`/`DeleteRecording` fehlten
+  in diesem Muster. Im normalen Service-Flow ungefaehrlich (`calendar.Service.Update`/`Delete` und
+  praktisch alle `recording.Service`-Methoden rufen vorher ein tenant-gescoptes `GetByID`/
+  `GetRecording` unter demselben ctx auf, das einen fremden Datensatz schon davor mit `ErrNotFound`
+  abfaengt) — aber genau die Defense-in-Depth-Luecke, die dieser Sweep laut Auftrag schliessen soll:
+  ein direkter Repo-Aufruf unter falscher/veralteter Tenant-Annahme waere ein stiller No-op.
+- gebaut: `tag, err := r.pool.Exec(...)` + `if tag.RowsAffected() == 0 { return ErrCalendarNotFound }`
+  in `calendar/postgres_repository.go` (`Update`, `Delete`); analog `ErrNotFound` in
+  `recording/postgres_repository.go` (`UpdateRecording`, `DeleteRecording`). Vier neue
+  `tenant_write_test.go` (calendar, meeting, resource, recording) nach dem etablierten
+  Create/Update/Delete-Handrolled-Muster (`project`/`timeentry` als Vorlage, nicht der duennere
+  `AssertWriteCarriesTenant`-Helper, weil Update/Delete mitgeprueft werden sollen). meeting und
+  resource: reine Abdeckung, kein Fund (beide hatten das RowsAffected-Muster schon). recording:
+  da die Repo-Signaturen kein `tenantID` fuehren, laeuft der Foreign-Ctx-Nachweis komplett ueber RLS
+  (`WithTenantCtx` + `testutil.AssertRowCount`), nicht ueber einen expliziten Parameter — bewusst so
+  belassen (Scope-Erweiterung auf "recording-Repo bekommt jetzt ueberall tenantID-Parameter" waere
+  eine API-Aenderung ueber alle Aufrufer hinweg gewesen, nicht der Auftrag dieser Unit).
+- Falsifikation: beide Fixes per `git stash` auf den Ausgangsstand zurueckgesetzt, gezielt
+  `TestCalendarWrites_LandInCallerTenant` und `TestRecordingWrites_LandInCallerTenant` gefahren —
+  beide werden rot exakt an der erwarteten Stelle (`Update (foreign ctx): expected an error, got nil`
+  bzw. `UpdateRecording (foreign ctx): expected an error, got nil`). Nach `git stash pop` wieder gruen.
+- gate: `go build -p 2 ./...` (gesamtes Backend) ok | `go vet ./internal/work/...` ok |
+  `golangci-lint run` auf calendar/meeting/resource/recording: 0 issues | Tests mit `DATABASE_URL`
+  (Rolle `kmuhub_app`): `go test -count=1 ./internal/work/...` zweimal hintereinander gegen dieselbe
+  lokale DB — beide Laeufe alle 17 Unterpakete PASS, 0 Skip, 0 Fail. Zusaetzlich
+  `go test -count=1 ./internal/gateway/... ./internal/server/...` als Regressionsschutz (Fehlerpfade
+  von Update/Delete geaendert) — beide PASS. Migration: keine (kein Schema-/RLS-Wechsel). RLS-Smoke:
+  n.a. fuer Policy-Aenderung (unveraendert) — die vier neuen Tests uebernehmen den Beweis fuer den
+  Write-Pfad-Fix.
+- offen:
+  - Kleinere Geschwister-Methoden mit demselben "kein RowsAffected-Check"-Muster bewusst NICHT
+    mitgefixt (Scope-Disziplin): `calendar.UpdateMemberPermission/-Visibility/-ColorOverride`
+    (Nebenfelder auf `calendar_members`, nicht die Kern-Entitaet). Fuer eine kuenftige Unit vormerken,
+    falls dort mal ein echter Cross-Tenant-Pfad noetig wird — aktuell werden sie ausschliesslich nach
+    `GetMember`/Permission-Check aufgerufen.
+  - Kein modules.*-Flag, kein neues RequirePermission, keine Migration, keine Route beruehrt.

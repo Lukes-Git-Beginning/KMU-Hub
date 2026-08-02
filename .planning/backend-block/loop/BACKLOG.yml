@@ -2063,7 +2063,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die vier work-Unterpakete calendar, meeting, resource und recording wurden im
       Tenant-Write-Sweep der Laeufe 1 und 2 nie geprueft. Nachziehen.
@@ -2079,6 +2079,12 @@ units:
       Findest du eine echte Luecke: fixen und per Falsifikation belegen (Praedikat testweise
       entfernen, Test muss rot werden).
       Eigene Tenants seeden, nicht TenantA/TenantB teilen.
+      ERGEBNIS (2026-08-02): zwei echte Luecken gefunden — nicht im tenant_id-Praedikat selbst
+      (calendar/meeting/resource/recording tragen alle ein Praedikat bzw. verlassen sich bewusst auf
+      RLS), sondern in `calendar.Update`/`Delete` und `recording.UpdateRecording`/`DeleteRecording`:
+      beide gaben bei einem Cross-Tenant-Write `nil` zurueck statt eines Fehlers, weil `RowsAffected()`
+      nie geprueft wurde (Exec liefert keinen SQL-Fehler, wenn RLS die WHERE-Klausel auf 0 Zeilen
+      filtert). Siehe Journal Iteration 53.
     done_when:
       - tenant_write_test.go fuer alle vier Pakete
       - gefundene Luecken gefixt und falsifiziert
