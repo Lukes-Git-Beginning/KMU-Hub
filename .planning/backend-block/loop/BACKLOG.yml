@@ -1202,7 +1202,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `PurchaseOrder.total_amount` wird nie berechnet — verifiziert am 2026-08-02:
       `backend/internal/einkauf/service.go:317` setzt beim Anlegen hart `TotalAmount: "0"`, und
@@ -1227,6 +1227,31 @@ units:
       - Backfill-Entscheidung begruendet und umgesetzt
       - Test deckt alle drei Zeilen-Operationen ab
       - go build/vet/lint/test gruen
+    ergebnis: >
+      PRAEMISSE WAR VERALTET: `e91cdf2a` (Lauf 3, 2026-07-26) hatte das Kern-Problem bereits behoben —
+      `RecomputePOTotal` existiert in `postgres_repository.go` (SQL-`SUM(quantity*unit_price)`, kein
+      float64) und wird von `AddPOLine`/`UpdatePOLine`/`DeletePOLine` im Service aufgerufen, alle drei
+      mit Tests (`TestService_{Add,Update,Delete}POLine_Recompute*` in `service_test.go`). Die
+      Lauf-4-Recherche gegen `backend-gaps.md` hat diesen Fix offenbar uebersehen und die Unit erneut
+      angelegt — derselbe Fehlklassen-Typ wie `g-crm-contact-timeline`/`g-admin-billing` in
+      Iteration 19/21, nur hier war die Praemisse frueher richtig und wurde durch spaetere Arbeit
+      unwahr.
+      EINZIGE ECHTE LUECKE: das `done_when`-Kriterium "Backfill-Entscheidung begruendet und umgesetzt"
+      war noch offen — `e91cdf2a` recomputet nur bei kuenftigen Zeilen-Mutationen, Bestellungen deren
+      Zeilen VOR dem Fix angelegt und seither nie wieder angefasst wurden, blieben bei `total_amount=0`
+      stehen. Migration `000278_backfill_po_total_amount` (Vorlage `000133_backfill_finance_line_tables`)
+      recomputet einmalig ALLE Bestellungen mit derselben Formel wie `RecomputePOTotal`, idempotent
+      (`WHERE total_amount <> COALESCE(SUM(...),0)`, erneutes Anwenden liefert dieselben Werte).
+      `down.sql` ist bewusst ein No-op (Vorlage `000223_validate_tenant_fks.down.sql`): die alten
+      `total_amount`-Werte waren falsch, es gibt nichts Sinnvolles, zu dem man zurueckkehren koennte.
+      Lokal 0 Zeilen in `purchase_orders`/`po_lines` — Backfill dadurch nur rechnerisch verifiziert
+      (SQL-Query, `migrate up/down/up` sauber), nicht gegen echte Bestelldaten.
+      gate: build ok (`go build -p 2 ./internal/einkauf/... ./internal/gateway/... ./cmd/einkauf/...
+      ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+      ./internal/einkauf/...` gruen (bestehende Recompute-Tests aus `e91cdf2a`, keine Aenderung noetig)
+      | migration: `migrate up` (277->278) / `down 1` (278->277) / `up` (278) alle sauber. Keine
+      Routen-/Proto-Aenderung, deshalb `go test ./internal/gateway/` nicht Teil dieses Gates (Regel aus
+      GATE-COMMANDS.md: nur Pflicht, sobald eine Route dazukommt).
 
   - id: g-fuhrpark-license-check
     phase: 3

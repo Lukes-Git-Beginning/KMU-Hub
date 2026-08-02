@@ -1454,3 +1454,46 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
     409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug, `useBilling.ts` auf reale
     Endpoints umstellen) bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 23 — fix-einkauf-po-total — done — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: siehe Git-Log (fix(einkauf): backfill stale zero purchase-order totals)
+- gebaut: `fix-einkauf-po-total` gezogen. Praemisse (Kopfbetrag wird nie berechnet) war VERALTET:
+  `e91cdf2a` aus Lauf 3 (2026-07-26) hatte `RecomputePOTotal` bereits gebaut und in
+  `AddPOLine`/`UpdatePOLine`/`DeletePOLine` verdrahtet, inklusive Tests fuer alle drei
+  Zeilen-Operationen (`service_test.go`) und SQL-seitiger Dezimalrechnung (`SUM(quantity*unit_price)`,
+  kein float64). Die Lauf-4-Recherche gegen `backend-gaps.md` hat diesen Fix uebersehen und die Unit
+  erneut angelegt — derselbe Fehlklassen-Typ wie die `blocked`-Diagnosen in Iteration 19/21, hier
+  aber als `todo`-Dublette statt als offensichtlicher Fehltreffer, weil die Praemisse zum
+  urspruenglichen Schreibzeitpunkt (vor dem 26.07.) tatsaechlich richtig war.
+  Einzige echte Luecke war das `done_when`-Kriterium "Backfill-Entscheidung begruendet und
+  umgesetzt": `RecomputePOTotal` wirkt nur bei kuenftigen Zeilen-Mutationen, Bestellungen deren
+  Zeilen vor dem 26.07. angelegt und seither nie wieder angefasst wurden, blieben bei
+  `total_amount=0` stehen. Migration `000278_backfill_po_total_amount` (Vorlage
+  `000133_backfill_finance_line_tables`) recomputet einmalig ALLE Bestellungen mit derselben Formel,
+  idempotent ueber einen `WHERE total_amount <> COALESCE(SUM(...),0)`-Guard. `down.sql` ist bewusst
+  ein No-op (Vorlage `000223_validate_tenant_fks.down.sql`) — die alten Werte waren falsch, es gibt
+  nichts Sinnvolles, wohin man zurueckkehren koennte.
+- gate: build ok (`go build -p 2 ./internal/einkauf/... ./internal/gateway/... ./cmd/einkauf/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+  ./internal/einkauf/...` gruen (Bestandstests aus `e91cdf2a`, unveraendert) | migration:
+  `migrate up` (277->278) / `down 1` (278->277) / `up` (278) alle sauber. Lokal 0 Zeilen in
+  `purchase_orders`/`po_lines` — Backfill nur rechnerisch verifiziert (SQL-Logik + idempotenter
+  Re-Lauf), nicht gegen echte Bestelldaten. Keine Routen-/Proto-Aenderung, deshalb
+  `go test ./internal/gateway/` nicht Teil dieses Gates.
+- verify vorgaenger: sauber. `d3b7cb01` (g-vendor-access, Iteration 22) geprueft: Handler laufen
+  durchgaengig ueber `securityv1.SecurityServiceClient` (kein Gateway-Bypass), Service loest
+  `tenant_id` in jeder Methode ueber `middleware.GetTenantID(ctx)` auf, Repository scopet jede
+  Query zusaetzlich per `WHERE tenant_id = $1` (Defense-in-depth neben RLS), Permission-Seed
+  `security:vendor_access:manage` bestand schon in Migration 000256 und ist dem `admin`-Preset
+  zugeteilt (`RequirePermission("security:vendor_access","manage")` passt exakt), DI-Wiring in
+  `cmd/auth/main.go` korrekt, `codes.OutOfRange` mappt in `gateway/helpers.go` auf HTTP 422 wie im
+  Journal behauptet. Nichts zu beanstanden.
+- offen:
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug, `useBilling.ts` auf reale
+    Endpoints umstellen, Zentria-seitiger Bestaetigungsweg fuer `counter_proposed`,
+    `sensitiveAreas`-Handkopie ohne gemeinsame Quelle) bleiben unveraendert offen, hier nicht
+    angefasst.

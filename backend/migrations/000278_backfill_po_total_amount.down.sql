@@ -1,0 +1,6 @@
+-- no-op: recomputing total_amount from po_lines is a pure correctness fix,
+-- not a state change with a meaningful inverse. The old total_amount values
+-- it overwrites were wrong (stuck at 0 or stale) — there is nothing to
+-- restore them to. Re-running the up migration is always safe (idempotent).
+--
+-- This file intentionally contains no SQL statements.
