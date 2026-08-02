@@ -2117,7 +2117,7 @@ units:
     service: featureflag
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Zwei Inkonsistenzen in der Feature-Flag-Registry aufraeumen.
     sources:

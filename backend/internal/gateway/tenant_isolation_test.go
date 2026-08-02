@@ -1143,7 +1143,7 @@ func TestProduktion_TwoTenants_DifferentContextValues(t *testing.T) {
 // TestPlugin_ListInstallations_NoTenant_Returns401 verifies that
 // HandleListInstallations rejects requests without a tenant context.
 func TestPlugin_ListInstallations_NoTenant_Returns401(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/installations", nil)
 	routes.HandleListInstallations(rec, req)
@@ -1153,7 +1153,7 @@ func TestPlugin_ListInstallations_NoTenant_Returns401(t *testing.T) {
 // TestPlugin_ListInstallations_EmptyTid_Returns401 verifies that a legacy JWT
 // (empty tid) is refused — no query-param substitution may occur.
 func TestPlugin_ListInstallations_EmptyTid_Returns401(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	rec := httptest.NewRecorder()
 	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/plugins/installations")
 	routes.HandleListInstallations(rec, req)
@@ -1166,7 +1166,7 @@ func TestPlugin_ListInstallations_EmptyTid_Returns401(t *testing.T) {
 // context, not from the URL). The response will be 503 (no gRPC backend in
 // unit tests) — anything other than 401 proves the fix is in place.
 func TestPlugin_ListInstallations_ValidTid_IgnoresQueryParam(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	tenantA := uuid.New()
 	tenantB := uuid.New()
 
@@ -1184,7 +1184,7 @@ func TestPlugin_ListInstallations_ValidTid_IgnoresQueryParam(t *testing.T) {
 // TestPlugin_ListValidationRules_NoTenant_Returns401 verifies that
 // HandleListValidationRules rejects requests without a tenant context.
 func TestPlugin_ListValidationRules_NoTenant_Returns401(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/validation-rules", nil)
 	routes.HandleListValidationRules(rec, req)
@@ -1194,7 +1194,7 @@ func TestPlugin_ListValidationRules_NoTenant_Returns401(t *testing.T) {
 // TestPlugin_ListWorkflowRules_NoTenant_Returns401 verifies that
 // HandleListWorkflowRules rejects requests without a tenant context.
 func TestPlugin_ListWorkflowRules_NoTenant_Returns401(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/workflow-rules", nil)
 	routes.HandleListWorkflowRules(rec, req)
@@ -1204,7 +1204,7 @@ func TestPlugin_ListWorkflowRules_NoTenant_Returns401(t *testing.T) {
 // TestPlugin_ListExecutionLogs_NoTenant_Returns401 verifies that
 // HandleListExecutionLogs rejects requests without a tenant context.
 func TestPlugin_ListExecutionLogs_NoTenant_Returns401(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/execution-logs", nil)
 	routes.HandleListExecutionLogs(rec, req)
@@ -1215,7 +1215,7 @@ func TestPlugin_ListExecutionLogs_NoTenant_Returns401(t *testing.T) {
 // different tenant IDs reach the gRPC layer independently — neither should
 // receive a 401 (both get 503 from the absent backend).
 func TestPlugin_TwoTenants_IndependentContexts(t *testing.T) {
-	routes := NewPluginRoutes(registryWithService("plugin"))
+	routes := NewPluginRoutes(registryWithService("plugin"), noFlags())
 	tenantA := uuid.New()
 	tenantB := uuid.New()
 

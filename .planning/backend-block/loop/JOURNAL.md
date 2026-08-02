@@ -3855,3 +3855,76 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   -run TestOpenAPIRouteDrift` PASS (771 registrierte Routen gegen 773 dokumentierte Pfade) |
   `go test -count=1 ./internal/gateway/` voll PASS, 0 Skip (per `-v | grep -c SKIP` gegengeprueft).
   Migration: keine. RLS-Smoke: n.a. (reine Spec-Datei, keine Tabelle/Policy/Route-Code beruehrt).
+
+## Iteration 55 — g-featureflag-cleanup — done — 2026-08-02 05:41
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `4b2b9c9a` (Iteration 54, inbox-openapi-shape-drift) gepruefter Diff
+  (reine `openapi.yaml`-Aenderung, neun `$ref`-Umstellungen auf `InboxMessageWrapper`): kein Code,
+  keine Route, keine Migration. `go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift`
+  PASS vor Beginn dieser Unit gegengeprueft.
+- Auftrag: zwei Inkonsistenzen in `internal/featureflag/registry.go` aufraeumen —
+  (a) `integrations.bexio` wird registriert, aber nirgends per `IsEnabled` abgefragt,
+  (b) `plugins.wasm` ist ein toter Flag (Gating passiert ueber den Build-Tag `no_wasm`).
+- Befund (a): `grep -rn "integrations.bexio\|COSMI_INTEGRATION_BEXIO_ENABLED"` traf ausser
+  `registry.go`/`registry_test.go`/`route_feature_flags_test.go` nur Doku (`.knowledge/`,
+  `.planning/`), keinen einzigen Aufrufer. `route_bexio.go` registriert seine Routen bedingungslos
+  (kein `flags`-Feld auf `BexioRoutes` — anders als z.B. `BerichteRoutes`), FE-seitig kein
+  Feature-Flag-Gate auf der Bexio-Integrationskarte. `.knowledge/integrationen.md` bestaetigt:
+  Bexio ist Prod-live (`GET /integrations/bexio/status` → 401, Route live). Entscheidung: NICHT
+  scharfschalten. Ein neu enforcter Flag mit `DefaultEnabled: false` haette die live Bexio-Sync
+  beim naechsten Deploy stillgelegt, ausser die zugehoerige Prod-Umgebungsvariable ist dort bereits
+  gesetzt — das kann von hier aus nicht verifiziert werden (kein Prod-Zugriff im Loop) und waere
+  derselbe Deploy-Hazard wie eine neue `config.RequireX`-Assertion, auch wenn es formal kein
+  `modules.*`-Flag ist. Flag stattdessen entfernt (`registry.go`), Test-Erwartungen nachgezogen:
+  `registry_test.go` `expectedKeys`, `route_feature_flags_test.go` `wantCount` 18 → 17 samt
+  Kommentar.
+- Befund (b): `plugins.wasm` wird nirgends per `IsEnabled` abgefragt — bestaetigt per grep. Die
+  eigentliche Absicherung ist `-tags no_wasm` im `make build-prod`-Target
+  (`internal/plugin/wasm/runtime_disabled.go`, Stub mit `NewRuntime` → nil). ABER: der Flag ist
+  nicht komplett bedeutungslos, sondern die zweite Verteidigungslinie fuer genau den Fall, dass
+  jemand die Plugin-HTTP-API testweise einschaltet (`plugins.api=true`, laut Code-Kommentar in
+  `cmd/gateway/main.go:310` explizit fuer Dev vorgesehen) OHNE den `no_wasm`-Tag zu setzen — dann
+  waere `HandleCreateManifest` bislang der einzige Ort, der ein `plugin_type=wasm`-Manifest je zu
+  Gesicht bekommt, und der hat den Flag nie gefragt. Zusatzfund dabei: der komplette WASM-Hook-
+  Ausfuehrungspfad (`hook.NewDispatcher`) ist in KEINEM `cmd/*`-Binary verdrahtet (grep leer) —
+  das ist ein eigener, viel groesserer Architektur-Gap (Plugin-Service kennt den Dispatcher gar
+  nicht), der bewusst NICHT Teil dieser Aufraeum-Unit ist. Entscheidung: Flag am einzigen Ort
+  enforcen, der ihn ueberhaupt lesen kann, ohne neue Cross-Service-Verdrahtung zu bauen — dem
+  Gateway, der den `featureflag.Registry` bereits haelt (`cmd/plugin` & Co. kennen ihn bislang gar
+  nicht, `grep -rl featureflag ./cmd` traf nur `cmd/gateway`). `PluginRoutes` bekommt ein
+  `flags *featureflag.Registry`-Feld (Konstruktor-Signatur wie bei `BerichteRoutes` erweitert),
+  `HandleCreateManifest` lehnt `plugin_type=wasm` mit 400 ab, solange `plugins.wasm=false` ist.
+  Kein Risiko fuer Bestandsdaten: WASM ist projektweit "OFF bis Phase D", es existiert kein
+  legitimer Prod-Anwendungsfall, den das blockieren wuerde.
+- gebaut:
+  - `internal/featureflag/registry.go`: `integrations.bexio`-Registrierung entfernt.
+  - `internal/gateway/route_plugin.go`: `flags *featureflag.Registry` auf `PluginRoutes`,
+    `NewPluginRoutes(registry, flags)`, Gate in `HandleCreateManifest` vor dem gRPC-Call.
+  - `cmd/gateway/main.go`: Call-Site auf `NewPluginRoutes(registry, flagRegistry)` nachgezogen.
+  - `openapi.yaml`: `wasm_binary`-Beschreibung ("inert" war seit diesem Commit falsch) und
+    `plugin_type`-Beschreibung (400 bei `plugins.wasm=false`) aktualisiert.
+  - Tests: neue `internal/gateway/route_plugin_test.go` (3 Faelle: wasm+flag-off → 400 mit
+    "plugins.wasm" im Body, wasm+flag-on → kein 400, config+flag-off → kein 400).
+    `internal/gateway/testutil_test.go`: neuer Helper `noFlags()` fuer Tests, die `PluginRoutes`
+    nur als Dependency brauchen, ohne Flag-Verhalten zu pruefen. Sieben Call-Sites in
+    `tenant_isolation_test.go` und eine in `openapi_drift_test.go` auf die neue Signatur
+    nachgezogen. `registry_test.go`/`route_feature_flags_test.go` Flag-Zahl 18 → 17.
+- Falsifikation: die neue WASM-Gate-Bedingung testweise mit `if false && ...` deaktiviert,
+  `TestHandleCreateManifest_WASM_RejectedWhenFlagOff` gefahren — wird rot exakt an der erwarteten
+  Stelle (503 statt 400, Body ohne "plugins.wasm"). Fix zurueckgesetzt, wieder gruen.
+- gate: `go build -p 2 ./...` ok | `go build -tags no_wasm ./cmd/gateway/...`
+  (Produktions-Build-Tag) ok | `go vet ./internal/gateway/... ./internal/featureflag/...
+  ./cmd/gateway/...` ok | `golangci-lint run` auf denselben Paketen: 0 issues |
+  `go test -count=1 ./internal/gateway/... ./internal/featureflag/...` PASS, 0 Skip/0 Fail
+  (per `-v | grep -c SKIP`/`FAIL` gegengeprueft) | `TestOpenAPIRouteDrift` weiterhin PASS (771
+  registrierte Routen, unveraendert — keine Route hinzugefuegt/entfernt, nur Request-Body-Felder
+  praezisiert). Migration: keine. RLS-Smoke: n.a. (kein Tabellen-/Policy-Wechsel). Kein
+  `modules.*`-Flag scharfgeschaltet, kein `config.RequireX` hinzugefuegt.
+- offen:
+  - `hook.NewDispatcher` (WASM-Hook-Ausfuehrung) ist in keinem `cmd/*`-Binary verdrahtet —
+    eigenstaendiger Architektur-Gap, fuer eine kuenftige Phase-D-Unit vormerken, falls WASM-Plugins
+    tatsaechlich ausgefuehrt werden sollen.
+  - `integrations.bexio` bleibt unenforced entfernt — falls Luke die Bexio-Integration doch
+    hinter einen Flag stellen will, braucht das zuerst eine Pruefung der Prod-Umgebungsvariable
+    (Prod-Zugriff, ausserhalb Loop).

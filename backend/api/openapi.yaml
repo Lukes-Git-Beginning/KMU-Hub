@@ -24513,8 +24513,15 @@ paths:
                 wasm_binary:
                   type: string
                   format: byte
-                  description: Base64-encoded WASM binary. Accepted but inert while plugins.wasm=false.
-                plugin_type: { type: string, enum: [config, wasm], default: config }
+                  description: Base64-encoded WASM binary. Ignored unless plugin_type is wasm.
+                plugin_type:
+                  type: string
+                  enum: [config, wasm]
+                  default: config
+                  description: >-
+                    wasm manifests are rejected with 400 while the plugins.wasm feature flag
+                    is off (default in production — WASM plugin execution is compiled out via
+                    the no_wasm build tag).
       responses:
         "201":
           description: Manifest created

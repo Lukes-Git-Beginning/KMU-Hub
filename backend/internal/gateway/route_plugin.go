@@ -7,7 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	pluginv1 "github.com/kmuhub/kmuhub/proto/plugin/v1"
 )
@@ -20,11 +22,12 @@ import (
 // PluginRoutes handles HTTP routes for the Plugin service
 type PluginRoutes struct {
 	registry *ServiceRegistry
+	flags    *featureflag.Registry
 }
 
 // NewPluginRoutes creates a new PluginRoutes
-func NewPluginRoutes(registry *ServiceRegistry) *PluginRoutes {
-	return &PluginRoutes{registry: registry}
+func NewPluginRoutes(registry *ServiceRegistry, flags *featureflag.Registry) *PluginRoutes {
+	return &PluginRoutes{registry: registry, flags: flags}
 }
 
 // ServiceName returns "plugin"
@@ -137,6 +140,14 @@ func (pr *PluginRoutes) HandleCreateManifest(w http.ResponseWriter, r *http.Requ
 	var req pluginv1.CreateManifestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Gateway-side defense-in-depth: reject WASM manifests while plugins.wasm is off,
+	// instead of silently accepting a manifest whose hooks the no_wasm build (or the
+	// still-unwired hook dispatcher) will never execute.
+	if req.GetPluginType() == string(models.PluginTypeWASM) && !pr.flags.IsEnabled("plugins.wasm") {
+		response.Error(w, http.StatusBadRequest, "WASM plugins are disabled (plugins.wasm=false)")
 		return
 	}
 

@@ -139,7 +139,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// whole /api/v1/plugins/* block would sit on the allowlist and a lost
 	// constructor call there would go unnoticed, which is the exact defect this
 	// file guards against.
-	gateway.NewPluginRoutes(registry).RegisterRoutes(r, passthroughAuth)
+	gateway.NewPluginRoutes(registry, flagRegistry).RegisterRoutes(r, passthroughAuth)
 
 	// CalDAV/CardDAV REST routes (/api/v1/caldav/*, /api/v1/admin/caldav/*).
 	// main.go builds these through cmd/gateway's unexported adapters, but

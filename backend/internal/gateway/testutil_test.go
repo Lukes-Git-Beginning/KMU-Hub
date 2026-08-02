@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
@@ -31,6 +32,13 @@ func registryWithService(name string) *ServiceRegistry {
 	reg := NewServiceRegistry(nil)
 	reg.Register(name, "localhost:0")
 	return reg
+}
+
+// noFlags returns a featureflag.Registry with every flag at its default value
+// (no env overrides). Use for handler tests that need a flags dependency but
+// don't exercise flag-gated behaviour.
+func noFlags() *featureflag.Registry {
+	return featureflag.NewRegistry().Load(func(string) string { return "" })
 }
 
 // withUserID creates a request with a user ID set in the context (as the auth middleware would).

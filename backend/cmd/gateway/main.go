@@ -309,7 +309,7 @@ func main() {
 	// Plugin API routes — gated behind plugins.api flag (Phase D, off by default).
 	// To enable in dev: COSMI_PLUGIN_API_ENABLED=true
 	if flagRegistry.IsEnabled("plugins.api") {
-		pluginRoutes := gateway.NewPluginRoutes(registry)
+		pluginRoutes := gateway.NewPluginRoutes(registry, flagRegistry)
 		pluginRoutes.RegisterRoutes(r, authWithIdempotency)
 		slog.Info("routes registered", "service", pluginRoutes.ServiceName())
 	} else {

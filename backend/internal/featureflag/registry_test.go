@@ -86,7 +86,6 @@ func TestAllContainsAllFlags(t *testing.T) {
 		"modules.schichten", "modules.fuhrpark", "modules.vermietung", "modules.inventar",
 		"modules.einkauf", "modules.produktion",
 		"plugins.wasm", "plugins.config", "plugins.api",
-		"integrations.bexio",
 	}
 
 	if len(all) != len(expectedKeys) {
