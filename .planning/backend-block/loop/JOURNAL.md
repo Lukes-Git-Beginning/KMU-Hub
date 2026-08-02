@@ -677,7 +677,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     bzw. Scope-Frage fuer Luke).
 
 ## Iteration 11 — g-rls-custom-field-values — done — 2026-08-02 22:20
-- commit: <nachgetragen>
+- commit: 54d1ef7d
 - gebaut: Migration `000270_rls_crm_custom_field_values` setzt die vier CRM-Custom-Field-Value-
   Tabellen (`contact_`/`company_`/`deal_`/`activity_custom_field_values`) ueber
   `enable_tenant_rls_via_join()` unter RLS — Join jeweils auf die Eltern-Entitaet.
