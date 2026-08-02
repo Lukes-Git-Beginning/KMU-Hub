@@ -52,3 +52,55 @@ Sind alle Units abgearbeitet, ist `ALLE UNITS ABGEARBEITET` ins Journal zu schre
 anzulegen und der Lauf zu beenden — nicht nach Arbeit zu suchen.
 
 ---
+
+## Iteration 1 — p1b-proto — done — 2026-08-02 20:15
+
+- commit: 4dd806a7
+- gebaut: 8 Rollen-Admin-RPCs am `AuthService` (`ListRoles`, `CreateRole`, `UpdateRole`,
+  `DeleteRole`, `GetRolePermissions`, `SetRolePermissions`, `AssignUserRole`, `RevokeUserRole`)
+  plus die Messages `Role`, `RoleGrant` und die acht Request/Response-Paare in
+  `backend/proto/auth/v1/auth.proto`. Regenerat (`auth.pb.go`, `auth_grpc.pb.go`) liegt im
+  selben Commit. **Nur Proto + Regen — keine Implementierung**, so wie die Unit es vorsieht.
+- gate: build ok (`go build ./...` gesamtes Backend, Exit 0) | vet ok | lint ok
+  (`golangci-lint run ./proto/auth/... ./internal/auth/... ./internal/server/...` → 0 issues)
+  | test n.a. (kein Testcode in dieser Unit) | migration n.a. | rls-smoke n.a.
+- verify vorgaenger: entfaellt — Lauf 3 ist abgenommen, gemergt und deployt; es gibt keinen
+  Vorgaenger-Commit dieses Laufs.
+
+### Vertrags-Entscheidungen (bindend fuer p1b-roles-list ff.)
+
+Die Feldnamen sind aus dem FE-Vertrag gezogen (`desktop/src/renderer/src/api/rbac-types.ts`,
+Verhalten gegengeprueft an `mocks/handlers/rbac.ts`). Drei Stellen weichen bewusst ab und
+muessen im Gateway gemappt werden — wer das vergisst, baut genau den
+Nested-Proto-vs-flacher-FE-Typ-Bruch, der dieses Repo schon mehrfach gekostet hat:
+
+1. **`preset_id` (Proto) ↔ `basedOn` (FE).** Die DB-Spalte aus Welle 1a heisst `preset_id`;
+   der FE-Typ nennt dasselbe Feld `basedOn`. Im Request heisst es `based_on` (so wie das FE
+   es beim Anlegen schickt), im `Role`-Objekt `preset_id` (so wie die DB es haelt).
+2. **`tenant_id` leer ⇒ JSON `null`.** proto3 kennt kein NULL fuer Strings. `tenant_id == ""`
+   bedeutet System-Preset; der Gateway-Handler MUSS daraus `null` machen, weil der FE-Typ
+   `tenantId: string | null` ist und `isSystem` daran haengt.
+3. **`role_ids` (Proto) ↔ `roles` (FE).** `AssignUserRoleResponse`/`RevokeUserRoleResponse`
+   tragen `repeated string role_ids`; der FE-Vertrag `UserRolesResponse` heisst `roles` und ist
+   ebenfalls eine reine ID-Liste — **keine** Objekte. Nicht versehentlich `Role`-Objekte
+   zurueckgeben.
+
+Weiter: `RoleGrant` ist bewusst `repeated {key, scope}` und keine Proto-`map`. Der FE-Vertrag
+ist eine Map (`Record<string, {scope}>`), die Uebersetzung Liste→Map gehoert in den Handler.
+Eine Proto-Map haette hier keine stabile Reihenfolge und laesst sich schlechter validieren.
+
+`UpdateRoleRequest` nutzt `optional` fuer `name`/`description`/`color` — PATCH-Semantik: nicht
+gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
+`UpdateUserRequest`.
+
+### Hinweise fuer die naechste Iteration
+
+- Der Auftritt der acht neuen Methoden in `UnimplementedAuthServiceServer` ist erwartete
+  gRPC-Boilerplate und **kein** Stub-Fund im Sinne des Verify-Vorspanns. Der Diff im
+  Regenerat (285 Loeschungen) besteht ausschliesslich aus verschobenen `msgTypes`-Indizes;
+  der Generator-Versions-Header ist unveraendert, es gab also keinen Werkzeug-Drift.
+- Fehlercodes stehen noch nicht im Proto. Der Vertrag aus `mocks/handlers/rbac.ts` ist:
+  `preset_immutable` (403), `role_limit_reached` (409), `role_name_exists` (409),
+  `role_has_members` (409), `last_admin` (409), `not_found` (404/422). Die Abbildung
+  gRPC-Status → HTTP-Code gehoert in die Handler der Folge-Units.
+- offen: nichts zu pruefen ausser dem Regenerat selbst.

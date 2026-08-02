@@ -21,6 +21,17 @@ service AuthService {
   // Resolves the fine-grained capability keys of a user across all assigned roles.
   rpc GetEffectivePermissions(GetEffectivePermissionsRequest) returns (GetEffectivePermissionsResponse);
 
+  // Role administration — tenant-scoped custom roles on top of the immutable
+  // system presets. Presets are readable by every tenant and writable by none.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+  rpc GetRolePermissions(GetRolePermissionsRequest) returns (GetRolePermissionsResponse);
+  rpc SetRolePermissions(SetRolePermissionsRequest) returns (SetRolePermissionsResponse);
+  rpc AssignUserRole(AssignUserRoleRequest) returns (AssignUserRoleResponse);
+  rpc RevokeUserRole(RevokeUserRoleRequest) returns (RevokeUserRoleResponse);
+
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
@@ -188,6 +199,107 @@ message EffectiveCapability {
 message GetEffectivePermissionsResponse {
   repeated EffectiveRole roles = 1;
   repeated EffectiveCapability capabilities = 2;
+}
+
+// Role administration messages.
+//
+// A role as the admin surface sees it. An empty tenant_id means a
+// Zentria-maintained system preset (also reported as is_system); the gateway
+// renders that as JSON null. preset_id names the role a custom role was cloned
+// from and is empty on presets themselves (FE contract: basedOn).
+message Role {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string tenant_id = 4;
+  string preset_id = 5;
+  bool is_system = 6;
+  string color = 7;
+  int32 member_count = 8;
+  int32 capability_count = 9;
+}
+
+// One capability grant of a role. key is the fine-grained
+// "module:subject:action" form, scope is one of own|team|all.
+message RoleGrant {
+  string key = 1;
+  string scope = 2;
+}
+
+message ListRolesRequest {}
+
+// System presets plus the custom roles of the calling tenant.
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+// Creating a role is always a clone: every grant of based_on is copied over,
+// scope included. based_on is usually a preset.
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  string color = 3;
+  string based_on = 4;
+}
+
+message CreateRoleResponse {
+  Role role = 1;
+}
+
+message UpdateRoleRequest {
+  string role_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string color = 4;
+}
+
+message UpdateRoleResponse {
+  Role role = 1;
+}
+
+message DeleteRoleRequest {
+  string role_id = 1;
+}
+
+message DeleteRoleResponse {}
+
+message GetRolePermissionsRequest {
+  string role_id = 1;
+}
+
+message GetRolePermissionsResponse {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+// Full replacement of the grant set: every key missing from grants is revoked.
+message SetRolePermissionsRequest {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+message SetRolePermissionsResponse {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+message AssignUserRoleRequest {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+// The role ids the account holds after the mutation (FE contract: roles).
+message AssignUserRoleResponse {
+  repeated string role_ids = 1;
+}
+
+message RevokeUserRoleRequest {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+message RevokeUserRoleResponse {
+  repeated string role_ids = 1;
 }
 
 message UserInfo {
