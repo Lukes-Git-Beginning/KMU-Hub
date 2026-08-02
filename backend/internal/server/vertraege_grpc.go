@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -232,10 +233,11 @@ func (s *VertraegeGRPCServer) ExportContract(ctx context.Context, req *vertraege
 	if exportErr != nil {
 		return nil, mapVertraegeError(exportErr)
 	}
+	filename := fmt.Sprintf("vertrag_%s.pdf", contractID.String()[:8])
 	return &vertraegev1.ExportContractResponse{
 		Payload:     data,
-		ContentType: "text/plain; charset=utf-8",
-		Filename:    "contract.txt",
+		ContentType: "application/pdf",
+		Filename:    filename,
 	}, nil
 }
 

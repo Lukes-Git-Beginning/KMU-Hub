@@ -3452,3 +3452,38 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Fliesstexte genutzt wird, dort ansetzen.
   - Party-Namen fuer `contact`/`company` zeigen nur ein ID-Praefix statt des echten Namens (kein
     Contact-/Company-Join in `ExportContract`, siehe oben) — falls das stoert, Repo-Join ergaenzen.
+
+## Iteration 47 — fix-g-vertraege-pdf — done — 2026-08-02
+
+- commit: (siehe unten)
+- verify vorgaenger: **Befund** in Commit `2577bc49` (g-vertraege-pdf, Iteration 46). Der PDF-Renderer
+  wurde eingebaut, aber `VertraegeGRPCServer.ExportContract`
+  (`internal/server/vertraege_grpc.go:235-239`) blieb unveraendert bei
+  `ContentType: "text/plain; charset=utf-8"` und `Filename: "contract.txt"` aus der Text-Dump-Aera —
+  ein Client, der der Content-Type-Angabe vertraut (Browser-Download, MIME-Sniffing), speichert/oeffnet
+  PDF-Bytes als `.txt`. Fehlerklasse 2 (Stub/veraltete Restdaten im neuen Pfad), keine der anderen
+  fuenf Klassen betroffen (kein Proto, keine Migration, kein Guard, keine Route, kein Wire-Shape jenseits
+  dieses einen Feldpaars). Exakt dasselbe Muster war schon im Rapporte-Aequivalent (Iteration 45,
+  `7a01590f`) korrekt gesetzt (`rapporte_grpc.go:527-531`) — dort als Vorlage uebernommen.
+  Fix-Unit `fix-g-vertraege-pdf` ganz vorne in BACKLOG.yml angelegt und sofort als diese Iteration
+  abgearbeitet (Prozess-Schritt 1).
+- gebaut: `ExportContract` liefert jetzt `ContentType: "application/pdf"` und
+  `Filename: "vertrag_<contractID-praefix>.pdf"` (analog `rapporte_grpc.go`'s
+  `arbeitsbericht_<id-praefix>.pdf`). Neuer Import `fmt` in `vertraege_grpc.go`.
+  KEIN neuer Test: es existiert weder fuer `vertraege_grpc.go` noch fuer `rapporte_grpc.go` ein
+  Server-Ebenen-Testfile (kein Mock-Harness fuer `VertraegeGRPCServer`/`RapporteGRPCServer` im Repo) —
+  eins nur fuer diese eine Struct-Literal-Korrektur neu aufzuziehen waere Over-Engineering fuer einen
+  Ein-Zeilen-Fix. Der PDF-Inhalt selbst ist bereits auf Service-Ebene abgedeckt
+  (`TestService_ExportContract_ReturnsRealPDF`, `%PDF`-Header-Check, Iteration 46).
+- gate: build (`./internal/vertraege/... ./internal/server/... ./cmd/vertraege/... ./cmd/gateway/...`,
+  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine | openapi: kein Eintrag noetig
+  (Route unveraendert, nur Response-Feldwerte) | rls-smoke: n.a. | Test mit `DATABASE_URL` (Rolle
+  `kmuhub_app`): `internal/vertraege` **0 Skips** (alle 36 Tests inkl. Tenant-Isolation liefen real),
+  `internal/server` ok, `internal/gateway` ok (`TestOpenAPIRouteDrift` vorsorglich gefahren, keine
+  Route angefasst).
+- offen:
+  - Aus Iteration 46 uebernommen (unveraendert): Signatur-Bild nicht eingebettet, einzelne Notiz-
+    Absaetze brechen nicht seitenuebergreifend um, Party-Namen fuer contact/company nur ID-Praefix.
+  - Kein Server-Ebenen-Test fuer `ExportContract`/`ExportPDF` (weder vertraege noch rapporte) — falls
+    an dieser Grenzflaeche kuenftig oefter Fehler auftreten, lohnt sich ein gemeinsames Test-Harness
+    fuer `*GRPCServer`-Response-Mapping.

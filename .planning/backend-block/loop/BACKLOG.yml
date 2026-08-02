@@ -17,6 +17,32 @@
 
 units:
 
+  - id: fix-g-vertraege-pdf
+    phase: fix
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Fund aus dem Verify-Vorspann zu Commit `2577bc49` (g-vertraege-pdf): `ExportContract` liefert
+      seit diesem Commit ein echtes PDF, aber `VertraegeGRPCServer.ExportContract`
+      (`internal/server/vertraege_grpc.go:235-239`) setzt weiterhin
+      `ContentType: "text/plain; charset=utf-8"` und `Filename: "contract.txt"` — unveraendert aus
+      der Text-Dump-Aera. Ein Client, der der Content-Type-Angabe vertraut, oeffnet/speichert PDF-Bytes
+      als `.txt`.
+    sources:
+      - backend/internal/server/vertraege_grpc.go
+      - backend/internal/server/rapporte_grpc.go
+    notes: >
+      Analoges Muster direkt daneben in `rapporte_grpc.go:512-533` (`g-rapporte-pdf`, Iteration 45):
+      `ContentType: "application/pdf"`, `Filename` als `fmt.Sprintf("<praefix>_%s.pdf",
+      id.String()[:8])`. Gleiches Rezept hier anwenden — `fmt` muss neu importiert werden (Datei
+      importiert es bisher nicht).
+    done_when:
+      - ContentType ist application/pdf
+      - Filename endet auf .pdf
+      - go build/vet/lint/test gruen (internal/server, internal/vertraege)
+
   # ==========================================================================
   # BLOCK A — RBAC Phase 1 Welle 1a (seriell verkettet)
   # Quelle: .planning/backend-block/PHASE-1-RBAC-PLAN.md §3
