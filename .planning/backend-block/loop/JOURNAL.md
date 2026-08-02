@@ -3400,3 +3400,55 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `internal/biz/pdf` bleibt der einzige Ort mit `maroto`-Bild-faehiger Infrastruktur
     (`EmbedZUGFeRDXML`/pdfcpu-Attachments) — falls Rapporte-Bild-Einbettung spaeter gebraucht wird,
     dort zuerst nach wiederverwendbaren Bausteinen schauen, nicht neu bauen.
+
+## Iteration 46 — g-vertraege-pdf — done — 2026-08-02
+
+- commit: 2577bc49
+- gebaut: `ExportContract` liefert jetzt ein echtes, mehrseitiges A4-PDF statt des Klartext-Dumps.
+  Neue Datei `internal/vertraege/pdf.go` (`renderContractPDF`) nutzt `maroto/v2` direkt (dieselbe
+  Dependency wie `internal/rapporte/pdf.go`, keine neue) — Titelzeile mit Vertragsnummer, Titel,
+  Status/Art (deutsche Labels), Beginn/Ende (bzw. "unbefristet"), Notizen, Vertragsparteien und eine
+  Unterschriftszeile.
+  Konsequent `text.NewAutoRow` (auto-Hoehe) statt fixer `text.NewRow`-Hoehen fuer alle Inhaltszeilen:
+  maroto v2 berechnet die Zeilenhoehe aus dem umgebrochenen Text und `AddRows` paginiert automatisch,
+  sobald eine Zeile die Restflaeche der Seite sprengt (siehe `maroto.go:addRow`) — mit fixer Hoehe
+  waere langer Text einfach abgeschnitten statt umgebrochen.
+  Lange Notizen werden zusaetzlich an Leerzeilen in Absaetze gesplittet (`notesParagraphs`, eigene
+  Zeile pro Absatz) statt als ein einziger Riesen-Block: maroto splittet eine einzelne Zeile NICHT
+  seitenuebergreifend, nur zwischen Zeilen. Ohne den Split wuerde ein hinreichend langer
+  Notizen-Block als eine Zeile behandelt und koennte die Seite ueberragen, statt sauber umzubrechen.
+  `lean:`-Marker dafuer in `pdf.go` mit Upgrade-Trigger "wenn ein einzelner Absatz eine Seite sprengt".
+  Vertragsparteien: `ContractParty` hat fuer `contact`/`company` nur eine ID, keinen aufgeloesten
+  Namen (anders als bei Rapporte-Workern, die den Namen bereits inline tragen) — PDF zeigt fuer diese
+  Faelle "Kontakt <ID-Praefix>"/"Firma <ID-Praefix>", fuer `external` den echten `ExternalName`. Kein
+  zusaetzlicher Repo-Join eingefuehrt, das war nicht Teil des `done_when`.
+  Unterschriftszeile analog Rapporte: `SignedBy`/`SignedAt` vom Contract, sonst "Unterschrift:
+  ausstehend". Auch hier `lean:`-Marker: Signatur-Bild (`signature_data`) wird nicht eingebettet.
+  `GetContract` liefert `Parties` bereits mit (siehe `postgres_repository.go`), also kein
+  zusaetzlicher Repo-Call wie bei Rapporte's `ListLines` noetig.
+- gate: build (`./internal/vertraege/... ./internal/server/... ./cmd/vertraege/... ./cmd/gateway/...`,
+  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine (kein Schema-Wechsel) |
+  openapi: kein Eintrag noetig (Route existierte bereits, nur der Payload-Inhalt aendert sich) |
+  rls-smoke: n.a. (keine Tabelle/Policy angefasst) | Test mit `DATABASE_URL` (Rolle `kmuhub_app`):
+  `internal/vertraege` **0 Skips** (inkl. `TestTenantIsolation_Vertraege`,
+  `TestVertraegeWrites_LandInCallerTenant`), `internal/server` ok, `internal/gateway` ok
+  (`TestOpenAPIRouteDrift`: 771 Routen gegen 773 dokumentierte Pfade, keine Drift).
+  Test ersetzt/erweitert: `TestService_ExportContract_TextDump` -> `..._ReturnsRealPDF`, prueft jetzt
+  den `%PDF`-Header (vorher nur den Klartext-Inhalt) mit Notizen + einer External-Partei + Signatur.
+  Neuer Test `TestService_ExportContract_LongNotesPaginate`: 200 Notiz-Absaetze, parst den `/Pages`-
+  Objektkopf aus den rohen PDF-Bytes per Regex (`/Type\s*/Pages.*?/Count\s+(\d+)`) und prueft
+  `pageCount > 1`. Verifiziert per Wegwerf-Skript, dass maroto ohne `WithCompression` (Default: aus)
+  die Objektstruktur unkomprimiert im Klartext ablegt, `/Count` also direkt grep-bar ist — kein PDF-
+  Parser als neue Dependency noetig.
+- verify vorgaenger: sauber (`7a01590f`, Rapporte-PDF) — Build der betroffenen Pakete lief hier erneut
+  gruen, Text-Stub sauber durch `renderReportPDF` ersetzt, tenant-gescopt ueber `s.repo.GetReport`/
+  `ListLines`, keine neue Route/Guard, `lean:`-Marker fuer die ausgelassene Signatur-Bild-Einbettung
+  korrekt gesetzt.
+- offen:
+  - Signatur-Bild wird nicht ins PDF eingebettet (wie bei Rapporte, `lean:`-Marker in `pdf.go`).
+  - Sehr lange EINZELNE Notiz-Absaetze (kein Zeilenumbruch im Quelltext ueber eine ganze Seite
+    hinweg) wuerden weiterhin nicht seitenuebergreifend umbrechen (`lean:`-Marker, siehe oben) — kein
+    reales Szenario heute (Contract-Notizen sind Kurztext), aber falls das Feld je fuer lange
+    Fliesstexte genutzt wird, dort ansetzen.
+  - Party-Namen fuer `contact`/`company` zeigen nur ein ID-Praefix statt des echten Namens (kein
+    Contact-/Company-Join in `ExportContract`, siehe oben) — falls das stoert, Repo-Join ergaenzen.
