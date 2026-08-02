@@ -1663,7 +1663,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 27 — fix-finance-notification-paths — done — 2026-08-03
 
-- commit: `-` (wird im naechsten Journal-Eintrag nachgetragen)
+- commit: `fbecfafd` — fix(gateway): move finance and notification routes to frontend contract
 - verify vorgaenger: sauber. `5359d87b` (fix-hr-document-paths, Iteration 26) gegen die
   Fehlerklassen geprueft: Handler geht ueber `h.getHRClient()` (kein Direct-Svc-Bypass), kein
   Stub, `hr.proto` + `hr.pb.go` im selben Commit regeneriert, Guard additiv
