@@ -1007,7 +1007,40 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Praemisse widerlegt, und zwar doppelt. (1) Das FE ruft ueberhaupt keine Backend-Route fuer
+      Billing auf: `useBilling.ts` traegt im Datei-Kopf explizit "Kein Backend-Call. Alle Daten aus
+      Mock-Datei oder localStorage." — jeder Hook (`useTenant`, `useModuleAssignments`,
+      `useModuleUsage`, `useInvoiceHistory`, `useCostSavingsTracker` etc.) liefert
+      `Promise.resolve(MOCK_*)` oder liest `localStorage`. `/admin/billing` ist ausschliesslich ein
+      React-Router-Client-Pfad (`App.tsx:297`, `AdminHubPage.tsx:37/51`), keine `fetch`/API-Zeile
+      dahinter — anders als bei `g-crm-contact-timeline`/`g-calendar-resource-bookings` ruft das FE
+      hier nicht mal einen falschen Pfad, sondern gar keinen.
+      (2) Die reale Datenbasis, die die Notes vermuten liessen ("gebuchte Module je Tenant, aktive
+      Nutzer, Preise"), EXISTIERT bereits UND hat bereits eigene, gebaute, getestete Endpoints —
+      nur nicht unter `/admin/billing`: `GET /api/v1/admin/subscription`
+      (route_settings.go:875, `HandleGetTenantSubscription`) liefert `planType, supportTier, status,
+      billingPeriodEnd, totalSeats` — 1:1 die Felder aus `MockTenantData`, gespeist aus
+      `tenants.plan_type/support_tier/subscription_status/billing_period_end` (Migration 000250).
+      `GET/PATCH /api/v1/admin/license` (route_settings.go:788/823) liefert/setzt
+      `tenant_module_activations` (Migration 000250). `GET /api/v1/tenant/module-grants`
+      (route_settings.go:74-80) liefert `user_module_grants` (Migration 000220) — die Datenbasis
+      fuer `useModuleAssignments()`. Alle drei sind RLS-geschuetzt, permission-gegated
+      (`license:read/write`, `module-grants:read/write`) und in openapi.yaml dokumentiert.
+      Was im Mock UEBER diese drei Endpoints hinausgeht, ist NICHT nachbaubar ohne neue
+      Infrastruktur: `useInvoiceHistory()`/`MOCK_INVOICES` braucht eine echte Zahlungs-/
+      Rechnungsstellung Zentria->Tenant (kein Payment-Gateway im Repo, waere eine neue externe
+      Integration + potenziell eine neue `config.RequireX`-Assertion — Deploy-Hazard, laut
+      ITERATION.md nicht in diesem Loop). `useModuleUsage()` braucht `last_active_at` aus
+      `user_module_grants`, das die Migration 000220 selbst als "reserved for a future
+      activity-tracking pipeline, stays NULL" dokumentiert — bewusst vertagt, kein uebersehener
+      Gap. `useRecommendations()`/`useCostSavingsTracker()` sind reine Client-Berechnungen ueber
+      bereits vorhandene Daten (`lib/billing-insights.ts`), brauchen keinen eigenen Endpoint.
+      Fazit: keine Backend-Luecke zu bauen. Die Empfehlung fuer eine FE-Session: `useTenant`,
+      `useModuleAssignments` und die Modul-Aktivierung im Billing-Hub auf die drei existierenden
+      Endpoints umstellen (statt `/admin/billing` neu zu bauen); Invoice-History/Usage-Stats bleiben
+      bewusst Mock, bis Payment-Gateway bzw. Activity-Tracking-Pipeline existieren.
     scope: >
       `GET /admin/billing` — das FE ruft die Route ueber
       `desktop/src/renderer/src/api/hooks/useBilling.ts`, im Gateway null Treffer.

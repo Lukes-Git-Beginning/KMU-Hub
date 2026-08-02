@@ -1351,3 +1351,45 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
     `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
     409, `useTimeline.ts`-Pfad+Offset-Bug) bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 21 — g-admin-billing — blocked — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: - (reine Diagnose, kein Code-Commit — siehe unten)
+- gebaut: nichts. `g-admin-billing` gezogen (`GET /admin/billing`), Praemisse geprueft und doppelt
+  widerlegt. `useBilling.ts` traegt im Datei-Kopf explizit "Kein Backend-Call. Alle Daten aus
+  Mock-Datei oder localStorage." — anders als bei `g-crm-contact-timeline`/
+  `g-calendar-resource-bookings` ruft das FE hier nicht mal einen falschen Pfad, sondern GAR
+  keinen. `/admin/billing` ist nur ein React-Router-Client-Pfad (`App.tsx:297`).
+  Zweiter, wichtigerer Fund: die vermutete fehlende Datenbasis existiert bereits UND hat bereits
+  gebaute, getestete Endpoints — nur nicht unter `/admin/billing`. `GET /api/v1/admin/subscription`
+  (route_settings.go:875) liefert `planType, supportTier, status, billingPeriodEnd, totalSeats` aus
+  `tenants.*` (Migration 000250) — 1:1 die Felder von `MockTenantData`. `GET/PATCH
+  /api/v1/admin/license` (route_settings.go:788/823) bedient `tenant_module_activations`
+  (ebenfalls 000250). `GET /api/v1/tenant/module-grants` (route_settings.go:74-80) bedient
+  `user_module_grants` (Migration 000220) — die Datenbasis fuer `useModuleAssignments()`. Alle drei
+  RLS-geschuetzt, permission-gegated, in openapi.yaml dokumentiert. Was der Mock zusaetzlich zeigt
+  (Invoice-History, Usage-Stats) braucht Infrastruktur, die es nicht gibt: Invoice-History ein
+  echtes Payment-Gateway (neue externe Integration, potenziell ein Deploy-Hazard), Usage-Stats
+  `user_module_grants.last_active_at`, das die eigene Migration 000220 als "reserved for a future
+  activity-tracking pipeline, stays NULL" dokumentiert — bewusst vertagt, kein uebersehener Gap.
+  Volle Herleitung mit Datei:Zeile-Fundstellen im `blocked_reason` der Unit in `BACKLOG.yml`.
+- gate: n.a. — keine Codeaenderung, reine Diagnose (BACKLOG.yml/JOURNAL.md sind die einzigen
+  geaenderten Dateien dieser Iteration, deshalb auch kein separater Commit — die naechste
+  Journal-Record-Iteration des Treibers erfasst den Stand ohnehin).
+- verify vorgaenger: sauber. `989ff60f` (fix-calendar-cancel-booking-actor, Iteration 20) geprueft:
+  `CancelBooking` liest den Actor jetzt ueber `middleware.GetUserID(ctx)` (Muster aus
+  `document_grpc.go`/`dialer_grpc.go` uebernommen, `middleware`-Import war schon vorhanden), kein
+  Proto-, Guard- oder Routen-Aenderung, kein Stub, kein gRPC-Bypass. Test
+  `calendar_grpc_test.go` deckt den Owner-Check mit einem In-Memory-Repo-Mock ab. Nichts zu
+  beanstanden.
+- offen:
+  - **Fuer Luke/eine FE-Session:** `useBilling.ts` (`useTenant`, `useModuleAssignments`, ggf. die
+    Modul-Aktivierung im Billing-Hub) auf die drei existierenden Endpoints
+    (`/admin/subscription`, `/admin/license`, `/tenant/module-grants`) umstellen, statt weiter
+    gegen `MOCK_*` zu laufen. Invoice-History/Usage-Stats bleiben bewusst Mock, bis
+    Payment-Gateway bzw. Activity-Tracking-Pipeline existieren (beides ausserhalb dieses Loops).
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug) bleiben unveraendert offen,
+    hier nicht angefasst.
