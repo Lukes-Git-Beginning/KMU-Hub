@@ -1561,7 +1561,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/documents/files/{id}/activity` — Aktivitaetsverlauf einer Datei.
     sources:

@@ -2844,3 +2844,90 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     `internal/models/notification.go`, `toQuietHoursInfo` in `notification_grpc.go`) unangetastet
     gelassen — ausserhalb Scope, keine Faelle die ich veraendert habe.
   - Naechste Unit laut Reihenfolge: `fe-documents-activity` (Block D, deps: [], model: sonnet).
+
+## Iteration 39 — fe-documents-activity — done — 2026-08-02 (Nachtlauf 3)
+- commit: `6a247186`
+- verify vorgaenger: `1f108b00` (fe-notifications-snooze) gegen die acht Fehlerklassen geprueft —
+  **kein Fund**. `HandleSnooze` geht ueber `n.getNotificationClient()` (kein Fehlerklasse-1-Fund),
+  `SnoozeNotification` im gRPC-Server ist echte Implementierung (ruft `notifService.SnoozeNotification`
+  auf, kein Stub). Migration 000263 ist nur `ALTER TABLE notifications ADD COLUMN` — keine neue Tabelle,
+  Fehlerklasse 5 entfaellt. Kein neuer Guard (bestehender `notifications:write`-Key wiederverwendet,
+  kein Seed noetig, kein Alt-Key verloren). `openapi.yaml` traegt den neuen Pfad + Schema.
+- gebaut: **Datei-Aktivitaetsverlauf** — `GET /api/v1/documents/files/{id}/activity`.
+  - `document_events` (GoBD-Archiv-Kontext) VERWORFEN als Wiederverwendungskandidat: es ist
+    `gobd_document_events`, referenziert `gobd_documents(id)` — eine komplett andere Tabelle fuer den
+    Belegarchiv-Kontext, nicht fuer die allgemeinen `document_files`. Deshalb neue Tabelle gebaut, wie
+    im Scope als Alternative vorgesehen.
+  - Migration 000264: `document_file_activity` — `tenant_id UUID NOT NULL` + FK auf `tenants`,
+    `file_id` FK auf `document_files(id) ON DELETE CASCADE`, `action` per CHECK-Constraint auf die
+    acht FE-Werte (`uploaded/renamed/moved/copied/downloaded/shared/version_created/reverted`),
+    `actor_id` FK auf `users(id)`. `CALL enable_tenant_rls('document_file_activity')` (Standardform,
+    keine NULL-Ausnahme noetig — anders als bei RBAC-Praesets ist hier jede Zeile einem echten Tenant
+    zugeordnet). Append-only per BEFORE-UPDATE-OR-DELETE-Trigger, identisches Muster zu `audit_log`
+    (Migration 000222): `RAISE EXCEPTION` blockt beide Operationen auf DB-Ebene, nicht nur in Go.
+  - **Fund + selbst behoben** (Fehlerklasse-2-angrenzend, nicht im Verify-Vorspann sondern beim Bauen
+    entdeckt): `CopyFile` und `RevertFileVersion` im gRPC-Server uebergaben seit jeher `uuid.Nil` als
+    Akteur an den Service ("Use Nil as userID since gateway handles auth" — der Kommentar war falsch).
+    `middleware.GetUserID(ctx)` ist im Dokument-Service tatsaechlich verfuegbar (`registry.go:112`
+    verdrahtet `TenantOutboundUnaryInterceptor` global fuer JEDE Gateway-Verbindung, nicht nur fuer
+    einzelne Services), wurde aber an diesen beiden Stellen nie gelesen. Neuer Helper
+    `actorIDFromContext(ctx)` in `document_grpc.go`, jetzt auch fuer `UpdateFile`/`MoveFile` genutzt.
+    Ohne den Fix haetten `copied_by`/`created_by` in den neuen Activity-Zeilen dauerhaft auf einen
+    nicht-existenten `uuid.Nil`-User gezeigt (FK-Verletzung bei jedem Copy/Revert) — kein Rand-, sondern
+    ein Kernpfad der neuen Unit, deshalb im selben Commit korrigiert statt als offener Punkt notiert.
+  - `file.Service.Update`/`.Move` bekamen ein neues `actorID`-Parameter (Signaturaenderung, zwei
+    Call-Sites in `document_grpc.go` + zwei Test-Call-Sites angepasst). `Update` loggt `renamed` nur
+    wenn `Filename` gesetzt ist und `moved` nur wenn `FolderID` gesetzt ist — ein reines
+    `IsFavorite`-Toggle erzeugt bewusst KEINEN Eintrag (Praeferenz, kein Audit-relevanter Vorgang;
+    eigener Test `TestUpdate_FavoriteOnly_NoActivity` haelt das fest).
+  - `GetDownloadURL` behielt seine bestehende Signatur unveraendert (wird auch vom WOPI-Adapter in
+    `cmd/document/main.go` ueber `wopi.FileServiceInterface` aufgerufen, dort ohne Akteur — dieser Pfad
+    ruft die Methode aber nachweislich nie real auf, verifiziert per Grep im ganzen `wopi`-Paket). Neue
+    separate Methode `Service.LogDownload(ctx, fileID, tenantID, actorID)`, nur vom Gateway-Handler
+    `GetFileDownloadURL` nach erfolgreichem Presign aufgerufen — kein Signatur-Bruch fuer den
+    unbenutzten WOPI-Pfad.
+  - Neuer RPC `ListFileActivity` in `document.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
+    regeneriert (`make proto-document` manuell nachgebaut, `make` fehlt auf dieser Maschine —
+    `protoc --go_out=... --go-grpc_out=...` direkt mit denselben Flags wie im Makefile-Target).
+    Response `{activities: DocumentFileActivity[]}` per `response.ProtoListWrapped` (protojson,
+    `[]` statt `null` bei leerer Liste, snake_case automatisch) — exakt der FE-Vertrag aus
+    `ListActivityResponse` in `document-types.ts:268`.
+  - Gateway: `GET /api/v1/documents/files/{id}/activity` ueber bestehenden `docRead`-Guard
+    (`RequirePermissionAny({"documents","read"}, {"documents:file","read"})`) — kein neuer Key,
+    kein Seed. Zwei neue Faelle in `route_capability_guard_test.go` (Katalog-Key allowed, edit-Key
+    denied).
+  - `openapi.yaml`: neuer Pfad + Schema `DocumentFileActivity` (protojson-Form, `created_at` als
+    echter RFC3339-String wie bei `DocumentFileVersion`, nicht als ProtoTimestamp).
+  - `.planning/backend-gaps.md` Zeile 215 als erledigt markiert (gleiches Konventions-Praefix `✅ ...
+    CODE ERLEDIGT` wie beim Presign-Endpoint-Gap), Original-Beschreibung des Gaps als Kontext belassen.
+- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet` fuer
+  `internal/document/... internal/gateway/... internal/server/... internal/models/... cmd/document/...
+  cmd/gateway/...` gruen | `golangci-lint run --config .golangci.yml` fuer dieselben Pfade (ausser cmd)
+  **0 issues** | Migration 000264 down/up/up lokal gruen (Kopf `264`) | swagger-cli validate:
+  `openapi.yaml is valid` | Test mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`):
+  `internal/document/...` (39 Tests, davon 3 neu als echte DB-Tests) + `internal/gateway/...` +
+  `internal/server/...` alle `ok`, **0 Skips**. `TestOpenAPIRouteDrift`: PASS, 768 registrierte gegen
+  770 dokumentierte Pfade (+1 ggue. Iteration 38, konsistent mit der einen neuen Route).
+  **RLS-Smoke** (`docker exec -i ... psql`, echte Zeilen aus den DB-Tests statt synthetischer Werte):
+  eigener Tenant 2, fremder Tenant 0 — keine Nullmessung.
+  **Append-only verifiziert** (nicht nur behauptet): `TestDocumentFileActivity_AppendOnly` versucht
+  echtes UPDATE und DELETE gegen eine geseedete Zeile unter System-Kontext (BYPASSRLS-aequivalent) und
+  erwartet beide Male einen Fehler vom DB-Trigger — beide schlagen wie erwartet fehl, die Zeile bleibt
+  unveraendert (Count-Check danach).
+- tests: 3 neue DB-Tests (`postgres_repository_test.go`: Create+List mit korrekter Sortierung
+  newest-first und Actor-Name-JOIN, Tenant-Isolation liefert 0 unter fremder tenant_id, Append-only
+  blockt UPDATE+DELETE), 3 neue Mock-basierte Service-Tests (`TestMove_Success`/`TestUpdate_Success`
+  pruefen jetzt zusaetzlich den aufgezeichneten Activity-Eintrag, neuer
+  `TestUpdate_FavoriteOnly_NoActivity`) — je eigener Tenant/User/Folder/File pro DB-Testfall, kein
+  Parallel-Kollisionsrisiko.
+- offen:
+  - Test-Fixtures in `postgres_repository_test.go` raeumen bewusst NICHT auf (siehe Kommentar am
+    `activityFixture`-Typ): sobald ein `document_files`-Testfixture Activity-Kinder traegt, wuerde
+    `testutil.CleanupRow`s DELETE per `ON DELETE CASCADE` den Append-only-Trigger der Kinder ausloesen
+    und scheitern (nur geloggt, kein Testfehler) — Zeilen bleiben in der lokalen/CI-ephemeren DB liegen,
+    exakt der Tradeoff, den die bestehenden `audit_log`-Tests schon eingehen. Keine Produktionsrelevanz.
+  - `downloaded` wird nur beim expliziten Gateway-Download-URL-Aufruf geloggt, nicht bei jedem
+    OnlyOffice/WOPI-Zugriff (dort ist `GetDownloadURL` nachweislich unbenutzt, s.o.) — falls WOPI
+    kuenftig echte Downloads darueber abwickelt, muesste diese Stelle nachgezogen werden.
+  - Naechste Unit laut Reihenfolge: `fe-documents-links` (Block D, deps: [fe-documents-activity],
+    model: sonnet) — jetzt entsperrt.
