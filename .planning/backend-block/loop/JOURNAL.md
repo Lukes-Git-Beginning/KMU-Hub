@@ -841,3 +841,91 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`; `SeedRow`/
     `CleanupRow` brauchen eine `id`-Spalte (fuer Tabellen mit zusammengesetztem PK unbrauchbar).
+
+## Iteration 13 — g-rls-allowlist-audit — done — 2026-08-02 22:30
+
+- commit: (siehe naechster docs(loop)-Commit)
+- gebaut:
+  - `000272_rls_refresh_tokens_and_plugin_permissions` — `refresh_tokens` bekommt `tenant_id NOT
+    NULL` (Backfill per Join ueber `user_id -> users.tenant_id`, FK garantiert 0 Waisen, kein
+    DO-Block noetig — anders als bei `events`) + `enable_tenant_rls('refresh_tokens')`. Neuer Index
+    `idx_refresh_tokens_tenant_id`. `plugin_permissions` bekommt
+    `enable_tenant_rls_via_join('plugin_permissions', 'plugin_installations', 'installation_id')`.
+  - `models.RefreshToken.TenantID`; `auth/postgres_repository.go` StoreRefreshToken/
+    GetRefreshTokenByHash um die Spalte erweitert; `auth/service.go` `createTokenPair` setzt
+    `TenantID: user.TenantID` beim Ausstellen — exakt das Muster von `PasswordResetToken.TenantID`
+    (`RequestPasswordReset`), das schon vor dieser Iteration existierte und als Vorlage diente.
+  - Tests: `internal/auth/rls_refresh_tokens_test.go` (4 Faelle: Tenant-B sieht nichts, System-
+    Kontext sieht alles — deckt die bestehenden `sysctx.With()`-Aufrufe in RefreshToken/Logout ab —,
+    Cross-Tenant-Revoke 0 Zeilen betroffen, Cross-Tenant-gestempelter Write via echtem
+    `StoreRefreshToken` mit SQLSTATE 42501 abgelehnt) + `internal/plugin/repository/
+    permission_rls_test.go` (2 Faelle: Tenant-Trennung beim Lesen, Cross-Tenant-Grant via echtem
+    `Grant()` abgelehnt).
+  - `docs/ARCHITECTURE.md`: drei neue Allowlist-Zeilen (`automation_templates`, `event_types`,
+    `public_holidays` — alle verifiziert schreibfrei zur Laufzeit bzw. tenant-invariant), ein Absatz
+    zur Schliessung von refresh_tokens/plugin_permissions, ein Absatz "Offener Befund" fuer die
+    fuenf verbleibenden Tabellen (siehe unten).
+- rechercheergebnis (der eigentliche Kern dieser Iteration): die elf Tabellen aus dem Backlog-Scope
+  zerfallen nicht in zwei, sondern drei Gruppen:
+  1. **RLS-Luecke, jetzt geschlossen:** `refresh_tokens`, `plugin_permissions` (oben).
+  2. **Echte Katalog-/Seed-Daten, jetzt allowlisted:** `automation_templates` (nur
+     `TemplateRegistry.SeedToDatabase()` beim Start, keine HTTP-Route schreibt), `event_types` (nur
+     Migrations-Seeds 000027/000048, kein Laufzeit-Writer), `public_holidays` (nur
+     `SeedHolidays()` aus der externen Nager.Date-API, Upsert auf `date,country_code,name` — jeder
+     Tenant, der den Sync ausloest, schreibt dieselben Zeilen, keine Divergenz moeglich).
+     `industry_templates` stand schon in der Allowlist, gegengeprueft: weiterhin korrekt.
+  3. **Neuer Fund, nicht geloest:** `dashboard_defaults`, `presence_config`, `two_factor_policy`,
+     `storage_quotas`, `plugin_manifests` sind eine dritte Kategorie, die die urspruengliche
+     Zwei-Wege-Frage (RLS oder Allowlist) schlicht nicht beantwortet. Alle fuenf sind eine einzige
+     globale Zeile (`LIMIT 1` bzw. `UNIQUE(role)`-Lookup) bzw. ein globaler Katalog, aenderbar ueber
+     eine Route, die nur `RequireRole("admin")`/`RequirePermission(...,"write")` prueft — ALSO "ist
+     irgendein Tenant-Admin", nicht "ist Admin des richtigen Tenants". Verifiziert Zeile fuer Zeile:
+     `PUT /admin/dashboard/defaults/{role}` (dashboard_service.go:144, `UNIQUE(role)`), `PUT
+     /presence/config` (route_video.go:136, `settings:write`, UPDATE ohne WHERE auf der einen
+     Zeile), `PUT /2fa/policy` (route_auth.go:90, `RequireRole("admin")`, `UNIQUE(role_name)`),
+     `IncrementUsedBytes`/`DecrementUsedBytes` (chat/file/postgres_repository.go:186ff, UPDATE ohne
+     WHERE), `POST /api/v1/plugins/manifests` (route_plugin.go:53, `RequireRole("admin")`, kein
+     `tenant_id`, `GET /manifests` ohne Filter — nur `plugin_type=wasm` ist durch den Feature-Flag
+     gesondert blockiert, `config`-Manifeste nicht). Weder RLS (kein `tenant_id` zum Filtern) noch
+     Allowlist (der Inhalt ist echt admin-mutable, keine Seed-Daten) beantwortet das ehrlich — es
+     braucht `tenant_id` + Backfill + tenant-gescopte Unique-Constraints + einen Provisioning-
+     Schritt fuer neue Tenants (ohne den liefert der Read nach RLS ein leeres Ergebnis statt eines
+     Fallbacks). Groesser als eine Iteration, deshalb bewusst NICHT in 000272 mit hineingezogen.
+     Ausgelagert in eine neue, direkt danach eingefuegte Backlog-Unit `g-rls-tenant-scoped-admin-
+     writes` (model: opus). `g-rls-regression-guard` haengt jetzt an dieser neuen Unit statt an
+     `g-rls-allowlist-audit`, sonst wuerde der Guard live gehen, bevor die Allowlist wirklich
+     vollstaendig ist.
+  Die urspruengliche Vermutung im Backlog-scope-Text, `dashboard_defaults` sei ein "starker
+  Allowlist-Kandidat", hat sich beim Nachpruefen NICHT bestaetigt — der Bewertungsmassstab war
+  richtig (Katalog/Seed -> Allowlist, pro-Tenant-divergent -> absichern), die Vorab-Einschaetzung
+  dieser einen Tabelle war es nicht: sie SOLLTE divergieren koennen (ist admin-editierbar), kann es
+  aber wegen der fehlenden Tenant-Spalte nicht sauber, und genau das ist der Bug.
+- gate: build ok (`go build -p 2 ./internal/auth/... ./internal/plugin/... ./internal/models/...
+  ./internal/gateway/... ./internal/testutil/... ./cmd/auth/... ./cmd/plugin/... ./cmd/gateway/...`)
+  | vet ok | lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/auth/...`
+  162 PASS / 0 SKIP, `./internal/plugin/...` gruen (4 neue Tests real gelaufen), `./internal/
+  gateway/` gruen (TestOpenAPIRouteDrift unberuehrt, keine Route angefasst) | migration: up/down/up
+  gruen (272 -> 271 -> 272), danach `relrowsecurity=t relforcerowsecurity=t` auf beiden Tabellen,
+  `tenant_id` auf refresh_tokens NOT NULL | rls-smoke: die vier Cross-Tenant-Faelle sind die
+  Isolationstests selbst (kein separates manuelles psql noetig, siehe oben).
+- stolperstein: `t.Cleanup` in einem Test-Helper (`seedInstallation`) plus `defer pool.Close()` in
+  der aufrufenden Testfunktion feuern in der falschen Reihenfolge — `defer` laeuft beim Return der
+  Funktion, `t.Cleanup` erst danach, also war der Pool beim Aufraeumen schon zu (stille
+  "closed pool"-Logzeile, Test bleibt gruen, aber die Zeilen blieben in der DB liegen und
+  `plugin_manifests.slug` ist UNIQUE — ein zweiter Lauf waere kollidiert). Fix: `pool.Close()`
+  selbst ueber `t.Cleanup` registrieren, VOR dem Aufruf des Helpers, dann laeuft die Schliessung in
+  der korrekten LIFO-Reihenfolge zuletzt. Verifiziert: zweiter Testlauf hinterlaesst 0 Zeilen.
+- verify vorgaenger: sauber. `dd99f2d7` (g-rls-events-partition) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Tenant-Handling korrekt
+  asymmetrisch (Catch-up-Read + processed-Flag als System, CreateEvent bewusst nicht). Migration
+  und Code passen zueinander, docs/ARCHITECTURE.md wurde im selben Commit aktualisiert.
+- offen:
+  - **Neue Unit `g-rls-tenant-scoped-admin-writes`** wartet als naechste in Block B — fuenf Tabellen,
+    Kernfrage vor dem Bauen ist, ob ein Tenant-Provisioning-Hook fuer Default-Zeilen ueberhaupt
+    existiert (siehe notes der Unit). `plugin_manifests` hat zusaetzlich eine offene Produktfrage
+    (Tenant-Admin-Operation vs. Plattform-Operation), keine reine Migrationsfrage.
+  - `g-rls-regression-guard` bleibt `todo`, haengt jetzt an der neuen Unit statt an dieser.
+  - Aus Iteration 10/11 unveraendert offen (nicht Teil dieser Iteration): `server/plugin_grpc.go`
+    liest den Tenant in den uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions`
+    ohne Audit-Event; `rbac-format.ts`-Katalogluecke; nicht regenerierte
+    `desktop/.../api/types.ts`; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.

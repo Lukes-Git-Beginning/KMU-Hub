@@ -414,6 +414,7 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User, rotate
 
 	refreshToken := &models.RefreshToken{
 		ID:        uuid.New(),
+		TenantID:  user.TenantID,
 		UserID:    user.ID,
 		TokenHash: hash,
 		ExpiresAt: expiresAt,

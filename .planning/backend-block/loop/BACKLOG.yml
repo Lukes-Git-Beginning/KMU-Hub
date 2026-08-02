@@ -468,7 +468,7 @@ units:
     service: db
     model: sonnet
     deps: [g-rls-events-partition]
-    status: todo
+    status: done
     scope: >
       Die Allowlist in `docs/ARCHITECTURE.md` nennt vier Tabellen, ungeschuetzt sind aber deutlich
       mehr. Jede der folgenden entweder absichern ODER mit Begruendung in die Allowlist eintragen —
@@ -481,31 +481,93 @@ units:
       - docs/ARCHITECTURE.md
       - backend/migrations/
     notes: >
-      Bewertungsmassstab: Seed-/Katalogdaten, die fuer jeden Tenant identisch sind, duerfen in die
-      Allowlist (`event_types`, `public_holidays`, `automation_templates`, `dashboard_defaults`
-      sind starke Kandidaten). Alles, was pro Tenant oder pro Nutzer VERSCHIEDEN ist, gehoert
-      abgesichert — insbesondere `refresh_tokens` (47 Zeilen lokal, per-User-Tokens),
-      `storage_quotas` (Spalten `id, max_bytes, used_bytes` — je Tenant? dann fehlt die Spalte),
-      `two_factor_policy` und `presence_config`.
-      Fuer `refresh_tokens` zuerst pruefen, wie die Tokens gelesen werden: laeuft jeder Zugriff
-      ueber einen Hash-Lookup auf genau eine Zeile, ist das Risiko klein — aber die Begruendung
-      gehoert dann geschrieben, nicht angenommen.
-      Diese Unit darf mit einer Migration enden, muss aber nicht: ein sauber begruendeter
-      Allowlist-Eintrag ist ein vollwertiges Ergebnis.
-      Query zum Reproduzieren steht im Journal von Lauf 4 bzw. laesst sich so bilden:
-      `pg_class.relrowsecurity=false` + kein Eintrag in `information_schema.columns` mit
-      `column_name='tenant_id'`.
+      ERGEBNIS (2026-08-02, Iteration 13): die elf Tabellen zerfallen in drei echte Gruppen, nicht
+      zwei. (1) RLS jetzt geschlossen, Migration 000272: `refresh_tokens` (tenant_id + Backfill ueber
+      user_id, enable_tenant_rls) und `plugin_permissions` (enable_tenant_rls_via_join ueber
+      plugin_installations). (2) Allowlist ergaenzt, verifiziert schreibfrei bzw. tenant-invariant:
+      `automation_templates`, `event_types`, `public_holidays` (industry_templates stand schon
+      drin). (3) NEUER FUND, nicht in dieser Unit geloest: `dashboard_defaults`, `presence_config`,
+      `two_factor_policy`, `storage_quotas`, `plugin_manifests` sind eine dritte Kategorie, die die
+      urspruengliche Zwei-Wege-Frage (RLS oder Allowlist) nicht beantwortet — eine einzige globale
+      Zeile/ein globaler Katalog, aendbar ueber eine `RequireRole("admin")`/`RequirePermission`-Route,
+      die nur "ist Admin" prueft, nicht "in welchem Tenant". Jeder Tenant-Admin kann damit die
+      2FA-Pflicht, das Dashboard-Preset, den Presence-Timeout, das Storage-Kontingent oder den
+      Plugin-Katalog fuer ALLE Tenants gleichzeitig aendern. Weder RLS (kein tenant_id zum Filtern)
+      noch Allowlist (der Inhalt ist echt admin-mutable, keine Seed-Daten) beantwortet das ehrlich —
+      es braucht tenant_id + Backfill + ein Provisioning-Schritt fuer neue Tenants (die Reads sind
+      aktuell `LIMIT 1`/`UNIQUE(role)`-Lookups ohne Tenant-Fallback). Groesser als eine Iteration,
+      deshalb NICHT in 000272 mit hineingezogen, sondern als eigene Unit `g-rls-tenant-scoped-admin-
+      writes` (direkt nach dieser eingefuegt) auesgelagert. Vollstaendige Herleitung pro Tabelle im
+      Journal, Eintrag docs/ARCHITECTURE.md "Offener Befund — tenant-uebergreifende Schreibpfade".
+      Die urspruengliche Vermutung im scope-Text, `dashboard_defaults` sei ein "starker Allowlist-
+      Kandidat", hat sich beim Nachpruefen NICHT bestaetigt (siehe Fund oben) — Bewertungsmassstab
+      war richtig, die Vorab-Einschaetzung dieser einen Tabelle war es nicht.
+      `refresh_tokens`-Risiko wie vermutet klein: jeder Lesezugriff ist ein Hash-Lookup auf eine
+      Zeile, und die beiden Schreib-/Lese-Einstiegspunkte (RefreshToken, Logout) liefen schon vor
+      dieser Migration unter `sysctx.With()` — dieselbe Absicherung wie beim Schwester-Feld
+      `password_reset_tokens.TenantID`, das als Vorlage diente.
     done_when:
       - jede Tabelle der Liste ist entweder RLS-geschuetzt oder in ADR-006 begruendet gelistet
       - docs/ARCHITECTURE.md aktualisiert
       - kein Widerspruch mehr zwischen DB-Zustand und Allowlist
       - migrate up/down/up gruen (falls Migration)
 
+  - id: g-rls-tenant-scoped-admin-writes
+    phase: sec
+    service: db
+    model: opus
+    deps: [g-rls-allowlist-audit]
+    status: todo
+    scope: >
+      Fuenf Tabellen ohne `tenant_id`, deren einzige Zeile (bzw. bei `plugin_manifests` deren
+      Katalog) ueber eine tenant-gescopte Admin-Route geschrieben wird, ohne dass die Route oder
+      die Tabelle je pruefen, WELCHER Tenant schreibt: `dashboard_defaults` (PUT
+      /admin/dashboard/defaults/{role}, UNIQUE(role)), `presence_config` (PUT /presence/config,
+      UPDATE ohne WHERE auf der einzigen Zeile), `two_factor_policy` (PUT /2fa/policy,
+      UNIQUE(role_name)), `storage_quotas` (IncrementUsedBytes/DecrementUsedBytes ohne WHERE),
+      `plugin_manifests` (POST /api/v1/plugins/manifests fuer plugin_type=config, GET /manifests
+      ohne Tenant-Filter). Jede Tabelle bekommt `tenant_id NOT NULL` + `enable_tenant_rls()`, die
+      Unique-Constraints werden auf `(tenant_id, role)` bzw. `(tenant_id, role_name)` erweitert, und
+      neue Tenants brauchen einen Provisioning-Schritt, der eine Default-Zeile anlegt (sonst liefert
+      der `LIMIT 1`/`UNIQUE`-Read nach RLS ein leeres Ergebnis statt eines Fallbacks).
+    sources:
+      - docs/ARCHITECTURE.md
+      - backend/internal/gateway/dashboard_repository.go
+      - backend/internal/gateway/dashboard_service.go
+      - backend/internal/work/presence/postgres_config_repository.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/chat/file/postgres_repository.go
+      - backend/internal/plugin/repository/manifest.go
+    notes: >
+      Herleitung je Tabelle steht in docs/ARCHITECTURE.md unter "Offener Befund" und im Journal von
+      Iteration 13 (Lauf 4) — dort auch die genauen Datei:Zeile-Fundstellen fuer jede Route.
+      Kernfrage vor dem Bauen: wo entsteht die Tenant-Provisionierung? Aktuell scheint es keinen
+      zentralen "Tenant angelegt"-Hook zu geben, der Default-Zeilen fuer neue Tenants seedet — falls
+      der fehlt, ist DAS der eigentliche fehlende Baustein, nicht fuenf Einzelmigrationen. Erst
+      klaeren, ob ein solcher Hook schon existiert (Tenant-Erstellung im Onboarding/Provisioning-Code
+      suchen), bevor an den einzelnen Tabellen gebaut wird.
+      `two_factor_policy` ist der sicherheitskritischste Fall (2FA-Erzwingung abschaltbar durch einen
+      fremden Tenant-Admin) — falls die Unit in mehrere Iterationen zerfaellt, diese zuerst.
+      `plugin_manifests` unterscheidet sich von den anderen vier: dort ist die Frage nicht nur
+      Tenant-Trennung, sondern ob "ein Manifest anlegen" ueberhaupt eine Tenant-Admin-Operation sein
+      soll oder ob es (wie ein App-Store-Katalog) eine Plattform-Operation ist, fuer die es aktuell
+      keine eigene Rolle gibt — das ist eine Produktentscheidung, keine reine Migration; im Zweifel
+      `blocked` mit der offenen Frage statt geraten.
+      Ist der Gesamtaufwand groesser als eine Iteration (sehr wahrscheinlich, fuenf Tabellen +
+      Provisioning-Design): in Teil-Units aufteilen oder mit dem Rechercheergebnis `blocked` markieren
+      statt eine halbe Migration zu commiten.
+    done_when:
+      - alle fuenf Tabellen haben tenant_id + RLS, Unique-Constraints sind tenant-gescopt
+      - Provisioning-Weg fuer neue Tenants existiert und ist getestet (kein leerer Read nach RLS)
+      - bestehende Admin-Routen bleiben funktional fuer den eigenen Tenant
+      - migrate up/down/up gruen
+      - go build/vet/lint/test gruen
+
   - id: g-rls-regression-guard
     phase: sec
     service: db
     model: sonnet
-    deps: [g-rls-allowlist-audit]
+    deps: [g-rls-tenant-scoped-admin-writes]
     status: todo
     scope: >
       Automatischer Test, der genau den Scan faehrt, der diesen Block ausgeloest hat: jede Tabelle

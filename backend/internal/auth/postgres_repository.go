@@ -119,9 +119,9 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 
 func (r *PostgresRepository) StoreRefreshToken(ctx context.Context, token *models.RefreshToken) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, revoked, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.Revoked, token.CreatedAt,
+		`INSERT INTO refresh_tokens (id, tenant_id, user_id, token_hash, expires_at, revoked, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		token.ID, token.TenantID, token.UserID, token.TokenHash, token.ExpiresAt, token.Revoked, token.CreatedAt,
 	)
 	return err
 }
@@ -129,9 +129,9 @@ func (r *PostgresRepository) StoreRefreshToken(ctx context.Context, token *model
 func (r *PostgresRepository) GetRefreshTokenByHash(ctx context.Context, hash string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, token_hash, expires_at, revoked, created_at
+		`SELECT id, tenant_id, user_id, token_hash, expires_at, revoked, created_at
 		 FROM refresh_tokens WHERE token_hash = $1`, hash,
-	).Scan(&token.ID, &token.UserID, &token.TokenHash, &token.ExpiresAt, &token.Revoked, &token.CreatedAt)
+	).Scan(&token.ID, &token.TenantID, &token.UserID, &token.TokenHash, &token.ExpiresAt, &token.Revoked, &token.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTokenInvalid
 	}
