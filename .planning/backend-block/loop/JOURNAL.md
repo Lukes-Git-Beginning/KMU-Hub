@@ -472,7 +472,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     laufen alle VOR dem Write, ein abgelehnter Versuch darf also kein Event schreiben.
 
 ## Iteration 8 — p1b-audit-events — done — 2026-08-02 21:40
-- commit: <wird nach dem Commit nachgetragen>
+- commit: aa5fcca8
 - gebaut: Die fuenf Audit-Events aus PHASE-1-RBAC-PLAN §4 (`permission.role_created/_updated/
   _deleted/assigned/revoked`) auf dem bestehenden `audit_log` (Migration 000039, append-only seit
   000222) — keine zweite Audit-Infrastruktur, sondern der schon vorhandene `audit.Service` aus
