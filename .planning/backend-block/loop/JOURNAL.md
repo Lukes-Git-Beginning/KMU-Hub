@@ -405,7 +405,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Einsatz, sein Wortlaut ist kein RBAC-Detail.
 
 ## Iteration 7 — p1b-guardrails — done — 2026-08-02 21:15
-- commit: <wird nach dem Commit nachgetragen>
+- commit: 95ce32f0
 - gebaut: Die vier Guardrails aus PHASE-1-RBAC-PLAN §4, zentral in
   `internal/auth/guardrails.go` (neu) und von `roles_admin.go` aus verdrahtet — kein Handler kennt
   eine davon. (a) **last_admin**: `CountRoleAdminsExcluding` zaehlt die aktiven Accounts des Tenants,
