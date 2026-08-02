@@ -25155,6 +25155,10 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       summary: Delete a plugin manifest (admin-only)
+      description: >-
+        Only manifests the calling tenant created itself can be deleted.
+        Manifests shipped with the product are readable by every tenant and
+        owned by none; deleting one answers 403.
       tags: [plugins]
       operationId: deletePluginManifest
       security: [{ bearerAuth: [] }]
@@ -41589,7 +41593,9 @@ components:
           format: uuid
         slug:
           type: string
-          description: Unique plugin slug.
+          description: >-
+            Plugin slug, unique per tenant. A manifest shipped with the product
+            and a tenant's own manifest never share one.
         name:
           type: string
         description:

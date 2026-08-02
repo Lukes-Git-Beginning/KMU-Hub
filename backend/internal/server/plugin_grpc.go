@@ -836,6 +836,8 @@ func mapPluginError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case isInvalidArgument(err):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case err == plugin.ErrManifestImmutable:
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		slog.Error("unhandled plugin service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

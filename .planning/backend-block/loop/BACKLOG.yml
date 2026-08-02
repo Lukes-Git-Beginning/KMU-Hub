@@ -59,6 +59,16 @@
 # `defer pool.Close()` und raeumt deshalb still nichts auf.
 #   - Stand: 32 offen, 17 erledigt, 2 blockiert.
 #
+# NACHTRAG 2026-08-03 nachts (Iteration 17): `g-rls-plugin-manifests` erledigt (Migration 000276) —
+# gebaut, nicht blockiert. Die Produktfrage der Unit ist mit dem nullable `tenant_id` aus 000256
+# beantwortet (NULL = ausgeliefertes Katalog-Manifest, lesbar fuer alle, schreibbar fuer keinen).
+# Damit ist die Fuenfer-Gruppe aus `g-rls-tenant-scoped-admin-writes` vollstaendig geschlossen.
+# Zwei Funde ueber die Unit hinaus: `DELETE /manifests/{id}` war tenant-uebergreifend destruktiv
+# (Installations-Zaehlung laeuft unter RLS -> Count 0 -> CASCADE loescht fremde Installationen), und
+# `wasm_binary_hash` ist NULLable gegen ein `string`-Feld — eine Katalog-Seed-Zeile ohne diesen Wert
+# haette jeden Read fuer ALLE Tenants gesprengt. Beides in derselben Migration/Iteration gefixt.
+#   - Stand: 30 offen, 19 erledigt, 2 blockiert.
+#
 # NACHTRAG 2026-08-02/03 nachts (Iteration 16): `g-rls-storage-quotas` erledigt (Migration 000275).
 # Einziger Fall der Fuenfer-Gruppe ohne Admin-Guard (Zaehler ohne WHERE) und einziger, bei dem der
 # alte Wert nicht repliziert werden konnte (globale Summe) — used_bytes stattdessen aus
@@ -755,7 +765,7 @@ units:
     service: plugin
     model: opus
     deps: [g-rls-storage-quotas]
-    status: todo
+    status: done
     scope: >
       `plugin_manifests` — `POST /api/v1/plugins/manifests` (`RequireRole("admin")`, route_plugin.go:53)
       legt Manifeste ohne `tenant_id` an, `GET /manifests` liefert sie ohne Filter. Ein
@@ -782,6 +792,40 @@ units:
       - entweder Migration + RLS mit begruendetem Schema-Entscheid
       - oder blocked mit der ausformulierten Produktfrage
       - falls gebaut: Isolationstest, migrate up/down/up gruen, go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT (Migration 000276, Iteration 17) — GEBAUT, nicht blockiert. Die Produktfrage ist mit
+      dem in den notes als "dritter Weg" vermuteten Schema beantwortet: **nullable `tenant_id`, das
+      Policy-Paar von `roles`/`role_permissions` aus 000256** (Lesen sieht
+      `tenant_id IS NULL OR = current_tenant_id()`, Schreiben nur den eigenen Tenant). NULL heisst
+      "mit dem Produkt ausgeliefert, fuer alle lesbar, fuer keinen schreibbar", ein gesetzter Tenant
+      heisst "eigenes Manifest". Damit braucht es weder die `platform_admin`-Rolle (die keine Route
+      heute vergibt) noch den Entzug der Faehigkeit, eigene Config-Plugins zu definieren. Katalog-
+      Zeilen entstehen per Migration wie die Rollen-Presets, nicht ueber eine Route — der WITH-CHECK
+      weist einen `tenant_id IS NULL`-Insert ueber die API ab (im Test belegt).
+      KEIN Backfill: bestehende Zeilen bleiben NULL. Das ist die verlustfreie Lesart — sie WAREN fuer
+      alle sichtbar und bleiben es; was sich aendert, ist nur, dass ein Tenant-Admin sie nicht mehr
+      loeschen kann.
+      ZWEITER BEFUND, in derselben Unit geschlossen: `DELETE /manifests/{id}` war tenant-uebergreifend
+      destruktiv. `DeleteManifest` verweigert das Loeschen bei aktiven Installationen, zaehlt sie aber
+      ueber `plugin_installations` — das seit 000122 RLS hat. Die Installationen fremder Tenants waren
+      fuer die Zaehlung unsichtbar, der Count kam als 0 zurueck, und `manifest_id ON DELETE CASCADE`
+      riss sie mit. Nach 000276 sind Katalog-Zeilen fuer Tenants nicht mehr loeschbar.
+      DRITTER BEFUND (Bestand, ausserhalb des Unit-Scopes gefunden, hier gefixt): `wasm_binary_hash`
+      ist NULLable ohne Default, `models.PluginManifest` haelt es als `string`. Eine Zeile ohne diesen
+      Wert — genau das, was eine Katalog-Seed-Migration schreiben wuerde — liess jeden Read fuer ALLE
+      Tenants am Scan scheitern (`cannot scan NULL into *string`). Die drei Lesequeries nutzen jetzt
+      `COALESCE(wasm_binary_hash, '')`. Der Fehler fiel nur auf, weil der Isolationstest eine
+      Katalog-Zeile per SeedRow anlegt.
+      Weitere Entscheidungen: `Service.DeleteManifest` prueft `TenantID == nil` VOR dem Schreiben und
+      liefert `ErrManifestImmutable` (403, gemappt ueber `codes.PermissionDenied`) — die Write-Policy
+      allein haette null Zeilen getroffen und 200 gemeldet (dieselbe Falle wie `UpdateConfig` in
+      Iteration 15). `CreateManifest` loest den Tenant NACH den Eingabepruefungen auf, damit ein
+      fehlerhaftes Manifest weiterhin 400 statt 500 liefert. `GetBySlug` bekam
+      `ORDER BY (tenant_id IS NULL), id LIMIT 1`: die Kollisionspruefung in `CreateManifest` liest
+      unter RLS und weist eine Kollision mit dem Katalog ebenfalls ab, aber falls Zentria spaeter
+      einen Slug nachschiebt, den ein Tenant schon nutzt, gewinnt deterministisch die eigene Zeile.
+      Kein Cache im Plugin-Modul (die Suche nach der Lehre aus Iteration 15 war negativ), kein
+      `sysctx.With()`-Lesepfad (die Lehre aus Iteration 14 greift hier nicht).
 
   - id: g-rls-regression-guard
     phase: sec

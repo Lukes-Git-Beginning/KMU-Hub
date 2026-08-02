@@ -55,9 +55,15 @@ type HookRegistration struct {
 	Priority   int    `json:"priority"`
 }
 
-// PluginManifest represents a plugin definition
+// PluginManifest represents a plugin definition.
+//
+// TenantID is nil for manifests shipped with the product: since migration
+// 000276 those are readable by every tenant and writable by none, the same
+// asymmetry role presets have. A non-nil TenantID marks a manifest a tenant
+// defined for itself.
 type PluginManifest struct {
 	ID                uuid.UUID          `json:"id"`
+	TenantID          *uuid.UUID         `json:"tenant_id,omitempty"`
 	Slug              string             `json:"slug"`
 	Name              string             `json:"name"`
 	Description       string             `json:"description"`

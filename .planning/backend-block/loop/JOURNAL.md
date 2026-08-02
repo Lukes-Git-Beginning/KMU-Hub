@@ -1152,3 +1152,77 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
     uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
+
+## Iteration 17 — g-rls-plugin-manifests — done — 2026-08-03 00:31
+
+- commit: <pending>
+- entscheidung (die Produktfrage der Unit): **gebaut, nicht blockiert.** Von den drei Wegen der notes
+  traegt der dritte: nullable `tenant_id` mit dem Policy-Paar aus 000256 (`roles`/`role_permissions`).
+  NULL = "mit dem Produkt ausgeliefert, fuer jeden Tenant lesbar, fuer keinen schreibbar", gesetzter
+  Tenant = "eigenes Manifest"; Lesen sieht beides, Schreiben nur das eigene. Weg (A) `tenant_id NOT
+  NULL` kann keinen Zentria-Katalog ausdruecken, Weg (B) Plattform-Operation braucht eine Rolle, die
+  heute keine Route vergibt, und naehme Tenants die eigenen Config-Plugins. Der dritte loest beides in
+  einem Schema und haelt EIN Muster im Schema statt zwei.
+- gebaut:
+  - `000276_tenant_scope_plugin_manifests` — `tenant_id UUID NULL REFERENCES tenants(id) ON DELETE
+    CASCADE`, `plugin_manifests_slug_key` (global unique) ersetzt durch den Ausdrucks-Index
+    `(COALESCE(tenant_id,'0000…'::uuid), slug)` byte-identisch zu 000256, RLS ENABLE+FORCE mit
+    `tenant_isolation_read` (`tenant_id IS NULL OR = current_tenant_id() OR is_system_context()`) und
+    `tenant_isolation_write` (nur eigener Tenant). **Kein `enable_tenant_rls()`** — dessen symmetrische
+    Policy haette den Katalog fuer jeden Tenant unsichtbar gemacht. Kein Backfill: bestehende Zeilen
+    bleiben NULL, das ist die verlustfreie Lesart (sie waren fuer alle sichtbar und bleiben es).
+  - `plugin/repository/manifest.go`: `tenant_id` in INSERT und allen drei SELECTs; `GetBySlug` mit
+    `ORDER BY (tenant_id IS NULL), id LIMIT 1`, damit ein spaeter nachgeschobener Katalog-Slug die
+    eigene Zeile nicht verdraengt.
+  - `plugin/service.go`: `CreateManifest` stempelt `middleware.GetTenantID(ctx)` — aber NACH den
+    Eingabepruefungen, damit ein fehlerhaftes Manifest weiterhin 400 statt 500 liefert.
+    `DeleteManifest` weist Katalog-Manifeste mit `ErrManifestImmutable` ab (neu, gemappt auf
+    `codes.PermissionDenied` -> 403).
+- funde ueber die Unit hinaus (beide hier gefixt):
+  1. **`DELETE /manifests/{id}` war tenant-uebergreifend destruktiv.** `DeleteManifest` verweigert das
+     Loeschen bei aktiven Installationen, zaehlt sie aber ueber `plugin_installations` — das seit
+     000122 RLS hat. Fremde Installationen waren fuer die Zaehlung unsichtbar, der Count kam als 0
+     zurueck, und `manifest_id ON DELETE CASCADE` riss die Installation des fremden Tenants mit.
+     Nach 000276 sind Katalog-Zeilen fuer Tenants nicht mehr loeschbar.
+  2. **`wasm_binary_hash` ist NULLable ohne Default gegen ein `string`-Feld im Model.** Eine Zeile ohne
+     diesen Wert — genau das, was die jetzt vorgesehene Katalog-Seed-Migration schreiben wuerde — liess
+     jeden Read fuer ALLE Tenants am Scan scheitern (`cannot scan NULL into *string`). Die drei
+     Lesequeries nutzen jetzt `COALESCE(wasm_binary_hash, '')`. Aufgefallen nur, weil der
+     Isolationstest eine Katalog-Zeile per `SeedRow` anlegt.
+- gepruefte Lehren der Vorgaenger-Iterationen: **kein Cache** im Plugin-Modul (Iteration 15) und **kein
+  `sysctx.With()`-Lesepfad** (Iteration 14) — beide Suchen negativ, hier also nichts zu scopen.
+- tests: `internal/plugin/repository/manifest_rls_test.go` (4 Faelle: eigenes Manifest fuer den fremden
+  Tenant unsichtbar + Katalog fuer beide sichtbar, Create fuer fremden Tenant und Create einer
+  Katalog-Zeile beide mit SQLSTATE 42501 abgewiesen, gleicher Slug in zwei Tenants erlaubt und
+  `GetBySlug` liefert die eigene Zeile, DELETE einer Katalog-Zeile trifft still nichts). Eigene Tenants
+  per `uuid.New()`, Cleanups als `defer` inklusive der `tenants`-Zeilen (0 liegengeblieben verifiziert).
+  Drei Service-Tests neu (Tenant-Stempel, fehlender Tenant-Context, Katalog-Immutability).
+  Bestand: `service_test.go` musste von `context.Background()` auf einen Tenant-Context umgestellt
+  werden (57 Stellen, ein `tenantCtx()`-Helper) — dieselbe Klasse wie in Iteration 16 bei `chat/file`.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues auf
+  `internal/plugin`, `internal/server`, `internal/models`) | test ok — `go test -count=1
+  ./internal/plugin/... ./internal/server/... ./internal/gateway/` mit `DATABASE_URL` auf `kmuhub_app`,
+  **71 PASS / 0 SKIP** im Plugin-Baum | migration: up/down/up gruen (275 -> 276 -> 275 -> 276), Policies
+  und Ausdrucks-Index nach Wiederherstellung verifiziert. Der **Down-Pfad wurde mit echten Duplikaten
+  geprueft**, nicht nur auf der leeren Tabelle: drei Zeilen mit demselben Slug (zwei Tenants + Katalog),
+  nach `down` ueberlebt wie dokumentiert die Katalog-Zeile | openapi: keine neue Route,
+  `TestOpenAPIRouteDrift` gruen (782/784); 403 war am DELETE bereits dokumentiert, Beschreibung um den
+  neuen Fall und die Slug-Semantik ergaenzt.
+- verify vorgaenger: sauber. `d48eab68` (storage_quotas) gegen die acht Fehlerklassen geprueft: keine
+  neue Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Migration setzt `tenant_id` NOT NULL,
+  Unique-Index und RLS; der Upsert-Conflict-Target passt zum Index; `GetStorageQuota` hat genau einen
+  Aufrufer (`Upload`), der `ErrQuotaNotFound` behandelt — kein Pfad laeuft in den neuen Fehler.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Damit ist die Fuenfer-Gruppe aus
+  `g-rls-tenant-scoped-admin-writes` (000273-000276) vollstaendig geschlossen.
+  Stand: 30 offen / 19 done / 2 blocked.
+- offen:
+  - Naechste Unit ist `g-rls-regression-guard` — der Test, der genau diesen Block kuenftig verhindert.
+    `plugin_manifests` hat jetzt ein Policy-PAAR statt der Standard-`tenant_isolation`; der Guard darf
+    also nicht auf den Policy-Namen pruefen, sondern auf `relrowsecurity`.
+  - `ErrPluginHasInstallations` faellt in `mapPluginError` in den `default`-Zweig und wird als 500
+    beantwortet, obwohl es fachlich ein 409 ist. Bestand, nicht in dieser Unit angefasst.
+  - `desktop/src/renderer/src/api/*` kennt `tenant_id` auf keinem der betroffenen Typen — hier ohne
+    Wirkung, weil das Proto (`ManifestMsg`) kein Feld dafuer hat und die HTTP-Antwort es nicht traegt.
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
