@@ -1310,7 +1310,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 20 — fix-calendar-cancel-booking-actor — done — 2026-08-03 00:20
 
-- commit: (folgt im naechsten Journal-Update)
+- commit: 989ff60f
 - gebaut: `g-calendar-resource-bookings` gezogen — Praemisse widerlegt, gleiche Fehlerklasse wie
   `g-crm-contact-timeline` (Iteration 19): `POST/DELETE /calendar/bookings` existieren seit
   laengerem vollstaendig (Proto, Service mit Konflikt-Check + Owner-Check, gRPC-gebundener
