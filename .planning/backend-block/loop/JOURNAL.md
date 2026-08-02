@@ -1457,7 +1457,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 23 — fix-einkauf-po-total — done — 2026-08-03 (siehe Commit-Zeitstempel)
 
-- commit: siehe Git-Log (fix(einkauf): backfill stale zero purchase-order totals)
+- commit: `45b5331d` — fix(einkauf): backfill stale zero purchase-order totals
 - gebaut: `fix-einkauf-po-total` gezogen. Praemisse (Kopfbetrag wird nie berechnet) war VERALTET:
   `e91cdf2a` aus Lauf 3 (2026-07-26) hatte `RecomputePOTotal` bereits gebaut und in
   `AddPOLine`/`UpdatePOLine`/`DeletePOLine` verdrahtet, inklusive Tests fuer alle drei
