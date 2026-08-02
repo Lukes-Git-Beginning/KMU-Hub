@@ -15,6 +15,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// testDashTenant is the tenant the dashboard cache tests operate on.
+var testDashTenant = uuid.New()
+
 // mockDashboardRepo is a hand-written mock for DashboardRepository.
 type mockDashboardRepo struct {
 	defaults map[string]*models.DashboardDefault
@@ -34,17 +37,28 @@ func newMockDashboardRepo() *mockDashboardRepo {
 	}
 }
 
-func (m *mockDashboardRepo) GetDefaultLayout(_ context.Context, role string) (*models.DashboardDefault, error) {
+// defaultKey mirrors the (tenant, role) uniqueness the table has had since
+// 000274. Keying the mock on role alone would let a test pass that reads
+// another tenant's preset.
+func defaultKey(tenantID uuid.UUID, role string) string {
+	return tenantID.String() + ":" + role
+}
+
+func (m *mockDashboardRepo) setDefault(tenantID uuid.UUID, def *models.DashboardDefault) {
+	m.defaults[defaultKey(tenantID, def.Role)] = def
+}
+
+func (m *mockDashboardRepo) GetDefaultLayout(_ context.Context, tenantID uuid.UUID, role string) (*models.DashboardDefault, error) {
 	m.getDefaultCalls++
-	if d, ok := m.defaults[role]; ok {
+	if d, ok := m.defaults[defaultKey(tenantID, role)]; ok {
 		return d, nil
 	}
 	return nil, ErrDashboardNotFound
 }
 
-func (m *mockDashboardRepo) UpsertDefaultLayout(_ context.Context, def *models.DashboardDefault) (*models.DashboardDefault, error) {
+func (m *mockDashboardRepo) UpsertDefaultLayout(_ context.Context, tenantID uuid.UUID, def *models.DashboardDefault) (*models.DashboardDefault, error) {
 	m.upsertDefaultCalls++
-	m.defaults[def.Role] = def
+	m.setDefault(tenantID, def)
 	return def, nil
 }
 
@@ -84,13 +98,13 @@ func setupCachedDashboard(t *testing.T) (*CachedDashboardRepository, *mockDashbo
 
 func TestCachedDashboard_GetDefaultLayout_CacheMiss(t *testing.T) {
 	repo, inner := setupCachedDashboard(t)
-	inner.defaults["admin"] = &models.DashboardDefault{
-		ID:   "1",
-		Role: "admin",
+	inner.setDefault(testDashTenant, &models.DashboardDefault{
+		ID:     "1",
+		Role:   "admin",
 		Layout: json.RawMessage(`{"cols":3}`),
-	}
+	})
 
-	d, err := repo.GetDefaultLayout(context.Background(), "admin")
+	d, err := repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
 	require.NoError(t, err)
 	assert.Equal(t, "admin", d.Role)
 	assert.Equal(t, 1, inner.getDefaultCalls)
@@ -98,14 +112,14 @@ func TestCachedDashboard_GetDefaultLayout_CacheMiss(t *testing.T) {
 
 func TestCachedDashboard_GetDefaultLayout_CacheHit(t *testing.T) {
 	repo, inner := setupCachedDashboard(t)
-	inner.defaults["admin"] = &models.DashboardDefault{
-		ID:   "1",
-		Role: "admin",
+	inner.setDefault(testDashTenant, &models.DashboardDefault{
+		ID:     "1",
+		Role:   "admin",
 		Layout: json.RawMessage(`{"cols":3}`),
-	}
+	})
 
-	_, _ = repo.GetDefaultLayout(context.Background(), "admin")
-	d, err := repo.GetDefaultLayout(context.Background(), "admin")
+	_, _ = repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
+	d, err := repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
 	require.NoError(t, err)
 	assert.Equal(t, "admin", d.Role)
 	assert.Equal(t, 1, inner.getDefaultCalls) // not incremented
@@ -115,38 +129,67 @@ func TestCachedDashboard_GetDefaultLayout_NotFound_NotCached(t *testing.T) {
 	repo, inner := setupCachedDashboard(t)
 
 	// First call → ErrDashboardNotFound (not cached)
-	_, err := repo.GetDefaultLayout(context.Background(), "viewer")
+	_, err := repo.GetDefaultLayout(context.Background(), testDashTenant, "viewer")
 	assert.ErrorIs(t, err, ErrDashboardNotFound)
 	assert.Equal(t, 1, inner.getDefaultCalls)
 
 	// Second call → should still hit DB (not cached)
-	_, err = repo.GetDefaultLayout(context.Background(), "viewer")
+	_, err = repo.GetDefaultLayout(context.Background(), testDashTenant, "viewer")
 	assert.ErrorIs(t, err, ErrDashboardNotFound)
 	assert.Equal(t, 2, inner.getDefaultCalls)
 }
 
 func TestCachedDashboard_UpsertDefaultLayout_InvalidatesCache(t *testing.T) {
 	repo, inner := setupCachedDashboard(t)
-	inner.defaults["admin"] = &models.DashboardDefault{
-		ID:   "1",
-		Role: "admin",
+	inner.setDefault(testDashTenant, &models.DashboardDefault{
+		ID:     "1",
+		Role:   "admin",
 		Layout: json.RawMessage(`{"cols":3}`),
-	}
+	})
 
 	// Populate cache
-	_, _ = repo.GetDefaultLayout(context.Background(), "admin")
+	_, _ = repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
 	assert.Equal(t, 1, inner.getDefaultCalls)
 
 	// Upsert invalidates
-	_, err := repo.UpsertDefaultLayout(context.Background(), &models.DashboardDefault{
+	_, err := repo.UpsertDefaultLayout(context.Background(), testDashTenant, &models.DashboardDefault{
 		Role:   "admin",
 		Layout: json.RawMessage(`{"cols":4}`),
 	})
 	require.NoError(t, err)
 
 	// Next get should hit DB
-	_, _ = repo.GetDefaultLayout(context.Background(), "admin")
+	_, _ = repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
 	assert.Equal(t, 2, inner.getDefaultCalls)
+}
+
+// The Redis key used to be role-only, so the first tenant to warm the cache
+// served its role preset to every other tenant for the next 30 minutes. This
+// guards the tenant-scoped key.
+func TestCachedDashboard_GetDefaultLayout_NotSharedAcrossTenants(t *testing.T) {
+	repo, inner := setupCachedDashboard(t)
+	other := uuid.New()
+
+	inner.setDefault(testDashTenant, &models.DashboardDefault{
+		ID:     "own",
+		Role:   "admin",
+		Layout: json.RawMessage(`{"cols":3}`),
+	})
+	inner.setDefault(other, &models.DashboardDefault{
+		ID:     "foreign",
+		Role:   "admin",
+		Layout: json.RawMessage(`{"cols":9}`),
+	})
+
+	// Warm the cache from the other tenant first.
+	foreign, err := repo.GetDefaultLayout(context.Background(), other, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, "foreign", foreign.ID)
+
+	own, err := repo.GetDefaultLayout(context.Background(), testDashTenant, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, "own", own.ID, "must not be served the other tenant's cached preset")
+	assert.Equal(t, 2, inner.getDefaultCalls, "second tenant must miss the cache")
 }
 
 func TestCachedDashboard_GetUserLayout_CacheHit(t *testing.T) {

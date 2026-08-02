@@ -860,6 +860,31 @@ func TestDashboard_TwoTenants_IndependentContexts(t *testing.T) {
 	}
 }
 
+// TestDashboard_GetDefaults_NoTenant_Returns401 covers the admin preset read.
+// Before 000274 the route needed no tenant at all, because the presets were
+// installation-wide; now reading one without a tenant would mean reading an
+// arbitrary tenant's row.
+func TestDashboard_GetDefaults_NoTenant_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/defaults/admin", nil)
+	routes.HandleGetDefaults(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestDashboard_SaveDefaults_NoTenant_Returns401 is the same gate on the write
+// side — this is the route through which one tenant's administrator used to
+// overwrite every other tenant's role preset.
+func TestDashboard_SaveDefaults_NoTenant_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/dashboard/defaults/admin",
+		strings.NewReader(`{"layout":[],"active_widgets":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	routes.HandleSaveDefaults(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
 // ============================================================================
 // Schichten — tenant isolation checks
 // ============================================================================

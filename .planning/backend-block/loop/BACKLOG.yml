@@ -50,6 +50,14 @@
 # muss explizit als Parameter laufen, weil Lesepfade unter `sysctx.With()` an RLS vorbeigehen) —
 # Details im `ergebnis:`-Feld der Ursprungs-Unit, nicht erneut recherchieren.
 #   - Stand: 33 offen, 16 erledigt, 2 blockiert.
+#
+# NACHTRAG 2026-08-02 nachts (Iteration 15): `g-rls-presence-and-dashboard-defaults` erledigt
+# (Migration 000274). Entscheidung Code-Default statt Provisioning-Zeile, Begruendung im
+# `ergebnis:`-Feld der Unit — dort auch zwei Funde, die fuer `g-rls-storage-quotas` und
+# `g-rls-plugin-manifests` unmittelbar gelten: anwendungsseitige Caches (Prozess-Feld und Redis-Key)
+# sind Teil der Tenant-Luecke und muessen mitgescopt werden, und `t.Cleanup` in RLS-Tests laeuft nach
+# `defer pool.Close()` und raeumt deshalb still nichts auf.
+#   - Stand: 32 offen, 17 erledigt, 2 blockiert.
 
 units:
 
@@ -597,7 +605,7 @@ units:
     service: db
     model: opus
     deps: [g-rls-tenant-scoped-admin-writes]
-    status: todo
+    status: done
     scope: >
       `presence_config` (`PUT /presence/config`, `settings:write`, UPDATE ohne WHERE auf der einzigen
       Zeile) und `dashboard_defaults` (`PUT /admin/dashboard/defaults/{role}`, `UNIQUE(role)`).
@@ -630,6 +638,29 @@ units:
       - Isolationstest je Tabelle mit eigenen Tenants, eigener Tenant > 0, fremder = 0
       - migrate up/down/up gruen
       - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT (Migration 000274, Iteration 15). Weg (b) aus den notes gewaehlt — **Code-Default statt
+      Provisioning-Zeile**, und zwar weil beide Lesepfade ihn schon hatten: `hardcodedDefaultLayout()`
+      ist seit jeher die dritte Stufe von `GetDashboard` (dashboard_service.go:24), und
+      `DefaultAwayTimeoutSeconds` (presence/models.go:49) war bereits der Fallback beider
+      `getAwayTimeout`-Aufrufer. Ein Provisioning-Insert haette nur dupliziert, was im Code steht, und
+      1655 Zeilen je Tabelle zusaetzlich erzeugt. Backfill trotzdem verlustfrei per CROSS JOIN wie 000273.
+      Bedingung dafuer: `UpdateConfig` musste vom UPDATE zum **UPSERT** werden — ein Tenant ohne Zeile
+      haette sonst einen stillen Erfolg ohne Wirkung bekommen.
+      Drei Funde, die ueber die Migration hinausgingen und fuer die Rest-Units relevant sind:
+      (1) **Caches gehoeren zur Luecke.** Der Away-Timeout lag in einem prozessweiten Feld auf
+      `presence.Service`, das Rollen-Layout unter dem Redis-Key `cache:dashboard:defaults:<role>` —
+      beide ohne Tenant. Der erste Tenant, der den Cache fuellt, haette seinen Wert an alle
+      ausgeliefert und die Trennung in der Tabelle im Cache wieder aufgehoben. Beide Keys tragen jetzt
+      den Tenant. Bei `g-rls-storage-quotas` und `g-rls-plugin-manifests` ebenso nach Caches suchen.
+      (2) **Bestandsbug auf demselben Schreibpfad:** `UpdatePresenceConfig` (server/video_grpc.go:1350)
+      uebergab die Tenant-ID als `updated_by`, obwohl die Spalte `users(id)` referenziert — `PUT
+      /presence/config` lief also in einen FK-Fehler, sobald die Tenant-ID nicht zufaellig auch eine
+      User-ID war. Auf `middleware.GetUserID(ctx)` korrigiert.
+      (3) **Testfalle:** `t.Cleanup` laeuft NACH allen `defer`s, also auch nach `defer pool.Close()` —
+      ein dort registriertes Aufraeumen trifft einen geschlossenen Pool und scheitert still (in den
+      ersten Testlaeufen dieser Iteration blieben so 22 Tenants liegen). Cleanups in RLS-Tests gehoeren
+      als `defer` in den Test, nicht in `t.Cleanup`.
 
   - id: g-rls-storage-quotas
     phase: sec

@@ -136,13 +136,19 @@ func (d *DashboardRoutes) HandleResetToDefaults(w http.ResponseWriter, r *http.R
 
 // HandleGetDefaults returns the default layout for a given role.
 func (d *DashboardRoutes) HandleGetDefaults(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
 	role := chi.URLParam(r, "role")
 	if !isValidRole(role) {
 		response.Error(w, http.StatusBadRequest, "invalid role: must be admin, manager, or member")
 		return
 	}
 
-	def, err := d.service.GetDefaults(r.Context(), role)
+	def, err := d.service.GetDefaults(r.Context(), tenantID, role)
 	if err != nil {
 		if errors.Is(err, ErrDashboardNotFound) {
 			response.Error(w, http.StatusNotFound, "no default layout for role: "+role)
@@ -163,6 +169,12 @@ type saveDefaultsRequest struct {
 
 // HandleSaveDefaults saves the default layout for a given role.
 func (d *DashboardRoutes) HandleSaveDefaults(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
 	role := chi.URLParam(r, "role")
 	if !isValidRole(role) {
 		response.Error(w, http.StatusBadRequest, "invalid role: must be admin, manager, or member")
@@ -185,7 +197,7 @@ func (d *DashboardRoutes) HandleSaveDefaults(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	def, err := d.service.SaveDefaults(r.Context(), role, req.Layout, req.ActiveWidgets)
+	def, err := d.service.SaveDefaults(r.Context(), tenantID, role, req.Layout, req.ActiveWidgets)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "failed to save default layout")
 		return

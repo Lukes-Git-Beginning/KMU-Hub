@@ -62,7 +62,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context, tenantID uuid.UUID,
 	}
 
 	// 2. Fall back to role default
-	roleDefault, err := s.repo.GetDefaultLayout(ctx, role)
+	roleDefault, err := s.repo.GetDefaultLayout(ctx, tenantID, role)
 	if err == nil {
 		return &models.DashboardLayoutResponse{
 			Layout:        roleDefault.Layout,
@@ -124,9 +124,9 @@ func (s *DashboardService) ResetToDefaults(ctx context.Context, tenantID uuid.UU
 	return nil
 }
 
-// GetDefaults returns the default layout for a role.
-func (s *DashboardService) GetDefaults(ctx context.Context, role string) (*models.DashboardDefault, error) {
-	def, err := s.repo.GetDefaultLayout(ctx, role)
+// GetDefaults returns the tenant's default layout for a role.
+func (s *DashboardService) GetDefaults(ctx context.Context, tenantID uuid.UUID, role string) (*models.DashboardDefault, error) {
+	def, err := s.repo.GetDefaultLayout(ctx, tenantID, role)
 	if err != nil {
 		if errors.Is(err, ErrDashboardNotFound) {
 			return nil, ErrDashboardNotFound
@@ -140,9 +140,9 @@ func (s *DashboardService) GetDefaults(ctx context.Context, role string) (*model
 	return def, nil
 }
 
-// SaveDefaults saves or updates the default layout for a role.
-func (s *DashboardService) SaveDefaults(ctx context.Context, role string, layout, activeWidgets json.RawMessage) (*models.DashboardDefault, error) {
-	saved, err := s.repo.UpsertDefaultLayout(ctx, &models.DashboardDefault{
+// SaveDefaults saves or updates the tenant's default layout for a role.
+func (s *DashboardService) SaveDefaults(ctx context.Context, tenantID uuid.UUID, role string, layout, activeWidgets json.RawMessage) (*models.DashboardDefault, error) {
+	saved, err := s.repo.UpsertDefaultLayout(ctx, tenantID, &models.DashboardDefault{
 		Role:          role,
 		Layout:        layout,
 		ActiveWidgets: activeWidgets,

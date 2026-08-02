@@ -1010,3 +1010,88 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Aus Iteration 10/11/13 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
     uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
+
+## Iteration 15 — g-rls-presence-and-dashboard-defaults — done — 2026-08-03 00:45
+
+- commit: <wird nachgetragen>
+- gebaut:
+  - `000274_tenant_scope_presence_and_dashboard_defaults` — beide Tabellen bekommen `tenant_id UUID
+    NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` + `enable_tenant_rls()`. `presence_config`
+    hatte ueberhaupt keinen Unique-Key (nur PK auf `id`), bekommt jetzt `idx_presence_config_tenant`
+    auf `tenant_id`; `dashboard_defaults` verliert `dashboard_defaults_role_key` (UNIQUE(role)) und
+    das redundante `idx_dashboard_defaults_role` zugunsten von `(tenant_id, role)`.
+    Backfill wie in 000273 per `CROSS JOIN tenants`: 1 -> 1655 Zeilen (presence), 3 -> 4965
+    (dashboard). Bei `presence_config` nimmt der Backfill bewusst nur die zuletzt bearbeitete
+    globale Zeile (`ORDER BY updated_at DESC LIMIT 1`) — die Tabelle konnte mangels Unique-Key
+    mehrere tragen, und die haetten sich beim Replizieren gegenseitig auf dem neuen Index blockiert.
+  - `presence`: `ConfigRepository.GetConfig/UpdateConfig` nehmen `tenantID` explizit; `UpdateConfig`
+    ist ein **Upsert** (`ON CONFLICT (tenant_id)`), weil ein Tenant ohne Zeile sonst einen stillen
+    Erfolg ohne Wirkung bekommen haette. `ErrConfigNotFound`/`ErrMissingTenant` neu.
+  - `gateway`: `GetDefaultLayout`/`UpsertDefaultLayout` nehmen `tenantID`, filtern bzw. schreiben
+    explizit darauf (nicht nur ueber RLS — dieselbe sysctx-Begruendung wie 000273), `ON CONFLICT
+    (tenant_id, role)`. Die Admin-Handler loesen den Tenant auf und liefern 401 ohne ihn; beide
+    Routen hatten den Tenant vorher gar nicht gebraucht.
+- entscheidung (die offene Frage der Unit): **Weg (b), Code-Default statt Provisioning-Zeile.** Nicht
+  weil er leaner ist, sondern weil beide Lesepfade ihn schon hatten: `hardcodedDefaultLayout()` ist
+  seit jeher die dritte Stufe von `GetDashboard` (dashboard_service.go:24), und
+  `DefaultAwayTimeoutSeconds` war bereits der Fallback beider `getAwayTimeout`-Aufrufer — die notes
+  verlangten genau diese Pruefung ("nur, wenn der Default wirklich im Code steht"). Ein
+  Provisioning-Insert haette dupliziert, was im Code steht, und 1655 Zeilen je Tabelle erzeugt, die
+  nichts aussagen. `presence.Service.GetConfig` beantwortet `ErrConfigNotFound` jetzt mit dem
+  Default statt mit einem Fehler; damit liefert `GET /presence/config` fuer einen frischen Tenant
+  200 statt 500.
+- der eigentliche Fund dieser Iteration: **die Migration allein haette die Luecke nicht geschlossen —
+  zwei Caches haetten sie im Betrieb wieder geoeffnet.**
+  - `presence.Service` hielt den Away-Timeout in einem prozessweiten Feld (`cachedAwayTimeout` +
+    `cachedAwayTimeoutAt`, 60 s TTL). Der erste Tenant, der den Cache fuellt, haette seinen Timeout
+    fuer die naechste Minute an alle anderen ausgeliefert. Jetzt `map[uuid.UUID]awayTimeoutEntry`,
+    und `UpdateConfig` invalidiert nur den eigenen Eintrag.
+  - `CachedDashboardRepository` cachte unter `cache:dashboard:defaults:<role>` in Redis, 30 min TTL —
+    dasselbe Muster, nur laenger und ueber Prozessgrenzen hinweg. Key traegt jetzt den Tenant
+    (`<tenant>:<role>`), analog zum schon vorhandenen `keyDashboardUser`. Regressionstest
+    `TestCachedDashboard_GetDefaultLayout_NotSharedAcrossTenants`.
+  Das ist die Lehre fuer die zwei Rest-Units: nach der Tabelle die Caches suchen.
+- bestandsbug mitgefixt (liegt auf demselben Schreibpfad): `UpdatePresenceConfig`
+  (server/video_grpc.go:1350) uebergab die **Tenant-ID** als `updated_by`, obwohl die Spalte
+  `users(id)` referenziert. `PUT /presence/config` lief damit in einen Fremdschluesselfehler, sobald
+  die Tenant-ID nicht zufaellig auch eine User-ID war — der Endpoint konnte gar nicht erfolgreich
+  sein. Jetzt `middleware.GetUserID(ctx)`, mit `Unauthenticated` wenn er fehlt. `GetPresenceConfig`
+  gibt seinen Fehler jetzt durch `mapPresenceError` statt pauschal `Internal`.
+- tests: `internal/work/presence/rls_config_test.go` (5 Faelle: Isolation, unabhaengige Timeouts,
+  Upsert fuer frischen Tenant, Code-Default, fehlender Tenant) und
+  `internal/gateway/rls_dashboard_defaults_test.go` (3 Faelle: Isolation, unabhaengige Presets,
+  fremder Tenant liest NotFound). Dazu 2 x 401 fuer die Admin-Defaults-Routen in
+  `tenant_isolation_test.go` und der Cache-Isolationstest. Beide Mocks keyen jetzt auf den Tenant
+  (`mockConfigRepo`, `mockDashboardRepo`) — mit einem globalen Mock waere ein Test gruen geblieben,
+  der eine fremde Zeile liest, derselbe Griff wie beim `authMockRepo` in Iteration 14.
+- stolperstein (neu, kostet sonst still Daten): **`t.Cleanup` laeuft NACH allen `defer`s**, also auch
+  nach `defer pool.Close()`. Ein dort registriertes `CleanupRow` trifft einen geschlossenen Pool,
+  `CleanupRow` loggt den Fehler nur (`t.Logf`) — der Test bleibt gruen und laesst Daten liegen. In
+  den ersten Laeufen dieser Iteration sind so 22 Tenants + 12 Test-User haengengeblieben (hinterher
+  entfernt, lokale DB wieder sauber). Cleanups in diesen Tests laufen jetzt als `defer` in der
+  Testfunktion, mit `func()`-Rueckgabe aus den Seed-Helfern.
+- gate: build ok (`go build -p 2 ./internal/... ./cmd/gateway/... ./cmd/work/...`) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/gateway/ ./internal/work/...
+  ./internal/server/...` alles gruen, mit `DATABASE_URL` auf `kmuhub_app`: **presence 28 PASS /
+  0 SKIP**, **gateway 604 PASS / 0 SKIP** | migration: up/down/up gruen (274 -> 273 -> 274), danach
+  verifiziert `relrowsecurity=t relforcerowsecurity=t`, Policy `tenant_isolation`, `tenant_id`
+  NOT NULL, tenant-gescopte Unique-Indizes, 1655/4965 Zeilen ueber 1655 Tenants | openapi: keine neue
+  Route, `401` war fuer alle vier betroffenen Operationen bereits dokumentiert — `TestOpenAPIRouteDrift`
+  unberuehrt gruen.
+- verify vorgaenger: sauber. `c65d762c` (two_factor_policy) gegen die Fehlerklassen geprueft: keine
+  Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass; Migration, Backfill, Down-Pfad und die
+  Callsites in `auth`/`server` passen zusammen. Der Down-Pfad kollabiert per `DISTINCT ON (role_name)`
+  bewusst verlustbehaftet — dokumentiert im Migrationskopf.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld (Entscheidung + die drei Funde, damit
+  `g-rls-storage-quotas` und `g-rls-plugin-manifests` sie nicht erneut herleiten muessen).
+  Stand: 32 offen / 17 done / 2 blocked.
+- offen:
+  - Die zwei Rest-Tabellen der Gruppe. Fuer `storage_quotas` ist die Backfill-Frage offen (der
+    globale `used_bytes` laesst sich nicht auf Tenants aufteilen); fuer `plugin_manifests` steht die
+    Produktfrage.
+  - `desktop/src/renderer/src/api/*`: weder `PresenceConfig` noch `DashboardDefault` kennen das neue
+    `tenant_id`-Feld. Kein Bruch (das FE liest es nicht), reiht sich in den offenen Punkt
+    "nicht regenerierte types.ts" ein — jetzt drei Typen tief.
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
