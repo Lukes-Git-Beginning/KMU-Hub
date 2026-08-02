@@ -15,12 +15,14 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/delivery"
 	"github.com/kmuhub/kmuhub/internal/berichte/downstream"
 	"github.com/kmuhub/kmuhub/internal/berichte/executor"
 	"github.com/kmuhub/kmuhub/internal/berichte/export"
 	"github.com/kmuhub/kmuhub/internal/berichte/scheduler"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/email/systemmail"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -62,8 +64,28 @@ func main() {
 		return export.NewExporter(format)
 	})
 
-	// Scheduler (exporter=nil, mailer=nil → skipped until WP-3/SMTP wired)
-	sched := scheduler.New(repo, svc, nil, nil, scheduler.Config{})
+	// Scheduler: runs due report schedules, renders them and mails them out.
+	// Deliberately os.Getenv-level config, never config.RequireSystemSMTP: a
+	// deployment without a system SMTP account must keep the berichte service
+	// running (definitions, manual runs, exports all work) and record every due
+	// schedule as skipped -- not crash-loop, and not claim a delivery that never
+	// happened. Hence a nil mailer instead of a no-op one.
+	var schedMailer scheduler.Mailer
+	systemSender := systemmail.New(systemmail.Config{
+		Host:     cfg.SystemSMTPHost,
+		Port:     cfg.SystemSMTPPort,
+		Username: cfg.SystemSMTPUser,
+		Password: cfg.SystemSMTPPassword,
+		From:     cfg.SystemSMTPFrom,
+	})
+	if systemSender.Configured() {
+		schedMailer = delivery.NewMailer(systemSender)
+	} else {
+		slog.Warn("system SMTP not configured — scheduled reports are rendered but not delivered",
+			"env_var", "SYSTEM_SMTP_HOST")
+	}
+
+	sched := scheduler.New(repo, svc, delivery.NewExporter(), schedMailer, scheduler.Config{})
 
 	schedCtx, schedCancel := context.WithCancel(ctx)
 	go func() {

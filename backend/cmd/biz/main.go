@@ -39,6 +39,7 @@ import (
 	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/email/systemmail"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -168,11 +169,13 @@ func main() {
 	// here, so this wiring can't crash-loop biz in production before the
 	// compose/env passthrough for SYSTEM_SMTP_* is confirmed for this service.
 	dunningSvc.SetNoticeMailer(&systemMailer{
-		host:     cfg.SystemSMTPHost,
-		port:     cfg.SystemSMTPPort,
-		username: cfg.SystemSMTPUser,
-		password: cfg.SystemSMTPPassword,
-		from:     cfg.SystemSMTPFrom,
+		sender: systemmail.New(systemmail.Config{
+			Host:     cfg.SystemSMTPHost,
+			Port:     cfg.SystemSMTPPort,
+			Username: cfg.SystemSMTPUser,
+			Password: cfg.SystemSMTPPassword,
+			From:     cfg.SystemSMTPFrom,
+		}),
 	}, companySettingsRepo)
 	dashboardSvc := dashboard.NewService(dashboardRepo)
 

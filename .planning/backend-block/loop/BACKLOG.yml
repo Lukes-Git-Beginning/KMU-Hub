@@ -1948,7 +1948,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Cron-Executor und Mailer fuer Bericht-Scheduling: geplante Berichte zur Zeit ausfuehren und
       per E-Mail zustellen.
@@ -1964,6 +1964,25 @@ units:
       Wichtig: idempotent gegen Doppelausfuehrung (zwei Instanzen desselben Service duerfen einen
       Bericht nicht zweimal verschicken) — Ausfuehrungssperre oder Idempotency-Key.
       Versand ueber den bestehenden Email-Dispatcher, kein eigener SMTP-Pfad.
+
+      ERGEBNIS (2026-08-02, Iteration 50): Ticker im berichte-Service, nicht pg_cron (Begruendung im
+      Journal). Der Scheduler-Kern (`internal/berichte/scheduler`) und der atomare Claim existierten
+      bereits — gefehlt haben ausschliesslich die konkreten Kollaborateure: `cmd/berichte/main.go:66`
+      uebergab `nil, nil` fuer Exporter und Mailer, womit JEDER faellige Bericht als `skipped`
+      geloggt wurde. Neu: `internal/email/systemmail` (System-SMTP-Sender, aus `cmd/biz/mailer.go`
+      hochgezogen statt dritter Kopie — cmd/biz mitumgestellt), `export.Render` (Bytes + ContentType
+      + Dateiname mit Datumsstempel), `internal/berichte/delivery` (die beiden Adapter, testbar) und
+      `internal/testutil/fakesmtp` (In-Process-SMTP fuer den Zustell-Nachweis).
+      DREI DINGE FUER FOLGE-UNITS (im Bestand gefunden, nicht behoben):
+      (a) `cmd/berichte/main.go` verdrahtet in `executor.Deps` NUR `KPI` — alle anderen Report-Kinds
+          (finance/crm/helpdesk/inventar/datev) liefern `emptyResult(def, "downstream_not_available")`.
+          Ein Schedule auf so einen Kind wird jetzt real zugestellt, aber mit leerer Tabelle plus
+          Warnhinweis im Mailtext. Kandidat: `g-berichte-downstream-wiring`.
+      (b) `cmd/auth/mailer.go` hat weiterhin seinen eigenen, handgeschriebenen SMTP-/MIME-Pfad ohne
+          Attachment-Support. Umstellung auf `systemmail` waere der letzte Duplikat-Abbau, wurde hier
+          aber bewusst nicht mitgenommen (Auth-Pfad, anderer MIME-Bau, ausserhalb Scope).
+      (c) Der berichte-Service laeuft in Prod als Einzel-Replica; der CAS-Claim schuetzt trotzdem
+          gegen Tick-Overlap und ist jetzt DB-seitig bewiesen (`schedule_claim_test.go`).
     done_when:
       - Faelliger Bericht wird ausgefuehrt und zugestellt
       - Doppelausfuehrung ausgeschlossen (Test)

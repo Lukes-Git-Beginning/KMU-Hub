@@ -3568,3 +3568,82 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `ListMessages`/`FetchNewMessages` bleibt bis auf Weiteres toter Code (kein Poller-Aufrufer im
     Repo) — falls Luke einen Inbox-Polling-Worker plant, dort die `lean:`-Markierung in
     `cmd/notification/main.go` als Startpunkt nehmen (Multi-Ordner + echte Pagination fehlen noch).
+
+## Iteration 50 — g-berichte-scheduler — done — 2026-08-02
+
+- commit: (siehe unten)
+- verify vorgaenger: sauber. `37a8c8a5` (Iteration 49, notification/EmailAdapter) gegen die sechs
+  Fehlerklassen geprueft: kein Gateway-Handler beruehrt (also kein Direct-Svc-Bypass), keine
+  Migration, kein Proto, keine neue Route (kein openapi-Bedarf). Die beiden neuen `return nil, nil`
+  in `cmd/notification/main.go:602/620` sind echte Leerfaelle (kein Email-Account des Users, kein
+  Inbox-Ordner), kein Fake-Erfolg. `TenantOutboundUnaryInterceptor` ist am Client gesetzt.
+- ORT DER AUSFUEHRUNG — Entscheidung: **Ticker im berichte-Service, nicht pg_cron.** pg_cron kann
+  nur SQL ausfuehren; ein Bericht braucht den Go-Executor (Downstream-Repos, JSONB-Params,
+  Cache-Lookup), den PDF/XLSX-Renderer (maroto/excelize) und einen SMTP-Versand mit Anhang — nichts
+  davon ist aus einer Datenbank-Session heraus erreichbar. pg_cron haette bestenfalls eine
+  Job-Tabelle markieren koennen, die derselbe Go-Prozess dann doch pollen muesste; das ist der
+  Ticker mit einer zusaetzlichen beweglichen Komponente. Die Idempotenz, wegen der pg_cron
+  ueberhaupt zur Debatte stand, liegt ohnehin in der DB: `ClaimSchedule` ist ein Compare-and-Set auf
+  `last_run_at` (`UPDATE … WHERE id=$2 AND last_run_at [IS NULL | = $3]`), also fuer beliebig viele
+  Replicas gueltig.
+- gebaut: Der Scheduler-Kern existierte bereits vollstaendig (`internal/berichte/scheduler`, inkl.
+  Cron-Parsing, Claim, Statuspflege, Mailtexte) — was fehlte, waren die konkreten Kollaborateure:
+  `cmd/berichte/main.go` uebergab `scheduler.New(repo, svc, nil, nil, …)`, wodurch **jeder** faellige
+  Bericht mit `last_run_status=skipped, "exporter not configured"` endete. Vier neue Bausteine:
+  1. `internal/email/systemmail` — System-SMTP-Sender (Dial-Timeout, Exchange-Deadline, STARTTLS,
+     optionales PLAIN-Auth, MIME ueber den bestehenden `email/send`-Builder). LEAN-ENTSCHEIDUNG:
+     nicht als dritte Kopie in `cmd/berichte/mailer.go` geschrieben, sondern aus `cmd/biz/mailer.go`
+     hochgezogen; `cmd/biz` ist im selben Commit darauf umgestellt (mechanischer Diff, Verhalten
+     identisch inkl. "SMTP nicht konfiguriert -> loggen statt Fehler" fuer Mahnungen).
+     `Send` liefert `ErrNotConfigured` statt eines stillen Erfolgs — der Aufrufer entscheidet.
+  2. `export.Render(result, name, format)` — rendert in Bytes plus ContentType plus Dateiname
+     (`<slug>_<YYYY-MM-DD>.<ext>`, deutsche Umlaute transliteriert, damit "Umsatzuebersicht" nicht
+     zu "umsatzbersicht" wird). Faellt auf `bericht_` zurueck, wenn der Name nichts Druckbares hat.
+  3. `internal/berichte/delivery` — die beiden Adapter (`scheduler.Exporter`/`scheduler.Mailer`).
+     Bewusst ein eigenes Package statt `cmd/berichte`-lokaler Typen: in `package main` waere die
+     Zustellkette nicht testbar gewesen, und "wird zugestellt" waere eine Behauptung geblieben.
+  4. `internal/testutil/fakesmtp` — In-Process-SMTP-Server (Greeting/EHLO/MAIL/RCPT/DATA/QUIT), von
+     systemmail- und delivery-Test gemeinsam genutzt.
+  Wiring in `cmd/berichte/main.go`: Exporter immer, Mailer nur wenn `cfg.SystemSMTPHost` gesetzt ist
+  — sonst `nil` plus `slog.Warn`, damit der Scheduler weiter ehrlich `skipped` schreibt statt eine
+  Zustellung zu behaupten. **Keine neue `config.RequireX`-Assertion**: `RequireSystemSMTP` existiert
+  zwar, wurde aber NICHT an `config.Load` dieses Services gehaengt (waere ein Crash-Loop in der
+  Produktion, sobald SYSTEM_SMTP_* im berichte-Container fehlt). Compose-Passthrough
+  `${SYSTEM_SMTP_*:-}` beim berichte-Service ergaenzt (Muster von biz/auth), prod-Override braucht
+  nichts.
+- verifiziert, nicht angenommen: `RunReport` holt die Definition tenant-gescoped
+  (`GetDefinition(ctx, in.TenantID, …)`) und alle acht Executor-Pfade reichen `def.TenantID` explizit
+  durch — der Scheduler laeuft zwar unter `database.WithSystemContext` (er muss tenant-uebergreifend
+  listen), die Berichtsdaten selbst bleiben trotzdem am Tenant des Schedules. Das war die Stelle, an
+  der ein Leck teuer geworden waere, weil das Ergebnis jetzt real per Mail rausgeht.
+- gate: build (`./cmd/... ./internal/...`, `-p 2`) ok | vet ok | golangci-lint **0 issues**
+  (`internal/berichte/... internal/email/systemmail/... internal/testutil/... cmd/berichte/...
+  cmd/biz/...`) | migration: keine | openapi: keine neue Route | Tests mit `DATABASE_URL`
+  (Rolle `kmuhub_app`): `internal/berichte/...` (inkl. neuem DB-Test), `internal/email/...`,
+  `internal/testutil/...`, `internal/biz/dunning/...` alle **ok**.
+  `-race` lokal NICHT lauffaehig (kein gcc auf dieser Maschine, `cgo: C compiler "gcc" not found`) —
+  CI faehrt es. Die zwei neuen Nebenlaeufigkeiten sind bewusst harmlos: der Claim-Test schreibt in
+  disjunkte Slice-Indizes und synchronisiert per `WaitGroup`, der fakesmtp-Server publiziert seine
+  Session ueber einen Channel.
+- Tests zu den done_when-Punkten:
+  - `delivery_test.go: TestScheduledReport_RenderedAndDelivered` — faelliger Schedule laeuft durch
+    den echten Exporter und den echten Mailer, der Fake-SMTP-Server bekommt beide Empfaenger, der
+    Anhang heisst `umsatzuebersicht-q3_2026-08-02.csv` und enthaelt nach Base64-Dekodierung die
+    Report-Zeile. Gegenstueck `…_UnconfiguredMailerMarksFailed` beweist, dass der Pfad wirklich
+    laeuft und ein fehlender Mailer als `failed` landet, nicht als Erfolg.
+  - `internal/berichte/schedule_claim_test.go` — DB-Test gegen echtes Postgres: zwei gleichzeitige
+    Claims auf denselben Schedule ergeben **genau einen** Gewinner, ein Replay des veralteten Claims
+    verliert, und der Folge-Tick mit aktuellem `last_run_at` kann wieder claimen (sonst wuerde ein
+    Schedule genau einmal feuern und dann feststecken). Der bestehende `scheduler_test.go` deckt nur
+    die Entscheidungslogik gegen ein Fake-Repo ab und konnte ueber die Atomizitaet der SQL nichts
+    aussagen.
+- offen:
+  - `cmd/berichte` verdrahtet in `executor.Deps` nur `KPI`; finance/crm/helpdesk/inventar/datev
+    liefern weiterhin `emptyResult(def, "downstream_not_available")`. Ein Schedule auf so einen Kind
+    wird jetzt real zugestellt — mit leerer Tabelle und Warnhinweis im Mailtext. Folge-Unit-Kandidat
+    `g-berichte-downstream-wiring`; Notiz in BACKLOG.yml bei dieser Unit hinterlegt.
+  - `cmd/auth/mailer.go` bleibt der letzte handgeschriebene System-SMTP-Pfad (eigener MIME-Bau ohne
+    Attachments). Umstellung auf `systemmail` waere der Rest des Duplikat-Abbaus.
+  - Fuer Luke vor dem Merge: die SYSTEM_SMTP_*-Werte der Produktionsumgebung pruefen — ohne Host
+    bleibt die Zustellung aus (sichtbar als `last_run_status=skipped` und einer Warnzeile beim
+    Servicestart), der Service laeuft aber normal weiter.
