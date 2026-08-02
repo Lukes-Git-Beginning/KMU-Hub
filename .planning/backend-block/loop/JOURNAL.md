@@ -754,7 +754,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`.
 
 ## Iteration 12 — g-rls-events-partition — done — 2026-08-02 23:05
-- commit: <folgt>
+- commit: dd99f2d7
 - entscheidung (A), wie vom Backlog verlangt begruendet: **`events` bekommt `tenant_id` + RLS**, kein
   Allowlist-Eintrag. Der Nachweis fuer (B) waere gewesen, dass die Tabelle ein rein technischer
   Event-Bus ohne fachliche Nutzdaten ist. Er scheitert nicht am `payload` — dort steht heute
