@@ -832,7 +832,7 @@ units:
     service: db
     model: sonnet
     deps: [g-rls-plugin-manifests]
-    status: todo
+    status: done
     scope: >
       Automatischer Test, der genau den Scan faehrt, der diesen Block ausgeloest hat: jede Tabelle
       in `public` muss entweder RLS aktiv haben oder namentlich in der Allowlist stehen. Schlaegt
@@ -853,6 +853,33 @@ units:
       - Partitionen korrekt ausgenommen
       - Test ist gruen gegen den aktuellen Stand
       - go test -count=1 gruen mit gesetzter DATABASE_URL
+    ergebnis: >
+      ERLEDIGT. `internal/testutil/rls_regression_test.go`,
+      `TestAllPublicTablesHaveRLSOrAreAllowlisted`: scannt `pg_class` in `public` fuer
+      `relkind IN ('r','p')`, schliesst `relispartition` aus (`relispartition` statt eines
+      Joins ueber `pg_inherits` — direkter und auf PG16 verifiziert) und verlangt fuer den Rest
+      `relrowsecurity = true`. Zwei Ausnahme-Maps im Testcode: `systemGlobalAllowlist` (die
+      sieben ADR-006-Tabellen aus docs/ARCHITECTURE.md — schema_migrations, caldav_settings,
+      industry_templates, permissions, automation_templates, event_types, public_holidays) und
+      `knownRLSGaps` (aktuell nur `user_roles`, mit Verweis auf die offene Backlog-Unit
+      `g-user-roles-rls` und Begruendung, warum das heute kein Leck ist). Die Trennung ist
+      absichtlich: die erste Map ist "fuer immer legitim, per ADR begruendet", die zweite ist
+      "bekannte Schuld, verschwindet aus der Map sobald ihre Unit landet" — ein neuer, nicht
+      benannter Fund faellt durch keine der beiden und macht den Test rot.
+      Scan gegen die lokale DB (Kopf 276) verifiziert genau die erwartete Menge: 7
+      Allowlist-Treffer + 1 bekannter Gap (`user_roles`) = 8 Tabellen ohne RLS ausserhalb von
+      Partitionen; alle 32 Partitions-Kinder von `automation_executions`, `dialer_call_events`
+      und `events` zeigen `relispartition=true` und werden korrekt uebersprungen, ihre Eltern
+      haben `relrowsecurity=true` und werden korrekt NICHT ausgenommen (waeren sie es, haette
+      der Test die drei Partitions-Familien niemals geprueft).
+      gate: build ok (`go build -p 2 ./internal/testutil/...`) | vet ok | lint ok
+      (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/testutil/...`, 4/4 PASS,
+      0 Skips (DATABASE_URL auf kmuhub_app). Keine Migration, kein Proto, keine Route angefasst
+      — `go test ./internal/gateway/` daher nicht Teil dieses Gates.
+      verify vorgaenger: sauber. `15c2ccd6` (plugin_manifests) gegen die acht Fehlerklassen
+      geprueft: keine neue Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass, Migration
+      (nullable tenant_id + asymmetrisches Policy-Paar statt `enable_tenant_rls()`, bewusst) und
+      Down-Pfad sauber, Service-Reihenfolge (Tenant-Stempel nach den Input-Checks) korrekt.
 
   # ==========================================================================
   # BLOCK D — verifizierte FE-Lücken

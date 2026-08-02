@@ -1226,3 +1226,41 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
     uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
+
+## Iteration 18 — g-rls-regression-guard — done — 2026-08-03 01:15
+
+- commit: (siehe unten)
+- gebaut: `backend/internal/testutil/rls_regression_test.go`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`. Scannt `pg_class` in `public` fuer
+  `relkind IN ('r','p')`, schliesst Partitionen ueber `relispartition` aus (direkter als ein Join
+  ueber `pg_inherits`, auf PG16 verifiziert) und verlangt fuer den Rest `relrowsecurity = true`.
+  Zwei Ausnahme-Maps: `systemGlobalAllowlist` (die sieben ADR-006-Tabellen aus
+  docs/ARCHITECTURE.md) und `knownRLSGaps` (aktuell nur `user_roles`, mit Verweis auf die offene
+  Unit `g-user-roles-rls`). Absichtlich getrennt: die erste Map ist dauerhaft legitim, die zweite
+  ist bekannte Schuld, die beim Schliessen ihrer Unit wieder rausfliegt — ein neuer, unbenannter
+  Fund faellt durch keine von beiden und macht den Test rot.
+- scan-ergebnis (Kopf 276, verifiziert gegen die lokale DB): genau 7 Allowlist-Treffer + 1
+  bekannter Gap (`user_roles`) = 8 Tabellen ohne RLS ausserhalb von Partitionen. Alle 32
+  Partitions-Kinder von `automation_executions`, `dialer_call_events`, `events` zeigen
+  `relispartition=true` und werden uebersprungen; ihre drei Eltern haben `relrowsecurity=true`
+  und werden korrekt NICHT ausgenommen — waeren sie es, haette der Test diese drei Familien nie
+  geprueft, und genau das war das Risiko, das die Unit adressiert.
+- gate: build ok (`go build -p 2 ./internal/testutil/...`) | vet ok | lint ok (golangci-lint,
+  0 issues) | test ok — `go test -count=1 ./internal/testutil/...`, **4/4 PASS, 0 Skips**
+  (`DATABASE_URL` auf `kmuhub_app`). Keine Migration, kein Proto, keine Route angefasst —
+  `go test ./internal/gateway/` ist deshalb nicht Teil dieses Gates.
+- verify vorgaenger: sauber. `15c2ccd6` (plugin_manifests, Iteration 17) gegen die acht
+  Fehlerklassen geprueft: keine neue Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass,
+  Migration (nullable `tenant_id` + asymmetrisches Policy-Paar statt `enable_tenant_rls()`,
+  begruendet) und Down-Pfad sauber, `CreateManifest` stempelt den Tenant nach den
+  Eingabepruefungen wie beschrieben.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Damit ist **Block B (Sicherheit/RLS-Reste)
+  vollstaendig geschlossen** — der Scan, der ihn ausgeloest hat, ist jetzt Dauerpruefung statt
+  Einmalaktion.
+  Stand: 29 offen / 20 done / 2 blocked.
+- offen:
+  - `user_roles` bleibt ein echter, wenn auch heute ungefaehrlicher Gap — `g-user-roles-rls`
+    steht weiterhin als eigene Unit im Backlog (Block G/3), nicht in diesem Lauf gezogen.
+  - Alle unveraendert offenen Punkte aus Iteration 17 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`) bleiben unveraendert offen, hier nicht angefasst.
