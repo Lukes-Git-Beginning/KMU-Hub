@@ -18,6 +18,7 @@ func TestTenantIsolation_IncomingInvoices(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
 
 	// Freshly minted tenants, not the shared testutil.TenantA/TenantB: the fixture
 	// XML carries a fixed supplier and invoice number, so importing it into a tenant
@@ -49,6 +50,7 @@ func TestTenantIsolation_IncomingInvoices(t *testing.T) {
 		MimeType:  "application/xml",
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_incoming_invoices", invA.ID) })
 
 	// Tenant B must NOT see tenant A's invoice
 	_, err = svcB.Get(ctxB, tenantB, invA.ID)

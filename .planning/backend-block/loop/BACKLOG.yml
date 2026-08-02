@@ -2037,7 +2037,7 @@ units:
     service: einvoice
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Der Bestandstest in `internal/biz/einvoice` raeumt nicht auf und teilt sich Tenants mit
       Nachbartests — dadurch bricht `go test ./internal/biz/...` bei jedem zweiten lokalen Lauf
@@ -2052,6 +2052,8 @@ units:
       (`integration_configs`, UNIQUE(platform, tenant_id)).
       Diese Unit sollte frueh laufen, wenn Block C schon Tests in demselben Paket angelegt hat —
       kollidiert sie mit den w5-Tests, zuerst hier aufraeumen.
+      PRAEMISSE WAR STALE (Iteration 52): der Kern des Befunds (geteilte TenantA/TenantB) wurde
+      bereits am 2026-08-01 durch Commit `d321f482` behoben — siehe Journal Iteration 52.
     done_when:
       - Test laeuft zweimal hintereinander gegen dieselbe DB gruen
       - eigene Tenants, Cleanup vorhanden

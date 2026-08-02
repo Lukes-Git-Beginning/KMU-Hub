@@ -3698,3 +3698,55 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Lauf 1/2) sollten vor Uebernahme in eine neue Unit gegen den AKTUELLEN Schema-/Code-Stand
     gegengeprueft werden, nicht nur zitiert — dieser lag hier ueber drei Nachtlaeufe unverifiziert im
     Backlog.
+
+## Iteration 52 — g-einvoice-test-hygiene — done — 2026-08-02 05:15
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `324f7df0` (Iteration 51, dialer-agent-status-log-tenant) gepruefte
+  Diffs (`postgres_repository.go`, `tenant_write_test.go`): kein Gateway-Handler beruehrt, kein
+  Stub, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle/Migration, keine
+  Route, kein ersetzter Guard-Key — sauberer Ein-Praedikat-Fix plus Falsifikations-Test wie im
+  Iteration-51-Eintrag beschrieben.
+- PRAEMISSEN-KORREKTUR (Kernbefund dieser Iteration, analog zu Iteration 51): die Unit ging von
+  einem offenen Bug aus (`TestTenantIsolation_IncomingInvoices` nutzt geteilte `TenantA`/`TenantB`,
+  bricht jeden zweiten Lauf). Das stimmte bereits nicht mehr — Commit `d321f482`
+  ("fix(einvoice): isolate the incoming-invoice RLS test with fresh tenants", 2026-08-01) hat genau
+  diesen Kern schon behoben: der Test mint jetzt `tenantA, tenantB := uuid.New(), uuid.New()` statt
+  der geteilten Konstanten. Verifiziert per `git log`/`git show d321f482` und durch zweimaligen
+  echten Lauf gegen dieselbe lokale DB (siehe gate) — beide gruen, 0 Skips. Der ursprüngliche
+  Befund (Iteration 42, Lauf 1/2, 2026-07-28 — archiviert) war zum Zeitpunkt seiner Entstehung
+  korrekt, lag danach aber ungeprueft im Backlog, waehrend eine andere Iteration ihn bereits
+  behoben hat.
+- echter Rest-Fund: `done_when` verlangte zusaetzlich "Cleanup vorhanden" — das fehlte weiterhin.
+  `TestTenantIsolation_IncomingInvoices` schloss den Pool nie (`pool.Close()`) und raeumte die
+  importierte `finance_incoming_invoices`-Zeile nie auf. Durch die frischen Tenant-UUIDs war das
+  keine Korrektheitsluecke mehr (kein Kollisionsrisiko, `UNIQUE(tenant_id, supplier_name,
+  invoice_number)` greift nie doppelt), aber echte Hygiene-Schuld: 23 verwaiste Zeilen aus
+  Vorlauf-Iterationen liegen noch in der lokalen DB (Tenants mit Namen "Tenant A EInvoice").
+  Bewusst NICHT rueckwirkend bereinigt (lokale Dev-DB, keine Repo-Aenderung, kein Correctness-Impact) —
+  fuer Luke unten vermerkt.
+- gebaut: `t.Cleanup(pool.Close)` direkt nach `PoolFromEnv`, `t.Cleanup(func() {
+  testutil.CleanupRow(t, pool, "finance_incoming_invoices", invA.ID) })` direkt nach dem Import.
+  Kein Scope-Creep auf `roundtrip_outbound_test.go` (zweite DB-Datei im Paket): die nutzt bereits
+  frische Tenants + `t.Cleanup(pool.Close)`, raeumt Zeilen nicht auf, aber ohne Kollisionsrisiko
+  (fester Rechnungsname, aber pro Testlauf neuer Tenant) — identisches Muster zum etablierten
+  `testutil.AssertWriteCarriesTenant`-Helper, der ebenfalls keine Tenant-Zeilen aufraeumt. Anfassen
+  haette Konsistenz mit dem Rest des Backlogs gebrochen, ohne einen echten Bug zu schliessen.
+- Falsifikation/Beweis: `go test -count=1 -v ./internal/biz/einvoice/...` zweimal hintereinander
+  gegen dieselbe lokale DB gefahren (identischer `DATABASE_URL`) — beide gruen, `0` Skips
+  (`TestTenantIsolation_IncomingInvoices` UND `TestRoundtrip_*` liefen real). Dritter isolierter
+  Lauf nur dieses Tests bestaetigt zusaetzlich, dass die neue Cleanup-Zeile wirkt: Zeilenzahl in
+  `finance_incoming_invoices` fuer Tenants mit dem Namenspraefix "Tenant A EInvoice" blieb bei 23
+  vor und nach dem Lauf (kein Wachstum mehr).
+- gate: build (`go build -p 2 ./internal/biz/einvoice/... ./internal/gateway/...`) ok | vet ok |
+  golangci-lint `./internal/biz/einvoice/...` 0 issues | Tests mit `DATABASE_URL` (Rolle
+  `kmuhub_app`): zwei volle Laeufe `go test -count=1 -v ./internal/biz/einvoice/...`, je 0 Skip,
+  0 Fail. `go test ./internal/gateway/` nicht gefahren (keine Route beruehrt, reiner Testdatei-Fix).
+  Migration: keine. RLS-Smoke: n.a. (keine Tabelle/Policy geaendert, nur Testcode).
+- offen:
+  - Fuer Luke: 23 verwaiste `finance_incoming_invoices`-Zeilen (Tenants "Tenant A EInvoice*") aus
+    Vorlauf-Testlaeufen liegen noch in der lokalen Dev-DB — kosmetisch, optionales manuelles
+    `DELETE`, kein Blocker.
+  - Backlog-Grooming-Hinweis (wie schon in Iteration 51 notiert): Befunde aus dem archivierten
+    Lauf-1/2-Journal vor Uebernahme in eine neue Unit gegen den AKTUELLEN Code-Stand pruefen statt
+    nur zu zitieren.
