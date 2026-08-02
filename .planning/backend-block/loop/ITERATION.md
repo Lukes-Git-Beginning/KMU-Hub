@@ -209,6 +209,14 @@ Die naechste Iteration nimmt die naechste Unit.
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
 
+**Ans Dateiende anhaengen, nicht einsortieren.** Das Journal ist chronologisch, nicht sortiert —
+ein Eintrag gehoert unter den letzten, nie darueber. Am 2026-08-02 hat eine Iteration ihren Block
+oberhalb des vorherigen eingefuegt (`Iteration 37` steht in der Datei vor `Iteration 36`); der
+Treiber las daraufhin zwei Iterationen lang dieselbe Ueberschrift als Fortschritt, und der Lauf
+sah von aussen aus, als haenge er. Die Arbeit selbst war in Ordnung — der Schaden war die
+unbrauchbare Fortschrittsanzeige. Konkret: mit `>>` bzw. einem Edit **am Ende** der Datei
+arbeiten, nicht mit einem Insert vor einer bestehenden Ueberschrift.
+
 ### 7 · Kein Push. Niemals.
 
 **Du pushst nicht, du legst keinen PR an, du triggerst keine Workflows.** Der Guard blockt das hart.
