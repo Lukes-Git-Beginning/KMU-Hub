@@ -1654,7 +1654,7 @@ units:
     service: lexware
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Die Lexware-Integration ist nach aussen ein No-op. `internal/biz/lexware/service.go` enthaelt
       an allen fuenf oeffentlichen Methoden Platzhalter, waehrend die vollstaendigen
@@ -1675,6 +1675,32 @@ units:
       Dieser Datei folgen, nicht neu entwerfen.
       `TestConnection` muss danach wirklich verbinden.
       Keine Credentials in Logs. Sync-Fehler pro Datensatz sammeln statt beim ersten abzubrechen.
+
+      ERGEBNIS (2026-08-02, Iteration 43): alle fuenf verdrahtet, Detail im Journal. Vier Dinge,
+      die "verdrahten" allein NICHT erledigt haetten und ohne die die Kette weiterhin tot gewesen
+      waere — als Muster fuer jede weitere Integrations-Verdrahtung:
+      (a) `cmd/biz/main.go:383` uebergab `nil` als ContactService. Der Syncer haette beim ersten
+          echten Sync auf `cs.contacts.UpdateForSync` gepanict statt "nichts zu tun". Adapter
+          nachgezogen (`cmd/biz/lexware_contact_adapter.go`, duenner Wrapper um den bestehenden
+          `crmContactAdapter` — die gRPC-Logik existiert genau einmal), plus nil-Guards analog
+          `bexio/contact_sync.go:161`.
+      (b) `resolveContactLexwareID` nahm `mappings[0]` — die erstbeste Kontakt-Zuordnung, unabhaengig
+          vom Rechnungsempfaenger. Verdrahtet haette das JEDE Rechnung beim falschen Lexware-Kunden
+          gebucht. Ersetzt durch `contact_resolve.go` nach dem Vorbild von
+          `bexio/contact_resolve.go`: exakte Aufloesung ueber `contacts.GetByEmail`, Fallback nur
+          bei genau EINER Zuordnung, sonst Fehler statt Rateschluss.
+      (c) `HandleWebhookEvent` laeuft pre-JWT (HMAC statt Token) und hatte damit keinen Tenant im
+          Context — der erste Read auf `integration_configs` (RLS seit 000125) haette 0 Zeilen
+          geliefert und jeder Webhook waere als "integration not configured" gestorben.
+          `sysctx.With(ctx)` am Eintrittspunkt.
+      (d) Der Gateway dekodierte den Webhook-Body als snake_case, Lexware sendet camelCase
+          (`eventType`/`resourceId`) — der echte Webhook waere mit leerem event_type als 400
+          zurueckgewiesen worden, bevor er den Service je erreicht. `parseLexwareWebhookBody`
+          akzeptiert jetzt beide Schreibweisen (`route_lexware.go`, Table-Test).
+      OFFEN, bewusst nicht gebaut: `invoice.status.changed`/`quotation.status.changed` werden
+      quittiert und geloggt, aber nicht angewandt — dem Lexware-Service fehlt ein
+      `InvoiceStatusUpdater` (Bexio hat einen). `lean:`-Marker mit Upgrade-Trigger steht in
+      `webhook_handler.go`.
     done_when:
       - Alle fuenf Methoden rufen die vorhandenen Implementierungen auf
       - TestConnection macht einen echten Aufruf

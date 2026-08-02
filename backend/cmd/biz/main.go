@@ -378,9 +378,22 @@ func main() {
 		}
 
 		if lexwareVault != nil {
+			lexwareClient := lexware.NewClient(lexwareConfig, lexwareVault)
+
+			// Wire the CRM contact adapter when the CRM gRPC address is available.
+			// Without it the contact sync has nothing to write to, and invoice/quote
+			// push cannot resolve which Lexware customer a document belongs to.
+			var lexwareContactSvc lexware.ContactService
+			if crmServiceClient != nil {
+				lexwareContactSvc = &lexwareContactAdapter{inner: &crmContactAdapter{client: crmServiceClient}}
+				slog.Info("lexware: CRM contact adapter wired for contact sync and exact email-based contact resolution")
+			} else {
+				slog.Warn("lexware: CRM contact service not wired — contact sync is unavailable and document push falls back to the single-mapping heuristic; set CRM_GRPC_ADDRESS to enable it")
+			}
+
 			lexwareSvc = lexware.NewService(
-				lexwareRepo, lexwareConfigRepo, lexwareVault,
-				nil, // ContactService
+				lexwareClient, lexwareRepo, lexwareConfigRepo, lexwareVault,
+				lexwareContactSvc,
 				invoiceSvc, quoteRepo,
 			)
 

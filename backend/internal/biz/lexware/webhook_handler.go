@@ -25,9 +25,10 @@ type WebhookSubscription struct {
 }
 
 type WebhookHandler struct {
-	client  *Client
-	repo    Repository
-	emitter EventEmitter
+	client        *Client
+	repo          Repository
+	emitter       EventEmitter
+	contactSyncer *ContactSyncer
 }
 
 // ValidateHMAC checks whether the given signature (value of the X-Signature header,
@@ -60,12 +61,19 @@ func ComputeHMAC(body []byte, secret string) string {
 	return hmacSignaturePrefix + hex.EncodeToString(mac.Sum(nil))
 }
 
-func NewWebhookHandler(client *Client, repo Repository, emitter EventEmitter) *WebhookHandler {
+func NewWebhookHandler(client *Client, repo Repository, emitter EventEmitter, contactSyncer *ContactSyncer) *WebhookHandler {
 	return &WebhookHandler{
-		client:  client,
-		repo:    repo,
-		emitter: emitter,
+		client:        client,
+		repo:          repo,
+		emitter:       emitter,
+		contactSyncer: contactSyncer,
 	}
+}
+
+// SetEventEmitter swaps the emitter after construction, so Service.SetEventEmitter
+// reaches the webhook path too.
+func (wh *WebhookHandler) SetEventEmitter(emitter EventEmitter) {
+	wh.emitter = emitter
 }
 
 // RegisterWebhooks registers webhook subscriptions for all relevant events.
@@ -146,6 +154,16 @@ func (wh *WebhookHandler) UnregisterWebhooks(ctx context.Context, configID, tena
 // HandleEvent processes an incoming webhook event.
 // Pre-JWT path (HMAC-validated webhook, no user JWT): wrap in sysctx so any
 // downstream emitter writes that touch RLS-enabled tables pass WITH CHECK.
+//
+// Contact events pull the changed record and apply it to the CRM immediately —
+// that is the whole point of subscribing to them, and it keeps the CRM current
+// between the scheduler's polling intervals.
+//
+// lean: document status events (invoice.status.changed, quotation.status.changed)
+// are acknowledged and logged but not applied — unlike Bexio, the Lexware
+// service has no InvoiceStatusUpdater wired, so there is nothing to write the
+// new status to. Wire one and dispatch here as soon as paid-status feedback
+// from Lexware is required (Bexio's PaymentPoller is the template).
 func (wh *WebhookHandler) HandleEvent(ctx context.Context, configID, tenantID uuid.UUID, event LexwareWebhookEvent) error {
 	ctx = sysctx.With(ctx)
 
@@ -161,5 +179,32 @@ func (wh *WebhookHandler) HandleEvent(ctx context.Context, configID, tenantID uu
 		Data:     map[string]any{"event_type": event.EventType, "resource_id": event.ResourceID},
 	})
 
-	return nil
+	switch event.EventType {
+	case "contact.created", "contact.changed":
+		if wh.contactSyncer == nil {
+			slog.Warn("lexware webhook: contact syncer not wired, event dropped",
+				"event_type", event.EventType, "resource_id", event.ResourceID)
+			return nil
+		}
+		result, err := wh.contactSyncer.SyncContactByLexwareID(ctx, configID, tenantID, event.ResourceID)
+		if err != nil {
+			return fmt.Errorf("lexware webhook %s: %w", event.EventType, err)
+		}
+		slog.Info("lexware webhook: contact applied",
+			"event_type", event.EventType,
+			"resource_id", event.ResourceID,
+			"created", result.ItemsCreated,
+			"updated", result.ItemsUpdated,
+		)
+		return nil
+
+	case "invoice.status.changed", "quotation.status.changed":
+		slog.Info("lexware webhook: document status event acknowledged but not applied (no status updater wired)",
+			"event_type", event.EventType, "resource_id", event.ResourceID)
+		return nil
+
+	default:
+		slog.Info("lexware webhook: unhandled event type", "event_type", event.EventType)
+		return nil
+	}
 }
