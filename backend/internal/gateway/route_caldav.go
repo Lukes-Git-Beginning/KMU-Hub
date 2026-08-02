@@ -2,8 +2,11 @@ package gateway
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +15,10 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
+
+// caldavTestTimeout bounds each protocol probe in handleTestConnection so a
+// hung upstream connection can't stall the settings page indefinitely.
+const caldavTestTimeout = 5 * time.Second
 
 // CalDAVUserInfo holds user metadata for admin CalDAV management.
 type CalDAVUserInfo struct {
@@ -68,9 +75,16 @@ type CalDAVRoutes struct {
 	userPrefRepo   CalDAVUserPreferenceService
 	ctxInjector    CalDAVCtxInjector
 	authMiddleware func(http.Handler) http.Handler
+	selfBaseURL    string
 }
 
 // NewCalDAVRoutes creates new CalDAV/CardDAV route handler.
+//
+// selfBaseURL is this gateway's own loopback address (e.g. "http://127.0.0.1:8080"),
+// used by handleTestConnection to make a real request against the CalDAV/CardDAV
+// endpoints below. It is deliberately never derived from request headers (Host,
+// X-Forwarded-Host, ...) -- doing so would let any authenticated caller turn the
+// test endpoint into an SSRF probe against an arbitrary target.
 func NewCalDAVRoutes(
 	caldavHandler http.Handler,
 	carddavHandler http.Handler,
@@ -78,6 +92,7 @@ func NewCalDAVRoutes(
 	userPrefRepo CalDAVUserPreferenceService,
 	ctxInjector CalDAVCtxInjector,
 	authMiddleware func(http.Handler) http.Handler,
+	selfBaseURL string,
 ) *CalDAVRoutes {
 	return &CalDAVRoutes{
 		caldavHandler:  caldavHandler,
@@ -86,6 +101,7 @@ func NewCalDAVRoutes(
 		userPrefRepo:   userPrefRepo,
 		ctxInjector:    ctxInjector,
 		authMiddleware: authMiddleware,
+		selfBaseURL:    selfBaseURL,
 	}
 }
 
@@ -134,6 +150,7 @@ func (c *CalDAVRoutes) RegisterRoutes(r chi.Router) {
 		sub.Get("/status", c.handleGetStatus)
 		sub.Put("/enable", c.handleEnableCalDAV)
 		sub.Put("/disable", c.handleDisableCalDAV)
+		sub.Post("/test", c.handleTestConnection)
 	})
 
 	// =========================================================================
@@ -339,6 +356,105 @@ func (c *CalDAVRoutes) handleDisableCalDAV(w http.ResponseWriter, r *http.Reques
 	response.JSON(w, http.StatusOK, map[string]string{
 		"status": "disabled",
 	})
+}
+
+// caldavTestResult is the JSON response of handleTestConnection.
+type caldavTestResult struct {
+	Success          bool   `json:"success"`
+	Message          string `json:"message,omitempty"`
+	CalDAVReachable  bool   `json:"caldav_reachable"`
+	CardDAVReachable bool   `json:"carddav_reachable"`
+}
+
+// handleTestConnection handles POST /api/v1/caldav/test. Unlike a "is a value
+// configured" check, this makes two real, timeout-bounded, authenticated HTTP
+// requests against this server's own /caldav/ and /carddav/ endpoints -- the
+// same request path a real CalDAV/CardDAV client (Apple Calendar, Thunderbird,
+// ...) would use -- through a freshly minted, immediately-revoked app-specific
+// password. A green result therefore proves the full protocol path (Basic
+// Auth validation + WebDAV handler) actually works, not just that the
+// enabled flags are set in the database.
+func (c *CalDAVRoutes) handleTestConnection(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(middleware.GetUserID(r.Context()))
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "invalid user")
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "invalid tenant")
+		return
+	}
+
+	plaintext, pw, err := c.pwService.Create(r.Context(), userID, tenantID, "connection-test")
+	if err != nil {
+		slog.Error("caldav test: failed to create ephemeral password", "user_id", userID, "error", err)
+		response.Error(w, http.StatusInternalServerError, "failed to prepare connection test")
+		return
+	}
+	defer func() {
+		// Use a background context: the request context may already be
+		// cancelled (client navigated away) by the time the probes return,
+		// but the ephemeral password must still be revoked either way.
+		if revokeErr := c.pwService.Revoke(context.Background(), pw.ID, userID); revokeErr != nil {
+			slog.Warn("caldav test: failed to revoke ephemeral password",
+				"password_id", pw.ID, "user_id", userID, "error", revokeErr)
+		}
+	}()
+
+	caldavOK, caldavMsg := c.probeSelf(r.Context(), "/caldav/", userID.String(), plaintext)
+	carddavOK, carddavMsg := c.probeSelf(r.Context(), "/carddav/", userID.String(), plaintext)
+
+	var problems []string
+	if !caldavOK {
+		problems = append(problems, "CalDAV: "+caldavMsg)
+	}
+	if !carddavOK {
+		problems = append(problems, "CardDAV: "+carddavMsg)
+	}
+
+	response.JSON(w, http.StatusOK, caldavTestResult{
+		Success:          caldavOK && carddavOK,
+		Message:          strings.Join(problems, "; "),
+		CalDAVReachable:  caldavOK,
+		CardDAVReachable: carddavOK,
+	})
+}
+
+// probeSelf makes one real HTTP OPTIONS request against this server's own
+// DAV endpoint at path (with HTTP Basic Auth) and classifies the outcome so
+// the caller can tell a network failure from an auth failure from an
+// unexpected protocol response -- never a plain "field is not empty" check.
+// The target is always c.selfBaseURL (loopback), never derived from the
+// incoming request, to rule out SSRF via a spoofed Host header.
+func (c *CalDAVRoutes) probeSelf(ctx context.Context, path, username, password string) (ok bool, message string) {
+	ctx, cancel := context.WithTimeout(ctx, caldavTestTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, c.selfBaseURL+path, nil)
+	if err != nil {
+		return false, "invalid request"
+	}
+	req.SetBasicAuth(username, password)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return false, "timeout"
+		}
+		return false, "network unreachable"
+	}
+	defer resp.Body.Close()
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return false, "authentication failed"
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return true, "reachable"
+	default:
+		return false, fmt.Sprintf("unexpected status %d", resp.StatusCode)
+	}
 }
 
 // =========================================================================

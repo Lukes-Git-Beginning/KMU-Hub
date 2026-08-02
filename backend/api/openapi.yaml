@@ -27321,6 +27321,28 @@ paths:
                 $ref: "#/components/schemas/CaldavStatusResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/caldav/test:
+    post:
+      summary: Test the CalDAV/CardDAV connection for the current user
+      description: >-
+        Makes real, timeout-bounded HTTP requests against this server's own
+        /caldav/ and /carddav/ endpoints using a freshly minted, immediately
+        revoked app-specific password -- the same path a real CalDAV/CardDAV
+        client would use. Distinguishes network failure, auth failure, and
+        unexpected responses instead of only checking that the enabled flags
+        are set.
+      tags: [caldav]
+      operationId: testCaldavConnection
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaldavTestResult"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/caldav/enable:
     put:
       summary: Enable CalDAV/CardDAV for the current user
@@ -41343,6 +41365,20 @@ components:
           type: string
         carddav_url:
           type: string
+
+    CaldavTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: True only if both the CalDAV and the CardDAV probe reached and authenticated successfully
+        message:
+          type: string
+          description: "Human-readable detail for any failed probe (e.g. 'CalDAV: authentication failed'); empty on success"
+        caldav_reachable:
+          type: boolean
+        carddav_reachable:
+          type: boolean
 
     CaldavAdminSettings:
       type: object
