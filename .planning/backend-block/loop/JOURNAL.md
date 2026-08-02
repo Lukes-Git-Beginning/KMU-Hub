@@ -675,3 +675,80 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `SetRolePermissions` ohne Audit-Event, `rbac-format.ts`-Katalogluecke und die nicht
     regenerierte `desktop/src/renderer/src/api/types.ts` bleiben unveraendert offen (FE-seitig
     bzw. Scope-Frage fuer Luke).
+
+## Iteration 11 — g-rls-custom-field-values — done — 2026-08-02 22:20
+- commit: <nachgetragen>
+- gebaut: Migration `000270_rls_crm_custom_field_values` setzt die vier CRM-Custom-Field-Value-
+  Tabellen (`contact_`/`company_`/`deal_`/`activity_custom_field_values`) ueber
+  `enable_tenant_rls_via_join()` unter RLS — Join jeweils auf die Eltern-Entitaet.
+  Dazu `internal/crm/customfield/value_tenant_isolation_test.go` (external test package) mit einem
+  tabellengetriebenen Isolationstest ueber alle vier Repos und einem Merge-Regressionstest.
+  **Kein Go-Produktionscode geaendert** — das ist der Punkt der gewaehlten Loesung.
+- entscheidungen:
+  1. **Join-Policy statt eigener `tenant_id`-Spalte** — bewusst gegen den Praezedenzfall aus
+     Migration 000126 (die fuer `ticket_messages` die Spalte ergaenzt und den Join-Helper
+     ausdruecklich ablehnt). 000126 argumentiert mit Query-Volumen (Plugin-Execution-Log wird in
+     Masse gescannt). Hier trifft das nicht: die vier Tabellen werden ausschliesslich ueber die
+     Eltern-ID gelesen, und die ist die fuehrende Spalte ihres Primaerschluessels. Der teurere Weg
+     waere die Spalte gewesen: `NOT NULL` haette alle vier Schreibpfade in Go erzwungen,
+     inklusive des `INSERT ... SELECT`-Merge in `contact/postgres_repository.go:717` — und ein
+     dabei uebersehener Pfad bricht Schreiben komplett (die dokumentierte NULL-tenant_id-Falle
+     dieses Repos). Migration 000118 nennt den Join-Helper genau dafuer den vorgesehenen Fallback.
+     Er wurde damit **zum ersten Mal produktiv benutzt** — bis jetzt stand er nur definiert im
+     Schema.
+  2. **`task_custom_field_values` gegengeprueft, nicht geglaubt.** Der Backlog vermutete sie
+     ausserhalb der Liste; `pg_class` bestaetigt: `relrowsecurity=t`, eigene `tenant_id`, eine
+     Policy. Zu Recht nicht angefasst.
+  3. **Negativprobe statt Vertrauen ins gruene Ergebnis.** Migration einmal zurueckgerollt und den
+     Test erneut gefahren: alle vier Faelle fallen mit `cross-tenant read ... leaked 1 row(s)`.
+     Damit ist belegt, dass der Test die Luecke wirklich misst und nicht nur mitlaeuft.
+  4. **Merge-Regressionstest zusaetzlich.** `MergeInto` kopiert Custom-Field-Werte mit
+     `INSERT INTO contact_custom_field_values ... SELECT ... FROM contact_custom_field_values`
+     in einer Transaktion — nach dieser Migration filtert die Policy dort **beide** Seiten.
+     Beide Kontakte gehoeren demselben Tenant, es muss also weiter kopieren; ein still leerer
+     Merge waere genau die Phantom-Form, die dieses Repo schon produziert hat. Test beweist, dass
+     der Wert ankommt.
+- befund (real, kein Blocker): die eigentliche Luecke war groesser als "RLS fehlt". **Saemtliche
+  zwoelf Zugriffsstellen filtern nur auf die Eltern-ID** (`WHERE cfv.contact_id = $1`), ohne
+  jeden Tenant-Praedikat — Lesen, Batch-Lesen und der Upsert. Wer eine fremde Kontakt-UUID kannte,
+  konnte deren Custom-Field-Werte lesen **und ueberschreiben**. Deshalb geht der Test durch die
+  echten Repo-Methoden und nicht ueber `SeedRow`: ein Seed-Test haette nur bewiesen, dass ein
+  handgeschriebenes INSERT die Policy respektiert.
+- query-plan (der im Backlog erbetene Check): bei 12 Kontakten waehlt der Planner fuer die
+  Policy-Subquery einen **hashed SubPlan mit Seq Scan auf `contacts`** — bei dieser Groesse die
+  billigere Wahl. Der korrelierte Plan existiert und ist erreichbar: mit `enable_seqscan=off`
+  zeigt derselbe Query `Index Scan using contacts_pkey ... Index Cond: (id = cfv.contact_id)`.
+  Der Planner kippt also kostenbasiert auf den PK-Lookup, sobald `contacts` waechst. Kein
+  Handlungsbedarf, aber der Beleg gehoert hierher statt in eine Behauptung.
+- gate: build ok (`go build -p 2` ueber `./internal/crm/... ./internal/gateway/... ./cmd/crm/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint, **0 issues** ueber `./internal/crm/...`) |
+  test ok — `go test -count=1 ./internal/crm/...` **12 Pakete gruen, 0 Skips**, darunter die neuen
+  `TestTenantIsolation_CRMCustomFieldValues_DB` (4 Subtests) und
+  `TestMergeInto_CarriesCustomFieldValues_DB`, real gelaufen als `kmuhub_app`;
+  `go test -count=1 ./internal/gateway/ ./internal/server/...` gruen. |
+  migration: up/down/up gruen (269 -> 270 -> 269 -> 270), danach per `pg_class`/`pg_policies`
+  verifiziert: alle vier `rowsec=true forced=true` mit Policy
+  `EXISTS (SELECT 1 FROM <parent> p WHERE p.id = <child>.<fk> AND (p.tenant_id =
+  current_tenant_id() OR is_system_context()))`. | rls-smoke: durch die Isolationstests
+  abgedeckt (eigener Tenant 1 Zeile, fremder 0; fremder Upsert laesst den Wert des Eigentuemers
+  unveraendert).
+- verify vorgaenger: sauber. `bfb89c8b` (g-rls-tenant-id-ohne-policy) gegen die acht Klassen
+  geprueft. Keine Route, kein `.proto`, kein neuer Guard. Klasse 5 gezielt nachgezogen, weil die
+  Migration `email_contact_links.tenant_id` auf `NOT NULL` hebt: der einzige Schreibpfad ist
+  `server/email_grpc.go:843 LinkEmailToContact`, er zieht den Tenant aus
+  `middleware.GetTenantID(ctx)` und reicht ihn an `contactlink/repository.go:33` durch; die
+  Lesepfade sind zusaetzlich per `tenant_id = $2` gescopt. Kein Pfad kann die Spalte leer lassen.
+- offen:
+  - Der Join-Helper ist mit dieser Migration erstmals im Einsatz. Wenn `g-rls-regression-guard`
+    (Block B) den Schema-Scan baut, sollte er Join-geschuetzte Tabellen genauso als "geschuetzt"
+    zaehlen wie spalten-geschuetzte — beide zeigen `relrowsecurity=true`, das reicht als Kriterium.
+  - `SeedRow`/`CleanupRow` in `testutil` setzen eine `id`-Spalte voraus (`RETURNING id`,
+    `DELETE ... WHERE id = $1`). Fuer Tabellen mit zusammengesetztem Primaerschluessel — wie diese
+    vier — sind sie unbrauchbar; der Test zaehlt deshalb selbst. Falls weitere Units auf solche
+    Tabellen treffen, lohnt ein Helper mit frei waehlbarem Praedikat.
+  - Naechste Unit laut Backlog: `g-rls-events-partition` (Block B, opus) — `events` ist
+    partitioniert, ohne `tenant_id` und ohne Policy; Entscheidung zwischen Spalte+Backfill (A)
+    und begruendetem Allowlist-Eintrag (B).
+  - Aus Iteration 10 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den uebrigen
+    Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`.

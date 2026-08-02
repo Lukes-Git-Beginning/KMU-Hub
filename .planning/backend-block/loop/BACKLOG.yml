@@ -397,7 +397,7 @@ units:
     service: db
     model: opus
     deps: [g-rls-tenant-id-ohne-policy]
-    status: todo
+    status: done
     scope: >
       Vier Tabellen halten echte Nutzdaten (die Werte benutzerdefinierter Felder), haben aber
       weder `tenant_id` noch RLS — verifiziert am 2026-08-02:
