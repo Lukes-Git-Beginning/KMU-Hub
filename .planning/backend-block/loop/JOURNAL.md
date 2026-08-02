@@ -3177,3 +3177,100 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Produktions-Bringup mit echtem `caldav.Handler`/`carddav.Handler` (go-webdav) und echtem
     `AppPasswordService` gegen Postgres. Sollte Luke morgens einmal per `curl -u <token>` o.ae.
     gegen einen laufenden Dev-Gateway pruefen.
+
+## Iteration 43 — g-lexware-wiring — done — 2026-08-02 (Nachtlauf 3)
+- commit: f2f362f9
+- gebaut:
+  - Alle fuenf oeffentlichen Methoden von `biz/lexware/service.go` rufen jetzt die seit Monaten
+    danebenliegenden Implementierungen auf (Vorbild `bexio/service.go`): Instanzen im Struct, im
+    Konstruktor gebaut, in den Methoden aufgerufen. `SyncContacts` -> `ContactSyncer`,
+    `PushInvoice`/`PushQuote` -> die Pusher, `HandleWebhookEvent` -> `WebhookHandler`.
+    Der doppelte SyncLog-Code in `SyncContacts` ist raus — der Syncer besitzt den Log-Lebenszyklus
+    (running -> completed/partial/failed) und die Last-Sync-Zeit; beides zweimal zu schreiben haette
+    zwei Log-Zeilen pro Lauf erzeugt und den Zeitstempel auch bei Fehlschlag vorgerueckt.
+  - `TestConnection` macht einen echten `GET /v1/profile` (neu: `profile.go`, der billigste
+    authentifizierte Endpoint der Lexware-API). Bisher galt "Key im Vault nicht leer" als
+    verbunden — ein widerrufener oder vertippter Key war gruen und brach erst beim naechsten Sync.
+    Der Client holt den Key selbst aus dem Vault (`lexware_api_key_<tenant>`), also prueft der Test
+    genau das Credential, das die Syncs spaeter benutzen, nicht ein daneben gelesenes.
+  - VIER FUNDE, ohne die "verdrahtet" nur ein No-op mit mehr Ebenen gewesen waere. Der Reihe nach,
+    weil jeder einzelne die Kette in Produktion tot gelassen haette:
+    1. `cmd/biz/main.go:383` uebergab `nil` als ContactService (Kommentar: `nil, // ContactService`).
+       Verdrahtet haette der erste echte Sync auf `cs.contacts.UpdateForSync` gepanict — vorher fiel
+       das nicht auf, weil der Syncer nie lief. Adapter nachgezogen
+       (`cmd/biz/lexware_contact_adapter.go`): duenner Wrapper, der den bestehenden
+       `crmContactAdapter` auf `lexware.ContactService` uebersetzt (die beiden Interfaces sind
+       strukturgleich, nur mit paket-eigenen Typen). ~90 Zeilen Typ-Uebersetzung statt ~200 Zeilen
+       duplizierter gRPC-Logik. Zusaetzlich die nil-Guards, die `bexio/contact_sync.go:161,245`
+       schon hat — ohne CRM_GRPC_ADDRESS wird der Sync uebersprungen statt zu sterben.
+    2. `resolveContactLexwareID` (in beiden Pushern dupliziert) nahm `mappings[0]` — die erstbeste
+       Kontakt-Zuordnung, voellig unabhaengig vom Rechnungsempfaenger. Das ist der gefaehrlichste
+       Fund des Laufs: verdrahtet haette JEDE Rechnung und JEDES Angebot beim falschen
+       Lexware-Kunden gebucht, still und beim Kunden abrechnungsrelevant. Ersetzt durch
+       `contact_resolve.go` nach dem Vorbild `bexio/contact_resolve.go` — exakte Aufloesung ueber
+       `contacts.GetByEmail` + Mapping auf die konkrete Kontakt-UUID; der Fallback ohne
+       ContactService greift nur bei genau EINER vorhandenen Zuordnung und liefert sonst einen
+       Fehler statt eines Rateschlusses. Test `TestPushInvoice_RefusesAmbiguousContact` prueft
+       zusaetzlich, dass in diesem Fall NICHTS an die API geht (`stub.recorded()` leer).
+    3. `HandleWebhookEvent` laeuft pre-JWT (Lexware authentifiziert per HMAC, kein Token) und hatte
+       damit keinen Tenant im Context. Der erste Read auf `integration_configs` (RLS seit 000125)
+       haette 0 Zeilen geliefert -> jeder Webhook waere als "integration not configured"
+       gestorben. `sysctx.With(ctx)` am Eintrittspunkt der Service-Methode, nicht erst in
+       `WebhookHandler.HandleEvent` (das wrappt schon, aber zu spaet — der Config-Read liegt davor).
+    4. Der Gateway (`route_lexware.go`) dekodierte den Webhook-Body als snake_case
+       (`event_type`/`resource_id`), Lexware sendet aber camelCase (`eventType`/`resourceId`, siehe
+       die JSON-Tags an `LexwareWebhookEvent` im selben Repo). Ein echter Lexware-Webhook waere mit
+       leerem event_type an `InvalidArgument` gescheitert — 400 zurueck an Lexware, bevor der
+       Service je erreicht wird. Decode in `parseLexwareWebhookBody` gezogen (testbar ohne
+       gRPC-Registry, weil `getLexwareClient` sonst vorher 503 liefert) und beide Schreibweisen
+       akzeptiert, camelCase gewinnt.
+  - Webhook inhaltlich statt nur delegiert: `contact.created`/`contact.changed` ziehen den
+    geaenderten Datensatz (`GetContact`) und wenden ihn ueber denselben Pro-Datensatz-Pfad an wie ein
+    Bulk-Sync. Dafuer den Schleifenkoerper von `syncInbound` als `upsertInboundContact` extrahiert
+    und `SyncContactByLexwareID` daneben gestellt — Wiederverwendung, keine zweite
+    Create/Update/Skip-Logik. Haette ich nur an `HandleEvent` delegiert, waere der Webhook nach wie
+    vor ein No-op gewesen (die Methode loggte und emittierte nur), nur mit einer Ebene mehr.
+  - `Scheduler.StartAll` nahm `config.CreatedBy` als Tenant-ID. Heute zufaellig identisch (`Connect`
+    setzt `CreatedBy: tenantID`), aber der API-Client baut den Vault-Key aus der Tenant-ID —
+    eine anders angelegte Config haette einen nicht existierenden Key gesucht. Auf
+    `config.TenantID` umgestellt. Relevant erst ab jetzt, weil der Scheduler vorher nichts tat.
+- entscheidung: `invoice.status.changed`/`quotation.status.changed` werden quittiert und geloggt,
+  aber NICHT angewandt. Dem Lexware-Service fehlt ein `InvoiceStatusUpdater` (Bexio hat einen und
+  faehrt darueber sein Payment-Polling); einen einzufuehren haette Interface + Konstruktor-Signatur +
+  Wiring in `cmd/biz` bedeutet und damit die Verdrahtungs-Unit gesprengt. `lean:`-Marker
+  mit Upgrade-Trigger steht in `webhook_handler.go` ("sobald Paid-Status-Rueckmeldung aus Lexware
+  gebraucht wird"), Testfall `TestHandleWebhookEvent_DocumentStatus_IsAcknowledgedOnly` haelt das
+  Verhalten fest, damit es nicht unbemerkt zu einem stillen Fehler wird.
+- gate: build (`./internal/biz/lexware/... ./internal/gateway/... ./internal/server/... ./cmd/biz/...
+  ./cmd/gateway/...`) ok | vet ok | golangci-lint **0 issues** | migration: keine (keine neue
+  Tabelle/Policy) | openapi: kein Eintrag noetig (keine neue Route — der Webhook-Pfad existierte
+  schon, nur sein Decoder war falsch) | Test mit `DATABASE_URL` (Rolle `kmuhub_app`):
+  `internal/biz/lexware` **17 Tests, 0 Skips** (per `-v` gegengeprueft, inkl. der vier
+  DB-Tenant-Isolationstests, die real gegen Postgres liefen), `internal/gateway` ok,
+  `internal/server` ok. 15 neue Tests: 13 in `service_wiring_test.go` (Stub-Lexware-API per
+  `httptest`, jede Operation wird ueber einen ECHTEN HTTP-Request nachgewiesen — ein Rueckgabewert
+  von nil beweist bei dieser Unit gar nichts, genau das war ja der Bestand), 1 Table-Test fuer den
+  Webhook-Decode, 1 fuer den nicht konfigurierten Webhook.
+- verify vorgaenger: sauber (`3b481316`, CalDAV-Testendpoint) — kein Stub, Probe-Ziel aus der
+  eigenen Config statt aus `r.Host` (SSRF dicht), App-Passwort im `defer` mit
+  `context.Background()` revoked (ueberlebt Client-Abbruch), `openapi.yaml` im selben Commit,
+  kein neuer Guard. Ein Detail nachgeprueft: die Route umgeht keinen gRPC-Client — die
+  CalDAV-Nachbarrouten (`/status`, `/enable`, `/disable`) arbeiten alle direkt ueber
+  `pwService`/`userPrefRepo` am Pool, das ist das Bestandsmuster dieses Moduls und kein
+  Direct-Service-Bypass im Gateway-Sinn.
+- offen:
+  - Kein echter Lauf gegen die Lexware-Sandbox (Loop-Policy: kein externer Netzzugriff, kein
+    API-Key). Alle Aussagen ueber die API-Form stuetzen sich auf den bestehenden Client/Parser im
+    Repo (`v1/contacts`, `v1/invoices`, `v1/quotations`, Bearer-Auth, page/size-Paginierung) und auf
+    `v1/profile` als Standard-Ping. Sollte der Profile-Endpoint in der genutzten API-Version anders
+    heissen, faellt genau `TestConnection` auf die Nase — sichtbar und mit klarer Meldung, nicht
+    still. Vor dem ersten Kundeneinsatz einmal gegen echte Credentials fahren.
+  - `LEXWARE_WEBHOOK_SECRET` + `RegisterWebhooks` sind weiterhin nicht automatisch verdrahtet:
+    `Connect` legt die Sync-Config an, registriert aber keine Webhook-Subscriptions bei Lexware
+    (`WebhookHandler.RegisterWebhooks` wird von nirgendwo aufgerufen). Ohne diesen Schritt kommen
+    real gar keine Events an, egal wie gut der Empfangspfad jetzt ist. Kandidat fuer eine Folge-Unit
+    — braucht eine oeffentlich erreichbare Callback-URL aus der Config, also eine Entscheidung
+    ueber deren Herkunft (nicht aus Request-Headern ableiten, siehe Iteration 42).
+  - `TriggerSync` schluckt weiterhin den Fehler von `SyncContacts` (loggt und gibt nil zurueck) —
+    der manuelle "Jetzt synchronisieren"-Knopf meldet damit immer Erfolg. Nicht angefasst, weil es
+    ausserhalb der Verdrahtungs-Unit liegt; als eigener Fund notiert.
