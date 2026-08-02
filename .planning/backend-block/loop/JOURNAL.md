@@ -844,7 +844,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 13 — g-rls-allowlist-audit — done — 2026-08-02 22:30
 
-- commit: (siehe naechster docs(loop)-Commit)
+- commit: a732b743
 - gebaut:
   - `000272_rls_refresh_tokens_and_plugin_permissions` — `refresh_tokens` bekommt `tenant_id NOT
     NULL` (Backfill per Join ueber `user_id -> users.tenant_id`, FK garantiert 0 Waisen, kein
