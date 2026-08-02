@@ -444,6 +444,36 @@ func (m *authMockRepo) DeleteAllUserSessions(_ context.Context, userID uuid.UUID
 	return nil
 }
 
+func (m *authMockRepo) RotateSessionRefreshToken(_ context.Context, oldTokenID, newTokenID uuid.UUID, ipAddress, userAgent string) (bool, error) {
+	for _, s := range m.sessions {
+		if s.RefreshTokenID != nil && *s.RefreshTokenID == oldTokenID {
+			s.RefreshTokenID = &newTokenID
+			if ipAddress != "" {
+				s.IPAddress = ipAddress
+			}
+			if userAgent != "" {
+				s.UserAgent = userAgent
+			}
+			s.LastActiveAt = time.Now()
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *authMockRepo) DeleteSessionByRefreshTokenID(_ context.Context, refreshTokenID uuid.UUID) error {
+	for id, s := range m.sessions {
+		if s.RefreshTokenID != nil && *s.RefreshTokenID == refreshTokenID {
+			delete(m.sessions, id)
+		}
+	}
+	return nil
+}
+
+func (m *authMockRepo) DeleteStaleUserSessions(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *authMockRepo) CreatePasswordResetToken(_ context.Context, _ *models.PasswordResetToken) error {
 	return nil
 }

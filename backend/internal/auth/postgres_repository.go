@@ -730,8 +730,11 @@ func (r *PostgresRepository) UpsertTwoFactorPolicy(ctx context.Context, policy *
 
 func (r *PostgresRepository) CreateSession(ctx context.Context, session *models.UserSession) error {
 	_, err := r.pool.Exec(ctx,
+		// ip_address is INET: binding the empty string fails the whole insert
+		// with SQLSTATE 22P02, so an unknown address has to become SQL NULL.
+		// A login must not fail because the peer address could not be read.
 		`INSERT INTO user_sessions (id, tenant_id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::inet, $8, $9, $10, $11)`,
 		session.ID, session.TenantID, session.UserID, session.RefreshTokenID,
 		session.DeviceName, session.DeviceType, session.IPAddress,
 		session.Location, session.UserAgent,
@@ -743,7 +746,7 @@ func (r *PostgresRepository) CreateSession(ctx context.Context, session *models.
 func (r *PostgresRepository) GetSession(ctx context.Context, id uuid.UUID) (*models.UserSession, error) {
 	var s models.UserSession
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(host(ip_address), ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions WHERE id = $1`, id,
 	).Scan(&s.ID, &s.UserID, &s.RefreshTokenID, &s.DeviceName, &s.DeviceType,
 		&s.IPAddress, &s.Location, &s.UserAgent, &s.LastActiveAt, &s.CreatedAt)
@@ -755,7 +758,7 @@ func (r *PostgresRepository) GetSession(ctx context.Context, id uuid.UUID) (*mod
 
 func (r *PostgresRepository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]*models.UserSession, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(host(ip_address), ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions WHERE user_id = $1
 		 ORDER BY last_active_at DESC`, userID,
 	)
@@ -783,7 +786,7 @@ func (r *PostgresRepository) ListAllSessions(ctx context.Context, offset, limit 
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(host(ip_address), ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions
 		 ORDER BY last_active_at DESC
 		 LIMIT $1 OFFSET $2`, limit, offset,
@@ -829,6 +832,46 @@ func (r *PostgresRepository) DeleteAllUserSessions(ctx context.Context, userID u
 	}
 	_, err := r.pool.Exec(ctx,
 		`DELETE FROM user_sessions WHERE user_id = $1`, userID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) RotateSessionRefreshToken(ctx context.Context, oldTokenID, newTokenID uuid.UUID, ipAddress, userAgent string) (bool, error) {
+	// COALESCE keeps the previously recorded device when the caller has no
+	// value this time round — an empty user agent is missing information, not
+	// the statement that the device changed.
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE user_sessions
+		    SET refresh_token_id = $2,
+		        ip_address = COALESCE(NULLIF($3, '')::inet, ip_address),
+		        user_agent = COALESCE(NULLIF($4, ''), user_agent),
+		        last_active_at = NOW()
+		  WHERE refresh_token_id = $1`,
+		oldTokenID, newTokenID, ipAddress, userAgent,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func (r *PostgresRepository) DeleteSessionByRefreshTokenID(ctx context.Context, refreshTokenID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM user_sessions WHERE refresh_token_id = $1`, refreshTokenID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) DeleteStaleUserSessions(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM user_sessions
+		  WHERE user_id = $1
+		    AND (refresh_token_id IS NULL
+		         OR refresh_token_id IN (
+		             SELECT id FROM refresh_tokens
+		              WHERE revoked = TRUE OR expires_at < NOW()
+		         ))`,
+		userID,
 	)
 	return err
 }

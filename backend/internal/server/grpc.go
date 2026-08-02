@@ -579,12 +579,14 @@ func (s *AuthGRPCServer) TerminateSession(ctx context.Context, req *authv1.Termi
 		return nil, status.Error(codes.InvalidArgument, "invalid session id")
 	}
 
-	// UserId is available for authorization checks but TerminateSession only needs sessionID
-	if _, err := uuid.Parse(req.UserId); err != nil {
+	// The session must belong to the caller — the gateway fills UserId from
+	// the JWT, the session id comes from the URL.
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.authService.TerminateSession(ctx, sessionID); err != nil {
+	if err := s.authService.TerminateSession(ctx, sessionID, userID); err != nil {
 		return nil, mapError(err)
 	}
 

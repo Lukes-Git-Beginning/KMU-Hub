@@ -1712,11 +1712,14 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       `Service.CreateSession`/`ListSessions`/`TerminateSession` existieren, sind aber in keinem
       Handler verdrahtet, und `Login`/`Register`/`RefreshToken` erzeugen nie eine
       `user_sessions`-Zeile. Das Geraetelisten- und Fremd-Logout-Feature ist damit totes Gewicht.
+
+      KORREKTUR (Fund beim Bau, 2026-08-02): die Leseseite WAR verdrahtet — vier Routen, gRPC-Handler
+      und openapi-Eintraege existierten. Gefehlt hat nur die Schreibseite. Erledigt in Iteration 44.
     sources:
       - backend/internal/auth/service.go
       - .planning/backend-block/loop/archive/lauf-1-2/JOURNAL.md
@@ -1730,6 +1733,24 @@ units:
       gebunden worden (SQLSTATE 22P02, in Iteration 60 gefixt). Falls `user_sessions` eine
       INET-Spalte hat, hier denselben Fehler vermeiden — leerer String muss SQL-NULL werden.
       Kein neuer RequirePermission-Guard (eigene Sessions darf jeder sehen).
+
+      ERGEBNIS (2026-08-02, Iteration 44). Fuer Folge-Units relevant:
+      (a) NEUER TRANSPORTWEG fuer Request-Metadaten: `internal/clientctx` (Info{IP, UserAgent}),
+          gefuellt von `middleware.ClientInfo(behindProxy)` im Gateway, weitergereicht von den
+          BESTEHENDEN Interceptoren in `grpc_tenant.go` (`x-client-ip`/`x-client-user-agent`),
+          gelesen per `clientctx.From(ctx)`. Wer sonst IP/User-Agent im Service braucht, nimmt
+          diesen Weg statt Proto-Felder anzuhaengen. Eigenes Paket wegen des Zyklus
+          middleware -> auth, genau wie `sysctx`.
+      (b) `createTokenPair(ctx, user, rotatedFrom *uuid.UUID)` — Sessions entstehen ausschliesslich
+          dort. Neuer Token-Pfad? `nil` uebergeben. Rotation? Alte Token-ID uebergeben, sonst
+          waechst die Geraeteliste pro Refresh.
+      (c) `TerminateSession` hat jetzt einen `ownerID`-Parameter (war ein IDOR: der Handler parste
+          die User-ID und warf sie weg). Fremde Session -> `ErrSessionNotFound`, nicht Forbidden.
+      (d) INET-Spalten: schreiben mit `NULLIF($n,'')::inet`, lesen mit `host(col)` — `col::text`
+          liefert `1.2.3.4/32` und das landet sonst als "IP-Adresse" in der UI.
+      (e) Offen geblieben: `is_current` ist nicht befuellbar, weil der Client seine eigene
+          Session-ID nirgends erfaehrt (weder JWT-Claim noch Login-Antwort). Damit ist auch
+          `current_session_id` an `DELETE /auth/sessions` von aussen unbenutzbar. Eigener Schnitt.
     done_when:
       - Login/Refresh erzeugen Sessions
       - Auflisten und Beenden verdrahtet, Refresh-Token wird beim Beenden ungueltig

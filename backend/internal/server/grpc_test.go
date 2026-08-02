@@ -930,6 +930,29 @@ func TestAuthGRPC_TerminateSession(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
+
+	// The gateway fills UserId from the JWT, SessionId comes from the URL —
+	// so this is the only thing standing between a signed-in user and signing
+	// out anyone else whose session id they can guess.
+	t.Run("session of another user is not found", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		owner := createAuthTestUser(repo, "owner@example.com", "pass", true)
+		stranger := createAuthTestUser(repo, "stranger@example.com", "pass", true)
+		sessID := uuid.New()
+		repo.sessions[sessID] = &models.UserSession{
+			ID: sessID, UserID: owner.ID, CreatedAt: time.Now(), LastActiveAt: time.Now(),
+		}
+
+		_, err := srv.TerminateSession(ctx, &authv1.TerminateSessionRequest{
+			SessionId: sessID.String(),
+			UserId:    stranger.ID.String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+
+		if _, ok := repo.sessions[sessID]; !ok {
+			t.Error("the owner's session was deleted by a stranger's request")
+		}
+	})
 }
 
 func TestAuthGRPC_TerminateAllSessions(t *testing.T) {

@@ -3274,3 +3274,85 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `TriggerSync` schluckt weiterhin den Fehler von `SyncContacts` (loggt und gibt nil zurueck) —
     der manuelle "Jetzt synchronisieren"-Knopf meldet damit immer Erfolg. Nicht angefasst, weil es
     ausserhalb der Verdrahtungs-Unit liegt; als eigener Fund notiert.
+
+## Iteration 44 — g-auth-sessions-wiring — done — 2026-08-02 03:5x
+- commit: <sha>
+- gebaut: Die Geraeteliste hat jetzt Inhalt. Bisher schrieb kein Pfad je eine
+  `user_sessions`-Zeile — `Service.CreateSession` existierte, wurde aber von niemandem gerufen, also
+  war `GET /auth/sessions` in Produktion eine garantiert leere Liste und `DELETE /auth/sessions/{id}`
+  hatte nie ein Ziel.
+  - **Der Backlog-Text ist zur Haelfte veraltet:** die Routen (`GET /auth/sessions`,
+    `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions`, `GET /auth/sessions/all`) samt
+    gRPC-Handlern und openapi-Eintraegen existierten bereits und gehen sauber ueber
+    `getAuthClient()`. Gefehlt hat nur die Schreibseite — und die Terminate-Route war unsicher
+    (siehe unten). Neue Routen sind deshalb keine dazugekommen.
+  - **Schreibseite an genau einer Stelle:** `createTokenPair` ist der einzige Ort, durch den alle
+    fuenf Token-Pfade laufen (Register, Login, 2FA-Abschluss, Refresh, Einladungsannahme). Dort
+    haengt jetzt `recordSession`. Ein zweiter Parameter `rotatedFrom *uuid.UUID` unterscheidet
+    Neuanmeldung von Rotation: bei Refresh wird die BESTEHENDE Zeile auf den neuen Token
+    umgehaengt, nicht eine zweite angelegt. Ohne das waere die Geraeteliste um einen Eintrag pro
+    Refresh-Intervall (15 min) gewachsen, jeder davon wie ein eigener Login aussehend.
+  - **Transportweg fuer IP/User-Agent ohne Proto-Aenderung:** neues Mini-Paket
+    `internal/clientctx` (analog `sysctx`, aus demselben Grund — `middleware` importiert `auth`,
+    die Keys koennen also nicht in `middleware` liegen). Kette: neue HTTP-Middleware
+    `middleware.ClientInfo(behindProxy)` (nutzt das bestehende `ClientIPTrusted`, also die
+    proxy-sichere Variante) -> Context -> die BESTEHENDEN Interceptoren in `grpc_tenant.go` um zwei
+    Header erweitert (`x-client-ip`, `x-client-user-agent`) -> Service-Context. Alternative waere
+    gewesen, vier Proto-Messages zu erweitern und zu regenerieren; der Interceptor war schon da.
+  - **Aufbewahrung:** `DeleteStaleUserSessions` raeumt beim Anmelden die Zeilen weg, deren
+    Refresh-Token weg/revoked/abgelaufen ist (nicht mehr erreichbar, tragen aber IP + Geraet).
+    `Logout` loescht die Zeile des abgemeldeten Geraets — vorher waere sie als "aktiv" stehen
+    geblieben. `lean:`-Marker mit Upgrade-Trigger auf einen Scheduler steht an `recordSession`.
+- sicherheitsfund im bestand (behoben, war der eigentliche Fund der Unit): `TerminateSession`
+  parste `req.UserId` und **warf ihn weg** — Kommentar im Code: "UserId is available for
+  authorization checks but TerminateSession only needs sessionID". Die Session-ID kommt aus der URL
+  einer authentifizierten Route, die User-ID aus dem JWT. Jeder eingeloggte User konnte damit jede
+  fremde Session beenden, deren ID er kannte oder erriet — inklusive Revoke des fremden
+  Refresh-Tokens, also ein Fremd-Logout per Request. RLS haette nur tenant-uebergreifend gebremst,
+  innerhalb eines Tenants gar nicht. Jetzt prueft der **Service** die Zugehoerigkeit
+  (`TerminateSession(ctx, sessionID, ownerID)`) und meldet `ErrSessionNotFound` statt Forbidden,
+  damit die Existenz einer fremden ID nicht abfragbar ist. Test auf gRPC-Ebene ergaenzt, weil dort
+  der weggeworfene Parameter sass.
+- zweiter fund (behoben, vom DB-Test aufgedeckt): die drei Session-SELECTs lasen
+  `COALESCE(ip_address::text, '')` — INET castet MIT Praefixlaenge, die API haette also
+  `203.0.113.7/32` als IP-Adresse des Geraets ausgeliefert. Auf `host(ip_address)` umgestellt.
+  Waere ohne echten DB-Test nicht aufgefallen: der Mock haelt einen String.
+- dritter fund (praeventiv behoben): `ip_address` ist INET, und der INSERT band den Go-String
+  direkt. Ein leerer String (kein XFF, kein lesbares RemoteAddr) haette den ganzen INSERT mit
+  SQLSTATE 22P02 gekippt — exakt der Fehler aus `security/audit`, Iteration 60 in Lauf 1. Jetzt
+  `NULLIF($7,'')::inet`. Eigener Test dafuer (`LoginWithoutClientInfo`): eine unlesbare
+  Client-Adresse darf niemanden am Anmelden hindern.
+- entscheidung: Session-Schreibfehler werden geloggt, nicht hochgereicht. Die Geraeteliste ist eine
+  Komfortansicht; einen gueltigen Login abzulehnen, weil seine Buchhaltungszeile nicht geschrieben
+  werden konnte, tauscht ein kosmetisches Problem gegen eine Aussperrung. Testfall haelt das fest.
+- gate: build (`./internal/... ./cmd/gateway/... ./cmd/auth/...`, `-p 2` wegen OOM bei vollem
+  `./...`) ok | vet ok | golangci-lint **0 issues** | migration: keine (Tabelle, Spalten und RLS
+  existieren seit 000039/000114/000120) | openapi: kein neuer Pfad; die 404-Antwort von
+  `DELETE /auth/sessions/{id}` deckt jetzt zusaetzlich "gehoert einem anderen User" ab, das steht
+  im selben Commit in der Beschreibung | rls-smoke: die vier Bestands-Tests in
+  `rls_user_sessions_test.go` liefen real mit (siehe Skip-Zahl) | Test mit `DATABASE_URL`
+  (Rolle `kmuhub_app`): `internal/auth` **114 Tests, 0 Skips** (per `-v` gezaehlt),
+  `internal/server` ok, `internal/gateway` ok (TestOpenAPIRouteDrift), `internal/middleware` ok.
+  14 neue Tests: 4 DB-Lifecycle (Login->Refresh->Logout, Login ohne Client-Info, Fremd-Terminate
+  abgelehnt, Terminate macht Refresh-Token ungueltig), 6 Service-Verdrahtung, 1 gRPC-Ownership,
+  4 Transportkette (inkl. Interceptor-Paar-Roundtrip).
+- verify vorgaenger: sauber (`f2f362f9`, Lexware-Verdrahtung) — keine Stubs, kein Proto-Drift, keine
+  neue Route ohne openapi-Eintrag, kein neuer Guard ohne Seed; `sysctx` sitzt am
+  HMAC-authentifizierten Webhook-Eintritt und ist dort begruendet. **Ein Nebenfund, nicht meine
+  Unit:** `Service.HandleWebhookEvent` liest die Config unter `sysctx` per
+  `configRepo.GetByPlatform(ctx, "lexware")` — ohne Tenant-Bedingung. Bei mehreren Tenants mit
+  Lexware-Integration bekommt jeder Webhook die zufaellig erste Zeile und bucht auf den falschen
+  Tenant. Vor der Verdrahtung war es harmlos (0 Zeilen, alles schlug fehl), jetzt schreibt es.
+  Der Webhook traegt eine `organization_id` — darueber waere die Config eindeutig aufloesbar.
+  Heute nicht akut (Daten sind Single-Tenant), aber vor Tenant 2 zu schliessen.
+- offen:
+  - `is_current` bleibt auf allen Zeilen `false`. Die Spalte existiert seit 000039 und das Proto
+    liefert sie aus, aber kein Leseweg kennt die eigene Session-ID: der Client sieht sie nirgends,
+    weil sie weder im JWT noch in einer Login-Antwort steht. Folge: die UI kann "dieses Geraet"
+    nicht markieren, und der Query-Parameter `current_session_id` von
+    `DELETE /auth/sessions` ist von aussen nicht befuellbar — "alle anderen abmelden" meldet damit
+    heute zwangslaeufig auch das eigene Geraet ab. Sauber loesbar nur mit der Session-ID im
+    Token (JWT-Claim oder Login-Response), das ist ein eigener Schnitt.
+  - Kein Gateway-HTTP-Test fuer die Session-Routen (die Route-Tests des Pakets pruefen dort nur
+    503/400 vor dem gRPC-Call). Die Ownership-Pruefung ist auf gRPC- und Service-Ebene getestet,
+    der HTTP-Weg dorthin nicht.

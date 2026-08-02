@@ -61,10 +61,25 @@ func (s *Service) ListAllSessions(ctx context.Context, offset, limit int) ([]*mo
 }
 
 // TerminateSession deletes a session and revokes its associated refresh token.
-func (s *Service) TerminateSession(ctx context.Context, sessionID uuid.UUID) error {
+//
+// ownerID is the user the session must belong to. A session id is a bearer
+// value in the URL of an authenticated route, so without this check any signed
+// in user could sign out any other by guessing or replaying an id. Mismatch is
+// reported as not-found rather than forbidden: whether a given id exists is
+// not something a stranger should be able to learn.
+func (s *Service) TerminateSession(ctx context.Context, sessionID, ownerID uuid.UUID) error {
 	session, err := s.repo.GetSession(ctx, sessionID)
 	if err != nil {
 		return err
+	}
+
+	if session.UserID != ownerID {
+		slog.Warn("rejected attempt to terminate another user's session",
+			"session_id", sessionID,
+			"session_user_id", session.UserID,
+			"caller_user_id", ownerID,
+		)
+		return ErrSessionNotFound
 	}
 
 	// Revoke the associated refresh token

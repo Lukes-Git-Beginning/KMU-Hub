@@ -147,6 +147,11 @@ func main() {
 	r.Use(middleware.SecurityHeaders(cfg.BehindProxy))
 	r.Use(middleware.Logging)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
+	// Records the caller's IP/user agent in the context so the outbound gRPC
+	// interceptor can forward them. Must sit above the route groups, not
+	// inside the authenticated one: login is the call that creates the
+	// session row those values describe.
+	r.Use(middleware.ClientInfo(cfg.BehindProxy))
 
 	// IP filter middleware: reject blocked IPs before rate limiting
 	ipFilter := gateway.NewIPFilterMiddleware(registry, cfg.BehindProxy)
