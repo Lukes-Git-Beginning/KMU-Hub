@@ -4374,6 +4374,7 @@ func (x *UpdateTaskCommentResponse) GetComment() *TaskCommentProto {
 type DeleteTaskCommentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	IsAdmin       bool                   `protobuf:"varint,2,opt,name=is_admin,json=isAdmin,proto3" json:"is_admin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4413,6 +4414,13 @@ func (x *DeleteTaskCommentRequest) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *DeleteTaskCommentRequest) GetIsAdmin() bool {
+	if x != nil {
+		return x.IsAdmin
+	}
+	return false
 }
 
 type DeleteTaskCommentResponse struct {
@@ -9196,9 +9204,10 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\"P\n" +
 	"\x19UpdateTaskCommentResponse\x123\n" +
-	"\acomment\x18\x01 \x01(\v2\x19.work.v1.TaskCommentProtoR\acomment\"*\n" +
+	"\acomment\x18\x01 \x01(\v2\x19.work.v1.TaskCommentProtoR\acomment\"E\n" +
 	"\x18DeleteTaskCommentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1b\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\"\x1b\n" +
 	"\x19DeleteTaskCommentResponse\"c\n" +
 	"\x17ListTaskCommentsRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +

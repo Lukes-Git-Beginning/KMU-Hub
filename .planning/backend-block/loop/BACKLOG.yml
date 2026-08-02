@@ -48,7 +48,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Fund beim Bau von `g-dokumente-comments` (2026-08-02, dokumente-Kommentare als neues Feature
       angelegt, `work/comment` als Vorbild gelesen — dabei fiel dieser Bestandsbug auf):

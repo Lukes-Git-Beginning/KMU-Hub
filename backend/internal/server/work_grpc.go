@@ -1031,8 +1031,12 @@ func (s *WorkGRPCServer) UpdateTaskComment(ctx context.Context, req *workv1.Upda
 		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
 	}
 
-	// Use uuid.Nil as actorID since gateway handles auth
-	if err := s.commentService.Update(ctx, id, req.Content, uuid.Nil); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.commentService.Update(ctx, id, req.Content, actorID); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1047,7 +1051,12 @@ func (s *WorkGRPCServer) DeleteTaskComment(ctx context.Context, req *workv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
 	}
 
-	if err := s.commentService.Delete(ctx, id, uuid.Nil, true); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.commentService.Delete(ctx, id, actorID, req.IsAdmin); err != nil {
 		return nil, mapWorkError(err)
 	}
 

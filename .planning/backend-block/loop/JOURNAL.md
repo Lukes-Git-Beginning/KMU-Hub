@@ -4116,3 +4116,60 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `fix-g-work-task-comment-authz` (neu angelegt) wartet auf eine kuenftige Iteration.
   - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration, wie im Auftrag der
     Unit vorgesehen (`backend-gaps.md` listet nur "Comment-Tabelle + Endpoints", keine FE-UI).
+
+## Iteration 58 — fix-g-work-task-comment-authz — done — 2026-08-02 06:30
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `65f5918f` (Iteration 57, g-dokumente-comments) `git show --stat`
+  gepruefter Diff deckt sich mit dem Journal-Eintrag: `route_document.go` geht durchgehend ueber
+  `getDocumentClient()`/`client.<RPC>`, kein direkter Service-Zugriff; `document.proto` +
+  `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert; Migration 000265 hat `tenant_id UUID NOT NULL`
+  + `CALL enable_tenant_rls('document_file_comments')` verifiziert; `document_grpc.go` nutzt fuer
+  Create/Update/Delete durchgehend `actorIDFromContext(ctx)`, nie `uuid.Nil`; `DeleteFileComment`
+  bekommt `IsAdmin` explizit von der Gateway (`middleware.IsAdmin(r.Context())`), kein
+  Autor-Check-Bypass; keine neuen `RequirePermission`-Keys, also kein Seed-Bedarf; kein neuer
+  `/api/v1/*`-Pfad ohne openapi.yaml-Eintrag (`TestOpenAPIRouteDrift` bestand mit +2/+2). Kein
+  Nacharbeitsbedarf.
+- Auftrag: Nebenfund aus `g-dokumente-comments` beheben — `WorkGRPCServer.UpdateTaskComment`/
+  `DeleteTaskComment` (`internal/server/work_grpc.go:1028-1055`) reichten den Actor falsch durch:
+  `UpdateTaskComment` rief den Service mit hartkodiertem `actorID=uuid.Nil` auf (Autor-Vergleich
+  `AuthorID != actorID` also praktisch immer wahr → JEDES Update schlug mit
+  `ErrCannotEditOthersComment` fehl, Feature de-facto kaputt), `DeleteTaskComment` rief mit
+  `isAdmin=true` hardcoded auf (kompletter Bypass des Autor-Checks — jeder User mit
+  `work:task_comment:delete` konnte jeden fremden Kommentar loeschen).
+- gebaut:
+  - `proto/work/v1/work.proto`: `DeleteTaskCommentRequest` bekommt `bool is_admin = 2`, Regen
+    (`protoc` direkt, exaktes Kommando aus dem `proto`-Makefile-Target uebernommen — kein
+    dediziertes `proto-work`-Target vorhanden) im selben Commit.
+  - `internal/server/work_grpc.go`: `UpdateTaskComment`/`DeleteTaskComment` nutzen jetzt
+    `actorIDFromContext(ctx)` (bereits in `document_grpc.go` definiert, selbes Package `server` —
+    keine Dopplung, direkt wiederverwendet) statt `uuid.Nil`; `DeleteTaskComment` reicht
+    `req.IsAdmin` statt hartkodiertem `true` an `commentService.Delete`.
+  - `internal/gateway/route_work_tasks.go`: `HandleDeleteTaskComment` befuellt
+    `IsAdmin: middleware.IsAdmin(r.Context())` — der einzige Ort, an dem die Rolle bekannt ist
+    (Rollen propagieren nicht ueber den internen gRPC-Hop, nur `x-tenant-id`/`x-user-id`, exakt das
+    Muster aus `g-dokumente-comments`). `HandleUpdateTaskComment` unveraendert, braucht kein
+    `is_admin` (nur Autor darf editieren).
+  - `internal/server/work_comment_test.go` (neu): 6 Testfaelle auf gRPC-Handler-Ebene (nicht nur
+    Service, siehe `done_when`) mit `commentAuthzMockRepo` (echtes `GetByID` statt
+    `commentStubRepo`s `ErrNotFound`-Stub) — Autor-darf-editieren, Nicht-Autor-gesperrt (Content
+    bleibt unveraendert geprueft), fehlender Actor-Context → Unauthenticated, Autor-darf-loeschen,
+    Nicht-Autor-Nicht-Admin-gesperrt (Kommentar bleibt bestehen geprueft), Admin-darf-fremde-loeschen.
+    `comment.Service.Update`/`Delete` selbst waren nie das Problem (deren Tests in
+    `work/comment/service_test.go` bestanden schon vorher) — der Bug sass ausschliesslich in der
+    Verdrahtung des gRPC-Handlers, deshalb testet dieser Commit genau diese Schicht.
+- gate: `go build -p 2 ./internal/work/... ./internal/gateway/... ./internal/server/...
+  ./proto/work/... ./cmd/work/... ./cmd/gateway/...` ok | `go vet` auf denselben Paketen ok |
+  `golangci-lint run --config .golangci.yml ./internal/work/... ./internal/gateway/...
+  ./internal/server/...`: 0 issues |
+  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable go test
+  -count=1 ./internal/work/...` PASS (alle Sub-Pakete, keine Skips) | `go test -count=1 -v
+  ./internal/server/... -run TaskComment`: alle 6 neuen Tests PASS | `go test -count=1
+  ./internal/server/...` PASS | `go test -count=1 -v ./internal/gateway/ -run
+  TestOpenAPIRouteDrift`: PASS, 774 Routen gegen 776 dokumentierte Pfade (unveraendert — keine neue
+  Route, nur Handler-Wiring) | `go test -count=1 ./internal/gateway/` PASS. Keine Migration, keine
+  Tabelle, kein RLS-Bezug in dieser Unit — RLS-Smoke n.a.
+- offen:
+  - Keine. Fix ist vollstaendig: Create war nie betroffen (Autor kam dort schon vorher aus
+    `middleware.GetUserID` in der Gateway, nicht aus dem gRPC-Handler), List braucht keinen
+    Actor-Check.

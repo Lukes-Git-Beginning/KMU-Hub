@@ -576,6 +576,7 @@ message UpdateTaskCommentResponse {
 
 message DeleteTaskCommentRequest {
   string id = 1;
+  bool is_admin = 2;
 }
 
 message DeleteTaskCommentResponse {}
