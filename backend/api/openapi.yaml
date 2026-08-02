@@ -1399,6 +1399,75 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/contacts/{id}/files:
+    get:
+      summary: List contact files
+      tags: [contact-files]
+      operationId: listContactFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactFileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      summary: Attach file to contact
+      tags: [contact-files]
+      operationId: createContactFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, storage_key, file_size]
+              properties:
+                filename:
+                  type: string
+                mime_type:
+                  type: string
+                storage_key:
+                  type: string
+                file_size:
+                  type: integer
+                  format: int64
+      responses:
+        "201":
+          description: File attached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file:
+                    $ref: "#/components/schemas/ContactFileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/contacts/{id}/tags:
     post:
       summary: Add tags to contact
@@ -32629,6 +32698,25 @@ components:
           type: string
           format: uuid
         uploaded_by_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ContactFileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        storage_key:
           type: string
         created_at:
           type: string

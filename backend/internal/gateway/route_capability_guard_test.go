@@ -275,6 +275,11 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"contact tags add, catalogue edit key maps to it", crmRouter, "POST", "/api/v1/contacts/" + articleID + "/tags", []string{"crm:contact:edit"}, allowed},
 		{"contact import csv, catalogue key only", crmRouter, "POST", "/api/v1/contacts/import/csv", []string{"crm:import:run"}, allowed},
 		{"contact export csv, catalogue key only", crmRouter, "POST", "/api/v1/contacts/export/csv", []string{"crm:contact:export"}, allowed},
+		{"contact files list, legacy key only", crmRouter, "GET", "/api/v1/contacts/" + articleID + "/files", []string{"contacts:read"}, allowed},
+		{"contact files list, catalogue key only", crmRouter, "GET", "/api/v1/contacts/" + articleID + "/files", []string{"crm:contact:read"}, allowed},
+		{"contact files list, neither key", crmRouter, "GET", "/api/v1/contacts/" + articleID + "/files", []string{"crm:deal:read"}, denied},
+		{"contact files create, catalogue edit key maps to it", crmRouter, "POST", "/api/v1/contacts/" + articleID + "/files", []string{"crm:contact:edit"}, allowed},
+		{"contact files create, neither key", crmRouter, "POST", "/api/v1/contacts/" + articleID + "/files", []string{"crm:deal:edit"}, denied},
 
 		// --- crm: contact visibility has no FE caller, untouched ---
 		{"contact visibility still requires contacts:write only", crmRouter, "PUT", "/api/v1/contacts/" + articleID + "/visibility", []string{"crm:contact:edit"}, denied},

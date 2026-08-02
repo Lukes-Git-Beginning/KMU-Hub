@@ -332,15 +332,15 @@ func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UU
 	return links, rows.Err()
 }
 
-func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentFile, error) {
+func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT f.id, f.folder_id, f.filename, f.mime_type, f.file_size, f.storage_key, f.thumbnail_key,
 		        f.current_version, f.owner_id, f.is_favorite, f.is_deleted, f.content_text,
 		        f.created_at, f.updated_at, f.deleted_at
 		 FROM document_files f
 		 JOIN document_entity_links del ON f.id = del.file_id
-		 WHERE del.entity_type = $1 AND del.entity_id = $2 AND NOT f.is_deleted
-		 ORDER BY f.created_at DESC`, entityType, entityID)
+		 WHERE del.entity_type = $1 AND del.entity_id = $2 AND del.tenant_id = $3 AND f.tenant_id = $3 AND NOT f.is_deleted
+		 ORDER BY f.created_at DESC`, entityType, entityID, tenantID)
 	if err != nil {
 		return nil, err
 	}

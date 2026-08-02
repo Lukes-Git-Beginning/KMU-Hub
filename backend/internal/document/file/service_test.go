@@ -225,8 +225,22 @@ func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID, te
 	return result, nil
 }
 
-func (m *MockRepository) ListFilesByEntity(_ context.Context, _ string, _ uuid.UUID) ([]*models.DocumentFile, error) {
-	return nil, nil
+func (m *MockRepository) ListFilesByEntity(_ context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error) {
+	var result []*models.DocumentFile
+	for fileID, links := range m.entityLinks {
+		for _, link := range links {
+			if link.EntityType != entityType || link.EntityID != entityID {
+				continue
+			}
+			if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+				continue
+			}
+			if f, ok := m.files[fileID]; ok {
+				result = append(result, f)
+			}
+		}
+	}
+	return result, nil
 }
 
 func (m *MockRepository) CreateActivity(_ context.Context, activity *models.DocumentFileActivity) error {
@@ -518,6 +532,42 @@ func TestListEntityLinks_TenantIsolation(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Empty(t, links, "a foreign tenant must not see another tenant's entity links")
+}
+
+func TestListByEntity_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", contactID, uuid.New(), tenantID))
+
+	files, err := svc.ListByEntity(context.Background(), "contact", contactID, tenantID)
+
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	assert.Equal(t, seeded.ID, files[0].ID)
+}
+
+func TestListByEntity_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	contactID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", contactID, uuid.New(), tenantID))
+
+	files, err := svc.ListByEntity(context.Background(), "contact", contactID, otherTenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, files, "a foreign tenant must not see another tenant's entity-linked files")
+}
+
+func TestListByEntity_InvalidType(t *testing.T) {
+	svc, _, _ := newTestService()
+
+	_, err := svc.ListByEntity(context.Background(), "invalid_type", uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrInvalidEntityType)
 }
 
 func TestLinkToEntity_InvalidType(t *testing.T) {

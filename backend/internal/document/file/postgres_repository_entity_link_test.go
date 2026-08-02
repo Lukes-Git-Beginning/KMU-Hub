@@ -74,6 +74,61 @@ func TestPostgresRepository_ListEntityLinks_TenantIsolation(t *testing.T) {
 	}
 }
 
+func TestPostgresRepository_ListFilesByEntity(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	repo := NewPostgresRepository(pool)
+	fx := seedActivityFixture(t, pool, "list-files-by-entity")
+	ctx := testutil.WithTenantCtx(context.Background(), fx.tenant)
+	contactID := uuid.New()
+
+	if err := repo.CreateEntityLink(ctx, &models.DocumentEntityLink{
+		ID: uuid.New(), TenantID: fx.tenant, FileID: fx.file,
+		EntityType: "contact", EntityID: contactID, LinkedBy: fx.user,
+	}); err != nil {
+		t.Fatalf("CreateEntityLink: %v", err)
+	}
+
+	files, err := repo.ListFilesByEntity(ctx, "contact", contactID, fx.tenant)
+	if err != nil {
+		t.Fatalf("ListFilesByEntity: %v", err)
+	}
+	if len(files) != 1 || files[0].ID != fx.file {
+		t.Fatalf("ListFilesByEntity = %+v, want exactly file %s", files, fx.file)
+	}
+}
+
+func TestPostgresRepository_ListFilesByEntity_TenantIsolation(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	repo := NewPostgresRepository(pool)
+	fx := seedActivityFixture(t, pool, "list-files-by-entity-tenant-isolation")
+	ctx := testutil.WithTenantCtx(context.Background(), fx.tenant)
+	contactID := uuid.New()
+
+	if err := repo.CreateEntityLink(ctx, &models.DocumentEntityLink{
+		ID: uuid.New(), TenantID: fx.tenant, FileID: fx.file,
+		EntityType: "contact", EntityID: contactID, LinkedBy: fx.user,
+	}); err != nil {
+		t.Fatalf("CreateEntityLink: %v", err)
+	}
+
+	otherTenant := uuid.New()
+	testutil.EnsureTenant(t, pool, otherTenant, "document list-files-by-entity test other tenant")
+
+	files, err := repo.ListFilesByEntity(ctx, "contact", contactID, otherTenant)
+	if err != nil {
+		t.Fatalf("ListFilesByEntity (foreign tenant): %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("ListFilesByEntity under a foreign tenant_id returned %d entries, want 0", len(files))
+	}
+}
+
 func TestPostgresRepository_DeleteEntityLink(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)

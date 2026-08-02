@@ -687,3 +687,12 @@ func (s *Service) UnlinkFromEntity(ctx context.Context, linkID uuid.UUID, tenant
 func (s *Service) ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
 	return s.repo.ListEntityLinks(ctx, fileID, tenantID)
 }
+
+// ListByEntity returns all files linked to the given entity (e.g. a CRM
+// contact), scoped to tenantID.
+func (s *Service) ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error) {
+	if !AllowedEntityTypes[entityType] {
+		return nil, ErrInvalidEntityType
+	}
+	return s.repo.ListFilesByEntity(ctx, entityType, entityID, tenantID)
+}

@@ -98,6 +98,11 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(contactEdit).Delete("/{id}/tags", c.HandleRemoveContactTags)
 		r.With(middleware.RequirePermission("contacts", "write")).Put("/{id}/visibility", c.HandleUpdateContactVisibility)
 
+		// File attachments (via the Document service's generic entity-link
+		// mechanism, not a second CRM-specific file store).
+		r.With(contactRead).Get("/{id}/files", c.HandleListContactFiles)
+		r.With(contactEdit).Post("/{id}/files", c.HandleCreateContactFile)
+
 		// Import/Export
 		r.With(contactImport).Post("/import/csv", c.HandleImportContactsCSV)
 		r.With(contactImport).Post("/import/vcard", c.HandleImportContactsVCard)

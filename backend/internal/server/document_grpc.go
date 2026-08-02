@@ -979,6 +979,32 @@ func (s *DocumentGRPCServer) ListFileEntityLinks(ctx context.Context, req *docum
 	return &documentv1.ListFileEntityLinksResponse{Links: protoLinks}, nil
 }
 
+// ListFilesByEntity returns the files linked to an arbitrary entity (e.g. a
+// CRM contact), the reverse lookup of ListFileEntityLinks.
+func (s *DocumentGRPCServer) ListFilesByEntity(ctx context.Context, req *documentv1.ListFilesByEntityRequest) (*documentv1.ListFilesByEntityResponse, error) {
+	entityID, err := uuid.Parse(req.EntityId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
+	}
+
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	files, err := s.fileService.ListByEntity(ctx, req.EntityType, entityID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoFiles := make([]*documentv1.DocumentFile, 0, len(files))
+	for _, f := range files {
+		protoFiles = append(protoFiles, toProtoFile(f))
+	}
+
+	return &documentv1.ListFilesByEntityResponse{Files: protoFiles}, nil
+}
+
 // ============================================================================
 // Search Operations
 // ============================================================================
