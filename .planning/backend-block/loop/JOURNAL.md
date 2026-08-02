@@ -546,3 +546,54 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke aus Iteration 7 weiterhin offen (self_lockout,
     privilege_escalation fehlen im FE-Katalog).
   - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
+
+## Iteration 9 — p1b-guardrail-tests — done — 2026-08-02 22:05
+- commit: <wird nach dem Commit unten ergaenzt>
+- gebaut: Die sieben im Backlog geforderten Faelle (last-admin, Selbst-Aussperrung, Escalation
+  inkl. scope-Aufwertung, Preset-Immutability, Custom-Limit 20, Tenant-Isolation der
+  Rollenzuweisung) haben sich bei der Recherche als bereits vollstaendig durch echte DB-Tests
+  abgedeckt herausgestellt — verteilt ueber `guardrails_db_test.go` (Iteration 7),
+  `roles_admin_db_test.go` und `user_roles_db_test.go` (Iterationen 3-6). Blind duplizieren haette
+  nur Testmasse ohne neuen Erkenntniswert erzeugt.
+  Stattdessen die tatsaechliche Luecke geschlossen: `TestMapError` in
+  `backend/internal/server/grpc_test.go` deckte `ErrRoleNameExists`, `ErrRoleLimitReached`,
+  `ErrBaseRoleNotFound`, `ErrRolePresetImmutable`, `ErrRoleHasMembers` ab, aber NICHT die drei
+  eigentlichen Guardrail-Sentinels `ErrLastAdmin`/`ErrSelfLockout`/`ErrPrivilegeEscalation` — obwohl
+  `mapError` (grpc.go:1101-1106) alle drei behandelt. Ein vertauschter Case in diesem Switch (z.B.
+  `ErrSelfLockout` faellt auf `codes.NotFound`) waere von keinem bestehenden Test bemerkt worden:
+  die Service-Tests pruefen nur, dass `auth.Service` den richtigen Go-Fehler zurueckgibt, nicht dass
+  `mapError` ihn auf den richtigen gRPC-Code abbildet und `respondGRPCError` daraus den richtigen
+  HTTP-Code macht. Drei Tabellenzeilen ergaenzt (last_admin -> FailedPrecondition/409, self_lockout
+  -> FailedPrecondition/409, privilege_escalation -> PermissionDenied/403), keine neue Test-Infra.
+- entscheidungen:
+  1. **Kein neuer Gateway-Mock-Harness.** `route_auth_test.go` hat kein Fake fuer
+     `authv1.AuthServiceClient` — die bestehenden Route-Tests pruefen nur ServiceUnavailable/
+     Validierung, nie einen simulierten gRPC-Fehler durchs HTTP. Ein solcher Harness allein fuer
+     drei Fehlerfaelle waere die groessere Abstraktion fuer den kleineren Nutzen gewesen — der
+     Luecken-Schluss sitzt bewusst auf der Ebene, auf der er entstehen kann (der `mapError`-Switch),
+     nicht eine Ebene hoeher noch einmal neu gebaut. `grpcStatusToHTTP` selbst ist reiner, bereits
+     durch bestehende Gateway-Tests belegter Code und war nicht die Luecke.
+  2. **Keine weiteren DB-Tests ergaenzt.** Alle sieben fachlichen Faelle liefen beim Nachmessen real
+     und ungeskippt; ein achter, ergaenzender DB-Test haette nur eine bereits bewiesene Eigenschaft
+     ein zweites Mal bewiesen.
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd/auth/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues ueber auth+gateway+server) | test ok — `go test -count=1 -v
+  ./internal/auth/...` als `kmuhub_app`: **158 PASS, 0 SKIP, 0 FAIL**. `go test -count=1 -v
+  ./internal/server/...`: **207 PASS, 0 SKIP, 0 FAIL**, darunter die drei neuen
+  `TestMapError/last_admin`, `/self_lockout`, `/privilege_escalation`. `go test -count=1
+  ./internal/gateway/` (inkl. `TestOpenAPIRouteDrift`) gruen. | migration n.a. — keine Tabelle,
+  keine Route, kein `.proto` angefasst. | rls-smoke n.a. — keine Policy beruehrt.
+- verify vorgaenger: sauber. `aa5fcca8` (p1b-audit-events) gegen die acht Klassen geprueft — kein
+  gRPC-Bypass (AuthGRPCServer haelt `auditService` direkt, weil Auth- und SecurityGRPCServer im
+  selben Prozess co-located sind, kein Netzwerk-Hop noetig; keine Gateway-Umgehung), kein Stub,
+  kein `.proto` im Diff, kein neuer `RequirePermission`-Guard, keine neue Tabelle, Events entstehen
+  nachweislich nur NACH erfolgreichem Schreiben (Test `..._RejectedWriteLeavesNoEvent`), Test seedet
+  eigenen Tenant/Actor statt TenantA/B. `go build -p 2` zusaetzlich als Sanity-Check gruen.
+- offen:
+  - Block A (RBAC Welle 1b) ist damit **vollstaendig abgearbeitet** — naechste Unit laut Backlog ist
+    `g-rls-tenant-id-ohne-policy` (Block B, Sicherheit/RLS-Reste, model: opus).
+  - `SetRolePermissions` schreibt weiterhin kein eigenes Audit-Event (siehe Iteration 8, offener
+    Punkt fuer Luke — kein Blocker).
+  - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke im FE (self_lockout, privilege_escalation fehlen im
+    Katalog) weiterhin offen — FE-seitig, dieser Loop fasst das Frontend nicht an.
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).

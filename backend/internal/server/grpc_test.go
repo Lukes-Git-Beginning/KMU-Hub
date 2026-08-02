@@ -57,6 +57,16 @@ func TestMapError(t *testing.T) {
 		{"clone source not found", auth.ErrBaseRoleNotFound, codes.NotFound},
 		{"preset immutable", auth.ErrRolePresetImmutable, codes.PermissionDenied},
 		{"role has members", auth.ErrRoleHasMembers, codes.FailedPrecondition},
+		// --- Guardrails (RBAC wave 1b) ---
+		// last_admin and self_lockout are conflicts with the tenant's current
+		// state (409), privilege_escalation is a rights problem (403) — the
+		// same code preset_immutable gets. guardrails_db_test.go proves the
+		// auth.Service returns these sentinels; this proves mapError still
+		// carries them to the right gRPC code, which is the only part of the
+		// chain a copy-paste error in the switch would not otherwise catch.
+		{"last admin", auth.ErrLastAdmin, codes.FailedPrecondition},
+		{"self lockout", auth.ErrSelfLockout, codes.FailedPrecondition},
+		{"privilege escalation", auth.ErrPrivilegeEscalation, codes.PermissionDenied},
 		// --- Fallback ---
 		{"unknown error", errors.New("boom"), codes.Internal},
 	}

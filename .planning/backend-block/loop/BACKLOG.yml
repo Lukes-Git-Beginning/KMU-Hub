@@ -314,7 +314,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1b-audit-events]
-    status: todo
+    status: done
     scope: >
       Testabdeckung fuer Welle 1b gegen die echte DB: last-admin, Selbst-Aussperrung,
       Privilege-Escalation (inkl. scope-Aufwertung), Preset-Immutability auf allen vier
