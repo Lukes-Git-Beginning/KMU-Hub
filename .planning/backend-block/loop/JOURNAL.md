@@ -3525,3 +3525,46 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     (A) oder Neubau als echtes Mieter-Portal-Feature (B).
   - Naechste Unit laut Reihenfolge: `g-notification-email-adapter` (deps: [], unabhaengig von
     dieser blockierten Unit).
+
+## Iteration 49 — g-notification-email-adapter — done — 2026-08-02
+
+- commit: (siehe unten)
+- verify vorgaenger: sauber. Letzter Commit `398583e9` (Iteration 48) war reine Doku
+  (BACKLOG.yml/JOURNAL.md, `g-vermietung-inspection-upload` auf `blocked`), kein Code zu pruefen.
+- gebaut: `cmd/notification/main.go` wired `adapter.EmailAdapter` jetzt gegen einen echten
+  `emailGRPCClient` (Wrapper-Typ im `main`-Package, Muster wie `crmDealUpdater` in
+  `cmd/biz/main.go`): `grpc.NewClient(cfg.EmailGRPCAddress, ..., middleware.
+  TenantOutboundUnaryInterceptor())`, `defer emailConn.Close()`, Dial-Fehler nur geloggt (Notification
+  startet trotzdem). `SendReply`/`ForwardEmail`/`MarkRead` loesen zuerst per `GetEmailAccount(user_id)`
+  die Account-ID auf, dann `ReplyEmail`/`ForwardEmail`/`MarkRead`-RPC. `ListMessages` (fuer das bisher
+  nirgends aufgerufene `FetchNewMessages`) mitgebaut, `lean:`-markiert (Einzelseite, kein
+  Multi-Ordner-Sweep — Upgrade wenn ein Poller den Pfad tatsaechlich nutzt).
+  ROOT-CAUSE-FUND beim Bauen, ohne den `done_when` "Forward und Reply stellen real zu" nicht
+  erfuellbar: `message.Service.Reply`/`.Forward` reichten `msg.ID` (Inbox-Message-eigene ID) statt
+  `msg.SourceID` (ID im Herkunftssystem, hier email_messages.id) an den Adapter durch — ein echter
+  Client haette `ReplyEmail`/`ForwardEmail` deterministisch mit `NotFound` scheitern lassen.
+  Fix in der gemeinsamen Funktion (`internal/inbox/message/service.go`), `ChannelAdapter`-Interface
+  von `messageID uuid.UUID` auf `sourceID string` umgestellt (passt zu `InboxMessage.SourceID string`),
+  alle vier Adapter (Email/Chat/Notification/Guest) + Test-Mock mitgezogen. Chat war vom selben Bug
+  betroffen (`CreateMessage` haette ebenfalls die falsche ID bekommen) und ist mit demselben Diff
+  mitkorrigiert; Notification/Guest ignorieren den Parameter ohnehin (kein Verhaltensunterschied).
+  Neue Tests `TestReply_Success`/`TestReply_NoAdapter` (gab es vorher nicht), `TestForward_Success`
+  um `SourceID`-Assertion erweitert.
+  Kein Test fuer `emailGRPCClient` selbst — Konvention im Repo: kein einziges `cmd/*/main.go`
+  (inkl. der analogen `crmDealUpdater`/`SendEmailAction`-Wrapper) hat je eine `_test.go`-Datei, diese
+  duenne RPC-Mapping-Schicht wird nicht auf Package-Ebene getestet.
+  GEFUNDEN, NICHT BEHOBEN (ausserhalb Scope): `ChatAdapter`/`NotificationAdapter` bleiben in
+  `cmd/notification/main.go` mit `client=nil` registriert — nur Email war gescopt. Kandidat fuer
+  Folge-Unit, Notiz in BACKLOG.yml bei dieser Unit hinterlegt.
+- gate: build (`internal/inbox/... internal/notification/... internal/gateway/... cmd/notification/...
+  cmd/gateway/...`, `-p 2`) ok | vet ok | golangci-lint **0 issues** (inkl. `cmd/notification/...`
+  separat geprueft) | migration: keine | openapi: keine neue Route, kein Eintrag noetig |
+  rls-smoke: n.a. (kein neues Tabellen-Schema) | Tests mit `DATABASE_URL` (Rolle `kmuhub_app`):
+  `internal/inbox/...`, `internal/notification/...`, `internal/gateway/` (inkl.
+  `TestOpenAPIRouteDrift`, 771 Routen/773 Pfade, keine Drift) alle **ok**, keine Skips beobachtet.
+- offen:
+  - Chat-/Notification-Adapter weiterhin `client=nil` (siehe oben) — Folge-Unit-Kandidat
+    `g-notification-chat-adapter`.
+  - `ListMessages`/`FetchNewMessages` bleibt bis auf Weiteres toter Code (kein Poller-Aufrufer im
+    Repo) — falls Luke einen Inbox-Polling-Worker plant, dort die `lean:`-Markierung in
+    `cmd/notification/main.go` als Startpunkt nehmen (Multi-Ordner + echte Pagination fehlen noch).

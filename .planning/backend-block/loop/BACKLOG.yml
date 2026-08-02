@@ -1885,7 +1885,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `cmd/notification/main.go` registriert den `EmailAdapter` mit `client=nil`; die
       Notification-zu-Email-Verdrahtung existiert fuer keinen Adapter. `ForwardMessage` und `Reply`
@@ -1906,6 +1906,42 @@ units:
       - Forward und Reply stellen real zu
       - Ausfall des email-Service bricht die Notification nicht
       - go build/vet/lint/test gruen
+
+      ERGEBNIS (2026-08-02): `emailGRPCClient` in `cmd/notification/main.go` implementiert
+      `adapter.EmailClient` gegen den echten `EmailServiceClient` (Muster wie `crmDealUpdater` in
+      `cmd/biz/main.go`: kleiner Wrapper-Typ direkt im `main`-Package, `grpc.NewClient` +
+      `middleware.TenantOutboundUnaryInterceptor()`, `defer emailConn.Close()`). `SendReply`/
+      `ForwardEmail`/`MarkRead` loesen zuerst per `GetEmailAccount(user_id)` die Account-ID auf (es
+      gibt max. einen Account pro User+Tenant), dann `ReplyEmail`/`ForwardEmail`/`MarkRead`-RPC.
+      `ListMessages` (fuer `FetchNewMessages`) ist mitgebaut, aber `lean:`-markiert: einzelne Seite
+      (50 Nachrichten), keine Mehrfach-Ordner/Pagination-Sweep — es gibt aktuell KEINEN Aufrufer von
+      `FetchNewMessages` im ganzen Repo (kein Poller, der Live-Pfad ist event-basiert ueber
+      `InboxConsumer.HandleEvent`), Upgrade-Trigger: sobald ein Poller diesen Pfad tatsaechlich
+      aufruft.
+
+      FUND, das erst beim Bauen sichtbar wurde und OHNE den done_when "Forward und Reply stellen
+      real zu" nicht erfuellbar gewesen waere: `message.Service.Reply`/`.Forward`
+      (`internal/inbox/message/service.go`) reichten `msg.ID` (die eigene ID der Inbox-Nachricht) an
+      `ChannelAdapter.HandleReply`/`.HandleForward` durch, nicht `msg.SourceID` (die ID im
+      Herkunftssystem, hier: die email_messages.id). Ein echter Client haette also mit einer
+      Rechnung durchgereicht, die im email-Service niemals existiert — `ReplyEmail`/`ForwardEmail`
+      haetten deterministisch `NotFound` geliefert. Root-Cause-Fix in der gemeinsamen Funktion
+      (`service.go`, betrifft alle vier Adapter, nicht nur Email): `ChannelAdapter.HandleReply`/
+      `.HandleForward`-Interface von `messageID uuid.UUID` auf `sourceID string` umgestellt (passt zum
+      Typ von `InboxMessage.SourceID`), alle vier Implementierungen (Email/Chat/Notification/Guest)
+      und der Test-Mock in `service_test.go` mitgezogen. Chat war vom selben Bug betroffen
+      (`ChatAdapter.HandleReply` haette ebenfalls die falsche ID an `CreateMessage` gereicht) und ist
+      mit demselben Diff mitkorrigiert — Notification/Guest ignorieren den Parameter ohnehin (Reply
+      dort ist No-op/nicht unterstuetzt), daher keine Verhaltensaenderung fuer die beiden.
+      Neue Regressionstests `TestReply_Success`/`TestReply_NoAdapter` (gab es vorher gar nicht fuer
+      `Service.Reply`) und `TestForward_Success` um eine `SourceID`-Assertion erweitert.
+
+      GEFUNDEN, NICHT BEHOBEN (bewusst ausserhalb des Scopes dieser Unit): `cmd/notification/main.go`
+      registriert `ChatAdapter`/`NotificationAdapter` weiterhin mit `client=nil` (Kommentar im Code
+      vorher: "nil clients for now"). Nur Email war in dieser Unit gescopt. Chat-Reply/-MarkRead und
+      Notification-MarkRead laufen also weiterhin nur graceful-degraded (leere Fetches, No-op statt
+      echter Zustellung). Kandidat fuer eine eigene Folge-Unit `g-notification-chat-adapter`, analog
+      zu dieser hier.
 
   - id: g-berichte-scheduler
     phase: 3
