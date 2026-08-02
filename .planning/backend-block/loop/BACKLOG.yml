@@ -1601,7 +1601,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET/POST /api/v1/contacts/{id}/files` — Dateianhaenge am Kontakt.
     sources:
@@ -1611,6 +1611,14 @@ units:
       einen zweiten Dateispeicher im CRM aufbauen. Upload ueber das Presign-Muster aus
       `internal/chat/file/minio_store.go`.
       Kontakt-Zugehoerigkeit serverseitig pruefen, nicht nur RLS.
+
+      ERGEBNIS (2026-08-02): Beide Routen gebaut, Detail im Journal (Iteration 41). Kurzfassung: kein
+      neuer Dateispeicher, keine neue Migration — reine Komposition bestehender Document-RPCs
+      (`ListFilesByEntity` [neu], `CreateFolder`, `ListFolders`, `RegisterUploadedFile`,
+      `LinkFileToEntity`) im Gateway. Dabei einen vorbestehenden, bisher toten Gap geschlossen:
+      `file.Repository.ListFilesByEntity` existierte im Code, war aber nirgends verdrahtet und filterte
+      nicht nach `tenant_id` — jetzt Pflichtparameter, Service+Repo+Proto+RPC ergaenzt, RLS-Smoke
+      bestanden (eigener Tenant 1 Zeile, fremder Tenant 0).
     done_when:
       - Liste und Upload funktionieren ueber den Dokumenten-Service
       - kein zweiter Dateispeicher

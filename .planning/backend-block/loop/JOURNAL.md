@@ -3016,3 +3016,95 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `entity_name` bleibt leer (vorbestehende, separate Luecke, s.o.) — eigener Zuschnitt falls die
     Anzeige des verlinkten Entity-Namens im FE gebraucht wird.
   - Naechste Unit laut Reihenfolge: `fe-contacts-files` (Block D, deps: [], model: sonnet).
+
+## Iteration 41 — fe-contacts-files — done — 2026-08-02 (Nachtlauf 3)
+- commit: `483ecea7`
+- verify vorgaenger: `0685eb68` (fe-documents-links) gegen die acht Fehlerklassen geprueft — **kein
+  Fund**. `HandleDeleteEntityLink` geht ueber `client.DeleteEntityLink(...)` (gRPC-Client, kein
+  Fehlerklasse-1-Fund). `.proto`+`.pb.go`+`_grpc.pb.go` im selben Commit regeneriert (Fehlerklasse 3
+  entfaellt). Kein neuer `RequirePermission`-Guard (bestehender `documents:write` wiederverwendet,
+  Fehlerklasse 4/8 entfaellt). `CreateEntityLink`-Tenant-Fix + `ListEntityLinks`/`DeleteEntityLink`
+  mit explizitem `tenant_id`-Filter — echte Behebung, kein neuer Tenant-Luecken-Fund. `openapi.yaml`
+  traegt den neuen Pfad im selben Commit, `TestOpenAPIRouteDrift` lief.
+- gebaut: **`GET/POST /api/v1/contacts/{id}/files`** — Dateianhaenge am CRM-Kontakt.
+  - Wie in den Notes gefordert **kein zweiter Dateispeicher**: beide Routen komponieren ausschliesslich
+    bestehende Document-Service-RPCs im Gateway (`ListFolders`, `CreateFolder`, `RegisterUploadedFile`,
+    `LinkFileToEntity`, plus neu `ListFilesByEntity`) statt eine `crm_contact_files`-Tabelle
+    anzulegen — keine neue Migration in diesem Commit.
+  - **Upload-Flow ist presign-then-register**, analog zum bestehenden Task-Files-Muster
+    (`useTaskFiles.ts`): Client holt sich zuerst eine presigned URL ueber das bereits bestehende
+    `POST /api/v1/files/presign-upload` (Scope `kontakte` war in `allowedPresignScopes`
+    [`internal/document/file/presign.go:32`] schon zugelassen — nichts daran aendern muessen), laedt
+    direkt zu MinIO hoch, ruft danach `POST /api/v1/contacts/{id}/files` mit
+    `{filename, mime_type, storage_key, file_size}` auf. Der MSW-Mock
+    (`mocks/handlers/crm.ts:660`) sendet **kein** `file_size` — das reale Backend braucht es aber
+    zwingend (`document_files.file_size BIGINT NOT NULL CHECK (file_size > 0)`,
+    `RegisterUploadedFile` validiert `ErrFileSizeZero`). Vermerkt statt stillschweigend nachgeben: der
+    Mock ist duenner als der reale Contract, wie schon in mehreren `p2c-*`-Funden — die zukuenftige
+    FE-Anbindung muss `file_size` mitschicken.
+  - **`document_files.folder_id` ist `NOT NULL`** (keine Ordner-lose Ablage moeglich) und es gibt
+    keinen Ordner-Picker fuer Kontakt-Anhaenge. Geloest mit einem lazily erzeugten, gemeinsamen
+    System-Ordner **"CRM-Kontaktanhänge"** (`space_type=team`, `space_id=<tenant_id>` — kein
+    Team-Konzept fuer den ganzen Mandanten vorhanden, `space_id` traegt keine FK-Constraint, also
+    unproblematisch wiederverwendet). Race-sicher ohne neue DB-Konstrukte: `CreateFolder`
+    (`folder.Service.Create`) lehnt einen doppelten Namen im selben Parent selbst mit
+    `ErrFolderNameConflict` -> `codes.AlreadyExists` ab; der Verlierer eines Concurrent-First-Calls
+    holt sich den Ordner der Gewinner-Anfrage per erneutem `ListFolders` statt zu scheitern.
+    `lean:`-markiert in `route_crm_contact_files.go:25` mit Upgrade-Trigger ("wenn Kontakte je einen
+    eigenen Anhang-Ordner/Browser brauchen").
+  - **Vorbestehende, bisher tote Luecke gefunden und geschlossen:**
+    `file.Repository.ListFilesByEntity(ctx, entityType, entityID)` — die noetige Rueckwaerts-Abfrage
+    "welche Dateien haengen an Entity X" — existierte bereits vollstaendig (Postgres-Impl + Mock in
+    `service_test.go`), war aber **von KEINER Service-Methode, KEINEM RPC und KEINEM Handler jemals
+    aufgerufen** worden (verifiziert per grep, nur Interface+Impl+Mock referenzierten den Namen) UND
+    filterte **nicht nach `tenant_id`** (reine RLS-Abhaengigkeit, im Widerspruch zur Konvention
+    dieser Datei seit dem Fix in `fe-documents-links`). Behoben statt daneben eine zweite Abfrage zu
+    bauen: `tenant_id`-Parameter durch Repository-Interface, Postgres-Query
+    (`AND del.tenant_id = $3 AND f.tenant_id = $3`) und neue `Service.ListByEntity`
+    (validiert `AllowedEntityTypes`, wie `LinkToEntity`) gezogen. Proto bekam den fehlenden RPC
+    `ListFilesByEntity(ListFilesByEntityRequest{entity_type, entity_id}) returns
+    (ListFilesByEntityResponse{repeated DocumentFile files})`, `document_grpc.go` bekam den
+    `DocumentGRPCServer`-Handler (Muster von `ListFileEntityLinks` abgeschaut, `toProtoFile`
+    wiederverwendet).
+  - **Kontakt-Zugehoerigkeit serverseitig geprueft, nicht nur RLS** (Notes-Pflicht): beide Handler
+    rufen zuerst `crmClient.GetContact(ctx, {Id: contactID})` — `CRMGRPCServer.GetContact`
+    (`crm_grpc.go:458`) scoped intern per `contactService.GetByID(ctx, id, tenantID)`, ein fremder
+    Tenant bekommt `NotFound` -> 404, bevor ueberhaupt ein Document-RPC angefasst wird. Der
+    Verbindungsfehler-Pfad (`getCRMClient()`/`getDocumentClient()` scheitert, leere Registry) ist
+    bewusst vom RPC-Fehler-Pfad getrennt (`verifyContactOwnership` gibt `(connErr, rpcErr)` zurueck) —
+    sonst waere ein Registry-Ausfall via `respondGRPCError` als 500 statt 503 gelandet, im Widerspruch
+    zur Guard-Test-Konvention "allowed = 503 bei leerer Registry".
+  - **Wire-Shape**: `ContactFile{id, contact_id, filename, mime_type, storage_key, created_at}` exakt
+    nach `useContacts.ts:47` (camelCase-Namen im FE-Kommentar sind snake_case im echten Typ), GET
+    liefert `{files: []}` (nie `null`), POST `{file: {...}}` gewrappt mit 201 — passt 1:1 zum
+    bestehenden `mocks/handlers/crm.ts:655-673`.
+  - Kein neuer `RequirePermission`-Guard: `GET` haengt an `contactRead`, `POST` an `contactEdit`
+    (beide bereits additiv in `route_crm.go`, wiederverwendet wie bei den Tags-Routen daneben) — kein
+    Seed noetig.
+- gate: `go build -p 2 ./internal/document/... ./internal/gateway/... ./internal/server/...
+  ./cmd/document/... ./cmd/gateway/... ./cmd/crm/...` gruen | `go vet` fuer dieselben Pfade gruen |
+  `golangci-lint run --config .golangci.yml` fuer `internal/document/...`, `internal/gateway/...`,
+  `internal/server/...` **0 issues** | swagger-cli validate: `openapi.yaml is valid` | migration:
+  keine (Spalten existieren seit 000114/000122) | Test mit `DATABASE_URL` gesetzt (Rolle
+  `kmuhub_app`): `internal/document/...` (inkl. `file`, `folder`, `search`, `share`, `tag`,
+  `virtual`), `internal/gateway/...`, `internal/server/...` alle `ok`, **0 Skips** (per grep
+  verifiziert, 54 PASS allein in `internal/document/file`). `TestOpenAPIRouteDrift`: PASS (772
+  dokumentierte Pfade). Fuenf neue Faelle in `route_capability_guard_test.go`
+  (`contact_files_list_*`, `contact_files_create_*`) einzeln per `-run` verifiziert: alle PASS.
+  **RLS-Smoke** (`docker exec -i ... psql`, echte Fixture-Rows unter `SET ROLE kmuhub_app`, in
+  Transaktion mit `ROLLBACK` danach): eigener Tenant 1 Zeile, fremder Tenant 0 Zeilen, exakt die
+  Query-Form von `ListFilesByEntity`.
+- tests: 5 neue echte DB/Service-Tests fuer `ListByEntity`
+  (`TestPostgresRepository_ListFilesByEntity`, `TestPostgresRepository_ListFilesByEntity_TenantIsolation`
+  gegen echte DB; `TestListByEntity_Success`, `TestListByEntity_TenantIsolation`,
+  `TestListByEntity_InvalidType` gegen den Mock-Service), 5 neue Guard-Testfaelle fuer die beiden
+  neuen Routen.
+- offen:
+  - `RegisterUploadedFile`/`file_size`-Pflichtfeld ist im MSW-Mock nicht abgebildet (s.o.) — beim
+    Bau des echten FE-Upload-Hooks (`useCreateContactFile`/Ähnliches, existiert bisher nicht)
+    `file.size` mitschicken, sonst 400.
+  - Der neue System-Ordner "CRM-Kontaktanhänge" taucht nach dem ersten Upload als normaler,
+    nicht-System-Ordner (`is_system=false`, `CreateFolder`-RPC setzt das Feld nicht) im allgemeinen
+    Dokumente-Modul auf (space_type=team) — potenziell verwirrend fuer Nutzer, die dort durch alle
+    Team-Ordner browsen. Kein Backend-Problem, aber FE-seitig evtl. filtern/ausblenden wollen.
+  - Naechste Unit laut Reihenfolge: `fe-caldav-test` (Block D, deps: [], model: sonnet).
