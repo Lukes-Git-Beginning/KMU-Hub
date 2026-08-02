@@ -125,7 +125,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	authGRPC := server.NewAuthGRPCServer(authService)
+	authGRPC := server.NewAuthGRPCServer(authService, auditService)
 	authv1.RegisterAuthServiceServer(grpcServer, authGRPC)
 
 	securityGRPC := server.NewSecurityGRPCServer(auditService, vaultService, gdprService, passwordService, pool)

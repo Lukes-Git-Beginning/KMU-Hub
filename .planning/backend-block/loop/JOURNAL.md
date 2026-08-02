@@ -470,3 +470,79 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     unveraendert).
   - `p1b-audit-events` (naechste Unit) setzt genau auf diesen vier Pfaden auf; die Guardrails
     laufen alle VOR dem Write, ein abgelehnter Versuch darf also kein Event schreiben.
+
+## Iteration 8 — p1b-audit-events — done — 2026-08-02 21:40
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Die fuenf Audit-Events aus PHASE-1-RBAC-PLAN §4 (`permission.role_created/_updated/
+  _deleted/assigned/revoked`) auf dem bestehenden `audit_log` (Migration 000039, append-only seit
+  000222) — keine zweite Audit-Infrastruktur, sondern der schon vorhandene `audit.Service` aus
+  `internal/security/audit`, der im auth-Prozess laengst konstruiert wird (`cmd/auth/main.go:87f`,
+  bislang nur an `SecurityGRPCServer` durchgereicht). Neu in `internal/server/grpc.go`:
+  `AuthGRPCServer` bekommt `auditService` als zweiten Konstruktor-Parameter, `tenantAndCaller(ctx)`
+  buendelt die Tenant-/Akteur-Aufloesung (bislang nur `callerID`, UpdateRole/DeleteRole brauchten
+  bisher keine von beiden), `logPermissionEvent` haengt EIN `LogEvent`-Aufruf direkt hinter den
+  erfolgreichen Service-Call in allen fuenf Handlern (CreateRole, UpdateRole, DeleteRole,
+  AssignUserRole, RevokeUserRole). Ziel-Ressource ist die Rolle (role_created/_updated/_deleted)
+  bzw. der betroffene Account (assigned/revoked, `role_id` in `details`) — nie der Akteur selbst,
+  der steht in `user_id`. `SetRolePermissions` bleibt bewusst ohne eigenes Event: das ist keine der
+  fuenf Aenderungsarten aus dem Scope, sondern der Weg, ueber den role_updated fachlich hinausgeht
+  (Namensaenderung) bzw. hinausginge, wenn spaeter Grant-Aenderungen mitprotokolliert werden sollen
+  — als offener Punkt unten, nicht mitgebaut.
+- entscheidungen:
+  1. **Kein gRPC-Hop zur security.** `audit_log` gehoert der security-Domaene, aber `cmd/auth`
+     hostet AuthGRPCServer UND SecurityGRPCServer im selben Prozess (Kommentar dort: "co-located in
+     auth process") — genau wie SecurityGRPCServer selbst tut, haelt AuthGRPCServer jetzt eine
+     direkte `*audit.Service`-Referenz. Ein RPC zur eigenen Security-Instanz waere ein
+     Netzwerk-Hop fuer einen In-Prozess-Aufruf gewesen und keine echte Service-Grenze — die einzige
+     bestehende Cross-Service-Nutzung von `SecurityServiceClient` sitzt im Gateway (Middleware),
+     nicht zwischen zwei Domain-Services.
+  2. **Event NACH dem Service-Call, nie davor.** Die vier Guardrails aus Iteration 7 lehnen einen
+     unrechtmaessigen Versuch VOR dem Schreiben ab (`mapError` gibt zurueck, `logPermissionEvent`
+     wird nie erreicht) — pytest-artig durch `TestPermissionAuditEvents_DB_RejectedWriteLeavesNoEvent`
+     belegt (DeleteRole auf eine Rolle mit Mitglied: 409, Audit-Log-Zeilenzahl unveraendert).
+  3. **`tenantAndCaller` statt getrennter Aufrufe** in UpdateRole/DeleteRole: beide brauchten vorher
+     weder Tenant noch Akteur (RLS scopt Read+Write allein), jetzt brauchen sie beides nur fuer das
+     Event. Ein Bundling-Helfer statt zwei separate Boilerplate-Zeilen pro Handler, konsistent mit
+     dem bereits vorhandenen `callerID`.
+  4. **IP-Adresse/User-Agent bleiben leer.** Diese Events entstehen im internen auth<->auth-Aufruf,
+     nicht im HTTP-Request-Pfad wie `middleware/audit.go`s generisches CRUD-Logging — der
+     Client-Kontext (X-Forwarded-For etc.) existiert an dieser Stelle nicht. `audit.Repository.Create`
+     normalisiert die leere IP bereits auf SQL NULL (bestehender Code, nicht neu).
+  5. **Fester Akteur-Testfixture statt `uuid.New()` pro Lauf.** Erster Testlauf zeigte: das
+     `t.Cleanup`-DELETE auf den seedenden `users`-Datensatz schlaegt fehl, sobald ein Audit-Event
+     ihn als `user_id` referenziert — `audit_log_user_id_fkey` plus Append-Only-Trigger machen den
+     Fixture-User dauerhaft unloeschbar. Umgestellt auf eine feste UUID, idempotent geseedet
+     (`ON CONFLICT DO NOTHING`), nie geloescht — analog dazu, wie `testutil.EnsureTenant` Tenants
+     dauerhaft stehen laesst. Der `target`-User (nur im `target`-String, nie `user_id`) bleibt
+     `uuid.New()` + normalem Cleanup, das funktioniert unveraendert.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd/auth/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues ueber server + cmd/auth) | test ok — `go test -count=1 -v
+  ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`: **207 PASS, 0 SKIP, 0 FAIL**
+  (196 vorher + 11 neue: 5 Erfolgspfade als Subtests von `TestPermissionAuditEvents_DB` plus
+  `TestPermissionAuditEvents_DB_RejectedWriteLeavesNoEvent`, alle real gegen die DB gelaufen, nicht
+  uebersprungen). `go test ./internal/gateway/` nicht erneut gelaufen — keine Route, kein
+  `.proto`, kein `openapi.yaml` in diesem Diff, der Drift-Test ist also nicht beruehrt. | migration
+  n.a. — `audit_log.action` ist ein freies VARCHAR(100) ohne CHECK/ENUM (gegen die Migrationen
+  verifiziert), die neue Taxonomie braucht kein Schema. | rls-smoke n.a. — keine Tabelle/Policy
+  angefasst, `audit_log`s RLS (000120) und Append-Only-Trigger (000222) unveraendert; die
+  Nicht-Loeschbarkeit selbst ist im Test sichtbar geworden (siehe Entscheidung 5) statt eigens
+  geprueft zu werden.
+- verify vorgaenger: sauber. `95ce32f0` (p1b-guardrails) gegen die acht Klassen geprueft — kein
+  gRPC-Bypass (Guardrails sitzen im `auth.Service`, keine Handler-Logik), kein Stub, kein `.proto`
+  im Diff (reine Service-Aenderung, keine RPC-Signatur neu), kein neuer `RequirePermission`-Guard
+  (wiederverwendet `roles:manage`/`admin:role:assign`), Tenant-Scoping von
+  `CountRoleAdminsExcluding` ueber den `users`-Join korrekt und im Code kommentiert, `openapi.yaml`
+  nur um Fehlerfall-Doku auf bestehenden Routen erweitert (keine neue Route, Drift-Test also nicht
+  betroffen). `go build -p 2` auth/server/gateway lief zusaetzlich gruen als Sanity-Check.
+- offen:
+  - **`p1b-guardrail-tests` (naechste Unit)** deckt laut Backlog dieselben sieben Faelle nochmal
+    explizit ab (last-admin, Selbst-Aussperrung, Escalation, Preset-Immutability x4, Custom-Limit,
+    Tenant-Isolation) — die Guardrail-Logik selbst ist durch `guardrails_db_test.go` aus Iteration 7
+    schon abgedeckt, diese Unit muesste also pruefen, ob echte Luecken bleiben, statt blind zu
+    duplizieren.
+  - `SetRolePermissions` (Grant-Aenderung an einer Rolle) schreibt bewusst kein Audit-Event — war
+    nicht in den fuenf geforderten Aenderungsarten. Falls das GoBD-relevant werden soll (Rechte
+    geaendert ohne Rollen-Rename), ist das ein separater Scope-Punkt fuer Luke, keine Nachlaessigkeit.
+  - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke aus Iteration 7 weiterhin offen (self_lockout,
+    privilege_escalation fehlen im FE-Katalog).
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).

@@ -13,17 +13,44 @@ import (
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/audit"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
 
 type AuthGRPCServer struct {
 	authv1.UnimplementedAuthServiceServer
-	authService *auth.Service
+	authService  *auth.Service
+	auditService *audit.Service
 }
 
-func NewAuthGRPCServer(authService *auth.Service) *AuthGRPCServer {
-	return &AuthGRPCServer{authService: authService}
+func NewAuthGRPCServer(authService *auth.Service, auditService *audit.Service) *AuthGRPCServer {
+	return &AuthGRPCServer{authService: authService, auditService: auditService}
+}
+
+// tenantAndCaller resolves the two identities every permission-change audit
+// event needs: the tenant the change happened in, and the account that made
+// it. Both come from the same JWT claims callerID already reads — this just
+// adds the tenant half so callers that did not otherwise need it (UpdateRole,
+// DeleteRole) can still be audited.
+func tenantAndCaller(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return tenantID, actorID, nil
+}
+
+// logPermissionEvent appends one audit_log entry for a role/permission change.
+// It runs after the write already succeeded — the four guardrails in
+// internal/auth reject an unlawful attempt before it reaches here, so a
+// rejected attempt never reaches this call and never writes an event.
+func (s *AuthGRPCServer) logPermissionEvent(ctx context.Context, tenantID, actorID uuid.UUID, action, target, targetType string, details map[string]any) {
+	s.auditService.LogEvent(ctx, tenantID, &actorID, action, target, targetType, details, "", "", "success")
 }
 
 func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
@@ -302,12 +329,7 @@ func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleR
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
-	tenantID, err := middleware.GetTenantID(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
-	}
-
-	actorID, err := callerID(ctx)
+	tenantID, actorID, err := tenantAndCaller(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -322,18 +344,27 @@ func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleR
 		return nil, mapError(err)
 	}
 
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_created", role.ID.String(), "role",
+		map[string]any{"name": role.Name, "based_on": basedOn.String()})
+
 	return &authv1.CreateRoleResponse{Role: toProtoRole(role)}, nil
 }
 
 // UpdateRole renames/re-describes/recolors a tenant-owned role. Tenant
 // scoping needs no explicit parameter here — GetRoleByID and the UPDATE both
 // run through the roles table's RLS policies on the request-scoped connection.
+// Tenant and actor are still resolved explicitly, purely for the audit event.
 func (s *AuthGRPCServer) UpdateRole(ctx context.Context, req *authv1.UpdateRoleRequest) (*authv1.UpdateRoleResponse, error) {
 	roleID, err := uuid.Parse(req.RoleId)
 	if err != nil {
 		// Same reasoning as CreateRole's based_on: an id that isn't even a
 		// uuid names no role, so it is the same 404 as one nobody can see.
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	role, err := s.authService.UpdateRole(ctx, roleID, auth.UpdateRoleInput{
@@ -345,19 +376,31 @@ func (s *AuthGRPCServer) UpdateRole(ctx context.Context, req *authv1.UpdateRoleR
 		return nil, mapError(err)
 	}
 
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_updated", role.ID.String(), "role",
+		map[string]any{"name": role.Name})
+
 	return &authv1.UpdateRoleResponse{Role: toProtoRole(role)}, nil
 }
 
-// DeleteRole removes a tenant-owned role.
+// DeleteRole removes a tenant-owned role. Tenant and actor are resolved
+// purely for the audit event — GetRoleByID and the DELETE are RLS-scoped on
+// their own.
 func (s *AuthGRPCServer) DeleteRole(ctx context.Context, req *authv1.DeleteRoleRequest) (*authv1.DeleteRoleResponse, error) {
 	roleID, err := uuid.Parse(req.RoleId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := s.authService.DeleteRole(ctx, roleID); err != nil {
 		return nil, mapError(err)
 	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_deleted", roleID.String(), "role", nil)
 
 	return &authv1.DeleteRoleResponse{}, nil
 }
@@ -417,7 +460,7 @@ func (s *AuthGRPCServer) AssignUserRole(ctx context.Context, req *authv1.AssignU
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
-	actorID, err := callerID(ctx)
+	tenantID, actorID, err := tenantAndCaller(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,6 +469,9 @@ func (s *AuthGRPCServer) AssignUserRole(ctx context.Context, req *authv1.AssignU
 	if err != nil {
 		return nil, mapError(err)
 	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.assigned", userID.String(), "user",
+		map[string]any{"role_id": roleID.String()})
 
 	return &authv1.AssignUserRoleResponse{RoleIds: roleIDs}, nil
 }
@@ -441,7 +487,7 @@ func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeU
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
-	actorID, err := callerID(ctx)
+	tenantID, actorID, err := tenantAndCaller(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -450,6 +496,9 @@ func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeU
 	if err != nil {
 		return nil, mapError(err)
 	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.revoked", userID.String(), "user",
+		map[string]any{"role_id": roleID.String()})
 
 	return &authv1.RevokeUserRoleResponse{RoleIds: roleIDs}, nil
 }

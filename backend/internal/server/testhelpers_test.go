@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/audit"
 )
 
 // ---------------------------------------------------------------------------
@@ -556,11 +557,41 @@ func (m *authMockRepo) MarkPasswordResetTokenUsed(_ context.Context, _ uuid.UUID
 
 const testJWTSecret = "test-secret-minimum-32-characters!"
 
+// auditMockRepo is an in-memory stand-in for audit.Repository. The gRPC-layer
+// tests that use newTestAuthGRPCServer exercise error mapping and wire shape,
+// not the audit trail itself (that needs the real hash chain and RLS policy —
+// see the _db_test.go coverage) — this only has to satisfy the interface so
+// AuthGRPCServer has somewhere to write the permission-change events it emits.
+type auditMockRepo struct {
+	entries []*models.AuditEntry
+}
+
+func (m *auditMockRepo) Create(_ context.Context, entry *models.AuditEntry) error {
+	m.entries = append(m.entries, entry)
+	return nil
+}
+
+func (m *auditMockRepo) List(_ context.Context, _ *models.AuditFilter) ([]*models.AuditEntry, int, error) {
+	return m.entries, len(m.entries), nil
+}
+
+func (m *auditMockRepo) GetLastHash(_ context.Context) (string, error) {
+	if len(m.entries) == 0 {
+		return "", nil
+	}
+	return m.entries[len(m.entries)-1].EntryHash, nil
+}
+
+func (m *auditMockRepo) VerifyChain(_ context.Context, _, _ int64) (bool, int64, error) {
+	return true, 0, nil
+}
+
 func newTestAuthGRPCServer() (*AuthGRPCServer, *authMockRepo) {
 	repo := newAuthMockRepo()
 	tm := auth.NewTokenMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
 	svc := auth.NewService(repo, tm)
-	return NewAuthGRPCServer(svc), repo
+	auditSvc := audit.NewService(&auditMockRepo{})
+	return NewAuthGRPCServer(svc, auditSvc), repo
 }
 
 func createAuthTestUser(repo *authMockRepo, email, password string, active bool) *models.User {

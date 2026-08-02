@@ -286,7 +286,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1b-guardrails]
-    status: todo
+    status: done
     scope: >
       Audit-Events fuer jede Rechteaenderung, append-only auf dem bestehenden `audit_log`
       (Migration 000222). Taxonomie: `permission.role_created`, `permission.role_updated`,
