@@ -30,6 +30,10 @@ type Repository interface {
 	DeleteEntityLink(ctx context.Context, id uuid.UUID) error
 	ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error)
 	ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentFile, error)
+
+	// Activity (append-only audit trail)
+	CreateActivity(ctx context.Context, activity *models.DocumentFileActivity) error
+	ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error)
 }
 
 // ListFilter contains filtering options for listing files.

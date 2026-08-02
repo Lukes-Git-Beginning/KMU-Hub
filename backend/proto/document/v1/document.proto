@@ -28,6 +28,7 @@ service DocumentService {
   rpc CreateFileVersion(CreateFileVersionRequest) returns (CreateFileVersionResponse);
   rpc ListFileVersions(ListFileVersionsRequest) returns (ListFileVersionsResponse);
   rpc RevertFileVersion(RevertFileVersionRequest) returns (RevertFileVersionResponse);
+  rpc ListFileActivity(ListFileActivityRequest) returns (ListFileActivityResponse);
   // Registers metadata for a file already uploaded to object storage via a
   // presigned PUT URL (browser-direct upload). Does not touch object storage.
   rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (RegisterUploadedFileResponse);
@@ -175,6 +176,16 @@ message DocumentEntityLink {
   string entity_id = 4;
   string entity_name = 5;            // Denormalized
   string linked_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message DocumentFileActivity {
+  string id = 1;
+  string file_id = 2;
+  string action = 3;                 // uploaded, renamed, moved, copied, downloaded, shared, version_created, reverted
+  string actor_id = 4;
+  string actor_name = 5;             // Denormalized from JOIN
+  string detail = 6;
   google.protobuf.Timestamp created_at = 7;
 }
 
@@ -394,6 +405,14 @@ message RevertFileVersionRequest {
 
 message RevertFileVersionResponse {
   DocumentFile file = 1;
+}
+
+message ListFileActivityRequest {
+  string file_id = 1;
+}
+
+message ListFileActivityResponse {
+  repeated DocumentFileActivity activities = 1;
 }
 
 // ============================================================================

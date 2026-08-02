@@ -37,6 +37,7 @@ const (
 	DocumentService_CreateFileVersion_FullMethodName       = "/document.v1.DocumentService/CreateFileVersion"
 	DocumentService_ListFileVersions_FullMethodName        = "/document.v1.DocumentService/ListFileVersions"
 	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
+	DocumentService_ListFileActivity_FullMethodName        = "/document.v1.DocumentService/ListFileActivity"
 	DocumentService_RegisterUploadedFile_FullMethodName    = "/document.v1.DocumentService/RegisterUploadedFile"
 	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
 	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
@@ -82,6 +83,7 @@ type DocumentServiceClient interface {
 	CreateFileVersion(ctx context.Context, in *CreateFileVersionRequest, opts ...grpc.CallOption) (*CreateFileVersionResponse, error)
 	ListFileVersions(ctx context.Context, in *ListFileVersionsRequest, opts ...grpc.CallOption) (*ListFileVersionsResponse, error)
 	RevertFileVersion(ctx context.Context, in *RevertFileVersionRequest, opts ...grpc.CallOption) (*RevertFileVersionResponse, error)
+	ListFileActivity(ctx context.Context, in *ListFileActivityRequest, opts ...grpc.CallOption) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(ctx context.Context, in *RegisterUploadedFileRequest, opts ...grpc.CallOption) (*RegisterUploadedFileResponse, error)
@@ -293,6 +295,16 @@ func (c *documentServiceClient) RevertFileVersion(ctx context.Context, in *Rever
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevertFileVersionResponse)
 	err := c.cc.Invoke(ctx, DocumentService_RevertFileVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) ListFileActivity(ctx context.Context, in *ListFileActivityRequest, opts ...grpc.CallOption) (*ListFileActivityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFileActivityResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListFileActivity_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -513,6 +525,7 @@ type DocumentServiceServer interface {
 	CreateFileVersion(context.Context, *CreateFileVersionRequest) (*CreateFileVersionResponse, error)
 	ListFileVersions(context.Context, *ListFileVersionsRequest) (*ListFileVersionsResponse, error)
 	RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error)
+	ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error)
@@ -603,6 +616,9 @@ func (UnimplementedDocumentServiceServer) ListFileVersions(context.Context, *Lis
 }
 func (UnimplementedDocumentServiceServer) RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevertFileVersion not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFileActivity not implemented")
 }
 func (UnimplementedDocumentServiceServer) RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterUploadedFile not implemented")
@@ -1002,6 +1018,24 @@ func _DocumentService_RevertFileVersion_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).RevertFileVersion(ctx, req.(*RevertFileVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListFileActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFileActivityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListFileActivity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListFileActivity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListFileActivity(ctx, req.(*ListFileActivityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1426,6 +1460,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevertFileVersion",
 			Handler:    _DocumentService_RevertFileVersion_Handler,
+		},
+		{
+			MethodName: "ListFileActivity",
+			Handler:    _DocumentService_ListFileActivity_Handler,
 		},
 		{
 			MethodName: "RegisterUploadedFile",

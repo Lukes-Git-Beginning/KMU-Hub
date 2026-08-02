@@ -64,6 +64,41 @@ func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID 
 	}
 }
 
+// recordActivity appends an entry to the file's audit trail. Best-effort: a
+// failure here (e.g. transient DB error) is logged but never fails the
+// primary operation, mirroring how version-record failures are handled above.
+func (s *Service) recordActivity(ctx context.Context, tenantID, fileID, actorID uuid.UUID, action, detail string) {
+	activity := &models.DocumentFileActivity{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		FileID:    fileID,
+		Action:    action,
+		ActorID:   actorID,
+		Detail:    detail,
+		CreatedAt: time.Now(),
+	}
+	if err := s.repo.CreateActivity(ctx, activity); err != nil {
+		slog.Error("failed to record document activity",
+			"action", action,
+			"file_id", fileID,
+			"error", err,
+		)
+	}
+}
+
+// LogDownload records a "downloaded" activity entry for a file. Kept separate
+// from GetDownloadURL (whose signature is shared with the WOPI adapter, which
+// has no actor to attribute) so only the explicit gateway download-URL flow
+// logs it.
+func (s *Service) LogDownload(ctx context.Context, fileID, tenantID, actorID uuid.UUID) {
+	s.recordActivity(ctx, tenantID, fileID, actorID, models.DocumentActivityDownloaded, "")
+}
+
+// ListActivity returns the audit trail for a file, newest first, scoped to the tenant.
+func (s *Service) ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error) {
+	return s.repo.ListActivity(ctx, fileID, tenantID)
+}
+
 // UploadInput contains the data needed to upload a document file.
 type UploadInput struct {
 	TenantID    uuid.UUID
@@ -159,6 +194,7 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 
 	s.emitEvent(ctx, event.EventDocumentUploaded, input.OwnerID.String(), fileID.String(), nil,
 		"Dokument hochgeladen", filename, "/documents/"+fileID.String())
+	s.recordActivity(ctx, input.TenantID, fileID, input.OwnerID, models.DocumentActivityUploaded, "")
 
 	return file, nil
 }
@@ -247,6 +283,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*models.Do
 
 	s.emitEvent(ctx, event.EventDocumentUploaded, input.OwnerID.String(), fileID.String(), nil,
 		"Dokument hochgeladen", filename, "/documents/"+fileID.String())
+	s.recordActivity(ctx, input.TenantID, fileID, input.OwnerID, models.DocumentActivityUploaded, "")
 
 	return file, nil
 }
@@ -268,8 +305,10 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.Docume
 	return s.repo.List(ctx, filter)
 }
 
-// Update updates file metadata, scoped to the tenant.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, input UpdateInput) error {
+// Update updates file metadata, scoped to the tenant. actorID attributes any
+// resulting "renamed"/"moved" activity entries; toggling IsFavorite alone
+// records no activity (a preference, not an auditable file change).
+func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, actorID uuid.UUID, input UpdateInput) error {
 	// Validate filename if changing
 	if input.Filename != nil {
 		name := strings.TrimSpace(*input.Filename)
@@ -289,6 +328,14 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, 
 	slog.Info("file updated",
 		"file_id", id,
 	)
+
+	if input.Filename != nil {
+		s.recordActivity(ctx, tenantID, id, actorID, models.DocumentActivityRenamed, *input.Filename)
+	}
+	if input.FolderID != nil {
+		s.recordActivity(ctx, tenantID, id, actorID, models.DocumentActivityMoved, "")
+	}
+
 	return nil
 }
 
@@ -390,12 +437,14 @@ func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.
 		"copied_by", userID,
 	)
 
+	s.recordActivity(ctx, tenantID, newFileID, userID, models.DocumentActivityCopied, file.Filename)
+
 	return newFile, nil
 }
 
 // Move moves a file to a different folder (just updates folder_id, MinIO key stays the same).
-// tenantID is used for isolation checks.
-func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID, tenantID uuid.UUID) error {
+// tenantID is used for isolation checks; actorID attributes the resulting "moved" activity entry.
+func (s *Service) Move(ctx context.Context, fileID, targetFolderID, actorID uuid.UUID, tenantID uuid.UUID) error {
 	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return err
@@ -413,6 +462,9 @@ func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID, te
 		"from_folder_id", file.FolderID,
 		"to_folder_id", targetFolderID,
 	)
+
+	s.recordActivity(ctx, tenantID, fileID, actorID, models.DocumentActivityMoved, "")
+
 	return nil
 }
 
@@ -495,6 +547,8 @@ func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID 
 
 	s.emitEvent(ctx, event.EventDocumentVersioned, input.UserID.String(), fileID.String(), nil,
 		"Neue Dokumentversion", fmt.Sprintf("Version %d", newVersionNumber), "/documents/"+fileID.String())
+	s.recordActivity(ctx, tenantID, fileID, input.UserID, models.DocumentActivityVersionCreated,
+		fmt.Sprintf("Version %d", newVersionNumber))
 
 	return version, nil
 }
@@ -572,6 +626,9 @@ func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNu
 		"reverted_by", userID,
 	)
 
+	s.recordActivity(ctx, tenantID, fileID, userID, models.DocumentActivityReverted,
+		fmt.Sprintf("Reverted from v%d", versionNumber))
+
 	return version, nil
 }
 
@@ -613,6 +670,7 @@ func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType
 
 	s.emitEvent(ctx, event.EventDocumentShared, userID.String(), fileID.String(), nil,
 		"Dokument geteilt", "", "/documents/"+fileID.String())
+	s.recordActivity(ctx, tenantID, fileID, userID, models.DocumentActivityShared, entityType)
 
 	return nil
 }

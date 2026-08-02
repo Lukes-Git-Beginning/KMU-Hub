@@ -242,6 +242,8 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"file delete, catalogue key only", documentRouter, "DELETE", "/api/v1/documents/files/" + articleID, []string{"documents:file:delete"}, allowed},
 		{"file download url, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/download-url", []string{"documents:file:download"}, allowed},
 		{"file download url, edit key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/download-url", []string{"documents:file:edit"}, denied},
+		{"file activity, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:read"}, allowed},
+		{"file activity, edit key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:edit"}, denied},
 
 		// --- documents: copy is a read-action in the FE, stays coarse-only ---
 		{"file copy still requires documents:write only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},

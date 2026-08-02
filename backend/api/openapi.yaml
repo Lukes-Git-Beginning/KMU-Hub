@@ -23748,6 +23748,33 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/documents/files/{id}/activity:
+    get:
+      summary: Get the activity history of a document file
+      description: >-
+        Requires documents:read permission. Append-only audit trail: uploaded, renamed, moved,
+        copied, downloaded, shared, version_created, reverted — newest first.
+      tags: [documents]
+      operationId: listDocumentFileActivity
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Activity history (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFileActivity"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/documents/files/{id}/versions:
     get:
       summary: List versions of a document file
@@ -40306,6 +40333,34 @@ components:
         created_by:
           type: string
           format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    DocumentFileActivity:
+      type: object
+      description: >-
+        Only ever returned via GET .../files/{id}/activity, which serializes via protojson (bare
+        array) — created_at here is a real RFC3339 string, not a ProtoTimestamp object. Append-only
+        audit trail entry (DB-level trigger blocks UPDATE/DELETE).
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [uploaded, renamed, moved, copied, downloaded, shared, version_created, reverted]
+        actor_id:
+          type: string
+          format: uuid
+        actor_name:
+          type: string
+          description: Denormalized from JOIN
+        detail:
+          type: string
         created_at:
           type: string
           format: date-time

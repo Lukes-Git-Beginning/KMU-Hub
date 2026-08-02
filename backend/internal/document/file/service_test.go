@@ -65,6 +65,7 @@ type MockRepository struct {
 	files         map[uuid.UUID]*models.DocumentFile
 	versions      map[uuid.UUID][]*models.DocumentFileVersion
 	entityLinks   map[uuid.UUID][]*models.DocumentEntityLink
+	activity      map[uuid.UUID][]*models.DocumentFileActivity
 
 	failCreate             bool
 	failGetByID            bool
@@ -80,6 +81,7 @@ func NewMockRepository() *MockRepository {
 		files:       make(map[uuid.UUID]*models.DocumentFile),
 		versions:    make(map[uuid.UUID][]*models.DocumentFileVersion),
 		entityLinks: make(map[uuid.UUID][]*models.DocumentEntityLink),
+		activity:    make(map[uuid.UUID][]*models.DocumentFileActivity),
 	}
 }
 
@@ -213,6 +215,15 @@ func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID) ([
 
 func (m *MockRepository) ListFilesByEntity(_ context.Context, _ string, _ uuid.UUID) ([]*models.DocumentFile, error) {
 	return nil, nil
+}
+
+func (m *MockRepository) CreateActivity(_ context.Context, activity *models.DocumentFileActivity) error {
+	m.activity[activity.FileID] = append(m.activity[activity.FileID], activity)
+	return nil
+}
+
+func (m *MockRepository) ListActivity(_ context.Context, fileID uuid.UUID, _ uuid.UUID) ([]*models.DocumentFileActivity, error) {
+	return m.activity[fileID], nil
 }
 
 // --- Helper ---
@@ -377,11 +388,17 @@ func TestMove_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 	targetFolder := uuid.New()
+	actorID := uuid.New()
 
-	err := svc.Move(context.Background(), seeded.ID, targetFolder, uuid.Nil)
+	err := svc.Move(context.Background(), seeded.ID, targetFolder, actorID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, targetFolder, repo.files[seeded.ID].FolderID)
+
+	activity := repo.activity[seeded.ID]
+	require.Len(t, activity, 1)
+	assert.Equal(t, models.DocumentActivityMoved, activity[0].Action)
+	assert.Equal(t, actorID, activity[0].ActorID)
 }
 
 func TestCopy_Success(t *testing.T) {
@@ -451,11 +468,31 @@ func TestUpdate_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 	newName := "renamed.pdf"
+	actorID := uuid.New()
 
-	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, UpdateInput{Filename: &newName})
+	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, actorID, UpdateInput{Filename: &newName})
 
 	require.NoError(t, err)
 	assert.Equal(t, newName, repo.files[seeded.ID].Filename)
+
+	activity := repo.activity[seeded.ID]
+	require.Len(t, activity, 1)
+	assert.Equal(t, models.DocumentActivityRenamed, activity[0].Action)
+	assert.Equal(t, newName, activity[0].Detail)
+}
+
+// TestUpdate_FavoriteOnly_NoActivity verifies that toggling IsFavorite alone
+// (no filename/folder change) does not record an activity entry — favoriting
+// is a preference, not an auditable file change.
+func TestUpdate_FavoriteOnly_NoActivity(t *testing.T) {
+	svc, repo, _ := newTestService()
+	seeded := seedFile(repo)
+	isFavorite := true
+
+	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, uuid.New(), UpdateInput{IsFavorite: &isFavorite})
+
+	require.NoError(t, err)
+	assert.Empty(t, repo.activity[seeded.ID])
 }
 
 func TestList_Success(t *testing.T) {

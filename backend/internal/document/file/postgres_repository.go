@@ -352,6 +352,43 @@ func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType s
 	return files, rows.Err()
 }
 
+// Activity (append-only audit trail)
+
+func (r *PostgresRepository) CreateActivity(ctx context.Context, activity *models.DocumentFileActivity) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_file_activity (id, tenant_id, file_id, action, actor_id, detail, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		activity.ID, activity.TenantID, activity.FileID, activity.Action, activity.ActorID, activity.Detail, activity.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.tenant_id, a.file_id, a.action, a.actor_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS actor_name,
+		        a.detail, a.created_at
+		 FROM document_file_activity a
+		 LEFT JOIN users u ON u.id = a.actor_id
+		 WHERE a.file_id = $1 AND a.tenant_id = $2
+		 ORDER BY a.created_at DESC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []*models.DocumentFileActivity
+	for rows.Next() {
+		var a models.DocumentFileActivity
+		if scanErr := rows.Scan(&a.ID, &a.TenantID, &a.FileID, &a.Action, &a.ActorID,
+			&a.ActorName, &a.Detail, &a.CreatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		activities = append(activities, &a)
+	}
+	return activities, rows.Err()
+}
+
 // scanFile scans a single row into a DocumentFile.
 func (r *PostgresRepository) scanFile(row pgx.Row) (*models.DocumentFile, error) {
 	var f models.DocumentFile

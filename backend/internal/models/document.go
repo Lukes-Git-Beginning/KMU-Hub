@@ -107,6 +107,30 @@ type DocumentTag struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Document file activity action constants (FE contract: DocumentActivityAction).
+const (
+	DocumentActivityUploaded       = "uploaded"
+	DocumentActivityRenamed        = "renamed"
+	DocumentActivityMoved          = "moved"
+	DocumentActivityCopied         = "copied"
+	DocumentActivityDownloaded     = "downloaded"
+	DocumentActivityShared         = "shared"
+	DocumentActivityVersionCreated = "version_created"
+	DocumentActivityReverted       = "reverted"
+)
+
+// DocumentFileActivity represents one append-only entry in a file's audit trail.
+type DocumentFileActivity struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	FileID    uuid.UUID `json:"file_id"`
+	Action    string    `json:"action"`
+	ActorID   uuid.UUID `json:"actor_id"`
+	ActorName string    `json:"actor_name"` // Denormalized from JOIN
+	Detail    string    `json:"detail"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // DocumentEntityLink represents a link between a file and a CRM entity.
 type DocumentEntityLink struct {
 	ID         uuid.UUID `json:"id"`

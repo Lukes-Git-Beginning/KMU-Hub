@@ -411,7 +411,12 @@ func (s *DocumentGRPCServer) UpdateFile(ctx context.Context, req *documentv1.Upd
 		input.IsFavorite = req.IsFavorite
 	}
 
-	if err := s.fileService.Update(ctx, id, tenantID, input); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.Update(ctx, id, tenantID, actorID, input); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -457,8 +462,12 @@ func (s *DocumentGRPCServer) CopyFile(ctx context.Context, req *documentv1.CopyF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
-	// Use Nil as userID since gateway handles auth
-	f, err := s.fileService.Copy(ctx, id, targetFolderID, uuid.Nil, tenantID)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	f, err := s.fileService.Copy(ctx, id, targetFolderID, actorID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -482,7 +491,12 @@ func (s *DocumentGRPCServer) MoveFile(ctx context.Context, req *documentv1.MoveF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
-	if err := s.fileService.Move(ctx, id, targetFolderID, tenantID); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.Move(ctx, id, targetFolderID, actorID, tenantID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -513,6 +527,10 @@ func (s *DocumentGRPCServer) GetFileDownloadURL(ctx context.Context, req *docume
 	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
+	}
+
+	if actorID, actorErr := actorIDFromContext(ctx); actorErr == nil {
+		s.fileService.LogDownload(ctx, id, tenantID, actorID)
 	}
 
 	return &documentv1.GetFileDownloadURLResponse{
@@ -579,8 +597,12 @@ func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documen
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	// Use Nil as userID since gateway handles auth
-	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), uuid.Nil, tenantID)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), actorID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -591,6 +613,30 @@ func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documen
 	}
 
 	return &documentv1.RevertFileVersionResponse{File: toProtoFile(f)}, nil
+}
+
+func (s *DocumentGRPCServer) ListFileActivity(ctx context.Context, req *documentv1.ListFileActivityRequest) (*documentv1.ListFileActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	activities, err := s.fileService.ListActivity(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoActivities := make([]*documentv1.DocumentFileActivity, 0, len(activities))
+	for _, a := range activities {
+		protoActivities = append(protoActivities, toProtoFileActivity(a))
+	}
+
+	return &documentv1.ListFileActivityResponse{Activities: protoActivities}, nil
 }
 
 // ============================================================================
@@ -1173,6 +1219,18 @@ func toProtoEntityLink(link *models.DocumentEntityLink) *documentv1.DocumentEnti
 	}
 }
 
+func toProtoFileActivity(a *models.DocumentFileActivity) *documentv1.DocumentFileActivity {
+	return &documentv1.DocumentFileActivity{
+		Id:        a.ID.String(),
+		FileId:    a.FileID.String(),
+		Action:    a.Action,
+		ActorId:   a.ActorID.String(),
+		ActorName: a.ActorName,
+		Detail:    a.Detail,
+		CreatedAt: timestamppb.New(a.CreatedAt),
+	}
+}
+
 func toProtoVirtualFile(f *models.VirtualFile) *documentv1.VirtualFile {
 	return &documentv1.VirtualFile{
 		Id:             f.ID.String(),
@@ -1299,6 +1357,20 @@ func parseUUIDOrNil(s string) uuid.UUID {
 		return uuid.Nil
 	}
 	return id
+}
+
+// actorIDFromContext reads the acting user from the gRPC context, populated
+// by middleware.TenantInboundUnaryInterceptor from the gateway-propagated
+// x-user-id metadata (see registry.go's TenantOutboundUnaryInterceptor wiring).
+// Used to attribute document activity entries to a real actor instead of
+// silently defaulting to uuid.Nil, which would fail the activity row's
+// NOT NULL actor_id FK.
+func actorIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return uuid.Nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	return id, nil
 }
 
 // ============================================================================

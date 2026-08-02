@@ -101,6 +101,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/copy", d.HandleCopyFile)
 		r.With(docEdit).Post("/{id}/move", d.HandleMoveFile)
 		r.With(docDownload).Get("/{id}/download-url", d.HandleGetFileDownloadURL)
+		r.With(docRead).Get("/{id}/activity", d.HandleListFileActivity)
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
@@ -605,6 +606,25 @@ func (d *DocumentRoutes) HandleGetFileDownloadURL(w http.ResponseWriter, r *http
 		"content_type": resp.ContentType,
 		"file_size":    resp.FileSize,
 	})
+}
+
+func (d *DocumentRoutes) HandleListFileActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	resp, err := client.ListFileActivity(r.Context(), &documentv1.ListFileActivityRequest{
+		FileId: fileID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "activities", resp.Activities, nil)
 }
 
 // ============================================================================
