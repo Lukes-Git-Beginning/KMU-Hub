@@ -4911,8 +4911,13 @@ func (x *ListEmployeeDocumentsResp) GetDocuments() []*EmployeeDocument {
 }
 
 type ListDocumentCategoriesReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// "own" | "team" | "all", the caller's team:documents:view permission scope
+	// (middleware.PermissionScope) — filters which category visibility tiers
+	// (hr_only/manager/employee) come back. Empty defaults to "all" (internal
+	// callers with no HTTP-layer scope to resolve).
+	CallerScope   string `protobuf:"bytes,2,opt,name=caller_scope,json=callerScope,proto3" json:"caller_scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4950,6 +4955,13 @@ func (*ListDocumentCategoriesReq) Descriptor() ([]byte, []int) {
 func (x *ListDocumentCategoriesReq) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListDocumentCategoriesReq) GetCallerScope() string {
+	if x != nil {
+		return x.CallerScope
 	}
 	return ""
 }
@@ -8700,9 +8712,10 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\vcategory_id\x18\x03 \x01(\tR\n" +
 	"categoryId\"R\n" +
 	"\x19ListEmployeeDocumentsResp\x125\n" +
-	"\tdocuments\x18\x01 \x03(\v2\x17.hr.v1.EmployeeDocumentR\tdocuments\"8\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x17.hr.v1.EmployeeDocumentR\tdocuments\"[\n" +
 	"\x19ListDocumentCategoriesReq\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"W\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\fcaller_scope\x18\x02 \x01(\tR\vcallerScope\"W\n" +
 	"\x1aListDocumentCategoriesResp\x129\n" +
 	"\n" +
 	"categories\x18\x01 \x03(\v2\x19.hr.v1.HRDocumentCategoryR\n" +

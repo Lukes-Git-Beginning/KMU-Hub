@@ -628,6 +628,11 @@ message ListEmployeeDocumentsResp {
 
 message ListDocumentCategoriesReq {
   string tenant_id = 1;
+  // "own" | "team" | "all", the caller's team:documents:view permission scope
+  // (middleware.PermissionScope) — filters which category visibility tiers
+  // (hr_only/manager/employee) come back. Empty defaults to "all" (internal
+  // callers with no HTTP-layer scope to resolve).
+  string caller_scope = 2;
 }
 
 message ListDocumentCategoriesResp {

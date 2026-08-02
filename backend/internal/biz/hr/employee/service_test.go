@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -469,4 +470,82 @@ func TestUploadEmployeeDocument_InvalidCategory(t *testing.T) {
 		UploadedBy: testManagerUserID,
 	})
 	assert.ErrorIs(t, err, ErrDocumentCategoryNotFound)
+}
+
+// ============================================================================
+// Tests: Document Category Visibility (fix-hr-document-paths)
+// ============================================================================
+
+// seedThreeVisibilityCategories adds one category per visibility tier to
+// catRepo, all belonging to testTenantID, so the scope filter has something
+// of each kind to include or exclude.
+func seedThreeVisibilityCategories(catRepo *mockDocCategoryRepo) {
+	catRepo.categories[uuid.New()] = &models.HRDocumentCategory{
+		ID: uuid.New(), TenantID: testTenantID, Key: "hr_only_cat", Name: "Abmahnungen",
+		Visibility: models.HRDocVisibilityHROnly,
+	}
+	catRepo.categories[uuid.New()] = &models.HRDocumentCategory{
+		ID: uuid.New(), TenantID: testTenantID, Key: "manager_cat", Name: "Zeugnisse",
+		Visibility: models.HRDocVisibilityManager,
+	}
+	catRepo.categories[uuid.New()] = &models.HRDocumentCategory{
+		ID: uuid.New(), TenantID: testTenantID, Key: "employee_cat", Name: "Sonstiges",
+		Visibility: models.HRDocVisibilityEmployee,
+	}
+}
+
+func categoryKeys(cats []*models.HRDocumentCategory) []string {
+	keys := make([]string, 0, len(cats))
+	for _, c := range cats {
+		keys = append(keys, c.Key)
+	}
+	return keys
+}
+
+func TestListDocumentCategories_ScopeAllSeesEverything(t *testing.T) {
+	svc, _, catRepo, _ := setupTestService()
+	seedThreeVisibilityCategories(catRepo)
+	ctx := context.Background()
+
+	cats, err := svc.ListDocumentCategories(ctx, testTenantID, auth.ScopeAll)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"arbeitsvertrag", "hr_only_cat", "manager_cat", "employee_cat"}, categoryKeys(cats))
+}
+
+func TestListDocumentCategories_ScopeTeamExcludesHROnly(t *testing.T) {
+	svc, _, catRepo, _ := setupTestService()
+	seedThreeVisibilityCategories(catRepo)
+	ctx := context.Background()
+
+	cats, err := svc.ListDocumentCategories(ctx, testTenantID, auth.ScopeTeam)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"manager_cat", "employee_cat"}, categoryKeys(cats))
+}
+
+// TestListDocumentCategories_ScopeOwnSeesOnlyEmployeeVisibility pins the
+// "Fremdakte liefert keine hr_only-Kategorien" requirement: a caller whose
+// team:documents:view grant is scope='own' (the member preset, migration
+// 000256) never sees hr_only or manager-tier categories, regardless of whose
+// employee id the request names.
+func TestListDocumentCategories_ScopeOwnSeesOnlyEmployeeVisibility(t *testing.T) {
+	svc, _, catRepo, _ := setupTestService()
+	seedThreeVisibilityCategories(catRepo)
+	ctx := context.Background()
+
+	cats, err := svc.ListDocumentCategories(ctx, testTenantID, auth.ScopeOwn)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"employee_cat"}, categoryKeys(cats))
+}
+
+// TestListDocumentCategories_UnknownScopeDefaultsRestrictive pins fail-closed
+// behavior: an empty or unrecognized scope string must not fall through to
+// "all" — that would be the security-relevant default to get wrong.
+func TestListDocumentCategories_UnknownScopeDefaultsRestrictive(t *testing.T) {
+	svc, _, catRepo, _ := setupTestService()
+	seedThreeVisibilityCategories(catRepo)
+	ctx := context.Background()
+
+	cats, err := svc.ListDocumentCategories(ctx, testTenantID, "")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"employee_cat"}, categoryKeys(cats))
 }

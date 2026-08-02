@@ -1610,3 +1610,53 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     unabhaengiger FE-Bug — eigene Folge-Unit oder FE-Session, nicht Teil des Backend-Loops.
   - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22/24 (siehe deren Aufzaehlung
     oben) bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 26 — fix-hr-document-paths — done — 2026-08-03
+
+- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- verify vorgaenger: sauber. `a8ac8fc2` (fix-security-gdpr-paths, Iteration 25) gegen die
+  Fehlerklassen geprueft: kein Direct-Svc-Bypass (Route-Umbau bleibt auf Handler-Ebene, ruft weiter
+  `HRServiceClient`/`AuthServiceClient` unveraendert), kein Stub, kein `.proto` ohne Regen (keins
+  angefasst), kein neuer `RequirePermission` (bestehender `RequireRole("admin")` nur mitverschoben),
+  keine neue Tabelle/RLS-Luecke, Wire-Shape passt (Pfad-Rename, kein Response-Formatwechsel), Route
+  in openapi.yaml mitgezogen, kein Alt-Key ersetzt. Nichts zu beanstanden.
+- gebaut: `fix-hr-document-paths` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge, `deps: []`).
+  (a) `GET /hr/document-categories` (nie aufgerufen) ersetzt durch
+  `GET /hr/employees/{id}/documents/categories` (FE-Pfad aus `hr-client.ts:937`).
+  Beim Recherchieren: `hr:read` (Migration 000129) ist NUR an die Rolle "admin" vergeben — hr_admin/
+  manager/member haetten weder die neue Route noch die bestehende `/documents`-Route je erreicht.
+  Guard additiv um die produktiv bereits vorgesehene Capability `team:documents:view` erweitert
+  (`RequirePermissionAny`, gleiches Muster wie die `zeitTeamView`-Guards weiter oben in
+  `route_hr.go` — `hr:read` bleibt gueltig, kein Alt-Key ersetzt).
+  Visibility-Filterung nutzt das bereits vorhandene, bislang ungenutzte
+  `middleware.PermissionScope(ctx,"team:documents","view")` (own/team/all) — exakt der Scope, den
+  `PersonnelDocuments.tsx` bereits clientseitig auswertet (`useCapability('team:documents:view').scope`).
+  Migration 000256 belegt scope='all' fuer admin/hr_admin, scope='team' fuer manager, scope='own'
+  fuer member — kein neuer Rollen-Mapping-Mechanismus noetig, nur der erste echte Aufrufer der
+  schon vorhandenen Bausteine. Filterung laeuft in Go im Service (`filterCategoriesByScope`), nicht
+  in SQL (Kategorien sind eine Handvoll Zeilen, ein SQL-Filter waere unnoetige Komplexitaet).
+  Unbekannter/leerer Scope faellt restriktiv auf "nur employee-visibility" zurueck, nicht auf "alles".
+  (b) `personnel-documents` NICHT gebaut, wie in den notes vorgesehen: `PersonnelDocuments.tsx` ist
+  durchgaengig Demo-Zustand — `handleUpload` sendet weder `employeeId` noch ein echtes File (nur
+  Groesse/Name als Text), der GET-Query laedt von `/hr/personnel-documents` ohne jeden
+  Employee-Bezug. Ein Endpoint dafuer waere blind auf den eingeloggten User zurueckgefallen — genau
+  das Datenleck-Risiko, vor dem die notes warnen. Bleibt offener, eigenstaendiger FE-Befund.
+  Proto: `ListDocumentCategoriesReq` um `caller_scope` erweitert, `make proto-hr`-Aequivalent
+  (protoc direkt, `make` ist auf dieser Maschine nicht im PATH) im selben Commit regeneriert.
+  `hr_grpc.pb.go` kam byte-identisch zurueck (nur CRLF/LF-Rauschen) — bewusst NICHT mitcommittet,
+  um keinen Nur-Zeilenenden-Diff zu erzeugen.
+  Tests: 4 neue Unit-Tests in `service_test.go` (Scope all/team/own/leer — leer/unbekannt faellt
+  restriktiv auf employee-only zurueck, nicht auf "alles"), 4 neue Router-Tests in
+  `route_hr_test.go` (Pfad erreichbar mit `team:documents:view` ODER `hr:read` allein, 403 ohne
+  beides, alte Route liefert jetzt 404).
+  gate: build ok (`go build -p 2 ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...
+  ./cmd/gateway/... ./cmd/biz/...`) | vet ok | lint ok (golangci-lint, 0 issues) | test ok —
+  `go test -count=1 ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...` gruen mit
+  `DATABASE_URL` gesetzt auf `kmuhub_app` (u.a. `internal/biz/hr/timetracking` DB-Tests real
+  gelaufen, keine Skips beobachtet), inkl. `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift`. Keine
+  Migration (keine neue Tabelle/Spalte), daher kein migrate-Schritt und keine RLS-Smoke noetig.
+- offen:
+  - FE-Befund: `PersonnelDocuments.tsx` (`handleUpload`/GET-Query) ist komplett demo-/mock-artig
+    ohne Employee-Bezug — eigene Folge-Unit oder FE-Session, kein Backend-Gap.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.

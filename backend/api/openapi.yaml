@@ -10962,16 +10962,22 @@ paths:
   # ===========================================================================
   # HR: Document categories (tenant master data)
   # ===========================================================================
-  /api/v1/hr/document-categories:
+  /api/v1/hr/employees/{id}/documents/categories:
     get:
-      summary: List HR document categories
+      summary: List HR document categories visible for an employee's Akte
       description: >
         Returns the tenant's document categories plus the system seed categories
-        (migration 000046), which are the ones every tenant starts with. These
-        are tenant master data, not an employee attribute — the ids returned here
+        (migration 000046), filtered to the visibility tiers (hr_only/manager/
+        employee) the caller's team:documents:view permission scope permits —
+        the same tiers RLS migration 000127 enforces on the documents
+        themselves, so a caller who cannot see hr_only documents for this
+        employee does not learn hr_only categories exist either. These are
+        tenant master data, not an employee attribute — the ids returned here
         are the ones POST /api/v1/hr/employees/{id}/documents accepts.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: Category list
@@ -10985,7 +10991,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/HRDocumentCategory"
         "401": { description: Missing or invalid tenant }
-        "403": { description: Missing hr:read permission }
+        "403": { description: Missing hr:read or team:documents:view permission }
         "503": { description: HR service unavailable }
 
   # ===========================================================================

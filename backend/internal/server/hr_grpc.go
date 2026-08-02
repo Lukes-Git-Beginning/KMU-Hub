@@ -906,13 +906,13 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 	}, nil
 }
 
-func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, _ *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
+func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, req *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
-	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID)
+	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID, req.GetCallerScope())
 	if err != nil {
 		return nil, mapHRError(err)
 	}

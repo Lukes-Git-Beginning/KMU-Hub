@@ -145,6 +145,14 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "read")).Get("/calendar", h.HandleGetAbsenceCalendar)
 	})
 
+	// Same additive-guard rationale as zeitTeamView etc. above: "hr:read" is
+	// admin-only today (migration 000129), so without the second key manager
+	// and member (both hold team:documents:view, see migration 000256) could
+	// never reach this route at all.
+	hrDocumentCategoriesGuard := middleware.RequirePermissionAny(
+		[2]string{"hr", "read"}, [2]string{"team:documents", "view"},
+	)
+
 	// Employee profiles
 	r.Route("/api/v1/hr/employees", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -156,13 +164,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
-	})
-
-	// Document categories — tenant master data, not an employee attribute, so
-	// they hang off /hr and not off /hr/employees/{id}.
-	r.Route("/api/v1/hr/document-categories", func(r chi.Router) {
-		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListDocumentCategories)
+		// Additive guard: the legacy "hr:read" key stays valid AND the
+		// capability-catalogue key (manager scope='team', member scope='own')
+		// grants access — see the zeiterfassung guards above for the same
+		// pattern and its rationale (never replace a baked-in JWT key outright).
+		r.With(hrDocumentCategoriesGuard).Get("/{id}/documents/categories", h.HandleListEmployeeDocumentCategories)
 	})
 
 	// HR settings (admin only)
@@ -1128,7 +1134,14 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 	response.ProtoList(w, http.StatusOK, resp.Documents)
 }
 
-func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.Request) {
+// HandleListEmployeeDocumentCategories lists document categories, filtered by
+// the visibility tiers the caller's team:documents:view scope permits for
+// employee {id}'s Akte (hr_only/manager/employee — same tiers RLS migration
+// 000127 already enforces on the documents themselves). Category master data
+// carries no per-employee RLS of its own, so this is the only place that
+// stops a caller opening a stranger's file from learning hr_only categories
+// exist at all.
+func (h *HRRoutes) HandleListEmployeeDocumentCategories(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {
 		respondServiceUnavailable(w, h.ServiceName())
@@ -1141,8 +1154,11 @@ func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	callerScope := middleware.PermissionScope(r.Context(), "team:documents", "view")
+
 	resp, err := client.ListDocumentCategories(r.Context(), &hrv1.ListDocumentCategoriesReq{
-		TenantId: tenantID,
+		TenantId:    tenantID,
+		CallerScope: callerScope,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -318,9 +319,40 @@ func (s *Service) DeleteEmployeeDocument(ctx context.Context, tenantID, id uuid.
 	return s.docRepo.Delete(ctx, tenantID, id)
 }
 
-// ListDocumentCategories retrieves all document categories for a tenant.
-func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error) {
-	return s.docCatRepo.ListByTenant(ctx, tenantID)
+// ListDocumentCategories retrieves document categories for a tenant, filtered
+// to the visibility tiers callerScope (the caller's team:documents:view
+// permission scope: "own", "team", or "all") permits — the same tiers RLS
+// migration 000127 enforces on the documents themselves. A caller who cannot
+// see hr_only documents must not learn hr_only categories exist either.
+func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID, callerScope string) ([]*models.HRDocumentCategory, error) {
+	categories, err := s.docCatRepo.ListByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return filterCategoriesByScope(categories, callerScope), nil
+}
+
+// filterCategoriesByScope mirrors the visibility tiers in
+// PostgresEmployeeDocRepo.ListByEmployee: scope "all" (admin/hr_admin) sees
+// every category, "team" (manager) sees manager+employee, and "own" (or any
+// other/empty value) sees employee-visibility only.
+func filterCategoriesByScope(categories []*models.HRDocumentCategory, callerScope string) []*models.HRDocumentCategory {
+	if callerScope == auth.ScopeAll {
+		return categories
+	}
+
+	allowed := map[models.HRDocVisibility]bool{models.HRDocVisibilityEmployee: true}
+	if callerScope == auth.ScopeTeam {
+		allowed[models.HRDocVisibilityManager] = true
+	}
+
+	filtered := make([]*models.HRDocumentCategory, 0, len(categories))
+	for _, c := range categories {
+		if allowed[c.Visibility] {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 // ============================================================================

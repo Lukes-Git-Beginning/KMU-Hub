@@ -1421,7 +1421,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Zwei tote HR-Dokument-Pfade, verifiziert am 2026-08-02:
       (a) FE `GET /api/v1/hr/employees/{id}/documents/categories`
@@ -1454,6 +1454,39 @@ units:
       - Fremdakte liefert nachweislich keine hr_only-Kategorien (Test)
       - personnel-documents entweder gebaut oder mit Begruendung als FE-Befund im Journal
       - openapi.yaml + go test -count=1 ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT. (a) gebaut: `/hr/document-categories` (nie aufgerufen, tot) ersetzt durch
+      `GET /hr/employees/{id}/documents/categories`. Beim Recherchieren stellte sich heraus, dass
+      `hr:read` (Migration 000129) NUR an die Rolle "admin" vergeben ist — hr_admin/manager/member
+      haetten die neue Route (und die bestehende `/documents`-Route) nie erreicht. Guard additiv um
+      die bereits existierende, produktiv genutzte Capability `team:documents:view` erweitert
+      (`RequirePermissionAny`, gleiches Muster wie die zeitTeamView-Guards weiter oben in derselben
+      Datei) — `hr:read` bleibt gueltig, kein Alt-Key ersetzt.
+      Visibility-Filter nutzt NICHT einen neu erfundenen Rollen-String, sondern das bereits
+      bestehende, bislang ungenutzte `middleware.PermissionScope(ctx,"team:documents","view")`
+      (own/team/all), das exakt dem Scope entspricht, den `PersonnelDocuments.tsx` bereits clientseitig
+      auswertet (`useCapability('team:documents:view').scope`) — Migration 000256 belegt scope='all'
+      fuer admin/hr_admin, scope='team' fuer manager, scope='own' fuer member. Damit war kein neuer
+      Rollen-Mapping-Mechanismus noetig, nur der erste echte Aufrufer der bereits vorhandenen Bausteine.
+      Filterung selbst laeuft in Go im Service (`filterCategoriesByScope`), nicht in SQL — Kategorien
+      sind eine Handvoll Zeilen, ein Join/SQL-Filter waere unnoetige Komplexitaet gewesen.
+      (b) NICHT gebaut, wie in den notes vorgesehen: `PersonnelDocuments.tsx` ist durchgaengig
+      Demo-Zustand — `handleUpload` sendet weder `employeeId` noch ein echtes File (nur Groesse/Name),
+      der GET-Query laedt von `/hr/personnel-documents` ohne jeden Employee-Bezug. Ein Endpoint dafuer
+      waere blind auf den eingeloggten User zurueckgefallen — genau das Datenleck-Risiko, vor dem die
+      notes warnen. Bleibt offener FE-Befund.
+      Kein Fund fuer Fehlerklassen 1-8: kein Direct-Svc-Bypass (Handler geht ueber `HRServiceClient`),
+      keine neue Tabelle/RLS-Luecke, kein neuer `RequirePermission`-Key ohne Seed (beide genutzten Keys
+      `hr:read`+`team:documents:view` sind seit 000129/000256 bereits gesät), Guard additiv erweitert
+      statt ersetzt (Fehlerklasse 8 explizit vermieden).
+      Tests: 4 neue Unit-Tests in `service_test.go` (all/team/own/leerer-scope — leerer/unbekannter
+      Scope faellt restriktiv auf "nur employee-visibility" zurueck, nicht auf "alles"), 4 neue
+      Router-Tests in `route_hr_test.go` (Pfad erreichbar mit `team:documents:view` ODER `hr:read`
+      alleine, 403 ohne beides, alte Route liefert 404).
+      gate: build ok | vet ok | lint ok (0 issues) | test ok — `go test -count=1
+      ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...` gruen mit `DATABASE_URL`
+      (`kmuhub_app`), inkl. `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift`. Keine Migration (keine
+      neue Tabelle/Spalte), daher kein migrate-Schritt noetig; RLS-Smoke nicht einschlaegig.
 
   - id: fix-finance-notification-paths
     phase: fix
