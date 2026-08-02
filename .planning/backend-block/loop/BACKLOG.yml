@@ -897,7 +897,37 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Praemisse widerlegt: die Route ist NICHT fehlend, sondern seit laengerem vollstaendig gebaut
+      und funktioniert korrekt — nur unter einem anderen Pfad als dem, den das FE aufruft.
+      Verifiziert: Proto-RPC `GetContactTimeline` (crm.proto:93, Messages ab 1018), Service
+      `activity.Service.GetContactTimeline` (activity/service.go:422), Repository-Query unioniert
+      `activities`+`deals` tenant-gescopt in BEIDEN Armen (activity/postgres_repository.go:372-403),
+      Gateway-Handler `CRMExtRoutes.HandleContactTimeline` (route_crm_ext.go:146) geht ueber den
+      gRPC-Client, registriert als `GET /api/v1/contacts/{id}/timeline` (route_crm.go:103,
+      route_crm_ext.go:367), in openapi.yaml dokumentiert (Zeile 28390) und ueber
+      `test/e2e/dialer_test.go:155` bereits End-to-End geprueft.
+      Der reale Fehler sitzt im FE: `desktop/src/renderer/src/api/hooks/useTimeline.ts:40` ruft
+      `/api/v1/crm/contacts/${contactId}/timeline` — ein zusaetzliches `/crm/`-Segment, das KEIN
+      anderer CRM-Hook nutzt (`useContacts.ts`, `useContactTags.ts` etc. gehen alle direkt unter
+      `/api/v1/contacts/...`). Jeder reale Aufruf bekommt deshalb 404. Kein totes FE-Feature: der
+      Hook wird von `ContactTimeline.tsx` genutzt, das wiederum in
+      `modules/kontakte/ContactDetailPanel.tsx` gerendert wird — die Kontakt-Detailansicht zeigt
+      die Chronik also produktiv nie an.
+      ZWEITER, unabhaengiger Vertragsbruch, der erst nach dem Pfad-Fix sichtbar wird: openapi.yaml
+      dokumentiert den Query-Parameter `offset` bewusst als 1-basierte Seitenzahl ("despite the
+      query param name this is not a row offset", Zeile 28400), und der Gateway-Handler reicht ihn
+      genau so an `Page` durch (route_crm_ext.go:158-161). `useTimeline.ts:63` berechnet aber einen
+      ECHTEN Zeilen-Offset (`offset = (page-1)*pageSize`): fuer Seite 1 ist das zufaellig 0 (passt),
+      ab Seite 2 (z.B. offset=20 bei pageSize=20) wuerde die RPC `Page=20` statt `Page=2` bekommen —
+      falsche Daten, nicht nur ein 404. Ungetestet, weil der einzige bestehende Test (E2E) nur Seite
+      1 abruft.
+      Beide Fixes sind FE-Einzeiler (`useTimeline.ts`: Pfad korrigieren, Offset/Page-Semantik
+      angleichen) — dieser Backend-Loop fasst laut Historie und Aufgabenstellung nie `desktop/` an.
+      Ob die Loesung "FE sendet echte Page-Nummer" oder "Backend interpretiert offset/pageSize neu"
+      ist, ist eine Vertragsentscheidung (welche Seite sich anpasst), keine, die sich hier raten
+      laesst — gehoert Luke bzw. einer FE-fokussierten Session.
     scope: >
       `GET /crm/contacts/{id}/timeline` — das FE ruft die Route ueber
       `desktop/src/renderer/src/api/hooks/useTimeline.ts`, im Gateway gibt es null Treffer.

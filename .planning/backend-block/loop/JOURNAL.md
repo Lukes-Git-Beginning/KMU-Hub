@@ -1264,3 +1264,46 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Alle unveraendert offenen Punkte aus Iteration 17 (Plugin-Grpc-Tenant-aus-Body,
     SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
     `id`-Spalte, nicht regenerierte `types.ts`) bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 19 — g-crm-contact-timeline — blocked — 2026-08-03 02:00
+
+- commit: 
+- gebaut: nichts — Praemisse der Unit widerlegt. `GET /api/v1/contacts/{id}/timeline` existiert
+  bereits vollstaendig und korrekt: Proto-RPC (crm.proto:93/1018-1041), Service
+  `activity.Service.GetContactTimeline` (activity/service.go:422), Repository-Query unioniert
+  `activities`+`deals` tenant-gescopt in beiden Armen (activity/postgres_repository.go:372-403),
+  Gateway-Handler geht ueber den gRPC-Client (route_crm_ext.go:146), Route registriert
+  (route_crm.go:103, route_crm_ext.go:367), openapi.yaml dokumentiert (Zeile 28390), sogar per
+  `test/e2e/dialer_test.go:155` end-to-end geprueft. Kein Stub, kein Bypass, kein Tenant-Leck.
+- befund: der reale Fehler ist FE-seitig. `desktop/src/renderer/src/api/hooks/useTimeline.ts:40`
+  ruft `/api/v1/crm/contacts/${contactId}/timeline` — ein `/crm/`-Segment, das kein anderer
+  CRM-Hook nutzt (`useContacts.ts`, `useContactTags.ts` gehen alle direkt unter
+  `/api/v1/contacts/...`). Jeder echte Aufruf bekommt 404. Kein totes FE-Feature: der Hook wird
+  von `ContactTimeline.tsx` genutzt, gerendert in `modules/kontakte/ContactDetailPanel.tsx` — die
+  Kontakt-Chronik ist in der Detailansicht produktiv nie sichtbar.
+  Zweiter, unabhaengiger Vertragsbruch, der erst nach dem Pfad-Fix sichtbar wuerde: openapi.yaml
+  dokumentiert den Query-Parameter `offset` explizit als 1-basierte Seitenzahl, nicht als
+  Zeilen-Offset (Zeile 28398-28400), der Gateway-Handler reicht ihn so an `Page` durch
+  (route_crm_ext.go:158-161). `useTimeline.ts:63` berechnet aber einen echten Zeilen-Offset
+  (`(page-1)*pageSize`) — fuer Seite 1 zufaellig 0 (passt), ab Seite 2 waere die angefragte RPC-Seite
+  falsch (offset=20 bei pageSize=20 -> Page=20 statt Page=2). Ungetestet, weil der einzige
+  bestehende Test nur Seite 1 abruft.
+- gate: n.a. — keine Codeaenderung, reine Diagnose. Kein Build/Test noetig.
+- verify vorgaenger: sauber. `ead9923e` (RLS-Regression-Guard, Iteration 18) gegen die acht
+  Fehlerklassen geprueft: reiner Testzusatz, keine Route/Proto/Migration/Guard angefasst, Test
+  selbst korrekt (siehe Code-Review oben in dieser Iteration) — nichts zu beanstanden.
+- backlog: Unit auf `blocked` mit `blocked_reason:`. Beide noetigen Fixes liegen in
+  `desktop/src/renderer/src/api/hooks/useTimeline.ts` (Pfad korrigieren + Offset/Page-Semantik
+  entscheiden) — dieser Backend-Loop fasst `desktop/` nicht an, das ist eine FE-Session- bzw.
+  Luke-Entscheidung (welche Seite sich an die andere anpasst).
+  Stand: 26 offen / 20 done / 3 blocked.
+- offen:
+  - **Fuer Luke/eine FE-Session:** `useTimeline.ts:40` von `/api/v1/crm/contacts/{id}/timeline`
+    auf `/api/v1/contacts/{id}/timeline` korrigieren, DANACH die Offset/Page-Frage klaeren (FE
+    sendet echte Page-Nummer statt berechnetem Zeilen-Offset, ODER Backend interpretiert den
+    Parameter als echten Offset um) — sonst ist Seite 1 der Chronik korrekt und jede Folgeseite
+    liefert falsche Events.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409) bleiben unveraendert offen, hier nicht angefasst.
