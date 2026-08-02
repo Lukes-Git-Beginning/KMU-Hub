@@ -1832,7 +1832,35 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Der `UploadInspectionPhoto`-RPC (bytes-embed im Request, Platzhalter-URL im Service) hat
+      NIRGENDS einen Aufrufer — weder FE noch Gateway (verifiziert per Volltextsuche ueber
+      `desktop/src` und `backend/`). Die reale Foto-Upload-Funktion fuer Inspektionen existiert
+      bereits vollstaendig und funktionierend ueber einen ANDEREN, bereits verdrahteten Pfad:
+      Browser-direct-Upload nach MinIO via `presignUpload('vermietung', file)` (Scope `vermietung`
+      ist in `document/file/presign.go:24-34` bereits erlaubt, 50-MB-Limit, Content-Type-Pflicht)
+      gefolgt von `CreateInspection.photo_urls` bzw. `UpdateInspection.photo_urls` — verifiziert in
+      `desktop/src/renderer/src/modules/vermietung/ZustandsprotokollDialog.tsx:142-162`
+      (Upload-Handler mit Kommentar "the backend already persists them end-to-end"). Der zugehoerige
+      FE-Hook `useUploadInspectionPhoto` (`useVermietung.ts:275-284`) ruft intern nur `updateInspection`
+      auf und hat selbst KEINEN Call-Site — auch er ist unbenutzt.
+      "Die Gegenstelle bauen" wie urspruenglich gescopt wuerde eine zweite, parallele
+      Upload-Infrastruktur fuer exakt dieselbe Funktion errichten (Verstoss gegen Lean Code/YAGNI) —
+      und dazu eine mit dem architektonisch schwaecheren Muster: Rohbytes im gRPC-Request stossen
+      schneller an gRPC-Default-Message-Limits als der bereits produktive presign-Weg, was
+      vermutlich der Grund war, warum die spaetere Implementierung (`ZustandsprotokollDialog`) den
+      RPC gar nicht erst benutzt hat.
+      Zwei ehrliche Wege, keiner spontan zu entscheiden: (A) `UploadInspectionPhoto` als
+      totes/superseded RPC vollstaendig entfernen (Proto-RPC+Messages, Service-Methode,
+      gRPC-Handler, ungenutzter FE-Hook) und die Praesenz im Feature-Set (`docs/MODULES_SCOPE_MATRIX.md`
+      Zeile 178) auf den tatsaechlichen Pfad umstellen. (B) Den RPC fuer einen echten, bislang nicht
+      existierenden Anwendungsfall bauen: ein externer Mieter (kein CRM-Login, kein `files:write`
+      auf der presign-Route) laedt ein Inspektionsfoto hoch — dafuer gibt es aber NIRGENDS im Repo
+      ein Mieter-Portal, einen Magic-Link-Mechanismus oder ein Auth-Modell fuer Nicht-CRM-Nutzer
+      (verifiziert, keine Treffer fuer "mieter-portal"/"tenant-portal"/"renter-portal"). Weg B ist
+      damit kein Upload-Fix, sondern ein neues Feature samt Auth-Entscheidung. Beides ist eine
+      Produkt-/Architekturentscheidung, die Luke gehoert — nicht spontan im Loop zu treffen.
     scope: >
       `UploadInspectionPhoto` akzeptiert nur eine `pending://`-Platzhalter-URL und verweist auf das
       Gateway — dort existiert aber kein Handler. Die Gegenstelle bauen.

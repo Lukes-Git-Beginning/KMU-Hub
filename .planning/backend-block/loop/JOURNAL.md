@@ -3487,3 +3487,41 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Kein Server-Ebenen-Test fuer `ExportContract`/`ExportPDF` (weder vertraege noch rapporte) — falls
     an dieser Grenzflaeche kuenftig oefter Fehler auftreten, lohnt sich ein gemeinsames Test-Harness
     fuer `*GRPCServer`-Response-Mapping.
+
+## Iteration 48 — g-vermietung-inspection-upload — blocked — 2026-08-02
+
+- commit: - (keine Code-Aenderung, nur BACKLOG.yml/JOURNAL.md)
+- verify vorgaenger: sauber. `811e24de` (fix-g-vertraege-pdf, Iteration 47) gegen alle acht
+  Fehlerklassen geprueft: reiner Feldwert-Fix (`ContentType`/`Filename`) in
+  `vertraege_grpc.go:235-239`, kein Proto, keine Migration, kein neuer Guard, keine neue Route,
+  kein neues Wire-Shape jenseits dieses einen Feldpaars, kein direkter Service-Zugriff im Gateway.
+  Kein Fund.
+- gebaut: nichts — Unit als `blocked` markiert, siehe `blocked_reason` in BACKLOG.yml.
+- Grund (Kurzfassung, Volltext im Backlog-Eintrag): `UploadInspectionPhoto` (bytes-embed im
+  Request, Platzhalter-URL im Service, kein Gateway-Handler) hat NIRGENDS einen echten Aufrufer —
+  weder FE noch Gateway (Volltextsuche ueber `desktop/src` und `backend/`). Die reale
+  Foto-Upload-Funktion fuer Inspektionen ist bereits vollstaendig verdrahtet, aber ueber einen
+  ANDEREN Pfad: Browser-direct-Upload nach MinIO via `presignUpload('vermietung', file)` (Scope
+  `vermietung` bereits erlaubt in `document/file/presign.go:24-34`, 50-MB-Limit,
+  Content-Type-Pflicht) gefolgt von `CreateInspection.photo_urls`/`UpdateInspection.photo_urls` —
+  verifiziert in `ZustandsprotokollDialog.tsx:142-162` (Kommentar dort: "the backend already
+  persists them end-to-end"). Der zugehoerige FE-Hook `useUploadInspectionPhoto`
+  (`useVermietung.ts:275-284`) delegiert selbst nur an `updateInspection` und hat keinerlei
+  Call-Site — auch er ungenutzt.
+  Die "Gegenstelle bauen" wie urspruenglich gescopt haette eine zweite, parallele
+  Upload-Infrastruktur fuer exakt dieselbe Funktion errichtet (Lean-Code/YAGNI-Verstoss), zudem mit
+  dem architektonisch schwaecheren Muster (Rohbytes im gRPC-Request vs. presign-basierter
+  Browser-Direct-Upload) — vermutlich der Grund, warum die spaetere Implementierung
+  (`ZustandsprotokollDialog`) diesen RPC nie benutzt hat.
+  Zwei ehrliche Wege, keiner spontan zu entscheiden: (A) `UploadInspectionPhoto` als
+  totes/superseded RPC vollstaendig entfernen (Proto, Service, gRPC-Handler, ungenutzter FE-Hook).
+  (B) Den RPC fuer einen bislang nicht existierenden Anwendungsfall bauen — ein externer Mieter ohne
+  CRM-Login laedt direkt hoch; dafuer fehlt aber im gesamten Repo jedes Mieter-Portal/Auth-Modell
+  fuer Nicht-CRM-Nutzer (verifiziert, keine Treffer). Weg B waere kein Upload-Fix, sondern ein neues
+  Feature samt eigener Auth-Entscheidung.
+- gate: n.a. (kein Code geaendert)
+- offen:
+  - **Entscheidung fuer Luke:** siehe `blocked_reason` in BACKLOG.yml — Loeschung des toten RPCs
+    (A) oder Neubau als echtes Mieter-Portal-Feature (B).
+  - Naechste Unit laut Reihenfolge: `g-notification-email-adapter` (deps: [], unabhaengig von
+    dieser blockierten Unit).
