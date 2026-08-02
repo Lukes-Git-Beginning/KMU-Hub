@@ -40,6 +40,16 @@
 #     In `modules/**` stehen direkte `fetch`-Aufrufe, die kein Client kapselt — dort kamen weitere
 #     tote Pfade hoch. Fuer Lauf 5 beide Baeume diffen.
 #   - Offen: 41 Units.
+#
+# NACHTRAG 2026-08-02 abends (Iteration 14): `g-rls-tenant-scoped-admin-writes` war wie in ihren
+# eigenen notes vorgesehen groesser als eine Iteration und wurde aufgeteilt. Erledigt ist
+# `two_factor_policy` (Migration 000273, der sicherheitskritischste der fuenf Faelle); die uebrigen
+# vier stehen als `g-rls-presence-and-dashboard-defaults`, `g-rls-storage-quotas` und
+# `g-rls-plugin-manifests` dahinter, `g-rls-regression-guard` haengt jetzt an der letzten davon.
+# Die beiden Kernfragen der Ursprungs-Unit sind beantwortet (Provisioning-Hook existiert; der Tenant
+# muss explizit als Parameter laufen, weil Lesepfade unter `sysctx.With()` an RLS vorbeigehen) —
+# Details im `ergebnis:`-Feld der Ursprungs-Unit, nicht erneut recherchieren.
+#   - Stand: 33 offen, 16 erledigt, 2 blockiert.
 
 units:
 
@@ -517,7 +527,7 @@ units:
     service: db
     model: opus
     deps: [g-rls-allowlist-audit]
-    status: todo
+    status: done
     scope: >
       Fuenf Tabellen ohne `tenant_id`, deren einzige Zeile (bzw. bei `plugin_manifests` deren
       Katalog) ueber eine tenant-gescopte Admin-Route geschrieben wird, ohne dass die Route oder
@@ -562,12 +572,135 @@ units:
       - bestehende Admin-Routen bleiben funktional fuer den eigenen Tenant
       - migrate up/down/up gruen
       - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT NUR FUER `two_factor_policy` (Migration 000273, Iteration 14) — der von den notes
+      benannte "falls die Unit zerfaellt, diese zuerst"-Fall. Die uebrigen vier Tabellen stehen als
+      eigene Units direkt darunter: `g-rls-presence-and-dashboard-defaults`, `g-rls-storage-quotas`,
+      `g-rls-plugin-manifests`.
+      Die zwei Kernfragen der Unit sind damit beantwortet und muessen nicht erneut recherchiert
+      werden:
+      (1) **Der Provisioning-Hook EXISTIERT** — `Service.ProvisionTenant` (auth/provisioning.go:76)
+      und `PostgresRepository.ProvisionTenant` (auth/postgres_repository.go:849) legen Tenant,
+      Modul-Aktivierungen und Erst-Einladung in EINER Transaktion unter `sysctx.With()` an. Das ist
+      der Ort fuer Default-Zeilen. Die Sorge der notes ("falls der fehlt, ist DAS der eigentliche
+      fehlende Baustein") hat sich nicht bestaetigt.
+      (2) **Der Tenant muss explizit als Parameter durch Repository und Service laufen**, nicht nur
+      ueber RLS. `Login` fuehrt `Check2FAEnforcement` innerhalb `sysctx.With()` aus — im
+      System-Kontext laesst die Policy JEDE Zeile durch, und `QueryRow` haette die Policy eines
+      beliebigen fremden Tenants geliefert. Dieselbe Frage ist fuer jede der vier Rest-Tabellen zu
+      stellen: laeuft irgendein Lesepfad unter System-Kontext?
+      (3) Ein Provisioning-Default war fuer `two_factor_policy` NICHT noetig (fehlende Zeile ==
+      Spalten-Defaults fuer den Lesepfad, fail-open). Fuer die vier `LIMIT 1`-Leser gilt das nicht.
+
+  - id: g-rls-presence-and-dashboard-defaults
+    phase: sec
+    service: db
+    model: opus
+    deps: [g-rls-tenant-scoped-admin-writes]
+    status: todo
+    scope: >
+      `presence_config` (`PUT /presence/config`, `settings:write`, UPDATE ohne WHERE auf der einzigen
+      Zeile) und `dashboard_defaults` (`PUT /admin/dashboard/defaults/{role}`, `UNIQUE(role)`).
+      Beide bekommen `tenant_id NOT NULL` + `enable_tenant_rls()`, `dashboard_defaults` zusaetzlich
+      `UNIQUE(tenant_id, role)` statt `UNIQUE(role)`. Beide lesen mit `LIMIT 1` bzw. per
+      Rollen-Lookup — ohne Default-Zeile liefert der Read nach RLS `ErrNoRows` statt eines
+      Fallbacks, also braucht es hier wirklich den Provisioning-Schritt.
+    sources:
+      - backend/internal/work/presence/postgres_config_repository.go
+      - backend/internal/gateway/dashboard_repository.go
+      - backend/internal/gateway/dashboard_service.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/migrations/000273_tenant_scope_two_factor_policy.up.sql
+    notes: >
+      000273 ist die Vorlage: Spalte, Backfill per CROSS JOIN auf `tenants` (die alte globale Zeile
+      galt fuer alle, also ist die Replikation die einzige verlustfreie Lesart), Unique-Index
+      umhaengen, `enable_tenant_rls()`.
+      Zwei Wege fuer den fehlenden Read, und der gewaehlte gehoert begruendet ins Journal:
+      (a) Default-Zeile im Provisioning (`PostgresRepository.ProvisionTenant`, dieselbe Transaktion)
+      plus Backfill fuer die 1653 bestehenden Tenants der lokalen DB, oder
+      (b) der Repository-Read faellt bei `ErrNoRows` auf einen Code-Default zurueck.
+      (b) ist deutlich leaner und braucht keinen Backfill ueber alle Tenants — aber nur, wenn der
+      Default wirklich im Code steht und nicht bloss eine Null-Struktur ist. Vor der Entscheidung
+      pruefen, was die beiden `GetConfig`/`GetDefaults`-Aufrufer mit einem leeren Ergebnis tun.
+      Pflicht wie in 000273: pruefen, ob ein Lesepfad unter `sysctx.With()` laeuft — dort filtert
+      RLS nicht und es braucht einen expliziten `WHERE tenant_id = $1`.
+    done_when:
+      - beide Tabellen haben tenant_id NOT NULL + RLS, dashboard_defaults ist auf (tenant_id, role) eindeutig
+      - fehlender Read ist geloest (Provisioning-Zeile oder Code-Default), Entscheidung begruendet
+      - Isolationstest je Tabelle mit eigenen Tenants, eigener Tenant > 0, fremder = 0
+      - migrate up/down/up gruen
+      - go build/vet/lint/test gruen
+
+  - id: g-rls-storage-quotas
+    phase: sec
+    service: db
+    model: sonnet
+    deps: [g-rls-presence-and-dashboard-defaults]
+    status: todo
+    scope: >
+      `storage_quotas` hat kein `tenant_id`; `IncrementUsedBytes`/`DecrementUsedBytes`
+      (chat/file/postgres_repository.go:186ff) schreiben ohne WHERE auf die einzige Zeile. Jeder
+      Tenant zaehlt damit gegen dasselbe globale `max_bytes`-Kontingent — der Upload eines Tenants
+      verbraucht das Kontingent aller anderen. `tenant_id NOT NULL` + `enable_tenant_rls()`, beide
+      Zaehler tenant-gescopt.
+    sources:
+      - backend/internal/chat/file/postgres_repository.go
+      - backend/migrations/000273_tenant_scope_two_factor_policy.up.sql
+    notes: >
+      Anders als bei den vier uebrigen ist hier kein Admin-Guard das Problem, sondern ein Zaehler
+      ohne WHERE — der Effekt (fremde Tenants beeinflussen die eigene Grenze) ist derselbe.
+      Der Backfill kann den bestehenden `used_bytes` NICHT sinnvoll auf Tenants aufteilen: die Zahl
+      ist eine Summe ueber alle. Ehrlichste Loesung ist, `used_bytes` je Tenant aus den real
+      vorhandenen Dateien neu zu berechnen, statt zu raten — vorher pruefen, ob die Datei-Tabelle
+      eine tenant-gescopte Groessensumme hergibt. Geht das nicht, im Journal begruenden, was
+      stattdessen gewaehlt wurde.
+      Ein Zaehler-Update ohne WHERE ist auch nach der Migration falsch, wenn nur die Policy filtert:
+      der WHERE gehoert explizit in beide Statements.
+    done_when:
+      - tenant_id NOT NULL + RLS, beide Zaehler-Statements tenant-gescopt
+      - used_bytes-Backfill begruendet (Neuberechnung oder dokumentierte Alternative)
+      - Isolationstest mit eigenen Tenants
+      - migrate up/down/up gruen
+      - go build/vet/lint/test gruen
+
+  - id: g-rls-plugin-manifests
+    phase: sec
+    service: plugin
+    model: opus
+    deps: [g-rls-storage-quotas]
+    status: todo
+    scope: >
+      `plugin_manifests` — `POST /api/v1/plugins/manifests` (`RequireRole("admin")`, route_plugin.go:53)
+      legt Manifeste ohne `tenant_id` an, `GET /manifests` liefert sie ohne Filter. Ein
+      `plugin_type=config`-Manifest eines Tenants ist damit fuer alle sichtbar (WASM-Manifeste sind
+      durch den `plugins.wasm`-Flag-Check gesondert blockiert, Config-Manifeste nicht).
+    sources:
+      - backend/internal/plugin/repository/manifest.go
+      - backend/internal/gateway/route_plugin.go
+      - docs/ARCHITECTURE.md
+    notes: >
+      DIESE UNIT IST ZUERST EINE PRODUKTFRAGE, DANN EINE MIGRATION. "Ein Manifest anlegen" kann
+      zweierlei sein: eine Tenant-Operation (dann `tenant_id` + RLS wie bei den anderen) oder eine
+      Plattform-Operation wie ein App-Store-Katalog (dann braucht es eine Plattform-Rolle, die es
+      heute nicht gibt — `platform_admin` existiert laut Welle-1b-Recherche als Rolle fuer
+      `tenants:write`, ob sie hier passt, ist zu pruefen).
+      Ein dritter Weg ist plausibel und waere zu pruefen, bevor einer der ersten beiden gebaut wird:
+      `tenant_id` NULLable mit NULL = "von Zentria ausgeliefertes Manifest, fuer alle sichtbar",
+      genau das Policy-Paar, das `roles`/`role_permissions` seit 000256 nutzt (Lesen sieht
+      `tenant_id IS NULL OR = current_tenant_id()`, Schreiben nur den eigenen Tenant). Das loest
+      Katalog UND Tenant-Manifeste in einem Schema.
+      Im Zweifel `blocked` mit der ausformulierten Frage statt geraten — eine falsche Antwort hier
+      ist teurer als eine Iteration Wartezeit.
+    done_when:
+      - entweder Migration + RLS mit begruendetem Schema-Entscheid
+      - oder blocked mit der ausformulierten Produktfrage
+      - falls gebaut: Isolationstest, migrate up/down/up gruen, go build/vet/lint/test gruen
 
   - id: g-rls-regression-guard
     phase: sec
     service: db
     model: sonnet
-    deps: [g-rls-tenant-scoped-admin-writes]
+    deps: [g-rls-plugin-manifests]
     status: todo
     scope: >
       Automatischer Test, der genau den Scan faehrt, der diesen Block ausgeloest hat: jede Tabelle

@@ -71,7 +71,11 @@ type RecoveryCode struct {
 
 // TwoFactorPolicy defines per-role 2FA enforcement settings.
 type TwoFactorPolicy struct {
-	ID              uuid.UUID  `json:"id"`
+	ID uuid.UUID `json:"id"`
+	// TenantID scopes the policy since migration 000273. Before it the table
+	// held one globally unique row per role, which let any tenant's admin
+	// disable 2FA enforcement for every other tenant.
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	RoleName        string     `json:"role_name"`
 	Enforced        bool       `json:"enforced"`
 	GracePeriodDays int        `json:"grace_period_days"`

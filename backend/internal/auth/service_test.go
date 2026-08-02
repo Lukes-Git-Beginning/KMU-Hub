@@ -422,11 +422,11 @@ func (m *mockRepository) ReplaceRecoveryCodes(_ context.Context, _ uuid.UUID, _ 
 	return nil
 }
 
-func (m *mockRepository) GetTwoFactorPolicy(_ context.Context, _ string) (*models.TwoFactorPolicy, error) {
+func (m *mockRepository) GetTwoFactorPolicy(_ context.Context, _ uuid.UUID, _ string) (*models.TwoFactorPolicy, error) {
 	return nil, nil
 }
 
-func (m *mockRepository) ListTwoFactorPolicies(_ context.Context) ([]*models.TwoFactorPolicy, error) {
+func (m *mockRepository) ListTwoFactorPolicies(_ context.Context, _ uuid.UUID) ([]*models.TwoFactorPolicy, error) {
 	return nil, nil
 }
 

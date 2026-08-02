@@ -421,24 +421,33 @@ func (m *authMockRepo) ReplaceRecoveryCodes(_ context.Context, _ uuid.UUID, _ []
 
 // --- 2FA Policies ---
 
-func (m *authMockRepo) GetTwoFactorPolicy(_ context.Context, roleName string) (*models.TwoFactorPolicy, error) {
-	p, ok := m.policies[roleName]
+// policyKey mirrors the unique index migration 000273 put on
+// (tenant_id, role_name). Keying the mock on the role alone would let a test
+// pass that reads another tenant's policy — the exact bug that migration fixed.
+func policyKey(tenantID uuid.UUID, roleName string) string {
+	return tenantID.String() + "/" + roleName
+}
+
+func (m *authMockRepo) GetTwoFactorPolicy(_ context.Context, tenantID uuid.UUID, roleName string) (*models.TwoFactorPolicy, error) {
+	p, ok := m.policies[policyKey(tenantID, roleName)]
 	if !ok {
 		return nil, nil
 	}
 	return p, nil
 }
 
-func (m *authMockRepo) ListTwoFactorPolicies(_ context.Context) ([]*models.TwoFactorPolicy, error) {
+func (m *authMockRepo) ListTwoFactorPolicies(_ context.Context, tenantID uuid.UUID) ([]*models.TwoFactorPolicy, error) {
 	var all []*models.TwoFactorPolicy
 	for _, p := range m.policies {
-		all = append(all, p)
+		if p.TenantID == tenantID {
+			all = append(all, p)
+		}
 	}
 	return all, nil
 }
 
 func (m *authMockRepo) UpsertTwoFactorPolicy(_ context.Context, policy *models.TwoFactorPolicy) error {
-	m.policies[policy.RoleName] = policy
+	m.policies[policyKey(policy.TenantID, policy.RoleName)] = policy
 	return nil
 }
 

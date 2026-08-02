@@ -1112,22 +1112,29 @@ func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, id 
 
 // Two-factor policy methods
 
-func (r *PostgresRepository) GetTwoFactorPolicy(ctx context.Context, roleName string) (*models.TwoFactorPolicy, error) {
+// GetTwoFactorPolicy and ListTwoFactorPolicies filter on tenant_id explicitly
+// even though RLS already would. Login calls Check2FAEnforcement inside
+// sysctx.With — the pre-JWT path has no tenant on the connection — and under
+// the system context the policy predicate passes every row. Without the
+// explicit filter QueryRow would then return whichever tenant's policy the
+// planner reached first, and the login would be judged against a stranger's
+// 2FA rules.
+func (r *PostgresRepository) GetTwoFactorPolicy(ctx context.Context, tenantID uuid.UUID, roleName string) (*models.TwoFactorPolicy, error) {
 	var p models.TwoFactorPolicy
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, role_name, enforced, grace_period_days, updated_at, updated_by
-		 FROM two_factor_policy WHERE role_name = $1`, roleName,
-	).Scan(&p.ID, &p.RoleName, &p.Enforced, &p.GracePeriodDays, &p.UpdatedAt, &p.UpdatedBy)
+		`SELECT id, tenant_id, role_name, enforced, grace_period_days, updated_at, updated_by
+		 FROM two_factor_policy WHERE tenant_id = $1 AND role_name = $2`, tenantID, roleName,
+	).Scan(&p.ID, &p.TenantID, &p.RoleName, &p.Enforced, &p.GracePeriodDays, &p.UpdatedAt, &p.UpdatedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return &p, err
 }
 
-func (r *PostgresRepository) ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error) {
+func (r *PostgresRepository) ListTwoFactorPolicies(ctx context.Context, tenantID uuid.UUID) ([]*models.TwoFactorPolicy, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, role_name, enforced, grace_period_days, updated_at, updated_by
-		 FROM two_factor_policy ORDER BY role_name`,
+		`SELECT id, tenant_id, role_name, enforced, grace_period_days, updated_at, updated_by
+		 FROM two_factor_policy WHERE tenant_id = $1 ORDER BY role_name`, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -1137,7 +1144,7 @@ func (r *PostgresRepository) ListTwoFactorPolicies(ctx context.Context) ([]*mode
 	var policies []*models.TwoFactorPolicy
 	for rows.Next() {
 		var p models.TwoFactorPolicy
-		if err := rows.Scan(&p.ID, &p.RoleName, &p.Enforced, &p.GracePeriodDays, &p.UpdatedAt, &p.UpdatedBy); err != nil {
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.RoleName, &p.Enforced, &p.GracePeriodDays, &p.UpdatedAt, &p.UpdatedBy); err != nil {
 			return nil, err
 		}
 		policies = append(policies, &p)
@@ -1145,16 +1152,20 @@ func (r *PostgresRepository) ListTwoFactorPolicies(ctx context.Context) ([]*mode
 	return policies, rows.Err()
 }
 
+// UpsertTwoFactorPolicy conflicts on (tenant_id, role_name) — the arbiter
+// migration 000273 put in place of the global role_name index, so two tenants
+// can hold different policies for the same role instead of overwriting each
+// other.
 func (r *PostgresRepository) UpsertTwoFactorPolicy(ctx context.Context, policy *models.TwoFactorPolicy) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO two_factor_policy (id, role_name, enforced, grace_period_days, updated_at, updated_by)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 ON CONFLICT (role_name) DO UPDATE SET
+		`INSERT INTO two_factor_policy (id, tenant_id, role_name, enforced, grace_period_days, updated_at, updated_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (tenant_id, role_name) DO UPDATE SET
 			enforced = EXCLUDED.enforced,
 			grace_period_days = EXCLUDED.grace_period_days,
 			updated_at = EXCLUDED.updated_at,
 			updated_by = EXCLUDED.updated_by`,
-		policy.ID, policy.RoleName, policy.Enforced, policy.GracePeriodDays, policy.UpdatedAt, policy.UpdatedBy,
+		policy.ID, policy.TenantID, policy.RoleName, policy.Enforced, policy.GracePeriodDays, policy.UpdatedAt, policy.UpdatedBy,
 	)
 	return err
 }

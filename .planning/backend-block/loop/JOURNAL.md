@@ -929,3 +929,84 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     liest den Tenant in den uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions`
     ohne Audit-Event; `rbac-format.ts`-Katalogluecke; nicht regenerierte
     `desktop/.../api/types.ts`; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
+
+## Iteration 14 — g-rls-tenant-scoped-admin-writes (Teil 1: two_factor_policy) — done — 2026-08-02 23:50
+
+- commit: (siehe Folge-Commit)
+- entscheidung vorab: die Unit umfasste fuenf Tabellen und war, wie ihre eigenen notes vorhergesagt
+  hatten, groesser als eine Iteration. Aufgeteilt statt halb gebaut. `two_factor_policy` zuerst —
+  genau der Fall, den die notes als "falls die Unit zerfaellt, diese zuerst" benannt hatten.
+- gebaut:
+  - `000273_tenant_scope_two_factor_policy` — `tenant_id UUID NOT NULL REFERENCES tenants(id) ON
+    DELETE CASCADE`, alter `idx_two_factor_policy_role` (global eindeutig auf `role_name`) ersetzt
+    durch `idx_two_factor_policy_tenant_role` auf `(tenant_id, role_name)`, `enable_tenant_rls()`.
+    Der Index wird VOR dem Backfill gedroppt, sonst kollidiert die Replikation mit sich selbst.
+  - Backfill: jede bestehende globale Zeile per `CROSS JOIN tenants` auf jeden Tenant repliziert.
+    Das ist die einzige verlustfreie Lesart der Altdaten — die Zeile galt vorher fuer alle, also
+    behaelt jeder Tenant exakt die Policy, unter der er stand. `updated_by` wird nur fuer den
+    Tenant uebernommen, dem der bearbeitende Nutzer angehoert (`CASE WHEN u.tenant_id = t.id`);
+    sonst waere eine fremde User-Referenz ueber genau die Grenze gewandert, die die Migration
+    zieht. Lokal 0 Zeilen (Tabelle leer), Prod ist single-tenant -> dort 1:1.
+  - `models.TwoFactorPolicy.TenantID`; Repository-Signaturen `GetTwoFactorPolicy(ctx, tenantID,
+    roleName)` und `ListTwoFactorPolicies(ctx, tenantID)`; `UpsertTwoFactorPolicy` konfliktet jetzt
+    auf `(tenant_id, role_name)`; Service-Methoden durchgereicht; `Check2FAEnforcement` nimmt
+    `user.TenantID`; `AuthGRPCServer.GetTwoFactorPolicy`/`UpdateTwoFactorPolicy` loesen den Tenant
+    ueber `middleware.GetTenantID(ctx)` auf (`Unauthenticated`, wenn er fehlt).
+  - Tests: `internal/auth/rls_two_factor_policy_test.go` (4 Faelle gegen die echte DB) +
+    2 neue gRPC-Faelle je Richtung in `internal/server/grpc_test.go`; der `authMockRepo` keyt jetzt
+    auf `(tenant, role)` statt nur auf `role`, sonst haette ein Test gruen sein koennen, der die
+    Policy eines fremden Tenants liest.
+- der eigentliche Fund dieser Iteration (wichtiger als die Migration): **RLS allein haette den Bug
+  NICHT geschlossen.** `Login` (auth/service.go:119) wickelt seinen ganzen Rumpf in
+  `sysctx.With(ctx)`, weil der User-Lookup vor jedem Tenant-Kontext passiert — und
+  `Check2FAEnforcement` erbt diesen Kontext. Im System-Kontext laesst
+  `tenant_id = current_tenant_id() OR is_system_context()` jede Zeile durch; `QueryRow` haette
+  also nach der Migration die Policy eines beliebigen fremden Tenants geliefert und den Login
+  danach beurteilt. Deshalb laeuft der Tenant explizit als Parameter durch Repository und Service
+  (dasselbe Muster wie `CreateRole` aus Welle 1b: `internal/auth` darf `middleware` nicht
+  importieren, der gRPC-Layer loest auf). Der vierte Test deckt genau das ab.
+- bewusst NICHT gebaut: eine Provisioning-Default-Zeile fuer neue Tenants, obwohl das `done_when`
+  der Unit sie fuer die Gruppe forderte. Fuer `two_factor_policy` waere sie tot: der Lesepfad wertet
+  eine fehlende Policy als "nicht erzwungen" (totp.go:281, `policy == nil -> continue`), und das ist
+  identisch zu einer Zeile mit den Spalten-Defaults (`enforced=false`, `grace_period_days=14`). Die
+  Zeile entsteht beim ersten Upsert. Fuer die vier verbleibenden Tabellen gilt das nicht — die lesen
+  mit `LIMIT 1` und brauchen den Schritt wirklich.
+- kernfrage der Unit beantwortet: **der Provisioning-Hook existiert bereits.**
+  `Service.ProvisionTenant` (auth/provisioning.go:76) + `PostgresRepository.ProvisionTenant`
+  (auth/postgres_repository.go:849) legen Tenant, Modul-Aktivierungen und Erst-Einladung in EINER
+  Transaktion unter `sysctx.With()` an. Die Sorge der notes ("falls der fehlt, ist DAS der
+  eigentliche fehlende Baustein") hat sich nicht bestaetigt. Steht im `ergebnis:`-Feld der Unit,
+  damit die Folge-Units es nicht erneut recherchieren.
+- backlog: Ursprungs-Unit auf `done` mit `ergebnis:`-Feld; drei Folge-Units eingefuegt
+  (`g-rls-presence-and-dashboard-defaults`, `g-rls-storage-quotas`, `g-rls-plugin-manifests`),
+  `g-rls-regression-guard` haengt jetzt an der letzten davon statt an der Ursprungs-Unit. Stand:
+  33 offen / 16 done / 2 blocked.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues nach Fix eines
+  SA5011 im neuen Test) | test ok — `go test -count=1 -v ./internal/auth/...` **166 PASS / 0 SKIP**
+  (mit gesetztem `DATABASE_URL` auf `kmuhub_app`), `./internal/server/...` gruen,
+  `./internal/gateway/` gruen (keine Route angefasst, `TestOpenAPIRouteDrift` unberuehrt) |
+  migration: up/down/up gruen (273 -> 272 -> 273), danach verifiziert `relrowsecurity=t
+  relforcerowsecurity=t`, Policy `tenant_isolation`, `tenant_id` NOT NULL, nur noch der
+  tenant-gescopte Unique-Index | rls-smoke: die vier Isolationsfaelle sind die Go-Tests selbst;
+  `two_factor_policy` hinterher wieder bei 0 Zeilen (kein Test-Rueckstand).
+- stolperstein: `golangci-lint` meldet SA5011 fuer `if x == nil { t.Fatal(...) }` gefolgt von einer
+  Dereferenzierung — `t.Fatal` gilt staticcheck nicht als noreturn. Ein explizites `return` nach
+  `t.Fatal` loest es. Derselbe Befund wie in Lauf 1 (dort 5x); offenbar tritt er bei jedem neuen
+  Test mit Nil-Check-plus-Zugriff wieder auf.
+- verify vorgaenger: sauber. `a732b743` (g-rls-allowlist-audit) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Migration, Backfill, Down-Pfad und
+  die vier Go-Callsites passen zusammen. Zusaetzlich die beiden GDPR-Pfade
+  (`security/gdpr/erasure.go:109`, `export.go:196`) gegengeprueft, die `refresh_tokens` per
+  `user_id` anfassen — sie laufen im Tenant-Kontext des betroffenen Nutzers, RLS trifft sie also
+  korrekt und nicht ueberraschend.
+- offen:
+  - Die vier Rest-Tabellen (siehe Folge-Units). `g-rls-plugin-manifests` traegt eine echte
+    Produktfrage; im Backlog steht ein dritter Weg, der in der Ursprungs-Unit fehlte: `tenant_id`
+    NULLable mit NULL = "von Zentria ausgeliefert", also dasselbe Policy-Paar wie `roles` seit
+    000256 — das loest Katalog und Tenant-Manifeste in einem Schema.
+  - `desktop/src/renderer/src/api/security-types.ts` `TwoFactorPolicy` kennt das neue Feld
+    `tenant_id` nicht. Kein Bruch (das FE liest es nicht), aber die generierte `types.ts` ist damit
+    einen Tick veraltet — reiht sich in den schon offenen Punkt "nicht regenerierte types.ts" ein.
+  - Aus Iteration 10/11/13 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.

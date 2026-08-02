@@ -899,9 +899,17 @@ func (s *AuthGRPCServer) TerminateAllSessions(ctx context.Context, req *authv1.T
 // Two-Factor Policy Handlers
 // ============================================================================
 
+// GetTwoFactorPolicy returns the calling tenant's 2FA policies. Since migration
+// 000273 the table is tenant-scoped, so the tenant has to be resolved here —
+// the auth package cannot read it from the context itself.
 func (s *AuthGRPCServer) GetTwoFactorPolicy(ctx context.Context, req *authv1.GetTwoFactorPolicyRequest) (*authv1.GetTwoFactorPolicyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
 	if req.RoleName != "" {
-		policy, err := s.authService.GetTwoFactorPolicy(ctx, req.RoleName)
+		policy, err := s.authService.GetTwoFactorPolicy(ctx, tenantID, req.RoleName)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to get 2FA policy")
 		}
@@ -913,7 +921,7 @@ func (s *AuthGRPCServer) GetTwoFactorPolicy(ctx context.Context, req *authv1.Get
 	}
 
 	// Return all policies
-	dbPolicies, err := s.authService.ListTwoFactorPolicies(ctx)
+	dbPolicies, err := s.authService.ListTwoFactorPolicies(ctx, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list 2FA policies")
 	}
@@ -936,7 +944,16 @@ func (s *AuthGRPCServer) UpdateTwoFactorPolicy(ctx context.Context, req *authv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid updated_by")
 	}
 
-	policy, err := s.authService.UpdateTwoFactorPolicy(ctx, req.RoleName, req.Enforced, int(req.GracePeriodDays), updatedBy)
+	// The route guard is RequireRole("admin"), which answers "is an admin" but
+	// not "an admin of which tenant" — before migration 000273 that let any
+	// tenant's admin rewrite everyone's policy. The tenant from the propagated
+	// claims is what scopes the write now.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	policy, err := s.authService.UpdateTwoFactorPolicy(ctx, tenantID, req.RoleName, req.Enforced, int(req.GracePeriodDays), updatedBy)
 	if err != nil {
 		return nil, mapError(err)
 	}

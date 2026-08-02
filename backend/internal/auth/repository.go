@@ -151,9 +151,11 @@ type Repository interface {
 	UseRecoveryCode(ctx context.Context, codeID uuid.UUID) error
 	ReplaceRecoveryCodes(ctx context.Context, userID uuid.UUID, codes []*models.RecoveryCode) error
 
-	// Two-factor policy methods
-	GetTwoFactorPolicy(ctx context.Context, roleName string) (*models.TwoFactorPolicy, error)
-	ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error)
+	// Two-factor policy methods. The tenant is a parameter rather than a
+	// context read because the login path queries the policy under
+	// sysctx.With, where RLS admits every tenant's rows.
+	GetTwoFactorPolicy(ctx context.Context, tenantID uuid.UUID, roleName string) (*models.TwoFactorPolicy, error)
+	ListTwoFactorPolicies(ctx context.Context, tenantID uuid.UUID) ([]*models.TwoFactorPolicy, error)
 	UpsertTwoFactorPolicy(ctx context.Context, policy *models.TwoFactorPolicy) error
 
 	// Password reset token methods
