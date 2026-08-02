@@ -2751,3 +2751,96 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Ziel-ID werden dadurch bei einem `UpdateEmailRule`-Aufruf erstmals abgelehnt, falls die ID kein
     echtes Label ist. Reines Anwenden (`ApplyEmailRules`) ist NICHT betroffen (validiert nicht erneut
     beim Apply, nur bei Create/Update) — kein Verhaltensbruch fuer bestehende Regeln im Ruhezustand.
+
+## Iteration 38 — fe-notifications-snooze — done — 2026-08-02 (Nachtlauf 3)
+- commit: `1f108b00`
+- verify vorgaenger: `41b7c4e1` (fe-messages-bookmark) gegen die acht Fehlerklassen geprueft — **kein
+  Fund**. Gateway-Handler gehen ueber `ch.getChatClient()` (kein Fehlerklasse-1-Fund). Migration
+  000262 `tenant_id NOT NULL` + `CALL enable_tenant_rls('message_bookmarks')`. Proto zwei neue RPCs
+  (`ToggleBookmark`/`ListBookmarks`), `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert. Wire-Shape
+  `{bookmarked: boolean}`/`{messages: MessageInfo[]}` exakt gegen `useBookmarks.ts` verifiziert (Zeile
+  fuer Zeile gelesen, keine Annahme). Guards nutzen ausschliesslich bestehende `messages:read/write`
+  (kein neuer Key, kein Seed noetig). `openapi.yaml` traegt beide Pfade.
+- gebaut: **Notification-Snooze** — `POST /api/v1/notifications/{id}/snooze`.
+  - FE-Vertrag verifiziert in `notification-client.ts:145-158` (`snoozeApi.snooze`, echt aufgerufen aus
+    `NotificationCenter.tsx:199-202,621-633`, kein reiner Mock-Pfad): flacher Response-Shape
+    `{id, snoozed_until}`. **Bestandsfund dabei** (nicht Teil dieser Unit, dokumentiert): Pin/Dismiss
+    liefern serverseitig `{notification}` (Proto-Wrap), obwohl sowohl der MSW-Mock
+    (`mocks/handlers/notifications.ts:481`) als auch der FE-Typ `NotificationActionResponse` denselben
+    flachen Shape wie Snooze erwarten. Bleibt bisher unbemerkt, weil `useToggleNotificationPin`/
+    `useDismissNotification` die Mutation-Response nie lesen (nur `invalidateQueries`). Nicht repariert
+    (ausserhalb Scope dieser Unit) — Kandidat fuer eine eigene kleine Fix-Unit.
+  - Migration 000263: `notifications.snoozed_until TIMESTAMPTZ NULL` + Partial-Index
+    `idx_notifications_snoozed` (Muster wie 000229 fuer is_pinned/is_dismissed). Keine neue RLS-Policy
+    noetig (Tabelle traegt sie bereits seit 000122).
+  - `notification.Service.SnoozeNotification` mirrort das Muster von `PinNotification`/
+    `DismissNotification` (GetByID, Ownership-Check, dann Repo-Write) plus Zukunfts-Validierung
+    (`ErrInvalidSnoozeTime`, woertlich das inbox-Vorbild `message.Service.Snooze`). Repo-`Snooze`
+    setzt `snoozed_until` UND `is_read = true` UND `read_at = COALESCE(read_at, NOW())` — bewusst OHNE
+    Un-Snooze-Worker (anders als `inbox.StartSnoozeWorker`): `List`/`GetUnreadCount` filtern per
+    `(snoozed_until IS NULL OR snoozed_until <= NOW())`, nach Ablauf reicht das reine Filtern, damit
+    der Eintrag wieder auftaucht — bleibt aber "gelesen" (kein Badge-Reset), exakt das MSW-Mock-
+    Verhalten (`notif.is_read = true` in `mocks/handlers/notifications.ts:492`, keine spaetere
+    Rueckstellung). Keine neue Goroutine noetig.
+  - Neuer RPC `SnoozeNotification` in `notification.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
+    regeneriert. Response ist bewusst NICHT `{notification: NotificationInfo}` (anders als Pin/
+    Dismiss/MarkRead), sondern die schlanke `SnoozeNotificationResponse{id, snoozed_until}` — matcht
+    den FE-Vertrag direkt, protojson mit `UseProtoNames: true` liefert automatisch snake_case plus
+    RFC3339-String fuer den Well-Known-Timestamp, kein Hand-Mapping noetig.
+  - **422 fuer Vergangenheit**: `grpcStatusToHTTP` kennt keinen 422-Fall (nur NotFound/AlreadyExists/
+    Unauthenticated/PermissionDenied/InvalidArgument->400/FailedPrecondition->409/...). Statt die
+    gemeinsame Mapping-Funktion fuer einen Einzelfall zu erweitern (Risiko fuer alle anderen RPCs),
+    validiert der Gateway-Handler `until` VOR dem RPC-Call direkt per
+    `response.Error(w, http.StatusUnprocessableEntity, ...)` — Muster aus
+    `internal/middleware/idempotency.go`/`internal/server/file_upload.go` uebernommen (einzige
+    bestehende 422-Praezedenzfaelle im Repo). Service validiert zusaetzlich (`ErrInvalidSnoozeTime`
+    -> `InvalidArgument`) als Defense-in-Depth; bei intaktem Gateway nie erreichbar, schuetzt aber
+    jeden kuenftigen zweiten Aufrufer des RPCs.
+  - Gateway: `POST /api/v1/notifications/{id}/snooze` ueber `RequirePermission("notifications","write")`
+    — bestehender Key (identisch zu Pin/Dismiss), kein neuer Guard, kein Seed.
+  - `openapi.yaml`: neuer Pfad + Schema `SnoozeNotificationResponse` mit Beschreibung, warum es NICHT
+    das gewrappte Notification-Schema ist. 422 dokumentiert wie beim bestehenden
+    `incoming-invoices/{id}`-Precedent (blosse `description`, kein Schema).
+- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet`
+  `internal/notification/... internal/gateway/... internal/server/...` gruen | `golangci-lint`
+  dieselben Pfade **0 issues** | gofmt sauber fuer alle selbst geaenderten Bloecke (CRLF-bereinigt
+  geprueft; zwei Alt-Funde in `internal/models/notification.go` (`NotificationPreference`/
+  `QuietHours`) und `notification_grpc.go` (`toQuietHoursInfo`) sind vorbestehende Misalignments in
+  Code, den ich nicht angefasst habe — nicht repariert, ausserhalb Scope) | Migration 000263
+  up/down/up lokal gruen (Kopf `263`) | swagger-cli validate: `openapi.yaml is valid`. Test ok mit
+  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/notification/...` + `internal/server/...` +
+  `internal/gateway/...` alle `ok`, **0 Skips** (per `-v | grep -c SKIP` in den beiden geaenderten
+  Packages verifiziert). `TestOpenAPIRouteDrift`: PASS, 767 registrierte gegen 769 dokumentierte
+  Pfade (+1 ggue. Iteration 37, konsistent mit der einen neuen Route).
+  **RLS-Smoke** (manuell, `docker exec -i ... psql`, Transaktion mit `ROLLBACK`, keine Datenspuren,
+  echte `tenants`/`users`/`notifications`-Zeilen statt der GATE-COMMANDS.md-Fixwerte): eigener Tenant
+  1, fremder Tenant 0 — keine Nullmessung. Die Policy selbst ist unveraendert (nur Spalte ergaenzt),
+  der Smoke bestaetigt, dass die neue WHERE-Klausel in `List`/`GetUnreadCount` die RLS-Policy nicht
+  unterlaeuft.
+  **Fund + selbst behoben**: das aus Iteration 36 dokumentierte `defer pool.Close()`-vor-`t.Cleanup`-
+  Muster (Pool schliesst vor den Cleanup-Callbacks, `CleanupRow` scheitert still) wurde in der neuen
+  `postgres_repository_test.go` NICHT repliziert — `pool.Close()` haengt stattdessen selbst an
+  `t.Cleanup` (zuerst registriert, laeuft dank LIFO zuletzt). Verifiziert: erster Testlauf mit dem
+  Bug-Muster hinterliess 8 Zeilen in `notifications`/6 in `users`; nach dem Fix und manueller
+  Bereinigung liess ein erneuter Lauf **0** Zeilen zurueck (`SELECT count(*) ... WHERE
+  title='Test notification'` vor/nach verglichen). Der vorbestehende Fund in `email_labels`/
+  `message_bookmarks`/`email_rules` bleibt unangetastet (ausserhalb Scope, weiterhin Kandidat fuer
+  eine eigene Fix-Unit).
+- tests: 4 neue Service-Unit-Tests (Erfolg inkl. is_read=true, Vergangenheit->ErrInvalidSnoozeTime,
+  NotFound, Unauthorized), 3 neue DB-Tests (`postgres_repository_test.go`: Snooze setzt Feld+is_read,
+  unbekannte ID->NotFound, List+GetUnreadCount schliessen aktuell-gesnoozte Eintraege aus und zeigen
+  abgelaufene wieder an) — eigene Tenants+User pro Testfall, kein Parallel-Kollisionsrisiko.
+- offen:
+  - **Fund im Bestand, ausserhalb dieser Unit (nicht behoben, dokumentiert)**: Pin/Dismiss liefern
+    `{notification}` (gewrappt), FE-Client/Mock erwarten `{id, is_pinned, is_dismissed, actor_name}`
+    (flach). Aktuell folgenlos (Mutation-Response wird nie gelesen), waere aber ein echter Bruch,
+    sobald jemand die Response tatsaechlich konsumiert. Kandidat fuer eine eigene Fix-Unit, die beide
+    RPCs auf den flachen Shape umstellt (analog zu Snooze).
+  - Kein Un-Snooze-Worker (bewusst, siehe oben) — ein gesnoozter Eintrag bleibt nach Ablauf dauerhaft
+    "gelesen", der Badge zeigt ihn nicht erneut an. Sollte das Produkt-Team spaeter ein "Reminder
+    poppt wieder als ungelesen auf" verlangen, ist das eine bewusste Erweiterung (Worker + is_read-
+    Reset), keine Nacharbeit an dieser Unit.
+  - Zwei vorbestehende gofmt-Misalignments (`NotificationPreference`/`QuietHours` in
+    `internal/models/notification.go`, `toQuietHoursInfo` in `notification_grpc.go`) unangetastet
+    gelassen — ausserhalb Scope, keine Faelle die ich veraendert habe.
+  - Naechste Unit laut Reihenfolge: `fe-documents-activity` (Block D, deps: [], model: sonnet).

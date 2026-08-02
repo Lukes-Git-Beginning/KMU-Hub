@@ -1524,7 +1524,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/notifications/{id}/snooze` — Benachrichtigung bis zu einem Zeitpunkt stummschalten.
     sources:
@@ -1533,6 +1533,25 @@ units:
       `snoozed_until`-Spalte plus Filter in der Listenabfrage. Der inbox-Service hat bereits
       snooze/unsnooze — dort das Muster abschauen und moeglichst dieselbe Semantik verwenden.
       Zeitpunkt in der Vergangenheit: 422, nicht still akzeptieren.
+
+      ERGEBNIS (2026-08-02): FE-Vertrag ist `notification-client.ts` (`snoozeApi.snooze`, echt
+      verdrahtet in `NotificationCenter.tsx`, kein reiner Mock-Pfad) — flacher Response-Shape
+      `{id, snoozed_until}`, NICHT das gewrappte `{notification}` aus Pin/Dismiss. Dabei auffaellig:
+      Pin/Dismiss liefern serverseitig bereits `{notification}` (Proto-Wrap), obwohl SOWOHL der
+      MSW-Mock (`mocks/handlers/notifications.ts:481`) ALS AUCH der FE-Typ `NotificationActionResponse`
+      denselben flachen Shape wie Snooze erwarten — ein Bestands-Mismatch, unabhaengig von dieser
+      Unit entstanden (Pin/Dismiss werden fire-and-forget aufgerufen, FE liest die Response nie,
+      daher bisher unbemerkt). Nicht repariert (ausserhalb Scope), im Journal dokumentiert.
+      422 folgt NICHT ueber grpcStatusToHTTP (kein Fall dafuer, InvalidArgument->400 ist der einzige
+      Weg) — stattdessen validiert der Gateway-Handler `until` VOR dem RPC-Call direkt per
+      `response.Error(w, http.StatusUnprocessableEntity, ...)` (Muster aus `idempotency.go`/
+      `file_upload.go` uebernommen). Service validiert zusaetzlich (ErrInvalidSnoozeTime, analog
+      inbox), das ist defense-in-depth und bei intaktem Gateway nie erreichbar.
+      Semantik bewusst simpler als das inbox-Vorbild: KEIN Un-Snooze-Worker. `Snooze` setzt
+      `is_read=true` (wie MSW-Mock UND inbox), List/GetUnreadCount schliessen per Zeit-Filter
+      (`snoozed_until IS NULL OR snoozed_until <= NOW()`) aus — nach Ablauf reicht reines Filtern,
+      damit der Eintrag wieder in der Liste auftaucht (bleibt aber "gelesen", kein Badge-Reset).
+      Spiegelt exakt das MSW-Mock-Verhalten, keine neue Goroutine/kein Worker noetig.
     done_when:
       - Snooze setzt und filtert korrekt, Vergangenheit 422
       - openapi.yaml im selben Commit
