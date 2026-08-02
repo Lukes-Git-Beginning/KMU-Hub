@@ -932,7 +932,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 14 — g-rls-tenant-scoped-admin-writes (Teil 1: two_factor_policy) — done — 2026-08-02 23:50
 
-- commit: (siehe Folge-Commit)
+- commit: c65d762c
 - entscheidung vorab: die Unit umfasste fuenf Tabellen und war, wie ihre eigenen notes vorhergesagt
   hatten, groesser als eine Iteration. Aufgeteilt statt halb gebaut. `two_factor_policy` zuerst —
   genau der Fall, den die notes als "falls die Unit zerfaellt, diese zuerst" benannt hatten.
