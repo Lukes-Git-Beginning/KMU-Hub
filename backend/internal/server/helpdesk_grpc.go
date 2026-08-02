@@ -15,17 +15,24 @@ import (
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
+	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
 
 // HelpdeskGRPCServer implements the HelpdeskService gRPC server.
 type HelpdeskGRPCServer struct {
 	helpdeskv1.UnimplementedHelpdeskServiceServer
 	svc *helpdesk.Service
+	// inboxClient is optional; nil if the inbox (notification) service is
+	// unreachable. Only CreateTicketFromMessage needs it -- every other RPC
+	// degrades gracefully without it.
+	inboxClient inboxv1.InboxServiceClient
 }
 
-// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server.
-func NewHelpdeskGRPCServer(svc *helpdesk.Service) *HelpdeskGRPCServer {
-	return &HelpdeskGRPCServer{svc: svc}
+// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient may be
+// nil, which disables CreateTicketFromMessage (Unavailable) but leaves every
+// other RPC unaffected.
+func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient) *HelpdeskGRPCServer {
+	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient}
 }
 
 // ============================================================================
@@ -284,6 +291,48 @@ func (s *HelpdeskGRPCServer) MergeTickets(ctx context.Context, req *helpdeskv1.M
 		return nil, mapHelpdeskError(err)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// CreateTicketFromMessage fetches the source inbox message from the inbox
+// service and delegates persistence + idempotency to the helpdesk service.
+// The orchestration lives here rather than in the gateway, mirroring
+// BizGRPCServer.CreateQuoteFromDeal: one RPC call does both steps.
+func (s *HelpdeskGRPCServer) CreateTicketFromMessage(ctx context.Context, req *helpdeskv1.CreateTicketFromMessageRequest) (*helpdeskv1.CreateTicketFromMessageResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+
+	requesterID, err := uuid.Parse(req.GetRequesterId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+	}
+
+	messageID, err := uuid.Parse(req.GetMessageId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	if s.inboxClient == nil {
+		return nil, status.Error(codes.Unavailable, "inbox service not available")
+	}
+
+	msgResp, err := s.inboxClient.GetMessage(ctx, &inboxv1.GetMessageRequest{MessageId: req.GetMessageId()})
+	if err != nil {
+		slog.Error("CreateTicketFromMessage: fetch inbox message failed", "message_id", req.GetMessageId(), "error", err)
+		return nil, err
+	}
+	msg := msgResp.GetMessage()
+
+	t, created, err := s.svc.CreateTicketFromMessage(ctx, tenantID, requesterID, messageID, channelToString(msg.GetChannel()), msg.GetSubject(), msg.GetPreview())
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+
+	return &helpdeskv1.CreateTicketFromMessageResponse{
+		Ticket:  ticketToProto(t),
+		Created: created,
+	}, nil
 }
 
 // ============================================================================
@@ -946,6 +995,13 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 		s := t.OrgID.String()
 		msg.OrgId = &s
 	}
+	if t.SourceChannel != nil {
+		msg.SourceChannel = t.SourceChannel
+	}
+	if t.SourceMessageID != nil {
+		s := t.SourceMessageID.String()
+		msg.SourceMessageId = &s
+	}
 	return msg
 }
 
@@ -1094,6 +1150,14 @@ func mapHelpdeskError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrOrgNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrMessageAlreadyLinked):
+		// Only reachable if the post-conflict re-fetch in
+		// Service.CreateTicketFromMessage itself fails after losing the race
+		// (the happy path resolves this into an existing-ticket return, not
+		// an error) -- surfaced as Conflict rather than Internal.
+		return status.Error(codes.AlreadyExists, err.Error())
 	default:
 		slog.Error("unhandled helpdesk service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

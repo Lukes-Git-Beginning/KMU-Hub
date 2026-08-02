@@ -4350,3 +4350,74 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     zweites Boolean-Feld), nicht in dieser Unit ergaenzt.
   - Naechste Unit laut Reihenfolge: `g-helpdesk-source-channel` (Block G, deps:
     [g-helpdesk-contact-link], model: sonnet) — jetzt entsperrt.
+
+## Iteration 61 — g-helpdesk-source-channel — done — 2026-08-02 08:05
+- commit: (folgt)
+- verify vorgaenger: sauber. `93cead56` (g-helpdesk-contact-link) gegen die acht Fehlerklassen
+  geprueft: `route_helpdesk.go`-Diff geht durchgehend ueber `client.CreateTicket`/`UpdateTicket`/
+  `ListTickets` (kein RLS-Bypass), kein Stub/TODO, `.proto` (Felder 20/21 auf `Ticket`/
+  `CreateTicketRequest`/`UpdateTicketRequest`/`ListTicketsRequest`) mit `.pb.go` im selben Commit
+  regeneriert (kein `_grpc.pb.go`-Diff, weil keine RPC-Signatur geaendert wurde — erwartet, keine
+  Luecke), Migration 000267 fuegt nullable `contact_id`/`org_id` auf der bereits RLS-aktiven
+  `tickets`-Tabelle hinzu (kein neuer Guard, kein Seed noetig), `ContactExists`/`CompanyExists`
+  filtern explizit `tenant_id = $2` (Defense-in-Depth zusaetzlich zur RLS). Unabhaengig nachgebaut:
+  `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` gruen, `go test ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` gruen (777 Routen / 779 Pfade, unveraendert).
+- gebaut: `source_channel`/`source_message_id` auf `tickets` (Migration 000268, `source_channel
+  VARCHAR(20) CHECK IN ('email','chat','notification')` — deckungsgleich mit der bestehenden
+  `inbox_messages.channel`-CHECK-Constraint; `source_message_id UUID REFERENCES
+  inbox_messages(id) ON DELETE SET NULL`; partieller Unique-Index `idx_tickets_source_message
+  WHERE source_message_id IS NOT NULL` als DB-seitiger Idempotenz-Backstop). Neue RPC
+  `HelpdeskService.CreateTicketFromMessage` (Proto-Felder 22/23 auf `Ticket`, zwei neue Messages,
+  `.pb.go`+`_grpc.pb.go` diesmal BEIDE regeneriert, weil eine neue RPC dazukam). Orchestrierung
+  sitzt im gRPC-Handler (`HelpdeskGRPCServer`, jetzt mit optionalem `inboxClient
+  inboxv1.InboxServiceClient`, nil-safe analog `BizGRPCServer.crmClient`) — 1:1 das Muster von
+  `BizGRPCServer.CreateQuoteFromDeal`: Handler holt die Inbox-Nachricht per
+  `inboxClient.GetMessage` (bestehende RPC, kein Aufwand), mappt `Channel`-Enum ueber das
+  bereits vorhandene package-private `channelToString` (selbes `package server`, in
+  `inbox_grpc.go`) auf den DB-String, delegiert Persistenz+Idempotenz an
+  `Service.CreateTicketFromMessage` (thick service). Idempotenz zweistufig: Pre-Check per neuer
+  Repo-Methode `GetTicketBySourceMessage` VOR dem Insert (haeufiger Fall, kein Round-Trip zum
+  Unique-Index) + Race-Recovery ueber `pgconn.PgError.Code == "23505"` auf
+  `idx_tickets_source_message` (seltener Fall zweier gleichzeitiger Konversionen derselben
+  Nachricht) — beide Pfade liefern denselben, bereits existierenden Ticket mit `created=false`
+  zurueck statt eines Fehlers oder eines zweiten Tickets. `ValidSourceChannels` lehnt
+  `CHANNEL_GUEST`/`CHANNEL_UNSPECIFIED` (die `channelToString` heute auf `""` abbildet, weil sie
+  nie in `inbox_messages.channel` landen) sauber mit `ErrInvalidSourceChannel` (400) ab, statt in
+  die DB-CHECK-Constraint zu laufen (500). Fehlender Nachrichten-Subject bekommt einen
+  deutschsprachigen Fallback (`"Ticket aus E-Mail/Chat/Benachrichtigung"`) statt eines
+  Validierungsfehlers — ein Ticket ohne Betreff waere sonst aus manchen Notification-Nachrichten
+  gar nicht erzeugbar. Requester der neuen Route ist wie bei `HandleCreateTicket` der
+  authentifizierte Aufrufer (Agent), NICHT der externe Absender der Nachricht — deckungsgleiches
+  Verhalten zur bestehenden Ticket-Erstellung, keine Sonderrolle eingefuehrt. Neue Route `POST
+  /api/v1/helpdesk/tickets/from-message` hinter dem bestehenden `hdTicketCreate`-Guard (kein
+  neuer Permission-Key, kein Seed noetig), Response ist der blanke `Ticket` (wire-shape-identisch
+  zu `CreateTicket`/`UpdateTicket`/`GetTicket`), Status 201 bei frischer Konversion, 200 beim
+  idempotenten Treffer — dieselbe Ticket-Response, nur der Code unterscheidet.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` gruen | `go vet` gruen | `golangci-lint run --config
+  .golangci.yml` fuer dieselben Pakete: 0 issues | swagger-cli validate: `api/openapi.yaml is
+  valid` | Migration lokal up/down/up sauber (Kopf 268). `DATABASE_URL` gesetzt (Rolle
+  `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go test -count=1 -v ./internal/helpdesk/...` PASS, 0
+  Skips (57 Tests, davon 4 neu: Provenienz persistiert+re-read, Idempotenz ueber zwei Aufrufe mit
+  DB-Zaehlung `COUNT(*) WHERE source_message_id=$1 = 1`, Subject-Fallback bei leerer
+  Message-Subject, `ErrInvalidSourceChannel` bei unbekanntem Channel), `go test
+  ./internal/server/...` PASS, `go test ./internal/gateway/...` PASS inkl.
+  `TestOpenAPIRouteDrift` (778/780, +1/+1 durch die neue Route) und `TestOpenAPISpecDrift`
+  (779/778, Differenz weiterhin nur die vorbestehende `/api/v1/files/upload`-Allowlist-Ausnahme).
+  RLS-Smoke: kein neuer Table/keine neue Policy (nur zwei nullable Spalten + ein partieller
+  Unique-Index auf der bereits RLS-aktiven `tickets`-Tabelle) — die bestehenden
+  `TestTenantIsolation_Helpdesk/tickets` und `TestTicketWrites_LandInCallerTenant` (beide
+  unveraendert gruen) sowie die neuen Tests unter `WithTenantCtx` als `kmuhub_app` decken das ab,
+  kein separater psql-Handlauf noetig.
+- offen:
+  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. FE hat aktuell
+    keinen "In Ticket umwandeln"-Button im Posteingang; die Route ist bereit, sobald das kommt.
+  - `CHANNEL_GUEST` (Proto-Enum-Wert 4) ist weiterhin nicht mit der DB verdrahtet
+    (`channelToString`/`stringToChannel` in `inbox_grpc.go` kennen ihn nicht, `inbox_messages.
+    channel`-CHECK-Constraint erlaubt ihn nicht) — vorbestehende Luecke aus dem Inbox-Modul,
+    nicht in dieser Unit angefasst. Falls Gastnachrichten je als eigener Channel gefuehrt werden,
+    muss diese Unit's `ValidSourceChannels`-Map mitziehen.
+  - Naechste Unit laut Reihenfolge: `g-automation-http-action` (Block G, deps: [], model: opus,
+    SSRF-kritisch) — jetzt an der Reihe.

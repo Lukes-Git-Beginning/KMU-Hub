@@ -49,10 +49,15 @@ type Ticket struct {
 	// Per-tenant sequential ticket number (1-based).
 	TicketNumber int32 `protobuf:"varint,19,opt,name=ticket_number,json=ticketNumber,proto3" json:"ticket_number,omitempty"`
 	// CRM linkage, both optional: a ticket need not have a CRM counterpart.
-	ContactId     *string `protobuf:"bytes,20,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
-	OrgId         *string `protobuf:"bytes,21,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ContactId *string `protobuf:"bytes,20,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId     *string `protobuf:"bytes,21,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
+	// Multi-channel provenance, both optional: set only when the ticket was
+	// created via CreateTicketFromMessage. source_channel mirrors the inbox
+	// message's channel ("email" | "chat" | "notification").
+	SourceChannel   *string `protobuf:"bytes,22,opt,name=source_channel,json=sourceChannel,proto3,oneof" json:"source_channel,omitempty"`
+	SourceMessageId *string `protobuf:"bytes,23,opt,name=source_message_id,json=sourceMessageId,proto3,oneof" json:"source_message_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Ticket) Reset() {
@@ -228,6 +233,20 @@ func (x *Ticket) GetContactId() string {
 func (x *Ticket) GetOrgId() string {
 	if x != nil && x.OrgId != nil {
 		return *x.OrgId
+	}
+	return ""
+}
+
+func (x *Ticket) GetSourceChannel() string {
+	if x != nil && x.SourceChannel != nil {
+		return *x.SourceChannel
+	}
+	return ""
+}
+
+func (x *Ticket) GetSourceMessageId() string {
+	if x != nil && x.SourceMessageId != nil {
+		return *x.SourceMessageId
 	}
 	return ""
 }
@@ -1194,6 +1213,121 @@ func (x *MergeTicketsRequest) GetTargetTicketId() string {
 	return ""
 }
 
+type CreateTicketFromMessageRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// The caller creating the ticket -- same semantics as CreateTicketRequest's
+	// requester_id, never the external sender of the inbox message.
+	RequesterId   string `protobuf:"bytes,2,opt,name=requester_id,json=requesterId,proto3" json:"requester_id,omitempty"`
+	MessageId     string `protobuf:"bytes,3,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateTicketFromMessageRequest) Reset() {
+	*x = CreateTicketFromMessageRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTicketFromMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTicketFromMessageRequest) ProtoMessage() {}
+
+func (x *CreateTicketFromMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTicketFromMessageRequest.ProtoReflect.Descriptor instead.
+func (*CreateTicketFromMessageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CreateTicketFromMessageRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateTicketFromMessageRequest) GetRequesterId() string {
+	if x != nil {
+		return x.RequesterId
+	}
+	return ""
+}
+
+func (x *CreateTicketFromMessageRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+type CreateTicketFromMessageResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Ticket *Ticket                `protobuf:"bytes,1,opt,name=ticket,proto3" json:"ticket,omitempty"`
+	// False when message_id was already converted -- ticket is the existing one.
+	Created       bool `protobuf:"varint,2,opt,name=created,proto3" json:"created,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateTicketFromMessageResponse) Reset() {
+	*x = CreateTicketFromMessageResponse{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTicketFromMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTicketFromMessageResponse) ProtoMessage() {}
+
+func (x *CreateTicketFromMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTicketFromMessageResponse.ProtoReflect.Descriptor instead.
+func (*CreateTicketFromMessageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CreateTicketFromMessageResponse) GetTicket() *Ticket {
+	if x != nil {
+		return x.Ticket
+	}
+	return nil
+}
+
+func (x *CreateTicketFromMessageResponse) GetCreated() bool {
+	if x != nil {
+		return x.Created
+	}
+	return false
+}
+
 type AddMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
@@ -1207,7 +1341,7 @@ type AddMessageRequest struct {
 
 func (x *AddMessageRequest) Reset() {
 	*x = AddMessageRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[14]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1353,7 @@ func (x *AddMessageRequest) String() string {
 func (*AddMessageRequest) ProtoMessage() {}
 
 func (x *AddMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[14]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1232,7 +1366,7 @@ func (x *AddMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMessageRequest.ProtoReflect.Descriptor instead.
 func (*AddMessageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{14}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AddMessageRequest) GetTicketId() string {
@@ -1279,7 +1413,7 @@ type ListMessagesRequest struct {
 
 func (x *ListMessagesRequest) Reset() {
 	*x = ListMessagesRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[15]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1425,7 @@ func (x *ListMessagesRequest) String() string {
 func (*ListMessagesRequest) ProtoMessage() {}
 
 func (x *ListMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[15]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1438,7 @@ func (x *ListMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMessagesRequest.ProtoReflect.Descriptor instead.
 func (*ListMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{15}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListMessagesRequest) GetTicketId() string {
@@ -1323,7 +1457,7 @@ type ListMessagesResponse struct {
 
 func (x *ListMessagesResponse) Reset() {
 	*x = ListMessagesResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[16]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1335,7 +1469,7 @@ func (x *ListMessagesResponse) String() string {
 func (*ListMessagesResponse) ProtoMessage() {}
 
 func (x *ListMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[16]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1348,7 +1482,7 @@ func (x *ListMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMessagesResponse.ProtoReflect.Descriptor instead.
 func (*ListMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{16}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListMessagesResponse) GetMessages() []*TicketMessage {
@@ -1370,7 +1504,7 @@ type CreateQueueRequest struct {
 
 func (x *CreateQueueRequest) Reset() {
 	*x = CreateQueueRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[17]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1382,7 +1516,7 @@ func (x *CreateQueueRequest) String() string {
 func (*CreateQueueRequest) ProtoMessage() {}
 
 func (x *CreateQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[17]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1395,7 +1529,7 @@ func (x *CreateQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateQueueRequest.ProtoReflect.Descriptor instead.
 func (*CreateQueueRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{17}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateQueueRequest) GetName() string {
@@ -1438,7 +1572,7 @@ type UpdateQueueRequest struct {
 
 func (x *UpdateQueueRequest) Reset() {
 	*x = UpdateQueueRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[18]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1450,7 +1584,7 @@ func (x *UpdateQueueRequest) String() string {
 func (*UpdateQueueRequest) ProtoMessage() {}
 
 func (x *UpdateQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[18]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1463,7 +1597,7 @@ func (x *UpdateQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateQueueRequest.ProtoReflect.Descriptor instead.
 func (*UpdateQueueRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{18}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateQueueRequest) GetQueueId() string {
@@ -1503,7 +1637,7 @@ type ListQueuesRequest struct {
 
 func (x *ListQueuesRequest) Reset() {
 	*x = ListQueuesRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1515,7 +1649,7 @@ func (x *ListQueuesRequest) String() string {
 func (*ListQueuesRequest) ProtoMessage() {}
 
 func (x *ListQueuesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1528,7 +1662,7 @@ func (x *ListQueuesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListQueuesRequest.ProtoReflect.Descriptor instead.
 func (*ListQueuesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{19}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListQueuesRequest) GetTenantId() string {
@@ -1547,7 +1681,7 @@ type ListQueuesResponse struct {
 
 func (x *ListQueuesResponse) Reset() {
 	*x = ListQueuesResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1559,7 +1693,7 @@ func (x *ListQueuesResponse) String() string {
 func (*ListQueuesResponse) ProtoMessage() {}
 
 func (x *ListQueuesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1572,7 +1706,7 @@ func (x *ListQueuesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListQueuesResponse.ProtoReflect.Descriptor instead.
 func (*ListQueuesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{20}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListQueuesResponse) GetQueues() []*TicketQueue {
@@ -1591,7 +1725,7 @@ type DeleteQueueRequest struct {
 
 func (x *DeleteQueueRequest) Reset() {
 	*x = DeleteQueueRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[21]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1603,7 +1737,7 @@ func (x *DeleteQueueRequest) String() string {
 func (*DeleteQueueRequest) ProtoMessage() {}
 
 func (x *DeleteQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[21]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1616,7 +1750,7 @@ func (x *DeleteQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteQueueRequest.ProtoReflect.Descriptor instead.
 func (*DeleteQueueRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{21}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteQueueRequest) GetQueueId() string {
@@ -1637,7 +1771,7 @@ type CreateCannedResponseRequest struct {
 
 func (x *CreateCannedResponseRequest) Reset() {
 	*x = CreateCannedResponseRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[22]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1649,7 +1783,7 @@ func (x *CreateCannedResponseRequest) String() string {
 func (*CreateCannedResponseRequest) ProtoMessage() {}
 
 func (x *CreateCannedResponseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[22]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1662,7 +1796,7 @@ func (x *CreateCannedResponseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCannedResponseRequest.ProtoReflect.Descriptor instead.
 func (*CreateCannedResponseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{22}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateCannedResponseRequest) GetName() string {
@@ -1697,7 +1831,7 @@ type UpdateCannedResponseRequest struct {
 
 func (x *UpdateCannedResponseRequest) Reset() {
 	*x = UpdateCannedResponseRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1709,7 +1843,7 @@ func (x *UpdateCannedResponseRequest) String() string {
 func (*UpdateCannedResponseRequest) ProtoMessage() {}
 
 func (x *UpdateCannedResponseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1722,7 +1856,7 @@ func (x *UpdateCannedResponseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCannedResponseRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCannedResponseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{23}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UpdateCannedResponseRequest) GetCannedResponseId() string {
@@ -1755,7 +1889,7 @@ type DeleteCannedResponseRequest struct {
 
 func (x *DeleteCannedResponseRequest) Reset() {
 	*x = DeleteCannedResponseRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[24]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1767,7 +1901,7 @@ func (x *DeleteCannedResponseRequest) String() string {
 func (*DeleteCannedResponseRequest) ProtoMessage() {}
 
 func (x *DeleteCannedResponseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[24]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1780,7 +1914,7 @@ func (x *DeleteCannedResponseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCannedResponseRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCannedResponseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{24}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DeleteCannedResponseRequest) GetCannedResponseId() string {
@@ -1799,7 +1933,7 @@ type ListCannedResponsesRequest struct {
 
 func (x *ListCannedResponsesRequest) Reset() {
 	*x = ListCannedResponsesRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[25]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1811,7 +1945,7 @@ func (x *ListCannedResponsesRequest) String() string {
 func (*ListCannedResponsesRequest) ProtoMessage() {}
 
 func (x *ListCannedResponsesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[25]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1824,7 +1958,7 @@ func (x *ListCannedResponsesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCannedResponsesRequest.ProtoReflect.Descriptor instead.
 func (*ListCannedResponsesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{25}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListCannedResponsesRequest) GetTenantId() string {
@@ -1843,7 +1977,7 @@ type ListCannedResponsesResponse struct {
 
 func (x *ListCannedResponsesResponse) Reset() {
 	*x = ListCannedResponsesResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[26]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1855,7 +1989,7 @@ func (x *ListCannedResponsesResponse) String() string {
 func (*ListCannedResponsesResponse) ProtoMessage() {}
 
 func (x *ListCannedResponsesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[26]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1868,7 +2002,7 @@ func (x *ListCannedResponsesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCannedResponsesResponse.ProtoReflect.Descriptor instead.
 func (*ListCannedResponsesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{26}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListCannedResponsesResponse) GetCannedResponses() []*CannedResponse {
@@ -1892,7 +2026,7 @@ type CreateSLAPolicyRequest struct {
 
 func (x *CreateSLAPolicyRequest) Reset() {
 	*x = CreateSLAPolicyRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1904,7 +2038,7 @@ func (x *CreateSLAPolicyRequest) String() string {
 func (*CreateSLAPolicyRequest) ProtoMessage() {}
 
 func (x *CreateSLAPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1917,7 +2051,7 @@ func (x *CreateSLAPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSLAPolicyRequest.ProtoReflect.Descriptor instead.
 func (*CreateSLAPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{27}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CreateSLAPolicyRequest) GetName() string {
@@ -1969,7 +2103,7 @@ type UpdateSLAPolicyRequest struct {
 
 func (x *UpdateSLAPolicyRequest) Reset() {
 	*x = UpdateSLAPolicyRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1981,7 +2115,7 @@ func (x *UpdateSLAPolicyRequest) String() string {
 func (*UpdateSLAPolicyRequest) ProtoMessage() {}
 
 func (x *UpdateSLAPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1994,7 +2128,7 @@ func (x *UpdateSLAPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSLAPolicyRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSLAPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{28}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UpdateSLAPolicyRequest) GetSlaPolicyId() string {
@@ -2041,7 +2175,7 @@ type ListSLAPoliciesRequest struct {
 
 func (x *ListSLAPoliciesRequest) Reset() {
 	*x = ListSLAPoliciesRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[29]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2053,7 +2187,7 @@ func (x *ListSLAPoliciesRequest) String() string {
 func (*ListSLAPoliciesRequest) ProtoMessage() {}
 
 func (x *ListSLAPoliciesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[29]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2066,7 +2200,7 @@ func (x *ListSLAPoliciesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSLAPoliciesRequest.ProtoReflect.Descriptor instead.
 func (*ListSLAPoliciesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{29}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListSLAPoliciesRequest) GetTenantId() string {
@@ -2085,7 +2219,7 @@ type ListSLAPoliciesResponse struct {
 
 func (x *ListSLAPoliciesResponse) Reset() {
 	*x = ListSLAPoliciesResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[30]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2097,7 +2231,7 @@ func (x *ListSLAPoliciesResponse) String() string {
 func (*ListSLAPoliciesResponse) ProtoMessage() {}
 
 func (x *ListSLAPoliciesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[30]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2110,7 +2244,7 @@ func (x *ListSLAPoliciesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSLAPoliciesResponse.ProtoReflect.Descriptor instead.
 func (*ListSLAPoliciesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{30}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListSLAPoliciesResponse) GetPolicies() []*SLAPolicy {
@@ -2130,7 +2264,7 @@ type ApplySLAPolicyRequest struct {
 
 func (x *ApplySLAPolicyRequest) Reset() {
 	*x = ApplySLAPolicyRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[31]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2142,7 +2276,7 @@ func (x *ApplySLAPolicyRequest) String() string {
 func (*ApplySLAPolicyRequest) ProtoMessage() {}
 
 func (x *ApplySLAPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[31]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2155,7 +2289,7 @@ func (x *ApplySLAPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplySLAPolicyRequest.ProtoReflect.Descriptor instead.
 func (*ApplySLAPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{31}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ApplySLAPolicyRequest) GetTicketId() string {
@@ -2182,7 +2316,7 @@ type GetSLAStatusRequest struct {
 
 func (x *GetSLAStatusRequest) Reset() {
 	*x = GetSLAStatusRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2194,7 +2328,7 @@ func (x *GetSLAStatusRequest) String() string {
 func (*GetSLAStatusRequest) ProtoMessage() {}
 
 func (x *GetSLAStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2207,7 +2341,7 @@ func (x *GetSLAStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSLAStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSLAStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{32}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetSLAStatusRequest) GetTicketId() string {
@@ -2234,7 +2368,7 @@ type GetSLAStatusResponse struct {
 
 func (x *GetSLAStatusResponse) Reset() {
 	*x = GetSLAStatusResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[33]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2380,7 @@ func (x *GetSLAStatusResponse) String() string {
 func (*GetSLAStatusResponse) ProtoMessage() {}
 
 func (x *GetSLAStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[33]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2393,7 @@ func (x *GetSLAStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSLAStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSLAStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{33}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetSLAStatusResponse) GetStatus() string {
@@ -2278,7 +2412,7 @@ type DeleteSLAPolicyRequest struct {
 
 func (x *DeleteSLAPolicyRequest) Reset() {
 	*x = DeleteSLAPolicyRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2290,7 +2424,7 @@ func (x *DeleteSLAPolicyRequest) String() string {
 func (*DeleteSLAPolicyRequest) ProtoMessage() {}
 
 func (x *DeleteSLAPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2303,7 +2437,7 @@ func (x *DeleteSLAPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSLAPolicyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSLAPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{34}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *DeleteSLAPolicyRequest) GetSlaPolicyId() string {
@@ -2331,7 +2465,7 @@ type KBArticle struct {
 
 func (x *KBArticle) Reset() {
 	*x = KBArticle{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2343,7 +2477,7 @@ func (x *KBArticle) String() string {
 func (*KBArticle) ProtoMessage() {}
 
 func (x *KBArticle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2356,7 +2490,7 @@ func (x *KBArticle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KBArticle.ProtoReflect.Descriptor instead.
 func (*KBArticle) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{35}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *KBArticle) GetId() string {
@@ -2431,7 +2565,7 @@ type ListKBArticleRequest struct {
 
 func (x *ListKBArticleRequest) Reset() {
 	*x = ListKBArticleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2443,7 +2577,7 @@ func (x *ListKBArticleRequest) String() string {
 func (*ListKBArticleRequest) ProtoMessage() {}
 
 func (x *ListKBArticleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2456,7 +2590,7 @@ func (x *ListKBArticleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListKBArticleRequest.ProtoReflect.Descriptor instead.
 func (*ListKBArticleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{36}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListKBArticleRequest) GetTenantId() string {
@@ -2475,7 +2609,7 @@ type ListKBArticleResponse struct {
 
 func (x *ListKBArticleResponse) Reset() {
 	*x = ListKBArticleResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2487,7 +2621,7 @@ func (x *ListKBArticleResponse) String() string {
 func (*ListKBArticleResponse) ProtoMessage() {}
 
 func (x *ListKBArticleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2500,7 +2634,7 @@ func (x *ListKBArticleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListKBArticleResponse.ProtoReflect.Descriptor instead.
 func (*ListKBArticleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{37}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListKBArticleResponse) GetArticles() []*KBArticle {
@@ -2524,7 +2658,7 @@ type CreateKBArticleRequest struct {
 
 func (x *CreateKBArticleRequest) Reset() {
 	*x = CreateKBArticleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2536,7 +2670,7 @@ func (x *CreateKBArticleRequest) String() string {
 func (*CreateKBArticleRequest) ProtoMessage() {}
 
 func (x *CreateKBArticleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2549,7 +2683,7 @@ func (x *CreateKBArticleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateKBArticleRequest.ProtoReflect.Descriptor instead.
 func (*CreateKBArticleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{38}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CreateKBArticleRequest) GetTenantId() string {
@@ -2600,7 +2734,7 @@ type UpdateKBArticleRequest struct {
 
 func (x *UpdateKBArticleRequest) Reset() {
 	*x = UpdateKBArticleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2612,7 +2746,7 @@ func (x *UpdateKBArticleRequest) String() string {
 func (*UpdateKBArticleRequest) ProtoMessage() {}
 
 func (x *UpdateKBArticleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2625,7 +2759,7 @@ func (x *UpdateKBArticleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateKBArticleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateKBArticleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{39}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UpdateKBArticleRequest) GetArticleId() string {
@@ -2672,7 +2806,7 @@ type DeleteKBArticleRequest struct {
 
 func (x *DeleteKBArticleRequest) Reset() {
 	*x = DeleteKBArticleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2684,7 +2818,7 @@ func (x *DeleteKBArticleRequest) String() string {
 func (*DeleteKBArticleRequest) ProtoMessage() {}
 
 func (x *DeleteKBArticleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2697,7 +2831,7 @@ func (x *DeleteKBArticleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteKBArticleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteKBArticleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{40}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DeleteKBArticleRequest) GetArticleId() string {
@@ -2725,7 +2859,7 @@ type RoutingRule struct {
 
 func (x *RoutingRule) Reset() {
 	*x = RoutingRule{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2737,7 +2871,7 @@ func (x *RoutingRule) String() string {
 func (*RoutingRule) ProtoMessage() {}
 
 func (x *RoutingRule) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2750,7 +2884,7 @@ func (x *RoutingRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoutingRule.ProtoReflect.Descriptor instead.
 func (*RoutingRule) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{41}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *RoutingRule) GetId() string {
@@ -2825,7 +2959,7 @@ type ListRoutingRuleRequest struct {
 
 func (x *ListRoutingRuleRequest) Reset() {
 	*x = ListRoutingRuleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +2971,7 @@ func (x *ListRoutingRuleRequest) String() string {
 func (*ListRoutingRuleRequest) ProtoMessage() {}
 
 func (x *ListRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +2984,7 @@ func (x *ListRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*ListRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{42}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListRoutingRuleRequest) GetTenantId() string {
@@ -2869,7 +3003,7 @@ type ListRoutingRuleResponse struct {
 
 func (x *ListRoutingRuleResponse) Reset() {
 	*x = ListRoutingRuleResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2881,7 +3015,7 @@ func (x *ListRoutingRuleResponse) String() string {
 func (*ListRoutingRuleResponse) ProtoMessage() {}
 
 func (x *ListRoutingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2894,7 +3028,7 @@ func (x *ListRoutingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutingRuleResponse.ProtoReflect.Descriptor instead.
 func (*ListRoutingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{43}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListRoutingRuleResponse) GetRules() []*RoutingRule {
@@ -2919,7 +3053,7 @@ type CreateRoutingRuleRequest struct {
 
 func (x *CreateRoutingRuleRequest) Reset() {
 	*x = CreateRoutingRuleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2931,7 +3065,7 @@ func (x *CreateRoutingRuleRequest) String() string {
 func (*CreateRoutingRuleRequest) ProtoMessage() {}
 
 func (x *CreateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2944,7 +3078,7 @@ func (x *CreateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*CreateRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{44}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CreateRoutingRuleRequest) GetTenantId() string {
@@ -3003,7 +3137,7 @@ type UpdateRoutingRuleRequest struct {
 
 func (x *UpdateRoutingRuleRequest) Reset() {
 	*x = UpdateRoutingRuleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3015,7 +3149,7 @@ func (x *UpdateRoutingRuleRequest) String() string {
 func (*UpdateRoutingRuleRequest) ProtoMessage() {}
 
 func (x *UpdateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3028,7 +3162,7 @@ func (x *UpdateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{45}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *UpdateRoutingRuleRequest) GetRuleId() string {
@@ -3082,7 +3216,7 @@ type DeleteRoutingRuleRequest struct {
 
 func (x *DeleteRoutingRuleRequest) Reset() {
 	*x = DeleteRoutingRuleRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3094,7 +3228,7 @@ func (x *DeleteRoutingRuleRequest) String() string {
 func (*DeleteRoutingRuleRequest) ProtoMessage() {}
 
 func (x *DeleteRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3107,7 +3241,7 @@ func (x *DeleteRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{46}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *DeleteRoutingRuleRequest) GetRuleId() string {
@@ -3135,7 +3269,7 @@ type BusinessHoursResponse struct {
 
 func (x *BusinessHoursResponse) Reset() {
 	*x = BusinessHoursResponse{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3147,7 +3281,7 @@ func (x *BusinessHoursResponse) String() string {
 func (*BusinessHoursResponse) ProtoMessage() {}
 
 func (x *BusinessHoursResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3160,7 +3294,7 @@ func (x *BusinessHoursResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BusinessHoursResponse.ProtoReflect.Descriptor instead.
 func (*BusinessHoursResponse) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{47}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *BusinessHoursResponse) GetTenantId() string {
@@ -3207,7 +3341,7 @@ type GetBusinessHoursRequest struct {
 
 func (x *GetBusinessHoursRequest) Reset() {
 	*x = GetBusinessHoursRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3219,7 +3353,7 @@ func (x *GetBusinessHoursRequest) String() string {
 func (*GetBusinessHoursRequest) ProtoMessage() {}
 
 func (x *GetBusinessHoursRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3232,7 +3366,7 @@ func (x *GetBusinessHoursRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBusinessHoursRequest.ProtoReflect.Descriptor instead.
 func (*GetBusinessHoursRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{48}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GetBusinessHoursRequest) GetTenantId() string {
@@ -3254,7 +3388,7 @@ type UpdateBusinessHoursRequest struct {
 
 func (x *UpdateBusinessHoursRequest) Reset() {
 	*x = UpdateBusinessHoursRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3266,7 +3400,7 @@ func (x *UpdateBusinessHoursRequest) String() string {
 func (*UpdateBusinessHoursRequest) ProtoMessage() {}
 
 func (x *UpdateBusinessHoursRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3279,7 +3413,7 @@ func (x *UpdateBusinessHoursRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBusinessHoursRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBusinessHoursRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{49}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *UpdateBusinessHoursRequest) GetTenantId() string {
@@ -3320,7 +3454,7 @@ type WeeklyDayCount struct {
 
 func (x *WeeklyDayCount) Reset() {
 	*x = WeeklyDayCount{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[50]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3332,7 +3466,7 @@ func (x *WeeklyDayCount) String() string {
 func (*WeeklyDayCount) ProtoMessage() {}
 
 func (x *WeeklyDayCount) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[50]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3345,7 +3479,7 @@ func (x *WeeklyDayCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeeklyDayCount.ProtoReflect.Descriptor instead.
 func (*WeeklyDayCount) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{50}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *WeeklyDayCount) GetLabel() string {
@@ -3375,7 +3509,7 @@ type HelpdeskStats struct {
 
 func (x *HelpdeskStats) Reset() {
 	*x = HelpdeskStats{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[51]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3387,7 +3521,7 @@ func (x *HelpdeskStats) String() string {
 func (*HelpdeskStats) ProtoMessage() {}
 
 func (x *HelpdeskStats) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[51]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3400,7 +3534,7 @@ func (x *HelpdeskStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelpdeskStats.ProtoReflect.Descriptor instead.
 func (*HelpdeskStats) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{51}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *HelpdeskStats) GetOpenTickets() int32 {
@@ -3447,7 +3581,7 @@ type GetHelpdeskStatsRequest struct {
 
 func (x *GetHelpdeskStatsRequest) Reset() {
 	*x = GetHelpdeskStatsRequest{}
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[52]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3459,7 +3593,7 @@ func (x *GetHelpdeskStatsRequest) String() string {
 func (*GetHelpdeskStatsRequest) ProtoMessage() {}
 
 func (x *GetHelpdeskStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[52]
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3472,7 +3606,7 @@ func (x *GetHelpdeskStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHelpdeskStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetHelpdeskStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{52}
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetHelpdeskStatsRequest) GetTenantId() string {
@@ -3486,7 +3620,7 @@ var File_proto_helpdesk_v1_helpdesk_proto protoreflect.FileDescriptor
 
 const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\n" +
-	" proto/helpdesk/v1/helpdesk.proto\x12\vhelpdesk.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xd5\a\n" +
+	" proto/helpdesk/v1/helpdesk.proto\x12\vhelpdesk.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xdb\b\n" +
 	"\x06Ticket\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x18\n" +
@@ -3514,7 +3648,10 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\rticket_number\x18\x13 \x01(\x05R\fticketNumber\x12\"\n" +
 	"\n" +
 	"contact_id\x18\x14 \x01(\tH\aR\tcontactId\x88\x01\x01\x12\x1a\n" +
-	"\x06org_id\x18\x15 \x01(\tH\bR\x05orgId\x88\x01\x01B\x0e\n" +
+	"\x06org_id\x18\x15 \x01(\tH\bR\x05orgId\x88\x01\x01\x12*\n" +
+	"\x0esource_channel\x18\x16 \x01(\tH\tR\rsourceChannel\x88\x01\x01\x12/\n" +
+	"\x11source_message_id\x18\x17 \x01(\tH\n" +
+	"R\x0fsourceMessageId\x88\x01\x01B\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_queue_idB\t\n" +
 	"\a_due_atB\x11\n" +
@@ -3523,7 +3660,9 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\f_resolved_atB\x10\n" +
 	"\x0e_assignee_nameB\r\n" +
 	"\v_contact_idB\t\n" +
-	"\a_org_id\"\xe6\x01\n" +
+	"\a_org_idB\x11\n" +
+	"\x0f_source_channelB\x14\n" +
+	"\x12_source_message_id\"\xe6\x01\n" +
 	"\rTicketMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tticket_id\x18\x02 \x01(\tR\bticketId\x12\x1b\n" +
@@ -3631,7 +3770,15 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"assigneeId\"i\n" +
 	"\x13MergeTicketsRequest\x12(\n" +
 	"\x10source_ticket_id\x18\x01 \x01(\tR\x0esourceTicketId\x12(\n" +
-	"\x10target_ticket_id\x18\x02 \x01(\tR\x0etargetTicketId\"\x9f\x01\n" +
+	"\x10target_ticket_id\x18\x02 \x01(\tR\x0etargetTicketId\"\x7f\n" +
+	"\x1eCreateTicketFromMessageRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\frequester_id\x18\x02 \x01(\tR\vrequesterId\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x03 \x01(\tR\tmessageId\"h\n" +
+	"\x1fCreateTicketFromMessageResponse\x12+\n" +
+	"\x06ticket\x18\x01 \x01(\v2\x13.helpdesk.v1.TicketR\x06ticket\x12\x18\n" +
+	"\acreated\x18\x02 \x01(\bR\acreated\"\x9f\x01\n" +
 	"\x11AddMessageRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x1b\n" +
 	"\tauthor_id\x18\x02 \x01(\tR\bauthorId\x12\x12\n" +
@@ -3818,7 +3965,7 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x15customer_satisfaction\x18\x04 \x01(\tR\x14customerSatisfaction\x12F\n" +
 	"\x10weekly_breakdown\x18\x05 \x03(\v2\x1b.helpdesk.v1.WeeklyDayCountR\x0fweeklyBreakdown\"6\n" +
 	"\x17GetHelpdeskStatsRequest\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId2\xc7\x16\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId2\xbd\x17\n" +
 	"\x0fHelpdeskService\x12E\n" +
 	"\fCreateTicket\x12 .helpdesk.v1.CreateTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12?\n" +
 	"\tGetTicket\x12\x1d.helpdesk.v1.GetTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12P\n" +
@@ -3827,7 +3974,8 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\vCloseTicket\x12\x1f.helpdesk.v1.CloseTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12E\n" +
 	"\fReopenTicket\x12 .helpdesk.v1.ReopenTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12E\n" +
 	"\fAssignTicket\x12 .helpdesk.v1.AssignTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12H\n" +
-	"\fMergeTickets\x12 .helpdesk.v1.MergeTicketsRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
+	"\fMergeTickets\x12 .helpdesk.v1.MergeTicketsRequest\x1a\x16.google.protobuf.Empty\x12t\n" +
+	"\x17CreateTicketFromMessage\x12+.helpdesk.v1.CreateTicketFromMessageRequest\x1a,.helpdesk.v1.CreateTicketFromMessageResponse\x12\\\n" +
 	"\x10GetBusinessHours\x12$.helpdesk.v1.GetBusinessHoursRequest\x1a\".helpdesk.v1.BusinessHoursResponse\x12b\n" +
 	"\x13UpdateBusinessHours\x12'.helpdesk.v1.UpdateBusinessHoursRequest\x1a\".helpdesk.v1.BusinessHoursResponse\x12H\n" +
 	"\n" +
@@ -3870,165 +4018,170 @@ func file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP() []byte {
 	return file_proto_helpdesk_v1_helpdesk_proto_rawDescData
 }
 
-var file_proto_helpdesk_v1_helpdesk_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_proto_helpdesk_v1_helpdesk_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_proto_helpdesk_v1_helpdesk_proto_goTypes = []any{
-	(*Ticket)(nil),                      // 0: helpdesk.v1.Ticket
-	(*TicketMessage)(nil),               // 1: helpdesk.v1.TicketMessage
-	(*TicketQueue)(nil),                 // 2: helpdesk.v1.TicketQueue
-	(*CannedResponse)(nil),              // 3: helpdesk.v1.CannedResponse
-	(*SLAPolicy)(nil),                   // 4: helpdesk.v1.SLAPolicy
-	(*CreateTicketRequest)(nil),         // 5: helpdesk.v1.CreateTicketRequest
-	(*GetTicketRequest)(nil),            // 6: helpdesk.v1.GetTicketRequest
-	(*ListTicketsRequest)(nil),          // 7: helpdesk.v1.ListTicketsRequest
-	(*ListTicketsResponse)(nil),         // 8: helpdesk.v1.ListTicketsResponse
-	(*UpdateTicketRequest)(nil),         // 9: helpdesk.v1.UpdateTicketRequest
-	(*CloseTicketRequest)(nil),          // 10: helpdesk.v1.CloseTicketRequest
-	(*ReopenTicketRequest)(nil),         // 11: helpdesk.v1.ReopenTicketRequest
-	(*AssignTicketRequest)(nil),         // 12: helpdesk.v1.AssignTicketRequest
-	(*MergeTicketsRequest)(nil),         // 13: helpdesk.v1.MergeTicketsRequest
-	(*AddMessageRequest)(nil),           // 14: helpdesk.v1.AddMessageRequest
-	(*ListMessagesRequest)(nil),         // 15: helpdesk.v1.ListMessagesRequest
-	(*ListMessagesResponse)(nil),        // 16: helpdesk.v1.ListMessagesResponse
-	(*CreateQueueRequest)(nil),          // 17: helpdesk.v1.CreateQueueRequest
-	(*UpdateQueueRequest)(nil),          // 18: helpdesk.v1.UpdateQueueRequest
-	(*ListQueuesRequest)(nil),           // 19: helpdesk.v1.ListQueuesRequest
-	(*ListQueuesResponse)(nil),          // 20: helpdesk.v1.ListQueuesResponse
-	(*DeleteQueueRequest)(nil),          // 21: helpdesk.v1.DeleteQueueRequest
-	(*CreateCannedResponseRequest)(nil), // 22: helpdesk.v1.CreateCannedResponseRequest
-	(*UpdateCannedResponseRequest)(nil), // 23: helpdesk.v1.UpdateCannedResponseRequest
-	(*DeleteCannedResponseRequest)(nil), // 24: helpdesk.v1.DeleteCannedResponseRequest
-	(*ListCannedResponsesRequest)(nil),  // 25: helpdesk.v1.ListCannedResponsesRequest
-	(*ListCannedResponsesResponse)(nil), // 26: helpdesk.v1.ListCannedResponsesResponse
-	(*CreateSLAPolicyRequest)(nil),      // 27: helpdesk.v1.CreateSLAPolicyRequest
-	(*UpdateSLAPolicyRequest)(nil),      // 28: helpdesk.v1.UpdateSLAPolicyRequest
-	(*ListSLAPoliciesRequest)(nil),      // 29: helpdesk.v1.ListSLAPoliciesRequest
-	(*ListSLAPoliciesResponse)(nil),     // 30: helpdesk.v1.ListSLAPoliciesResponse
-	(*ApplySLAPolicyRequest)(nil),       // 31: helpdesk.v1.ApplySLAPolicyRequest
-	(*GetSLAStatusRequest)(nil),         // 32: helpdesk.v1.GetSLAStatusRequest
-	(*GetSLAStatusResponse)(nil),        // 33: helpdesk.v1.GetSLAStatusResponse
-	(*DeleteSLAPolicyRequest)(nil),      // 34: helpdesk.v1.DeleteSLAPolicyRequest
-	(*KBArticle)(nil),                   // 35: helpdesk.v1.KBArticle
-	(*ListKBArticleRequest)(nil),        // 36: helpdesk.v1.ListKBArticleRequest
-	(*ListKBArticleResponse)(nil),       // 37: helpdesk.v1.ListKBArticleResponse
-	(*CreateKBArticleRequest)(nil),      // 38: helpdesk.v1.CreateKBArticleRequest
-	(*UpdateKBArticleRequest)(nil),      // 39: helpdesk.v1.UpdateKBArticleRequest
-	(*DeleteKBArticleRequest)(nil),      // 40: helpdesk.v1.DeleteKBArticleRequest
-	(*RoutingRule)(nil),                 // 41: helpdesk.v1.RoutingRule
-	(*ListRoutingRuleRequest)(nil),      // 42: helpdesk.v1.ListRoutingRuleRequest
-	(*ListRoutingRuleResponse)(nil),     // 43: helpdesk.v1.ListRoutingRuleResponse
-	(*CreateRoutingRuleRequest)(nil),    // 44: helpdesk.v1.CreateRoutingRuleRequest
-	(*UpdateRoutingRuleRequest)(nil),    // 45: helpdesk.v1.UpdateRoutingRuleRequest
-	(*DeleteRoutingRuleRequest)(nil),    // 46: helpdesk.v1.DeleteRoutingRuleRequest
-	(*BusinessHoursResponse)(nil),       // 47: helpdesk.v1.BusinessHoursResponse
-	(*GetBusinessHoursRequest)(nil),     // 48: helpdesk.v1.GetBusinessHoursRequest
-	(*UpdateBusinessHoursRequest)(nil),  // 49: helpdesk.v1.UpdateBusinessHoursRequest
-	(*WeeklyDayCount)(nil),              // 50: helpdesk.v1.WeeklyDayCount
-	(*HelpdeskStats)(nil),               // 51: helpdesk.v1.HelpdeskStats
-	(*GetHelpdeskStatsRequest)(nil),     // 52: helpdesk.v1.GetHelpdeskStatsRequest
-	(*timestamppb.Timestamp)(nil),       // 53: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 54: google.protobuf.Empty
+	(*Ticket)(nil),                          // 0: helpdesk.v1.Ticket
+	(*TicketMessage)(nil),                   // 1: helpdesk.v1.TicketMessage
+	(*TicketQueue)(nil),                     // 2: helpdesk.v1.TicketQueue
+	(*CannedResponse)(nil),                  // 3: helpdesk.v1.CannedResponse
+	(*SLAPolicy)(nil),                       // 4: helpdesk.v1.SLAPolicy
+	(*CreateTicketRequest)(nil),             // 5: helpdesk.v1.CreateTicketRequest
+	(*GetTicketRequest)(nil),                // 6: helpdesk.v1.GetTicketRequest
+	(*ListTicketsRequest)(nil),              // 7: helpdesk.v1.ListTicketsRequest
+	(*ListTicketsResponse)(nil),             // 8: helpdesk.v1.ListTicketsResponse
+	(*UpdateTicketRequest)(nil),             // 9: helpdesk.v1.UpdateTicketRequest
+	(*CloseTicketRequest)(nil),              // 10: helpdesk.v1.CloseTicketRequest
+	(*ReopenTicketRequest)(nil),             // 11: helpdesk.v1.ReopenTicketRequest
+	(*AssignTicketRequest)(nil),             // 12: helpdesk.v1.AssignTicketRequest
+	(*MergeTicketsRequest)(nil),             // 13: helpdesk.v1.MergeTicketsRequest
+	(*CreateTicketFromMessageRequest)(nil),  // 14: helpdesk.v1.CreateTicketFromMessageRequest
+	(*CreateTicketFromMessageResponse)(nil), // 15: helpdesk.v1.CreateTicketFromMessageResponse
+	(*AddMessageRequest)(nil),               // 16: helpdesk.v1.AddMessageRequest
+	(*ListMessagesRequest)(nil),             // 17: helpdesk.v1.ListMessagesRequest
+	(*ListMessagesResponse)(nil),            // 18: helpdesk.v1.ListMessagesResponse
+	(*CreateQueueRequest)(nil),              // 19: helpdesk.v1.CreateQueueRequest
+	(*UpdateQueueRequest)(nil),              // 20: helpdesk.v1.UpdateQueueRequest
+	(*ListQueuesRequest)(nil),               // 21: helpdesk.v1.ListQueuesRequest
+	(*ListQueuesResponse)(nil),              // 22: helpdesk.v1.ListQueuesResponse
+	(*DeleteQueueRequest)(nil),              // 23: helpdesk.v1.DeleteQueueRequest
+	(*CreateCannedResponseRequest)(nil),     // 24: helpdesk.v1.CreateCannedResponseRequest
+	(*UpdateCannedResponseRequest)(nil),     // 25: helpdesk.v1.UpdateCannedResponseRequest
+	(*DeleteCannedResponseRequest)(nil),     // 26: helpdesk.v1.DeleteCannedResponseRequest
+	(*ListCannedResponsesRequest)(nil),      // 27: helpdesk.v1.ListCannedResponsesRequest
+	(*ListCannedResponsesResponse)(nil),     // 28: helpdesk.v1.ListCannedResponsesResponse
+	(*CreateSLAPolicyRequest)(nil),          // 29: helpdesk.v1.CreateSLAPolicyRequest
+	(*UpdateSLAPolicyRequest)(nil),          // 30: helpdesk.v1.UpdateSLAPolicyRequest
+	(*ListSLAPoliciesRequest)(nil),          // 31: helpdesk.v1.ListSLAPoliciesRequest
+	(*ListSLAPoliciesResponse)(nil),         // 32: helpdesk.v1.ListSLAPoliciesResponse
+	(*ApplySLAPolicyRequest)(nil),           // 33: helpdesk.v1.ApplySLAPolicyRequest
+	(*GetSLAStatusRequest)(nil),             // 34: helpdesk.v1.GetSLAStatusRequest
+	(*GetSLAStatusResponse)(nil),            // 35: helpdesk.v1.GetSLAStatusResponse
+	(*DeleteSLAPolicyRequest)(nil),          // 36: helpdesk.v1.DeleteSLAPolicyRequest
+	(*KBArticle)(nil),                       // 37: helpdesk.v1.KBArticle
+	(*ListKBArticleRequest)(nil),            // 38: helpdesk.v1.ListKBArticleRequest
+	(*ListKBArticleResponse)(nil),           // 39: helpdesk.v1.ListKBArticleResponse
+	(*CreateKBArticleRequest)(nil),          // 40: helpdesk.v1.CreateKBArticleRequest
+	(*UpdateKBArticleRequest)(nil),          // 41: helpdesk.v1.UpdateKBArticleRequest
+	(*DeleteKBArticleRequest)(nil),          // 42: helpdesk.v1.DeleteKBArticleRequest
+	(*RoutingRule)(nil),                     // 43: helpdesk.v1.RoutingRule
+	(*ListRoutingRuleRequest)(nil),          // 44: helpdesk.v1.ListRoutingRuleRequest
+	(*ListRoutingRuleResponse)(nil),         // 45: helpdesk.v1.ListRoutingRuleResponse
+	(*CreateRoutingRuleRequest)(nil),        // 46: helpdesk.v1.CreateRoutingRuleRequest
+	(*UpdateRoutingRuleRequest)(nil),        // 47: helpdesk.v1.UpdateRoutingRuleRequest
+	(*DeleteRoutingRuleRequest)(nil),        // 48: helpdesk.v1.DeleteRoutingRuleRequest
+	(*BusinessHoursResponse)(nil),           // 49: helpdesk.v1.BusinessHoursResponse
+	(*GetBusinessHoursRequest)(nil),         // 50: helpdesk.v1.GetBusinessHoursRequest
+	(*UpdateBusinessHoursRequest)(nil),      // 51: helpdesk.v1.UpdateBusinessHoursRequest
+	(*WeeklyDayCount)(nil),                  // 52: helpdesk.v1.WeeklyDayCount
+	(*HelpdeskStats)(nil),                   // 53: helpdesk.v1.HelpdeskStats
+	(*GetHelpdeskStatsRequest)(nil),         // 54: helpdesk.v1.GetHelpdeskStatsRequest
+	(*timestamppb.Timestamp)(nil),           // 55: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                   // 56: google.protobuf.Empty
 }
 var file_proto_helpdesk_v1_helpdesk_proto_depIdxs = []int32{
-	53, // 0: helpdesk.v1.Ticket.due_at:type_name -> google.protobuf.Timestamp
-	53, // 1: helpdesk.v1.Ticket.first_response_at:type_name -> google.protobuf.Timestamp
-	53, // 2: helpdesk.v1.Ticket.resolved_at:type_name -> google.protobuf.Timestamp
-	53, // 3: helpdesk.v1.Ticket.created_at:type_name -> google.protobuf.Timestamp
-	53, // 4: helpdesk.v1.Ticket.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 5: helpdesk.v1.TicketMessage.created_at:type_name -> google.protobuf.Timestamp
-	53, // 6: helpdesk.v1.TicketQueue.created_at:type_name -> google.protobuf.Timestamp
-	53, // 7: helpdesk.v1.TicketQueue.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 8: helpdesk.v1.CannedResponse.created_at:type_name -> google.protobuf.Timestamp
-	53, // 9: helpdesk.v1.CannedResponse.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 10: helpdesk.v1.SLAPolicy.created_at:type_name -> google.protobuf.Timestamp
-	53, // 11: helpdesk.v1.SLAPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 0: helpdesk.v1.Ticket.due_at:type_name -> google.protobuf.Timestamp
+	55, // 1: helpdesk.v1.Ticket.first_response_at:type_name -> google.protobuf.Timestamp
+	55, // 2: helpdesk.v1.Ticket.resolved_at:type_name -> google.protobuf.Timestamp
+	55, // 3: helpdesk.v1.Ticket.created_at:type_name -> google.protobuf.Timestamp
+	55, // 4: helpdesk.v1.Ticket.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 5: helpdesk.v1.TicketMessage.created_at:type_name -> google.protobuf.Timestamp
+	55, // 6: helpdesk.v1.TicketQueue.created_at:type_name -> google.protobuf.Timestamp
+	55, // 7: helpdesk.v1.TicketQueue.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 8: helpdesk.v1.CannedResponse.created_at:type_name -> google.protobuf.Timestamp
+	55, // 9: helpdesk.v1.CannedResponse.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 10: helpdesk.v1.SLAPolicy.created_at:type_name -> google.protobuf.Timestamp
+	55, // 11: helpdesk.v1.SLAPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 12: helpdesk.v1.ListTicketsResponse.tickets:type_name -> helpdesk.v1.Ticket
-	1,  // 13: helpdesk.v1.ListMessagesResponse.messages:type_name -> helpdesk.v1.TicketMessage
-	2,  // 14: helpdesk.v1.ListQueuesResponse.queues:type_name -> helpdesk.v1.TicketQueue
-	3,  // 15: helpdesk.v1.ListCannedResponsesResponse.canned_responses:type_name -> helpdesk.v1.CannedResponse
-	4,  // 16: helpdesk.v1.ListSLAPoliciesResponse.policies:type_name -> helpdesk.v1.SLAPolicy
-	53, // 17: helpdesk.v1.KBArticle.created_at:type_name -> google.protobuf.Timestamp
-	53, // 18: helpdesk.v1.KBArticle.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 19: helpdesk.v1.ListKBArticleResponse.articles:type_name -> helpdesk.v1.KBArticle
-	53, // 20: helpdesk.v1.RoutingRule.created_at:type_name -> google.protobuf.Timestamp
-	53, // 21: helpdesk.v1.RoutingRule.updated_at:type_name -> google.protobuf.Timestamp
-	41, // 22: helpdesk.v1.ListRoutingRuleResponse.rules:type_name -> helpdesk.v1.RoutingRule
-	53, // 23: helpdesk.v1.BusinessHoursResponse.updated_at:type_name -> google.protobuf.Timestamp
-	50, // 24: helpdesk.v1.HelpdeskStats.weekly_breakdown:type_name -> helpdesk.v1.WeeklyDayCount
-	5,  // 25: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
-	6,  // 26: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
-	7,  // 27: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
-	9,  // 28: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
-	10, // 29: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
-	11, // 30: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
-	12, // 31: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
-	13, // 32: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
-	48, // 33: helpdesk.v1.HelpdeskService.GetBusinessHours:input_type -> helpdesk.v1.GetBusinessHoursRequest
-	49, // 34: helpdesk.v1.HelpdeskService.UpdateBusinessHours:input_type -> helpdesk.v1.UpdateBusinessHoursRequest
-	14, // 35: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
-	15, // 36: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
-	17, // 37: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
-	18, // 38: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
-	19, // 39: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
-	21, // 40: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
-	22, // 41: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
-	23, // 42: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
-	24, // 43: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
-	25, // 44: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
-	27, // 45: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
-	28, // 46: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
-	29, // 47: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
-	34, // 48: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:input_type -> helpdesk.v1.DeleteSLAPolicyRequest
-	31, // 49: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
-	32, // 50: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
-	36, // 51: helpdesk.v1.HelpdeskService.ListKBArticle:input_type -> helpdesk.v1.ListKBArticleRequest
-	38, // 52: helpdesk.v1.HelpdeskService.CreateKBArticle:input_type -> helpdesk.v1.CreateKBArticleRequest
-	39, // 53: helpdesk.v1.HelpdeskService.UpdateKBArticle:input_type -> helpdesk.v1.UpdateKBArticleRequest
-	40, // 54: helpdesk.v1.HelpdeskService.DeleteKBArticle:input_type -> helpdesk.v1.DeleteKBArticleRequest
-	42, // 55: helpdesk.v1.HelpdeskService.ListRoutingRule:input_type -> helpdesk.v1.ListRoutingRuleRequest
-	44, // 56: helpdesk.v1.HelpdeskService.CreateRoutingRule:input_type -> helpdesk.v1.CreateRoutingRuleRequest
-	45, // 57: helpdesk.v1.HelpdeskService.UpdateRoutingRule:input_type -> helpdesk.v1.UpdateRoutingRuleRequest
-	46, // 58: helpdesk.v1.HelpdeskService.DeleteRoutingRule:input_type -> helpdesk.v1.DeleteRoutingRuleRequest
-	52, // 59: helpdesk.v1.HelpdeskService.GetHelpdeskStats:input_type -> helpdesk.v1.GetHelpdeskStatsRequest
-	0,  // 60: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 61: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
-	8,  // 62: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
-	0,  // 63: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 64: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 65: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 66: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
-	54, // 67: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
-	47, // 68: helpdesk.v1.HelpdeskService.GetBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
-	47, // 69: helpdesk.v1.HelpdeskService.UpdateBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
-	1,  // 70: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
-	16, // 71: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
-	2,  // 72: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
-	2,  // 73: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
-	20, // 74: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
-	54, // 75: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
-	3,  // 76: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	3,  // 77: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	54, // 78: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
-	26, // 79: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
-	4,  // 80: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	4,  // 81: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	30, // 82: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
-	54, // 83: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:output_type -> google.protobuf.Empty
-	0,  // 84: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
-	33, // 85: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
-	37, // 86: helpdesk.v1.HelpdeskService.ListKBArticle:output_type -> helpdesk.v1.ListKBArticleResponse
-	35, // 87: helpdesk.v1.HelpdeskService.CreateKBArticle:output_type -> helpdesk.v1.KBArticle
-	35, // 88: helpdesk.v1.HelpdeskService.UpdateKBArticle:output_type -> helpdesk.v1.KBArticle
-	54, // 89: helpdesk.v1.HelpdeskService.DeleteKBArticle:output_type -> google.protobuf.Empty
-	43, // 90: helpdesk.v1.HelpdeskService.ListRoutingRule:output_type -> helpdesk.v1.ListRoutingRuleResponse
-	41, // 91: helpdesk.v1.HelpdeskService.CreateRoutingRule:output_type -> helpdesk.v1.RoutingRule
-	41, // 92: helpdesk.v1.HelpdeskService.UpdateRoutingRule:output_type -> helpdesk.v1.RoutingRule
-	54, // 93: helpdesk.v1.HelpdeskService.DeleteRoutingRule:output_type -> google.protobuf.Empty
-	51, // 94: helpdesk.v1.HelpdeskService.GetHelpdeskStats:output_type -> helpdesk.v1.HelpdeskStats
-	60, // [60:95] is the sub-list for method output_type
-	25, // [25:60] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	0,  // 13: helpdesk.v1.CreateTicketFromMessageResponse.ticket:type_name -> helpdesk.v1.Ticket
+	1,  // 14: helpdesk.v1.ListMessagesResponse.messages:type_name -> helpdesk.v1.TicketMessage
+	2,  // 15: helpdesk.v1.ListQueuesResponse.queues:type_name -> helpdesk.v1.TicketQueue
+	3,  // 16: helpdesk.v1.ListCannedResponsesResponse.canned_responses:type_name -> helpdesk.v1.CannedResponse
+	4,  // 17: helpdesk.v1.ListSLAPoliciesResponse.policies:type_name -> helpdesk.v1.SLAPolicy
+	55, // 18: helpdesk.v1.KBArticle.created_at:type_name -> google.protobuf.Timestamp
+	55, // 19: helpdesk.v1.KBArticle.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 20: helpdesk.v1.ListKBArticleResponse.articles:type_name -> helpdesk.v1.KBArticle
+	55, // 21: helpdesk.v1.RoutingRule.created_at:type_name -> google.protobuf.Timestamp
+	55, // 22: helpdesk.v1.RoutingRule.updated_at:type_name -> google.protobuf.Timestamp
+	43, // 23: helpdesk.v1.ListRoutingRuleResponse.rules:type_name -> helpdesk.v1.RoutingRule
+	55, // 24: helpdesk.v1.BusinessHoursResponse.updated_at:type_name -> google.protobuf.Timestamp
+	52, // 25: helpdesk.v1.HelpdeskStats.weekly_breakdown:type_name -> helpdesk.v1.WeeklyDayCount
+	5,  // 26: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
+	6,  // 27: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
+	7,  // 28: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
+	9,  // 29: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
+	10, // 30: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
+	11, // 31: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
+	12, // 32: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
+	13, // 33: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
+	14, // 34: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:input_type -> helpdesk.v1.CreateTicketFromMessageRequest
+	50, // 35: helpdesk.v1.HelpdeskService.GetBusinessHours:input_type -> helpdesk.v1.GetBusinessHoursRequest
+	51, // 36: helpdesk.v1.HelpdeskService.UpdateBusinessHours:input_type -> helpdesk.v1.UpdateBusinessHoursRequest
+	16, // 37: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
+	17, // 38: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
+	19, // 39: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
+	20, // 40: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
+	21, // 41: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
+	23, // 42: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
+	24, // 43: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
+	25, // 44: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
+	26, // 45: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
+	27, // 46: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
+	29, // 47: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
+	30, // 48: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
+	31, // 49: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
+	36, // 50: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:input_type -> helpdesk.v1.DeleteSLAPolicyRequest
+	33, // 51: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
+	34, // 52: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
+	38, // 53: helpdesk.v1.HelpdeskService.ListKBArticle:input_type -> helpdesk.v1.ListKBArticleRequest
+	40, // 54: helpdesk.v1.HelpdeskService.CreateKBArticle:input_type -> helpdesk.v1.CreateKBArticleRequest
+	41, // 55: helpdesk.v1.HelpdeskService.UpdateKBArticle:input_type -> helpdesk.v1.UpdateKBArticleRequest
+	42, // 56: helpdesk.v1.HelpdeskService.DeleteKBArticle:input_type -> helpdesk.v1.DeleteKBArticleRequest
+	44, // 57: helpdesk.v1.HelpdeskService.ListRoutingRule:input_type -> helpdesk.v1.ListRoutingRuleRequest
+	46, // 58: helpdesk.v1.HelpdeskService.CreateRoutingRule:input_type -> helpdesk.v1.CreateRoutingRuleRequest
+	47, // 59: helpdesk.v1.HelpdeskService.UpdateRoutingRule:input_type -> helpdesk.v1.UpdateRoutingRuleRequest
+	48, // 60: helpdesk.v1.HelpdeskService.DeleteRoutingRule:input_type -> helpdesk.v1.DeleteRoutingRuleRequest
+	54, // 61: helpdesk.v1.HelpdeskService.GetHelpdeskStats:input_type -> helpdesk.v1.GetHelpdeskStatsRequest
+	0,  // 62: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 63: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
+	8,  // 64: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
+	0,  // 65: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 66: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 67: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 68: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
+	56, // 69: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
+	15, // 70: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:output_type -> helpdesk.v1.CreateTicketFromMessageResponse
+	49, // 71: helpdesk.v1.HelpdeskService.GetBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
+	49, // 72: helpdesk.v1.HelpdeskService.UpdateBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
+	1,  // 73: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
+	18, // 74: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
+	2,  // 75: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
+	2,  // 76: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
+	22, // 77: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
+	56, // 78: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
+	3,  // 79: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	3,  // 80: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	56, // 81: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
+	28, // 82: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
+	4,  // 83: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	4,  // 84: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	32, // 85: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
+	56, // 86: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:output_type -> google.protobuf.Empty
+	0,  // 87: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
+	35, // 88: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
+	39, // 89: helpdesk.v1.HelpdeskService.ListKBArticle:output_type -> helpdesk.v1.ListKBArticleResponse
+	37, // 90: helpdesk.v1.HelpdeskService.CreateKBArticle:output_type -> helpdesk.v1.KBArticle
+	37, // 91: helpdesk.v1.HelpdeskService.UpdateKBArticle:output_type -> helpdesk.v1.KBArticle
+	56, // 92: helpdesk.v1.HelpdeskService.DeleteKBArticle:output_type -> google.protobuf.Empty
+	45, // 93: helpdesk.v1.HelpdeskService.ListRoutingRule:output_type -> helpdesk.v1.ListRoutingRuleResponse
+	43, // 94: helpdesk.v1.HelpdeskService.CreateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	43, // 95: helpdesk.v1.HelpdeskService.UpdateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	56, // 96: helpdesk.v1.HelpdeskService.DeleteRoutingRule:output_type -> google.protobuf.Empty
+	53, // 97: helpdesk.v1.HelpdeskService.GetHelpdeskStats:output_type -> helpdesk.v1.HelpdeskStats
+	62, // [62:98] is the sub-list for method output_type
+	26, // [26:62] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_proto_helpdesk_v1_helpdesk_proto_init() }
@@ -4042,23 +4195,23 @@ func file_proto_helpdesk_v1_helpdesk_proto_init() {
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[7].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[17].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[18].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[29].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44].OneofWrappers = []any{}
-	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_helpdesk_v1_helpdesk_proto_rawDesc), len(file_proto_helpdesk_v1_helpdesk_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   53,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

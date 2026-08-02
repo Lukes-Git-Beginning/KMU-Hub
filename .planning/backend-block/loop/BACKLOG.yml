@@ -2333,7 +2333,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [g-helpdesk-contact-link]
-    status: todo
+    status: done
     scope: >
       `source_channel` am Ticket plus Adapter, der eine Inbox-Nachricht in ein Ticket ueberfuehrt.
     sources:

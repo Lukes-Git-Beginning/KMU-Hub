@@ -12978,6 +12978,42 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/helpdesk/tickets/from-message:
+    post:
+      summary: Convert an inbox message into a ticket
+      description: >-
+        Links back to the source inbox message via source_channel/source_message_id
+        instead of copying its content a second time. Converting the same
+        message_id twice is idempotent: the second call returns the
+        already-existing ticket with 200 instead of creating a duplicate.
+      tags: [helpdesk-tickets]
+      operationId: createHelpdeskTicketFromMessage
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message_id]
+              properties:
+                message_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Ticket created from the inbox message
+          content:
+            application/json:
+              schema: { type: object }
+        "200":
+          description: message_id was already converted; the existing ticket is returned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/helpdesk/tickets/{id}:
     get:
       summary: Get a helpdesk ticket by ID

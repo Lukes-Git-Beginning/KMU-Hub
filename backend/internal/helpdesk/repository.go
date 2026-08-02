@@ -31,6 +31,11 @@ type Repository interface {
 	// Used by merge duplicate detection.
 	FindOpenTicketsByRequester(ctx context.Context, tenantID, requesterID uuid.UUID, subjectPrefix string) ([]*Ticket, error)
 
+	// GetTicketBySourceMessage returns the ticket already linked to messageID
+	// for tenantID, or nil (no error) if none exists yet. Backs the
+	// CreateTicketFromMessage idempotency pre-check.
+	GetTicketBySourceMessage(ctx context.Context, tenantID, messageID uuid.UUID) (*Ticket, error)
+
 	// MergeTicketTx atomically reassigns all messages from source to target and
 	// marks source as merged (status='merged', merged_into_id=targetID) in a
 	// single database transaction. The source ticket must have its Status,

@@ -67,6 +67,7 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// Tickets. close/reopen/assign/merge are state changes on the ticket
 		// and map to ticket:edit, matching the FE gate in HelpdeskPage.tsx.
 		r.With(hdTicketCreate).Post("/tickets", h.HandleCreateTicket)
+		r.With(hdTicketCreate).Post("/tickets/from-message", h.HandleCreateTicketFromMessage)
 		r.With(hdTicketRead).Get("/tickets", h.HandleListTickets)
 		r.With(hdTicketRead).Get("/tickets/{id}", h.HandleGetTicket)
 		r.With(hdTicketEdit).Put("/tickets/{id}", h.HandleUpdateTicket)
@@ -133,6 +134,10 @@ type createTicketRequest struct {
 	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	ContactID   *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
 	OrgID       *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type createTicketFromMessageRequest struct {
+	MessageID string `json:"message_id" validate:"required,uuid"`
 }
 
 type updateTicketRequest struct {
@@ -278,6 +283,46 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	response.Proto(w, http.StatusCreated, resp)
+}
+
+// HandleCreateTicketFromMessage converts an inbox message into a ticket.
+// Responds 201 when a new ticket was created, 200 when message_id was
+// already converted (the pre-existing ticket is returned, not a duplicate).
+func (h *HelpdeskRoutes) HandleCreateTicketFromMessage(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	req, ok := decodeAndValidate[createTicketFromMessageRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTicketFromMessage(r.Context(), &helpdeskv1.CreateTicketFromMessageRequest{
+		TenantId:    tenantID.String(),
+		RequesterId: userID,
+		MessageId:   req.MessageID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	statusCode := http.StatusOK
+	if resp.GetCreated() {
+		statusCode = http.StatusCreated
+	}
+	response.Proto(w, statusCode, resp.GetTicket())
 }
 
 func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Request) {

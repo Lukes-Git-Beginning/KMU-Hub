@@ -47,6 +47,19 @@ var ValidTicketPriorities = map[string]bool{
 }
 
 // ---------------------------------------------------------------------------
+// Ticket source-channel constants
+// ---------------------------------------------------------------------------
+
+// ValidSourceChannels lists the inbox channels CreateTicketFromMessage may
+// set as a ticket's source_channel -- mirrors inbox_messages' channel CHECK
+// constraint (migrations/000047_create_inbox_tables.up.sql).
+var ValidSourceChannels = map[string]bool{
+	"email":        true,
+	"chat":         true,
+	"notification": true,
+}
+
+// ---------------------------------------------------------------------------
 // SLA status constants
 // ---------------------------------------------------------------------------
 
@@ -82,6 +95,11 @@ type Ticket struct {
 	TicketNumber    int        `json:"ticket_number"`
 	ContactID       *uuid.UUID `json:"contact_id,omitempty"`
 	OrgID           *uuid.UUID `json:"org_id,omitempty"`
+	// Set only when the ticket was created via CreateTicketFromMessage:
+	// SourceChannel mirrors the inbox message's channel, SourceMessageID is a
+	// reference to it (not a copy of its content).
+	SourceChannel   *string    `json:"source_channel,omitempty"`
+	SourceMessageID *uuid.UUID `json:"source_message_id,omitempty"`
 	// Denormalized via JOIN on users (read side only; not persisted here).
 	AssigneeName  *string   `json:"assignee_name,omitempty"`
 	RequesterName string    `json:"requester_name"`

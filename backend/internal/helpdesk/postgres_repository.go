@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,16 +46,39 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		`INSERT INTO tickets
 		    (id, tenant_id, subject, status, priority, assignee_id, requester_id,
 		     queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		     description, category, ticket_number, contact_id, org_id, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+		     description, category, ticket_number, contact_id, org_id,
+		     source_channel, source_message_id, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
 		t.ID, t.TenantID, t.Subject, t.Status, t.Priority,
 		t.AssigneeID, t.RequesterID, t.QueueID, t.DueAt,
 		t.MergedIntoID, t.FirstResponseAt, t.ResolvedAt,
 		t.Description, t.Category, t.TicketNumber,
 		t.ContactID, t.OrgID,
+		t.SourceChannel, t.SourceMessageID,
 		t.CreatedAt, t.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_tickets_source_message" {
+			return ErrMessageAlreadyLinked
+		}
+		return err
+	}
+	return nil
+}
+
+// GetTicketBySourceMessage returns the ticket already linked to messageID for
+// tenantID, or nil (no error) if none exists yet.
+func (r *PostgresRepository) GetTicketBySourceMessage(ctx context.Context, tenantID, messageID uuid.UUID) (*Ticket, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+ticketSelectColumns+` WHERE t.tenant_id = $1 AND t.source_message_id = $2`,
+		tenantID, messageID,
+	)
+	t, err := scanTicket(row)
+	if errors.Is(err, ErrTicketNotFound) {
+		return nil, nil
+	}
+	return t, err
 }
 
 // ContactExists reports whether the contact belongs to the given tenant.
@@ -88,7 +112,7 @@ const ticketSelectColumns = `
 	t.created_at, t.updated_at,
 	COALESCE(t.description, '') AS description,
 	COALESCE(t.category, '')    AS category,
-	t.ticket_number, t.contact_id, t.org_id,
+	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
 	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
 FROM tickets t
@@ -868,6 +892,7 @@ func scanTicket(row scannable) (*Ticket, error) {
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
+		&t.SourceChannel, &t.SourceMessageID,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -884,6 +909,7 @@ func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
+		&t.SourceChannel, &t.SourceMessageID,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	return &t, err

@@ -2,6 +2,7 @@ package helpdesk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -81,6 +82,86 @@ func (s *Service) CreateTicket(
 	)
 
 	return t, nil
+}
+
+// sourceChannelLabels renders a ValidSourceChannels key for the fallback
+// ticket subject CreateTicketFromMessage uses when the source message itself
+// has no subject.
+var sourceChannelLabels = map[string]string{
+	"email":        "E-Mail",
+	"chat":         "Chat",
+	"notification": "Benachrichtigung",
+}
+
+// CreateTicketFromMessage converts an inbox message into a ticket: the ticket
+// links back to the message via sourceMessageID/sourceChannel instead of
+// copying its content a second time, so ticket and inbox never drift apart.
+// Converting the same messageID twice is a no-op: the second call returns the
+// already-existing ticket (created=false) instead of creating a duplicate.
+// channel/subject/preview are supplied by the caller (the gRPC handler fetches
+// them from the inbox service) -- this method holds no cross-service client.
+func (s *Service) CreateTicketFromMessage(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	requesterID uuid.UUID,
+	messageID uuid.UUID,
+	channel string,
+	subject string,
+	preview string,
+) (*Ticket, bool, error) {
+	if !ValidSourceChannels[channel] {
+		return nil, false, ErrInvalidSourceChannel
+	}
+
+	if existing, err := s.repo.GetTicketBySourceMessage(ctx, tenantID, messageID); err != nil {
+		return nil, false, fmt.Errorf("check existing ticket for message: %w", err)
+	} else if existing != nil {
+		return existing, false, nil
+	}
+
+	if subject == "" {
+		subject = fmt.Sprintf("Ticket aus %s", sourceChannelLabels[channel])
+	}
+
+	now := time.Now().UTC()
+	t := &Ticket{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		Subject:         subject,
+		Status:          TicketStatusOpen,
+		Priority:        TicketPriorityNormal,
+		RequesterID:     requesterID,
+		Description:     preview,
+		SourceChannel:   &channel,
+		SourceMessageID: &messageID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if err := s.repo.CreateTicket(ctx, t); err != nil {
+		if errors.Is(err, ErrMessageAlreadyLinked) {
+			// Lost the race against a concurrent conversion of the same
+			// message: the unique index caught it, so load and return the
+			// winner instead of surfacing an error for a non-error situation.
+			existing, existErr := s.repo.GetTicketBySourceMessage(ctx, tenantID, messageID)
+			if existErr != nil {
+				return nil, false, fmt.Errorf("load ticket after concurrent conversion: %w", existErr)
+			}
+			if existing != nil {
+				return existing, false, nil
+			}
+		}
+		return nil, false, fmt.Errorf("create ticket from message: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket created from inbox message",
+		"ticket_id", t.ID,
+		"tenant_id", tenantID,
+		"message_id", messageID,
+		"channel", channel,
+	)
+
+	return t, true, nil
 }
 
 // GetTicket retrieves a ticket by ID.

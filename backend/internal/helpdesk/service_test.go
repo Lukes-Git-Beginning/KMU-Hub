@@ -78,6 +78,14 @@ func (r *mockRepo) CompanyExists(_ context.Context, companyID, tenantID uuid.UUI
 	t, ok := r.companyTenants[companyID]
 	return ok && t == tenantID, nil
 }
+func (r *mockRepo) GetTicketBySourceMessage(_ context.Context, tenantID, messageID uuid.UUID) (*Ticket, error) {
+	for _, t := range r.tickets {
+		if t.TenantID == tenantID && t.SourceMessageID != nil && *t.SourceMessageID == messageID {
+			return t, nil
+		}
+	}
+	return nil, nil
+}
 func (r *mockRepo) UpdateTicket(_ context.Context, t *Ticket) error {
 	r.tickets[t.ID] = t
 	return nil
