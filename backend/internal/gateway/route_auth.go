@@ -100,6 +100,19 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		})
 	})
 
+	// Role administration (RBAC Phase 1 wave 1b). roles:manage is the coarse
+	// legacy key every admin token has always carried (migration 000002);
+	// admin:role:read is the fine-grained successor seeded for admin/it_admin/
+	// hr_admin (migration 000256). RequirePermissionAny keeps a session minted
+	// before 000256 working until it refreshes, instead of a hard 403.
+	r.Route("/api/v1/admin/roles", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "read"},
+		)).Get("/", a.HandleListRoles)
+	})
+
 	// Protected user routes
 	r.Route("/api/v1/users", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -530,6 +543,77 @@ func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Req
 	}
 
 	response.JSON(w, http.StatusOK, toEffectivePermissionsBody(resp))
+}
+
+// ============================================================================
+// Role Administration Handlers (RBAC Phase 1 wave 1b)
+// ============================================================================
+
+// roleBody is the wire shape the RBAC frontend consumes (rbac-types.ts,
+// Role). It is app-owned rather than proto passthrough: tenantId/basedOn must
+// render as JSON null on a system preset, which proto3's empty string cannot
+// express, and the frontend spells every field camelCase.
+type roleBody struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Description     string  `json:"description"`
+	TenantID        *string `json:"tenantId"`
+	BasedOn         *string `json:"basedOn"`
+	IsSystem        bool    `json:"isSystem"`
+	Color           string  `json:"color"`
+	MemberCount     int32   `json:"memberCount"`
+	CapabilityCount int32   `json:"capabilityCount"`
+}
+
+type rolesBody struct {
+	Roles []roleBody `json:"roles"`
+}
+
+// nullIfEmpty turns the proto3 zero value for a nullable string field back
+// into JSON null. preset_id is empty on presets themselves as well as on
+// every role with no clone lineage — both cases are "no value", not "".
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func toRoleBody(r *authv1.Role) roleBody {
+	return roleBody{
+		ID:              r.Id,
+		Name:            r.Name,
+		Description:     r.Description,
+		TenantID:        nullIfEmpty(r.TenantId),
+		BasedOn:         nullIfEmpty(r.PresetId),
+		IsSystem:        r.IsSystem,
+		Color:           r.Color,
+		MemberCount:     r.MemberCount,
+		CapabilityCount: r.CapabilityCount,
+	}
+}
+
+// HandleListRoles returns the system presets plus the calling tenant's custom
+// roles.
+func (a *AuthRoutes) HandleListRoles(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ListRoles(r.Context(), &authv1.ListRolesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	body := rolesBody{Roles: make([]roleBody, len(resp.Roles))}
+	for i, role := range resp.Roles {
+		body.Roles[i] = toRoleBody(role)
+	}
+
+	response.JSON(w, http.StatusOK, body)
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

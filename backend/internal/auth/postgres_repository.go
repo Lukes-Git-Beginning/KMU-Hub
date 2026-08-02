@@ -254,6 +254,45 @@ func (r *PostgresRepository) GetEffectivePermissions(ctx context.Context, userID
 	return grants, rows.Err()
 }
 
+// ListRoles returns the system presets plus the calling tenant's custom
+// roles — the roles table's RLS read policy (tenant_id IS NULL OR own tenant)
+// does the scoping, so the query itself carries no tenant filter.
+//
+// member_count and capability_count are correlated subqueries rather than a
+// single query with two LEFT JOINs on purpose: joining user_roles and
+// role_permissions in the same FROM clause would cross the two relations and
+// inflate both counts. The member_count subquery joins through users (RLS
+// read-scoped) because user_roles itself carries neither tenant_id nor RLS —
+// without that join a preset's member_count would count every tenant's
+// holders, not just the caller's.
+func (r *PostgresRepository) ListRoles(ctx context.Context) ([]Role, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.name, r.description, r.tenant_id, r.based_on, r.color,
+		        (r.tenant_id IS NULL) AS is_system,
+		        (SELECT COUNT(*) FROM user_roles ur
+		         JOIN users u ON u.id = ur.user_id
+		         WHERE ur.role_id = r.id) AS member_count,
+		        (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id) AS capability_count
+		 FROM roles r
+		 ORDER BY r.tenant_id NULLS FIRST, r.name`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []Role
+	for rows.Next() {
+		var role Role
+		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.TenantID, &role.BasedOn,
+			&role.Color, &role.IsSystem, &role.MemberCount, &role.CapabilityCount); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, rows.Err()
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

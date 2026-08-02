@@ -31,6 +31,11 @@ type Repository interface {
 	// capability) pair; the union across roles happens in the service.
 	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error)
 
+	// ListRoles returns the system presets plus the calling tenant's custom
+	// roles, relying entirely on the roles table's RLS read policy for the
+	// tenant scoping.
+	ListRoles(ctx context.Context) ([]Role, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error

@@ -261,6 +261,44 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 	}, nil
 }
 
+// ListRoles returns the system presets plus the calling tenant's custom
+// roles. TenantID/BasedOn nil renders as the proto zero value (empty string);
+// the gateway is responsible for turning that back into JSON null.
+func (s *AuthGRPCServer) ListRoles(ctx context.Context, req *authv1.ListRolesRequest) (*authv1.ListRolesResponse, error) {
+	roles, err := s.authService.ListRoles(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	out := make([]*authv1.Role, len(roles))
+	for i, r := range roles {
+		out[i] = &authv1.Role{
+			Id:              r.ID.String(),
+			Name:            r.Name,
+			Description:     r.Description,
+			TenantId:        uuidStringOrEmpty(r.TenantID),
+			PresetId:        uuidStringOrEmpty(r.BasedOn),
+			IsSystem:        r.IsSystem,
+			Color:           r.Color,
+			MemberCount:     int32(r.MemberCount),
+			CapabilityCount: int32(r.CapabilityCount),
+		}
+	}
+
+	return &authv1.ListRolesResponse{Roles: out}, nil
+}
+
+// uuidStringOrEmpty renders a nullable uuid column as the proto3 zero value
+// for a missing string — callers that need to distinguish "empty" from
+// "absent" (the gateway, rendering tenant_id/preset_id as JSON null) do so on
+// the way out, not here.
+func uuidStringOrEmpty(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
 func (s *AuthGRPCServer) GetProfile(ctx context.Context, req *authv1.GetProfileRequest) (*authv1.GetProfileResponse, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {

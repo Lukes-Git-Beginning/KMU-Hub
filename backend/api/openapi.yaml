@@ -853,6 +853,32 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # Role administration (RBAC Phase 1 wave 1b). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/roles:
+    get:
+      summary: List roles
+      description: >
+        System presets (tenant_id IS NULL) plus the calling tenant's custom
+        roles — exactly the rows the roles table's RLS read policy admits.
+        memberCount is scoped to the caller's tenant even for a preset shared
+        across tenants. Requires roles:manage (legacy) or admin:role:read
+        (fine-grained; also held by the it_admin and hr_admin presets).
+      tags: [users]
+      operationId: listRoles
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Presets and tenant custom roles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # Custom Fields
   /api/v1/custom-fields:
     post:
@@ -30880,6 +30906,53 @@ components:
         permissions:
           $ref: "#/components/schemas/EffectivePermissions"
       required: [permissions]
+
+    # RBAC — role administration (Phase 1 wave 1b). camelCase and the null
+    # sentinels on tenantId/basedOn are intentional: app-owned contract
+    # mirroring the frontend type, not a proto passthrough.
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Technical name, unique per tenant.
+        description:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for a Zentria-maintained system preset.
+        basedOn:
+          type: string
+          format: uuid
+          nullable: true
+          description: Id of the preset (or role) a custom role was cloned from. Null on presets.
+        isSystem:
+          type: boolean
+        color:
+          type: string
+          example: hsl(217 91% 60%)
+        memberCount:
+          type: integer
+          description: Accounts in the caller's tenant currently holding this role.
+        capabilityCount:
+          type: integer
+          description: Number of capability grants the role carries.
+      required:
+        [id, name, description, tenantId, basedOn, isSystem, color, memberCount, capabilityCount]
+
+    RolesResponse:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+      required: [roles]
 
     StatusResponse:
       type: object

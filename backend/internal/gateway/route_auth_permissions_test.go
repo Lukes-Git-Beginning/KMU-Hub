@@ -97,3 +97,75 @@ func TestToEffectivePermissionsBody_NilSourcesMarshalAsArray(t *testing.T) {
 		t.Errorf("nil sources = %s, want %s", raw, want)
 	}
 }
+
+// --- HandleListRoles ---
+
+func TestHandleListRoles_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListRoles)
+}
+
+// TestToRoleBody_WireShape pins the null sentinel: a system preset carries an
+// empty tenant_id and preset_id on the wire (proto3 has no string null), and
+// the gateway must render those as JSON null, not "" — the frontend's
+// isSystem / basedOn logic keys off null, not an empty string.
+func TestToRoleBody_WireShape(t *testing.T) {
+	raw, err := json.Marshal(toRoleBody(&authv1.Role{
+		Id:              "11111111-1111-1111-1111-111111111111",
+		Name:            "admin",
+		Description:     "Full system access",
+		TenantId:        "",
+		PresetId:        "",
+		IsSystem:        true,
+		Color:           "hsl(0 72% 51%)",
+		MemberCount:     3,
+		CapabilityCount: 282,
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"id":"11111111-1111-1111-1111-111111111111","name":"admin","description":"Full system access",` +
+		`"tenantId":null,"basedOn":null,"isSystem":true,"color":"hsl(0 72% 51%)","memberCount":3,"capabilityCount":282}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}
+
+// TestToRoleBody_CustomRoleCarriesTenantAndBasedOn is the counterpart: a
+// tenant-owned custom role has both ids populated on the wire.
+func TestToRoleBody_CustomRoleCarriesTenantAndBasedOn(t *testing.T) {
+	raw, err := json.Marshal(toRoleBody(&authv1.Role{
+		Id:       "22222222-2222-2222-2222-222222222222",
+		Name:     "Buchhaltung",
+		TenantId: "33333333-3333-3333-3333-333333333333",
+		PresetId: "11111111-1111-1111-1111-111111111111",
+		IsSystem: false,
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"id":"22222222-2222-2222-2222-222222222222","name":"Buchhaltung","description":"",` +
+		`"tenantId":"33333333-3333-3333-3333-333333333333","basedOn":"11111111-1111-1111-1111-111111111111",` +
+		`"isSystem":false,"color":"","memberCount":0,"capabilityCount":0}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}
+
+// TestRolesBody_EmptyIsContainerNotNull guards a tenant with zero visible
+// roles (should not happen once presets seed, but the frontend iterates roles
+// unconditionally either way).
+func TestRolesBody_EmptyIsContainerNotNull(t *testing.T) {
+	body := rolesBody{Roles: []roleBody{}}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"roles":[]}`
+	if string(raw) != want {
+		t.Errorf("empty roles = %s, want %s", raw, want)
+	}
+}

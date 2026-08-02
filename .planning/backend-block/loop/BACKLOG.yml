@@ -102,7 +102,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1b-proto]
-    status: todo
+    status: done
     scope: >
       `GET /admin/roles` -> `{roles:[Role]}`. Liefert die System-Presets (tenant_id IS NULL) UND
       die Custom-Rollen des aufrufenden Tenants — genau das, was die Lese-Policy ohnehin

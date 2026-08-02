@@ -32,7 +32,7 @@ type mockRepository struct {
 	sessions            []*models.UserSession
 	recoveryCodes       []*models.RecoveryCode
 	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
-	seatLimits          map[uuid.UUID]*int                   // tenant → booked seats, absent = unlimited
+	seatLimits          map[uuid.UUID]*int                    // tenant → booked seats, absent = unlimited
 
 	provisionedTenants map[uuid.UUID]*models.Tenant
 	provisionedModules map[uuid.UUID][]string
@@ -170,6 +170,10 @@ func (m *mockRepository) GetUserPermissions(_ context.Context, userID uuid.UUID)
 
 func (m *mockRepository) GetEffectivePermissions(_ context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
 	return m.effectiveGrants[userID], nil
+}
+
+func (m *mockRepository) ListRoles(_ context.Context) ([]Role, error) {
+	return nil, nil
 }
 
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
