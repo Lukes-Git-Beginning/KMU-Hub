@@ -3647,3 +3647,54 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Fuer Luke vor dem Merge: die SYSTEM_SMTP_*-Werte der Produktionsumgebung pruefen — ohne Host
     bleibt die Zustellung aus (sichtbar als `last_run_status=skipped` und einer Warnzeile beim
     Servicestart), der Service laeuft aber normal weiter.
+
+## Iteration 51 — g-dialer-agent-status-log-tenant — done — 2026-08-02
+
+- commit: (folgt nach diesem Eintrag)
+- verify vorgaenger: sauber. `51b2f999` (Iteration 50, berichte-scheduler) gegen die acht
+  Fehlerklassen geprueft: `delivery.go`/`render.go`/`systemmail/sender.go` sind echte
+  Implementierungen (kein Stub, kein Fake-Return), kein Gateway-Handler beruehrt (kein
+  Direct-Svc-Bypass), keine Migration, kein Proto, keine neue Route. `cmd/berichte/main.go` verdrahtet
+  Exporter immer und den Mailer nur bei gesetztem `SYSTEM_SMTP_HOST` — kein stiller Fake-Erfolg.
+- PRAEMISSEN-KORREKTUR (wichtigster Befund dieser Iteration): die Unit ging davon aus,
+  `dialer_agent_status_log` habe **keine** `tenant_id`-Spalte (Befund aus Iteration 54,
+  Lauf 1/2, 2026-07-28). Das stimmt nicht mehr — tatsaechlich stimmte es schon am 28.07. nicht:
+  `tenant_id UUID NOT NULL` + FK auf `tenants` + Index + `FORCE ROW LEVEL SECURITY` mit Policy
+  `tenant_isolation USING (tenant_id = current_tenant_id() OR is_system_context())` existieren
+  bereits seit Migration 000119/000120 (2026-05-10/11, Sprint 4 — zeitlich VOR Iteration 54).
+  Verifiziert per `\d dialer_agent_status_log` gegen die lokale DB (Spalte, FK, Index, Policy alle
+  vorhanden) und per `git log` auf die Migrationsdateien. Iteration 54 hat den Fund offenbar gegen
+  die urspruengliche CREATE-TABLE-Migration 000067 geprueft statt gegen den tatsaechlichen
+  Schema-Stand und den veralteten Befund unveraendert ins Backlog uebernommen — dort stand er seit
+  drei Nachtlaeufen ungeprueft. Auch `LogStatusChange` (INSERT, setzt tenant_id ueber eine Subquery
+  auf `users`) und `GetActiveAgentIDsForTenant` (explizites `WHERE tenant_id = $1`) sind bereits
+  korrekt tenant-gescoped — keine dieser Stellen brauchte einen Fix.
+- echter Rest-Fund: die Aktive-Kampagne-Subquery in `GetAgentStats` (`postgres_repository.go:503`)
+  hatte trotz vorhandener Spalte kein eigenes `tenant_id`-Praedikat und verliess sich allein auf die
+  RLS-GUC. Im normalen Request-Pfad bereits ausreichend geschuetzt (`PrepareConn` setzt
+  `app.tenant_id` pro Connection-Checkout aus dem ctx), aber ohne Verteidigung gegen einen Aufruf mit
+  einem falschen `tenantID`-Funktionsparameter unter System-Kontext (Worker o.ae.) — dort greift
+  `is_system_context()` und die RLS-Policy laesst alles durch.
+- gebaut: `AND l.tenant_id = $2` in der Aktive-Kampagne-Query ergaenzt, `tenantID` (bereits
+  Funktionsparameter von `GetAgentStats`) als zweiten Query-Parameter durchgereicht. Kein
+  Migrations-, Proto- oder Route-Bedarf, weil Spalte/RLS/INSERT/anderer-SELECT bereits vorhanden
+  waren.
+- Test: `TestGetAgentStats_ActiveCampaignTenantScoped` in `tenant_write_test.go` (gleiche Datei/
+  gleiches Muster wie die bestehenden `..._LandInCallerTenant`-Tests). Ruft `GetAgentStats` unter
+  System-Kontext (RLS komplett durchlaessig) einmal mit fremdem `tenantID` — erwartet
+  `ActiveCampaignID == nil` — und einmal mit dem echten `tenantID` — erwartet die echte Kampagne.
+  Falsifiziert: Fix testweise per `git stash` auf die Ausgangsversion zurueckgesetzt, Test wird rot
+  (`foreign tenantID saw the active campaign: <uuid>`) — der Leak ist also real reproduzierbar ohne
+  das Praedikat. Nach `git stash pop` wieder gruen.
+- gate: build (`./internal/dialer/... ./internal/gateway/... ./cmd/dialer/... ./cmd/gateway/...`,
+  `-p 2`) ok | vet ok | golangci-lint `./internal/dialer/... ./internal/gateway/...` **0 issues** |
+  Tests mit `DATABASE_URL` (Rolle `kmuhub_app`): `go test -count=1 -v ./internal/dialer/...` —
+  73 PASS, 0 Skip, 0 Fail. `go test ./internal/gateway/` nicht gefahren (keine Route beruehrt).
+  Migration: keine (bereits vorhanden). RLS-Smoke: n.a. fuer Tabelle/Policy (unveraendert) — der
+  neue DB-Test uebernimmt den Beweis fuer den Read-Pfad-Fix.
+- offen:
+  - Keine offenen Punkte fuer Luke aus dieser Unit selbst.
+  - Hinweis fuers Backlog-Grooming: Befunde aus archivierten Journal-Eintraegen (hier: Iteration 54,
+    Lauf 1/2) sollten vor Uebernahme in eine neue Unit gegen den AKTUELLEN Schema-/Code-Stand
+    gegengeprueft werden, nicht nur zitiert — dieser lag hier ueber drei Nachtlaeufe unverifiziert im
+    Backlog.

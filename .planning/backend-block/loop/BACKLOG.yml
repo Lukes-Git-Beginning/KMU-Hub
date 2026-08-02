@@ -1994,7 +1994,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `dialer_agent_status_log` hat keine `tenant_id`-Spalte; ueber `GetAgentStats` (~Zeile 503)
       koennen dadurch Kampagnennamen fremder Tenants sichtbar werden.
@@ -2009,10 +2009,28 @@ units:
       zugeordneter Logeintrag ist schlimmer als ein fehlender).
       Danach RLS-Policy, tenant-gescoptes INSERT und SELECT, und der Read-Pfad in `GetAgentStats`.
       Backfill-Reichweite vor dem Schreiben zaehlen und die Zahl ins Journal.
+
+      KORREKTUR (2026-08-02): die Praemisse dieser Unit war bereits ueberholt. `tenant_id UUID
+      NOT NULL` + FK + Index + `FORCE ROW LEVEL SECURITY` existieren auf `dialer_agent_status_log`
+      schon seit Migration 000119/000120 (2026-05-10/11, Sprint 4 — VOR Iteration 54). Iteration 54
+      hat gegen die urspruengliche CREATE-TABLE-Migration 000067 geprueft statt gegen den
+      tatsaechlichen Schema-Stand, und den Fund faelschlich uebernommen. `\d dialer_agent_status_log`
+      lokal bestaetigt: Spalte, FK auf tenants, Index, Policy `tenant_isolation USING (tenant_id =
+      current_tenant_id() OR is_system_context())`. `LogStatusChange` (INSERT) setzt tenant_id
+      bereits ueber eine Subquery auf `users`, `GetActiveAgentIDsForTenant` scopt bereits explizit.
+      Echter Rest-Fund: NUR die Aktive-Kampagne-Subquery in `GetAgentStats` (Zeile ~503) hatte kein
+      `tenant_id`-Praedikat und verliess sich allein auf die RLS-GUC — im normalen Request-Pfad
+      bereits geschuetzt (PrepareConn setzt `app.tenant_id` pro Connection-Checkout), aber ohne
+      Verteidigung gegen einen Aufruf mit falschem `tenantID`-Parameter unter System-Kontext.
+      Gefixt: `AND l.tenant_id = $2` ergaenzt, `tenantID` als zweiter Parameter durchgereicht.
+      Migration/Backfill/RLS-Policy aus dem urspruenglichen Scope sind NICHT gebaut worden, weil sie
+      bereits existieren — kein Duplikat einer bestehenden Migration angelegt.
     done_when:
-      - Spalte, Backfill, RLS-Policy, gescoptes INSERT und SELECT
-      - RLS-Smoke gruen (eigener Tenant > 0, fremder = 0)
-      - Backfill-Zahlen im Journal
+      - Praemisse gegen den echten Schema-Stand geprueft, Korrektur im Journal
+      - GetAgentStats' Kampagnen-Lookup traegt ein explizites tenant_id-Praedikat
+      - Neuer DB-Test beweist per Falsifikation: ohne Praedikat leakt der Kampagnenname, mit
+        Praedikat nicht
+      - go build/vet/lint/test gruen
 
   - id: g-einvoice-test-hygiene
     phase: 3

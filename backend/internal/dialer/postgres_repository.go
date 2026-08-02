@@ -504,12 +504,12 @@ func (r *PostgresCampaignRepository) GetAgentStats(ctx context.Context, tenantID
 		`SELECT l.campaign_id, c.name
 		 FROM dialer_agent_status_log l
 		 JOIN dialer_campaigns c ON c.id = l.campaign_id
-		 WHERE l.user_id = $1
+		 WHERE l.user_id = $1 AND l.tenant_id = $2
 		   AND l.campaign_id IS NOT NULL
 		   AND l.status IN ('on_call','wrap_up')
 		 ORDER BY l.changed_at DESC
 		 LIMIT 1`,
-		agentID,
+		agentID, tenantID,
 	).Scan(&stats.ActiveCampaignID, &stats.ActiveCampaignName); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}

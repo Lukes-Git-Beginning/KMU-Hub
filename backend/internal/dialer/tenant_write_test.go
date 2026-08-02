@@ -326,3 +326,72 @@ func TestOutcomeWrites_LandInCallerTenant(t *testing.T) {
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "dialer_call_outcomes", o.ID, 0)
 }
+
+// TestGetAgentStats_ActiveCampaignTenantScoped proves the explicit
+// l.tenant_id predicate added to GetAgentStats' active-campaign lookup, not
+// just dialer_agent_status_log's RLS policy (mig 000119/000120), stops a
+// cross-tenant campaign-name leak. sysCtx bypasses RLS entirely
+// (is_system_context() = true), so calling GetAgentStats with a tenantID
+// that does not own the log row isolates the WHERE clause as the only thing
+// that could still block the read.
+func TestGetAgentStats_ActiveCampaignTenantScoped(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Dialer Agent Stats Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Dialer Agent Stats Other Tenant")
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"tenant_id":     tenantOwn,
+		"email":         "dialer-agentstats@test.local",
+		"password_hash": "$2a$10$placeholder",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	campID := testutil.SeedRow(t, pool, "dialer_campaigns", map[string]any{
+		"id":         uuid.New(),
+		"tenant_id":  tenantOwn,
+		"name":       "Agent Stats Campaign",
+		"created_by": userID,
+	})
+	defer testutil.CleanupRow(t, pool, "dialer_campaigns", campID)
+
+	statusRepo := NewPostgresAgentStatusRepository(pool)
+	entry := &AgentStatusLogEntry{
+		ID:         uuid.New(),
+		UserID:     userID,
+		CampaignID: &campID,
+		Status:     "on_call",
+		ChangedAt:  time.Now().UTC(),
+	}
+	if err := statusRepo.LogStatusChange(ctxOwn, entry); err != nil {
+		t.Fatalf("LogStatusChange: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "dialer_agent_status_log", entry.ID)
+
+	campRepo := NewPostgresCampaignRepository(pool)
+
+	statsOther, err := campRepo.GetAgentStats(sysCtx, tenantOther, userID)
+	if err != nil {
+		t.Fatalf("GetAgentStats (foreign tenantID, sys ctx): %v", err)
+	}
+	if statsOther.ActiveCampaignID != nil {
+		t.Fatalf("foreign tenantID saw the active campaign: %v", *statsOther.ActiveCampaignID)
+	}
+
+	statsOwn, err := campRepo.GetAgentStats(sysCtx, tenantOwn, userID)
+	if err != nil {
+		t.Fatalf("GetAgentStats (own tenantID, sys ctx): %v", err)
+	}
+	if statsOwn.ActiveCampaignID == nil || *statsOwn.ActiveCampaignID != campID {
+		t.Fatalf("own tenantID did not see the active campaign: %+v", statsOwn.ActiveCampaignID)
+	}
+}
