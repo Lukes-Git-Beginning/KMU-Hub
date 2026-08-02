@@ -334,7 +334,7 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"invoice create, edit key does not grant create", bizRouter, "POST", "/api/v1/finance/invoices", []string{"finance:invoice:edit"}, denied},
 		{"invoice update, catalogue key only", bizRouter, "PUT", "/api/v1/finance/invoices/" + articleID, []string{"finance:invoice:edit"}, allowed},
 		{"invoice send, catalogue key only", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/send", []string{"finance:invoice:send"}, allowed},
-		{"invoice pay, catalogue edit key maps to it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/pay", []string{"finance:invoice:edit"}, allowed},
+		{"invoice pay, catalogue edit key maps to it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/mark-paid", []string{"finance:invoice:edit"}, allowed},
 		{"invoice cancel, catalogue delete key maps to it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/cancel", []string{"finance:invoice:delete"}, allowed},
 		{"invoice cancel, edit key does not grant it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/cancel", []string{"finance:invoice:edit"}, denied},
 

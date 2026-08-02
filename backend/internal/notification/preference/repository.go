@@ -19,7 +19,7 @@ type Repository interface {
 	// Mutes
 	IsResourceMuted(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) (bool, error)
 	CreateMute(ctx context.Context, mute *models.NotificationMute) error
-	DeleteMute(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error
+	DeleteMute(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, muteID uuid.UUID) error
 	ListMutes(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, offset, limit int) ([]*models.NotificationMute, int, error)
 
 	// Quiet Hours

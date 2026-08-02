@@ -237,8 +237,7 @@ message MuteResourceResponse {
 
 message UnmuteResourceRequest {
   string user_id = 1;
-  string module_id = 2;
-  string resource_id = 3;
+  string mute_id = 2;
 }
 
 message UnmuteResourceResponse {}

@@ -127,10 +127,10 @@ func (r *PostgresRepository) CreateMute(ctx context.Context, mute *models.Notifi
 	return nil
 }
 
-func (r *PostgresRepository) DeleteMute(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
+func (r *PostgresRepository) DeleteMute(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, muteID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"DELETE FROM notification_mutes WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND resource_id = $4",
-		tenantID, userID, moduleID, resourceID,
+		"DELETE FROM notification_mutes WHERE id = $1 AND tenant_id = $2 AND user_id = $3",
+		muteID, tenantID, userID,
 	)
 	if err != nil {
 		return err

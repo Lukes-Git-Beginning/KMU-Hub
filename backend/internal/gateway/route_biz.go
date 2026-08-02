@@ -113,7 +113,7 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(invoiceRead).Get("/{id}", b.HandleGetInvoice)
 		r.With(invoiceEdit).Put("/{id}", b.HandleUpdateInvoice)
 		r.With(invoiceSend).Post("/{id}/send", b.HandleSendInvoice)
-		r.With(invoiceEdit).Post("/{id}/pay", b.HandleMarkInvoicePaid)
+		r.With(invoiceEdit).Post("/{id}/mark-paid", b.HandleMarkInvoicePaid)
 		r.With(invoiceDelete).Post("/{id}/cancel", b.HandleCancelInvoice)
 		r.With(invoiceRead).Get("/{id}/pdf", b.HandleGenerateInvoicePDF)
 		// E-Rechnung Ausgang: XRechnung UBL-XML oder ZUGFeRD-PDF exportieren

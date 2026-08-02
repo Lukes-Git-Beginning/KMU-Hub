@@ -1493,7 +1493,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Zwei weitere tote Pfade, verifiziert am 2026-08-02:
       (a) FE `POST /api/v1/finance/invoices/{id}/mark-paid`
@@ -1523,6 +1523,39 @@ units:
       - Unmute per ID ist gegen user_id + tenant_id gefiltert, Test deckt den Fremdzugriff ab
       - openapi.yaml angeglichen, bestehende Tests auf die neuen Pfade gezogen
       - go test -count=1 ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 27). (a) reine Umbenennung `/{id}/pay` -> `/{id}/mark-paid` in
+      route_biz.go, Handler/Guard/Service unveraendert; einzige betroffene Testzeile war
+      `route_capability_guard_test.go` ("invoice pay, catalogue edit key maps to it"), mitgezogen.
+      (b) `DELETE /mutes` (body-basiert, kein FE-Aufrufer) ersetzt durch
+      `DELETE /mutes/{muteId}` -- Proto `UnmuteResourceRequest` von `module_id`+`resource_id` auf
+      `mute_id` umgebaut (einziger Aufrufer war dieser eine Handler, keine Wire-Kompatibilitaet
+      zu wahren), `make proto`-Notification-Block per protoc regeneriert (nur .pb.go geaendert,
+      .grpc.pb.go byte-identisch da RPC-Signatur gleich blieb). Repository/Service/gRPC-Handler
+      durchgaengig auf `DeleteMute(ctx, tenantID, userID, muteID uuid.UUID)` umgestellt --
+      SQL jetzt `WHERE id = $1 AND tenant_id = $2 AND user_id = $3`, die tenant_id-Klausel ist
+      zusaetzlich zur RLS-Policy auf `notification_mutes` (Migration 000124) explizit gesetzt,
+      die user_id-Klausel ist die eigentliche Luecke, die RLS nicht abdeckt (RLS ist
+      tenant-, nicht user-scoped). Handler nutzt `validateUUIDParam(w,r,"muteId")` statt Body-Decode.
+      Zwei Mock-Repos (`notification/preference/service_test.go`,
+      `notification/notification/service_test.go`) implementieren dasselbe Repository-Interface
+      und mussten beide auf die neue Signatur gezogen werden. Neuer Test
+      `TestUnmuteResourceWrongUserRejected`: gleicher Tenant, fremde UserID -> ErrMuteNotFound,
+      Mute bleibt in der Liste (Fremdzugriff-Abdeckung aus done_when). Cross-Tenant-Abdeckung
+      laeuft ueber die bestehende RLS + `TestTenantIsolation_Notifications`
+      (tenant_isolation_phase2_test.go), nicht erneut dupliziert.
+      openapi.yaml: Pfad-Rename fuer (a), fuer (b) alter `delete:`-Block unter
+      `/api/v1/notifications/mutes` entfernt und als eigener Pfad
+      `/api/v1/notifications/mutes/{muteId}` mit Pfad-Parameter (statt requestBody) neu angelegt.
+      FE-Clients (`finance-client.ts:229`, `notification-client.ts:103`) riefen beide Pfade
+      bereits ohne Body auf -- keine FE-Aenderung noetig, reine Backend-Anpassung.
+      gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf
+      `internal/gateway`, `internal/notification/...`, `internal/server`, 0 issues) | test ok --
+      `go test -count=1 ./internal/gateway/... ./internal/notification/... ./internal/server/...`
+      gruen mit `DATABASE_URL` auf `kmuhub_app`, inkl. `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift`.
+      Keine Migration, keine neue Tabelle/Spalte, kein neuer `RequirePermission`-Guard (bestehende
+      `notifications:write`/`finance:invoice:edit` nur mitverschoben) -- kein DB/RLS-Gate ueber
+      die bestehende Migration 000124 hinaus noetig.
 
   - id: fix-crm-import-company
     phase: fix

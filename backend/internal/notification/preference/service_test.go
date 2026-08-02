@@ -485,11 +485,12 @@ func TestUnmuteResource(t *testing.T) {
 
 	tenantID := uuid.New()
 	userID := uuid.New()
+	muteID := uuid.New()
 	repo.mutes = []models.NotificationMute{
-		{UserID: userID, ModuleID: "chat", ResourceID: "channel-abc"},
+		{ID: muteID, UserID: userID, ModuleID: "chat", ResourceID: "channel-abc"},
 	}
 
-	err := svc.UnmuteResource(context.Background(), tenantID, userID, "chat", "channel-abc")
+	err := svc.UnmuteResource(context.Background(), tenantID, userID, muteID)
 	require.NoError(t, err)
 }
 
@@ -497,8 +498,25 @@ func TestUnmuteResourceNotFound(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	err := svc.UnmuteResource(context.Background(), uuid.New(), uuid.New(), "chat", "nonexistent")
+	err := svc.UnmuteResource(context.Background(), uuid.New(), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrMuteNotFound)
+}
+
+func TestUnmuteResourceWrongUserRejected(t *testing.T) {
+	repo := newMockPrefRepo()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	ownerID := uuid.New()
+	otherUserID := uuid.New()
+	muteID := uuid.New()
+	repo.mutes = []models.NotificationMute{
+		{ID: muteID, UserID: ownerID, ModuleID: "chat", ResourceID: "channel-abc"},
+	}
+
+	err := svc.UnmuteResource(context.Background(), tenantID, otherUserID, muteID)
+	assert.ErrorIs(t, err, ErrMuteNotFound)
+	assert.Len(t, repo.mutes, 1, "mute of another user must not be deletable")
 }
 
 func TestListMutedResources(t *testing.T) {
@@ -665,9 +683,9 @@ func (m *mockPrefRepo) CreateMute(_ context.Context, mute *models.NotificationMu
 	return nil
 }
 
-func (m *mockPrefRepo) DeleteMute(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
+func (m *mockPrefRepo) DeleteMute(_ context.Context, _ uuid.UUID, userID uuid.UUID, muteID uuid.UUID) error {
 	for i, mute := range m.mutes {
-		if mute.UserID == userID && mute.ModuleID == moduleID && mute.ResourceID == resourceID {
+		if mute.UserID == userID && mute.ID == muteID {
 			m.mutes = append(m.mutes[:i], m.mutes[i+1:]...)
 			return nil
 		}

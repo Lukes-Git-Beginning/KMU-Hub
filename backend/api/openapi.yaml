@@ -4104,31 +4104,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-    delete:
-      summary: Unmute notifications for a resource
-      tags: [notifications]
-      operationId: unmuteResource
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [module_id, resource_id]
-              properties:
-                module_id:
-                  type: string
-                resource_id:
-                  type: string
-      responses:
-        "200":
-          description: Resource unmuted
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
     get:
       summary: List muted resources
       tags: [notifications]
@@ -4166,6 +4141,30 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/mutes/{muteId}:
+    delete:
+      summary: Unmute a previously muted resource
+      tags: [notifications]
+      operationId: unmuteResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: muteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resource unmuted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/notifications/quiet-hours:
     get:
@@ -8582,7 +8581,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
 
-  /api/v1/finance/invoices/{id}/pay:
+  /api/v1/finance/invoices/{id}/mark-paid:
     post:
       summary: Mark an invoice as fully paid
       tags: [invoices]

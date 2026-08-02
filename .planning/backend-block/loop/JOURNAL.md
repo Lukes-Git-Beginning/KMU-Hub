@@ -1660,3 +1660,60 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     ohne Employee-Bezug — eigene Folge-Unit oder FE-Session, kein Backend-Gap.
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 27 — fix-finance-notification-paths — done — 2026-08-03
+
+- commit: `-` (wird im naechsten Journal-Eintrag nachgetragen)
+- verify vorgaenger: sauber. `5359d87b` (fix-hr-document-paths, Iteration 26) gegen die
+  Fehlerklassen geprueft: Handler geht ueber `h.getHRClient()` (kein Direct-Svc-Bypass), kein
+  Stub, `hr.proto` + `hr.pb.go` im selben Commit regeneriert, Guard additiv
+  (`RequirePermissionAny("hr","read" / "team:documents","view")`, kein Ersetzen des Alt-Keys,
+  `team:documents:view` seit Migration 000256 bereits vergeben — kein ungeseedeter Guard), keine
+  neue Tabelle/RLS-Luecke, Wire-Shape unveraendert (weiterhin Liste, nur serverseitig gefiltert).
+  `filterCategoriesByScope` bestaetigt restriktiv: nur `ScopeAll` sieht alles, `ScopeTeam` addiert
+  Manager-Sichtbarkeit, jeder andere/leere Scope faellt auf employee-only zurueck — deckt sich mit
+  der Journal-Behauptung der Vorgaenger-Iteration. Nichts zu beanstanden.
+- gebaut: `fix-finance-notification-paths` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`).
+  (a) `POST /api/v1/finance/invoices/{id}/pay` -> `/{id}/mark-paid` umbenannt
+  (`route_biz.go:116`), Handler `HandleMarkInvoicePaid`/Guard/Service unveraendert — reine
+  Pfad-Umbenennung auf den bereits im FE-Client (`finance-client.ts:229`) verwendeten Namen.
+  Einzige betroffene Testzeile war `route_capability_guard_test.go` ("invoice pay, catalogue
+  edit key maps to it"), auf den neuen Pfad gezogen.
+  (b) `DELETE /api/v1/notifications/mutes` (body-basiert, `{module_id,resource_id}`, kein
+  FE-Aufrufer) ersetzt durch `DELETE /api/v1/notifications/mutes/{muteId}` — der FE-Client
+  (`notification-client.ts:103`) ruft bereits `unmute(muteId)` auf diesen Pfad.
+  Proto `UnmuteResourceRequest` von `module_id`+`resource_id` auf ein einziges `mute_id`
+  umgebaut (einziger Aufrufer war genau dieser Handler, keine Wire-Kompatibilitaet zu wahren),
+  `protoc`-Notification-Block (aus dem generischen `proto:`-Target im Makefile, `make` selbst
+  ist auf dieser Maschine nicht im PATH) im selben Commit regeneriert — nur `notification.pb.go`
+  geaendert, `notification_grpc.pb.go` byte-identisch, weil die RPC-Signatur gleich blieb.
+  Repository/Service/gRPC-Handler durchgaengig auf
+  `DeleteMute(ctx, tenantID, userID, muteID uuid.UUID)` umgestellt, SQL jetzt
+  `WHERE id = $1 AND tenant_id = $2 AND user_id = $3`. `notification_mutes` hat seit Migration
+  000124 bereits RLS (tenant-gescopt) — die zusaetzliche `user_id`-Klausel ist die eigentliche
+  Luecke, die RLS NICHT abdeckt (RLS ist tenant-, nicht user-scoped): ohne sie haette ein Nutzer
+  per erratener/erschnueffelter Mute-ID einen fremden Mute im selben Tenant loeschen koennen.
+  Handler nutzt jetzt `validateUUIDParam(w,r,"muteId")` statt Body-Decode, `unmuteResourceRequest`
+  entfernt.
+  Zwei Mock-Repos implementieren dasselbe `preference.Repository`-Interface
+  (`notification/preference/service_test.go`, `notification/notification/service_test.go`) und
+  mussten beide auf die neue `DeleteMute`-Signatur gezogen werden.
+  Neuer Test `TestUnmuteResourceWrongUserRejected`: gleicher Tenant, fremde UserID ->
+  `ErrMuteNotFound`, Mute bleibt in der Liste — deckt den in den notes geforderten
+  Fremdzugriffsfall auf Service-Ebene ab. Cross-Tenant-Abdeckung laeuft ueber die bestehende
+  RLS + `TestTenantIsolation_Notifications` (tenant_isolation_phase2_test.go), nicht dupliziert.
+  openapi.yaml: Pfad-Rename fuer (a); fuer (b) der alte `delete:`-Block unter
+  `/api/v1/notifications/mutes` entfernt und als eigener Pfad
+  `/api/v1/notifications/mutes/{muteId}` mit Pfad-Parameter (statt requestBody) neu angelegt,
+  inkl. 404-Antwort.
+  gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf
+  `internal/gateway`, `internal/notification/...`, `internal/server`, 0 issues) | test ok —
+  `go test -count=1 ./internal/gateway/... ./internal/notification/... ./internal/server/...`
+  gruen mit `DATABASE_URL` gesetzt auf `kmuhub_app`, inkl. `TestOpenAPIRouteDrift`/
+  `TestOpenAPISpecDrift`. Keine Migration, keine neue Tabelle/Spalte, kein neuer
+  `RequirePermission`-Guard (bestehende `notifications:write`/`finance:invoice:edit` nur
+  mitverschoben) — kein DB/RLS-Gate ueber die bestehende Migration 000124 hinaus noetig.
+- offen:
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.

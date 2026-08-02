@@ -1591,8 +1591,7 @@ func (x *MuteResourceResponse) GetMute() *MuteInfo {
 type UnmuteResourceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ModuleId      string                 `protobuf:"bytes,2,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
-	ResourceId    string                 `protobuf:"bytes,3,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
+	MuteId        string                 `protobuf:"bytes,2,opt,name=mute_id,json=muteId,proto3" json:"mute_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1634,16 +1633,9 @@ func (x *UnmuteResourceRequest) GetUserId() string {
 	return ""
 }
 
-func (x *UnmuteResourceRequest) GetModuleId() string {
+func (x *UnmuteResourceRequest) GetMuteId() string {
 	if x != nil {
-		return x.ModuleId
-	}
-	return ""
-}
-
-func (x *UnmuteResourceRequest) GetResourceId() string {
-	if x != nil {
-		return x.ResourceId
+		return x.MuteId
 	}
 	return ""
 }
@@ -4242,12 +4234,10 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\vresource_id\x18\x03 \x01(\tR\n" +
 	"resourceId\"E\n" +
 	"\x14MuteResourceResponse\x12-\n" +
-	"\x04mute\x18\x01 \x01(\v2\x19.notification.v1.MuteInfoR\x04mute\"n\n" +
+	"\x04mute\x18\x01 \x01(\v2\x19.notification.v1.MuteInfoR\x04mute\"I\n" +
 	"\x15UnmuteResourceRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
-	"\tmodule_id\x18\x02 \x01(\tR\bmoduleId\x12\x1f\n" +
-	"\vresource_id\x18\x03 \x01(\tR\n" +
-	"resourceId\"\x18\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x17\n" +
+	"\amute_id\x18\x02 \x01(\tR\x06muteId\"\x18\n" +
 	"\x16UnmuteResourceResponse\"\x95\x01\n" +
 	"\x19ListMutedResourcesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12 \n" +
