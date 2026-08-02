@@ -335,7 +335,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     von `rbac-format.ts`.
 
 ## Iteration 6 — p1b-user-roles — done — 2026-08-02 23:05
-- commit: <folgt>
+- commit: 60fc6dae
 - gebaut: Rollen-Zuweisung auf IDs umgestellt — `POST /api/v1/users/{id}/roles` nimmt jetzt
   `{roleId}` (statt `{role_name}` mit `oneof=admin manager member`) und `DELETE
   /api/v1/users/{id}/roles/{roleId}` traegt die Rolle im Pfad; beide antworten mit
