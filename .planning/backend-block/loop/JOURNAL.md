@@ -1013,7 +1013,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 15 — g-rls-presence-and-dashboard-defaults — done — 2026-08-03 00:45
 
-- commit: <wird nachgetragen>
+- commit: c0c30e79
 - gebaut:
   - `000274_tenant_scope_presence_and_dashboard_defaults` — beide Tabellen bekommen `tenant_id UUID
     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` + `enable_tenant_rls()`. `presence_config`
