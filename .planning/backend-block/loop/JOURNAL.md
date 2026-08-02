@@ -1613,7 +1613,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 26 — fix-hr-document-paths — done — 2026-08-03
 
-- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- commit: `5359d87b` — fix(hr): move document categories route to the frontend contract
 - verify vorgaenger: sauber. `a8ac8fc2` (fix-security-gdpr-paths, Iteration 25) gegen die
   Fehlerklassen geprueft: kein Direct-Svc-Bypass (Route-Umbau bleibt auf Handler-Ebene, ruft weiter
   `HRServiceClient`/`AuthServiceClient` unveraendert), kein Stub, kein `.proto` ohne Regen (keins
