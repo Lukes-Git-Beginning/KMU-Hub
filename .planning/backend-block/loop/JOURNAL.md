@@ -1552,7 +1552,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 25 — fix-security-gdpr-paths — done — 2026-08-03
 
-- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- commit: `a8ac8fc2` — fix(security): align GDPR export routes with the frontend contract
 - verify vorgaenger: sauber. `81212e69` (g-fuhrpark-license-check, Iteration 24) gegen die
   Fehlerklassen geprueft: Handler gehen durchgaengig ueber `fuhrparkv1.FuhrparkServiceClient`
   (kein Direct-Svc-Bypass), Migration 000279 traegt `tenant_id NOT NULL` + `enable_tenant_rls()`,
