@@ -3,6 +3,9 @@ package vertraege
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -711,16 +714,51 @@ func TestService_ListReminders_OnlyPending(t *testing.T) {
 // ExportContract
 // ============================================================================
 
-func TestService_ExportContract_TextDump(t *testing.T) {
+func TestService_ExportContract_ReturnsRealPDF(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
 	c := addContract(repo, tenantID, "CT-EXP-001", "Export Test Contract", ContractStatusActive)
+	c.Notes = "Kuendigungsfrist drei Monate zum Quartalsende."
+	signedBy := "Max Mustermann"
+	signedAt := time.Now()
+	c.SignedBy = &signedBy
+	c.SignedAt = &signedAt
+	externalName := "Beispiel GmbH"
+	repo.parties[uuid.New()] = &ContractParty{
+		ID: uuid.New(), TenantID: tenantID, ContractID: c.ID,
+		PartyType: PartyTypeExternal, ExternalName: &externalName, RoleInContract: "Auftragnehmer",
+	}
 
-	data, err := svc.ExportContract(context.Background(), tenantID, c.ID)
+	payload, err := svc.ExportContract(context.Background(), tenantID, c.ID)
 
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "Export Test Contract")
-	assert.Contains(t, string(data), "CT-EXP-001")
+	require.True(t, len(payload) > 4)
+	assert.Equal(t, "%PDF", string(payload[:4]))
+}
+
+func TestService_ExportContract_LongNotesPaginate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	c := addContract(repo, tenantID, "CT-EXP-002", "Multi-Page Export Test", ContractStatusActive)
+
+	var notes strings.Builder
+	for i := range 200 {
+		fmt.Fprintf(&notes, "Absatz %d: Diese Vertragsklausel beschreibt Rechte und Pflichten der Parteien im Detail.\n", i)
+	}
+	c.Notes = notes.String()
+
+	payload, err := svc.ExportContract(context.Background(), tenantID, c.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, "%PDF", string(payload[:4]))
+
+	match := regexp.MustCompile(`(?s)/Type\s*/Pages.*?/Count\s+(\d+)`).FindStringSubmatch(string(payload))
+	require.NotNil(t, match, "expected a /Pages object with /Count in the PDF")
+	pageCount, err := strconv.Atoi(match[1])
+	require.NoError(t, err)
+	assert.Greater(t, pageCount, 1, "long notes should overflow onto a second page")
 }

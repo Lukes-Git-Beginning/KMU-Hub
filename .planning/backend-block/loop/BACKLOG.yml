@@ -1786,7 +1786,7 @@ units:
     service: vertraege
     model: sonnet
     deps: [g-rapporte-pdf]
-    status: todo
+    status: done
     scope: >
       `ExportContract` liefert heute einen Klartext-Dump. Auf maroto umstellen, analog g-rapporte-pdf.
     sources:
