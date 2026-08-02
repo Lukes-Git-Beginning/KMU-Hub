@@ -259,7 +259,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 5 — p1b-role-permissions — done — 2026-08-02 22:35
 
-- commit: (siehe naechster Eintrag)
+- commit: cd5e8a79
 - gebaut: `GET /admin/roles/{id}/permissions` -> `{roleId, grants:{key:{scope}}}` (Presets lesbar — der
   Builder zeigt das Grant-Set eines Presets waehrend er noch auswaehlt, wovon geklont wird) und
   `PUT /admin/roles/{id}/permissions` (Vollersatz: fehlende Keys entzogen, neue eingefuegt, geaenderte
