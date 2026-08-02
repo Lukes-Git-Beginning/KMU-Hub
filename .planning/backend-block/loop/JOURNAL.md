@@ -3276,7 +3276,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     ausserhalb der Verdrahtungs-Unit liegt; als eigener Fund notiert.
 
 ## Iteration 44 — g-auth-sessions-wiring — done — 2026-08-02 03:5x
-- commit: <sha>
+- commit: 308fd217
 - gebaut: Die Geraeteliste hat jetzt Inhalt. Bisher schrieb kein Pfad je eine
   `user_sessions`-Zeile — `Service.CreateSession` existierte, wurde aber von niemandem gerufen, also
   war `GET /auth/sessions` in Produktion eine garantiert leere Liste und `DELETE /auth/sessions/{id}`
