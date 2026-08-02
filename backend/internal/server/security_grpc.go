@@ -19,17 +19,19 @@ import (
 	"github.com/kmuhub/kmuhub/internal/security/gdpr"
 	"github.com/kmuhub/kmuhub/internal/security/password"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
+	"github.com/kmuhub/kmuhub/internal/security/vendoraccess"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
 // SecurityGRPCServer implements securityv1.SecurityServiceServer.
 type SecurityGRPCServer struct {
 	securityv1.UnimplementedSecurityServiceServer
-	auditService    *audit.Service
-	vaultService    *vault.Service
-	gdprService     *gdpr.Service
-	passwordService *password.Service
-	pool            *pgxpool.Pool // for direct IP rule queries
+	auditService        *audit.Service
+	vaultService        *vault.Service
+	gdprService         *gdpr.Service
+	passwordService     *password.Service
+	vendorAccessService *vendoraccess.Service
+	pool                *pgxpool.Pool // for direct IP rule queries
 }
 
 // NewSecurityGRPCServer creates a new SecurityGRPCServer.
@@ -38,14 +40,16 @@ func NewSecurityGRPCServer(
 	vaultSvc *vault.Service,
 	gdprSvc *gdpr.Service,
 	passwordSvc *password.Service,
+	vendorAccessSvc *vendoraccess.Service,
 	pool *pgxpool.Pool,
 ) *SecurityGRPCServer {
 	return &SecurityGRPCServer{
-		auditService:    auditSvc,
-		vaultService:    vaultSvc,
-		gdprService:     gdprSvc,
-		passwordService: passwordSvc,
-		pool:            pool,
+		auditService:        auditSvc,
+		vaultService:        vaultSvc,
+		gdprService:         gdprSvc,
+		passwordService:     passwordSvc,
+		vendorAccessService: vendorAccessSvc,
+		pool:                pool,
 	}
 }
 
@@ -397,6 +401,100 @@ func (s *SecurityGRPCServer) DenyDataExport(ctx context.Context, req *securityv1
 
 	return &securityv1.DenyDataExportResponse{
 		ExportRequest: toProtoGDPRExport(export),
+	}, nil
+}
+
+// ============================================================================
+// Vendor Access RPCs (RBAC R-5 B, GDAP-light v3)
+// ============================================================================
+
+func (s *SecurityGRPCServer) ListVendorAccessRequests(ctx context.Context, req *securityv1.ListVendorAccessRequestsRequest) (*securityv1.ListVendorAccessRequestsResponse, error) {
+	requests, err := s.vendorAccessService.List(ctx)
+	if err != nil {
+		return nil, mapSecurityError(err)
+	}
+
+	pbRequests := make([]*securityv1.VendorAccessRequest, 0, len(requests))
+	for _, r := range requests {
+		pbRequests = append(pbRequests, toProtoVendorAccessRequest(r))
+	}
+
+	return &securityv1.ListVendorAccessRequestsResponse{Requests: pbRequests}, nil
+}
+
+func (s *SecurityGRPCServer) ApproveVendorAccessRequest(ctx context.Context, req *securityv1.ApproveVendorAccessRequestRequest) (*securityv1.ApproveVendorAccessRequestResponse, error) {
+	id, err := uuid.Parse(req.RequestId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
+	}
+	actorID, err := uuid.Parse(req.ActorId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid actor_id")
+	}
+
+	updated, err := s.vendorAccessService.Approve(ctx, id, actorID, req.SensitiveAck)
+	if err != nil {
+		return nil, mapSecurityError(err)
+	}
+
+	return &securityv1.ApproveVendorAccessRequestResponse{
+		Request: toProtoVendorAccessRequest(updated),
+	}, nil
+}
+
+func (s *SecurityGRPCServer) DeclineVendorAccessRequest(ctx context.Context, req *securityv1.DeclineVendorAccessRequestRequest) (*securityv1.DeclineVendorAccessRequestResponse, error) {
+	id, err := uuid.Parse(req.RequestId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
+	}
+
+	updated, err := s.vendorAccessService.Decline(ctx, id)
+	if err != nil {
+		return nil, mapSecurityError(err)
+	}
+
+	return &securityv1.DeclineVendorAccessRequestResponse{
+		Request: toProtoVendorAccessRequest(updated),
+	}, nil
+}
+
+func (s *SecurityGRPCServer) CounterProposeVendorAccessRequest(ctx context.Context, req *securityv1.CounterProposeVendorAccessRequestRequest) (*securityv1.CounterProposeVendorAccessRequestResponse, error) {
+	id, err := uuid.Parse(req.RequestId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
+	}
+	proposedStart, err := time.Parse("2006-01-02", req.ProposedStart)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid proposed_start, expected YYYY-MM-DD")
+	}
+
+	updated, err := s.vendorAccessService.CounterPropose(ctx, id, proposedStart)
+	if err != nil {
+		return nil, mapSecurityError(err)
+	}
+
+	return &securityv1.CounterProposeVendorAccessRequestResponse{
+		Request: toProtoVendorAccessRequest(updated),
+	}, nil
+}
+
+func (s *SecurityGRPCServer) RevokeVendorAccessRequest(ctx context.Context, req *securityv1.RevokeVendorAccessRequestRequest) (*securityv1.RevokeVendorAccessRequestResponse, error) {
+	id, err := uuid.Parse(req.RequestId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
+	}
+	actorID, err := uuid.Parse(req.ActorId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid actor_id")
+	}
+
+	updated, err := s.vendorAccessService.Revoke(ctx, id, actorID)
+	if err != nil {
+		return nil, mapSecurityError(err)
+	}
+
+	return &securityv1.RevokeVendorAccessRequestResponse{
+		Request: toProtoVendorAccessRequest(updated),
 	}, nil
 }
 
@@ -890,12 +988,12 @@ func toProtoAuditEntry(e *models.AuditEntry) *securityv1.AuditEntry {
 
 func toProtoVaultSecret(s *models.VaultSecret) *securityv1.VaultSecret {
 	pb := &securityv1.VaultSecret{
-		Id:         s.ID.String(),
-		KeyName:    s.KeyName,
-		KeyVersion: int32(s.KeyVersion),
+		Id:          s.ID.String(),
+		KeyName:     s.KeyName,
+		KeyVersion:  int32(s.KeyVersion),
 		Description: s.Description,
-		CreatedAt:  timestamppb.New(s.CreatedAt),
-		UpdatedAt:  timestamppb.New(s.UpdatedAt),
+		CreatedAt:   timestamppb.New(s.CreatedAt),
+		UpdatedAt:   timestamppb.New(s.UpdatedAt),
 	}
 	if s.CreatedBy != nil {
 		pb.CreatedBy = s.CreatedBy.String()
@@ -922,6 +1020,45 @@ func toProtoGDPRExport(e *models.GDPRExportRequest) *securityv1.GDPRExportReques
 	}
 	if e.DownloadExpiresAt != nil {
 		pb.DownloadExpiresAt = timestamppb.New(*e.DownloadExpiresAt)
+	}
+	return pb
+}
+
+func toProtoVendorAccessRequest(r *models.VendorAccessRequest) *securityv1.VendorAccessRequest {
+	agents := make([]*securityv1.VendorAccessAgent, 0, len(r.Agents))
+	for _, a := range r.Agents {
+		agents = append(agents, &securityv1.VendorAccessAgent{Name: a.Name})
+	}
+
+	pb := &securityv1.VendorAccessRequest{
+		Id:             r.ID.String(),
+		Reason:         r.Reason,
+		Description:    r.Description,
+		TicketRef:      r.TicketRef,
+		Agents:         agents,
+		Scope:          r.Scope,
+		RequestedStart: r.RequestedStart.Format("2006-01-02"),
+		DurationDays:   int32(r.DurationDays),
+		ExpiresAt:      r.ExpiresAt.Format("2006-01-02"),
+		Status:         r.Status,
+		ApprovedBy:     r.ApprovedByName,
+		RevokedBy:      r.RevokedByName,
+		CreatedAt:      timestamppb.New(r.CreatedAt),
+	}
+	if r.CounterProposedStart != nil {
+		pb.CounterProposedStart = r.CounterProposedStart.Format("2006-01-02")
+	}
+	if r.ApprovedAt != nil {
+		pb.ApprovedAt = timestamppb.New(*r.ApprovedAt)
+	}
+	if r.SensitiveAck != nil {
+		pb.SensitiveAck = *r.SensitiveAck
+	}
+	if r.RevokedAt != nil {
+		pb.RevokedAt = timestamppb.New(*r.RevokedAt)
+	}
+	if r.CompletedAt != nil {
+		pb.CompletedAt = timestamppb.New(*r.CompletedAt)
 	}
 	return pb
 }
@@ -998,6 +1135,12 @@ func mapSecurityError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, gdpr.ErrExportNotReady):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, vendoraccess.ErrRequestNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, vendoraccess.ErrInvalidStatus):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, vendoraccess.ErrSensitiveAckRequired):
+		return status.Error(codes.OutOfRange, err.Error())
 	default:
 		slog.Error("unhandled security service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

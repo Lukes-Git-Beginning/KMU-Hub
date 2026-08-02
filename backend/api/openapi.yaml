@@ -18810,6 +18810,167 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # --------------------------------------------------------------------------
+  # Vendor Access (RBAC R-5 B, GDAP-light v3). Own top-level prefix, not under
+  # /api/v1/security -- matches the path the frontend already calls
+  # (desktop/src/renderer/src/api/vendor-access.ts).
+  # --------------------------------------------------------------------------
+
+  /api/v1/vendor-access:
+    get:
+      summary: List vendor access requests for the caller's tenant
+      tags: [security]
+      operationId: listVendorAccessRequests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of vendor access requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/vendor-access/{id}/approve:
+    post:
+      summary: Approve a vendor access request
+      tags: [security]
+      operationId: approveVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveVendorAccessRequest"
+      responses:
+        "200":
+          description: Vendor access request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+        "422":
+          description: sensitive_ack required for a sensitive scope
+
+  /api/v1/vendor-access/{id}/decline:
+    post:
+      summary: Decline a vendor access request
+      tags: [security]
+      operationId: declineVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vendor access request declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+
+  /api/v1/vendor-access/{id}/counter-propose:
+    post:
+      summary: Propose an alternative start date for a pending vendor access request
+      tags: [security]
+      operationId: counterProposeVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterProposeVendorAccessRequest"
+      responses:
+        "200":
+          description: Vendor access request counter-proposed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+
+  /api/v1/vendor-access/{id}/revoke:
+    post:
+      summary: Revoke an active vendor access request
+      tags: [security]
+      operationId: revokeVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vendor access request revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+
   # ---------------------------------------------------------------------------
   # Modul: formulare
   # ---------------------------------------------------------------------------
@@ -38038,6 +38199,97 @@ components:
           type: boolean
         description:
           type: string
+
+    # -----------------------------------------------------------------------
+    # Vendor Access (RBAC R-5 B, GDAP-light v3)
+    # -----------------------------------------------------------------------
+
+    VendorAccessAgent:
+      type: object
+      properties:
+        name:
+          type: string
+
+    VendorAccessRequest:
+      type: object
+      description: A time-boxed Zentria support access request into a tenant's data.
+      properties:
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        description:
+          type: string
+        ticket_ref:
+          type: string
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorAccessAgent"
+        scope:
+          type: array
+          items:
+            type: string
+          description: Area IDs from the frontend's VENDOR_ACCESS_AREAS catalogue.
+        requested_start:
+          type: string
+          format: date
+        duration_days:
+          type: integer
+        expires_at:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [pending, counter_proposed, active, declined, expired, revoked, completed]
+        counter_proposed_start:
+          type: string
+          format: date
+        approved_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        approved_by:
+          type: string
+          description: Reviewer display name, resolved server-side.
+        sensitive_ack:
+          type: boolean
+        revoked_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        revoked_by:
+          type: string
+          description: Reviewer display name, resolved server-side.
+        completed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VendorAccessListResponse:
+      type: object
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorAccessRequest"
+
+    VendorAccessRequestResponse:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/VendorAccessRequest"
+
+    ApproveVendorAccessRequest:
+      type: object
+      properties:
+        sensitive_ack:
+          type: boolean
+
+    CounterProposeVendorAccessRequest:
+      type: object
+      required: [proposed_start]
+      properties:
+        proposed_start:
+          type: string
+          format: date
 
     # -----------------------------------------------------------------------
     # Modul: formulare

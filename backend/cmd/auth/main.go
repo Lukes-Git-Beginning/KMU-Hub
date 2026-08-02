@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/security/gdpr"
 	"github.com/kmuhub/kmuhub/internal/security/password"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
+	"github.com/kmuhub/kmuhub/internal/security/vendoraccess"
 	"github.com/kmuhub/kmuhub/internal/server"
 	"github.com/kmuhub/kmuhub/internal/settings"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
@@ -111,6 +112,9 @@ func main() {
 	gdprService.RegisterErasureHandler(gdpr.NewNotificationErasureHandler(pool))
 	gdprService.RegisterErasureHandler(&gdpr.AuditErasureHandler{})
 
+	vendorAccessRepo := vendoraccess.NewPostgresRepository(pool)
+	vendorAccessService := vendoraccess.NewService(vendorAccessRepo)
+
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
 
@@ -128,7 +132,7 @@ func main() {
 	authGRPC := server.NewAuthGRPCServer(authService, auditService)
 	authv1.RegisterAuthServiceServer(grpcServer, authGRPC)
 
-	securityGRPC := server.NewSecurityGRPCServer(auditService, vaultService, gdprService, passwordService, pool)
+	securityGRPC := server.NewSecurityGRPCServer(auditService, vaultService, gdprService, passwordService, vendorAccessService, pool)
 	securityv1.RegisterSecurityServiceServer(grpcServer, securityGRPC)
 
 	// Settings foundation (tenant/user settings + module leads) — co-located in auth process

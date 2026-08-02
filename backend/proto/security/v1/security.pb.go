@@ -3689,6 +3689,694 @@ func (*DeleteRetentionPolicyResponse) Descriptor() ([]byte, []int) {
 	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{63}
 }
 
+type VendorAccessAgent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VendorAccessAgent) Reset() {
+	*x = VendorAccessAgent{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VendorAccessAgent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VendorAccessAgent) ProtoMessage() {}
+
+func (x *VendorAccessAgent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VendorAccessAgent.ProtoReflect.Descriptor instead.
+func (*VendorAccessAgent) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *VendorAccessAgent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type VendorAccessRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Id                   string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Reason               string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	Description          string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	TicketRef            string                 `protobuf:"bytes,4,opt,name=ticket_ref,json=ticketRef,proto3" json:"ticket_ref,omitempty"`
+	Agents               []*VendorAccessAgent   `protobuf:"bytes,5,rep,name=agents,proto3" json:"agents,omitempty"`
+	Scope                []string               `protobuf:"bytes,6,rep,name=scope,proto3" json:"scope,omitempty"`
+	RequestedStart       string                 `protobuf:"bytes,7,opt,name=requested_start,json=requestedStart,proto3" json:"requested_start,omitempty"` // ISO date (YYYY-MM-DD)
+	DurationDays         int32                  `protobuf:"varint,8,opt,name=duration_days,json=durationDays,proto3" json:"duration_days,omitempty"`
+	ExpiresAt            string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // ISO date (YYYY-MM-DD)
+	Status               string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	CounterProposedStart string                 `protobuf:"bytes,11,opt,name=counter_proposed_start,json=counterProposedStart,proto3" json:"counter_proposed_start,omitempty"` // ISO date, empty if not counter-proposed
+	ApprovedAt           *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
+	ApprovedBy           string                 `protobuf:"bytes,13,opt,name=approved_by,json=approvedBy,proto3" json:"approved_by,omitempty"` // reviewer display name, resolved server-side
+	SensitiveAck         bool                   `protobuf:"varint,14,opt,name=sensitive_ack,json=sensitiveAck,proto3" json:"sensitive_ack,omitempty"`
+	RevokedAt            *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	RevokedBy            string                 `protobuf:"bytes,16,opt,name=revoked_by,json=revokedBy,proto3" json:"revoked_by,omitempty"` // reviewer display name, resolved server-side
+	CompletedAt          *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *VendorAccessRequest) Reset() {
+	*x = VendorAccessRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VendorAccessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VendorAccessRequest) ProtoMessage() {}
+
+func (x *VendorAccessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VendorAccessRequest.ProtoReflect.Descriptor instead.
+func (*VendorAccessRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *VendorAccessRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetTicketRef() string {
+	if x != nil {
+		return x.TicketRef
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetAgents() []*VendorAccessAgent {
+	if x != nil {
+		return x.Agents
+	}
+	return nil
+}
+
+func (x *VendorAccessRequest) GetScope() []string {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *VendorAccessRequest) GetRequestedStart() string {
+	if x != nil {
+		return x.RequestedStart
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetDurationDays() int32 {
+	if x != nil {
+		return x.DurationDays
+	}
+	return 0
+}
+
+func (x *VendorAccessRequest) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetCounterProposedStart() string {
+	if x != nil {
+		return x.CounterProposedStart
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetApprovedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ApprovedAt
+	}
+	return nil
+}
+
+func (x *VendorAccessRequest) GetApprovedBy() string {
+	if x != nil {
+		return x.ApprovedBy
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetSensitiveAck() bool {
+	if x != nil {
+		return x.SensitiveAck
+	}
+	return false
+}
+
+func (x *VendorAccessRequest) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+func (x *VendorAccessRequest) GetRevokedBy() string {
+	if x != nil {
+		return x.RevokedBy
+	}
+	return ""
+}
+
+func (x *VendorAccessRequest) GetCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return nil
+}
+
+func (x *VendorAccessRequest) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ListVendorAccessRequestsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVendorAccessRequestsRequest) Reset() {
+	*x = ListVendorAccessRequestsRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVendorAccessRequestsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVendorAccessRequestsRequest) ProtoMessage() {}
+
+func (x *ListVendorAccessRequestsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVendorAccessRequestsRequest.ProtoReflect.Descriptor instead.
+func (*ListVendorAccessRequestsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{66}
+}
+
+type ListVendorAccessRequestsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Requests      []*VendorAccessRequest `protobuf:"bytes,1,rep,name=requests,proto3" json:"requests,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVendorAccessRequestsResponse) Reset() {
+	*x = ListVendorAccessRequestsResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVendorAccessRequestsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVendorAccessRequestsResponse) ProtoMessage() {}
+
+func (x *ListVendorAccessRequestsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVendorAccessRequestsResponse.ProtoReflect.Descriptor instead.
+func (*ListVendorAccessRequestsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListVendorAccessRequestsResponse) GetRequests() []*VendorAccessRequest {
+	if x != nil {
+		return x.Requests
+	}
+	return nil
+}
+
+type ApproveVendorAccessRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	SensitiveAck  bool                   `protobuf:"varint,3,opt,name=sensitive_ack,json=sensitiveAck,proto3" json:"sensitive_ack,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveVendorAccessRequestRequest) Reset() {
+	*x = ApproveVendorAccessRequestRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveVendorAccessRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveVendorAccessRequestRequest) ProtoMessage() {}
+
+func (x *ApproveVendorAccessRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveVendorAccessRequestRequest.ProtoReflect.Descriptor instead.
+func (*ApproveVendorAccessRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ApproveVendorAccessRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ApproveVendorAccessRequestRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *ApproveVendorAccessRequestRequest) GetSensitiveAck() bool {
+	if x != nil {
+		return x.SensitiveAck
+	}
+	return false
+}
+
+type ApproveVendorAccessRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *VendorAccessRequest   `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveVendorAccessRequestResponse) Reset() {
+	*x = ApproveVendorAccessRequestResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveVendorAccessRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveVendorAccessRequestResponse) ProtoMessage() {}
+
+func (x *ApproveVendorAccessRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveVendorAccessRequestResponse.ProtoReflect.Descriptor instead.
+func (*ApproveVendorAccessRequestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ApproveVendorAccessRequestResponse) GetRequest() *VendorAccessRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type DeclineVendorAccessRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclineVendorAccessRequestRequest) Reset() {
+	*x = DeclineVendorAccessRequestRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclineVendorAccessRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclineVendorAccessRequestRequest) ProtoMessage() {}
+
+func (x *DeclineVendorAccessRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclineVendorAccessRequestRequest.ProtoReflect.Descriptor instead.
+func (*DeclineVendorAccessRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *DeclineVendorAccessRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type DeclineVendorAccessRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *VendorAccessRequest   `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclineVendorAccessRequestResponse) Reset() {
+	*x = DeclineVendorAccessRequestResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclineVendorAccessRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclineVendorAccessRequestResponse) ProtoMessage() {}
+
+func (x *DeclineVendorAccessRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclineVendorAccessRequestResponse.ProtoReflect.Descriptor instead.
+func (*DeclineVendorAccessRequestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *DeclineVendorAccessRequestResponse) GetRequest() *VendorAccessRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type CounterProposeVendorAccessRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ProposedStart string                 `protobuf:"bytes,2,opt,name=proposed_start,json=proposedStart,proto3" json:"proposed_start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CounterProposeVendorAccessRequestRequest) Reset() {
+	*x = CounterProposeVendorAccessRequestRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CounterProposeVendorAccessRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CounterProposeVendorAccessRequestRequest) ProtoMessage() {}
+
+func (x *CounterProposeVendorAccessRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CounterProposeVendorAccessRequestRequest.ProtoReflect.Descriptor instead.
+func (*CounterProposeVendorAccessRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *CounterProposeVendorAccessRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *CounterProposeVendorAccessRequestRequest) GetProposedStart() string {
+	if x != nil {
+		return x.ProposedStart
+	}
+	return ""
+}
+
+type CounterProposeVendorAccessRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *VendorAccessRequest   `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CounterProposeVendorAccessRequestResponse) Reset() {
+	*x = CounterProposeVendorAccessRequestResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CounterProposeVendorAccessRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CounterProposeVendorAccessRequestResponse) ProtoMessage() {}
+
+func (x *CounterProposeVendorAccessRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CounterProposeVendorAccessRequestResponse.ProtoReflect.Descriptor instead.
+func (*CounterProposeVendorAccessRequestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *CounterProposeVendorAccessRequestResponse) GetRequest() *VendorAccessRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type RevokeVendorAccessRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeVendorAccessRequestRequest) Reset() {
+	*x = RevokeVendorAccessRequestRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeVendorAccessRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeVendorAccessRequestRequest) ProtoMessage() {}
+
+func (x *RevokeVendorAccessRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeVendorAccessRequestRequest.ProtoReflect.Descriptor instead.
+func (*RevokeVendorAccessRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *RevokeVendorAccessRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *RevokeVendorAccessRequestRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+type RevokeVendorAccessRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *VendorAccessRequest   `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeVendorAccessRequestResponse) Reset() {
+	*x = RevokeVendorAccessRequestResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeVendorAccessRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeVendorAccessRequestResponse) ProtoMessage() {}
+
+func (x *RevokeVendorAccessRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeVendorAccessRequestResponse.ProtoReflect.Descriptor instead.
+func (*RevokeVendorAccessRequestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *RevokeVendorAccessRequestResponse) GetRequest() *VendorAccessRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
 var File_proto_security_v1_security_proto protoreflect.FileDescriptor
 
 const file_proto_security_v1_security_proto_rawDesc = "" +
@@ -3969,7 +4657,63 @@ const file_proto_security_v1_security_proto_rawDesc = "" +
 	"\x06policy\x18\x01 \x01(\v2\x1c.security.v1.RetentionPolicyR\x06policy\".\n" +
 	"\x1cDeleteRetentionPolicyRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x1f\n" +
-	"\x1dDeleteRetentionPolicyResponse2\xe2\x13\n" +
+	"\x1dDeleteRetentionPolicyResponse\"'\n" +
+	"\x11VendorAccessAgent\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xde\x05\n" +
+	"\x13VendorAccessRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1d\n" +
+	"\n" +
+	"ticket_ref\x18\x04 \x01(\tR\tticketRef\x126\n" +
+	"\x06agents\x18\x05 \x03(\v2\x1e.security.v1.VendorAccessAgentR\x06agents\x12\x14\n" +
+	"\x05scope\x18\x06 \x03(\tR\x05scope\x12'\n" +
+	"\x0frequested_start\x18\a \x01(\tR\x0erequestedStart\x12#\n" +
+	"\rduration_days\x18\b \x01(\x05R\fdurationDays\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\t \x01(\tR\texpiresAt\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x124\n" +
+	"\x16counter_proposed_start\x18\v \x01(\tR\x14counterProposedStart\x12;\n" +
+	"\vapproved_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"approvedAt\x12\x1f\n" +
+	"\vapproved_by\x18\r \x01(\tR\n" +
+	"approvedBy\x12#\n" +
+	"\rsensitive_ack\x18\x0e \x01(\bR\fsensitiveAck\x129\n" +
+	"\n" +
+	"revoked_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\x12\x1d\n" +
+	"\n" +
+	"revoked_by\x18\x10 \x01(\tR\trevokedBy\x12=\n" +
+	"\fcompleted_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x129\n" +
+	"\n" +
+	"created_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"!\n" +
+	"\x1fListVendorAccessRequestsRequest\"`\n" +
+	" ListVendorAccessRequestsResponse\x12<\n" +
+	"\brequests\x18\x01 \x03(\v2 .security.v1.VendorAccessRequestR\brequests\"\x82\x01\n" +
+	"!ApproveVendorAccessRequestRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12#\n" +
+	"\rsensitive_ack\x18\x03 \x01(\bR\fsensitiveAck\"`\n" +
+	"\"ApproveVendorAccessRequestResponse\x12:\n" +
+	"\arequest\x18\x01 \x01(\v2 .security.v1.VendorAccessRequestR\arequest\"B\n" +
+	"!DeclineVendorAccessRequestRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\"`\n" +
+	"\"DeclineVendorAccessRequestResponse\x12:\n" +
+	"\arequest\x18\x01 \x01(\v2 .security.v1.VendorAccessRequestR\arequest\"p\n" +
+	"(CounterProposeVendorAccessRequestRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12%\n" +
+	"\x0eproposed_start\x18\x02 \x01(\tR\rproposedStart\"g\n" +
+	")CounterProposeVendorAccessRequestResponse\x12:\n" +
+	"\arequest\x18\x01 \x01(\v2 .security.v1.VendorAccessRequestR\arequest\"\\\n" +
+	" RevokeVendorAccessRequestRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\"_\n" +
+	"!RevokeVendorAccessRequestResponse\x12:\n" +
+	"\arequest\x18\x01 \x01(\v2 .security.v1.VendorAccessRequestR\arequest2\xea\x18\n" +
 	"\x0fSecurityService\x12_\n" +
 	"\x10CreateAuditEntry\x12$.security.v1.CreateAuditEntryRequest\x1a%.security.v1.CreateAuditEntryResponse\x12_\n" +
 	"\x10ListAuditEntries\x12$.security.v1.ListAuditEntriesRequest\x1a%.security.v1.ListAuditEntriesResponse\x12Y\n" +
@@ -3997,7 +4741,12 @@ const file_proto_security_v1_security_proto_rawDesc = "" +
 	"\x15ListRetentionPolicies\x12).security.v1.ListRetentionPoliciesRequest\x1a*.security.v1.ListRetentionPoliciesResponse\x12n\n" +
 	"\x15CreateRetentionPolicy\x12).security.v1.CreateRetentionPolicyRequest\x1a*.security.v1.CreateRetentionPolicyResponse\x12n\n" +
 	"\x15UpdateRetentionPolicy\x12).security.v1.UpdateRetentionPolicyRequest\x1a*.security.v1.UpdateRetentionPolicyResponse\x12n\n" +
-	"\x15DeleteRetentionPolicy\x12).security.v1.DeleteRetentionPolicyRequest\x1a*.security.v1.DeleteRetentionPolicyResponseB7Z5github.com/kmuhub/kmuhub/proto/security/v1;securityv1b\x06proto3"
+	"\x15DeleteRetentionPolicy\x12).security.v1.DeleteRetentionPolicyRequest\x1a*.security.v1.DeleteRetentionPolicyResponse\x12w\n" +
+	"\x18ListVendorAccessRequests\x12,.security.v1.ListVendorAccessRequestsRequest\x1a-.security.v1.ListVendorAccessRequestsResponse\x12}\n" +
+	"\x1aApproveVendorAccessRequest\x12..security.v1.ApproveVendorAccessRequestRequest\x1a/.security.v1.ApproveVendorAccessRequestResponse\x12}\n" +
+	"\x1aDeclineVendorAccessRequest\x12..security.v1.DeclineVendorAccessRequestRequest\x1a/.security.v1.DeclineVendorAccessRequestResponse\x12\x92\x01\n" +
+	"!CounterProposeVendorAccessRequest\x125.security.v1.CounterProposeVendorAccessRequestRequest\x1a6.security.v1.CounterProposeVendorAccessRequestResponse\x12z\n" +
+	"\x19RevokeVendorAccessRequest\x12-.security.v1.RevokeVendorAccessRequestRequest\x1a..security.v1.RevokeVendorAccessRequestResponseB7Z5github.com/kmuhub/kmuhub/proto/security/v1;securityv1b\x06proto3"
 
 var (
 	file_proto_security_v1_security_proto_rawDescOnce sync.Once
@@ -4011,92 +4760,104 @@ func file_proto_security_v1_security_proto_rawDescGZIP() []byte {
 	return file_proto_security_v1_security_proto_rawDescData
 }
 
-var file_proto_security_v1_security_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
+var file_proto_security_v1_security_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_proto_security_v1_security_proto_goTypes = []any{
-	(*AuditEntry)(nil),                    // 0: security.v1.AuditEntry
-	(*AuditFilter)(nil),                   // 1: security.v1.AuditFilter
-	(*CreateAuditEntryRequest)(nil),       // 2: security.v1.CreateAuditEntryRequest
-	(*CreateAuditEntryResponse)(nil),      // 3: security.v1.CreateAuditEntryResponse
-	(*ListAuditEntriesRequest)(nil),       // 4: security.v1.ListAuditEntriesRequest
-	(*ListAuditEntriesResponse)(nil),      // 5: security.v1.ListAuditEntriesResponse
-	(*ExportAuditLogRequest)(nil),         // 6: security.v1.ExportAuditLogRequest
-	(*ExportAuditLogResponse)(nil),        // 7: security.v1.ExportAuditLogResponse
-	(*VerifyAuditChainRequest)(nil),       // 8: security.v1.VerifyAuditChainRequest
-	(*VerifyAuditChainResponse)(nil),      // 9: security.v1.VerifyAuditChainResponse
-	(*VaultSecret)(nil),                   // 10: security.v1.VaultSecret
-	(*GetVaultSecretRequest)(nil),         // 11: security.v1.GetVaultSecretRequest
-	(*GetVaultSecretResponse)(nil),        // 12: security.v1.GetVaultSecretResponse
-	(*SetVaultSecretRequest)(nil),         // 13: security.v1.SetVaultSecretRequest
-	(*SetVaultSecretResponse)(nil),        // 14: security.v1.SetVaultSecretResponse
-	(*ListVaultSecretsRequest)(nil),       // 15: security.v1.ListVaultSecretsRequest
-	(*ListVaultSecretsResponse)(nil),      // 16: security.v1.ListVaultSecretsResponse
-	(*DeleteVaultSecretRequest)(nil),      // 17: security.v1.DeleteVaultSecretRequest
-	(*DeleteVaultSecretResponse)(nil),     // 18: security.v1.DeleteVaultSecretResponse
-	(*GDPRExportRequest)(nil),             // 19: security.v1.GDPRExportRequest
-	(*RequestDataExportRequest)(nil),      // 20: security.v1.RequestDataExportRequest
-	(*RequestDataExportResponse)(nil),     // 21: security.v1.RequestDataExportResponse
-	(*ListDataExportsRequest)(nil),        // 22: security.v1.ListDataExportsRequest
-	(*ListDataExportsResponse)(nil),       // 23: security.v1.ListDataExportsResponse
-	(*ApproveDataExportRequest)(nil),      // 24: security.v1.ApproveDataExportRequest
-	(*ApproveDataExportResponse)(nil),     // 25: security.v1.ApproveDataExportResponse
-	(*DenyDataExportRequest)(nil),         // 26: security.v1.DenyDataExportRequest
-	(*DenyDataExportResponse)(nil),        // 27: security.v1.DenyDataExportResponse
-	(*GetExportDownloadRequest)(nil),      // 28: security.v1.GetExportDownloadRequest
-	(*GetExportDownloadResponse)(nil),     // 29: security.v1.GetExportDownloadResponse
-	(*ModuleErasurePreview)(nil),          // 30: security.v1.ModuleErasurePreview
-	(*PreviewErasureRequest)(nil),         // 31: security.v1.PreviewErasureRequest
-	(*PreviewErasureResponse)(nil),        // 32: security.v1.PreviewErasureResponse
-	(*ExecuteErasureRequest)(nil),         // 33: security.v1.ExecuteErasureRequest
-	(*ExecuteErasureResponse)(nil),        // 34: security.v1.ExecuteErasureResponse
-	(*DSARSearchRequest)(nil),             // 35: security.v1.DSARSearchRequest
-	(*DSARField)(nil),                     // 36: security.v1.DSARField
-	(*DSARRecord)(nil),                    // 37: security.v1.DSARRecord
-	(*DSARModule)(nil),                    // 38: security.v1.DSARModule
-	(*DSARPerson)(nil),                    // 39: security.v1.DSARPerson
-	(*DSARSearchResponse)(nil),            // 40: security.v1.DSARSearchResponse
-	(*PasswordPolicy)(nil),                // 41: security.v1.PasswordPolicy
-	(*GetPasswordPolicyRequest)(nil),      // 42: security.v1.GetPasswordPolicyRequest
-	(*GetPasswordPolicyResponse)(nil),     // 43: security.v1.GetPasswordPolicyResponse
-	(*UpdatePasswordPolicyRequest)(nil),   // 44: security.v1.UpdatePasswordPolicyRequest
-	(*UpdatePasswordPolicyResponse)(nil),  // 45: security.v1.UpdatePasswordPolicyResponse
-	(*ValidatePasswordRequest)(nil),       // 46: security.v1.ValidatePasswordRequest
-	(*ValidatePasswordResponse)(nil),      // 47: security.v1.ValidatePasswordResponse
-	(*IPAccessRule)(nil),                  // 48: security.v1.IPAccessRule
-	(*ListIPRulesRequest)(nil),            // 49: security.v1.ListIPRulesRequest
-	(*ListIPRulesResponse)(nil),           // 50: security.v1.ListIPRulesResponse
-	(*CreateIPRuleRequest)(nil),           // 51: security.v1.CreateIPRuleRequest
-	(*CreateIPRuleResponse)(nil),          // 52: security.v1.CreateIPRuleResponse
-	(*DeleteIPRuleRequest)(nil),           // 53: security.v1.DeleteIPRuleRequest
-	(*DeleteIPRuleResponse)(nil),          // 54: security.v1.DeleteIPRuleResponse
-	(*RetentionPolicy)(nil),               // 55: security.v1.RetentionPolicy
-	(*ListRetentionPoliciesRequest)(nil),  // 56: security.v1.ListRetentionPoliciesRequest
-	(*ListRetentionPoliciesResponse)(nil), // 57: security.v1.ListRetentionPoliciesResponse
-	(*CreateRetentionPolicyRequest)(nil),  // 58: security.v1.CreateRetentionPolicyRequest
-	(*CreateRetentionPolicyResponse)(nil), // 59: security.v1.CreateRetentionPolicyResponse
-	(*UpdateRetentionPolicyRequest)(nil),  // 60: security.v1.UpdateRetentionPolicyRequest
-	(*UpdateRetentionPolicyResponse)(nil), // 61: security.v1.UpdateRetentionPolicyResponse
-	(*DeleteRetentionPolicyRequest)(nil),  // 62: security.v1.DeleteRetentionPolicyRequest
-	(*DeleteRetentionPolicyResponse)(nil), // 63: security.v1.DeleteRetentionPolicyResponse
-	(*timestamppb.Timestamp)(nil),         // 64: google.protobuf.Timestamp
+	(*AuditEntry)(nil),                                // 0: security.v1.AuditEntry
+	(*AuditFilter)(nil),                               // 1: security.v1.AuditFilter
+	(*CreateAuditEntryRequest)(nil),                   // 2: security.v1.CreateAuditEntryRequest
+	(*CreateAuditEntryResponse)(nil),                  // 3: security.v1.CreateAuditEntryResponse
+	(*ListAuditEntriesRequest)(nil),                   // 4: security.v1.ListAuditEntriesRequest
+	(*ListAuditEntriesResponse)(nil),                  // 5: security.v1.ListAuditEntriesResponse
+	(*ExportAuditLogRequest)(nil),                     // 6: security.v1.ExportAuditLogRequest
+	(*ExportAuditLogResponse)(nil),                    // 7: security.v1.ExportAuditLogResponse
+	(*VerifyAuditChainRequest)(nil),                   // 8: security.v1.VerifyAuditChainRequest
+	(*VerifyAuditChainResponse)(nil),                  // 9: security.v1.VerifyAuditChainResponse
+	(*VaultSecret)(nil),                               // 10: security.v1.VaultSecret
+	(*GetVaultSecretRequest)(nil),                     // 11: security.v1.GetVaultSecretRequest
+	(*GetVaultSecretResponse)(nil),                    // 12: security.v1.GetVaultSecretResponse
+	(*SetVaultSecretRequest)(nil),                     // 13: security.v1.SetVaultSecretRequest
+	(*SetVaultSecretResponse)(nil),                    // 14: security.v1.SetVaultSecretResponse
+	(*ListVaultSecretsRequest)(nil),                   // 15: security.v1.ListVaultSecretsRequest
+	(*ListVaultSecretsResponse)(nil),                  // 16: security.v1.ListVaultSecretsResponse
+	(*DeleteVaultSecretRequest)(nil),                  // 17: security.v1.DeleteVaultSecretRequest
+	(*DeleteVaultSecretResponse)(nil),                 // 18: security.v1.DeleteVaultSecretResponse
+	(*GDPRExportRequest)(nil),                         // 19: security.v1.GDPRExportRequest
+	(*RequestDataExportRequest)(nil),                  // 20: security.v1.RequestDataExportRequest
+	(*RequestDataExportResponse)(nil),                 // 21: security.v1.RequestDataExportResponse
+	(*ListDataExportsRequest)(nil),                    // 22: security.v1.ListDataExportsRequest
+	(*ListDataExportsResponse)(nil),                   // 23: security.v1.ListDataExportsResponse
+	(*ApproveDataExportRequest)(nil),                  // 24: security.v1.ApproveDataExportRequest
+	(*ApproveDataExportResponse)(nil),                 // 25: security.v1.ApproveDataExportResponse
+	(*DenyDataExportRequest)(nil),                     // 26: security.v1.DenyDataExportRequest
+	(*DenyDataExportResponse)(nil),                    // 27: security.v1.DenyDataExportResponse
+	(*GetExportDownloadRequest)(nil),                  // 28: security.v1.GetExportDownloadRequest
+	(*GetExportDownloadResponse)(nil),                 // 29: security.v1.GetExportDownloadResponse
+	(*ModuleErasurePreview)(nil),                      // 30: security.v1.ModuleErasurePreview
+	(*PreviewErasureRequest)(nil),                     // 31: security.v1.PreviewErasureRequest
+	(*PreviewErasureResponse)(nil),                    // 32: security.v1.PreviewErasureResponse
+	(*ExecuteErasureRequest)(nil),                     // 33: security.v1.ExecuteErasureRequest
+	(*ExecuteErasureResponse)(nil),                    // 34: security.v1.ExecuteErasureResponse
+	(*DSARSearchRequest)(nil),                         // 35: security.v1.DSARSearchRequest
+	(*DSARField)(nil),                                 // 36: security.v1.DSARField
+	(*DSARRecord)(nil),                                // 37: security.v1.DSARRecord
+	(*DSARModule)(nil),                                // 38: security.v1.DSARModule
+	(*DSARPerson)(nil),                                // 39: security.v1.DSARPerson
+	(*DSARSearchResponse)(nil),                        // 40: security.v1.DSARSearchResponse
+	(*PasswordPolicy)(nil),                            // 41: security.v1.PasswordPolicy
+	(*GetPasswordPolicyRequest)(nil),                  // 42: security.v1.GetPasswordPolicyRequest
+	(*GetPasswordPolicyResponse)(nil),                 // 43: security.v1.GetPasswordPolicyResponse
+	(*UpdatePasswordPolicyRequest)(nil),               // 44: security.v1.UpdatePasswordPolicyRequest
+	(*UpdatePasswordPolicyResponse)(nil),              // 45: security.v1.UpdatePasswordPolicyResponse
+	(*ValidatePasswordRequest)(nil),                   // 46: security.v1.ValidatePasswordRequest
+	(*ValidatePasswordResponse)(nil),                  // 47: security.v1.ValidatePasswordResponse
+	(*IPAccessRule)(nil),                              // 48: security.v1.IPAccessRule
+	(*ListIPRulesRequest)(nil),                        // 49: security.v1.ListIPRulesRequest
+	(*ListIPRulesResponse)(nil),                       // 50: security.v1.ListIPRulesResponse
+	(*CreateIPRuleRequest)(nil),                       // 51: security.v1.CreateIPRuleRequest
+	(*CreateIPRuleResponse)(nil),                      // 52: security.v1.CreateIPRuleResponse
+	(*DeleteIPRuleRequest)(nil),                       // 53: security.v1.DeleteIPRuleRequest
+	(*DeleteIPRuleResponse)(nil),                      // 54: security.v1.DeleteIPRuleResponse
+	(*RetentionPolicy)(nil),                           // 55: security.v1.RetentionPolicy
+	(*ListRetentionPoliciesRequest)(nil),              // 56: security.v1.ListRetentionPoliciesRequest
+	(*ListRetentionPoliciesResponse)(nil),             // 57: security.v1.ListRetentionPoliciesResponse
+	(*CreateRetentionPolicyRequest)(nil),              // 58: security.v1.CreateRetentionPolicyRequest
+	(*CreateRetentionPolicyResponse)(nil),             // 59: security.v1.CreateRetentionPolicyResponse
+	(*UpdateRetentionPolicyRequest)(nil),              // 60: security.v1.UpdateRetentionPolicyRequest
+	(*UpdateRetentionPolicyResponse)(nil),             // 61: security.v1.UpdateRetentionPolicyResponse
+	(*DeleteRetentionPolicyRequest)(nil),              // 62: security.v1.DeleteRetentionPolicyRequest
+	(*DeleteRetentionPolicyResponse)(nil),             // 63: security.v1.DeleteRetentionPolicyResponse
+	(*VendorAccessAgent)(nil),                         // 64: security.v1.VendorAccessAgent
+	(*VendorAccessRequest)(nil),                       // 65: security.v1.VendorAccessRequest
+	(*ListVendorAccessRequestsRequest)(nil),           // 66: security.v1.ListVendorAccessRequestsRequest
+	(*ListVendorAccessRequestsResponse)(nil),          // 67: security.v1.ListVendorAccessRequestsResponse
+	(*ApproveVendorAccessRequestRequest)(nil),         // 68: security.v1.ApproveVendorAccessRequestRequest
+	(*ApproveVendorAccessRequestResponse)(nil),        // 69: security.v1.ApproveVendorAccessRequestResponse
+	(*DeclineVendorAccessRequestRequest)(nil),         // 70: security.v1.DeclineVendorAccessRequestRequest
+	(*DeclineVendorAccessRequestResponse)(nil),        // 71: security.v1.DeclineVendorAccessRequestResponse
+	(*CounterProposeVendorAccessRequestRequest)(nil),  // 72: security.v1.CounterProposeVendorAccessRequestRequest
+	(*CounterProposeVendorAccessRequestResponse)(nil), // 73: security.v1.CounterProposeVendorAccessRequestResponse
+	(*RevokeVendorAccessRequestRequest)(nil),          // 74: security.v1.RevokeVendorAccessRequestRequest
+	(*RevokeVendorAccessRequestResponse)(nil),         // 75: security.v1.RevokeVendorAccessRequestResponse
+	(*timestamppb.Timestamp)(nil),                     // 76: google.protobuf.Timestamp
 }
 var file_proto_security_v1_security_proto_depIdxs = []int32{
-	64, // 0: security.v1.AuditEntry.timestamp:type_name -> google.protobuf.Timestamp
-	64, // 1: security.v1.AuditFilter.date_from:type_name -> google.protobuf.Timestamp
-	64, // 2: security.v1.AuditFilter.date_to:type_name -> google.protobuf.Timestamp
+	76, // 0: security.v1.AuditEntry.timestamp:type_name -> google.protobuf.Timestamp
+	76, // 1: security.v1.AuditFilter.date_from:type_name -> google.protobuf.Timestamp
+	76, // 2: security.v1.AuditFilter.date_to:type_name -> google.protobuf.Timestamp
 	0,  // 3: security.v1.CreateAuditEntryResponse.entry:type_name -> security.v1.AuditEntry
 	1,  // 4: security.v1.ListAuditEntriesRequest.filter:type_name -> security.v1.AuditFilter
 	0,  // 5: security.v1.ListAuditEntriesResponse.entries:type_name -> security.v1.AuditEntry
 	1,  // 6: security.v1.ExportAuditLogRequest.filter:type_name -> security.v1.AuditFilter
-	64, // 7: security.v1.VerifyAuditChainRequest.from:type_name -> google.protobuf.Timestamp
-	64, // 8: security.v1.VerifyAuditChainRequest.to:type_name -> google.protobuf.Timestamp
-	64, // 9: security.v1.VaultSecret.created_at:type_name -> google.protobuf.Timestamp
-	64, // 10: security.v1.VaultSecret.updated_at:type_name -> google.protobuf.Timestamp
+	76, // 7: security.v1.VerifyAuditChainRequest.from:type_name -> google.protobuf.Timestamp
+	76, // 8: security.v1.VerifyAuditChainRequest.to:type_name -> google.protobuf.Timestamp
+	76, // 9: security.v1.VaultSecret.created_at:type_name -> google.protobuf.Timestamp
+	76, // 10: security.v1.VaultSecret.updated_at:type_name -> google.protobuf.Timestamp
 	10, // 11: security.v1.GetVaultSecretResponse.secret:type_name -> security.v1.VaultSecret
 	10, // 12: security.v1.SetVaultSecretResponse.secret:type_name -> security.v1.VaultSecret
 	10, // 13: security.v1.ListVaultSecretsResponse.secrets:type_name -> security.v1.VaultSecret
-	64, // 14: security.v1.GDPRExportRequest.requested_at:type_name -> google.protobuf.Timestamp
-	64, // 15: security.v1.GDPRExportRequest.reviewed_at:type_name -> google.protobuf.Timestamp
-	64, // 16: security.v1.GDPRExportRequest.download_expires_at:type_name -> google.protobuf.Timestamp
+	76, // 14: security.v1.GDPRExportRequest.requested_at:type_name -> google.protobuf.Timestamp
+	76, // 15: security.v1.GDPRExportRequest.reviewed_at:type_name -> google.protobuf.Timestamp
+	76, // 16: security.v1.GDPRExportRequest.download_expires_at:type_name -> google.protobuf.Timestamp
 	19, // 17: security.v1.RequestDataExportResponse.export_request:type_name -> security.v1.GDPRExportRequest
 	19, // 18: security.v1.ListDataExportsResponse.export_requests:type_name -> security.v1.GDPRExportRequest
 	19, // 19: security.v1.ApproveDataExportResponse.export_request:type_name -> security.v1.GDPRExportRequest
@@ -4107,75 +4868,95 @@ var file_proto_security_v1_security_proto_depIdxs = []int32{
 	37, // 24: security.v1.DSARModule.records:type_name -> security.v1.DSARRecord
 	38, // 25: security.v1.DSARPerson.modules:type_name -> security.v1.DSARModule
 	39, // 26: security.v1.DSARSearchResponse.persons:type_name -> security.v1.DSARPerson
-	64, // 27: security.v1.PasswordPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	76, // 27: security.v1.PasswordPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	41, // 28: security.v1.GetPasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
 	41, // 29: security.v1.UpdatePasswordPolicyRequest.policy:type_name -> security.v1.PasswordPolicy
 	41, // 30: security.v1.UpdatePasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
-	64, // 31: security.v1.IPAccessRule.created_at:type_name -> google.protobuf.Timestamp
+	76, // 31: security.v1.IPAccessRule.created_at:type_name -> google.protobuf.Timestamp
 	48, // 32: security.v1.ListIPRulesResponse.rules:type_name -> security.v1.IPAccessRule
 	48, // 33: security.v1.CreateIPRuleResponse.rule:type_name -> security.v1.IPAccessRule
-	64, // 34: security.v1.RetentionPolicy.created_at:type_name -> google.protobuf.Timestamp
-	64, // 35: security.v1.RetentionPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	76, // 34: security.v1.RetentionPolicy.created_at:type_name -> google.protobuf.Timestamp
+	76, // 35: security.v1.RetentionPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	55, // 36: security.v1.ListRetentionPoliciesResponse.policies:type_name -> security.v1.RetentionPolicy
 	55, // 37: security.v1.CreateRetentionPolicyResponse.policy:type_name -> security.v1.RetentionPolicy
 	55, // 38: security.v1.UpdateRetentionPolicyResponse.policy:type_name -> security.v1.RetentionPolicy
-	2,  // 39: security.v1.SecurityService.CreateAuditEntry:input_type -> security.v1.CreateAuditEntryRequest
-	4,  // 40: security.v1.SecurityService.ListAuditEntries:input_type -> security.v1.ListAuditEntriesRequest
-	6,  // 41: security.v1.SecurityService.ExportAuditLog:input_type -> security.v1.ExportAuditLogRequest
-	8,  // 42: security.v1.SecurityService.VerifyAuditChain:input_type -> security.v1.VerifyAuditChainRequest
-	11, // 43: security.v1.SecurityService.GetVaultSecret:input_type -> security.v1.GetVaultSecretRequest
-	13, // 44: security.v1.SecurityService.SetVaultSecret:input_type -> security.v1.SetVaultSecretRequest
-	15, // 45: security.v1.SecurityService.ListVaultSecrets:input_type -> security.v1.ListVaultSecretsRequest
-	17, // 46: security.v1.SecurityService.DeleteVaultSecret:input_type -> security.v1.DeleteVaultSecretRequest
-	20, // 47: security.v1.SecurityService.RequestDataExport:input_type -> security.v1.RequestDataExportRequest
-	22, // 48: security.v1.SecurityService.ListDataExports:input_type -> security.v1.ListDataExportsRequest
-	24, // 49: security.v1.SecurityService.ApproveDataExport:input_type -> security.v1.ApproveDataExportRequest
-	26, // 50: security.v1.SecurityService.DenyDataExport:input_type -> security.v1.DenyDataExportRequest
-	28, // 51: security.v1.SecurityService.GetExportDownload:input_type -> security.v1.GetExportDownloadRequest
-	31, // 52: security.v1.SecurityService.PreviewErasure:input_type -> security.v1.PreviewErasureRequest
-	33, // 53: security.v1.SecurityService.ExecuteErasure:input_type -> security.v1.ExecuteErasureRequest
-	35, // 54: security.v1.SecurityService.DSARSearch:input_type -> security.v1.DSARSearchRequest
-	42, // 55: security.v1.SecurityService.GetPasswordPolicy:input_type -> security.v1.GetPasswordPolicyRequest
-	44, // 56: security.v1.SecurityService.UpdatePasswordPolicy:input_type -> security.v1.UpdatePasswordPolicyRequest
-	46, // 57: security.v1.SecurityService.ValidatePassword:input_type -> security.v1.ValidatePasswordRequest
-	49, // 58: security.v1.SecurityService.ListIPRules:input_type -> security.v1.ListIPRulesRequest
-	51, // 59: security.v1.SecurityService.CreateIPRule:input_type -> security.v1.CreateIPRuleRequest
-	53, // 60: security.v1.SecurityService.DeleteIPRule:input_type -> security.v1.DeleteIPRuleRequest
-	56, // 61: security.v1.SecurityService.ListRetentionPolicies:input_type -> security.v1.ListRetentionPoliciesRequest
-	58, // 62: security.v1.SecurityService.CreateRetentionPolicy:input_type -> security.v1.CreateRetentionPolicyRequest
-	60, // 63: security.v1.SecurityService.UpdateRetentionPolicy:input_type -> security.v1.UpdateRetentionPolicyRequest
-	62, // 64: security.v1.SecurityService.DeleteRetentionPolicy:input_type -> security.v1.DeleteRetentionPolicyRequest
-	3,  // 65: security.v1.SecurityService.CreateAuditEntry:output_type -> security.v1.CreateAuditEntryResponse
-	5,  // 66: security.v1.SecurityService.ListAuditEntries:output_type -> security.v1.ListAuditEntriesResponse
-	7,  // 67: security.v1.SecurityService.ExportAuditLog:output_type -> security.v1.ExportAuditLogResponse
-	9,  // 68: security.v1.SecurityService.VerifyAuditChain:output_type -> security.v1.VerifyAuditChainResponse
-	12, // 69: security.v1.SecurityService.GetVaultSecret:output_type -> security.v1.GetVaultSecretResponse
-	14, // 70: security.v1.SecurityService.SetVaultSecret:output_type -> security.v1.SetVaultSecretResponse
-	16, // 71: security.v1.SecurityService.ListVaultSecrets:output_type -> security.v1.ListVaultSecretsResponse
-	18, // 72: security.v1.SecurityService.DeleteVaultSecret:output_type -> security.v1.DeleteVaultSecretResponse
-	21, // 73: security.v1.SecurityService.RequestDataExport:output_type -> security.v1.RequestDataExportResponse
-	23, // 74: security.v1.SecurityService.ListDataExports:output_type -> security.v1.ListDataExportsResponse
-	25, // 75: security.v1.SecurityService.ApproveDataExport:output_type -> security.v1.ApproveDataExportResponse
-	27, // 76: security.v1.SecurityService.DenyDataExport:output_type -> security.v1.DenyDataExportResponse
-	29, // 77: security.v1.SecurityService.GetExportDownload:output_type -> security.v1.GetExportDownloadResponse
-	32, // 78: security.v1.SecurityService.PreviewErasure:output_type -> security.v1.PreviewErasureResponse
-	34, // 79: security.v1.SecurityService.ExecuteErasure:output_type -> security.v1.ExecuteErasureResponse
-	40, // 80: security.v1.SecurityService.DSARSearch:output_type -> security.v1.DSARSearchResponse
-	43, // 81: security.v1.SecurityService.GetPasswordPolicy:output_type -> security.v1.GetPasswordPolicyResponse
-	45, // 82: security.v1.SecurityService.UpdatePasswordPolicy:output_type -> security.v1.UpdatePasswordPolicyResponse
-	47, // 83: security.v1.SecurityService.ValidatePassword:output_type -> security.v1.ValidatePasswordResponse
-	50, // 84: security.v1.SecurityService.ListIPRules:output_type -> security.v1.ListIPRulesResponse
-	52, // 85: security.v1.SecurityService.CreateIPRule:output_type -> security.v1.CreateIPRuleResponse
-	54, // 86: security.v1.SecurityService.DeleteIPRule:output_type -> security.v1.DeleteIPRuleResponse
-	57, // 87: security.v1.SecurityService.ListRetentionPolicies:output_type -> security.v1.ListRetentionPoliciesResponse
-	59, // 88: security.v1.SecurityService.CreateRetentionPolicy:output_type -> security.v1.CreateRetentionPolicyResponse
-	61, // 89: security.v1.SecurityService.UpdateRetentionPolicy:output_type -> security.v1.UpdateRetentionPolicyResponse
-	63, // 90: security.v1.SecurityService.DeleteRetentionPolicy:output_type -> security.v1.DeleteRetentionPolicyResponse
-	65, // [65:91] is the sub-list for method output_type
-	39, // [39:65] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	64, // 39: security.v1.VendorAccessRequest.agents:type_name -> security.v1.VendorAccessAgent
+	76, // 40: security.v1.VendorAccessRequest.approved_at:type_name -> google.protobuf.Timestamp
+	76, // 41: security.v1.VendorAccessRequest.revoked_at:type_name -> google.protobuf.Timestamp
+	76, // 42: security.v1.VendorAccessRequest.completed_at:type_name -> google.protobuf.Timestamp
+	76, // 43: security.v1.VendorAccessRequest.created_at:type_name -> google.protobuf.Timestamp
+	65, // 44: security.v1.ListVendorAccessRequestsResponse.requests:type_name -> security.v1.VendorAccessRequest
+	65, // 45: security.v1.ApproveVendorAccessRequestResponse.request:type_name -> security.v1.VendorAccessRequest
+	65, // 46: security.v1.DeclineVendorAccessRequestResponse.request:type_name -> security.v1.VendorAccessRequest
+	65, // 47: security.v1.CounterProposeVendorAccessRequestResponse.request:type_name -> security.v1.VendorAccessRequest
+	65, // 48: security.v1.RevokeVendorAccessRequestResponse.request:type_name -> security.v1.VendorAccessRequest
+	2,  // 49: security.v1.SecurityService.CreateAuditEntry:input_type -> security.v1.CreateAuditEntryRequest
+	4,  // 50: security.v1.SecurityService.ListAuditEntries:input_type -> security.v1.ListAuditEntriesRequest
+	6,  // 51: security.v1.SecurityService.ExportAuditLog:input_type -> security.v1.ExportAuditLogRequest
+	8,  // 52: security.v1.SecurityService.VerifyAuditChain:input_type -> security.v1.VerifyAuditChainRequest
+	11, // 53: security.v1.SecurityService.GetVaultSecret:input_type -> security.v1.GetVaultSecretRequest
+	13, // 54: security.v1.SecurityService.SetVaultSecret:input_type -> security.v1.SetVaultSecretRequest
+	15, // 55: security.v1.SecurityService.ListVaultSecrets:input_type -> security.v1.ListVaultSecretsRequest
+	17, // 56: security.v1.SecurityService.DeleteVaultSecret:input_type -> security.v1.DeleteVaultSecretRequest
+	20, // 57: security.v1.SecurityService.RequestDataExport:input_type -> security.v1.RequestDataExportRequest
+	22, // 58: security.v1.SecurityService.ListDataExports:input_type -> security.v1.ListDataExportsRequest
+	24, // 59: security.v1.SecurityService.ApproveDataExport:input_type -> security.v1.ApproveDataExportRequest
+	26, // 60: security.v1.SecurityService.DenyDataExport:input_type -> security.v1.DenyDataExportRequest
+	28, // 61: security.v1.SecurityService.GetExportDownload:input_type -> security.v1.GetExportDownloadRequest
+	31, // 62: security.v1.SecurityService.PreviewErasure:input_type -> security.v1.PreviewErasureRequest
+	33, // 63: security.v1.SecurityService.ExecuteErasure:input_type -> security.v1.ExecuteErasureRequest
+	35, // 64: security.v1.SecurityService.DSARSearch:input_type -> security.v1.DSARSearchRequest
+	42, // 65: security.v1.SecurityService.GetPasswordPolicy:input_type -> security.v1.GetPasswordPolicyRequest
+	44, // 66: security.v1.SecurityService.UpdatePasswordPolicy:input_type -> security.v1.UpdatePasswordPolicyRequest
+	46, // 67: security.v1.SecurityService.ValidatePassword:input_type -> security.v1.ValidatePasswordRequest
+	49, // 68: security.v1.SecurityService.ListIPRules:input_type -> security.v1.ListIPRulesRequest
+	51, // 69: security.v1.SecurityService.CreateIPRule:input_type -> security.v1.CreateIPRuleRequest
+	53, // 70: security.v1.SecurityService.DeleteIPRule:input_type -> security.v1.DeleteIPRuleRequest
+	56, // 71: security.v1.SecurityService.ListRetentionPolicies:input_type -> security.v1.ListRetentionPoliciesRequest
+	58, // 72: security.v1.SecurityService.CreateRetentionPolicy:input_type -> security.v1.CreateRetentionPolicyRequest
+	60, // 73: security.v1.SecurityService.UpdateRetentionPolicy:input_type -> security.v1.UpdateRetentionPolicyRequest
+	62, // 74: security.v1.SecurityService.DeleteRetentionPolicy:input_type -> security.v1.DeleteRetentionPolicyRequest
+	66, // 75: security.v1.SecurityService.ListVendorAccessRequests:input_type -> security.v1.ListVendorAccessRequestsRequest
+	68, // 76: security.v1.SecurityService.ApproveVendorAccessRequest:input_type -> security.v1.ApproveVendorAccessRequestRequest
+	70, // 77: security.v1.SecurityService.DeclineVendorAccessRequest:input_type -> security.v1.DeclineVendorAccessRequestRequest
+	72, // 78: security.v1.SecurityService.CounterProposeVendorAccessRequest:input_type -> security.v1.CounterProposeVendorAccessRequestRequest
+	74, // 79: security.v1.SecurityService.RevokeVendorAccessRequest:input_type -> security.v1.RevokeVendorAccessRequestRequest
+	3,  // 80: security.v1.SecurityService.CreateAuditEntry:output_type -> security.v1.CreateAuditEntryResponse
+	5,  // 81: security.v1.SecurityService.ListAuditEntries:output_type -> security.v1.ListAuditEntriesResponse
+	7,  // 82: security.v1.SecurityService.ExportAuditLog:output_type -> security.v1.ExportAuditLogResponse
+	9,  // 83: security.v1.SecurityService.VerifyAuditChain:output_type -> security.v1.VerifyAuditChainResponse
+	12, // 84: security.v1.SecurityService.GetVaultSecret:output_type -> security.v1.GetVaultSecretResponse
+	14, // 85: security.v1.SecurityService.SetVaultSecret:output_type -> security.v1.SetVaultSecretResponse
+	16, // 86: security.v1.SecurityService.ListVaultSecrets:output_type -> security.v1.ListVaultSecretsResponse
+	18, // 87: security.v1.SecurityService.DeleteVaultSecret:output_type -> security.v1.DeleteVaultSecretResponse
+	21, // 88: security.v1.SecurityService.RequestDataExport:output_type -> security.v1.RequestDataExportResponse
+	23, // 89: security.v1.SecurityService.ListDataExports:output_type -> security.v1.ListDataExportsResponse
+	25, // 90: security.v1.SecurityService.ApproveDataExport:output_type -> security.v1.ApproveDataExportResponse
+	27, // 91: security.v1.SecurityService.DenyDataExport:output_type -> security.v1.DenyDataExportResponse
+	29, // 92: security.v1.SecurityService.GetExportDownload:output_type -> security.v1.GetExportDownloadResponse
+	32, // 93: security.v1.SecurityService.PreviewErasure:output_type -> security.v1.PreviewErasureResponse
+	34, // 94: security.v1.SecurityService.ExecuteErasure:output_type -> security.v1.ExecuteErasureResponse
+	40, // 95: security.v1.SecurityService.DSARSearch:output_type -> security.v1.DSARSearchResponse
+	43, // 96: security.v1.SecurityService.GetPasswordPolicy:output_type -> security.v1.GetPasswordPolicyResponse
+	45, // 97: security.v1.SecurityService.UpdatePasswordPolicy:output_type -> security.v1.UpdatePasswordPolicyResponse
+	47, // 98: security.v1.SecurityService.ValidatePassword:output_type -> security.v1.ValidatePasswordResponse
+	50, // 99: security.v1.SecurityService.ListIPRules:output_type -> security.v1.ListIPRulesResponse
+	52, // 100: security.v1.SecurityService.CreateIPRule:output_type -> security.v1.CreateIPRuleResponse
+	54, // 101: security.v1.SecurityService.DeleteIPRule:output_type -> security.v1.DeleteIPRuleResponse
+	57, // 102: security.v1.SecurityService.ListRetentionPolicies:output_type -> security.v1.ListRetentionPoliciesResponse
+	59, // 103: security.v1.SecurityService.CreateRetentionPolicy:output_type -> security.v1.CreateRetentionPolicyResponse
+	61, // 104: security.v1.SecurityService.UpdateRetentionPolicy:output_type -> security.v1.UpdateRetentionPolicyResponse
+	63, // 105: security.v1.SecurityService.DeleteRetentionPolicy:output_type -> security.v1.DeleteRetentionPolicyResponse
+	67, // 106: security.v1.SecurityService.ListVendorAccessRequests:output_type -> security.v1.ListVendorAccessRequestsResponse
+	69, // 107: security.v1.SecurityService.ApproveVendorAccessRequest:output_type -> security.v1.ApproveVendorAccessRequestResponse
+	71, // 108: security.v1.SecurityService.DeclineVendorAccessRequest:output_type -> security.v1.DeclineVendorAccessRequestResponse
+	73, // 109: security.v1.SecurityService.CounterProposeVendorAccessRequest:output_type -> security.v1.CounterProposeVendorAccessRequestResponse
+	75, // 110: security.v1.SecurityService.RevokeVendorAccessRequest:output_type -> security.v1.RevokeVendorAccessRequestResponse
+	80, // [80:111] is the sub-list for method output_type
+	49, // [49:80] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_proto_security_v1_security_proto_init() }
@@ -4189,7 +4970,7 @@ func file_proto_security_v1_security_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_security_v1_security_proto_rawDesc), len(file_proto_security_v1_security_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   64,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

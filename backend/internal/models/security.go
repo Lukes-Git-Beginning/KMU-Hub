@@ -211,3 +211,47 @@ type RetentionPolicy struct {
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
+
+// Vendor access request status constants (RBAC R-5 B, GDAP-light v3).
+const (
+	VendorAccessStatusPending         = "pending"
+	VendorAccessStatusCounterProposed = "counter_proposed"
+	VendorAccessStatusActive          = "active"
+	VendorAccessStatusDeclined        = "declined"
+	VendorAccessStatusExpired         = "expired"
+	VendorAccessStatusRevoked         = "revoked"
+	VendorAccessStatusCompleted       = "completed"
+)
+
+// VendorAccessAgent is a named Zentria staff member covered by a request.
+// Not a tenant user -- no row to join against, stored inline as JSONB.
+type VendorAccessAgent struct {
+	Name string `json:"name"`
+}
+
+// VendorAccessRequest tracks a time-boxed Zentria support access window into
+// a tenant's data, through the request/approve/decline/counter-propose/
+// revoke lifecycle.
+type VendorAccessRequest struct {
+	ID                   uuid.UUID           `json:"id"`
+	TenantID             uuid.UUID           `json:"tenant_id"`
+	Reason               string              `json:"reason"`
+	Description          string              `json:"description"`
+	TicketRef            string              `json:"ticket_ref,omitempty"`
+	Agents               []VendorAccessAgent `json:"agents"`
+	Scope                []string            `json:"scope"`
+	RequestedStart       time.Time           `json:"requested_start"`
+	DurationDays         int                 `json:"duration_days"`
+	ExpiresAt            time.Time           `json:"expires_at"`
+	Status               string              `json:"status"`
+	CounterProposedStart *time.Time          `json:"counter_proposed_start,omitempty"`
+	ApprovedAt           *time.Time          `json:"approved_at,omitempty"`
+	ApprovedBy           *uuid.UUID          `json:"approved_by,omitempty"`
+	ApprovedByName       string              `json:"-"` // resolved via join, not persisted
+	SensitiveAck         *bool               `json:"sensitive_ack,omitempty"`
+	RevokedAt            *time.Time          `json:"revoked_at,omitempty"`
+	RevokedBy            *uuid.UUID          `json:"revoked_by,omitempty"`
+	RevokedByName        string              `json:"-"` // resolved via join, not persisted
+	CompletedAt          *time.Time          `json:"completed_at,omitempty"`
+	CreatedAt            time.Time           `json:"created_at"`
+}
