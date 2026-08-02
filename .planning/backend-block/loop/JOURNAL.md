@@ -3814,3 +3814,44 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     falls dort mal ein echter Cross-Tenant-Pfad noetig wird — aktuell werden sie ausschliesslich nach
     `GetMember`/Permission-Check aufgerufen.
   - Kein modules.*-Flag, kein neues RequirePermission, keine Migration, keine Route beruehrt.
+
+## Iteration 54 — g-inbox-openapi-shape-drift — done — 2026-08-02 06:12
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `9b24551b` (Iteration 53, work-tenant-write-sweep) gepruefter Diff
+  (`calendar/postgres_repository.go`, `recording/postgres_repository.go` + vier neue
+  `tenant_write_test.go`): kein `.proto`, keine neue Route, kein neuer `RequirePermission`-Guard,
+  keine neue Tabelle. Der `RowsAffected`-Fix ist konsistent mit dem Schwester-Muster
+  (project/resource/meeting), und alle produktiven Aufrufer holen den Datensatz vorher per
+  tenant-gescoptem `GetByID`/`GetRecording` unter demselben ctx — kein Regressionsrisiko.
+- Auftrag: die neun Single-Message-Mutations-Endpoints der Inbox (`/read`, `/unread`, `/star`,
+  `/status`, `/archive`, `/unarchive`, `/snooze`, `/unsnooze`, `/assign`) antworten real mit
+  `{"message": {...InboxMessageInfo}}` (verifiziert gegen `inboxv1.MarkReadResponse` etc. in
+  `proto/inbox/v1/inbox.proto` — jede der neun Response-Messages traegt exakt ein Feld
+  `InboxMessageInfo message = 1`, und jeder Handler in `route_inbox.go` liefert das per
+  `response.Proto(w, http.StatusOK, resp)` unveraendert durch). `openapi.yaml` dokumentierte fuer
+  alle neun stattdessen ein nacktes `InboxMessage`-Schema — Drift aus Nachtlauf 1, vorbestehend.
+- FE-Gegenpruefung (Notenauftrag): `desktop/src/renderer/src/api/inbox-client.ts` typt
+  `markRead`/`markUnread`/`toggleStar`/`archiveMessage`/`unarchiveMessage`/`snoozeMessage`/
+  `unsnoozeMessage`/`assignMessage` durchgehend als `Promise<void>` — der Response-Body wird von
+  keinem dieser Aufrufer gelesen. Fuer `/status` existiert im FE ueberhaupt kein Aufrufer. Die reale
+  Form widerspricht also keinem FE-Konsumenten; die Spec darf gefahrlos dem Code folgen (Auftrag:
+  "die SPEC folgt dem Code, nicht umgekehrt").
+- gebaut: neues wiederverwendbares Schema `InboxMessageWrapper` (`{message: InboxMessage}`) direkt
+  unter `InboxMessage` in `openapi.yaml` eingefuegt; alle neun `200`-Responses der genannten
+  Endpoints von `$ref: InboxMessage` auf `$ref: InboxMessageWrapper` umgestellt. Namensmuster folgt
+  dem bereits im Spec vorhandenen `InboxCannedResponseWrapper`/`EmailRuleEnvelope`-Konventionspaar,
+  keine neue Konvention erfunden.
+- offen (bewusst NICHT mitgefixt, Scope-Disziplin): `GET /api/v1/inbox/messages/{id}` zeigt exakt
+  denselben Drift (Handler `HandleGetMessage` liefert ebenfalls die `{message: {...}}`-Form,
+  Spec dokumentiert nackt `InboxMessage`) — bestaetigt durch den Kommentar in `inbox-client.ts:104`
+  ("GET /messages/{id} wraps the message"). War nicht Teil der neun in dieser Unit benannten
+  Endpoints; fuer eine Folge-Unit vormerken, falls die Liste unvollstaendig war.
+  `/tags` (add/remove), `/forward`, `/reply` waren ebenfalls nicht in der Neun-Liste und blieben
+  unangetastet (letztere zwei sind ohnehin schon korrekt als eigenes `{success: bool}`-Schema
+  dokumentiert, nicht als `InboxMessage`).
+- gate: build (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) ok | vet ok |
+  golangci-lint `./internal/gateway/...` 0 issues | `go test -count=1 -v ./internal/gateway/
+  -run TestOpenAPIRouteDrift` PASS (771 registrierte Routen gegen 773 dokumentierte Pfade) |
+  `go test -count=1 ./internal/gateway/` voll PASS, 0 Skip (per `-v | grep -c SKIP` gegengeprueft).
+  Migration: keine. RLS-Smoke: n.a. (reine Spec-Datei, keine Tabelle/Policy/Route-Code beruehrt).

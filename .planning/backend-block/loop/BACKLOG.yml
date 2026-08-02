@@ -2095,7 +2095,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die Single-Message-Mutations-Endpoints der Inbox antworten mit `{"message": {...}}`, die
       openapi.yaml dokumentiert eine andere Form. Spec an das reale Verhalten angleichen.

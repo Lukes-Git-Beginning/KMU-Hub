@@ -10774,7 +10774,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unread:
     post:
@@ -10790,7 +10790,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/star:
     post:
@@ -10806,7 +10806,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/status:
     post:
@@ -10831,7 +10831,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
 
@@ -10939,7 +10939,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unarchive:
     post:
@@ -10955,7 +10955,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/snooze:
     post:
@@ -10980,7 +10980,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unsnooze:
     post:
@@ -10996,7 +10996,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/reply:
     post:
@@ -11048,7 +11048,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/unread-count:
     get:
@@ -35931,6 +35931,12 @@ components:
         received_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    InboxMessageWrapper:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/InboxMessage"
 
     InboxMessageList:
       type: object
