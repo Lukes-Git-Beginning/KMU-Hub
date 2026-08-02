@@ -287,15 +287,20 @@ func (r *PostgresRepository) UpdateSearchContent(ctx context.Context, id uuid.UU
 
 func (r *PostgresRepository) CreateEntityLink(ctx context.Context, link *models.DocumentEntityLink) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_entity_links (id, file_id, entity_type, entity_id, linked_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		link.ID, link.FileID, link.EntityType, link.EntityID, link.LinkedBy, link.CreatedAt,
+		`INSERT INTO document_entity_links (id, tenant_id, file_id, entity_type, entity_id, linked_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		link.ID, link.TenantID, link.FileID, link.EntityType, link.EntityID, link.LinkedBy, link.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM document_entity_links WHERE id = $1`, id)
+// DeleteEntityLink removes a link by its own ID. tenantID is required even
+// though RLS also enforces it: it turns a cross-tenant delete attempt into
+// the same "not found" a bad ID gets, instead of a bare RLS-filtered no-op
+// that would be indistinguishable from a database error to the caller.
+func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM document_entity_links WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -305,12 +310,12 @@ func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error) {
+func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, file_id, entity_type, entity_id, linked_by, created_at
+		`SELECT id, tenant_id, file_id, entity_type, entity_id, linked_by, created_at
 		 FROM document_entity_links
-		 WHERE file_id = $1
-		 ORDER BY created_at DESC`, fileID)
+		 WHERE file_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC`, fileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +324,7 @@ func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UU
 	var links []*models.DocumentEntityLink
 	for rows.Next() {
 		var l models.DocumentEntityLink
-		if scanErr := rows.Scan(&l.ID, &l.FileID, &l.EntityType, &l.EntityID, &l.LinkedBy, &l.CreatedAt); scanErr != nil {
+		if scanErr := rows.Scan(&l.ID, &l.TenantID, &l.FileID, &l.EntityType, &l.EntityID, &l.LinkedBy, &l.CreatedAt); scanErr != nil {
 			return nil, scanErr
 		}
 		links = append(links, &l)

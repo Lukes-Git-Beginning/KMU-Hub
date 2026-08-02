@@ -2931,3 +2931,88 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     kuenftig echte Downloads darueber abwickelt, muesste diese Stelle nachgezogen werden.
   - Naechste Unit laut Reihenfolge: `fe-documents-links` (Block D, deps: [fe-documents-activity],
     model: sonnet) — jetzt entsperrt.
+
+## Iteration 40 — fe-documents-links — done — 2026-08-02 (Nachtlauf 3)
+- commit: `6a247186` verify vorgaenger, siehe unten
+- verify vorgaenger: `6a247186` (fe-documents-activity) gegen die acht Fehlerklassen geprueft — **kein
+  Fund**. `HandleListFileActivity` geht ueber `client.ListFileActivity(...)` (gRPC-Client, kein
+  Fehlerklasse-1-Fund). Migration 000264 hat `tenant_id NOT NULL` + `CALL enable_tenant_rls(...)` +
+  Append-only-Trigger, Repo-INSERT UND -SELECT beide tenant-gescoped (per Diff verifiziert). Kein
+  neuer `RequirePermission`-Guard (bestehender `docRead` wiederverwendet), keine Fehlerklasse-4/8.
+  `openapi.yaml` traegt den neuen Pfad im selben Commit. Der `actorIDFromContext`-Fix (uuid.Nil ->
+  echter Akteur bei CopyFile/RevertFileVersion) ist ein echter, im selben Commit korrigierter Bugfix,
+  kein Stub — verifiziert gegen `document_grpc.go`-Diff.
+- gebaut: **`DELETE /api/v1/documents/links/{id}`** — Widerruf eines Dokument-Entity-Links per
+  eigener Link-ID.
+  - **Scope-Korrektur gegenueber der Backlog-Beschreibung:** Die Unit-Notes gehen von externen,
+    passwortgeschuetzten "Freigabelinks" aus (Analogie zu `report_share_tokens`). Verifiziert gegen
+    den echten FE-Code (`document-client.ts:479-503`, `useDocuments.ts:444-452`,
+    `mocks/handlers/documents.ts:760`): `/api/v1/documents/links/{id}` ist tatsaechlich
+    `documentLinkApi.unlink(linkId)` — Widerruf eines **CRM/PM-Entity-Links**
+    (`DocumentEntityLink`, Datei <-> Kontakt/Deal/Task/Projekt), nicht ein unauthentifizierter
+    externer Zugang. Die dialoggetriebene "Freigabelink mit Passwort/Ablauf"-UI
+    (`modules/dokumente/ShareLinkDialog.tsx`) ist zu 100% clientseitiger Mock
+    (`generateMockLink`, kein einziger API-Call) — ein separates, unwired FE-Feature, nicht das,
+    was dieser Pfad bedient. Gebaut wurde die echte Luecke, nicht die vermutete.
+  - **Echter Bug gefunden und im selben Commit behoben (Root-Cause, nicht nur die neue Route):**
+    `models.DocumentEntityLink` hatte nie ein `TenantID`-Feld, und
+    `PostgresRepository.CreateEntityLink` insertierte nie eine `tenant_id` — obwohl die Spalte seit
+    Migration 000114 `NOT NULL` ist (RLS seit 000122). Jeder reale
+    `POST /documents/files/{id}/links`-Aufruf haette seit der RLS-Retrofit-Welle mit einer
+    NOT-NULL-Verletzung 500en muessen; das Feature war seit Sprint 4 tot, nur unsichtbar, weil im FE
+    kein einziger Call-Site fuer `useLinkFile`/`useUnlinkFile` existiert (siehe naechster Punkt).
+    Fix: `TenantID` aufs Model, `LinkToEntity` (Service) setzt `link.TenantID = tenantID` (Parameter
+    war schon da, nur ungenutzt), `CreateEntityLink`-INSERT nimmt die Spalte mit.
+  - **Tenant-Scoping nachgezogen, nicht nur fuer die neue Route:** `ListEntityLinks`/`DeleteEntityLink`
+    (Repo+Service) haben jetzt `tenantID`-Parameter mit explizitem `WHERE tenant_id = $N` (Konvention
+    dieser Datei, siehe `GetByID`) statt sich allein auf RLS zu verlassen. Betrifft auch die
+    BESTEHENDEN Handler `UnlinkFileFromEntity`/`ListFileEntityLinks`/`LinkFileToEntity`
+    (`document_grpc.go`): `UnlinkFileFromEntity` hatte bisher **gar keinen**
+    `middleware.GetTenantID(ctx)`-Aufruf und lief nur ueber RLS — jetzt konsistent mit den
+    Nachbar-Handlern. Kein Wire-Shape-Bruch: keiner der drei bestehenden Response-Contracts hat sich
+    geaendert, nur die interne Repo-Signatur.
+  - **FE-Realitaet, im Journal vermerkt statt geraten:** `useLinkFile`/`useUnlinkFile`
+    (`api/hooks/useDocuments.ts:428,444`) haben **keinen einzigen Aufrufer** in einer Komponente —
+    nur `useFileLinks` (Liste, read-only Anzeige in `FileDetailPanel.tsx:113`) wird tatsaechlich
+    gerendert. Die neue Route bedient also aktuell keinen sichtbaren User-Flow, sondern schliesst die
+    Backend-Luecke fuer einen bereits im API-Client committeten, aber UI-seitig noch nicht verdrahteten
+    Pfad — dieselbe Kategorie wie die in `p2c-work-documents-crm-finance`/`-2` dokumentierten
+    "FE-Aufrufer ist reiner Mock"-Faelle, nur umgekehrt (hier ist es der Erzeuger-Hook, nicht der
+    Consumer, der fehlt).
+  - **Kein GET-Pendant erfunden:** Die Backlog-Notes nennen "GET/DELETE". Ein `GET
+    /documents/links/{id}` (Einzel-Link per ID) hat keinen FE-Aufrufer — Lesen laeuft ausschliesslich
+    ueber das bestehende, unveraenderte `GET /documents/files/{id}/links` (Liste pro Datei). Kein
+    Katalog-Key betroffen (Entity-Links sind laut Kommentar in `route_document.go:66` bewusst ohne
+    Catalogue-Subject) — neue Route bekommt denselben coarse-only `RequirePermission("documents",
+    "write")`-Guard wie ihr Geschwister-Endpoint, kein neuer Key, kein Seed.
+  - Neuer RPC `DeleteEntityLink(DeleteEntityLinkRequest{link_id}) returns
+    (DeleteEntityLinkResponse{})` in `document.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
+    regeneriert (`protoc` direkt, gleiche Flags wie `make proto-document`, `make` fehlt auf dieser
+    Maschine).
+  - `EntityName` bleibt weiterhin immer leer (kein `entity_name`-Spalte in `document_entity_links`
+    seit Migration 000043, nie nachgezogen) — vorbestehende, separate Luecke, NICHT in dieser Unit
+    behoben (kein FE-Aufrufer fuer Create/Update betroffen, keine Migration in diesem Commit noetig;
+    eine echte Loesung braucht Cross-Entity-Namensaufloesung ueber 5 Entity-Typen, das ist ein eigener
+    Zuschnitt).
+- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet` fuer
+  `internal/document/... internal/gateway/... internal/server/...` gruen | `golangci-lint run
+  --config .golangci.yml` fuer dieselben Pfade **0 issues** | swagger-cli validate: `openapi.yaml is
+  valid` | migration: keine (Spalte existierte bereits seit 000114) | Test mit `DATABASE_URL` gesetzt
+  (Rolle `kmuhub_app`): `internal/document/...` + `internal/gateway/...` + `internal/server/...` alle
+  `ok`, **0 Skips** (per grep verifiziert). `TestOpenAPIRouteDrift`: PASS. Zwei neue Faelle in
+  `route_capability_guard_test.go` (`entity link delete by ID`, coarse-only) PASS.
+  **RLS-Smoke** (`docker exec -i ... psql`, echte Fixture-Zeilen unter `kmuhub_app`): eigener Tenant 1,
+  fremder Tenant 0 — Fixture danach wieder geloescht (keine RLS-Erzwingung noetig, normale Zeilen ohne
+  Append-only-Trigger).
+- tests: 3 neue echte DB-Tests (`postgres_repository_entity_link_test.go`: Create+List mit
+  Tenant-Filter, Tenant-Isolation liefert 0 unter fremder tenant_id, Delete verweigert unter fremdem
+  Tenant mit `ErrFileNotFound` UND laesst die Zeile unangetastet, loescht korrekt unter eigenem
+  Tenant), 4 neue Mock-Service-Tests (`TestLinkToEntity_SetsTenantID`,
+  `TestUnlinkFromEntity_Success`, `TestUnlinkFromEntity_WrongTenant_NotFound`,
+  `TestListEntityLinks_TenantIsolation`) — je eigener Tenant/User/Folder/File pro DB-Testfall.
+- offen:
+  - `useLinkFile`/`useUnlinkFile` sind FE-seitig ungerendert (s.o.) — sobald ein UI-Flow dafuer gebaut
+    wird, ist das Backend jetzt bereit (inkl. des Tenant-Bugfixes), keine weitere Backend-Arbeit nötig.
+  - `entity_name` bleibt leer (vorbestehende, separate Luecke, s.o.) — eigener Zuschnitt falls die
+    Anzeige des verlinkten Entity-Namens im FE gebraucht wird.
+  - Naechste Unit laut Reihenfolge: `fe-contacts-files` (Block D, deps: [], model: sonnet).

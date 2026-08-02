@@ -1582,7 +1582,7 @@ units:
     service: document
     model: sonnet
     deps: [fe-documents-activity]
-    status: todo
+    status: done
     scope: >
       `GET/DELETE /api/v1/documents/links/{id}` — Verwaltung von Dokument-Freigabelinks.
     sources:

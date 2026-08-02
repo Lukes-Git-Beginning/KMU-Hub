@@ -111,6 +111,13 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("documents", "write")).Delete("/{id}/links", d.HandleUnlinkFileFromEntity)
 	})
 
+	// Entity links (standalone, by link ID — the desktop client deletes a link
+	// without knowing which file or entity it points at)
+	r.Route("/api/v1/documents/links", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("documents", "write")).Delete("/{id}", d.HandleDeleteEntityLink)
+	})
+
 	// Shares
 	r.Route("/api/v1/documents/shares", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -744,6 +751,26 @@ func (d *DocumentRoutes) HandleUnlinkFileFromEntity(w http.ResponseWriter, r *ht
 		EntityType: req.EntityType,
 		EntityId:   req.EntityID,
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"unlinked": true})
+}
+
+// HandleDeleteEntityLink revokes an entity link by its own ID (the desktop
+// client's document-links panel only ever has the link ID, not the file it
+// came from).
+func (d *DocumentRoutes) HandleDeleteEntityLink(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	linkID := chi.URLParam(r, "id")
+	_, err = client.DeleteEntityLink(r.Context(), &documentv1.DeleteEntityLinkRequest{LinkId: linkID})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

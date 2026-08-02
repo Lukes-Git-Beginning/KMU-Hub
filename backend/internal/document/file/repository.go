@@ -27,8 +27,8 @@ type Repository interface {
 
 	// Entity links
 	CreateEntityLink(ctx context.Context, link *models.DocumentEntityLink) error
-	DeleteEntityLink(ctx context.Context, id uuid.UUID) error
-	ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error)
+	DeleteEntityLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
+	ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error)
 	ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentFile, error)
 
 	// Activity (append-only audit trail)

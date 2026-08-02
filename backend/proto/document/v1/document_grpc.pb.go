@@ -51,6 +51,7 @@ const (
 	DocumentService_LinkFileToEntity_FullMethodName        = "/document.v1.DocumentService/LinkFileToEntity"
 	DocumentService_UnlinkFileFromEntity_FullMethodName    = "/document.v1.DocumentService/UnlinkFileFromEntity"
 	DocumentService_ListFileEntityLinks_FullMethodName     = "/document.v1.DocumentService/ListFileEntityLinks"
+	DocumentService_DeleteEntityLink_FullMethodName        = "/document.v1.DocumentService/DeleteEntityLink"
 	DocumentService_SearchFiles_FullMethodName             = "/document.v1.DocumentService/SearchFiles"
 	DocumentService_ListVirtualFiles_FullMethodName        = "/document.v1.DocumentService/ListVirtualFiles"
 	DocumentService_GenerateWOPIToken_FullMethodName       = "/document.v1.DocumentService/GenerateWOPIToken"
@@ -102,6 +103,7 @@ type DocumentServiceClient interface {
 	LinkFileToEntity(ctx context.Context, in *LinkFileToEntityRequest, opts ...grpc.CallOption) (*LinkFileToEntityResponse, error)
 	UnlinkFileFromEntity(ctx context.Context, in *UnlinkFileFromEntityRequest, opts ...grpc.CallOption) (*UnlinkFileFromEntityResponse, error)
 	ListFileEntityLinks(ctx context.Context, in *ListFileEntityLinksRequest, opts ...grpc.CallOption) (*ListFileEntityLinksResponse, error)
+	DeleteEntityLink(ctx context.Context, in *DeleteEntityLinkRequest, opts ...grpc.CallOption) (*DeleteEntityLinkResponse, error)
 	// ==================== Search operations ====================
 	SearchFiles(ctx context.Context, in *SearchFilesRequest, opts ...grpc.CallOption) (*SearchFilesResponse, error)
 	ListVirtualFiles(ctx context.Context, in *ListVirtualFilesRequest, opts ...grpc.CallOption) (*ListVirtualFilesResponse, error)
@@ -441,6 +443,16 @@ func (c *documentServiceClient) ListFileEntityLinks(ctx context.Context, in *Lis
 	return out, nil
 }
 
+func (c *documentServiceClient) DeleteEntityLink(ctx context.Context, in *DeleteEntityLinkRequest, opts ...grpc.CallOption) (*DeleteEntityLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEntityLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_DeleteEntityLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) SearchFiles(ctx context.Context, in *SearchFilesRequest, opts ...grpc.CallOption) (*SearchFilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SearchFilesResponse)
@@ -544,6 +556,7 @@ type DocumentServiceServer interface {
 	LinkFileToEntity(context.Context, *LinkFileToEntityRequest) (*LinkFileToEntityResponse, error)
 	UnlinkFileFromEntity(context.Context, *UnlinkFileFromEntityRequest) (*UnlinkFileFromEntityResponse, error)
 	ListFileEntityLinks(context.Context, *ListFileEntityLinksRequest) (*ListFileEntityLinksResponse, error)
+	DeleteEntityLink(context.Context, *DeleteEntityLinkRequest) (*DeleteEntityLinkResponse, error)
 	// ==================== Search operations ====================
 	SearchFiles(context.Context, *SearchFilesRequest) (*SearchFilesResponse, error)
 	ListVirtualFiles(context.Context, *ListVirtualFilesRequest) (*ListVirtualFilesResponse, error)
@@ -658,6 +671,9 @@ func (UnimplementedDocumentServiceServer) UnlinkFileFromEntity(context.Context, 
 }
 func (UnimplementedDocumentServiceServer) ListFileEntityLinks(context.Context, *ListFileEntityLinksRequest) (*ListFileEntityLinksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFileEntityLinks not implemented")
+}
+func (UnimplementedDocumentServiceServer) DeleteEntityLink(context.Context, *DeleteEntityLinkRequest) (*DeleteEntityLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEntityLink not implemented")
 }
 func (UnimplementedDocumentServiceServer) SearchFiles(context.Context, *SearchFilesRequest) (*SearchFilesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchFiles not implemented")
@@ -1274,6 +1290,24 @@ func _DocumentService_ListFileEntityLinks_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_DeleteEntityLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEntityLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DeleteEntityLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_DeleteEntityLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DeleteEntityLink(ctx, req.(*DeleteEntityLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DocumentService_SearchFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SearchFilesRequest)
 	if err := dec(in); err != nil {
@@ -1516,6 +1550,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFileEntityLinks",
 			Handler:    _DocumentService_ListFileEntityLinks_Handler,
+		},
+		{
+			MethodName: "DeleteEntityLink",
+			Handler:    _DocumentService_DeleteEntityLink_Handler,
 		},
 		{
 			MethodName: "SearchFiles",

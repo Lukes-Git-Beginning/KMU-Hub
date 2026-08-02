@@ -197,20 +197,32 @@ func (m *MockRepository) CreateEntityLink(_ context.Context, link *models.Docume
 	return nil
 }
 
-func (m *MockRepository) DeleteEntityLink(_ context.Context, id uuid.UUID) error {
+func (m *MockRepository) DeleteEntityLink(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	for fileID, links := range m.entityLinks {
 		for i, link := range links {
-			if link.ID == id {
-				m.entityLinks[fileID] = append(links[:i], links[i+1:]...)
-				return nil
+			if link.ID != id {
+				continue
 			}
+			// Enforce tenant isolation when a real tenantID is supplied.
+			if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+				return ErrFileNotFound
+			}
+			m.entityLinks[fileID] = append(links[:i], links[i+1:]...)
+			return nil
 		}
 	}
-	return nil
+	return ErrFileNotFound
 }
 
-func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error) {
-	return m.entityLinks[fileID], nil
+func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
+	var result []*models.DocumentEntityLink
+	for _, link := range m.entityLinks[fileID] {
+		if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+			continue
+		}
+		result = append(result, link)
+	}
+	return result, nil
 }
 
 func (m *MockRepository) ListFilesByEntity(_ context.Context, _ string, _ uuid.UUID) ([]*models.DocumentFile, error) {
@@ -453,6 +465,59 @@ func TestLinkToEntity_Success(t *testing.T) {
 	require.Len(t, links, 1)
 	assert.Equal(t, "contact", links[0].EntityType)
 	assert.Equal(t, entityID, links[0].EntityID)
+}
+
+func TestLinkToEntity_SetsTenantID(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+
+	err := svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID)
+
+	require.NoError(t, err)
+	links := repo.entityLinks[seeded.ID]
+	require.Len(t, links, 1)
+	assert.Equal(t, tenantID, links[0].TenantID)
+}
+
+func TestUnlinkFromEntity_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+	linkID := repo.entityLinks[seeded.ID][0].ID
+
+	err := svc.UnlinkFromEntity(context.Background(), linkID, tenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, repo.entityLinks[seeded.ID])
+}
+
+func TestUnlinkFromEntity_WrongTenant_NotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+	linkID := repo.entityLinks[seeded.ID][0].ID
+
+	err := svc.UnlinkFromEntity(context.Background(), linkID, otherTenantID)
+
+	require.ErrorIs(t, err, ErrFileNotFound)
+	assert.Len(t, repo.entityLinks[seeded.ID], 1, "a foreign tenant must not be able to delete another tenant's link")
+}
+
+func TestListEntityLinks_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+
+	links, err := svc.ListEntityLinks(context.Background(), seeded.ID, otherTenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, links, "a foreign tenant must not see another tenant's entity links")
 }
 
 func TestLinkToEntity_InvalidType(t *testing.T) {

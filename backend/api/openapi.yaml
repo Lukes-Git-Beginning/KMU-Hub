@@ -23935,6 +23935,32 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/documents/links/{id}:
+    delete:
+      summary: Revoke a document entity link by its own ID
+      description: >-
+        Requires documents:write permission. Unlike DELETE
+        /documents/files/{id}/links, this deletes by the link's own ID
+        without requiring the caller to know which file or entity it
+        connects — the desktop entity-link panel only holds the link ID.
+      tags: [documents]
+      operationId: deleteDocumentEntityLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Link removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unlinked: { type: boolean, example: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ==========================================================================
   # Shares
   # ==========================================================================

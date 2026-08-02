@@ -50,6 +50,7 @@ service DocumentService {
   rpc LinkFileToEntity(LinkFileToEntityRequest) returns (LinkFileToEntityResponse);
   rpc UnlinkFileFromEntity(UnlinkFileFromEntityRequest) returns (UnlinkFileFromEntityResponse);
   rpc ListFileEntityLinks(ListFileEntityLinksRequest) returns (ListFileEntityLinksResponse);
+  rpc DeleteEntityLink(DeleteEntityLinkRequest) returns (DeleteEntityLinkResponse);
 
   // ==================== Search operations ====================
   rpc SearchFiles(SearchFilesRequest) returns (SearchFilesResponse);
@@ -533,6 +534,12 @@ message ListFileEntityLinksRequest {
 message ListFileEntityLinksResponse {
   repeated DocumentEntityLink links = 1;
 }
+
+message DeleteEntityLinkRequest {
+  string link_id = 1;
+}
+
+message DeleteEntityLinkResponse {}
 
 // ============================================================================
 // Search Request/Response Messages

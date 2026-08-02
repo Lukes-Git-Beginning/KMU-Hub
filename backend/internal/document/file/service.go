@@ -650,6 +650,7 @@ func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType
 
 	link := &models.DocumentEntityLink{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		FileID:     fileID,
 		EntityType: entityType,
 		EntityID:   entityID,
@@ -675,12 +676,14 @@ func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType
 	return nil
 }
 
-// UnlinkFromEntity removes a link between a file and an entity.
-func (s *Service) UnlinkFromEntity(ctx context.Context, linkID uuid.UUID) error {
-	return s.repo.DeleteEntityLink(ctx, linkID)
+// UnlinkFromEntity removes a link between a file and an entity, scoped to
+// tenantID so a caller can never delete another tenant's link by guessing a
+// link ID.
+func (s *Service) UnlinkFromEntity(ctx context.Context, linkID uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.DeleteEntityLink(ctx, linkID, tenantID)
 }
 
-// ListEntityLinks returns all entity links for a file.
-func (s *Service) ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error) {
-	return s.repo.ListEntityLinks(ctx, fileID)
+// ListEntityLinks returns all entity links for a file, scoped to tenantID.
+func (s *Service) ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
+	return s.repo.ListEntityLinks(ctx, fileID, tenantID)
 }

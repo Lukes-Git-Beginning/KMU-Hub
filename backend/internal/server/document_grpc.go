@@ -886,7 +886,7 @@ func (s *DocumentGRPCServer) LinkFileToEntity(ctx context.Context, req *document
 	}
 
 	// Return the created link by fetching links for this file
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -912,15 +912,20 @@ func (s *DocumentGRPCServer) UnlinkFileFromEntity(ctx context.Context, req *docu
 		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
 	}
 
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	// Find the link by file+entity and delete it
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
 	for _, link := range links {
 		if link.EntityType == req.EntityType && link.EntityID == entityID {
-			if err := s.fileService.UnlinkFromEntity(ctx, link.ID); err != nil {
+			if err := s.fileService.UnlinkFromEntity(ctx, link.ID, tenantID); err != nil {
 				return nil, mapDocumentError(err)
 			}
 			return &documentv1.UnlinkFileFromEntityResponse{}, nil
@@ -930,13 +935,38 @@ func (s *DocumentGRPCServer) UnlinkFileFromEntity(ctx context.Context, req *docu
 	return nil, status.Error(codes.NotFound, "entity link not found")
 }
 
+// DeleteEntityLink removes an entity link by its own ID, without requiring
+// the caller to know which file or entity it points at.
+func (s *DocumentGRPCServer) DeleteEntityLink(ctx context.Context, req *documentv1.DeleteEntityLinkRequest) (*documentv1.DeleteEntityLinkResponse, error) {
+	linkID, err := uuid.Parse(req.LinkId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid link_id")
+	}
+
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	if err := s.fileService.UnlinkFromEntity(ctx, linkID, tenantID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.DeleteEntityLinkResponse{}, nil
+}
+
 func (s *DocumentGRPCServer) ListFileEntityLinks(ctx context.Context, req *documentv1.ListFileEntityLinksRequest) (*documentv1.ListFileEntityLinksResponse, error) {
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}

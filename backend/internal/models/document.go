@@ -134,6 +134,7 @@ type DocumentFileActivity struct {
 // DocumentEntityLink represents a link between a file and a CRM entity.
 type DocumentEntityLink struct {
 	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
 	FileID     uuid.UUID `json:"file_id"`
 	EntityType string    `json:"entity_type"` // contact, company, deal, project, task
 	EntityID   uuid.UUID `json:"entity_id"`

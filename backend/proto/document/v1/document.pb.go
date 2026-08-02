@@ -4487,6 +4487,86 @@ func (x *ListFileEntityLinksResponse) GetLinks() []*DocumentEntityLink {
 	return nil
 }
 
+type DeleteEntityLinkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LinkId        string                 `protobuf:"bytes,1,opt,name=link_id,json=linkId,proto3" json:"link_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEntityLinkRequest) Reset() {
+	*x = DeleteEntityLinkRequest{}
+	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEntityLinkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEntityLinkRequest) ProtoMessage() {}
+
+func (x *DeleteEntityLinkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEntityLinkRequest.ProtoReflect.Descriptor instead.
+func (*DeleteEntityLinkRequest) Descriptor() ([]byte, []int) {
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *DeleteEntityLinkRequest) GetLinkId() string {
+	if x != nil {
+		return x.LinkId
+	}
+	return ""
+}
+
+type DeleteEntityLinkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEntityLinkResponse) Reset() {
+	*x = DeleteEntityLinkResponse{}
+	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEntityLinkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEntityLinkResponse) ProtoMessage() {}
+
+func (x *DeleteEntityLinkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEntityLinkResponse.ProtoReflect.Descriptor instead.
+func (*DeleteEntityLinkResponse) Descriptor() ([]byte, []int) {
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{75}
+}
+
 type SearchFilesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
@@ -4500,7 +4580,7 @@ type SearchFilesRequest struct {
 
 func (x *SearchFilesRequest) Reset() {
 	*x = SearchFilesRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	mi := &file_proto_document_v1_document_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4512,7 +4592,7 @@ func (x *SearchFilesRequest) String() string {
 func (*SearchFilesRequest) ProtoMessage() {}
 
 func (x *SearchFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	mi := &file_proto_document_v1_document_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4525,7 +4605,7 @@ func (x *SearchFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchFilesRequest.ProtoReflect.Descriptor instead.
 func (*SearchFilesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{74}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *SearchFilesRequest) GetQuery() string {
@@ -4573,7 +4653,7 @@ type SearchFilesResponse struct {
 
 func (x *SearchFilesResponse) Reset() {
 	*x = SearchFilesResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	mi := &file_proto_document_v1_document_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4585,7 +4665,7 @@ func (x *SearchFilesResponse) String() string {
 func (*SearchFilesResponse) ProtoMessage() {}
 
 func (x *SearchFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	mi := &file_proto_document_v1_document_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4598,7 +4678,7 @@ func (x *SearchFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchFilesResponse.ProtoReflect.Descriptor instead.
 func (*SearchFilesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{75}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SearchFilesResponse) GetResults() []*FileSearchResult {
@@ -4626,7 +4706,7 @@ type ListVirtualFilesRequest struct {
 
 func (x *ListVirtualFilesRequest) Reset() {
 	*x = ListVirtualFilesRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[76]
+	mi := &file_proto_document_v1_document_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4638,7 +4718,7 @@ func (x *ListVirtualFilesRequest) String() string {
 func (*ListVirtualFilesRequest) ProtoMessage() {}
 
 func (x *ListVirtualFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[76]
+	mi := &file_proto_document_v1_document_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4651,7 +4731,7 @@ func (x *ListVirtualFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVirtualFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListVirtualFilesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{76}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ListVirtualFilesRequest) GetSourceType() VirtualFileSource {
@@ -4685,7 +4765,7 @@ type ListVirtualFilesResponse struct {
 
 func (x *ListVirtualFilesResponse) Reset() {
 	*x = ListVirtualFilesResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[77]
+	mi := &file_proto_document_v1_document_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4697,7 +4777,7 @@ func (x *ListVirtualFilesResponse) String() string {
 func (*ListVirtualFilesResponse) ProtoMessage() {}
 
 func (x *ListVirtualFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[77]
+	mi := &file_proto_document_v1_document_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4710,7 +4790,7 @@ func (x *ListVirtualFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVirtualFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListVirtualFilesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{77}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *ListVirtualFilesResponse) GetFiles() []*VirtualFile {
@@ -4737,7 +4817,7 @@ type GenerateWOPITokenRequest struct {
 
 func (x *GenerateWOPITokenRequest) Reset() {
 	*x = GenerateWOPITokenRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[78]
+	mi := &file_proto_document_v1_document_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4749,7 +4829,7 @@ func (x *GenerateWOPITokenRequest) String() string {
 func (*GenerateWOPITokenRequest) ProtoMessage() {}
 
 func (x *GenerateWOPITokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[78]
+	mi := &file_proto_document_v1_document_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4762,7 +4842,7 @@ func (x *GenerateWOPITokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateWOPITokenRequest.ProtoReflect.Descriptor instead.
 func (*GenerateWOPITokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{78}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *GenerateWOPITokenRequest) GetFileId() string {
@@ -4789,7 +4869,7 @@ type GenerateWOPITokenResponse struct {
 
 func (x *GenerateWOPITokenResponse) Reset() {
 	*x = GenerateWOPITokenResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[79]
+	mi := &file_proto_document_v1_document_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4801,7 +4881,7 @@ func (x *GenerateWOPITokenResponse) String() string {
 func (*GenerateWOPITokenResponse) ProtoMessage() {}
 
 func (x *GenerateWOPITokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[79]
+	mi := &file_proto_document_v1_document_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4814,7 +4894,7 @@ func (x *GenerateWOPITokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateWOPITokenResponse.ProtoReflect.Descriptor instead.
 func (*GenerateWOPITokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{79}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *GenerateWOPITokenResponse) GetAccessToken() string {
@@ -4839,7 +4919,7 @@ type GetWOPIDiscoveryRequest struct {
 
 func (x *GetWOPIDiscoveryRequest) Reset() {
 	*x = GetWOPIDiscoveryRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[80]
+	mi := &file_proto_document_v1_document_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4851,7 +4931,7 @@ func (x *GetWOPIDiscoveryRequest) String() string {
 func (*GetWOPIDiscoveryRequest) ProtoMessage() {}
 
 func (x *GetWOPIDiscoveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[80]
+	mi := &file_proto_document_v1_document_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4864,7 +4944,7 @@ func (x *GetWOPIDiscoveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWOPIDiscoveryRequest.ProtoReflect.Descriptor instead.
 func (*GetWOPIDiscoveryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{80}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{82}
 }
 
 type GetWOPIDiscoveryResponse struct {
@@ -4877,7 +4957,7 @@ type GetWOPIDiscoveryResponse struct {
 
 func (x *GetWOPIDiscoveryResponse) Reset() {
 	*x = GetWOPIDiscoveryResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[81]
+	mi := &file_proto_document_v1_document_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4889,7 +4969,7 @@ func (x *GetWOPIDiscoveryResponse) String() string {
 func (*GetWOPIDiscoveryResponse) ProtoMessage() {}
 
 func (x *GetWOPIDiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[81]
+	mi := &file_proto_document_v1_document_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4902,7 +4982,7 @@ func (x *GetWOPIDiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWOPIDiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*GetWOPIDiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{81}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *GetWOPIDiscoveryResponse) GetDiscoveryXml() string {
@@ -4931,7 +5011,7 @@ type WOPIAction struct {
 
 func (x *WOPIAction) Reset() {
 	*x = WOPIAction{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[82]
+	mi := &file_proto_document_v1_document_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4943,7 +5023,7 @@ func (x *WOPIAction) String() string {
 func (*WOPIAction) ProtoMessage() {}
 
 func (x *WOPIAction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[82]
+	mi := &file_proto_document_v1_document_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4956,7 +5036,7 @@ func (x *WOPIAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WOPIAction.ProtoReflect.Descriptor instead.
 func (*WOPIAction) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{82}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *WOPIAction) GetApp() string {
@@ -4999,7 +5079,7 @@ type GetPresignedUploadURLRequest struct {
 
 func (x *GetPresignedUploadURLRequest) Reset() {
 	*x = GetPresignedUploadURLRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[83]
+	mi := &file_proto_document_v1_document_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5011,7 +5091,7 @@ func (x *GetPresignedUploadURLRequest) String() string {
 func (*GetPresignedUploadURLRequest) ProtoMessage() {}
 
 func (x *GetPresignedUploadURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[83]
+	mi := &file_proto_document_v1_document_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5024,7 +5104,7 @@ func (x *GetPresignedUploadURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedUploadURLRequest.ProtoReflect.Descriptor instead.
 func (*GetPresignedUploadURLRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{83}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *GetPresignedUploadURLRequest) GetScope() string {
@@ -5066,7 +5146,7 @@ type GetPresignedUploadURLResponse struct {
 
 func (x *GetPresignedUploadURLResponse) Reset() {
 	*x = GetPresignedUploadURLResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[84]
+	mi := &file_proto_document_v1_document_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5078,7 +5158,7 @@ func (x *GetPresignedUploadURLResponse) String() string {
 func (*GetPresignedUploadURLResponse) ProtoMessage() {}
 
 func (x *GetPresignedUploadURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[84]
+	mi := &file_proto_document_v1_document_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5091,7 +5171,7 @@ func (x *GetPresignedUploadURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedUploadURLResponse.ProtoReflect.Descriptor instead.
 func (*GetPresignedUploadURLResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{84}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *GetPresignedUploadURLResponse) GetUploadUrl() string {
@@ -5124,7 +5204,7 @@ type GetPresignedDownloadURLRequest struct {
 
 func (x *GetPresignedDownloadURLRequest) Reset() {
 	*x = GetPresignedDownloadURLRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[85]
+	mi := &file_proto_document_v1_document_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5136,7 +5216,7 @@ func (x *GetPresignedDownloadURLRequest) String() string {
 func (*GetPresignedDownloadURLRequest) ProtoMessage() {}
 
 func (x *GetPresignedDownloadURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[85]
+	mi := &file_proto_document_v1_document_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5149,7 +5229,7 @@ func (x *GetPresignedDownloadURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedDownloadURLRequest.ProtoReflect.Descriptor instead.
 func (*GetPresignedDownloadURLRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{85}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *GetPresignedDownloadURLRequest) GetObjectKey() string {
@@ -5169,7 +5249,7 @@ type GetPresignedDownloadURLResponse struct {
 
 func (x *GetPresignedDownloadURLResponse) Reset() {
 	*x = GetPresignedDownloadURLResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[86]
+	mi := &file_proto_document_v1_document_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5181,7 +5261,7 @@ func (x *GetPresignedDownloadURLResponse) String() string {
 func (*GetPresignedDownloadURLResponse) ProtoMessage() {}
 
 func (x *GetPresignedDownloadURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[86]
+	mi := &file_proto_document_v1_document_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5194,7 +5274,7 @@ func (x *GetPresignedDownloadURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedDownloadURLResponse.ProtoReflect.Descriptor instead.
 func (*GetPresignedDownloadURLResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{86}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *GetPresignedDownloadURLResponse) GetDownloadUrl() string {
@@ -5547,7 +5627,10 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\x1aListFileEntityLinksRequest\x12\x17\n" +
 	"\afile_id\x18\x01 \x01(\tR\x06fileId\"T\n" +
 	"\x1bListFileEntityLinksResponse\x125\n" +
-	"\x05links\x18\x01 \x03(\v2\x1f.document.v1.DocumentEntityLinkR\x05links\"\x8f\x01\n" +
+	"\x05links\x18\x01 \x03(\v2\x1f.document.v1.DocumentEntityLinkR\x05links\"2\n" +
+	"\x17DeleteEntityLinkRequest\x12\x17\n" +
+	"\alink_id\x18\x01 \x01(\tR\x06linkId\"\x1a\n" +
+	"\x18DeleteEntityLinkResponse\"\x8f\x01\n" +
 	"\x12SearchFilesRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x17\n" +
 	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\x12\x1b\n" +
@@ -5625,7 +5708,7 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\rSortDirection\x12\x1e\n" +
 	"\x1aSORT_DIRECTION_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bSORT_ASC\x10\x01\x12\r\n" +
-	"\tSORT_DESC\x10\x022\xdd\x1a\n" +
+	"\tSORT_DESC\x10\x022\xbe\x1b\n" +
 	"\x0fDocumentService\x12S\n" +
 	"\fCreateFolder\x12 .document.v1.CreateFolderRequest\x1a!.document.v1.CreateFolderResponse\x12J\n" +
 	"\tGetFolder\x12\x1d.document.v1.GetFolderRequest\x1a\x1e.document.v1.GetFolderResponse\x12P\n" +
@@ -5661,7 +5744,8 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\tUntagFile\x12\x1d.document.v1.UntagFileRequest\x1a\x1e.document.v1.UntagFileResponse\x12_\n" +
 	"\x10LinkFileToEntity\x12$.document.v1.LinkFileToEntityRequest\x1a%.document.v1.LinkFileToEntityResponse\x12k\n" +
 	"\x14UnlinkFileFromEntity\x12(.document.v1.UnlinkFileFromEntityRequest\x1a).document.v1.UnlinkFileFromEntityResponse\x12h\n" +
-	"\x13ListFileEntityLinks\x12'.document.v1.ListFileEntityLinksRequest\x1a(.document.v1.ListFileEntityLinksResponse\x12P\n" +
+	"\x13ListFileEntityLinks\x12'.document.v1.ListFileEntityLinksRequest\x1a(.document.v1.ListFileEntityLinksResponse\x12_\n" +
+	"\x10DeleteEntityLink\x12$.document.v1.DeleteEntityLinkRequest\x1a%.document.v1.DeleteEntityLinkResponse\x12P\n" +
 	"\vSearchFiles\x12\x1f.document.v1.SearchFilesRequest\x1a .document.v1.SearchFilesResponse\x12_\n" +
 	"\x10ListVirtualFiles\x12$.document.v1.ListVirtualFilesRequest\x1a%.document.v1.ListVirtualFilesResponse\x12b\n" +
 	"\x11GenerateWOPIToken\x12%.document.v1.GenerateWOPITokenRequest\x1a&.document.v1.GenerateWOPITokenResponse\x12_\n" +
@@ -5682,7 +5766,7 @@ func file_proto_document_v1_document_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_document_v1_document_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_proto_document_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 87)
+var file_proto_document_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 89)
 var file_proto_document_v1_document_proto_goTypes = []any{
 	(FolderSpaceType)(0),                    // 0: document.v1.FolderSpaceType
 	(SharePermission)(0),                    // 1: document.v1.SharePermission
@@ -5763,36 +5847,38 @@ var file_proto_document_v1_document_proto_goTypes = []any{
 	(*UnlinkFileFromEntityResponse)(nil),    // 76: document.v1.UnlinkFileFromEntityResponse
 	(*ListFileEntityLinksRequest)(nil),      // 77: document.v1.ListFileEntityLinksRequest
 	(*ListFileEntityLinksResponse)(nil),     // 78: document.v1.ListFileEntityLinksResponse
-	(*SearchFilesRequest)(nil),              // 79: document.v1.SearchFilesRequest
-	(*SearchFilesResponse)(nil),             // 80: document.v1.SearchFilesResponse
-	(*ListVirtualFilesRequest)(nil),         // 81: document.v1.ListVirtualFilesRequest
-	(*ListVirtualFilesResponse)(nil),        // 82: document.v1.ListVirtualFilesResponse
-	(*GenerateWOPITokenRequest)(nil),        // 83: document.v1.GenerateWOPITokenRequest
-	(*GenerateWOPITokenResponse)(nil),       // 84: document.v1.GenerateWOPITokenResponse
-	(*GetWOPIDiscoveryRequest)(nil),         // 85: document.v1.GetWOPIDiscoveryRequest
-	(*GetWOPIDiscoveryResponse)(nil),        // 86: document.v1.GetWOPIDiscoveryResponse
-	(*WOPIAction)(nil),                      // 87: document.v1.WOPIAction
-	(*GetPresignedUploadURLRequest)(nil),    // 88: document.v1.GetPresignedUploadURLRequest
-	(*GetPresignedUploadURLResponse)(nil),   // 89: document.v1.GetPresignedUploadURLResponse
-	(*GetPresignedDownloadURLRequest)(nil),  // 90: document.v1.GetPresignedDownloadURLRequest
-	(*GetPresignedDownloadURLResponse)(nil), // 91: document.v1.GetPresignedDownloadURLResponse
-	(*timestamppb.Timestamp)(nil),           // 92: google.protobuf.Timestamp
+	(*DeleteEntityLinkRequest)(nil),         // 79: document.v1.DeleteEntityLinkRequest
+	(*DeleteEntityLinkResponse)(nil),        // 80: document.v1.DeleteEntityLinkResponse
+	(*SearchFilesRequest)(nil),              // 81: document.v1.SearchFilesRequest
+	(*SearchFilesResponse)(nil),             // 82: document.v1.SearchFilesResponse
+	(*ListVirtualFilesRequest)(nil),         // 83: document.v1.ListVirtualFilesRequest
+	(*ListVirtualFilesResponse)(nil),        // 84: document.v1.ListVirtualFilesResponse
+	(*GenerateWOPITokenRequest)(nil),        // 85: document.v1.GenerateWOPITokenRequest
+	(*GenerateWOPITokenResponse)(nil),       // 86: document.v1.GenerateWOPITokenResponse
+	(*GetWOPIDiscoveryRequest)(nil),         // 87: document.v1.GetWOPIDiscoveryRequest
+	(*GetWOPIDiscoveryResponse)(nil),        // 88: document.v1.GetWOPIDiscoveryResponse
+	(*WOPIAction)(nil),                      // 89: document.v1.WOPIAction
+	(*GetPresignedUploadURLRequest)(nil),    // 90: document.v1.GetPresignedUploadURLRequest
+	(*GetPresignedUploadURLResponse)(nil),   // 91: document.v1.GetPresignedUploadURLResponse
+	(*GetPresignedDownloadURLRequest)(nil),  // 92: document.v1.GetPresignedDownloadURLRequest
+	(*GetPresignedDownloadURLResponse)(nil), // 93: document.v1.GetPresignedDownloadURLResponse
+	(*timestamppb.Timestamp)(nil),           // 94: google.protobuf.Timestamp
 }
 var file_proto_document_v1_document_proto_depIdxs = []int32{
 	0,  // 0: document.v1.DocumentFolder.space_type:type_name -> document.v1.FolderSpaceType
-	92, // 1: document.v1.DocumentFolder.created_at:type_name -> google.protobuf.Timestamp
-	92, // 2: document.v1.DocumentFolder.updated_at:type_name -> google.protobuf.Timestamp
+	94, // 1: document.v1.DocumentFolder.created_at:type_name -> google.protobuf.Timestamp
+	94, // 2: document.v1.DocumentFolder.updated_at:type_name -> google.protobuf.Timestamp
 	9,  // 3: document.v1.DocumentFile.tags:type_name -> document.v1.DocumentTag
-	92, // 4: document.v1.DocumentFile.created_at:type_name -> google.protobuf.Timestamp
-	92, // 5: document.v1.DocumentFile.updated_at:type_name -> google.protobuf.Timestamp
-	92, // 6: document.v1.DocumentFileVersion.created_at:type_name -> google.protobuf.Timestamp
+	94, // 4: document.v1.DocumentFile.created_at:type_name -> google.protobuf.Timestamp
+	94, // 5: document.v1.DocumentFile.updated_at:type_name -> google.protobuf.Timestamp
+	94, // 6: document.v1.DocumentFileVersion.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 7: document.v1.DocumentShare.permission:type_name -> document.v1.SharePermission
-	92, // 8: document.v1.DocumentShare.created_at:type_name -> google.protobuf.Timestamp
-	92, // 9: document.v1.DocumentTag.created_at:type_name -> google.protobuf.Timestamp
-	92, // 10: document.v1.DocumentEntityLink.created_at:type_name -> google.protobuf.Timestamp
-	92, // 11: document.v1.DocumentFileActivity.created_at:type_name -> google.protobuf.Timestamp
+	94, // 8: document.v1.DocumentShare.created_at:type_name -> google.protobuf.Timestamp
+	94, // 9: document.v1.DocumentTag.created_at:type_name -> google.protobuf.Timestamp
+	94, // 10: document.v1.DocumentEntityLink.created_at:type_name -> google.protobuf.Timestamp
+	94, // 11: document.v1.DocumentFileActivity.created_at:type_name -> google.protobuf.Timestamp
 	2,  // 12: document.v1.VirtualFile.source_type:type_name -> document.v1.VirtualFileSource
-	92, // 13: document.v1.VirtualFile.created_at:type_name -> google.protobuf.Timestamp
+	94, // 13: document.v1.VirtualFile.created_at:type_name -> google.protobuf.Timestamp
 	6,  // 14: document.v1.FileSearchResult.file:type_name -> document.v1.DocumentFile
 	0,  // 15: document.v1.CreateFolderRequest.space_type:type_name -> document.v1.FolderSpaceType
 	5,  // 16: document.v1.CreateFolderResponse.folder:type_name -> document.v1.DocumentFolder
@@ -5827,9 +5913,9 @@ var file_proto_document_v1_document_proto_depIdxs = []int32{
 	14, // 45: document.v1.SearchFilesResponse.results:type_name -> document.v1.FileSearchResult
 	2,  // 46: document.v1.ListVirtualFilesRequest.source_type:type_name -> document.v1.VirtualFileSource
 	12, // 47: document.v1.ListVirtualFilesResponse.files:type_name -> document.v1.VirtualFile
-	87, // 48: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
-	92, // 49: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
-	92, // 50: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	89, // 48: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
+	94, // 49: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	94, // 50: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
 	15, // 51: document.v1.DocumentService.CreateFolder:input_type -> document.v1.CreateFolderRequest
 	17, // 52: document.v1.DocumentService.GetFolder:input_type -> document.v1.GetFolderRequest
 	19, // 53: document.v1.DocumentService.ListFolders:input_type -> document.v1.ListFoldersRequest
@@ -5862,52 +5948,54 @@ var file_proto_document_v1_document_proto_depIdxs = []int32{
 	73, // 80: document.v1.DocumentService.LinkFileToEntity:input_type -> document.v1.LinkFileToEntityRequest
 	75, // 81: document.v1.DocumentService.UnlinkFileFromEntity:input_type -> document.v1.UnlinkFileFromEntityRequest
 	77, // 82: document.v1.DocumentService.ListFileEntityLinks:input_type -> document.v1.ListFileEntityLinksRequest
-	79, // 83: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
-	81, // 84: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
-	83, // 85: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
-	85, // 86: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
-	88, // 87: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
-	90, // 88: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
-	16, // 89: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
-	18, // 90: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
-	20, // 91: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
-	22, // 92: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
-	24, // 93: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
-	26, // 94: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
-	28, // 95: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
-	30, // 96: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
-	32, // 97: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
-	34, // 98: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
-	36, // 99: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
-	38, // 100: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
-	40, // 101: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
-	42, // 102: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
-	44, // 103: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
-	46, // 104: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
-	50, // 105: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
-	52, // 106: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
-	54, // 107: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
-	48, // 108: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
-	56, // 109: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
-	58, // 110: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
-	60, // 111: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
-	62, // 112: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
-	64, // 113: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
-	66, // 114: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
-	68, // 115: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
-	70, // 116: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
-	72, // 117: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
-	74, // 118: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
-	76, // 119: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
-	78, // 120: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
-	80, // 121: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
-	82, // 122: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
-	84, // 123: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
-	86, // 124: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
-	89, // 125: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
-	91, // 126: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
-	89, // [89:127] is the sub-list for method output_type
-	51, // [51:89] is the sub-list for method input_type
+	79, // 83: document.v1.DocumentService.DeleteEntityLink:input_type -> document.v1.DeleteEntityLinkRequest
+	81, // 84: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
+	83, // 85: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
+	85, // 86: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
+	87, // 87: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
+	90, // 88: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
+	92, // 89: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
+	16, // 90: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
+	18, // 91: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
+	20, // 92: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
+	22, // 93: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
+	24, // 94: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
+	26, // 95: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
+	28, // 96: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
+	30, // 97: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
+	32, // 98: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
+	34, // 99: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
+	36, // 100: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
+	38, // 101: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
+	40, // 102: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
+	42, // 103: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
+	44, // 104: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
+	46, // 105: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
+	50, // 106: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
+	52, // 107: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
+	54, // 108: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
+	48, // 109: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
+	56, // 110: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
+	58, // 111: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
+	60, // 112: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
+	62, // 113: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
+	64, // 114: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
+	66, // 115: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
+	68, // 116: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
+	70, // 117: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
+	72, // 118: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
+	74, // 119: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
+	76, // 120: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
+	78, // 121: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
+	80, // 122: document.v1.DocumentService.DeleteEntityLink:output_type -> document.v1.DeleteEntityLinkResponse
+	82, // 123: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
+	84, // 124: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
+	86, // 125: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
+	88, // 126: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
+	91, // 127: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
+	93, // 128: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
+	90, // [90:129] is the sub-list for method output_type
+	51, // [51:90] is the sub-list for method input_type
 	51, // [51:51] is the sub-list for extension type_name
 	51, // [51:51] is the sub-list for extension extendee
 	0,  // [0:51] is the sub-list for field type_name
@@ -5926,7 +6014,7 @@ func file_proto_document_v1_document_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_document_v1_document_proto_rawDesc), len(file_proto_document_v1_document_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   87,
+			NumMessages:   89,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

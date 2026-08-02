@@ -259,6 +259,8 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// --- documents: tags/links/search have no catalogue key, untouched ---
 		{"tag create still requires documents:write only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, denied},
 		{"tag create with documents:write", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:write"}, allowed},
+		{"entity link delete by ID still requires documents:write only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, denied},
+		{"entity link delete by ID with documents:write", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:write"}, allowed},
 
 		// --- crm: contacts ---
 		{"contact list, legacy key only", crmRouter, "GET", "/api/v1/contacts", []string{"contacts:read"}, allowed},
