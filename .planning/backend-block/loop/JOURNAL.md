@@ -599,7 +599,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
 
 ## Iteration 10 — g-rls-tenant-id-ohne-policy — done — 2026-08-02 22:40
-- commit: <folgt>
+- commit: bfb89c8b
 - gebaut: Migration `000269_rls_email_contact_links_and_plugin_rules` setzt RLS auf die drei
   Tabellen, die `tenant_id` tragen, aber weder RLS noch Policy hatten
   (`email_contact_links`, `validation_rules`, `workflow_rules`), plus zwei Isolationstests und
