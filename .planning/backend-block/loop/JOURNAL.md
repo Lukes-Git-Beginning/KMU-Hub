@@ -1267,7 +1267,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 19 — g-crm-contact-timeline — blocked — 2026-08-03 02:00
 
-- commit: 
+- commit: 84292279
 - gebaut: nichts — Praemisse der Unit widerlegt. `GET /api/v1/contacts/{id}/timeline` existiert
   bereits vollstaendig und korrekt: Proto-RPC (crm.proto:93/1018-1041), Service
   `activity.Service.GetContactTimeline` (activity/service.go:422), Repository-Query unioniert
