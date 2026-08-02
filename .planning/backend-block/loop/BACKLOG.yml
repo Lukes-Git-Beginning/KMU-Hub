@@ -362,7 +362,7 @@ units:
     service: db
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Drei Tabellen tragen `tenant_id`, haben aber weder RLS noch eine Policy — verifiziert am
       2026-08-02 ueber `pg_class.relrowsecurity` + `pg_policies`:

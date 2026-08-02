@@ -597,3 +597,81 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke im FE (self_lockout, privilege_escalation fehlen im
     Katalog) weiterhin offen — FE-seitig, dieser Loop fasst das Frontend nicht an.
   - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
+
+## Iteration 10 — g-rls-tenant-id-ohne-policy — done — 2026-08-02 22:40
+- commit: <folgt>
+- gebaut: Migration `000269_rls_email_contact_links_and_plugin_rules` setzt RLS auf die drei
+  Tabellen, die `tenant_id` tragen, aber weder RLS noch Policy hatten
+  (`email_contact_links`, `validation_rules`, `workflow_rules`), plus zwei Isolationstests und
+  einen Schreibpfad-Fix im plugin-gRPC-Server.
+  Der Befund ist groesser als "Policy fehlt": `ValidationRuleRepository.GetByID/.Update/.Delete`
+  und die `workflow_rules`-Entsprechungen laufen samtlich als `WHERE id = $1` — **ohne**
+  Tenant-Praedikat. Wer eine Regel-UUID kannte, konnte bis eben die Regel eines fremden Tenants
+  lesen, aendern und loeschen. Der Service darueber (`plugin/service.go`) reicht die ID
+  ungefiltert durch. RLS schliesst das an der einzigen Stelle, an der es fuer alle Aufrufer
+  zugleich zu schliessen ist; die Repos bleiben unveraendert, weil ein nachtraeglich
+  eingebautes Praedikat je Methode genau der groessere Diff mit der kleineren Wirkung waere.
+  `email_contact_links.tenant_id` war seit Migration 000110 **nullable und nie gebackfillt**.
+  Eine Policy auf einer NULL-Spalte macht die Tabelle unsichtbar statt sicher (Phantom-404), also
+  erst Backfill aus `email_messages.tenant_id` (Join ueber `message_id`, das NOT NULL + FK mit
+  ON DELETE CASCADE ist, und `email_messages.tenant_id` ist selbst NOT NULL — der Backfill ist
+  damit vollstaendig), dann `SET NOT NULL`, dann die Policy.
+- entscheidungen:
+  1. **Kein DELETE-Fallback fuer nicht aufloesbare Zeilen.** Die naheliegende Zeile
+     `DELETE FROM email_contact_links WHERE tenant_id IS NULL` haette die Migration auf jeder
+     Datenbank durchlaufen lassen. Genau das ist der Fehler: traegt die FK-Annahme auf Prod nicht,
+     soll die Migration stehenbleiben und nicht stillschweigend Verknuepfungen loeschen. Lokal
+     ist die Tabelle leer (0 Zeilen), auf Prod entscheidet der Backfill; schlaegt `SET NOT NULL`
+     dort fehl, ist das die gewuenschte Bremse.
+  2. **Schreibpfad-Fix im Service, nicht nur RLS.** `plugin_grpc.go` nahm die `tenant_id` fuer
+     `CreateValidationRule`, `ListValidationRules`, `CreateWorkflowRule`, `ListWorkflowRules` und
+     `ApplyIndustryTemplate` **aus dem Request-Body** — die Datei benutzte
+     `middleware.GetTenantID` an keiner einzigen Stelle. Ueber HTTP war das gedeckt (das Gateway
+     fuellt das Feld aus dem JWT, `route_plugin.go`), am gRPC-Port aber nicht. Neuer Helper
+     `ruleTenant(ctx)` liest den propagierten `x-tenant-id`. Ohne ihn waere der Angriffsversuch
+     nach dieser Migration zwar geblockt, aber als undurchsichtiger DB-Fehler tief im Repository
+     statt als `InvalidArgument` an der Grenze. Das proto-Feld bleibt (Kompatibilitaet), es wird
+     nur nicht mehr geglaubt.
+  3. **Bewusst nicht angefasst:** die uebrigen Handler derselben Datei (KV-Store, Installationen,
+     Manifeste, `ValidateEntity`, `ExecuteHooks`) nehmen den Tenant weiterhin aus dem Body. Ihre
+     Tabellen stehen seit Migration 000126 unter RLS, der Vektor ist also gedeckt; ein Umbau
+     aller Handler ist eine eigene Unit und haette den Diff dieser verwaessert. **Offener Punkt
+     unten.**
+  4. **Tests gegen die echten Repo-Methoden, nicht ueber `SeedRow`.** Ein seed-basierter Test
+     haette nur bewiesen, dass ein handgeschriebenes INSERT die Policy respektiert — die
+     eigentliche Luecke (ungescoptes `GetByID`/`Delete`) waere unsichtbar geblieben. Der Test
+     ruft deshalb `repo.GetByID` und `repo.Delete` als fremder Tenant auf und prueft, dass die
+     Zeile danach noch steht.
+- gate: build ok (`go build -p 2` server/plugin/email + cmd/plugin,email,gateway) | vet ok |
+  lint ok (golangci-lint, **0 issues** ueber server+plugin+email) | test ok — `go test -count=1`
+  ueber `./internal/plugin/... ./internal/email/... ./internal/server/...` **14 Pakete gruen**,
+  darunter die drei neuen `TestTenantIsolation_ValidationRules_DB`,
+  `_WorkflowRules_DB`, `_EmailContactLinks_DB` (real gelaufen als `kmuhub_app`, **0 Skips**);
+  `go test -count=1 ./internal/gateway/` inkl. `TestOpenAPIRouteDrift` gruen. |
+  migration: up/down/up gruen (268 -> 269 -> 268 -> 269), danach per `pg_class`/`pg_policies`
+  verifiziert: alle drei `rowsec=true forced=true` mit Policy
+  `tenant_id = current_tenant_id() OR is_system_context()`, `email_contact_links.tenant_id`
+  `nullable=NO`. | rls-smoke: durch die drei Isolationstests abgedeckt (eigener Tenant sieht 1,
+  fremder 0; fremdes DELETE aendert nichts; INSERT auf fremden Tenant wird von WITH CHECK
+  abgelehnt).
+- verify vorgaenger: sauber. `26388dae` (p1b-guardrail-tests) gegen die acht Klassen geprueft —
+  reine Testergaenzung (10 Zeilen in `grpc_test.go`), kein Produktionscode, kein `.proto`, keine
+  Route, keine Tabelle, kein neuer Guard. Die drei ergaenzten Tabellenzeilen decken sich mit dem
+  tatsaechlichen `mapError`-Switch (`grpc.go:1101-1106`) — nachgelesen, nicht geglaubt.
+- offen:
+  - **Neuer Fund, eigene Unit wert:** `backend/internal/server/plugin_grpc.go` liest den Tenant in
+    allen uebrigen Handlern weiter aus dem Request-Body (`req.GetTenantId()`) statt aus dem
+    Context. Nach dieser Iteration ist die Datei uneinheitlich — die Rule-Pfade lesen den Context,
+    der Rest nicht. Kandidat fuer eine kleine Aufraeum-Unit in Lauf 5.
+  - Testfixture-Fallstrick, den der naechste Isolationstest wissen sollte: `t.Cleanup` laeuft
+    **nach** allen `defer`s der Testfunktion. Ein `defer pool.Close()` schliesst den Pool also,
+    bevor per `t.Cleanup` registrierte Fixture-Cleanups laufen — sie scheitern still mit
+    "closed pool" und lassen die FK-Kette in der DB stehen (im ersten Lauf genau so passiert,
+    Reste manuell entfernt). Loesung im contactlink-Test: Pool ebenfalls per `t.Cleanup`
+    schliessen, als erstes registriert (LIFO -> laeuft zuletzt).
+  - Naechste Unit laut Backlog: `g-rls-custom-field-values` (Block B, opus) — vier
+    `*_custom_field_values`-Tabellen ohne eigene `tenant_id`, Absicherung ueber
+    `enable_tenant_rls_via_join()`.
+  - `SetRolePermissions` ohne Audit-Event, `rbac-format.ts`-Katalogluecke und die nicht
+    regenerierte `desktop/src/renderer/src/api/types.ts` bleiben unveraendert offen (FE-seitig
+    bzw. Scope-Frage fuer Luke).
