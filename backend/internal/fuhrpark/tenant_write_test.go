@@ -120,6 +120,27 @@ func TestFuhrparkWrites_LandInCallerTenant(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "vehicle_documents", doc.ID)
 
+	driverID := uuid.New()
+	if _, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name)
+		 VALUES ($1, $2, 'fuhrpark-write-driver@test.local', 'x', 'Fuhrpark', 'Driver')`,
+		driverID, tenantWrite); err != nil {
+		t.Fatalf("seed driver user: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "users", driverID)
+
+	lic, err := repo.CreateDriverLicense(ctxA, DriverLicense{
+		TenantID:         tenantWrite,
+		DriverID:         driverID,
+		LicenseClasses:   []string{"B"},
+		CheckedAt:        now,
+		NextCheckDueDate: now.AddDate(1, 0, 0),
+	})
+	if err != nil {
+		t.Fatalf("CreateDriverLicense: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "driver_licenses", lic.ID)
+
 	rows := []struct {
 		table string
 		id    uuid.UUID
@@ -130,6 +151,7 @@ func TestFuhrparkWrites_LandInCallerTenant(t *testing.T) {
 		{"fuel_logs", fuelLog.ID},
 		{"trip_logs", tripLog.ID},
 		{"vehicle_documents", doc.ID},
+		{"driver_licenses", lic.ID},
 	}
 
 	for _, row := range rows {

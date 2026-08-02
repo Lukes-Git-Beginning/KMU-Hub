@@ -144,6 +144,16 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/positions", fr.HandleGetGpsPositions)
 		})
 
+		// Driver licenses (Fuehrerscheinkontrolle)
+		r.Route("/driver-licenses", func(r chi.Router) {
+			r.With(middleware.RequirePermission("fuhrpark:license", "read")).Get("/", fr.HandleListDriverLicenses)
+			r.With(middleware.RequirePermission("fuhrpark:license", "write")).Post("/", fr.HandleCreateDriverLicense)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("fuhrpark:license", "write")).Patch("/", fr.HandleUpdateDriverLicense)
+				r.With(middleware.RequirePermission("fuhrpark:license", "write")).Delete("/", fr.HandleDeleteDriverLicense)
+			})
+		})
+
 		// TUEV check
 		r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/tuev-due", fr.HandleCheckTuevDue)
 
@@ -283,6 +293,23 @@ type createVehicleDocumentRequest struct {
 	Name       string  `json:"name"        validate:"required"`
 	ObjectKey  string  `json:"object_key"  validate:"required"`
 	ExpiryDate *string `json:"expiry_date,omitempty"`
+}
+
+type createDriverLicenseRequest struct {
+	DriverID         string   `json:"driver_id"           validate:"required,uuid"`
+	LicenseClasses   []string `json:"license_classes"     validate:"required,min=1"`
+	ExpiryDate       *string  `json:"expiry_date,omitempty"`
+	CheckedAt        *string  `json:"checked_at,omitempty"`
+	NextCheckDueDate string   `json:"next_check_due_date" validate:"required"`
+	Notes            *string  `json:"notes,omitempty"`
+}
+
+type updateDriverLicenseRequest struct {
+	LicenseClasses   []string `json:"license_classes"     validate:"required,min=1"`
+	ExpiryDate       *string  `json:"expiry_date,omitempty"`
+	CheckedAt        *string  `json:"checked_at,omitempty"`
+	NextCheckDueDate string   `json:"next_check_due_date" validate:"required"`
+	Notes            *string  `json:"notes,omitempty"`
 }
 
 type ingestGpsPositionsRequest struct {
@@ -1361,6 +1388,135 @@ func (fr *FuhrparkRoutes) HandleDeleteVehicleDocument(w http.ResponseWriter, r *
 		return
 	}
 	_, err = client.DeleteVehicleDocument(r.Context(), &fuhrparkv1.DeleteVehicleDocumentRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Driver License Handlers
+// ============================================================================
+
+func (fr *FuhrparkRoutes) HandleListDriverLicenses(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListDriverLicenses(r.Context(), &fuhrparkv1.ListDriverLicensesRequest{
+		DriverId: r.URL.Query().Get("driver_id"),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleCreateDriverLicense(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[createDriverLicenseRequest](w, r)
+	if !ok {
+		return
+	}
+	grpcReq := &fuhrparkv1.CreateDriverLicenseRequest{
+		DriverId:         req.DriverID,
+		LicenseClasses:   req.LicenseClasses,
+		NextCheckDueDate: req.NextCheckDueDate,
+	}
+	if req.ExpiryDate != nil {
+		grpcReq.ExpiryDate = *req.ExpiryDate
+	}
+	if req.CheckedAt != nil {
+		grpcReq.CheckedAt = *req.CheckedAt
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = *req.Notes
+	}
+	resp, err := client.CreateDriverLicense(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleUpdateDriverLicense(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[updateDriverLicenseRequest](w, r)
+	if !ok {
+		return
+	}
+	grpcReq := &fuhrparkv1.UpdateDriverLicenseRequest{
+		Id:               id,
+		LicenseClasses:   req.LicenseClasses,
+		NextCheckDueDate: req.NextCheckDueDate,
+	}
+	if req.ExpiryDate != nil {
+		grpcReq.ExpiryDate = *req.ExpiryDate
+	}
+	if req.CheckedAt != nil {
+		grpcReq.CheckedAt = *req.CheckedAt
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = *req.Notes
+	}
+	resp, err := client.UpdateDriverLicense(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleDeleteDriverLicense(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	_, err = client.DeleteDriverLicense(r.Context(), &fuhrparkv1.DeleteDriverLicenseRequest{Id: id})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

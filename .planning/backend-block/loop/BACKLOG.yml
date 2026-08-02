@@ -1258,7 +1258,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Fuehrerscheinkontrolle: Modell + Routen. Halter-Pflicht in DACH — wer Fahrzeuge stellt, muss
       die Fahrerlaubnis seiner Fahrer regelmaessig pruefen und das dokumentieren.
@@ -1284,6 +1284,35 @@ units:
       - CRUD-Routen registriert, tenant-gescopt beim Schreiben UND Lesen
       - openapi.yaml + go test ./internal/gateway/ gruen
       - migrate up/down/up gruen
+    ergebnis: >
+      ERLEDIGT (Migration 000279, Iteration 24). Praemisse bestaetigt: kein FE-Vertrag fuer
+      Fuehrerscheinkontrolle (grep gegen `desktop/src/renderer/src` findet nur `license_plate`,
+      kein `driver`/`license`-Feld auf einer Person) — reine Backend-Unit, FE-Wiring als Folgepunkt.
+      Design: `driver_licenses` ist append-only Historie (eine Zeile pro durchgefuehrter Kontrolle,
+      nicht ein Status-Feld), analog zu `vehicle_documents`/`vehicle_services`. `driver_id`
+      referenziert `users(id)`; `CreateDriverLicense` fuegt ueber einen JOIN auf `users WHERE
+      id=$driver AND tenant_id=$tenant` ein (Vorlage `AssignUserRole` in `auth/postgres_repository.go`)
+      — verhindert, dass ein Tenant einen Fremd-Tenant-User als "Fahrer" referenziert, obwohl die
+      Tabelle selbst schon eigenes RLS hat. Per SQL-Smoke UND Go-Test verifiziert: 0 Zeilen bei
+      Tenant-Mismatch.
+      4 neue RPCs in `fuhrpark.proto`/`fuhrpark_grpc.go` (List/Create/Update/Delete), Service +
+      Repository nach dem `VehicleDocument`-Muster, Gateway-Route `/api/v1/fuhrpark/driver-licenses`
+      (top-level, nicht unter `/vehicles/{id}/`, weil der Fahrer keinem einzelnen Fahrzeug gehoert).
+      Permission `fuhrpark:license:read/write`, seed + Grant an `admin` (gleiches Muster wie
+      `fuhrpark:document` in 000196 — admin-only, kein FE-Zwang zu manager/member).
+      gate: build ok (`go build -p 2 ./internal/fuhrpark/... ./internal/gateway/...
+      ./internal/server/... ./cmd/fuhrpark/... ./cmd/gateway/...`) | vet ok | lint ok
+      (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/fuhrpark/...` 31 PASS /
+      0 SKIP (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`), `go test ./internal/gateway/` gruen
+      inkl. `TestOpenAPIRouteDrift` (789/791) | migration: `up`/`down 1`/`up` sauber (278->279) |
+      RLS-Smoke: eigener Tenant 1, fremder Tenant 0, Cross-Tenant-Insert (Fahrer aus Tenant A,
+      Aufrufer behauptet Tenant B) liefert 0 Zeilen | `TestAllPublicTablesHaveRLSOrAreAllowlisted`
+      bleibt gruen — kein neuer Fund.
+      Tests: `driver_license_test.go` (neu, 6 Subtests: Cross-Tenant-Create-Ablehnung, Isolation,
+      List-Filter, Update, Update/Delete ueber Tenant-Grenze als No-op) + `tenant_write_test.go`
+      um den `driver_licenses`-Fall erweitert (echter Schreibpfad statt `testutil.SeedRow`).
+      Bewusst nicht gebaut (aus den notes): keine Ablauf-Erinnerungen/Benachrichtigungen — gehoert
+      dem notification-Modul, als Folge-Unit vormerken.
 
   # ==========================================================================
   # BLOCK G — Feature-Ebene, Recherche-Runde 2 (2026-08-02, nachmittags)

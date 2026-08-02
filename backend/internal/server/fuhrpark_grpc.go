@@ -989,6 +989,147 @@ func (s *FuhrparkGRPCServer) DeleteVehicleDocument(ctx context.Context, req *fuh
 }
 
 // ============================================================================
+// Driver License RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) ListDriverLicenses(ctx context.Context, req *fuhrparkv1.ListDriverLicensesRequest) (*fuhrparkv1.ListDriverLicensesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	var driverID uuid.UUID
+	if req.DriverId != "" {
+		driverID, err = uuid.Parse(req.DriverId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid driver_id: %v", err)
+		}
+	}
+	licenses, total, err := s.svc.ListDriverLicenses(ctx, fuhrpark.ListDriverLicensesParams{
+		TenantID: tenantID,
+		DriverID: driverID,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.DriverLicense, len(licenses))
+	for i, l := range licenses {
+		pb[i] = driverLicenseToProto(l)
+	}
+	return &fuhrparkv1.ListDriverLicensesResponse{Licenses: pb, Total: int32(total)}, nil
+}
+
+func (s *FuhrparkGRPCServer) CreateDriverLicense(ctx context.Context, req *fuhrparkv1.CreateDriverLicenseRequest) (*fuhrparkv1.CreateDriverLicenseResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	driverID, err := uuid.Parse(req.DriverId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid driver_id: %v", err)
+	}
+	checkedAt := time.Now()
+	if req.CheckedAt != "" {
+		t, parseErr := time.Parse("2006-01-02", req.CheckedAt)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid checked_at: %v", parseErr)
+		}
+		checkedAt = t
+	}
+	nextDue, err := time.Parse("2006-01-02", req.NextCheckDueDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid next_check_due_date: %v", err)
+	}
+	var expiryDate *time.Time
+	if req.ExpiryDate != "" {
+		t, parseErr := time.Parse("2006-01-02", req.ExpiryDate)
+		if parseErr == nil {
+			expiryDate = &t
+		}
+	}
+	var notes *string
+	if req.Notes != "" {
+		notes = &req.Notes
+	}
+	lic, err := s.svc.CreateDriverLicense(ctx, fuhrpark.DriverLicense{
+		TenantID:         tenantID,
+		DriverID:         driverID,
+		LicenseClasses:   req.LicenseClasses,
+		ExpiryDate:       expiryDate,
+		CheckedAt:        checkedAt,
+		NextCheckDueDate: nextDue,
+		Notes:            notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.CreateDriverLicenseResponse{License: driverLicenseToProto(lic)}, nil
+}
+
+func (s *FuhrparkGRPCServer) UpdateDriverLicense(ctx context.Context, req *fuhrparkv1.UpdateDriverLicenseRequest) (*fuhrparkv1.UpdateDriverLicenseResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	nextDue, err := time.Parse("2006-01-02", req.NextCheckDueDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid next_check_due_date: %v", err)
+	}
+	checkedAt := time.Now()
+	if req.CheckedAt != "" {
+		t, parseErr := time.Parse("2006-01-02", req.CheckedAt)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid checked_at: %v", parseErr)
+		}
+		checkedAt = t
+	}
+	var expiryDate *time.Time
+	if req.ExpiryDate != "" {
+		t, parseErr := time.Parse("2006-01-02", req.ExpiryDate)
+		if parseErr == nil {
+			expiryDate = &t
+		}
+	}
+	var notes *string
+	if req.Notes != "" {
+		notes = &req.Notes
+	}
+	lic, err := s.svc.UpdateDriverLicense(ctx, fuhrpark.DriverLicense{
+		ID:               id,
+		TenantID:         tenantID,
+		LicenseClasses:   req.LicenseClasses,
+		ExpiryDate:       expiryDate,
+		CheckedAt:        checkedAt,
+		NextCheckDueDate: nextDue,
+		Notes:            notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.UpdateDriverLicenseResponse{License: driverLicenseToProto(lic)}, nil
+}
+
+func (s *FuhrparkGRPCServer) DeleteDriverLicense(ctx context.Context, req *fuhrparkv1.DeleteDriverLicenseRequest) (*fuhrparkv1.DeleteDriverLicenseResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if err := s.svc.DeleteDriverLicense(ctx, tenantID, id); err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.DeleteDriverLicenseResponse{}, nil
+}
+
+// ============================================================================
 // GPS RPCs
 // ============================================================================
 
@@ -1151,6 +1292,29 @@ func vehicleDocumentToProto(d fuhrpark.VehicleDocument) *fuhrparkv1.VehicleDocum
 	}
 }
 
+func driverLicenseToProto(l fuhrpark.DriverLicense) *fuhrparkv1.DriverLicense {
+	expiry := ""
+	if l.ExpiryDate != nil {
+		expiry = l.ExpiryDate.Format("2006-01-02")
+	}
+	notes := ""
+	if l.Notes != nil {
+		notes = *l.Notes
+	}
+	return &fuhrparkv1.DriverLicense{
+		Id:               l.ID.String(),
+		TenantId:         l.TenantID.String(),
+		DriverId:         l.DriverID.String(),
+		LicenseClasses:   l.LicenseClasses,
+		ExpiryDate:       expiry,
+		CheckedAt:        l.CheckedAt.Format("2006-01-02"),
+		NextCheckDueDate: l.NextCheckDueDate.Format("2006-01-02"),
+		Notes:            notes,
+		CreatedAt:        l.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        l.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
 func gpsPositionToProto(p fuhrpark.GpsPosition) *fuhrparkv1.GpsPosition {
 	speed := 0.0
 	if p.SpeedKmh != nil {
@@ -1194,6 +1358,10 @@ func mapFuhrparkError(err error) error {
 	case errors.Is(err, fuhrpark.ErrTripLogNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrDocumentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrDriverLicenseNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrDriverNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrPlateTaken):
 		return status.Error(codes.AlreadyExists, err.Error())

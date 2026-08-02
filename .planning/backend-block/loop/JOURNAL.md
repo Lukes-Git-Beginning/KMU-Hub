@@ -1497,3 +1497,55 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Endpoints umstellen, Zentria-seitiger Bestaetigungsweg fuer `counter_proposed`,
     `sensitiveAreas`-Handkopie ohne gemeinsame Quelle) bleiben unveraendert offen, hier nicht
     angefasst.
+
+## Iteration 24 — g-fuhrpark-license-check — done — 2026-08-03
+
+- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- verify vorgaenger: sauber. `45b5331d` (fix-einkauf-po-total, Iteration 23) gegen die
+  Fehlerklassen geprueft: Migration 000278 recomputet mit exakt derselben Formel wie
+  `RecomputePOTotal` (`postgres_repository.go:390-405`, `SUM(quantity*unit_price)`, kein float64),
+  idempotenter `WHERE total_amount <> COALESCE(...)`-Guard verifiziert, `down.sql` ist ein
+  begruendeter No-op (alte Werte waren falsch). Keine neue Route/kein Proto, `go test
+  ./internal/gateway/` war zu Recht nicht Teil des Vorgaenger-Gates. Nichts zu beanstanden.
+- gebaut: `g-fuhrpark-license-check` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge,
+  `deps: []`). Praemisse gegengeprueft: kein FE-Vertrag fuer eine Fuehrerscheinkontrolle
+  (`desktop/src/renderer/src` kennt nur `license_plate`, keine Person-bezogene Fuehrerschein-Spur)
+  — reine Backend-Unit.
+  Design: `driver_licenses` als Historie (append-only, eine Zeile pro Kontrolle — analog
+  `vehicle_documents`/`vehicle_services`, nicht ein Status-Feld pro Fahrer), `driver_id`
+  referenziert `users(id)`. `CreateDriverLicense` fuegt ueber `INSERT ... SELECT ... FROM users
+  WHERE id=$driver AND tenant_id=$tenant` ein (Vorlage: `AssignUserRole`,
+  `auth/postgres_repository.go:641`) — verhindert, dass ein Tenant einen fremden User als "Fahrer"
+  referenziert, obwohl `driver_licenses` selbst schon `enable_tenant_rls()` traegt. Migration
+  000279 (naechste freie Nummer zur Laufzeit ermittelt: Kopf war 278). Vier neue RPCs
+  (List/Create/Update/Delete) in `fuhrpark.proto` + Regenerierung im selben Commit (`make`-Target
+  fuer Fuhrpark existiert nicht im Makefile, exakter `protoc`-Befehl der Nachbar-Targets manuell
+  nachgebaut). Service/Repository/gRPC-Server/Gateway-Route nach dem `VehicleDocument`-Muster,
+  Route liegt top-level unter `/api/v1/fuhrpark/driver-licenses` (nicht unter `/vehicles/{id}/`,
+  weil ein Fahrer keinem einzelnen Fahrzeug gehoert). Permission `fuhrpark:license:read/write`,
+  Seed + Grant an `admin` — gleiches admin-only-Muster wie `fuhrpark:document` (Migration 000196),
+  bewusst nicht auf manager/member erweitert (kein FE-Zwang, kein Praezedenzfall dafuer).
+  gate: build ok (`go build -p 2 ./internal/fuhrpark/... ./internal/gateway/...
+  ./internal/server/... ./cmd/fuhrpark/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/fuhrpark/...` 31 PASS /
+  0 SKIP (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`), `go test ./internal/gateway/` gruen inkl.
+  `TestOpenAPIRouteDrift` (789/791 nach den vier neuen Pfaden), `go test ./internal/server/...`
+  gruen | migration: `up`/`down 1`/`up` sauber (278->279->278->279) | RLS-Smoke: eigener Tenant 1,
+  fremder Tenant 0, Cross-Tenant-Insert-Versuch (Fahrer aus Tenant A, Aufrufer behauptet Tenant B)
+  liefert 0 Zeilen (SQL UND Go-Test) | `TestAllPublicTablesHaveRLSOrAreAllowlisted` bleibt gruen,
+  kein neuer Fund durch die neue Tabelle.
+  Tests: neue Datei `driver_license_test.go` (6 Subtests: Cross-Tenant-Create-Ablehnung, Isolation,
+  List-Filter nach Fahrer, Update, Update/Delete ueber Tenant-Grenze als No-op) +
+  `tenant_write_test.go` um den `driver_licenses`-Fall erweitert (echter Schreibpfad statt
+  `testutil.SeedRow`, Cleanup-Reihenfolge per `defer`-LIFO: License vor User).
+- offen:
+  - Bewusst nicht gebaut (steht so in den notes der Unit): keine Ablauf-Erinnerungen/
+    Benachrichtigungen fuer faellige Kontrollen — gehoert dem notification-Modul, als
+    eigenstaendige Folge-Unit vormerken, nicht Teil dieser Unit.
+  - Kein FE-Wiring (Backend-Loop fasst `desktop/` nicht an) — `driver-licenses`-UI im
+    Fuhrpark-Modul existiert noch nicht, waere eine Folge-Session.
+  - Permission bewusst nur an `admin` vergeben, nicht an `manager` — falls Fuhrpark-Manager das
+    im Alltag pflegen sollen, ist das eine Produktentscheidung fuer eine spaetere Migration, kein
+    Uebersehen.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
