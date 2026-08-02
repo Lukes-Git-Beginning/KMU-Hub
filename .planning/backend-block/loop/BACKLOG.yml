@@ -163,7 +163,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1b-roles-create]
-    status: todo
+    status: done
     scope: >
       `PATCH /admin/roles/{id}` `{name?,description?,color?}` -> `{role}` und
       `DELETE /admin/roles/{id}` -> 204.

@@ -55,6 +55,8 @@ func TestMapError(t *testing.T) {
 		{"role name exists", auth.ErrRoleNameExists, codes.AlreadyExists},
 		{"role limit reached", auth.ErrRoleLimitReached, codes.FailedPrecondition},
 		{"clone source not found", auth.ErrBaseRoleNotFound, codes.NotFound},
+		{"preset immutable", auth.ErrRolePresetImmutable, codes.PermissionDenied},
+		{"role has members", auth.ErrRoleHasMembers, codes.FailedPrecondition},
 		// --- Fallback ---
 		{"unknown error", errors.New("boom"), codes.Internal},
 	}

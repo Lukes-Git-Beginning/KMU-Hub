@@ -190,3 +190,69 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     mehr Rechte traegt als er selbst — der Escalation-Schutz ist bewusst erst `p1b-guardrails` (c).
   - `RoleNameExists` hat schon den `exceptID`-Parameter, den erst `p1b-roles-update-delete` fuer den
     Rename braucht; heute wird `uuid.Nil` uebergeben.
+
+## Iteration 4 — p1b-roles-update-delete — done — 2026-08-02 22:10
+
+- commit: (siehe naechster Eintrag)
+- gebaut: `PATCH /admin/roles/{id}` (Teil-Update: nur mitgeschickte Felder aendern sich) und
+  `DELETE /admin/roles/{id}` (204). Service `UpdateRole`/`DeleteRole` in `internal/auth/roles_admin.go`
+  pruefen ERST per neuem `Repository.GetRoleByID` (RLS-Read: Preset oder eigener Tenant, alles andere
+  `ErrBaseRoleNotFound`), ob die Zielrolle ein Preset ist (`ErrRolePresetImmutable`), bevor irgendetwas
+  geschrieben wird — die Schreib-Policy wuerde ein Preset ohnehin nur mit 0 Zeilen treffen, das waere ein
+  stilles No-Op statt eines Fehlers. `UpdateRole` prueft danach `RoleNameExists(..., exceptID=roleID)`
+  (Rename auf den eigenen aktuellen Namen ist keine Kollision), `DeleteRole` prueft `RoleHasMembers`
+  (Join `user_roles` -> `users`, da `user_roles` weder `tenant_id` noch RLS hat — dasselbe Muster wie
+  `ListRoles.member_count`). Repository: `GetRoleByID`, `UpdateRole` (eine Query, CTE-UPDATE + RETURNING
+  mit denselben Member-/Capability-Count-Subqueries wie `ListRoles`), `RoleHasMembers`, `DeleteRole`
+  (verlaesst sich auf die FK-Kaskaden von `role_permissions`/`user_roles` auf `role_id`, migration 000002).
+  gRPC `AuthGRPCServer.UpdateRole`/`DeleteRole` + zwei neue `mapError`-Faelle
+  (`ErrRolePresetImmutable` -> PermissionDenied/403, `ErrRoleHasMembers` -> FailedPrecondition/409).
+  Gateway-Handler `HandleUpdateRole`/`HandleDeleteRole`, Guards additiv
+  (`RequirePermissionAny({roles,manage},{admin:role,edit|delete})` — beide Keys seit Migration 000256 fuer
+  admin und it_admin geseedet, in der DB nachgezaehlt, **kein neuer Seed noetig**). `openapi.yaml`: neuer
+  Pfad `/api/v1/admin/roles/{id}` mit PATCH/DELETE + Schema `UpdateRoleRequest`.
+- entscheidungen:
+  1. **`GetRoleByID` vor jedem Schreibzugriff, nicht die Schreib-Policy allein entscheiden lassen.** Ein
+     UPDATE/DELETE auf ein Preset traefe wegen `tenant_id = current_tenant_id()` in der `WITH CHECK`/
+     `USING`-Klausel ohnehin 0 Zeilen — aber 0 betroffene Zeilen ist im Code nicht von "Rolle existiert
+     nicht" unterscheidbar, und der FE-Vertrag (`mocks/handlers/rbac.ts:150,175`) verlangt fuer ein Preset
+     explizit `preset_immutable` (403), nicht `not_found` (404). Deshalb liest der Service die Rolle zuerst.
+  2. **`GetRoleByID` liefert `ErrBaseRoleNotFound` sowohl fuer unbekannte IDs als auch fuer Rollen anderer
+     Tenants** — die RLS-Read-Policy macht Fremdrollen unsichtbar, ein Aufrufer darf nicht lernen, dass sie
+     existieren. Getestet in `TestUpdateRole_DB_ForeignRoleIsNotFound`/`TestDeleteRole_DB_NotFound`.
+  3. **`RoleHasMembers` und der `member_count` in `UpdateRole`s RETURNING joinen ueber `users`**, weil
+     `user_roles` selbst weder `tenant_id` noch RLS traegt (siehe Block-B-Befund `g-user-roles-rls`) — ohne
+     den Join wuerde `role_has_members` tenant-uebergreifend zaehlen. Exakt dasselbe Muster wie
+     `ListRoles.member_count` (Iteration 2), hier wiederverwendet statt neu erfunden.
+  4. **`UpdateRole`-Repo-Query ist eine einzige `WITH updated AS (UPDATE ... RETURNING ...) SELECT ...`
+     Anweisung**, keine zwei Roundtrips: die Member-/Capability-Counts kommen als korrelierte Subqueries im
+     selben Statement, damit der Aufrufer nicht zwischen UPDATE und Re-Read eine inkonsistente Zwischenzeile
+     sehen kann.
+  5. **`DeleteRole`s `RowsAffected()==0`-Check ist ein Race-Backstop, kein Primaerschutz** — Preset- und
+     Members-Pruefung laufen bereits im Service davor; der Check faengt nur die theoretische Luecke
+     zwischen Pruefung und DELETE ab (kein `SELECT ... FOR UPDATE`, bewusst: Rollen-Admin ist kein
+     Hochlast-Pfad, ein zusaetzlicher Lock waere Overhead ohne echten Nutzen hier).
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint, 0 issues) |
+  test ok — `go test -count=1 ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit
+  `DATABASE_URL` als `kmuhub_app`: alle vier Pakete gruen, 649 PASS (334 Top-Level + 315 Subtests laut
+  `--- PASS`-Zeilen), **0 SKIP, 0 FAIL** (gezaehlt ueber `grep -c`). `TestOpenAPIRouteDrift`: 780
+  registrierte gegen 782 dokumentierte Pfade, gruen. | migration n.a. (keine noetig — `roles`/
+  `role_permissions`/Guards tragen seit 000256 alles) | rls-smoke: keine neue Policy/Tabelle angefasst,
+  nur neue tenant-gescopte SELECTs/UPDATE/DELETE auf `roles`; Isolation ueber vier neue DB-Tests belegt
+  (`TestUpdateRole_DB_ForeignRoleIsNotFound`, `TestDeleteRole_DB_NotFound`, `TestUpdateRole_DB_NameCollision`
+  ueber zwei eigene Tenants, `TestDeleteRole_DB_RoleHasMembers` inkl. echtem User+Assignment) statt eines
+  manuellen psql-Snippets.
+- verify vorgaenger: sauber. `797dfdb4` (p1b-roles-create) gegen die acht Fehlerklassen geprueft — Handler
+  geht ueber `client.CreateRole` (keine Layer-Umgehung), keine Stubs, kein `.proto`-Drift in diesem Commit
+  (bereits in Iteration 1 regeneriert), Guard additiv, `openapi.yaml` im selben Commit, Fehlercode
+  `not_found` bei fehlendem Namen/`basedOn` deckt sich exakt mit `mocks/handlers/rbac.ts:133`.
+- offen:
+  - Vier Mock-Repositories (`mockRepository` in `internal/auth`, `authMockRepo` in `internal/server`)
+    mussten um No-Op-`GetRoleByID`/`UpdateRole`/`RoleHasMembers`/`DeleteRole` ergaenzt werden, damit sie das
+    `Repository`-Interface weiter erfuellen — reiner Interface-Fixup, kein fachlicher Test dahinter (echte
+    Abdeckung liegt in `roles_admin_db_test.go` gegen die echte DB).
+  - `p1b-role-permissions` (naechste Unit) baut `GET/PUT /admin/roles/{id}/permissions` — die
+    Preset-Immutability-Pruefung dort sollte denselben `GetRoleByID`-Weg gehen statt eine dritte Variante zu
+    erfinden.
+  - Escalation-Schutz beim Rename/Grant-Wechsel ist weiterhin bewusst nicht Teil dieser Unit
+    (`p1b-guardrails`, Regel c) — `UpdateRole` aendert nur Name/Beschreibung/Farbe, keine Grants.

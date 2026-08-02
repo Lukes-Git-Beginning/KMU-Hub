@@ -115,6 +115,14 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 			[2]string{"roles", "manage"},
 			[2]string{"admin:role", "create"},
 		)).Post("/", a.HandleCreateRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "edit"},
+		)).Patch("/{id}", a.HandleUpdateRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "delete"},
+		)).Delete("/{id}", a.HandleDeleteRole)
 	})
 
 	// Protected user routes
@@ -668,6 +676,70 @@ func (a *AuthRoutes) HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusCreated, roleResponseBody{Role: toRoleBody(resp.Role)})
+}
+
+// updateRoleRequest mirrors UpdateRoleInput in rbac-types.ts: every field is
+// optional, absence means "leave unchanged". The length bounds match
+// createRoleRequest's — same columns, same overflow-to-500 concern.
+type updateRoleRequest struct {
+	Name        *string `json:"name,omitempty" validate:"omitempty,max=50"`
+	Description *string `json:"description,omitempty" validate:"omitempty,max=1000"`
+	Color       *string `json:"color,omitempty" validate:"omitempty,max=40"`
+}
+
+// HandleUpdateRole renames/re-describes/recolors a tenant-owned role.
+func (a *AuthRoutes) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateRoleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateRole(r.Context(), &authv1.UpdateRoleRequest{
+		RoleId:      roleID,
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, roleResponseBody{Role: toRoleBody(resp.Role)})
+}
+
+// HandleDeleteRole removes a tenant-owned role. Presets are immutable and a
+// role still worn by a member cannot be deleted out from under its holders —
+// both answer through respondGRPCError, not a bare 500.
+func (a *AuthRoutes) HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.DeleteRole(r.Context(), &authv1.DeleteRoleRequest{RoleId: roleID}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

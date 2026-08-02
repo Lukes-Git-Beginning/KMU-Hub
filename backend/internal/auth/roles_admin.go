@@ -84,3 +84,66 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateR
 		BasedOn:     in.BasedOn,
 	})
 }
+
+// UpdateRoleInput carries the optional fields of a role rename — nil means
+// "leave unchanged", matching the frontend's partial PATCH body.
+type UpdateRoleInput struct {
+	Name        *string
+	Description *string
+	Color       *string
+}
+
+// UpdateRole renames/re-describes/recolors a tenant-owned role. The preset
+// check happens here rather than relying on the write policy's zero-row
+// UPDATE, because a silent no-op would look like a successful save in the
+// builder — the caller needs the explicit 403.
+func (s *Service) UpdateRole(ctx context.Context, roleID uuid.UUID, in UpdateRoleInput) (*Role, error) {
+	role, err := s.repo.GetRoleByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role.TenantID == nil {
+		return nil, ErrRolePresetImmutable
+	}
+
+	if in.Name != nil {
+		trimmed := strings.TrimSpace(*in.Name)
+		in.Name = &trimmed
+		exists, err := s.repo.RoleNameExists(ctx, trimmed, roleID)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, ErrRoleNameExists
+		}
+	}
+	if in.Description != nil {
+		trimmed := strings.TrimSpace(*in.Description)
+		in.Description = &trimmed
+	}
+
+	return s.repo.UpdateRole(ctx, roleID, in)
+}
+
+// DeleteRole removes a tenant-owned custom role. Presets are immutable, and a
+// role still worn by a member cannot be deleted out from under its holders —
+// both checks run before the DELETE, not after a constraint violation.
+func (s *Service) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
+	role, err := s.repo.GetRoleByID(ctx, roleID)
+	if err != nil {
+		return err
+	}
+	if role.TenantID == nil {
+		return ErrRolePresetImmutable
+	}
+
+	hasMembers, err := s.repo.RoleHasMembers(ctx, roleID)
+	if err != nil {
+		return err
+	}
+	if hasMembers {
+		return ErrRoleHasMembers
+	}
+
+	return s.repo.DeleteRole(ctx, roleID)
+}

@@ -218,6 +218,22 @@ func (m *authMockRepo) CreateRole(_ context.Context, _ uuid.UUID, _ auth.CreateR
 	return nil, nil
 }
 
+func (m *authMockRepo) GetRoleByID(_ context.Context, _ uuid.UUID) (*auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) UpdateRole(_ context.Context, _ uuid.UUID, _ auth.UpdateRoleInput) (*auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) RoleHasMembers(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *authMockRepo) DeleteRole(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

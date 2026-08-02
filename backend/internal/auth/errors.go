@@ -52,8 +52,18 @@ var (
 	ErrRoleNameExists   = errors.New("role_name_exists")
 	// ErrBaseRoleNotFound is a distinct sentinel from ErrRoleNotFound: the
 	// latter is the legacy "unknown role name" of AssignRole and maps to 409,
-	// while a missing clone source has to reach the builder as a 404.
+	// while a missing clone source has to reach the builder as a 404. It also
+	// covers a role from another tenant: the RLS read policy makes it
+	// invisible, so "foreign role" and "unknown id" are indistinguishable and
+	// must answer the same way.
 	ErrBaseRoleNotFound = errors.New("not_found")
+	// ErrRolePresetImmutable fires on PATCH/DELETE against a system preset.
+	// The write policy already confines those statements to zero rows, but a
+	// silent no-op would look like a successful save to the builder.
+	ErrRolePresetImmutable = errors.New("preset_immutable")
+	// ErrRoleHasMembers blocks deleting a role that is still assigned to at
+	// least one account in the caller's tenant.
+	ErrRoleHasMembers = errors.New("role_has_members")
 
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")

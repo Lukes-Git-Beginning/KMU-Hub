@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
@@ -244,4 +245,167 @@ func TestCreateRole_DB_LimitCountsOnlyCustomRoles(t *testing.T) {
 	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Erste", BasedOn: source})
 	assert.NoError(t, err, "the budget is per tenant")
+}
+
+func ptr(s string) *string { return &s }
+
+// roleAdminUser inserts a minimal active user into tenantID via the real
+// repository, mirroring tenant_write_test.go's fixture shape.
+func roleAdminUser(t *testing.T, pool *pgxpool.Pool, repo *auth.PostgresRepository, tenantID uuid.UUID) *models.User {
+	t.Helper()
+	now := time.Now().UTC()
+	user := &models.User{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		Email:        "role-admin-" + uuid.New().String() + "@test.local",
+		PasswordHash: "x",
+		FirstName:    "Role",
+		LastName:     "Holder",
+		IsActive:     true,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	require.NoError(t, repo.CreateUser(testutil.WithTenantCtx(context.Background(), tenantID), user))
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", user.ID) })
+	return user
+}
+
+// TestUpdateRole_DB_AppliesOnlyProvidedFields is the partial-PATCH contract:
+// an absent field must survive untouched, not be reset to empty.
+func TestUpdateRole_DB_AppliesOnlyProvidedFields(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	created, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Werkstatt", Description: "Urspruengliche Beschreibung", Color: "hsl(0 0% 50%)",
+		BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+
+	updated, err := svc.UpdateRole(ctx, created.ID, auth.UpdateRoleInput{Color: ptr("hsl(200 80% 50%)")})
+	require.NoError(t, err)
+
+	assert.Equal(t, "Werkstatt", updated.Name, "name was not part of the patch and must survive")
+	assert.Equal(t, "Urspruengliche Beschreibung", updated.Description, "description was not part of the patch")
+	assert.Equal(t, "hsl(200 80% 50%)", updated.Color)
+	assert.Equal(t, created.CapabilityCount, updated.CapabilityCount, "the update must not touch the cloned grants")
+}
+
+// TestUpdateRole_DB_NameCollision mirrors the create-side test: the check is
+// case-insensitive, covers the presets too, but must not fire against the
+// role's own current name (exceptID) — a no-op rename is not a collision.
+func TestUpdateRole_DB_NameCollision(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	source := presetID(t, pool, "extern")
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	taken, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Belegt", BasedOn: source})
+	require.NoError(t, err)
+	mine, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Eigene", BasedOn: source})
+	require.NoError(t, err)
+
+	_, err = svc.UpdateRole(ctx, mine.ID, auth.UpdateRoleInput{Name: ptr("belegt")})
+	assert.ErrorIs(t, err, auth.ErrRoleNameExists, "case-insensitive collision against another custom role")
+
+	_, err = svc.UpdateRole(ctx, mine.ID, auth.UpdateRoleInput{Name: ptr("Admin")})
+	assert.ErrorIs(t, err, auth.ErrRoleNameExists, "a preset name is taken too")
+
+	_, err = svc.UpdateRole(ctx, taken.ID, auth.UpdateRoleInput{Name: ptr("Belegt")})
+	assert.NoError(t, err, "renaming a role onto its own current name is not a collision")
+}
+
+// TestUpdateRole_DB_PresetIsImmutable proves the explicit 403: the write
+// policy alone would just touch zero rows on a preset id, which would look
+// like a silent no-op success to the builder instead of an error.
+func TestUpdateRole_DB_PresetIsImmutable(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	_, err := svc.UpdateRole(ctx, presetID(t, pool, "extern"), auth.UpdateRoleInput{Name: ptr("Gehackt")})
+	assert.ErrorIs(t, err, auth.ErrRolePresetImmutable)
+}
+
+// TestUpdateRole_DB_ForeignRoleIsNotFound proves the role is resolved through
+// the RLS read policy: another tenant's custom role must not be reachable —
+// not even to learn that it exists.
+func TestUpdateRole_DB_ForeignRoleIsNotFound(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Fremd", BasedOn: presetID(t, pool, "extern")})
+	require.NoError(t, err)
+
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+	_, err = svc.UpdateRole(ctx, foreign.ID, auth.UpdateRoleInput{Name: ptr("Geklaut")})
+	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound)
+
+	_, err = svc.UpdateRole(ctx, uuid.New(), auth.UpdateRoleInput{Name: ptr("Unbekannt")})
+	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound, "an unknown id is a 404 as well")
+}
+
+// TestDeleteRole_DB_PresetIsImmutable is the delete-side counterpart of the
+// update guard.
+func TestDeleteRole_DB_PresetIsImmutable(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	err := svc.DeleteRole(ctx, presetID(t, pool, "extern"))
+	assert.ErrorIs(t, err, auth.ErrRolePresetImmutable)
+}
+
+// TestDeleteRole_DB_RoleHasMembers blocks deleting a role out from under its
+// holder; once the holder is removed the same role deletes cleanly.
+func TestDeleteRole_DB_RoleHasMembers(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	repo := auth.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Besetzt", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+
+	user := roleAdminUser(t, pool, repo, roleAdminTenant)
+	require.NoError(t, repo.AssignRole(ctx, user.ID, role.Name))
+
+	err = svc.DeleteRole(ctx, role.ID)
+	assert.ErrorIs(t, err, auth.ErrRoleHasMembers)
+
+	require.NoError(t, repo.RemoveRole(ctx, user.ID, role.Name))
+	assert.NoError(t, svc.DeleteRole(ctx, role.ID), "once the last holder is gone the role must be deletable")
+}
+
+// TestDeleteRole_DB_RemovesRoleAndGrants closes the loop: a deleted role must
+// disappear from ListRoles, and role_permissions must cascade with it rather
+// than leaving orphaned grants behind.
+func TestDeleteRole_DB_RemovesRoleAndGrants(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Vergaenglich", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, grantsOf(t, pool, role.ID), "the clone must carry grants — otherwise the cascade proves nothing")
+
+	require.NoError(t, svc.DeleteRole(ctx, role.ID))
+
+	roles, err := svc.ListRoles(ctx)
+	require.NoError(t, err)
+	for _, r := range roles {
+		assert.NotEqual(t, role.ID, r.ID, "the deleted role must not be listed anymore")
+	}
+	assert.Empty(t, grantsOf(t, pool, role.ID), "role_permissions must cascade on role_id")
+}
+
+// TestDeleteRole_DB_NotFound covers an unknown id and a foreign tenant's role
+// alike — both must answer ErrBaseRoleNotFound, never a 500 or a silent no-op.
+func TestDeleteRole_DB_NotFound(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Unerreichbar", BasedOn: presetID(t, pool, "extern")})
+	require.NoError(t, err)
+
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+	assert.ErrorIs(t, svc.DeleteRole(ctx, foreign.ID), auth.ErrBaseRoleNotFound)
+	assert.ErrorIs(t, svc.DeleteRole(ctx, uuid.New()), auth.ErrBaseRoleNotFound)
 }

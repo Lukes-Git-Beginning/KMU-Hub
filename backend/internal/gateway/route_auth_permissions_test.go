@@ -201,3 +201,15 @@ func TestRoleResponseBody_WrapsTheEntity(t *testing.T) {
 		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
 	}
 }
+
+// --- HandleUpdateRole / HandleDeleteRole ---
+
+func TestHandleUpdateRole_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleUpdateRole)
+}
+
+func TestHandleDeleteRole_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleDeleteRole)
+}

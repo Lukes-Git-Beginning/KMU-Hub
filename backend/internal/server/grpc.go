@@ -306,6 +306,43 @@ func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleR
 	return &authv1.CreateRoleResponse{Role: toProtoRole(role)}, nil
 }
 
+// UpdateRole renames/re-describes/recolors a tenant-owned role. Tenant
+// scoping needs no explicit parameter here — GetRoleByID and the UPDATE both
+// run through the roles table's RLS policies on the request-scoped connection.
+func (s *AuthGRPCServer) UpdateRole(ctx context.Context, req *authv1.UpdateRoleRequest) (*authv1.UpdateRoleResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		// Same reasoning as CreateRole's based_on: an id that isn't even a
+		// uuid names no role, so it is the same 404 as one nobody can see.
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	role, err := s.authService.UpdateRole(ctx, roleID, auth.UpdateRoleInput{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.UpdateRoleResponse{Role: toProtoRole(role)}, nil
+}
+
+// DeleteRole removes a tenant-owned role.
+func (s *AuthGRPCServer) DeleteRole(ctx context.Context, req *authv1.DeleteRoleRequest) (*authv1.DeleteRoleResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	if err := s.authService.DeleteRole(ctx, roleID); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.DeleteRoleResponse{}, nil
+}
+
 // toProtoRole renders a role for the wire. TenantID/BasedOn nil becomes the
 // proto zero value (empty string); the gateway turns that back into JSON null.
 func toProtoRole(r *auth.Role) *authv1.Role {
@@ -882,6 +919,10 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrBaseRoleNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, auth.ErrRolePresetImmutable):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, auth.ErrRoleHasMembers):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorNotEnabled):

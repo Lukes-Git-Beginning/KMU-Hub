@@ -385,6 +385,89 @@ func (r *PostgresRepository) CreateRole(ctx context.Context, tenantID uuid.UUID,
 	return &role, nil
 }
 
+// GetRoleByID resolves a single role through the roles table's RLS read
+// policy — a preset or the caller's own tenant. Any other id, including one
+// belonging to a different tenant, is simply not there: the same
+// ErrBaseRoleNotFound as an unknown id, which is the correct answer — a
+// caller must not learn that a foreign role exists.
+func (r *PostgresRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*Role, error) {
+	var role Role
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, name, description, tenant_id, based_on, color, (tenant_id IS NULL) AS is_system
+		 FROM roles WHERE id = $1`, id,
+	).Scan(&role.ID, &role.Name, &role.Description, &role.TenantID, &role.BasedOn, &role.Color, &role.IsSystem)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrBaseRoleNotFound
+	}
+	return &role, err
+}
+
+// UpdateRole applies the provided fields (nil = unchanged) and returns the
+// role with fresh member/capability counts, the same shape ListRoles
+// reports. The write policy already confines the UPDATE to the caller's own
+// tenant; callers must reject presets before this runs, or the statement
+// simply touches zero rows and the CTE below yields no result row.
+func (r *PostgresRepository) UpdateRole(ctx context.Context, roleID uuid.UUID, in UpdateRoleInput) (*Role, error) {
+	var role Role
+	err := r.pool.QueryRow(ctx,
+		`WITH updated AS (
+			UPDATE roles
+			SET name = COALESCE($2, name),
+			    description = COALESCE($3, description),
+			    color = COALESCE($4, color)
+			WHERE id = $1
+			RETURNING id, name, description, tenant_id, based_on, color
+		 )
+		 SELECT u.id, u.name, u.description, u.tenant_id, u.based_on, u.color,
+		        (SELECT COUNT(*) FROM user_roles ur
+		         JOIN users us ON us.id = ur.user_id
+		         WHERE ur.role_id = u.id) AS member_count,
+		        (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = u.id) AS capability_count
+		 FROM updated u`,
+		roleID, in.Name, in.Description, in.Color,
+	).Scan(&role.ID, &role.Name, &role.Description, &role.TenantID, &role.BasedOn, &role.Color,
+		&role.MemberCount, &role.CapabilityCount)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrRoleNameExists
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrBaseRoleNotFound
+		}
+		return nil, err
+	}
+	return &role, nil
+}
+
+// RoleHasMembers reports whether any account currently carries roleID. The
+// join through users scopes it to the calling tenant — user_roles itself
+// carries neither tenant_id nor RLS (same reasoning as ListRoles'
+// member_count subquery).
+func (r *PostgresRepository) RoleHasMembers(ctx context.Context, roleID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE ur.role_id = $1)`,
+		roleID,
+	).Scan(&exists)
+	return exists, err
+}
+
+// DeleteRole removes a tenant-owned role. role_permissions and user_roles
+// both cascade on role_id (migration 000002). Callers must reject presets and
+// roles that still have members before calling this — the RowsAffected check
+// is a race backstop, not the primary guard.
+func (r *PostgresRepository) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM roles WHERE id = $1`, roleID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrBaseRoleNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

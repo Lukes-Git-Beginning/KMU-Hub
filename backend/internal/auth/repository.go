@@ -50,6 +50,27 @@ type Repository interface {
 	// in.BasedOn onto it in one transaction.
 	CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateRoleInput) (*Role, error)
 
+	// GetRoleByID resolves a single role through the roles table's RLS read
+	// policy — a preset or the caller's own tenant. A foreign tenant's role is
+	// indistinguishable from an unknown id, both ErrBaseRoleNotFound.
+	GetRoleByID(ctx context.Context, id uuid.UUID) (*Role, error)
+
+	// UpdateRole applies the provided fields (nil = unchanged) to a
+	// tenant-owned role and returns it with fresh member/capability counts.
+	// Callers must reject presets first: the write policy confines the
+	// UPDATE to the caller's own tenant, so a preset id simply touches zero
+	// rows here.
+	UpdateRole(ctx context.Context, roleID uuid.UUID, in UpdateRoleInput) (*Role, error)
+
+	// RoleHasMembers reports whether any account currently carries roleID,
+	// scoped to the calling tenant through the users join — user_roles itself
+	// carries neither tenant_id nor RLS.
+	RoleHasMembers(ctx context.Context, roleID uuid.UUID) (bool, error)
+
+	// DeleteRole removes a tenant-owned role. role_permissions and user_roles
+	// cascade on role_id.
+	DeleteRole(ctx context.Context, roleID uuid.UUID) error
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error

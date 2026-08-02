@@ -930,6 +930,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/admin/roles/{id}:
+    patch:
+      summary: Rename/re-describe/recolor a custom role
+      description: >
+        Every field is optional; an absent one is left unchanged. System
+        presets answer 403 preset_immutable. Requires roles:manage (legacy)
+        or admin:role:edit (fine-grained).
+      tags: [users]
+      operationId: updateRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: preset_immutable — system presets cannot be edited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: role_name_exists — a preset or an own role already carries the name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a custom role
+      description: >
+        System presets answer 403 preset_immutable; a role still assigned to
+        at least one account answers 409 role_has_members. Requires
+        roles:manage (legacy) or admin:role:delete (fine-grained).
+      tags: [users]
+      operationId: deleteRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Role deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: preset_immutable — system presets cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: role_has_members — the role still has at least one holder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Custom Fields
   /api/v1/custom-fields:
     post:
@@ -31032,6 +31117,20 @@ components:
             Role the new one is cloned from — usually a preset. Every grant of
             that role is copied over, scope included.
       required: [name, basedOn]
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        color:
+          type: string
+          maxLength: 40
+          example: hsl(217 91% 60%)
 
     StatusResponse:
       type: object
