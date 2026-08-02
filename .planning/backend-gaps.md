@@ -4,6 +4,57 @@
 > Claude sammelt, Darien reicht an Luke weiter. Stand: Welle 1 (2026-06-01). **Status-Update 2026-06-10 (additiv, ✅-Markierungen):** erledigte Punkte aus Chain PILOT (2026-06-09) + Marathon-Tag-2-Wellen 1+2 (2026-06-10) sind inline markiert.
 > Priorität: 🔴 ZFA-Pilot-kritisch · 🟠 wichtig · ⚪ später/Post-Launch.
 
+## ✅ Verifikationslauf 2026-08-02 (Vorbereitung Backend-Nachtlauf 4)
+
+> Diese Datei wurde Punkt für Punkt gegen den **laufenden Code** geprüft: lokale DB auf
+> Migrationskopf **268** (als App-Rolle `kmuhub_app`), 780 Pfade in `backend/api/openapi.yaml`,
+> Gateway-Registrierungen, FE-Clients + MSW-Handler. Ergebnis: rund zwei Drittel der Einträge
+> waren durch die Nachtläufe 1–3 bereits geschlossen. Sie sind unten inline als erledigt markiert;
+> hier die Sammelsicht, damit niemand sie erneut als Aufgabe liest.
+
+**Gebaut (Beleg jeweils in Klammern):**
+
+| Bereich | Beleg |
+|---|---|
+| einkauf `POST /pos/{id}/cancel` | Route + openapi |
+| produktion Order↔BOM | Spalte `production_orders.bom_id` |
+| inventar Inventur-Modell | `inventur_sessions`/`inventur_counts` + 5 Routen |
+| rapporte Aufmaß-Modell | `measurements`/`measurement_positions` + 4 Routen |
+| schichten Swap-Anträge | `shift_swap_requests` + `/swap-requests` inkl. approve/reject |
+| helpdesk `contact_id`/`org_id`/`source_channel`/`ticket_number`/KB | Spalten + `helpdesk_kb_articles` |
+| zeiterfassung komplett | 25 `/hr/time/*`-Routen + `hr_week_approvals` |
+| RBAC-Seed-Lücken (helpdesk fein, zeiterfassung, infrastructure, wiki) | 456 Zeilen in `permissions` |
+| inbox Status/Threading/Tags/Forward/Canned | 29 `/inbox/*`-Routen + 2 Tabellen |
+| berichte Server-PDF, KPI-Endpoint, `report_runs`, Cron, öffentlicher Share | `/berichte/*` + `/public/berichte/reports/{token}` |
+| dokumente Kommentare, Share-Links, Activity-Log | 3 Tabellen + Routen |
+| finanzen wiederkehrende Rechnungen, OP-Liste, mehrstufiges Mahnwesen, CAMT/MT940 | `/finance/recurring/*`, `/open-items`, `/dunning/{id}/escalate`, `/bank-statements/import` |
+| video Breakout-Räume, Recording-Download | 7 `/meetings/{id}/breakout-rooms/*` + `/video/recordings/{id}/download` |
+| wiki Share-Token-Routen | `route_wiki.go:85-109` + openapi |
+| crm Leads als `lifecycle_stage` | Spalten + `route_crm_leads.go` |
+| security/DSGVO (~25 Endpoints) | `route_security.go`, alle Tabellen |
+
+**Als Nicht-Gap widerlegt** — die Forderung wird nicht gebraucht oder wurde bewusst anders entschieden:
+
+- **crm Umsatz-Forecast-Endpoint:** `DealForecastView.tsx` rechnet client-seitig aus
+  `usePipelineStages` + `useDeals`. Kein Endpoint nötig.
+- **profil Avatar-Upload:** läuft über das generische Presign-Muster (`/files/presign-upload`,
+  Spalte `users.avatar_url`).
+- **dunning „fatal bei fehlenden Company-Settings":** Fail-closed ist in
+  `internal/biz/dunning/service.go:295-320` bewusst kommentiert (GoBD — „sent" muss echte
+  Zustellung bedeuten). Entscheidung, kein Bug. Nach dem Merge beobachten, da SMTP jetzt gesetzt ist.
+
+**Neu gefunden, jetzt als Units im Nachtlauf-4-Backlog (Block G):** sechs FE-Aufrufe laufen ins
+Leere, weil FE-Pfad und Gateway-Pfad auseinanderlaufen (4× GDPR-Export, `/hr/personnel-documents`,
+`/hr/employees/{id}/documents/categories`, `finance/invoices/{id}/mark-paid`,
+`notifications/mutes/{id}`, `documents/files/upload`, `email/messages/bulk`); der KPI-Endpoint
+`/berichte/kpis` umgeht die Modul-Sichtbarkeit; der Kontakt-Import verwirft die Firma;
+`/admin/users*`, HR-Change-Requests, HR-Offboard und die R-6-Overrides fehlen komplett.
+
+> **Methodenhinweis für die nächste Runde:** Der Routen-Diff vom Vormittag deckte nur
+> `desktop/src/renderer/src/api/**` ab. In `modules/**` stehen direkte
+> ``fetch(`${API_BASE_URL}/api/v1/...`)``-Aufrufe, die kein Client kapselt — dort kamen weitere
+> tote Pfade hoch. Immer beide Bäume diffen.
+
 ## 🔭 Vorausschau Welle 2 + 3 (Heads-up für Luke, 2026-06-25 — NICHT blockierend)
 > Wir bauen Welle 2/3 jetzt **FE mock-first**; daraus entsteht nachgelagerter BE-Bedarf für die spätere Echt-Schaltung. Damit Luke sequenzieren kann (Detail je Modul in den Abschnitten unten `### admin/settings/profil/security`):
 - **admin** (größter neuer Block, Sub baut FE grade): Auth-Invite-Flow · User-Account-Mgmt (Liste/Rolle/Deaktivieren) · RBAC-Persistenz (Rollen + Permission-Matrix schreibbar, Modul-Leiter) · Tenant-Provisioning (`POST /tenants`) · **Billing/License-Service** (Plan/Seats/Modul-Aktivierung tenant-weit) · Branding-Persistenz (Logo→S3) · Ressourcen-Monitoring.
@@ -86,7 +137,7 @@
 **R-3 Batch 5 (FE-Enforcement berichte/formulare/automatisierung + Standard-Mini-Kataloge kommunikation/kalender/zeiterfassung/infrastructure, gebaut 2026-07-19 — R-3-ABSCHLUSS):**
 
 - **Katalog kuratiert, Subjekte spiegeln die BE-Seeds wo vorhanden:** berichte **`reports` PLURAL** (000080) · formulare **`schemas`/`submissions`** (000129) · automatisierung **BE-resource heißt `automations` OHNE Modul-Präfix** (000129) — FE-Keys tragen den Präfix (`automatisierung:automations:*`), Gateway-Mapping nötig. Actions feiner als die BE-read/write-Paare: berichte `reports×CRUD(edit/delete scopeable)+publish / schedule:manage / share:manage / datev:read / export:run` · formulare `schemas×CRUD+publish / submissions:read+write / share:manage / export:run` · automatisierung `automations:read+create+edit/delete/toggle(scopeable) / executions:read` · kommunikation `channel/team_inbox/routing/canned/webhook je :manage` · kalender `booking_page:manage / category:manage` · zeiterfassung `team:view / week:approve / corrections:approve / export:run` · infrastructure `service/backup/security/updates je :manage + logs:export`.
-- **🔴 zeiterfassung + infrastructure haben GAR KEINE BE-Permission-Seeds** — beide Fein-Kataloge fehlen komplett (Seeds + RequirePermission). zeiterfassung-Genehmigungen (week/corrections) und der DATEV-Zeitdaten-Export MÜSSEN serverseitig gegated werden.
+- ✅ **Seed-Lücken zeiterfassung + infrastructure GESCHLOSSEN** (verifiziert 2026-08-02: `permissions` führt 456 Zeilen, darunter `zeiterfassung` (5) und `infrastructure` (6); ebenso die zuvor fehlenden `wiki` (13) und die feinen `helpdesk`-Keys (10)). Ursprünglicher Befund: **🔴 zeiterfassung + infrastructure haben GAR KEINE BE-Permission-Seeds** — beide Fein-Kataloge fehlen komplett (Seeds + RequirePermission). zeiterfassung-Genehmigungen (week/corrections) und der DATEV-Zeitdaten-Export MÜSSEN serverseitig gegated werden.
 - **🟠 berichte `datev:read` = Finanzdaten-Privacy-Ausnahme** (Muster fuhrpark gps:read): BWA/SuSa nur admin + readonly (Steuerberater-Fall) — bewusst NICHT it_admin/manager (beide ohne finance-Zugang). BE sollte die DATEV-Definitions/-Runs separat unter einem eigenen Recht gaten, nicht unter `reports:read`.
 - **🔴 berichte Owner-Modell:** Doc-Seeds trugen Platzhalter `created_by:'u-demo'` → auf echte Roster-User-Ids umgestellt; Create-Handler (documents/definitions/schedules) stempeln jetzt die Demo-Session. BE: `created_by` aus dem Auth-Context + bei `reports:edit/delete` scope=own serverseitig gegen den Autor prüfen (FE versteckt nur Controls).
 - **🟠 berichte Dashboard-KPIs folgen der Modul-Sichtbarkeit** (`report-module-visibility.ts`, unbekannte Quellen fail-closed): KPI-Endpoint (`/berichte/kpis`) + Hero-Runs liefern heute ALLE Module — BE muss die KPI-Liste serverseitig nach den Modul-Rechten des Users filtern (sonst holt sich ein member die Umsätze per API).
@@ -141,6 +192,7 @@
 
 - **🟠 helpdesk — Ticket-Liste zeigt rohe IDs statt Namen (kanonisch Backend):** `WireTicket` liefert nur `assignee_id`/`requester_id` (UUID), keine Namen → die Liste rendert die rohe UUID in „Zugewiesen an". Kein FE-Lookup möglich (kein tenant-weites User-Verzeichnis). **→ Ticket-Response sollte `assignee_name` + `requester_name` denormalisiert mitliefern** (Standard für Helpdesk-Listen). Ebenso fehlen `description` (Detail-Body immer leer) und `category` (Spalte immer leer) komplett im WireTicket. Außerdem: kein `ticket_number`-Feld → das FE bastelt eine Pseudo-Nummer aus den ersten 4 Hex-Chars der UUID (`HD-YYYY-NNNN`, kollisionsanfällig). Sauber wäre eine fortlaufende `ticket_number`-Sequenz pro Tenant.
 - **🟠 documents — restliche Wire-Shape-Drift (FE-tolerant abgefangen, kanonisch Gateway):** Ergänzend zum 06-24-dokumente-Block: (a) `POST /documents/shares`, `POST /documents/tags`, `POST /documents/files/{id}/links` antworten **naked** (`resp.Share`/`resp.Tag`/`resp.Link`), FE-Typ erwartet `{share}`/`{tag}`/`{link}` → kanonisch wrappen wie folder/file. (b) `POST .../versions/revert` gibt `{file}`, FE-Typ sagt `{version}` — Shape klären. (c) `GET /documents/shares/shared-with-me` gibt `{files,folders,total}`, FE erwartet `{shares}` → liefert still `[]` (kein Crash); vereinheitlichen. **FE-seitig gefixt (06-28):** Share-List-URL war `/shares` → 405, korrigiert auf `/shares/entity`; `permission` kam als Int (ProtoList `UseEnumNumbers`) → `normalizeShare` mappt 1/2→read/write.
+- ✅ **inbox Thread-Verlauf + Canned-Responses — ERLEDIGT** (verifiziert 2026-08-02: `inbox_thread_messages` + `inbox_canned_responses`, Routen `/inbox/messages/{id}/thread`, `/inbox/canned-responses`; zusammen mit `/status`, `/tags`, `/forward` sind damit alle vier Punkte aus dem Phase-4-Block weiter unten geschlossen). Ursprünglicher Befund:
 - **🟠 inbox — Thread-Verlauf + Canned-Responses fehlen im Backend:** Nachrichtenliste echt (`/inbox/messages`), aber der **Gesprächs-Thread** ist FE-synthetisch (`buildThreadSeed` + lokaler `inboxThread.ts`) — kein `ListThreadMessages`-RPC. Reply feuert echt, wird aber nur lokal angehängt. Ebenso lokal-only: **Canned-Responses** (kein CRUD), `inboxStatus`/`inboxTags`. Für echte Inbox: Thread-Endpoint + Canned-Response-CRUD.
 
 ## 🟠 Echt-Schaltung-Befunde 2026-07-05 (Darien, Verifikation von Lukes 07-05-Quick-Win-Welle)
@@ -185,9 +237,9 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Sobald Luke diese Endpoints + contact_id-Felder ergänzt, kann das FE die beiden Sektionen in ContactDetailPanel nachziehen (Muster: analog useDeals mit contact_id-Filter).
 
 ### crm
-- Lead-Scoring: Score-Feld im Contact-Modell + Berechnungsservice (Regelwerk) + Endpoint
-- Umsatz-Forecasting: dedizierter `/api/v1/reports/forecast`-Endpoint (Zeitreihe auf Deal-Wahrscheinlichkeit)
-- E-Mail-Marketing/Kampagnen: kompletter Service fehlt (`/api/v1/campaigns`)
+- Lead-Scoring: ✅ **Feld erledigt** (`contacts.lead_score` + `lead_source`/`lead_status`/`lead_temperature`/`lifecycle_stage`, `route_crm_leads.go`); **offen** bleibt nur der serverseitige Berechnungsservice (das FE rechnet in `computeLeadScore`)
+- ~~Umsatz-Forecasting: dedizierter `/api/v1/reports/forecast`-Endpoint~~ — **kein Gap** (verifiziert 2026-08-02): `modules/crm/deals/DealForecastView.tsx` rechnet client-seitig aus `usePipelineStages` + `useDeals({page_size:200})`. Erst wenn die Deal-Zahl das clientseitige Limit sprengt, wird daraus ein Endpoint-Bedarf.
+- E-Mail-Marketing/Kampagnen: kompletter Service fehlt (`/api/v1/campaigns`) — **weiterhin offen**, bewusst nicht als Nachtlauf-Unit (Neubau, kein FE-Vertrag)
 
 ### vertraege
 - ✅ **`UploadDocument` — ERLEDIGT 2026-06-11 (`a362b98d`):** Stub-Endpoint entfernt; FE nutzt den generischen Presign-Flow (presign-upload → PUT → PATCH `document_url`). ⚠ Browser-PUT braucht `MINIO_PUBLIC_ENDPOINT` in Prod (siehe §dokumente). FE-Aufrufer von `useUploadDocument` auf `{contractId, file}` umgestellt.
@@ -207,8 +259,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
   4. **protojson-Wire-Shapes (erwartbar, FE normalisiert):** Timestamps `{seconds,nanos}` statt ISO; `space_type` als Enum-**Int** (`1`=personal/`2`=team/`3`=project) statt String; `file_count` fehlt am Folder-Objekt (FE default 0); `file_size` (int64) ggf. als String.
   - **Verifiziert:** READ live gegen lokales document-Backend (Ordner Bilder/Dokumente/Meine Dateien/Vorlagen rendern, keine Crashes/Invalid-Dates, Screenshots `desktop/.qa-screenshots/dokumente-mock-exit/`), Create-Pfad per API (Folder 201 + erscheint in der Liste). **Upload live nicht testbar** lokal (braucht `MINIO_PUBLIC_ENDPOINT`+CORS, s.u.).
 - ✅ **Presign-Upload öffentlicher MinIO-Endpoint — CODE ERLEDIGT 2026-06-11 (`1aef2f45`):** `MINIO_PUBLIC_ENDPOINT`/`MINIO_PUBLIC_USE_SSL` + zweiter presign-only minio-go-Client, Caddy-Block `s3.zentria.tech → minio:9000` (docker + ansible `minio_public_domain`), CORS via `mc cors set` (`MINIO_CORS_ALLOW_ORIGIN`). ⚠ **Prod-Rollout offen:** DNS-Eintrag `s3.zentria.tech` (Cloudflare, DNS-only!) + Env in `/opt/kmuhub/.env.production` + Electron-Origin für CORS verifizieren.
-- Datei-Kommentare: Comment-Tabelle + Endpoints
-- Externe Share-Links: Token-Store + `GET/POST /api/v1/documents/share-links` (Ablauf, Passwort-Hash) + öffentliches Resolve-Endpoint
+- ✅ **Datei-Kommentare — ERLEDIGT** (Lauf 3, `65f5918f`: `document_file_comments` + `/documents/files/{id}/comments` + `/documents/comments/{id}`)
+- ✅ **Externe Share-Links — ERLEDIGT** (Lauf 3, `96238d9c`: `document_share_links` mit Passwort + Ablauf, `/documents/files/{id}/share-links`, `/documents/share-links/{id}`, öffentliches Resolve `/api/v1/public/documents/share/{token}`)
 - Tenant-Settings dokumente (2026-06-10, Strom D): `stores/dokumenteSettings.ts` ist mock-first (Dateityp-Gruppen, Standard-Freigabe, OnlyOffice-Schalter, Papierkorb-Tage). Settings-Foundation (Migration 138, `route_settings.go`) liegt inzwischen auf main → nach Merge nur noch FE-Wiring auf `tenant_settings`, kein neues Backend nötig. Enforcement der erlaubten Dateitypen beim Upload wäre Backend-seitig sinnvoll (aktuell nur Verwaltung).
 - Versionsspezifischer Download (2026-06-10, Strom D): `GET /api/v1/documents/files/{id}/versions/{n}/download` fehlt — der „Herunterladen"-Button im Versionsverlauf kann nur die aktuelle Datei laden.
 - Template-Storage (2026-06-10, Strom D): echte Dokument-Vorlagen (.docx/.xlsx/.pptx) + `POST /api/v1/documents/files/from-template/{templateId}` — FE lädt bis dahin generierte Platzhalter-Dateien hoch (TemplateGalleryDialog).
@@ -222,17 +274,19 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Regeln & Filter: `email/rule/` + Endpoints
 
 ### helpdesk
-- `contact_id`/`org_id` ins Ticket-Modell (CRM-Verknüpfung)
-- `source_channel` ins Ticket-Modell (Multi-Channel) + Inbox→Ticket-Adapter-Endpoint
-- Knowledge-Base-Endpoint (FE-Tab existiert)
-- `time_spent`-Feld (Ticket-Zeiterfassung)
+- ✅ **`contact_id`/`org_id` ins Ticket-Modell — ERLEDIGT** (Lauf 3, `93cead56`; Spalten in `tickets` verifiziert 2026-08-02)
+- ✅ **`source_channel` + Inbox→Ticket-Adapter — ERLEDIGT** (Lauf 3, `a4542dc7`)
+- ✅ **Knowledge-Base-Endpoint — ERLEDIGT** (`helpdesk_kb_articles` + Routen)
+- ✅ **`ticket_number`-Sequenz — ERLEDIGT** (Spalte + `helpdesk_ticket_counters`; ersetzt den Pseudo-Nummern-Hack im FE)
+- `time_spent`-Feld (Ticket-Zeiterfassung) — **weiterhin offen**, Spalte fehlt. Kein FE-Vertrag dafür, deshalb 2026-08-02 bewusst nicht als Unit eingeplant.
 
 ### berichte
 - Query-Builder: BE-Executor liest `query_config` schon — Editor-Contract festzurren
 - `ExecuteKindCross`-Methode im Executor (datenquellen-übergreifend)
 - Breakout/Pivot-Schema in `RunReportRequest.Params`
-- **Dashboard-KPIs (P-nico-02, 2026-06-09):** `GET /api/v1/berichte/kpis` hatte im Demo-Mode KEINEN MSW-Handler → Dashboard zeigte Leerzustand (keine Karten). Jetzt Demo-Handler `mocks/handlers/berichte.ts` mit statischen KPIs gebaut. Backend: echter KPI-Service (Werte + `change_percent` pro Modul) fehlt.
+- ✅ **Dashboard-KPIs — BACKEND ERLEDIGT** (`GET /api/v1/berichte/kpis` + `HandleGetDashboardKPIs` → `GetDashboardKPIs`). ⚠ **Aber neuer Sicherheitsbefund 2026-08-02:** der Handler übernimmt die Modulliste ungeprüft aus `?modules=` und kennt nur den Guard `berichte:reports:read` — ein `member` ohne `finanzen:module:view` zieht darüber die Umsatzzahlen. Das FE filtert nur clientseitig (`report-module-visibility.ts`). **Unit `fix-berichte-kpi-module-scope`** im Nachtlauf-4-Backlog.
 - **KPI-Zeitreihe für Sparkline (P-nico-02):** Die KPI-Karten zeigen eine Mini-Trendlinie, deren Verlauf aktuell FE-seitig deterministisch aus `kpi.id` + `change_percent` synthetisiert wird (`buildSparklineSeries` in `DashboardGrid.tsx`). Echte Zeitreihe pro KPI (z.B. letzte 8 Perioden) sollte das Backend liefern → dann `sparklineData` aus echten Punkten speisen.
+- ✅ **R-3b Server-PDF, R-4 Cron-Executor + Mailer, R-5c externer Token-Zugriff — ALLE DREI ERLEDIGT** (verifiziert 2026-08-02: `/berichte/documents/{id}/export/pdf`, `report_schedules` + `report_runs` + Scheduler — ab dem Merge von PR #16 versenden geplante Berichte real, weil `SYSTEM_SMTP_*` jetzt durchgereicht wird —, `report_share_tokens` + `/berichte/documents/{id}/shares` + öffentliche Leseseite `/api/v1/public/berichte/reports/{token}`). Die PDF-Erzeugung läuft über `internal/berichte/export/pdf.go` (maroto/v2), **nicht** über Playwright/Chromium wie unten skizziert. Ursprüngliche Anforderungen:
 - **🔴 R-3b Server-PDF (Bericht-Authoring, 2026-06-20, FE B5-1 fertig):** Lese-Modus hat jetzt „Drucken / Als PDF" über `window.print()` + Print-CSS (`report-print.css`, blendet App-Shell aus, paginiert die A4-Bögen — Chromium-Druckvorschau verifiziert, 2-Seiten-PDF). Das reicht für lokalen Druck/„als PDF speichern". **Backend nötig für echten Server-Download:** `berichte-pdf`-Service (Token-geschützte Render-URL `/berichte/documents/:id/print` ohne Chrome → Playwright `page.pdf({format:'A4'})` → `application/pdf`-Blob), FE-seitig `GET …/documents/:id/export/pdf` → `<a download>`. Schriften eingebettet, Charts als Vektoren.
 - **🔴 R-4 Cron-Executor + Mailer (Bericht-Scheduling, 2026-06-20, FE B5-2…B5-5 fertig):** FE-Demo vollständig — Scheduling-Modal am Bericht (Rhythmus-Picker→cron, interne/externe Empfänger, Format aus Tenant-Allowlist, aktiv-Toggle), Lauf-Historie + „Jetzt senden" laufen mock-first (`POST /schedules/:id/run` setzt `last_run_at`/`last_run_status` stateful; `ReportSchedule.definition_id = doc.id` koppelt an das Dokument). **Backend nötig:** Cron-Scheduler der fällige `ReportSchedule`s ausführt (Bericht rendern → PDF/XLSX/CSV → an `recipients` mailen), echte `report_runs`-Persistenz (statt FE-`buildRunHistory`-Seed) + Domain-Allowlist-Enforcement (`tenant_settings` `berichte` `schedule.allowed_domains`) + Release-Gate (nur `status='released'` planbar).
 - **🟠 R-5 Integration/Verteilung (Bericht-Authoring, 2026-06-21, FE B6-1…B6-5 fertig):** FE-Demo vollständig — „Teilen"-Menü im Lese-Modus: an Aufgabe anhängen (`POST /tasks/:id/files` mit Verweis-Metadaten, vorhandener Endpunkt), an Kontakt anhängen (neuer stateful `POST /contacts/:id/files`-Mock), als PDF in Dokumente (`POST /documents/files/upload` mit Platzhalter-Blob + „Bericht"-Tag), externer Share-Link (neues `ReportShareToken`-Modell + stateful create/list/revoke). **Backend nötig:** (a) Bericht-Verweis als echter Typ in task-/contact-files (statt `mime_type:'application/cosmi-report'`-Konvention) + Anzeige als „Bericht-Link" in work/CRM; (b) echter PDF-Blob für R-5b (= R-3b Server-PDF statt Platzhalter); (c) **R-5c externer unauth. Zugriff**: öffentliche Token-Lese-Seite (`/share/report/:token` ohne Auth, Passwort-Check, Ablauf-Enforcement, `view_count`-Tracking) — `share_token`-Persistenz serverseitig.
@@ -292,11 +346,11 @@ FE baut den No-Code-Massanfertigungs-Editor mock-first (Overlay-Prinzip wie R-6)
 > BE existiert weitgehend echt: GDPR-Export/-Erasure-Handler (`47d210d9`, alle 14 auf echte SQL), Audit/Sessions/PW-Policy/IP-Rules/2FA in `route_security.go`/`route_auth.go`. Das FE läuft mock-first (MSW); Verdrahtung gegen das echte BE = später (Claude/FE-Lane).
 - **🔴 X-3-Spec-Lücke (alle 31 security/auth-Endpoints):** KEINER ist in `backend/api/openapi.yaml` dokumentiert (Spec endet bei `auth/reset-password`). Betroffen: `/security/audit|vault|gdpr/*|password/*|ip-rules|dsar/search`, `/auth/sessions*|2fa/*`. → openapi-Spec nachziehen, sonst bricht jede Typ-Regen-Runde + jeder Echt-Anschluss erneut.
 - **Wire-Shape-Befund (encoding/json über protobuf, snake_case):** Alle Handler nutzen `response.JSON` (nicht `response.Proto`). Konsequenz für den FE-Client beim Echt-Anschluss: (a) **Listen sind gewrappt** — `{secrets:[…]}`, `{rules:[…]}`, `{export_requests:[…]}`, `{sessions:[…]}`, `{policies:[…]}`, `{entries,total}` (nie nacktes Array). FE-Client (`security-client.ts`) ist in S-1 bereits darauf ausgerichtet (entpackt gewrappte Shape). (b) **Timestamps als `{seconds,nanos}`** statt RFC3339 → beim Echt-Anschluss `normalizeWireTimestamps()` (`api/wire-time.ts`) im Client anwenden (MSW liefert ISO, geht durch).
-- **Pfad-Abweichungen FE-Client ↔ echtes BE (beim Echt-Anschluss prüfen):** GDPR-Export-Request `POST /gdpr/export` (Client: `/gdpr/export/request`), Download `GET /gdpr/download/{token}` (Client: `/gdpr/export/{token}/download`), Approve/Deny über `/gdpr/exports/{id}/approve|deny`. 2FA-Policy-Pfad `policy` (singular) vs Client `policies`.
+- **🔴 Pfad-Abweichungen FE-Client ↔ echtes BE — BESTÄTIGT 2026-08-02, vier tote Aufrufe:** GDPR-Export-Request `POST /gdpr/export` (Client: `/gdpr/export/request`), Download `GET /gdpr/download/{token}` (Client: `/gdpr/export/{token}/download`), Approve/Deny über `/gdpr/exports/{id}/approve|deny` (Client: `/gdpr/export/{id}/…`). 2FA-Policy-Pfad `policy` (singular) vs Client `policies`. **Fünfter Fund:** `modules/settings/PrivacySettingsTab.tsx:139` verlinkt `/api/v1/gdpr/exports/{id}/download` — komplett ohne `/security`-Präfix. Damit ist der DSGVO-Auskunftspfad über die UI heute nicht bedienbar (fristgebunden!). **Unit `fix-security-gdpr-paths`** im Nachtlauf-4-Backlog; Richtungsentscheid: das Gateway zieht auf die FE-Pfade um.
 - **🔌 Verdrahten (nach Echt-Schaltung):** `security-client.ts` + Hooks gegen das echte Backend testen (Demo-Mode aus), Pfade + Wire-Shapes obiger Liste abgleichen, Timestamp-Normalizer einhängen.
 
 ### profil
-- Avatar-Upload-Endpoint (MinIO) — Camera-Button im FE wartet darauf
+- ✅ **Avatar-Upload — ERLEDIGT/kein Gap** (verifiziert 2026-08-02): läuft über das generische Presign-Muster `POST /api/v1/files/presign-upload` → PUT → `GET /api/v1/files/presign-download`; die Spalte `users.avatar_url` hält den Objekt-Key. Kein eigener Endpoint nötig.
 
 ### settings
 - Workspace-Branding-Persistenz (`/api/v1/tenant/branding`) — aktuell nur localStorage
@@ -316,6 +370,15 @@ FE baut den No-Code-Massanfertigungs-Editor mock-first (Overlay-Prinzip wie R-6)
 - Projekt-Portfolio-Entität + Aggregations-Endpoint
 
 ### zeiterfassung
+
+> ✅ **KOMPLETT ERLEDIGT — verifiziert 2026-08-02.** Alle unten genannten Endpoints existieren
+> (25 Routen unter `/api/v1/hr/time/*`, inkl. `balance`, `entries`, `projects`, `analytics`,
+> `team`, `weeks/submit|approve|reject|reopen|status`, `corrections/{id}/approve`,
+> `summary/daily|weekly`, `categories`, `templates`, `create-invoice`), dazu die Tabellen
+> `hr_work_time_entries`, `hr_break_entries`, `hr_time_projects`, `hr_time_categories`,
+> `hr_time_templates`, `hr_week_approvals`. Auch die Permission-Seeds für `zeiterfassung`
+> existieren (5 Keys). Der folgende Abschnitt ist Historie.
+
 - **`GET /api/v1/hr/time/balance`** (Stundenkonto-Saldo, kumuliert + Perioden-Übertrag) — **P1 FE-mock-first verdrahtet** (`useTimeBalance`, Shape `{balanceMinutes, asOf, periodStart, targetWeeklyMinutes}`); braucht echten Endpoint.
 - Export-API: CSV ist **P4 client-seitig** real; **DATEV-Lohn (LODAS)** + XLSX + PDF brauchen Serverside-Generierung.
 - `tenant_settings` für zeiterfassung-Regeln (Wochensoll, Auto-Pause-Schwellen, Rundung, Feiertagsregion) — **P4 FE-mock-first** (`stores/zeiterfassungSettings`).
@@ -336,9 +399,9 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
 - **Bexio-API (CH, Launch-kritisch):** OAuth2, Rechnungen/Kontakte bidirektional sync. *(Status-Check 2026-06-10: Service-Gerüst `internal/biz/bexio/` existiert substanziell — Scope-Abgleich gegen Welle 7 läuft, siehe `.planning/bexio-scope-check.md`.)*
 - ✅ **E-Rechnung (Launch-Blocker)** — ERLEDIGT 2026-06-10 (Welle 2, `887d5b36`, Migration 000140): Ausgang existierte (XRechnung-UBL + ZUGFeRD); Eingang neu — `POST /finance/invoices/import` (multipart, CII/UBL-Parser + PDF-Extraktion via pdfcpu) + `finance_incoming_invoices` (received→reviewed→booked/rejected).
 - ✅ **GoBD-Belegarchiv (Launch-Blocker)** — ERLEDIGT 2026-06-10 (Welle 2, `45a8ed61`, Migration 000139): `gobd_documents` immutable + SHA-256 + `gobd_document_events` append-only, Retention 31.12.(Jahr+8), Routen `/finance/gobd-archive`, MinIO-Storage.
-- Wiederkehrende Rechnungen (Tabelle + Scheduler + CRUD) · OP-Liste · mehrstufiges Mahnwesen
-- Zahlungsabgleich: CAMT.053/MT940-Import + Matching · später finAPI/HBCI-Banking
-- `currency`-Feld + Wechselkurslogik (aktuell EUR hardcoded; CHF/USD)
+- ✅ **Wiederkehrende Rechnungen · OP-Liste · mehrstufiges Mahnwesen — ERLEDIGT** (`finance_recurring_invoices`/`_runs` + `/finance/recurring/*`, `/finance/open-items`, `/finance/dunning/{id}/escalate`)
+- ✅ **Zahlungsabgleich CAMT.053/MT940 + Matching — ERLEDIGT** (`finance_bank_statements`/`_transactions`, `/bank-statements/import`, `/bank-transactions/{id}/match|reject-match|ignore`). finAPI/HBCI-Banking bleibt Post-Launch.
+- `currency`-Feld + Wechselkurslogik (aktuell EUR hardcoded; CHF/USD) — **weiterhin offen** (Spalte `currency` existiert an `purchase_orders`, eine Umrechnungslogik gibt es nirgends)
 - BMD-Export (AT) + Lexware/lexoffice-Anbindung (Selbstbucher) — Post-Launch
 
 ### ✅ kontakte — Beratungsprotokoll (Finanzberatung, P8) — BACKEND ERLEDIGT 2026-06-10 (Welle 1, `6b211222`, Migration 000137: 57 Spalten/8 Abschnitte, Immutability nach HandOver, `referred_by_contact_id` + `client_segment` A/B/C, 7 CRM-RPCs; PDF-Endpoint = 501-Stub, FE nutzt window.print)
@@ -356,14 +419,14 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - Entfernt: `NewsletterPanel` (toter Mock-Stub) — ein echtes Newsletter-/Kampagnen-Feature bräuchte ein E-Mail-Kampagnen-Backend.
 
 ### automatisierung
-- Branch-/Merge-Step im Workflow-Modell + Engine (aktuell sequenziell)
-- `http_request`-Action + inbound `webhook.received`-Trigger
-- Zeitbasierte/Cron-Trigger: Poller-Integration verifizieren/aktivieren
+- Branch-/Merge-Step im Workflow-Modell + Engine (aktuell sequenziell) — offen
+- `http_request`-Action + inbound `webhook.received`-Trigger — offen, **als Units im Nachtlauf-4-Backlog** (`g-automation-http-action` ist SSRF-kritisch, `g-automation-webhook-trigger`)
+- Zeitbasierte/Cron-Trigger: Poller-Integration verifizieren/aktivieren — offen, **Unit `g-automation-cron-poller`**
 
 ### video / meetings
-- Breakout-Räume (LiveKit kann es technisch)
-- Recording-Download/List-UI-Endpoint exponieren
-- Meeting-Recurrence-Logik
+- ✅ **Breakout-Räume — ERLEDIGT** (7 Routen `/meetings/{id}/breakout-rooms/*` + `meeting_breakout_rooms`/`_assignments`)
+- ✅ **Recording-Download/List — ERLEDIGT** (`route_video.go:122` `GET /recordings/{id}/download` + `/video/recordings`; offen bleibt nur die Review-Frage, ob die Berechtigung gegen die Teilnehmerliste statt nur gegen den Tenant prüft)
+- Meeting-Recurrence-Logik — **weiterhin offen** (`/calendar/events/{id}/recurring` deckt nur den Kalender ab)
 
 ## ⚪ Später / Post-Launch
 - buchhaltung (Brücke): automatische Kontierung (Kontenplan SKR03/04), EÜR-Endpoint, Steuerberater-Rolle (read-only)
@@ -381,16 +444,16 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 
 ## 🟠 Branchen-BE-Lücken (für Solar-Pilot ab Nov relevant)
 ### fuhrpark
-- Führerscheinkontrolle-Modell (`LicenseCheck`: Fahrer, Ablauf, letzter Check) + Route
-- Fahrtenbuch-Modell (`LogbookEntry`, finanzamtkonform) + Route `/fuhrpark/logbook` + PDF-Export
-- Fahrzeugbuchung/Pool (`VehicleBooking` + Conflict-Check)
-- `FuelRecord`-Modell (Tankprotokoll) + Tankkartenverwaltung
-- GPS/Telematik: Provider-Integration + Webhook-Endpoint
+- Führerscheinkontrolle-Modell (`LicenseCheck`: Fahrer, Ablauf, letzter Check) + Route — **offen, verifiziert** (keine Tabelle mit `license` im Namen); **Unit `g-fuhrpark-license-check`** im Nachtlauf-4-Backlog
+- Fahrtenbuch: ✅ `trip_logs` + `/fuhrpark/trip-logs` existieren; **offen** bleibt nur der finanzamtkonforme PDF-Export
+- Fahrzeugbuchung/Pool (`VehicleBooking` + Conflict-Check) — **weiterhin offen** (`machine_bookings`/`resource_bookings` gibt es, für Fahrzeuge nichts)
+- ✅ **`FuelRecord` (Tankprotokoll) — ERLEDIGT** (`fuel_logs` + `/fuhrpark/fuel-logs`); Tankkartenverwaltung offen
+- ✅ **GPS/Telematik — ERLEDIGT** (`gps_positions` + `/fuhrpark/gps/ingest|positions|routes`)
 
 ### inventar
-- `batch_number`/`serial_numbers` im Item-Modell (Chargen/Seriennummern)
-- Inventur-Modell (`InventurSession`: open/counting/review/completed, Soll/Ist) + Routes
-- Kommissionierung/Picklisten-Modell
+- `batch_number`/`serial_numbers` im Item-Modell (Chargen/Seriennummern) — **weiterhin offen**
+- ✅ **Inventur-Modell — ERLEDIGT** (`inventur_sessions`/`inventur_counts` + `/inventar/inventur` inkl. `/counts`, `/status`, `/book`)
+- Kommissionierung/Picklisten-Modell — **weiterhin offen**
 
 ### vermietung
 - Strukturiertes Checklist-Format für Zustandsprotokolle (BE nur notes+photo_urls)
@@ -400,8 +463,8 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 
 ### einkauf
 - ~~`SupplierRating`-Modell~~ ✅ · ~~`FrameworkContract`-Modell + Katalogartikel~~ ✅ (BE + Client + MSW vorhanden, FE seit Demo-Tiefe 2026-07-16 verdrahtet: Rating-Formular, Abrufe via `CreateContractCall`)
-- 🔒 **`POST /pos/{id}/cancel` fehlt komplett** (Demo-Tiefe 2026-07-16): `UpdatePOInput` trägt kein Status-Feld, es gibt keinen Cancel-Übergang. FE läuft mock-first (`einkauf-client.ts cancelPO` + MSW-Handler). → Cancel-Endpoint mit Status-Guard (nur offene Bestellungen).
-- 🔒 **`PurchaseOrder.total_amount` wird nie berechnet**: `CreatePO` setzt `"0"`, Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach → gegen echtes BE zeigen alle Bestellungen 0,00 €. MSW macht das Recompute (Netto-Zeilensumme) vor — gleiche Semantik ins BE.
+- ✅ **`POST /pos/{id}/cancel` — ERLEDIGT** (Lauf 1, `route_einkauf.go:91` + openapi; verifiziert 2026-08-02)
+- 🔒 **`PurchaseOrder.total_amount` wird nie berechnet**: `CreatePO` setzt `"0"` (`service.go:317`), Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach → gegen echtes BE zeigen alle Bestellungen 0,00 €. MSW macht das Recompute (Netto-Zeilensumme) vor — gleiche Semantik ins BE. **Verifiziert 2026-08-02, Unit `fix-einkauf-po-total`** im Nachtlauf-4-Backlog.
 - 🔒 **`ExportPO` ist Stub** (service.go:716): FE erzeugt Bestell-PDF/CSVs seit 2026-07-16 client-seitig (`modules/einkauf/einkauf-export.ts`), `exportPO` aus dem FE-Client entfernt. BE-Endpoint kann gestrichen oder später echt (Briefpapier/Versand an Lieferant) gebaut werden.
 - 2-stufiger Bestellfreigabe-Workflow (`approved_by`, `/approve`-Endpoint) — FE nutzt aktuell `einkaufTenant.approvalThreshold` (Settings) + Freigeben=Submit
 - Automatische Bestellvorschläge (Inventar-MinQty → PO) — FE hat jetzt Katalog-Warenkorb mit Bündelung pro Lieferant als Vorstufe
@@ -410,21 +473,21 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 
 > Stand 2026-07-16 (Demo-Tiefe-Session): BOM/WorkSteps/Machines/Quality-CRUD + Start/Complete/Cancel existieren im BE komplett (`route_produktion_ext.go`, Service mit Transition-Guards + Tests) — die früheren Zeilen dazu waren veraltet. Verbleibende echte Gaps:
 
-- 🔒 **Order↔BOM-Verknüpfung fehlt im BE-Modell** (Demo-Tiefe 2026-07-16): `production_orders` hat kein `bom_id`, Create-/UpdateOrderInput nehmen keines an. FE-Auftragsdetail (Stückliste-Sektion, Materialverfügbarkeit, Laufkarten-PDF-Materialbedarf) hängt daran — läuft mock-first (`CreateOrderInput.bom_id` FE-seitig ergänzt, MSW persistiert). → Spalte + Create/Update-Feld + Response.
+- ✅ **Order↔BOM-Verknüpfung — ERLEDIGT** (Spalte `production_orders.bom_id` verifiziert 2026-08-02). Ursprünglicher Befund (Demo-Tiefe 2026-07-16): `production_orders` hatte kein `bom_id`, Create-/UpdateOrderInput nahmen keines an. FE-Auftragsdetail (Stückliste-Sektion, Materialverfügbarkeit, Laufkarten-PDF-Materialbedarf) hängt daran — läuft mock-first (`CreateOrderInput.bom_id` FE-seitig ergänzt, MSW persistiert). → Spalte + Create/Update-Feld + Response.
 - Material-Verfügbarkeit: Inventar-Abgleich (FE nutzt deterministischen Fake-Hash, `produktion-shared.ts getMaterialAvailability`)
 - Kalkulation (Soll/Ist-Kosten auf Order/Steps — Katana/MRPeasy-Parität)
 - `progress`/`scrap` braucht KEIN BE-Feld mehr: FE berechnet Fortschritt aus WorkSteps (completed/total) und Ausschuss aus QualityChecks (Σ defects_found) — bewusste Ableitung statt Denormalisierung
 
 ### schichten (Self-Service Pilot-kritisch)
-- `shift_swap_requests`-Modell + approve/reject (FE-Tab da)
-- Availability-Tabelle (employee × weekday) + Qualifikations-Tabelle
-- Echter regelbasierter Auto-Planer (ApplyTemplate ist nur Datums-Kopie)
-- `is_minor`-Flag + JArbSchG-Compliance
+- ✅ **`shift_swap_requests`-Modell + approve/reject — ERLEDIGT** (Tabelle + `/schichten/swap-requests` inkl. `/approve`, `/reject`)
+- Availability-Tabelle (employee × weekday) + Qualifikations-Tabelle — **weiterhin offen**
+- Echter regelbasierter Auto-Planer (ApplyTemplate ist nur Datums-Kopie) — **weiterhin offen**
+- `is_minor`-Flag + JArbSchG-Compliance — **teilweise**: `/schichten/compliance` existiert, das Flag am Mitarbeiter nicht
 
 ### rapporte (Solar-Außendienst)
-- Signatur-Persistenz (s. cross-cutting)
-- Aufmaß-Modell (`Measurement`/`MeasurementPosition`) — FE komplett, BE null
-- `weather`-Feld auf WorkReport (Bautagesbericht)
+- ✅ **Signatur-Persistenz — ERLEDIGT** (`/rapporte/reports/{id}/signature`, ebenso `/vermietung/rentals/{id}/signature` und `/vertraege/contracts/{id}/signature` — der cross-cutting-Punkt ist damit für alle drei Module abgehakt)
+- ✅ **Aufmaß-Modell — ERLEDIGT** (`measurements`/`measurement_positions` + 4 Routen)
+- `weather`-Feld auf WorkReport (Bautagesbericht) — **weiterhin offen**
 - ReportLine: Material-vs-Leistung-Unterscheidung schärfen
 
 ## 🟠 Mobile/Offline (Solar-Pilot)
@@ -432,6 +495,12 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - `rapporte-client.ts` + `schichten-client` auf offline-queue-fähigen Basis-`client.ts` umstellen (offline-queue.ts existiert)
 
 ## 🟡 Leads (CRM, Phase 4 — 2026-06-06)
+
+> ✅ **Datenmodell + Endpoints ERLEDIGT — verifiziert 2026-08-02.** `contacts` trägt
+> `lifecycle_stage`, `lead_source`, `lead_score`, `lead_status`, `lead_temperature`, dazu
+> `route_crm_leads.go` (+ Tests). **Offen bleiben zwei Punkte:** das serverseitige Spiegeln der
+> Scoring-Regel (das FE rechnet in `computeLeadScore`) und die Dialer→Lead-Verknüpfung.
+
 - **Architektur-Entscheidung:** Lead als **Kontakt-Lifecycle-Status** modellieren, nicht als separate Tabelle. Empfehlung: `contacts.lifecycle_stage` (`lead` → `qualified` → `customer`). Frontend baut die Inbox als gefilterte Sicht.
 - Lead-Metadaten am Kontakt: `lead_source` (manual/csv/dialer), `lead_score` (0–100, auto), `lead_temperature_override` (hot/warm/cold, sticky), `lead_status` (new/contacted/qualified/disqualified).
 - Endpoints: `GET /api/v1/leads` (= Kontakte mit lifecycle=lead), Status-/Temperatur-Patch, Convert (lead → contact + opt. company + opt. deal). FE nutzt aktuell In-Memory-Mock (`api/hooks/useLeads.ts`) — swapbar.
@@ -450,7 +519,7 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - **Gruppen-DMs, Pin/Lesezeichen, Channel-Notification-Settings:** im chat-proto nicht vorhanden — Neubau.
 - **✅ Mentions-Inbox (FE verdrahtet):** `GET /api/v1/messages/mentions` (`GetUserMentions`) + `UserMentionsResponse` in OpenAPI. FE-Hook `useUserMentions` + `MentionsPanel` + Demo-Handler gebaut. Real out-of-the-box.
 - **✅ Posteingang (Inbox) scharfgeschaltet (Phase 4, 2026-06-08, FE):** Snooze/Claim/Assign verdrahtet (SnoozePopover/Assignee-Picker via `useEmployees`), Bulk-Toolbar (BulkMarkRead/Archive), Team-Postfächer + Routing-Regeln in `KommunikationSettingsPanel` (FÜR-ALLE, tenant-scoped). **Demo-Handler (MSW) ergänzt** für `snooze`/`unsnooze`/`claim` + Team-Inbox-CRUD+Members + Routing-Rules-CRUD+test (zustandsbehaftet). Echte gRPC-Endpoints existieren — Luke verdrahtet Gateway/Service falls noch offen.
-  - **Backend-Neubau nötig (FE läuft mock-first als verdrahtungs-bereites Overlay):**
+  - **✅ Backend-Neubau ERLEDIGT (verifiziert 2026-08-02)** — Status, Threading, Tags und Forward haben eigene Routen (`/inbox/messages/{id}/status|tags|thread|forward`), SLA-Tracking bleibt als einziger Punkt offen (`sla_policies` existiert, Verdrahtung nicht geprüft). Ursprüngliche Liste:
     - **Inbox-Status** (offen/wartend/gelöst/geschlossen): kein Feld in `InboxMessage`/proto. FE-Overlay `stores/inboxStatus.ts` (persistiert). → `status`-Feld + Filter im `ListMessagesRequest` + Set-Status-RPC.
     - **Threading** (mehrere Msg/Conversation): kein Thread-RPC. FE synthetisiert Seed + persistiert Replies/Notizen in `stores/inboxThread.ts`. → `ListThreadMessages`/Conversation-Modell.
     - **Tags-CRUD:** `repeated string tags` existiert, aber kein Add/Remove-RPC. FE-Overlay `stores/inboxTags.ts`. → `AddTag`/`RemoveTag`-RPC.

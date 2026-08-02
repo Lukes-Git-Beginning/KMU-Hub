@@ -28,6 +28,18 @@
 #   - `backend-gaps.md` ist an mehreren Stellen ueberholt (Beispiel: `POST /einkauf/pos/{id}/cancel`
 #     steht dort als fehlend, ist seit Lauf 1 gebaut). Deshalb steht in jeder Unit, die von dort
 #     stammt, unter `notes:` die Praemisse, die zuerst zu pruefen ist.
+#
+# NACHTRAG 2026-08-02 nachmittags — Recherche-Runde 2 auf Feature-Ebene:
+#   - **Block G neu (14 Units)**, eingefuegt vor Block F. `backend-gaps.md` wurde Punkt fuer Punkt
+#     gegen den laufenden Code geprueft; rund zwei Drittel der Eintraege waren bereits gebaut und
+#     sind dort jetzt als erledigt markiert. Nur Verifiziertes steht in Block G.
+#   - **Zwei Units in Block F waren Leerlaeufe** und stehen jetzt auf `done`:
+#     `g-video-recording-download` (route_video.go:122) und `g-wiki-share-token-routes`
+#     (route_wiki.go:85-109). Beide sind laengst gebaut.
+#   - **Neuer Befund zur Diff-Methode:** der Vormittags-Diff deckte nur `desktop/.../api/**` ab.
+#     In `modules/**` stehen direkte `fetch`-Aufrufe, die kein Client kapselt — dort kamen weitere
+#     tote Pfade hoch. Fuer Lauf 5 beide Baeume diffen.
+#   - Offen: 41 Units.
 
 units:
 
@@ -713,6 +725,588 @@ units:
       - migrate up/down/up gruen
 
   # ==========================================================================
+  # BLOCK G — Feature-Ebene, Recherche-Runde 2 (2026-08-02, nachmittags)
+  #
+  # Methode: `backend-gaps.md` Punkt fuer Punkt gegen den laufenden Code geprueft
+  # (lokale DB Kopf 268 als `kmuhub_app`, 780 openapi-Pfade, Gateway-Registrierungen,
+  # FE-Clients + MSW-Handler). Nur was die Pruefung ueberlebt hat, steht hier.
+  # Rund zwei Drittel der gaps-Eintraege waren bereits gebaut — sie sind in
+  # `backend-gaps.md` jetzt als erledigt markiert und tauchen hier nicht auf.
+  #
+  # NEUER BEFUND ZUR DIFF-METHODE: der Routen-Diff vom Vormittag deckte nur
+  # `desktop/src/renderer/src/api/**` ab. In `modules/**` stehen direkte
+  # `fetch(`${API_BASE_URL}/api/v1/...`)`-Aufrufe, die kein Client kapselt — dort
+  # kamen weitere tote Pfade hoch (Block G-3). Fuer Lauf 5: beide Baeume diffen.
+  #
+  # Reihenfolge ist Wert: die billigen Drift-Fixes und Bestandsbugs zuerst (sie
+  # entsperren bereits gebaute UI), danach die groesseren Neubauten, R-6 zuletzt
+  # als Puffer.
+  #
+  # RICHTUNGSENTSCHEID fuer alle `fix-*-paths`-Units (Luke, 2026-08-02):
+  # **Kanonisch ist der FE-Pfad.** Das Gateway zieht nach — Route umbenennen,
+  # `openapi.yaml` im selben Commit, bestehende Gateway-Tests auf den neuen Pfad.
+  # Geprueft: die Alt-Pfade werden ausserhalb des FE nirgends aufgerufen (keine
+  # Treffer in `deploy/scripts/smoke.sh` und `e2e/`). Der Loop fasst das Frontend
+  # NICHT an — dort fehlt ihm das Typecheck-/Screenshot-Gate.
+  # ==========================================================================
+
+  - id: fix-security-gdpr-paths
+    phase: fix
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Vier von sieben DSGVO-Aufrufen des Frontends laufen ins Leere. Verifiziert am 2026-08-02,
+      `desktop/src/renderer/src/api/security-client.ts:186-200` gegen
+      `backend/internal/gateway/route_security.go:54-58`:
+      FE `POST /security/gdpr/export/request` -> BE `POST /security/gdpr/export`;
+      FE `POST /security/gdpr/export/{id}/approve|deny` -> BE `/security/gdpr/exports/{id}/...`;
+      FE `GET /security/gdpr/export/{token}/download` -> BE `GET /security/gdpr/download/{token}`.
+      Dazu ein fuenfter, noch weiter abweichender Aufruf im Modul-Baum:
+      `desktop/src/renderer/src/modules/settings/PrivacySettingsTab.tsx:139` haengt einen
+      `<a href>` auf `/api/v1/gdpr/exports/{id}/download?token=...` — ganz ohne `/security`-Praefix.
+      Das Gateway zieht auf die FE-Pfade um.
+    sources:
+      - desktop/src/renderer/src/api/security-client.ts
+      - desktop/src/renderer/src/modules/settings/PrivacySettingsTab.tsx
+      - backend/internal/gateway/route_security.go
+      - backend/api/openapi.yaml
+    notes: >
+      Das ist kein Schoenheitsfehler: der komplette DSGVO-Auskunfts- und Freigabe-Pfad ist ueber
+      die UI heute nicht bedienbar. Auskunftsersuchen sind fristgebunden — deshalb steht diese
+      Unit vorn.
+      `GET /gdpr/exports` (Liste) und die beiden `erasure`-Routen stimmen bereits ueberein, die
+      NICHT anfassen.
+      Der Download-Handler nimmt heute ein `{token}` im Pfad, das FE schickt eine `{id}` im Pfad
+      UND den Token als Query-Parameter. Das ist eine echte Vertragsfrage, keine Umbenennung:
+      Erst lesen, was `HandleGetExportDownload` wirklich aufloest. Wenn der Handler ohne den Token
+      nicht arbeiten kann, ist die saubere Form `GET /security/gdpr/export/{id}/download?token=...`
+      mit Token-Pruefung gegen genau diesen Export. Entscheidung mit Begruendung ins Journal.
+      Der Praefix-lose Aufruf im PrivacySettingsTab ist mit hoher Wahrscheinlichkeit schlicht
+      falsch — er wird von KEINER Route bedient, auch nicht von einer umbenannten. Als offenen
+      FE-Punkt ins Journal schreiben, nicht selbst im Frontend fixen.
+      Guards bleiben wie sie sind (`RequireRole("admin")` an approve/deny) — hier wird nur der
+      Pfad bewegt, nicht die Berechtigung.
+    done_when:
+      - alle vier Client-Pfade aus security-client.ts treffen eine registrierte Route
+      - openapi.yaml angeglichen, TestOpenAPIRouteDrift gruen
+      - bestehende Tests in route_security_test.go auf die neuen Pfade gezogen
+      - Download-Vertrag (id vs. token) entschieden und im Journal begruendet
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-hr-document-paths
+    phase: fix
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Zwei tote HR-Dokument-Pfade, verifiziert am 2026-08-02:
+      (a) FE `GET /api/v1/hr/employees/{id}/documents/categories`
+      (`desktop/src/renderer/src/api/hr-client.ts:937`) — das Gateway kennt nur
+      `GET /api/v1/hr/document-categories` (`route_hr.go`).
+      (b) FE `GET` und `POST /api/v1/hr/personnel-documents`
+      (`desktop/src/renderer/src/modules/team/PersonnelDocuments.tsx:161` und `:248`, direkte
+      `fetch`-Aufrufe) — dafuer existiert ueberhaupt keine Route; das Gateway bietet nur
+      `/hr/employees/{id}/documents`.
+      Das Gateway zieht auf die FE-Pfade um.
+    sources:
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/modules/team/PersonnelDocuments.tsx
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      (a) ist eine Umbenennung mit Zusatznutzen: unter `/employees/{id}/...` kann die Liste
+      zusaetzlich nach der `visibility` der Kategorie gefiltert werden (`hr_only|manager|employee`
+      — die Spalte existiert). Wer die Akte eines Fremden oeffnet, darf keine `hr_only`-Kategorien
+      sehen. Ohne diesen Filter ist die Umbenennung wertlos.
+      (b) ist knifflig: `PersonnelDocuments.tsx` sendet beim Upload nachweislich KEINE
+      `employeeId` mit (in `backend-gaps.md` als Vorbestand vermerkt). Ein Endpoint, der nicht
+      weiss, zu welcher Personalakte er schreibt, ist nicht baubar. Lies die Komponente
+      vollstaendig, bevor du eine Route dafuer anlegst. Traegt der Aufruf den Bezug wirklich nicht,
+      ist das Ergebnis dieser Unit: (a) gebaut, (b) als praeziser FE-Befund ins Journal — und NICHT
+      ein Endpoint, der still auf den eingeloggten User zurueckfaellt. Genau so entstehen
+      Datenlecks in Personalakten.
+      Alt-Route `/hr/document-categories` erst entfernen, wenn kein Aufrufer mehr darauf zeigt.
+    done_when:
+      - Kategorie-Route unter dem FE-Pfad erreichbar, visibility serverseitig gefiltert
+      - Fremdakte liefert nachweislich keine hr_only-Kategorien (Test)
+      - personnel-documents entweder gebaut oder mit Begruendung als FE-Befund im Journal
+      - openapi.yaml + go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-finance-notification-paths
+    phase: fix
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Zwei weitere tote Pfade, verifiziert am 2026-08-02:
+      (a) FE `POST /api/v1/finance/invoices/{id}/mark-paid`
+      (`desktop/src/renderer/src/api/finance-client.ts:229`) — das Gateway registriert
+      `POST /{id}/pay` (`route_biz.go:116`, `HandleMarkInvoicePaid`). Der Handler heisst bereits
+      wie der FE-Pfad, nur die Route nicht.
+      (b) FE `DELETE /api/v1/notifications/mutes/{muteId}`
+      (`desktop/src/renderer/src/api/notification-client.ts:103`) — das Gateway hat
+      `DELETE /mutes` ohne Pfad-Parameter (`route_notification.go:62`).
+      Das Gateway zieht auf die FE-Pfade um.
+    sources:
+      - desktop/src/renderer/src/api/finance-client.ts
+      - desktop/src/renderer/src/api/notification-client.ts
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/gateway/route_notification.go
+    notes: >
+      (a) ist eine reine Umbenennung — Handler, Guard und Service bleiben unberuehrt. Die
+      bestehenden Tests in `route_biz_test.go` mitziehen, sonst faellt das Gate.
+      (b) braucht eine Zeile mehr: `notification_mutes` hat eine `id`-Spalte (am 2026-08-02
+      geprueft), die ID-Variante ist also modellierbar und keine Schema-Aenderung. Das Loeschen
+      MUSS zusaetzlich gegen `user_id` UND `tenant_id` gefiltert werden — eine ID allein darf
+      nicht reichen, sonst entmutet ein Nutzer die Benachrichtigungen eines anderen.
+      Die alte body-basierte `DELETE /mutes` erst entfernen, wenn kein Aufrufer mehr darauf zeigt
+      (im FE zeigt keiner darauf).
+    done_when:
+      - beide FE-Pfade treffen eine registrierte Route
+      - Unmute per ID ist gegen user_id + tenant_id gefiltert, Test deckt den Fremdzugriff ab
+      - openapi.yaml angeglichen, bestehende Tests auf die neuen Pfade gezogen
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-crm-import-company
+    phase: fix
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Die Firma geht beim Kontakt-Import verloren. Verifiziert am 2026-08-02 in
+      `backend/internal/email/contact/import_service.go`: `knownMappings` (Zeile 73) kennt
+      `firma|company|unternehmen|organisation` -> `company`, und der vCard-Pfad befuellt
+      `fields["company"]` (Zeile 372) — aber `importSingleContact` persistiert ausschliesslich
+      email, first_name, last_name, phone, position, notes (Zeilen 234-320). Das gemappte Feld
+      faellt ersatzlos raus. Der CSV-Export liest die Firma aus der company-Relation und liefert
+      deshalb immer leer: der Export-Import-Round-Trip des eigenen CRM ist kaputt.
+    sources:
+      - backend/internal/email/contact/import_service.go
+      - backend/internal/gateway/route_crm_contacts.go
+      - backend/internal/crm/
+    notes: >
+      Die Firma gehoert auf die company-Relation (`contacts.company_id` -> `companies`), nicht in
+      ein neues Freitextfeld am Kontakt — sonst hat das CRM zwei Wahrheiten ueber denselben
+      Sachverhalt.
+      Bestehende Firma per Name im eigenen Tenant finden, sonst anlegen. Beim Anlegen `tenant_id`
+      aus `middleware.GetTenantID(ctx)`, nie aus dem Request. Der Namensvergleich braucht eine
+      Entscheidung (exakt, getrimmt, case-insensitiv) — treffen und im Journal begruenden, nicht
+      offenlassen.
+      Ein Import mit 500 Zeilen darf nicht 500 Einzelabfragen auf `companies` ausloesen: die
+      bereits aufgeloesten Namen innerhalb eines Laufs zwischenspeichern.
+      Der Import ist idempotent gedacht — pruefen, dass ein zweiter Lauf derselben Datei keine
+      Firmen-Dubletten erzeugt.
+      Test: Round-Trip. Export erzeugen, wieder importieren, Firma muss ankommen.
+    done_when:
+      - Firma landet auf der company-Relation, Export liest sie zurueck
+      - keine Dubletten bei doppeltem Import, kein N+1 bei grossen Dateien
+      - tenant_id beim Anlegen aus dem Context
+      - Round-Trip-Test gruen, go test -count=1 ./internal/email/... gruen
+
+  - id: fix-berichte-kpi-module-scope
+    phase: fix
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Der Dashboard-KPI-Endpoint umgeht die Modul-Sichtbarkeit. Verifiziert am 2026-08-02 in
+      `backend/internal/gateway/route_berichte.go:1063-1095`: `HandleGetDashboardKPIs` liest die
+      Modulliste ungeprueft aus dem Query-Parameter `?modules=` und reicht sie an
+      `GetDashboardKPIs` durch; leer bedeutet ALLE Module. Einziger Guard ist
+      `berichte:reports:read` (Zeile 127). Ein `member` ohne `finanzen:module:view` bekommt damit
+      ueber `GET /api/v1/berichte/kpis?modules=finanzen` die Umsatzzahlen des Unternehmens.
+      Das Frontend filtert die Kacheln nur clientseitig
+      (`desktop/src/renderer/src/.../report-module-visibility.ts`) — das ist UI, keine Grenze.
+    sources:
+      - backend/internal/gateway/route_berichte.go
+      - backend/internal/berichte/service.go
+      - backend/internal/middleware/
+    notes: >
+      Die angeforderte Modulliste serverseitig mit den effektiven Capabilities des Aufrufers
+      schneiden (`<modul>:module:view`), und zwar fail-closed: unbekannter oder nicht
+      freigeschalteter Modulname faellt still raus, statt durchzurutschen. Leere Anfrage heisst
+      danach "alle Module, die dieser Nutzer sehen darf" — nicht mehr "alle".
+      Die Capabilities liegen im Token; der Resolver aus RBAC Welle 1a ist die Quelle. Suchen,
+      wie andere Handler das lesen, und dasselbe Mittel nutzen — keine zweite Aufloesung bauen.
+      **Den bestehenden Guard nicht ersetzen.** Permissions werden beim Login ins JWT gebacken;
+      ein hart getauschter Key sperrt jeden Nutzer mit gueltigem Alt-Token aus. Additiv per
+      `RequirePermissionAny`, wenn ueberhaupt ein zweiter Key noetig ist.
+      Der Test ist der Kern dieser Unit, nicht die Implementierung: ein Nutzer ohne
+      `finanzen:module:view` fragt `?modules=finanzen` an und bekommt nachweislich KEINE
+      Finanz-KPI zurueck.
+    done_when:
+      - Modulliste serverseitig gegen die Capabilities des Aufrufers geschnitten, fail-closed
+      - Test: member ohne finanzen-Sichtbarkeit erhaelt keine Finanz-KPI
+      - Alt-Guard additiv erweitert, nicht ersetzt
+      - go test -count=1 ./internal/gateway/ ./internal/berichte/... gruen
+
+  - id: g-berichte-document-upload
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `POST /api/v1/documents/files/upload` (multipart) fehlt. Verifiziert am 2026-08-02:
+      `desktop/src/renderer/src/api/berichte-client.ts:286` sendet ein FormData mit `file`,
+      `folder_id` und `tag_id` an genau diesen Pfad und erwartet `{file}` zurueck; im
+      document-Modul existiert ausschliesslich der Presign-Weg
+      (`/api/v1/files/presign-upload`). Damit ist "Bericht als PDF in Dokumente ablegen" tot.
+    sources:
+      - desktop/src/renderer/src/api/berichte-client.ts
+      - backend/internal/gateway/route_document.go
+      - backend/internal/gateway/route_biz_gobd_archive.go
+      - backend/internal/document/file/
+    notes: >
+      Multipart-Handling gibt es im Repo bereits dreimal — `route_biz_banking.go:37`,
+      `route_biz_gobd_archive.go:43`, `route_crm_contacts.go:303`. Eine davon als Vorlage nehmen,
+      nichts Neues erfinden.
+      Groessenlimit und eine Content-Type-Allowlist sind Pflicht, nicht Kuer: das ist ein
+      authentifizierter Upload in den Dokumentenspeicher.
+      Die Datei landet ueber den bestehenden Storage-Weg des document-Moduls in MinIO — den
+      Presign-Code als Referenz fuer Bucket, Objekt-Key-Schema und Groessengrenzen lesen und
+      dieselben Konventionen einhalten, damit nicht zwei Ablagemuster nebeneinander stehen.
+      Antwortform ist `{file}` (gewrappt, snake_case) — der FE-Typ ist bindend.
+      `folder_id` und `tag_id` muessen dem eigenen Tenant gehoeren; ungeprueft waere das ein Weg,
+      in fremde Ordner zu schreiben.
+    done_when:
+      - Route registriert, Datei landet im Speicher und in `document_files`
+      - Groessenlimit + Content-Type-Allowlist greifen (Test)
+      - folder_id/tag_id tenant-geprueft, Antwort `{file}` deckt sich mit dem FE-Typ
+      - openapi.yaml + go test -count=1 ./internal/gateway/ gruen
+
+  - id: g-email-messages-bulk
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `POST /api/v1/email/messages/bulk` fehlt. Verifiziert am 2026-08-02:
+      `desktop/src/renderer/src/api/email-client.ts:192` schickt `{ids, action, target}` und
+      erwartet `{affected}`; `route_email.go:119-130` kennt nur Einzeloperationen
+      (`/{id}/read`, `/{id}/unread`, `/{id}/star`, `/{id}/move`, `/{id}/labels`,
+      `DELETE /{id}`). Die Mehrfachauswahl in der Mail-Liste laeuft damit ins Leere.
+    sources:
+      - desktop/src/renderer/src/api/email-client.ts
+      - backend/internal/gateway/route_email.go
+      - backend/internal/email/
+    notes: >
+      Kein neuer Service-Code: `action` auf die vorhandenen Operationen abbilden (read, unread,
+      star, move mit `target` = Ordner, delete). Eine unbekannte `action` ist 422, kein stilles
+      Ignorieren.
+      Obergrenze fuer `ids` festlegen (die Liste kommt aus einer UI-Auswahl, ein Client koennte
+      zehntausend schicken) und im Fehlerfall dokumentieren.
+      Teil-Erfolg ehrlich melden: `affected` zaehlt, was wirklich geaendert wurde. Nachrichten,
+      die dem Tenant nicht gehoeren, werden nicht angefasst und nicht mitgezaehlt — und sie
+      duerfen den ganzen Aufruf nicht scheitern lassen.
+      Jede ID einzeln tenant-pruefen. Ein `WHERE id = ANY($1)` ohne `tenant_id` waere hier der
+      klassische Massen-Fremdzugriff.
+    done_when:
+      - Route registriert, alle vom FE genutzten Aktionen abgedeckt
+      - unbekannte action -> 422, Obergrenze fuer ids greift
+      - Test: fremde Tenant-IDs bleiben unberuehrt und zaehlen nicht in `affected`
+      - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/email/... gruen
+
+  - id: g-admin-users-list
+    phase: 3
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `GET /api/v1/admin/users` -> `{users:[AdminUser]}`. Verifiziert am 2026-08-02: das FE ruft
+      die Route ueber `desktop/src/renderer/src/api/hooks/useAdminUsers.ts:21`, im Gateway
+      existiert unter `/api/v1/admin/users` ausschliesslich `/{id}/permissions`
+      (`route_auth.go:117-120`). Die Substanz ist vorhanden: `HandleListUsers` unter
+      `/api/v1/users`, dazu `user_roles` und `invitations`.
+      Das ist eine Zusammenfuehrung bestehender Daten zu EINER Liste, kein neuer Datenbestand.
+    sources:
+      - desktop/src/renderer/src/api/hooks/useAdminUsers.ts
+      - desktop/src/renderer/src/api/admin-types.ts
+      - backend/internal/gateway/route_auth.go
+      - backend/internal/auth/
+    notes: >
+      Bindender Vertrag ist `AdminUser` in `api/admin-types.ts`. Zwei Felder darin sind heute
+      nicht sauber bedienbar — beide MUESSEN bewusst entschieden und im Journal notiert werden:
+      - **`lastLoginAt`**: die Tabelle `users` hat KEINE `last_login_at`-Spalte (am 2026-08-02
+        geprueft). Entweder aus `user_sessions` ableiten (juengste Session des Users) oder
+        ehrlich `null` liefern. Was nicht geht: einen plausiblen Wert erfinden.
+      - **`roles`** ist ein Array (Multi-Rollen seit RBAC R-2). Die Aufloesung laeuft ueber
+        `user_roles`; diese Tabelle hat weder `tenant_id` noch RLS (siehe `g-user-roles-rls`),
+        der Join MUSS deshalb ueber `users` tenant-gescopt werden.
+      `status` leitet sich ab: `invited`, solange eine offene, unangenommene Einladung existiert
+      (`invitations.accepted_at IS NULL AND expires_at > now()`), sonst `active`/`deactivated`
+      aus `users.is_active`.
+      Kein N+1: Rollen und Einladungsstand in einem Rutsch laden, nicht pro Nutzer.
+      Guard wie bei der Nachbarroute (`RequireRole("admin")` bzw. das dort verwendete Muster) —
+      diese Liste enthaelt E-Mail-Adressen und Rechte des gesamten Tenants.
+    done_when:
+      - Route liefert die AdminUser-Form exakt nach `admin-types.ts`
+      - status/roles korrekt abgeleitet, tenant-gescopt (Test mit zweitem Tenant)
+      - lastLoginAt-Entscheidung umgesetzt und im Journal begruendet
+      - openapi.yaml + go test -count=1 ./internal/gateway/ gruen
+
+  - id: g-admin-users-invite
+    phase: 3
+    service: auth
+    model: opus
+    deps: [g-admin-users-list]
+    status: todo
+    scope: >
+      Die drei schreibenden Routen der Benutzerverwaltung, alle drei vom FE bereits aufgerufen
+      (`api/hooks/useAdminUsers.ts:35/52/68`) und im Gateway nicht vorhanden:
+      `POST /api/v1/admin/users/invite` (Body `{email, firstName?, lastName?, roles[]}`),
+      `PATCH /api/v1/admin/users/{id}` (Rolle und/oder Status) und
+      `POST /api/v1/admin/users/{id}/resend-invite`.
+      Fundament steht: die Tabelle `invitations` (email, role, token_hash, expires_at,
+      accepted_at, created_by, tenant_id) sowie `HandleCreateInvitation`, `HandleListInvitations`,
+      `HandleCancelInvitation` unter `/api/v1/invitations` (`route_auth.go:132-143`).
+    sources:
+      - desktop/src/renderer/src/api/hooks/useAdminUsers.ts
+      - desktop/src/renderer/src/api/admin-types.ts
+      - backend/internal/gateway/route_auth.go
+      - backend/internal/auth/
+    notes: >
+      **`invitations.role` ist SINGULAR, der FE-Vertrag (`InviteUserInput.roles`) ist ein Array.**
+      Das ist die zentrale Entscheidung dieser Unit: entweder Mehrfachrollen sauber modellieren
+      (Migration) oder bewusst die erste Rolle nehmen und die Einschraenkung dokumentieren. Beides
+      ist vertretbar, stilles Verschlucken der uebrigen Rollen ist es nicht.
+      **Seat-Limit serverseitig erzwingen**: aktive Nutzer PLUS offene Einladungen verbrauchen
+      Plaetze. Das FE warnt nur inline — ohne serverseitige Pruefung ist das Limit keins. Woher
+      die Platzzahl kommt, zuerst pruefen (`tenants`, `tenant_module_activations`, Settings);
+      gibt es keine belastbare Quelle, ist das ein Journal-Eintrag und kein erfundener Default.
+      **`resend-invite`** erzeugt einen neuen Token mit neuem `expires_at` und macht den alten
+      ungueltig — sonst existieren zwei gueltige Zugaenge zu einem Konto. Rate-Limit mitdenken.
+      **Eskalations-Guard**: niemand darf per Invite oder PATCH eine Rolle vergeben, die er selbst
+      nicht haelt. `HandleAssignRole` hat heute ein `oneof`-Validator-Problem (siehe
+      `p1b-user-roles`) — wenn diese Unit nach 1b laeuft, dieselbe dynamische Validierung nutzen,
+      keine zweite bauen.
+      **Selbst-Deaktivierung** blocken; den letzten Admin nicht deaktivierbar machen (der
+      Guardrail-Code aus `p1b-guardrails` ist die Quelle, nicht eine Kopie davon).
+      Die E-Mail-Zustellung laeuft ueber den vorhandenen Weg des invitations-Handlers — nicht neu
+      verdrahten.
+    done_when:
+      - alle drei Routen registriert, Antwortformen decken sich mit admin-types.ts
+      - roles-Array-Entscheidung umgesetzt und begruendet
+      - Seat-Limit greift oder ist als fehlende Datenbasis im Journal dokumentiert
+      - resend invalidiert den alten Token (Test)
+      - Eskalation, Selbst-Deaktivierung und letzter Admin sind geblockt (Tests)
+      - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/auth/... gruen
+
+  - id: g-hr-change-requests
+    phase: 3
+    service: hr
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Aenderungsantraege der Mitarbeiter auf ihre eigenen Stammdaten (BambooHR-Muster, R-4).
+      Verifiziert am 2026-08-02: der FE-Client `desktop/src/renderer/src/api/hr-change-requests.ts`
+      und der stateful MSW-Handler `mocks/handlers/hr-change-requests.ts` sind vollstaendig
+      gebaut; serverseitig existiert weder Tabelle noch Route.
+      Zu bauen: `GET /api/v1/hr/change-requests`, `POST /api/v1/hr/change-requests` sowie
+      `POST /api/v1/hr/change-requests/{id}/approve|reject|cancel`.
+    sources:
+      - desktop/src/renderer/src/api/hr-change-requests.ts
+      - desktop/src/renderer/src/mocks/handlers/hr-change-requests.ts
+      - backend/internal/hr/
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      Der MSW-Handler ist die Referenz-Implementierung — Feldnamen, Statuswerte und Fehlercodes
+      exakt von dort uebernehmen, nicht aus dieser Beschreibung ableiten.
+      Neue Tabelle: `tenant_id UUID NOT NULL` plus `CALL enable_tenant_rls(...)`, INSERT setzt den
+      Tenant aus `middleware.GetTenantID(ctx)`, und **jeder SELECT ist tenant-gescopt** — die
+      Leseseite wird in diesem Repo regelmaessig vergessen und erzeugt dann Phantom-404. Der
+      Regressionstest aus `g-rls-regression-guard` greift ab dieser Nacht.
+      Fachliche Kanten, die nicht wegfallen duerfen:
+      - Ein zweiter offener Antrag auf dasselbe Feld ist 409, kein zweiter Datensatz.
+      - `approve` mutiert den Mitarbeiterdatensatz und erfordert `team:data_personal:edit` MIT
+        Scope-Treffer auf den Antragsteller. Ein Manager ohne Scope auf diese Person darf nicht
+        genehmigen — das ist der eigentliche Sinn des Flows.
+      - `reject` braucht einen Pflichtgrund (422 ohne).
+      - `cancel` darf nur der Antragsteller, und nur solange `pending`.
+      Der Antragsteller kommt aus dem Auth-Context, nie aus dem Body.
+      Jeder neue `RequirePermission`-Guard braucht einen Seed in DERSELBEN Migration, sonst 403
+      fuer alle inklusive Admin.
+    done_when:
+      - Tabelle mit tenant_id + RLS, Migration up/down/up gruen
+      - alle fuenf Routen registriert, Formen decken sich mit dem MSW-Handler
+      - doppelter pending-Antrag -> 409, reject ohne Grund -> 422 (Tests)
+      - approve ohne Scope auf den Antragsteller -> 403 (Test)
+      - Seeds fuer neue Guards in derselben Migration
+      - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/hr/... gruen
+
+  - id: g-hr-offboard
+    phase: 3
+    service: hr
+    model: opus
+    deps: [g-hr-change-requests]
+    status: todo
+    scope: >
+      `POST /api/v1/hr/employees/{id}/offboard` — Austritt eines Mitarbeiters als EINE
+      transaktionale Operation. Verifiziert am 2026-08-02: das FE ruft die Route bereits
+      (`desktop/src/renderer/src/api/hr-client.ts:945`), im Gateway existiert sie nicht.
+      Body laut R-4-Vertrag: `{lastWorkDay, exitDate, exitType(resignation|termination|
+      mutual_termination|retirement), reason?, backfill, successorUserId?}`.
+      Kaskade: HR-Status auf inactive, Auth-Konto deaktivieren (Login sperren), Platz freigeben,
+      Rollenzuweisungen entfernen, und die `managerUserId` aller unterstellten Mitarbeiter auf den
+      Nachfolger umhaengen.
+    sources:
+      - desktop/src/renderer/src/api/hr-client.ts
+      - backend/internal/hr/
+      - backend/internal/auth/
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      **Alles oder nichts.** Die Kaskade beruehrt HR-Profil, Auth-Konto und Rollen. Reisst ein
+      Schritt, darf kein halb offboardeter Zustand zurueckbleiben — ein Konto, das noch einloggen
+      kann, waehrend die Personalakte auf inactive steht, ist der schlechteste Ausgang.
+      Liegt HR-Profil und Auth-Konto in verschiedenen Services, ist eine verteilte Transaktion
+      nicht baubar: dann Reihenfolge so waehlen, dass der sicherheitsrelevante Schritt
+      (Login sperren) zuerst und idempotent passiert, und den Rest bei Fehlschlag nachvollziehbar
+      protokollieren. Die Entscheidung gehoert ins Journal.
+      **Verwaiste Vorgesetzte sind der Kern dieser Unit**, nicht der Statuswechsel: hat die Person
+      Reports und fehlt `successorUserId`, ist das 422. Ohne diese Regel haengen Genehmigungen
+      an einem gesperrten Konto.
+      Die Umhaenge-Schleife muss zyklus-sicher sein (jemand darf nicht sein eigener Vorgesetzter
+      werden).
+      Recht: `team:employee:offboard` (im Katalog vorhanden). Neuer Guard -> Seed in derselben
+      Migration.
+      Sich selbst offboarden ist verboten; den letzten Admin ebenso.
+    done_when:
+      - Route registriert, Kaskade vollstaendig, Teil-Fehlschlag hinterlaesst keinen offenen Login
+      - Reports ohne successorUserId -> 422 (Test)
+      - Zyklus-Schutz beim Umhaengen (Test)
+      - Selbst-Offboard und letzter Admin geblockt
+      - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/hr/... gruen
+
+  - id: g-hr-salary-statements
+    phase: 3
+    service: hr
+    model: sonnet
+    deps: [g-hr-offboard]
+    status: todo
+    scope: >
+      `GET /api/v1/hr/employees/me/salary-statements` — die eigenen Lohnabrechnungen im
+      Self-Service. Verifiziert am 2026-08-02: das FE ruft den Pfad direkt
+      (`desktop/src/renderer/src/modules/team/SelfServiceView.tsx:136`), im Gateway existiert er
+      nicht.
+    sources:
+      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
+      - backend/internal/hr/
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      **PRAEMISSE NUR ZUR HAELFTE GEPRUEFT — das ist Absicht, lies das zuerst.** Die Struktur
+      traegt: `hr_employee_documents` (employee_id, category_id, file_id, uploaded_by, tenant_id)
+      und `hr_document_categories` (key, visibility, is_system). Der Bestand traegt NICHT: die
+      lokale DB kennt genau vier System-Kategorien — `abmahnungen`, `arbeitsvertrag`,
+      `sonstiges`, `zeugnisse`. Eine Lohn-/Gehaltskategorie (der FE-Vertrag nennt sie
+      `hrcat-payroll`) existiert nicht.
+      Damit hat diese Unit genau zwei zulaessige Ausgaenge:
+      (a) Die Kategorie wird als System-Kategorie mitangelegt (Seed-Migration) und der Endpoint
+          liefert die Dokumente des eigenen Mitarbeiterdatensatzes aus dieser Kategorie; oder
+      (b) `blocked` mit der Angabe, dass die Lohnkategorie ein Produktentscheid ist.
+      Was NICHT zulaessig ist: eine Route, die eine leere Liste oder Beispieldaten liefert.
+      **`visibility` ist hier sicherheitsrelevant.** Die vorhandenen Stufen sind
+      `hr_only|manager|employee`. Lohnunterlagen brauchen "Mitarbeiter selbst und HR, ein
+      Vorgesetzter NIE". Prueft nach, ob `employee` genau das bedeutet oder ob ein Manager
+      `employee`-Kategorien mitsieht — im zweiten Fall reicht die vorhandene Stufe nicht, und das
+      ist ein Befund fuer Luke, kein stillschweigend gewaehlter Kompromiss.
+      Zugriff zusaetzlich an `team:salary:view` im Scope `own` binden. "me" wird aus dem
+      Auth-Context aufgeloest, nie aus einem Parameter.
+    done_when:
+      - entweder Route mit echter Datenquelle inkl. Kategorie-Seed
+      - oder blocked mit der praezisen Angabe, was fehlt
+      - falls gebaut, nur eigene Dokumente und visibility serverseitig erzwungen (Fremdzugriff 403)
+      - falls gebaut: openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/hr/... gruen
+
+  - id: g-rbac-user-overrides-model
+    phase: 3
+    service: auth
+    model: opus
+    deps: [p1b-audit-events]
+    status: todo
+    scope: >
+      Persistenz und CRUD fuer Per-User-Rechte-Overrides (RBAC R-6, volle Variante allow+deny).
+      Verifiziert am 2026-08-02: das FE ruft `GET/PUT/DELETE /api/v1/admin/users/{id}/overrides`
+      (`desktop/src/renderer/src/api/rbac-client.ts:141/154`),
+      `to_regclass('public.user_permission_overrides')` liefert leer.
+      Tabelle `user_permission_overrides` (tenant_id, user_id, permission_key, mode allow|deny,
+      scope own|team|all, created_by, created_at, updated_at) plus die drei Routen; PUT ersetzt
+      die komplette Map eines Users, leere Map loescht alles.
+    sources:
+      - desktop/src/renderer/src/api/rbac-client.ts
+      - desktop/src/renderer/src/api/rbac-types.ts
+      - desktop/src/renderer/src/mocks/data/rbac.ts
+      - .planning/rbac-block/R6-USER-OVERRIDES-BRIEFING.md
+    notes: >
+      Diese Unit baut NUR Persistenz und CRUD. Die Aufloesung kommt in
+      `g-rbac-user-overrides-resolver` — nicht vorgreifen, sonst entstehen zwei halbe Nahtstellen.
+      Tabelle mit `tenant_id NOT NULL` + RLS; eindeutig ueber (tenant_id, user_id, permission_key).
+      `permission_key` gegen die `permissions`-Tabelle validieren (456 Zeilen lokal), unbekannter
+      Key ist 422 — sonst speichert der Editor Rechte, die nirgends greifen.
+      Guardrails serverseitig, das FE erzwingt sie nur als UI: Eskalation (allow auf einen Key,
+      den der Setzende selbst nicht haelt, wird geblockt), Selbst-Aussperrung (eigener Account
+      nicht editierbar), Last-Admin (kein deny, das den letzten Vollzugriff entfernt). Der
+      Guardrail-Code aus `p1b-guardrails` ist die Quelle — mitnutzen, nicht kopieren.
+      Neuer Katalog-Key `admin:user_override:manage` (admin-only) braucht einen **Seed in
+      derselben Migration**. `hr_admin` haelt `role:assign`, aber bewusst NICHT dieses Recht.
+      Audit: jede Aenderung schreibt `permission.override_set` bzw. `permission.override_removed`
+      pro geaendertem Key ueber denselben Interceptor wie `p1b-audit-events` — kein zweiter Pfad.
+    done_when:
+      - Tabelle mit tenant_id + RLS, Migration up/down/up gruen
+      - drei Routen registriert, PUT ersetzt vollstaendig, leere Map loescht
+      - unbekannter permission_key -> 422
+      - Eskalation, Selbst-Aussperrung, Last-Admin geblockt (Tests)
+      - Seed fuer admin:user_override:manage in derselben Migration
+      - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/auth/... gruen
+
+  - id: g-rbac-user-overrides-resolver
+    phase: 3
+    service: auth
+    model: opus
+    deps: [g-rbac-user-overrides-model]
+    status: todo
+    scope: >
+      Die Overrides in die Rechte-Aufloesung einhaengen. `GET /auth/me/permissions` und
+      `GET /admin/users/{id}/permissions` liefern danach die aufgeloesten Capabilities INKLUSIVE
+      Overrides, plus die zwei Zusatzfelder `hasOverrides: boolean` und
+      `deniedByOverride: [{key, roleScope, sources}]`. Der Parameter `?base=1` liefert weiterhin
+      die reine Rollen-Union ohne Overrides (Editor-Baseline).
+      Verifiziert am 2026-08-02: alle drei Bestandteile sind im FE-Vertrag
+      (`desktop/src/renderer/src/api/rbac-types.ts`, `rbac-client.ts:48`) spezifiziert,
+      serverseitig existiert keiner davon.
+    sources:
+      - desktop/src/renderer/src/api/rbac-types.ts
+      - desktop/src/renderer/src/mocks/data/rbac.ts
+      - backend/internal/auth/
+    notes: >
+      Referenz ist `applyUserOverrides()` in `mocks/data/rbac.ts`: **eine** Naht, nicht mehrere.
+      Erst die Rollen-Union wie bisher, danach die Overrides — `deny` entfernt den Key komplett,
+      `allow` setzt oder hebt den Scope. Der Override gewinnt pro Key ueber ALLE Rollen.
+      Ein allow-Override taggt den Grant mit dem Sentinel `sources: ['override', ...]`, sonst
+      zeigt die Effektive-Rechte-Ansicht eine falsche Herkunft. deny-Keys wandern nach
+      `deniedByOverride` und verschwinden aus `capabilities`.
+      `<modul>:module:view` ist ein ganz normaler Key — kein Sonderfall im Resolver.
+      **Der Resolver liegt im Login-Pfad.** Die Capabilities werden ins JWT gebacken; eine
+      zusaetzliche Abfrage pro Login ist vertretbar, eine pro Request nicht. Wo die Aufloesung
+      genau haengt, zuerst lesen — und darauf achten, dass ein Nutzer OHNE Overrides keine
+      zusaetzliche Last erzeugt.
+      Bestandsverhalten darf sich fuer Nutzer ohne Overrides um kein Bit aendern. Das ist der
+      wichtigste Test dieser Unit.
+    done_when:
+      - deny entfernt, allow setzt/hebt Scope — Test gegen die MSW-Referenz
+      - hasOverrides + deniedByOverride in beiden Endpoints, ?base=1 liefert die reine Union
+      - Provenance-Sentinel gesetzt
+      - Nutzer ohne Overrides: unveraenderte Antwort (Regressionstest)
+      - go test -count=1 ./internal/gateway/ ./internal/auth/... gruen
+
+  # ==========================================================================
   # BLOCK F — uebernommen aus Lauf 3 (Scope dort bereits verifiziert)
   # Die beiden `blocked` Units am Ende brauchen eine Produktentscheidung von
   # Luke, KEINE Codearbeit — der Loop ueberspringt sie.
@@ -922,20 +1516,22 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Download-Endpunkt fuer Meeting-Aufzeichnungen.
     sources:
       - .planning/backend-gaps.md
     notes: >
-      Aufzeichnungen sind besonders sensibel (Einwilligung beim Beitritt plus Banner ist bereits
-      geregelt). Der Download-Link muss zeitlich begrenzt und an den Berechtigten gebunden sein —
-      Presign mit kurzer Gueltigkeit, kein dauerhaft gueltiger Pfad.
-      Zugriffsrecht serverseitig gegen die Teilnehmerliste pruefen, nicht nur gegen den Tenant.
+      BEREITS GEBAUT — verifiziert 2026-08-02 bei der Backlog-Auffuellung, KEINE Arbeit noetig.
+      `backend/internal/gateway/route_video.go:122` registriert
+      `GET /recordings/{id}/download` -> `HandleGetRecordingDownloadURL` (Implementierung ab
+      Zeile 1721), und `/api/v1/video/recordings/{id}/download` steht in `api/openapi.yaml`.
+      Der Backlog-Eintrag stammt aus der veralteten `backend-gaps.md`.
+      Was NICHT nachgeprueft wurde und als offener Punkt fuer Luke bleibt: ob der Handler die
+      Berechtigung wirklich gegen die Teilnehmerliste prueft (nicht nur gegen den Tenant) und ob
+      der Presign-Link kurzlebig ist. Das ist ein Review-Thema, keine Bau-Unit.
     done_when:
-      - Download nur fuer Berechtigte, kurzlebiger Presign-Link
-      - Test: Nicht-Teilnehmer bekommt 403
-      - openapi.yaml im selben Commit
+      - erledigt vor Lauf 4, Fundstelle route_video.go:122
   - id: g-work-start-date
     phase: 3
     service: work
@@ -960,25 +1556,27 @@ units:
     service: wiki
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die Share-Token-Routen des wiki-Moduls sind nicht registriert.
     sources:
       - .planning/backend-gaps.md
       - backend/internal/wiki
     notes: >
-      Erst pruefen, was wirklich fehlt — moeglicherweise existiert die Logik und nur die
-      Registrierung im Gateway fehlt. Dann ist es eine sehr kleine Unit.
-      Muster und Sicherheitsanforderungen wie bei `fe-documents-links` (Entropie, Ablauf,
-      konstantzeitiger Vergleich, sofort wirksamer Widerruf).
+      BEREITS GEBAUT — verifiziert 2026-08-02 bei der Backlog-Auffuellung, KEINE Arbeit noetig.
+      `backend/internal/gateway/route_wiki.go:85/86` registriert
+      `GET /wiki/articles/{id}/share` (HandleListShareTokens) und `POST` (HandleCreateShareToken),
+      Zeile 109 mountet `/wiki/share`. Alle Pfade stehen in `api/openapi.yaml`
+      (`/api/v1/wiki/articles/{id}/share`, `/api/v1/wiki/share/{tokenId}`), die Tabelle
+      `wiki_share_tokens` existiert. Der Backlog-Eintrag stammt aus der veralteten
+      `backend-gaps.md`.
     done_when:
-      - Routen registriert und erreichbar
-      - openapi.yaml im selben Commit, TestOpenAPIRouteDrift gruen
+      - erledigt vor Lauf 4, Fundstelle route_wiki.go:85-109
   - id: g-user-roles-rls
     phase: 3
     service: auth
     model: opus
-    deps: [p1a-migration]
+    deps: []
     status: todo
     scope: >
       `user_roles` traegt weder `tenant_id` noch eine RLS-Policy — als einzige Tabelle des
@@ -988,7 +1586,10 @@ units:
       - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
       - docs/ARCHITECTURE.md
     notes: >
-      Gefunden in p1a-migration. Heute kein Leck, weil jeder Lesepfad
+      Gefunden in der Unit `p1a-migration` aus Lauf 3 — die ist erledigt (Migration 000256, in
+      PR #16) und steht nicht mehr im Backlog. Die `deps:`-Zeile zeigte deshalb ins Leere und ist
+      am 2026-08-02 auf `[]` gesetzt worden; sonst haette der Loop diese Unit nie ziehen koennen.
+      Heute kein Leck, weil jeder Lesepfad
       (`GetUserRoles`/`GetUserPermissions`/`UserHasPermission` in
       `internal/auth/postgres_repository.go`) ueber eine `user_id` aus dem JWT filtert — die
       Datenbank-Ebene traegt aber keinen Backstop, ein ungefilterter SELECT waere
