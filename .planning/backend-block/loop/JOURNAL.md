@@ -1155,7 +1155,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 17 — g-rls-plugin-manifests — done — 2026-08-03 00:31
 
-- commit: <pending>
+- commit: 15c2ccd6
 - entscheidung (die Produktfrage der Unit): **gebaut, nicht blockiert.** Von den drei Wegen der notes
   traegt der dritte: nullable `tenant_id` mit dem Policy-Paar aus 000256 (`roles`/`role_permissions`).
   NULL = "mit dem Produkt ausgeliefert, fuer jeden Tenant lesbar, fuer keinen schreibbar", gesetzter
