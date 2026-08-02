@@ -55,7 +55,7 @@ anzulegen und der Lauf zu beenden — nicht nach Arbeit zu suchen.
 
 ## Iteration 1 — p1b-proto — done — 2026-08-02 20:15
 
-- commit: 4dd806a7
+- commit: dbe58528
 - gebaut: 8 Rollen-Admin-RPCs am `AuthService` (`ListRoles`, `CreateRole`, `UpdateRole`,
   `DeleteRole`, `GetRolePermissions`, `SetRolePermissions`, `AssignUserRole`, `RevokeUserRole`)
   plus die Messages `Role`, `RoleGrant` und die acht Request/Response-Paare in
