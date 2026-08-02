@@ -1098,7 +1098,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 16 — g-rls-storage-quotas — done — 2026-08-02 23:23
 
-- commit: <wird nachgetragen>
+- commit: d48eab68
 - gebaut:
   - `000275_tenant_scope_storage_quotas` — `tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE
     CASCADE` + `UNIQUE(tenant_id)` (Conflict-Target fuer den Upsert unten) + `enable_tenant_rls()`.
