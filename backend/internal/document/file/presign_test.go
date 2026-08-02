@@ -55,12 +55,68 @@ func TestGetPresignedUploadURL_AllowedScopes(t *testing.T) {
 	tenantID := uuid.New()
 	ctx := contextWithTenant(tenantID)
 
+	// "branding" is excluded here — it has a stricter content-type allowlist,
+	// covered separately below.
 	scopes := []string{"avatar", "chat", "rapporte", "vermietung", "vertraege", "fuhrpark", "inventar", "kontakte", "documents"}
 	for _, scope := range scopes {
 		result, err := svc.GetPresignedUploadURL(ctx, scope, "file.bin", "application/octet-stream", 512)
 		assert.NoError(t, err, "scope %q should be allowed", scope)
 		assert.NotNil(t, result)
 	}
+}
+
+func TestGetPresignedUploadURL_BrandingAllowsImageTypes(t *testing.T) {
+	svc := newPresignService()
+	ctx := contextWithTenant(uuid.New())
+
+	for _, ct := range []string{"image/png", "image/jpeg", "image/webp"} {
+		result, err := svc.GetPresignedUploadURL(ctx, "branding", "logo.png", ct, 1024)
+		assert.NoError(t, err, "content_type %q should be allowed for branding", ct)
+		assert.NotNil(t, result)
+	}
+}
+
+func TestGetPresignedUploadURL_BrandingRejectsSVG(t *testing.T) {
+	svc := newPresignService()
+	ctx := contextWithTenant(uuid.New())
+
+	_, err := svc.GetPresignedUploadURL(ctx, "branding", "logo.svg", "image/svg+xml", 1024)
+	require.Error(t, err)
+	s, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, s.Code())
+}
+
+func TestGetPresignedUploadURL_BrandingRejectsNonImageType(t *testing.T) {
+	svc := newPresignService()
+	ctx := contextWithTenant(uuid.New())
+
+	_, err := svc.GetPresignedUploadURL(ctx, "branding", "logo.pdf", "application/pdf", 1024)
+	require.Error(t, err)
+	s, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, s.Code())
+}
+
+func TestGetPresignedUploadURL_BrandingSizeLimit_ExceedsMax(t *testing.T) {
+	svc := newPresignService()
+	ctx := contextWithTenant(uuid.New())
+
+	// The generic 50 MB limit does not apply here — branding caps at 2 MB.
+	_, err := svc.GetPresignedUploadURL(ctx, "branding", "huge.png", "image/png", brandingMaxSizeBytes+1)
+	require.Error(t, err)
+	s, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, s.Code())
+}
+
+func TestGetPresignedUploadURL_BrandingSizeLimit_AtMax(t *testing.T) {
+	svc := newPresignService()
+	ctx := contextWithTenant(uuid.New())
+
+	result, err := svc.GetPresignedUploadURL(ctx, "branding", "logo.png", "image/png", brandingMaxSizeBytes)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
 }
 
 func TestGetPresignedUploadURL_ForbiddenScope(t *testing.T) {

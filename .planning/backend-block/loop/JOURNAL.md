@@ -3928,3 +3928,99 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - `integrations.bexio` bleibt unenforced entfernt — falls Luke die Bexio-Integration doch
     hinter einen Flag stellen will, braucht das zuerst eine Pruefung der Prod-Umgebungsvariable
     (Prod-Zugriff, ausserhalb Loop).
+
+## Iteration 56 — g-admin-branding-s3 — done — 2026-08-02 06:00
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `9a6198d8` (Iteration 55, featureflag-cleanup) `git show --stat`
+  gepruefter Diff deckt sich mit dem Journal-Eintrag (registry.go, route_plugin.go, main.go,
+  openapi.yaml, neue Tests) — keine Business-Logik im Handler, kein direkter Service-Bypass, kein
+  neuer `RequirePermission`-Guard ohne Seed, openapi.yaml im selben Commit. Kein Nacharbeitsbedarf.
+- Auftrag: Workspace-Branding (Name, Logo, Icon, Akzentfarbe) von "nie im Backlog gewesen" auf
+  echte Backend-Persistenz + MinIO-Logo-Upload heben (`.planning/backend-gaps.md` §A-4/admin).
+  FE persistiert bisher nur in `localStorage` (`cosmi:brand:*`,
+  `desktop/.../admin/branding/BrandingAdminHubTab.tsx`) — das FE-Wiring selbst ist NICHT Teil
+  dieses Backend-Loops (kein FE-Code angefasst).
+- Architektur-Entscheidung (Begruendung siehe done_when-Kriterien): **kein neuer `internal/admin`-
+  Service, keine neue Tabelle, keine neue Migration.** Branding-Metadaten laufen ueber die
+  bestehende `tenant_settings`-Infrastruktur (`internal/settings`, Migration 000138, RLS bereits
+  seit 000218 aktiv und durch `TestSettingsWrites_LandInCallerTenant` bewiesen) unter
+  `module_id="branding"` — vier Keys `name`/`logoObjectKey`/`iconObjectKey`/`accentColor`. Zwei
+  neue duenne RPCs `GetBranding`/`PutBranding` im bestehenden `settings.proto`/`settings`-Service
+  (selbes Binary wie auth, Port :50051) kapseln Validierung und Wire-Contract, delegieren die
+  eigentliche Persistenz aber vollstaendig an `s.repo.GetTenantSettings`/`s.PutTenantSettings` —
+  dadurch erbt PutBranding automatisch die bestehende RBAC-Pruefung (admin ODER module-lead fuer
+  "branding"; da niemand je Modul-Leiter fuer ein FE-fremdes Modul wird, ist das de-facto
+  admin-only, deckungsgleich mit dem FE-Capability-Gate `admin:branding:manage`) UND die bereits
+  RLS-bewiesene Tenant-Isolation — kein zusaetzlicher DB-Test noetig, die Schreibpfade sind
+  identisch zu denen, die `tenant_write_test.go` schon gegen echte RLS faehrt. Logo/Icon werden als
+  MinIO-**Objektschluessel** gespeichert, nie als URL (gleiches Muster wie `User.avatar_url`) —
+  Aufloesung zur Downloadable-URL passiert client-seitig ueber den bestehenden
+  `POST /api/v1/files/presign-download`.
+  Upload laeuft ueber die bereits vorhandene generische Presign-Schicht
+  (`internal/document/file/presign.go`) statt eines eigenen Upload-Endpoints: neuer Scope
+  `"branding"` in `allowedPresignScopes`. Objektschluessel-Form `{tenant_id}/branding/{uuid}{ext}`
+  ist damit automatisch tenant-gescoped (Downloadpfad prueft bereits den `{tenant_id}/`-Praefix).
+- Typ-/Groessenbegrenzung + SVG-Entscheidung (done_when-Punkt): SVG **bewusst ausgeschlossen** —
+  kann `<script>`/Event-Handler tragen, es gibt keine Sanitizer-Stufe vor der Auslieferung an
+  andere Tenant-User. `brandingAllowedContentTypes` erlaubt nur `image/png`/`image/jpeg`/
+  `image/webp`, `lean:`-Marker mit Upgrade-Trigger "SVG erlauben, sobald ein Sanitizer vor dem
+  Upload sitzt". Zusaetzlich eigener, engerer Groessendeckel `brandingMaxSizeBytes = 2 MB` (statt
+  des generischen 50-MB-Limits) — Logo/Icon rendert inline im App-Chrome, ist kein Dokument.
+  Server-seitige Validierung in `PutBranding`, nicht nur clientseitig: `accentColor` muss exakt
+  einer der 10 Cosmi-Swatch-Werte sein (`desktop/.../lib/swatch-colors.ts`, Liste per Hand
+  gespiegelt — kein Codegen-Link, Palette ist klein und aendert sich selten), `name` <= 200
+  Zeichen, `logoObjectKey`/`iconObjectKey` (falls gesetzt) muessen mit `{tenant_id}/branding/`
+  praefixiert sein — verhindert, dass ein Client einen fremden oder scope-fremden Objektschluessel
+  unterschiebt (eigener Testfall: `TestPutBranding_RejectsObjectKeyFromDifferentScope` fuer genau
+  diesen Fall, `avatar`-Scope-Key auf `branding` PUT versucht). PUT ist Full-Replace, kein Patch —
+  ausgelassenes Logo/Icon loescht es (Testfall `TestPutBranding_FullReplaceClearsPreviousLogo`).
+- gebaut:
+  - `proto/settings/v1/settings.proto`: `Branding`-Message + `GetBranding`/`PutBranding`-RPCs samt
+    Request/Response-Messages, im selben Commit regeneriert (`protoc` direkt, `make` war im
+    Bash-Tool nicht verfuegbar — Kommando 1:1 aus dem `proto-settings`-Makefile-Target uebernommen).
+  - `internal/settings/branding.go` (neu): `Branding`-Domaintyp, `GetBranding`/`PutBranding` auf
+    `*Service`, Validierung (Akzentfarbpalette, Namenslaenge, Objektschluessel-Praefix), vier neue
+    Fehlerwerte.
+  - `internal/server/settings_grpc.go`: `GetBranding`/`PutBranding`-RPC-Handler +
+    `brandingToProto`-Mapper, Fehler-Mapping (ungueltige Farbe/Objektschluessel/Name -> 400,
+    `ErrNotModuleLead` -> 403).
+  - `internal/gateway/route_settings.go`: `GET`/`PUT /api/v1/admin/branding`, Guard
+    `RequirePermission("settings","read"/"write")` wiederverwendet (kein neuer Permission-Key, also
+    keine Seed-Migration noetig — deckt sich mit den bestehenden `/settings/{module_id}/tenant`-
+    Routen). `response.Proto` (snake_case) wie die Nachbar-Settings-Routen.
+  - `internal/document/file/presign.go`: Scope `"branding"` + `brandingAllowedContentTypes` +
+    `brandingMaxSizeBytes`, Validierung in `GetPresignedUploadURL` verdrahtet.
+  - `backend/api/openapi.yaml`: `/api/v1/admin/branding` (GET+PUT) + `Branding`-Schema, Stil von
+    `/api/v1/admin/subscription` abgeschaut.
+  - Tests: `internal/settings/branding_test.go` (14 Faelle: Default vor erstem Write, Roundtrip,
+    Full-Replace-Clear, Admin/Module-Lead/Non-Lead-RBAC identisch zu `PutTenantSettings` getestet,
+    ungueltige Akzentfarbe/fehlende Akzentfarbe/zu langer Name/fremder Tenant-Objektschluessel/
+    scope-fremder Objektschluessel/leere Objektschluessel erlaubt, Cross-Tenant-Isolation).
+    `internal/document/file/presign_test.go`: 6 neue Faelle (branding erlaubt png/jpeg/webp,
+    lehnt SVG + Nicht-Bild-Typ ab, eigener Groessendeckel bei Max und ueber Max).
+- gate: `go build -p 2 ./...` ok | `go build -tags no_wasm ./cmd/gateway/... ./cmd/auth/...`
+  (Produktions-Build-Tag) ok | `go vet ./...` ok | `golangci-lint run` auf
+  `internal/settings/... internal/server/... internal/gateway/... internal/document/...
+  proto/settings/...`: 0 issues | `gofmt -l` auf allen touched Files: clean (drei Dateien
+  brauchten `gofmt -w`, danach clean) |
+  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub go test -count=1
+  ./internal/settings/... ./internal/document/... ./internal/gateway/... ./internal/server/...`
+  PASS, `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) — inkl. `TestSettingsWrites_LandInCallerTenant`
+  (RLS-Beweis fuer `tenant_settings`, auf dem `Branding` aufsetzt, lief mit echter DB durch, nicht
+  nur mit `fakeRepo`) | `go test -count=1 -v ./internal/gateway/ -run TestOpenAPIRouteDrift` PASS
+  (772 registrierte Routen gegen 774 dokumentierte Pfade, +1/+1 durch den neuen
+  `/api/v1/admin/branding`-Pfad mit zwei Methoden). Migration: keine (bewusst, siehe
+  Architektur-Entscheidung oben). RLS-Smoke: n.a. im engeren Sinn — kein neues Schema, aber die
+  Schreib-/Lesepfade sind identisch zu den bereits RLS-bewiesenen `tenant_settings`-Pfaden und
+  liefen in diesem Lauf gegen echte DB durch. Kein `modules.*`-Flag scharfgeschaltet, kein
+  `config.RequireX` hinzugefuegt, kein neuer `RequirePermission`-Key (also auch kein Seed-Bedarf).
+- offen:
+  - FE-Wiring (echter Upload-Flow ueber `presign-upload`, `useBranding`-Hook, Topbar/Sidebar an
+    das gespeicherte Branding statt an das statische Cosmi-Branding anschliessen) ist bewusst nicht
+    Teil dieser Unit — reine Backend-Iteration, kein `desktop/`-Code angefasst.
+  - Akzentfarbpalette ist von Hand zwischen `desktop/.../lib/swatch-colors.ts` und
+    `internal/settings/branding.go` gespiegelt (kein Codegen-Link wie beim RBAC-Katalog). Faellt
+    aendert sich die Palette, muss `allowedAccentColors` von Hand nachgezogen werden — bei 10
+    Werten bewusst kein Generator gebaut (Lean Code), aber im Auge behalten falls die FE-Palette
+    kuenftig haeufiger wechselt.

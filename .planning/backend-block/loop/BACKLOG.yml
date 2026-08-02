@@ -2141,7 +2141,7 @@ units:
     service: admin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Workspace-Branding (Logo) nach MinIO statt als Datenbank-Blob oder Platzhalter.
     sources:

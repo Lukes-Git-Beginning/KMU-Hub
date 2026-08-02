@@ -59,6 +59,9 @@ func (sr *SettingsRoutes) getSettingsClient() (settingsv1.SettingsServiceClient,
 //	PUT    /api/v1/settings/{module_id}/tenant                  — update tenant-scope (lead/admin)
 //	GET    /api/v1/settings/{module_id}/user                    — my user-scope raw
 //	PUT    /api/v1/settings/{module_id}/user                    — update my user-scope
+//
+//	GET    /api/v1/admin/branding                                — tenant branding (name/logo/icon/accent)
+//	PUT    /api/v1/admin/branding                                — replace tenant branding (admin)
 func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/tenant/module-leads", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -85,6 +88,12 @@ func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 	r.Route("/api/v1/admin/subscription", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("license", "read")).Get("/", sr.HandleGetTenantSubscription)
+	})
+
+	r.Route("/api/v1/admin/branding", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("settings", "read")).Get("/", sr.HandleGetBranding)
+		r.With(middleware.RequirePermission("settings", "write")).Put("/", sr.HandlePutBranding)
 	})
 
 	r.Route("/api/v1/settings/{module_id}", func(r chi.Router) {
@@ -642,6 +651,90 @@ func rawMapToSettingEntries(m map[string]json.RawMessage) ([]*settingsv1.Setting
 		})
 	}
 	return entries, nil
+}
+
+// ============================================================================
+// Branding handlers
+// ============================================================================
+
+// putBrandingRequest is the HTTP body for PUT /admin/branding. It is a full
+// replace, not a patch: logo_object_key/icon_object_key omitted or "" clears
+// the field. accent_color is required and validated against the Cosmi swatch
+// palette server-side (settings.PutBranding), never a free hex value.
+type putBrandingRequest struct {
+	Name          string `json:"name" validate:"required,max=200"`
+	LogoObjectKey string `json:"logo_object_key"`
+	IconObjectKey string `json:"icon_object_key"`
+	AccentColor   string `json:"accent_color" validate:"required"`
+}
+
+// HandleGetBranding returns the caller's tenant branding. Logo/icon are
+// object keys, not URLs — the frontend resolves them via the existing
+// POST /api/v1/files/presign-download (same pattern as User.avatar_url).
+func (sr *SettingsRoutes) HandleGetBranding(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	resp, err := client.GetBranding(r.Context(), &settingsv1.GetBrandingRequest{
+		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandlePutBranding replaces the caller's tenant branding. Guard only checks
+// settings:write; the service enforces admin-or-module-lead, which resolves
+// to admin-only here since no UI ever grants module-lead for "branding".
+func (sr *SettingsRoutes) HandlePutBranding(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	req, ok := decodeAndValidate[putBrandingRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.PutBranding(r.Context(), &settingsv1.PutBrandingRequest{
+		TenantId:  tenantID.String(),
+		UpdatedBy: callerID,
+		Branding: &settingsv1.Branding{
+			Name:          req.Name,
+			LogoObjectKey: req.LogoObjectKey,
+			IconObjectKey: req.IconObjectKey,
+			AccentColor:   req.AccentColor,
+		},
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

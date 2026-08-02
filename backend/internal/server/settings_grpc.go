@@ -468,6 +468,70 @@ func protoToEntries(protoEntries []*settingsv1.SettingEntry) ([]*settings.Settin
 }
 
 // ============================================================================
+// Branding RPCs
+// ============================================================================
+
+func (s *SettingsGRPCServer) GetBranding(ctx context.Context, req *settingsv1.GetBrandingRequest) (*settingsv1.GetBrandingResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	b, err := s.svc.GetBranding(ctx, tenantID)
+	if err != nil {
+		slog.Error("GetBranding failed", "error", err, "tenant_id", tenantID)
+		return nil, status.Error(codes.Internal, "failed to load branding")
+	}
+
+	return &settingsv1.GetBrandingResponse{Branding: brandingToProto(b)}, nil
+}
+
+func (s *SettingsGRPCServer) PutBranding(ctx context.Context, req *settingsv1.PutBrandingRequest) (*settingsv1.PutBrandingResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	callerID, err := uuid.Parse(req.GetUpdatedBy())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid updated_by: %v", err)
+	}
+
+	in := req.GetBranding()
+	updated, err := s.svc.PutBranding(ctx, tenantID, callerID, &settings.Branding{
+		Name:          in.GetName(),
+		LogoObjectKey: in.GetLogoObjectKey(),
+		IconObjectKey: in.GetIconObjectKey(),
+		AccentColor:   in.GetAccentColor(),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, settings.ErrNotModuleLead):
+			return nil, status.Error(codes.PermissionDenied, "only admins may update branding")
+		case errors.Is(err, settings.ErrInvalidAccentColor):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, settings.ErrInvalidBrandingObjectKey):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, settings.ErrBrandingNameTooLong):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		default:
+			slog.Error("PutBranding failed", "error", err, "tenant_id", tenantID)
+			return nil, status.Error(codes.Internal, "failed to update branding")
+		}
+	}
+
+	return &settingsv1.PutBrandingResponse{Branding: brandingToProto(updated)}, nil
+}
+
+func brandingToProto(b *settings.Branding) *settingsv1.Branding {
+	return &settingsv1.Branding{
+		Name:          b.Name,
+		LogoObjectKey: b.LogoObjectKey,
+		IconObjectKey: b.IconObjectKey,
+		AccentColor:   b.AccentColor,
+	}
+}
+
+// ============================================================================
 // Licensing RPCs
 // ============================================================================
 

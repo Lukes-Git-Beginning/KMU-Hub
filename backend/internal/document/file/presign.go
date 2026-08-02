@@ -18,19 +18,36 @@ const (
 	presignUploadExpiry   = 15 * time.Minute
 	presignDownloadExpiry = 1 * time.Hour
 	maxPresignSizeBytes   = 50 * 1024 * 1024 // 50 MB
+
+	// brandingMaxSizeBytes is a tighter cap than the generic limit: logos/icons
+	// render inline in the app chrome (topbar), not stored as documents.
+	brandingMaxSizeBytes = 2 * 1024 * 1024 // 2 MB
 )
 
 // allowedPresignScopes defines the scopes permitted for generic presigned uploads.
 var allowedPresignScopes = map[string]bool{
-	"avatar":    true,
-	"chat":      true,
-	"rapporte":  true,
+	"avatar":     true,
+	"branding":   true,
+	"chat":       true,
+	"rapporte":   true,
 	"vermietung": true,
-	"vertraege": true,
-	"fuhrpark":  true,
-	"inventar":  true,
-	"kontakte":  true,
-	"documents": true,
+	"vertraege":  true,
+	"fuhrpark":   true,
+	"inventar":   true,
+	"kontakte":   true,
+	"documents":  true,
+}
+
+// brandingAllowedContentTypes restricts logo/icon uploads to raster image
+// formats the client can render directly. SVG is deliberately excluded — it
+// can carry <script>/onload handlers, and there is no sanitization step
+// before a stored object is served back to other users of the tenant.
+// lean: hardcoded allowlist; add SVG once a sanitizer (e.g. strip <script>/
+// event-handler attributes) sits in front of the upload.
+var brandingAllowedContentTypes = map[string]bool{
+	"image/png":  true,
+	"image/jpeg": true,
+	"image/webp": true,
 }
 
 // PresignResult contains the presigned URL and its expiry time.
@@ -45,8 +62,9 @@ type PresignResult struct {
 // Security invariants:
 //   - tenant_id is extracted from gRPC context (never trusted from request).
 //   - scope is validated against allowedPresignScopes allowlist.
-//   - size_bytes is validated against the 50 MB hard limit.
-//   - content_type must not be empty.
+//   - size_bytes is validated against the 50 MB hard limit (2 MB for branding).
+//   - content_type must not be empty (branding additionally requires a
+//     raster image type — no SVG, see brandingAllowedContentTypes).
 //   - object_key format: {tenant_id}/{scope}/{uuid}{ext}
 func (s *Service) GetPresignedUploadURL(ctx context.Context, scope, fileName, contentType string, sizeBytes int64) (*PresignResult, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
@@ -55,18 +73,25 @@ func (s *Service) GetPresignedUploadURL(ctx context.Context, scope, fileName, co
 	}
 
 	if !allowedPresignScopes[scope] {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid scope %q: must be one of avatar, chat, rapporte, vermietung, vertraege, fuhrpark, inventar, kontakte, documents", scope)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid scope %q: must be one of avatar, branding, chat, rapporte, vermietung, vertraege, fuhrpark, inventar, kontakte, documents", scope)
 	}
 
 	if strings.TrimSpace(contentType) == "" {
 		return nil, status.Error(codes.InvalidArgument, "content_type must not be empty")
 	}
+	if scope == "branding" && !brandingAllowedContentTypes[contentType] {
+		return nil, status.Errorf(codes.InvalidArgument, "content_type %q not allowed for branding uploads: must be image/png, image/jpeg, or image/webp (no SVG — it can carry scripts)", contentType)
+	}
 
 	if sizeBytes <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "size_bytes must be greater than zero")
 	}
-	if sizeBytes > maxPresignSizeBytes {
-		return nil, status.Errorf(codes.InvalidArgument, "size_bytes %d exceeds maximum allowed size of %d bytes (50 MB)", sizeBytes, maxPresignSizeBytes)
+	maxSize := int64(maxPresignSizeBytes)
+	if scope == "branding" {
+		maxSize = brandingMaxSizeBytes
+	}
+	if sizeBytes > maxSize {
+		return nil, status.Errorf(codes.InvalidArgument, "size_bytes %d exceeds maximum allowed size of %d bytes", sizeBytes, maxSize)
 	}
 
 	ext := filepath.Ext(fileName)
