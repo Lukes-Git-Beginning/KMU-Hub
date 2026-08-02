@@ -3108,3 +3108,72 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Dokumente-Modul auf (space_type=team) — potenziell verwirrend fuer Nutzer, die dort durch alle
     Team-Ordner browsen. Kein Backend-Problem, aber FE-seitig evtl. filtern/ausblenden wollen.
   - Naechste Unit laut Reihenfolge: `fe-caldav-test` (Block D, deps: [], model: sonnet).
+
+## Iteration 42 — fe-caldav-test — done — 2026-08-02 (Nachtlauf 3)
+- commit: 3b481316
+- gebaut:
+  - `POST /api/v1/caldav/test` (`route_caldav.go`, `handleTestConnection`/`probeSelf`) hinter
+    demselben `authMiddleware` wie die Nachbarrouten `/caldav/status|enable|disable` — kein neuer
+    Guard, kein Seed noetig.
+  - SCOPE-KLARSTELLUNG (der Backlog-Text "Verbindungstest fuer eine CalDAV-Konfiguration" war
+    missverstaendlich): dieses Modul ist kein CalDAV-*Client*, der gegen einen externen Server
+    konfiguriert wird — die App IST der CalDAV/CardDAV-Server (Apple Calendar/Thunderbird/etc.
+    verbinden sich gegen `/caldav/`, `/carddav/` per App-Passwort). Es gibt keine externe
+    "Konfiguration" zu testen. Das schon vorhandene, bisher unverdrahtete FE
+    (`caldav-client.ts:testCalDAVConnection`, `CalDAVSettingsTab.tsx` Test-Button, KEIN MSW-Mock
+    dafuer) erwartet stattdessen einen echten End-to-End-Beweis, dass der eigene Server-Pfad
+    funktioniert.
+  - Echter Test statt Lexware-Anti-Pattern (`biz/lexware/service.go:147`, "Feld nicht leer =
+    verbunden"): Handler erzeugt ein frisches App-Passwort (`pwService.Create`), macht zwei
+    echte, auf 5s timeout-bounded `OPTIONS`-Requests gegen `/caldav/` und `/carddav/` — denselben
+    Pfad, den ein echter CalDAV-Client nutzen wuerde — und revoked das Passwort in einem `defer`
+    unabhaengig vom Ausgang. `net/http/httptest`-Tests bestaetigen: das Passwort ist nach dem
+    Request wirklich revoked (aktive Anzahl 0), nicht nur "sollte".
+  - SSRF-Vermeidung als bewusste Designentscheidung (nicht im Backlog gefordert, aber notwendig):
+    das Ziel der Probe ist IMMER `http://127.0.0.1<GatewayHTTPPort>` — aus der eigenen Config
+    (`cfg.GatewayHTTPPort`, per neuem `selfBaseURL`-Parameter durch `setupCalDAV`/`NewCalDAVRoutes`
+    durchgereicht), NIE aus `r.Host`/`X-Forwarded-Host`. Ein authentifizierter Angreifer haette
+    sonst jeden beliebigen internen Host per Header ansprechen koennen — jeder eingeloggte User
+    darf diesen Endpoint aufrufen, ohne dass CalDAV fuer ihn aktiviert sein muss.
+  - Fehlerklassen unterscheidbar: `401` -> "authentication failed", Netzwerkfehler (Verify per
+    `errors.Is`/generischer `Do`-Fehler, kein DNS/Connect) -> "network unreachable", Timeout ->
+    "timeout", alles andere -> "unexpected status N". Response `{success, message, caldav_reachable,
+    carddav_reachable}` — exakt das FE-Interface `CalDAVTestResult` aus `caldav-client.ts:110`.
+  - Keine Zugangsdaten in Logs verifiziert (grep auf alle neuen `slog.*`-Aufrufe: nur `user_id`,
+    `password_id`, `error` — nie Klartext-Passwort).
+  - `openapi.yaml`: neuer Pfad + `CaldavTestResult`-Schema im selben Commit. Fallstrick beim
+    Schreiben: eine `description:` als *plain scalar* mit `"CalDAV: ..."` drin bricht den
+    YAML-Parser an der `: ` (Mapping-Trenner) — musste die ganze Description doppelt quoten.
+    `npx swagger-cli validate` haette das lokal sofort gezeigt (jetzt gruen), stand aber bisher
+    nicht in `GATE-COMMANDS.md` als Pflichtschritt fuer *neue* Schemas — nur als Referenz in einem
+    frueheren Journal-Eintrag.
+- gate: build (`./internal/caldav/... ./internal/gateway/... ./cmd/gateway/...`) ok | vet ok |
+  golangci-lint **0 issues** | `npx swagger-cli validate backend/api/openapi.yaml`: valid |
+  migration: keine (keine neue Tabelle/Policy angefasst) | RLS-Smoke: n.a. (kein Tabellen-/
+  Policy-Zugriff neu, nur bestehender `AppSpecificPassword`-Pfad wiederverwendet) | Test mit
+  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/caldav/...` UND `internal/gateway/...`
+  beide `ok`, **0 Skips**. 3 neue Tests (`TestHandleTestConnection_Success/_AuthFailure/
+  _NetworkUnreachable`) gegen einen echten `httptest.Server` (echter TCP-Loopback, echte
+  `basicAuthMiddleware`, In-Memory-Fake fuer `CalDAVPasswordService` statt DB) — decken Erfolg,
+  Auth-Fehler und "Port tot" (via kurzzeitig reserviertem, sofort wieder freigegebenem Port) ab.
+  `TestOpenAPIRouteDrift`: PASS (771 registrierte gegen 773 dokumentierte Pfade).
+- verify vorgaenger: sauber (`483ecea7`, contact file attachments) — gRPC-Client durchgaengig
+  (`getDocumentClient`/`getCRMClient`), kein Stub, Kontakt-Eigentum vor Document-Zugriff echt
+  geprueft (`verifyContactOwnership`), Wire-Shape exakt gegen `useContacts.ts` verifiziert,
+  `openapi.yaml` im selben Commit, kein neuer Guard (bestehende `contactRead`/`contactEdit`
+  wiederverwendet, kein Seed noetig).
+- offen:
+  - `GATEWAY_HTTP_PORT` muss in Produktion tatsaechlich der Port sein, auf dem der Gateway-Prozess
+    selbst lauscht (Standard `:8080`, `ListenAndServe`-Addr identisch) — sollte das je auseinander
+    laufen (z.B. durch einen Reverse-Proxy-Port-Remap direkt am Gateway-Container statt an Caddy),
+    liefe der Loopback-Test ins Leere. Aktuell keine Diskrepanz gefunden, nur als Annahme notiert.
+  - `swagger-cli validate` steht noch nicht in `GATE-COMMANDS.md` als Pflichtschritt fuer neue
+    Schemas/Pfade — waere sinnvoll, da der YAML-Parser-Fehler dieser Iteration sonst erst in CI
+    (`TestOpenAPIRouteDrift` haette es vermutlich NICHT gefangen, das ist ein reiner
+    Struktur-Test, kein YAML-Validator) aufgefallen waere.
+  - Kein Full-Stack-Bringup gefahren (Loop-Policy) — der Loopback-Request gegen den echten,
+    laufenden Gateway-Prozess (nicht den Test-Fake) wurde nicht manuell verifiziert; die drei neuen
+    Tests decken die Handler-Logik gegen einen `httptest.Server` ab, aber nicht den realen
+    Produktions-Bringup mit echtem `caldav.Handler`/`carddav.Handler` (go-webdav) und echtem
+    `AppPasswordService` gegen Postgres. Sollte Luke morgens einmal per `curl -u <token>` o.ae.
+    gegen einen laufenden Dev-Gateway pruefen.
