@@ -1345,7 +1345,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Vier von sieben DSGVO-Aufrufen des Frontends laufen ins Leere. Verifiziert am 2026-08-02,
       `desktop/src/renderer/src/api/security-client.ts:186-200` gegen
@@ -1384,6 +1384,37 @@ units:
       - bestehende Tests in route_security_test.go auf die neuen Pfade gezogen
       - Download-Vertrag (id vs. token) entschieden und im Journal begruendet
       - go test -count=1 ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT. Alle vier Client-Pfade aus `security-client.ts` treffen jetzt eine registrierte
+      Route: `POST /gdpr/export/request` (war `/gdpr/export`), `POST /gdpr/export/{id}/approve|deny`
+      (war `/gdpr/exports/{id}/...`), `GET /gdpr/export/{id}/download` (war `/gdpr/download/{token}`).
+      `GET /gdpr/exports` (Liste) unveraendert, wie in den notes vorgegeben.
+      Download-Vertrag: `HandleGetExportDownload` loest ausschliesslich ueber `DownloadToken` auf,
+      keinen `{id}` — die "id vs. token"-Frage aus den notes beantwortet sich damit von selbst: es
+      gibt keinen Export-Bezug im Handler, nur den Token. Die Wildcard im neuen Pfad heisst trotzdem
+      `{id}`, nicht `{token}`: chi verbietet zwei verschieden benannte Wildcards an derselben
+      Tree-Position (empirisch verifiziert mit einem Wegwerf-Reproduktionsprogramm — chi.Mux.Route
+      wirft "attempting to Mount() a handler on an existing path"), und `/export/{id}/approve` belegt
+      die Position bereits. `HandleGetExportDownload` liest deshalb `chi.URLParam(r, "id")` und
+      behandelt den Wert als Token — Kommentar im Code, damit das nicht als Bug aussieht.
+      Der fuenfte, praefixlose Aufruf in `PrivacySettingsTab.tsx:139`
+      (`/api/v1/gdpr/exports/${exp.id}/download?token=...`, direkter `<a href>` ohne API-Client,
+      auch kein `/security`-Praefix) ist wie in den notes vermutet echt tot — trifft keine der vier
+      neuen Routen. NICHT gefixt (Frontend, Backend-Loop fasst `desktop/` nicht an), bleibt offener
+      FE-Befund.
+      Tests: zwei neue Router-Level-Tests in `route_security_test.go`
+      (`TestGDPRExportRoutes_MatchFrontendPaths` — alle vier FE-Pfade ueber echtes `chi.ServeHTTP`,
+      503 statt 404 beweist Pfad-Match; `TestGDPRExportRoutes_ApproveDenyRequireAdmin` — Guard
+      ueberlebt die Pfad-Verschiebung) plus ein Unit-Test fuer den Token-statt-ID-Vertrag
+      (`TestGDPRExportRoutes_DownloadUsesTokenNotID`). Neuer Test-Helper `withRoles()` in
+      `testutil_test.go` (fehlte bisher; Vorlage `withPermissions` aus
+      `route_capability_guard_test.go`, aber ueber `middleware.UserRolesKey` fuer `RequireRole`).
+      gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues auf
+      `internal/gateway`) | test ok — `go test -count=1 ./internal/gateway/...` gruen inkl.
+      `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift` (Pfadzahl unveraendert: Umbenennung, keine neue
+      Route). Keine Migration, kein `.proto`, kein neuer Permission-Guard (RequireRole("admin")
+      bestehend, nur verschoben).
+      verify vorgaenger: siehe oben, `81212e69` sauber.
 
   - id: fix-hr-document-paths
     phase: fix

@@ -51,11 +51,15 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Delete("/vault/{keyName}", sr.HandleDeleteVaultSecret)
 
 		// GDPR
-		r.Post("/gdpr/export", sr.HandleRequestDataExport)
+		r.Route("/gdpr/export", func(r chi.Router) {
+			r.Post("/request", sr.HandleRequestDataExport)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequireRole("admin")).Post("/approve", sr.HandleApproveDataExport)
+				r.With(middleware.RequireRole("admin")).Post("/deny", sr.HandleDenyDataExport)
+				r.Get("/download", sr.HandleGetExportDownload)
+			})
+		})
 		r.Get("/gdpr/exports", sr.HandleListDataExports)
-		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/approve", sr.HandleApproveDataExport)
-		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/deny", sr.HandleDenyDataExport)
-		r.Get("/gdpr/download/{token}", sr.HandleGetExportDownload)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/preview", sr.HandlePreviewErasure)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/execute", sr.HandleExecuteErasure)
 		r.With(middleware.RequireRole("admin")).Get("/dsar/search", sr.HandleDSARSearch)
@@ -455,7 +459,11 @@ func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http
 		return
 	}
 
-	token := chi.URLParam(r, "token")
+	// Route param is named "id" (chi forbids two differently-named wildcards
+	// at the same tree position — "/export/{id}/approve" already claims it),
+	// but the value carried here is the one-time download token, not an
+	// export ID: GetExportDownload resolves purely by token.
+	token := chi.URLParam(r, "id")
 	if token == "" {
 		response.Error(w, http.StatusBadRequest, "download token is required")
 		return

@@ -18419,7 +18419,7 @@ paths:
   # GDPR — data export
   # --------------------------------------------------------------------------
 
-  /api/v1/security/gdpr/export:
+  /api/v1/security/gdpr/export/request:
     post:
       summary: Request a personal data export (GDPR Art. 20)
       tags: [security]
@@ -18465,7 +18465,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /api/v1/security/gdpr/exports/{id}/approve:
+  /api/v1/security/gdpr/export/{id}/approve:
     post:
       summary: Approve a GDPR export request (admin only)
       tags: [security]
@@ -18499,7 +18499,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/security/gdpr/exports/{id}/deny:
+  /api/v1/security/gdpr/export/{id}/deny:
     post:
       summary: Deny a GDPR export request (admin only)
       tags: [security]
@@ -18533,7 +18533,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/security/gdpr/download/{token}:
+  /api/v1/security/gdpr/export/{id}/download:
     get:
       summary: Download approved GDPR export archive by one-time token
       tags: [security]
@@ -18541,9 +18541,10 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: token
+        - name: id
           in: path
           required: true
+          description: One-time download token (not the export request ID)
           schema:
             type: string
       responses:

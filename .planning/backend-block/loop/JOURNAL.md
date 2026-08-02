@@ -1549,3 +1549,64 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Uebersehen.
   - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 25 — fix-security-gdpr-paths — done — 2026-08-03
+
+- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- verify vorgaenger: sauber. `81212e69` (g-fuhrpark-license-check, Iteration 24) gegen die
+  Fehlerklassen geprueft: Handler gehen durchgaengig ueber `fuhrparkv1.FuhrparkServiceClient`
+  (kein Direct-Svc-Bypass), Migration 000279 traegt `tenant_id NOT NULL` + `enable_tenant_rls()`,
+  `CreateDriverLicense` loest den Fahrer zusaetzlich per `INSERT ... SELECT ... FROM users WHERE
+  id=$driver AND tenant_id=$tenant` auf (Defense-in-Depth ueber die RLS-Policy hinaus, verifiziert
+  in `postgres_repository.go`), Permission-Seed fuer `fuhrpark:license:read/write` steht in
+  derselben Migration. Nichts zu beanstanden.
+- gebaut: `fix-security-gdpr-paths` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge,
+  `deps: []` — alle Units vor Block "fix-*" waren bereits `done`/`blocked`).
+  Vier Client-Pfade aus `security-client.ts` liefen ins Leere:
+  `POST /gdpr/export/request` (BE hatte nur `/gdpr/export`), `POST /gdpr/export/{id}/approve|deny`
+  (BE hatte `/gdpr/exports/{id}/...`, Plural), `GET /gdpr/export/{id}/download` (BE hatte
+  `/gdpr/download/{token}`). Wie in den notes vorgegeben zieht das Gateway auf die FE-Pfade um,
+  nicht umgekehrt.
+  Route-Umbau in `route_security.go`: `/gdpr/export` ist jetzt eine eigene Route-Gruppe mit
+  `POST /request` und `Route("/{id}", ...)` fuer `approve`/`deny`/`download`. `/gdpr/exports`
+  (Liste) unveraendert.
+  Wichtiger Nebenfund beim Bauen: chi erlaubt an derselben Tree-Position keine zwei
+  verschieden benannten Wildcards — empirisch mit einem Wegwerf-Programm verifiziert
+  (`chi.Mux.Route` wirft `panic("attempting to Mount() a handler on an existing path")`, wenn
+  `/{id}/approve` und `/{token}/download` unter demselben Elternknoten registriert werden). Die
+  drei Sub-Routen unter `/export/{id}/...` nutzen deshalb durchgaengig `{id}`, auch fuer den
+  Download — das ist inhaltlich korrekt, weil `HandleGetExportDownload` ohnehin ausschliesslich
+  ueber `DownloadToken` aufloest, nie ueber eine Export-ID (beantwortet die "id vs. token"-Frage
+  aus den notes: es gibt keine Alternative, der Handler kennt nur den Token). Der Golang-Handler
+  liest jetzt `chi.URLParam(r, "id")` und behandelt den Wert als Token, mit erklaerendem Kommentar
+  im Code gegen Verwechslung.
+  Fuenfter FE-Aufruf `PrivacySettingsTab.tsx:139` (`/api/v1/gdpr/exports/${exp.id}/download?token=
+  ...`, roher `<a href>` ohne API-Client, kein `/security`-Praefix) wie in den notes vermutet echt
+  tot — trifft keine der vier neuen Routen, auch keine alte. NICHT gefixt (Frontend-Datei, siehe
+  Grenzen des Loops), bleibt offener FE-Befund unten.
+  `openapi.yaml` an allen vier Stellen mitgezogen (Pfad-Rename, Parametername bei `download` von
+  `token` auf `id` mit Beschreibung "One-time download token (not the export request ID)").
+  Tests: zwei neue Router-Level-Tests (`TestGDPRExportRoutes_MatchFrontendPaths`,
+  `TestGDPRExportRoutes_ApproveDenyRequireAdmin`) bauen den echten Chi-Router ueber
+  `RegisterRoutes` und schicken echte Requests gegen die vier FE-Pfade — bewusst kein reiner
+  Handler-Aufruf, weil ein Handler-Test einen Pfad-Tippfehler nie haette fangen koennen (503 bei
+  leerem Registry beweist Pfad-Treffer, 404 waere der Regressionsfall). Dazu ein Unit-Test fuer den
+  Token-Vertrag (`TestGDPRExportRoutes_DownloadUsesTokenNotID`). Neuer Helper `withRoles()` in
+  `testutil_test.go` fehlte bisher fuer `RequireRole`-Tests (Vorlage `withPermissions` aus
+  `route_capability_guard_test.go`, aber ueber `middleware.UserRolesKey`).
+  gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf
+  `internal/gateway`, 0 issues, nach dem Test-Fix erneut auf dem finalen Stand gelaufen) | test ok
+  — `go test -count=1 ./internal/gateway/...` gruen inkl. `TestOpenAPIRouteDrift` und
+  `TestOpenAPISpecDrift` (Pfadzahl unveraendert: vier Umbenennungen, keine neue Route). Keine
+  Migration, kein `.proto`, kein neuer Permission-Guard (`RequireRole("admin")` bestehend, nur
+  mitverschoben) — DB/RLS-Gate daher nicht einschlaegig.
+  Eigener Fehlversuch dabei: der erste Entwurf von `TestGDPRExportRoutes_DownloadUsesTokenNotID`
+  nutzte `emptyRegistry()` und erwartete 400, bekam aber 503 — `HandleGetExportDownload` prueft den
+  gRPC-Client-Connect VOR dem Token, wie alle anderen Handler in der Datei. Mit
+  `registryWithService("auth")` behoben; im Journal vermerkt, weil derselbe Fallstrick jedem
+  weiteren Test in dieser Datei droht.
+- offen:
+  - Der praefixlose `PrivacySettingsTab.tsx:139`-Downloadlink (siehe oben) ist ein echter,
+    unabhaengiger FE-Bug — eigene Folge-Unit oder FE-Session, nicht Teil des Backend-Loops.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22/24 (siehe deren Aufzaehlung
+    oben) bleiben unveraendert offen, hier nicht angefasst.
