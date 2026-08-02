@@ -18,9 +18,14 @@ func TestTenantIsolation_IncomingInvoices(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
 
-	tenantA := testutil.TenantA
-	tenantB := testutil.TenantB
+	// Freshly minted tenants, not the shared testutil.TenantA/TenantB: the fixture
+	// XML carries a fixed supplier and invoice number, so importing it into a tenant
+	// that a previous run already used trips the duplicate check instead of testing
+	// isolation.
+	tenantA := uuid.New()
+	tenantB := uuid.New()
 	testutil.EnsureTenant(t, pool, tenantA, "Tenant A EInvoice")
 	testutil.EnsureTenant(t, pool, tenantB, "Tenant B EInvoice")
 
@@ -45,6 +50,7 @@ func TestTenantIsolation_IncomingInvoices(t *testing.T) {
 		MimeType:  "application/xml",
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_incoming_invoices", invA.ID) })
 
 	// Tenant B must NOT see tenant A's invoice
 	_, err = svcB.Get(ctxB, tenantB, invA.ID)

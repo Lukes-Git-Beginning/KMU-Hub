@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -82,15 +83,9 @@ func (cs *ContactSyncer) SyncContacts(ctx context.Context, configID, tenantID uu
 		slog.Error("lexware: failed to create sync log", "error", err)
 	}
 
-	fieldMappings, err := cs.repo.GetFieldMappings(ctx, configID, "contact")
+	mappingEntries, err := cs.contactFieldMappings(ctx, configID)
 	if err != nil {
-		return nil, fmt.Errorf("contact sync: get field mappings: %w", err)
-	}
-	var mappingEntries []models.LexwareFieldMappingEntry
-	if fieldMappings != nil {
-		mappingEntries = fieldMappings.Mappings
-	} else {
-		mappingEntries = DefaultContactMappings()
+		return nil, err
 	}
 
 	cs.syncInbound(ctx, configID, tenantID, mappingEntries, result)
@@ -135,7 +130,58 @@ func (cs *ContactSyncer) SyncContacts(ctx context.Context, configID, tenantID uu
 	return result, nil
 }
 
+// contactFieldMappings loads the tenant's configured contact field mappings,
+// falling back to the built-in defaults when none are stored.
+func (cs *ContactSyncer) contactFieldMappings(ctx context.Context, configID uuid.UUID) ([]models.LexwareFieldMappingEntry, error) {
+	fieldMappings, err := cs.repo.GetFieldMappings(ctx, configID, "contact")
+	if err != nil {
+		return nil, fmt.Errorf("contact sync: get field mappings: %w", err)
+	}
+	if fieldMappings != nil {
+		return fieldMappings.Mappings, nil
+	}
+	return DefaultContactMappings(), nil
+}
+
+// SyncContactByLexwareID pulls a single contact from Lexware and applies it to
+// the CRM, using the same create/update/skip rules as a full inbound sync.
+// This is the path a contact.created / contact.changed webhook takes: the event
+// carries only the resource ID, so the record itself must be fetched.
+func (cs *ContactSyncer) SyncContactByLexwareID(ctx context.Context, configID, tenantID uuid.UUID, lexwareID string) (*SyncResult, error) {
+	if lexwareID == "" {
+		return nil, fmt.Errorf("contact sync: empty lexware contact id")
+	}
+	if cs.contacts == nil {
+		return nil, fmt.Errorf("contact sync: contact service not wired")
+	}
+
+	mappings, err := cs.contactFieldMappings(ctx, configID)
+	if err != nil {
+		return nil, err
+	}
+
+	lc, err := cs.client.GetContact(ctx, tenantID, lexwareID)
+	if err != nil {
+		return nil, fmt.Errorf("contact sync: fetch lexware contact %s: %w", lexwareID, err)
+	}
+
+	result := &SyncResult{}
+	cs.upsertInboundContact(ctx, configID, lc, mappings, result)
+
+	if result.ItemsFailed > 0 {
+		return result, fmt.Errorf("contact sync: lexware contact %s failed: %s", lexwareID, strings.Join(result.Errors, "; "))
+	}
+	return result, nil
+}
+
 func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uuid.UUID, mappings []models.LexwareFieldMappingEntry, result *SyncResult) {
+	// ContactService may not be wired (CRM gRPC address unset); the inbound path
+	// writes into the CRM, so skip it rather than panic on a nil interface.
+	if cs.contacts == nil {
+		slog.Warn("lexware: contact service not wired, skipping inbound sync")
+		return
+	}
+
 	page := 0
 	for {
 		listResp, err := cs.client.ListContacts(ctx, tenantID, page, 250)
@@ -146,68 +192,8 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 			return
 		}
 
-		for _, lc := range listResp.Content {
-			result.ItemsProcessed++
-
-			mapping, err := cs.repo.GetEntityMappingByLexwareID(ctx, configID, "contact", lc.ID)
-			if err != nil && !errors.Is(err, ErrMappingNotFound) {
-				result.ItemsFailed++
-				result.Errors = append(result.Errors, fmt.Sprintf("lookup mapping for lexware %s: %v", lc.ID, err))
-				continue
-			}
-
-			syncData, err := cs.fieldMapper.MapContactToKMUHub(&lc, mappings)
-			if err != nil {
-				result.ItemsFailed++
-				result.Errors = append(result.Errors, fmt.Sprintf("map lexware contact %s: %v", lc.ID, err))
-				continue
-			}
-
-			now := time.Now().UTC()
-
-			if mapping != nil {
-				lexwareTime := parseLexwareTime(lc.UpdatedDate)
-				if mapping.KmuhubUpdatedAt != nil && lexwareTime != nil && !lexwareTime.After(*mapping.KmuhubUpdatedAt) {
-					continue
-				}
-
-				if err := cs.contacts.UpdateForSync(ctx, mapping.KmuhubID, syncData); err != nil {
-					result.ItemsFailed++
-					result.Errors = append(result.Errors, fmt.Sprintf("update KMU Hub contact %s: %v", mapping.KmuhubID, err))
-					continue
-				}
-
-				mapping.LastSyncedAt = now
-				mapping.LexwareUpdatedAt = lexwareTime
-				mapping.LexwareVersion = lc.Version
-				if err := cs.repo.UpsertEntityMapping(ctx, mapping); err != nil {
-					slog.Error("lexware: failed to update mapping", "lexware_id", lc.ID, "error", err)
-				}
-				result.ItemsUpdated++
-			} else {
-				kmuhubID, err := cs.contacts.CreateForSync(ctx, syncData, uuid.Nil)
-				if err != nil {
-					result.ItemsFailed++
-					result.Errors = append(result.Errors, fmt.Sprintf("create KMU Hub contact from lexware %s: %v", lc.ID, err))
-					continue
-				}
-
-				lexwareTime := parseLexwareTime(lc.UpdatedDate)
-				newMapping := &models.LexwareEntityMapping{
-					ConfigID:         configID,
-					EntityType:       "contact",
-					KmuhubID:         kmuhubID,
-					LexwareID:        lc.ID,
-					LexwareVersion:   lc.Version,
-					LastSyncedAt:     now,
-					LexwareUpdatedAt: lexwareTime,
-					SyncDirection:    "both",
-				}
-				if err := cs.repo.UpsertEntityMapping(ctx, newMapping); err != nil {
-					slog.Error("lexware: failed to create mapping", "lexware_id", lc.ID, "error", err)
-				}
-				result.ItemsCreated++
-			}
+		for i := range listResp.Content {
+			cs.upsertInboundContact(ctx, configID, &listResp.Content[i], mappings, result)
 		}
 
 		if listResp.Last {
@@ -217,7 +203,86 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 	}
 }
 
+// upsertInboundContact applies one Lexware contact to the CRM: update the
+// mapped contact when Lexware's copy is newer, otherwise create it and record
+// the mapping. Failures are accumulated in result rather than returned, so a
+// bulk sync keeps going past a single bad record.
+func (cs *ContactSyncer) upsertInboundContact(
+	ctx context.Context,
+	configID uuid.UUID,
+	lc *LexwareContact,
+	mappings []models.LexwareFieldMappingEntry,
+	result *SyncResult,
+) {
+	result.ItemsProcessed++
+
+	mapping, err := cs.repo.GetEntityMappingByLexwareID(ctx, configID, "contact", lc.ID)
+	if err != nil && !errors.Is(err, ErrMappingNotFound) {
+		result.ItemsFailed++
+		result.Errors = append(result.Errors, fmt.Sprintf("lookup mapping for lexware %s: %v", lc.ID, err))
+		return
+	}
+
+	syncData, err := cs.fieldMapper.MapContactToKMUHub(lc, mappings)
+	if err != nil {
+		result.ItemsFailed++
+		result.Errors = append(result.Errors, fmt.Sprintf("map lexware contact %s: %v", lc.ID, err))
+		return
+	}
+
+	now := time.Now().UTC()
+	lexwareTime := parseLexwareTime(lc.UpdatedDate)
+
+	if mapping != nil {
+		if mapping.KmuhubUpdatedAt != nil && lexwareTime != nil && !lexwareTime.After(*mapping.KmuhubUpdatedAt) {
+			return
+		}
+
+		if err := cs.contacts.UpdateForSync(ctx, mapping.KmuhubID, syncData); err != nil {
+			result.ItemsFailed++
+			result.Errors = append(result.Errors, fmt.Sprintf("update KMU Hub contact %s: %v", mapping.KmuhubID, err))
+			return
+		}
+
+		mapping.LastSyncedAt = now
+		mapping.LexwareUpdatedAt = lexwareTime
+		mapping.LexwareVersion = lc.Version
+		if err := cs.repo.UpsertEntityMapping(ctx, mapping); err != nil {
+			slog.Error("lexware: failed to update mapping", "lexware_id", lc.ID, "error", err)
+		}
+		result.ItemsUpdated++
+		return
+	}
+
+	kmuhubID, err := cs.contacts.CreateForSync(ctx, syncData, uuid.Nil)
+	if err != nil {
+		result.ItemsFailed++
+		result.Errors = append(result.Errors, fmt.Sprintf("create KMU Hub contact from lexware %s: %v", lc.ID, err))
+		return
+	}
+
+	newMapping := &models.LexwareEntityMapping{
+		ConfigID:         configID,
+		EntityType:       "contact",
+		KmuhubID:         kmuhubID,
+		LexwareID:        lc.ID,
+		LexwareVersion:   lc.Version,
+		LastSyncedAt:     now,
+		LexwareUpdatedAt: lexwareTime,
+		SyncDirection:    "both",
+	}
+	if err := cs.repo.UpsertEntityMapping(ctx, newMapping); err != nil {
+		slog.Error("lexware: failed to create mapping", "lexware_id", lc.ID, "error", err)
+	}
+	result.ItemsCreated++
+}
+
 func (cs *ContactSyncer) syncOutbound(ctx context.Context, configID, tenantID uuid.UUID, since time.Time, mappings []models.LexwareFieldMappingEntry, result *SyncResult) {
+	if cs.contacts == nil {
+		slog.Warn("lexware: contact service not wired, skipping outbound sync")
+		return
+	}
+
 	modified, err := cs.contacts.ListModifiedSince(ctx, since)
 	if err != nil {
 		slog.Error("lexware: failed to list modified contacts", "error", err)

@@ -98,18 +98,16 @@ func (a *ChatAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, si
 }
 
 // HandleReply sends a reply via the chat service.
-func (a *ChatAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, body string) error {
+func (a *ChatAdapter) HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
 	if a.client == nil {
 		return fmt.Errorf("chat adapter: client not configured")
 	}
-	// The messageID refers to the inbox message; the source channel ID is needed for replies.
-	// The caller should resolve the source channel from the inbox message's metadata.
-	return a.client.CreateMessage(ctx, messageID.String(), userID, body)
+	return a.client.CreateMessage(ctx, sourceID, userID, body)
 }
 
 // HandleForward is not supported for chat DMs/mentions — there is no concept
 // of forwarding to an arbitrary external recipient in chat today.
-func (a *ChatAdapter) HandleForward(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string, _ string) error {
+func (a *ChatAdapter) HandleForward(_ context.Context, _ string, _ uuid.UUID, _ string, _ string) error {
 	return ErrForwardNotSupported
 }
 

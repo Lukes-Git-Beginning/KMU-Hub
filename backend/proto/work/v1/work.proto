@@ -86,6 +86,9 @@ service WorkService {
   rpc DeleteTimeEntry(DeleteTimeEntryRequest) returns (DeleteTimeEntryResponse);
   rpc ListTimeEntries(ListTimeEntriesRequest) returns (ListTimeEntriesResponse);
   rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
+  rpc ListBillableTimeEntries(ListBillableTimeEntriesRequest) returns (ListBillableTimeEntriesResponse);
+  rpc ListProjectTimeEntries(ListProjectTimeEntriesRequest) returns (ListProjectTimeEntriesResponse);
+  rpc ListProjectTeamUtilization(ListProjectTeamUtilizationRequest) returns (ListProjectTeamUtilizationResponse);
 
   // Labels
   rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse);
@@ -573,6 +576,7 @@ message UpdateTaskCommentResponse {
 
 message DeleteTaskCommentRequest {
   string id = 1;
+  bool is_admin = 2;
 }
 
 message DeleteTaskCommentResponse {}
@@ -845,6 +849,72 @@ message ListTimeEntriesRequest {
 message ListTimeEntriesResponse {
   repeated TimeEntryProto entries = 1;
   int32 total = 2;
+}
+
+// A completed time entry with its task/project/employee names resolved,
+// for the finance "Stunden -> Rechnung" view (invoicing across all projects,
+// not one task at a time like ListTimeEntries above).
+message BillableTimeEntryProto {
+  string id = 1;
+  string date = 2;          // YYYY-MM-DD, from started_at
+  string project = 3;
+  string task = 4;
+  string employee = 5;
+  double hours = 6;
+  string description = 7;
+}
+
+message ListBillableTimeEntriesRequest {}
+
+message ListBillableTimeEntriesResponse {
+  repeated BillableTimeEntryProto entries = 1;
+}
+
+// A completed time entry scoped to one project, with the task title and
+// contributor name resolved, for the project-level "Stunden abrechnen"
+// roll-up (unlike BillableTimeEntryProto, which spans every project of the
+// tenant).
+message ProjectTimeEntryProto {
+  string id = 1;
+  string date = 2;          // YYYY-MM-DD, from started_at
+  string task = 3;
+  string person = 4;
+  double hours = 5;
+  string description = 6;
+}
+
+message ListProjectTimeEntriesRequest {
+  string project_id = 1;
+}
+
+message ListProjectTimeEntriesResponse {
+  repeated ProjectTimeEntryProto entries = 1;
+}
+
+// One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend.
+message UtilizationPointProto {
+  string label = 1;
+  double hours = 2;
+}
+
+// One project member's tracked-hours roll-up for the "Stunden abrechnen" /
+// Auslastung view. Deliberately carries no cost or salary figure -- this
+// RPC sits behind the project-read permission, not team:salary:view.
+message ProjectMemberUtilizationProto {
+  string user_id = 1;
+  string name = 2;
+  string role = 3;
+  int32 weekly_target = 4;
+  repeated UtilizationPointProto weekly_data = 5;
+  repeated UtilizationPointProto monthly_data = 6;
+}
+
+message ListProjectTeamUtilizationRequest {
+  string project_id = 1;
+}
+
+message ListProjectTeamUtilizationResponse {
+  repeated ProjectMemberUtilizationProto team = 1;
 }
 
 message GetTaskTimeSummaryRequest {

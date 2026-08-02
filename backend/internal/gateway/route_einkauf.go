@@ -45,33 +45,52 @@ func (er *EinkaufRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// EinkaufPage.tsx/EinkaufDetailModals.tsx actually gate on). Reads
+		// already match the fine key 1:1 and stay plain RequirePermission.
+		poCreate := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "create"})
+		poEdit := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "edit"})
+		poDelete := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "delete"})
+		// OrderDetailModal calls submitPOMutation both for "Senden" (send) and
+		// for the "Genehmigen" approval banner button (approve) — same RPC.
+		poSubmit := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "send"}, [2]string{"einkauf:po", "approve"})
+		poCancel := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "cancel"})
+		// WareneingangDialog calls both ReceiveGoods and PartialReceive behind
+		// the same einkauf:po:receive gate.
+		poReceive := middleware.RequirePermissionAny([2]string{"einkauf:po", "write"}, [2]string{"einkauf:po", "receive"})
+		supplierCreate := middleware.RequirePermissionAny([2]string{"einkauf:supplier", "write"}, [2]string{"einkauf:supplier", "create"})
+		supplierEdit := middleware.RequirePermissionAny([2]string{"einkauf:supplier", "write"}, [2]string{"einkauf:supplier", "edit"})
+		// "Deactivate" in EinkaufPage.tsx is a soft label over DeleteSupplier.
+		supplierDeactivate := middleware.RequirePermissionAny([2]string{"einkauf:supplier", "write"}, [2]string{"einkauf:supplier", "deactivate"})
+
 		// Suppliers
 		r.Route("/suppliers", func(r chi.Router) {
 			r.With(middleware.RequirePermission("einkauf:supplier", "read")).Get("/", er.HandleListSuppliers)
-			r.With(middleware.RequirePermission("einkauf:supplier", "write")).Post("/", er.HandleCreateSupplier)
+			r.With(supplierCreate).Post("/", er.HandleCreateSupplier)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("einkauf:supplier", "read")).Get("/", er.HandleGetSupplier)
-				r.With(middleware.RequirePermission("einkauf:supplier", "write")).Patch("/", er.HandleUpdateSupplier)
-				r.With(middleware.RequirePermission("einkauf:supplier", "write")).Delete("/", er.HandleDeleteSupplier)
+				r.With(supplierEdit).Patch("/", er.HandleUpdateSupplier)
+				r.With(supplierDeactivate).Delete("/", er.HandleDeleteSupplier)
 			})
 		})
 
 		// Purchase Orders
 		r.Route("/pos", func(r chi.Router) {
 			r.With(middleware.RequirePermission("einkauf:po", "read")).Get("/", er.HandleListPOs)
-			r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/", er.HandleCreatePO)
+			r.With(poCreate).Post("/", er.HandleCreatePO)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("einkauf:po", "read")).Get("/", er.HandleGetPO)
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Patch("/", er.HandleUpdatePO)
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Delete("/", er.HandleDeletePO)
+				r.With(poEdit).Patch("/", er.HandleUpdatePO)
+				r.With(poDelete).Delete("/", er.HandleDeletePO)
 
 				// Workflow
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/submit", er.HandleSubmitPO)
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/cancel", er.HandleCancelPO)
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/receive", er.HandleReceiveGoods)
-				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/partial-receive", er.HandlePartialReceive)
+				r.With(poSubmit).Post("/submit", er.HandleSubmitPO)
+				r.With(poCancel).Post("/cancel", er.HandleCancelPO)
+				r.With(poReceive).Post("/receive", er.HandleReceiveGoods)
+				r.With(poReceive).Post("/partial-receive", er.HandlePartialReceive)
 
 				// Lines
 				r.Route("/lines", func(r chi.Router) {

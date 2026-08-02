@@ -424,6 +424,70 @@ func TestAuthGRPC_CheckPermission(t *testing.T) {
 	})
 }
 
+func TestAuthGRPC_GetEffectivePermissions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("explicit user id", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		user := createAuthTestUser(repo, "user@example.com", "pass", true)
+		roleID := uuid.New()
+		repo.effectiveGrants[user.ID] = []auth.EffectiveGrantRow{
+			{RoleID: roleID, RoleName: "member", RoleColor: "hsl(0 0% 50%)", RoleIsSystem: true, Key: "work:task:edit", Scope: "team"},
+		}
+
+		resp, err := srv.GetEffectivePermissions(ctx, &authv1.GetEffectivePermissionsRequest{UserId: user.ID.String()})
+		requireGRPCOK(t, err)
+		require.Len(t, resp.Roles, 1)
+		assert.Equal(t, "member", resp.Roles[0].Name)
+		assert.True(t, resp.Roles[0].IsSystem)
+		require.Len(t, resp.Capabilities, 1)
+		assert.Equal(t, "work:task:edit", resp.Capabilities[0].Key)
+		assert.Equal(t, "team", resp.Capabilities[0].Scope)
+		// Sources carries role IDs — the frontend resolves them against Roles.
+		assert.Equal(t, []string{roleID.String()}, resp.Capabilities[0].Sources)
+	})
+
+	t.Run("empty user id falls back to caller from context", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		user := createAuthTestUser(repo, "caller@example.com", "pass", true)
+		repo.effectiveGrants[user.ID] = []auth.EffectiveGrantRow{
+			{RoleID: uuid.New(), RoleName: "extern", Key: "documents:file:read", Scope: "own"},
+		}
+		callerCtx := context.WithValue(ctx, middleware.UserIDKey, user.ID.String())
+
+		resp, err := srv.GetEffectivePermissions(callerCtx, &authv1.GetEffectivePermissionsRequest{})
+		requireGRPCOK(t, err)
+		require.Len(t, resp.Capabilities, 1)
+		assert.Equal(t, "documents:file:read", resp.Capabilities[0].Key)
+	})
+
+	t.Run("no roles resolves to empty, never nil, slices", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		user := createAuthTestUser(repo, "norole@example.com", "pass", true)
+
+		resp, err := srv.GetEffectivePermissions(ctx, &authv1.GetEffectivePermissionsRequest{UserId: user.ID.String()})
+		requireGRPCOK(t, err)
+		assert.NotNil(t, resp.Roles)
+		assert.NotNil(t, resp.Capabilities)
+		assert.Empty(t, resp.Roles)
+		assert.Empty(t, resp.Capabilities)
+	})
+
+	t.Run("invalid uuid", func(t *testing.T) {
+		srv, _ := newTestAuthGRPCServer()
+
+		_, err := srv.GetEffectivePermissions(ctx, &authv1.GetEffectivePermissionsRequest{UserId: "bad"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("empty user id and no caller in context", func(t *testing.T) {
+		srv, _ := newTestAuthGRPCServer()
+
+		_, err := srv.GetEffectivePermissions(ctx, &authv1.GetEffectivePermissionsRequest{})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+}
+
 // ============================================================================
 // Profile & Password
 // ============================================================================
@@ -865,6 +929,29 @@ func TestAuthGRPC_TerminateSession(t *testing.T) {
 			SessionId: uuid.New().String(), UserId: "bad",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// The gateway fills UserId from the JWT, SessionId comes from the URL —
+	// so this is the only thing standing between a signed-in user and signing
+	// out anyone else whose session id they can guess.
+	t.Run("session of another user is not found", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		owner := createAuthTestUser(repo, "owner@example.com", "pass", true)
+		stranger := createAuthTestUser(repo, "stranger@example.com", "pass", true)
+		sessID := uuid.New()
+		repo.sessions[sessID] = &models.UserSession{
+			ID: sessID, UserID: owner.ID, CreatedAt: time.Now(), LastActiveAt: time.Now(),
+		}
+
+		_, err := srv.TerminateSession(ctx, &authv1.TerminateSessionRequest{
+			SessionId: sessID.String(),
+			UserId:    stranger.ID.String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+
+		if _, ok := repo.sessions[sessID]; !ok {
+			t.Error("the owner's session was deleted by a stranger's request")
+		}
 	})
 }
 

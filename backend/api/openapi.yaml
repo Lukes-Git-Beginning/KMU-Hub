@@ -373,6 +373,29 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/auth/me/permissions:
+    get:
+      summary: Get own effective permissions
+      description: >
+        Resolved multi-role union of the authenticated account: the roles it
+        holds and, per fine-grained capability key, the widest scope any of
+        those roles grants. The account is taken from the JWT, never from the
+        request. No permission guard — every signed-in user may read their own
+        rights.
+      tags: [auth]
+      operationId: getMyEffectivePermissions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resolved effective permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivePermissionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/auth/profile:
     patch:
       summary: Update own profile
@@ -787,6 +810,49 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # Effective permissions of any account (admin audit view). Under /admin/users
+  # rather than /users because that is where the RBAC frontend addresses it.
+  # Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/permissions:
+    get:
+      summary: Get any account's effective permissions
+      description: >
+        Same resolved multi-role union as /api/v1/auth/me/permissions, for an
+        arbitrary account. Requires admin role. A user id outside the caller's
+        tenant returns 404, not an empty result — the target account is fetched
+        under the users RLS policy before its rights are resolved.
+      tags: [users]
+      operationId: getUserEffectivePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - name: base
+          in: query
+          required: false
+          description: >
+            Reserved for the role union without per-user overrides. Per-user
+            overrides do not exist server-side yet, so the parameter is
+            currently accepted and ignored.
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Resolved effective permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivePermissionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # Custom Fields
   /api/v1/custom-fields:
     post:
@@ -1114,6 +1180,152 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/leads:
+    get:
+      summary: List leads
+      description: >
+        The lead inbox. A lead is a contact at an earlier lifecycle stage, not
+        a separate entity — these are contacts rows filtered by
+        lifecycle_stage. Guarded by the contacts read permission.
+      tags: [contacts]
+      operationId: listLeads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stage
+          in: query
+          description: Empty means every non-customer stage.
+          schema:
+            type: string
+            enum: [lead, qualified]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, contacted, qualified, disqualified]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLeadsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      summary: Create lead
+      description: >
+        Records a raw prospect as a contact at the "lead" lifecycle stage. The
+        score is computed server-side from source and data completeness.
+      tags: [contacts]
+      operationId: createLead
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadRequest"
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/leads/{id}:
+    patch:
+      summary: Update lead status or temperature
+      description: >
+        Moves a lead through the inbox or pins its temperature. An empty
+        temperature clears the manual override and hands the displayed value
+        back to the computed score. Setting status to "qualified" also moves
+        the lifecycle stage, exactly like the convert endpoint.
+      tags: [contacts]
+      operationId: updateLead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadRequest"
+      responses:
+        "200":
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/leads/{id}/convert:
+    post:
+      summary: Convert lead to qualified
+      description: >
+        Qualifies a lead. The row already is the contact, so this is a stage
+        change rather than a copy into a second table.
+      tags: [contacts]
+      operationId: convertLead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Lead converted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/contacts/{id}:
     get:
       summary: Get contact by ID
@@ -1180,6 +1392,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/contacts/{id}/files:
+    get:
+      summary: List contact files
+      tags: [contact-files]
+      operationId: listContactFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactFileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      summary: Attach file to contact
+      tags: [contact-files]
+      operationId: createContactFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, storage_key, file_size]
+              properties:
+                filename:
+                  type: string
+                mime_type:
+                  type: string
+                storage_key:
+                  type: string
+                file_size:
+                  type: integer
+                  format: int64
+      responses:
+        "201":
+          description: File attached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file:
+                    $ref: "#/components/schemas/ContactFileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3334,6 +3615,53 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/notifications/{id}/snooze:
+    post:
+      summary: Snooze a notification
+      description: >-
+        Hides the notification from the list and the unread count until the
+        given time, and marks it read. Response is the flat
+        `{id, snoozed_until}` shape (not the wrapped Notification used by
+        pin/dismiss).
+      tags: [notifications]
+      operationId: snoozeNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [until]
+              properties:
+                until:
+                  type: string
+                  format: date-time
+                  description: Must be in the future.
+      responses:
+        "200":
+          description: Notification snoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnoozeNotificationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Snooze time is in the past
+
   /api/v1/notifications/read-all:
     post:
       summary: Mark all notifications as read
@@ -4263,6 +4591,97 @@ paths:
       responses:
         "200":
           description: Preference saved
+
+  /api/v1/projects/{id}/time-entries:
+    get:
+      summary: List a project's completed time entries (Stunden abrechnen)
+      description: >
+        Completed time entries whose task belongs to this project, joined
+        with task and contributor names, for the project's hours-to-invoice
+        roll-up.
+      tags: [projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: billed
+          in: query
+          description: "false (default) returns all completed entries; true always returns none -- nothing yet persists which entries an invoice covered."
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Time entries of the project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Work service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/projects/{id}/team-utilization:
+    get:
+      summary: Project team utilization roll-up (Auslastung)
+      description: >
+        Every project member's tracked hours per week (last 6 ISO weeks) and
+        per month (last 3 months), including members with zero tracked
+        hours. Carries no cost or salary figure -- this route sits behind
+        the project-read permission, not team:salary:view.
+      tags: [projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Team utilization roll-up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberUtilization"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Work service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/tasks:
     get:
@@ -6991,6 +7410,53 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/messages/bookmarks:
+    get:
+      summary: List the current user's bookmarked messages, newest bookmark first
+      tags: [chat-messages]
+      operationId: listBookmarks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Bookmarked messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBookmarksResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/messages/{id}/bookmark:
+    post:
+      summary: Toggle the bookmark state of a message for the current user
+      tags: [chat-messages]
+      operationId: toggleBookmark
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bookmark toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToggleBookmarkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Caller is not a member of the message's channel
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ===========================================================================
   # Meetings
   # ===========================================================================
@@ -7845,10 +8311,24 @@ paths:
   /api/v1/finance/invoices/{id}/pdf:
     get:
       summary: Generate PDF for an invoice
+      description: >
+        With `format=zugferd` the PDF carries the Factur-X/ZUGFeRD XML as an
+        embedded attachment named `factur-x.xml`, declared as the machine-readable
+        alternative of the document. An invoice that does not meet EN 16931 is
+        rejected with 409 listing every unmet requirement — no plain PDF is
+        returned in its place, because the caller could not tell it apart from
+        an e-invoice.
       tags: [invoices]
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceId"
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [zugferd]
+          description: Embed the Factur-X/ZUGFeRD XML into the PDF.
       responses:
         "200":
           description: PDF binary
@@ -7857,6 +8337,69 @@ paths:
               schema:
                 type: string
                 format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invoice does not meet the e-invoice requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/invoices/{id}/erechnung:
+    post:
+      summary: Generate an outbound e-invoice (XRechnung or ZUGFeRD)
+      description: >
+        `format=xrechnung` returns a bare XRechnung UBL 2.1 XML document.
+        `format=zugferd` returns a PDF with the Factur-X/ZUGFeRD XML embedded and
+        declared, identical to `GET .../pdf?format=zugferd`. `buyer_reference`
+        is BT-10 (Leitweg-ID); it only applies to xrechnung, and supplying it
+        also enforces the stricter German CIUS for public-sector buyers on top
+        of the EN 16931 core. An invoice that does not meet the applicable
+        requirements is rejected with 409 listing every unmet one — no partial
+        document is returned in its place.
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [xrechnung, zugferd]
+        - name: buyer_reference
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Leitweg-ID (BT-10), xrechnung only.
+      responses:
+        "200":
+          description: XRechnung XML or ZUGFeRD PDF, depending on format
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: format missing or not one of xrechnung, zugferd
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invoice does not meet the e-invoice requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/invoices/{id}/payments:
     post:
@@ -8329,8 +8872,9 @@ paths:
     get:
       summary: List imported bank transactions
       description: >
-        The reconciliation queue. Filter by statement or by match status to see
-        what is still waiting for a decision.
+        The reconciliation queue. Without a status this is what still needs a
+        decision and leaves out entries that were set aside; status=ignored asks
+        for exactly those.
       tags: [finance]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -8340,12 +8884,14 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: match_status
+        - name: status
           in: query
-          description: Restrict to one reconciliation state
+          description: >
+            Restrict to one reconciliation state. Absent or "all" returns the
+            queue, which excludes ignored entries.
           schema:
             type: string
-            enum: [unmatched, suggested, matched, ignored]
+            enum: [all, unmatched, suggested, matched, ignored]
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/page_size"
       responses:
@@ -8359,9 +8905,15 @@ paths:
                   transactions:
                     type: array
                     items:
-                      $ref: "#/components/schemas/BankTransaction"
+                      $ref: "#/components/schemas/BankTransactionQueueEntry"
                   total:
                     type: integer
+        "400":
+          description: Unknown status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -8373,15 +8925,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1/finance/bank-transactions/{id}/reconcile:
+  /api/v1/finance/bank-transactions/{id}/match:
     post:
       summary: Book a bank credit as a payment against an invoice
       description: >
         Records a payment through the payment service, so invoice status,
         numbering and the GoBD trail keep running through the one path that owns
-        them. An absent invoice_id confirms the suggestion the import attached.
-        The payment carries an idempotency key derived from the transaction, so
-        a retried confirmation records exactly one payment.
+        them. An empty body confirms the suggestion the import attached; an
+        invoice_id or invoice_number assigns a different one, and invoice_id
+        wins where both are given. The payment carries an idempotency key
+        derived from the transaction, so a retried confirmation records exactly
+        one payment.
       tags: [finance]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -8402,15 +8956,83 @@ paths:
                   type: string
                   format: uuid
                   description: Overrides the suggested invoice
+                invoice_number:
+                  type: string
+                  description: >
+                    The same override as the operator sees it on the document.
+                    Read only when invoice_id is absent.
       responses:
         "200":
-          description: The reconciled transaction
+          description: The matched transaction
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BankTransaction"
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
         "400":
-          description: Invalid id or invoice_id
+          description: Invalid id, invoice_id or invoice_number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: >
+            No such transaction, or no invoice carries the given number within
+            the tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Already reconciled, or the entry is a debit — money leaving the
+            account cannot settle a receivable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/reject-match:
+    post:
+      summary: Discard the suggested match of a bank transaction
+      description: >
+        Says "not this invoice" and puts the entry back in front of the operator
+        as unmatched — distinct from ignore, which says it is not a customer
+        payment at all. An already unmatched entry is returned unchanged rather
+        than refused: the outcome the caller asked for holds.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The transaction, now unmatched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
+        "400":
+          description: Invalid id
           content:
             application/json:
               schema:
@@ -8423,8 +9045,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: >
-            Already reconciled, or the entry is a debit — money leaving the
-            account cannot settle a receivable.
+            The entry is booked or was set aside — both are reversals, not
+            rejections.
           content:
             application/json:
               schema:
@@ -8458,7 +9080,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BankTransaction"
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -8473,6 +9098,721 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-accounts:
+    get:
+      summary: List bank accounts (Bankkonten)
+      description: >
+        The accounts the caller's tenant holds, ordered by bank name. There is
+        no pagination: a KMU holds a handful of accounts and the client renders
+        all of them. Balance and lastSync are derived from the newest imported
+        statement of the account's IBAN, so an account without an import
+        reports a zero balance and a null lastSync.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Bank accounts of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Add a bank account
+      description: >
+        The IBAN may be sent grouped or compact; it is normalised and its ISO
+        7064 check digits are verified before it is stored. An account starts
+        disconnected.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankAccountInput"
+      responses:
+        "201":
+          description: The created account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Missing bank name, malformed IBAN, BIC or currency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The tenant already holds an account with this IBAN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-accounts/{id}:
+    patch:
+      summary: Edit a bank account
+      description: >
+        Every field is optional; an omitted one is left untouched. Correcting
+        the IBAN also changes which imported statements the balance is read
+        from — that is the point, an account entered with a typo would
+        otherwise never find its own imports.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankAccountUpdateInput"
+      responses:
+        "200":
+          description: The updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Invalid id, IBAN, BIC or currency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Another account of the tenant already holds this IBAN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Remove a bank account
+      description: >
+        Statements already imported for this IBAN are unaffected — they record
+        what a bank reported and outlive the master-data row.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The account was removed
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-accounts/{id}/connect:
+    post:
+      summary: Mark a bank account as connected
+      description: >
+        Records the outcome of the bank login flow. There is no bank session
+        behind this: the PSD2 handshake is simulated in the desktop client and
+        the real FinAPI integration is a later phase. Connecting an already
+        connected account is a no-op that keeps the original timestamp.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The connected account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/BankAccount"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses:
+    get:
+      summary: List expenses (Ausgaben)
+      description: >
+        Expenses of the caller's tenant, newest first. A caller whose read grant
+        is narrowed to the "own" data scope only sees what they submitted, and
+        the total reflects the same restriction.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          description: Restrict to one approval state
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Expenses of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expenses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Expense"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Record a new expense
+      description: >
+        The expense always starts pending; it cannot be created already
+        approved. The submitter is taken from the token, not from the body.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: The created expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Missing description, non-positive amount or invalid date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}:
+    put:
+      summary: Edit an expense
+      description: >
+        Every field is optional; an omitted one is left untouched. Once the
+        expense has been approved or rejected only the SKR03/04 account and the
+        receipt filename stay editable — Kontierung and a late receipt are
+        normal after-the-fact work, while changing the amount would make the
+        decision describe something else.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseUpdateInput"
+      responses:
+        "200":
+          description: The updated expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id, amount or date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The expense was already decided and the edit reaches past account and receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete a pending expense
+      description: >
+        Only a pending expense can be removed. A decided one is the record of a
+        decision somebody made and stays.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The expense was already decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/approve:
+    post:
+      summary: Approve a pending expense
+      description: >
+        Only a pending expense can be decided, and never by the person who
+        submitted it — enforced server-side, so hiding the button is a courtesy
+        rather than the control.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The approved expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already decided, or the caller is the submitter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/reject:
+    post:
+      summary: Reject a pending expense
+      description: >
+        Same guards as approve: pending only, and never by the submitter.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The rejected expense
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already decided, or the caller is the submitter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/expenses/{id}/receipt:
+    post:
+      summary: Attach a receipt filename to an expense
+      description: >
+        Records the name of the document handed in. This carries metadata, not
+        bytes — there is no upload here. It stays open after a decision, because
+        a receipt arriving late is the normal case.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiptName]
+              properties:
+                receiptName:
+                  type: string
+                  maxLength: 255
+                  example: hetzner-2026-05.pdf
+      responses:
+        "200":
+          description: The expense with the receipt recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid id or missing receiptName
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/transactions:
+    get:
+      summary: List the consolidated payment ledger (Transaktionen)
+      description: >
+        Every recorded customer payment (income) and every approved expense
+        (expense) of the tenant, merged and sorted by date, newest first.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Transactions of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/transactions/{id}:
+    delete:
+      summary: Remove a ledger entry
+      description: >
+        A payment delete also reverts the invoice's paid status if it no
+        longer covers the total. An approved expense is refused with 409 — it
+        is the record of a decision somebody made, not a draft.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Opaque, prefixed ("pay-"/"exp-") — not a plain UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Unrecognized id prefix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The entry names an approved expense, which cannot be withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/document-chains:
+    get:
+      summary: List document chains (Belegkette)
+      description: >
+        Every customer document traced from quote through invoice to payment,
+        dunning, or credit note. One entry per invoice (prefixed with its
+        source quote, if one converted into it), plus one entry per quote that
+        has not become an invoice yet. Tenant-wide overview, not filtered by
+        any single document — the desktop client paginates and searches
+        client-side.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Document chains of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chains:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentChain"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/time-entries:
+    get:
+      summary: List billable time entries (Stunden -> Rechnung)
+      description: >
+        Completed time entries across every project of the tenant, joined
+        with task, project, and employee names, for building invoice line
+        items from tracked hours.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: billed
+          in: query
+          description: "false returns only unbilled entries (the only value the desktop client sends)."
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Billable time entries of the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FinanceTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Work service unavailable
           content:
             application/json:
               schema:
@@ -9434,7 +10774,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unread:
     post:
@@ -9450,7 +10790,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/star:
     post:
@@ -9466,7 +10806,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/status:
     post:
@@ -9491,7 +10831,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
 
@@ -9599,7 +10939,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unarchive:
     post:
@@ -9615,7 +10955,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/snooze:
     post:
@@ -9640,7 +10980,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/unsnooze:
     post:
@@ -9656,7 +10996,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/messages/{id}/reply:
     post:
@@ -9708,7 +11048,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InboxMessage"
+                $ref: "#/components/schemas/InboxMessageWrapper"
 
   /api/v1/inbox/unread-count:
     get:
@@ -10859,6 +12199,57 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/customization/labels:
+    get:
+      summary: Get resolved tenant label overrides for a locale
+      description: >
+        Every whitelisted i18n key, each with the effective value and its
+        provenance ("tenant" or "default"). Available to any authenticated
+        user — the labels drive UI text for everyone, not just editors.
+      operationId: getCustomizationLabels
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: locale
+          in: query
+          required: false
+          schema: { type: string, default: de }
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns the code-default baseline (every key provenance "default") instead of resolving tenant overrides.
+      responses:
+        "200":
+          description: Resolved label map
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LabelOverridesResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Update tenant-scope label overrides for a locale
+      operationId: putCustomizationLabels
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateLabelOverridesRequest" }
+      responses:
+        "200":
+          description: Updated, freshly resolved label map
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LabelOverridesResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
   /api/v1/finance/gobd-archive:
     get:
       summary: List GoBD archived documents
@@ -11550,6 +12941,8 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [open, pending, closed, resolved] } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: contact_id, in: query, schema: { type: string, format: uuid } }
+        - { name: org_id, in: query, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: Paginated ticket list
@@ -11574,6 +12967,8 @@ paths:
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
+                contact_id: { type: string, format: uuid }
+                org_id: { type: string, format: uuid }
       responses:
         "201":
           description: Ticket created
@@ -11582,6 +12977,42 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/helpdesk/tickets/from-message:
+    post:
+      summary: Convert an inbox message into a ticket
+      description: >-
+        Links back to the source inbox message via source_channel/source_message_id
+        instead of copying its content a second time. Converting the same
+        message_id twice is idempotent: the second call returns the
+        already-existing ticket with 200 instead of creating a duplicate.
+      tags: [helpdesk-tickets]
+      operationId: createHelpdeskTicketFromMessage
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message_id]
+              properties:
+                message_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Ticket created from the inbox message
+          content:
+            application/json:
+              schema: { type: object }
+        "200":
+          description: message_id was already converted; the existing ticket is returned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/helpdesk/tickets/{id}:
     get:
@@ -11617,6 +13048,8 @@ paths:
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
+                contact_id: { type: string, format: uuid }
+                org_id: { type: string, format: uuid }
       responses:
         "200":
           description: Ticket updated
@@ -16114,6 +17547,10 @@ paths:
   /api/v1/auth/sessions/{id}:
     delete:
       summary: Terminate a specific session
+      description: >
+        Signs out one of the caller's own devices and revokes the refresh token
+        that device holds. A session belonging to another user answers 404 —
+        the same as one that does not exist, so an id cannot be probed.
       tags: [auth]
       operationId: terminateSession
       security:
@@ -16135,7 +17572,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: No such session, or it belongs to another user
 
   /api/v1/auth/sessions/all:
     get:
@@ -18282,6 +19719,41 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/email/messages/{id}/labels:
+    post:
+      summary: Replace the label set of a message
+      description: >
+        Full replace, not an add/remove pair: the given label ids become the
+        message's entire label set. Every id must already be a label of the
+        tenant.
+      tags: [mails]
+      operationId: assignMessageLabels
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignMessageLabelsRequest"
+      responses:
+        "200":
+          description: Message with its updated label set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Message not found, or one of the label ids does not belong to the tenant
+
   /api/v1/email/send:
     post:
       summary: Send an email (with optional UWG §7 consent check when contact_id is set)
@@ -18528,6 +20000,243 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/rules:
+    get:
+      summary: List the tenant's email rules
+      tags: [mails]
+      operationId: listEmailRules
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Rule list in application order (oldest first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailRulesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an email rule
+      tags: [mails]
+      operationId: createEmailRule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailRuleRequest"
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailRuleEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Move action target is not a folder of this tenant
+
+  /api/v1/email/rules/{id}:
+    patch:
+      summary: Update an email rule
+      description: >
+        Partial update: omitted fields keep their stored value. The merged rule
+        is validated as a whole, so a patch cannot produce a combination a
+        create would have rejected.
+      tags: [mails]
+      operationId: updateEmailRule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailRuleRequest"
+      responses:
+        "200":
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailRuleEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an email rule
+      tags: [mails]
+      operationId: deleteEmailRule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Rule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/rules/apply:
+    post:
+      summary: Apply all rules to the tenant's stored messages
+      description: >
+        Runs every rule over the tenant's non-trashed messages, newest first,
+        capped at 2000 messages per run. Rules apply in creation order and
+        accumulate: labels add up, a later move overrides an earlier one.
+      tags: [mails]
+      operationId: applyEmailRules
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Apply result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplyEmailRulesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/email/labels:
+    get:
+      summary: List the tenant's email labels
+      tags: [mails]
+      operationId: listEmailLabels
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Label list, name-ordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailLabelsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an email label
+      tags: [mails]
+      operationId: createEmailLabel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailLabelRequest"
+      responses:
+        "201":
+          description: Label created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailLabelEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: A label with this name already exists for the tenant
+
+  /api/v1/email/labels/{id}:
+    patch:
+      summary: Update an email label
+      description: "Partial update: omitted fields keep their stored value."
+      tags: [mails]
+      operationId: updateEmailLabel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailLabelRequest"
+      responses:
+        "200":
+          description: Label updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailLabelEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: A label with this name already exists for the tenant
+    delete:
+      summary: Delete an email label
+      description: >
+        Also strips the label id from every message of the tenant that still
+        carries it (label_ids has no foreign key to do that on its own).
+      tags: [mails]
+      operationId: deleteEmailLabel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Label deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -22154,6 +23863,291 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/documents/files/{id}/activity:
+    get:
+      summary: Get the activity history of a document file
+      description: >-
+        Requires documents:read permission. Append-only audit trail: uploaded, renamed, moved,
+        copied, downloaded, shared, version_created, reverted — newest first.
+      tags: [documents]
+      operationId: listDocumentFileActivity
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Activity history (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFileActivity"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/files/{id}/comments:
+    get:
+      summary: List comments on a document file
+      description: Requires documents:read permission. Oldest first.
+      tags: [documents]
+      operationId: listDocumentFileComments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Comment list (oldest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFileComment"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Comment on a document file
+      description: Requires documents:write permission. The author is taken from the auth context.
+      tags: [documents]
+      operationId: createDocumentFileComment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 10000
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment: { $ref: "#/components/schemas/DocumentFileComment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/files/{id}/share-links:
+    get:
+      summary: List external share links for a document file
+      description: Requires documents:read permission. Newest first.
+      tags: [documents]
+      operationId: listDocumentShareLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share link list (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_links:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentShareLink"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an external share link for a document file
+      description: >-
+        Requires documents:write permission plus documents:share_link:create. The password, if
+        given, is bcrypt-hashed and never stored or returned in clear.
+      tags: [documents]
+      operationId: createDocumentShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_days:
+                  type: integer
+                  nullable: true
+                  description: Absent, null or 0 means the link never expires. Max 365.
+                password:
+                  type: string
+                  maxLength: 72
+                  description: Absent or empty means no password.
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_link: { $ref: "#/components/schemas/DocumentShareLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/share-links/{id}:
+    delete:
+      summary: Revoke an external document share link
+      description: >-
+        Requires documents:write permission plus documents:share:manage. Revocation is immediate;
+        the next redemption attempt gets the same generic "invalid" answer an unknown token would.
+      tags: [documents]
+      operationId: revokeDocumentShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked: { type: boolean, example: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/documents/share/{token}:
+    post:
+      summary: Read/download a shared document file (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire credential; the tenant is
+        resolved from it server-side and the response can only ever be the one file the link
+        names.
+
+
+        It is a POST rather than a GET because the password must not travel in a URL — where it
+        would land in access logs, browser history and Referer headers — and because the call
+        increments the link's view counter, which no prefetching GET should be free to do. The
+        request body is optional: a link without a password is read with no body at all.
+
+
+        Unknown token, revoked link, expired link, missing password and wrong password all answer
+        404 with the identical message — deliberately indistinguishable, stricter than the
+        berichte share-token route, which tells "not found" and "wrong password" apart by status
+        code. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS),
+        not the authenticated one.
+      tags: [documents]
+      operationId: getPublicDocumentSharedFile
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Required only if the link is password-protected.
+      responses:
+        "200":
+          description: A short-lived presigned download for the shared file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url: { type: string }
+                  filename: { type: string }
+                  content_type: { type: string }
+                  file_size: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404":
+          description: No such link, or it is expired, revoked, or password-rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/documents/comments/{id}:
+    put:
+      summary: Update a document file comment
+      description: Requires documents:write permission. Only the comment's author may edit it.
+      tags: [documents]
+      operationId: updateDocumentFileComment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 10000
+      responses:
+        "200":
+          description: Comment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment: { $ref: "#/components/schemas/DocumentFileComment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a document file comment
+      description: Requires documents:write permission. Only the comment's author or an admin may delete it.
+      tags: [documents]
+      operationId: deleteDocumentFileComment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Comment deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean, example: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/documents/files/{id}/versions:
     get:
       summary: List versions of a document file
@@ -22310,6 +24304,32 @@ paths:
                 properties:
                   unlinked: { type: boolean, example: true }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/links/{id}:
+    delete:
+      summary: Revoke a document entity link by its own ID
+      description: >-
+        Requires documents:write permission. Unlike DELETE
+        /documents/files/{id}/links, this deletes by the link's own ID
+        without requiring the caller to know which file or entity it
+        connects — the desktop entity-link panel only holds the link ID.
+      tags: [documents]
+      operationId: deleteDocumentEntityLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Link removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unlinked: { type: boolean, example: true }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -22793,8 +24813,15 @@ paths:
                 wasm_binary:
                   type: string
                   format: byte
-                  description: Base64-encoded WASM binary. Accepted but inert while plugins.wasm=false.
-                plugin_type: { type: string, enum: [config, wasm], default: config }
+                  description: Base64-encoded WASM binary. Ignored unless plugin_type is wasm.
+                plugin_type:
+                  type: string
+                  enum: [config, wasm]
+                  default: config
+                  description: >-
+                    wasm manifests are rejected with 400 while the plugins.wasm feature flag
+                    is off (default in production — WASM plugin execution is compiled out via
+                    the no_wasm build tag).
       responses:
         "201":
           description: Manifest created
@@ -25605,6 +27632,28 @@ paths:
                 $ref: "#/components/schemas/CaldavStatusResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/caldav/test:
+    post:
+      summary: Test the CalDAV/CardDAV connection for the current user
+      description: >-
+        Makes real, timeout-bounded HTTP requests against this server's own
+        /caldav/ and /carddav/ endpoints using a freshly minted, immediately
+        revoked app-specific password -- the same path a real CalDAV/CardDAV
+        client would use. Distinguishes network failure, auth failure, and
+        unexpected responses instead of only checking that the enabled flags
+        are set.
+      tags: [caldav]
+      operationId: testCaldavConnection
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaldavTestResult"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/caldav/enable:
     put:
       summary: Enable CalDAV/CardDAV for the current user
@@ -26600,6 +28649,85 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404":
           description: Tenant not found
+
+  /api/v1/admin/branding:
+    get:
+      summary: Get the tenant's workspace branding (name, logo, icon, accent color)
+      description: >
+        logo_object_key/icon_object_key are MinIO object keys, not URLs —
+        resolve them via POST /api/v1/files/presign-download (same pattern as
+        User.avatar_url). accent_color defaults to #10B981 until the first
+        write.
+      tags: [Settings]
+      operationId: getBranding
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The tenant's branding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branding:
+                    $ref: "#/components/schemas/Branding"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      summary: Replace the tenant's workspace branding (admin only)
+      description: >
+        Full replace, not a patch — omitting logo_object_key/icon_object_key
+        clears them. accent_color must be one of the Cosmi swatch colors
+        (server-validated, no free hex). logo/icon object keys must belong to
+        this tenant's branding presign scope (obtained from
+        POST /api/v1/files/presign-upload with scope=branding), or the write
+        is rejected.
+      tags: [Settings]
+      operationId: putBranding
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, accent_color]
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                logo_object_key:
+                  type: string
+                icon_object_key:
+                  type: string
+                accent_color:
+                  type: string
+                  enum:
+                    [
+                      "#6B7280",
+                      "#3B82F6",
+                      "#06B6D4",
+                      "#10B981",
+                      "#F59E0B",
+                      "#F97316",
+                      "#EF4444",
+                      "#8B5CF6",
+                      "#EC4899",
+                      "#6366F1",
+                    ]
+      responses:
+        "200":
+          description: The updated branding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branding:
+                    $ref: "#/components/schemas/Branding"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /api/v1/tenant/module-grants:
     get:
@@ -28690,6 +30818,69 @@ components:
         total:
           type: integer
 
+    # RBAC — effective (multi-role union) permissions. camelCase in
+    # EffectiveRole is intentional: this block is app-owned API contract
+    # mirroring the frontend type, not a proto passthrough.
+    EffectiveRole:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Technical role name, unique per tenant.
+        isSystem:
+          type: boolean
+          description: True for a Zentria-maintained preset (tenant_id IS NULL).
+        color:
+          type: string
+          description: HSL accent used for role dots in the admin surfaces.
+          example: hsl(217 91% 60%)
+
+    EffectiveCapability:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [own, team, all]
+          description: >
+            Widest data scope any of the account's roles grants for this key.
+        sources:
+          type: array
+          description: >
+            IDs of every role contributing this grant, including those that lost
+            the scope comparison. Resolvable against the roles list of the same
+            response.
+          items:
+            type: string
+            format: uuid
+      required: [scope, sources]
+
+    EffectivePermissions:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffectiveRole"
+        capabilities:
+          type: object
+          description: >
+            Capability key (module:subject:action) to resolved grant. An absent
+            key means denied — default-deny, so no entry ever carries an empty
+            scope. Coarse legacy permission names are filtered out.
+          additionalProperties:
+            $ref: "#/components/schemas/EffectiveCapability"
+      required: [roles, capabilities]
+
+    EffectivePermissionsResponse:
+      type: object
+      properties:
+        permissions:
+          $ref: "#/components/schemas/EffectivePermissions"
+      required: [permissions]
+
     StatusResponse:
       type: object
       properties:
@@ -28952,6 +31143,103 @@ components:
             $ref: "#/components/schemas/ContactInfo"
         total:
           type: integer
+
+    # Leads (contact lifecycle stage — same rows as contacts)
+    Lead:
+      type: object
+      description: >
+        A contact at the lead or qualified lifecycle stage. camelCase because
+        this is hand-mapped onto the desktop inbox's Lead type rather than
+        emitted straight from the proto.
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+          description: Linked company name, else the free-text employer from intake.
+        email:
+          type: string
+        phone:
+          type: string
+        source:
+          type: string
+          enum: [manual, csv, dialer]
+        score:
+          type: integer
+          description: 0-100, computed server-side from source and data completeness.
+        temperature:
+          type: string
+          enum: [hot, warm, cold]
+          description: Effective value — the manual override if pinned, else derived from score.
+        temperatureOverride:
+          type: string
+          enum: [hot, warm, cold]
+          description: Present only when a user pinned the temperature by hand.
+        status:
+          type: string
+          enum: [new, contacted, qualified, disqualified]
+        lifecycleStage:
+          type: string
+          enum: [lead, qualified]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    LeadResponse:
+      type: object
+      properties:
+        lead:
+          $ref: "#/components/schemas/Lead"
+
+    ListLeadsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lead"
+        total:
+          type: integer
+
+    CreateLeadRequest:
+      type: object
+      required: [firstName, lastName, source]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        notes:
+          type: string
+        source:
+          type: string
+          enum: [manual, csv, dialer]
+
+    UpdateLeadRequest:
+      type: object
+      description: At least one of status or temperature must be present.
+      properties:
+        status:
+          type: string
+          enum: [new, contacted, qualified, disqualified]
+        temperature:
+          type: string
+          enum: [hot, warm, cold, ""]
+          description: Empty string clears the manual override.
 
     # Companies
     CompanyInfo:
@@ -30134,6 +32422,20 @@ components:
             ISO-8601 timestamp. Raw wire shape is a proto Timestamp object
             ({seconds,nanos}); normalized client-side.
 
+    SnoozeNotificationResponse:
+      type: object
+      description: >-
+        Flat response for the snooze endpoint (not the wrapped `{notification}`
+        shape used by pin/dismiss) — matches the desktop client's SnoozeResponse
+        type exactly.
+      properties:
+        id:
+          type: string
+          format: uuid
+        snoozed_until:
+          type: string
+          format: date-time
+
     NotificationPreference:
       type: object
       properties:
@@ -30808,6 +33110,25 @@ components:
           type: string
           format: uuid
         uploaded_by_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ContactFileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        storage_key:
           type: string
         created_at:
           type: string
@@ -32028,6 +34349,21 @@ components:
                   type: integer
                 description: "Map of emoji to count"
 
+    ToggleBookmarkResponse:
+      type: object
+      properties:
+        bookmarked:
+          type: boolean
+          description: true if the message is now bookmarked, false if the bookmark was removed
+
+    ListBookmarksResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageInfo"
+
     # =========================================================================
     # Meeting Schemas
     # =========================================================================
@@ -33012,6 +35348,224 @@ components:
           type: string
           format: date-time
 
+    BankAccount:
+      type: object
+      description: >
+        One account a tenant holds. balance and lastSync are read from the
+        newest imported statement of this IBAN and are never stored on the
+        account itself, so a figure shown here is always one this system
+        actually imported.
+      properties:
+        id:
+          type: string
+          format: uuid
+        bankName:
+          type: string
+        iban:
+          type: string
+          description: Grouped in blocks of four for display; stored canonically.
+          example: DE89 3704 0044 0532 0130 00
+        bic:
+          type: string
+        balance:
+          type: number
+          format: double
+          description: Closing balance of the newest imported statement, 0 when none.
+        currency:
+          type: string
+          example: EUR
+        connected:
+          type: boolean
+          description: Master-data flag, not a live bank session.
+        lastSync:
+          type: string
+          format: date
+          nullable: true
+          description: Date of the newest imported statement, null when none.
+    BankAccountInput:
+      type: object
+      required: [bankName, iban]
+      properties:
+        bankName:
+          type: string
+          maxLength: 160
+        iban:
+          type: string
+          description: Grouped or compact; validated with the ISO 7064 mod-97 check.
+        bic:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217; defaults to EUR when omitted.
+          example: EUR
+    BankAccountUpdateInput:
+      type: object
+      description: Partial edit — an omitted field is left untouched.
+      properties:
+        bankName:
+          type: string
+          maxLength: 160
+        iban:
+          type: string
+        bic:
+          type: string
+        currency:
+          type: string
+        connected:
+          type: boolean
+    Expense:
+      type: object
+      description: >
+        An expense (Ausgabe) as the desktop client reads it. Two fields
+        deliberately break the snake_case convention used elsewhere in this
+        spec, because this shape is the existing frontend contract: receiptName
+        is camelCase, and amount is a JSON number rather than a decimal string.
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        amount:
+          type: number
+          format: double
+          description: Gross amount, always positive
+          example: 234.5
+        date:
+          type: string
+          format: date
+          description: The day the money was spent
+          example: "2026-05-29"
+        category:
+          type: string
+          example: Büromaterial
+        supplier:
+          type: string
+          example: Hetzner Online GmbH
+        project:
+          type: string
+          description: Absent when the expense is not booked on a project
+        account:
+          type: string
+          description: SKR03/04 Sachkonto, absent until Kontierung
+          example: "4930"
+        receipt:
+          type: boolean
+          description: Derived from receiptName, never stored separately
+        receiptName:
+          type: string
+          description: Filename of the attached document, absent when none
+          example: hetzner-2026-05.pdf
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+      required: [id, description, amount, date, category, supplier, status]
+
+    ExpenseInput:
+      type: object
+      description: A new expense. The submitter and the pending status come from the server.
+      required: [description, amount, date]
+      properties:
+        description:
+          type: string
+          maxLength: 500
+        amount:
+          type: number
+          format: double
+          description: Must be greater than zero
+        date:
+          type: string
+          format: date
+          example: "2026-05-29"
+        category:
+          type: string
+          maxLength: 120
+        supplier:
+          type: string
+          maxLength: 255
+        project:
+          type: string
+          maxLength: 255
+        account:
+          type: string
+          maxLength: 20
+        receiptName:
+          type: string
+          maxLength: 255
+
+    ExpenseUpdateInput:
+      type: object
+      description: >
+        A partial edit — every field is optional and an omitted one is left
+        untouched, so the Kontierung dialog can send account alone.
+      properties:
+        description:
+          type: string
+          maxLength: 500
+        amount:
+          type: number
+          format: double
+        date:
+          type: string
+          format: date
+        category:
+          type: string
+          maxLength: 120
+        supplier:
+          type: string
+          maxLength: 255
+        project:
+          type: string
+          maxLength: 255
+        account:
+          type: string
+          maxLength: 20
+        receiptName:
+          type: string
+          maxLength: 255
+
+    Transaction:
+      type: object
+      description: >
+        One entry in the consolidated payment ledger (Transaktionen): either a
+        recorded customer payment (income) or an approved expense (expense).
+        id is opaque and prefixed ("pay-"/"exp-") to name the underlying
+        record for delete; do not parse it as a UUID.
+      properties:
+        id:
+          type: string
+          example: pay-3fa85f64-5717-4562-b3fc-2c963f66afa6
+        type:
+          type: string
+          enum: [income, expense]
+        description:
+          type: string
+        amount:
+          type: number
+          format: double
+          description: Always positive; sign is implied by type
+          example: 4280.0
+        date:
+          type: string
+          format: date
+          example: "2026-05-29"
+        category:
+          type: string
+          example: Umsatzerlöse
+        status:
+          type: string
+          enum: [completed, pending]
+          description: Always "completed" today — only settled money movements are listed
+        reference:
+          type: string
+          description: Invoice number; present for income entries only
+          example: RE-2026-042
+        invoiceId:
+          type: string
+          format: uuid
+          description: Present for income entries only
+      required: [id, type, description, amount, date, category, status]
+
     BankTransaction:
       type: object
       description: >
@@ -33071,6 +35625,181 @@ components:
         created_at:
           type: string
           format: date-time
+        matched_invoice_number:
+          type: string
+          description: >
+            Number of the matched invoice, joined on read. Absent while nothing
+            is matched.
+
+    BankTransactionQueueEntry:
+      type: object
+      description: >
+        One entry of the reconciliation queue, in the shape the desktop client
+        reads. Narrower than BankTransaction on purpose: the queue shows what an
+        operator decides on, not the full bank record, which the statement
+        endpoints carry.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+          description: Value date of the entry.
+        description:
+          type: string
+          description: >
+            Remittance information, falling back to the bank's entry reference
+            where the payer left it empty.
+        amount:
+          type: number
+          description: "Signed: a credit (money in) is positive, a debit negative."
+        type:
+          type: string
+          enum: [credit, debit]
+          description: Restates the sign of amount.
+        counterpart:
+          type: string
+        matchStatus:
+          type: string
+          enum: [unmatched, suggested, matched, ignored]
+        matchedInvoice:
+          type: string
+          description: >
+            Number of the matched invoice — not its id. Absent while nothing is
+            matched.
+
+    ChainNode:
+      type: object
+      description: >
+        One step in a document's lifecycle. number and date read "—" for a
+        step that has not happened yet — the pending-payment placeholder on an
+        invoice that is not fully settled.
+      properties:
+        type:
+          type: string
+          enum: [quote, invoice, payment, dunning, credit-note]
+        number:
+          type: string
+        date:
+          type: string
+          description: "YYYY-MM-DD, or — if the step has not happened yet."
+        amount:
+          type: string
+          description: >
+            Pre-formatted for display, e.g. "CHF 12.450,00" — the client
+            renders it verbatim.
+        status:
+          type: string
+          enum: [completed, active, pending, cancelled, overdue]
+          description: >
+            Presentational, independent of the underlying document's own
+            status field.
+
+    DocumentChain:
+      type: object
+      description: One customer document traced from quote to its current step.
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer:
+          type: string
+        totalValue:
+          type: string
+          description: Pre-formatted for display, e.g. "CHF 12.450,00".
+        isComplete:
+          type: boolean
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChainNode"
+
+    FinanceTimeEntry:
+      type: object
+      description: >
+        A completed time entry available for invoicing (Stunden -> Rechnung).
+        billed is always false today -- invoice creation from this list does
+        not yet persist which entries it covered.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+        project:
+          type: string
+        task:
+          type: string
+        employee:
+          type: string
+        hours:
+          type: number
+        description:
+          type: string
+        billed:
+          type: boolean
+
+    ProjectTimeEntry:
+      type: object
+      description: >
+        A completed time entry scoped to one project's tasks, for that
+        project's "Stunden abrechnen" roll-up.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+        task:
+          type: string
+        person:
+          type: string
+        hours:
+          type: number
+        description:
+          type: string
+
+    UtilizationPoint:
+      type: object
+      description: One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend.
+      properties:
+        label:
+          type: string
+        hours:
+          type: number
+
+    MemberUtilization:
+      type: object
+      description: >
+        One project member's tracked-hours roll-up for the Auslastung view.
+        Deliberately carries no cost or salary figure.
+      properties:
+        member:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            role:
+              type: string
+            avatarInitial:
+              type: string
+            weeklyTarget:
+              type: integer
+              description: Fixed full-time-week default (40h), not the member's real contracted hours.
+        weeklyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationPoint"
+        monthlyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationPoint"
 
     BankStatementImportResult:
       type: object
@@ -33589,6 +36318,12 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    InboxMessageWrapper:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/InboxMessage"
+
     InboxMessageList:
       type: object
       properties:
@@ -33958,6 +36693,54 @@ components:
           workStartHour: 8
           payroll.beraterNr: "12345"
           payroll.mandantNr: "67890"
+    ResolvedLabel:
+      type: object
+      properties:
+        value:
+          type: string
+          description: Effective text — the tenant override, or "" when unset (the FE i18n bundle already holds the code default).
+        provenance:
+          type: string
+          enum: [default, tenant]
+          description: Where the effective value came from. Vendor/draft provenance is not produced by this endpoint yet.
+        key:
+          type: string
+          description: The i18n key from the label whitelist.
+      required: [value, provenance, key]
+
+    LabelOverridesResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        labels:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/ResolvedLabel" }
+          description: One entry per whitelisted i18n key.
+      required: [locale, labels]
+
+    UpdateLabelOverridesRequest:
+      type: object
+      description: >
+        Upserts tenant-scope label overrides for a locale. Only whitelisted keys are
+        honoured — others are silently dropped. An empty-string value clears that key's
+        override back to the code default.
+      properties:
+        locale:
+          type: string
+        layer:
+          type: string
+          enum: [tenant, vendor]
+          description: Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+        overrides:
+          type: object
+          additionalProperties: { type: string }
+      required: [locale, overrides]
+      example:
+        locale: de
+        overrides:
+          crm.deals.title: "Aufträge"
+
     GobdDocument:
       type: object
       description: An immutable archived GoBD document (§147 AO)
@@ -35405,6 +38188,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     EmailListMessagesResponse:
       type: object
@@ -35606,6 +38394,162 @@ components:
       properties:
         message:
           $ref: "#/components/schemas/EmailMessageInfo"
+
+    EmailRuleInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        field:
+          type: string
+          enum: [from, subject]
+        op:
+          type: string
+          enum: [contains]
+        value:
+          type: string
+        action_type:
+          type: string
+          enum: [label, move]
+        action_target:
+          type: string
+          format: uuid
+          description: >
+            Label id when action_type is "label", folder id when it is "move".
+
+    ListEmailRulesResponse:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailRuleInfo"
+
+    EmailRuleEnvelope:
+      type: object
+      properties:
+        rule:
+          $ref: "#/components/schemas/EmailRuleInfo"
+
+    CreateEmailRuleRequest:
+      type: object
+      required: [name, field, value, action_type, action_target]
+      properties:
+        name:
+          type: string
+        field:
+          type: string
+          enum: [from, subject]
+        op:
+          type: string
+          enum: [contains]
+          default: contains
+        value:
+          type: string
+        action_type:
+          type: string
+          enum: [label, move]
+        action_target:
+          type: string
+          format: uuid
+
+    UpdateEmailRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        field:
+          type: string
+          enum: [from, subject]
+          nullable: true
+        op:
+          type: string
+          enum: [contains]
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        action_type:
+          type: string
+          enum: [label, move]
+          nullable: true
+        action_target:
+          type: string
+          format: uuid
+          nullable: true
+
+    ApplyEmailRulesResponse:
+      type: object
+      properties:
+        affected:
+          type: integer
+          description: Messages that actually changed, not the number of rule matches.
+        scanned:
+          type: integer
+          description: Messages inspected, capped by the per-run scan limit.
+
+    EmailLabelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex swatch colour, e.g. "#6B7280".
+
+    ListEmailLabelsResponse:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailLabelInfo"
+
+    EmailLabelEnvelope:
+      type: object
+      properties:
+        label:
+          $ref: "#/components/schemas/EmailLabelInfo"
+
+    CreateEmailLabelRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex swatch colour. Defaults to a neutral grey if omitted.
+
+    UpdateEmailLabelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+
+    AssignMessageLabelsRequest:
+      type: object
+      required: [label_ids]
+      properties:
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: >
+            Full replacement set. Every id must already be a label of the
+            tenant.
 
     EmailSignatureInfo:
       type: object
@@ -37925,6 +40869,90 @@ components:
           type: string
           format: date-time
 
+    DocumentFileActivity:
+      type: object
+      description: >-
+        Only ever returned via GET .../files/{id}/activity, which serializes via protojson (bare
+        array) — created_at here is a real RFC3339 string, not a ProtoTimestamp object. Append-only
+        audit trail entry (DB-level trigger blocks UPDATE/DELETE).
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [uploaded, renamed, moved, copied, downloaded, shared, version_created, reverted]
+        actor_id:
+          type: string
+          format: uuid
+        actor_name:
+          type: string
+          description: Denormalized from JOIN
+        detail:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    DocumentFileComment:
+      type: object
+      description: >-
+        List/create/update all serialize via protojson — created_at and updated_at are always
+        real RFC3339 strings, not ProtoTimestamp objects.
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        author_id:
+          type: string
+          format: uuid
+        author_name:
+          type: string
+          description: Denormalized from JOIN
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DocumentShareLink:
+      type: object
+      description: >-
+        An external, unauthenticated read/download link for one document file. List/create
+        serialize via protojson — created_at and expires_at are always real RFC3339 strings.
+        password_hash never leaves the service; has_password is the only signal a caller gets.
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: The link secret in clear — this is the copyable URL segment.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Absent or null means the link never expires.
+        has_password:
+          type: boolean
+        view_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
     DocumentShare:
       type: object
       description: >-
@@ -38790,6 +41818,20 @@ components:
         carddav_url:
           type: string
 
+    CaldavTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: True only if both the CalDAV and the CardDAV probe reached and authenticated successfully
+        message:
+          type: string
+          description: "Human-readable detail for any failed probe (e.g. 'CalDAV: authentication failed'); empty on success"
+        caldav_reachable:
+          type: boolean
+        carddav_reachable:
+          type: boolean
+
     CaldavAdminSettings:
       type: object
       properties:
@@ -39520,6 +42562,23 @@ components:
         totalSeats:
           type: integer
           nullable: true
+
+    Branding:
+      type: object
+      description: >
+        Tenant-wide workspace branding, served via protojson (snake_case).
+        logo_object_key/icon_object_key are MinIO object keys — resolve via
+        POST /api/v1/files/presign-download — not URLs. accent_color is
+        restricted to the Cosmi swatch palette.
+      properties:
+        name:
+          type: string
+        logo_object_key:
+          type: string
+        icon_object_key:
+          type: string
+        accent_color:
+          type: string
           description: Booked seats; null means unlimited
 
     # -----------------------------------------------------------------------

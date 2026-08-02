@@ -610,6 +610,13 @@ services:
       COSMI_ENV: ${COSMI_ENV:-development}
       BERICHTE_GRPC_PORT: ":50063"
       BERICHTE_HEALTH_PORT: ":9103"
+      # Scheduled report delivery. Absent host = schedules run but are recorded
+      # as skipped; the service still starts (no config.RequireSystemSMTP here).
+      SYSTEM_SMTP_HOST: ${SYSTEM_SMTP_HOST:-}
+      SYSTEM_SMTP_PORT: ${SYSTEM_SMTP_PORT:-587}
+      SYSTEM_SMTP_USER: ${SYSTEM_SMTP_USER:-}
+      SYSTEM_SMTP_PASSWORD: ${SYSTEM_SMTP_PASSWORD:-}
+      SYSTEM_SMTP_FROM: ${SYSTEM_SMTP_FROM:-noreply@zentria.tech}
     ports:
       - "50063:50063"
       - "9103:9103"

@@ -52,6 +52,7 @@ const (
 	FinanceService_GetDunningConfig_FullMethodName             = "/biz.v1.FinanceService/GetDunningConfig"
 	FinanceService_UpdateDunningConfig_FullMethodName          = "/biz.v1.FinanceService/UpdateDunningConfig"
 	FinanceService_ListOpenItems_FullMethodName                = "/biz.v1.FinanceService/ListOpenItems"
+	FinanceService_ListDocumentChains_FullMethodName           = "/biz.v1.FinanceService/ListDocumentChains"
 	FinanceService_GetFinanceDashboard_FullMethodName          = "/biz.v1.FinanceService/GetFinanceDashboard"
 	FinanceService_ExportDATEV_FullMethodName                  = "/biz.v1.FinanceService/ExportDATEV"
 	FinanceService_GenerateQuotePDF_FullMethodName             = "/biz.v1.FinanceService/GenerateQuotePDF"
@@ -59,6 +60,7 @@ const (
 	FinanceService_GenerateCreditNotePDF_FullMethodName        = "/biz.v1.FinanceService/GenerateCreditNotePDF"
 	FinanceService_GenerateDunningPDF_FullMethodName           = "/biz.v1.FinanceService/GenerateDunningPDF"
 	FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateZUGFeRDInvoicePDF"
+	FinanceService_GenerateEInvoice_FullMethodName             = "/biz.v1.FinanceService/GenerateEInvoice"
 	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
 	FinanceService_CreateQuoteFromDeal_FullMethodName          = "/biz.v1.FinanceService/CreateQuoteFromDeal"
 	FinanceService_GetJournalSummary_FullMethodName            = "/biz.v1.FinanceService/GetJournalSummary"
@@ -91,6 +93,20 @@ const (
 	FinanceService_ListBankTransactions_FullMethodName         = "/biz.v1.FinanceService/ListBankTransactions"
 	FinanceService_ReconcileBankTransaction_FullMethodName     = "/biz.v1.FinanceService/ReconcileBankTransaction"
 	FinanceService_IgnoreBankTransaction_FullMethodName        = "/biz.v1.FinanceService/IgnoreBankTransaction"
+	FinanceService_RejectBankTransactionMatch_FullMethodName   = "/biz.v1.FinanceService/RejectBankTransactionMatch"
+	FinanceService_ListBankAccounts_FullMethodName             = "/biz.v1.FinanceService/ListBankAccounts"
+	FinanceService_CreateBankAccount_FullMethodName            = "/biz.v1.FinanceService/CreateBankAccount"
+	FinanceService_UpdateBankAccount_FullMethodName            = "/biz.v1.FinanceService/UpdateBankAccount"
+	FinanceService_DeleteBankAccount_FullMethodName            = "/biz.v1.FinanceService/DeleteBankAccount"
+	FinanceService_ConnectBankAccount_FullMethodName           = "/biz.v1.FinanceService/ConnectBankAccount"
+	FinanceService_CreateExpense_FullMethodName                = "/biz.v1.FinanceService/CreateExpense"
+	FinanceService_ListExpenses_FullMethodName                 = "/biz.v1.FinanceService/ListExpenses"
+	FinanceService_UpdateExpense_FullMethodName                = "/biz.v1.FinanceService/UpdateExpense"
+	FinanceService_DeleteExpense_FullMethodName                = "/biz.v1.FinanceService/DeleteExpense"
+	FinanceService_DecideExpense_FullMethodName                = "/biz.v1.FinanceService/DecideExpense"
+	FinanceService_AttachExpenseReceipt_FullMethodName         = "/biz.v1.FinanceService/AttachExpenseReceipt"
+	FinanceService_ListFinanceTransactions_FullMethodName      = "/biz.v1.FinanceService/ListFinanceTransactions"
+	FinanceService_DeleteFinanceTransaction_FullMethodName     = "/biz.v1.FinanceService/DeleteFinanceTransaction"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -137,6 +153,10 @@ type FinanceServiceClient interface {
 	UpdateDunningConfig(ctx context.Context, in *UpdateDunningConfigRequest, opts ...grpc.CallOption) (*UpdateDunningConfigResponse, error)
 	// Open items (Offene Posten): the receivables the dunning run escalates.
 	ListOpenItems(ctx context.Context, in *ListOpenItemsRequest, opts ...grpc.CallOption) (*ListOpenItemsResponse, error)
+	// ==================== Document Chains ====================
+	// The lifecycle of a customer document from quote through invoice to
+	// payment, dunning, or credit note (Belegkette).
+	ListDocumentChains(ctx context.Context, in *ListDocumentChainsRequest, opts ...grpc.CallOption) (*ListDocumentChainsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -147,6 +167,7 @@ type FinanceServiceClient interface {
 	GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
 	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	GenerateEInvoice(ctx context.Context, in *GenerateEInvoiceRequest, opts ...grpc.CallOption) (*GenerateEInvoiceResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
@@ -189,6 +210,23 @@ type FinanceServiceClient interface {
 	ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error)
+	RejectBankTransactionMatch(ctx context.Context, in *RejectBankTransactionMatchRequest, opts ...grpc.CallOption) (*RejectBankTransactionMatchResponse, error)
+	// ==================== Bank accounts (Bankkonten) ====================
+	ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error)
+	CreateBankAccount(ctx context.Context, in *CreateBankAccountRequest, opts ...grpc.CallOption) (*CreateBankAccountResponse, error)
+	UpdateBankAccount(ctx context.Context, in *UpdateBankAccountRequest, opts ...grpc.CallOption) (*UpdateBankAccountResponse, error)
+	DeleteBankAccount(ctx context.Context, in *DeleteBankAccountRequest, opts ...grpc.CallOption) (*DeleteBankAccountResponse, error)
+	ConnectBankAccount(ctx context.Context, in *ConnectBankAccountRequest, opts ...grpc.CallOption) (*ConnectBankAccountResponse, error)
+	// ==================== Expenses (Ausgaben) ====================
+	CreateExpense(ctx context.Context, in *CreateExpenseRequest, opts ...grpc.CallOption) (*CreateExpenseResponse, error)
+	ListExpenses(ctx context.Context, in *ListExpensesRequest, opts ...grpc.CallOption) (*ListExpensesResponse, error)
+	UpdateExpense(ctx context.Context, in *UpdateExpenseRequest, opts ...grpc.CallOption) (*UpdateExpenseResponse, error)
+	DeleteExpense(ctx context.Context, in *DeleteExpenseRequest, opts ...grpc.CallOption) (*DeleteExpenseResponse, error)
+	DecideExpense(ctx context.Context, in *DecideExpenseRequest, opts ...grpc.CallOption) (*DecideExpenseResponse, error)
+	AttachExpenseReceipt(ctx context.Context, in *AttachExpenseReceiptRequest, opts ...grpc.CallOption) (*AttachExpenseReceiptResponse, error)
+	// ==================== Finance transactions (consolidated) ====================
+	ListFinanceTransactions(ctx context.Context, in *ListFinanceTransactionsRequest, opts ...grpc.CallOption) (*ListFinanceTransactionsResponse, error)
+	DeleteFinanceTransaction(ctx context.Context, in *DeleteFinanceTransactionRequest, opts ...grpc.CallOption) (*DeleteFinanceTransactionResponse, error)
 }
 
 type financeServiceClient struct {
@@ -529,6 +567,16 @@ func (c *financeServiceClient) ListOpenItems(ctx context.Context, in *ListOpenIt
 	return out, nil
 }
 
+func (c *financeServiceClient) ListDocumentChains(ctx context.Context, in *ListDocumentChainsRequest, opts ...grpc.CallOption) (*ListDocumentChainsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDocumentChainsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListDocumentChains_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetFinanceDashboardResponse)
@@ -593,6 +641,16 @@ func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GenerateZUGFeRDInvoicePDFResponse)
 	err := c.cc.Invoke(ctx, FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateEInvoice(ctx context.Context, in *GenerateEInvoiceRequest, opts ...grpc.CallOption) (*GenerateEInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateEInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateEInvoice_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -919,6 +977,146 @@ func (c *financeServiceClient) IgnoreBankTransaction(ctx context.Context, in *Ig
 	return out, nil
 }
 
+func (c *financeServiceClient) RejectBankTransactionMatch(ctx context.Context, in *RejectBankTransactionMatchRequest, opts ...grpc.CallOption) (*RejectBankTransactionMatchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectBankTransactionMatchResponse)
+	err := c.cc.Invoke(ctx, FinanceService_RejectBankTransactionMatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankAccountsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) CreateBankAccount(ctx context.Context, in *CreateBankAccountRequest, opts ...grpc.CallOption) (*CreateBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateBankAccount(ctx context.Context, in *UpdateBankAccountRequest, opts ...grpc.CallOption) (*UpdateBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteBankAccount(ctx context.Context, in *DeleteBankAccountRequest, opts ...grpc.CallOption) (*DeleteBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ConnectBankAccount(ctx context.Context, in *ConnectBankAccountRequest, opts ...grpc.CallOption) (*ConnectBankAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConnectBankAccountResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ConnectBankAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) CreateExpense(ctx context.Context, in *CreateExpenseRequest, opts ...grpc.CallOption) (*CreateExpenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateExpenseResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateExpense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListExpenses(ctx context.Context, in *ListExpensesRequest, opts ...grpc.CallOption) (*ListExpensesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListExpensesResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListExpenses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateExpense(ctx context.Context, in *UpdateExpenseRequest, opts ...grpc.CallOption) (*UpdateExpenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateExpenseResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateExpense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteExpense(ctx context.Context, in *DeleteExpenseRequest, opts ...grpc.CallOption) (*DeleteExpenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteExpenseResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteExpense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DecideExpense(ctx context.Context, in *DecideExpenseRequest, opts ...grpc.CallOption) (*DecideExpenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DecideExpenseResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DecideExpense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) AttachExpenseReceipt(ctx context.Context, in *AttachExpenseReceiptRequest, opts ...grpc.CallOption) (*AttachExpenseReceiptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AttachExpenseReceiptResponse)
+	err := c.cc.Invoke(ctx, FinanceService_AttachExpenseReceipt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListFinanceTransactions(ctx context.Context, in *ListFinanceTransactionsRequest, opts ...grpc.CallOption) (*ListFinanceTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFinanceTransactionsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListFinanceTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteFinanceTransaction(ctx context.Context, in *DeleteFinanceTransactionRequest, opts ...grpc.CallOption) (*DeleteFinanceTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFinanceTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteFinanceTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -963,6 +1161,10 @@ type FinanceServiceServer interface {
 	UpdateDunningConfig(context.Context, *UpdateDunningConfigRequest) (*UpdateDunningConfigResponse, error)
 	// Open items (Offene Posten): the receivables the dunning run escalates.
 	ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error)
+	// ==================== Document Chains ====================
+	// The lifecycle of a customer document from quote through invoice to
+	// payment, dunning, or credit note (Belegkette).
+	ListDocumentChains(context.Context, *ListDocumentChainsRequest) (*ListDocumentChainsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -973,6 +1175,7 @@ type FinanceServiceServer interface {
 	GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
 	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	GenerateEInvoice(context.Context, *GenerateEInvoiceRequest) (*GenerateEInvoiceResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
@@ -1015,6 +1218,23 @@ type FinanceServiceServer interface {
 	ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error)
+	RejectBankTransactionMatch(context.Context, *RejectBankTransactionMatchRequest) (*RejectBankTransactionMatchResponse, error)
+	// ==================== Bank accounts (Bankkonten) ====================
+	ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error)
+	CreateBankAccount(context.Context, *CreateBankAccountRequest) (*CreateBankAccountResponse, error)
+	UpdateBankAccount(context.Context, *UpdateBankAccountRequest) (*UpdateBankAccountResponse, error)
+	DeleteBankAccount(context.Context, *DeleteBankAccountRequest) (*DeleteBankAccountResponse, error)
+	ConnectBankAccount(context.Context, *ConnectBankAccountRequest) (*ConnectBankAccountResponse, error)
+	// ==================== Expenses (Ausgaben) ====================
+	CreateExpense(context.Context, *CreateExpenseRequest) (*CreateExpenseResponse, error)
+	ListExpenses(context.Context, *ListExpensesRequest) (*ListExpensesResponse, error)
+	UpdateExpense(context.Context, *UpdateExpenseRequest) (*UpdateExpenseResponse, error)
+	DeleteExpense(context.Context, *DeleteExpenseRequest) (*DeleteExpenseResponse, error)
+	DecideExpense(context.Context, *DecideExpenseRequest) (*DecideExpenseResponse, error)
+	AttachExpenseReceipt(context.Context, *AttachExpenseReceiptRequest) (*AttachExpenseReceiptResponse, error)
+	// ==================== Finance transactions (consolidated) ====================
+	ListFinanceTransactions(context.Context, *ListFinanceTransactionsRequest) (*ListFinanceTransactionsResponse, error)
+	DeleteFinanceTransaction(context.Context, *DeleteFinanceTransactionRequest) (*DeleteFinanceTransactionResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -1124,6 +1344,9 @@ func (UnimplementedFinanceServiceServer) UpdateDunningConfig(context.Context, *U
 func (UnimplementedFinanceServiceServer) ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListOpenItems not implemented")
 }
+func (UnimplementedFinanceServiceServer) ListDocumentChains(context.Context, *ListDocumentChainsRequest) (*ListDocumentChainsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDocumentChains not implemented")
+}
 func (UnimplementedFinanceServiceServer) GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFinanceDashboard not implemented")
 }
@@ -1144,6 +1367,9 @@ func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *Ge
 }
 func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateEInvoice(context.Context, *GenerateEInvoiceRequest) (*GenerateEInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateEInvoice not implemented")
 }
 func (UnimplementedFinanceServiceServer) CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvoiceFromTimeEntries not implemented")
@@ -1240,6 +1466,48 @@ func (UnimplementedFinanceServiceServer) ReconcileBankTransaction(context.Contex
 }
 func (UnimplementedFinanceServiceServer) IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IgnoreBankTransaction not implemented")
+}
+func (UnimplementedFinanceServiceServer) RejectBankTransactionMatch(context.Context, *RejectBankTransactionMatchRequest) (*RejectBankTransactionMatchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectBankTransactionMatch not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankAccounts not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateBankAccount(context.Context, *CreateBankAccountRequest) (*CreateBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateBankAccount(context.Context, *UpdateBankAccountRequest) (*UpdateBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteBankAccount(context.Context, *DeleteBankAccountRequest) (*DeleteBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) ConnectBankAccount(context.Context, *ConnectBankAccountRequest) (*ConnectBankAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConnectBankAccount not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateExpense(context.Context, *CreateExpenseRequest) (*CreateExpenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateExpense not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListExpenses(context.Context, *ListExpensesRequest) (*ListExpensesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListExpenses not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateExpense(context.Context, *UpdateExpenseRequest) (*UpdateExpenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateExpense not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteExpense(context.Context, *DeleteExpenseRequest) (*DeleteExpenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteExpense not implemented")
+}
+func (UnimplementedFinanceServiceServer) DecideExpense(context.Context, *DecideExpenseRequest) (*DecideExpenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DecideExpense not implemented")
+}
+func (UnimplementedFinanceServiceServer) AttachExpenseReceipt(context.Context, *AttachExpenseReceiptRequest) (*AttachExpenseReceiptResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachExpenseReceipt not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListFinanceTransactions(context.Context, *ListFinanceTransactionsRequest) (*ListFinanceTransactionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFinanceTransactions not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteFinanceTransaction(context.Context, *DeleteFinanceTransactionRequest) (*DeleteFinanceTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFinanceTransaction not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1856,6 +2124,24 @@ func _FinanceService_ListOpenItems_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_ListDocumentChains_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDocumentChainsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListDocumentChains(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListDocumentChains_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListDocumentChains(ctx, req.(*ListDocumentChainsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_GetFinanceDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetFinanceDashboardRequest)
 	if err := dec(in); err != nil {
@@ -1978,6 +2264,24 @@ func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, req.(*GenerateZUGFeRDInvoicePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateEInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateEInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateEInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateEInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateEInvoice(ctx, req.(*GenerateEInvoiceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2558,6 +2862,258 @@ func _FinanceService_IgnoreBankTransaction_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_RejectBankTransactionMatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectBankTransactionMatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).RejectBankTransactionMatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_RejectBankTransactionMatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).RejectBankTransactionMatch(ctx, req.(*RejectBankTransactionMatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListBankAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankAccounts(ctx, req.(*ListBankAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_CreateBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateBankAccount(ctx, req.(*CreateBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateBankAccount(ctx, req.(*UpdateBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteBankAccount(ctx, req.(*DeleteBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ConnectBankAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectBankAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ConnectBankAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ConnectBankAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ConnectBankAccount(ctx, req.(*ConnectBankAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_CreateExpense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateExpenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateExpense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateExpense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateExpense(ctx, req.(*CreateExpenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListExpenses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListExpensesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListExpenses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListExpenses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListExpenses(ctx, req.(*ListExpensesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateExpense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateExpenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateExpense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateExpense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateExpense(ctx, req.(*UpdateExpenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteExpense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteExpenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteExpense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteExpense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteExpense(ctx, req.(*DeleteExpenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DecideExpense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DecideExpenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DecideExpense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DecideExpense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DecideExpense(ctx, req.(*DecideExpenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_AttachExpenseReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachExpenseReceiptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).AttachExpenseReceipt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_AttachExpenseReceipt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).AttachExpenseReceipt(ctx, req.(*AttachExpenseReceiptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListFinanceTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFinanceTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListFinanceTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListFinanceTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListFinanceTransactions(ctx, req.(*ListFinanceTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteFinanceTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFinanceTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteFinanceTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteFinanceTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteFinanceTransaction(ctx, req.(*DeleteFinanceTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2698,6 +3254,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FinanceService_ListOpenItems_Handler,
 		},
 		{
+			MethodName: "ListDocumentChains",
+			Handler:    _FinanceService_ListDocumentChains_Handler,
+		},
+		{
 			MethodName: "GetFinanceDashboard",
 			Handler:    _FinanceService_GetFinanceDashboard_Handler,
 		},
@@ -2724,6 +3284,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateZUGFeRDInvoicePDF",
 			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
+		},
+		{
+			MethodName: "GenerateEInvoice",
+			Handler:    _FinanceService_GenerateEInvoice_Handler,
 		},
 		{
 			MethodName: "CreateInvoiceFromTimeEntries",
@@ -2852,6 +3416,62 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IgnoreBankTransaction",
 			Handler:    _FinanceService_IgnoreBankTransaction_Handler,
+		},
+		{
+			MethodName: "RejectBankTransactionMatch",
+			Handler:    _FinanceService_RejectBankTransactionMatch_Handler,
+		},
+		{
+			MethodName: "ListBankAccounts",
+			Handler:    _FinanceService_ListBankAccounts_Handler,
+		},
+		{
+			MethodName: "CreateBankAccount",
+			Handler:    _FinanceService_CreateBankAccount_Handler,
+		},
+		{
+			MethodName: "UpdateBankAccount",
+			Handler:    _FinanceService_UpdateBankAccount_Handler,
+		},
+		{
+			MethodName: "DeleteBankAccount",
+			Handler:    _FinanceService_DeleteBankAccount_Handler,
+		},
+		{
+			MethodName: "ConnectBankAccount",
+			Handler:    _FinanceService_ConnectBankAccount_Handler,
+		},
+		{
+			MethodName: "CreateExpense",
+			Handler:    _FinanceService_CreateExpense_Handler,
+		},
+		{
+			MethodName: "ListExpenses",
+			Handler:    _FinanceService_ListExpenses_Handler,
+		},
+		{
+			MethodName: "UpdateExpense",
+			Handler:    _FinanceService_UpdateExpense_Handler,
+		},
+		{
+			MethodName: "DeleteExpense",
+			Handler:    _FinanceService_DeleteExpense_Handler,
+		},
+		{
+			MethodName: "DecideExpense",
+			Handler:    _FinanceService_DecideExpense_Handler,
+		},
+		{
+			MethodName: "AttachExpenseReceipt",
+			Handler:    _FinanceService_AttachExpenseReceipt_Handler,
+		},
+		{
+			MethodName: "ListFinanceTransactions",
+			Handler:    _FinanceService_ListFinanceTransactions_Handler,
+		},
+		{
+			MethodName: "DeleteFinanceTransaction",
+			Handler:    _FinanceService_DeleteFinanceTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

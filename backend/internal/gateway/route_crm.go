@@ -35,6 +35,37 @@ func (c *CRMRoutes) getCRMClient() (crmv1.CRMServiceClient, error) {
 
 // RegisterRoutes registers all CRM HTTP routes.
 func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive RBAC guards (RequirePermissionAny keeps the legacy coarse token
+	// valid while granting the capability-catalog.ts fine keys, per the FE gate
+	// calls that reach each route). Companies and activities carry their own
+	// legacy resource but share the crm:contact:* fine keys, since the FE gates
+	// firms/activities visibility and edits through the contact capability
+	// (KontakteLayout.tsx nav, ActivitiesListPage.tsx canEdit/canDelete).
+	contactRead := middleware.RequirePermissionAny([2]string{"contacts", "read"}, [2]string{"crm:contact", "read"})
+	contactCreate := middleware.RequirePermissionAny([2]string{"contacts", "write"}, [2]string{"crm:contact", "create"})
+	contactEdit := middleware.RequirePermissionAny([2]string{"contacts", "write"}, [2]string{"crm:contact", "edit"})
+	contactDelete := middleware.RequirePermissionAny([2]string{"contacts", "delete"}, [2]string{"crm:contact", "delete"})
+	contactImport := middleware.RequirePermissionAny([2]string{"contacts", "write"}, [2]string{"crm:import", "run"})
+	contactExport := middleware.RequirePermissionAny([2]string{"contacts", "read"}, [2]string{"crm:contact", "export"})
+
+	companyRead := middleware.RequirePermissionAny([2]string{"companies", "read"}, [2]string{"crm:contact", "read"})
+	companyCreate := middleware.RequirePermissionAny([2]string{"companies", "write"}, [2]string{"crm:contact", "create"})
+	companyEdit := middleware.RequirePermissionAny([2]string{"companies", "write"}, [2]string{"crm:contact", "edit"})
+	companyDelete := middleware.RequirePermissionAny([2]string{"companies", "delete"}, [2]string{"crm:contact", "delete"})
+
+	dealRead := middleware.RequirePermissionAny([2]string{"deals", "read"}, [2]string{"crm:deal", "read"})
+	dealCreate := middleware.RequirePermissionAny([2]string{"deals", "write"}, [2]string{"crm:deal", "create"})
+	dealEdit := middleware.RequirePermissionAny([2]string{"deals", "write"}, [2]string{"crm:deal", "edit"})
+	dealDelete := middleware.RequirePermissionAny([2]string{"deals", "delete"}, [2]string{"crm:deal", "delete"})
+
+	activityRead := middleware.RequirePermissionAny([2]string{"activities", "read"}, [2]string{"crm:contact", "read"})
+	activityEdit := middleware.RequirePermissionAny([2]string{"activities", "write"}, [2]string{"crm:contact", "edit"})
+	activityDelete := middleware.RequirePermissionAny([2]string{"activities", "delete"}, [2]string{"crm:contact", "delete"})
+
+	// "auswertungen" tab (pipeline/conversion/activity reports) is gated by
+	// crm:deal:read in KontakteLayout.tsx, not crm:contact:read.
+	reportRead := middleware.RequirePermissionAny([2]string{"reports", "read"}, [2]string{"crm:deal", "read"})
+
 	// Custom Fields
 	r.Route("/api/v1/custom-fields", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -58,21 +89,26 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Contacts
 	r.Route("/api/v1/contacts", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("contacts", "read")).Get("/", c.HandleListContacts)
-		r.With(middleware.RequirePermission("contacts", "read")).Get("/{id}", c.HandleGetContact)
-		r.With(middleware.RequirePermission("contacts", "write")).Post("/", c.HandleCreateContact)
-		r.With(middleware.RequirePermission("contacts", "write")).Put("/{id}", c.HandleUpdateContact)
-		r.With(middleware.RequirePermission("contacts", "delete")).Delete("/{id}", c.HandleDeleteContact)
-		r.With(middleware.RequirePermission("contacts", "write")).Post("/{id}/tags", c.HandleAddContactTags)
-		r.With(middleware.RequirePermission("contacts", "write")).Delete("/{id}/tags", c.HandleRemoveContactTags)
+		r.With(contactRead).Get("/", c.HandleListContacts)
+		r.With(contactRead).Get("/{id}", c.HandleGetContact)
+		r.With(contactCreate).Post("/", c.HandleCreateContact)
+		r.With(contactEdit).Put("/{id}", c.HandleUpdateContact)
+		r.With(contactDelete).Delete("/{id}", c.HandleDeleteContact)
+		r.With(contactEdit).Post("/{id}/tags", c.HandleAddContactTags)
+		r.With(contactEdit).Delete("/{id}/tags", c.HandleRemoveContactTags)
 		r.With(middleware.RequirePermission("contacts", "write")).Put("/{id}/visibility", c.HandleUpdateContactVisibility)
 
+		// File attachments (via the Document service's generic entity-link
+		// mechanism, not a second CRM-specific file store).
+		r.With(contactRead).Get("/{id}/files", c.HandleListContactFiles)
+		r.With(contactEdit).Post("/{id}/files", c.HandleCreateContactFile)
+
 		// Import/Export
-		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/csv", c.HandleImportContactsCSV)
-		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/vcard", c.HandleImportContactsVCard)
-		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/preview", c.HandlePreviewImportCSV)
-		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/csv", c.HandleExportContactsCSV)
-		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/vcard", c.HandleExportContactsVCard)
+		r.With(contactImport).Post("/import/csv", c.HandleImportContactsCSV)
+		r.With(contactImport).Post("/import/vcard", c.HandleImportContactsVCard)
+		r.With(contactImport).Post("/import/preview", c.HandlePreviewImportCSV)
+		r.With(contactExport).Post("/export/csv", c.HandleExportContactsCSV)
+		r.With(contactExport).Post("/export/vcard", c.HandleExportContactsVCard)
 
 		// Extension features: duplicate detection, timeline, consent management
 		if c.ext != nil {
@@ -80,15 +116,24 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		}
 	})
 
+	// Leads (contact lifecycle stage -- same rows, same permissions as contacts)
+	r.Route("/api/v1/leads", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(contactRead).Get("/", c.HandleListLeads)
+		r.With(contactCreate).Post("/", c.HandleCreateLead)
+		r.With(contactEdit).Patch("/{id}", c.HandleUpdateLead)
+		r.With(contactEdit).Post("/{id}/convert", c.HandleConvertLead)
+	})
+
 	// Companies
 	r.Route("/api/v1/companies", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("companies", "read")).Get("/", c.HandleListCompanies)
-		r.With(middleware.RequirePermission("companies", "read")).Get("/{id}", c.HandleGetCompany)
-		r.With(middleware.RequirePermission("companies", "read")).Get("/{id}/contacts", c.HandleGetCompanyContacts)
-		r.With(middleware.RequirePermission("companies", "write")).Post("/", c.HandleCreateCompany)
-		r.With(middleware.RequirePermission("companies", "write")).Put("/{id}", c.HandleUpdateCompany)
-		r.With(middleware.RequirePermission("companies", "delete")).Delete("/{id}", c.HandleDeleteCompany)
+		r.With(companyRead).Get("/", c.HandleListCompanies)
+		r.With(companyRead).Get("/{id}", c.HandleGetCompany)
+		r.With(companyRead).Get("/{id}/contacts", c.HandleGetCompanyContacts)
+		r.With(companyCreate).Post("/", c.HandleCreateCompany)
+		r.With(companyEdit).Put("/{id}", c.HandleUpdateCompany)
+		r.With(companyDelete).Delete("/{id}", c.HandleDeleteCompany)
 
 		// Extension features: duplicate detection
 		if c.ext != nil {
@@ -96,7 +141,8 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		}
 	})
 
-	// Pipeline Stages
+	// Pipeline Stages — crm:pipeline:manage has no FE gate call (PipelineStagesEditor.tsx
+	// mounts unguarded); legacy-only, not tightened here.
 	r.Route("/api/v1/pipeline-stages", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("pipeline_stages", "read")).Get("/", c.HandleListPipelineStages)
@@ -110,27 +156,27 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Deals
 	r.Route("/api/v1/deals", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("deals", "read")).Get("/", c.HandleListDeals)
-		r.With(middleware.RequirePermission("deals", "read")).Get("/{id}", c.HandleGetDeal)
-		r.With(middleware.RequirePermission("deals", "write")).Post("/", c.HandleCreateDeal)
-		r.With(middleware.RequirePermission("deals", "write")).Put("/{id}", c.HandleUpdateDeal)
-		r.With(middleware.RequirePermission("deals", "write")).Post("/{id}/stage", c.HandleMoveDealToStage)
+		r.With(dealRead).Get("/", c.HandleListDeals)
+		r.With(dealRead).Get("/{id}", c.HandleGetDeal)
+		r.With(dealCreate).Post("/", c.HandleCreateDeal)
+		r.With(dealEdit).Put("/{id}", c.HandleUpdateDeal)
+		r.With(dealEdit).Post("/{id}/stage", c.HandleMoveDealToStage)
 		r.With(middleware.RequirePermission("deals", "write")).Post("/{id}/tags", c.HandleAddDealTags)
 		r.With(middleware.RequirePermission("deals", "write")).Delete("/{id}/tags", c.HandleRemoveDealTags)
-		r.With(middleware.RequirePermission("deals", "delete")).Delete("/{id}", c.HandleDeleteDeal)
+		r.With(dealDelete).Delete("/{id}", c.HandleDeleteDeal)
 	})
 
 	// Activities
 	r.Route("/api/v1/activities", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("activities", "read")).Get("/", c.HandleListActivities)
-		r.With(middleware.RequirePermission("activities", "read")).Get("/{id}", c.HandleGetActivity)
-		r.With(middleware.RequirePermission("activities", "write")).Post("/", c.HandleCreateActivity)
-		r.With(middleware.RequirePermission("activities", "write")).Put("/{id}", c.HandleUpdateActivity)
-		r.With(middleware.RequirePermission("activities", "write")).Post("/{id}/complete", c.HandleCompleteActivity)
+		r.With(activityRead).Get("/", c.HandleListActivities)
+		r.With(activityRead).Get("/{id}", c.HandleGetActivity)
+		r.With(activityEdit).Post("/", c.HandleCreateActivity)
+		r.With(activityEdit).Put("/{id}", c.HandleUpdateActivity)
+		r.With(activityEdit).Post("/{id}/complete", c.HandleCompleteActivity)
 		r.With(middleware.RequirePermission("activities", "write")).Post("/{id}/tags", c.HandleAddActivityTags)
 		r.With(middleware.RequirePermission("activities", "write")).Delete("/{id}/tags", c.HandleRemoveActivityTags)
-		r.With(middleware.RequirePermission("activities", "delete")).Delete("/{id}", c.HandleDeleteActivity)
+		r.With(activityDelete).Delete("/{id}", c.HandleDeleteActivity)
 	})
 
 	// Search
@@ -152,9 +198,9 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Reports
 	r.Route("/api/v1/reports", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("reports", "read")).Get("/pipeline", c.HandleGetPipelineReport)
-		r.With(middleware.RequirePermission("reports", "read")).Get("/conversion", c.HandleGetConversionReport)
-		r.With(middleware.RequirePermission("reports", "read")).Get("/activities", c.HandleGetActivityReport)
+		r.With(reportRead).Get("/pipeline", c.HandleGetPipelineReport)
+		r.With(reportRead).Get("/conversion", c.HandleGetConversionReport)
+		r.With(reportRead).Get("/activities", c.HandleGetActivityReport)
 	})
 
 	// GDPR deletion requests (top-level, admin only)

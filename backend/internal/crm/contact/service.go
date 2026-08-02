@@ -35,6 +35,19 @@ type CreateInput struct {
 	CustomFields map[uuid.UUID]any // field_id -> value
 	CreatedBy    uuid.UUID
 	TenantID     uuid.UUID
+	// Lead is set only by CreateLead; nil means an ordinary contact, which is
+	// what every existing caller creates.
+	Lead *LeadIntake
+}
+
+// LeadIntake carries the lifecycle columns for a contact created through the
+// lead inbox. See lead.go for the stage/status/source vocabularies.
+type LeadIntake struct {
+	Stage   string
+	Source  *string
+	Score   *int16
+	Status  *string
+	Company *string
 }
 
 // Create creates a new contact
@@ -94,19 +107,28 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 	}
 
 	contact := &models.Contact{
-		ID:         uuid.New(),
-		FirstName:  firstName,
-		LastName:   lastName,
-		Email:      email,
-		Phone:      trimStringPtr(input.Phone),
-		CompanyID:  input.CompanyID,
-		Position:   trimStringPtr(input.Position),
-		Notes:      input.Notes,
-		Visibility: "shared",
-		TenantID:   tenantID,
-		CreatedBy:  input.CreatedBy,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:             uuid.New(),
+		FirstName:      firstName,
+		LastName:       lastName,
+		Email:          email,
+		Phone:          trimStringPtr(input.Phone),
+		CompanyID:      input.CompanyID,
+		Position:       trimStringPtr(input.Position),
+		Notes:          input.Notes,
+		Visibility:     "shared",
+		TenantID:       tenantID,
+		CreatedBy:      input.CreatedBy,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		LifecycleStage: LifecycleCustomer,
+	}
+
+	if input.Lead != nil {
+		contact.LifecycleStage = input.Lead.Stage
+		contact.LeadSource = input.Lead.Source
+		contact.LeadScore = input.Lead.Score
+		contact.LeadStatus = input.Lead.Status
+		contact.LeadCompany = input.Lead.Company
 	}
 
 	if err := s.repo.Create(ctx, contact); err != nil {

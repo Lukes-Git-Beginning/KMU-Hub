@@ -59,6 +59,24 @@ func (ir *InboxRoutes) getInboxClient() (inboxv1.InboxServiceClient, error) {
 
 // RegisterRoutes registers all inbox HTTP routes.
 func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive guards: keep the legacy coarse "inbox" key AND accept the
+	// matching capability-catalogue key. Extend, never swap — see
+	// middleware.RequirePermissionAny doc comment.
+	//
+	// kommunikation:team_inbox:manage only extends the two team-inbox routes
+	// already gated by RequirePermission("inbox", ...); create/delete team
+	// inbox use RequireRole("admin","manager") instead, a different guard
+	// mechanism with no permission-based alt-key to extend, so they stay as
+	// they are (not tightened, not loosened). Same reasoning empties out
+	// kommunikation:routing:manage — every routing-rule mutation route is
+	// RequireRole-gated, so there is no additive target for it at all.
+	// kommunikation:webhook:manage has no backend endpoint (chat/inbox never
+	// grew a webhook route) — key stays unused, no route invented.
+	var (
+		inboxCannedManage    = middleware.RequirePermissionAny([2]string{"inbox", "write"}, [2]string{"kommunikation:canned", "manage"})
+		inboxTeamInboxManage = middleware.RequirePermissionAny([2]string{"inbox", "write"}, [2]string{"kommunikation:team_inbox", "manage"})
+	)
+
 	r.Route("/api/v1/inbox", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
@@ -87,17 +105,17 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		// Thread + canned-response endpoints (reuse inbox read/write permissions)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}/thread", ir.HandleListThreadMessages)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/canned-responses", ir.HandleListCannedResponses)
-		r.With(middleware.RequirePermission("inbox", "write")).Post("/canned-responses", ir.HandleCreateCannedResponse)
-		r.With(middleware.RequirePermission("inbox", "write")).Put("/canned-responses/{id}", ir.HandleUpdateCannedResponse)
-		r.With(middleware.RequirePermission("inbox", "write")).Delete("/canned-responses/{id}", ir.HandleDeleteCannedResponse)
+		r.With(inboxCannedManage).Post("/canned-responses", ir.HandleCreateCannedResponse)
+		r.With(inboxCannedManage).Put("/canned-responses/{id}", ir.HandleUpdateCannedResponse)
+		r.With(inboxCannedManage).Delete("/canned-responses/{id}", ir.HandleDeleteCannedResponse)
 
 		// Team inbox endpoints
 		r.With(middleware.RequireRole("admin", "manager")).Post("/teams", ir.HandleCreateTeamInbox)
-		r.With(middleware.RequirePermission("inbox", "write")).Put("/teams/{id}", ir.HandleUpdateTeamInbox)
+		r.With(inboxTeamInboxManage).Put("/teams/{id}", ir.HandleUpdateTeamInbox)
 		r.With(middleware.RequireRole("admin", "manager")).Delete("/teams/{id}", ir.HandleDeleteTeamInbox)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/teams", ir.HandleListTeamInboxes)
-		r.With(middleware.RequirePermission("inbox", "write")).Post("/teams/{id}/members", ir.HandleAddTeamMember)
-		r.With(middleware.RequirePermission("inbox", "write")).Delete("/teams/{id}/members/{user_id}", ir.HandleRemoveTeamMember)
+		r.With(inboxTeamInboxManage).Post("/teams/{id}/members", ir.HandleAddTeamMember)
+		r.With(inboxTeamInboxManage).Delete("/teams/{id}/members/{user_id}", ir.HandleRemoveTeamMember)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/teams/{id}/members", ir.HandleListTeamMembers)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/claim", ir.HandleClaimMessage)
 

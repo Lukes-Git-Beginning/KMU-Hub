@@ -131,3 +131,57 @@ func TestHandleLexwareConnect_InvalidJSON(t *testing.T) {
 	routes.HandleConnect(rec, req)
 	assertErrorContains(t, rec, "invalid request body")
 }
+
+// --- Payload decoding ---
+
+// The Lexware Office API sends camelCase keys (eventType / resourceId /
+// organizationId). The handler previously only read snake_case, so a real
+// webhook decoded to an empty event type and was rejected with 400 before it
+// ever reached the biz service.
+func TestParseLexwareWebhookBody(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+		want    lexwareWebhookEvent
+	}{
+		{
+			name: "lexware camelCase payload",
+			body: `{"eventType":"contact.changed","resourceId":"res-1","organizationId":"org-1"}`,
+			want: lexwareWebhookEvent{EventType: "contact.changed", ResourceID: "res-1", OrganizationID: "org-1"},
+		},
+		{
+			name: "snake_case payload stays supported",
+			body: `{"event_type":"contact.created","resource_id":"res-2","organization_id":"org-2"}`,
+			want: lexwareWebhookEvent{EventType: "contact.created", ResourceID: "res-2", OrganizationID: "org-2"},
+		},
+		{
+			name: "camelCase wins over an empty snake_case alias",
+			body: `{"eventType":"invoice.status.changed","event_type":"","resourceId":"res-3"}`,
+			want: lexwareWebhookEvent{EventType: "invoice.status.changed", ResourceID: "res-3"},
+		},
+		{
+			name:    "malformed json",
+			body:    `{invalid`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseLexwareWebhookBody([]byte(tt.body))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error, got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}

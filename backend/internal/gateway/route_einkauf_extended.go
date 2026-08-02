@@ -18,6 +18,10 @@ import (
 // sub-routes onto the provided router. It is called inside the authenticated
 // /api/v1/einkauf route group.
 func (er *EinkaufRoutes) registerExtendedRoutes(r chi.Router) {
+	// Additive RBAC guards — see route_einkauf.go for the pattern rationale.
+	ratingCreate := middleware.RequirePermissionAny([2]string{"einkauf:supplier", "write"}, [2]string{"einkauf:rating", "create"})
+	contractCall := middleware.RequirePermissionAny([2]string{"einkauf:contract", "write"}, [2]string{"einkauf:contract", "call"})
+
 	// Catalog
 	r.Route("/catalog", func(r chi.Router) {
 		r.With(middleware.RequirePermission("einkauf:catalog", "read")).Get("/", er.HandleListCatalogItems)
@@ -33,7 +37,8 @@ func (er *EinkaufRoutes) registerExtendedRoutes(r chi.Router) {
 	// Supplier ratings — scoped under /suppliers/:supplierId/ratings
 	r.Route("/suppliers/{supplierId}/ratings", func(r chi.Router) {
 		r.With(middleware.RequirePermission("einkauf:supplier", "read")).Get("/", er.HandleListSupplierRatings)
-		r.With(middleware.RequirePermission("einkauf:supplier", "write")).Post("/", er.HandleCreateSupplierRating)
+		r.With(ratingCreate).Post("/", er.HandleCreateSupplierRating)
+		// No FE caller for rating deletion — legacy guard stays as-is.
 		r.With(middleware.RequirePermission("einkauf:supplier", "write")).Delete("/{ratingId}", er.HandleDeleteSupplierRating)
 	})
 
@@ -57,7 +62,7 @@ func (er *EinkaufRoutes) registerExtendedRoutes(r chi.Router) {
 			// Contract call-offs
 			r.Route("/calls", func(r chi.Router) {
 				r.With(middleware.RequirePermission("einkauf:contract", "read")).Get("/", er.HandleListContractCalls)
-				r.With(middleware.RequirePermission("einkauf:contract", "write")).Post("/", er.HandleCreateContractCall)
+				r.With(contractCall).Post("/", er.HandleCreateContractCall)
 			})
 		})
 	})

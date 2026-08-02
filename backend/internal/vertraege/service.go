@@ -260,39 +260,18 @@ func (s *Service) ListContracts(ctx context.Context, input ListContractsInput) (
 	return s.repo.ListContracts(ctx, input.TenantID, filter, offset, input.PageSize)
 }
 
-// ExportContract produces a plain-text dump of the contract.
-// TODO: Sprint 3 — replace with PDF renderer (e.g. wkhtmltopdf or gotenberg).
+// ExportContract renders a contract and its parties as a PDF via maroto.
 func (s *Service) ExportContract(ctx context.Context, tenantID, contractID uuid.UUID) ([]byte, error) {
 	c, err := s.repo.GetContract(ctx, tenantID, contractID)
 	if err != nil {
 		return nil, err
 	}
 
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "CONTRACT: %s\n", c.Title)
-	fmt.Fprintf(&sb, "Number:   %s\n", c.ContractNumber)
-	fmt.Fprintf(&sb, "Type:     %s\n", c.ContractType)
-	fmt.Fprintf(&sb, "Status:   %s\n", c.Status)
-	fmt.Fprintf(&sb, "Starts:   %s\n", c.StartsOn.Format("2006-01-02"))
-	if c.EndsOn != nil {
-		fmt.Fprintf(&sb, "Ends:     %s\n", c.EndsOn.Format("2006-01-02"))
-	} else {
-		sb.WriteString("Ends:     open-ended\n")
+	pdf, err := renderContractPDF(c)
+	if err != nil {
+		return nil, fmt.Errorf("render contract pdf: %w", err)
 	}
-	if c.Notes != "" {
-		fmt.Fprintf(&sb, "Notes:    %s\n", c.Notes)
-	}
-
-	fmt.Fprintf(&sb, "\nParties (%d):\n", len(c.Parties))
-	for _, p := range c.Parties {
-		name := string(p.PartyType)
-		if p.ExternalName != nil {
-			name = *p.ExternalName
-		}
-		fmt.Fprintf(&sb, "  - %s (%s)\n", name, p.RoleInContract)
-	}
-
-	return []byte(sb.String()), nil
+	return pdf, nil
 }
 
 // ============================================================================

@@ -511,7 +511,8 @@ func (lr *LexwareRoutes) HandleWebhookEvent(w http.ResponseWriter, r *http.Reque
 		response.Error(w, http.StatusBadRequest, "failed to read request body")
 		return
 	}
-	// Restore body for downstream JSON decoding.
+	// Restore the body so any middleware or handler further down still sees it;
+	// this handler itself decodes from rawBody.
 	r.Body = io.NopCloser(bytes.NewReader(rawBody))
 
 	// --- HMAC validation ---
@@ -546,20 +547,16 @@ func (lr *LexwareRoutes) HandleWebhookEvent(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		EventType      string `json:"event_type"`
-		ResourceID     string `json:"resource_id"`
-		OrganizationID string `json:"organization_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	event, err := parseLexwareWebhookBody(rawBody)
+	if err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	resp, err := client.HandleLexwareWebhookEvent(r.Context(), &bizv1.HandleLexwareWebhookEventRequest{
-		EventType:      body.EventType,
-		ResourceId:     body.ResourceID,
-		OrganizationId: body.OrganizationID,
+		EventType:      event.EventType,
+		ResourceId:     event.ResourceID,
+		OrganizationId: event.OrganizationID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -567,4 +564,47 @@ func (lr *LexwareRoutes) HandleWebhookEvent(w http.ResponseWriter, r *http.Reque
 	}
 
 	response.JSON(w, http.StatusOK, map[string]bool{"success": resp.GetSuccess()})
+}
+
+// lexwareWebhookEvent is the decoded payload of an incoming Lexware webhook.
+type lexwareWebhookEvent struct {
+	EventType      string
+	ResourceID     string
+	OrganizationID string
+}
+
+// parseLexwareWebhookBody decodes a Lexware webhook payload.
+//
+// Lexware sends camelCase (eventType / resourceId / organizationId); the
+// snake_case aliases are accepted as well so internal callers and replayed
+// fixtures keep working. Whichever spelling arrives non-empty wins.
+func parseLexwareWebhookBody(raw []byte) (lexwareWebhookEvent, error) {
+	var body struct {
+		EventType      string `json:"eventType"`
+		ResourceID     string `json:"resourceId"`
+		OrganizationID string `json:"organizationId"`
+
+		EventTypeSnake      string `json:"event_type"`
+		ResourceIDSnake     string `json:"resource_id"`
+		OrganizationIDSnake string `json:"organization_id"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return lexwareWebhookEvent{}, err
+	}
+
+	return lexwareWebhookEvent{
+		EventType:      firstNonEmpty(body.EventType, body.EventTypeSnake),
+		ResourceID:     firstNonEmpty(body.ResourceID, body.ResourceIDSnake),
+		OrganizationID: firstNonEmpty(body.OrganizationID, body.OrganizationIDSnake),
+	}, nil
+}
+
+// firstNonEmpty returns the first non-empty of the given strings, or "".
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

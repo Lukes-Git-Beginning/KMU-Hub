@@ -26,6 +26,10 @@ type mockRepository struct {
 	createSyncLogFn       func(ctx context.Context, log *models.LexwareSyncLog) error
 	updateSyncLogFn       func(ctx context.Context, log *models.LexwareSyncLog) error
 	updateLastSyncTimeFn  func(ctx context.Context, configID uuid.UUID, syncType string, syncedAt time.Time) error
+
+	getEntityMappingFn            func(ctx context.Context, configID uuid.UUID, entityType string, kmuhubID uuid.UUID) (*models.LexwareEntityMapping, error)
+	getEntityMappingByLexwareIDFn func(ctx context.Context, configID uuid.UUID, entityType, lexwareID string) (*models.LexwareEntityMapping, error)
+	upsertEntityMappingFn         func(ctx context.Context, mapping *models.LexwareEntityMapping) error
 }
 
 func (m *mockRepository) GetSyncConfig(ctx context.Context, configID uuid.UUID) (*models.LexwareSyncConfig, error) {
@@ -49,15 +53,24 @@ func (m *mockRepository) UpdateLastSyncTime(ctx context.Context, configID uuid.U
 	return nil
 }
 
-func (m *mockRepository) GetEntityMapping(context.Context, uuid.UUID, string, uuid.UUID) (*models.LexwareEntityMapping, error) {
+func (m *mockRepository) GetEntityMapping(ctx context.Context, configID uuid.UUID, entityType string, kmuhubID uuid.UUID) (*models.LexwareEntityMapping, error) {
+	if m.getEntityMappingFn != nil {
+		return m.getEntityMappingFn(ctx, configID, entityType, kmuhubID)
+	}
 	return nil, nil
 }
 
-func (m *mockRepository) GetEntityMappingByLexwareID(context.Context, uuid.UUID, string, string) (*models.LexwareEntityMapping, error) {
+func (m *mockRepository) GetEntityMappingByLexwareID(ctx context.Context, configID uuid.UUID, entityType, lexwareID string) (*models.LexwareEntityMapping, error) {
+	if m.getEntityMappingByLexwareIDFn != nil {
+		return m.getEntityMappingByLexwareIDFn(ctx, configID, entityType, lexwareID)
+	}
 	return nil, nil
 }
 
-func (m *mockRepository) UpsertEntityMapping(context.Context, *models.LexwareEntityMapping) error {
+func (m *mockRepository) UpsertEntityMapping(ctx context.Context, mapping *models.LexwareEntityMapping) error {
+	if m.upsertEntityMappingFn != nil {
+		return m.upsertEntityMappingFn(ctx, mapping)
+	}
 	return nil
 }
 
@@ -183,15 +196,11 @@ func (m *mockEmitter) Emit(_ context.Context, payload EventPayload) error {
 
 // --- Helper ---
 
+// newTestService builds a service without an API client — for the paths that
+// fail before any Lexware call is made.  It goes through the real constructor
+// so the wired syncer/pusher/webhook-handler are the ones under test.
 func newTestService(repo *mockRepository, configRepo *mockConfigRepo, vault *mockVaultService) *Service {
-	svc := &Service{
-		repo:       repo,
-		configRepo: configRepo,
-		vault:      vault,
-		emitter:    noopEmitter{},
-	}
-	svc.scheduler = NewScheduler(svc, repo, configRepo)
-	return svc
+	return NewService(nil, repo, configRepo, vault, nil, nil, nil)
 }
 
 // --- Tests ---
@@ -311,7 +320,7 @@ func TestDisconnect_NotConfigured(t *testing.T) {
 	assert.Contains(t, err.Error(), "get config for disconnect")
 }
 
-func TestTestConnection_Success(t *testing.T) {
+func TestTestConnection_NoClient(t *testing.T) {
 	cr := &mockConfigRepo{
 		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
 			return &IntegrationConfig{
@@ -331,7 +340,10 @@ func TestTestConnection_Success(t *testing.T) {
 
 	err := svc.TestConnection(context.Background())
 
-	require.NoError(t, err)
+	// A stored key alone is not a connection: without an API client there is
+	// nothing to verify it against, and reporting success would be a lie.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api client is not configured")
 }
 
 func TestTestConnection_NotConnected(t *testing.T) {
@@ -499,15 +511,38 @@ func TestGetSyncLogs_Success(t *testing.T) {
 }
 
 func TestHandleWebhookEvent_Success(t *testing.T) {
+	tenantID := uuid.New()
+	cr := &mockConfigRepo{
+		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
+			return &IntegrationConfig{ID: uuid.New(), TenantID: tenantID, IsActive: true}, nil
+		},
+	}
 	emitter := &mockEmitter{}
-	svc := newTestService(&mockRepository{}, &mockConfigRepo{}, &mockVaultService{})
-	svc.emitter = emitter
+	svc := newTestService(&mockRepository{}, cr, &mockVaultService{})
+	svc.SetEventEmitter(emitter)
 
-	payload := map[string]any{"contact_id": "abc-123"}
+	// "contact.updated" is not a Lexware event name (the API sends
+	// "contact.changed") — it must be acknowledged, not dispatched.
+	payload := map[string]any{"resource_id": "abc-123"}
 	err := svc.HandleWebhookEvent(context.Background(), "contact.updated", payload)
 
 	require.NoError(t, err)
 	require.Len(t, emitter.emittedEvents, 1)
 	assert.Equal(t, EventWebhookReceived, emitter.emittedEvents[0].Type)
 	assert.Equal(t, "contact.updated", emitter.emittedEvents[0].Data["event_type"])
+	assert.Equal(t, "abc-123", emitter.emittedEvents[0].Data["resource_id"])
+}
+
+func TestHandleWebhookEvent_NotConfigured(t *testing.T) {
+	cr := &mockConfigRepo{
+		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
+			return nil, errors.New("not found")
+		},
+	}
+	svc := newTestService(&mockRepository{}, cr, &mockVaultService{})
+
+	err := svc.HandleWebhookEvent(context.Background(), "contact.changed", map[string]any{})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unconfigured integration")
 }

@@ -467,7 +467,10 @@ func (w *WorkRoutes) HandleDeleteTaskComment(wr http.ResponseWriter, r *http.Req
 	}
 
 	commentID := chi.URLParam(r, "id")
-	_, err = client.DeleteTaskComment(r.Context(), &workv1.DeleteTaskCommentRequest{Id: commentID})
+	_, err = client.DeleteTaskComment(r.Context(), &workv1.DeleteTaskCommentRequest{
+		Id:      commentID,
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
 	if err != nil {
 		respondGRPCError(wr, err)
 		return

@@ -32,6 +32,8 @@ const (
 	SettingsService_PutTenantSettings_FullMethodName      = "/settings.v1.SettingsService/PutTenantSettings"
 	SettingsService_GetUserSettings_FullMethodName        = "/settings.v1.SettingsService/GetUserSettings"
 	SettingsService_PutUserSettings_FullMethodName        = "/settings.v1.SettingsService/PutUserSettings"
+	SettingsService_GetBranding_FullMethodName            = "/settings.v1.SettingsService/GetBranding"
+	SettingsService_PutBranding_FullMethodName            = "/settings.v1.SettingsService/PutBranding"
 	SettingsService_GetTenantLicense_FullMethodName       = "/settings.v1.SettingsService/GetTenantLicense"
 	SettingsService_SetTenantModuleActive_FullMethodName  = "/settings.v1.SettingsService/SetTenantModuleActive"
 	SettingsService_GetTenantSubscription_FullMethodName  = "/settings.v1.SettingsService/GetTenantSubscription"
@@ -69,6 +71,12 @@ type SettingsServiceClient interface {
 	// User-scope settings (own user only)
 	GetUserSettings(ctx context.Context, in *GetUserSettingsRequest, opts ...grpc.CallOption) (*GetUserSettingsResponse, error)
 	PutUserSettings(ctx context.Context, in *PutUserSettingsRequest, opts ...grpc.CallOption) (*PutUserSettingsResponse, error)
+	// Tenant-wide branding (name, logo/icon, accent color). Backed by
+	// tenant_settings under module_id="branding" — no dedicated table. Write is
+	// admin-or-module-lead like PutTenantSettings; in practice admin-only, since
+	// no UI ever grants module-lead for "branding".
+	GetBranding(ctx context.Context, in *GetBrandingRequest, opts ...grpc.CallOption) (*GetBrandingResponse, error)
+	PutBranding(ctx context.Context, in *PutBrandingRequest, opts ...grpc.CallOption) (*PutBrandingResponse, error)
 	// Licensing: which modules the tenant has booked, and the booked plan itself.
 	// Activation is bookkeeping — the deployment-wide modules.* flags remain the
 	// access gate, and the gateway masks an activation a flag does not cover.
@@ -215,6 +223,26 @@ func (c *settingsServiceClient) PutUserSettings(ctx context.Context, in *PutUser
 	return out, nil
 }
 
+func (c *settingsServiceClient) GetBranding(ctx context.Context, in *GetBrandingRequest, opts ...grpc.CallOption) (*GetBrandingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBrandingResponse)
+	err := c.cc.Invoke(ctx, SettingsService_GetBranding_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) PutBranding(ctx context.Context, in *PutBrandingRequest, opts ...grpc.CallOption) (*PutBrandingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PutBrandingResponse)
+	err := c.cc.Invoke(ctx, SettingsService_PutBranding_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *settingsServiceClient) GetTenantLicense(ctx context.Context, in *GetTenantLicenseRequest, opts ...grpc.CallOption) (*GetTenantLicenseResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetTenantLicenseResponse)
@@ -277,6 +305,12 @@ type SettingsServiceServer interface {
 	// User-scope settings (own user only)
 	GetUserSettings(context.Context, *GetUserSettingsRequest) (*GetUserSettingsResponse, error)
 	PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error)
+	// Tenant-wide branding (name, logo/icon, accent color). Backed by
+	// tenant_settings under module_id="branding" — no dedicated table. Write is
+	// admin-or-module-lead like PutTenantSettings; in practice admin-only, since
+	// no UI ever grants module-lead for "branding".
+	GetBranding(context.Context, *GetBrandingRequest) (*GetBrandingResponse, error)
+	PutBranding(context.Context, *PutBrandingRequest) (*PutBrandingResponse, error)
 	// Licensing: which modules the tenant has booked, and the booked plan itself.
 	// Activation is bookkeeping — the deployment-wide modules.* flags remain the
 	// access gate, and the gateway masks an activation a flag does not cover.
@@ -331,6 +365,12 @@ func (UnimplementedSettingsServiceServer) GetUserSettings(context.Context, *GetU
 }
 func (UnimplementedSettingsServiceServer) PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PutUserSettings not implemented")
+}
+func (UnimplementedSettingsServiceServer) GetBranding(context.Context, *GetBrandingRequest) (*GetBrandingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBranding not implemented")
+}
+func (UnimplementedSettingsServiceServer) PutBranding(context.Context, *PutBrandingRequest) (*PutBrandingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PutBranding not implemented")
 }
 func (UnimplementedSettingsServiceServer) GetTenantLicense(context.Context, *GetTenantLicenseRequest) (*GetTenantLicenseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTenantLicense not implemented")
@@ -596,6 +636,42 @@ func _SettingsService_PutUserSettings_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SettingsService_GetBranding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBrandingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).GetBranding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_GetBranding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).GetBranding(ctx, req.(*GetBrandingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_PutBranding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PutBrandingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).PutBranding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_PutBranding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).PutBranding(ctx, req.(*PutBrandingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SettingsService_GetTenantLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTenantLicenseRequest)
 	if err := dec(in); err != nil {
@@ -708,6 +784,14 @@ var SettingsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PutUserSettings",
 			Handler:    _SettingsService_PutUserSettings_Handler,
+		},
+		{
+			MethodName: "GetBranding",
+			Handler:    _SettingsService_GetBranding_Handler,
+		},
+		{
+			MethodName: "PutBranding",
+			Handler:    _SettingsService_PutBranding_Handler,
 		},
 		{
 			MethodName: "GetTenantLicense",

@@ -44,15 +44,16 @@ func requireGRPCOK(t *testing.T, err error) {
 // ---------------------------------------------------------------------------
 
 type authMockRepo struct {
-	users         map[uuid.UUID]*models.User
-	usersByEmail  map[string]*models.User
-	refreshTokens map[string]*models.RefreshToken // keyed by token_hash
-	userRoles     map[uuid.UUID][]string
-	userPerms     map[uuid.UUID][]string
-	invitations   map[uuid.UUID]*models.Invitation
-	invByToken    map[string]*models.Invitation
-	sessions      map[uuid.UUID]*models.UserSession
-	policies      map[string]*models.TwoFactorPolicy
+	users           map[uuid.UUID]*models.User
+	usersByEmail    map[string]*models.User
+	refreshTokens   map[string]*models.RefreshToken // keyed by token_hash
+	userRoles       map[uuid.UUID][]string
+	userPerms       map[uuid.UUID][]string
+	effectiveGrants map[uuid.UUID][]auth.EffectiveGrantRow
+	invitations     map[uuid.UUID]*models.Invitation
+	invByToken      map[string]*models.Invitation
+	sessions        map[uuid.UUID]*models.UserSession
+	policies        map[string]*models.TwoFactorPolicy
 
 	provisionedTenants map[uuid.UUID]*models.Tenant
 	provisionedModules map[uuid.UUID][]string
@@ -60,15 +61,16 @@ type authMockRepo struct {
 
 func newAuthMockRepo() *authMockRepo {
 	return &authMockRepo{
-		users:         make(map[uuid.UUID]*models.User),
-		usersByEmail:  make(map[string]*models.User),
-		refreshTokens: make(map[string]*models.RefreshToken),
-		userRoles:     make(map[uuid.UUID][]string),
-		userPerms:     make(map[uuid.UUID][]string),
-		invitations:   make(map[uuid.UUID]*models.Invitation),
-		invByToken:    make(map[string]*models.Invitation),
-		sessions:      make(map[uuid.UUID]*models.UserSession),
-		policies:      make(map[string]*models.TwoFactorPolicy),
+		users:           make(map[uuid.UUID]*models.User),
+		usersByEmail:    make(map[string]*models.User),
+		refreshTokens:   make(map[string]*models.RefreshToken),
+		userRoles:       make(map[uuid.UUID][]string),
+		userPerms:       make(map[uuid.UUID][]string),
+		effectiveGrants: make(map[uuid.UUID][]auth.EffectiveGrantRow),
+		invitations:     make(map[uuid.UUID]*models.Invitation),
+		invByToken:      make(map[string]*models.Invitation),
+		sessions:        make(map[uuid.UUID]*models.UserSession),
+		policies:        make(map[string]*models.TwoFactorPolicy),
 
 		provisionedTenants: make(map[uuid.UUID]*models.Tenant),
 		provisionedModules: make(map[uuid.UUID][]string),
@@ -194,6 +196,10 @@ func (m *authMockRepo) GetUserRoles(_ context.Context, userID uuid.UUID) ([]stri
 
 func (m *authMockRepo) GetUserPermissions(_ context.Context, userID uuid.UUID) ([]string, error) {
 	return m.userPerms[userID], nil
+}
+
+func (m *authMockRepo) GetEffectivePermissions(_ context.Context, userID uuid.UUID) ([]auth.EffectiveGrantRow, error) {
+	return m.effectiveGrants[userID], nil
 }
 
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
@@ -435,6 +441,36 @@ func (m *authMockRepo) DeleteAllUserSessions(_ context.Context, userID uuid.UUID
 			delete(m.sessions, id)
 		}
 	}
+	return nil
+}
+
+func (m *authMockRepo) RotateSessionRefreshToken(_ context.Context, oldTokenID, newTokenID uuid.UUID, ipAddress, userAgent string) (bool, error) {
+	for _, s := range m.sessions {
+		if s.RefreshTokenID != nil && *s.RefreshTokenID == oldTokenID {
+			s.RefreshTokenID = &newTokenID
+			if ipAddress != "" {
+				s.IPAddress = ipAddress
+			}
+			if userAgent != "" {
+				s.UserAgent = userAgent
+			}
+			s.LastActiveAt = time.Now()
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *authMockRepo) DeleteSessionByRefreshTokenID(_ context.Context, refreshTokenID uuid.UUID) error {
+	for id, s := range m.sessions {
+		if s.RefreshTokenID != nil && *s.RefreshTokenID == refreshTokenID {
+			delete(m.sessions, id)
+		}
+	}
+	return nil
+}
+
+func (m *authMockRepo) DeleteStaleUserSessions(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 

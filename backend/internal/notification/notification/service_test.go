@@ -436,6 +436,74 @@ func TestMarkAllReadByModule(t *testing.T) {
 }
 
 // ============================================================================
+// SnoozeNotification Tests
+// ============================================================================
+
+func TestSnoozeNotification(t *testing.T) {
+	svc, notifRepo, _ := setupTestService(t)
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	notifID := uuid.New()
+	notifRepo.notifications = append(notifRepo.notifications, &models.Notification{
+		ID:       notifID,
+		TenantID: tenantID,
+		UserID:   userID,
+		IsRead:   false,
+	})
+
+	until := time.Now().Add(time.Hour)
+	err := svc.SnoozeNotification(context.Background(), tenantID, notifID, userID, until)
+	require.NoError(t, err)
+
+	notif := notifRepo.notifications[0]
+	require.NotNil(t, notif.SnoozedUntil)
+	assert.WithinDuration(t, until, *notif.SnoozedUntil, time.Second)
+	assert.True(t, notif.IsRead)
+}
+
+func TestSnoozeNotificationPastTime(t *testing.T) {
+	svc, notifRepo, _ := setupTestService(t)
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	notifID := uuid.New()
+	notifRepo.notifications = append(notifRepo.notifications, &models.Notification{
+		ID:       notifID,
+		TenantID: tenantID,
+		UserID:   userID,
+	})
+
+	err := svc.SnoozeNotification(context.Background(), tenantID, notifID, userID, time.Now().Add(-time.Hour))
+	assert.ErrorIs(t, err, ErrInvalidSnoozeTime)
+	assert.Nil(t, notifRepo.notifications[0].SnoozedUntil)
+}
+
+func TestSnoozeNotificationNotFound(t *testing.T) {
+	svc, _, _ := setupTestService(t)
+
+	err := svc.SnoozeNotification(context.Background(), uuid.New(), uuid.New(), uuid.New(), time.Now().Add(time.Hour))
+	assert.ErrorIs(t, err, ErrNotificationNotFound)
+}
+
+func TestSnoozeNotificationUnauthorized(t *testing.T) {
+	svc, notifRepo, _ := setupTestService(t)
+
+	tenantID := uuid.New()
+	ownerID := uuid.New()
+	otherID := uuid.New()
+	notifID := uuid.New()
+	notifRepo.notifications = append(notifRepo.notifications, &models.Notification{
+		ID:       notifID,
+		TenantID: tenantID,
+		UserID:   ownerID,
+	})
+
+	err := svc.SnoozeNotification(context.Background(), tenantID, notifID, otherID, time.Now().Add(time.Hour))
+	assert.ErrorIs(t, err, ErrUnauthorized)
+}
+
+// ============================================================================
 // Mock Repository
 // ============================================================================
 
@@ -604,6 +672,17 @@ func (m *mockNotifRepo) SetDismissed(_ context.Context, _ uuid.UUID, id uuid.UUI
 	for _, n := range m.notifications {
 		if n.ID == id {
 			n.IsDismissed = dismissed
+			return nil
+		}
+	}
+	return ErrNotificationNotFound
+}
+
+func (m *mockNotifRepo) Snooze(_ context.Context, _ uuid.UUID, id uuid.UUID, until time.Time) error {
+	for _, n := range m.notifications {
+		if n.ID == id {
+			n.SnoozedUntil = &until
+			n.IsRead = true
 			return nil
 		}
 	}

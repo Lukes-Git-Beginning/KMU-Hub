@@ -21,14 +21,16 @@ type InvoicePusher struct {
 	repo        Repository
 	fieldMapper *FieldMapper
 	invoices    InvoiceReader
+	contacts    ContactService
 }
 
-func NewInvoicePusher(client *Client, repo Repository, fieldMapper *FieldMapper, invoices InvoiceReader) *InvoicePusher {
+func NewInvoicePusher(client *Client, repo Repository, fieldMapper *FieldMapper, invoices InvoiceReader, contacts ContactService) *InvoicePusher {
 	return &InvoicePusher{
 		client:      client,
 		repo:        repo,
 		fieldMapper: fieldMapper,
 		invoices:    invoices,
+		contacts:    contacts,
 	}
 }
 
@@ -49,7 +51,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 		mappingEntries = DefaultInvoiceMappings()
 	}
 
-	contactLexwareID, err := ip.resolveContactLexwareID(ctx, configID, invoice)
+	contactLexwareID, err := resolveContactLexwareIDByEmail(ctx, ip.repo, ip.contacts, configID, invoice.CustomerEmail)
 	if err != nil {
 		return fmt.Errorf("lexware push invoice: resolve contact: %w", err)
 	}
@@ -115,19 +117,6 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 
 	slog.Info("lexware invoice pushed", "invoice_id", invoiceID, "config_id", configID)
 	return nil
-}
-
-func (ip *InvoicePusher) resolveContactLexwareID(ctx context.Context, configID uuid.UUID, invoice *models.Invoice) (string, error) {
-	if invoice.CustomerEmail != "" {
-		mappings, err := ip.repo.ListEntityMappings(ctx, configID, "contact")
-		if err != nil {
-			return "", fmt.Errorf("list contact mappings: %w", err)
-		}
-		if len(mappings) > 0 {
-			return mappings[0].LexwareID, nil
-		}
-	}
-	return "", fmt.Errorf("no synced Lexware contact found for invoice customer %q", invoice.CustomerEmail)
 }
 
 func boolToInt(b bool) int {

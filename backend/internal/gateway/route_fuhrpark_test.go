@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newFuhrparkRoutes(registry *ServiceRegistry) *FuhrparkRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_FUHRPARK_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewFuhrparkRoutes(registry, flags)
+}
 
 // FuhrparkRoutes.ServiceName() uses "fuhrpark".
 

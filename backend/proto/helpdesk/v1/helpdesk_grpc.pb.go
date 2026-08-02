@@ -20,41 +20,42 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	HelpdeskService_CreateTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/CreateTicket"
-	HelpdeskService_GetTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/GetTicket"
-	HelpdeskService_ListTickets_FullMethodName          = "/helpdesk.v1.HelpdeskService/ListTickets"
-	HelpdeskService_UpdateTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/UpdateTicket"
-	HelpdeskService_CloseTicket_FullMethodName          = "/helpdesk.v1.HelpdeskService/CloseTicket"
-	HelpdeskService_ReopenTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/ReopenTicket"
-	HelpdeskService_AssignTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/AssignTicket"
-	HelpdeskService_MergeTickets_FullMethodName         = "/helpdesk.v1.HelpdeskService/MergeTickets"
-	HelpdeskService_GetBusinessHours_FullMethodName     = "/helpdesk.v1.HelpdeskService/GetBusinessHours"
-	HelpdeskService_UpdateBusinessHours_FullMethodName  = "/helpdesk.v1.HelpdeskService/UpdateBusinessHours"
-	HelpdeskService_AddMessage_FullMethodName           = "/helpdesk.v1.HelpdeskService/AddMessage"
-	HelpdeskService_ListMessages_FullMethodName         = "/helpdesk.v1.HelpdeskService/ListMessages"
-	HelpdeskService_CreateQueue_FullMethodName          = "/helpdesk.v1.HelpdeskService/CreateQueue"
-	HelpdeskService_UpdateQueue_FullMethodName          = "/helpdesk.v1.HelpdeskService/UpdateQueue"
-	HelpdeskService_ListQueues_FullMethodName           = "/helpdesk.v1.HelpdeskService/ListQueues"
-	HelpdeskService_DeleteQueue_FullMethodName          = "/helpdesk.v1.HelpdeskService/DeleteQueue"
-	HelpdeskService_CreateCannedResponse_FullMethodName = "/helpdesk.v1.HelpdeskService/CreateCannedResponse"
-	HelpdeskService_UpdateCannedResponse_FullMethodName = "/helpdesk.v1.HelpdeskService/UpdateCannedResponse"
-	HelpdeskService_DeleteCannedResponse_FullMethodName = "/helpdesk.v1.HelpdeskService/DeleteCannedResponse"
-	HelpdeskService_ListCannedResponses_FullMethodName  = "/helpdesk.v1.HelpdeskService/ListCannedResponses"
-	HelpdeskService_CreateSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/CreateSLAPolicy"
-	HelpdeskService_UpdateSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/UpdateSLAPolicy"
-	HelpdeskService_ListSLAPolicies_FullMethodName      = "/helpdesk.v1.HelpdeskService/ListSLAPolicies"
-	HelpdeskService_DeleteSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/DeleteSLAPolicy"
-	HelpdeskService_ApplySLAPolicy_FullMethodName       = "/helpdesk.v1.HelpdeskService/ApplySLAPolicy"
-	HelpdeskService_GetSLAStatus_FullMethodName         = "/helpdesk.v1.HelpdeskService/GetSLAStatus"
-	HelpdeskService_ListKBArticle_FullMethodName        = "/helpdesk.v1.HelpdeskService/ListKBArticle"
-	HelpdeskService_CreateKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/CreateKBArticle"
-	HelpdeskService_UpdateKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/UpdateKBArticle"
-	HelpdeskService_DeleteKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/DeleteKBArticle"
-	HelpdeskService_ListRoutingRule_FullMethodName      = "/helpdesk.v1.HelpdeskService/ListRoutingRule"
-	HelpdeskService_CreateRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/CreateRoutingRule"
-	HelpdeskService_UpdateRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/UpdateRoutingRule"
-	HelpdeskService_DeleteRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/DeleteRoutingRule"
-	HelpdeskService_GetHelpdeskStats_FullMethodName     = "/helpdesk.v1.HelpdeskService/GetHelpdeskStats"
+	HelpdeskService_CreateTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/CreateTicket"
+	HelpdeskService_GetTicket_FullMethodName               = "/helpdesk.v1.HelpdeskService/GetTicket"
+	HelpdeskService_ListTickets_FullMethodName             = "/helpdesk.v1.HelpdeskService/ListTickets"
+	HelpdeskService_UpdateTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/UpdateTicket"
+	HelpdeskService_CloseTicket_FullMethodName             = "/helpdesk.v1.HelpdeskService/CloseTicket"
+	HelpdeskService_ReopenTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/ReopenTicket"
+	HelpdeskService_AssignTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/AssignTicket"
+	HelpdeskService_MergeTickets_FullMethodName            = "/helpdesk.v1.HelpdeskService/MergeTickets"
+	HelpdeskService_CreateTicketFromMessage_FullMethodName = "/helpdesk.v1.HelpdeskService/CreateTicketFromMessage"
+	HelpdeskService_GetBusinessHours_FullMethodName        = "/helpdesk.v1.HelpdeskService/GetBusinessHours"
+	HelpdeskService_UpdateBusinessHours_FullMethodName     = "/helpdesk.v1.HelpdeskService/UpdateBusinessHours"
+	HelpdeskService_AddMessage_FullMethodName              = "/helpdesk.v1.HelpdeskService/AddMessage"
+	HelpdeskService_ListMessages_FullMethodName            = "/helpdesk.v1.HelpdeskService/ListMessages"
+	HelpdeskService_CreateQueue_FullMethodName             = "/helpdesk.v1.HelpdeskService/CreateQueue"
+	HelpdeskService_UpdateQueue_FullMethodName             = "/helpdesk.v1.HelpdeskService/UpdateQueue"
+	HelpdeskService_ListQueues_FullMethodName              = "/helpdesk.v1.HelpdeskService/ListQueues"
+	HelpdeskService_DeleteQueue_FullMethodName             = "/helpdesk.v1.HelpdeskService/DeleteQueue"
+	HelpdeskService_CreateCannedResponse_FullMethodName    = "/helpdesk.v1.HelpdeskService/CreateCannedResponse"
+	HelpdeskService_UpdateCannedResponse_FullMethodName    = "/helpdesk.v1.HelpdeskService/UpdateCannedResponse"
+	HelpdeskService_DeleteCannedResponse_FullMethodName    = "/helpdesk.v1.HelpdeskService/DeleteCannedResponse"
+	HelpdeskService_ListCannedResponses_FullMethodName     = "/helpdesk.v1.HelpdeskService/ListCannedResponses"
+	HelpdeskService_CreateSLAPolicy_FullMethodName         = "/helpdesk.v1.HelpdeskService/CreateSLAPolicy"
+	HelpdeskService_UpdateSLAPolicy_FullMethodName         = "/helpdesk.v1.HelpdeskService/UpdateSLAPolicy"
+	HelpdeskService_ListSLAPolicies_FullMethodName         = "/helpdesk.v1.HelpdeskService/ListSLAPolicies"
+	HelpdeskService_DeleteSLAPolicy_FullMethodName         = "/helpdesk.v1.HelpdeskService/DeleteSLAPolicy"
+	HelpdeskService_ApplySLAPolicy_FullMethodName          = "/helpdesk.v1.HelpdeskService/ApplySLAPolicy"
+	HelpdeskService_GetSLAStatus_FullMethodName            = "/helpdesk.v1.HelpdeskService/GetSLAStatus"
+	HelpdeskService_ListKBArticle_FullMethodName           = "/helpdesk.v1.HelpdeskService/ListKBArticle"
+	HelpdeskService_CreateKBArticle_FullMethodName         = "/helpdesk.v1.HelpdeskService/CreateKBArticle"
+	HelpdeskService_UpdateKBArticle_FullMethodName         = "/helpdesk.v1.HelpdeskService/UpdateKBArticle"
+	HelpdeskService_DeleteKBArticle_FullMethodName         = "/helpdesk.v1.HelpdeskService/DeleteKBArticle"
+	HelpdeskService_ListRoutingRule_FullMethodName         = "/helpdesk.v1.HelpdeskService/ListRoutingRule"
+	HelpdeskService_CreateRoutingRule_FullMethodName       = "/helpdesk.v1.HelpdeskService/CreateRoutingRule"
+	HelpdeskService_UpdateRoutingRule_FullMethodName       = "/helpdesk.v1.HelpdeskService/UpdateRoutingRule"
+	HelpdeskService_DeleteRoutingRule_FullMethodName       = "/helpdesk.v1.HelpdeskService/DeleteRoutingRule"
+	HelpdeskService_GetHelpdeskStats_FullMethodName        = "/helpdesk.v1.HelpdeskService/GetHelpdeskStats"
 )
 
 // HelpdeskServiceClient is the client API for HelpdeskService service.
@@ -70,6 +71,11 @@ type HelpdeskServiceClient interface {
 	ReopenTicket(ctx context.Context, in *ReopenTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
 	AssignTicket(ctx context.Context, in *AssignTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
 	MergeTickets(ctx context.Context, in *MergeTicketsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// CreateTicketFromMessage converts an inbox message into a ticket
+	// (source_channel/source_message_id link back to it instead of copying its
+	// content a second time). Converting the same message twice returns the
+	// existing ticket with created=false rather than creating a duplicate.
+	CreateTicketFromMessage(ctx context.Context, in *CreateTicketFromMessageRequest, opts ...grpc.CallOption) (*CreateTicketFromMessageResponse, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(ctx context.Context, in *GetBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(ctx context.Context, in *UpdateBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
@@ -189,6 +195,16 @@ func (c *helpdeskServiceClient) MergeTickets(ctx context.Context, in *MergeTicke
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, HelpdeskService_MergeTickets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) CreateTicketFromMessage(ctx context.Context, in *CreateTicketFromMessageRequest, opts ...grpc.CallOption) (*CreateTicketFromMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTicketFromMessageResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_CreateTicketFromMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -478,6 +494,11 @@ type HelpdeskServiceServer interface {
 	ReopenTicket(context.Context, *ReopenTicketRequest) (*Ticket, error)
 	AssignTicket(context.Context, *AssignTicketRequest) (*Ticket, error)
 	MergeTickets(context.Context, *MergeTicketsRequest) (*emptypb.Empty, error)
+	// CreateTicketFromMessage converts an inbox message into a ticket
+	// (source_channel/source_message_id link back to it instead of copying its
+	// content a second time). Converting the same message twice returns the
+	// existing ticket with created=false rather than creating a duplicate.
+	CreateTicketFromMessage(context.Context, *CreateTicketFromMessageRequest) (*CreateTicketFromMessageResponse, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(context.Context, *UpdateBusinessHoursRequest) (*BusinessHoursResponse, error)
@@ -546,6 +567,9 @@ func (UnimplementedHelpdeskServiceServer) AssignTicket(context.Context, *AssignT
 }
 func (UnimplementedHelpdeskServiceServer) MergeTickets(context.Context, *MergeTicketsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method MergeTickets not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) CreateTicketFromMessage(context.Context, *CreateTicketFromMessageRequest) (*CreateTicketFromMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTicketFromMessage not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBusinessHours not implemented")
@@ -789,6 +813,24 @@ func _HelpdeskService_MergeTickets_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HelpdeskServiceServer).MergeTickets(ctx, req.(*MergeTicketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_CreateTicketFromMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTicketFromMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).CreateTicketFromMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_CreateTicketFromMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).CreateTicketFromMessage(ctx, req.(*CreateTicketFromMessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1317,6 +1359,10 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MergeTickets",
 			Handler:    _HelpdeskService_MergeTickets_Handler,
+		},
+		{
+			MethodName: "CreateTicketFromMessage",
+			Handler:    _HelpdeskService_CreateTicketFromMessage_Handler,
 		},
 		{
 			MethodName: "GetBusinessHours",

@@ -29,13 +29,20 @@ func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact
 	if vis == "" {
 		vis = "shared"
 	}
+	stage := contact.LifecycleStage
+	if stage == "" {
+		stage = LifecycleCustomer
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, tenant_id, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, tenant_id, created_by, created_at, updated_at,
+		                       lifecycle_stage, lead_source, lead_score, lead_temperature, lead_status, lead_company)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
 		contact.ID, contact.FirstName, contact.LastName, contact.Email, contact.Phone,
 		contact.CompanyID, contact.Position, contact.Notes,
 		vis, contact.OwnerID, contact.TenantID,
 		contact.CreatedBy, contact.CreatedAt, contact.UpdatedAt,
+		stage, contact.LeadSource, contact.LeadScore, contact.LeadTemperature,
+		contact.LeadStatus, contact.LeadCompany,
 	)
 	return err
 }

@@ -37,6 +37,17 @@ func (cr *CalendarRoutes) getCalendarClient() (calv1.CalendarServiceClient, erro
 
 // RegisterRoutes registers all Calendar HTTP routes.
 func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive guards: event-category administration keeps the legacy coarse
+	// "calendars" key AND accepts kalender:category:manage. The rest of the
+	// module (calendars, members, events, resources, holidays, preferences,
+	// task deadlines, LiveKit) has no catalogue counterpart — the kalender
+	// mini-catalogue only curates category and booking-page management (see
+	// config/capability-catalog.ts) — so those routes stay untouched.
+	var (
+		calCategoryWrite  = middleware.RequirePermissionAny([2]string{"calendars", "write"}, [2]string{"kalender:category", "manage"})
+		calCategoryDelete = middleware.RequirePermissionAny([2]string{"calendars", "delete"}, [2]string{"kalender:category", "manage"})
+	)
+
 	r.Route("/api/v1/calendar", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
@@ -75,8 +86,8 @@ func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 		// Event Categories
 		r.With(middleware.RequirePermission("calendars", "read")).Get("/categories", cr.HandleListEventCategories)
-		r.With(middleware.RequirePermission("calendars", "write")).Post("/categories", cr.HandleCreateEventCategory)
-		r.With(middleware.RequirePermission("calendars", "delete")).Delete("/categories/{id}", cr.HandleDeleteEventCategory)
+		r.With(calCategoryWrite).Post("/categories", cr.HandleCreateEventCategory)
+		r.With(calCategoryDelete).Delete("/categories/{id}", cr.HandleDeleteEventCategory)
 
 		// Resources
 		r.With(middleware.RequirePermission("resources", "read")).Get("/resources", cr.HandleListResources)

@@ -21,14 +21,16 @@ type QuotePusher struct {
 	repo        Repository
 	fieldMapper *FieldMapper
 	quotes      QuoteReader
+	contacts    ContactService
 }
 
-func NewQuotePusher(client *Client, repo Repository, fieldMapper *FieldMapper, quotes QuoteReader) *QuotePusher {
+func NewQuotePusher(client *Client, repo Repository, fieldMapper *FieldMapper, quotes QuoteReader, contacts ContactService) *QuotePusher {
 	return &QuotePusher{
 		client:      client,
 		repo:        repo,
 		fieldMapper: fieldMapper,
 		quotes:      quotes,
+		contacts:    contacts,
 	}
 }
 
@@ -49,7 +51,7 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 		mappingEntries = DefaultQuoteMappings()
 	}
 
-	contactLexwareID, err := qp.resolveContactLexwareID(ctx, configID, quote)
+	contactLexwareID, err := resolveContactLexwareIDByEmail(ctx, qp.repo, qp.contacts, configID, quote.CustomerEmail)
 	if err != nil {
 		return fmt.Errorf("lexware push quote: resolve contact: %w", err)
 	}
@@ -115,17 +117,4 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 
 	slog.Info("lexware quote pushed", "quote_id", quoteID, "config_id", configID)
 	return nil
-}
-
-func (qp *QuotePusher) resolveContactLexwareID(ctx context.Context, configID uuid.UUID, quote *models.Quote) (string, error) {
-	if quote.CustomerEmail != "" {
-		mappings, err := qp.repo.ListEntityMappings(ctx, configID, "contact")
-		if err != nil {
-			return "", fmt.Errorf("list contact mappings: %w", err)
-		}
-		if len(mappings) > 0 {
-			return mappings[0].LexwareID, nil
-		}
-	}
-	return "", fmt.Errorf("no synced Lexware contact found for quote customer %q", quote.CustomerEmail)
 }

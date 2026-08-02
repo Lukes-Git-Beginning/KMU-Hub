@@ -41,23 +41,44 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		return
 	}
 
+	// Additive guards: every route keeps its legacy coarse key AND accepts the
+	// matching capability-catalogue key. Permissions are baked into the access
+	// token at login and never re-read per request, so swapping a key outright
+	// would 403 every user holding a still-valid token. Extend, never swap.
+	//
+	// Queues, SLA policies, routing rules and business hours have no
+	// catalogue counterpart (backend-gaps §RBAC: helpdesk BE seeds only the
+	// coarse read/write pair beyond tickets/kb/canned/stats) — those routes
+	// stay on the coarse key as-is.
+	var (
+		hdTicketRead   = middleware.RequirePermissionAny([2]string{"helpdesk", "read"}, [2]string{"helpdesk:ticket", "read"})
+		hdTicketCreate = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "create"})
+		hdTicketEdit   = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "edit"})
+		hdTicketReply  = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "reply"})
+		hdKbManage     = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:kb", "manage"})
+		hdCannedManage = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:canned", "manage"})
+		hdStatsView    = middleware.RequirePermissionAny([2]string{"helpdesk", "read"}, [2]string{"helpdesk:stats", "view"})
+	)
+
 	r.Route("/api/v1/helpdesk", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
-		// Tickets
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets", h.HandleCreateTicket)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets", h.HandleListTickets)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets/{id}", h.HandleGetTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/tickets/{id}", h.HandleUpdateTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/close", h.HandleCloseTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/assign", h.HandleAssignTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/merge", h.HandleMergeTickets)
+		// Tickets. close/reopen/assign/merge are state changes on the ticket
+		// and map to ticket:edit, matching the FE gate in HelpdeskPage.tsx.
+		r.With(hdTicketCreate).Post("/tickets", h.HandleCreateTicket)
+		r.With(hdTicketCreate).Post("/tickets/from-message", h.HandleCreateTicketFromMessage)
+		r.With(hdTicketRead).Get("/tickets", h.HandleListTickets)
+		r.With(hdTicketRead).Get("/tickets/{id}", h.HandleGetTicket)
+		r.With(hdTicketEdit).Put("/tickets/{id}", h.HandleUpdateTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/close", h.HandleCloseTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/assign", h.HandleAssignTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/merge", h.HandleMergeTickets)
 
 		// Messages
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/messages", h.HandleAddMessage)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets/{id}/messages", h.HandleListMessages)
+		r.With(hdTicketReply).Post("/tickets/{id}/messages", h.HandleAddMessage)
+		r.With(hdTicketRead).Get("/tickets/{id}/messages", h.HandleListMessages)
 
 		// Queues
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/queues", h.HandleCreateQueue)
@@ -66,10 +87,10 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/queues/{id}", h.HandleDeleteQueue)
 
 		// Canned responses
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/canned-responses", h.HandleCreateCannedResponse)
+		r.With(hdCannedManage).Post("/canned-responses", h.HandleCreateCannedResponse)
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/canned-responses", h.HandleListCannedResponses)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/canned-responses/{id}", h.HandleUpdateCannedResponse)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/canned-responses/{id}", h.HandleDeleteCannedResponse)
+		r.With(hdCannedManage).Put("/canned-responses/{id}", h.HandleUpdateCannedResponse)
+		r.With(hdCannedManage).Delete("/canned-responses/{id}", h.HandleDeleteCannedResponse)
 
 		// SLA policies
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/sla-policies", h.HandleCreateSLAPolicy)
@@ -81,9 +102,9 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 
 		// Knowledge-base articles
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/kb-articles", h.HandleListKBArticles)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/kb-articles", h.HandleCreateKBArticle)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/kb-articles/{id}", h.HandleUpdateKBArticle)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/kb-articles/{id}", h.HandleDeleteKBArticle)
+		r.With(hdKbManage).Post("/kb-articles", h.HandleCreateKBArticle)
+		r.With(hdKbManage).Put("/kb-articles/{id}", h.HandleUpdateKBArticle)
+		r.With(hdKbManage).Delete("/kb-articles/{id}", h.HandleDeleteKBArticle)
 
 		// Routing rules
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/routing-rules", h.HandleListRoutingRules)
@@ -96,7 +117,7 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/business-hours", h.HandleUpdateBusinessHours)
 
 		// Stats
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/stats", h.HandleGetHelpdeskStats)
+		r.With(hdStatsView).Get("/stats", h.HandleGetHelpdeskStats)
 	})
 }
 
@@ -111,6 +132,12 @@ type createTicketRequest struct {
 	QueueID     *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
 	Description *string `json:"description,omitempty"`
 	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
+	ContactID   *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	OrgID       *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type createTicketFromMessageRequest struct {
+	MessageID string `json:"message_id" validate:"required,uuid"`
 }
 
 type updateTicketRequest struct {
@@ -118,6 +145,8 @@ type updateTicketRequest struct {
 	Priority   *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+	ContactID  *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	OrgID      *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type assignTicketRequest struct {
@@ -243,6 +272,8 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 		QueueId:     req.QueueID,
 		Description: req.Description,
 		Category:    req.Category,
+		ContactId:   req.ContactID,
+		OrgId:       req.OrgID,
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)
@@ -252,6 +283,46 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	response.Proto(w, http.StatusCreated, resp)
+}
+
+// HandleCreateTicketFromMessage converts an inbox message into a ticket.
+// Responds 201 when a new ticket was created, 200 when message_id was
+// already converted (the pre-existing ticket is returned, not a duplicate).
+func (h *HelpdeskRoutes) HandleCreateTicketFromMessage(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	req, ok := decodeAndValidate[createTicketFromMessageRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTicketFromMessage(r.Context(), &helpdeskv1.CreateTicketFromMessageRequest{
+		TenantId:    tenantID.String(),
+		RequesterId: userID,
+		MessageId:   req.MessageID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	statusCode := http.StatusOK
+	if resp.GetCreated() {
+		statusCode = http.StatusCreated
+	}
+	response.Proto(w, statusCode, resp.GetTicket())
 }
 
 func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Request) {
@@ -277,6 +348,19 @@ func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Reques
 	if sf := r.URL.Query().Get("status"); sf != "" {
 		grpcReq.StatusFilter = &sf
 	}
+	if cid := r.URL.Query().Get("contact_id"); cid != "" {
+		grpcReq.ContactId = &cid
+	}
+	if oid := r.URL.Query().Get("org_id"); oid != "" {
+		grpcReq.OrgId = &oid
+	}
+	// At scope "own" the list shrinks to tickets the caller raised or is
+	// assigned — the same rows the ticket detail view would let them open.
+	ownerID, ok := ownerFilterForScope(w, r, "helpdesk:ticket", "read")
+	if !ok {
+		return
+	}
+	grpcReq.ParticipantId = ownerID
 
 	resp, err := client.ListTickets(r.Context(), grpcReq)
 	if err != nil {
@@ -331,6 +415,8 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 		Priority:   req.Priority,
 		AssigneeId: req.AssigneeID,
 		QueueId:    req.QueueID,
+		ContactId:  req.ContactID,
+		OrgId:      req.OrgID,
 	}
 
 	resp, err := client.UpdateTicket(r.Context(), grpcReq)

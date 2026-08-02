@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -21,6 +22,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
+	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
 
 func main() {
@@ -47,6 +49,34 @@ func main() {
 	repo := helpdesk.NewPostgresRepository(pool)
 	helpdeskService := helpdesk.NewService(repo, logger)
 
+	// =========================================================================
+	// Inbox gRPC Client (for CreateTicketFromMessage). InboxService is
+	// co-hosted in the notification binary. Optional: nil disables the RPC
+	// gracefully rather than failing helpdesk startup.
+	// =========================================================================
+	var inboxServiceClient inboxv1.InboxServiceClient
+	if cfg.NotificationGRPCAddress != "" {
+		inboxConn, inboxErr := grpc.NewClient(
+			cfg.NotificationGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			// Propagate tenant/user from the inbound helpdesk context to the
+			// inbox service -- GetMessage reads the tenant from metadata.
+			grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+		)
+		if inboxErr != nil {
+			slog.Warn("failed to connect to inbox service, CreateTicketFromMessage disabled",
+				"address", cfg.NotificationGRPCAddress,
+				"error", inboxErr,
+			)
+		} else {
+			defer inboxConn.Close()
+			inboxServiceClient = inboxv1.NewInboxServiceClient(inboxConn)
+			slog.Info("inbox client enabled (create-ticket-from-message)", "address", cfg.NotificationGRPCAddress)
+		}
+	} else {
+		slog.Info("notification gRPC address not configured, CreateTicketFromMessage disabled")
+	}
+
 	metricsRegistry := metrics.NewRegistry()
 
 	grpcServer := grpc.NewServer(
@@ -61,7 +91,7 @@ func main() {
 		),
 	)
 
-	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService)
+	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService, inboxServiceClient)
 	helpdeskv1.RegisterHelpdeskServiceServer(grpcServer, helpdeskGRPC)
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)

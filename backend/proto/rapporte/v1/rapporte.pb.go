@@ -2629,10 +2629,14 @@ func (x *ReportStatsResponse) GetRejectedCount() int32 {
 }
 
 type ListPendingApprovalsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Page     int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Set by the gateway when the caller's rapporte:report:read grant is scoped
+	// to "own": the queue then shows only their own submitted reports. Never
+	// taken from the request body.
+	AuthorId      *string `protobuf:"bytes,4,opt,name=author_id,json=authorId,proto3,oneof" json:"author_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2686,6 +2690,13 @@ func (x *ListPendingApprovalsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListPendingApprovalsRequest) GetAuthorId() string {
+	if x != nil && x.AuthorId != nil {
+		return *x.AuthorId
+	}
+	return ""
 }
 
 type ExportPDFRequest struct {
@@ -4876,11 +4887,14 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"draftCount\x12'\n" +
 	"\x0fsubmitted_count\x18\x03 \x01(\x05R\x0esubmittedCount\x12%\n" +
 	"\x0eapproved_count\x18\x04 \x01(\x05R\rapprovedCount\x12%\n" +
-	"\x0erejected_count\x18\x05 \x01(\x05R\rrejectedCount\"k\n" +
+	"\x0erejected_count\x18\x05 \x01(\x05R\rrejectedCount\"\x9b\x01\n" +
 	"\x1bListPendingApprovalsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"L\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12 \n" +
+	"\tauthor_id\x18\x04 \x01(\tH\x00R\bauthorId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_author_id\"L\n" +
 	"\x10ExportPDFRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\"l\n" +
@@ -5248,6 +5262,7 @@ func file_proto_rapporte_v1_rapporte_proto_init() {
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[19].OneofWrappers = []any{}
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[25].OneofWrappers = []any{}
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[26].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[33].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

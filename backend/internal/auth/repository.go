@@ -27,6 +27,9 @@ type Repository interface {
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 	UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	// GetEffectivePermissions returns one row per (role, fine-grained
+	// capability) pair; the union across roles happens in the service.
+	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error)
 
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
@@ -74,4 +77,14 @@ type Repository interface {
 	UpdateSessionActivity(ctx context.Context, sessionID uuid.UUID) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	DeleteAllUserSessions(ctx context.Context, userID uuid.UUID, exceptSessionID *uuid.UUID) error
+	// RotateSessionRefreshToken re-points the session behind oldTokenID at
+	// newTokenID and refreshes its device metadata. Reports whether a session
+	// was found: a refresh whose session predates session tracking has none,
+	// and the caller then creates one instead of losing the device entry.
+	RotateSessionRefreshToken(ctx context.Context, oldTokenID, newTokenID uuid.UUID, ipAddress, userAgent string) (bool, error)
+	DeleteSessionByRefreshTokenID(ctx context.Context, refreshTokenID uuid.UUID) error
+	// DeleteStaleUserSessions removes the user's sessions whose refresh token
+	// is gone, revoked or expired — those can never be reached again, and the
+	// row carries personal data (IP, user agent) worth not keeping.
+	DeleteStaleUserSessions(ctx context.Context, userID uuid.UUID) error
 }

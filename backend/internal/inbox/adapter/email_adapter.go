@@ -94,19 +94,19 @@ func (a *EmailAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, s
 }
 
 // HandleReply sends a reply via the email service.
-func (a *EmailAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, body string) error {
+func (a *EmailAdapter) HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
 	if a.client == nil {
 		return fmt.Errorf("email adapter: client not configured")
 	}
-	return a.client.SendReply(ctx, messageID.String(), userID, body)
+	return a.client.SendReply(ctx, sourceID, userID, body)
 }
 
 // HandleForward forwards an email message to a new recipient via the email service.
-func (a *EmailAdapter) HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error {
+func (a *EmailAdapter) HandleForward(ctx context.Context, sourceID string, userID uuid.UUID, to string, note string) error {
 	if a.client == nil {
 		return fmt.Errorf("email adapter: client not configured")
 	}
-	return a.client.ForwardEmail(ctx, messageID.String(), userID, to, note)
+	return a.client.ForwardEmail(ctx, sourceID, userID, to, note)
 }
 
 // MarkReadOnSource marks an email thread as read on the email service.

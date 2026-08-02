@@ -39,6 +39,13 @@ service SettingsService {
   rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse);
   rpc PutUserSettings(PutUserSettingsRequest) returns (PutUserSettingsResponse);
 
+  // Tenant-wide branding (name, logo/icon, accent color). Backed by
+  // tenant_settings under module_id="branding" — no dedicated table. Write is
+  // admin-or-module-lead like PutTenantSettings; in practice admin-only, since
+  // no UI ever grants module-lead for "branding".
+  rpc GetBranding(GetBrandingRequest) returns (GetBrandingResponse);
+  rpc PutBranding(PutBrandingRequest) returns (PutBrandingResponse);
+
   // Licensing: which modules the tenant has booked, and the booked plan itself.
   // Activation is bookkeeping — the deployment-wide modules.* flags remain the
   // access gate, and the gateway masks an activation a flag does not cover.
@@ -223,6 +230,41 @@ message PutUserSettingsRequest {
 
 message PutUserSettingsResponse {
   repeated SettingEntry entries = 1;
+}
+
+// ============================================================================
+// Branding Requests / Responses
+// ============================================================================
+
+// Branding is a tenant's workspace branding. Logo/icon are stored as MinIO
+// object keys, never full URLs — the frontend resolves an object key to a
+// downloadable URL via POST /api/v1/files/presign-download, the same pattern
+// User.avatar_url already uses. accent_color is restricted to the Cosmi
+// swatch palette (desktop/src/renderer/src/lib/swatch-colors.ts); the service
+// rejects any other value.
+message Branding {
+  string name            = 1;
+  string logo_object_key = 2;
+  string icon_object_key = 3;
+  string accent_color    = 4;
+}
+
+message GetBrandingRequest {
+  string tenant_id = 1;
+}
+
+message GetBrandingResponse {
+  Branding branding = 1;
+}
+
+message PutBrandingRequest {
+  string tenant_id  = 1;
+  string updated_by = 2;
+  Branding branding = 3;
+}
+
+message PutBrandingResponse {
+  Branding branding = 1;
 }
 
 // ============================================================================

@@ -285,6 +285,24 @@ func (s *Service) DismissNotification(ctx context.Context, tenantID uuid.UUID, n
 	return notif, nil
 }
 
+// SnoozeNotification hides a notification from lists and the unread count until
+// the given time. The snooze time must be in the future.
+func (s *Service) SnoozeNotification(ctx context.Context, tenantID uuid.UUID, notifID, userID uuid.UUID, until time.Time) error {
+	if until.Before(time.Now()) {
+		return ErrInvalidSnoozeTime
+	}
+
+	notif, err := s.repo.GetByID(ctx, tenantID, notifID)
+	if err != nil {
+		return err
+	}
+	if notif.UserID != userID {
+		return ErrUnauthorized
+	}
+
+	return s.repo.Snooze(ctx, tenantID, notifID, until)
+}
+
 // normalizePriority maps client-facing "high" to the canonical DB value "urgent".
 func normalizePriority(p string) string {
 	if p == "high" {

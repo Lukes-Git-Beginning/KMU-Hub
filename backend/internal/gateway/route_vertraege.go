@@ -45,15 +45,26 @@ func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// VertraegePage.tsx actually gates on). Reads already match the fine
+		// key 1:1 and stay plain RequirePermission.
+		contractCreate := middleware.RequirePermissionAny([2]string{"vertraege:contract", "write"}, [2]string{"vertraege:contract", "create"})
+		// The termination dialog in VertraegePage.tsx calls the same
+		// UpdateContract RPC as a plain edit (status="terminated" + a reason),
+		// so this guard accepts either fine key.
+		contractEdit := middleware.RequirePermissionAny([2]string{"vertraege:contract", "write"}, [2]string{"vertraege:contract", "edit"}, [2]string{"vertraege:contract", "terminate"})
+		contractDelete := middleware.RequirePermissionAny([2]string{"vertraege:contract", "write"}, [2]string{"vertraege:contract", "delete"})
+
 		// Contracts
 		r.Route("/contracts", func(r chi.Router) {
 			r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/", vr.HandleListContracts)
-			r.With(middleware.RequirePermission("vertraege:contract", "write")).Post("/", vr.HandleCreateContract)
+			r.With(contractCreate).Post("/", vr.HandleCreateContract)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/", vr.HandleGetContract)
-				r.With(middleware.RequirePermission("vertraege:contract", "write")).Patch("/", vr.HandleUpdateContract)
-				r.With(middleware.RequirePermission("vertraege:contract", "write")).Delete("/", vr.HandleDeleteContract)
+				r.With(contractEdit).Patch("/", vr.HandleUpdateContract)
+				r.With(contractDelete).Delete("/", vr.HandleDeleteContract)
 
 				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/export", vr.HandleExportContract)
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Put("/signature", vr.HandleSaveContractSignature)

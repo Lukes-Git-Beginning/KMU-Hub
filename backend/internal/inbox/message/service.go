@@ -169,7 +169,7 @@ func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, u
 		return ErrAdapterNotFound
 	}
 
-	return a.HandleReply(ctx, msg.ID, userID, body)
+	return a.HandleReply(ctx, msg.SourceID, userID, body)
 }
 
 // Forward routes a message to a new recipient through the originating channel's
@@ -186,7 +186,7 @@ func (s *Service) Forward(ctx context.Context, id uuid.UUID, tenantID uuid.UUID,
 		return ErrAdapterNotFound
 	}
 
-	if err := a.HandleForward(ctx, msg.ID, userID, to, note); err != nil {
+	if err := a.HandleForward(ctx, msg.SourceID, userID, to, note); err != nil {
 		if errors.Is(err, adapter.ErrForwardNotSupported) {
 			return ErrForwardNotSupported
 		}

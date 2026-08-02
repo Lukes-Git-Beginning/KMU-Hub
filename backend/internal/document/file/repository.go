@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -27,9 +28,30 @@ type Repository interface {
 
 	// Entity links
 	CreateEntityLink(ctx context.Context, link *models.DocumentEntityLink) error
-	DeleteEntityLink(ctx context.Context, id uuid.UUID) error
-	ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error)
-	ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentFile, error)
+	DeleteEntityLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
+	ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error)
+	ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error)
+
+	// Activity (append-only audit trail)
+	CreateActivity(ctx context.Context, activity *models.DocumentFileActivity) error
+	ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error)
+
+	// Comments
+	CreateComment(ctx context.Context, comment *models.DocumentFileComment) error
+	GetCommentByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error)
+	ListComments(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error)
+	UpdateComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error
+	DeleteComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
+
+	// Share links (external, unauthenticated read/download links)
+	CreateShareLink(ctx context.Context, link *models.DocumentShareLink) error
+	ListShareLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentShareLink, error)
+	RevokeShareLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, revokedAt time.Time) error
+	// GetShareLinkByToken resolves a link by its secret alone, without a
+	// tenant filter — the public redemption path has no tenant yet, resolving
+	// one is exactly what this call answers. Must run in the system context.
+	GetShareLinkByToken(ctx context.Context, token string) (*models.DocumentShareLink, error)
+	IncrementShareLinkView(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 }
 
 // ListFilter contains filtering options for listing files.

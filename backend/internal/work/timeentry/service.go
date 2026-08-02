@@ -2,7 +2,9 @@ package timeentry
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -223,4 +225,151 @@ func (s *Service) ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, pa
 // GetTaskTimeSummary returns the aggregate time summary for a task
 func (s *Service) GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.UUID) (*models.TimeEntrySummary, error) {
 	return s.repo.GetTaskTimeSummary(ctx, taskID, tenantID)
+}
+
+// ListBillable returns completed time entries across the tenant for invoicing
+// (Stunden -> Rechnung).
+func (s *Service) ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error) {
+	return s.repo.ListBillable(ctx, tenantID)
+}
+
+// ListByProject returns completed time entries for a single project's tasks
+// (project-level "Stunden abrechnen" roll-up).
+func (s *Service) ListByProject(ctx context.Context, projectID, tenantID uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return s.repo.ListByProject(ctx, projectID, tenantID)
+}
+
+// defaultWeeklyTargetHours is a fixed full-time-week stand-in used for every
+// member's utilization target.
+//
+// lean: the real per-member value (EmployeeProfile.WorkDaysPerWeek x
+// HRCompanySettings.WorkHoursPerDay) lives behind team:data_job:view, a
+// permission this endpoint does not check -- it is gated on project-read
+// only. Wiring it in would leak HR-gated data to anyone with project access.
+// Upgrade once a capability-checked path exists for the work service to read
+// that field, or once utilization moves behind its own HR-aware guard.
+const defaultWeeklyTargetHours = 40
+
+const (
+	utilizationWeeklyBuckets  = 6
+	utilizationMonthlyBuckets = 3
+)
+
+var germanMonthAbbr = [...]string{
+	"Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+	"Jul", "Aug", "Sep", "Okt", "Nov", "Dez",
+}
+
+// ProjectUtilization builds the team-utilization roll-up ("Auslastung") for
+// a project: every member's tracked hours per week (last 6 ISO weeks) and
+// per month (last 3 months), including members with zero tracked hours so
+// managers can see who isn't logging time, not just who is. Carries no cost
+// or salary figure -- see the note on MemberUtilization.
+func (s *Service) ProjectUtilization(ctx context.Context, projectID, tenantID uuid.UUID, members []models.ProjectMember, now time.Time) ([]models.MemberUtilization, error) {
+	weeklySince := startOfISOWeek(now).AddDate(0, 0, -7*(utilizationWeeklyBuckets-1))
+	weekly, err := s.repo.AggregateProjectHours(ctx, projectID, tenantID, "week", weeklySince)
+	if err != nil {
+		return nil, err
+	}
+
+	monthlySince := startOfMonth(now).AddDate(0, -(utilizationMonthlyBuckets - 1), 0)
+	monthly, err := s.repo.AggregateProjectHours(ctx, projectID, tenantID, "month", monthlySince)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildMemberUtilization(members, weekly, monthly, now), nil
+}
+
+// startOfISOWeek returns midnight UTC of the Monday starting t's ISO week.
+func startOfISOWeek(t time.Time) time.Time {
+	t = t.UTC()
+	weekday := int(t.Weekday())
+	if weekday == 0 {
+		weekday = 7 // Sunday -> 7, so Monday is always day 1
+	}
+	monday := t.AddDate(0, 0, -(weekday - 1))
+	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// startOfMonth returns midnight UTC of the first day of t's month.
+func startOfMonth(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+func secondsToHours(seconds int) float64 {
+	return math.Round(float64(seconds)/3600*100) / 100
+}
+
+// buildMemberUtilization zero-fills the last utilizationWeeklyBuckets weeks
+// and utilizationMonthlyBuckets months for every given member and labels
+// each bucket, so a member with no entries in a period still appears with
+// 0 hours rather than a missing point. Pure function, no DB access -- keeps
+// the bucket/label assembly unit-testable without a database.
+func buildMemberUtilization(members []models.ProjectMember, weekly, monthly []models.UtilizationBucket, now time.Time) []models.MemberUtilization {
+	weeklyByMember := bucketsByMemberAndPeriod(weekly)
+	monthlyByMember := bucketsByMemberAndPeriod(monthly)
+
+	weekStarts := make([]time.Time, utilizationWeeklyBuckets)
+	base := startOfISOWeek(now)
+	for i := range weekStarts {
+		weekStarts[i] = base.AddDate(0, 0, -7*(utilizationWeeklyBuckets-1-i))
+	}
+
+	monthStarts := make([]time.Time, utilizationMonthlyBuckets)
+	baseMonth := startOfMonth(now)
+	for i := range monthStarts {
+		monthStarts[i] = baseMonth.AddDate(0, -(utilizationMonthlyBuckets - 1 - i), 0)
+	}
+
+	result := make([]models.MemberUtilization, 0, len(members))
+	for _, m := range members {
+		result = append(result, models.MemberUtilization{
+			UserID:       m.UserID,
+			Name:         strings.TrimSpace(m.FirstName + " " + m.LastName),
+			Role:         m.Role,
+			WeeklyTarget: defaultWeeklyTargetHours,
+			WeeklyData:   utilizationPoints(weeklyByMember[m.UserID], weekStarts, weekLabel),
+			MonthlyData:  utilizationPoints(monthlyByMember[m.UserID], monthStarts, monthLabel),
+		})
+	}
+	return result
+}
+
+func bucketsByMemberAndPeriod(buckets []models.UtilizationBucket) map[uuid.UUID]map[string]int {
+	out := make(map[uuid.UUID]map[string]int, len(buckets))
+	for _, b := range buckets {
+		byPeriod, ok := out[b.UserID]
+		if !ok {
+			byPeriod = make(map[string]int)
+			out[b.UserID] = byPeriod
+		}
+		byPeriod[periodKey(b.PeriodStart)] += b.TotalSeconds
+	}
+	return out
+}
+
+func periodKey(t time.Time) string {
+	return t.Format("2006-01-02")
+}
+
+func weekLabel(t time.Time) string {
+	_, week := t.ISOWeek()
+	return fmt.Sprintf("KW %d", week)
+}
+
+func monthLabel(t time.Time) string {
+	return fmt.Sprintf("%s %d", germanMonthAbbr[t.Month()-1], t.Year())
+}
+
+func utilizationPoints(byPeriod map[string]int, periodStarts []time.Time, label func(time.Time) string) []models.UtilizationPoint {
+	points := make([]models.UtilizationPoint, len(periodStarts))
+	for i, start := range periodStarts {
+		points[i] = models.UtilizationPoint{
+			Label: label(start),
+			Hours: secondsToHours(byPeriod[periodKey(start)]),
+		}
+	}
+	return points
 }

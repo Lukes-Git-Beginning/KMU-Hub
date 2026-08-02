@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ type mockRepository struct {
 	refreshTokens       map[string]*models.RefreshToken // keyed by token_hash
 	userRoles           map[uuid.UUID][]string
 	userPerms           map[uuid.UUID][]string
+	effectiveGrants     map[uuid.UUID][]EffectiveGrantRow
 	invitations         map[uuid.UUID]*models.Invitation
 	invByToken          map[string]*models.Invitation
 	sessions            []*models.UserSession
@@ -35,6 +37,10 @@ type mockRepository struct {
 	provisionedTenants map[uuid.UUID]*models.Tenant
 	provisionedModules map[uuid.UUID][]string
 	provisionFails     error // set to make ProvisionTenant fail
+
+	rotatedFrom       []uuid.UUID // refresh token ids RotateSessionRefreshToken was asked about
+	prunedFor         []uuid.UUID // user ids DeleteStaleUserSessions was called for
+	sessionWriteFails bool        // make CreateSession fail, to prove a login survives it
 }
 
 func newMockRepository() *mockRepository {
@@ -44,6 +50,7 @@ func newMockRepository() *mockRepository {
 		refreshTokens:       make(map[string]*models.RefreshToken),
 		userRoles:           make(map[uuid.UUID][]string),
 		userPerms:           make(map[uuid.UUID][]string),
+		effectiveGrants:     make(map[uuid.UUID][]EffectiveGrantRow),
 		invitations:         make(map[uuid.UUID]*models.Invitation),
 		invByToken:          make(map[string]*models.Invitation),
 		sessions:            nil,
@@ -159,6 +166,10 @@ func (m *mockRepository) GetUserRoles(_ context.Context, userID uuid.UUID) ([]st
 
 func (m *mockRepository) GetUserPermissions(_ context.Context, userID uuid.UUID) ([]string, error) {
 	return m.userPerms[userID], nil
+}
+
+func (m *mockRepository) GetEffectivePermissions(_ context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
+	return m.effectiveGrants[userID], nil
 }
 
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
@@ -360,16 +371,30 @@ func (m *mockRepository) UpsertTwoFactorPolicy(_ context.Context, _ *models.TwoF
 // Session management mock methods
 
 func (m *mockRepository) CreateSession(_ context.Context, session *models.UserSession) error {
+	if m.sessionWriteFails {
+		return errors.New("session write failed")
+	}
 	m.sessions = append(m.sessions, session)
 	return nil
 }
 
-func (m *mockRepository) GetSession(_ context.Context, _ uuid.UUID) (*models.UserSession, error) {
-	return nil, nil
+func (m *mockRepository) GetSession(_ context.Context, id uuid.UUID) (*models.UserSession, error) {
+	for _, s := range m.sessions {
+		if s.ID == id {
+			return s, nil
+		}
+	}
+	return nil, ErrSessionNotFound
 }
 
-func (m *mockRepository) ListUserSessions(_ context.Context, _ uuid.UUID) ([]*models.UserSession, error) {
-	return nil, nil
+func (m *mockRepository) ListUserSessions(_ context.Context, userID uuid.UUID) ([]*models.UserSession, error) {
+	var out []*models.UserSession
+	for _, s := range m.sessions {
+		if s.UserID == userID {
+			out = append(out, s)
+		}
+	}
+	return out, nil
 }
 
 func (m *mockRepository) ListAllSessions(_ context.Context, _, _ int) ([]*models.UserSession, int, error) {
@@ -380,11 +405,58 @@ func (m *mockRepository) UpdateSessionActivity(_ context.Context, _ uuid.UUID) e
 	return nil
 }
 
-func (m *mockRepository) DeleteSession(_ context.Context, _ uuid.UUID) error {
+func (m *mockRepository) DeleteSession(_ context.Context, id uuid.UUID) error {
+	kept := m.sessions[:0]
+	for _, s := range m.sessions {
+		if s.ID != id {
+			kept = append(kept, s)
+		}
+	}
+	m.sessions = kept
 	return nil
 }
 
-func (m *mockRepository) DeleteAllUserSessions(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+func (m *mockRepository) DeleteAllUserSessions(_ context.Context, userID uuid.UUID, exceptSessionID *uuid.UUID) error {
+	kept := m.sessions[:0]
+	for _, s := range m.sessions {
+		if s.UserID != userID || (exceptSessionID != nil && s.ID == *exceptSessionID) {
+			kept = append(kept, s)
+		}
+	}
+	m.sessions = kept
+	return nil
+}
+
+func (m *mockRepository) RotateSessionRefreshToken(_ context.Context, oldTokenID, newTokenID uuid.UUID, ipAddress, userAgent string) (bool, error) {
+	m.rotatedFrom = append(m.rotatedFrom, oldTokenID)
+	for _, s := range m.sessions {
+		if s.RefreshTokenID != nil && *s.RefreshTokenID == oldTokenID {
+			s.RefreshTokenID = &newTokenID
+			if ipAddress != "" {
+				s.IPAddress = ipAddress
+			}
+			if userAgent != "" {
+				s.UserAgent = userAgent
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *mockRepository) DeleteSessionByRefreshTokenID(_ context.Context, refreshTokenID uuid.UUID) error {
+	kept := m.sessions[:0]
+	for _, s := range m.sessions {
+		if s.RefreshTokenID == nil || *s.RefreshTokenID != refreshTokenID {
+			kept = append(kept, s)
+		}
+	}
+	m.sessions = kept
+	return nil
+}
+
+func (m *mockRepository) DeleteStaleUserSessions(_ context.Context, userID uuid.UUID) error {
+	m.prunedFor = append(m.prunedFor, userID)
 	return nil
 }
 
@@ -666,7 +738,7 @@ func TestService_ValidateToken(t *testing.T) {
 
 	t.Run("valid token", func(t *testing.T) {
 		userID := uuid.New()
-		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, []string{"contacts:read"})
+		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, []string{"contacts:read"}, nil)
 		require.NoError(t, err)
 
 		claims, err := svc.ValidateToken(context.Background(), token)

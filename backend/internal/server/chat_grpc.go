@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/chat/bookmark"
 	"github.com/kmuhub/kmuhub/internal/chat/channel"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/message"
@@ -27,16 +28,18 @@ type ChatGRPCServer struct {
 	fileService     *file.Service
 	searchService   *search.Service
 	reactionService *reaction.Service
+	bookmarkService *bookmark.Service
 }
 
 // NewChatGRPCServer creates a new Chat gRPC server.
-// Signature change (Welle 8): added reactionService *reaction.Service parameter.
+// Signature change (fe-messages-bookmark): added bookmarkService *bookmark.Service parameter.
 func NewChatGRPCServer(
 	channelService *channel.Service,
 	messageService *message.Service,
 	fileService *file.Service,
 	searchService *search.Service,
 	reactionService *reaction.Service,
+	bookmarkService *bookmark.Service,
 ) *ChatGRPCServer {
 	return &ChatGRPCServer{
 		channelService:  channelService,
@@ -44,6 +47,7 @@ func NewChatGRPCServer(
 		fileService:     fileService,
 		searchService:   searchService,
 		reactionService: reactionService,
+		bookmarkService: bookmarkService,
 	}
 }
 
@@ -970,6 +974,58 @@ func (s *ChatGRPCServer) GetReactionSummary(ctx context.Context, req *chatv1.Get
 	}
 
 	return &chatv1.GetReactionSummaryResponse{Summaries: summaries}, nil
+}
+
+// ============================================================================
+// Bookmarks
+// ============================================================================
+
+func (s *ChatGRPCServer) ToggleBookmark(ctx context.Context, req *chatv1.ToggleBookmarkRequest) (*chatv1.ToggleBookmarkResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	bookmarked, err := s.bookmarkService.Toggle(ctx, tenantID, userID, messageID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.ToggleBookmarkResponse{Bookmarked: bookmarked}, nil
+}
+
+func (s *ChatGRPCServer) ListBookmarks(ctx context.Context, req *chatv1.ListBookmarksRequest) (*chatv1.ListBookmarksResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	messages, err := s.bookmarkService.List(ctx, tenantID, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	infos := make([]*chatv1.MessageInfo, 0, len(messages))
+	for _, m := range messages {
+		infos = append(infos, toMessageInfo(m))
+	}
+
+	return &chatv1.ListBookmarksResponse{Messages: infos}, nil
 }
 
 // ============================================================================

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
 
+	"github.com/kmuhub/kmuhub/internal/chat/bookmark"
 	"github.com/kmuhub/kmuhub/internal/chat/channel"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/langdetect"
@@ -54,6 +55,7 @@ func main() {
 	fileRepo := file.NewPostgresRepository(pool)
 	searchRepo := search.NewPostgresRepository(pool)
 	reactionRepo := reaction.NewPostgresRepository(pool)
+	bookmarkRepo := bookmark.NewPostgresRepository(pool)
 
 	// Initialize MinIO file store.
 	// When MINIO_PUBLIC_ENDPOINT is set, presigned URLs are signed with the
@@ -98,6 +100,7 @@ func main() {
 	fileService := file.NewService(fileRepo, fileStore, fileScanner, thumbnailGen, cfg.FileSizeLimitMB)
 	searchService := search.NewService(searchRepo, langDetector)
 	reactionService := reaction.NewService(reactionRepo)
+	bookmarkService := bookmark.NewService(bookmarkRepo, messageService)
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -114,7 +117,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	chatGRPC := server.NewChatGRPCServer(channelService, messageService, fileService, searchService, reactionService)
+	chatGRPC := server.NewChatGRPCServer(channelService, messageService, fileService, searchService, reactionService, bookmarkService)
 	chatv1.RegisterChatServiceServer(grpcServer, chatGRPC)
 
 	// Initialize gRPC metrics after service registration

@@ -65,14 +65,20 @@ func (r *PostgresRepository) GetRecording(ctx context.Context, id uuid.UUID) (*R
 }
 
 func (r *PostgresRepository) UpdateRecording(ctx context.Context, rec *Recording) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE recordings SET status = $1, egress_id = $2, file_url = $3, file_size_bytes = $4,
 		  duration_seconds = $5, retention_expires_at = $6
 		 WHERE id = $7`,
 		rec.Status, rec.EgressID, rec.FileURL, rec.FileSizeBytes,
 		rec.DurationSeconds, rec.RetentionExpiresAt, rec.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) ListRecordingsByCall(ctx context.Context, callID uuid.UUID) ([]Recording, error) {
@@ -136,8 +142,14 @@ func (r *PostgresRepository) TagRecordingWithConsents(ctx context.Context, recor
 }
 
 func (r *PostgresRepository) DeleteRecording(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM recordings WHERE id = $1`, id)
-	return err
+	tag, err := r.pool.Exec(ctx, `DELETE FROM recordings WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) SetConsent(ctx context.Context, consent *RecordingConsent) error {

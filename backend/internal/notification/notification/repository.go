@@ -54,6 +54,9 @@ type Repository interface {
 	// SetDismissed sets the is_dismissed flag on a notification within a tenant.
 	SetDismissed(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, dismissed bool) error
 
+	// Snooze sets snoozed_until on a notification within a tenant and marks it read.
+	Snooze(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, until time.Time) error
+
 	// NotifyDelivery emits a pg_notify on the notification_delivery channel
 	// to signal the gateway to push a real-time WebSocket notification.
 	NotifyDelivery(ctx context.Context, payload string) error

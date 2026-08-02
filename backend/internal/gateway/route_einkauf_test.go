@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newEinkaufRoutes(registry *ServiceRegistry) *EinkaufRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_EINKAUF_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewEinkaufRoutes(registry, flags)
+}
 
 // --- HandleCreateSupplier ---
 

@@ -47,15 +47,32 @@ func (vr *VermietungRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// VermietungPage.tsx/ObjectDetailModal.tsx/RentalDetailModal.tsx
+		// actually gate on). Reads already match the fine key 1:1 and stay
+		// plain RequirePermission.
+		objectCreate := middleware.RequirePermissionAny([2]string{"vermietung:object", "write"}, [2]string{"vermietung:object", "create"})
+		objectEdit := middleware.RequirePermissionAny([2]string{"vermietung:object", "write"}, [2]string{"vermietung:object", "edit"})
+		objectDelete := middleware.RequirePermissionAny([2]string{"vermietung:object", "write"}, [2]string{"vermietung:object", "delete"})
+		rentalCreate := middleware.RequirePermissionAny([2]string{"vermietung:rental", "write"}, [2]string{"vermietung:rental", "create"})
+		rentalEdit := middleware.RequirePermissionAny([2]string{"vermietung:rental", "write"}, [2]string{"vermietung:rental", "edit"})
+		// "Stornieren" in RentalDetailModal.tsx is a soft label over DeleteRental.
+		rentalCancel := middleware.RequirePermissionAny([2]string{"vermietung:rental", "write"}, [2]string{"vermietung:rental", "cancel"})
+		// Start (Ausgeben) and End (Zuruecknehmen) both gate on the single
+		// rental:handover fine switch in RentalDetailModal.tsx.
+		rentalHandover := middleware.RequirePermissionAny([2]string{"vermietung:rental", "write"}, [2]string{"vermietung:rental", "handover"})
+		inspectionCreate := middleware.RequirePermissionAny([2]string{"vermietung:inspection", "write"}, [2]string{"vermietung:inspection", "create"})
+
 		// Objects
 		r.Route("/objects", func(r chi.Router) {
 			r.With(middleware.RequirePermission("vermietung:object", "read")).Get("/", vr.HandleListObjects)
-			r.With(middleware.RequirePermission("vermietung:object", "write")).Post("/", vr.HandleCreateObject)
+			r.With(objectCreate).Post("/", vr.HandleCreateObject)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("vermietung:object", "read")).Get("/", vr.HandleGetObject)
-				r.With(middleware.RequirePermission("vermietung:object", "write")).Patch("/", vr.HandleUpdateObject)
-				r.With(middleware.RequirePermission("vermietung:object", "write")).Delete("/", vr.HandleDeleteObject)
+				r.With(objectEdit).Patch("/", vr.HandleUpdateObject)
+				r.With(objectDelete).Delete("/", vr.HandleDeleteObject)
 
 				r.With(middleware.RequirePermission("vermietung:object", "read")).Get("/availability", vr.HandleCheckAvailability)
 			})
@@ -64,23 +81,23 @@ func (vr *VermietungRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 		// Rentals
 		r.Route("/rentals", func(r chi.Router) {
 			r.With(middleware.RequirePermission("vermietung:rental", "read")).Get("/", vr.HandleListRentals)
-			r.With(middleware.RequirePermission("vermietung:rental", "write")).Post("/", vr.HandleCreateRental)
+			r.With(rentalCreate).Post("/", vr.HandleCreateRental)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("vermietung:rental", "read")).Get("/", vr.HandleGetRental)
-				r.With(middleware.RequirePermission("vermietung:rental", "write")).Patch("/", vr.HandleUpdateRental)
-				r.With(middleware.RequirePermission("vermietung:rental", "write")).Delete("/", vr.HandleDeleteRental)
+				r.With(rentalEdit).Patch("/", vr.HandleUpdateRental)
+				r.With(rentalCancel).Delete("/", vr.HandleDeleteRental)
 
-				r.With(middleware.RequirePermission("vermietung:rental", "write")).Post("/start", vr.HandleStartRental)
-				r.With(middleware.RequirePermission("vermietung:rental", "write")).Post("/end", vr.HandleEndRental)
+				r.With(rentalHandover).Post("/start", vr.HandleStartRental)
+				r.With(rentalHandover).Post("/end", vr.HandleEndRental)
 
-				// Signature
+				// Signature — no catalog key for this action, legacy guard stays.
 				r.With(middleware.RequirePermission("vermietung:rental", "write")).Put("/signature", vr.HandleSaveRentalSignature)
 
 				// Inspections scoped to a rental
 				r.Route("/inspections", func(r chi.Router) {
 					r.With(middleware.RequirePermission("vermietung:inspection", "read")).Get("/", vr.HandleListInspections)
-					r.With(middleware.RequirePermission("vermietung:inspection", "write")).Post("/", vr.HandleCreateInspection)
+					r.With(inspectionCreate).Post("/", vr.HandleCreateInspection)
 				})
 			})
 		})

@@ -14,7 +14,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
+	"github.com/kmuhub/kmuhub/internal/email/label"
 	"github.com/kmuhub/kmuhub/internal/email/message"
+	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
@@ -35,6 +37,8 @@ type EmailGRPCServer struct {
 	linkRepo          EmailContactLinkRepository
 	importService     *emailcontact.ImportService
 	exportService     *emailcontact.ExportService
+	ruleService       *rule.Service
+	labelService      *label.Service
 }
 
 // EmailContactLinkRepository defines the interface for CRM email linking.
@@ -56,6 +60,8 @@ func NewEmailGRPCServer(
 	linkRepo EmailContactLinkRepository,
 	importService *emailcontact.ImportService,
 	exportService *emailcontact.ExportService,
+	ruleService *rule.Service,
+	labelService *label.Service,
 ) *EmailGRPCServer {
 	return &EmailGRPCServer{
 		accountService:    accountService,
@@ -67,6 +73,8 @@ func NewEmailGRPCServer(
 		linkRepo:          linkRepo,
 		importService:     importService,
 		exportService:     exportService,
+		ruleService:       ruleService,
+		labelService:      labelService,
 	}
 }
 
@@ -1209,6 +1217,10 @@ func toEmailMessageInfo(m *models.EmailMessage) *emailv1.EmailMessageInfo {
 		UpdatedAt:       m.UpdatedAt.Format(time.RFC3339),
 	}
 
+	for _, id := range m.LabelIDs {
+		info.LabelIds = append(info.LabelIds, id.String())
+	}
+
 	if m.ThreadID != nil {
 		info.ThreadId = m.ThreadID.String()
 	}
@@ -1336,6 +1348,31 @@ func mapEmailError(err error) error {
 	case errors.Is(err, emailsync.ErrSyncInProgress):
 		return status.Error(codes.AlreadyExists, err.Error())
 
+	// Rule errors
+	case errors.Is(err, rule.ErrRuleNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrTargetNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrInvalidField),
+		errors.Is(err, rule.ErrInvalidOperator),
+		errors.Is(err, rule.ErrInvalidActionType),
+		errors.Is(err, rule.ErrNameRequired),
+		errors.Is(err, rule.ErrValueRequired),
+		errors.Is(err, rule.ErrTargetRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Label errors
+	case errors.Is(err, label.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, label.ErrMessageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, label.ErrDuplicateName):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, label.ErrNameRequired),
+		errors.Is(err, label.ErrColorInvalid),
+		errors.Is(err, label.ErrTargetInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+
 	// Import errors
 	case errors.Is(err, emailcontact.ErrImportFailed):
 		return status.Error(codes.Internal, err.Error())
@@ -1350,3 +1387,220 @@ func mapEmailError(err error) error {
 	}
 }
 
+
+// ============================================================================
+// Rules (Regeln & Filter)
+// ============================================================================
+
+func (s *EmailGRPCServer) ListEmailRules(ctx context.Context, _ *emailv1.ListEmailRulesRequest) (*emailv1.ListEmailRulesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	rules, err := s.ruleService.List(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	out := make([]*emailv1.EmailRuleInfo, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, toEmailRuleInfo(r))
+	}
+	return &emailv1.ListEmailRulesResponse{Rules: out}, nil
+}
+
+func (s *EmailGRPCServer) CreateEmailRule(ctx context.Context, req *emailv1.CreateEmailRuleRequest) (*emailv1.CreateEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	r, err := s.ruleService.Create(ctx, tenantID, rule.RuleInput{
+		Name:         &req.Name,
+		Field:        &req.Field,
+		Op:           &req.Op,
+		Value:        &req.Value,
+		ActionType:   &req.ActionType,
+		ActionTarget: &req.ActionTarget,
+	})
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.CreateEmailRuleResponse{Rule: toEmailRuleInfo(r)}, nil
+}
+
+func (s *EmailGRPCServer) UpdateEmailRule(ctx context.Context, req *emailv1.UpdateEmailRuleRequest) (*emailv1.UpdateEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
+	}
+
+	r, err := s.ruleService.Update(ctx, id, tenantID, rule.RuleInput{
+		Name:         req.Name,
+		Field:        req.Field,
+		Op:           req.Op,
+		Value:        req.Value,
+		ActionType:   req.ActionType,
+		ActionTarget: req.ActionTarget,
+	})
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.UpdateEmailRuleResponse{Rule: toEmailRuleInfo(r)}, nil
+}
+
+func (s *EmailGRPCServer) DeleteEmailRule(ctx context.Context, req *emailv1.DeleteEmailRuleRequest) (*emailv1.DeleteEmailRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
+	}
+
+	if err := s.ruleService.Delete(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.DeleteEmailRuleResponse{Success: true}, nil
+}
+
+func (s *EmailGRPCServer) ApplyEmailRules(ctx context.Context, _ *emailv1.ApplyEmailRulesRequest) (*emailv1.ApplyEmailRulesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	res, err := s.ruleService.ApplyAll(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.ApplyEmailRulesResponse{
+		Affected: int32(res.Affected),
+		Scanned:  int32(res.Scanned),
+	}, nil
+}
+
+func toEmailRuleInfo(r *models.EmailRule) *emailv1.EmailRuleInfo {
+	return &emailv1.EmailRuleInfo{
+		Id:           r.ID.String(),
+		Name:         r.Name,
+		Field:        r.Field,
+		Op:           r.Op,
+		Value:        r.Value,
+		ActionType:   r.ActionType,
+		ActionTarget: r.ActionTarget.String(),
+	}
+}
+
+// ============================================================================
+// Labels
+// ============================================================================
+
+func (s *EmailGRPCServer) ListEmailLabels(ctx context.Context, _ *emailv1.ListEmailLabelsRequest) (*emailv1.ListEmailLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	labels, err := s.labelService.List(ctx, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	out := make([]*emailv1.EmailLabelInfo, 0, len(labels))
+	for _, l := range labels {
+		out = append(out, toEmailLabelInfo(l))
+	}
+	return &emailv1.ListEmailLabelsResponse{Labels: out}, nil
+}
+
+func (s *EmailGRPCServer) CreateEmailLabel(ctx context.Context, req *emailv1.CreateEmailLabelRequest) (*emailv1.CreateEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	l, err := s.labelService.Create(ctx, tenantID, req.Name, req.Color)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.CreateEmailLabelResponse{Label: toEmailLabelInfo(l)}, nil
+}
+
+func (s *EmailGRPCServer) UpdateEmailLabel(ctx context.Context, req *emailv1.UpdateEmailLabelRequest) (*emailv1.UpdateEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid label id")
+	}
+
+	l, err := s.labelService.Update(ctx, id, tenantID, req.Name, req.Color)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.UpdateEmailLabelResponse{Label: toEmailLabelInfo(l)}, nil
+}
+
+func (s *EmailGRPCServer) DeleteEmailLabel(ctx context.Context, req *emailv1.DeleteEmailLabelRequest) (*emailv1.DeleteEmailLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid label id")
+	}
+
+	if err := s.labelService.Delete(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.DeleteEmailLabelResponse{Success: true}, nil
+}
+
+func (s *EmailGRPCServer) AssignMessageLabels(ctx context.Context, req *emailv1.AssignMessageLabelsRequest) (*emailv1.AssignMessageLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message id")
+	}
+
+	labelIDs := make([]uuid.UUID, 0, len(req.LabelIds))
+	for _, raw := range req.LabelIds {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid label id")
+		}
+		labelIDs = append(labelIDs, id)
+	}
+
+	msg, err := s.labelService.AssignToMessage(ctx, tenantID, messageID, labelIDs)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return &emailv1.AssignMessageLabelsResponse{Message: toEmailMessageInfo(msg)}, nil
+}
+
+func toEmailLabelInfo(l *models.EmailLabel) *emailv1.EmailLabelInfo {
+	return &emailv1.EmailLabelInfo{
+		Id:    l.ID.String(),
+		Name:  l.Name,
+		Color: l.Color,
+	}
+}

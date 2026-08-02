@@ -2,6 +2,7 @@ package helpdesk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -36,6 +37,8 @@ func (s *Service) CreateTicket(
 	queueID *uuid.UUID,
 	description string,
 	category string,
+	contactID *uuid.UUID,
+	orgID *uuid.UUID,
 ) (*Ticket, error) {
 	if subject == "" {
 		return nil, fmt.Errorf("subject must not be empty")
@@ -45,6 +48,9 @@ func (s *Service) CreateTicket(
 	}
 	if !ValidTicketPriorities[priority] {
 		return nil, ErrInvalidPriority
+	}
+	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
+		return nil, err
 	}
 
 	now := time.Now().UTC()
@@ -59,6 +65,8 @@ func (s *Service) CreateTicket(
 		QueueID:     queueID,
 		Description: description,
 		Category:    category,
+		ContactID:   contactID,
+		OrgID:       orgID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -76,6 +84,86 @@ func (s *Service) CreateTicket(
 	return t, nil
 }
 
+// sourceChannelLabels renders a ValidSourceChannels key for the fallback
+// ticket subject CreateTicketFromMessage uses when the source message itself
+// has no subject.
+var sourceChannelLabels = map[string]string{
+	"email":        "E-Mail",
+	"chat":         "Chat",
+	"notification": "Benachrichtigung",
+}
+
+// CreateTicketFromMessage converts an inbox message into a ticket: the ticket
+// links back to the message via sourceMessageID/sourceChannel instead of
+// copying its content a second time, so ticket and inbox never drift apart.
+// Converting the same messageID twice is a no-op: the second call returns the
+// already-existing ticket (created=false) instead of creating a duplicate.
+// channel/subject/preview are supplied by the caller (the gRPC handler fetches
+// them from the inbox service) -- this method holds no cross-service client.
+func (s *Service) CreateTicketFromMessage(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	requesterID uuid.UUID,
+	messageID uuid.UUID,
+	channel string,
+	subject string,
+	preview string,
+) (*Ticket, bool, error) {
+	if !ValidSourceChannels[channel] {
+		return nil, false, ErrInvalidSourceChannel
+	}
+
+	if existing, err := s.repo.GetTicketBySourceMessage(ctx, tenantID, messageID); err != nil {
+		return nil, false, fmt.Errorf("check existing ticket for message: %w", err)
+	} else if existing != nil {
+		return existing, false, nil
+	}
+
+	if subject == "" {
+		subject = fmt.Sprintf("Ticket aus %s", sourceChannelLabels[channel])
+	}
+
+	now := time.Now().UTC()
+	t := &Ticket{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		Subject:         subject,
+		Status:          TicketStatusOpen,
+		Priority:        TicketPriorityNormal,
+		RequesterID:     requesterID,
+		Description:     preview,
+		SourceChannel:   &channel,
+		SourceMessageID: &messageID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if err := s.repo.CreateTicket(ctx, t); err != nil {
+		if errors.Is(err, ErrMessageAlreadyLinked) {
+			// Lost the race against a concurrent conversion of the same
+			// message: the unique index caught it, so load and return the
+			// winner instead of surfacing an error for a non-error situation.
+			existing, existErr := s.repo.GetTicketBySourceMessage(ctx, tenantID, messageID)
+			if existErr != nil {
+				return nil, false, fmt.Errorf("load ticket after concurrent conversion: %w", existErr)
+			}
+			if existing != nil {
+				return existing, false, nil
+			}
+		}
+		return nil, false, fmt.Errorf("create ticket from message: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket created from inbox message",
+		"ticket_id", t.ID,
+		"tenant_id", tenantID,
+		"message_id", messageID,
+		"channel", channel,
+	)
+
+	return t, true, nil
+}
+
 // GetTicket retrieves a ticket by ID.
 func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
 	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
@@ -86,20 +174,49 @@ func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticke
 }
 
 // ListTickets returns a paginated list of tickets for a tenant.
+// ListTickets returns one page of the tenant's tickets. A non-nil participantID
+// narrows the page to tickets that user raised or is assigned — what a caller
+// whose helpdesk:ticket:read grant is scoped to "own" may see.
 func (s *Service) ListTickets(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	statusFilter *string,
+	participantID, contactID, orgID *uuid.UUID,
 	page, pageSize int,
 ) ([]*Ticket, int, error) {
 	if statusFilter != nil && !ValidTicketStatuses[*statusFilter] {
 		return nil, 0, ErrInvalidStatus
 	}
-	tickets, total, err := s.repo.ListTickets(ctx, tenantID, statusFilter, page, pageSize)
+	tickets, total, err := s.repo.ListTickets(ctx, tenantID, statusFilter, participantID, contactID, orgID, page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list tickets: %w", err)
 	}
 	return tickets, total, nil
+}
+
+// checkContactOrgTenant verifies that a non-nil contactID/orgID belongs to
+// tenantID before it is allowed onto a ticket -- otherwise a ticket could be
+// linked to another tenant's CRM data.
+func (s *Service) checkContactOrgTenant(ctx context.Context, tenantID uuid.UUID, contactID, orgID *uuid.UUID) error {
+	if contactID != nil {
+		exists, err := s.repo.ContactExists(ctx, *contactID, tenantID)
+		if err != nil {
+			return fmt.Errorf("check contact tenant: %w", err)
+		}
+		if !exists {
+			return ErrContactNotFound
+		}
+	}
+	if orgID != nil {
+		exists, err := s.repo.CompanyExists(ctx, *orgID, tenantID)
+		if err != nil {
+			return fmt.Errorf("check org tenant: %w", err)
+		}
+		if !exists {
+			return ErrOrgNotFound
+		}
+	}
+	return nil
 }
 
 // UpdateTicket applies field-level patches to a ticket.
@@ -110,10 +227,15 @@ func (s *Service) UpdateTicket(
 	priority *string,
 	assigneeID *uuid.UUID,
 	queueID *uuid.UUID,
+	contactID *uuid.UUID,
+	orgID *uuid.UUID,
 ) (*Ticket, error) {
 	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update ticket – load: %w", err)
+	}
+	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
+		return nil, err
 	}
 
 	if subject != nil {
@@ -133,6 +255,12 @@ func (s *Service) UpdateTicket(
 	}
 	if queueID != nil {
 		t.QueueID = queueID
+	}
+	if contactID != nil {
+		t.ContactID = contactID
+	}
+	if orgID != nil {
+		t.OrgID = orgID
 	}
 	t.UpdatedAt = time.Now().UTC()
 

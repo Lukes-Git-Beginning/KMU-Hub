@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	"github.com/kmuhub/kmuhub/internal/validation"
@@ -112,6 +113,43 @@ func validateUUIDParam(w http.ResponseWriter, r *http.Request, param string) (st
 		return "", false
 	}
 	return raw, true
+}
+
+// ownerFilterForScope resolves the data scope of one permission into a list
+// filter. It returns a non-nil user id exactly when the caller's grant on
+// resource:action is narrowed to "own", and nil when they may see the whole
+// tenant. On failure it writes a 401 and returns false, and the caller must
+// return immediately.
+//
+//	ownerID, ok := ownerFilterForScope(w, r, "rapporte:report", "read")
+//	if !ok {
+//	    return
+//	}
+//	grpcReq.AuthorId = ownerID
+//
+// Assigning the result unconditionally is the point: at scope "own" it must
+// override whatever owner filter the client asked for, or the narrowing is a
+// suggestion rather than a boundary.
+//
+// The id then travels to the service and ends up in the repository's WHERE
+// clause — never in a post-filter over the response, which would leave the
+// total count and the page boundaries describing rows the caller may not see.
+// Scope "team" needs a reporting-line resolver that does not exist yet and
+// currently behaves like "all".
+func ownerFilterForScope(w http.ResponseWriter, r *http.Request, resource, action string) (*string, bool) {
+	if middleware.PermissionScope(r.Context(), resource, action) != auth.ScopeOwn {
+		return nil, true
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		// Refusing beats falling through: an empty id would either filter on
+		// nothing and hand back the full list, or reach the service as an
+		// unparsable filter.
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return nil, false
+	}
+	return &userID, true
 }
 
 // decodeAndValidate decodes the JSON request body into a value of type T and

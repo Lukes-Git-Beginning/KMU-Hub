@@ -47,6 +47,40 @@ func getTenantID(r *http.Request) (string, error) {
 
 // RegisterRoutes registers all Finance HTTP routes.
 func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive RBAC guards (RequirePermissionAny keeps the legacy coarse token
+	// valid while granting the capability-catalog.ts fine keys, per the FE gate
+	// calls that reach each route). Company settings, invoice import/lock/
+	// validate-number, dunning status/notice, payment delete, open-items, bank
+	// statements/transactions, incoming-invoices, journal/stats and gobd-archive
+	// have zero FE caller today (grepped across desktop/src — several are
+	// pre-wired for the still-`todo` Block D FE-only finance units) and stay on
+	// the legacy-only guard; see JOURNAL.md for the full inventory.
+	invoiceRead := middleware.RequirePermissionAny([2]string{"finance", "read"}, [2]string{"finance:invoice", "read"})
+	invoiceCreate := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "create"})
+	invoiceEdit := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "edit"})
+	invoiceDelete := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "delete"})
+	invoiceSend := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "send"})
+	// Credit-note create is reached both for a fresh credit note (invoice:create,
+	// FinanzenPage.tsx canCreateInvoice) and for a storno of an issued invoice
+	// (invoice:delete, canDeleteInvoice) — both must open the route.
+	creditNoteCreate := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "create"}, [2]string{"finance:invoice", "delete"})
+
+	quoteRead := middleware.RequirePermissionAny([2]string{"finance", "read"}, [2]string{"finance:quote", "read"})
+	// Quote edit/accept/reject are gated by quote:create in QuoteDetailPanel.tsx
+	// ("Edit -> quote:create", "Accept/Reject -> quote:create") — there is no
+	// separate quote:edit catalogue key.
+	quoteWrite := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:quote", "create"})
+	quoteSend := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:quote", "send"})
+	// Convert-to-invoice creates an invoice (QuoteDetailPanel.tsx "Convert -> invoice:create").
+	quoteConvert := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:invoice", "create"})
+
+	dunningRun := middleware.RequirePermissionAny([2]string{"finance", "read"}, [2]string{"finance:dunning", "run"})
+	dunningRunWrite := middleware.RequirePermissionAny([2]string{"finance", "write"}, [2]string{"finance:dunning", "run"})
+	dunningSettings := middleware.RequirePermissionAny([2]string{"finance", "read"}, [2]string{"finance:settings", "manage"})
+	dunningSettingsWrite := middleware.RequirePermissionAny([2]string{"finance", "admin"}, [2]string{"finance:settings", "manage"})
+
+	exportRun := middleware.RequirePermissionAny([2]string{"finance", "read"}, [2]string{"finance:export", "run"})
+
 	// Company Settings
 	r.Route("/api/v1/finance/settings", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -57,35 +91,37 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Quotes
 	r.Route("/api/v1/finance/quotes", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateQuote)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListQuotes)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetQuote)
-		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateQuote)
+		r.With(quoteWrite).Post("/", b.HandleCreateQuote)
+		r.With(quoteRead).Get("/", b.HandleListQuotes)
+		r.With(quoteRead).Get("/{id}", b.HandleGetQuote)
+		r.With(quoteWrite).Put("/{id}", b.HandleUpdateQuote)
 		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteQuote)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/send", b.HandleSendQuote)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/accept", b.HandleAcceptQuote)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reject", b.HandleRejectQuote)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/convert", b.HandleConvertQuoteToInvoice)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateQuotePDF)
+		r.With(quoteSend).Post("/{id}/send", b.HandleSendQuote)
+		r.With(quoteWrite).Post("/{id}/accept", b.HandleAcceptQuote)
+		r.With(quoteWrite).Post("/{id}/reject", b.HandleRejectQuote)
+		r.With(quoteConvert).Post("/{id}/convert", b.HandleConvertQuoteToInvoice)
+		r.With(quoteRead).Get("/{id}/pdf", b.HandleGenerateQuotePDF)
 	})
 
 	// Invoices
 	r.Route("/api/v1/finance/invoices", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateInvoice)
+		r.With(invoiceCreate).Post("/", b.HandleCreateInvoice)
 		// E-Rechnung Eingang: PDF (ZUGFeRD) oder XML (XRechnung/CII) importieren
 		r.With(middleware.RequirePermission("finance", "write")).Post("/import", b.HandleImportInvoice)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListInvoices)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/send", b.HandleSendInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pay", b.HandleMarkInvoicePaid)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/cancel", b.HandleCancelInvoice)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateInvoicePDF)
+		r.With(invoiceRead).Get("/", b.HandleListInvoices)
+		r.With(invoiceRead).Get("/{id}", b.HandleGetInvoice)
+		r.With(invoiceEdit).Put("/{id}", b.HandleUpdateInvoice)
+		r.With(invoiceSend).Post("/{id}/send", b.HandleSendInvoice)
+		r.With(invoiceEdit).Post("/{id}/pay", b.HandleMarkInvoicePaid)
+		r.With(invoiceDelete).Post("/{id}/cancel", b.HandleCancelInvoice)
+		r.With(invoiceRead).Get("/{id}/pdf", b.HandleGenerateInvoicePDF)
+		// E-Rechnung Ausgang: XRechnung UBL-XML oder ZUGFeRD-PDF exportieren
+		r.With(middleware.RequirePermission("finance", "read")).Post("/{id}/erechnung", b.HandleGenerateEInvoice)
 		r.With(middleware.RequirePermission("finance", "admin")).Post("/{id}/lock", b.HandleLockInvoice)
 		// Payments nested under invoices
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/payments", b.HandleRecordPayment)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/payments", b.HandleListPayments)
+		r.With(invoiceEdit).Post("/{id}/payments", b.HandleRecordPayment)
+		r.With(invoiceRead).Get("/{id}/payments", b.HandleListPayments)
 		// GoBD number validation
 		r.With(middleware.RequirePermission("finance", "read")).Get("/validate-number", b.HandleValidateInvoiceNumber)
 	})
@@ -93,24 +129,24 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Recurring invoices (Abo-Rechnungen)
 	r.Route("/api/v1/finance/recurring", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListRecurringInvoices)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pause", b.HandlePauseRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/resume", b.HandleResumeRecurringInvoice)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/generate", b.HandleGenerateRecurringInvoice)
+		r.With(invoiceRead).Get("/", b.HandleListRecurringInvoices)
+		r.With(invoiceCreate).Post("/", b.HandleCreateRecurringInvoice)
+		r.With(invoiceRead).Get("/{id}", b.HandleGetRecurringInvoice)
+		r.With(invoiceEdit).Put("/{id}", b.HandleUpdateRecurringInvoice)
+		r.With(invoiceDelete).Delete("/{id}", b.HandleDeleteRecurringInvoice)
+		r.With(invoiceEdit).Post("/{id}/pause", b.HandlePauseRecurringInvoice)
+		r.With(invoiceEdit).Post("/{id}/resume", b.HandleResumeRecurringInvoice)
+		r.With(invoiceCreate).Post("/{id}/generate", b.HandleGenerateRecurringInvoice)
 	})
 
 	// Credit Notes
 	r.Route("/api/v1/finance/credit-notes", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateCreditNote)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListCreditNotes)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetCreditNote)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/send", b.HandleSendCreditNote)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateCreditNotePDF)
+		r.With(creditNoteCreate).Post("/", b.HandleCreateCreditNote)
+		r.With(invoiceRead).Get("/", b.HandleListCreditNotes)
+		r.With(invoiceRead).Get("/{id}", b.HandleGetCreditNote)
+		r.With(invoiceSend).Post("/{id}/send", b.HandleSendCreditNote)
+		r.With(invoiceRead).Get("/{id}/pdf", b.HandleGenerateCreditNotePDF)
 	})
 
 	// Payments (top-level for delete by payment ID)
@@ -122,13 +158,13 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Dunning
 	r.Route("/api/v1/finance/dunning", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListDunnings)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/detect", b.HandleCreateDunning)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/send", b.HandleSendDunning)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/escalate", b.HandleEscalateDunning)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateDunningPDF)
-		r.With(middleware.RequirePermission("finance", "read")).Get("/config", b.HandleGetDunningConfig)
-		r.With(middleware.RequirePermission("finance", "admin")).Put("/config", b.HandleUpdateDunningConfig)
+		r.With(dunningRun).Get("/", b.HandleListDunnings)
+		r.With(dunningRunWrite).Post("/detect", b.HandleCreateDunning)
+		r.With(dunningRunWrite).Post("/{id}/send", b.HandleSendDunning)
+		r.With(dunningRunWrite).Post("/{id}/escalate", b.HandleEscalateDunning)
+		r.With(dunningRun).Get("/{id}/pdf", b.HandleGenerateDunningPDF)
+		r.With(dunningSettings).Get("/config", b.HandleGetDunningConfig)
+		r.With(dunningSettingsWrite).Put("/config", b.HandleUpdateDunningConfig)
 		// GoBD dunning gaps (Sprint 2 / Wave 1.B)
 		r.With(middleware.RequirePermission("finance", "admin")).Put("/{id}/status", b.HandleUpdateDunningStatus)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/notice", b.HandleSendDunningNotice)
@@ -140,6 +176,18 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListOpenItems)
 	})
 
+	// Document chains (Belegkette): quote -> invoice -> payment/dunning/credit note
+	r.Route("/api/v1/finance/document-chains", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListDocumentChains)
+	})
+
+	// Time entries (Stunden -> Rechnung): billable time entries for invoicing.
+	r.Route("/api/v1/finance/time-entries", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListTimeEntries)
+	})
+
 	// Bank statements (Zahlungsabgleich): CAMT.053 / MT940 import
 	r.Route("/api/v1/finance/bank-statements", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -148,12 +196,62 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetBankStatement)
 	})
 
-	// Bank transactions: the reconciliation queue of the imports above
+	// Bank transactions: the reconciliation queue of the imports above.
+	//
+	// match/reject-match are what the desktop client calls; reconcile was the
+	// same operation under an earlier name and is gone rather than aliased --
+	// two names for one booking is how the two drift apart. ignore stays: it is
+	// a different decision (not a customer payment at all), not a synonym.
 	r.Route("/api/v1/finance/bank-transactions", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankTransactions)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reconcile", b.HandleReconcileBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/match", b.HandleMatchBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reject-match", b.HandleRejectBankTransactionMatch)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
+	})
+
+	// Bank accounts (Bankkonten) — Migration 000258.
+	//
+	// Legacy-only guards, same reason as the expenses below: capability-catalog.ts
+	// has no finance:bank-account:* key, so there is no fine key to add
+	// additively yet. connect sits on finance:write because it changes stored
+	// state, not on read.
+	r.Route("/api/v1/finance/bank-accounts", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankAccounts)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateBankAccount)
+		r.With(middleware.RequirePermission("finance", "write")).Patch("/{id}", b.HandleUpdateBankAccount)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/connect", b.HandleConnectBankAccount)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteBankAccount)
+	})
+
+	// Expenses (Ausgaben) — Migration 000257.
+	//
+	// Legacy-only guards: capability-catalog.ts has no finance:expense:* key, so
+	// there is no fine key to add additively yet. Approve/reject sit on
+	// finance:write like every other state change here; the control that makes
+	// the approval mean something is the server-side refusal to decide one's own
+	// expense (expense.ErrSelfApproval), not the coarseness of this guard. A
+	// dedicated finance:expense:approve key belongs in the catalogue -- see
+	// JOURNAL.md.
+	r.Route("/api/v1/finance/expenses", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListExpenses)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/approve", b.HandleApproveExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reject", b.HandleRejectExpense)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/receipt", b.HandleAttachExpenseReceipt)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteExpense)
+	})
+
+	// Transactions (Transaktionen): consolidated payment ledger over payments +
+	// approved expenses. Legacy-only guards, same reason as expenses above:
+	// capability-catalog.ts has no finance:transaction:* key.
+	r.Route("/api/v1/finance/transactions", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListTransactions)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteTransaction)
 	})
 
 	// Dashboard
@@ -165,7 +263,7 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// DATEV + GoBD Export
 	r.Route("/api/v1/finance/export", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "read")).Post("/datev", b.HandleExportDATEV)
+		r.With(exportRun).Post("/datev", b.HandleExportDATEV)
 		r.With(middleware.RequirePermission("finance", "admin")).Post("/gobd", b.HandleGenerateGoBDExport)
 	})
 
@@ -184,7 +282,7 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// Deal-to-Quote conversion
 	r.Route("/api/v1/finance/deals/{dealId}/quote", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateQuoteFromDeal)
+		r.With(quoteWrite).Post("/", b.HandleCreateQuoteFromDeal)
 	})
 
 	// GoBD Belegarchiv (§147 AO — revisionssichere Beleg-Ablage)
@@ -389,9 +487,15 @@ func paymentMethodToProto(method string) bizv1.PaymentMethod {
 
 // respondPDF writes PDF binary data as an HTTP response with proper headers.
 func respondPDF(w http.ResponseWriter, pdfData []byte, filename string) {
-	w.Header().Set("Content-Type", "application/pdf")
+	respondFile(w, pdfData, filename, "application/pdf")
+}
+
+// respondFile writes binary data as an HTTP response with the given content
+// type and a Content-Disposition attachment header.
+func respondFile(w http.ResponseWriter, data []byte, filename, contentType string) {
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	w.Header().Set("Content-Length", strconv.Itoa(len(pdfData)))
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(pdfData)
+	_, _ = w.Write(data)
 }

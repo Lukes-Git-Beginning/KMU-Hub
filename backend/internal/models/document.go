@@ -50,23 +50,23 @@ type DocumentFolder struct {
 
 // DocumentFile represents a file stored in the document system.
 type DocumentFile struct {
-	ID             uuid.UUID      `json:"id"`
-	TenantID       uuid.UUID      `json:"tenant_id"`
-	FolderID       uuid.UUID      `json:"folder_id"`
-	Filename       string         `json:"filename"`
-	MimeType       string         `json:"mime_type"`
-	FileSize       int64          `json:"file_size"`
-	StorageKey     string         `json:"storage_key"`
-	ThumbnailKey   *string        `json:"thumbnail_key,omitempty"`
-	CurrentVersion int            `json:"current_version"`
-	OwnerID        uuid.UUID      `json:"owner_id"`
-	IsFavorite     bool           `json:"is_favorite"`
-	IsDeleted      bool           `json:"is_deleted"`
-	ContentText    *string        `json:"content_text,omitempty"`
-	Tags           []DocumentTag  `json:"tags"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      *time.Time     `json:"deleted_at,omitempty"`
+	ID             uuid.UUID     `json:"id"`
+	TenantID       uuid.UUID     `json:"tenant_id"`
+	FolderID       uuid.UUID     `json:"folder_id"`
+	Filename       string        `json:"filename"`
+	MimeType       string        `json:"mime_type"`
+	FileSize       int64         `json:"file_size"`
+	StorageKey     string        `json:"storage_key"`
+	ThumbnailKey   *string       `json:"thumbnail_key,omitempty"`
+	CurrentVersion int           `json:"current_version"`
+	OwnerID        uuid.UUID     `json:"owner_id"`
+	IsFavorite     bool          `json:"is_favorite"`
+	IsDeleted      bool          `json:"is_deleted"`
+	ContentText    *string       `json:"content_text,omitempty"`
+	Tags           []DocumentTag `json:"tags"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	DeletedAt      *time.Time    `json:"deleted_at,omitempty"`
 }
 
 // DocumentFileVersion represents a specific version of a file.
@@ -107,15 +107,80 @@ type DocumentTag struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Document file activity action constants (FE contract: DocumentActivityAction).
+const (
+	DocumentActivityUploaded       = "uploaded"
+	DocumentActivityRenamed        = "renamed"
+	DocumentActivityMoved          = "moved"
+	DocumentActivityCopied         = "copied"
+	DocumentActivityDownloaded     = "downloaded"
+	DocumentActivityShared         = "shared"
+	DocumentActivityVersionCreated = "version_created"
+	DocumentActivityReverted       = "reverted"
+)
+
+// DocumentFileActivity represents one append-only entry in a file's audit trail.
+type DocumentFileActivity struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	FileID    uuid.UUID `json:"file_id"`
+	Action    string    `json:"action"`
+	ActorID   uuid.UUID `json:"actor_id"`
+	ActorName string    `json:"actor_name"` // Denormalized from JOIN
+	Detail    string    `json:"detail"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// DocumentFileComment represents a comment on a document file.
+type DocumentFileComment struct {
+	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	FileID     uuid.UUID `json:"file_id"`
+	AuthorID   uuid.UUID `json:"author_id"`
+	AuthorName string    `json:"author_name"` // Denormalized from JOIN
+	Content    string    `json:"content"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 // DocumentEntityLink represents a link between a file and a CRM entity.
 type DocumentEntityLink struct {
 	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
 	FileID     uuid.UUID `json:"file_id"`
 	EntityType string    `json:"entity_type"` // contact, company, deal, project, task
 	EntityID   uuid.UUID `json:"entity_id"`
 	EntityName string    `json:"entity_name"` // Denormalized display name
 	LinkedBy   uuid.UUID `json:"linked_by"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// DocumentShareLink is an external, unauthenticated read/download link for a
+// single document file, optionally password- and expiry-protected.
+type DocumentShareLink struct {
+	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
+	FileID       uuid.UUID  `json:"file_id"`
+	Token        string     `json:"token"`
+	PasswordHash *string    `json:"-"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	RevokedAt    *time.Time `json:"-"`
+	ViewCount    int        `json:"view_count"`
+	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+// Usable reports whether the link still grants access at the given instant.
+// Both conditions answer the same generic "invalid link" upstream; kept apart
+// here only so the caller can log which one fired.
+func (l *DocumentShareLink) Usable(now time.Time) bool {
+	if l.RevokedAt != nil {
+		return false
+	}
+	if l.ExpiresAt != nil && !now.Before(*l.ExpiresAt) {
+		return false
+	}
+	return true
 }
 
 // VirtualFile represents a file from another subsystem (chat, email, task)

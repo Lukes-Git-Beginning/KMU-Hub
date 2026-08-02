@@ -79,6 +79,9 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// Berichte: authenticated routes via the registrar loop, the public read of
 	// a shared report outside it — same split as main.go.
 	berichteRoutes := gateway.NewBerichteRoutes(registry, flagRegistry)
+	// Document: authenticated routes via the registrar loop, the public
+	// redemption of a share link outside it — same split as main.go.
+	documentRoutes := gateway.NewDocumentRoutes(registry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -93,7 +96,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		videoRoutes,
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
-		gateway.NewDocumentRoutes(registry),
+		documentRoutes,
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, "test-state-secret"),
 		gateway.NewDatevUploadRoutes(registry, "test-state-secret"),
@@ -122,6 +125,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewHealthRoutes(nil, registry),
 		bookingRoutes,
 		gateway.NewSettingsRoutes(registry, flagRegistry),
+		gateway.NewCustomizationRoutes(registry),
 	}
 
 	r := chi.NewRouter()
@@ -138,7 +142,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// whole /api/v1/plugins/* block would sit on the allowlist and a lost
 	// constructor call there would go unnoticed, which is the exact defect this
 	// file guards against.
-	gateway.NewPluginRoutes(registry).RegisterRoutes(r, passthroughAuth)
+	gateway.NewPluginRoutes(registry, flagRegistry).RegisterRoutes(r, passthroughAuth)
 
 	// CalDAV/CardDAV REST routes (/api/v1/caldav/*, /api/v1/admin/caldav/*).
 	// main.go builds these through cmd/gateway's unexported adapters, but
@@ -146,7 +150,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// registers the same tree: RegisterRoutes wraps both protocol handlers in
 	// closures and binds the REST handlers as method values, touching neither
 	// during registration.
-	gateway.NewCalDAVRoutes(nil, nil, nil, nil, nil, passthroughAuth).RegisterRoutes(r)
+	gateway.NewCalDAVRoutes(nil, nil, nil, nil, nil, passthroughAuth, "").RegisterRoutes(r)
 
 	// Public (unauthenticated) routes registered outside the RouteRegistrar
 	// loop in main.go — cheap to construct (no adapters, no live backend
@@ -156,6 +160,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	guestRoutes.RegisterPublicRoutes(r)
 	bookingRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	berichteRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	documentRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }

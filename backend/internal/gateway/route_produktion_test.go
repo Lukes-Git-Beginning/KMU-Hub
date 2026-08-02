@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newProduktionRoutes(registry *ServiceRegistry) *ProduktionRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_PRODUKTION_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewProduktionRoutes(registry, flags)
+}
 
 // --- HandleCreateOrder ---
 

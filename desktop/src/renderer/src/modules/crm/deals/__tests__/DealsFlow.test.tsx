@@ -12,6 +12,17 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+// Grant the RBAC capabilities the list page gates its actions on. Without this
+// the checks default-deny (no signed-in account, no loaded permission set), the
+// "Neuer Deal" button never renders, and the create-dialog test fails looking
+// for a button that the page deliberately hid. Mocked at hook level for the
+// same reason the data hooks below are: the real hook reads two Zustand stores
+// that a component test has no business hydrating.
+vi.mock('@/hooks/useCapability', () => ({
+  useHasCapability: () => true,
+  useScopedCapability: () => true,
+}))
+
 // Mock data
 const mockPipelineStages = {
   stages: [

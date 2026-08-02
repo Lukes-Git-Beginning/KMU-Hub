@@ -18,7 +18,9 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **Keine neue `config.RequireX`-Assertion** und **kein Scharfschalten neuer `modules.*`-Flags**.
   Beides ist ein Deploy-Hazard (`COSMI_ENV=production` ist live, CD deployt automatisch). Brauchst du eins,
   markier die Unit `blocked` mit Grund.
-- **Keine Phase-1-Units (RBAC-Fundament)** und **keine Phase-4-Units (Branchen-BE)**. Die macht Luke selbst.
+- **RBAC Phase 1 Welle 1a ist fuer diesen Lauf freigegeben** (Datenmodell, Seed, Resolver,
+  `/auth/me/permissions`). **Welle 1b** (Rollen-CRUD `/admin/roles` + Guardrails) und **Phase 4**
+  (Branchen-BE) bleiben gesperrt — die macht Luke selbst. Faellt eine Unit in 1b, markier sie `blocked`.
 - Keine AI-Attribution in Commits. Conventional Commits, englisch, imperativ.
 - Deutsch fuer Journal/Notizen, Englisch fuer Code, Identifier und Commit-Messages.
 
@@ -89,6 +91,11 @@ jede dieser Klassen ist in diesem Repo schon real passiert:
 7. **Route ohne Spec-Eintrag** — neue `/api/v1/*`-Route ohne Pfad in `backend/api/openapi.yaml`.
    Lokal unsichtbar, wenn du nur die Service-Tests laufen laesst; in CI rot. Pruefen mit
    `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`.
+8. **Guard hat seinen Alt-Key verloren** — hat ein Commit ein bestehendes
+   `RequirePermission("grob","action")` durch ein feineres ersetzt, statt es per
+   `RequirePermissionAny(alt, neu)` zu erweitern? Permissions liegen im JWT und werden nur beim
+   Login/Refresh gebacken: ein hart ersetzter Guard sperrt in Produktion **jeden User mit gueltigem
+   Alt-Token aus**, bis er sich neu anmeldet. Nur additiv erweitern, nie ersetzen.
 
 Fund → leg eine **Fix-Unit ganz vorne** in `BACKLOG.yml` an (`id: fix-<original-id>`, `status: todo`),
 notier den Befund im Journal, und **arbeite diese Fix-Unit sofort als deine Unit dieser Iteration ab**.
@@ -201,6 +208,14 @@ Die naechste Iteration nimmt die naechste Unit.
 - verify vorgaenger: <sauber | Befund + angelegte Fix-Unit>
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
+
+**Ans Dateiende anhaengen, nicht einsortieren.** Das Journal ist chronologisch, nicht sortiert —
+ein Eintrag gehoert unter den letzten, nie darueber. Am 2026-08-02 hat eine Iteration ihren Block
+oberhalb des vorherigen eingefuegt (`Iteration 37` steht in der Datei vor `Iteration 36`); der
+Treiber las daraufhin zwei Iterationen lang dieselbe Ueberschrift als Fortschritt, und der Lauf
+sah von aussen aus, als haenge er. Die Arbeit selbst war in Ordnung — der Schaden war die
+unbrauchbare Fortschrittsanzeige. Konkret: mit `>>` bzw. einem Edit **am Ende** der Datei
+arbeiten, nicht mit einem Insert vor einer bestehenden Ueberschrift.
 
 ### 7 · Kein Push. Niemals.
 

@@ -43,6 +43,7 @@ type Notification struct {
 	IsPinned         bool       `json:"is_pinned"`
 	IsDismissed      bool       `json:"is_dismissed"`
 	DeliveredDesktop bool       `json:"delivered_desktop"`
+	SnoozedUntil     *time.Time `json:"snoozed_until,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`
 }
 

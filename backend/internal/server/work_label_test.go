@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -122,6 +123,15 @@ func (r *timeentryStubRepo) ListByTask(_ context.Context, _, _ uuid.UUID, _, _ i
 }
 func (r *timeentryStubRepo) ListByUser(_ context.Context, _, _ uuid.UUID, _, _ int) ([]models.TimeEntryWithUser, int, error) {
 	return nil, 0, nil
+}
+func (r *timeentryStubRepo) ListBillable(_ context.Context, _ uuid.UUID) ([]models.BillableTimeEntry, error) {
+	return nil, nil
+}
+func (r *timeentryStubRepo) ListByProject(_ context.Context, _, _ uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	return nil, nil
+}
+func (r *timeentryStubRepo) AggregateProjectHours(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) ([]models.UtilizationBucket, error) {
+	return nil, nil
 }
 func (r *timeentryStubRepo) GetActiveTimer(_ context.Context, _, _ uuid.UUID) (*models.ActiveTimer, error) {
 	return nil, nil

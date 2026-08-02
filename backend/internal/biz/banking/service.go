@@ -142,6 +142,9 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*ImportResult,
 				tx.MatchStatus = models.BankMatchSuggested
 				tx.MatchReason = match.Reason
 				tx.MatchedInvoiceID = &invoiceID
+				// Carried through so the import response names the suggestion the
+				// same way a later read of the queue does.
+				tx.MatchedInvoiceNumber = match.InvoiceNumber
 			}
 		}
 		txs = append(txs, tx)
@@ -209,7 +212,10 @@ type ReconcileInput struct {
 	// InvoiceID overrides the suggestion. Zero means "take the suggested one",
 	// which is the common case: the user is confirming what was proposed.
 	InvoiceID uuid.UUID
-	UserID    uuid.UUID
+	// InvoiceNumber is the same override expressed the way the operator sees it
+	// on the document. Only read when InvoiceID is zero.
+	InvoiceNumber string
+	UserID        uuid.UUID
 }
 
 // Reconcile books a bank credit as a payment against an invoice.
@@ -235,11 +241,20 @@ func (s *Service) Reconcile(ctx context.Context, input ReconcileInput) (*models.
 	}
 
 	invoiceID := input.InvoiceID
-	if invoiceID == uuid.Nil {
-		if tx.MatchedInvoiceID == nil {
-			return nil, fmt.Errorf("%w: no invoice given and none suggested", ErrTransactionNotFound)
+	switch {
+	case invoiceID != uuid.Nil:
+		// Explicit id wins: it is unambiguous where a number is only unique per
+		// tenant.
+	case input.InvoiceNumber != "":
+		resolved, resolveErr := s.repo.FindInvoiceIDByNumber(ctx, input.TenantID, input.InvoiceNumber)
+		if resolveErr != nil {
+			return nil, resolveErr
 		}
+		invoiceID = resolved
+	case tx.MatchedInvoiceID != nil:
 		invoiceID = *tx.MatchedInvoiceID
+	default:
+		return nil, fmt.Errorf("%w: no invoice given and none suggested", ErrTransactionNotFound)
 	}
 
 	pmt, err := s.payments.Record(ctx, payment.RecordInput{
@@ -286,6 +301,14 @@ func (s *Service) Reconcile(ctx context.Context, input ReconcileInput) (*models.
 
 	s.logger.InfoContext(ctx, "bank transaction reconciled",
 		"tenant_id", input.TenantID, "transaction_id", tx.ID, "invoice_id", invoiceID, "reason", tx.MatchReason)
+
+	// Read back so the answer names the invoice the same way the queue will:
+	// the number comes from the join, and after an override the one loaded at
+	// the top of this call belongs to the invoice that was just replaced. A
+	// failed read costs the number, not the booking, which already holds.
+	if fresh, readErr := s.repo.GetTransaction(ctx, input.TenantID, tx.ID); readErr == nil {
+		return fresh, nil
+	}
 	return tx, nil
 }
 
@@ -305,6 +328,7 @@ func (s *Service) Ignore(ctx context.Context, tenantID, transactionID, userID uu
 	now := time.Now().UTC()
 	tx.MatchStatus = models.BankMatchIgnored
 	tx.MatchedInvoiceID = nil
+	tx.MatchedInvoiceNumber = ""
 	tx.MatchReason = "ignored"
 	tx.ReconciledAt = &now
 	if userID != uuid.Nil {
@@ -314,6 +338,47 @@ func (s *Service) Ignore(ctx context.Context, tenantID, transactionID, userID uu
 	if err := s.repo.UpdateTransactionMatch(ctx, tx); err != nil {
 		return nil, fmt.Errorf("persist match: %w", err)
 	}
+	return tx, nil
+}
+
+// RejectMatch discards the suggestion the matcher attached and puts the entry
+// back in front of the operator as unmatched.
+//
+// This is deliberately not Ignore: rejecting says "not this invoice", ignoring
+// says "not a customer payment at all". Collapsing the two would take an entry
+// out of the queue that still needs a decision.
+//
+// A transaction that is already unmatched is returned unchanged rather than
+// refused — the operator clicked twice, and the outcome they asked for holds.
+func (s *Service) RejectMatch(ctx context.Context, tenantID, transactionID, userID uuid.UUID) (*models.BankTransaction, error) {
+	tx, err := s.repo.GetTransaction(ctx, tenantID, transactionID)
+	if err != nil {
+		return nil, err
+	}
+	switch tx.MatchStatus {
+	case models.BankMatchUnmatched:
+		return tx, nil
+	case models.BankMatchMatched, models.BankMatchIgnored:
+		// A booked entry carries a payment and an ignored one was set aside on
+		// purpose. Both are reversals, not rejections, and neither belongs here.
+		return nil, ErrNothingToReject
+	}
+
+	now := time.Now().UTC()
+	tx.MatchStatus = models.BankMatchUnmatched
+	tx.MatchedInvoiceID = nil
+	tx.MatchedInvoiceNumber = ""
+	tx.MatchReason = "rejected"
+	tx.ReconciledAt = &now
+	if userID != uuid.Nil {
+		id := userID
+		tx.ReconciledBy = &id
+	}
+	if err := s.repo.UpdateTransactionMatch(ctx, tx); err != nil {
+		return nil, fmt.Errorf("persist match: %w", err)
+	}
+	s.logger.InfoContext(ctx, "bank transaction match rejected",
+		"tenant_id", tenantID, "transaction_id", tx.ID)
 	return tx, nil
 }
 

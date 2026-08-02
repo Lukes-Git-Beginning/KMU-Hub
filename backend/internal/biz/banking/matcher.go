@@ -44,6 +44,10 @@ type MatchResult struct {
 	Status string
 	// InvoiceID is the suggested receivable, empty when unmatched.
 	InvoiceID string
+	// InvoiceNumber is that receivable's number. Carried alongside the id so a
+	// freshly imported statement can name what it suggests without reading the
+	// invoices back.
+	InvoiceNumber string
 	// Reason is one of the MatchReason* constants, empty when unmatched.
 	Reason string
 }
@@ -80,9 +84,10 @@ func MatchEntry(entry *ParsedEntry, openItems []*models.OpenItem) MatchResult {
 			reason = MatchReasonNumberAndAmount
 		}
 		return MatchResult{
-			Status:    models.BankMatchSuggested,
-			InvoiceID: item.InvoiceID.String(),
-			Reason:    reason,
+			Status:        models.BankMatchSuggested,
+			InvoiceID:     item.InvoiceID.String(),
+			InvoiceNumber: item.InvoiceNumber,
+			Reason:        reason,
 		}
 	}
 	if len(byNumber) > 1 {
@@ -100,9 +105,10 @@ func MatchEntry(entry *ParsedEntry, openItems []*models.OpenItem) MatchResult {
 	}
 	if len(byAmount) == 1 {
 		return MatchResult{
-			Status:    models.BankMatchSuggested,
-			InvoiceID: byAmount[0].InvoiceID.String(),
-			Reason:    MatchReasonAmount,
+			Status:        models.BankMatchSuggested,
+			InvoiceID:     byAmount[0].InvoiceID.String(),
+			InvoiceNumber: byAmount[0].InvoiceNumber,
+			Reason:        MatchReasonAmount,
 		}
 	}
 

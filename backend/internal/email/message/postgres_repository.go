@@ -54,7 +54,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanMessage(row)
@@ -66,7 +66,7 @@ func (r *PostgresRepository) GetByFolderUID(ctx context.Context, folderID uuid.U
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages WHERE folder_id = $1 AND uid = $2`, folderID, uid,
 	)
 	return scanMessage(row)
@@ -100,7 +100,7 @@ func (r *PostgresRepository) ListByFolder(ctx context.Context, folderID uuid.UUI
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages WHERE folder_id = $1
 		 ORDER BY date %s LIMIT $2 OFFSET $3`, orderDir),
 		folderID, opts.PerPage, offset,
@@ -120,7 +120,7 @@ func (r *PostgresRepository) ListByThread(ctx context.Context, threadID uuid.UUI
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages WHERE thread_id = $1
 		 ORDER BY date ASC`, threadID,
 	)
@@ -157,7 +157,7 @@ func (r *PostgresRepository) Search(ctx context.Context, accountID uuid.UUID, qu
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages
 		 WHERE account_id = $1 AND search_vector @@ plainto_tsquery('german', $2)
 		 ORDER BY ts_rank(search_vector, plainto_tsquery('german', $2)) DESC
@@ -249,7 +249,7 @@ func (r *PostgresRepository) GetByMessageIDHeader(ctx context.Context, messageID
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages WHERE message_id = $1
 		 ORDER BY date DESC LIMIT 1`, messageIDHeader,
 	)
@@ -303,7 +303,7 @@ func (r *PostgresRepository) FindBySubjectAndParticipants(ctx context.Context, a
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
-			raw_headers, created_at, updated_at
+			raw_headers, label_ids, created_at, updated_at
 		 FROM email_messages
 		 WHERE account_id = $1 AND thread_id IS NOT NULL
 			AND LOWER(subject) LIKE '%' || LOWER($2) || '%'
@@ -440,7 +440,7 @@ func scanMessage(row pgx.Row) (*models.EmailMessage, error) {
 		&toJSON, &ccJSON, &bccJSON, &msg.Subject, &msg.Preview,
 		&msg.BodyText, &msg.BodyHTML, &msg.IsRead, &msg.IsStarred, &msg.IsDraft,
 		&msg.HasAttachments, &msg.Date, &msg.SizeBytes, &msg.RawHeaders,
-		&msg.CreatedAt, &msg.UpdatedAt,
+		&msg.LabelIDs, &msg.CreatedAt, &msg.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -481,7 +481,7 @@ func collectMessages(rows pgx.Rows) ([]*models.EmailMessage, error) {
 			&toJSON, &ccJSON, &bccJSON, &msg.Subject, &msg.Preview,
 			&msg.BodyText, &msg.BodyHTML, &msg.IsRead, &msg.IsStarred, &msg.IsDraft,
 			&msg.HasAttachments, &msg.Date, &msg.SizeBytes, &msg.RawHeaders,
-			&msg.CreatedAt, &msg.UpdatedAt,
+			&msg.LabelIDs, &msg.CreatedAt, &msg.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

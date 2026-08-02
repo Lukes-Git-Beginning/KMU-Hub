@@ -1,0 +1,256 @@
+package gateway
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+)
+
+// fakeCalDAVPasswordEntry is one password tracked by fakeCalDAVPasswordService.
+type fakeCalDAVPasswordEntry struct {
+	userID   uuid.UUID
+	password string
+	revoked  bool
+}
+
+// fakeCalDAVPasswordService is an in-memory stand-in for the real
+// caldav.AppPasswordService, used so handleTestConnection can be exercised
+// without a database.
+type fakeCalDAVPasswordService struct {
+	mu           sync.Mutex
+	passwords    map[uuid.UUID]*fakeCalDAVPasswordEntry
+	orgEnabled   bool
+	forceInvalid bool // when true, Validate always rejects (simulates an auth failure)
+}
+
+func newFakeCalDAVPasswordService() *fakeCalDAVPasswordService {
+	return &fakeCalDAVPasswordService{
+		passwords:  make(map[uuid.UUID]*fakeCalDAVPasswordEntry),
+		orgEnabled: true,
+	}
+}
+
+func (f *fakeCalDAVPasswordService) Create(_ context.Context, userID, _ uuid.UUID, label string) (string, *CalDAVPasswordInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	id := uuid.New()
+	plaintext := uuid.NewString()
+	f.passwords[id] = &fakeCalDAVPasswordEntry{userID: userID, password: plaintext}
+	return plaintext, &CalDAVPasswordInfo{ID: id, Label: label, PasswordPrefix: plaintext[:4]}, nil
+}
+
+func (f *fakeCalDAVPasswordService) Validate(_ context.Context, username, password string) (uuid.UUID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if !f.orgEnabled || f.forceInvalid {
+		return uuid.Nil, errors.New("caldav disabled")
+	}
+	userID, err := uuid.Parse(username)
+	if err != nil {
+		return uuid.Nil, errors.New("invalid username")
+	}
+	for _, pw := range f.passwords {
+		if pw.userID == userID && !pw.revoked && pw.password == password {
+			return userID, nil
+		}
+	}
+	return uuid.Nil, errors.New("invalid credentials")
+}
+
+func (f *fakeCalDAVPasswordService) List(_ context.Context, _ uuid.UUID) ([]*CalDAVPasswordInfo, error) {
+	return nil, nil
+}
+
+func (f *fakeCalDAVPasswordService) Revoke(_ context.Context, id, _ uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	pw, ok := f.passwords[id]
+	if !ok {
+		return errors.New("not found")
+	}
+	pw.revoked = true
+	return nil
+}
+
+func (f *fakeCalDAVPasswordService) IsOrgEnabled(_ context.Context) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.orgEnabled, nil
+}
+
+func (f *fakeCalDAVPasswordService) SetOrgEnabled(_ context.Context, enabled bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.orgEnabled = enabled
+	return nil
+}
+
+// activePasswordCount returns the number of non-revoked passwords, used to
+// prove the ephemeral test password was actually revoked after the probe.
+func (f *fakeCalDAVPasswordService) activePasswordCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, pw := range f.passwords {
+		if !pw.revoked {
+			n++
+		}
+	}
+	return n
+}
+
+// noopCtxInjector stands in for caldavpkg.CtxWithUser.
+func noopCtxInjector(ctx context.Context, _ uuid.UUID) context.Context { return ctx }
+
+// withCalDAVAuth injects a user/tenant context the way the real JWT middleware
+// does, standing in for authMiddleware on /api/v1/caldav/*.
+func withCalDAVAuth(userID, tenantID uuid.UUID) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID.String())
+			ctx = context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// noContentHandler stands in for the real caldav.Handler/carddav.Handler: it
+// answers any request that makes it past basicAuthMiddleware with 204, the
+// same status the real OPTIONS handler returns for the DAV root. This keeps
+// the test focused on handleTestConnection/probeSelf/basicAuthMiddleware --
+// the code this unit actually adds -- rather than re-verifying the
+// third-party go-webdav library's OPTIONS handling.
+var noContentHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+})
+
+func TestHandleTestConnection_Success(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	routes.selfBaseURL = ts.URL
+
+	resp, err := http.Post(ts.URL+"/api/v1/caldav/test", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/v1/caldav/test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var result caldavTestResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if !result.Success || !result.CalDAVReachable || !result.CardDAVReachable {
+		t.Fatalf("got %+v, want success with both protocols reachable", result)
+	}
+	if result.Message != "" {
+		t.Fatalf("message = %q, want empty on success", result.Message)
+	}
+
+	if n := pwSvc.activePasswordCount(); n != 0 {
+		t.Fatalf("active passwords after test = %d, want 0 (ephemeral password must be revoked)", n)
+	}
+}
+
+func TestHandleTestConnection_AuthFailure(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+	pwSvc.forceInvalid = true // Validate rejects every request, including the freshly created password
+
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	routes.selfBaseURL = ts.URL
+
+	resp, err := http.Post(ts.URL+"/api/v1/caldav/test", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/v1/caldav/test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result caldavTestResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if result.Success || result.CalDAVReachable || result.CardDAVReachable {
+		t.Fatalf("got %+v, want failure on both protocols", result)
+	}
+	if !strings.Contains(result.Message, "authentication failed") {
+		t.Fatalf("message = %q, want it to name the auth failure", result.Message)
+	}
+}
+
+func TestHandleTestConnection_NetworkUnreachable(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+
+	// Reserve a loopback port and free it immediately: nothing listens there,
+	// so a connection attempt fails deterministically with "connection refused"
+	// instead of depending on an external unreachable host.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve port: %v", err)
+	}
+	deadAddr := l.Addr().String()
+	l.Close()
+
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	routes.selfBaseURL = "http://" + deadAddr
+
+	resp, err := http.Post(ts.URL+"/api/v1/caldav/test", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/v1/caldav/test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result caldavTestResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if result.Success {
+		t.Fatalf("got %+v, want failure when the DAV port is unreachable", result)
+	}
+	if !strings.Contains(result.Message, "network unreachable") {
+		t.Fatalf("message = %q, want it to name the network failure", result.Message)
+	}
+
+	// The ephemeral password must still be revoked even though both probes failed.
+	if n := pwSvc.activePasswordCount(); n != 0 {
+		t.Fatalf("active passwords after test = %d, want 0", n)
+	}
+}

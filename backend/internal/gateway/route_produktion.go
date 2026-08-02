@@ -47,19 +47,30 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// ProduktionPage.tsx/ProduktionDetailModals.tsx actually gate on). Reads
+		// already match the fine key 1:1 and stay plain RequirePermission.
+		orderCreate := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "create"})
+		orderEdit := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "edit"})
+		orderDelete := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "delete"})
+		orderStart := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "start"})
+		orderComplete := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "complete"})
+		orderCancel := middleware.RequirePermissionAny([2]string{"produktion:order", "write"}, [2]string{"produktion:order", "cancel"})
+
 		// Production Orders
 		r.Route("/orders", func(r chi.Router) {
 			r.With(middleware.RequirePermission("produktion:order", "read")).Get("/", pr.HandleListOrders)
-			r.With(middleware.RequirePermission("produktion:order", "write")).Post("/", pr.HandleCreateOrder)
+			r.With(orderCreate).Post("/", pr.HandleCreateOrder)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("produktion:order", "read")).Get("/", pr.HandleGetOrder)
-				r.With(middleware.RequirePermission("produktion:order", "write")).Patch("/", pr.HandleUpdateOrder)
-				r.With(middleware.RequirePermission("produktion:order", "write")).Delete("/", pr.HandleDeleteOrder)
+				r.With(orderEdit).Patch("/", pr.HandleUpdateOrder)
+				r.With(orderDelete).Delete("/", pr.HandleDeleteOrder)
 
-				r.With(middleware.RequirePermission("produktion:order", "write")).Post("/start", pr.HandleStartOrder)
-				r.With(middleware.RequirePermission("produktion:order", "write")).Post("/complete", pr.HandleCompleteOrder)
-				r.With(middleware.RequirePermission("produktion:order", "write")).Post("/cancel", pr.HandleCancelOrder)
+				r.With(orderStart).Post("/start", pr.HandleStartOrder)
+				r.With(orderComplete).Post("/complete", pr.HandleCompleteOrder)
+				r.With(orderCancel).Post("/cancel", pr.HandleCancelOrder)
 			})
 
 			// Work Steps (per order) — see route_produktion_ext.go

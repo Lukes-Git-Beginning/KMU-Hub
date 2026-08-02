@@ -53,6 +53,11 @@ service FinanceService {
   // Open items (Offene Posten): the receivables the dunning run escalates.
   rpc ListOpenItems(ListOpenItemsRequest) returns (ListOpenItemsResponse);
 
+  // ==================== Document Chains ====================
+  // The lifecycle of a customer document from quote through invoice to
+  // payment, dunning, or credit note (Belegkette).
+  rpc ListDocumentChains(ListDocumentChainsRequest) returns (ListDocumentChainsResponse);
+
   // ==================== Dashboard ====================
   rpc GetFinanceDashboard(GetFinanceDashboardRequest) returns (GetFinanceDashboardResponse);
 
@@ -65,6 +70,7 @@ service FinanceService {
   rpc GenerateCreditNotePDF(GenerateCreditNotePDFRequest) returns (GenerateCreditNotePDFResponse);
   rpc GenerateDunningPDF(GenerateDunningPDFRequest) returns (GenerateDunningPDFResponse);
   rpc GenerateZUGFeRDInvoicePDF(GenerateZUGFeRDInvoicePDFRequest) returns (GenerateZUGFeRDInvoicePDFResponse);
+  rpc GenerateEInvoice(GenerateEInvoiceRequest) returns (GenerateEInvoiceResponse);
 
   // ==================== Time-Tracking → Invoice ====================
   rpc CreateInvoiceFromTimeEntries(CreateInvoiceFromTimeEntriesRequest) returns (CreateInvoiceFromTimeEntriesResponse);
@@ -117,6 +123,26 @@ service FinanceService {
   rpc ListBankTransactions(ListBankTransactionsRequest) returns (ListBankTransactionsResponse);
   rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
   rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
+  rpc RejectBankTransactionMatch(RejectBankTransactionMatchRequest) returns (RejectBankTransactionMatchResponse);
+
+  // ==================== Bank accounts (Bankkonten) ====================
+  rpc ListBankAccounts(ListBankAccountsRequest) returns (ListBankAccountsResponse);
+  rpc CreateBankAccount(CreateBankAccountRequest) returns (CreateBankAccountResponse);
+  rpc UpdateBankAccount(UpdateBankAccountRequest) returns (UpdateBankAccountResponse);
+  rpc DeleteBankAccount(DeleteBankAccountRequest) returns (DeleteBankAccountResponse);
+  rpc ConnectBankAccount(ConnectBankAccountRequest) returns (ConnectBankAccountResponse);
+
+  // ==================== Expenses (Ausgaben) ====================
+  rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
+  rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
+  rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
+  rpc DecideExpense(DecideExpenseRequest) returns (DecideExpenseResponse);
+  rpc AttachExpenseReceipt(AttachExpenseReceiptRequest) returns (AttachExpenseReceiptResponse);
+
+  // ==================== Finance transactions (consolidated) ====================
+  rpc ListFinanceTransactions(ListFinanceTransactionsRequest) returns (ListFinanceTransactionsResponse);
+  rpc DeleteFinanceTransaction(DeleteFinanceTransactionRequest) returns (DeleteFinanceTransactionResponse);
 }
 
 // ============================================================================
@@ -1196,11 +1222,34 @@ message GenerateZUGFeRDInvoicePDFRequest {
   string tenant_id = 2;
 }
 
-// If ZUGFeRD XML embedding fails, the service returns the plain invoice PDF
-// (graceful degradation) — the caller cannot distinguish the two cases from
-// the response shape alone.
+// A failure to produce a conforming e-invoice (missing EN 16931 field, no
+// company settings, totals drift) is returned as an error — never a plain PDF
+// standing in for the ZUGFeRD one, which the caller could not tell apart from
+// a real e-invoice.
 message GenerateZUGFeRDInvoicePDFResponse {
   bytes pdf_data = 1;
+  string filename = 2;
+}
+
+// ============================================================================
+// Outbound e-invoice generation (E-Rechnung Ausgang)
+// ============================================================================
+
+message GenerateEInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+  // format selects the outbound representation: "xrechnung" (UBL 2.1 XML) or
+  // "zugferd" (PDF with an embedded, declared Factur-X XML attachment).
+  string format = 3;
+  // buyer_reference is BT-10 (Leitweg-ID). Only applies to xrechnung — ZUGFeRD
+  // is delivered in a PDF to a private-sector buyer, who has no routing id.
+  // Supplying it also runs the German CIUS on top of EN 16931, because only a
+  // public-sector buyer requires the routing id in the first place.
+  string buyer_reference = 4;
+}
+
+message GenerateEInvoiceResponse {
+  bytes data = 1;
   string filename = 2;
 }
 
@@ -1467,6 +1516,10 @@ message BankTransaction {
   optional string reconciled_at      = 16;  // RFC3339
   optional string reconciled_by      = 17;
   string created_at                  = 18;  // RFC3339
+  // Human-readable number of the matched invoice, joined on read. The frontend
+  // shows the number, not the id, and resolving it here keeps that from
+  // becoming a second round trip per row.
+  optional string matched_invoice_number = 19;
 }
 
 message ImportBankStatementRequest {
@@ -1511,6 +1564,10 @@ message ListBankTransactionsRequest {
   string match_status        = 3;  // empty = all
   int32 page                 = 4;
   int32 per_page             = 5;
+  // States to leave out of an otherwise unfiltered list. The reconciliation
+  // queue passes "ignored" here: an entry taken out on purpose should not
+  // reappear in it, but a caller asking for that state by name still gets it.
+  repeated string exclude_match_status = 6;
 }
 
 message ListBankTransactionsResponse {
@@ -1525,9 +1582,26 @@ message ReconcileBankTransactionRequest {
   // confirming what was proposed.
   string invoice_id = 3;
   string user_id    = 4;
+  // Alternative to invoice_id for a manual assignment: the operator picks an
+  // invoice by its number, which is what the document carries. Ignored when
+  // invoice_id is set.
+  string invoice_number = 5;
 }
 
 message ReconcileBankTransactionResponse {
+  BankTransaction transaction = 1;
+}
+
+// RejectBankTransactionMatch discards a suggestion without booking anything —
+// distinct from IgnoreBankTransaction, which takes the entry out of the queue
+// entirely. Rejecting puts it back in front of the operator as unmatched.
+message RejectBankTransactionMatchRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+}
+
+message RejectBankTransactionMatchResponse {
   BankTransaction transaction = 1;
 }
 
@@ -1539,4 +1613,266 @@ message IgnoreBankTransactionRequest {
 
 message IgnoreBankTransactionResponse {
   BankTransaction transaction = 1;
+}
+
+// ============================================================================
+// Expenses (Ausgaben) — Migration 000257
+// ============================================================================
+
+message Expense {
+  string id           = 1;
+  string tenant_id    = 2;
+  string description  = 3;
+  string amount       = 4;   // Decimal as string (e.g., "234.50")
+  string expense_date = 5;   // Date string YYYY-MM-DD
+  string category     = 6;
+  string supplier     = 7;
+  optional string project      = 8;
+  // SKR03/04 Sachkonto, assigned during Kontierung; absent until booked.
+  optional string account      = 9;
+  // Filename of the attached document; absent when none was handed in.
+  optional string receipt_name = 10;
+  // One of "pending", "approved", "rejected" — a string rather than an enum so
+  // it reaches the frontend's Expense.status union verbatim.
+  string status = 11;
+  optional string submitted_by                = 12;
+  optional string decided_by                  = 13;
+  optional google.protobuf.Timestamp decided_at = 14;
+  google.protobuf.Timestamp created_at        = 15;
+  google.protobuf.Timestamp updated_at        = 16;
+}
+
+message CreateExpenseRequest {
+  string tenant_id   = 1;
+  string user_id     = 2;
+  string description = 3;
+  string amount      = 4;   // Decimal as string
+  string date        = 5;   // YYYY-MM-DD
+  string category    = 6;
+  string supplier    = 7;
+  string project     = 8;
+  string account     = 9;
+  string receipt_name = 10;
+}
+
+message CreateExpenseResponse {
+  Expense expense = 1;
+}
+
+message ListExpensesRequest {
+  string tenant_id = 1;
+  string status    = 2;
+  // Set from the caller's data scope when their grant is narrowed to "own".
+  optional string submitted_by = 3;
+  int32 page     = 4;
+  int32 per_page = 5;
+}
+
+message ListExpensesResponse {
+  repeated Expense expenses = 1;
+  int32 total               = 2;
+}
+
+// UpdateExpenseRequest mirrors the frontend's Partial<CreateExpenseRequest>:
+// every field is optional and an absent one is left untouched, so an edit of
+// one field does not clear the rest.
+message UpdateExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  optional string description  = 3;
+  optional string amount       = 4;
+  optional string date         = 5;
+  optional string category     = 6;
+  optional string supplier     = 7;
+  optional string project      = 8;
+  optional string account      = 9;
+  optional string receipt_name = 10;
+}
+
+message UpdateExpenseResponse {
+  Expense expense = 1;
+}
+
+message DeleteExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteExpenseResponse {}
+
+// DecideExpenseRequest carries approve and reject through one RPC: the two
+// share every guard (pending only, never by the submitter) and differ solely in
+// the status they write.
+message DecideExpenseRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+  // "approved" or "rejected".
+  string status = 4;
+}
+
+message DecideExpenseResponse {
+  Expense expense = 1;
+}
+
+message AttachExpenseReceiptRequest {
+  string tenant_id    = 1;
+  string id           = 2;
+  string receipt_name = 3;
+}
+
+message AttachExpenseReceiptResponse {
+  Expense expense = 1;
+}
+
+// ============================================================================
+// Finance transactions (Transaktionen) — consolidated payment ledger.
+// No new table: read-time union of finance_payments (income) and approved
+// finance_expenses (expense). See internal/biz/invoice/postgres_transactions.go.
+// ============================================================================
+
+message FinanceTransaction {
+  // Prefixed "pay-"/"exp-" so the caller (and DeleteFinanceTransaction) can
+  // tell which underlying record this entry names.
+  string id          = 1;
+  // "income" or "expense".
+  string type        = 2;
+  string description = 3;
+  string amount      = 4;   // Decimal as string
+  string date        = 5;   // Date string YYYY-MM-DD
+  string category    = 6;
+  // Always "completed" today -- only settled money movements are listed.
+  string status      = 7;
+  // Invoice number; set for income entries only.
+  optional string reference  = 8;
+  optional string invoice_id = 9;
+}
+
+message ListFinanceTransactionsRequest {
+  string tenant_id = 1;
+}
+
+message ListFinanceTransactionsResponse {
+  repeated FinanceTransaction transactions = 1;
+}
+
+message DeleteFinanceTransactionRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteFinanceTransactionResponse {}
+
+// ============================================================================
+// Bank accounts (Bankkonten) — Migration 000258
+// ============================================================================
+
+message BankAccount {
+  string id        = 1;
+  string tenant_id = 2;
+  string bank_name = 3;
+  // Canonical IBAN: upper-case, no separators. Group it for display at the
+  // edge, do not carry a second grouped copy.
+  string iban     = 4;
+  string bic      = 5;
+  string currency = 6;
+  // Master-data flag, not a live bank session — the real PSD2 link is P5.
+  bool connected = 7;
+  optional google.protobuf.Timestamp connected_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  // Derived from the newest imported statement of this IBAN, never stored.
+  // "0.00" and an absent last_sync mean nothing has been imported yet.
+  string balance = 11;   // Decimal as string
+  optional string last_sync = 12;  // Date string YYYY-MM-DD
+}
+
+message ListBankAccountsRequest {
+  string tenant_id = 1;
+}
+
+// No pagination: a KMU holds a handful of accounts and the client renders all
+// of them as cards.
+message ListBankAccountsResponse {
+  repeated BankAccount accounts = 1;
+}
+
+message CreateBankAccountRequest {
+  string tenant_id = 1;
+  string bank_name = 2;
+  // Accepted grouped or compact; normalised and mod-97 checked by the service.
+  string iban     = 3;
+  string bic      = 4;
+  // ISO 4217; empty defaults to EUR.
+  string currency = 5;
+}
+
+message CreateBankAccountResponse {
+  BankAccount account = 1;
+}
+
+// UpdateBankAccountRequest mirrors a partial edit: an absent field stays
+// untouched rather than being cleared.
+message UpdateBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  optional string bank_name = 3;
+  optional string iban      = 4;
+  optional string bic       = 5;
+  optional string currency  = 6;
+  optional bool   connected = 7;
+}
+
+message UpdateBankAccountResponse {
+  BankAccount account = 1;
+}
+
+message DeleteBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteBankAccountResponse {}
+
+message ConnectBankAccountRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message ConnectBankAccountResponse {
+  BankAccount account = 1;
+}
+
+// ChainNode is one step in a document's lifecycle: a quote, invoice, payment,
+// dunning notice, or credit note. number/date are unset for a step that has
+// not happened yet — the pending-payment placeholder on an invoice that is
+// not fully settled.
+message ChainNode {
+  // quote | invoice | payment | dunning | credit-note
+  string type            = 1;
+  optional string number = 2;
+  optional string date   = 3;  // YYYY-MM-DD
+  string amount          = 4;
+  // completed | active | pending | cancelled | overdue — presentational,
+  // independent of the underlying document's own status field.
+  string status = 5;
+}
+
+// DocumentChain traces one customer document from quote through invoice to
+// payment, dunning, or credit note (Belegkette).
+message DocumentChain {
+  string id                  = 1;
+  string customer            = 2;
+  string currency            = 3;
+  string total_value         = 4;
+  bool is_complete           = 5;
+  repeated ChainNode nodes   = 6;
+}
+
+message ListDocumentChainsRequest {
+  string tenant_id = 1;
+}
+
+message ListDocumentChainsResponse {
+  repeated DocumentChain chains = 1;
 }

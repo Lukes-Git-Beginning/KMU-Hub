@@ -71,6 +71,9 @@ const (
 	WorkService_DeleteTimeEntry_FullMethodName             = "/work.v1.WorkService/DeleteTimeEntry"
 	WorkService_ListTimeEntries_FullMethodName             = "/work.v1.WorkService/ListTimeEntries"
 	WorkService_GetTaskTimeSummary_FullMethodName          = "/work.v1.WorkService/GetTaskTimeSummary"
+	WorkService_ListBillableTimeEntries_FullMethodName     = "/work.v1.WorkService/ListBillableTimeEntries"
+	WorkService_ListProjectTimeEntries_FullMethodName      = "/work.v1.WorkService/ListProjectTimeEntries"
+	WorkService_ListProjectTeamUtilization_FullMethodName  = "/work.v1.WorkService/ListProjectTeamUtilization"
 	WorkService_CreateLabel_FullMethodName                 = "/work.v1.WorkService/CreateLabel"
 	WorkService_GetLabel_FullMethodName                    = "/work.v1.WorkService/GetLabel"
 	WorkService_ListLabels_FullMethodName                  = "/work.v1.WorkService/ListLabels"
@@ -154,6 +157,9 @@ type WorkServiceClient interface {
 	DeleteTimeEntry(ctx context.Context, in *DeleteTimeEntryRequest, opts ...grpc.CallOption) (*DeleteTimeEntryResponse, error)
 	ListTimeEntries(ctx context.Context, in *ListTimeEntriesRequest, opts ...grpc.CallOption) (*ListTimeEntriesResponse, error)
 	GetTaskTimeSummary(ctx context.Context, in *GetTaskTimeSummaryRequest, opts ...grpc.CallOption) (*GetTaskTimeSummaryResponse, error)
+	ListBillableTimeEntries(ctx context.Context, in *ListBillableTimeEntriesRequest, opts ...grpc.CallOption) (*ListBillableTimeEntriesResponse, error)
+	ListProjectTimeEntries(ctx context.Context, in *ListProjectTimeEntriesRequest, opts ...grpc.CallOption) (*ListProjectTimeEntriesResponse, error)
+	ListProjectTeamUtilization(ctx context.Context, in *ListProjectTeamUtilizationRequest, opts ...grpc.CallOption) (*ListProjectTeamUtilizationResponse, error)
 	// Labels
 	CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
 	GetLabel(ctx context.Context, in *GetLabelRequest, opts ...grpc.CallOption) (*GetLabelResponse, error)
@@ -697,6 +703,36 @@ func (c *workServiceClient) GetTaskTimeSummary(ctx context.Context, in *GetTaskT
 	return out, nil
 }
 
+func (c *workServiceClient) ListBillableTimeEntries(ctx context.Context, in *ListBillableTimeEntriesRequest, opts ...grpc.CallOption) (*ListBillableTimeEntriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillableTimeEntriesResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListBillableTimeEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) ListProjectTimeEntries(ctx context.Context, in *ListProjectTimeEntriesRequest, opts ...grpc.CallOption) (*ListProjectTimeEntriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProjectTimeEntriesResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListProjectTimeEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) ListProjectTeamUtilization(ctx context.Context, in *ListProjectTeamUtilizationRequest, opts ...grpc.CallOption) (*ListProjectTeamUtilizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProjectTeamUtilizationResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListProjectTeamUtilization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *workServiceClient) CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateLabelResponse)
@@ -877,6 +913,9 @@ type WorkServiceServer interface {
 	DeleteTimeEntry(context.Context, *DeleteTimeEntryRequest) (*DeleteTimeEntryResponse, error)
 	ListTimeEntries(context.Context, *ListTimeEntriesRequest) (*ListTimeEntriesResponse, error)
 	GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error)
+	ListBillableTimeEntries(context.Context, *ListBillableTimeEntriesRequest) (*ListBillableTimeEntriesResponse, error)
+	ListProjectTimeEntries(context.Context, *ListProjectTimeEntriesRequest) (*ListProjectTimeEntriesResponse, error)
+	ListProjectTeamUtilization(context.Context, *ListProjectTeamUtilizationRequest) (*ListProjectTeamUtilizationResponse, error)
 	// Labels
 	CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error)
 	GetLabel(context.Context, *GetLabelRequest) (*GetLabelResponse, error)
@@ -1055,6 +1094,15 @@ func (UnimplementedWorkServiceServer) ListTimeEntries(context.Context, *ListTime
 }
 func (UnimplementedWorkServiceServer) GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTaskTimeSummary not implemented")
+}
+func (UnimplementedWorkServiceServer) ListBillableTimeEntries(context.Context, *ListBillableTimeEntriesRequest) (*ListBillableTimeEntriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillableTimeEntries not implemented")
+}
+func (UnimplementedWorkServiceServer) ListProjectTimeEntries(context.Context, *ListProjectTimeEntriesRequest) (*ListProjectTimeEntriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProjectTimeEntries not implemented")
+}
+func (UnimplementedWorkServiceServer) ListProjectTeamUtilization(context.Context, *ListProjectTeamUtilizationRequest) (*ListProjectTeamUtilizationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProjectTeamUtilization not implemented")
 }
 func (UnimplementedWorkServiceServer) CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateLabel not implemented")
@@ -2046,6 +2094,60 @@ func _WorkService_GetTaskTimeSummary_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkService_ListBillableTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillableTimeEntriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListBillableTimeEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListBillableTimeEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListBillableTimeEntries(ctx, req.(*ListBillableTimeEntriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_ListProjectTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProjectTimeEntriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListProjectTimeEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListProjectTimeEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListProjectTimeEntries(ctx, req.(*ListProjectTimeEntriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_ListProjectTeamUtilization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProjectTeamUtilizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListProjectTeamUtilization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListProjectTeamUtilization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListProjectTeamUtilization(ctx, req.(*ListProjectTeamUtilizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WorkService_CreateLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateLabelRequest)
 	if err := dec(in); err != nil {
@@ -2458,6 +2560,18 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTaskTimeSummary",
 			Handler:    _WorkService_GetTaskTimeSummary_Handler,
+		},
+		{
+			MethodName: "ListBillableTimeEntries",
+			Handler:    _WorkService_ListBillableTimeEntries_Handler,
+		},
+		{
+			MethodName: "ListProjectTimeEntries",
+			Handler:    _WorkService_ListProjectTimeEntries_Handler,
+		},
+		{
+			MethodName: "ListProjectTeamUtilization",
+			Handler:    _WorkService_ListProjectTeamUtilization_Handler,
 		},
 		{
 			MethodName: "CreateLabel",

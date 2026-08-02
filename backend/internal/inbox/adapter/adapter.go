@@ -25,13 +25,16 @@ type ChannelAdapter interface {
 	// Returns normalized InboxMessage entries ready for persistence.
 	FetchNewMessages(ctx context.Context, userID uuid.UUID, since time.Time) ([]models.InboxMessage, error)
 
-	// HandleReply routes a reply back through the originating channel.
-	HandleReply(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, body string) error
+	// HandleReply routes a reply back through the originating channel. sourceID
+	// is the message's identifier in the *originating* system (InboxMessage.SourceID),
+	// not the inbox message's own id -- e.g. the email message id or chat channel id.
+	HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error
 
 	// HandleForward routes a message to a new recipient through the originating
-	// channel. Returns ErrForwardNotSupported if the channel has no concept of
-	// forwarding to an arbitrary recipient.
-	HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error
+	// channel. sourceID is the message's identifier in the originating system
+	// (see HandleReply). Returns ErrForwardNotSupported if the channel has no
+	// concept of forwarding to an arbitrary recipient.
+	HandleForward(ctx context.Context, sourceID string, userID uuid.UUID, to string, note string) error
 
 	// MarkReadOnSource syncs read status back to the originating system.
 	MarkReadOnSource(ctx context.Context, sourceID string, userID uuid.UUID) error

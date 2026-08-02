@@ -4,29 +4,36 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // Service is the central orchestrator for all Lexware integration operations.
 // Unlike Bexio (OAuth), Lexware uses API key authentication.
 // Unlike Bexio (payment polling), Lexware relies on webhooks for real-time updates.
 type Service struct {
-	repo       Repository
-	configRepo IntegrationConfigRepo
-	vault      VaultService
-	contacts   ContactService
-	invoices   InvoiceReader
-	quotes     QuoteReader
-	scheduler  *Scheduler
-	emitter    EventEmitter
+	client         *Client
+	repo           Repository
+	configRepo     IntegrationConfigRepo
+	vault          VaultService
+	contacts       ContactService
+	invoices       InvoiceReader
+	quotes         QuoteReader
+	fieldMapper    *FieldMapper
+	contactSyncer  *ContactSyncer
+	invoicePusher  *InvoicePusher
+	quotePusher    *QuotePusher
+	webhookHandler *WebhookHandler
+	scheduler      *Scheduler
+	emitter        EventEmitter
 }
 
 // NewService creates a new Lexware integration service.
 func NewService(
+	client *Client,
 	repo Repository,
 	configRepo IntegrationConfigRepo,
 	vault VaultService,
@@ -34,14 +41,23 @@ func NewService(
 	invoices InvoiceReader,
 	quotes QuoteReader,
 ) *Service {
+	fieldMapper := NewFieldMapper()
+	contactSyncer := NewContactSyncer(client, repo, fieldMapper, contacts)
+
 	s := &Service{
-		repo:       repo,
-		configRepo: configRepo,
-		vault:      vault,
-		contacts:   contacts,
-		invoices:   invoices,
-		quotes:     quotes,
-		emitter:    noopEmitter{},
+		client:         client,
+		repo:           repo,
+		configRepo:     configRepo,
+		vault:          vault,
+		contacts:       contacts,
+		invoices:       invoices,
+		quotes:         quotes,
+		fieldMapper:    fieldMapper,
+		contactSyncer:  contactSyncer,
+		invoicePusher:  NewInvoicePusher(client, repo, fieldMapper, invoices, contacts),
+		quotePusher:    NewQuotePusher(client, repo, fieldMapper, quotes, contacts),
+		webhookHandler: NewWebhookHandler(client, repo, noopEmitter{}, contactSyncer),
+		emitter:        noopEmitter{},
 	}
 
 	s.scheduler = NewScheduler(s, repo, configRepo)
@@ -51,6 +67,9 @@ func NewService(
 // SetEventEmitter sets the event emitter for the Lexware service.
 func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.emitter = emitter
+	if s.webhookHandler != nil {
+		s.webhookHandler.SetEventEmitter(emitter)
+	}
 }
 
 // --- API Key Connection (no OAuth) ---
@@ -126,6 +145,9 @@ func (s *Service) Disconnect(ctx context.Context, tenantID uuid.UUID) error {
 }
 
 // TestConnection verifies the stored API key is valid by making a lightweight API call.
+// The check is deliberately end to end: a stored key that Lexware rejects (revoked,
+// typo'd, wrong organisation) must fail here rather than show a green connection
+// state and then break silently on the first sync.
 func (s *Service) TestConnection(ctx context.Context) error {
 	config, err := s.configRepo.GetByPlatform(ctx, "lexware")
 	if err != nil {
@@ -144,8 +166,17 @@ func (s *Service) TestConnection(ctx context.Context) error {
 		return fmt.Errorf("lexware: api key is empty")
 	}
 
-	// TODO: Make a lightweight API call to Lexware to verify the key.
-	// For now, having a non-empty key stored counts as a valid connection.
+	if s.client == nil {
+		return fmt.Errorf("lexware: api client is not configured")
+	}
+
+	// The client resolves the key itself from the vault (lexware_api_key_<tenant>),
+	// the same key Connect stores — so this proves the credential the syncs will
+	// actually use, not just the one this method happened to read.
+	if _, err := s.client.GetProfile(ctx, config.TenantID); err != nil {
+		return fmt.Errorf("lexware: connection test failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -179,30 +210,17 @@ func (s *Service) SyncContacts(ctx context.Context, tenantID uuid.UUID) (*SyncRe
 		Data:     map[string]any{"sync_type": "contact"},
 	})
 
-	syncLog := &models.LexwareSyncLog{
-		ConfigID:  configID,
-		SyncType:  "contact_delta",
-		Status:    "running",
-		StartedAt: time.Now().UTC(),
-		Metadata:  map[string]any{"triggered_by": "manual"},
-	}
-	if err := s.repo.CreateSyncLog(ctx, syncLog); err != nil {
-		slog.Error("lexware: failed to create sync log", "error", err)
-	}
-
-	// TODO: Implement full contact sync logic using Lexware API client.
-	// This is a placeholder that records the sync attempt.
-	result := &SyncResult{}
-	now := time.Now().UTC()
-
-	syncLog.Status = "completed"
-	syncLog.CompletedAt = &now
-	if err := s.repo.UpdateSyncLog(ctx, syncLog); err != nil {
-		slog.Error("lexware: failed to update sync log", "error", err)
-	}
-
-	if err := s.repo.UpdateLastSyncTime(ctx, configID, "contact_delta", now); err != nil {
-		slog.Error("lexware: failed to update last sync time", "error", err)
+	// The syncer owns the sync-log lifecycle (running → completed/partial/failed)
+	// and the last-sync timestamp; duplicating either here would produce two log
+	// rows per run and a timestamp that moves even when the sync failed.
+	result, err := s.contactSyncer.SyncContacts(ctx, configID, tenantID)
+	if err != nil {
+		_ = s.emitter.Emit(ctx, EventPayload{
+			Type:     EventSyncFailed,
+			TenantID: tenantID.String(),
+			Data:     map[string]any{"sync_type": "contact", "error": err.Error()},
+		})
+		return nil, err
 	}
 
 	_ = s.emitter.Emit(ctx, EventPayload{
@@ -220,27 +238,7 @@ func (s *Service) PushInvoice(ctx context.Context, tenantID uuid.UUID, invoiceID
 	if err != nil {
 		return err
 	}
-
-	invoice, err := s.invoices.GetByID(ctx, tenantID, invoiceID)
-	if err != nil {
-		return fmt.Errorf("lexware: get invoice: %w", err)
-	}
-
-	_ = invoice
-	_ = configID
-
-	// TODO: Implement invoice push via Lexware API client.
-	// 1. Look up contact mapping to get Lexware contact ID.
-	// 2. Map KMU Hub invoice to Lexware format.
-	// 3. POST to Lexware API.
-	// 4. Store entity mapping with returned Lexware ID + version.
-
-	slog.Info("lexware: invoice push placeholder",
-		"tenant_id", tenantID,
-		"invoice_id", invoiceID,
-	)
-
-	return nil
+	return s.invoicePusher.PushInvoice(ctx, configID, tenantID, invoiceID)
 }
 
 // PushQuote pushes a quote to Lexware.
@@ -249,46 +247,44 @@ func (s *Service) PushQuote(ctx context.Context, tenantID uuid.UUID, quoteID uui
 	if err != nil {
 		return err
 	}
-
-	quote, err := s.quotes.GetByID(ctx, tenantID, quoteID)
-	if err != nil {
-		return fmt.Errorf("lexware: get quote: %w", err)
-	}
-
-	_ = quote
-	_ = configID
-
-	// TODO: Implement quote push via Lexware API client.
-	// 1. Look up contact mapping to get Lexware contact ID.
-	// 2. Map KMU Hub quote to Lexware format.
-	// 3. POST to Lexware API.
-	// 4. Store entity mapping with returned Lexware ID + version.
-
-	slog.Info("lexware: quote push placeholder",
-		"tenant_id", tenantID,
-		"quote_id", quoteID,
-	)
-
-	return nil
+	return s.quotePusher.PushQuote(ctx, configID, tenantID, quoteID)
 }
 
 // HandleWebhookEvent processes an incoming Lexware webhook event.
+// The payload keys are the ones the gRPC layer puts in (resource_id,
+// organization_id); anything else is ignored.
+//
+// Pre-JWT path: the request comes from Lexware and is authenticated by HMAC, so
+// there is no tenant in the context. Without the system marker the very first
+// read (integration_configs, RLS-enabled since mig 000125) returns zero rows and
+// every webhook would look like "integration not configured".
 func (s *Service) HandleWebhookEvent(ctx context.Context, eventType string, payload map[string]any) error {
-	_ = s.emitter.Emit(ctx, EventPayload{
-		Type: EventWebhookReceived,
-		Data: map[string]any{"event_type": eventType, "payload": payload},
-	})
+	ctx = sysctx.With(ctx)
 
-	slog.Info("lexware: webhook event received",
-		"event_type", eventType,
-	)
+	config, err := s.configRepo.GetByPlatform(ctx, "lexware")
+	if err != nil {
+		return fmt.Errorf("lexware: webhook for unconfigured integration: %w", err)
+	}
+	if !config.IsActive {
+		return fmt.Errorf("lexware: webhook for inactive integration")
+	}
 
-	// TODO: Implement webhook handling:
-	// - contact.created / contact.updated -> sync contact inbound
-	// - invoice.paid -> update KMU Hub invoice status
-	// - invoice.created -> log for audit
+	event := LexwareWebhookEvent{
+		EventType:  eventType,
+		ResourceID: payloadString(payload, "resource_id"),
+		OrgID:      payloadString(payload, "organization_id"),
+	}
 
-	return nil
+	return s.webhookHandler.HandleEvent(ctx, config.ID, config.TenantID, event)
+}
+
+// payloadString reads a string value from a webhook payload map, returning ""
+// for a missing key or a non-string value.
+func payloadString(payload map[string]any, key string) string {
+	if v, ok := payload[key].(string); ok {
+		return v
+	}
+	return ""
 }
 
 // TriggerSync triggers all enabled sync types immediately.

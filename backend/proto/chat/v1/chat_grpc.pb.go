@@ -47,6 +47,8 @@ const (
 	ChatService_ToggleReaction_FullMethodName      = "/chat.v1.ChatService/ToggleReaction"
 	ChatService_ListReactions_FullMethodName       = "/chat.v1.ChatService/ListReactions"
 	ChatService_GetReactionSummary_FullMethodName  = "/chat.v1.ChatService/GetReactionSummary"
+	ChatService_ToggleBookmark_FullMethodName      = "/chat.v1.ChatService/ToggleBookmark"
+	ChatService_ListBookmarks_FullMethodName       = "/chat.v1.ChatService/ListBookmarks"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -90,6 +92,9 @@ type ChatServiceClient interface {
 	ToggleReaction(ctx context.Context, in *ToggleReactionRequest, opts ...grpc.CallOption) (*ToggleReactionResponse, error)
 	ListReactions(ctx context.Context, in *ListReactionsRequest, opts ...grpc.CallOption) (*ListReactionsResponse, error)
 	GetReactionSummary(ctx context.Context, in *GetReactionSummaryRequest, opts ...grpc.CallOption) (*GetReactionSummaryResponse, error)
+	// Bookmarks
+	ToggleBookmark(ctx context.Context, in *ToggleBookmarkRequest, opts ...grpc.CallOption) (*ToggleBookmarkResponse, error)
+	ListBookmarks(ctx context.Context, in *ListBookmarksRequest, opts ...grpc.CallOption) (*ListBookmarksResponse, error)
 }
 
 type chatServiceClient struct {
@@ -380,6 +385,26 @@ func (c *chatServiceClient) GetReactionSummary(ctx context.Context, in *GetReact
 	return out, nil
 }
 
+func (c *chatServiceClient) ToggleBookmark(ctx context.Context, in *ToggleBookmarkRequest, opts ...grpc.CallOption) (*ToggleBookmarkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ToggleBookmarkResponse)
+	err := c.cc.Invoke(ctx, ChatService_ToggleBookmark_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListBookmarks(ctx context.Context, in *ListBookmarksRequest, opts ...grpc.CallOption) (*ListBookmarksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBookmarksResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListBookmarks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -421,6 +446,9 @@ type ChatServiceServer interface {
 	ToggleReaction(context.Context, *ToggleReactionRequest) (*ToggleReactionResponse, error)
 	ListReactions(context.Context, *ListReactionsRequest) (*ListReactionsResponse, error)
 	GetReactionSummary(context.Context, *GetReactionSummaryRequest) (*GetReactionSummaryResponse, error)
+	// Bookmarks
+	ToggleBookmark(context.Context, *ToggleBookmarkRequest) (*ToggleBookmarkResponse, error)
+	ListBookmarks(context.Context, *ListBookmarksRequest) (*ListBookmarksResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -514,6 +542,12 @@ func (UnimplementedChatServiceServer) ListReactions(context.Context, *ListReacti
 }
 func (UnimplementedChatServiceServer) GetReactionSummary(context.Context, *GetReactionSummaryRequest) (*GetReactionSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReactionSummary not implemented")
+}
+func (UnimplementedChatServiceServer) ToggleBookmark(context.Context, *ToggleBookmarkRequest) (*ToggleBookmarkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ToggleBookmark not implemented")
+}
+func (UnimplementedChatServiceServer) ListBookmarks(context.Context, *ListBookmarksRequest) (*ListBookmarksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBookmarks not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -1040,6 +1074,42 @@ func _ChatService_GetReactionSummary_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_ToggleBookmark_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleBookmarkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ToggleBookmark(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ToggleBookmark_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ToggleBookmark(ctx, req.(*ToggleBookmarkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListBookmarks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBookmarksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListBookmarks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListBookmarks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListBookmarks(ctx, req.(*ListBookmarksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1158,6 +1228,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetReactionSummary",
 			Handler:    _ChatService_GetReactionSummary_Handler,
+		},
+		{
+			MethodName: "ToggleBookmark",
+			Handler:    _ChatService_ToggleBookmark_Handler,
+		},
+		{
+			MethodName: "ListBookmarks",
+			Handler:    _ChatService_ListBookmarks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

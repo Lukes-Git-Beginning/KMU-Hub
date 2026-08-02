@@ -50,6 +50,10 @@ service ChatService {
   rpc ToggleReaction(ToggleReactionRequest) returns (ToggleReactionResponse);
   rpc ListReactions(ListReactionsRequest) returns (ListReactionsResponse);
   rpc GetReactionSummary(GetReactionSummaryRequest) returns (GetReactionSummaryResponse);
+
+  // Bookmarks
+  rpc ToggleBookmark(ToggleBookmarkRequest) returns (ToggleBookmarkResponse);
+  rpc ListBookmarks(ListBookmarksRequest) returns (ListBookmarksResponse);
 }
 
 // ============================================================================
@@ -495,4 +499,21 @@ message GetReactionSummaryRequest {
 
 message GetReactionSummaryResponse {
   repeated ReactionSummary summaries = 1;
+}
+
+message ToggleBookmarkRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ToggleBookmarkResponse {
+  bool bookmarked = 1;
+}
+
+message ListBookmarksRequest {
+  string user_id = 1;
+}
+
+message ListBookmarksResponse {
+  repeated MessageInfo messages = 1;
 }

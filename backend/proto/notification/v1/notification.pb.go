@@ -964,6 +964,118 @@ func (x *DismissNotificationResponse) GetNotification() *NotificationInfo {
 	return nil
 }
 
+type SnoozeNotificationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	NotificationId string                 `protobuf:"bytes,1,opt,name=notification_id,json=notificationId,proto3" json:"notification_id,omitempty"`
+	UserId         string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Until          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=until,proto3" json:"until,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SnoozeNotificationRequest) Reset() {
+	*x = SnoozeNotificationRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnoozeNotificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnoozeNotificationRequest) ProtoMessage() {}
+
+func (x *SnoozeNotificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnoozeNotificationRequest.ProtoReflect.Descriptor instead.
+func (*SnoozeNotificationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SnoozeNotificationRequest) GetNotificationId() string {
+	if x != nil {
+		return x.NotificationId
+	}
+	return ""
+}
+
+func (x *SnoozeNotificationRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SnoozeNotificationRequest) GetUntil() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Until
+	}
+	return nil
+}
+
+type SnoozeNotificationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SnoozedUntil  *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=snoozed_until,json=snoozedUntil,proto3" json:"snoozed_until,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnoozeNotificationResponse) Reset() {
+	*x = SnoozeNotificationResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnoozeNotificationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnoozeNotificationResponse) ProtoMessage() {}
+
+func (x *SnoozeNotificationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnoozeNotificationResponse.ProtoReflect.Descriptor instead.
+func (*SnoozeNotificationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SnoozeNotificationResponse) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SnoozeNotificationResponse) GetSnoozedUntil() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SnoozedUntil
+	}
+	return nil
+}
+
 type NotificationPreferenceInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -981,7 +1093,7 @@ type NotificationPreferenceInfo struct {
 
 func (x *NotificationPreferenceInfo) Reset() {
 	*x = NotificationPreferenceInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[15]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -993,7 +1105,7 @@ func (x *NotificationPreferenceInfo) String() string {
 func (*NotificationPreferenceInfo) ProtoMessage() {}
 
 func (x *NotificationPreferenceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[15]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1006,7 +1118,7 @@ func (x *NotificationPreferenceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationPreferenceInfo.ProtoReflect.Descriptor instead.
 func (*NotificationPreferenceInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{15}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NotificationPreferenceInfo) GetId() string {
@@ -1082,7 +1194,7 @@ type GetNotificationPreferencesRequest struct {
 
 func (x *GetNotificationPreferencesRequest) Reset() {
 	*x = GetNotificationPreferencesRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[16]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1094,7 +1206,7 @@ func (x *GetNotificationPreferencesRequest) String() string {
 func (*GetNotificationPreferencesRequest) ProtoMessage() {}
 
 func (x *GetNotificationPreferencesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[16]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1107,7 +1219,7 @@ func (x *GetNotificationPreferencesRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetNotificationPreferencesRequest.ProtoReflect.Descriptor instead.
 func (*GetNotificationPreferencesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{16}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetNotificationPreferencesRequest) GetUserId() string {
@@ -1133,7 +1245,7 @@ type GetNotificationPreferencesResponse struct {
 
 func (x *GetNotificationPreferencesResponse) Reset() {
 	*x = GetNotificationPreferencesResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[17]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1145,7 +1257,7 @@ func (x *GetNotificationPreferencesResponse) String() string {
 func (*GetNotificationPreferencesResponse) ProtoMessage() {}
 
 func (x *GetNotificationPreferencesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[17]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1158,7 +1270,7 @@ func (x *GetNotificationPreferencesResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetNotificationPreferencesResponse.ProtoReflect.Descriptor instead.
 func (*GetNotificationPreferencesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{17}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetNotificationPreferencesResponse) GetPreferences() []*NotificationPreferenceInfo {
@@ -1182,7 +1294,7 @@ type UpdateNotificationPreferenceRequest struct {
 
 func (x *UpdateNotificationPreferenceRequest) Reset() {
 	*x = UpdateNotificationPreferenceRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[18]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1306,7 @@ func (x *UpdateNotificationPreferenceRequest) String() string {
 func (*UpdateNotificationPreferenceRequest) ProtoMessage() {}
 
 func (x *UpdateNotificationPreferenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[18]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1319,7 @@ func (x *UpdateNotificationPreferenceRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateNotificationPreferenceRequest.ProtoReflect.Descriptor instead.
 func (*UpdateNotificationPreferenceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{18}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetUserId() string {
@@ -1261,7 +1373,7 @@ type UpdateNotificationPreferenceResponse struct {
 
 func (x *UpdateNotificationPreferenceResponse) Reset() {
 	*x = UpdateNotificationPreferenceResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[19]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1385,7 @@ func (x *UpdateNotificationPreferenceResponse) String() string {
 func (*UpdateNotificationPreferenceResponse) ProtoMessage() {}
 
 func (x *UpdateNotificationPreferenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[19]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1398,7 @@ func (x *UpdateNotificationPreferenceResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use UpdateNotificationPreferenceResponse.ProtoReflect.Descriptor instead.
 func (*UpdateNotificationPreferenceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{19}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateNotificationPreferenceResponse) GetPreference() *NotificationPreferenceInfo {
@@ -1309,7 +1421,7 @@ type MuteInfo struct {
 
 func (x *MuteInfo) Reset() {
 	*x = MuteInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[20]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1321,7 +1433,7 @@ func (x *MuteInfo) String() string {
 func (*MuteInfo) ProtoMessage() {}
 
 func (x *MuteInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[20]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1334,7 +1446,7 @@ func (x *MuteInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteInfo.ProtoReflect.Descriptor instead.
 func (*MuteInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{20}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *MuteInfo) GetId() string {
@@ -1383,7 +1495,7 @@ type MuteResourceRequest struct {
 
 func (x *MuteResourceRequest) Reset() {
 	*x = MuteResourceRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[21]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1507,7 @@ func (x *MuteResourceRequest) String() string {
 func (*MuteResourceRequest) ProtoMessage() {}
 
 func (x *MuteResourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[21]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,7 +1520,7 @@ func (x *MuteResourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteResourceRequest.ProtoReflect.Descriptor instead.
 func (*MuteResourceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{21}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MuteResourceRequest) GetUserId() string {
@@ -1441,7 +1553,7 @@ type MuteResourceResponse struct {
 
 func (x *MuteResourceResponse) Reset() {
 	*x = MuteResourceResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[22]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1453,7 +1565,7 @@ func (x *MuteResourceResponse) String() string {
 func (*MuteResourceResponse) ProtoMessage() {}
 
 func (x *MuteResourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[22]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1466,7 +1578,7 @@ func (x *MuteResourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteResourceResponse.ProtoReflect.Descriptor instead.
 func (*MuteResourceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{22}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MuteResourceResponse) GetMute() *MuteInfo {
@@ -1487,7 +1599,7 @@ type UnmuteResourceRequest struct {
 
 func (x *UnmuteResourceRequest) Reset() {
 	*x = UnmuteResourceRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[23]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1499,7 +1611,7 @@ func (x *UnmuteResourceRequest) String() string {
 func (*UnmuteResourceRequest) ProtoMessage() {}
 
 func (x *UnmuteResourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[23]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1512,7 +1624,7 @@ func (x *UnmuteResourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnmuteResourceRequest.ProtoReflect.Descriptor instead.
 func (*UnmuteResourceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{23}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UnmuteResourceRequest) GetUserId() string {
@@ -1544,7 +1656,7 @@ type UnmuteResourceResponse struct {
 
 func (x *UnmuteResourceResponse) Reset() {
 	*x = UnmuteResourceResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[24]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1556,7 +1668,7 @@ func (x *UnmuteResourceResponse) String() string {
 func (*UnmuteResourceResponse) ProtoMessage() {}
 
 func (x *UnmuteResourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[24]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1569,7 +1681,7 @@ func (x *UnmuteResourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnmuteResourceResponse.ProtoReflect.Descriptor instead.
 func (*UnmuteResourceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{24}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{26}
 }
 
 type ListMutedResourcesRequest struct {
@@ -1584,7 +1696,7 @@ type ListMutedResourcesRequest struct {
 
 func (x *ListMutedResourcesRequest) Reset() {
 	*x = ListMutedResourcesRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[25]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1596,7 +1708,7 @@ func (x *ListMutedResourcesRequest) String() string {
 func (*ListMutedResourcesRequest) ProtoMessage() {}
 
 func (x *ListMutedResourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[25]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1609,7 +1721,7 @@ func (x *ListMutedResourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMutedResourcesRequest.ProtoReflect.Descriptor instead.
 func (*ListMutedResourcesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{25}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListMutedResourcesRequest) GetUserId() string {
@@ -1650,7 +1762,7 @@ type ListMutedResourcesResponse struct {
 
 func (x *ListMutedResourcesResponse) Reset() {
 	*x = ListMutedResourcesResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[26]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1662,7 +1774,7 @@ func (x *ListMutedResourcesResponse) String() string {
 func (*ListMutedResourcesResponse) ProtoMessage() {}
 
 func (x *ListMutedResourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[26]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1675,7 +1787,7 @@ func (x *ListMutedResourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMutedResourcesResponse.ProtoReflect.Descriptor instead.
 func (*ListMutedResourcesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{26}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListMutedResourcesResponse) GetMutes() []*MuteInfo {
@@ -1711,7 +1823,7 @@ type QuietHoursInfo struct {
 
 func (x *QuietHoursInfo) Reset() {
 	*x = QuietHoursInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[27]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1723,7 +1835,7 @@ func (x *QuietHoursInfo) String() string {
 func (*QuietHoursInfo) ProtoMessage() {}
 
 func (x *QuietHoursInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[27]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1736,7 +1848,7 @@ func (x *QuietHoursInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuietHoursInfo.ProtoReflect.Descriptor instead.
 func (*QuietHoursInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{27}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *QuietHoursInfo) GetId() string {
@@ -1825,7 +1937,7 @@ type GetQuietHoursRequest struct {
 
 func (x *GetQuietHoursRequest) Reset() {
 	*x = GetQuietHoursRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[28]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1837,7 +1949,7 @@ func (x *GetQuietHoursRequest) String() string {
 func (*GetQuietHoursRequest) ProtoMessage() {}
 
 func (x *GetQuietHoursRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[28]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1850,7 +1962,7 @@ func (x *GetQuietHoursRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuietHoursRequest.ProtoReflect.Descriptor instead.
 func (*GetQuietHoursRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{28}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetQuietHoursRequest) GetUserId() string {
@@ -1869,7 +1981,7 @@ type GetQuietHoursResponse struct {
 
 func (x *GetQuietHoursResponse) Reset() {
 	*x = GetQuietHoursResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[29]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1881,7 +1993,7 @@ func (x *GetQuietHoursResponse) String() string {
 func (*GetQuietHoursResponse) ProtoMessage() {}
 
 func (x *GetQuietHoursResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[29]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1894,7 +2006,7 @@ func (x *GetQuietHoursResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuietHoursResponse.ProtoReflect.Descriptor instead.
 func (*GetQuietHoursResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{29}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetQuietHoursResponse) GetQuietHours() *QuietHoursInfo {
@@ -1918,7 +2030,7 @@ type UpdateQuietHoursRequest struct {
 
 func (x *UpdateQuietHoursRequest) Reset() {
 	*x = UpdateQuietHoursRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[30]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1930,7 +2042,7 @@ func (x *UpdateQuietHoursRequest) String() string {
 func (*UpdateQuietHoursRequest) ProtoMessage() {}
 
 func (x *UpdateQuietHoursRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[30]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1943,7 +2055,7 @@ func (x *UpdateQuietHoursRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateQuietHoursRequest.ProtoReflect.Descriptor instead.
 func (*UpdateQuietHoursRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{30}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *UpdateQuietHoursRequest) GetUserId() string {
@@ -1997,7 +2109,7 @@ type UpdateQuietHoursResponse struct {
 
 func (x *UpdateQuietHoursResponse) Reset() {
 	*x = UpdateQuietHoursResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2009,7 +2121,7 @@ func (x *UpdateQuietHoursResponse) String() string {
 func (*UpdateQuietHoursResponse) ProtoMessage() {}
 
 func (x *UpdateQuietHoursResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2022,7 +2134,7 @@ func (x *UpdateQuietHoursResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateQuietHoursResponse.ProtoReflect.Descriptor instead.
 func (*UpdateQuietHoursResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{31}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateQuietHoursResponse) GetQuietHours() *QuietHoursInfo {
@@ -2043,7 +2155,7 @@ type ToggleManualDNDRequest struct {
 
 func (x *ToggleManualDNDRequest) Reset() {
 	*x = ToggleManualDNDRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2167,7 @@ func (x *ToggleManualDNDRequest) String() string {
 func (*ToggleManualDNDRequest) ProtoMessage() {}
 
 func (x *ToggleManualDNDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2180,7 @@ func (x *ToggleManualDNDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToggleManualDNDRequest.ProtoReflect.Descriptor instead.
 func (*ToggleManualDNDRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{32}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ToggleManualDNDRequest) GetUserId() string {
@@ -2101,7 +2213,7 @@ type ToggleManualDNDResponse struct {
 
 func (x *ToggleManualDNDResponse) Reset() {
 	*x = ToggleManualDNDResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2113,7 +2225,7 @@ func (x *ToggleManualDNDResponse) String() string {
 func (*ToggleManualDNDResponse) ProtoMessage() {}
 
 func (x *ToggleManualDNDResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2126,7 +2238,7 @@ func (x *ToggleManualDNDResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToggleManualDNDResponse.ProtoReflect.Descriptor instead.
 func (*ToggleManualDNDResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{33}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ToggleManualDNDResponse) GetQuietHours() *QuietHoursInfo {
@@ -2155,7 +2267,7 @@ type EventTypeInfo struct {
 
 func (x *EventTypeInfo) Reset() {
 	*x = EventTypeInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2167,7 +2279,7 @@ func (x *EventTypeInfo) String() string {
 func (*EventTypeInfo) ProtoMessage() {}
 
 func (x *EventTypeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2180,7 +2292,7 @@ func (x *EventTypeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventTypeInfo.ProtoReflect.Descriptor instead.
 func (*EventTypeInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{34}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *EventTypeInfo) GetId() string {
@@ -2269,7 +2381,7 @@ type ListEventTypesRequest struct {
 
 func (x *ListEventTypesRequest) Reset() {
 	*x = ListEventTypesRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2281,7 +2393,7 @@ func (x *ListEventTypesRequest) String() string {
 func (*ListEventTypesRequest) ProtoMessage() {}
 
 func (x *ListEventTypesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2294,7 +2406,7 @@ func (x *ListEventTypesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEventTypesRequest.ProtoReflect.Descriptor instead.
 func (*ListEventTypesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{35}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListEventTypesRequest) GetModuleId() string {
@@ -2313,7 +2425,7 @@ type ListEventTypesResponse struct {
 
 func (x *ListEventTypesResponse) Reset() {
 	*x = ListEventTypesResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2325,7 +2437,7 @@ func (x *ListEventTypesResponse) String() string {
 func (*ListEventTypesResponse) ProtoMessage() {}
 
 func (x *ListEventTypesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2338,7 +2450,7 @@ func (x *ListEventTypesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEventTypesResponse.ProtoReflect.Descriptor instead.
 func (*ListEventTypesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{36}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListEventTypesResponse) GetEventTypes() []*EventTypeInfo {
@@ -2364,7 +2476,7 @@ type IntegrationConfigInfo struct {
 
 func (x *IntegrationConfigInfo) Reset() {
 	*x = IntegrationConfigInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2488,7 @@ func (x *IntegrationConfigInfo) String() string {
 func (*IntegrationConfigInfo) ProtoMessage() {}
 
 func (x *IntegrationConfigInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2501,7 @@ func (x *IntegrationConfigInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IntegrationConfigInfo.ProtoReflect.Descriptor instead.
 func (*IntegrationConfigInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{37}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *IntegrationConfigInfo) GetId() string {
@@ -2449,7 +2561,7 @@ type ListIntegrationConfigsRequest struct {
 
 func (x *ListIntegrationConfigsRequest) Reset() {
 	*x = ListIntegrationConfigsRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2461,7 +2573,7 @@ func (x *ListIntegrationConfigsRequest) String() string {
 func (*ListIntegrationConfigsRequest) ProtoMessage() {}
 
 func (x *ListIntegrationConfigsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2474,7 +2586,7 @@ func (x *ListIntegrationConfigsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIntegrationConfigsRequest.ProtoReflect.Descriptor instead.
 func (*ListIntegrationConfigsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{38}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{40}
 }
 
 type ListIntegrationConfigsResponse struct {
@@ -2486,7 +2598,7 @@ type ListIntegrationConfigsResponse struct {
 
 func (x *ListIntegrationConfigsResponse) Reset() {
 	*x = ListIntegrationConfigsResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2498,7 +2610,7 @@ func (x *ListIntegrationConfigsResponse) String() string {
 func (*ListIntegrationConfigsResponse) ProtoMessage() {}
 
 func (x *ListIntegrationConfigsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2511,7 +2623,7 @@ func (x *ListIntegrationConfigsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIntegrationConfigsResponse.ProtoReflect.Descriptor instead.
 func (*ListIntegrationConfigsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{39}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListIntegrationConfigsResponse) GetConfigs() []*IntegrationConfigInfo {
@@ -2530,7 +2642,7 @@ type GetIntegrationConfigRequest struct {
 
 func (x *GetIntegrationConfigRequest) Reset() {
 	*x = GetIntegrationConfigRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2542,7 +2654,7 @@ func (x *GetIntegrationConfigRequest) String() string {
 func (*GetIntegrationConfigRequest) ProtoMessage() {}
 
 func (x *GetIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2555,7 +2667,7 @@ func (x *GetIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIntegrationConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetIntegrationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{40}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *GetIntegrationConfigRequest) GetPlatform() string {
@@ -2574,7 +2686,7 @@ type GetIntegrationConfigResponse struct {
 
 func (x *GetIntegrationConfigResponse) Reset() {
 	*x = GetIntegrationConfigResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2586,7 +2698,7 @@ func (x *GetIntegrationConfigResponse) String() string {
 func (*GetIntegrationConfigResponse) ProtoMessage() {}
 
 func (x *GetIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2599,7 +2711,7 @@ func (x *GetIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIntegrationConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetIntegrationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{41}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
@@ -2621,7 +2733,7 @@ type CreateIntegrationConfigRequest struct {
 
 func (x *CreateIntegrationConfigRequest) Reset() {
 	*x = CreateIntegrationConfigRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2633,7 +2745,7 @@ func (x *CreateIntegrationConfigRequest) String() string {
 func (*CreateIntegrationConfigRequest) ProtoMessage() {}
 
 func (x *CreateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2646,7 +2758,7 @@ func (x *CreateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateIntegrationConfigRequest.ProtoReflect.Descriptor instead.
 func (*CreateIntegrationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{42}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateIntegrationConfigRequest) GetPlatform() string {
@@ -2686,7 +2798,7 @@ type CreateIntegrationConfigResponse struct {
 
 func (x *CreateIntegrationConfigResponse) Reset() {
 	*x = CreateIntegrationConfigResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2698,7 +2810,7 @@ func (x *CreateIntegrationConfigResponse) String() string {
 func (*CreateIntegrationConfigResponse) ProtoMessage() {}
 
 func (x *CreateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2711,7 +2823,7 @@ func (x *CreateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateIntegrationConfigResponse.ProtoReflect.Descriptor instead.
 func (*CreateIntegrationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{43}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *CreateIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
@@ -2733,7 +2845,7 @@ type UpdateIntegrationConfigRequest struct {
 
 func (x *UpdateIntegrationConfigRequest) Reset() {
 	*x = UpdateIntegrationConfigRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2745,7 +2857,7 @@ func (x *UpdateIntegrationConfigRequest) String() string {
 func (*UpdateIntegrationConfigRequest) ProtoMessage() {}
 
 func (x *UpdateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2758,7 +2870,7 @@ func (x *UpdateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateIntegrationConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateIntegrationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{44}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *UpdateIntegrationConfigRequest) GetId() string {
@@ -2798,7 +2910,7 @@ type UpdateIntegrationConfigResponse struct {
 
 func (x *UpdateIntegrationConfigResponse) Reset() {
 	*x = UpdateIntegrationConfigResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2810,7 +2922,7 @@ func (x *UpdateIntegrationConfigResponse) String() string {
 func (*UpdateIntegrationConfigResponse) ProtoMessage() {}
 
 func (x *UpdateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2823,7 +2935,7 @@ func (x *UpdateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateIntegrationConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateIntegrationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{45}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *UpdateIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
@@ -2842,7 +2954,7 @@ type DeleteIntegrationConfigRequest struct {
 
 func (x *DeleteIntegrationConfigRequest) Reset() {
 	*x = DeleteIntegrationConfigRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2854,7 +2966,7 @@ func (x *DeleteIntegrationConfigRequest) String() string {
 func (*DeleteIntegrationConfigRequest) ProtoMessage() {}
 
 func (x *DeleteIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2867,7 +2979,7 @@ func (x *DeleteIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteIntegrationConfigRequest.ProtoReflect.Descriptor instead.
 func (*DeleteIntegrationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{46}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *DeleteIntegrationConfigRequest) GetId() string {
@@ -2885,7 +2997,7 @@ type DeleteIntegrationConfigResponse struct {
 
 func (x *DeleteIntegrationConfigResponse) Reset() {
 	*x = DeleteIntegrationConfigResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2897,7 +3009,7 @@ func (x *DeleteIntegrationConfigResponse) String() string {
 func (*DeleteIntegrationConfigResponse) ProtoMessage() {}
 
 func (x *DeleteIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2910,7 +3022,7 @@ func (x *DeleteIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteIntegrationConfigResponse.ProtoReflect.Descriptor instead.
 func (*DeleteIntegrationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{47}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{49}
 }
 
 type TestIntegrationConfigRequest struct {
@@ -2922,7 +3034,7 @@ type TestIntegrationConfigRequest struct {
 
 func (x *TestIntegrationConfigRequest) Reset() {
 	*x = TestIntegrationConfigRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2934,7 +3046,7 @@ func (x *TestIntegrationConfigRequest) String() string {
 func (*TestIntegrationConfigRequest) ProtoMessage() {}
 
 func (x *TestIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2947,7 +3059,7 @@ func (x *TestIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestIntegrationConfigRequest.ProtoReflect.Descriptor instead.
 func (*TestIntegrationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{48}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *TestIntegrationConfigRequest) GetPlatform() string {
@@ -2970,7 +3082,7 @@ type TestIntegrationConfigResponse struct {
 
 func (x *TestIntegrationConfigResponse) Reset() {
 	*x = TestIntegrationConfigResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2982,7 +3094,7 @@ func (x *TestIntegrationConfigResponse) String() string {
 func (*TestIntegrationConfigResponse) ProtoMessage() {}
 
 func (x *TestIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2995,7 +3107,7 @@ func (x *TestIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestIntegrationConfigResponse.ProtoReflect.Descriptor instead.
 func (*TestIntegrationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{49}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *TestIntegrationConfigResponse) GetSuccess() bool {
@@ -3028,7 +3140,7 @@ type ChannelMappingInfo struct {
 
 func (x *ChannelMappingInfo) Reset() {
 	*x = ChannelMappingInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3040,7 +3152,7 @@ func (x *ChannelMappingInfo) String() string {
 func (*ChannelMappingInfo) ProtoMessage() {}
 
 func (x *ChannelMappingInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3053,7 +3165,7 @@ func (x *ChannelMappingInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChannelMappingInfo.ProtoReflect.Descriptor instead.
 func (*ChannelMappingInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{50}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ChannelMappingInfo) GetId() string {
@@ -3121,7 +3233,7 @@ type ListChannelMappingsRequest struct {
 
 func (x *ListChannelMappingsRequest) Reset() {
 	*x = ListChannelMappingsRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3133,7 +3245,7 @@ func (x *ListChannelMappingsRequest) String() string {
 func (*ListChannelMappingsRequest) ProtoMessage() {}
 
 func (x *ListChannelMappingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3146,7 +3258,7 @@ func (x *ListChannelMappingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChannelMappingsRequest.ProtoReflect.Descriptor instead.
 func (*ListChannelMappingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{51}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ListChannelMappingsRequest) GetConfigId() string {
@@ -3165,7 +3277,7 @@ type ListChannelMappingsResponse struct {
 
 func (x *ListChannelMappingsResponse) Reset() {
 	*x = ListChannelMappingsResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3177,7 +3289,7 @@ func (x *ListChannelMappingsResponse) String() string {
 func (*ListChannelMappingsResponse) ProtoMessage() {}
 
 func (x *ListChannelMappingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3190,7 +3302,7 @@ func (x *ListChannelMappingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChannelMappingsResponse.ProtoReflect.Descriptor instead.
 func (*ListChannelMappingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{52}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ListChannelMappingsResponse) GetMappings() []*ChannelMappingInfo {
@@ -3212,7 +3324,7 @@ type CreateChannelMappingRequest struct {
 
 func (x *CreateChannelMappingRequest) Reset() {
 	*x = CreateChannelMappingRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3224,7 +3336,7 @@ func (x *CreateChannelMappingRequest) String() string {
 func (*CreateChannelMappingRequest) ProtoMessage() {}
 
 func (x *CreateChannelMappingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3237,7 +3349,7 @@ func (x *CreateChannelMappingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateChannelMappingRequest.ProtoReflect.Descriptor instead.
 func (*CreateChannelMappingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{53}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CreateChannelMappingRequest) GetConfigId() string {
@@ -3277,7 +3389,7 @@ type CreateChannelMappingResponse struct {
 
 func (x *CreateChannelMappingResponse) Reset() {
 	*x = CreateChannelMappingResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3289,7 +3401,7 @@ func (x *CreateChannelMappingResponse) String() string {
 func (*CreateChannelMappingResponse) ProtoMessage() {}
 
 func (x *CreateChannelMappingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3302,7 +3414,7 @@ func (x *CreateChannelMappingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateChannelMappingResponse.ProtoReflect.Descriptor instead.
 func (*CreateChannelMappingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{54}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CreateChannelMappingResponse) GetMapping() *ChannelMappingInfo {
@@ -3325,7 +3437,7 @@ type UpdateChannelMappingRequest struct {
 
 func (x *UpdateChannelMappingRequest) Reset() {
 	*x = UpdateChannelMappingRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3337,7 +3449,7 @@ func (x *UpdateChannelMappingRequest) String() string {
 func (*UpdateChannelMappingRequest) ProtoMessage() {}
 
 func (x *UpdateChannelMappingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3350,7 +3462,7 @@ func (x *UpdateChannelMappingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateChannelMappingRequest.ProtoReflect.Descriptor instead.
 func (*UpdateChannelMappingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{55}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *UpdateChannelMappingRequest) GetId() string {
@@ -3397,7 +3509,7 @@ type UpdateChannelMappingResponse struct {
 
 func (x *UpdateChannelMappingResponse) Reset() {
 	*x = UpdateChannelMappingResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3409,7 +3521,7 @@ func (x *UpdateChannelMappingResponse) String() string {
 func (*UpdateChannelMappingResponse) ProtoMessage() {}
 
 func (x *UpdateChannelMappingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3422,7 +3534,7 @@ func (x *UpdateChannelMappingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateChannelMappingResponse.ProtoReflect.Descriptor instead.
 func (*UpdateChannelMappingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{56}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *UpdateChannelMappingResponse) GetMapping() *ChannelMappingInfo {
@@ -3441,7 +3553,7 @@ type DeleteChannelMappingRequest struct {
 
 func (x *DeleteChannelMappingRequest) Reset() {
 	*x = DeleteChannelMappingRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3453,7 +3565,7 @@ func (x *DeleteChannelMappingRequest) String() string {
 func (*DeleteChannelMappingRequest) ProtoMessage() {}
 
 func (x *DeleteChannelMappingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3466,7 +3578,7 @@ func (x *DeleteChannelMappingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteChannelMappingRequest.ProtoReflect.Descriptor instead.
 func (*DeleteChannelMappingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{57}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DeleteChannelMappingRequest) GetId() string {
@@ -3484,7 +3596,7 @@ type DeleteChannelMappingResponse struct {
 
 func (x *DeleteChannelMappingResponse) Reset() {
 	*x = DeleteChannelMappingResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3496,7 +3608,7 @@ func (x *DeleteChannelMappingResponse) String() string {
 func (*DeleteChannelMappingResponse) ProtoMessage() {}
 
 func (x *DeleteChannelMappingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3509,7 +3621,7 @@ func (x *DeleteChannelMappingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteChannelMappingResponse.ProtoReflect.Descriptor instead.
 func (*DeleteChannelMappingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{58}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{60}
 }
 
 type LinkAccountRequest struct {
@@ -3522,7 +3634,7 @@ type LinkAccountRequest struct {
 
 func (x *LinkAccountRequest) Reset() {
 	*x = LinkAccountRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3534,7 +3646,7 @@ func (x *LinkAccountRequest) String() string {
 func (*LinkAccountRequest) ProtoMessage() {}
 
 func (x *LinkAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3547,7 +3659,7 @@ func (x *LinkAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkAccountRequest.ProtoReflect.Descriptor instead.
 func (*LinkAccountRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{59}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *LinkAccountRequest) GetToken() string {
@@ -3574,7 +3686,7 @@ type LinkAccountResponse struct {
 
 func (x *LinkAccountResponse) Reset() {
 	*x = LinkAccountResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[60]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3586,7 +3698,7 @@ func (x *LinkAccountResponse) String() string {
 func (*LinkAccountResponse) ProtoMessage() {}
 
 func (x *LinkAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[60]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3599,7 +3711,7 @@ func (x *LinkAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkAccountResponse.ProtoReflect.Descriptor instead.
 func (*LinkAccountResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{60}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *LinkAccountResponse) GetPlatform() string {
@@ -3626,7 +3738,7 @@ type UnlinkAccountRequest struct {
 
 func (x *UnlinkAccountRequest) Reset() {
 	*x = UnlinkAccountRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[61]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3638,7 +3750,7 @@ func (x *UnlinkAccountRequest) String() string {
 func (*UnlinkAccountRequest) ProtoMessage() {}
 
 func (x *UnlinkAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[61]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3651,7 +3763,7 @@ func (x *UnlinkAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkAccountRequest.ProtoReflect.Descriptor instead.
 func (*UnlinkAccountRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{61}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *UnlinkAccountRequest) GetPlatform() string {
@@ -3676,7 +3788,7 @@ type UnlinkAccountResponse struct {
 
 func (x *UnlinkAccountResponse) Reset() {
 	*x = UnlinkAccountResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[62]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3688,7 +3800,7 @@ func (x *UnlinkAccountResponse) String() string {
 func (*UnlinkAccountResponse) ProtoMessage() {}
 
 func (x *UnlinkAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[62]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3701,7 +3813,7 @@ func (x *UnlinkAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkAccountResponse.ProtoReflect.Descriptor instead.
 func (*UnlinkAccountResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{62}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{64}
 }
 
 type GetAccountLinkStatusRequest struct {
@@ -3713,7 +3825,7 @@ type GetAccountLinkStatusRequest struct {
 
 func (x *GetAccountLinkStatusRequest) Reset() {
 	*x = GetAccountLinkStatusRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[63]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3725,7 +3837,7 @@ func (x *GetAccountLinkStatusRequest) String() string {
 func (*GetAccountLinkStatusRequest) ProtoMessage() {}
 
 func (x *GetAccountLinkStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[63]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3738,7 +3850,7 @@ func (x *GetAccountLinkStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountLinkStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountLinkStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{63}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetAccountLinkStatusRequest) GetUserId() string {
@@ -3759,7 +3871,7 @@ type AccountLinkInfo struct {
 
 func (x *AccountLinkInfo) Reset() {
 	*x = AccountLinkInfo{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[64]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3771,7 +3883,7 @@ func (x *AccountLinkInfo) String() string {
 func (*AccountLinkInfo) ProtoMessage() {}
 
 func (x *AccountLinkInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[64]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3784,7 +3896,7 @@ func (x *AccountLinkInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountLinkInfo.ProtoReflect.Descriptor instead.
 func (*AccountLinkInfo) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{64}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *AccountLinkInfo) GetPlatform() string {
@@ -3817,7 +3929,7 @@ type GetAccountLinkStatusResponse struct {
 
 func (x *GetAccountLinkStatusResponse) Reset() {
 	*x = GetAccountLinkStatusResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[65]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3829,7 +3941,7 @@ func (x *GetAccountLinkStatusResponse) String() string {
 func (*GetAccountLinkStatusResponse) ProtoMessage() {}
 
 func (x *GetAccountLinkStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[65]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3842,7 +3954,7 @@ func (x *GetAccountLinkStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountLinkStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountLinkStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{65}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *GetAccountLinkStatusResponse) GetLinks() []*AccountLinkInfo {
@@ -3872,7 +3984,7 @@ type HandlePlatformWebhookRequest struct {
 
 func (x *HandlePlatformWebhookRequest) Reset() {
 	*x = HandlePlatformWebhookRequest{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3884,7 +3996,7 @@ func (x *HandlePlatformWebhookRequest) String() string {
 func (*HandlePlatformWebhookRequest) ProtoMessage() {}
 
 func (x *HandlePlatformWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3897,7 +4009,7 @@ func (x *HandlePlatformWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandlePlatformWebhookRequest.ProtoReflect.Descriptor instead.
 func (*HandlePlatformWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{66}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *HandlePlatformWebhookRequest) GetPlatform() string {
@@ -3940,7 +4052,7 @@ type HandlePlatformWebhookResponse struct {
 
 func (x *HandlePlatformWebhookResponse) Reset() {
 	*x = HandlePlatformWebhookResponse{}
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3952,7 +4064,7 @@ func (x *HandlePlatformWebhookResponse) String() string {
 func (*HandlePlatformWebhookResponse) ProtoMessage() {}
 
 func (x *HandlePlatformWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3965,7 +4077,7 @@ func (x *HandlePlatformWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandlePlatformWebhookResponse.ProtoReflect.Descriptor instead.
 func (*HandlePlatformWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{67}
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *HandlePlatformWebhookResponse) GetStatusCode() int32 {
@@ -4072,7 +4184,14 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x0fnotification_id\x18\x01 \x01(\tR\x0enotificationId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"d\n" +
 	"\x1bDismissNotificationResponse\x12E\n" +
-	"\fnotification\x18\x01 \x01(\v2!.notification.v1.NotificationInfoR\fnotification\"\xf9\x02\n" +
+	"\fnotification\x18\x01 \x01(\v2!.notification.v1.NotificationInfoR\fnotification\"\x8f\x01\n" +
+	"\x19SnoozeNotificationRequest\x12'\n" +
+	"\x0fnotification_id\x18\x01 \x01(\tR\x0enotificationId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x120\n" +
+	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"m\n" +
+	"\x1aSnoozeNotificationResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12?\n" +
+	"\rsnoozed_until\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fsnoozedUntil\"\xf9\x02\n" +
 	"\x1aNotificationPreferenceInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12)\n" +
@@ -4321,7 +4440,7 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x0fPRIORITY_URGENT\x10\x01\x12\x13\n" +
 	"\x0fPRIORITY_NORMAL\x10\x02\x12\x10\n" +
 	"\fPRIORITY_LOW\x10\x03\x12\x11\n" +
-	"\rPRIORITY_HIGH\x10\x042\xcf\x1a\n" +
+	"\rPRIORITY_HIGH\x10\x042\xbe\x1b\n" +
 	"\x13NotificationService\x12j\n" +
 	"\x11ListNotifications\x12).notification.v1.ListNotificationsRequest\x1a*.notification.v1.ListNotificationsResponse\x12a\n" +
 	"\x0eGetUnreadCount\x12&.notification.v1.GetUnreadCountRequest\x1a'.notification.v1.GetUnreadCountResponse\x12s\n" +
@@ -4329,7 +4448,8 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x18MarkAllNotificationsRead\x120.notification.v1.MarkAllNotificationsReadRequest\x1a1.notification.v1.MarkAllNotificationsReadResponse\x12d\n" +
 	"\x0fPinNotification\x12'.notification.v1.PinNotificationRequest\x1a(.notification.v1.PinNotificationResponse\x12j\n" +
 	"\x11UnpinNotification\x12).notification.v1.UnpinNotificationRequest\x1a*.notification.v1.UnpinNotificationResponse\x12p\n" +
-	"\x13DismissNotification\x12+.notification.v1.DismissNotificationRequest\x1a,.notification.v1.DismissNotificationResponse\x12\x85\x01\n" +
+	"\x13DismissNotification\x12+.notification.v1.DismissNotificationRequest\x1a,.notification.v1.DismissNotificationResponse\x12m\n" +
+	"\x12SnoozeNotification\x12*.notification.v1.SnoozeNotificationRequest\x1a+.notification.v1.SnoozeNotificationResponse\x12\x85\x01\n" +
 	"\x1aGetNotificationPreferences\x122.notification.v1.GetNotificationPreferencesRequest\x1a3.notification.v1.GetNotificationPreferencesResponse\x12\x8b\x01\n" +
 	"\x1cUpdateNotificationPreference\x124.notification.v1.UpdateNotificationPreferenceRequest\x1a5.notification.v1.UpdateNotificationPreferenceResponse\x12[\n" +
 	"\fMuteResource\x12$.notification.v1.MuteResourceRequest\x1a%.notification.v1.MuteResourceResponse\x12a\n" +
@@ -4367,7 +4487,7 @@ func file_proto_notification_v1_notification_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_notification_v1_notification_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
+var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
 var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(Priority)(0),                                // 0: notification.v1.Priority
 	(*NotificationInfo)(nil),                     // 1: notification.v1.NotificationInfo
@@ -4385,168 +4505,174 @@ var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(*UnpinNotificationResponse)(nil),            // 13: notification.v1.UnpinNotificationResponse
 	(*DismissNotificationRequest)(nil),           // 14: notification.v1.DismissNotificationRequest
 	(*DismissNotificationResponse)(nil),          // 15: notification.v1.DismissNotificationResponse
-	(*NotificationPreferenceInfo)(nil),           // 16: notification.v1.NotificationPreferenceInfo
-	(*GetNotificationPreferencesRequest)(nil),    // 17: notification.v1.GetNotificationPreferencesRequest
-	(*GetNotificationPreferencesResponse)(nil),   // 18: notification.v1.GetNotificationPreferencesResponse
-	(*UpdateNotificationPreferenceRequest)(nil),  // 19: notification.v1.UpdateNotificationPreferenceRequest
-	(*UpdateNotificationPreferenceResponse)(nil), // 20: notification.v1.UpdateNotificationPreferenceResponse
-	(*MuteInfo)(nil),                             // 21: notification.v1.MuteInfo
-	(*MuteResourceRequest)(nil),                  // 22: notification.v1.MuteResourceRequest
-	(*MuteResourceResponse)(nil),                 // 23: notification.v1.MuteResourceResponse
-	(*UnmuteResourceRequest)(nil),                // 24: notification.v1.UnmuteResourceRequest
-	(*UnmuteResourceResponse)(nil),               // 25: notification.v1.UnmuteResourceResponse
-	(*ListMutedResourcesRequest)(nil),            // 26: notification.v1.ListMutedResourcesRequest
-	(*ListMutedResourcesResponse)(nil),           // 27: notification.v1.ListMutedResourcesResponse
-	(*QuietHoursInfo)(nil),                       // 28: notification.v1.QuietHoursInfo
-	(*GetQuietHoursRequest)(nil),                 // 29: notification.v1.GetQuietHoursRequest
-	(*GetQuietHoursResponse)(nil),                // 30: notification.v1.GetQuietHoursResponse
-	(*UpdateQuietHoursRequest)(nil),              // 31: notification.v1.UpdateQuietHoursRequest
-	(*UpdateQuietHoursResponse)(nil),             // 32: notification.v1.UpdateQuietHoursResponse
-	(*ToggleManualDNDRequest)(nil),               // 33: notification.v1.ToggleManualDNDRequest
-	(*ToggleManualDNDResponse)(nil),              // 34: notification.v1.ToggleManualDNDResponse
-	(*EventTypeInfo)(nil),                        // 35: notification.v1.EventTypeInfo
-	(*ListEventTypesRequest)(nil),                // 36: notification.v1.ListEventTypesRequest
-	(*ListEventTypesResponse)(nil),               // 37: notification.v1.ListEventTypesResponse
-	(*IntegrationConfigInfo)(nil),                // 38: notification.v1.IntegrationConfigInfo
-	(*ListIntegrationConfigsRequest)(nil),        // 39: notification.v1.ListIntegrationConfigsRequest
-	(*ListIntegrationConfigsResponse)(nil),       // 40: notification.v1.ListIntegrationConfigsResponse
-	(*GetIntegrationConfigRequest)(nil),          // 41: notification.v1.GetIntegrationConfigRequest
-	(*GetIntegrationConfigResponse)(nil),         // 42: notification.v1.GetIntegrationConfigResponse
-	(*CreateIntegrationConfigRequest)(nil),       // 43: notification.v1.CreateIntegrationConfigRequest
-	(*CreateIntegrationConfigResponse)(nil),      // 44: notification.v1.CreateIntegrationConfigResponse
-	(*UpdateIntegrationConfigRequest)(nil),       // 45: notification.v1.UpdateIntegrationConfigRequest
-	(*UpdateIntegrationConfigResponse)(nil),      // 46: notification.v1.UpdateIntegrationConfigResponse
-	(*DeleteIntegrationConfigRequest)(nil),       // 47: notification.v1.DeleteIntegrationConfigRequest
-	(*DeleteIntegrationConfigResponse)(nil),      // 48: notification.v1.DeleteIntegrationConfigResponse
-	(*TestIntegrationConfigRequest)(nil),         // 49: notification.v1.TestIntegrationConfigRequest
-	(*TestIntegrationConfigResponse)(nil),        // 50: notification.v1.TestIntegrationConfigResponse
-	(*ChannelMappingInfo)(nil),                   // 51: notification.v1.ChannelMappingInfo
-	(*ListChannelMappingsRequest)(nil),           // 52: notification.v1.ListChannelMappingsRequest
-	(*ListChannelMappingsResponse)(nil),          // 53: notification.v1.ListChannelMappingsResponse
-	(*CreateChannelMappingRequest)(nil),          // 54: notification.v1.CreateChannelMappingRequest
-	(*CreateChannelMappingResponse)(nil),         // 55: notification.v1.CreateChannelMappingResponse
-	(*UpdateChannelMappingRequest)(nil),          // 56: notification.v1.UpdateChannelMappingRequest
-	(*UpdateChannelMappingResponse)(nil),         // 57: notification.v1.UpdateChannelMappingResponse
-	(*DeleteChannelMappingRequest)(nil),          // 58: notification.v1.DeleteChannelMappingRequest
-	(*DeleteChannelMappingResponse)(nil),         // 59: notification.v1.DeleteChannelMappingResponse
-	(*LinkAccountRequest)(nil),                   // 60: notification.v1.LinkAccountRequest
-	(*LinkAccountResponse)(nil),                  // 61: notification.v1.LinkAccountResponse
-	(*UnlinkAccountRequest)(nil),                 // 62: notification.v1.UnlinkAccountRequest
-	(*UnlinkAccountResponse)(nil),                // 63: notification.v1.UnlinkAccountResponse
-	(*GetAccountLinkStatusRequest)(nil),          // 64: notification.v1.GetAccountLinkStatusRequest
-	(*AccountLinkInfo)(nil),                      // 65: notification.v1.AccountLinkInfo
-	(*GetAccountLinkStatusResponse)(nil),         // 66: notification.v1.GetAccountLinkStatusResponse
-	(*HandlePlatformWebhookRequest)(nil),         // 67: notification.v1.HandlePlatformWebhookRequest
-	(*HandlePlatformWebhookResponse)(nil),        // 68: notification.v1.HandlePlatformWebhookResponse
-	nil,                                          // 69: notification.v1.HandlePlatformWebhookRequest.HeadersEntry
-	(*timestamppb.Timestamp)(nil),                // 70: google.protobuf.Timestamp
+	(*SnoozeNotificationRequest)(nil),            // 16: notification.v1.SnoozeNotificationRequest
+	(*SnoozeNotificationResponse)(nil),           // 17: notification.v1.SnoozeNotificationResponse
+	(*NotificationPreferenceInfo)(nil),           // 18: notification.v1.NotificationPreferenceInfo
+	(*GetNotificationPreferencesRequest)(nil),    // 19: notification.v1.GetNotificationPreferencesRequest
+	(*GetNotificationPreferencesResponse)(nil),   // 20: notification.v1.GetNotificationPreferencesResponse
+	(*UpdateNotificationPreferenceRequest)(nil),  // 21: notification.v1.UpdateNotificationPreferenceRequest
+	(*UpdateNotificationPreferenceResponse)(nil), // 22: notification.v1.UpdateNotificationPreferenceResponse
+	(*MuteInfo)(nil),                             // 23: notification.v1.MuteInfo
+	(*MuteResourceRequest)(nil),                  // 24: notification.v1.MuteResourceRequest
+	(*MuteResourceResponse)(nil),                 // 25: notification.v1.MuteResourceResponse
+	(*UnmuteResourceRequest)(nil),                // 26: notification.v1.UnmuteResourceRequest
+	(*UnmuteResourceResponse)(nil),               // 27: notification.v1.UnmuteResourceResponse
+	(*ListMutedResourcesRequest)(nil),            // 28: notification.v1.ListMutedResourcesRequest
+	(*ListMutedResourcesResponse)(nil),           // 29: notification.v1.ListMutedResourcesResponse
+	(*QuietHoursInfo)(nil),                       // 30: notification.v1.QuietHoursInfo
+	(*GetQuietHoursRequest)(nil),                 // 31: notification.v1.GetQuietHoursRequest
+	(*GetQuietHoursResponse)(nil),                // 32: notification.v1.GetQuietHoursResponse
+	(*UpdateQuietHoursRequest)(nil),              // 33: notification.v1.UpdateQuietHoursRequest
+	(*UpdateQuietHoursResponse)(nil),             // 34: notification.v1.UpdateQuietHoursResponse
+	(*ToggleManualDNDRequest)(nil),               // 35: notification.v1.ToggleManualDNDRequest
+	(*ToggleManualDNDResponse)(nil),              // 36: notification.v1.ToggleManualDNDResponse
+	(*EventTypeInfo)(nil),                        // 37: notification.v1.EventTypeInfo
+	(*ListEventTypesRequest)(nil),                // 38: notification.v1.ListEventTypesRequest
+	(*ListEventTypesResponse)(nil),               // 39: notification.v1.ListEventTypesResponse
+	(*IntegrationConfigInfo)(nil),                // 40: notification.v1.IntegrationConfigInfo
+	(*ListIntegrationConfigsRequest)(nil),        // 41: notification.v1.ListIntegrationConfigsRequest
+	(*ListIntegrationConfigsResponse)(nil),       // 42: notification.v1.ListIntegrationConfigsResponse
+	(*GetIntegrationConfigRequest)(nil),          // 43: notification.v1.GetIntegrationConfigRequest
+	(*GetIntegrationConfigResponse)(nil),         // 44: notification.v1.GetIntegrationConfigResponse
+	(*CreateIntegrationConfigRequest)(nil),       // 45: notification.v1.CreateIntegrationConfigRequest
+	(*CreateIntegrationConfigResponse)(nil),      // 46: notification.v1.CreateIntegrationConfigResponse
+	(*UpdateIntegrationConfigRequest)(nil),       // 47: notification.v1.UpdateIntegrationConfigRequest
+	(*UpdateIntegrationConfigResponse)(nil),      // 48: notification.v1.UpdateIntegrationConfigResponse
+	(*DeleteIntegrationConfigRequest)(nil),       // 49: notification.v1.DeleteIntegrationConfigRequest
+	(*DeleteIntegrationConfigResponse)(nil),      // 50: notification.v1.DeleteIntegrationConfigResponse
+	(*TestIntegrationConfigRequest)(nil),         // 51: notification.v1.TestIntegrationConfigRequest
+	(*TestIntegrationConfigResponse)(nil),        // 52: notification.v1.TestIntegrationConfigResponse
+	(*ChannelMappingInfo)(nil),                   // 53: notification.v1.ChannelMappingInfo
+	(*ListChannelMappingsRequest)(nil),           // 54: notification.v1.ListChannelMappingsRequest
+	(*ListChannelMappingsResponse)(nil),          // 55: notification.v1.ListChannelMappingsResponse
+	(*CreateChannelMappingRequest)(nil),          // 56: notification.v1.CreateChannelMappingRequest
+	(*CreateChannelMappingResponse)(nil),         // 57: notification.v1.CreateChannelMappingResponse
+	(*UpdateChannelMappingRequest)(nil),          // 58: notification.v1.UpdateChannelMappingRequest
+	(*UpdateChannelMappingResponse)(nil),         // 59: notification.v1.UpdateChannelMappingResponse
+	(*DeleteChannelMappingRequest)(nil),          // 60: notification.v1.DeleteChannelMappingRequest
+	(*DeleteChannelMappingResponse)(nil),         // 61: notification.v1.DeleteChannelMappingResponse
+	(*LinkAccountRequest)(nil),                   // 62: notification.v1.LinkAccountRequest
+	(*LinkAccountResponse)(nil),                  // 63: notification.v1.LinkAccountResponse
+	(*UnlinkAccountRequest)(nil),                 // 64: notification.v1.UnlinkAccountRequest
+	(*UnlinkAccountResponse)(nil),                // 65: notification.v1.UnlinkAccountResponse
+	(*GetAccountLinkStatusRequest)(nil),          // 66: notification.v1.GetAccountLinkStatusRequest
+	(*AccountLinkInfo)(nil),                      // 67: notification.v1.AccountLinkInfo
+	(*GetAccountLinkStatusResponse)(nil),         // 68: notification.v1.GetAccountLinkStatusResponse
+	(*HandlePlatformWebhookRequest)(nil),         // 69: notification.v1.HandlePlatformWebhookRequest
+	(*HandlePlatformWebhookResponse)(nil),        // 70: notification.v1.HandlePlatformWebhookResponse
+	nil,                                          // 71: notification.v1.HandlePlatformWebhookRequest.HeadersEntry
+	(*timestamppb.Timestamp)(nil),                // 72: google.protobuf.Timestamp
 }
 var file_proto_notification_v1_notification_proto_depIdxs = []int32{
 	0,  // 0: notification.v1.NotificationInfo.priority:type_name -> notification.v1.Priority
-	70, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
-	70, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
+	72, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 3: notification.v1.ListNotificationsResponse.notifications:type_name -> notification.v1.NotificationInfo
 	1,  // 4: notification.v1.MarkNotificationReadResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 5: notification.v1.PinNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 6: notification.v1.UnpinNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 7: notification.v1.DismissNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
-	70, // 8: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
-	70, // 9: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
-	16, // 10: notification.v1.GetNotificationPreferencesResponse.preferences:type_name -> notification.v1.NotificationPreferenceInfo
-	16, // 11: notification.v1.UpdateNotificationPreferenceResponse.preference:type_name -> notification.v1.NotificationPreferenceInfo
-	70, // 12: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
-	21, // 13: notification.v1.MuteResourceResponse.mute:type_name -> notification.v1.MuteInfo
-	21, // 14: notification.v1.ListMutedResourcesResponse.mutes:type_name -> notification.v1.MuteInfo
-	70, // 15: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
-	70, // 16: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
-	70, // 17: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
-	28, // 18: notification.v1.GetQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
-	28, // 19: notification.v1.UpdateQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
-	70, // 20: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
-	28, // 21: notification.v1.ToggleManualDNDResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
-	0,  // 22: notification.v1.EventTypeInfo.default_priority:type_name -> notification.v1.Priority
-	70, // 23: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
-	70, // 24: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 25: notification.v1.ListEventTypesResponse.event_types:type_name -> notification.v1.EventTypeInfo
-	70, // 26: notification.v1.IntegrationConfigInfo.created_at:type_name -> google.protobuf.Timestamp
-	70, // 27: notification.v1.IntegrationConfigInfo.updated_at:type_name -> google.protobuf.Timestamp
-	38, // 28: notification.v1.ListIntegrationConfigsResponse.configs:type_name -> notification.v1.IntegrationConfigInfo
-	38, // 29: notification.v1.GetIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
-	38, // 30: notification.v1.CreateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
-	38, // 31: notification.v1.UpdateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
-	70, // 32: notification.v1.ChannelMappingInfo.created_at:type_name -> google.protobuf.Timestamp
-	70, // 33: notification.v1.ChannelMappingInfo.updated_at:type_name -> google.protobuf.Timestamp
-	51, // 34: notification.v1.ListChannelMappingsResponse.mappings:type_name -> notification.v1.ChannelMappingInfo
-	51, // 35: notification.v1.CreateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
-	51, // 36: notification.v1.UpdateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
-	70, // 37: notification.v1.AccountLinkInfo.linked_at:type_name -> google.protobuf.Timestamp
-	65, // 38: notification.v1.GetAccountLinkStatusResponse.links:type_name -> notification.v1.AccountLinkInfo
-	69, // 39: notification.v1.HandlePlatformWebhookRequest.headers:type_name -> notification.v1.HandlePlatformWebhookRequest.HeadersEntry
-	2,  // 40: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
-	4,  // 41: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
-	6,  // 42: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
-	8,  // 43: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
-	10, // 44: notification.v1.NotificationService.PinNotification:input_type -> notification.v1.PinNotificationRequest
-	12, // 45: notification.v1.NotificationService.UnpinNotification:input_type -> notification.v1.UnpinNotificationRequest
-	14, // 46: notification.v1.NotificationService.DismissNotification:input_type -> notification.v1.DismissNotificationRequest
-	17, // 47: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
-	19, // 48: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
-	22, // 49: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
-	24, // 50: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
-	26, // 51: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
-	29, // 52: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
-	31, // 53: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
-	33, // 54: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
-	36, // 55: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
-	39, // 56: notification.v1.NotificationService.ListIntegrationConfigs:input_type -> notification.v1.ListIntegrationConfigsRequest
-	41, // 57: notification.v1.NotificationService.GetIntegrationConfig:input_type -> notification.v1.GetIntegrationConfigRequest
-	43, // 58: notification.v1.NotificationService.CreateIntegrationConfig:input_type -> notification.v1.CreateIntegrationConfigRequest
-	45, // 59: notification.v1.NotificationService.UpdateIntegrationConfig:input_type -> notification.v1.UpdateIntegrationConfigRequest
-	47, // 60: notification.v1.NotificationService.DeleteIntegrationConfig:input_type -> notification.v1.DeleteIntegrationConfigRequest
-	49, // 61: notification.v1.NotificationService.TestIntegrationConfig:input_type -> notification.v1.TestIntegrationConfigRequest
-	52, // 62: notification.v1.NotificationService.ListChannelMappings:input_type -> notification.v1.ListChannelMappingsRequest
-	54, // 63: notification.v1.NotificationService.CreateChannelMapping:input_type -> notification.v1.CreateChannelMappingRequest
-	56, // 64: notification.v1.NotificationService.UpdateChannelMapping:input_type -> notification.v1.UpdateChannelMappingRequest
-	58, // 65: notification.v1.NotificationService.DeleteChannelMapping:input_type -> notification.v1.DeleteChannelMappingRequest
-	60, // 66: notification.v1.NotificationService.LinkAccount:input_type -> notification.v1.LinkAccountRequest
-	62, // 67: notification.v1.NotificationService.UnlinkAccount:input_type -> notification.v1.UnlinkAccountRequest
-	64, // 68: notification.v1.NotificationService.GetAccountLinkStatus:input_type -> notification.v1.GetAccountLinkStatusRequest
-	67, // 69: notification.v1.NotificationService.HandlePlatformWebhook:input_type -> notification.v1.HandlePlatformWebhookRequest
-	3,  // 70: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
-	5,  // 71: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
-	7,  // 72: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
-	9,  // 73: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
-	11, // 74: notification.v1.NotificationService.PinNotification:output_type -> notification.v1.PinNotificationResponse
-	13, // 75: notification.v1.NotificationService.UnpinNotification:output_type -> notification.v1.UnpinNotificationResponse
-	15, // 76: notification.v1.NotificationService.DismissNotification:output_type -> notification.v1.DismissNotificationResponse
-	18, // 77: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
-	20, // 78: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
-	23, // 79: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
-	25, // 80: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
-	27, // 81: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
-	30, // 82: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
-	32, // 83: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
-	34, // 84: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
-	37, // 85: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
-	40, // 86: notification.v1.NotificationService.ListIntegrationConfigs:output_type -> notification.v1.ListIntegrationConfigsResponse
-	42, // 87: notification.v1.NotificationService.GetIntegrationConfig:output_type -> notification.v1.GetIntegrationConfigResponse
-	44, // 88: notification.v1.NotificationService.CreateIntegrationConfig:output_type -> notification.v1.CreateIntegrationConfigResponse
-	46, // 89: notification.v1.NotificationService.UpdateIntegrationConfig:output_type -> notification.v1.UpdateIntegrationConfigResponse
-	48, // 90: notification.v1.NotificationService.DeleteIntegrationConfig:output_type -> notification.v1.DeleteIntegrationConfigResponse
-	50, // 91: notification.v1.NotificationService.TestIntegrationConfig:output_type -> notification.v1.TestIntegrationConfigResponse
-	53, // 92: notification.v1.NotificationService.ListChannelMappings:output_type -> notification.v1.ListChannelMappingsResponse
-	55, // 93: notification.v1.NotificationService.CreateChannelMapping:output_type -> notification.v1.CreateChannelMappingResponse
-	57, // 94: notification.v1.NotificationService.UpdateChannelMapping:output_type -> notification.v1.UpdateChannelMappingResponse
-	59, // 95: notification.v1.NotificationService.DeleteChannelMapping:output_type -> notification.v1.DeleteChannelMappingResponse
-	61, // 96: notification.v1.NotificationService.LinkAccount:output_type -> notification.v1.LinkAccountResponse
-	63, // 97: notification.v1.NotificationService.UnlinkAccount:output_type -> notification.v1.UnlinkAccountResponse
-	66, // 98: notification.v1.NotificationService.GetAccountLinkStatus:output_type -> notification.v1.GetAccountLinkStatusResponse
-	68, // 99: notification.v1.NotificationService.HandlePlatformWebhook:output_type -> notification.v1.HandlePlatformWebhookResponse
-	70, // [70:100] is the sub-list for method output_type
-	40, // [40:70] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	72, // 8: notification.v1.SnoozeNotificationRequest.until:type_name -> google.protobuf.Timestamp
+	72, // 9: notification.v1.SnoozeNotificationResponse.snoozed_until:type_name -> google.protobuf.Timestamp
+	72, // 10: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 11: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
+	18, // 12: notification.v1.GetNotificationPreferencesResponse.preferences:type_name -> notification.v1.NotificationPreferenceInfo
+	18, // 13: notification.v1.UpdateNotificationPreferenceResponse.preference:type_name -> notification.v1.NotificationPreferenceInfo
+	72, // 14: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
+	23, // 15: notification.v1.MuteResourceResponse.mute:type_name -> notification.v1.MuteInfo
+	23, // 16: notification.v1.ListMutedResourcesResponse.mutes:type_name -> notification.v1.MuteInfo
+	72, // 17: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
+	72, // 18: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 19: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
+	30, // 20: notification.v1.GetQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
+	30, // 21: notification.v1.UpdateQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
+	72, // 22: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
+	30, // 23: notification.v1.ToggleManualDNDResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
+	0,  // 24: notification.v1.EventTypeInfo.default_priority:type_name -> notification.v1.Priority
+	72, // 25: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 26: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 27: notification.v1.ListEventTypesResponse.event_types:type_name -> notification.v1.EventTypeInfo
+	72, // 28: notification.v1.IntegrationConfigInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 29: notification.v1.IntegrationConfigInfo.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 30: notification.v1.ListIntegrationConfigsResponse.configs:type_name -> notification.v1.IntegrationConfigInfo
+	40, // 31: notification.v1.GetIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	40, // 32: notification.v1.CreateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	40, // 33: notification.v1.UpdateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	72, // 34: notification.v1.ChannelMappingInfo.created_at:type_name -> google.protobuf.Timestamp
+	72, // 35: notification.v1.ChannelMappingInfo.updated_at:type_name -> google.protobuf.Timestamp
+	53, // 36: notification.v1.ListChannelMappingsResponse.mappings:type_name -> notification.v1.ChannelMappingInfo
+	53, // 37: notification.v1.CreateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
+	53, // 38: notification.v1.UpdateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
+	72, // 39: notification.v1.AccountLinkInfo.linked_at:type_name -> google.protobuf.Timestamp
+	67, // 40: notification.v1.GetAccountLinkStatusResponse.links:type_name -> notification.v1.AccountLinkInfo
+	71, // 41: notification.v1.HandlePlatformWebhookRequest.headers:type_name -> notification.v1.HandlePlatformWebhookRequest.HeadersEntry
+	2,  // 42: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
+	4,  // 43: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
+	6,  // 44: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
+	8,  // 45: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
+	10, // 46: notification.v1.NotificationService.PinNotification:input_type -> notification.v1.PinNotificationRequest
+	12, // 47: notification.v1.NotificationService.UnpinNotification:input_type -> notification.v1.UnpinNotificationRequest
+	14, // 48: notification.v1.NotificationService.DismissNotification:input_type -> notification.v1.DismissNotificationRequest
+	16, // 49: notification.v1.NotificationService.SnoozeNotification:input_type -> notification.v1.SnoozeNotificationRequest
+	19, // 50: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
+	21, // 51: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
+	24, // 52: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
+	26, // 53: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
+	28, // 54: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
+	31, // 55: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
+	33, // 56: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
+	35, // 57: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
+	38, // 58: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
+	41, // 59: notification.v1.NotificationService.ListIntegrationConfigs:input_type -> notification.v1.ListIntegrationConfigsRequest
+	43, // 60: notification.v1.NotificationService.GetIntegrationConfig:input_type -> notification.v1.GetIntegrationConfigRequest
+	45, // 61: notification.v1.NotificationService.CreateIntegrationConfig:input_type -> notification.v1.CreateIntegrationConfigRequest
+	47, // 62: notification.v1.NotificationService.UpdateIntegrationConfig:input_type -> notification.v1.UpdateIntegrationConfigRequest
+	49, // 63: notification.v1.NotificationService.DeleteIntegrationConfig:input_type -> notification.v1.DeleteIntegrationConfigRequest
+	51, // 64: notification.v1.NotificationService.TestIntegrationConfig:input_type -> notification.v1.TestIntegrationConfigRequest
+	54, // 65: notification.v1.NotificationService.ListChannelMappings:input_type -> notification.v1.ListChannelMappingsRequest
+	56, // 66: notification.v1.NotificationService.CreateChannelMapping:input_type -> notification.v1.CreateChannelMappingRequest
+	58, // 67: notification.v1.NotificationService.UpdateChannelMapping:input_type -> notification.v1.UpdateChannelMappingRequest
+	60, // 68: notification.v1.NotificationService.DeleteChannelMapping:input_type -> notification.v1.DeleteChannelMappingRequest
+	62, // 69: notification.v1.NotificationService.LinkAccount:input_type -> notification.v1.LinkAccountRequest
+	64, // 70: notification.v1.NotificationService.UnlinkAccount:input_type -> notification.v1.UnlinkAccountRequest
+	66, // 71: notification.v1.NotificationService.GetAccountLinkStatus:input_type -> notification.v1.GetAccountLinkStatusRequest
+	69, // 72: notification.v1.NotificationService.HandlePlatformWebhook:input_type -> notification.v1.HandlePlatformWebhookRequest
+	3,  // 73: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
+	5,  // 74: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
+	7,  // 75: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
+	9,  // 76: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
+	11, // 77: notification.v1.NotificationService.PinNotification:output_type -> notification.v1.PinNotificationResponse
+	13, // 78: notification.v1.NotificationService.UnpinNotification:output_type -> notification.v1.UnpinNotificationResponse
+	15, // 79: notification.v1.NotificationService.DismissNotification:output_type -> notification.v1.DismissNotificationResponse
+	17, // 80: notification.v1.NotificationService.SnoozeNotification:output_type -> notification.v1.SnoozeNotificationResponse
+	20, // 81: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
+	22, // 82: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
+	25, // 83: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
+	27, // 84: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
+	29, // 85: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
+	32, // 86: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
+	34, // 87: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
+	36, // 88: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
+	39, // 89: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
+	42, // 90: notification.v1.NotificationService.ListIntegrationConfigs:output_type -> notification.v1.ListIntegrationConfigsResponse
+	44, // 91: notification.v1.NotificationService.GetIntegrationConfig:output_type -> notification.v1.GetIntegrationConfigResponse
+	46, // 92: notification.v1.NotificationService.CreateIntegrationConfig:output_type -> notification.v1.CreateIntegrationConfigResponse
+	48, // 93: notification.v1.NotificationService.UpdateIntegrationConfig:output_type -> notification.v1.UpdateIntegrationConfigResponse
+	50, // 94: notification.v1.NotificationService.DeleteIntegrationConfig:output_type -> notification.v1.DeleteIntegrationConfigResponse
+	52, // 95: notification.v1.NotificationService.TestIntegrationConfig:output_type -> notification.v1.TestIntegrationConfigResponse
+	55, // 96: notification.v1.NotificationService.ListChannelMappings:output_type -> notification.v1.ListChannelMappingsResponse
+	57, // 97: notification.v1.NotificationService.CreateChannelMapping:output_type -> notification.v1.CreateChannelMappingResponse
+	59, // 98: notification.v1.NotificationService.UpdateChannelMapping:output_type -> notification.v1.UpdateChannelMappingResponse
+	61, // 99: notification.v1.NotificationService.DeleteChannelMapping:output_type -> notification.v1.DeleteChannelMappingResponse
+	63, // 100: notification.v1.NotificationService.LinkAccount:output_type -> notification.v1.LinkAccountResponse
+	65, // 101: notification.v1.NotificationService.UnlinkAccount:output_type -> notification.v1.UnlinkAccountResponse
+	68, // 102: notification.v1.NotificationService.GetAccountLinkStatus:output_type -> notification.v1.GetAccountLinkStatusResponse
+	70, // 103: notification.v1.NotificationService.HandlePlatformWebhook:output_type -> notification.v1.HandlePlatformWebhookResponse
+	73, // [73:104] is the sub-list for method output_type
+	42, // [42:73] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_proto_notification_v1_notification_proto_init() }
@@ -4557,22 +4683,22 @@ func file_proto_notification_v1_notification_proto_init() {
 	file_proto_notification_v1_notification_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[7].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[15].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[16].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[18].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[27].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[29].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[34].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[35].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[44].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[36].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[37].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[46].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_notification_v1_notification_proto_rawDesc), len(file_proto_notification_v1_notification_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   69,
+			NumMessages:   71,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

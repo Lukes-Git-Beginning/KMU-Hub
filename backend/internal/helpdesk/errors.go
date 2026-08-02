@@ -13,4 +13,8 @@ var (
 	ErrCannedResponseNotFound = errors.New("canned response not found")
 	ErrKBArticleNotFound      = errors.New("kb article not found")
 	ErrRoutingRuleNotFound    = errors.New("routing rule not found")
+	ErrContactNotFound        = errors.New("contact not found in tenant")
+	ErrOrgNotFound            = errors.New("organization not found in tenant")
+	ErrInvalidSourceChannel   = errors.New("invalid ticket source channel")
+	ErrMessageAlreadyLinked   = errors.New("inbox message already linked to a ticket")
 )

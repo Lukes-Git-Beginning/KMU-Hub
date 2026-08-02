@@ -16,14 +16,25 @@ type Repository interface {
 
 	CreateTicket(ctx context.Context, t *Ticket) error
 	GetTicketByID(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error)
-	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, page, pageSize int) ([]*Ticket, int, error)
+	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID, contactID, orgID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error)
 	UpdateTicket(ctx context.Context, t *Ticket) error
 	DeleteTicket(ctx context.Context, id, tenantID uuid.UUID) error
+
+	// ContactExists reports whether the contact belongs to the given tenant.
+	ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error)
+	// CompanyExists reports whether the company (CRM "organization") belongs
+	// to the given tenant.
+	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 
 	// FindOpenTicketsByRequester returns open/pending tickets for the given
 	// requester that have a subject starting with the given prefix.
 	// Used by merge duplicate detection.
 	FindOpenTicketsByRequester(ctx context.Context, tenantID, requesterID uuid.UUID, subjectPrefix string) ([]*Ticket, error)
+
+	// GetTicketBySourceMessage returns the ticket already linked to messageID
+	// for tenantID, or nil (no error) if none exists yet. Backs the
+	// CreateTicketFromMessage idempotency pre-check.
+	GetTicketBySourceMessage(ctx context.Context, tenantID, messageID uuid.UUID) (*Ticket, error)
 
 	// MergeTicketTx atomically reassigns all messages from source to target and
 	// marks source as merged (status='merged', merged_into_id=targetID) in a

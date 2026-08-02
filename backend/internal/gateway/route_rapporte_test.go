@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newRapporteRoutes(registry *ServiceRegistry) *RapporteRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_RAPPORTE_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewRapporteRoutes(registry, flags)
+}
 
 // RapporteRoutes.ServiceName() uses "rapporte".
 

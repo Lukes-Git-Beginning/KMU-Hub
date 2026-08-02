@@ -17,6 +17,11 @@ service HelpdeskService {
   rpc ReopenTicket(ReopenTicketRequest) returns (Ticket);
   rpc AssignTicket(AssignTicketRequest) returns (Ticket);
   rpc MergeTickets(MergeTicketsRequest) returns (google.protobuf.Empty);
+  // CreateTicketFromMessage converts an inbox message into a ticket
+  // (source_channel/source_message_id link back to it instead of copying its
+  // content a second time). Converting the same message twice returns the
+  // existing ticket with created=false rather than creating a duplicate.
+  rpc CreateTicketFromMessage(CreateTicketFromMessageRequest) returns (CreateTicketFromMessageResponse);
 
   // Business hours (tenant-level config)
   rpc GetBusinessHours(GetBusinessHoursRequest) returns (BusinessHoursResponse);
@@ -90,6 +95,14 @@ message Ticket {
   string category = 18;
   // Per-tenant sequential ticket number (1-based).
   int32 ticket_number = 19;
+  // CRM linkage, both optional: a ticket need not have a CRM counterpart.
+  optional string contact_id = 20;
+  optional string org_id = 21;
+  // Multi-channel provenance, both optional: set only when the ticket was
+  // created via CreateTicketFromMessage. source_channel mirrors the inbox
+  // message's channel ("email" | "chat" | "notification").
+  optional string source_channel = 22;
+  optional string source_message_id = 23;
 }
 
 message TicketMessage {
@@ -147,6 +160,8 @@ message CreateTicketRequest {
   string tenant_id = 6;
   optional string description = 7;
   optional string category = 8;
+  optional string contact_id = 9;
+  optional string org_id = 10;
 }
 
 message GetTicketRequest {
@@ -159,6 +174,12 @@ message ListTicketsRequest {
   int32 page = 2;
   int32 page_size = 3;
   string tenant_id = 4;
+  // Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+  // to "own": the list then holds only tickets they raised or are assigned.
+  // Never taken from the request body.
+  optional string participant_id = 5;
+  optional string contact_id = 6;
+  optional string org_id = 7;
 }
 
 message ListTicketsResponse {
@@ -172,6 +193,8 @@ message UpdateTicketRequest {
   optional string priority = 3;
   optional string assignee_id = 4;
   optional string queue_id = 5;
+  optional string contact_id = 6;
+  optional string org_id = 7;
 }
 
 message CloseTicketRequest {
@@ -190,6 +213,20 @@ message AssignTicketRequest {
 message MergeTicketsRequest {
   string source_ticket_id = 1;
   string target_ticket_id = 2;
+}
+
+message CreateTicketFromMessageRequest {
+  string tenant_id = 1;
+  // The caller creating the ticket -- same semantics as CreateTicketRequest's
+  // requester_id, never the external sender of the inbox message.
+  string requester_id = 2;
+  string message_id = 3;
+}
+
+message CreateTicketFromMessageResponse {
+  Ticket ticket = 1;
+  // False when message_id was already converted -- ticket is the existing one.
+  bool created = 2;
 }
 
 // ============================================================================

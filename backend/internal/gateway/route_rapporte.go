@@ -44,14 +44,27 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// RapportePage.tsx/ReportDetailModal.tsx actually gate on). Reads
+		// already match the fine key 1:1 and stay plain RequirePermission.
+		// approve/reject already use the fine "approve" key directly (no
+		// legacy "write" alternative existed for that action), so they are
+		// left untouched. rapporte:measurement:* has no FE caller at all —
+		// the "Aufmass" tab runs entirely on a local Zustand mock store, no
+		// backend call — so the measurement routes stay legacy-only too.
+		reportCreate := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "create"})
+		reportEdit := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "edit"})
+		reportDelete := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "delete"})
+
 		// Reports
 		r.With(middleware.RequirePermission("rapporte:report", "read")).Get("/reports", rr.HandleListReports)
-		r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/reports", rr.HandleCreateReport)
+		r.With(reportCreate).Post("/reports", rr.HandleCreateReport)
 
 		r.Route("/reports/{id}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("rapporte:report", "read")).Get("/", rr.HandleGetReport)
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Patch("/", rr.HandleUpdateReport)
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Delete("/", rr.HandleDeleteReport)
+			r.With(reportEdit).Patch("/", rr.HandleUpdateReport)
+			r.With(reportDelete).Delete("/", rr.HandleDeleteReport)
 
 			// Signature
 			r.With(middleware.RequirePermission("rapporte:report", "write")).Put("/signature", rr.HandleSaveReportSignature)
@@ -199,6 +212,13 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 	}
 	if aid := q.Get("author_id"); aid != "" {
 		grpcReq.AuthorId = &aid
+	}
+	// A grant scoped to "own" overrides the client's author_id filter — after
+	// this point the request can only ever ask for the caller's own reports.
+	if ownerID, ok := ownerFilterForScope(w, r, "rapporte:report", "read"); !ok {
+		return
+	} else if ownerID != nil {
+		grpcReq.AuthorId = ownerID
 	}
 
 	resp, err := client.ListReports(r.Context(), grpcReq)
@@ -769,10 +789,18 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 
 	page, pageSize := parsePagination(r, 1, 50)
 
+	// Same key as the report list, so the same narrowing applies: at scope
+	// "own" the approval queue holds only the caller's own submissions.
+	ownerID, ok := ownerFilterForScope(w, r, "rapporte:report", "read")
+	if !ok {
+		return
+	}
+
 	resp, err := client.ListPendingApprovals(r.Context(), &rapportev1.ListPendingApprovalsRequest{
 		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
+		AuthorId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

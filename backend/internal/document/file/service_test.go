@@ -18,7 +18,7 @@ import (
 // --- Mock FileStore ---
 
 type MockFileStore struct {
-	uploaded map[string]bool
+	uploaded     map[string]bool
 	failUpload   bool
 	failDownload bool
 	failDelete   bool
@@ -62,17 +62,20 @@ func (m *MockFileStore) GetPresignedUploadURL(_ context.Context, key string, _ t
 // --- Mock Repository ---
 
 type MockRepository struct {
-	files         map[uuid.UUID]*models.DocumentFile
-	versions      map[uuid.UUID][]*models.DocumentFileVersion
-	entityLinks   map[uuid.UUID][]*models.DocumentEntityLink
+	files       map[uuid.UUID]*models.DocumentFile
+	versions    map[uuid.UUID][]*models.DocumentFileVersion
+	entityLinks map[uuid.UUID][]*models.DocumentEntityLink
+	activity    map[uuid.UUID][]*models.DocumentFileActivity
+	comments    map[uuid.UUID][]*models.DocumentFileComment
+	shareLinks  map[uuid.UUID]*models.DocumentShareLink
 
-	failCreate             bool
-	failGetByID            bool
-	failList               bool
-	failUpdate             bool
-	failSoftDelete         bool
-	failCreateVersion      bool
-	failCreateEntityLink   bool
+	failCreate           bool
+	failGetByID          bool
+	failList             bool
+	failUpdate           bool
+	failSoftDelete       bool
+	failCreateVersion    bool
+	failCreateEntityLink bool
 }
 
 func NewMockRepository() *MockRepository {
@@ -80,6 +83,9 @@ func NewMockRepository() *MockRepository {
 		files:       make(map[uuid.UUID]*models.DocumentFile),
 		versions:    make(map[uuid.UUID][]*models.DocumentFileVersion),
 		entityLinks: make(map[uuid.UUID][]*models.DocumentEntityLink),
+		activity:    make(map[uuid.UUID][]*models.DocumentFileActivity),
+		comments:    make(map[uuid.UUID][]*models.DocumentFileComment),
+		shareLinks:  make(map[uuid.UUID]*models.DocumentShareLink),
 	}
 }
 
@@ -195,24 +201,170 @@ func (m *MockRepository) CreateEntityLink(_ context.Context, link *models.Docume
 	return nil
 }
 
-func (m *MockRepository) DeleteEntityLink(_ context.Context, id uuid.UUID) error {
+func (m *MockRepository) DeleteEntityLink(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	for fileID, links := range m.entityLinks {
 		for i, link := range links {
-			if link.ID == id {
-				m.entityLinks[fileID] = append(links[:i], links[i+1:]...)
-				return nil
+			if link.ID != id {
+				continue
+			}
+			// Enforce tenant isolation when a real tenantID is supplied.
+			if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+				return ErrFileNotFound
+			}
+			m.entityLinks[fileID] = append(links[:i], links[i+1:]...)
+			return nil
+		}
+	}
+	return ErrFileNotFound
+}
+
+func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
+	var result []*models.DocumentEntityLink
+	for _, link := range m.entityLinks[fileID] {
+		if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+			continue
+		}
+		result = append(result, link)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) ListFilesByEntity(_ context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error) {
+	var result []*models.DocumentFile
+	for fileID, links := range m.entityLinks {
+		for _, link := range links {
+			if link.EntityType != entityType || link.EntityID != entityID {
+				continue
+			}
+			if tenantID != uuid.Nil && link.TenantID != uuid.Nil && link.TenantID != tenantID {
+				continue
+			}
+			if f, ok := m.files[fileID]; ok {
+				result = append(result, f)
 			}
 		}
 	}
+	return result, nil
+}
+
+func (m *MockRepository) CreateActivity(_ context.Context, activity *models.DocumentFileActivity) error {
+	m.activity[activity.FileID] = append(m.activity[activity.FileID], activity)
 	return nil
 }
 
-func (m *MockRepository) ListEntityLinks(_ context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error) {
-	return m.entityLinks[fileID], nil
+func (m *MockRepository) ListActivity(_ context.Context, fileID uuid.UUID, _ uuid.UUID) ([]*models.DocumentFileActivity, error) {
+	return m.activity[fileID], nil
 }
 
-func (m *MockRepository) ListFilesByEntity(_ context.Context, _ string, _ uuid.UUID) ([]*models.DocumentFile, error) {
-	return nil, nil
+func (m *MockRepository) CreateComment(_ context.Context, comment *models.DocumentFileComment) error {
+	m.comments[comment.FileID] = append(m.comments[comment.FileID], comment)
+	return nil
+}
+
+func (m *MockRepository) GetCommentByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error) {
+	for _, comments := range m.comments {
+		for _, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return nil, ErrCommentNotFound
+			}
+			return c, nil
+		}
+	}
+	return nil, ErrCommentNotFound
+}
+
+func (m *MockRepository) ListComments(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error) {
+	var result []*models.DocumentFileComment
+	for _, c := range m.comments[fileID] {
+		if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+			continue
+		}
+		result = append(result, c)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) UpdateComment(_ context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error {
+	for _, comments := range m.comments {
+		for _, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return ErrCommentNotFound
+			}
+			c.Content = content
+			c.UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return ErrCommentNotFound
+}
+
+func (m *MockRepository) DeleteComment(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	for fileID, comments := range m.comments {
+		for i, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return ErrCommentNotFound
+			}
+			m.comments[fileID] = append(comments[:i], comments[i+1:]...)
+			return nil
+		}
+	}
+	return ErrCommentNotFound
+}
+
+func (m *MockRepository) CreateShareLink(_ context.Context, link *models.DocumentShareLink) error {
+	m.shareLinks[link.ID] = link
+	return nil
+}
+
+func (m *MockRepository) ListShareLinks(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentShareLink, error) {
+	var result []*models.DocumentShareLink
+	for _, l := range m.shareLinks {
+		if l.FileID != fileID {
+			continue
+		}
+		if tenantID != uuid.Nil && l.TenantID != uuid.Nil && l.TenantID != tenantID {
+			continue
+		}
+		result = append(result, l)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) RevokeShareLink(_ context.Context, id uuid.UUID, tenantID uuid.UUID, revokedAt time.Time) error {
+	l, ok := m.shareLinks[id]
+	if !ok {
+		return ErrShareLinkNotFound
+	}
+	if tenantID != uuid.Nil && l.TenantID != uuid.Nil && l.TenantID != tenantID {
+		return ErrShareLinkNotFound
+	}
+	l.RevokedAt = &revokedAt
+	return nil
+}
+
+func (m *MockRepository) GetShareLinkByToken(_ context.Context, token string) (*models.DocumentShareLink, error) {
+	for _, l := range m.shareLinks {
+		if l.Token == token {
+			return l, nil
+		}
+	}
+	return nil, ErrShareLinkInvalid
+}
+
+func (m *MockRepository) IncrementShareLinkView(_ context.Context, id uuid.UUID, _ uuid.UUID) error {
+	if l, ok := m.shareLinks[id]; ok {
+		l.ViewCount++
+	}
+	return nil
 }
 
 // --- Helper ---
@@ -377,11 +529,17 @@ func TestMove_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 	targetFolder := uuid.New()
+	actorID := uuid.New()
 
-	err := svc.Move(context.Background(), seeded.ID, targetFolder, uuid.Nil)
+	err := svc.Move(context.Background(), seeded.ID, targetFolder, actorID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, targetFolder, repo.files[seeded.ID].FolderID)
+
+	activity := repo.activity[seeded.ID]
+	require.Len(t, activity, 1)
+	assert.Equal(t, models.DocumentActivityMoved, activity[0].Action)
+	assert.Equal(t, actorID, activity[0].ActorID)
 }
 
 func TestCopy_Success(t *testing.T) {
@@ -438,6 +596,95 @@ func TestLinkToEntity_Success(t *testing.T) {
 	assert.Equal(t, entityID, links[0].EntityID)
 }
 
+func TestLinkToEntity_SetsTenantID(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+
+	err := svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID)
+
+	require.NoError(t, err)
+	links := repo.entityLinks[seeded.ID]
+	require.Len(t, links, 1)
+	assert.Equal(t, tenantID, links[0].TenantID)
+}
+
+func TestUnlinkFromEntity_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+	linkID := repo.entityLinks[seeded.ID][0].ID
+
+	err := svc.UnlinkFromEntity(context.Background(), linkID, tenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, repo.entityLinks[seeded.ID])
+}
+
+func TestUnlinkFromEntity_WrongTenant_NotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+	linkID := repo.entityLinks[seeded.ID][0].ID
+
+	err := svc.UnlinkFromEntity(context.Background(), linkID, otherTenantID)
+
+	require.ErrorIs(t, err, ErrFileNotFound)
+	assert.Len(t, repo.entityLinks[seeded.ID], 1, "a foreign tenant must not be able to delete another tenant's link")
+}
+
+func TestListEntityLinks_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", uuid.New(), uuid.New(), tenantID))
+
+	links, err := svc.ListEntityLinks(context.Background(), seeded.ID, otherTenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, links, "a foreign tenant must not see another tenant's entity links")
+}
+
+func TestListByEntity_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", contactID, uuid.New(), tenantID))
+
+	files, err := svc.ListByEntity(context.Background(), "contact", contactID, tenantID)
+
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	assert.Equal(t, seeded.ID, files[0].ID)
+}
+
+func TestListByEntity_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	otherTenantID := uuid.New()
+	contactID := uuid.New()
+	seeded := seedFileForTenant(repo, tenantID)
+	require.NoError(t, svc.LinkToEntity(context.Background(), seeded.ID, "contact", contactID, uuid.New(), tenantID))
+
+	files, err := svc.ListByEntity(context.Background(), "contact", contactID, otherTenantID)
+
+	require.NoError(t, err)
+	assert.Empty(t, files, "a foreign tenant must not see another tenant's entity-linked files")
+}
+
+func TestListByEntity_InvalidType(t *testing.T) {
+	svc, _, _ := newTestService()
+
+	_, err := svc.ListByEntity(context.Background(), "invalid_type", uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrInvalidEntityType)
+}
+
 func TestLinkToEntity_InvalidType(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
@@ -451,11 +698,31 @@ func TestUpdate_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 	newName := "renamed.pdf"
+	actorID := uuid.New()
 
-	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, UpdateInput{Filename: &newName})
+	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, actorID, UpdateInput{Filename: &newName})
 
 	require.NoError(t, err)
 	assert.Equal(t, newName, repo.files[seeded.ID].Filename)
+
+	activity := repo.activity[seeded.ID]
+	require.Len(t, activity, 1)
+	assert.Equal(t, models.DocumentActivityRenamed, activity[0].Action)
+	assert.Equal(t, newName, activity[0].Detail)
+}
+
+// TestUpdate_FavoriteOnly_NoActivity verifies that toggling IsFavorite alone
+// (no filename/folder change) does not record an activity entry — favoriting
+// is a preference, not an auditable file change.
+func TestUpdate_FavoriteOnly_NoActivity(t *testing.T) {
+	svc, repo, _ := newTestService()
+	seeded := seedFile(repo)
+	isFavorite := true
+
+	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, uuid.New(), UpdateInput{IsFavorite: &isFavorite})
+
+	require.NoError(t, err)
+	assert.Empty(t, repo.activity[seeded.ID])
 }
 
 func TestList_Success(t *testing.T) {
@@ -528,3 +795,322 @@ func TestDelete_CrossTenant(t *testing.T) {
 	// The file must still exist in the store.
 	assert.False(t, repo.files[file.ID].IsDeleted, "file must remain intact after cross-tenant delete attempt")
 }
+
+// --- Comment tests ---
+
+func TestCreateComment_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	c, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "  looks good  ")
+
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	assert.Equal(t, "looks good", c.Content, "content must be trimmed")
+	assert.Equal(t, author, c.AuthorID)
+	assert.Equal(t, tenant, c.TenantID)
+	assert.Equal(t, file.ID, c.FileID)
+}
+
+func TestCreateComment_ContentRequired(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateComment(context.Background(), tenant, file.ID, uuid.New(), "   ")
+
+	assert.ErrorIs(t, err, ErrCommentContentRequired)
+}
+
+func TestCreateComment_ContentTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateComment(context.Background(), tenant, file.ID, uuid.New(), strings.Repeat("a", maxCommentLength+1))
+
+	assert.ErrorIs(t, err, ErrCommentContentTooLong)
+}
+
+func TestCreateComment_CrossTenant_FileNotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateComment(context.Background(), tenantB, file.ID, uuid.New(), "hello")
+
+	assert.ErrorIs(t, err, ErrFileNotFound, "a file from another tenant must not accept comments")
+}
+
+func TestUpdateComment_AuthorCanEdit(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	updated, err := svc.UpdateComment(context.Background(), tenant, created.ID, author, "edited")
+
+	require.NoError(t, err)
+	assert.Equal(t, "edited", updated.Content)
+}
+
+func TestUpdateComment_NonAuthorDenied(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	otherUser := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	_, err = svc.UpdateComment(context.Background(), tenant, created.ID, otherUser, "edited")
+
+	assert.ErrorIs(t, err, ErrCannotEditOthersComment)
+}
+
+func TestDeleteComment_AuthorCanDelete(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, author, false)
+
+	require.NoError(t, err)
+	comments, listErr := svc.ListComments(context.Background(), file.ID, tenant)
+	require.NoError(t, listErr)
+	assert.Empty(t, comments)
+}
+
+func TestDeleteComment_NonAuthorNonAdminDenied(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	otherUser := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, otherUser, false)
+
+	assert.ErrorIs(t, err, ErrCannotDeleteOthersComment)
+}
+
+func TestDeleteComment_AdminCanDeleteOthers(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	admin := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, admin, true)
+
+	require.NoError(t, err)
+}
+
+func TestListComments_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	fileA := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateComment(context.Background(), tenantA, fileA.ID, uuid.New(), "tenant a comment")
+	require.NoError(t, err)
+
+	commentsA, err := svc.ListComments(context.Background(), fileA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Len(t, commentsA, 1)
+
+	commentsB, err := svc.ListComments(context.Background(), fileA.ID, tenantB)
+	require.NoError(t, err)
+	assert.Empty(t, commentsB, "tenant B must not see tenant A's comments")
+}
+
+func TestCreateShareLink_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	days := int32(7)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{
+		TenantID: tenant, FileID: file.ID, ExpiresInDays: &days, Password: "s3cret",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.NotEmpty(t, link.Token)
+	assert.NotNil(t, link.PasswordHash)
+	assert.NotNil(t, link.ExpiresAt)
+	assert.Equal(t, tenant, link.TenantID)
+	assert.Equal(t, file.ID, link.FileID)
+}
+
+func TestCreateShareLink_NoPasswordNoExpiry(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+
+	require.NoError(t, err)
+	assert.Nil(t, link.PasswordHash)
+	assert.Nil(t, link.ExpiresAt)
+}
+
+func TestCreateShareLink_CrossTenant_FileNotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantB, FileID: file.ID})
+
+	assert.ErrorIs(t, err, ErrFileNotFound, "a file from another tenant must not accept a share link")
+}
+
+func TestCreateShareLink_ExpiryTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	days := int32(maxShareLinkExpiryDays + 1)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: &days})
+
+	assert.ErrorIs(t, err, ErrShareLinkExpiryInvalid)
+}
+
+func TestCreateShareLink_PasswordTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{
+		TenantID: tenant, FileID: file.ID, Password: strings.Repeat("a", maxSharePasswordLen+1),
+	})
+
+	assert.ErrorIs(t, err, ErrSharePasswordTooLong)
+}
+
+func TestListShareLinks_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	fileA := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantA, FileID: fileA.ID})
+	require.NoError(t, err)
+
+	linksA, err := svc.ListShareLinks(context.Background(), fileA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Len(t, linksA, 1)
+
+	_, err = svc.ListShareLinks(context.Background(), fileA.ID, tenantB)
+	assert.ErrorIs(t, err, ErrFileNotFound, "tenant B must not even learn tenant A's file exists")
+}
+
+func TestRevokeShareLink_CrossTenant_NotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantA, FileID: file.ID})
+	require.NoError(t, err)
+
+	err = svc.RevokeShareLink(context.Background(), link.ID, tenantB)
+	assert.ErrorIs(t, err, ErrShareLinkNotFound)
+}
+
+func TestRedeemShareLink_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	require.NoError(t, err)
+
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "")
+
+	require.NoError(t, err)
+	require.NotNil(t, dl)
+	assert.Equal(t, file.Filename, dl.Filename)
+	assert.Equal(t, file.MimeType, dl.ContentType)
+	assert.Equal(t, file.FileSize, dl.FileSize)
+	assert.Contains(t, dl.DownloadURL, file.StorageKey)
+
+	links, err := repo.ListShareLinks(context.Background(), file.ID, tenant)
+	require.NoError(t, err)
+	require.Len(t, links, 1)
+	assert.Equal(t, 1, links[0].ViewCount, "a successful redemption must count as a view")
+}
+
+func TestRedeemShareLink_CorrectPassword(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, Password: "s3cret"})
+	require.NoError(t, err)
+
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "s3cret")
+
+	require.NoError(t, err)
+	assert.Equal(t, file.Filename, dl.Filename)
+}
+
+// TestRedeemShareLink_IndistinguishableFailures is the security property this
+// whole feature exists for: an unknown token, a revoked link, an expired
+// link, a missing password and a wrong password must all return the exact
+// same error — a caller probing the public route learns nothing about which
+// case it hit.
+func TestRedeemShareLink_IndistinguishableFailures(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	protectedLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, Password: "s3cret"})
+	require.NoError(t, err)
+
+	expiredDays := int32(1)
+	expiredLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: &expiredDays})
+	require.NoError(t, err)
+	repo.shareLinks[expiredLink.ID].ExpiresAt = timePtr(time.Now().Add(-time.Hour))
+
+	revokedLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	require.NoError(t, err)
+	require.NoError(t, svc.RevokeShareLink(context.Background(), revokedLink.ID, tenant))
+
+	cases := []struct {
+		name     string
+		token    string
+		password string
+	}{
+		{"unknown token", "does-not-exist", ""},
+		{"revoked link", revokedLink.Token, ""},
+		{"expired link", expiredLink.Token, ""},
+		{"missing password", protectedLink.Token, ""},
+		{"wrong password", protectedLink.Token, "wrong"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.RedeemShareLink(context.Background(), tc.token, tc.password)
+			assert.ErrorIs(t, err, ErrShareLinkInvalid)
+		})
+	}
+}
+
+func timePtr(t time.Time) *time.Time { return &t }

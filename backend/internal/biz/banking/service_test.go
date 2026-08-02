@@ -3,6 +3,7 @@ package banking
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,15 +18,22 @@ import (
 type fakeRepo struct {
 	statements map[string]*models.BankStatement // keyed by content hash
 	txs        map[uuid.UUID][]*models.BankTransaction
-	createErr  error
-	updateErr  error
-	creates    int
+	accounts   map[uuid.UUID]*models.BankAccount
+	// invoiceNumbers stands in for finance_invoices: what an operator can pick
+	// by number in a manual assignment.
+	invoiceNumbers map[string]uuid.UUID
+	createErr      error
+	updateErr      error
+	accountErr     error
+	creates        int
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
-		statements: map[string]*models.BankStatement{},
-		txs:        map[uuid.UUID][]*models.BankTransaction{},
+		statements:     map[string]*models.BankStatement{},
+		txs:            map[uuid.UUID][]*models.BankTransaction{},
+		accounts:       map[uuid.UUID]*models.BankAccount{},
+		invoiceNumbers: map[string]uuid.UUID{},
 	}
 }
 
@@ -80,6 +88,85 @@ func (f *fakeRepo) ListTransactionsByStatement(_ context.Context, _, statementID
 
 func (f *fakeRepo) UpdateTransactionMatch(_ context.Context, _ *models.BankTransaction) error {
 	return f.updateErr
+}
+
+func (f *fakeRepo) FindInvoiceIDByNumber(_ context.Context, _ uuid.UUID, number string) (uuid.UUID, error) {
+	if id, ok := f.invoiceNumbers[number]; ok {
+		return id, nil
+	}
+	return uuid.Nil, ErrInvoiceNotFound
+}
+
+// Bank accounts (Migration 000258). Backed by a map so the account tests can
+// drive create/read/update/delete without a database; the statement tests above
+// never touch them.
+
+func (f *fakeRepo) CreateAccount(_ context.Context, acc *models.BankAccount) error {
+	if f.accountErr != nil {
+		return f.accountErr
+	}
+	for _, existing := range f.accounts {
+		if existing.TenantID == acc.TenantID && existing.IBAN == acc.IBAN {
+			return ErrAccountExists
+		}
+	}
+	if acc.ID == uuid.Nil {
+		acc.ID = uuid.New()
+	}
+	if f.accounts == nil {
+		f.accounts = map[uuid.UUID]*models.BankAccount{}
+	}
+	stored := *acc
+	f.accounts[acc.ID] = &stored
+	return nil
+}
+
+func (f *fakeRepo) GetAccount(_ context.Context, tenantID, id uuid.UUID) (*models.BankAccount, error) {
+	acc, ok := f.accounts[id]
+	if !ok || acc.TenantID != tenantID {
+		return nil, ErrAccountNotFound
+	}
+	out := *acc
+	return &out, nil
+}
+
+func (f *fakeRepo) ListAccounts(_ context.Context, tenantID uuid.UUID) ([]*models.BankAccount, error) {
+	out := make([]*models.BankAccount, 0, len(f.accounts))
+	for _, acc := range f.accounts {
+		if acc.TenantID == tenantID {
+			copied := *acc
+			out = append(out, &copied)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].IBAN < out[j].IBAN })
+	return out, nil
+}
+
+func (f *fakeRepo) UpdateAccount(_ context.Context, acc *models.BankAccount) error {
+	if f.accountErr != nil {
+		return f.accountErr
+	}
+	existing, ok := f.accounts[acc.ID]
+	if !ok || existing.TenantID != acc.TenantID {
+		return ErrAccountNotFound
+	}
+	for id, other := range f.accounts {
+		if id != acc.ID && other.TenantID == acc.TenantID && other.IBAN == acc.IBAN {
+			return ErrAccountExists
+		}
+	}
+	stored := *acc
+	f.accounts[acc.ID] = &stored
+	return nil
+}
+
+func (f *fakeRepo) DeleteAccount(_ context.Context, tenantID, id uuid.UUID) error {
+	acc, ok := f.accounts[id]
+	if !ok || acc.TenantID != tenantID {
+		return ErrAccountNotFound
+	}
+	delete(f.accounts, id)
+	return nil
 }
 
 type fakeOpenItems struct {
@@ -333,5 +420,125 @@ func TestIgnoreRefusesBookedEntry(t *testing.T) {
 	// decision, not this one's.
 	if _, err := svc.Ignore(context.Background(), tenantID, credit.ID, uuid.New()); !errors.Is(err, ErrAlreadyReconciled) {
 		t.Fatalf("err = %v, want ErrAlreadyReconciled", err)
+	}
+}
+
+// matchFixture imports the CAMT sample and hands back everything a manual
+// assignment needs: the service, the fake repository (to seed invoice numbers
+// an operator can pick) and the credit entry that carries the suggestion.
+func matchFixture(t *testing.T) (*Service, *fakeRepo, *fakePayments, *models.BankTransaction, uuid.UUID) {
+	t.Helper()
+	repo := newFakeRepo()
+	payments := &fakePayments{}
+	svc := NewService(repo, &fakeOpenItems{items: []*models.OpenItem{openItem("RE-2026-0001", "119.00")}}, payments, nil)
+	tenantID := uuid.New()
+
+	res, err := svc.Import(context.Background(), ImportInput{TenantID: tenantID, Content: []byte(camtSample)})
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	return svc, repo, payments, res.Transactions[0], tenantID
+}
+
+func TestReconcileByInvoiceNumberOverridesTheSuggestion(t *testing.T) {
+	svc, repo, payments, credit, tenantID := matchFixture(t)
+	chosen := uuid.New()
+	repo.invoiceNumbers["RE-2026-0099"] = chosen
+
+	got, err := svc.Reconcile(context.Background(), ReconcileInput{
+		TenantID: tenantID, TransactionID: credit.ID, InvoiceNumber: "RE-2026-0099",
+	})
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if len(payments.calls) != 1 {
+		t.Fatalf("payment calls = %d, want 1", len(payments.calls))
+	}
+	if payments.calls[0].InvoiceID != chosen {
+		t.Errorf("booked against %s, want the invoice picked by number %s", payments.calls[0].InvoiceID, chosen)
+	}
+	if got.MatchedInvoiceID == nil || *got.MatchedInvoiceID != chosen {
+		t.Errorf("matched invoice = %v, want %s", got.MatchedInvoiceID, chosen)
+	}
+}
+
+func TestReconcileRefusesUnknownInvoiceNumber(t *testing.T) {
+	svc, _, payments, credit, tenantID := matchFixture(t)
+
+	// A typed number that matches nothing must not fall back to the suggestion:
+	// that would book money against an invoice nobody chose.
+	_, err := svc.Reconcile(context.Background(), ReconcileInput{
+		TenantID: tenantID, TransactionID: credit.ID, InvoiceNumber: "RE-DOES-NOT-EXIST",
+	})
+	if !errors.Is(err, ErrInvoiceNotFound) {
+		t.Fatalf("err = %v, want ErrInvoiceNotFound", err)
+	}
+	if len(payments.calls) != 0 {
+		t.Errorf("payment calls = %d, want none", len(payments.calls))
+	}
+}
+
+func TestReconcilePrefersExplicitIDOverNumber(t *testing.T) {
+	svc, repo, payments, credit, tenantID := matchFixture(t)
+	byID := uuid.New()
+	repo.invoiceNumbers["RE-2026-0099"] = uuid.New()
+
+	if _, err := svc.Reconcile(context.Background(), ReconcileInput{
+		TenantID: tenantID, TransactionID: credit.ID, InvoiceID: byID, InvoiceNumber: "RE-2026-0099",
+	}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if payments.calls[0].InvoiceID != byID {
+		t.Errorf("booked against %s, want the explicit id %s", payments.calls[0].InvoiceID, byID)
+	}
+}
+
+func TestRejectMatchReturnsTheEntryToTheQueue(t *testing.T) {
+	svc, _, payments, credit, tenantID := matchFixture(t)
+	if credit.MatchStatus != models.BankMatchSuggested {
+		t.Fatalf("fixture match status = %q, want a suggestion to reject", credit.MatchStatus)
+	}
+
+	got, err := svc.RejectMatch(context.Background(), tenantID, credit.ID, uuid.New())
+	if err != nil {
+		t.Fatalf("RejectMatch: %v", err)
+	}
+	if got.MatchStatus != models.BankMatchUnmatched {
+		t.Errorf("match status = %q, want unmatched — rejecting keeps the entry in the queue", got.MatchStatus)
+	}
+	if got.MatchedInvoiceID != nil {
+		t.Error("a rejected suggestion must not keep its invoice")
+	}
+	if len(payments.calls) != 0 {
+		t.Errorf("payment calls = %d, want none — rejecting books nothing", len(payments.calls))
+	}
+}
+
+func TestRejectMatchIsIdempotentOnAnUnmatchedEntry(t *testing.T) {
+	svc, _, _, credit, tenantID := matchFixture(t)
+	if _, err := svc.RejectMatch(context.Background(), tenantID, credit.ID, uuid.Nil); err != nil {
+		t.Fatalf("first reject: %v", err)
+	}
+
+	// The operator clicked twice; the outcome they asked for holds.
+	got, err := svc.RejectMatch(context.Background(), tenantID, credit.ID, uuid.Nil)
+	if err != nil {
+		t.Fatalf("second reject: %v", err)
+	}
+	if got.MatchStatus != models.BankMatchUnmatched {
+		t.Errorf("match status = %q, want unmatched", got.MatchStatus)
+	}
+}
+
+func TestRejectMatchRefusesBookedEntry(t *testing.T) {
+	svc, _, _, credit, tenantID := matchFixture(t)
+	if _, err := svc.Reconcile(context.Background(), ReconcileInput{TenantID: tenantID, TransactionID: credit.ID}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	// A booked entry carries a payment. Reversing that is the payment service's
+	// decision, and rejecting must not quietly unlink the two.
+	if _, err := svc.RejectMatch(context.Background(), tenantID, credit.ID, uuid.Nil); !errors.Is(err, ErrNothingToReject) {
+		t.Fatalf("err = %v, want ErrNothingToReject", err)
 	}
 }

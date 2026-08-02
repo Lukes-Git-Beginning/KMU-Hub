@@ -2,6 +2,7 @@ package rapporte
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -855,28 +856,66 @@ func TestService_ListPendingApprovals_OnlySubmitted(t *testing.T) {
 	addReport(repo, tenantID, "Sub2", StatusSubmitted)
 	addReport(repo, tenantID, "Approved", StatusApproved)
 
-	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, 1, 50)
+	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, nil, 1, 50)
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, total)
 	assert.Len(t, pending, 2)
 }
 
+// A caller whose rapporte:report:read grant is scoped to "own" gets the queue
+// narrowed to their own submissions — total included, so paging stays honest.
+func TestService_ListPendingApprovals_OwnScopeFiltersByAuthor(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	mine := uuid.New()
+	theirs := uuid.New()
+
+	own := addReport(repo, tenantID, "Mine", StatusSubmitted)
+	own.AuthorID = mine
+	foreign := addReport(repo, tenantID, "Theirs", StatusSubmitted)
+	foreign.AuthorID = theirs
+
+	pending, total, err := svc.ListPendingApprovals(context.Background(), tenantID, &mine, 1, 50)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, pending, 1)
+	assert.Equal(t, "Mine", pending[0].Title)
+}
+
 // ============================================================================
-// ExportPDF (stub test)
+// ExportPDF
 // ============================================================================
 
-func TestService_ExportPDF_ReturnsPayload(t *testing.T) {
+func TestService_ExportPDF_ReturnsRealPDF(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
 	rep := addReport(repo, tenantID, "Dachbericht", StatusApproved)
+	rep.Description = "Dachrinne erneuert und Ziegel ausgetauscht."
+	signedBy := "Max Mustermann"
+	signedAt := time.Now()
+	rep.SignedBy = &signedBy
+	rep.SignedAt = &signedAt
+	rep.Workers = []Worker{
+		{Name: "Erika Musterfrau", Role: sql.NullString{String: "Dachdeckerin", Valid: true}, Hours: sql.NullFloat64{Float64: 6.5, Valid: true}},
+	}
+	repo.reports[rep.ID] = rep
+
+	require.NoError(t, repo.CreateLine(context.Background(), &ReportLine{
+		ID: uuid.New(), TenantID: tenantID, ReportID: rep.ID,
+		Position: 1, Description: "Ziegel ausgetauscht", Quantity: 12, Unit: "Stk",
+	}))
 
 	payload, err := svc.ExportPDF(context.Background(), tenantID, rep.ID)
 
 	require.NoError(t, err)
-	assert.NotEmpty(t, payload)
+	require.True(t, len(payload) > 4)
+	assert.Equal(t, "%PDF", string(payload[:4]))
 }
 
 func TestService_ExportPDF_NotFound(t *testing.T) {

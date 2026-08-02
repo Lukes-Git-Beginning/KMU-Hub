@@ -28,9 +28,22 @@ service DocumentService {
   rpc CreateFileVersion(CreateFileVersionRequest) returns (CreateFileVersionResponse);
   rpc ListFileVersions(ListFileVersionsRequest) returns (ListFileVersionsResponse);
   rpc RevertFileVersion(RevertFileVersionRequest) returns (RevertFileVersionResponse);
+  rpc ListFileActivity(ListFileActivityRequest) returns (ListFileActivityResponse);
   // Registers metadata for a file already uploaded to object storage via a
   // presigned PUT URL (browser-direct upload). Does not touch object storage.
   rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (RegisterUploadedFileResponse);
+  rpc ListFileComments(ListFileCommentsRequest) returns (ListFileCommentsResponse);
+  rpc CreateFileComment(CreateFileCommentRequest) returns (CreateFileCommentResponse);
+  rpc UpdateFileComment(UpdateFileCommentRequest) returns (UpdateFileCommentResponse);
+  rpc DeleteFileComment(DeleteFileCommentRequest) returns (DeleteFileCommentResponse);
+  // External, unauthenticated read/download links for a file.
+  rpc CreateShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse);
+  rpc ListShareLinks(ListShareLinksRequest) returns (ListShareLinksResponse);
+  rpc RevokeShareLink(RevokeShareLinkRequest) returns (RevokeShareLinkResponse);
+  // GetSharedFile serves the unauthenticated public redemption. It takes no
+  // tenant in the request: the token itself resolves one. See
+  // file.Service.RedeemShareLink.
+  rpc GetSharedFile(GetSharedFileRequest) returns (GetSharedFileResponse);
 
   // ==================== Share operations ====================
   rpc ShareEntity(ShareEntityRequest) returns (ShareEntityResponse);
@@ -49,6 +62,8 @@ service DocumentService {
   rpc LinkFileToEntity(LinkFileToEntityRequest) returns (LinkFileToEntityResponse);
   rpc UnlinkFileFromEntity(UnlinkFileFromEntityRequest) returns (UnlinkFileFromEntityResponse);
   rpc ListFileEntityLinks(ListFileEntityLinksRequest) returns (ListFileEntityLinksResponse);
+  rpc DeleteEntityLink(DeleteEntityLinkRequest) returns (DeleteEntityLinkResponse);
+  rpc ListFilesByEntity(ListFilesByEntityRequest) returns (ListFilesByEntityResponse);
 
   // ==================== Search operations ====================
   rpc SearchFiles(SearchFilesRequest) returns (SearchFilesResponse);
@@ -176,6 +191,26 @@ message DocumentEntityLink {
   string entity_name = 5;            // Denormalized
   string linked_by = 6;
   google.protobuf.Timestamp created_at = 7;
+}
+
+message DocumentFileActivity {
+  string id = 1;
+  string file_id = 2;
+  string action = 3;                 // uploaded, renamed, moved, copied, downloaded, shared, version_created, reverted
+  string actor_id = 4;
+  string actor_name = 5;             // Denormalized from JOIN
+  string detail = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message DocumentFileComment {
+  string id = 1;
+  string file_id = 2;
+  string author_id = 3;
+  string author_name = 4;             // Denormalized from JOIN
+  string content = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }
 
 message VirtualFile {
@@ -396,6 +431,103 @@ message RevertFileVersionResponse {
   DocumentFile file = 1;
 }
 
+message ListFileActivityRequest {
+  string file_id = 1;
+}
+
+message ListFileActivityResponse {
+  repeated DocumentFileActivity activities = 1;
+}
+
+message ListFileCommentsRequest {
+  string file_id = 1;
+}
+
+message ListFileCommentsResponse {
+  repeated DocumentFileComment comments = 1;
+}
+
+message CreateFileCommentRequest {
+  string file_id = 1;
+  string content = 2;
+}
+
+message CreateFileCommentResponse {
+  DocumentFileComment comment = 1;
+}
+
+message UpdateFileCommentRequest {
+  string id = 1;
+  string content = 2;
+}
+
+message UpdateFileCommentResponse {
+  DocumentFileComment comment = 1;
+}
+
+message DeleteFileCommentRequest {
+  string id = 1;
+  // Resolved by the gateway from the caller's JWT roles (roles do not
+  // propagate over the internal gRPC metadata, unlike tenant_id/user_id) so
+  // the author-or-admin check can run service-side.
+  bool is_admin = 2;
+}
+
+message DeleteFileCommentResponse {}
+
+// ============================================================================
+// Share links (external, unauthenticated read/download links)
+// ============================================================================
+
+message ShareLink {
+  string id = 1;
+  string file_id = 2;
+  // The link secret in clear. Returned on create and on list, because the
+  // frontend renders it as a copyable URL. Never derived from the password.
+  string token = 3;
+  optional google.protobuf.Timestamp expires_at = 4;  // absent = never expires
+  bool has_password = 5;                              // the hash itself never leaves the service
+  int32 view_count = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateShareLinkRequest {
+  string file_id = 1;
+  optional int32 expires_in_days = 2;  // absent or 0 = never expires
+  optional string password = 3;        // absent or empty = no password
+  optional string created_by = 4;
+}
+
+message CreateShareLinkResponse {
+  ShareLink share_link = 1;
+}
+
+message ListShareLinksRequest {
+  string file_id = 1;
+}
+
+message ListShareLinksResponse {
+  repeated ShareLink share_links = 1;
+}
+
+message RevokeShareLinkRequest {
+  string id = 1;
+}
+
+message RevokeShareLinkResponse {}
+
+message GetSharedFileRequest {
+  string token = 1;
+  optional string password = 2;
+}
+
+message GetSharedFileResponse {
+  string download_url = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 file_size = 4;
+}
+
 // ============================================================================
 // Share Request/Response Messages
 // ============================================================================
@@ -513,6 +645,21 @@ message ListFileEntityLinksRequest {
 
 message ListFileEntityLinksResponse {
   repeated DocumentEntityLink links = 1;
+}
+
+message DeleteEntityLinkRequest {
+  string link_id = 1;
+}
+
+message DeleteEntityLinkResponse {}
+
+message ListFilesByEntityRequest {
+  string entity_type = 1;            // contact, company, deal, project, task
+  string entity_id = 2;
+}
+
+message ListFilesByEntityResponse {
+  repeated DocumentFile files = 1;
 }
 
 // ============================================================================

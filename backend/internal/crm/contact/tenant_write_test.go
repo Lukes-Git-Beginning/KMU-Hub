@@ -87,6 +87,9 @@ func TestContactWrites_LandInCallerTenant(t *testing.T) {
 	if got.LastName != "Test" {
 		t.Fatalf("a foreign-tenant write reached the contact: last_name=%q", got.LastName)
 	}
+	if got.CreatedBy != userID {
+		t.Fatalf("created_by did not round-trip through Create/GetByID: got %s, want %s", got.CreatedBy, userID)
+	}
 
 	foreign.LastName = "Renamed"
 	if err := repo.Update(ctxOwn, &foreign, tenantOwn); err != nil {

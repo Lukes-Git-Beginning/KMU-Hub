@@ -147,6 +147,11 @@ func main() {
 	r.Use(middleware.SecurityHeaders(cfg.BehindProxy))
 	r.Use(middleware.Logging)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
+	// Records the caller's IP/user agent in the context so the outbound gRPC
+	// interceptor can forward them. Must sit above the route groups, not
+	// inside the authenticated one: login is the call that creates the
+	// session row those values describe.
+	r.Use(middleware.ClientInfo(cfg.BehindProxy))
 
 	// IP filter middleware: reject blocked IPs before rate limiting
 	ipFilter := gateway.NewIPFilterMiddleware(registry, cfg.BehindProxy)
@@ -240,6 +245,10 @@ func main() {
 	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 
+	// Document routes — standard (via registrars) + the public redemption of a
+	// share link (outside loop, behind the strict public rate limiter)
+	documentRoutes := gateway.NewDocumentRoutes(registry)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		crmRoutes,
@@ -250,7 +259,7 @@ func main() {
 		videoRoutes,
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
-		gateway.NewDocumentRoutes(registry),
+		documentRoutes,
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, cfg.BexioStateSecret),
 		// DATEV upload shares the Bexio OAuth state secret: the signed state only
@@ -289,6 +298,7 @@ func main() {
 		gateway.NewHealthRoutes(healthCheckers, registry),
 		bookingRoutes,
 		gateway.NewSettingsRoutes(registry, flagRegistry),
+		gateway.NewCustomizationRoutes(registry),
 	}
 
 	for _, reg := range registrars {
@@ -303,7 +313,7 @@ func main() {
 	// Plugin API routes — gated behind plugins.api flag (Phase D, off by default).
 	// To enable in dev: COSMI_PLUGIN_API_ENABLED=true
 	if flagRegistry.IsEnabled("plugins.api") {
-		pluginRoutes := gateway.NewPluginRoutes(registry)
+		pluginRoutes := gateway.NewPluginRoutes(registry, flagRegistry)
 		pluginRoutes.RegisterRoutes(r, authWithIdempotency)
 		slog.Info("routes registered", "service", pluginRoutes.ServiceName())
 	} else {
@@ -316,7 +326,7 @@ func main() {
 	slog.Info("routes registered", "service", "wopi")
 
 	// CalDAV/CardDAV protocol routes (Basic Auth, not JWT)
-	caldavRoutes := setupCalDAV(pool, registry, authMiddleware)
+	caldavRoutes := setupCalDAV(pool, registry, authMiddleware, "http://127.0.0.1"+cfg.GatewayHTTPPort)
 	caldavRoutes.RegisterRoutes(r)
 	slog.Info("routes registered", "service", "caldav")
 
@@ -342,6 +352,11 @@ func main() {
 	// sit behind the generous authenticated limit.
 	berichteRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "berichte-public")
+
+	// Public redemption of a document share link (no auth middleware). Same
+	// strict per-IP limiter, same reasoning as berichte-public.
+	documentRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "document-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

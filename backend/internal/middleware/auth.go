@@ -15,10 +15,11 @@ import (
 type userContextKey string
 
 const (
-	UserIDKey    userContextKey = "user_id"
-	UserRolesKey userContextKey = "user_roles"
-	UserPermsKey userContextKey = "user_permissions"
-	TenantIDKey  userContextKey = "tenant_id"
+	UserIDKey     userContextKey = "user_id"
+	UserRolesKey  userContextKey = "user_roles"
+	UserPermsKey  userContextKey = "user_permissions"
+	UserScopesKey userContextKey = "user_permission_scopes"
+	TenantIDKey   userContextKey = "tenant_id"
 )
 
 // ErrMissingTenantID is returned by GetTenantID when the JWT has no tid claim or the claim is empty.
@@ -50,6 +51,7 @@ func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, UserPermsKey, claims.Permissions)
+			ctx = context.WithValue(ctx, UserScopesKey, claims.Scopes)
 			// TenantID is stored as-is (may be empty for legacy tokens without tid claim).
 			// GetTenantID enforces non-empty + valid UUID — no placeholder substitution here.
 			ctx = context.WithValue(ctx, TenantIDKey, claims.TenantID)
@@ -93,6 +95,40 @@ func GetUserPermissions(ctx context.Context) []string {
 		return perms
 	}
 	return nil
+}
+
+// PermissionScope reports how far one permission reaches for the current user:
+// auth.ScopeOwn (only rows they own), auth.ScopeTeam or auth.ScopeAll.
+//
+// It answers "how many rows", never "may this run at all" — that stays with
+// RequirePermission/RequirePermissionAny, which have already passed by the time
+// a handler asks. A caller without the permission never gets here, so an
+// unknown key legitimately means "not narrowed" rather than "denied".
+//
+// Absence therefore resolves to auth.ScopeAll, which is also what a token
+// minted before the scopes claim existed reports for every key. That keeps a
+// still-valid old session behaving exactly as it did instead of silently
+// emptying its lists.
+//
+// Handler pattern for a list endpoint (see route_rapporte.go HandleListReports):
+//
+//	if middleware.PermissionScope(r.Context(), "rapporte:report", "read") == auth.ScopeOwn {
+//	    grpcReq.AuthorId = &userID // overrides any client-supplied filter
+//	}
+//
+// The filter belongs in the repository query, not in a post-filter on the
+// response: paging and the total count have to agree with what the caller may
+// see. auth.ScopeTeam needs a reporting-line resolver and does not exist yet —
+// it currently behaves like auth.ScopeAll.
+func PermissionScope(ctx context.Context, resource, action string) string {
+	scopes, ok := ctx.Value(UserScopesKey).(map[string]string)
+	if !ok {
+		return auth.ScopeAll
+	}
+	if scope, ok := scopes[resource+":"+action]; ok {
+		return scope
+	}
+	return auth.ScopeAll
 }
 
 // IsAdmin checks if the current user has the "admin" role.

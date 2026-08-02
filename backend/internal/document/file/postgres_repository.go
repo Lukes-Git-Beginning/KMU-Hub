@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -287,15 +289,20 @@ func (r *PostgresRepository) UpdateSearchContent(ctx context.Context, id uuid.UU
 
 func (r *PostgresRepository) CreateEntityLink(ctx context.Context, link *models.DocumentEntityLink) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_entity_links (id, file_id, entity_type, entity_id, linked_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		link.ID, link.FileID, link.EntityType, link.EntityID, link.LinkedBy, link.CreatedAt,
+		`INSERT INTO document_entity_links (id, tenant_id, file_id, entity_type, entity_id, linked_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		link.ID, link.TenantID, link.FileID, link.EntityType, link.EntityID, link.LinkedBy, link.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM document_entity_links WHERE id = $1`, id)
+// DeleteEntityLink removes a link by its own ID. tenantID is required even
+// though RLS also enforces it: it turns a cross-tenant delete attempt into
+// the same "not found" a bad ID gets, instead of a bare RLS-filtered no-op
+// that would be indistinguishable from a database error to the caller.
+func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM document_entity_links WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -305,12 +312,12 @@ func (r *PostgresRepository) DeleteEntityLink(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentEntityLink, error) {
+func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentEntityLink, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, file_id, entity_type, entity_id, linked_by, created_at
+		`SELECT id, tenant_id, file_id, entity_type, entity_id, linked_by, created_at
 		 FROM document_entity_links
-		 WHERE file_id = $1
-		 ORDER BY created_at DESC`, fileID)
+		 WHERE file_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC`, fileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +326,7 @@ func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UU
 	var links []*models.DocumentEntityLink
 	for rows.Next() {
 		var l models.DocumentEntityLink
-		if scanErr := rows.Scan(&l.ID, &l.FileID, &l.EntityType, &l.EntityID, &l.LinkedBy, &l.CreatedAt); scanErr != nil {
+		if scanErr := rows.Scan(&l.ID, &l.TenantID, &l.FileID, &l.EntityType, &l.EntityID, &l.LinkedBy, &l.CreatedAt); scanErr != nil {
 			return nil, scanErr
 		}
 		links = append(links, &l)
@@ -327,15 +334,15 @@ func (r *PostgresRepository) ListEntityLinks(ctx context.Context, fileID uuid.UU
 	return links, rows.Err()
 }
 
-func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentFile, error) {
+func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType string, entityID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFile, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT f.id, f.folder_id, f.filename, f.mime_type, f.file_size, f.storage_key, f.thumbnail_key,
 		        f.current_version, f.owner_id, f.is_favorite, f.is_deleted, f.content_text,
 		        f.created_at, f.updated_at, f.deleted_at
 		 FROM document_files f
 		 JOIN document_entity_links del ON f.id = del.file_id
-		 WHERE del.entity_type = $1 AND del.entity_id = $2 AND NOT f.is_deleted
-		 ORDER BY f.created_at DESC`, entityType, entityID)
+		 WHERE del.entity_type = $1 AND del.entity_id = $2 AND del.tenant_id = $3 AND f.tenant_id = $3 AND NOT f.is_deleted
+		 ORDER BY f.created_at DESC`, entityType, entityID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -350,6 +357,215 @@ func (r *PostgresRepository) ListFilesByEntity(ctx context.Context, entityType s
 		files = append(files, file)
 	}
 	return files, rows.Err()
+}
+
+// Activity (append-only audit trail)
+
+func (r *PostgresRepository) CreateActivity(ctx context.Context, activity *models.DocumentFileActivity) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_file_activity (id, tenant_id, file_id, action, actor_id, detail, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		activity.ID, activity.TenantID, activity.FileID, activity.Action, activity.ActorID, activity.Detail, activity.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.tenant_id, a.file_id, a.action, a.actor_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS actor_name,
+		        a.detail, a.created_at
+		 FROM document_file_activity a
+		 LEFT JOIN users u ON u.id = a.actor_id
+		 WHERE a.file_id = $1 AND a.tenant_id = $2
+		 ORDER BY a.created_at DESC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []*models.DocumentFileActivity
+	for rows.Next() {
+		var a models.DocumentFileActivity
+		if scanErr := rows.Scan(&a.ID, &a.TenantID, &a.FileID, &a.Action, &a.ActorID,
+			&a.ActorName, &a.Detail, &a.CreatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		activities = append(activities, &a)
+	}
+	return activities, rows.Err()
+}
+
+// Comments
+
+func (r *PostgresRepository) CreateComment(ctx context.Context, comment *models.DocumentFileComment) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_file_comments (id, tenant_id, file_id, author_id, content, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		comment.ID, comment.TenantID, comment.FileID, comment.AuthorID, comment.Content, comment.CreatedAt, comment.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetCommentByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error) {
+	var c models.DocumentFileComment
+	err := r.pool.QueryRow(ctx,
+		`SELECT c.id, c.tenant_id, c.file_id, c.author_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS author_name,
+		        c.content, c.created_at, c.updated_at
+		 FROM document_file_comments c
+		 LEFT JOIN users u ON u.id = c.author_id
+		 WHERE c.id = $1 AND c.tenant_id = $2`, id, tenantID,
+	).Scan(&c.ID, &c.TenantID, &c.FileID, &c.AuthorID, &c.AuthorName, &c.Content, &c.CreatedAt, &c.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCommentNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *PostgresRepository) ListComments(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.id, c.tenant_id, c.file_id, c.author_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS author_name,
+		        c.content, c.created_at, c.updated_at
+		 FROM document_file_comments c
+		 LEFT JOIN users u ON u.id = c.author_id
+		 WHERE c.file_id = $1 AND c.tenant_id = $2
+		 ORDER BY c.created_at ASC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []*models.DocumentFileComment
+	for rows.Next() {
+		var c models.DocumentFileComment
+		if scanErr := rows.Scan(&c.ID, &c.TenantID, &c.FileID, &c.AuthorID, &c.AuthorName, &c.Content, &c.CreatedAt, &c.UpdatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		comments = append(comments, &c)
+	}
+	return comments, rows.Err()
+}
+
+func (r *PostgresRepository) UpdateComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE document_file_comments SET content = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		content, id, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCommentNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM document_file_comments WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCommentNotFound
+	}
+	return nil
+}
+
+// Share links
+
+func (r *PostgresRepository) CreateShareLink(ctx context.Context, link *models.DocumentShareLink) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_share_links
+		    (id, tenant_id, file_id, token, password_hash, expires_at, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		link.ID, link.TenantID, link.FileID, link.Token, link.PasswordHash, link.ExpiresAt, link.CreatedBy, link.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListShareLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentShareLink, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+shareLinkColumns+`
+		 FROM document_share_links
+		 WHERE file_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []*models.DocumentShareLink
+	for rows.Next() {
+		l, scanErr := scanShareLink(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		links = append(links, l)
+	}
+	return links, rows.Err()
+}
+
+// RevokeShareLink soft-revokes a link by its own ID. tenantID is required
+// even though RLS also enforces it, same reasoning as DeleteEntityLink: a
+// cross-tenant attempt becomes the same "not found" a bad ID gets.
+func (r *PostgresRepository) RevokeShareLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, revokedAt time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE document_share_links SET revoked_at = $1 WHERE id = $2 AND tenant_id = $3 AND revoked_at IS NULL`,
+		revokedAt, id, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrShareLinkNotFound
+	}
+	return nil
+}
+
+// GetShareLinkByToken resolves a link — and with it its tenant — from the
+// secret alone. Runs in the system context (see Repository.GetShareLinkByToken
+// doc comment): RLS would otherwise filter away the one row that answers
+// which tenant the caller may see.
+func (r *PostgresRepository) GetShareLinkByToken(ctx context.Context, token string) (*models.DocumentShareLink, error) {
+	if token == "" {
+		return nil, ErrShareLinkInvalid
+	}
+	row := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareLinkColumns+` FROM document_share_links WHERE token = $1`, token)
+	l, err := scanShareLink(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareLinkInvalid
+	}
+	return l, err
+}
+
+func (r *PostgresRepository) IncrementShareLinkView(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE document_share_links SET view_count = view_count + 1 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	)
+	return err
+}
+
+const shareLinkColumns = `id, tenant_id, file_id, token, password_hash, expires_at, revoked_at, view_count, created_by, created_at`
+
+type shareLinkScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanShareLink(row shareLinkScanner) (*models.DocumentShareLink, error) {
+	var l models.DocumentShareLink
+	err := row.Scan(&l.ID, &l.TenantID, &l.FileID, &l.Token, &l.PasswordHash,
+		&l.ExpiresAt, &l.RevokedAt, &l.ViewCount, &l.CreatedBy, &l.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &l, nil
 }
 
 // scanFile scans a single row into a DocumentFile.

@@ -485,7 +485,16 @@ func (s *RapporteGRPCServer) ListPendingApprovals(ctx context.Context, req *rapp
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 
-	reports, total, err := s.svc.ListPendingApprovals(ctx, tenantID, int(req.GetPage()), int(req.GetPageSize()))
+	var authorID *uuid.UUID
+	if req.AuthorId != nil {
+		aid, parseErr := uuid.Parse(*req.AuthorId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid author_id: %v", parseErr)
+		}
+		authorID = &aid
+	}
+
+	reports, total, err := s.svc.ListPendingApprovals(ctx, tenantID, authorID, int(req.GetPage()), int(req.GetPageSize()))
 	if err != nil {
 		return nil, mapRapporteError(err)
 	}
@@ -515,10 +524,10 @@ func (s *RapporteGRPCServer) ExportPDF(ctx context.Context, req *rapportev1.Expo
 		return nil, mapRapporteError(err)
 	}
 
-	filename := fmt.Sprintf("arbeitsbericht_%s.txt", reportID.String()[:8])
+	filename := fmt.Sprintf("arbeitsbericht_%s.pdf", reportID.String()[:8])
 	return &rapportev1.ExportPDFResponse{
 		Payload:     payload,
-		ContentType: "text/plain", // TODO Sprint 3: application/pdf
+		ContentType: "application/pdf",
 		Filename:    filename,
 	}, nil
 }

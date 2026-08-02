@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
 	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/expense"
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
@@ -38,6 +39,7 @@ import (
 	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/email/systemmail"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -167,11 +169,13 @@ func main() {
 	// here, so this wiring can't crash-loop biz in production before the
 	// compose/env passthrough for SYSTEM_SMTP_* is confirmed for this service.
 	dunningSvc.SetNoticeMailer(&systemMailer{
-		host:     cfg.SystemSMTPHost,
-		port:     cfg.SystemSMTPPort,
-		username: cfg.SystemSMTPUser,
-		password: cfg.SystemSMTPPassword,
-		from:     cfg.SystemSMTPFrom,
+		sender: systemmail.New(systemmail.Config{
+			Host:     cfg.SystemSMTPHost,
+			Port:     cfg.SystemSMTPPort,
+			Username: cfg.SystemSMTPUser,
+			Password: cfg.SystemSMTPPassword,
+			From:     cfg.SystemSMTPFrom,
+		}),
 	}, companySettingsRepo)
 	dashboardSvc := dashboard.NewService(dashboardRepo)
 
@@ -265,6 +269,7 @@ func main() {
 	)
 	bizGRPC.SetRecurringService(recurringSvc)
 	bizGRPC.SetBankingService(bankingSvc)
+	bizGRPC.SetExpenseService(expense.NewService(expense.NewPostgresRepository(pool)))
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
 	// =========================================================================
@@ -376,9 +381,22 @@ func main() {
 		}
 
 		if lexwareVault != nil {
+			lexwareClient := lexware.NewClient(lexwareConfig, lexwareVault)
+
+			// Wire the CRM contact adapter when the CRM gRPC address is available.
+			// Without it the contact sync has nothing to write to, and invoice/quote
+			// push cannot resolve which Lexware customer a document belongs to.
+			var lexwareContactSvc lexware.ContactService
+			if crmServiceClient != nil {
+				lexwareContactSvc = &lexwareContactAdapter{inner: &crmContactAdapter{client: crmServiceClient}}
+				slog.Info("lexware: CRM contact adapter wired for contact sync and exact email-based contact resolution")
+			} else {
+				slog.Warn("lexware: CRM contact service not wired — contact sync is unavailable and document push falls back to the single-mapping heuristic; set CRM_GRPC_ADDRESS to enable it")
+			}
+
 			lexwareSvc = lexware.NewService(
-				lexwareRepo, lexwareConfigRepo, lexwareVault,
-				nil, // ContactService
+				lexwareClient, lexwareRepo, lexwareConfigRepo, lexwareVault,
+				lexwareContactSvc,
 				invoiceSvc, quoteRepo,
 			)
 

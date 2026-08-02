@@ -15,6 +15,7 @@ service NotificationService {
   rpc PinNotification(PinNotificationRequest) returns (PinNotificationResponse);
   rpc UnpinNotification(UnpinNotificationRequest) returns (UnpinNotificationResponse);
   rpc DismissNotification(DismissNotificationRequest) returns (DismissNotificationResponse);
+  rpc SnoozeNotification(SnoozeNotificationRequest) returns (SnoozeNotificationResponse);
 
   // Preferences
   rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
@@ -161,6 +162,17 @@ message DismissNotificationRequest {
 
 message DismissNotificationResponse {
   NotificationInfo notification = 1;
+}
+
+message SnoozeNotificationRequest {
+  string notification_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp until = 3;
+}
+
+message SnoozeNotificationResponse {
+  string id = 1;
+  google.protobuf.Timestamp snoozed_until = 2;
 }
 
 // ============================================================================

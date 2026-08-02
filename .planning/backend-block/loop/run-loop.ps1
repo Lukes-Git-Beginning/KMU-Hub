@@ -26,6 +26,33 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Die claude-CLI schreibt UTF-8. Ohne das dekodiert PowerShell ihre Ausgabe mit
+# der OEM-Codepage (CP850) und in den iter-*.json landet Mojibake ("gr├╝n",
+# "ÔÇö") - der JSON-Rahmen bleibt zwar parsebar, der Ergebnistext wird aber
+# unlesbar.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Native Kommandos sicher aufrufen ----------------------------------------
+# PS 5.1 verpackt JEDE stderr-Zeile eines nativen Exe in einen ErrorRecord.
+# Zusammen mit $ErrorActionPreference = "Stop" wird daraus ein TERMINIERENDER
+# Fehler - auch wenn das Programm mit Exit-Code 0 endet.
+#
+# Genau das ist am 2026-08-02 passiert: `git push` schreibt seinen Fortschritt
+# ("To https://github.com/...") immer nach stderr. Der Push lief sauber durch,
+# aber die Ausnahme riss die restliche CI-Phase mit - PR-Erkennung und
+# CI-Wartelogik wurden nie erreicht, und 100 Commits lagen ungeprueft auf dem
+# Branch, waehrend das Log wie ein Fehlschlag aussah.
+#
+# Deshalb: native Aufrufe immer hier durchreichen, und nie `2>&1` benutzen.
+# Der Exit-Code ist die einzige verlaessliche Erfolgsaussage.
+function Invoke-Native {
+    param([Parameter(Mandatory)] [scriptblock] $Command)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try     { & $Command }
+    finally { $ErrorActionPreference = $prev }
+}
+
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 $LoopDir  = Join-Path $RepoRoot ".planning\backend-block\loop"
 $Prompt   = Join-Path $LoopDir "ITERATION.md"
@@ -45,10 +72,25 @@ $RunLog = Join-Path $LogDir "run.log"
 # Konsolenzeilen zusaetzlich in eine Datei schreiben. Der Loop laeuft abgekoppelt
 # in einem eigenen Fenster; ohne Mitschrift ist sein Fortschritt von aussen
 # (Monitoring-Session, Wakeup-Check) nicht lesbar.
+#
+# Der catch darf NICHT stumm sein: haelt ein `tail -f` (oder ein verwaister
+# tail-Prozess aus einem frueheren Lauf) die Datei offen, schlaegt jedes
+# Add-Content fehl und der Fortschritt verschwindet spurlos. Im Lauf vom
+# 2026-08-01 fehlten so die Iterationen 1-17 komplett im run.log. Einmalig
+# warnen statt weiter ins Leere zu schreiben.
+$script:LogWriteFailures = 0
 function Write-Line([string]$msg, [string]$color = "Gray") {
     $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg
     Write-Host $line -ForegroundColor $color
-    try { Add-Content -Path $RunLog -Value $line -Encoding utf8 } catch { }
+    try {
+        Add-Content -Path $RunLog -Value $line -Encoding utf8
+        $script:LogWriteFailures = 0
+    } catch {
+        $script:LogWriteFailures++
+        if ($script:LogWriteFailures -eq 1) {
+            Write-Host "  [WARNUNG] run.log ist gesperrt - haelt ein tail-Prozess die Datei offen? Die Konsole bleibt die einzige Live-Sicht." -ForegroundColor Yellow
+        }
+    }
 }
 
 # --- Git Bash aufloesen ------------------------------------------------------
@@ -71,13 +113,18 @@ if ($GitBash -eq "") {
 # Der Guard ist die einzige harte Grenze zum Production-Deploy. Laeuft er nicht
 # oder ist er loechrig, startet hier nichts.
 Write-Line "Vorflug: Guard-Regressionstest" "Cyan"
-& $GitBash ".planning/backend-block/loop/hooks/test-loop-guard.sh" | Out-Null
+# Durch Invoke-Native, weil sonst ausgerechnet der Fehlerpfad kaputt ist: ein
+# roter Guard-Test schreibt seine Diagnose nach stderr, was unter
+# ErrorActionPreference "Stop" eine Ausnahme wirft, bevor die
+# LASTEXITCODE-Pruefung ueberhaupt erreicht wird - Abbruch mit
+# NativeCommandError statt der klaren ABBRUCH-Meldung.
+Invoke-Native { & $GitBash ".planning/backend-block/loop/hooks/test-loop-guard.sh" } | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Line "ABBRUCH: loop-guard.sh ist rot. Ohne Guard kein Lauf." "Red"
     exit 1
 }
 
-$branch = (& git rev-parse --abbrev-ref HEAD).Trim()
+$branch = (Invoke-Native { & git rev-parse --abbrev-ref HEAD }).Trim()
 if ($branch -ne "backend-loop") {
     Write-Line "ABBRUCH: Branch ist '$branch', erwartet 'backend-loop'." "Red"
     exit 1
@@ -98,6 +145,29 @@ if ($UntilTime -ne "") {
     $Deadline = [DateTime]::ParseExact($UntilTime, "HH:mm", $null)
     if ($Deadline -le (Get-Date)) { $Deadline = $Deadline.AddDays(1) }
     Write-Line ("Deadline: {0}" -f $Deadline.ToString("yyyy-MM-dd HH:mm")) "Cyan"
+}
+
+# --- Schlafsperre ------------------------------------------------------------
+# Ohne das schickt Windows die Maschine mitten im Lauf in den Standby. Der Treiber
+# und seine claude-Kindprozesse ueberleben das zwar (verifiziert 2026-08-01: der
+# Lauf machte nach 47 Minuten Schlaf einfach weiter), aber die Nacht ist dann um
+# die Schlafzeit kuerzer - bei einem 15-Stunden-Fenster kostet das echte Units.
+#
+# ES_CONTINUOUS | ES_SYSTEM_REQUIRED: System bleibt wach, das Display darf
+# ausgehen. Die Anforderung haengt am Prozess und faellt weg, sobald er endet -
+# deshalb ist das hier richtig aufgehoben und nicht als dauerhafte
+# powercfg-Aenderung am System.
+Add-Type -Name Power -Namespace Win32 -MemberDefinition @"
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern uint SetThreadExecutionState(uint esFlags);
+"@
+$ES_CONTINUOUS      = [uint32]"0x80000000"
+$ES_SYSTEM_REQUIRED = [uint32]"0x00000001"
+$sleepRc = [Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED)
+if ($sleepRc -eq 0) {
+    Write-Line "WARNUNG: Schlafsperre konnte nicht gesetzt werden - der Lauf kann durch Standby unterbrochen werden." "Yellow"
+} else {
+    Write-Line "Schlafsperre aktiv (System bleibt wach, Display darf ausgehen)." "DarkGray"
 }
 
 # --- Modell der naechsten Unit aus BACKLOG.yml -------------------------------
@@ -154,15 +224,28 @@ while ($i -lt $MaxIterations) {
     # --permission-mode bypassPermissions ist zwingend explizit: die globale
     # settings.json hat defaultMode "plan" - ohne Override wuerde die Iteration
     # nur planen statt bauen.
-    & claude -p $promptText `
-        --model $model `
-        --permission-mode bypassPermissions `
-        --settings $Settings `
-        --effort $Effort `
-        --max-budget-usd $BudgetUsd `
-        --output-format json 2>&1 | Out-File -FilePath $logFile -Encoding utf8
+    #
+    # stderr geht in eine EIGENE Datei, nicht per 2>&1 in den JSON-Strom: sonst
+    # wuerde eine einzelne Warnzeile der CLI das JSON zerschiessen (die
+    # Rate-Limit-Erkennung unten liest dieses Feld) und - unter
+    # ErrorActionPreference "Stop" - den ganzen Lauf abbrechen.
+    $errFile = Join-Path $LogDir ("iter-{0:d3}.stderr.log" -f $i)
+
+    Invoke-Native {
+        & claude -p $promptText `
+            --model $model `
+            --permission-mode bypassPermissions `
+            --settings $Settings `
+            --effort $Effort `
+            --max-budget-usd $BudgetUsd `
+            --output-format json 2>$errFile
+    } | Out-File -FilePath $logFile -Encoding utf8
 
     $exitCode = $LASTEXITCODE
+    # Leere stderr-Datei nicht als Muell im Logverzeichnis liegen lassen.
+    if ((Test-Path $errFile) -and ((Get-Item $errFile).Length -eq 0)) {
+        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
+    }
     $elapsed  = [int]((Get-Date) - $started).TotalMinutes
     $body     = ""
     if (Test-Path $logFile) { $body = Get-Content $logFile -Raw }
@@ -211,10 +294,19 @@ while ($i -lt $MaxIterations) {
     $consecutiveFailures = 0
     Write-Line "Iteration $i fertig nach $elapsed min. Log: $logFile" "Green"
 
-    # Letzte Journal-Ueberschrift als Fortschrittsanzeige
+    # Neueste Journal-Ueberschrift als Fortschrittsanzeige.
+    #
+    # Bewusst ueber die Iterationsnummer, NICHT ueber die Dateiposition: am
+    # 2026-08-02 hat eine Iteration ihren Eintrag oberhalb des vorherigen
+    # einsortiert (JOURNAL.md fuehrt "Iteration 37" vor "Iteration 36"), worauf
+    # `Select-Object -Last 1` zwei Iterationen lang dieselbe Zeile meldete und
+    # der Fortschritt stillzustehen schien.
     if (Test-Path $Journal) {
-        $last = Select-String -Path $Journal -Pattern '^## Iteration' | Select-Object -Last 1
-        if ($last) { Write-Line ("  " + $last.Line) "DarkGray" }
+        $heads = Select-String -Path $Journal -Pattern '^## Iteration\s+(\d+)'
+        if ($heads) {
+            $newest = $heads | Sort-Object { [int]$_.Matches[0].Groups[1].Value } | Select-Object -Last 1
+            Write-Line ("  " + $newest.Line) "DarkGray"
+        }
     }
 
     Start-Sleep -Seconds 15
@@ -238,19 +330,29 @@ Write-Line "Loop beendet nach $i Iteration(en)." "Green"
 # vermerkt - den PR legt Luke bewusst an (Reihenfolge: erst beide Workflows
 # disablen, dann PR oeffnen, nach gruenem CI wieder enablen).
 if (-not $DryRun) {
-    $ahead = (& git rev-list --count "origin/backend-loop..HEAD" 2>$null)
+    # ACHTUNG: JEDER native Aufruf in diesem Block muss durch Invoke-Native.
+    # Empirisch geprueft (2026-08-02, PS 5.1): nicht nur `2>&1`, auch `2>$null`
+    # terminiert unter ErrorActionPreference "Stop", sobald das Programm eine
+    # stderr-Zeile schreibt - selbst bei Exit-Code 0. `gh` tut das regelmaessig
+    # (Auth- und Deprecation-Hinweise). Dieser Block lief bis 2026-08-02 nie
+    # vollstaendig durch und ist entsprechend ungehaertet gewesen.
+    $ahead = Invoke-Native { & git rev-list --count "origin/backend-loop..HEAD" 2>$null }
     if ($LASTEXITCODE -ne 0) { $ahead = "0" }
 
     if ([int]$ahead -eq 0) {
         Write-Line "CI-Phase: keine neuen Commits - nichts zu pushen." "DarkGray"
     } else {
         Write-Line "CI-Phase: $ahead neue Commit(s), pushe backend-loop." "Cyan"
-        & git push origin backend-loop 2>&1 | ForEach-Object { Write-Line "  $_" "DarkGray" }
+        # Kein `2>&1 | ForEach-Object`: git meldet den Push-Fortschritt ueber
+        # stderr, was hier frueher die gesamte restliche CI-Phase abgeraeumt hat
+        # (siehe Invoke-Native oben). Die Ausgabe geht direkt auf die Konsole,
+        # der Exit-Code entscheidet.
+        Invoke-Native { & git push origin backend-loop }
 
         if ($LASTEXITCODE -ne 0) {
             Write-Line "Push fehlgeschlagen - CI laeuft nicht. Commits liegen lokal." "Red"
         } else {
-            $prState = (& gh pr list --head backend-loop --state open --json number --jq ".[0].number" 2>$null)
+            $prState = Invoke-Native { & gh pr list --head backend-loop --state open --json number --jq ".[0].number" 2>$null }
             if ([string]::IsNullOrWhiteSpace($prState)) {
                 Write-Line "Kein offener PR fuer backend-loop - CI wurde NICHT gestartet." "Yellow"
                 Write-Line "  PR anlegen (Workflows vorher disablen!): siehe RESUME-Datei." "Yellow"
@@ -262,7 +364,7 @@ if (-not $DryRun) {
                 # paths-Filter auf backend/**: eine Nacht, die nur Planning-Dateien
                 # anfasst, startet gar keinen Lauf. Beides muss unterscheidbar sein
                 # von "laeuft noch".
-                $sha = (& git rev-parse HEAD).Trim()
+                $sha = (Invoke-Native { & git rev-parse HEAD }).Trim()
                 Write-Line "Push gegen offenen PR #$prState - warte auf CI fuer $($sha.Substring(0,8))." "Cyan"
 
                 $waited  = 0
@@ -272,7 +374,7 @@ if (-not $DryRun) {
                 while ($waited -lt 2100) {
                     Start-Sleep -Seconds 60
                     $waited += 60
-                    $runId = (& gh run list --branch backend-loop --workflow=ci.yml --limit 10 --json databaseId,headSha --jq "[.[] | select(.headSha==\"$sha\")][0].databaseId" 2>$null)
+                    $runId = Invoke-Native { & gh run list --branch backend-loop --workflow=ci.yml --limit 10 --json databaseId,headSha --jq "[.[] | select(.headSha==\"$sha\")][0].databaseId" 2>$null }
                     if ([string]::IsNullOrWhiteSpace($runId)) {
                         if ($waited -ge 300) {
                             Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - vermutlich paths-Filter (nur Nicht-Backend-Dateien geaendert)." "Yellow"
@@ -280,12 +382,12 @@ if (-not $DryRun) {
                         }
                         continue
                     }
-                    $status = (& gh run view $runId --json status --jq ".status" 2>$null)
+                    $status = Invoke-Native { & gh run view $runId --json status --jq ".status" 2>$null }
                     if ($status -eq "completed") { break }
                 }
 
                 if ($status -eq "completed") {
-                    $concl = (& gh run view $runId --json conclusion --jq ".conclusion" 2>$null)
+                    $concl = Invoke-Native { & gh run view $runId --json conclusion --jq ".conclusion" 2>$null }
                     if ($concl -eq "success") {
                         Write-Line "CI GRUEN (Run $runId)." "Green"
                     } else {
@@ -303,6 +405,9 @@ if (-not $DryRun) {
         }
     }
 }
+
+[Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null
+Write-Line "Schlafsperre aufgehoben." "DarkGray"
 
 Write-Line "Review:  git log --oneline main..backend-loop" "Cyan"
 Write-Line "Journal: $Journal" "Cyan"

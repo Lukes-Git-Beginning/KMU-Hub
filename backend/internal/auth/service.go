@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kmuhub/kmuhub/internal/clientctx"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
@@ -107,7 +108,7 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 		slog.Error("failed to assign default role", "user_id", user.ID, "error", roleErr)
 	}
 
-	tokens, err := s.createTokenPair(ctx, user)
+	tokens, err := s.createTokenPair(ctx, user, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,7 +158,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Lo
 		return nil, Err2FAEnforcementRequired
 	}
 
-	tokens, err := s.createTokenPair(ctx, user)
+	tokens, err := s.createTokenPair(ctx, user, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +198,7 @@ func (s *Service) CompleteTwoFactorLogin(ctx context.Context, pendingToken, code
 		return nil, nil, ErrUserInactive
 	}
 
-	tokens, err := s.createTokenPair(ctx, user)
+	tokens, err := s.createTokenPair(ctx, user, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,7 +249,8 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 		return nil, ErrUserInactive
 	}
 
-	tokens, err := s.createTokenPair(ctx, user)
+	// The session belongs to the token being rotated, not to a new device.
+	tokens, err := s.createTokenPair(ctx, user, &stored.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +274,12 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 
 	if err := s.repo.RevokeRefreshToken(ctx, stored.ID); err != nil {
 		return err
+	}
+
+	// Drop the device entry too — a signed-out device that keeps showing as
+	// active in the session list is worse than no list at all.
+	if err := s.repo.DeleteSessionByRefreshTokenID(ctx, stored.ID); err != nil {
+		slog.Error("delete session on logout failed", "user_id", stored.UserID, "error", err)
 	}
 
 	slog.Info("user logged out", "user_id", stored.UserID)
@@ -377,11 +385,27 @@ func (s *Service) CheckPermission(ctx context.Context, userID uuid.UUID, resourc
 	return s.repo.UserHasPermission(ctx, userID, resource, action)
 }
 
-func (s *Service) createTokenPair(ctx context.Context, user *models.User) (*models.TokenPair, error) {
+// createTokenPair issues an access/refresh token pair and records the session
+// it belongs to.
+//
+// rotatedFrom is the refresh token being replaced (RefreshToken) or nil for a
+// fresh sign-in (login, 2FA completion, registration, invitation acceptance).
+// On rotation the existing session row is re-pointed at the new token instead
+// of a second one being inserted — otherwise the device list would grow by one
+// entry per refresh interval and every entry would look like a separate login.
+func (s *Service) createTokenPair(ctx context.Context, user *models.User, rotatedFrom *uuid.UUID) (*models.TokenPair, error) {
 	roles, _ := s.repo.GetUserRoles(ctx, user.ID)
 	permissions, _ := s.repo.GetUserPermissions(ctx, user.ID)
 
-	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions)
+	// Unlike roles and permissions above, a failed scope lookup is fatal: an
+	// empty scope map reads as "everything reaches all", so swallowing the
+	// error would hand out a token that shows more rows than it should.
+	scopes, err := s.NarrowedScopes(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve permission scopes: %w", err)
+	}
+
+	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions, scopes)
 	if err != nil {
 		return nil, err
 	}
@@ -400,10 +424,48 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User) (*mode
 		return nil, err
 	}
 
+	s.recordSession(ctx, user, refreshToken.ID, rotatedFrom)
+
 	return &models.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: plain,
 	}, nil
+}
+
+// recordSession keeps user_sessions in step with the token that was just
+// issued. Failures are logged, never returned: the device list is a
+// convenience view, and refusing a valid login because its bookkeeping row
+// could not be written would trade a cosmetic problem for a lockout.
+func (s *Service) recordSession(ctx context.Context, user *models.User, newTokenID uuid.UUID, rotatedFrom *uuid.UUID) {
+	client := clientctx.From(ctx)
+
+	if rotatedFrom != nil {
+		rotated, err := s.repo.RotateSessionRefreshToken(ctx, *rotatedFrom, newTokenID, client.IP, client.UserAgent)
+		if err != nil {
+			slog.Error("rotate session for refreshed token failed", "user_id", user.ID, "error", err)
+			return
+		}
+		if rotated {
+			return
+		}
+		// No session behind the old token — a refresh of a token issued
+		// before sessions were recorded. Fall through and create one so the
+		// device shows up from now on.
+	}
+
+	if _, err := s.CreateSession(ctx, user.ID, user.TenantID, client.IP, client.UserAgent, newTokenID); err != nil {
+		slog.Error("create session for issued token failed", "user_id", user.ID, "error", err)
+		return
+	}
+
+	// Sign-in is the natural moment to drop the rows that can no longer be
+	// reached; they hold the user's IP and device and there is no scheduler
+	// on this table.
+	// lean: opportunistic cleanup on sign-in; move to a scheduled sweep if a
+	// tenant ever accumulates sessions faster than its users sign in.
+	if err := s.repo.DeleteStaleUserSessions(ctx, user.ID); err != nil {
+		slog.Warn("prune stale sessions failed", "user_id", user.ID, "error", err)
+	}
 }
 
 // GetProfile returns the current user's profile (same as GetUser, convenience method)
@@ -537,7 +599,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 	}
 
 	// Generate tokens
-	tokens, err := s.createTokenPair(ctx, user)
+	tokens, err := s.createTokenPair(ctx, user, nil)
 	if err != nil {
 		return nil, nil, err
 	}

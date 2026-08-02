@@ -23,6 +23,12 @@ type Claims struct {
 	TenantID    string   `json:"tid"`
 	Roles       []string `json:"roles"`
 	Permissions []string `json:"perms"`
+
+	// Scopes carries only the capability keys that reach less far than the
+	// whole tenant, as key -> "own" | "team" (see Service.NarrowedScopes).
+	// A key that is absent — and every key in a token minted before this claim
+	// existed — reaches "all".
+	Scopes map[string]string `json:"scopes,omitempty"`
 }
 
 func NewTokenMaker(secret string, accessExpiry, refreshExpiry time.Duration) *TokenMaker {
@@ -36,7 +42,8 @@ func NewTokenMaker(secret string, accessExpiry, refreshExpiry time.Duration) *To
 // CreateAccessToken creates a signed JWT containing the user identity, tenant, roles and permissions.
 // tenantID must be a non-empty UUID string; an empty string results in a legacy token that will be
 // rejected by GetTenantID in the middleware (fail-closed).
-func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles, permissions []string) (string, error) {
+// scopes may be nil, which means every permission in the token reaches "all".
+func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles, permissions []string, scopes map[string]string) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -48,6 +55,7 @@ func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles
 		TenantID:    tenantID,
 		Roles:       roles,
 		Permissions: permissions,
+		Scopes:      scopes,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

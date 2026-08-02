@@ -101,6 +101,9 @@ func TestDealWrites_LandInCallerTenant(t *testing.T) {
 	if got.Name != "Write Test Deal" {
 		t.Fatalf("a foreign-tenant write reached the deal: name=%q", got.Name)
 	}
+	if got.CreatedBy != userID {
+		t.Fatalf("created_by did not round-trip through Create/GetByID: got %s, want %s", got.CreatedBy, userID)
+	}
 
 	foreign.Name = "Renamed Deal"
 	if err := repo.Update(ctxOwn, &foreign); err != nil {

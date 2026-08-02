@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
 	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/expense"
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
@@ -64,6 +65,8 @@ type BizGRPCServer struct {
 	// bankingSvc backs the bank statement import (Migration 000247), wired the
 	// same way and for the same reason as recurringSvc.
 	bankingSvc *banking.Service
+	// expenseSvc backs the Ausgaben RPCs (Migration 000257), wired the same way.
+	expenseSvc *expense.Service
 }
 
 // SetRecurringService wires the recurring invoice schedules (Migration 000246).
@@ -74,6 +77,11 @@ func (s *BizGRPCServer) SetRecurringService(svc *recurring.Service) {
 // SetBankingService wires the bank statement import (Migration 000247).
 func (s *BizGRPCServer) SetBankingService(svc *banking.Service) {
 	s.bankingSvc = svc
+}
+
+// SetExpenseService wires the Ausgaben module (Migration 000257).
+func (s *BizGRPCServer) SetExpenseService(svc *expense.Service) {
+	s.expenseSvc = svc
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -1351,7 +1359,6 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		return nil, err
 	}
 
-	// Generate plain PDF first — used as fallback on ZUGFeRD failure.
 	gen := pdf.NewGenerator(*settings)
 	plainPDF, err := gen.GenerateInvoicePDF(*inv)
 	if err != nil {
@@ -1359,26 +1366,21 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		return nil, status.Error(codes.Internal, "PDF generation failed")
 	}
 
-	plainFilename := fmt.Sprintf("Rechnung_%s.pdf", inv.InvoiceNumber)
-
-	// Generate ZUGFeRD XML (Factur-X EN16931 profile).
+	// No fallback to the plain PDF from here on. This path used to log the
+	// failure and hand back the invoice without XML under a different file name,
+	// which the caller could not distinguish from a real e-invoice — the
+	// recipient found out weeks later, when their accounting software found
+	// nothing to import. A failure now reaches the user, with the reason.
 	xmlBytes, err := pdf.GenerateZUGFeRDXML(*inv, *settings)
 	if err != nil {
-		slog.Error("zugferd xml generation failed, returning plain PDF", "invoice_id", id, "error", err)
-		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
-			PdfData:  plainPDF,
-			Filename: plainFilename,
-		}, nil
+		slog.Warn("zugferd xml generation failed", "invoice_id", id, "error", err)
+		return nil, mapBizError(err)
 	}
 
-	// Embed the XML attachment into the PDF.
 	zugferdPDF, err := pdf.EmbedZUGFeRDXML(plainPDF, xmlBytes, inv.InvoiceNumber)
 	if err != nil {
-		slog.Error("zugferd embed failed, returning plain PDF", "invoice_id", id, "error", err)
-		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
-			PdfData:  plainPDF,
-			Filename: plainFilename,
-		}, nil
+		slog.Error("zugferd embed failed", "invoice_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "e-invoice embedding failed")
 	}
 
 	filename := fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber)
@@ -1386,6 +1388,61 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		PdfData:  zugferdPDF,
 		Filename: filename,
 	}, nil
+}
+
+// GenerateEInvoice renders an invoice in the outbound e-invoice format the
+// caller asks for: xrechnung (UBL 2.1 XML, EN 16931) or zugferd (PDF with an
+// embedded, declared Factur-X XML — see GenerateZUGFeRDInvoicePDF). Both
+// formats share the amount and tax-category logic in internal/biz/einvoice;
+// this RPC only picks the format and, for xrechnung, the profile.
+func (s *BizGRPCServer) GenerateEInvoice(ctx context.Context, req *bizv1.GenerateEInvoiceRequest) (*bizv1.GenerateEInvoiceResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.requireCompanySettings(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch req.GetFormat() {
+	case "xrechnung":
+		buyerRef := req.GetBuyerReference()
+		if buyerRef != "" {
+			// A routing id names a public-sector buyer, who enforces the German
+			// CIUS on top of the EN 16931 core GenerateUBL already checks.
+			if err := einvoice.Validate(*inv, *settings, buyerRef, einvoice.ProfileXRechnung); err != nil {
+				return nil, mapBizError(err)
+			}
+		}
+		xmlBytes, err := einvoice.GenerateUBL(*inv, *settings, buyerRef)
+		if err != nil {
+			return nil, mapBizError(err)
+		}
+		return &bizv1.GenerateEInvoiceResponse{
+			Data:     xmlBytes,
+			Filename: fmt.Sprintf("xrechnung_%s.xml", inv.InvoiceNumber),
+		}, nil
+
+	case "zugferd":
+		pdfBytes, err := pdf.NewGenerator(*settings).GenerateZUGFeRDInvoicePDF(*inv)
+		if err != nil {
+			return nil, mapBizError(err)
+		}
+		return &bizv1.GenerateEInvoiceResponse{
+			Data:     pdfBytes,
+			Filename: fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber),
+		}, nil
+
+	default:
+		return nil, status.Error(codes.InvalidArgument, "format must be xrechnung or zugferd")
+	}
 }
 
 // ============================================================================
@@ -2614,6 +2671,19 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, creditnote.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Outbound e-invoice errors. An invoice that misses a value the standard
+	// requires is a data problem the user can fix, so the message goes out
+	// whole — *einvoice.ValidationError renders every violation it found, and
+	// naming one field per round trip would cost the user a round trip per field.
+	case errors.Is(err, einvoice.ErrValidationFailed),
+		errors.Is(err, einvoice.ErrGenerateFailed),
+		errors.Is(err, einvoice.ErrTotalsMismatch):
+		return status.Error(codes.FailedPrecondition, err.Error())
+
+	// Payment errors
+	case errors.Is(err, payment.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
 
 	// Dunning errors
 	case errors.Is(err, dunning.ErrDunningNotFound):

@@ -60,7 +60,10 @@ func (s *Scheduler) StartAll(ctx context.Context) error {
 		return nil
 	}
 
-	tenantID := config.CreatedBy
+	// The tenant, not created_by: the tenant id is what the API client derives
+	// the vault key from (lexware_api_key_<tenant>), so a config created by a
+	// user id other than the tenant id would look up a key that does not exist.
+	tenantID := config.TenantID
 	if err := s.AddTenant(ctx, config.ID, tenantID); err != nil {
 		return err
 	}

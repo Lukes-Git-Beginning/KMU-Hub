@@ -73,21 +73,32 @@ type Repository interface {
 	// pass the last returned row's invoice_date and id. Returns up to limit invoices
 	// ordered by (invoice_date ASC, id ASC).
 	ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error)
+
+	// ListDocumentChains returns every document chain of the tenant: one entry
+	// per invoice (prefixed with its source quote, if any), plus one entry per
+	// quote that has not (yet) become an invoice. See postgres_document_chains.go
+	// for the assembly rules.
+	ListDocumentChains(ctx context.Context, tenantID uuid.UUID) ([]*models.DocumentChain, error)
+
+	// ListTransactions returns the tenant's consolidated payment ledger: every
+	// recorded payment (income) and every approved expense (expense), merged
+	// and sorted by date. See postgres_transactions.go.
+	ListTransactions(ctx context.Context, tenantID uuid.UUID) ([]*models.FinanceTransaction, error)
 }
 
 // ListFilter contains filtering options for listing invoices.
 type ListFilter struct {
-	Status    string
-	DateFrom  *time.Time
-	DateTo    *time.Time
-	Overdue   bool // If true, only returns sent invoices past due_date
+	Status   string
+	DateFrom *time.Time
+	DateTo   *time.Time
+	Overdue  bool // If true, only returns sent invoices past due_date
 	// ContactID filters to invoices linked to this CRM contact (Contact-360 view).
 	ContactID *uuid.UUID
 	// RecurringID filters to invoices emitted by this recurring schedule
 	// (Migration 000246) — the schedule detail view lists them.
 	RecurringID *uuid.UUID
-	Limit     int
-	Offset    int
+	Limit       int
+	Offset      int
 }
 
 // SequenceInfo carries current state of a number sequence row.

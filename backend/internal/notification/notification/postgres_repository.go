@@ -49,7 +49,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id
 	query := `
 		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
-			delivered_desktop, created_at
+			delivered_desktop, snoozed_until, created_at
 		FROM notifications WHERE id = $1 AND tenant_id = $2`
 
 	notif := &models.Notification{}
@@ -57,7 +57,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
 		&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
 		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
-		&notif.DeliveredDesktop, &notif.CreatedAt,
+		&notif.DeliveredDesktop, &notif.SnoozedUntil, &notif.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotificationNotFound
@@ -66,7 +66,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Notification, int, error) {
-	where := "WHERE tenant_id = $1 AND user_id = $2"
+	// Snoozed notifications stay hidden from every list until their snooze window elapses.
+	where := "WHERE tenant_id = $1 AND user_id = $2 AND (snoozed_until IS NULL OR snoozed_until <= NOW())"
 	args := []interface{}{filter.TenantID, filter.UserID}
 	argIdx := 3
 
@@ -103,7 +104,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 	dataQuery := fmt.Sprintf(`
 		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
-			delivered_desktop, created_at
+			delivered_desktop, snoozed_until, created_at
 		FROM notifications %s
 		ORDER BY is_pinned DESC, created_at DESC
 		LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
@@ -122,7 +123,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 			&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
 			&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
 			&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
-			&notif.DeliveredDesktop, &notif.CreatedAt,
+			&notif.DeliveredDesktop, &notif.SnoozedUntil, &notif.CreatedAt,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -136,7 +137,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 func (r *PostgresRepository) GetUnreadCount(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM notifications WHERE tenant_id = $1 AND user_id = $2 AND is_read = false",
+		"SELECT COUNT(*) FROM notifications WHERE tenant_id = $1 AND user_id = $2 AND is_read = false AND (snoozed_until IS NULL OR snoozed_until <= NOW())",
 		tenantID, userID,
 	).Scan(&count)
 	return count, err
@@ -195,7 +196,7 @@ func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, tenantID 
 	query := `
 		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
-			delivered_desktop, created_at
+			delivered_desktop, snoozed_until, created_at
 		FROM notifications
 		WHERE tenant_id = $1 AND user_id = $2 AND group_key = $3 AND created_at >= $4 AND is_read = false
 		ORDER BY created_at DESC
@@ -206,7 +207,7 @@ func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, tenantID 
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
 		&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
 		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
-		&notif.DeliveredDesktop, &notif.CreatedAt,
+		&notif.DeliveredDesktop, &notif.SnoozedUntil, &notif.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -290,6 +291,20 @@ func (r *PostgresRepository) SetDismissed(ctx context.Context, tenantID uuid.UUI
 	tag, err := r.pool.Exec(ctx,
 		"UPDATE notifications SET is_dismissed = $3 WHERE id = $1 AND tenant_id = $2",
 		id, tenantID, dismissed,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotificationNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) Snooze(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, until time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		"UPDATE notifications SET snoozed_until = $3, is_read = true, read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, until,
 	)
 	if err != nil {
 		return err

@@ -327,6 +327,66 @@ type DunningConfig struct {
 	UpdatedAt             time.Time       `json:"updated_at"`
 }
 
+// Chain node statuses (presentational, independent of the underlying
+// document's own status field — e.g. a quote that led to an invoice is
+// "completed" as a chain step regardless of its own status column).
+const (
+	ChainNodeCompleted = "completed"
+	ChainNodeActive    = "active"
+	ChainNodePending   = "pending"
+	ChainNodeCancelled = "cancelled"
+	ChainNodeOverdue   = "overdue"
+)
+
+// Chain node document types.
+const (
+	ChainNodeQuote      = "quote"
+	ChainNodeInvoice    = "invoice"
+	ChainNodePayment    = "payment"
+	ChainNodeCreditNote = "credit-note"
+	ChainNodeDunning    = "dunning"
+)
+
+// ChainNode is one step in a document's lifecycle (Belegkette): a quote,
+// invoice, payment, dunning notice, or credit note. Number and Date are empty
+// for a step that has not happened yet — the pending-payment placeholder on
+// an invoice that is not fully settled.
+type ChainNode struct {
+	Type   string          `json:"type"`
+	Number string          `json:"number"`
+	Date   *time.Time      `json:"date,omitempty"`
+	Amount decimal.Decimal `json:"amount"`
+	Status string          `json:"status"`
+}
+
+// DocumentChain traces one customer document from quote through invoice to
+// payment, dunning, or credit note — GET /finance/document-chains.
+type DocumentChain struct {
+	ID         uuid.UUID       `json:"id"`
+	Customer   string          `json:"customer"`
+	Currency   string          `json:"currency"`
+	TotalValue decimal.Decimal `json:"total_value"`
+	IsComplete bool            `json:"is_complete"`
+	Nodes      []ChainNode     `json:"nodes"`
+}
+
+// FinanceTransaction is one entry in the consolidated payment ledger — GET
+// /finance/transactions: either a recorded customer payment (income) or an
+// approved expense (expense), merged and sorted by date. ID is prefixed
+// ("pay-"/"exp-") so a caller can tell which underlying record it names;
+// InvoiceID and Reference are set for income entries only.
+type FinanceTransaction struct {
+	ID          string          `json:"id"`
+	Type        string          `json:"type"`
+	Description string          `json:"description"`
+	Amount      decimal.Decimal `json:"amount"`
+	Date        time.Time       `json:"date"`
+	Category    string          `json:"category"`
+	Status      string          `json:"status"`
+	Reference   string          `json:"reference"`
+	InvoiceID   *uuid.UUID      `json:"invoice_id,omitempty"`
+}
+
 // ============================================================================
 // Dashboard Models
 // ============================================================================
@@ -607,10 +667,14 @@ type BankTransaction struct {
 	MatchStatus      string          `json:"match_status"`
 	MatchReason      string          `json:"match_reason"`
 	MatchedInvoiceID *uuid.UUID      `json:"matched_invoice_id,omitempty"`
-	PaymentID        *uuid.UUID      `json:"payment_id,omitempty"`
-	ReconciledAt     *time.Time      `json:"reconciled_at,omitempty"`
-	ReconciledBy     *uuid.UUID      `json:"reconciled_by,omitempty"`
-	CreatedAt        time.Time       `json:"created_at"`
+	// MatchedInvoiceNumber is joined on read and never written: the number
+	// belongs to the invoice, and a copy here would age the moment that invoice
+	// is renumbered.
+	MatchedInvoiceNumber string     `json:"matched_invoice_number,omitempty"`
+	PaymentID            *uuid.UUID `json:"payment_id,omitempty"`
+	ReconciledAt         *time.Time `json:"reconciled_at,omitempty"`
+	ReconciledBy         *uuid.UUID `json:"reconciled_by,omitempty"`
+	CreatedAt            time.Time  `json:"created_at"`
 }
 
 // IsCredit reports whether the entry moved money into the account. Only credits
@@ -625,6 +689,10 @@ type BankTransactionFilter struct {
 	StatementID *uuid.UUID
 	// MatchStatus restricts to one reconciliation state (empty = all).
 	MatchStatus string
-	Limit       int
-	Offset      int
+	// ExcludeMatchStatus drops states from an otherwise unfiltered list. The
+	// reconciliation queue uses it to hide entries someone deliberately set
+	// aside without hiding them from a caller that asks for them by name.
+	ExcludeMatchStatus []string
+	Limit              int
+	Offset             int
 }

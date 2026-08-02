@@ -411,7 +411,12 @@ func (s *DocumentGRPCServer) UpdateFile(ctx context.Context, req *documentv1.Upd
 		input.IsFavorite = req.IsFavorite
 	}
 
-	if err := s.fileService.Update(ctx, id, tenantID, input); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.Update(ctx, id, tenantID, actorID, input); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -457,8 +462,12 @@ func (s *DocumentGRPCServer) CopyFile(ctx context.Context, req *documentv1.CopyF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
-	// Use Nil as userID since gateway handles auth
-	f, err := s.fileService.Copy(ctx, id, targetFolderID, uuid.Nil, tenantID)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	f, err := s.fileService.Copy(ctx, id, targetFolderID, actorID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -482,7 +491,12 @@ func (s *DocumentGRPCServer) MoveFile(ctx context.Context, req *documentv1.MoveF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
-	if err := s.fileService.Move(ctx, id, targetFolderID, tenantID); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.Move(ctx, id, targetFolderID, actorID, tenantID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -513,6 +527,10 @@ func (s *DocumentGRPCServer) GetFileDownloadURL(ctx context.Context, req *docume
 	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
+	}
+
+	if actorID, actorErr := actorIDFromContext(ctx); actorErr == nil {
+		s.fileService.LogDownload(ctx, id, tenantID, actorID)
 	}
 
 	return &documentv1.GetFileDownloadURLResponse{
@@ -579,8 +597,12 @@ func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documen
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	// Use Nil as userID since gateway handles auth
-	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), uuid.Nil, tenantID)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), actorID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -591,6 +613,231 @@ func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documen
 	}
 
 	return &documentv1.RevertFileVersionResponse{File: toProtoFile(f)}, nil
+}
+
+func (s *DocumentGRPCServer) ListFileActivity(ctx context.Context, req *documentv1.ListFileActivityRequest) (*documentv1.ListFileActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	activities, err := s.fileService.ListActivity(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoActivities := make([]*documentv1.DocumentFileActivity, 0, len(activities))
+	for _, a := range activities {
+		protoActivities = append(protoActivities, toProtoFileActivity(a))
+	}
+
+	return &documentv1.ListFileActivityResponse{Activities: protoActivities}, nil
+}
+
+// ============================================================================
+// Comment Operations
+// ============================================================================
+
+func (s *DocumentGRPCServer) ListFileComments(ctx context.Context, req *documentv1.ListFileCommentsRequest) (*documentv1.ListFileCommentsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	comments, err := s.fileService.ListComments(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoComments := make([]*documentv1.DocumentFileComment, 0, len(comments))
+	for _, c := range comments {
+		protoComments = append(protoComments, toProtoFileComment(c))
+	}
+
+	return &documentv1.ListFileCommentsResponse{Comments: protoComments}, nil
+}
+
+func (s *DocumentGRPCServer) CreateFileComment(ctx context.Context, req *documentv1.CreateFileCommentRequest) (*documentv1.CreateFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	c, err := s.fileService.CreateComment(ctx, tenantID, fileID, actorID, req.Content)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.CreateFileCommentResponse{Comment: toProtoFileComment(c)}, nil
+}
+
+func (s *DocumentGRPCServer) UpdateFileComment(ctx context.Context, req *documentv1.UpdateFileCommentRequest) (*documentv1.UpdateFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	commentID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	c, err := s.fileService.UpdateComment(ctx, tenantID, commentID, actorID, req.Content)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.UpdateFileCommentResponse{Comment: toProtoFileComment(c)}, nil
+}
+
+func (s *DocumentGRPCServer) DeleteFileComment(ctx context.Context, req *documentv1.DeleteFileCommentRequest) (*documentv1.DeleteFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	commentID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.DeleteComment(ctx, tenantID, commentID, actorID, req.IsAdmin); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.DeleteFileCommentResponse{}, nil
+}
+
+// ============================================================================
+// Share Link Operations (external, unauthenticated read/download links)
+// ============================================================================
+
+func (s *DocumentGRPCServer) CreateShareLink(ctx context.Context, req *documentv1.CreateShareLinkRequest) (*documentv1.CreateShareLinkResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	in := file.CreateShareLinkInput{
+		TenantID:      tenantID,
+		FileID:        fileID,
+		ExpiresInDays: req.ExpiresInDays,
+	}
+	if req.Password != nil {
+		in.Password = *req.Password
+	}
+	if req.CreatedBy != nil {
+		if createdBy, parseErr := uuid.Parse(*req.CreatedBy); parseErr == nil {
+			in.CreatedBy = &createdBy
+		}
+	}
+
+	link, err := s.fileService.CreateShareLink(ctx, in)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.CreateShareLinkResponse{ShareLink: toProtoShareLink(link)}, nil
+}
+
+func (s *DocumentGRPCServer) ListShareLinks(ctx context.Context, req *documentv1.ListShareLinksRequest) (*documentv1.ListShareLinksResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	links, err := s.fileService.ListShareLinks(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoLinks := make([]*documentv1.ShareLink, 0, len(links))
+	for _, l := range links {
+		protoLinks = append(protoLinks, toProtoShareLink(l))
+	}
+
+	return &documentv1.ListShareLinksResponse{ShareLinks: protoLinks}, nil
+}
+
+func (s *DocumentGRPCServer) RevokeShareLink(ctx context.Context, req *documentv1.RevokeShareLinkRequest) (*documentv1.RevokeShareLinkResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid share link id")
+	}
+
+	if err := s.fileService.RevokeShareLink(ctx, id, tenantID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.RevokeShareLinkResponse{}, nil
+}
+
+// GetSharedFile serves the unauthenticated public redemption of a share link.
+// Unlike every other handler in this file, it takes no tenant from the
+// context — the token itself resolves one, deep inside
+// file.Service.RedeemShareLink.
+func (s *DocumentGRPCServer) GetSharedFile(ctx context.Context, req *documentv1.GetSharedFileRequest) (*documentv1.GetSharedFileResponse, error) {
+	password := ""
+	if req.Password != nil {
+		password = *req.Password
+	}
+
+	dl, err := s.fileService.RedeemShareLink(ctx, req.Token, password)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.GetSharedFileResponse{
+		DownloadUrl: dl.DownloadURL,
+		Filename:    dl.Filename,
+		ContentType: dl.ContentType,
+		FileSize:    dl.FileSize,
+	}, nil
 }
 
 // ============================================================================
@@ -840,7 +1087,7 @@ func (s *DocumentGRPCServer) LinkFileToEntity(ctx context.Context, req *document
 	}
 
 	// Return the created link by fetching links for this file
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -866,15 +1113,20 @@ func (s *DocumentGRPCServer) UnlinkFileFromEntity(ctx context.Context, req *docu
 		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
 	}
 
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	// Find the link by file+entity and delete it
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
 	for _, link := range links {
 		if link.EntityType == req.EntityType && link.EntityID == entityID {
-			if err := s.fileService.UnlinkFromEntity(ctx, link.ID); err != nil {
+			if err := s.fileService.UnlinkFromEntity(ctx, link.ID, tenantID); err != nil {
 				return nil, mapDocumentError(err)
 			}
 			return &documentv1.UnlinkFileFromEntityResponse{}, nil
@@ -884,13 +1136,38 @@ func (s *DocumentGRPCServer) UnlinkFileFromEntity(ctx context.Context, req *docu
 	return nil, status.Error(codes.NotFound, "entity link not found")
 }
 
+// DeleteEntityLink removes an entity link by its own ID, without requiring
+// the caller to know which file or entity it points at.
+func (s *DocumentGRPCServer) DeleteEntityLink(ctx context.Context, req *documentv1.DeleteEntityLinkRequest) (*documentv1.DeleteEntityLinkResponse, error) {
+	linkID, err := uuid.Parse(req.LinkId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid link_id")
+	}
+
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	if err := s.fileService.UnlinkFromEntity(ctx, linkID, tenantID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.DeleteEntityLinkResponse{}, nil
+}
+
 func (s *DocumentGRPCServer) ListFileEntityLinks(ctx context.Context, req *documentv1.ListFileEntityLinksRequest) (*documentv1.ListFileEntityLinksResponse, error) {
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	links, err := s.fileService.ListEntityLinks(ctx, fileID)
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	links, err := s.fileService.ListEntityLinks(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -901,6 +1178,32 @@ func (s *DocumentGRPCServer) ListFileEntityLinks(ctx context.Context, req *docum
 	}
 
 	return &documentv1.ListFileEntityLinksResponse{Links: protoLinks}, nil
+}
+
+// ListFilesByEntity returns the files linked to an arbitrary entity (e.g. a
+// CRM contact), the reverse lookup of ListFileEntityLinks.
+func (s *DocumentGRPCServer) ListFilesByEntity(ctx context.Context, req *documentv1.ListFilesByEntityRequest) (*documentv1.ListFilesByEntityResponse, error) {
+	entityID, err := uuid.Parse(req.EntityId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
+	}
+
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	files, err := s.fileService.ListByEntity(ctx, req.EntityType, entityID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoFiles := make([]*documentv1.DocumentFile, 0, len(files))
+	for _, f := range files {
+		protoFiles = append(protoFiles, toProtoFile(f))
+	}
+
+	return &documentv1.ListFilesByEntityResponse{Files: protoFiles}, nil
 }
 
 // ============================================================================
@@ -1173,6 +1476,45 @@ func toProtoEntityLink(link *models.DocumentEntityLink) *documentv1.DocumentEnti
 	}
 }
 
+func toProtoFileActivity(a *models.DocumentFileActivity) *documentv1.DocumentFileActivity {
+	return &documentv1.DocumentFileActivity{
+		Id:        a.ID.String(),
+		FileId:    a.FileID.String(),
+		Action:    a.Action,
+		ActorId:   a.ActorID.String(),
+		ActorName: a.ActorName,
+		Detail:    a.Detail,
+		CreatedAt: timestamppb.New(a.CreatedAt),
+	}
+}
+
+func toProtoFileComment(c *models.DocumentFileComment) *documentv1.DocumentFileComment {
+	return &documentv1.DocumentFileComment{
+		Id:         c.ID.String(),
+		FileId:     c.FileID.String(),
+		AuthorId:   c.AuthorID.String(),
+		AuthorName: c.AuthorName,
+		Content:    c.Content,
+		CreatedAt:  timestamppb.New(c.CreatedAt),
+		UpdatedAt:  timestamppb.New(c.UpdatedAt),
+	}
+}
+
+func toProtoShareLink(l *models.DocumentShareLink) *documentv1.ShareLink {
+	link := &documentv1.ShareLink{
+		Id:          l.ID.String(),
+		FileId:      l.FileID.String(),
+		Token:       l.Token,
+		HasPassword: l.PasswordHash != nil,
+		ViewCount:   int32(l.ViewCount),
+		CreatedAt:   timestamppb.New(l.CreatedAt),
+	}
+	if l.ExpiresAt != nil {
+		link.ExpiresAt = timestamppb.New(*l.ExpiresAt)
+	}
+	return link
+}
+
 func toProtoVirtualFile(f *models.VirtualFile) *documentv1.VirtualFile {
 	return &documentv1.VirtualFile{
 		Id:             f.ID.String(),
@@ -1301,6 +1643,20 @@ func parseUUIDOrNil(s string) uuid.UUID {
 	return id
 }
 
+// actorIDFromContext reads the acting user from the gRPC context, populated
+// by middleware.TenantInboundUnaryInterceptor from the gateway-propagated
+// x-user-id metadata (see registry.go's TenantOutboundUnaryInterceptor wiring).
+// Used to attribute document activity entries to a real actor instead of
+// silently defaulting to uuid.Nil, which would fail the activity row's
+// NOT NULL actor_id FK.
+func actorIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return uuid.Nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	return id, nil
+}
+
 // ============================================================================
 // Error Mapping
 // ============================================================================
@@ -1344,6 +1700,16 @@ func mapDocumentError(err error) error {
 	case errors.Is(err, file.ErrNoWritePermission):
 		return status.Error(codes.PermissionDenied, err.Error())
 
+	// Comment errors
+	case errors.Is(err, file.ErrCommentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, file.ErrCommentContentRequired),
+		errors.Is(err, file.ErrCommentContentTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, file.ErrCannotEditOthersComment),
+		errors.Is(err, file.ErrCannotDeleteOthersComment):
+		return status.Error(codes.PermissionDenied, err.Error())
+
 	// Share errors
 	case errors.Is(err, share.ErrShareNotFound):
 		return status.Error(codes.NotFound, err.Error())
@@ -1353,6 +1719,16 @@ func mapDocumentError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, share.ErrAlreadyShared):
 		return status.Error(codes.AlreadyExists, err.Error())
+
+	// Share link errors. ErrShareLinkInvalid is deliberately the single
+	// answer for every way the public redemption route can fail (unknown
+	// token, revoked, expired, missing or wrong password) — see
+	// file.Service.RedeemShareLink.
+	case errors.Is(err, file.ErrShareLinkNotFound), errors.Is(err, file.ErrShareLinkInvalid):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, file.ErrShareLinkExpiryInvalid),
+		errors.Is(err, file.ErrSharePasswordTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Tag errors
 	case errors.Is(err, tag.ErrTagNotFound):

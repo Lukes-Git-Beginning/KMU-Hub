@@ -37,7 +37,16 @@ const (
 	DocumentService_CreateFileVersion_FullMethodName       = "/document.v1.DocumentService/CreateFileVersion"
 	DocumentService_ListFileVersions_FullMethodName        = "/document.v1.DocumentService/ListFileVersions"
 	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
+	DocumentService_ListFileActivity_FullMethodName        = "/document.v1.DocumentService/ListFileActivity"
 	DocumentService_RegisterUploadedFile_FullMethodName    = "/document.v1.DocumentService/RegisterUploadedFile"
+	DocumentService_ListFileComments_FullMethodName        = "/document.v1.DocumentService/ListFileComments"
+	DocumentService_CreateFileComment_FullMethodName       = "/document.v1.DocumentService/CreateFileComment"
+	DocumentService_UpdateFileComment_FullMethodName       = "/document.v1.DocumentService/UpdateFileComment"
+	DocumentService_DeleteFileComment_FullMethodName       = "/document.v1.DocumentService/DeleteFileComment"
+	DocumentService_CreateShareLink_FullMethodName         = "/document.v1.DocumentService/CreateShareLink"
+	DocumentService_ListShareLinks_FullMethodName          = "/document.v1.DocumentService/ListShareLinks"
+	DocumentService_RevokeShareLink_FullMethodName         = "/document.v1.DocumentService/RevokeShareLink"
+	DocumentService_GetSharedFile_FullMethodName           = "/document.v1.DocumentService/GetSharedFile"
 	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
 	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
 	DocumentService_ListShares_FullMethodName              = "/document.v1.DocumentService/ListShares"
@@ -50,6 +59,8 @@ const (
 	DocumentService_LinkFileToEntity_FullMethodName        = "/document.v1.DocumentService/LinkFileToEntity"
 	DocumentService_UnlinkFileFromEntity_FullMethodName    = "/document.v1.DocumentService/UnlinkFileFromEntity"
 	DocumentService_ListFileEntityLinks_FullMethodName     = "/document.v1.DocumentService/ListFileEntityLinks"
+	DocumentService_DeleteEntityLink_FullMethodName        = "/document.v1.DocumentService/DeleteEntityLink"
+	DocumentService_ListFilesByEntity_FullMethodName       = "/document.v1.DocumentService/ListFilesByEntity"
 	DocumentService_SearchFiles_FullMethodName             = "/document.v1.DocumentService/SearchFiles"
 	DocumentService_ListVirtualFiles_FullMethodName        = "/document.v1.DocumentService/ListVirtualFiles"
 	DocumentService_GenerateWOPIToken_FullMethodName       = "/document.v1.DocumentService/GenerateWOPIToken"
@@ -82,9 +93,22 @@ type DocumentServiceClient interface {
 	CreateFileVersion(ctx context.Context, in *CreateFileVersionRequest, opts ...grpc.CallOption) (*CreateFileVersionResponse, error)
 	ListFileVersions(ctx context.Context, in *ListFileVersionsRequest, opts ...grpc.CallOption) (*ListFileVersionsResponse, error)
 	RevertFileVersion(ctx context.Context, in *RevertFileVersionRequest, opts ...grpc.CallOption) (*RevertFileVersionResponse, error)
+	ListFileActivity(ctx context.Context, in *ListFileActivityRequest, opts ...grpc.CallOption) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(ctx context.Context, in *RegisterUploadedFileRequest, opts ...grpc.CallOption) (*RegisterUploadedFileResponse, error)
+	ListFileComments(ctx context.Context, in *ListFileCommentsRequest, opts ...grpc.CallOption) (*ListFileCommentsResponse, error)
+	CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error)
+	UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error)
+	DeleteFileComment(ctx context.Context, in *DeleteFileCommentRequest, opts ...grpc.CallOption) (*DeleteFileCommentResponse, error)
+	// External, unauthenticated read/download links for a file.
+	CreateShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error)
+	ListShareLinks(ctx context.Context, in *ListShareLinksRequest, opts ...grpc.CallOption) (*ListShareLinksResponse, error)
+	RevokeShareLink(ctx context.Context, in *RevokeShareLinkRequest, opts ...grpc.CallOption) (*RevokeShareLinkResponse, error)
+	// GetSharedFile serves the unauthenticated public redemption. It takes no
+	// tenant in the request: the token itself resolves one. See
+	// file.Service.RedeemShareLink.
+	GetSharedFile(ctx context.Context, in *GetSharedFileRequest, opts ...grpc.CallOption) (*GetSharedFileResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(ctx context.Context, in *ShareEntityRequest, opts ...grpc.CallOption) (*ShareEntityResponse, error)
 	UnshareEntity(ctx context.Context, in *UnshareEntityRequest, opts ...grpc.CallOption) (*UnshareEntityResponse, error)
@@ -100,6 +124,8 @@ type DocumentServiceClient interface {
 	LinkFileToEntity(ctx context.Context, in *LinkFileToEntityRequest, opts ...grpc.CallOption) (*LinkFileToEntityResponse, error)
 	UnlinkFileFromEntity(ctx context.Context, in *UnlinkFileFromEntityRequest, opts ...grpc.CallOption) (*UnlinkFileFromEntityResponse, error)
 	ListFileEntityLinks(ctx context.Context, in *ListFileEntityLinksRequest, opts ...grpc.CallOption) (*ListFileEntityLinksResponse, error)
+	DeleteEntityLink(ctx context.Context, in *DeleteEntityLinkRequest, opts ...grpc.CallOption) (*DeleteEntityLinkResponse, error)
+	ListFilesByEntity(ctx context.Context, in *ListFilesByEntityRequest, opts ...grpc.CallOption) (*ListFilesByEntityResponse, error)
 	// ==================== Search operations ====================
 	SearchFiles(ctx context.Context, in *SearchFilesRequest, opts ...grpc.CallOption) (*SearchFilesResponse, error)
 	ListVirtualFiles(ctx context.Context, in *ListVirtualFilesRequest, opts ...grpc.CallOption) (*ListVirtualFilesResponse, error)
@@ -299,10 +325,100 @@ func (c *documentServiceClient) RevertFileVersion(ctx context.Context, in *Rever
 	return out, nil
 }
 
+func (c *documentServiceClient) ListFileActivity(ctx context.Context, in *ListFileActivityRequest, opts ...grpc.CallOption) (*ListFileActivityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFileActivityResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListFileActivity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) RegisterUploadedFile(ctx context.Context, in *RegisterUploadedFileRequest, opts ...grpc.CallOption) (*RegisterUploadedFileResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterUploadedFileResponse)
 	err := c.cc.Invoke(ctx, DocumentService_RegisterUploadedFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) ListFileComments(ctx context.Context, in *ListFileCommentsRequest, opts ...grpc.CallOption) (*ListFileCommentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFileCommentsResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListFileComments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_CreateFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_UpdateFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) DeleteFileComment(ctx context.Context, in *DeleteFileCommentRequest, opts ...grpc.CallOption) (*DeleteFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_DeleteFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) CreateShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateShareLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_CreateShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) ListShareLinks(ctx context.Context, in *ListShareLinksRequest, opts ...grpc.CallOption) (*ListShareLinksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShareLinksResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListShareLinks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) RevokeShareLink(ctx context.Context, in *RevokeShareLinkRequest, opts ...grpc.CallOption) (*RevokeShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeShareLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_RevokeShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) GetSharedFile(ctx context.Context, in *GetSharedFileRequest, opts ...grpc.CallOption) (*GetSharedFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSharedFileResponse)
+	err := c.cc.Invoke(ctx, DocumentService_GetSharedFile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -429,6 +545,26 @@ func (c *documentServiceClient) ListFileEntityLinks(ctx context.Context, in *Lis
 	return out, nil
 }
 
+func (c *documentServiceClient) DeleteEntityLink(ctx context.Context, in *DeleteEntityLinkRequest, opts ...grpc.CallOption) (*DeleteEntityLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEntityLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_DeleteEntityLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) ListFilesByEntity(ctx context.Context, in *ListFilesByEntityRequest, opts ...grpc.CallOption) (*ListFilesByEntityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFilesByEntityResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListFilesByEntity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) SearchFiles(ctx context.Context, in *SearchFilesRequest, opts ...grpc.CallOption) (*SearchFilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SearchFilesResponse)
@@ -513,9 +649,22 @@ type DocumentServiceServer interface {
 	CreateFileVersion(context.Context, *CreateFileVersionRequest) (*CreateFileVersionResponse, error)
 	ListFileVersions(context.Context, *ListFileVersionsRequest) (*ListFileVersionsResponse, error)
 	RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error)
+	ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error)
+	ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error)
+	CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error)
+	UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error)
+	DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error)
+	// External, unauthenticated read/download links for a file.
+	CreateShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error)
+	ListShareLinks(context.Context, *ListShareLinksRequest) (*ListShareLinksResponse, error)
+	RevokeShareLink(context.Context, *RevokeShareLinkRequest) (*RevokeShareLinkResponse, error)
+	// GetSharedFile serves the unauthenticated public redemption. It takes no
+	// tenant in the request: the token itself resolves one. See
+	// file.Service.RedeemShareLink.
+	GetSharedFile(context.Context, *GetSharedFileRequest) (*GetSharedFileResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error)
 	UnshareEntity(context.Context, *UnshareEntityRequest) (*UnshareEntityResponse, error)
@@ -531,6 +680,8 @@ type DocumentServiceServer interface {
 	LinkFileToEntity(context.Context, *LinkFileToEntityRequest) (*LinkFileToEntityResponse, error)
 	UnlinkFileFromEntity(context.Context, *UnlinkFileFromEntityRequest) (*UnlinkFileFromEntityResponse, error)
 	ListFileEntityLinks(context.Context, *ListFileEntityLinksRequest) (*ListFileEntityLinksResponse, error)
+	DeleteEntityLink(context.Context, *DeleteEntityLinkRequest) (*DeleteEntityLinkResponse, error)
+	ListFilesByEntity(context.Context, *ListFilesByEntityRequest) (*ListFilesByEntityResponse, error)
 	// ==================== Search operations ====================
 	SearchFiles(context.Context, *SearchFilesRequest) (*SearchFilesResponse, error)
 	ListVirtualFiles(context.Context, *ListVirtualFilesRequest) (*ListVirtualFilesResponse, error)
@@ -604,8 +755,35 @@ func (UnimplementedDocumentServiceServer) ListFileVersions(context.Context, *Lis
 func (UnimplementedDocumentServiceServer) RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevertFileVersion not implemented")
 }
+func (UnimplementedDocumentServiceServer) ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFileActivity not implemented")
+}
 func (UnimplementedDocumentServiceServer) RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterUploadedFile not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFileComments not implemented")
+}
+func (UnimplementedDocumentServiceServer) CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) CreateShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateShareLink not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListShareLinks(context.Context, *ListShareLinksRequest) (*ListShareLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShareLinks not implemented")
+}
+func (UnimplementedDocumentServiceServer) RevokeShareLink(context.Context, *RevokeShareLinkRequest) (*RevokeShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeShareLink not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetSharedFile(context.Context, *GetSharedFileRequest) (*GetSharedFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSharedFile not implemented")
 }
 func (UnimplementedDocumentServiceServer) ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ShareEntity not implemented")
@@ -642,6 +820,12 @@ func (UnimplementedDocumentServiceServer) UnlinkFileFromEntity(context.Context, 
 }
 func (UnimplementedDocumentServiceServer) ListFileEntityLinks(context.Context, *ListFileEntityLinksRequest) (*ListFileEntityLinksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFileEntityLinks not implemented")
+}
+func (UnimplementedDocumentServiceServer) DeleteEntityLink(context.Context, *DeleteEntityLinkRequest) (*DeleteEntityLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEntityLink not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListFilesByEntity(context.Context, *ListFilesByEntityRequest) (*ListFilesByEntityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFilesByEntity not implemented")
 }
 func (UnimplementedDocumentServiceServer) SearchFiles(context.Context, *SearchFilesRequest) (*SearchFilesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchFiles not implemented")
@@ -1006,6 +1190,24 @@ func _DocumentService_RevertFileVersion_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_ListFileActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFileActivityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListFileActivity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListFileActivity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListFileActivity(ctx, req.(*ListFileActivityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DocumentService_RegisterUploadedFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterUploadedFileRequest)
 	if err := dec(in); err != nil {
@@ -1020,6 +1222,150 @@ func _DocumentService_RegisterUploadedFile_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).RegisterUploadedFile(ctx, req.(*RegisterUploadedFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListFileComments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFileCommentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListFileComments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListFileComments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListFileComments(ctx, req.(*ListFileCommentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_CreateFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CreateFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_CreateFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CreateFileComment(ctx, req.(*CreateFileCommentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_UpdateFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).UpdateFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_UpdateFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).UpdateFileComment(ctx, req.(*UpdateFileCommentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_DeleteFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DeleteFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_DeleteFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DeleteFileComment(ctx, req.(*DeleteFileCommentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_CreateShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CreateShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_CreateShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CreateShareLink(ctx, req.(*CreateShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListShareLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShareLinksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListShareLinks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListShareLinks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListShareLinks(ctx, req.(*ListShareLinksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_RevokeShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).RevokeShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_RevokeShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).RevokeShareLink(ctx, req.(*RevokeShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_GetSharedFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSharedFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetSharedFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_GetSharedFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetSharedFile(ctx, req.(*GetSharedFileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1240,6 +1586,42 @@ func _DocumentService_ListFileEntityLinks_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_DeleteEntityLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEntityLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DeleteEntityLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_DeleteEntityLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DeleteEntityLink(ctx, req.(*DeleteEntityLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListFilesByEntity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFilesByEntityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListFilesByEntity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListFilesByEntity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListFilesByEntity(ctx, req.(*ListFilesByEntityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DocumentService_SearchFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SearchFilesRequest)
 	if err := dec(in); err != nil {
@@ -1428,8 +1810,44 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DocumentService_RevertFileVersion_Handler,
 		},
 		{
+			MethodName: "ListFileActivity",
+			Handler:    _DocumentService_ListFileActivity_Handler,
+		},
+		{
 			MethodName: "RegisterUploadedFile",
 			Handler:    _DocumentService_RegisterUploadedFile_Handler,
+		},
+		{
+			MethodName: "ListFileComments",
+			Handler:    _DocumentService_ListFileComments_Handler,
+		},
+		{
+			MethodName: "CreateFileComment",
+			Handler:    _DocumentService_CreateFileComment_Handler,
+		},
+		{
+			MethodName: "UpdateFileComment",
+			Handler:    _DocumentService_UpdateFileComment_Handler,
+		},
+		{
+			MethodName: "DeleteFileComment",
+			Handler:    _DocumentService_DeleteFileComment_Handler,
+		},
+		{
+			MethodName: "CreateShareLink",
+			Handler:    _DocumentService_CreateShareLink_Handler,
+		},
+		{
+			MethodName: "ListShareLinks",
+			Handler:    _DocumentService_ListShareLinks_Handler,
+		},
+		{
+			MethodName: "RevokeShareLink",
+			Handler:    _DocumentService_RevokeShareLink_Handler,
+		},
+		{
+			MethodName: "GetSharedFile",
+			Handler:    _DocumentService_GetSharedFile_Handler,
 		},
 		{
 			MethodName: "ShareEntity",
@@ -1478,6 +1896,14 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFileEntityLinks",
 			Handler:    _DocumentService_ListFileEntityLinks_Handler,
+		},
+		{
+			MethodName: "DeleteEntityLink",
+			Handler:    _DocumentService_DeleteEntityLink_Handler,
+		},
+		{
+			MethodName: "ListFilesByEntity",
+			Handler:    _DocumentService_ListFilesByEntity_Handler,
 		},
 		{
 			MethodName: "SearchFiles",

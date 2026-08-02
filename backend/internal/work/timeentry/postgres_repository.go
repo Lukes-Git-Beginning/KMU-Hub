@@ -190,6 +190,130 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID, tenantID uu
 	return entries, total, nil
 }
 
+// ListBillable returns completed time entries (a duration was recorded, the
+// timer isn't still running) across every task/project of the tenant, joined
+// with the task title, project name, and employee display name. Used by the
+// finance "Stunden -> Rechnung" view, which invoices across projects rather
+// than one task at a time like ListByTask.
+func (r *PostgresRepository) ListBillable(ctx context.Context, tenantID uuid.UUID) ([]models.BillableTimeEntry, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		        te.duration_seconds, te.description, te.is_manual,
+		        te.created_at, te.updated_at,
+		        u.first_name || ' ' || u.last_name AS user_name,
+		        t.title AS task_title,
+		        COALESCE(p.name, '') AS project_name
+		 FROM time_entries te
+		 JOIN users u ON u.id = te.user_id
+		 JOIN tasks t ON t.id = te.task_id AND t.tenant_id = te.tenant_id
+		 LEFT JOIN projects p ON p.id = t.project_id AND p.tenant_id = te.tenant_id
+		 WHERE te.tenant_id = $1
+		   AND te.ended_at IS NOT NULL
+		   AND te.duration_seconds IS NOT NULL
+		 ORDER BY te.started_at DESC`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list billable time entries: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.BillableTimeEntry
+	for rows.Next() {
+		var e models.BillableTimeEntry
+		if scanErr := rows.Scan(
+			&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+			&e.DurationSeconds, &e.Description, &e.IsManual,
+			&e.CreatedAt, &e.UpdatedAt, &e.UserName, &e.TaskTitle, &e.ProjectName,
+		); scanErr != nil {
+			return nil, fmt.Errorf("scan billable time entry: %w", scanErr)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
+// ListByProject returns completed time entries whose task belongs to the
+// given project, joined with the task title and contributor display name,
+// for that project's "Stunden abrechnen" roll-up. Scoped through the
+// tasks/projects join on tenant_id, not just te.tenant_id, so a project_id
+// from another tenant returns zero rows instead of leaking that tenant's
+// entries -- defense in depth alongside RLS, not a replacement for it.
+func (r *PostgresRepository) ListByProject(ctx context.Context, projectID, tenantID uuid.UUID) ([]models.ProjectTimeEntry, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		        te.duration_seconds, te.description, te.is_manual,
+		        te.created_at, te.updated_at,
+		        u.first_name || ' ' || u.last_name AS user_name,
+		        t.title AS task_title
+		 FROM time_entries te
+		 JOIN users u ON u.id = te.user_id
+		 JOIN tasks t ON t.id = te.task_id AND t.tenant_id = te.tenant_id
+		 JOIN projects p ON p.id = t.project_id AND p.tenant_id = te.tenant_id
+		 WHERE p.id = $1 AND p.tenant_id = $2 AND te.tenant_id = $2
+		   AND te.ended_at IS NOT NULL
+		   AND te.duration_seconds IS NOT NULL
+		 ORDER BY te.started_at DESC`,
+		projectID, tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project time entries: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.ProjectTimeEntry
+	for rows.Next() {
+		var e models.ProjectTimeEntry
+		if scanErr := rows.Scan(
+			&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+			&e.DurationSeconds, &e.Description, &e.IsManual,
+			&e.CreatedAt, &e.UpdatedAt, &e.UserName, &e.TaskTitle,
+		); scanErr != nil {
+			return nil, fmt.Errorf("scan project time entry: %w", scanErr)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
+// AggregateProjectHours sums completed time-entry hours per member per
+// period bucket (trunc is "week" or "month"), for the project's
+// team-utilization roll-up. since bounds the window so a long-lived project
+// doesn't force scanning every entry ever logged. Bucketing happens via
+// date_trunc in SQL -- callers must not re-sum the raw rows in Go. Truncates
+// against UTC explicitly (not the session timezone) so bucket boundaries
+// match the Go-side period keys the caller zero-fills against.
+func (r *PostgresRepository) AggregateProjectHours(ctx context.Context, projectID, tenantID uuid.UUID, trunc string, since time.Time) ([]models.UtilizationBucket, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT te.user_id,
+		        date_trunc($1, te.started_at AT TIME ZONE 'UTC') AS period,
+		        SUM(te.duration_seconds) AS total_seconds
+		 FROM time_entries te
+		 JOIN tasks t ON t.id = te.task_id AND t.tenant_id = te.tenant_id
+		 JOIN projects p ON p.id = t.project_id AND p.tenant_id = te.tenant_id
+		 WHERE p.id = $2 AND p.tenant_id = $3 AND te.tenant_id = $3
+		   AND te.ended_at IS NOT NULL
+		   AND te.duration_seconds IS NOT NULL
+		   AND te.started_at >= $4
+		 GROUP BY te.user_id, period`,
+		trunc, projectID, tenantID, since,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate project hours: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []models.UtilizationBucket
+	for rows.Next() {
+		var b models.UtilizationBucket
+		if scanErr := rows.Scan(&b.UserID, &b.PeriodStart, &b.TotalSeconds); scanErr != nil {
+			return nil, fmt.Errorf("scan utilization bucket: %w", scanErr)
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, rows.Err()
+}
+
 func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,

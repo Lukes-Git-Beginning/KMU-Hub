@@ -75,6 +75,7 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 			r.Get("/me", a.HandleGetProfile)
+			r.Get("/me/permissions", a.HandleGetMyPermissions)
 			r.Patch("/profile", a.HandleUpdateProfile)
 			r.Post("/change-password", a.HandleChangePassword)
 
@@ -107,6 +108,15 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.With(middleware.RequireRole("admin")).Put("/{id}", a.HandleUpdateUser)
 		r.With(middleware.RequireRole("admin")).Post("/{id}/roles", a.HandleAssignRole)
 		r.With(middleware.RequireRole("admin")).Delete("/{id}/roles", a.HandleRemoveRole)
+	})
+
+	// Effective-permission audit view of any account. Lives under /admin/users
+	// rather than /users because that is where the RBAC frontend addresses it
+	// (rbac-client.ts) — same guard as the other admin user operations, so no
+	// new permission key and no seed are needed.
+	r.Route("/api/v1/admin/users", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequireRole("admin")).Get("/{id}/permissions", a.HandleGetUserPermissions)
 	})
 
 	// Tenant provisioning. Not RequireRole("admin"): a tenant admin
@@ -397,6 +407,129 @@ func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "role removed"})
+}
+
+// ============================================================================
+// Effective Permissions Handlers
+// ============================================================================
+
+// effectivePermissionsBody is the wire shape the RBAC frontend consumes
+// (rbac-types.ts, EffectivePermissionsResponse). It is deliberately not the
+// proto response: capabilities travels as a map keyed by the capability key,
+// while the proto carries a repeated list. A key that is absent means denied
+// (default-deny), so an entry with an empty scope is never emitted.
+type effectivePermissionsBody struct {
+	Permissions effectivePermissions `json:"permissions"`
+}
+
+type effectivePermissions struct {
+	Roles        []effectiveRole                `json:"roles"`
+	Capabilities map[string]effectiveCapability `json:"capabilities"`
+}
+
+// effectiveRole spells isSystem in camelCase because the frontend type does
+// (rbac-types.ts, Role). This block is app-owned contract rather than proto
+// passthrough — do not "correct" it to snake_case.
+type effectiveRole struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	IsSystem bool   `json:"isSystem"`
+	Color    string `json:"color"`
+}
+
+type effectiveCapability struct {
+	Scope string `json:"scope"`
+	// Role IDs, resolvable against the roles list of the same response — that
+	// is the lookup the provenance chip in EffectivePermissionsView performs.
+	Sources []string `json:"sources"`
+}
+
+func toEffectivePermissionsBody(resp *authv1.GetEffectivePermissionsResponse) effectivePermissionsBody {
+	roles := make([]effectiveRole, len(resp.Roles))
+	for i, role := range resp.Roles {
+		roles[i] = effectiveRole{
+			ID:       role.Id,
+			Name:     role.Name,
+			IsSystem: role.IsSystem,
+			Color:    role.Color,
+		}
+	}
+
+	caps := make(map[string]effectiveCapability, len(resp.Capabilities))
+	for _, c := range resp.Capabilities {
+		sources := c.Sources
+		if sources == nil {
+			// proto3 drops an empty repeated field; the frontend iterates this
+			// unconditionally, so it must marshal as [] and never as null.
+			sources = []string{}
+		}
+		caps[c.Key] = effectiveCapability{Scope: c.Scope, Sources: sources}
+	}
+
+	return effectivePermissionsBody{
+		Permissions: effectivePermissions{Roles: roles, Capabilities: caps},
+	}
+}
+
+// HandleGetMyPermissions returns the authenticated account's resolved
+// capabilities. No permission guard on purpose: every signed-in user may read
+// their own rights — the UI needs them before it can hide anything, and a new
+// guard here would demand a seed of its own.
+func (a *AuthRoutes) HandleGetMyPermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	// Empty user_id means "me": the auth service resolves the caller from the
+	// identity metadata the tenant interceptor forwards, so no client-supplied
+	// id is ever trusted on this route.
+	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, toEffectivePermissionsBody(resp))
+}
+
+// HandleGetUserPermissions returns any account's resolved capabilities for the
+// admin audit view.
+//
+// Fetching the target user first is a security step, not a convenience:
+// user_roles carries neither tenant_id nor an RLS policy, so the resolver
+// filters the roles but not the membership — handed a foreign tenant's user id
+// it would resolve that user's preset roles just fine. GetUser runs under the
+// users RLS policy and turns a foreign id into a clean 404.
+func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.GetUser(r.Context(), &authv1.GetUserRequest{UserId: userID}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// lean: the frontend sends ?base=1 to ask for the role union without
+	// per-user overrides. Overrides do not exist server-side yet (RBAC R-6), so
+	// both answers are identical and the parameter is accepted and ignored.
+	// Branch on it once the override table lands.
+	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, toEffectivePermissionsBody(resp))
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

@@ -94,6 +94,10 @@ const (
 	CRMService_HandOverAdvisoryProtocol_FullMethodName    = "/crm.v1.CRMService/HandOverAdvisoryProtocol"
 	CRMService_GenerateAdvisoryProtocolPDF_FullMethodName = "/crm.v1.CRMService/GenerateAdvisoryProtocolPDF"
 	CRMService_GetReferralReport_FullMethodName           = "/crm.v1.CRMService/GetReferralReport"
+	CRMService_ListLeads_FullMethodName                   = "/crm.v1.CRMService/ListLeads"
+	CRMService_CreateLead_FullMethodName                  = "/crm.v1.CRMService/CreateLead"
+	CRMService_UpdateLead_FullMethodName                  = "/crm.v1.CRMService/UpdateLead"
+	CRMService_ConvertLead_FullMethodName                 = "/crm.v1.CRMService/ConvertLead"
 )
 
 // CRMServiceClient is the client API for CRMService service.
@@ -190,6 +194,11 @@ type CRMServiceClient interface {
 	HandOverAdvisoryProtocol(ctx context.Context, in *HandOverAdvisoryProtocolRequest, opts ...grpc.CallOption) (*HandOverAdvisoryProtocolResponse, error)
 	GenerateAdvisoryProtocolPDF(ctx context.Context, in *GenerateAdvisoryProtocolPDFRequest, opts ...grpc.CallOption) (*GenerateAdvisoryProtocolPDFResponse, error)
 	GetReferralReport(ctx context.Context, in *GetReferralReportRequest, opts ...grpc.CallOption) (*GetReferralReportResponse, error)
+	// Leads (contact lifecycle stage, not a separate entity)
+	ListLeads(ctx context.Context, in *ListLeadsRequest, opts ...grpc.CallOption) (*ListLeadsResponse, error)
+	CreateLead(ctx context.Context, in *CreateLeadRequest, opts ...grpc.CallOption) (*CreateLeadResponse, error)
+	UpdateLead(ctx context.Context, in *UpdateLeadRequest, opts ...grpc.CallOption) (*UpdateLeadResponse, error)
+	ConvertLead(ctx context.Context, in *ConvertLeadRequest, opts ...grpc.CallOption) (*ConvertLeadResponse, error)
 }
 
 type cRMServiceClient struct {
@@ -950,6 +959,46 @@ func (c *cRMServiceClient) GetReferralReport(ctx context.Context, in *GetReferra
 	return out, nil
 }
 
+func (c *cRMServiceClient) ListLeads(ctx context.Context, in *ListLeadsRequest, opts ...grpc.CallOption) (*ListLeadsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLeadsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ListLeads_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) CreateLead(ctx context.Context, in *CreateLeadRequest, opts ...grpc.CallOption) (*CreateLeadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateLeadResponse)
+	err := c.cc.Invoke(ctx, CRMService_CreateLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) UpdateLead(ctx context.Context, in *UpdateLeadRequest, opts ...grpc.CallOption) (*UpdateLeadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateLeadResponse)
+	err := c.cc.Invoke(ctx, CRMService_UpdateLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ConvertLead(ctx context.Context, in *ConvertLeadRequest, opts ...grpc.CallOption) (*ConvertLeadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConvertLeadResponse)
+	err := c.cc.Invoke(ctx, CRMService_ConvertLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CRMServiceServer is the server API for CRMService service.
 // All implementations must embed UnimplementedCRMServiceServer
 // for forward compatibility.
@@ -1044,6 +1093,11 @@ type CRMServiceServer interface {
 	HandOverAdvisoryProtocol(context.Context, *HandOverAdvisoryProtocolRequest) (*HandOverAdvisoryProtocolResponse, error)
 	GenerateAdvisoryProtocolPDF(context.Context, *GenerateAdvisoryProtocolPDFRequest) (*GenerateAdvisoryProtocolPDFResponse, error)
 	GetReferralReport(context.Context, *GetReferralReportRequest) (*GetReferralReportResponse, error)
+	// Leads (contact lifecycle stage, not a separate entity)
+	ListLeads(context.Context, *ListLeadsRequest) (*ListLeadsResponse, error)
+	CreateLead(context.Context, *CreateLeadRequest) (*CreateLeadResponse, error)
+	UpdateLead(context.Context, *UpdateLeadRequest) (*UpdateLeadResponse, error)
+	ConvertLead(context.Context, *ConvertLeadRequest) (*ConvertLeadResponse, error)
 	mustEmbedUnimplementedCRMServiceServer()
 }
 
@@ -1278,6 +1332,18 @@ func (UnimplementedCRMServiceServer) GenerateAdvisoryProtocolPDF(context.Context
 }
 func (UnimplementedCRMServiceServer) GetReferralReport(context.Context, *GetReferralReportRequest) (*GetReferralReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReferralReport not implemented")
+}
+func (UnimplementedCRMServiceServer) ListLeads(context.Context, *ListLeadsRequest) (*ListLeadsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLeads not implemented")
+}
+func (UnimplementedCRMServiceServer) CreateLead(context.Context, *CreateLeadRequest) (*CreateLeadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateLead not implemented")
+}
+func (UnimplementedCRMServiceServer) UpdateLead(context.Context, *UpdateLeadRequest) (*UpdateLeadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateLead not implemented")
+}
+func (UnimplementedCRMServiceServer) ConvertLead(context.Context, *ConvertLeadRequest) (*ConvertLeadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConvertLead not implemented")
 }
 func (UnimplementedCRMServiceServer) mustEmbedUnimplementedCRMServiceServer() {}
 func (UnimplementedCRMServiceServer) testEmbeddedByValue()                    {}
@@ -2650,6 +2716,78 @@ func _CRMService_GetReferralReport_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_ListLeads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLeadsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ListLeads(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ListLeads_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ListLeads(ctx, req.(*ListLeadsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_CreateLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).CreateLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_CreateLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).CreateLead(ctx, req.(*CreateLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_UpdateLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).UpdateLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_UpdateLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).UpdateLead(ctx, req.(*UpdateLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ConvertLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConvertLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ConvertLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ConvertLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ConvertLead(ctx, req.(*ConvertLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CRMService_ServiceDesc is the grpc.ServiceDesc for CRMService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2956,6 +3094,22 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetReferralReport",
 			Handler:    _CRMService_GetReferralReport_Handler,
+		},
+		{
+			MethodName: "ListLeads",
+			Handler:    _CRMService_ListLeads_Handler,
+		},
+		{
+			MethodName: "CreateLead",
+			Handler:    _CRMService_CreateLead_Handler,
+		},
+		{
+			MethodName: "UpdateLead",
+			Handler:    _CRMService_UpdateLead_Handler,
+		},
+		{
+			MethodName: "ConvertLead",
+			Handler:    _CRMService_ConvertLead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

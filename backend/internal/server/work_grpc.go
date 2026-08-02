@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -1030,8 +1031,12 @@ func (s *WorkGRPCServer) UpdateTaskComment(ctx context.Context, req *workv1.Upda
 		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
 	}
 
-	// Use uuid.Nil as actorID since gateway handles auth
-	if err := s.commentService.Update(ctx, id, req.Content, uuid.Nil); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.commentService.Update(ctx, id, req.Content, actorID); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1046,7 +1051,12 @@ func (s *WorkGRPCServer) DeleteTaskComment(ctx context.Context, req *workv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
 	}
 
-	if err := s.commentService.Delete(ctx, id, uuid.Nil, true); err != nil {
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.commentService.Delete(ctx, id, actorID, req.IsAdmin); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1978,9 +1988,157 @@ func (s *WorkGRPCServer) GetTaskTimeSummary(ctx context.Context, req *workv1.Get
 	}, nil
 }
 
+// ListBillableTimeEntries serves the finance "Stunden -> Rechnung" view:
+// completed entries across every project of the tenant, not one task at a
+// time. tenant_id comes from the RLS context, same as every other RPC here.
+func (s *WorkGRPCServer) ListBillableTimeEntries(ctx context.Context, _ *workv1.ListBillableTimeEntriesRequest) (*workv1.ListBillableTimeEntriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	entries, err := s.timeEntryService.ListBillable(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list billable time entries")
+	}
+
+	protos := make([]*workv1.BillableTimeEntryProto, 0, len(entries))
+	for _, e := range entries {
+		protos = append(protos, billableTimeEntryToProto(&e))
+	}
+
+	return &workv1.ListBillableTimeEntriesResponse{Entries: protos}, nil
+}
+
+// ListProjectTimeEntries serves a single project's "Stunden abrechnen"
+// roll-up. Project affiliation is checked server-side via projectService.Get
+// (tenant + not-found), the same way GetProject does -- not just RLS.
+func (s *WorkGRPCServer) ListProjectTimeEntries(ctx context.Context, req *workv1.ListProjectTimeEntriesRequest) (*workv1.ListProjectTimeEntriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projectID, err := uuid.Parse(req.ProjectId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	entries, err := s.timeEntryService.ListByProject(ctx, projectID, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list project time entries")
+	}
+
+	protos := make([]*workv1.ProjectTimeEntryProto, 0, len(entries))
+	for _, e := range entries {
+		protos = append(protos, projectTimeEntryToProto(&e))
+	}
+
+	return &workv1.ListProjectTimeEntriesResponse{Entries: protos}, nil
+}
+
+// ListProjectTeamUtilization serves the project's "Auslastung" roll-up: every
+// member's tracked hours per week and per month. Same tenant/project-
+// affiliation check as ListProjectTimeEntries, plus the member list so a
+// member with zero tracked hours still appears (not just who has entries).
+func (s *WorkGRPCServer) ListProjectTeamUtilization(ctx context.Context, req *workv1.ListProjectTeamUtilizationRequest) (*workv1.ListProjectTeamUtilizationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projectID, err := uuid.Parse(req.ProjectId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	utilization, err := s.timeEntryService.ProjectUtilization(ctx, projectID, tenantID, members, time.Now())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to aggregate project utilization")
+	}
+
+	protos := make([]*workv1.ProjectMemberUtilizationProto, 0, len(utilization))
+	for _, u := range utilization {
+		protos = append(protos, memberUtilizationToProto(&u))
+	}
+
+	return &workv1.ListProjectTeamUtilizationResponse{Team: protos}, nil
+}
+
 // ============================================================================
 // Time Entry Proto Converters
 // ============================================================================
+
+func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeEntryProto {
+	var hours float64
+	if e.DurationSeconds != nil {
+		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
+	}
+	description := ""
+	if e.Description != nil {
+		description = *e.Description
+	}
+	return &workv1.BillableTimeEntryProto{
+		Id:          e.ID.String(),
+		Date:        e.StartedAt.Format("2006-01-02"),
+		Project:     e.ProjectName,
+		Task:        e.TaskTitle,
+		Employee:    e.UserName,
+		Hours:       hours,
+		Description: description,
+	}
+}
+
+func memberUtilizationToProto(u *models.MemberUtilization) *workv1.ProjectMemberUtilizationProto {
+	return &workv1.ProjectMemberUtilizationProto{
+		UserId:       u.UserID.String(),
+		Name:         u.Name,
+		Role:         u.Role,
+		WeeklyTarget: int32(u.WeeklyTarget),
+		WeeklyData:   utilizationPointsToProto(u.WeeklyData),
+		MonthlyData:  utilizationPointsToProto(u.MonthlyData),
+	}
+}
+
+func utilizationPointsToProto(points []models.UtilizationPoint) []*workv1.UtilizationPointProto {
+	protos := make([]*workv1.UtilizationPointProto, 0, len(points))
+	for _, p := range points {
+		protos = append(protos, &workv1.UtilizationPointProto{Label: p.Label, Hours: p.Hours})
+	}
+	return protos
+}
+
+func projectTimeEntryToProto(e *models.ProjectTimeEntry) *workv1.ProjectTimeEntryProto {
+	var hours float64
+	if e.DurationSeconds != nil {
+		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
+	}
+	description := ""
+	if e.Description != nil {
+		description = *e.Description
+	}
+	return &workv1.ProjectTimeEntryProto{
+		Id:          e.ID.String(),
+		Date:        e.StartedAt.Format("2006-01-02"),
+		Task:        e.TaskTitle,
+		Person:      e.UserName,
+		Hours:       hours,
+		Description: description,
+	}
+}
 
 func timeEntryToProto(e *models.TimeEntry, userName string) *workv1.TimeEntryProto {
 	proto := &workv1.TimeEntryProto{

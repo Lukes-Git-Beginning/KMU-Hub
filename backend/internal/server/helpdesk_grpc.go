@@ -15,17 +15,24 @@ import (
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
+	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
 
 // HelpdeskGRPCServer implements the HelpdeskService gRPC server.
 type HelpdeskGRPCServer struct {
 	helpdeskv1.UnimplementedHelpdeskServiceServer
 	svc *helpdesk.Service
+	// inboxClient is optional; nil if the inbox (notification) service is
+	// unreachable. Only CreateTicketFromMessage needs it -- every other RPC
+	// degrades gracefully without it.
+	inboxClient inboxv1.InboxServiceClient
 }
 
-// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server.
-func NewHelpdeskGRPCServer(svc *helpdesk.Service) *HelpdeskGRPCServer {
-	return &HelpdeskGRPCServer{svc: svc}
+// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient may be
+// nil, which disables CreateTicketFromMessage (Unavailable) but leaves every
+// other RPC unaffected.
+func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient) *HelpdeskGRPCServer {
+	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient}
 }
 
 // ============================================================================
@@ -61,7 +68,25 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		queueID = &id
 	}
 
-	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory())
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		id, err := uuid.Parse(req.GetContactId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", err)
+		}
+		contactID = &id
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		id, err := uuid.Parse(req.GetOrgId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid org_id: %v", err)
+		}
+		orgID = &id
+	}
+
+	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -96,13 +121,40 @@ func (s *HelpdeskGRPCServer) ListTickets(ctx context.Context, req *helpdeskv1.Li
 		statusFilter = &sf
 	}
 
+	var participantID *uuid.UUID
+	if req.ParticipantId != nil {
+		pid, parseErr := uuid.Parse(req.GetParticipantId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid participant_id")
+		}
+		participantID = &pid
+	}
+
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		cid, parseErr := uuid.Parse(req.GetContactId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		contactID = &cid
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		oid, parseErr := uuid.Parse(req.GetOrgId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid org_id")
+		}
+		orgID = &oid
+	}
+
 	page := max(int(req.GetPage()), 1)
 	pageSize := int(req.GetPageSize())
 	if pageSize < 1 {
 		pageSize = 20
 	}
 
-	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, page, pageSize)
+	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, participantID, contactID, orgID, page, pageSize)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -145,7 +197,25 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		queueID = &qid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID)
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		cid, err := uuid.Parse(req.GetContactId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", err)
+		}
+		contactID = &cid
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		oid, err := uuid.Parse(req.GetOrgId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid org_id: %v", err)
+		}
+		orgID = &oid
+	}
+
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID, contactID, orgID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -221,6 +291,48 @@ func (s *HelpdeskGRPCServer) MergeTickets(ctx context.Context, req *helpdeskv1.M
 		return nil, mapHelpdeskError(err)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// CreateTicketFromMessage fetches the source inbox message from the inbox
+// service and delegates persistence + idempotency to the helpdesk service.
+// The orchestration lives here rather than in the gateway, mirroring
+// BizGRPCServer.CreateQuoteFromDeal: one RPC call does both steps.
+func (s *HelpdeskGRPCServer) CreateTicketFromMessage(ctx context.Context, req *helpdeskv1.CreateTicketFromMessageRequest) (*helpdeskv1.CreateTicketFromMessageResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+
+	requesterID, err := uuid.Parse(req.GetRequesterId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+	}
+
+	messageID, err := uuid.Parse(req.GetMessageId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	if s.inboxClient == nil {
+		return nil, status.Error(codes.Unavailable, "inbox service not available")
+	}
+
+	msgResp, err := s.inboxClient.GetMessage(ctx, &inboxv1.GetMessageRequest{MessageId: req.GetMessageId()})
+	if err != nil {
+		slog.Error("CreateTicketFromMessage: fetch inbox message failed", "message_id", req.GetMessageId(), "error", err)
+		return nil, err
+	}
+	msg := msgResp.GetMessage()
+
+	t, created, err := s.svc.CreateTicketFromMessage(ctx, tenantID, requesterID, messageID, channelToString(msg.GetChannel()), msg.GetSubject(), msg.GetPreview())
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+
+	return &helpdeskv1.CreateTicketFromMessageResponse{
+		Ticket:  ticketToProto(t),
+		Created: created,
+	}, nil
 }
 
 // ============================================================================
@@ -875,6 +987,21 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	if t.AssigneeName != nil {
 		msg.AssigneeName = t.AssigneeName
 	}
+	if t.ContactID != nil {
+		s := t.ContactID.String()
+		msg.ContactId = &s
+	}
+	if t.OrgID != nil {
+		s := t.OrgID.String()
+		msg.OrgId = &s
+	}
+	if t.SourceChannel != nil {
+		msg.SourceChannel = t.SourceChannel
+	}
+	if t.SourceMessageID != nil {
+		s := t.SourceMessageID.String()
+		msg.SourceMessageId = &s
+	}
 	return msg
 }
 
@@ -1019,6 +1146,18 @@ func mapHelpdeskError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, helpdesk.ErrRoutingRuleNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrContactNotFound):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrOrgNotFound):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrMessageAlreadyLinked):
+		// Only reachable if the post-conflict re-fetch in
+		// Service.CreateTicketFromMessage itself fails after losing the race
+		// (the happy path resolves this into an existing-ticket return, not
+		// an error) -- surfaced as Conflict rather than Internal.
+		return status.Error(codes.AlreadyExists, err.Error())
 	default:
 		slog.Error("unhandled helpdesk service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
