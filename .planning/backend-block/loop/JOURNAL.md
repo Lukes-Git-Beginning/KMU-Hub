@@ -1229,7 +1229,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 18 — g-rls-regression-guard — done — 2026-08-03 01:15
 
-- commit: (siehe unten)
+- commit: ead9923e
 - gebaut: `backend/internal/testutil/rls_regression_test.go`,
   `TestAllPublicTablesHaveRLSOrAreAllowlisted`. Scannt `pg_class` in `public` fuer
   `relkind IN ('r','p')`, schliesst Partitionen ueber `relispartition` aus (direkter als ein Join
