@@ -3571,7 +3571,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
 
 ## Iteration 50 — g-berichte-scheduler — done — 2026-08-02
 
-- commit: (siehe unten)
+- commit: `51b2f999` feat(berichte): deliver scheduled reports by email
 - verify vorgaenger: sauber. `37a8c8a5` (Iteration 49, notification/EmailAdapter) gegen die sechs
   Fehlerklassen geprueft: kein Gateway-Handler beruehrt (also kein Direct-Svc-Bypass), keine
   Migration, kein Proto, keine neue Route (kein openapi-Bedarf). Die beiden neuen `return nil, nil`
