@@ -1393,3 +1393,64 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
     409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug) bleiben unveraendert offen,
     hier nicht angefasst.
+
+## Iteration 22 — g-vendor-access — done — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: `d3b7cb01` — feat(security): build vendor access request lifecycle (RBAC R-5 B)
+- gebaut: `g-vendor-access` gezogen (`/vendor-access`). Praemisse geprueft und widerlegt: KEIN
+  Aussen-Endpoint ohne Login. `desktop/src/renderer/src/api/vendor-access.ts` ruft
+  `authenticatedRequest` wie jede andere Admin-API, Header "RBAC R-5 B"; die Typen beschreiben
+  GDAP-light v3 — Zentria beantragt zeitlich befristeten Support-Zugang zum Tenant, der Kunde
+  (normaler eingeloggter Admin) genehmigt/lehnt ab/schlaegt Alternativtermin vor/entzieht.
+  `security:vendor_access:manage` war schon in Migration 000256 geseedet und dem Preset `admin`
+  zugeteilt — keine neue Permission-Migration noetig, deutlich kleinerer Deploy-Hazard als die
+  urspruengliche Scope-Vermutung.
+  Migration 000277: Tabelle `vendor_access_requests` (`tenant_id NOT NULL` + `enable_tenant_rls()`,
+  `agents` JSONB, `scope` TEXT[], Status-CHECK ueber alle sieben FE-Zustaende). `security.proto` +
+  Regen um 5 RPCs erweitert (List/Approve/Decline/CounterPropose/Revoke), `security_grpc.go` und
+  `cmd/auth/main.go` verdrahtet. Neues Paket `internal/security/vendoraccess/` (Repository +
+  PostgresRepository + Service) nach dem `gdpr`-Paket-Muster: State-Machine
+  (pending/counter_proposed -> active|declined, pending -> counter_proposed, active -> revoked)
+  und Sensitive-Scope-Guardrail (`hr_data`/`salary` -> 422 `sensitive_ack_required`, Liste
+  haendisch gegen `VENDOR_ACCESS_AREAS` im FE gespiegelt, keine gemeinsame Quelle ueber die
+  FE/BE-Grenze — im Code kommentiert). `approved_by`/`revoked_by` werden ueber einen Join auf
+  `users` zu Anzeigenamen aufgeloest (Muster aus `p1b-roles-list`), nicht als UUID ausgeliefert.
+  Gateway-Routen unter einem EIGENEN Top-Level-Prefix `/api/v1/vendor-access` registriert (nicht
+  unter `/api/v1/security/...`), weil das der Pfad ist, den das FE tatsaechlich aufruft — Regel aus
+  dem RICHTUNGSENTSCHEID fuer `fix-*-paths`-Units sinngemaess auch hier angewandt (FE ist kanonisch).
+  Bewusst NICHT gebaut: kein Create-Endpoint (das FE hat keinen Aufruf dafuer). Die
+  Repository-Methode `CreateRequest` existiert fuer Tests/eine kuenftige Zentria-Operator-Anbindung,
+  ist aber an keine Route gebunden. Die 15s-Auto-Bestaetigung nach `counter-propose` im MSW-Mock ist
+  reine FE-Demo-Simulation; im Backend bleibt eine `counter_proposed`-Anfrage in diesem Zustand, bis
+  ein separater Zentria-seitiger Bestaetigungsweg existiert.
+- gate: build ok (`go build -p 2 ./internal/models/... ./internal/security/...
+  ./internal/gateway/... ./internal/server/... ./cmd/auth/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+  ./internal/security/vendoraccess/...` 15 PASS / 0 SKIP (`DATABASE_URL` gesetzt, Rolle
+  `kmuhub_app`), `go test -count=1 ./internal/gateway/` gruen (inkl. TestOpenAPIRouteDrift),
+  `go test -count=1 ./internal/server/...` gruen | migration: `migrate up` / `down 1` / `up` alle
+  sauber (Kopf 277) | RLS-Smoke (Referenz-Template GATE-COMMANDS.md): eigener Tenant -> 1, fremder
+  Tenant -> 0.
+  Zwei Bugs beim ersten Testlauf gefunden, beide im TEST-Code (nicht im Repository) und noch in
+  dieser Iteration gefixt: (1) ein zweiter `CreateRequest`-Aufruf lief unter `context.Background()`
+  ohne Tenant-Kontext und verletzte folgerichtig die WITH-CHECK-Policy (42501) — erwartetes
+  Policy-Verhalten, kein Repo-Bug, gefixt via `testutil.WithTenantCtx`. (2) Tenant-Cleanup schlug
+  fehl, weil `users.tenant_id` KEIN `ON DELETE CASCADE` hat — der geseedete Pruefer-User muss per
+  eigenem `defer` VOR dem Tenant geloescht werden (LIFO beachten; dieselbe Cleanup-Lehre wie
+  Iteration 15/16, hier als FK-Reihenfolge- statt Timing-Falle).
+- verify vorgaenger: sauber. `e86415ce` (Iteration 21) ist eine reine Diagnose ohne Codeaenderung
+  (`g-admin-billing` blocked, nur JOURNAL.md/BACKLOG.yml), nichts zu verifizieren; der letzte
+  echte Code-Commit `989ff60f` (Iteration 20) wurde bereits in Iteration 21 verifiziert.
+- offen:
+  - **Fuer eine spaetere Iteration/Luke:** Zentria-seitiger Bestaetigungsweg fuer
+    `counter_proposed` -> `active` fehlt (im Mock nur als 15s-`setTimeout` simuliert); haengt am
+    ebenfalls fehlenden Create-Kanal (wie legt Zentria ueberhaupt eine Anfrage an?) — vermutlich ein
+    kuenftiges Zentria-Operator-Tool/Platform-API, ausserhalb des Kunden-Vertrags dieser Unit.
+  - `sensitiveAreas`-Liste in `internal/security/vendoraccess/service.go` ist eine Handkopie von
+    `VENDOR_ACCESS_AREAS` (FE) — bei einer FE-Aenderung an den sensitiven Areas muss diese Liste
+    manuell nachgezogen werden, es gibt keine gemeinsame Quelle.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug, `useBilling.ts` auf reale
+    Endpoints umstellen) bleiben unveraendert offen, hier nicht angefasst.

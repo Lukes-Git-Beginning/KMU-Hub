@@ -1067,7 +1067,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `/vendor-access` — das FE ruft die Route ueber
       `desktop/src/renderer/src/api/vendor-access.ts`, im Gateway null Treffer.
@@ -1093,6 +1093,50 @@ units:
       - oder blocked mit den offenen Sicherheitsfragen
       - falls gebaut: kein Zugriff ohne gueltiges Token, kein tenant-uebergreifender Zugriff
       - falls gebaut: openapi.yaml + go test ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT (Migration 000277, Iteration 22), aber die Scope-Praemisse war falsch — kein
+      Aussen-Endpoint. Verifiziert gegen `desktop/src/renderer/src/api/vendor-access.ts`: der
+      Client nutzt `authenticatedRequest` wie jede andere Admin-API, Header-Kommentar "RBAC R-5 B",
+      und die Typen (`vendor-access-types.ts`) beschreiben GDAP-light v3 — Zentria beantragt
+      zeitlich befristeten SUPPORT-Zugang zum Tenant, der Kunde (normaler eingeloggter Admin)
+      genehmigt/lehnt ab/schlaegt Alternativtermin vor/entzieht. Keine Lieferanten-Bestellansicht,
+      kein Login-loser Zugriff. `security:vendor_access:manage` war bereits in Migration 000256
+      seed­ed und dem Preset `admin` zugeteilt (Zeile 402 der Migration) — keine neue
+      Permission-Migration noetig.
+      Gebaut: Tabelle `vendor_access_requests` (tenant_id NOT NULL + `enable_tenant_rls()`),
+      5 neue RPCs in `security.proto`/`security_grpc.go` (List/Approve/Decline/CounterPropose/
+      Revoke), Service `internal/security/vendoraccess/` mit der State-Machine (pending/
+      counter_proposed -> active|declined, pending -> counter_proposed, active -> revoked) und dem
+      Sensitive-Scope-Guardrail (`hr_data`/`salary` -> 422 ohne `sensitive_ack`, Liste haendisch
+      gegen `VENDOR_ACCESS_AREAS` im FE gespiegelt — keine gemeinsame Quelle ueber die FE/BE-Grenze).
+      Gateway-Routen unter einem EIGENEN Top-Level-Prefix `/api/v1/vendor-access` (nicht
+      `/api/v1/security/vendor-access`) registriert, weil das der Pfad ist, den das FE tatsaechlich
+      aufruft.
+      Offen/bewusst nicht gebaut: kein Create-Endpoint — der FE-Client hat keinen Aufruf dafuer
+      (nur list/approve/decline/counter-propose/revoke). Die Repository-Methode `CreateRequest`
+      existiert (fuer Tests und einen kuenftigen Zentria-Operator-Kanal), ist aber nicht an eine
+      HTTP-Route gebunden. Der Mock simuliert nach `counter-propose` eine automatische
+      Zentria-Bestaetigung per `setTimeout` 15s — das ist reine FE-Demo-Simulation; im echten Backend
+      bleibt eine `counter_proposed`-Anfrage im diesem Zustand, bis ein separater
+      Zentria-seitiger Bestaetigungsweg existiert (der wiederum den fehlenden Create-Kanal
+      voraussetzt) — beides ausserhalb des Kunden-Vertrags dieser Unit und fuer eine Folge-Unit
+      vorzumerken, falls das GDAP-Feature vollstaendig live gehen soll.
+      gate: build ok (`go build -p 2 ./internal/models/... ./internal/security/...
+      ./internal/gateway/... ./internal/server/... ./cmd/auth/... ./cmd/gateway/...`) | vet ok |
+      lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+      ./internal/security/vendoraccess/...` 15 PASS / 0 SKIP (`DATABASE_URL` gesetzt, Rolle
+      `kmuhub_app`), `go test -count=1 ./internal/gateway/` gruen (TestOpenAPIRouteDrift inklusive),
+      `go test -count=1 ./internal/server/...` gruen | migration: `migrate up` / `down 1` / `up`
+      alle sauber | RLS-Smoke (Referenz-Template aus GATE-COMMANDS.md): eigener Tenant -> 1, fremder
+      Tenant -> 0.
+      Zwei Bugs beim ersten Testlauf gefunden und behoben — beide im TEST-Code, nicht im Repository:
+      (1) ein zweiter `CreateRequest`-Aufruf im RLS-Test lief unter `context.Background()` ohne
+      Tenant-Kontext und verletzte folgerichtig die WITH-CHECK-Policy (42501) — das war das erwartete
+      Verhalten der Policy, kein Repo-Bug, gefixt durch `testutil.WithTenantCtx`.
+      (2) Tenant-Cleanup schlug fehl, weil `users.tenant_id` KEIN `ON DELETE CASCADE` hat — der
+      geseedete Pruefer-User muss vor dem Tenant per eigenem `defer` geloescht werden (LIFO-Reihenfolge
+      beachten, dieselbe Lehre wie in Iteration 15/16 zu `t.Cleanup`/`defer pool.Close()`, hier aber
+      eine FK-Reihenfolge- statt Timing-Falle).
 
   # ==========================================================================
   # BLOCK E — verifizierte Bestandsbugs
