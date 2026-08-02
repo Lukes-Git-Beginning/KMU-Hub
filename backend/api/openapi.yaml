@@ -3546,6 +3546,53 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/notifications/{id}/snooze:
+    post:
+      summary: Snooze a notification
+      description: >-
+        Hides the notification from the list and the unread count until the
+        given time, and marks it read. Response is the flat
+        `{id, snoozed_until}` shape (not the wrapped Notification used by
+        pin/dismiss).
+      tags: [notifications]
+      operationId: snoozeNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [until]
+              properties:
+                until:
+                  type: string
+                  format: date-time
+                  description: Must be in the future.
+      responses:
+        "200":
+          description: Notification snoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnoozeNotificationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Snooze time is in the past
+
   /api/v1/notifications/read-all:
     post:
       summary: Mark all notifications as read
@@ -31840,6 +31887,20 @@ components:
           description: >-
             ISO-8601 timestamp. Raw wire shape is a proto Timestamp object
             ({seconds,nanos}); normalized client-side.
+
+    SnoozeNotificationResponse:
+      type: object
+      description: >-
+        Flat response for the snooze endpoint (not the wrapped `{notification}`
+        shape used by pin/dismiss) — matches the desktop client's SnoozeResponse
+        type exactly.
+      properties:
+        id:
+          type: string
+          format: uuid
+        snoozed_until:
+          type: string
+          format: date-time
 
     NotificationPreference:
       type: object

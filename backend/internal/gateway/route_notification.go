@@ -48,6 +48,7 @@ func (n *NotificationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(ht
 		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/pin", n.HandlePin)
 		r.With(middleware.RequirePermission("notifications", "write")).Delete("/{id}/pin", n.HandleUnpin)
 		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/dismiss", n.HandleDismiss)
+		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/snooze", n.HandleSnooze)
 
 		// Preferences
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/preferences", n.HandleGetPreferences)
@@ -228,6 +229,45 @@ func (n *NotificationRoutes) HandleDismiss(w http.ResponseWriter, r *http.Reques
 	resp, err := client.DismissNotification(r.Context(), &notificationv1.DismissNotificationRequest{
 		NotificationId: notificationID,
 		UserId:         userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (n *NotificationRoutes) HandleSnooze(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	notificationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var body struct {
+		Until time.Time `json:"until"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.Until.Before(time.Now()) {
+		response.Error(w, http.StatusUnprocessableEntity, "snooze time must be in the future")
+		return
+	}
+
+	resp, err := client.SnoozeNotification(r.Context(), &notificationv1.SnoozeNotificationRequest{
+		NotificationId: notificationID,
+		UserId:         userID,
+		Until:          timestamppb.New(body.Until),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

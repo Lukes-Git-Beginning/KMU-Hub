@@ -271,6 +271,37 @@ func (s *NotificationGRPCServer) DismissNotification(ctx context.Context, req *n
 	}, nil
 }
 
+func (s *NotificationGRPCServer) SnoozeNotification(ctx context.Context, req *notificationv1.SnoozeNotificationRequest) (*notificationv1.SnoozeNotificationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	notifID, err := uuid.Parse(req.NotificationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid notification_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if req.Until == nil {
+		return nil, status.Error(codes.InvalidArgument, "until is required")
+	}
+	until := req.Until.AsTime()
+
+	if err := s.notifService.SnoozeNotification(ctx, tenantID, notifID, userID, until); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.SnoozeNotificationResponse{
+		Id:           notifID.String(),
+		SnoozedUntil: timestamppb.New(until),
+	}, nil
+}
+
 // ============================================================================
 // Preferences
 // ============================================================================
@@ -648,6 +679,8 @@ func mapNotificationError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, notification.ErrUnauthorized):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, notification.ErrInvalidSnoozeTime):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, preference.ErrPreferenceNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, preference.ErrQuietHoursNotFound):
