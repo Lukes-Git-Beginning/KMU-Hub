@@ -468,6 +468,95 @@ func (r *PostgresRepository) DeleteRole(ctx context.Context, roleID uuid.UUID) e
 	return nil
 }
 
+// GetRolePermissions returns the grant set of roleID. role_permissions'
+// own RLS read policy (derived through a join on the owning role) does the
+// tenant scoping, so the query carries no explicit filter beyond the id.
+func (r *PostgresRepository) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]RoleGrant, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT p.name, rp.scope FROM role_permissions rp
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE rp.role_id = $1
+		 ORDER BY p.name`, roleID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	grants := []RoleGrant{}
+	for rows.Next() {
+		var g RoleGrant
+		if err := rows.Scan(&g.Key, &g.Scope); err != nil {
+			return nil, err
+		}
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
+// SetRolePermissions replaces the entire grant set of roleID: delete every
+// existing row, then insert the new set. Both run in one transaction so a
+// failure between them leaves the previous grants standing rather than the
+// role half-revoked.
+//
+// Every key is resolved against the permissions catalogue up front, before
+// anything is written — a key with no match aborts the whole call with
+// ErrCapabilityKeyUnknown instead of the JOIN below silently dropping it,
+// which would let the builder believe it saved a right nothing checks for.
+// The role_permissions_scope_check constraint (migration 000256) is the
+// backstop for an out-of-range scope value slipping past the caller.
+func (r *PostgresRepository) SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	keys := make([]string, len(grants))
+	scopes := make([]string, len(grants))
+	for i, g := range grants {
+		keys[i] = g.Key
+		scopes[i] = g.Scope
+	}
+
+	var unknownKeys int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM unnest($1::text[]) AS k(key)
+		 WHERE NOT EXISTS (SELECT 1 FROM permissions p WHERE p.name = k.key)`,
+		keys,
+	).Scan(&unknownKeys); err != nil {
+		return nil, err
+	}
+	if unknownKeys > 0 {
+		return nil, ErrCapabilityKeyUnknown
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM role_permissions WHERE role_id = $1`, roleID); err != nil {
+		return nil, err
+	}
+
+	if len(grants) > 0 {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO role_permissions (role_id, permission_id, scope)
+			 SELECT $1, p.id, g.scope
+			 FROM unnest($2::text[], $3::text[]) AS g(key, scope)
+			 JOIN permissions p ON p.name = g.key`,
+			roleID, keys, scopes,
+		); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+				return nil, ErrCapabilityKeyUnknown
+			}
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return grants, nil
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

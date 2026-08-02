@@ -190,7 +190,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1b-roles-update-delete]
-    status: todo
+    status: done
     scope: >
       `GET /admin/roles/{id}/permissions` -> `{roleId, grants:{key:{scope}}}` und
       `PUT /admin/roles/{id}/permissions` (Vollersatz derselben Struktur).

@@ -1015,6 +1015,86 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/admin/roles/{id}/permissions:
+    get:
+      summary: Grant set of a role
+      description: >
+        Presets are readable too — the builder needs to see what it is
+        cloning. Requires roles:manage (legacy) or admin:role:read
+        (fine-grained).
+      tags: [users]
+      operationId: getRolePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Grant set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePermissionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      summary: Replace the grant set of a custom role
+      description: >
+        Full replacement: every key missing from grants is revoked, every key
+        present is (re)inserted with its scope, in one transaction. System
+        presets answer 403 preset_immutable. Every key must exist in the
+        capability catalogue — an unknown key aborts the whole write with 422.
+        Requires roles:manage (legacy) or admin:role:edit (fine-grained).
+      tags: [users]
+      operationId: setRolePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRolePermissionsRequest"
+      responses:
+        "200":
+          description: Grant set replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePermissionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: preset_immutable — system presets cannot be edited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: unknown_capability_key — a grant key is not in the permissions catalogue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Custom Fields
   /api/v1/custom-fields:
     post:
@@ -31131,6 +31211,37 @@ components:
           type: string
           maxLength: 40
           example: hsl(217 91% 60%)
+
+    RoleGrant:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [own, team, all]
+      required: [scope]
+
+    RolePermissionsResponse:
+      type: object
+      properties:
+        roleId:
+          type: string
+          format: uuid
+        grants:
+          type: object
+          description: Capability key (resource:action) → grant. Missing key = not granted.
+          additionalProperties:
+            $ref: "#/components/schemas/RoleGrant"
+      required: [roleId, grants]
+
+    UpdateRolePermissionsRequest:
+      type: object
+      properties:
+        grants:
+          type: object
+          description: Full replacement grant map — keys absent here are revoked.
+          additionalProperties:
+            $ref: "#/components/schemas/RoleGrant"
+      required: [grants]
 
     StatusResponse:
       type: object

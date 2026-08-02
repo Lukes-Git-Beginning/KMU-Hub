@@ -213,3 +213,56 @@ func TestHandleDeleteRole_ServiceUnavailable(t *testing.T) {
 	routes := NewAuthRoutes(emptyRegistry())
 	testServiceUnavailable(t, routes.HandleDeleteRole)
 }
+
+// --- HandleGetRolePermissions / HandleSetRolePermissions ---
+
+func TestHandleGetRolePermissions_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetRolePermissions)
+}
+
+func TestHandleSetRolePermissions_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleSetRolePermissions)
+}
+
+// TestToRoleGrantsBody_EmptyIsContainerNotNull guards a role with zero
+// grants: the frontend's fetchRolePermissions does `resp?.grants ?? {}`, but
+// Object.entries on a JSON null still throws before that fallback helps, so
+// the map must marshal as {} on the wire, not null.
+func TestToRoleGrantsBody_EmptyIsContainerNotNull(t *testing.T) {
+	raw, err := json.Marshal(rolePermissionsResponseBody{
+		RoleID: "11111111-1111-1111-1111-111111111111",
+		Grants: toRoleGrantsBody(nil),
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"roleId":"11111111-1111-1111-1111-111111111111","grants":{}}`
+	if string(raw) != want {
+		t.Errorf("empty grants = %s, want %s", raw, want)
+	}
+}
+
+// TestToRoleGrantsBody_WireShape pins the map-keyed-by-capability-key shape:
+// RoleGrants in rbac-types.ts is Record<string, {scope}>, the proto's
+// repeated RoleGrant is the wire form the gateway must fold into it.
+func TestToRoleGrantsBody_WireShape(t *testing.T) {
+	raw, err := json.Marshal(rolePermissionsResponseBody{
+		RoleID: "11111111-1111-1111-1111-111111111111",
+		Grants: toRoleGrantsBody([]*authv1.RoleGrant{
+			{Key: "crm:contact:read", Scope: "all"},
+			{Key: "work:task:edit", Scope: "team"},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"roleId":"11111111-1111-1111-1111-111111111111",` +
+		`"grants":{"crm:contact:read":{"scope":"all"},"work:task:edit":{"scope":"team"}}}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}

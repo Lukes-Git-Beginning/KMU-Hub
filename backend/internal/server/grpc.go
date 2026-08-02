@@ -343,6 +343,53 @@ func (s *AuthGRPCServer) DeleteRole(ctx context.Context, req *authv1.DeleteRoleR
 	return &authv1.DeleteRoleResponse{}, nil
 }
 
+// GetRolePermissions returns the grant set of a role visible to the caller —
+// presets included, since the builder reads a preset's grants when cloning it.
+func (s *AuthGRPCServer) GetRolePermissions(ctx context.Context, req *authv1.GetRolePermissionsRequest) (*authv1.GetRolePermissionsResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	grants, err := s.authService.GetRolePermissions(ctx, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.GetRolePermissionsResponse{RoleId: req.RoleId, Grants: toProtoRoleGrants(grants)}, nil
+}
+
+// SetRolePermissions replaces the entire grant set of a tenant-owned role.
+func (s *AuthGRPCServer) SetRolePermissions(ctx context.Context, req *authv1.SetRolePermissionsRequest) (*authv1.SetRolePermissionsResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	grants := make([]auth.RoleGrant, len(req.Grants))
+	for i, g := range req.Grants {
+		grants[i] = auth.RoleGrant{Key: g.Key, Scope: g.Scope}
+	}
+
+	updated, err := s.authService.SetRolePermissions(ctx, roleID, grants)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.SetRolePermissionsResponse{RoleId: req.RoleId, Grants: toProtoRoleGrants(updated)}, nil
+}
+
+// toProtoRoleGrants renders a grant set for the wire, never nil — an empty
+// slice still marshals through the gateway as [], not the JSON null a
+// nil-slice repeated field would leave in the proto response.
+func toProtoRoleGrants(grants []auth.RoleGrant) []*authv1.RoleGrant {
+	out := make([]*authv1.RoleGrant, len(grants))
+	for i, g := range grants {
+		out[i] = &authv1.RoleGrant{Key: g.Key, Scope: g.Scope}
+	}
+	return out
+}
+
 // toProtoRole renders a role for the wire. TenantID/BasedOn nil becomes the
 // proto zero value (empty string); the gateway turns that back into JSON null.
 func toProtoRole(r *auth.Role) *authv1.Role {
@@ -923,6 +970,12 @@ func mapError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, auth.ErrRoleHasMembers):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// OutOfRange, not InvalidArgument: the gateway maps it to 422, matching
+	// the frontend contract's "unbekannter Key -> 422" — InvalidArgument
+	// would land on 400, which the builder does not distinguish from a
+	// malformed request body.
+	case errors.Is(err, auth.ErrCapabilityKeyUnknown):
+		return status.Error(codes.OutOfRange, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorNotEnabled):

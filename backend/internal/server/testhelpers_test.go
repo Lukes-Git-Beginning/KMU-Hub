@@ -234,6 +234,14 @@ func (m *authMockRepo) DeleteRole(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *authMockRepo) GetRolePermissions(_ context.Context, _ uuid.UUID) ([]auth.RoleGrant, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) SetRolePermissions(_ context.Context, _ uuid.UUID, _ []auth.RoleGrant) ([]auth.RoleGrant, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

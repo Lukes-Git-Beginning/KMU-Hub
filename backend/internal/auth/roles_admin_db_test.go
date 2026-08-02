@@ -39,6 +39,7 @@ func TestRoleAdminErrorsCarryFrontendCodes(t *testing.T) {
 	assert.Equal(t, "role_limit_reached", auth.ErrRoleLimitReached.Error())
 	assert.Equal(t, "role_name_exists", auth.ErrRoleNameExists.Error())
 	assert.Equal(t, "not_found", auth.ErrBaseRoleNotFound.Error())
+	assert.Equal(t, "unknown_capability_key", auth.ErrCapabilityKeyUnknown.Error())
 }
 
 func roleAdminSetup(t *testing.T) (*pgxpool.Pool, *auth.Service) {
@@ -408,4 +409,195 @@ func TestDeleteRole_DB_NotFound(t *testing.T) {
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 	assert.ErrorIs(t, svc.DeleteRole(ctx, foreign.ID), auth.ErrBaseRoleNotFound)
 	assert.ErrorIs(t, svc.DeleteRole(ctx, uuid.New()), auth.ErrBaseRoleNotFound)
+}
+
+// grantMap turns []auth.RoleGrant into the key→scope shape grantsOf returns,
+// so the two can be compared directly regardless of row order.
+func grantMap(grants []auth.RoleGrant) map[string]string {
+	out := make(map[string]string, len(grants))
+	for _, g := range grants {
+		out[g.Key] = g.Scope
+	}
+	return out
+}
+
+// TestGetRolePermissions_DB_MatchesClonedGrants closes the read side against
+// the same fixture TestCreateRole_DB_ClonesEveryGrantWithScope uses: what the
+// clone wrote to role_permissions is exactly what the builder reads back.
+func TestGetRolePermissions_DB_MatchesClonedGrants(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Leser", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+
+	grants, err := svc.GetRolePermissions(ctx, role.ID)
+	require.NoError(t, err)
+	assert.Equal(t, grantsOf(t, pool, role.ID), grantMap(grants))
+	assert.NotEmpty(t, grants, "the extern clone carries grants — otherwise this test proves nothing")
+}
+
+// TestGetRolePermissions_DB_ReadsPresets proves presets are readable: the
+// builder shows a preset's grants while the tenant is still choosing what to
+// clone, before any custom role exists. Only the write side is restricted.
+func TestGetRolePermissions_DB_ReadsPresets(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	grants, err := svc.GetRolePermissions(ctx, presetID(t, pool, "extern"))
+	require.NoError(t, err)
+	assert.NotEmpty(t, grants)
+}
+
+// TestGetRolePermissions_DB_NotFound mirrors the other GetRoleByID-backed
+// reads: an unknown id and a foreign tenant's role both answer
+// ErrBaseRoleNotFound, never a 500 and never an empty grant map masquerading
+// as "role exists but has nothing granted".
+func TestGetRolePermissions_DB_NotFound(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Verborgen", BasedOn: presetID(t, pool, "extern")})
+	require.NoError(t, err)
+
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+	_, err = svc.GetRolePermissions(ctx, foreign.ID)
+	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound)
+
+	_, err = svc.GetRolePermissions(ctx, uuid.New())
+	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound)
+}
+
+// TestSetRolePermissions_DB_FullReplace is the PUT contract end to end: a key
+// missing from the new set is revoked, a key present with a changed scope is
+// updated, and a key not granted before is added — all in the single call.
+func TestSetRolePermissions_DB_FullReplace(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Umbau", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+	before := grantsOf(t, pool, role.ID)
+	require.Equal(t, "team", before["work:task:read"], "fixture assumption from migration 000256's extern seed")
+	require.NotContains(t, before, "crm:contact:read", "fixture assumption: extern does not carry this key")
+
+	updated, err := svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+		{Key: "dashboard:module:view", Scope: "all"}, // unchanged
+		{Key: "work:task:read", Scope: "all"},        // scope raised team -> all
+		{Key: "crm:contact:read", Scope: "own"},      // newly granted
+	})
+	require.NoError(t, err)
+
+	want := map[string]string{
+		"dashboard:module:view": "all",
+		"work:task:read":        "all",
+		"crm:contact:read":      "own",
+	}
+	assert.Equal(t, want, grantMap(updated), "the response must already reflect the replacement")
+	assert.Equal(t, want, grantsOf(t, pool, role.ID), "everything else from the clone must be revoked")
+}
+
+// TestSetRolePermissions_DB_EmptyRevokesEverything is the edge of full
+// replacement: an empty grant map is a valid PUT body and must strip every
+// capability the role held, not be mistaken for "nothing to do".
+func TestSetRolePermissions_DB_EmptyRevokesEverything(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Entleert", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+
+	updated, err := svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{})
+	require.NoError(t, err)
+	assert.Empty(t, updated)
+	assert.Empty(t, grantsOf(t, pool, role.ID))
+}
+
+// TestSetRolePermissions_DB_PresetIsImmutable is the write-side counterpart
+// of TestGetRolePermissions_DB_ReadsPresets: reading a preset's grants is
+// fine, replacing them is not.
+func TestSetRolePermissions_DB_PresetIsImmutable(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	_, err := svc.SetRolePermissions(ctx, presetID(t, pool, "extern"), []auth.RoleGrant{
+		{Key: "dashboard:module:view", Scope: "all"},
+	})
+	assert.ErrorIs(t, err, auth.ErrRolePresetImmutable)
+}
+
+// TestSetRolePermissions_DB_UnknownKeyRejected proves an unrecognized
+// capability key fails the whole write instead of being silently dropped —
+// the done_when this unit exists for. Every other key in the same call must
+// also not apply: a partial write here would let the builder believe it
+// saved the valid keys while the invalid one vanished unremarked.
+func TestSetRolePermissions_DB_UnknownKeyRejected(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Geschuetzt", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+	before := grantsOf(t, pool, role.ID)
+
+	_, err = svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+		{Key: "dashboard:module:view", Scope: "all"},
+		{Key: "not:a:real:permission", Scope: "all"},
+	})
+	assert.ErrorIs(t, err, auth.ErrCapabilityKeyUnknown)
+	assert.Equal(t, before, grantsOf(t, pool, role.ID), "a rejected write must leave the previous grants untouched")
+}
+
+// TestSetRolePermissions_DB_InvalidScopeRejected proves the service rejects
+// an out-of-range scope itself rather than letting it reach the database: a
+// value longer than the scope column's VARCHAR(8) would otherwise surface as
+// a raw length-error 500 instead of the 422 an invalid grant deserves.
+func TestSetRolePermissions_DB_InvalidScopeRejected(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Randfall", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+	before := grantsOf(t, pool, role.ID)
+
+	_, err = svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+		{Key: "dashboard:module:view", Scope: "not_a_real_scope"},
+	})
+	assert.ErrorIs(t, err, auth.ErrCapabilityKeyUnknown)
+	assert.Equal(t, before, grantsOf(t, pool, role.ID))
+}
+
+// TestSetRolePermissions_DB_FailureMidwayLeavesOldGrantsStanding is the
+// transactionality proof the done_when calls for: it drives the failure
+// through the repository directly so the DELETE half of delete-then-insert
+// actually runs before the constraint on scope aborts the INSERT — a failure
+// the service-level key check alone (which runs before any write) cannot
+// exercise. role_permissions_scope_check (migration 000256) is the backstop
+// that fires here.
+func TestSetRolePermissions_DB_FailureMidwayLeavesOldGrantsStanding(t *testing.T) {
+	pool, svc := roleAdminSetup(t)
+	repo := auth.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
+
+	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		Name: "Unversehrt", BasedOn: presetID(t, pool, "extern"),
+	})
+	require.NoError(t, err)
+	before := grantsOf(t, pool, role.ID)
+	require.NotEmpty(t, before)
+
+	_, err = repo.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+		{Key: "dashboard:module:view", Scope: "invalid"}, // fits scope VARCHAR(8), fails the CHECK
+	})
+	assert.ErrorIs(t, err, auth.ErrCapabilityKeyUnknown)
+	assert.Equal(t, before, grantsOf(t, pool, role.ID),
+		"the DELETE that ran before the CHECK violation must have rolled back with it")
 }

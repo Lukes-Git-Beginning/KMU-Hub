@@ -123,6 +123,14 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 			[2]string{"roles", "manage"},
 			[2]string{"admin:role", "delete"},
 		)).Delete("/{id}", a.HandleDeleteRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "read"},
+		)).Get("/{id}/permissions", a.HandleGetRolePermissions)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "edit"},
+		)).Put("/{id}/permissions", a.HandleSetRolePermissions)
 	})
 
 	// Protected user routes
@@ -740,6 +748,105 @@ func (a *AuthRoutes) HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// roleGrantBody is one capability grant on the wire — RoleGrants in
+// rbac-types.ts is a plain `Record<string, {scope}>`, the key never travels
+// as a field of its own.
+type roleGrantBody struct {
+	Scope string `json:"scope"`
+}
+
+// rolePermissionsResponseBody mirrors RolePermissionsResponse in
+// rbac-types.ts. Grants is built through toRoleGrantsBody so it always
+// marshals as `{}`, never `null`, on a role with zero grants.
+type rolePermissionsResponseBody struct {
+	RoleID string                   `json:"roleId"`
+	Grants map[string]roleGrantBody `json:"grants"`
+}
+
+func toRoleGrantsBody(grants []*authv1.RoleGrant) map[string]roleGrantBody {
+	body := make(map[string]roleGrantBody, len(grants))
+	for _, g := range grants {
+		body[g.Key] = roleGrantBody{Scope: g.Scope}
+	}
+	return body
+}
+
+// HandleGetRolePermissions returns the grant set of a role visible to the
+// caller — presets included, so the builder can read what it is cloning.
+func (a *AuthRoutes) HandleGetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetRolePermissions(r.Context(), &authv1.GetRolePermissionsRequest{RoleId: roleID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, rolePermissionsResponseBody{
+		RoleID: resp.RoleId,
+		Grants: toRoleGrantsBody(resp.Grants),
+	})
+}
+
+// putRolePermissionsRequest mirrors UpdateRolePermissionsInput in
+// rbac-types.ts. Scope shape (own|team|all) is not a validate tag here: the
+// catalogue check that also rejects an unknown key needs the database, so
+// both travel to the service together instead of splitting the validation
+// across two layers.
+type putRolePermissionsRequest struct {
+	Grants map[string]roleGrantBody `json:"grants"`
+}
+
+// HandleSetRolePermissions replaces the entire grant set of a tenant-owned
+// role. Presets and unknown capability keys are rejected in the service —
+// this handler only reshapes the map the frontend sends into the repeated
+// RoleGrant the proto carries.
+func (a *AuthRoutes) HandleSetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[putRolePermissionsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grants := make([]*authv1.RoleGrant, 0, len(req.Grants))
+	for key, g := range req.Grants {
+		grants = append(grants, &authv1.RoleGrant{Key: key, Scope: g.Scope})
+	}
+
+	resp, err := client.SetRolePermissions(r.Context(), &authv1.SetRolePermissionsRequest{
+		RoleId: roleID,
+		Grants: grants,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, rolePermissionsResponseBody{
+		RoleID: resp.RoleId,
+		Grants: toRoleGrantsBody(resp.Grants),
+	})
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

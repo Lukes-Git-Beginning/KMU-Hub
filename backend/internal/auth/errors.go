@@ -12,7 +12,7 @@ var (
 	ErrUserInactive       = errors.New("user account is inactive")
 	ErrRoleNotFound       = errors.New("role not found")
 
-	ErrTenantNotFound     = errors.New("tenant not found")
+	ErrTenantNotFound = errors.New("tenant not found")
 
 	// Tenant provisioning errors. All of them are input problems and map to
 	// 400 — a caller who cannot spell a plan type should not see a 500.
@@ -64,6 +64,12 @@ var (
 	// ErrRoleHasMembers blocks deleting a role that is still assigned to at
 	// least one account in the caller's tenant.
 	ErrRoleHasMembers = errors.New("role_has_members")
+	// ErrCapabilityKeyUnknown fires when a PUT grant set names a key the
+	// permissions catalogue does not have, or (as a defense-in-depth backstop
+	// the frontend's CapabilityScope union should make unreachable) a scope
+	// outside own|team|all. Accepting either silently would let the builder
+	// believe it saved a right nothing in the system checks for.
+	ErrCapabilityKeyUnknown = errors.New("unknown_capability_key")
 
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")

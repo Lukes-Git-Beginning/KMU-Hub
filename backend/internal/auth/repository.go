@@ -71,6 +71,19 @@ type Repository interface {
 	// cascade on role_id.
 	DeleteRole(ctx context.Context, roleID uuid.UUID) error
 
+	// GetRolePermissions returns the grant set of roleID. role_permissions'
+	// own RLS read policy (derived through the owning role) does the tenant
+	// scoping; callers must first resolve the role through GetRoleByID to
+	// tell "role invisible" apart from "role has zero grants".
+	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]RoleGrant, error)
+
+	// SetRolePermissions replaces the entire grant set of roleID in one
+	// transaction — delete then insert, so a failure midway leaves the
+	// previous grants standing. Every key must resolve against the
+	// permissions catalogue; an unresolved key aborts the whole write with
+	// ErrCapabilityKeyUnknown. Callers must reject presets first.
+	SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error

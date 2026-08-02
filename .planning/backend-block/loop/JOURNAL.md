@@ -256,3 +256,80 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     erfinden.
   - Escalation-Schutz beim Rename/Grant-Wechsel ist weiterhin bewusst nicht Teil dieser Unit
     (`p1b-guardrails`, Regel c) — `UpdateRole` aendert nur Name/Beschreibung/Farbe, keine Grants.
+
+## Iteration 5 — p1b-role-permissions — done — 2026-08-02 22:35
+
+- commit: (siehe naechster Eintrag)
+- gebaut: `GET /admin/roles/{id}/permissions` -> `{roleId, grants:{key:{scope}}}` (Presets lesbar — der
+  Builder zeigt das Grant-Set eines Presets waehrend er noch auswaehlt, wovon geklont wird) und
+  `PUT /admin/roles/{id}/permissions` (Vollersatz: fehlende Keys entzogen, neue eingefuegt, geaenderte
+  Scopes aktualisiert, alles in einer Transaktion). Service `GetRolePermissions`/`SetRolePermissions` in
+  `internal/auth/roles_admin.go` gehen denselben `GetRoleByID`-Weg wie `UpdateRole`/`DeleteRole` (Vorschlag
+  aus Iteration 4 aufgegriffen): GET erlaubt Presets, PUT prueft `TenantID == nil` -> `ErrRolePresetImmutable`
+  vor jedem Schreiben. Neuer Scope-Check im Service (jeder Grant muss `own|team|all` sein, sonst
+  `ErrCapabilityKeyUnknown`) faengt zu lange/falsche Werte ab, BEVOR sie die DB erreichen — ohne ihn waere
+  ein Scope laenger als `VARCHAR(8)` ein rohes 500 statt des sauberen 422 (real beim ersten Testlauf
+  aufgefallen: `22001 value too long` statt der erwarteten Sentinel). Repository:
+  `GetRolePermissions` (Read ueber `role_permissions`' eigene RLS-Policy, kein expliziter Tenant-Filter
+  noetig), `SetRolePermissions` (eine Transaktion: erst alle Keys per `unnest($1::text[])` LEFT-JOIN-Check
+  gegen `permissions.name` validieren — ein unbekannter Key bricht den GESAMTEN Schreibvorgang ab, bevor
+  irgendetwas geloescht wird —, dann `DELETE FROM role_permissions WHERE role_id=$1`, dann Bulk-`INSERT
+  ... SELECT ... FROM unnest($2::text[], $3::text[]) AS g(key, scope) JOIN permissions`; der
+  `role_permissions_scope_check`-Constraint (000256) ist ein zweiter Backstop, den ein direkter
+  Repo-Aufruf mit ungueltigem Scope tatsaechlich mid-transaction ausloest). gRPC `AuthGRPCServer.
+  GetRolePermissions`/`SetRolePermissions` (Proto-RPCs/Messages waren seit Iteration 1 fertig generiert,
+  keine `.proto`-Aenderung noetig) + `mapError`-Fall `ErrCapabilityKeyUnknown` -> `codes.OutOfRange`.
+  Gateway-Handler `HandleGetRolePermissions`/`HandleSetRolePermissions`, Guards additiv
+  (`RequirePermissionAny({roles,manage},{admin:role,read|edit})` — beide Keys seit Migration 000256
+  geseedet, **kein neuer Seed noetig**). `grpcStatusToHTTP` bekam einen neuen Fall
+  `codes.OutOfRange -> http.StatusUnprocessableEntity` (422) — vorher unbenutzt im Repo, verifiziert per
+  Grep. `openapi.yaml`: neuer Pfad `/api/v1/admin/roles/{id}/permissions` mit GET/PUT + Schemas
+  `RoleGrant`/`RolePermissionsResponse`/`UpdateRolePermissionsRequest`.
+- entscheidungen:
+  1. **GET erlaubt Presets, nur PUT ist gesperrt.** Weder Backlog-Notes noch FE-Mock verlangen eine
+     Preset-Sperre beim Lesen (`rbac.ts` hat keinen `isPresetRole`-Check auf der GET-Route), und der Builder
+     braucht das Preset-Grant-Set als Ausgangspunkt beim Klonen. Nur `PUT` prueft `TenantID == nil`.
+  2. **Scope-Validierung im Service, nicht nur der DB-Constraint ueberlassen.** Der ADR-Notiz-Gedanke
+     "der Wert kommt vom FE-Typunion, kann also nicht falsch sein" haelt nicht fuer jeden Aufrufer der API —
+     ein zu langer String durchbricht die Kette VOR dem CHECK-Constraint mit einem Laengenfehler
+     (`22001`), der als 500 durchgereicht worden waere. Der Service-Check faengt beides (unbekannter Wert
+     UND falsche Laenge) einheitlich als `unknown_capability_key`/422 ab; der DB-Constraint bleibt Backstop
+     fuer den direkten Repo-Aufruf (siehe Transaktionalitaets-Test).
+  3. **Unbekannte Keys werden VOR jedem Schreiben geprueft (SELECT vor DELETE), nicht erst beim INSERT
+     erkannt.** Ein LEFT-JOIN-basierter INSERT wuerde einen unbekannten Key stillschweigend fallenlassen
+     (`JOIN permissions` liefert fuer ihn keine Zeile) statt den ganzen Aufruf abzulehnen — genau das
+     verbietet der Backlog explizit ("nicht still verschluckt"). Die separate Validierungsquery lohnt sich:
+     ein `COUNT(*)`-Check gegen `unnest($1::text[])` ist billiger als das Risiko eines Teil-Schreibens.
+  4. **Delete-dann-Insert statt Upsert+Differenz**, weil die Semantik "Vollersatz" ist (jeder fehlende Key
+     wird entzogen) — ein Upsert muesste die verschwundenen Keys separat per Diff loeschen, was zwei
+     Statements plus eine Zwischenmenge braucht; Delete-dann-Insert ist ein Statement pro Richtung und
+     dieselbe Transaktion deckt beide ab.
+  5. **`toProtoRoleGrants`/`toRoleGrantsBody` bauen IMMER eine nicht-nil Struktur** (leere Grants ->
+     `[]`/`{}`, nie `null`) — dasselbe Wire-Shape-Muster wie `toEffectivePermissionsBody` aus Welle 1a,
+     hier neu fuer eine Map statt einer Liste angewendet und mit einem eigenen Test gepinnt
+     (`TestToRoleGrantsBody_EmptyIsContainerNotNull`).
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint, 0 issues,
+  auth+gateway+server) | test ok — `go test -count=1 ./internal/auth/... ./internal/gateway/...
+  ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`: alle vier Pakete gruen, **1762 PASS, 0 SKIP,
+  0 FAIL** (gezaehlt ueber `grep -c -- "--- PASS/SKIP/FAIL"`). `TestOpenAPIRouteDrift`: 781 registrierte
+  gegen 783 dokumentierte Pfade, gruen. | migration n.a. (keine noetig — `role_permissions` traegt Scope
+  und RLS seit 000256) | rls-smoke: keine neue Policy/Tabelle angefasst, nur neue tenant-gescopte
+  SELECT/DELETE/INSERT auf `role_permissions` ueber dessen bestehende RLS-Policy; Isolation ueber
+  `TestGetRolePermissions_DB_NotFound` (fremde Rolle -> `not_found`, RLS macht sie unsichtbar) belegt statt
+  eines manuellen psql-Snippets.
+- verify vorgaenger: sauber. `1f0f7c66` (p1b-roles-update-delete) gegen die acht Fehlerklassen geprueft —
+  Handler gehen ueber `client.UpdateRole`/`client.DeleteRole` (keine Layer-Umgehung), keine Stubs, kein
+  `.proto`-Drift (bereits Iteration 1), Guards additiv mit bereits geseedeten `admin:role:edit`/`delete`
+  (in der Migration nachgezaehlt), `openapi.yaml` im selben Commit, `GetRoleByID`-Vorcheck verhindert den
+  stillen No-Op auf Presets, den die Schreib-Policy allein erzeugt haette.
+- offen:
+  - `p1b-user-roles` (naechste Unit in der Kette) muss das `oneof` in `assignRoleRequest`/dem Validator
+    entkoppeln, damit Custom-Rollen ueberhaupt zuweisbar werden — diese Unit hat daran nichts geaendert.
+  - Der neue `codes.OutOfRange -> 422`-Fall in `grpcStatusToHTTP` ist bisher nur von
+    `ErrCapabilityKeyUnknown` belegt; falls ein spaeterer Fund einen echten OutOfRange-Anwendungsfall
+    braucht (z. B. Pagination), diesen Praezedenzfall zuerst lesen statt eine zweite 422-Konvention
+    einzufuehren.
+  - `unknown_capability_key` steht noch nicht in `RBAC_ERROR_CODES` (`rbac-format.ts:50`) — der Fehler
+    kommt beim FE aktuell als generische Meldung an (`rbac.builder.errors.generic`), nicht als spezifischer
+    Text. Kein Blocker (Backend-Scope dieser Unit), aber ein offener FE-Punkt fuer das naechste Antasten
+    von `rbac-format.ts`.

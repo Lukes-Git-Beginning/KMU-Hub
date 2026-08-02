@@ -147,3 +147,51 @@ func (s *Service) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
 
 	return s.repo.DeleteRole(ctx, roleID)
 }
+
+// RoleGrant is one capability→scope pair of a role's grant set. Key is the
+// permissions table's `name` column (the catalogue's "resource:action"
+// composition), Scope one of own|team|all.
+type RoleGrant struct {
+	Key   string
+	Scope string
+}
+
+// GetRolePermissions returns the grant set of a role visible to the caller —
+// presets included, since a builder needs to read what it is cloning. Only
+// the write side (SetRolePermissions) restricts presets.
+func (s *Service) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]RoleGrant, error) {
+	if _, err := s.repo.GetRoleByID(ctx, roleID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetRolePermissions(ctx, roleID)
+}
+
+// SetRolePermissions replaces the entire grant set of a tenant-owned role.
+// The preset check happens here for the same reason as UpdateRole/DeleteRole:
+// the write policy would just touch zero rows on a preset, which is not the
+// explicit 403 the builder needs to tell "nothing changed" from "not allowed".
+//
+// The scope check is a second boundary validation, not a duplicate of the
+// database's role_permissions_scope_check: a value longer than the scope
+// column's VARCHAR(8) fails with a length error the constraint never sees,
+// which would otherwise reach the caller as a raw 500 instead of the clean
+// 422 an out-of-range grant deserves. The frontend's CapabilityScope union
+// should make this unreachable through the UI; this is the boundary for
+// anything else that speaks the API directly.
+func (s *Service) SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error) {
+	role, err := s.repo.GetRoleByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role.TenantID == nil {
+		return nil, ErrRolePresetImmutable
+	}
+
+	for _, g := range grants {
+		if g.Scope != "own" && g.Scope != "team" && g.Scope != "all" {
+			return nil, ErrCapabilityKeyUnknown
+		}
+	}
+
+	return s.repo.SetRolePermissions(ctx, roleID, grants)
+}
