@@ -394,6 +394,86 @@ func (r *PostgresRepository) ListActivity(ctx context.Context, fileID uuid.UUID,
 	return activities, rows.Err()
 }
 
+// Comments
+
+func (r *PostgresRepository) CreateComment(ctx context.Context, comment *models.DocumentFileComment) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_file_comments (id, tenant_id, file_id, author_id, content, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		comment.ID, comment.TenantID, comment.FileID, comment.AuthorID, comment.Content, comment.CreatedAt, comment.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetCommentByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error) {
+	var c models.DocumentFileComment
+	err := r.pool.QueryRow(ctx,
+		`SELECT c.id, c.tenant_id, c.file_id, c.author_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS author_name,
+		        c.content, c.created_at, c.updated_at
+		 FROM document_file_comments c
+		 LEFT JOIN users u ON u.id = c.author_id
+		 WHERE c.id = $1 AND c.tenant_id = $2`, id, tenantID,
+	).Scan(&c.ID, &c.TenantID, &c.FileID, &c.AuthorID, &c.AuthorName, &c.Content, &c.CreatedAt, &c.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCommentNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *PostgresRepository) ListComments(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.id, c.tenant_id, c.file_id, c.author_id,
+		        COALESCE(u.first_name || ' ' || u.last_name, '') AS author_name,
+		        c.content, c.created_at, c.updated_at
+		 FROM document_file_comments c
+		 LEFT JOIN users u ON u.id = c.author_id
+		 WHERE c.file_id = $1 AND c.tenant_id = $2
+		 ORDER BY c.created_at ASC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []*models.DocumentFileComment
+	for rows.Next() {
+		var c models.DocumentFileComment
+		if scanErr := rows.Scan(&c.ID, &c.TenantID, &c.FileID, &c.AuthorID, &c.AuthorName, &c.Content, &c.CreatedAt, &c.UpdatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		comments = append(comments, &c)
+	}
+	return comments, rows.Err()
+}
+
+func (r *PostgresRepository) UpdateComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE document_file_comments SET content = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		content, id, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCommentNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM document_file_comments WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCommentNotFound
+	}
+	return nil
+}
+
 // scanFile scans a single row into a DocumentFile.
 func (r *PostgresRepository) scanFile(row pgx.Row) (*models.DocumentFile, error) {
 	var f models.DocumentFile

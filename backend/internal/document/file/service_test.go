@@ -18,7 +18,7 @@ import (
 // --- Mock FileStore ---
 
 type MockFileStore struct {
-	uploaded map[string]bool
+	uploaded     map[string]bool
 	failUpload   bool
 	failDownload bool
 	failDelete   bool
@@ -62,18 +62,19 @@ func (m *MockFileStore) GetPresignedUploadURL(_ context.Context, key string, _ t
 // --- Mock Repository ---
 
 type MockRepository struct {
-	files         map[uuid.UUID]*models.DocumentFile
-	versions      map[uuid.UUID][]*models.DocumentFileVersion
-	entityLinks   map[uuid.UUID][]*models.DocumentEntityLink
-	activity      map[uuid.UUID][]*models.DocumentFileActivity
+	files       map[uuid.UUID]*models.DocumentFile
+	versions    map[uuid.UUID][]*models.DocumentFileVersion
+	entityLinks map[uuid.UUID][]*models.DocumentEntityLink
+	activity    map[uuid.UUID][]*models.DocumentFileActivity
+	comments    map[uuid.UUID][]*models.DocumentFileComment
 
-	failCreate             bool
-	failGetByID            bool
-	failList               bool
-	failUpdate             bool
-	failSoftDelete         bool
-	failCreateVersion      bool
-	failCreateEntityLink   bool
+	failCreate           bool
+	failGetByID          bool
+	failList             bool
+	failUpdate           bool
+	failSoftDelete       bool
+	failCreateVersion    bool
+	failCreateEntityLink bool
 }
 
 func NewMockRepository() *MockRepository {
@@ -82,6 +83,7 @@ func NewMockRepository() *MockRepository {
 		versions:    make(map[uuid.UUID][]*models.DocumentFileVersion),
 		entityLinks: make(map[uuid.UUID][]*models.DocumentEntityLink),
 		activity:    make(map[uuid.UUID][]*models.DocumentFileActivity),
+		comments:    make(map[uuid.UUID][]*models.DocumentFileComment),
 	}
 }
 
@@ -250,6 +252,70 @@ func (m *MockRepository) CreateActivity(_ context.Context, activity *models.Docu
 
 func (m *MockRepository) ListActivity(_ context.Context, fileID uuid.UUID, _ uuid.UUID) ([]*models.DocumentFileActivity, error) {
 	return m.activity[fileID], nil
+}
+
+func (m *MockRepository) CreateComment(_ context.Context, comment *models.DocumentFileComment) error {
+	m.comments[comment.FileID] = append(m.comments[comment.FileID], comment)
+	return nil
+}
+
+func (m *MockRepository) GetCommentByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error) {
+	for _, comments := range m.comments {
+		for _, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return nil, ErrCommentNotFound
+			}
+			return c, nil
+		}
+	}
+	return nil, ErrCommentNotFound
+}
+
+func (m *MockRepository) ListComments(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error) {
+	var result []*models.DocumentFileComment
+	for _, c := range m.comments[fileID] {
+		if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+			continue
+		}
+		result = append(result, c)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) UpdateComment(_ context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error {
+	for _, comments := range m.comments {
+		for _, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return ErrCommentNotFound
+			}
+			c.Content = content
+			c.UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return ErrCommentNotFound
+}
+
+func (m *MockRepository) DeleteComment(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	for fileID, comments := range m.comments {
+		for i, c := range comments {
+			if c.ID != id {
+				continue
+			}
+			if tenantID != uuid.Nil && c.TenantID != uuid.Nil && c.TenantID != tenantID {
+				return ErrCommentNotFound
+			}
+			m.comments[fileID] = append(comments[:i], comments[i+1:]...)
+			return nil
+		}
+	}
+	return ErrCommentNotFound
 }
 
 // --- Helper ---
@@ -679,4 +745,148 @@ func TestDelete_CrossTenant(t *testing.T) {
 	assert.ErrorIs(t, err, ErrFileNotFound)
 	// The file must still exist in the store.
 	assert.False(t, repo.files[file.ID].IsDeleted, "file must remain intact after cross-tenant delete attempt")
+}
+
+// --- Comment tests ---
+
+func TestCreateComment_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	c, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "  looks good  ")
+
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	assert.Equal(t, "looks good", c.Content, "content must be trimmed")
+	assert.Equal(t, author, c.AuthorID)
+	assert.Equal(t, tenant, c.TenantID)
+	assert.Equal(t, file.ID, c.FileID)
+}
+
+func TestCreateComment_ContentRequired(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateComment(context.Background(), tenant, file.ID, uuid.New(), "   ")
+
+	assert.ErrorIs(t, err, ErrCommentContentRequired)
+}
+
+func TestCreateComment_ContentTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateComment(context.Background(), tenant, file.ID, uuid.New(), strings.Repeat("a", maxCommentLength+1))
+
+	assert.ErrorIs(t, err, ErrCommentContentTooLong)
+}
+
+func TestCreateComment_CrossTenant_FileNotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateComment(context.Background(), tenantB, file.ID, uuid.New(), "hello")
+
+	assert.ErrorIs(t, err, ErrFileNotFound, "a file from another tenant must not accept comments")
+}
+
+func TestUpdateComment_AuthorCanEdit(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	updated, err := svc.UpdateComment(context.Background(), tenant, created.ID, author, "edited")
+
+	require.NoError(t, err)
+	assert.Equal(t, "edited", updated.Content)
+}
+
+func TestUpdateComment_NonAuthorDenied(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	otherUser := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	_, err = svc.UpdateComment(context.Background(), tenant, created.ID, otherUser, "edited")
+
+	assert.ErrorIs(t, err, ErrCannotEditOthersComment)
+}
+
+func TestDeleteComment_AuthorCanDelete(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, author, false)
+
+	require.NoError(t, err)
+	comments, listErr := svc.ListComments(context.Background(), file.ID, tenant)
+	require.NoError(t, listErr)
+	assert.Empty(t, comments)
+}
+
+func TestDeleteComment_NonAuthorNonAdminDenied(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	otherUser := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, otherUser, false)
+
+	assert.ErrorIs(t, err, ErrCannotDeleteOthersComment)
+}
+
+func TestDeleteComment_AdminCanDeleteOthers(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	author := uuid.New()
+	admin := uuid.New()
+
+	created, err := svc.CreateComment(context.Background(), tenant, file.ID, author, "original")
+	require.NoError(t, err)
+
+	err = svc.DeleteComment(context.Background(), tenant, created.ID, admin, true)
+
+	require.NoError(t, err)
+}
+
+func TestListComments_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	fileA := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateComment(context.Background(), tenantA, fileA.ID, uuid.New(), "tenant a comment")
+	require.NoError(t, err)
+
+	commentsA, err := svc.ListComments(context.Background(), fileA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Len(t, commentsA, 1)
+
+	commentsB, err := svc.ListComments(context.Background(), fileA.ID, tenantB)
+	require.NoError(t, err)
+	assert.Empty(t, commentsB, "tenant B must not see tenant A's comments")
 }

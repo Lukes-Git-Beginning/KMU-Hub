@@ -39,6 +39,10 @@ const (
 	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
 	DocumentService_ListFileActivity_FullMethodName        = "/document.v1.DocumentService/ListFileActivity"
 	DocumentService_RegisterUploadedFile_FullMethodName    = "/document.v1.DocumentService/RegisterUploadedFile"
+	DocumentService_ListFileComments_FullMethodName        = "/document.v1.DocumentService/ListFileComments"
+	DocumentService_CreateFileComment_FullMethodName       = "/document.v1.DocumentService/CreateFileComment"
+	DocumentService_UpdateFileComment_FullMethodName       = "/document.v1.DocumentService/UpdateFileComment"
+	DocumentService_DeleteFileComment_FullMethodName       = "/document.v1.DocumentService/DeleteFileComment"
 	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
 	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
 	DocumentService_ListShares_FullMethodName              = "/document.v1.DocumentService/ListShares"
@@ -89,6 +93,10 @@ type DocumentServiceClient interface {
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(ctx context.Context, in *RegisterUploadedFileRequest, opts ...grpc.CallOption) (*RegisterUploadedFileResponse, error)
+	ListFileComments(ctx context.Context, in *ListFileCommentsRequest, opts ...grpc.CallOption) (*ListFileCommentsResponse, error)
+	CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error)
+	UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error)
+	DeleteFileComment(ctx context.Context, in *DeleteFileCommentRequest, opts ...grpc.CallOption) (*DeleteFileCommentResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(ctx context.Context, in *ShareEntityRequest, opts ...grpc.CallOption) (*ShareEntityResponse, error)
 	UnshareEntity(ctx context.Context, in *UnshareEntityRequest, opts ...grpc.CallOption) (*UnshareEntityResponse, error)
@@ -325,6 +333,46 @@ func (c *documentServiceClient) RegisterUploadedFile(ctx context.Context, in *Re
 	return out, nil
 }
 
+func (c *documentServiceClient) ListFileComments(ctx context.Context, in *ListFileCommentsRequest, opts ...grpc.CallOption) (*ListFileCommentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFileCommentsResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListFileComments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_CreateFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_UpdateFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) DeleteFileComment(ctx context.Context, in *DeleteFileCommentRequest, opts ...grpc.CallOption) (*DeleteFileCommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFileCommentResponse)
+	err := c.cc.Invoke(ctx, DocumentService_DeleteFileComment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) ShareEntity(ctx context.Context, in *ShareEntityRequest, opts ...grpc.CallOption) (*ShareEntityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ShareEntityResponse)
@@ -553,6 +601,10 @@ type DocumentServiceServer interface {
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error)
+	ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error)
+	CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error)
+	UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error)
+	DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error)
 	UnshareEntity(context.Context, *UnshareEntityRequest) (*UnshareEntityResponse, error)
@@ -648,6 +700,18 @@ func (UnimplementedDocumentServiceServer) ListFileActivity(context.Context, *Lis
 }
 func (UnimplementedDocumentServiceServer) RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterUploadedFile not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFileComments not implemented")
+}
+func (UnimplementedDocumentServiceServer) CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFileComment not implemented")
 }
 func (UnimplementedDocumentServiceServer) ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ShareEntity not implemented")
@@ -1086,6 +1150,78 @@ func _DocumentService_RegisterUploadedFile_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).RegisterUploadedFile(ctx, req.(*RegisterUploadedFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListFileComments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFileCommentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListFileComments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListFileComments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListFileComments(ctx, req.(*ListFileCommentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_CreateFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CreateFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_CreateFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CreateFileComment(ctx, req.(*CreateFileCommentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_UpdateFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).UpdateFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_UpdateFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).UpdateFileComment(ctx, req.(*UpdateFileCommentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_DeleteFileComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFileCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).DeleteFileComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_DeleteFileComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).DeleteFileComment(ctx, req.(*DeleteFileCommentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1536,6 +1672,22 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterUploadedFile",
 			Handler:    _DocumentService_RegisterUploadedFile_Handler,
+		},
+		{
+			MethodName: "ListFileComments",
+			Handler:    _DocumentService_ListFileComments_Handler,
+		},
+		{
+			MethodName: "CreateFileComment",
+			Handler:    _DocumentService_CreateFileComment_Handler,
+		},
+		{
+			MethodName: "UpdateFileComment",
+			Handler:    _DocumentService_UpdateFileComment_Handler,
+		},
+		{
+			MethodName: "DeleteFileComment",
+			Handler:    _DocumentService_DeleteFileComment_Handler,
 		},
 		{
 			MethodName: "ShareEntity",

@@ -34,6 +34,13 @@ type Repository interface {
 	// Activity (append-only audit trail)
 	CreateActivity(ctx context.Context, activity *models.DocumentFileActivity) error
 	ListActivity(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileActivity, error)
+
+	// Comments
+	CreateComment(ctx context.Context, comment *models.DocumentFileComment) error
+	GetCommentByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileComment, error)
+	ListComments(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error)
+	UpdateComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, content string) error
+	DeleteComment(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 }
 
 // ListFilter contains filtering options for listing files.

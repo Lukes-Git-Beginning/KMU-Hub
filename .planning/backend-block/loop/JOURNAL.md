@@ -4024,3 +4024,95 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     aendert sich die Palette, muss `allowedAccentColors` von Hand nachgezogen werden — bei 10
     Werten bewusst kein Generator gebaut (Lean Code), aber im Auge behalten falls die FE-Palette
     kuenftig haeufiger wechselt.
+
+## Iteration 57 — g-dokumente-comments — done — 2026-08-02 06:20
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `8e21c84b` (Iteration 56, g-admin-branding-s3) `git show --stat`
+  gepruefter Diff deckt sich mit dem Journal-Eintrag (settings.proto + Regen im selben Commit,
+  `route_settings.go` ruft `sr.getSettingsClient()` statt einer direkten Service-Instanz,
+  `settings_grpc.go` hat echte `GetBranding`/`PutBranding`-Implementierungen statt Unimplemented,
+  keine neue Tabelle/Migration, kein neuer `RequirePermission`-Key also kein Seed-Bedarf,
+  openapi.yaml im selben Commit mit +96 Zeilen). Kein Nacharbeitsbedarf.
+- Auftrag: Kommentare an Dokumenten (`backend-gaps.md` §dokumente, "Datei-Kommentare:
+  Comment-Tabelle + Endpoints"), erste offene Unit ohne Blocker (`g-dokumente-comments`,
+  `deps: []`).
+- Vorbild: `internal/work/comment` (task_comments) fuer Service-/Repo-Schnitt, ABER bewusst NICHT
+  dessen Autorisierungsmuster uebernommen — siehe Nebenfund unten.
+- Design-Entscheidungen:
+  - Autor beim Create kommt aus `actorIDFromContext(ctx)` im grpc-Handler (liest
+    `middleware.GetUserID(ctx)`), nicht aus dem Request-Body — `x-user-id` propagiert ueber den
+    internen gRPC-Hop (`internal/middleware/grpc_tenant.go`), also funktioniert das zuverlaessig.
+  - Loeschrecht (Autor ODER Admin) kann NICHT genauso geloest werden: Rollen (fuer `IsAdmin`)
+    propagieren ueber den internen gRPC-Hop NICHT, nur `x-tenant-id`/`x-user-id`. Deshalb
+    `is_admin` als explizites Proto-Feld auf `DeleteFileCommentRequest`, von der GATEWAY aus
+    `middleware.IsAdmin(r.Context())` befuellt (das ist der einzige Ort, an dem die Rolle bekannt
+    ist) — service-seitiger Check bleibt `AuthorID == actorID || isAdmin`.
+  - Sanitization: kein neuer Sanitizer (kein bluemonday im Modulgraph, Lean-Regel "vorhandene
+    Dependency nutzen"). Trim + 10 000-Zeichen-Limit server-seitig, XSS-Schutz bleibt client-seitig
+    DOMPurify — exakt das Muster, das `internal/work/comment` bereits im Bestand faehrt.
+    `lean:`-Kommentar in `service.go` mit Upgrade-Trigger "non-React-Consumer (E-Mail-Digest,
+    Export) rendert Kommentarinhalt als HTML".
+  - Wire-Shape: alle vier Endpoints serialisieren einheitlich ueber `response.Proto`/
+    `response.ProtoListWrapped` (protojson) statt des alten `response.JSON`-Ad-hoc-Envelopes, den
+    `route_document.go` fuer `DocumentFile`/`DocumentFolder` wegen `file_size int64` noch braucht
+    — `DocumentFileComment` hat kein int64-Feld, also `created_at`/`updated_at` durchgehend als
+    echte RFC3339-Strings (kein `{seconds,nanos}`), gleiches Muster wie das juengste Nachbarfeature
+    `ListFileActivity` (Migration 000264).
+  - Keine neuen Permission-Keys: die Routen haengen an den schon vorhandenen additiven
+    `docRead`/`docEdit`-Guards (`documents`/`documents:file` read/write) aus
+    `route_document.go` — kein Katalog-Key `documents:comment:*` im FE, kein Seed-Bedarf.
+- gebaut:
+  - Migration `000265_document_file_comments` (`.up.sql`/`.down.sql`): Tabelle
+    `document_file_comments` (`tenant_id UUID NOT NULL`, FK auf `document_files`/`users`/`tenants`),
+    zwei Indizes, `CALL enable_tenant_rls('document_file_comments')`.
+  - `internal/models/document.go`: `DocumentFileComment`-Struct.
+  - `internal/document/file/{repository.go,errors.go,postgres_repository.go,service.go}`:
+    5 neue Repository-Methoden (Create/Get/List/Update/Delete), 5 neue Sentinel-Errors,
+    4 neue Service-Methoden (`CreateComment`/`UpdateComment`/`DeleteComment`/`ListComments`) mit
+    Autor-/Admin-Pruefung und Content-Validierung.
+  - `proto/document/v1/document.proto` + Regen (`protoc` direkt, `make` im Bash-Tool nicht
+    verfuegbar — Kommando 1:1 aus dem `proto-document`-Makefile-Target): `DocumentFileComment`-
+    Message, 4 neue RPCs (`ListFileComments`/`CreateFileComment`/`UpdateFileComment`/
+    `DeleteFileComment`) samt Request/Response-Messages.
+  - `internal/server/document_grpc.go`: 4 neue RPC-Handler, `toProtoFileComment`-Mapper,
+    5 neue `mapDocumentError`-Faelle (NotFound/InvalidArgument/PermissionDenied).
+  - `internal/gateway/route_document.go`: `GET/POST /documents/files/{id}/comments`,
+    `PUT/DELETE /documents/comments/{id}` (letztere zwei standalone by ID, analog zum
+    bestehenden `/documents/links/{id}`-Muster) mit `docRead`/`docEdit`.
+  - `backend/api/openapi.yaml`: `DocumentFileComment`-Schema + 4 Pfad-Eintraege (2 Operationen auf
+    `/documents/files/{id}/comments`, 2 auf `/documents/comments/{id}`), Stil von
+    `/documents/files/{id}/activity` abgeschaut.
+  - Tests: `internal/document/file/service_test.go` (11 neue Faelle: Create Success/trim,
+    Content-Required, Content-zu-lang, Cross-Tenant-FileNotFound, Update Autor-darf/Nicht-Autor-
+    gesperrt, Delete Autor-darf/Nicht-Autor-Nicht-Admin-gesperrt/Admin-darf-fremde, List
+    Tenant-Isolation) + neue `MockRepository`-Methoden.
+    `internal/document/file/postgres_repository_comment_test.go` (neu, 4 DB-Tests: Create+List,
+    List-Tenant-Isolation, Update inkl. Fremd-Tenant-Ablehnung, Delete inkl. Fremd-Tenant-Ablehnung)
+    nach Vorbild `postgres_repository_entity_link_test.go`, wiederverwendet `seedActivityFixture`.
+- Nebenfund (nicht in dieser Unit gefixt, eigene Unit `fix-g-work-task-comment-authz` angelegt):
+  `WorkGRPCServer.UpdateTaskComment`/`DeleteTaskComment` (`internal/server/work_grpc.go:1028-1055`)
+  reichen den Actor falsch durch — `UpdateTaskComment` ruft den Service mit `actorID=uuid.Nil` auf,
+  wodurch der Autor-Vergleich (`comment.AuthorID != actorID`) praktisch immer wahr ist und JEDES
+  Update mit `ErrCannotEditOthersComment` fehlschlaegt (Feature de-facto kaputt). `DeleteTaskComment`
+  ruft mit `isAdmin=true` hardcoded auf — das ist ein kompletter Bypass des Autor-Checks: JEDER
+  User mit `work:task_comment:delete` kann JEDEN fremden Kommentar loeschen. Root Cause: Rollen
+  propagieren nicht ueber den internen gRPC-Hop (nur `x-tenant-id`/`x-user-id`), und die Gateway-
+  Handler dort loesen weder Autor noch Admin auf, bevor sie durchreichen. Das in dieser Unit neu
+  gebaute Muster (`actorIDFromContext` fuer den Autor, explizites `is_admin`-Feld von der Gateway
+  fuer den Admin-Override) ist der Fix, 1:1 uebertragbar.
+- gate: `go build -p 2 ./internal/document/... ./internal/gateway/... ./internal/server/...
+  ./proto/document/... ./cmd/document/... ./cmd/gateway/...` ok | `go vet` auf denselben Paketen ok
+  | `golangci-lint run --config .golangci.yml` auf `internal/document/... internal/gateway/...
+  internal/server/...`: 0 issues |
+  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable go test
+  -count=1 ./internal/document/...`: PASS, 4 neue DB-Tests liefen real (verifiziert per `-v -run
+  Comment`, keine Skips), `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) | `go test -count=1
+  ./internal/server/...` PASS | `go test -count=1 ./internal/gateway/` PASS inkl.
+  `TestOpenAPIRouteDrift` (774 Routen gegen 776 dokumentierte Pfade, +2/+2 durch die neuen
+  Comment-Pfade). Migration lokal angewendet (`migrate ... up` → Kopf 265), RLS-Smoke gegen
+  `document_file_comments`: eigener Tenant → 1, fremder Tenant → 0 (bestanden, kein Zwei-Nullen-Fall).
+- offen:
+  - `fix-g-work-task-comment-authz` (neu angelegt) wartet auf eine kuenftige Iteration.
+  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration, wie im Auftrag der
+    Unit vorgesehen (`backend-gaps.md` listet nur "Comment-Tabelle + Endpoints", keine FE-UI).

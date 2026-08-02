@@ -43,6 +43,58 @@ units:
       - Filename endet auf .pdf
       - go build/vet/lint/test gruen (internal/server, internal/vertraege)
 
+  - id: fix-g-work-task-comment-authz
+    phase: fix
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Fund beim Bau von `g-dokumente-comments` (2026-08-02, dokumente-Kommentare als neues Feature
+      angelegt, `work/comment` als Vorbild gelesen — dabei fiel dieser Bestandsbug auf):
+      `WorkGRPCServer.UpdateTaskComment`/`DeleteTaskComment` (`internal/server/work_grpc.go:1028-1055`)
+      reichen den aufrufenden User nicht korrekt durch. `UpdateTaskComment` ruft
+      `s.commentService.Update(ctx, id, req.Content, uuid.Nil)` — der Service vergleicht
+      `comment.AuthorID != actorID`; mit `actorID = uuid.Nil` ist das praktisch IMMER wahr, jedes
+      Update schlaegt also mit `ErrCannotEditOthersComment` fehl (Feature kaputt, nicht nur
+      unsauber). `DeleteTaskComment` ruft `s.commentService.Delete(ctx, id, uuid.Nil, true)` —
+      `isAdmin` ist hardcoded `true`, das ist ein kompletter Bypass des Autor-Checks: JEDER
+      eingeloggte User mit `work:task_comment:delete`-Recht kann JEDEN Kommentar JEDES anderen
+      Users loeschen, nicht nur die eigenen.
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/document/file/service.go
+      - backend/internal/server/document_grpc.go
+    notes: >
+      URSACHE: Der Kommentar am Code ("Use uuid.Nil as actorID since gateway handles auth") ist
+      falsch — `HandleUpdateTaskComment`/`HandleDeleteTaskComment`
+      (`internal/gateway/route_work_tasks.go:436-477`) pruefen gar nichts, sie reichen nur
+      `id`/`content` durch. Und selbst wenn sie es wollten: Rollen (fuer `IsAdmin`) propagieren NUR
+      innerhalb eines HTTP-Requests aus dem JWT (`middleware.GetUserRoles`); ueber den internen
+      gRPC-Hop Gateway->work-Service werden laut `internal/middleware/grpc_tenant.go`
+      (`TenantOutboundUnaryInterceptor`/`TenantInboundUnaryInterceptor`) NUR `x-tenant-id` und
+      `x-user-id` weitergereicht, keine Rollen.
+      LOESUNGSMUSTER (frisch gebaut und verifiziert in `g-dokumente-comments`, 1:1 uebertragbar):
+      (a) fuer den Autor-Check die grpc-Handler selbst `actorIDFromContext(ctx)`-Analog nutzen
+      (`middleware.GetUserID(ctx)` funktioniert im internen Server, weil `x-user-id` propagiert) —
+      NICHT `uuid.Nil` von aussen hereinreichen.
+      (b) fuer den Admin-Override `is_admin` als explizites Feld auf `DeleteTaskCommentRequest`
+      ergaenzen (Proto + Regen), von der GATEWAY aus `middleware.IsAdmin(r.Context())` befuellt
+      (siehe `DeleteFileCommentRequest.is_admin` in `proto/document/v1/document.proto` als
+      Referenz) — das ist der einzige Ort, an dem die Rolle bekannt ist.
+      Betrifft nur `task_comments` (work-Modul); die dokumente-Kommentare aus `g-dokumente-comments`
+      haben dieses Muster von Anfang an korrekt (kein uuid.Nil-Hack, `is_admin` on the wire).
+      Sicherheitsrelevant (Delete-Bypass), aber additiv fixbar ohne Migration — kein RLS-Bezug.
+    done_when:
+      - UpdateTaskComment: Autor kann bearbeiten, Nicht-Autor bekommt PermissionDenied (nicht mehr
+        pauschal jeder)
+      - DeleteTaskComment: Autor oder echter Admin kann loeschen, Nicht-Autor-Nicht-Admin bekommt
+        PermissionDenied
+      - Test fuer beide Faelle (Autor, Nicht-Autor, Admin) gegen den echten Service, nicht nur den
+        Handler
+      - go build/vet/lint/test gruen (internal/work/comment, internal/server, internal/gateway)
+
   # ==========================================================================
   # BLOCK A — RBAC Phase 1 Welle 1a (seriell verkettet)
   # Quelle: .planning/backend-block/PHASE-1-RBAC-PLAN.md §3
@@ -2162,7 +2214,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Kommentare an Dokumenten (`backend-gaps.md` §dokumente).
     sources:
@@ -2171,6 +2223,26 @@ units:
       Tabelle mit tenant_id + RLS, Autor aus dem Auth-Context (nicht aus dem Request-Body).
       Loeschen: nur Autor oder Admin. Kommentartext wird im Client gerendert — der FE-seitige
       DOMPurify-Schutz existiert, serverseitig trotzdem nicht ungeprueft durchreichen.
+
+      ERGEBNIS (2026-08-02): Migration 000265 (`document_file_comments`, `enable_tenant_rls`,
+      RLS-Smoke eigener Tenant 1 / fremder Tenant 0 verifiziert). Neue RPCs `ListFileComments`/
+      `CreateFileComment`/`UpdateFileComment`/`DeleteFileComment` in `proto/document/v1/document.proto`
+      + Regen im selben Commit, Service-Methoden in `internal/document/file/service.go` (Vorbild:
+      `internal/work/comment`), Gateway-Routen `GET/POST /documents/files/{id}/comments` +
+      `PUT/DELETE /documents/comments/{id}` mit den bestehenden `docRead`/`docEdit`-Guards (kein
+      neuer Katalog-Key, kein Seed noetig). Autor per `actorIDFromContext(ctx)` im grpc-Handler
+      (nicht aus dem Body), Loeschrecht per explizitem `is_admin`-Feld auf
+      `DeleteFileCommentRequest`, von der Gateway aus `middleware.IsAdmin(r.Context())` befuellt —
+      Rollen propagieren NICHT ueber den internen gRPC-Hop (nur `x-tenant-id`/`x-user-id`, siehe
+      `internal/middleware/grpc_tenant.go`), daher kein `actorIDFromContext`-Analog fuer Admin
+      moeglich. Sanitization-Entscheidung: KEIN neuer Sanitizer (kein bluemonday im Modulgraph) —
+      Trim + 10000-Zeichen-Limit server-seitig, XSS-Schutz bleibt client-seitig DOMPurify, exakt
+      wie im Vorbild `internal/work/comment` (`lean:`-Kommentar in `service.go` mit Upgrade-Trigger
+      "non-React-Consumer wie E-Mail-Digest/Export").
+      NEBENFUND: `WorkGRPCServer.UpdateTaskComment`/`DeleteTaskComment` haben einen echten
+      Autorisierungsbug (Update schlaegt immer fehl, Delete ist ein kompletter Bypass — jeder kann
+      jeden Kommentar loeschen). Nicht in dieser Unit gefixt (anderes Modul, Scope-Disziplin) —
+      als eigene Unit `fix-g-work-task-comment-authz` angelegt.
     done_when:
       - CRUD, Autor aus dem Context, Loeschrecht geprueft
       - Migration mit tenant_id + RLS, RLS-Smoke gruen

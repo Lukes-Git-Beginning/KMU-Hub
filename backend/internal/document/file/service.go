@@ -99,17 +99,100 @@ func (s *Service) ListActivity(ctx context.Context, fileID uuid.UUID, tenantID u
 	return s.repo.ListActivity(ctx, fileID, tenantID)
 }
 
+// maxCommentLength bounds a single comment body, matching the limit already
+// enforced for task comments (internal/work/comment).
+const maxCommentLength = 10000
+
+// CreateComment adds a comment to a file, authored by the given user.
+//
+// lean: content is trimmed and length-checked but not HTML-sanitized here —
+// the desktop client already runs DOMPurify before render (same split as
+// internal/work/comment). Add server-side sanitization once a non-React
+// consumer (email digest, export) renders comment content as HTML.
+func (s *Service) CreateComment(ctx context.Context, tenantID, fileID, authorID uuid.UUID, content string) (*models.DocumentFileComment, error) {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, ErrCommentContentRequired
+	}
+	if len(content) > maxCommentLength {
+		return nil, ErrCommentContentTooLong
+	}
+
+	// Verify the file exists and belongs to the tenant before attaching a comment.
+	if _, err := s.repo.GetByID(ctx, fileID, tenantID); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	comment := &models.DocumentFileComment{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		FileID:    fileID,
+		AuthorID:  authorID,
+		Content:   content,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := s.repo.CreateComment(ctx, comment); err != nil {
+		return nil, err
+	}
+
+	slog.Info("document comment created", "comment_id", comment.ID, "file_id", fileID)
+	return s.repo.GetCommentByID(ctx, comment.ID, tenantID)
+}
+
+// UpdateComment edits a comment's content. Only the author may edit.
+func (s *Service) UpdateComment(ctx context.Context, tenantID, commentID, actorID uuid.UUID, content string) (*models.DocumentFileComment, error) {
+	existing, err := s.repo.GetCommentByID(ctx, commentID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if existing.AuthorID != actorID {
+		return nil, ErrCannotEditOthersComment
+	}
+
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, ErrCommentContentRequired
+	}
+	if len(content) > maxCommentLength {
+		return nil, ErrCommentContentTooLong
+	}
+
+	if err := s.repo.UpdateComment(ctx, commentID, tenantID, content); err != nil {
+		return nil, err
+	}
+	return s.repo.GetCommentByID(ctx, commentID, tenantID)
+}
+
+// DeleteComment removes a comment. Only the author or an admin may delete.
+func (s *Service) DeleteComment(ctx context.Context, tenantID, commentID, actorID uuid.UUID, isAdmin bool) error {
+	existing, err := s.repo.GetCommentByID(ctx, commentID, tenantID)
+	if err != nil {
+		return err
+	}
+	if existing.AuthorID != actorID && !isAdmin {
+		return ErrCannotDeleteOthersComment
+	}
+	return s.repo.DeleteComment(ctx, commentID, tenantID)
+}
+
+// ListComments returns the comments on a file, oldest first, scoped to the tenant.
+func (s *Service) ListComments(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentFileComment, error) {
+	return s.repo.ListComments(ctx, fileID, tenantID)
+}
+
 // UploadInput contains the data needed to upload a document file.
 type UploadInput struct {
-	TenantID    uuid.UUID
-	FolderID    uuid.UUID
-	Filename    string
-	MimeType    string
-	FileSize    int64
-	Reader      io.Reader
-	SpaceType   string
-	SpaceID     uuid.UUID
-	OwnerID     uuid.UUID
+	TenantID  uuid.UUID
+	FolderID  uuid.UUID
+	Filename  string
+	MimeType  string
+	FileSize  int64
+	Reader    io.Reader
+	SpaceType string
+	SpaceID   uuid.UUID
+	OwnerID   uuid.UUID
 }
 
 // Upload uploads a file to MinIO and creates a DB record with an initial version.

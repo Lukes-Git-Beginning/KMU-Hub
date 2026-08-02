@@ -102,6 +102,9 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(docEdit).Post("/{id}/move", d.HandleMoveFile)
 		r.With(docDownload).Get("/{id}/download-url", d.HandleGetFileDownloadURL)
 		r.With(docRead).Get("/{id}/activity", d.HandleListFileActivity)
+		// Comments
+		r.With(docRead).Get("/{id}/comments", d.HandleListFileComments)
+		r.With(docEdit).Post("/{id}/comments", d.HandleCreateFileComment)
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
@@ -116,6 +119,13 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	r.Route("/api/v1/documents/links", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("documents", "write")).Delete("/{id}", d.HandleDeleteEntityLink)
+	})
+
+	// Comments (standalone, by comment ID — mirrors the entity links route above)
+	r.Route("/api/v1/documents/comments", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(docEdit).Put("/{id}", d.HandleUpdateFileComment)
+		r.With(docEdit).Delete("/{id}", d.HandleDeleteFileComment)
 	})
 
 	// Shares
@@ -632,6 +642,107 @@ func (d *DocumentRoutes) HandleListFileActivity(w http.ResponseWriter, r *http.R
 	}
 
 	response.ProtoListWrapped(w, http.StatusOK, "activities", resp.Activities, nil)
+}
+
+// ============================================================================
+// Comment Handlers
+// ============================================================================
+
+func (d *DocumentRoutes) HandleListFileComments(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	resp, err := client.ListFileComments(r.Context(), &documentv1.ListFileCommentsRequest{
+		FileId: fileID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "comments", resp.Comments, nil)
+}
+
+type createFileCommentRequest struct {
+	Content string `json:"content" validate:"required"`
+}
+
+func (d *DocumentRoutes) HandleCreateFileComment(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	req, ok := decodeAndValidate[createFileCommentRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateFileComment(r.Context(), &documentv1.CreateFileCommentRequest{
+		FileId:  fileID,
+		Content: req.Content,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+type updateFileCommentRequest struct {
+	Content string `json:"content" validate:"required"`
+}
+
+func (d *DocumentRoutes) HandleUpdateFileComment(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	commentID := chi.URLParam(r, "id")
+	req, ok := decodeAndValidate[updateFileCommentRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateFileComment(r.Context(), &documentv1.UpdateFileCommentRequest{
+		Id:      commentID,
+		Content: req.Content,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (d *DocumentRoutes) HandleDeleteFileComment(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	commentID := chi.URLParam(r, "id")
+	_, err = client.DeleteFileComment(r.Context(), &documentv1.DeleteFileCommentRequest{
+		Id:      commentID,
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
 // ============================================================================

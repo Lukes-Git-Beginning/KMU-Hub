@@ -15,6 +15,12 @@ var (
 	ErrFileDeleted       = errors.New("file has been deleted")
 	ErrNoWritePermission = errors.New("write permission required for this operation")
 	ErrInvalidEntityType = errors.New("invalid entity type for linking")
+
+	ErrCommentNotFound           = errors.New("comment not found")
+	ErrCommentContentRequired    = errors.New("comment content is required")
+	ErrCommentContentTooLong     = errors.New("comment content must be 10000 characters or less")
+	ErrCannotEditOthersComment   = errors.New("only the author can edit this comment")
+	ErrCannotDeleteOthersComment = errors.New("only the author or an admin can delete this comment")
 )
 
 // Allowed entity types for document entity links.

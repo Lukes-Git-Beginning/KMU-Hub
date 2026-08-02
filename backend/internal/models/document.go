@@ -50,23 +50,23 @@ type DocumentFolder struct {
 
 // DocumentFile represents a file stored in the document system.
 type DocumentFile struct {
-	ID             uuid.UUID      `json:"id"`
-	TenantID       uuid.UUID      `json:"tenant_id"`
-	FolderID       uuid.UUID      `json:"folder_id"`
-	Filename       string         `json:"filename"`
-	MimeType       string         `json:"mime_type"`
-	FileSize       int64          `json:"file_size"`
-	StorageKey     string         `json:"storage_key"`
-	ThumbnailKey   *string        `json:"thumbnail_key,omitempty"`
-	CurrentVersion int            `json:"current_version"`
-	OwnerID        uuid.UUID      `json:"owner_id"`
-	IsFavorite     bool           `json:"is_favorite"`
-	IsDeleted      bool           `json:"is_deleted"`
-	ContentText    *string        `json:"content_text,omitempty"`
-	Tags           []DocumentTag  `json:"tags"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      *time.Time     `json:"deleted_at,omitempty"`
+	ID             uuid.UUID     `json:"id"`
+	TenantID       uuid.UUID     `json:"tenant_id"`
+	FolderID       uuid.UUID     `json:"folder_id"`
+	Filename       string        `json:"filename"`
+	MimeType       string        `json:"mime_type"`
+	FileSize       int64         `json:"file_size"`
+	StorageKey     string        `json:"storage_key"`
+	ThumbnailKey   *string       `json:"thumbnail_key,omitempty"`
+	CurrentVersion int           `json:"current_version"`
+	OwnerID        uuid.UUID     `json:"owner_id"`
+	IsFavorite     bool          `json:"is_favorite"`
+	IsDeleted      bool          `json:"is_deleted"`
+	ContentText    *string       `json:"content_text,omitempty"`
+	Tags           []DocumentTag `json:"tags"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	DeletedAt      *time.Time    `json:"deleted_at,omitempty"`
 }
 
 // DocumentFileVersion represents a specific version of a file.
@@ -129,6 +129,18 @@ type DocumentFileActivity struct {
 	ActorName string    `json:"actor_name"` // Denormalized from JOIN
 	Detail    string    `json:"detail"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// DocumentFileComment represents a comment on a document file.
+type DocumentFileComment struct {
+	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	FileID     uuid.UUID `json:"file_id"`
+	AuthorID   uuid.UUID `json:"author_id"`
+	AuthorName string    `json:"author_name"` // Denormalized from JOIN
+	Content    string    `json:"content"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // DocumentEntityLink represents a link between a file and a CRM entity.

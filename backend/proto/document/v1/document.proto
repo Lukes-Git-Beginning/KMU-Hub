@@ -32,6 +32,10 @@ service DocumentService {
   // Registers metadata for a file already uploaded to object storage via a
   // presigned PUT URL (browser-direct upload). Does not touch object storage.
   rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (RegisterUploadedFileResponse);
+  rpc ListFileComments(ListFileCommentsRequest) returns (ListFileCommentsResponse);
+  rpc CreateFileComment(CreateFileCommentRequest) returns (CreateFileCommentResponse);
+  rpc UpdateFileComment(UpdateFileCommentRequest) returns (UpdateFileCommentResponse);
+  rpc DeleteFileComment(DeleteFileCommentRequest) returns (DeleteFileCommentResponse);
 
   // ==================== Share operations ====================
   rpc ShareEntity(ShareEntityRequest) returns (ShareEntityResponse);
@@ -189,6 +193,16 @@ message DocumentFileActivity {
   string actor_name = 5;             // Denormalized from JOIN
   string detail = 6;
   google.protobuf.Timestamp created_at = 7;
+}
+
+message DocumentFileComment {
+  string id = 1;
+  string file_id = 2;
+  string author_id = 3;
+  string author_name = 4;             // Denormalized from JOIN
+  string content = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }
 
 message VirtualFile {
@@ -416,6 +430,42 @@ message ListFileActivityRequest {
 message ListFileActivityResponse {
   repeated DocumentFileActivity activities = 1;
 }
+
+message ListFileCommentsRequest {
+  string file_id = 1;
+}
+
+message ListFileCommentsResponse {
+  repeated DocumentFileComment comments = 1;
+}
+
+message CreateFileCommentRequest {
+  string file_id = 1;
+  string content = 2;
+}
+
+message CreateFileCommentResponse {
+  DocumentFileComment comment = 1;
+}
+
+message UpdateFileCommentRequest {
+  string id = 1;
+  string content = 2;
+}
+
+message UpdateFileCommentResponse {
+  DocumentFileComment comment = 1;
+}
+
+message DeleteFileCommentRequest {
+  string id = 1;
+  // Resolved by the gateway from the caller's JWT roles (roles do not
+  // propagate over the internal gRPC metadata, unlike tenant_id/user_id) so
+  // the author-or-admin check can run service-side.
+  bool is_admin = 2;
+}
+
+message DeleteFileCommentResponse {}
 
 // ============================================================================
 // Share Request/Response Messages

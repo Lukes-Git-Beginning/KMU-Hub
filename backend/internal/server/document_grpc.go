@@ -640,6 +640,105 @@ func (s *DocumentGRPCServer) ListFileActivity(ctx context.Context, req *document
 }
 
 // ============================================================================
+// Comment Operations
+// ============================================================================
+
+func (s *DocumentGRPCServer) ListFileComments(ctx context.Context, req *documentv1.ListFileCommentsRequest) (*documentv1.ListFileCommentsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	comments, err := s.fileService.ListComments(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoComments := make([]*documentv1.DocumentFileComment, 0, len(comments))
+	for _, c := range comments {
+		protoComments = append(protoComments, toProtoFileComment(c))
+	}
+
+	return &documentv1.ListFileCommentsResponse{Comments: protoComments}, nil
+}
+
+func (s *DocumentGRPCServer) CreateFileComment(ctx context.Context, req *documentv1.CreateFileCommentRequest) (*documentv1.CreateFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	c, err := s.fileService.CreateComment(ctx, tenantID, fileID, actorID, req.Content)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.CreateFileCommentResponse{Comment: toProtoFileComment(c)}, nil
+}
+
+func (s *DocumentGRPCServer) UpdateFileComment(ctx context.Context, req *documentv1.UpdateFileCommentRequest) (*documentv1.UpdateFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	commentID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	c, err := s.fileService.UpdateComment(ctx, tenantID, commentID, actorID, req.Content)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.UpdateFileCommentResponse{Comment: toProtoFileComment(c)}, nil
+}
+
+func (s *DocumentGRPCServer) DeleteFileComment(ctx context.Context, req *documentv1.DeleteFileCommentRequest) (*documentv1.DeleteFileCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	commentID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid comment id")
+	}
+
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	if err := s.fileService.DeleteComment(ctx, tenantID, commentID, actorID, req.IsAdmin); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.DeleteFileCommentResponse{}, nil
+}
+
+// ============================================================================
 // Share Operations
 // ============================================================================
 
@@ -1287,6 +1386,18 @@ func toProtoFileActivity(a *models.DocumentFileActivity) *documentv1.DocumentFil
 	}
 }
 
+func toProtoFileComment(c *models.DocumentFileComment) *documentv1.DocumentFileComment {
+	return &documentv1.DocumentFileComment{
+		Id:         c.ID.String(),
+		FileId:     c.FileID.String(),
+		AuthorId:   c.AuthorID.String(),
+		AuthorName: c.AuthorName,
+		Content:    c.Content,
+		CreatedAt:  timestamppb.New(c.CreatedAt),
+		UpdatedAt:  timestamppb.New(c.UpdatedAt),
+	}
+}
+
 func toProtoVirtualFile(f *models.VirtualFile) *documentv1.VirtualFile {
 	return &documentv1.VirtualFile{
 		Id:             f.ID.String(),
@@ -1470,6 +1581,16 @@ func mapDocumentError(err error) error {
 	case errors.Is(err, file.ErrFileDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, file.ErrNoWritePermission):
+		return status.Error(codes.PermissionDenied, err.Error())
+
+	// Comment errors
+	case errors.Is(err, file.ErrCommentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, file.ErrCommentContentRequired),
+		errors.Is(err, file.ErrCommentContentTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, file.ErrCannotEditOthersComment),
+		errors.Is(err, file.ErrCannotDeleteOthersComment):
 		return status.Error(codes.PermissionDenied, err.Error())
 
 	// Share errors
