@@ -1500,7 +1500,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 24 — g-fuhrpark-license-check — done — 2026-08-03
 
-- commit: siehe naechster docs(loop)-Commit fuer die SHA
+- commit: `81212e69` — feat(fuhrpark): add driver license compliance check (Fuehrerscheinkontrolle)
 - verify vorgaenger: sauber. `45b5331d` (fix-einkauf-po-total, Iteration 23) gegen die
   Fehlerklassen geprueft: Migration 000278 recomputet mit exakt derselben Formel wie
   `RecomputePOTotal` (`postgres_repository.go:390-405`, `SUM(quantity*unit_price)`, kein float64),
