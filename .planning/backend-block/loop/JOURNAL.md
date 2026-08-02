@@ -3356,3 +3356,47 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Kein Gateway-HTTP-Test fuer die Session-Routen (die Route-Tests des Pakets pruefen dort nur
     503/400 vor dem gRPC-Call). Die Ownership-Pruefung ist auf gRPC- und Service-Ebene getestet,
     der HTTP-Weg dorthin nicht.
+
+## Iteration 45 — g-rapporte-pdf — done — 2026-08-02
+
+- commit: 7a01590f
+- gebaut: `ExportPDF` liefert jetzt ein echtes A4-PDF statt des Text-Stubs. Neue Datei
+  `internal/rapporte/pdf.go` (`renderReportPDF`) nutzt `maroto/v2` direkt (dieselbe Dependency wie
+  `internal/berichte/export/pdf.go`, keine neue) — Titel, Status (deutsches Label), Projekt,
+  Beschreibung, Arbeitszeit/Pause/Wetter/Temperatur, Mitarbeiterliste (Name/Rolle/Stunden),
+  Positionstabelle (Pos/Beschreibung/Menge/Einheit/Notiz) und eine Unterschriftszeile.
+  `Service.ExportPDF` holt dafuer zusaetzlich `s.repo.ListLines(...)` (vorher ungenutzt fuer den
+  Export). `RapporteGRPCServer.ExportPDF` liefert `ContentType: application/pdf` und
+  `arbeitsbericht_<id>.pdf` statt `.txt`.
+  ENTSCHEIDUNG gegen `internal/biz/pdf.Generator`: dessen `newMaroto()`/`GenerateInvoicePDF` etc.
+  sind an `models.CompanySettings` und `ValidateCompanySettingsForPDF` (§14-UStG-Pflichtfelder)
+  gebunden — fuer einen Arbeitsbericht (kein Rechnungsdokument) nicht einschlaegig, und
+  `internal/rapporte` importierte bisher weder `models` noch `biz/pdf`. Eigene, schlanke
+  `maroto/v2`-Nutzung nach dem Vorbild von `internal/berichte/export/pdf.go` (rohe
+  row/col/text-Primitive), keine neue Abstraktion.
+  Die gespeicherte Kundenunterschrift (`signature_data`, PNG/SVG-Data-URL) wird NICHT als Bild
+  eingebettet — nirgends im Repo existiert bisher eine maroto-Bild-Einbettung, und das war nicht
+  Teil des `done_when`. Stattdessen Textzeile "Unterschrieben von X am Y" bzw. "ausstehend".
+  `lean:`-Marker in `pdf.go` mit Upgrade-Trigger "wenn ein Kunde die Bild-Einbettung im PDF
+  verlangt".
+- gate: build (`./internal/rapporte/... ./internal/server/... ./cmd/rapporte/... ./cmd/gateway/...`,
+  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine (kein Schema-Wechsel) |
+  openapi: kein Eintrag noetig (Content-Type/Filename kommen dynamisch aus der gRPC-Response, die
+  Route existierte bereits) | rls-smoke: n.a. (keine Tabelle/Policy angefasst) | Test mit
+  `DATABASE_URL` (Rolle `kmuhub_app`): `internal/rapporte` **0 Skips** (Report-Lines/Signature/
+  Tenant-Isolation-DB-Tests liefen real mit), `internal/server` ok, `internal/gateway` ok
+  (`TestOpenAPIRouteDrift`, vorsorglich gefahren trotz unveraenderter Routen).
+  Test umbenannt/erweitert: `TestService_ExportPDF_ReturnsPayload` -> `..._ReturnsRealPDF`, prueft
+  jetzt den `%PDF`-Header (vorher nur `NotEmpty`) und laeuft mit Workers + einer Line +
+  Signatur-Feldern durch alle neuen Codepfade.
+- verify vorgaenger: sauber (`308fd217`, Auth-Sessions-Wiring) — `TerminateSession(sessionID,
+  ownerID)`-Ownership-Check korrekt verdrahtet (Mismatch -> `ErrSessionNotFound`, nicht Forbidden),
+  INET-Lesart auf `host(ip_address)` umgestellt (statt `::text` mit Praefixlaenge),
+  `NULLIF($7,'')::inet` gegen den leeren-String-INSERT-Fehler, kein neues Proto, keine neue
+  Tabelle/Migration, keine neue Route (openapi-Diff nur die 404-Beschreibung), kein neuer Guard.
+  Sauber.
+- offen:
+  - Signatur-Bild wird nicht ins PDF eingebettet (siehe oben, `lean:`-Marker in `pdf.go`).
+  - `internal/biz/pdf` bleibt der einzige Ort mit `maroto`-Bild-faehiger Infrastruktur
+    (`EmbedZUGFeRDXML`/pdfcpu-Attachments) — falls Rapporte-Bild-Einbettung spaeter gebraucht wird,
+    dort zuerst nach wiederverwendbaren Bausteinen schauen, nicht neu bauen.
