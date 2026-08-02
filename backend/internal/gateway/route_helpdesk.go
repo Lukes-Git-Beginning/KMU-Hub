@@ -131,6 +131,8 @@ type createTicketRequest struct {
 	QueueID     *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
 	Description *string `json:"description,omitempty"`
 	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
+	ContactID   *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	OrgID       *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateTicketRequest struct {
@@ -138,6 +140,8 @@ type updateTicketRequest struct {
 	Priority   *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+	ContactID  *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	OrgID      *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type assignTicketRequest struct {
@@ -263,6 +267,8 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 		QueueId:     req.QueueID,
 		Description: req.Description,
 		Category:    req.Category,
+		ContactId:   req.ContactID,
+		OrgId:       req.OrgID,
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)
@@ -296,6 +302,12 @@ func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Reques
 	}
 	if sf := r.URL.Query().Get("status"); sf != "" {
 		grpcReq.StatusFilter = &sf
+	}
+	if cid := r.URL.Query().Get("contact_id"); cid != "" {
+		grpcReq.ContactId = &cid
+	}
+	if oid := r.URL.Query().Get("org_id"); oid != "" {
+		grpcReq.OrgId = &oid
 	}
 	// At scope "own" the list shrinks to tickets the caller raised or is
 	// assigned — the same rows the ticket detail view would let them open.
@@ -358,6 +370,8 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 		Priority:   req.Priority,
 		AssigneeId: req.AssigneeID,
 		QueueId:    req.QueueID,
+		ContactId:  req.ContactID,
+		OrgId:      req.OrgID,
 	}
 
 	resp, err := client.UpdateTicket(r.Context(), grpcReq)

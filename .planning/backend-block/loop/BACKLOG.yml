@@ -2315,7 +2315,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Tickets mit Kontakten und Organisationen verknuepfen (`contact_id`, `org_id`).
     sources:

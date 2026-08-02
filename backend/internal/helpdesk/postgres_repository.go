@@ -45,15 +45,37 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		`INSERT INTO tickets
 		    (id, tenant_id, subject, status, priority, assignee_id, requester_id,
 		     queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		     description, category, ticket_number, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+		     description, category, ticket_number, contact_id, org_id, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
 		t.ID, t.TenantID, t.Subject, t.Status, t.Priority,
 		t.AssigneeID, t.RequesterID, t.QueueID, t.DueAt,
 		t.MergedIntoID, t.FirstResponseAt, t.ResolvedAt,
 		t.Description, t.Category, t.TicketNumber,
+		t.ContactID, t.OrgID,
 		t.CreatedAt, t.UpdatedAt,
 	)
 	return err
+}
+
+// ContactExists reports whether the contact belongs to the given tenant.
+func (r *PostgresRepository) ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM contacts WHERE id = $1 AND tenant_id = $2)`,
+		contactID, tenantID,
+	).Scan(&exists)
+	return exists, err
+}
+
+// CompanyExists reports whether the company (CRM "organization") belongs to
+// the given tenant.
+func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1 AND tenant_id = $2)`,
+		companyID, tenantID,
+	).Scan(&exists)
+	return exists, err
 }
 
 // ticketSelectColumns is the shared SELECT body for ticket reads. It denormalizes
@@ -66,7 +88,7 @@ const ticketSelectColumns = `
 	t.created_at, t.updated_at,
 	COALESCE(t.description, '') AS description,
 	COALESCE(t.category, '')    AS category,
-	t.ticket_number,
+	t.ticket_number, t.contact_id, t.org_id,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
 	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
 FROM tickets t
@@ -80,7 +102,7 @@ func (r *PostgresRepository) GetTicketByID(ctx context.Context, id, tenantID uui
 	return scanTicket(row)
 }
 
-func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error) {
+func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID, contactID, orgID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error) {
 	offset := (page - 1) * pageSize
 
 	var (
@@ -97,6 +119,14 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	if participantID != nil {
 		whereExtra += fmt.Sprintf(" AND (t.requester_id = $%d OR t.assignee_id = $%d)", len(args)+1, len(args)+1)
 		args = append(args, *participantID)
+	}
+	if contactID != nil {
+		whereExtra += fmt.Sprintf(" AND t.contact_id = $%d", len(args)+1)
+		args = append(args, *contactID)
+	}
+	if orgID != nil {
+		whereExtra += fmt.Sprintf(" AND t.org_id = $%d", len(args)+1)
+		args = append(args, *orgID)
 	}
 
 	var total int
@@ -139,11 +169,13 @@ func (r *PostgresRepository) UpdateTicket(ctx context.Context, t *Ticket) error 
 		`UPDATE tickets
 		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
 		     queue_id = $5, due_at = $6, merged_into_id = $7,
-		     first_response_at = $8, resolved_at = $9, updated_at = $10
-		 WHERE id = $11 AND tenant_id = $12`,
+		     first_response_at = $8, resolved_at = $9, updated_at = $10,
+		     contact_id = $11, org_id = $12
+		 WHERE id = $13 AND tenant_id = $14`,
 		t.Subject, t.Status, t.Priority, t.AssigneeID,
 		t.QueueID, t.DueAt, t.MergedIntoID,
 		t.FirstResponseAt, t.ResolvedAt, t.UpdatedAt,
+		t.ContactID, t.OrgID,
 		t.ID, t.TenantID,
 	)
 	if err != nil {
@@ -835,7 +867,7 @@ func scanTicket(row scannable) (*Ticket, error) {
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
-		&t.Description, &t.Category, &t.TicketNumber,
+		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -851,7 +883,7 @@ func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
-		&t.Description, &t.Category, &t.TicketNumber,
+		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	return &t, err

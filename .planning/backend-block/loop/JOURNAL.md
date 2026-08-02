@@ -4285,3 +4285,68 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     `ShareLinkDialog.tsx`-Mock (`generateMockLink`) bleibt unwired; sobald ein FE-Task die echte
     Route verdrahtet, ist das Backend inkl. Sicherheits-Design bereits vollstaendig.
   - Naechste Unit laut Reihenfolge: `g-helpdesk-contact-link` (Block G, deps: [], model: sonnet).
+
+## Iteration 60 — g-helpdesk-contact-link — done — 2026-08-02 07:12
+- commit: (folgt)
+- verify vorgaenger: sauber. `96238d9c` (g-dokumente-share-links) gegen die acht Fehlerklassen
+  geprueft: `route_document.go`-Diff geht durchgehend ueber `getDocumentClient()` (kein
+  RLS-Bypass), kein Stub/TODO im Server-Handler, `.proto`+`.pb.go`/`_grpc.pb.go` im selben Commit
+  regeneriert, `documents:share_link:create` bereits in Migration 000256 geseedet (per grep
+  verifiziert, nicht nur der Journal-Notiz vertraut), Migration 000266 setzt `tenant_id UUID NOT
+  NULL` + `enable_tenant_rls('document_share_links')`. Unabhaengig nachgebaut:
+  `go build -p 2 ./internal/document/... ./internal/gateway/... ./cmd/document/... ./cmd/gateway/...`
+  gruen, `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (777 Routen / 779 Pfade).
+- gebaut: `contact_id`/`org_id` (beide nullable) an `tickets` (Migration 000267,
+  `REFERENCES contacts(id)`/`REFERENCES companies(id) ON DELETE SET NULL`, partial Indizes) —
+  gleiches Cross-Service-FK-Muster wie `dialer`/`vertraege`/`email` (kein neues RLS noetig, Spalten
+  auf bereits RLS-aktiver Tabelle). Proto `Ticket`/`CreateTicketRequest`/`UpdateTicketRequest`/
+  `ListTicketsRequest` um `contact_id`/`org_id` erweitert (Felder 20/21, 9/10, 6/7, 6/7 — naechste
+  freie Nummern, nichts umnummeriert), `make proto-helpdesk`-Aequivalent per protoc direkt
+  (`make` fehlt auf dieser Maschine, Target-Flags aus dem Makefile uebernommen) im selben Commit
+  regeneriert. Service-Layer: neuer Helper `checkContactOrgTenant` in
+  `internal/helpdesk/service.go` prueft `ContactExists`/`CompanyExists` (neue
+  Repository-Methoden, Muster 1:1 aus `internal/crm/advisoryprotocol/postgres_repository.go:220`
+  uebernommen) vor jedem `CreateTicket`/`UpdateTicket` mit gesetztem `contact_id`/`org_id` —
+  gehoert der Kontakt/die Firma nicht dem Tenant der Anfrage, `ErrContactNotFound`/`ErrOrgNotFound`
+  (→ gRPC `InvalidArgument`, HTTP 400). `ListTickets` (Repo + Service + gRPC + Gateway) filtert
+  zusaetzlich per `contact_id`/`org_id`-Query-Param, Gateway-Handler folgen dem bestehenden
+  `sla_policy_id`-Muster (kein extra UUID-Parse im Handler, der gRPC-Layer wirft bei Muell
+  `InvalidArgument`). Gateway-Request-DTOs (`createTicketRequest`/`updateTicketRequest`) um
+  `ContactID`/`OrgID` (`validate:"omitempty,uuid"`) ergaenzt, `openapi.yaml` im selben Commit
+  (Query-Params auf `GET /tickets`, Body-Properties auf `POST`/`PUT /tickets/{id}`) — kein neuer
+  Response-Schema-Eintrag noetig, die Ticket-Antwort ist dort ungetypt (`schema: {type: object}`).
+  Vier neue Tests in `contact_org_link_test.go` (gegen echte Postgres, keine Mocks):
+  `ContactExists`/`CompanyExists` sind tenant-gescoped (RLS-Fall: Aufrufer aus fremdem
+  Tenant-Context sieht den Kontakt nicht, auch mit korrekter `tenantID`-Praedikat-Uebergabe —
+  Muster 1:1 aus `internal/crm/consent/tenant_write_test.go:193`
+  `TestContactExistsAndAnonymize_ScopedToCallerTenant` uebernommen, initial mit
+  `context.Background()` statt `WithTenantCtx` gebaut → RLS blockte alles inkl. eigenen Tenant,
+  eigener erster Entwurf nutzte faelschlich `context.Background()` ohne Tenant-Marker statt
+  `WithTenantCtx`, RLS blockte dadurch auch den eigenen Tenant und der Test schlug fehl — beim
+  Beheben auf das Konsens-Muster umgestellt), `CreateTicket`/`UpdateTicket`
+  lehnen einen fremd-tenant `contact_id`/`org_id` mit `ErrContactNotFound`/`ErrOrgNotFound` ab und
+  lassen bei Ablehnung keinen Teil-State auf dem Ticket zurueck, eigener-Tenant-Verknuepfung landet
+  korrekt auf dem Ticket UND ist per `ListTickets`-Filter wiederfindbar. Bestandstests
+  (`own_scope_list_test.go`, `service_test.go` — 23 `CreateTicket`- und 2 `UpdateTicket`-Aufrufe
+  per `sed` um `nil, nil` erweitert, `mockRepo` bekam `ContactExists`/`CompanyExists` +
+  contact/org-Filter in `ListTickets`) unveraendert im Verhalten, nur Signatur angepasst.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` gruen | `go vet` gruen | `golangci-lint run --config
+  .golangci.yml` fuer dieselben Pakete: 0 issues | swagger-cli validate: `api/openapi.yaml is
+  valid` | Migration lokal up/down/up sauber (Kopf 267). `DATABASE_URL` gesetzt (Rolle
+  `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go test -count=1 -v ./internal/helpdesk/...` PASS, 0
+  Skips (53 Tests, davon 4 neu), `go test ./internal/server/...` PASS, `go test
+  ./internal/gateway/` PASS inkl. `TestOpenAPIRouteDrift` (777/779, unveraendert — keine neue
+  Route, nur Query-Params/Body-Felder). RLS-Smoke: ueber die vier neuen DB-Tests erbracht
+  (Tenant-Isolation von `ContactExists`/`CompanyExists` + Ablehnung/Erfolg beim Setzen), kein
+  separater psql-Handlauf noetig — selbes Vorgehen wie in `g-dokumente-share-links` begruendet.
+- offen:
+  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. Ob das FE ueberhaupt
+    schon einen Kontakt/Org-Picker am Ticket hat, nicht geprueft.
+  - `UpdateTicket`-Signatur kann `contact_id`/`org_id` nur SETZEN, nicht wieder auf NULL loeschen
+    (gleiche Einschraenkung wie das bestehende Muster bei `assignee_id`/`queue_id` — non-nil
+    Pointer heisst "patch", nil heisst "kein Patch", es gibt kein explizites "clear"). Falls das FE
+    eine Ent-Verknuepfung braucht, ist das ein separater Scope (z. B. Sentinel-UUID oder ein
+    zweites Boolean-Feld), nicht in dieser Unit ergaenzt.
+  - Naechste Unit laut Reihenfolge: `g-helpdesk-source-channel` (Block G, deps:
+    [g-helpdesk-contact-link], model: sonnet) — jetzt entsperrt.

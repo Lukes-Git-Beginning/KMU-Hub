@@ -16,9 +16,15 @@ type Repository interface {
 
 	CreateTicket(ctx context.Context, t *Ticket) error
 	GetTicketByID(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error)
-	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error)
+	ListTickets(ctx context.Context, tenantID uuid.UUID, statusFilter *string, participantID, contactID, orgID *uuid.UUID, page, pageSize int) ([]*Ticket, int, error)
 	UpdateTicket(ctx context.Context, t *Ticket) error
 	DeleteTicket(ctx context.Context, id, tenantID uuid.UUID) error
+
+	// ContactExists reports whether the contact belongs to the given tenant.
+	ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error)
+	// CompanyExists reports whether the company (CRM "organization") belongs
+	// to the given tenant.
+	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 
 	// FindOpenTicketsByRequester returns open/pending tickets for the given
 	// requester that have a subject starting with the given prefix.

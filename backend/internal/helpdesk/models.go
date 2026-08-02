@@ -80,6 +80,8 @@ type Ticket struct {
 	Description     string     `json:"description"`
 	Category        string     `json:"category"`
 	TicketNumber    int        `json:"ticket_number"`
+	ContactID       *uuid.UUID `json:"contact_id,omitempty"`
+	OrgID           *uuid.UUID `json:"org_id,omitempty"`
 	// Denormalized via JOIN on users (read side only; not persisted here).
 	AssigneeName  *string   `json:"assignee_name,omitempty"`
 	RequesterName string    `json:"requester_name"`

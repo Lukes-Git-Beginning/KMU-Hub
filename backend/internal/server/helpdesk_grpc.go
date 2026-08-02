@@ -61,7 +61,25 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		queueID = &id
 	}
 
-	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory())
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		id, err := uuid.Parse(req.GetContactId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", err)
+		}
+		contactID = &id
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		id, err := uuid.Parse(req.GetOrgId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid org_id: %v", err)
+		}
+		orgID = &id
+	}
+
+	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -105,13 +123,31 @@ func (s *HelpdeskGRPCServer) ListTickets(ctx context.Context, req *helpdeskv1.Li
 		participantID = &pid
 	}
 
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		cid, parseErr := uuid.Parse(req.GetContactId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		contactID = &cid
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		oid, parseErr := uuid.Parse(req.GetOrgId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid org_id")
+		}
+		orgID = &oid
+	}
+
 	page := max(int(req.GetPage()), 1)
 	pageSize := int(req.GetPageSize())
 	if pageSize < 1 {
 		pageSize = 20
 	}
 
-	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, participantID, page, pageSize)
+	tickets, total, err := s.svc.ListTickets(ctx, tenantID, statusFilter, participantID, contactID, orgID, page, pageSize)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -154,7 +190,25 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		queueID = &qid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID)
+	var contactID *uuid.UUID
+	if req.ContactId != nil {
+		cid, err := uuid.Parse(req.GetContactId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", err)
+		}
+		contactID = &cid
+	}
+
+	var orgID *uuid.UUID
+	if req.OrgId != nil {
+		oid, err := uuid.Parse(req.GetOrgId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid org_id: %v", err)
+		}
+		orgID = &oid
+	}
+
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID, contactID, orgID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -884,6 +938,14 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	if t.AssigneeName != nil {
 		msg.AssigneeName = t.AssigneeName
 	}
+	if t.ContactID != nil {
+		s := t.ContactID.String()
+		msg.ContactId = &s
+	}
+	if t.OrgID != nil {
+		s := t.OrgID.String()
+		msg.OrgId = &s
+	}
 	return msg
 }
 
@@ -1028,6 +1090,10 @@ func mapHelpdeskError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, helpdesk.ErrRoutingRuleNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrContactNotFound):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrOrgNotFound):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled helpdesk service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

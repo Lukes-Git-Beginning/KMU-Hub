@@ -12941,6 +12941,8 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [open, pending, closed, resolved] } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: contact_id, in: query, schema: { type: string, format: uuid } }
+        - { name: org_id, in: query, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: Paginated ticket list
@@ -12965,6 +12967,8 @@ paths:
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
+                contact_id: { type: string, format: uuid }
+                org_id: { type: string, format: uuid }
       responses:
         "201":
           description: Ticket created
@@ -13008,6 +13012,8 @@ paths:
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
+                contact_id: { type: string, format: uuid }
+                org_id: { type: string, format: uuid }
       responses:
         "200":
           description: Ticket updated

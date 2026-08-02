@@ -47,7 +47,10 @@ type Ticket struct {
 	Description   string  `protobuf:"bytes,17,opt,name=description,proto3" json:"description,omitempty"`
 	Category      string  `protobuf:"bytes,18,opt,name=category,proto3" json:"category,omitempty"`
 	// Per-tenant sequential ticket number (1-based).
-	TicketNumber  int32 `protobuf:"varint,19,opt,name=ticket_number,json=ticketNumber,proto3" json:"ticket_number,omitempty"`
+	TicketNumber int32 `protobuf:"varint,19,opt,name=ticket_number,json=ticketNumber,proto3" json:"ticket_number,omitempty"`
+	// CRM linkage, both optional: a ticket need not have a CRM counterpart.
+	ContactId     *string `protobuf:"bytes,20,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId         *string `protobuf:"bytes,21,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -213,6 +216,20 @@ func (x *Ticket) GetTicketNumber() int32 {
 		return x.TicketNumber
 	}
 	return 0
+}
+
+func (x *Ticket) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *Ticket) GetOrgId() string {
+	if x != nil && x.OrgId != nil {
+		return *x.OrgId
+	}
+	return ""
 }
 
 type TicketMessage struct {
@@ -595,6 +612,8 @@ type CreateTicketRequest struct {
 	TenantId      string  `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	Description   *string `protobuf:"bytes,7,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	Category      *string `protobuf:"bytes,8,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	ContactId     *string `protobuf:"bytes,9,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId         *string `protobuf:"bytes,10,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -685,6 +704,20 @@ func (x *CreateTicketRequest) GetCategory() string {
 	return ""
 }
 
+func (x *CreateTicketRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *CreateTicketRequest) GetOrgId() string {
+	if x != nil && x.OrgId != nil {
+		return *x.OrgId
+	}
+	return ""
+}
+
 type GetTicketRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
@@ -740,6 +773,8 @@ type ListTicketsRequest struct {
 	// to "own": the list then holds only tickets they raised or are assigned.
 	// Never taken from the request body.
 	ParticipantId *string `protobuf:"bytes,5,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
+	ContactId     *string `protobuf:"bytes,6,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId         *string `protobuf:"bytes,7,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -809,6 +844,20 @@ func (x *ListTicketsRequest) GetParticipantId() string {
 	return ""
 }
 
+func (x *ListTicketsRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *ListTicketsRequest) GetOrgId() string {
+	if x != nil && x.OrgId != nil {
+		return *x.OrgId
+	}
+	return ""
+}
+
 type ListTicketsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Tickets       []*Ticket              `protobuf:"bytes,1,rep,name=tickets,proto3" json:"tickets,omitempty"`
@@ -868,6 +917,8 @@ type UpdateTicketRequest struct {
 	Priority      *string                `protobuf:"bytes,3,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
 	AssigneeId    *string                `protobuf:"bytes,4,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
 	QueueId       *string                `protobuf:"bytes,5,opt,name=queue_id,json=queueId,proto3,oneof" json:"queue_id,omitempty"`
+	ContactId     *string                `protobuf:"bytes,6,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId         *string                `protobuf:"bytes,7,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -933,6 +984,20 @@ func (x *UpdateTicketRequest) GetAssigneeId() string {
 func (x *UpdateTicketRequest) GetQueueId() string {
 	if x != nil && x.QueueId != nil {
 		return *x.QueueId
+	}
+	return ""
+}
+
+func (x *UpdateTicketRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *UpdateTicketRequest) GetOrgId() string {
+	if x != nil && x.OrgId != nil {
+		return *x.OrgId
 	}
 	return ""
 }
@@ -3421,7 +3486,7 @@ var File_proto_helpdesk_v1_helpdesk_proto protoreflect.FileDescriptor
 
 const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\n" +
-	" proto/helpdesk/v1/helpdesk.proto\x12\vhelpdesk.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xfb\x06\n" +
+	" proto/helpdesk/v1/helpdesk.proto\x12\vhelpdesk.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xd5\a\n" +
 	"\x06Ticket\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x18\n" +
@@ -3446,14 +3511,19 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x0erequester_name\x18\x10 \x01(\tR\rrequesterName\x12 \n" +
 	"\vdescription\x18\x11 \x01(\tR\vdescription\x12\x1a\n" +
 	"\bcategory\x18\x12 \x01(\tR\bcategory\x12#\n" +
-	"\rticket_number\x18\x13 \x01(\x05R\fticketNumberB\x0e\n" +
+	"\rticket_number\x18\x13 \x01(\x05R\fticketNumber\x12\"\n" +
+	"\n" +
+	"contact_id\x18\x14 \x01(\tH\aR\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\x06org_id\x18\x15 \x01(\tH\bR\x05orgId\x88\x01\x01B\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_queue_idB\t\n" +
 	"\a_due_atB\x11\n" +
 	"\x0f_merged_into_idB\x14\n" +
 	"\x12_first_response_atB\x0e\n" +
 	"\f_resolved_atB\x10\n" +
-	"\x0e_assignee_name\"\xe6\x01\n" +
+	"\x0e_assignee_nameB\r\n" +
+	"\v_contact_idB\t\n" +
+	"\a_org_id\"\xe6\x01\n" +
 	"\rTicketMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tticket_id\x18\x02 \x01(\tR\bticketId\x12\x1b\n" +
@@ -3495,7 +3565,7 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x11\n" +
-	"\x0f_business_hours\"\xd3\x02\n" +
+	"\x0f_business_hours\"\xad\x03\n" +
 	"\x13CreateTicketRequest\x12!\n" +
 	"\frequester_id\x18\x01 \x01(\tR\vrequesterId\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1a\n" +
@@ -3505,36 +3575,52 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\bqueue_id\x18\x05 \x01(\tH\x01R\aqueueId\x88\x01\x01\x12\x1b\n" +
 	"\ttenant_id\x18\x06 \x01(\tR\btenantId\x12%\n" +
 	"\vdescription\x18\a \x01(\tH\x02R\vdescription\x88\x01\x01\x12\x1f\n" +
-	"\bcategory\x18\b \x01(\tH\x03R\bcategory\x88\x01\x01B\x0e\n" +
+	"\bcategory\x18\b \x01(\tH\x03R\bcategory\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"contact_id\x18\t \x01(\tH\x04R\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\x06org_id\x18\n" +
+	" \x01(\tH\x05R\x05orgId\x88\x01\x01B\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_queue_idB\x0e\n" +
 	"\f_descriptionB\v\n" +
-	"\t_category\"/\n" +
+	"\t_categoryB\r\n" +
+	"\v_contact_idB\t\n" +
+	"\a_org_id\"/\n" +
 	"\x10GetTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\xdd\x01\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\xb7\x02\n" +
 	"\x12ListTicketsRequest\x12(\n" +
 	"\rstatus_filter\x18\x01 \x01(\tH\x00R\fstatusFilter\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1b\n" +
 	"\ttenant_id\x18\x04 \x01(\tR\btenantId\x12*\n" +
-	"\x0eparticipant_id\x18\x05 \x01(\tH\x01R\rparticipantId\x88\x01\x01B\x10\n" +
+	"\x0eparticipant_id\x18\x05 \x01(\tH\x01R\rparticipantId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"contact_id\x18\x06 \x01(\tH\x02R\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\x06org_id\x18\a \x01(\tH\x03R\x05orgId\x88\x01\x01B\x10\n" +
 	"\x0e_status_filterB\x11\n" +
-	"\x0f_participant_id\"Z\n" +
+	"\x0f_participant_idB\r\n" +
+	"\v_contact_idB\t\n" +
+	"\a_org_id\"Z\n" +
 	"\x13ListTicketsResponse\x12-\n" +
 	"\atickets\x18\x01 \x03(\v2\x13.helpdesk.v1.TicketR\atickets\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xee\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xc8\x02\n" +
 	"\x13UpdateTicketRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x1d\n" +
 	"\asubject\x18\x02 \x01(\tH\x00R\asubject\x88\x01\x01\x12\x1f\n" +
 	"\bpriority\x18\x03 \x01(\tH\x01R\bpriority\x88\x01\x01\x12$\n" +
 	"\vassignee_id\x18\x04 \x01(\tH\x02R\n" +
 	"assigneeId\x88\x01\x01\x12\x1e\n" +
-	"\bqueue_id\x18\x05 \x01(\tH\x03R\aqueueId\x88\x01\x01B\n" +
+	"\bqueue_id\x18\x05 \x01(\tH\x03R\aqueueId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"contact_id\x18\x06 \x01(\tH\x04R\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\x06org_id\x18\a \x01(\tH\x05R\x05orgId\x88\x01\x01B\n" +
 	"\n" +
 	"\b_subjectB\v\n" +
 	"\t_priorityB\x0e\n" +
 	"\f_assignee_idB\v\n" +
-	"\t_queue_id\"1\n" +
+	"\t_queue_idB\r\n" +
+	"\v_contact_idB\t\n" +
+	"\a_org_id\"1\n" +
 	"\x12CloseTicketRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\"2\n" +
 	"\x13ReopenTicketRequest\x12\x1b\n" +

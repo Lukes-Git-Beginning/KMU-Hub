@@ -90,6 +90,9 @@ message Ticket {
   string category = 18;
   // Per-tenant sequential ticket number (1-based).
   int32 ticket_number = 19;
+  // CRM linkage, both optional: a ticket need not have a CRM counterpart.
+  optional string contact_id = 20;
+  optional string org_id = 21;
 }
 
 message TicketMessage {
@@ -147,6 +150,8 @@ message CreateTicketRequest {
   string tenant_id = 6;
   optional string description = 7;
   optional string category = 8;
+  optional string contact_id = 9;
+  optional string org_id = 10;
 }
 
 message GetTicketRequest {
@@ -163,6 +168,8 @@ message ListTicketsRequest {
   // to "own": the list then holds only tickets they raised or are assigned.
   // Never taken from the request body.
   optional string participant_id = 5;
+  optional string contact_id = 6;
+  optional string org_id = 7;
 }
 
 message ListTicketsResponse {
@@ -176,6 +183,8 @@ message UpdateTicketRequest {
   optional string priority = 3;
   optional string assignee_id = 4;
   optional string queue_id = 5;
+  optional string contact_id = 6;
+  optional string org_id = 7;
 }
 
 message CloseTicketRequest {

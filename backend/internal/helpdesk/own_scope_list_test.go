@@ -60,7 +60,7 @@ func TestListTickets_OwnScopeNarrowsRowsAndTotal(t *testing.T) {
 	solved := newTicket("Raised by me, solved", me, nil, TicketStatusSolved)
 	defer testutil.CleanupRow(t, pool, "tickets", solved.ID)
 
-	all, allTotal, err := repo.ListTickets(ctx, tenant, nil, nil, 1, 50)
+	all, allTotal, err := repo.ListTickets(ctx, tenant, nil, nil, nil, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListTickets (unscoped): %v", err)
 	}
@@ -68,7 +68,7 @@ func TestListTickets_OwnScopeNarrowsRowsAndTotal(t *testing.T) {
 		t.Fatalf("unscoped list: got %d rows / total %d, want 4 / 4", len(all), allTotal)
 	}
 
-	own, ownTotal, err := repo.ListTickets(ctx, tenant, nil, &me, 1, 50)
+	own, ownTotal, err := repo.ListTickets(ctx, tenant, nil, &me, nil, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListTickets (own scope): %v", err)
 	}
@@ -93,7 +93,7 @@ func TestListTickets_OwnScopeNarrowsRowsAndTotal(t *testing.T) {
 	// at $3 here and at $2 above, which is exactly the kind of off-by-one that
 	// silently filters on the wrong value.
 	open := TicketStatusOpen
-	combined, combinedTotal, err := repo.ListTickets(ctx, tenant, &open, &me, 1, 50)
+	combined, combinedTotal, err := repo.ListTickets(ctx, tenant, &open, &me, nil, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListTickets (own scope + status): %v", err)
 	}
