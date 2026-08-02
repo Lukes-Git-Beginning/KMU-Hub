@@ -548,7 +548,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
 
 ## Iteration 9 — p1b-guardrail-tests — done — 2026-08-02 22:05
-- commit: <wird nach dem Commit unten ergaenzt>
+- commit: 26388dae
 - gebaut: Die sieben im Backlog geforderten Faelle (last-admin, Selbst-Aussperrung, Escalation
   inkl. scope-Aufwertung, Preset-Immutability, Custom-Limit 20, Tenant-Isolation der
   Rollenzuweisung) haben sich bei der Recherche als bereits vollstaendig durch echte DB-Tests
