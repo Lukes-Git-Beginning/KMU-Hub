@@ -3650,7 +3650,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
 
 ## Iteration 51 — g-dialer-agent-status-log-tenant — done — 2026-08-02
 
-- commit: (folgt nach diesem Eintrag)
+- commit: `324f7df0` fix(dialer): scope GetAgentStats active-campaign lookup by tenant
 - verify vorgaenger: sauber. `51b2f999` (Iteration 50, berichte-scheduler) gegen die acht
   Fehlerklassen geprueft: `delivery.go`/`render.go`/`systemmail/sender.go` sind echte
   Implementierungen (kein Stub, kein Fake-Return), kein Gateway-Handler beruehrt (kein
