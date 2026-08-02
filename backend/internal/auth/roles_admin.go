@@ -45,9 +45,9 @@ type CreateRoleInput struct {
 }
 
 // CreateRole clones BasedOn into a new role owned by tenantID, copying every
-// grant of the source role including its scope. The tenant arrives as a
-// parameter rather than being read from the context because this package must
-// not import middleware (import cycle) — the gRPC layer resolves it, exactly
+// grant of the source role including its scope. Actor and tenant arrive as
+// parameters rather than being read from the context because this package must
+// not import middleware (import cycle) — the gRPC layer resolves both, exactly
 // like CreateInvitation.
 //
 // The three business rules live here rather than in the repository: the custom
@@ -58,7 +58,13 @@ type CreateRoleInput struct {
 // COALESCE bucket, so "Admin" beside the "admin" preset would pass it).
 // The repository still maps a unique violation back onto ErrRoleNameExists as
 // a backstop for the race between this check and the insert.
-func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateRoleInput) (*Role, error) {
+//
+// The clone is an escalation path and is guarded like one: without the check,
+// an it_admin could clone the admin preset into a role carrying rights they do
+// not hold themselves and then hand it to someone else — the grant-set check
+// on SetRolePermissions would never see it, because the rights arrive through
+// the copy rather than through an edit.
+func (s *Service) CreateRole(ctx context.Context, actorID, tenantID uuid.UUID, in CreateRoleInput) (*Role, error) {
 	name := strings.TrimSpace(in.Name)
 
 	count, err := s.repo.CountCustomRoles(ctx)
@@ -75,6 +81,14 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateR
 	}
 	if exists {
 		return nil, ErrRoleNameExists
+	}
+
+	source, err := s.repo.GetRolePermissions(ctx, in.BasedOn)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.assertWithinReach(ctx, actorID, source); err != nil {
+		return nil, err
 	}
 
 	return s.repo.CreateRole(ctx, tenantID, CreateRoleInput{
@@ -178,7 +192,14 @@ func (s *Service) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]R
 // 422 an out-of-range grant deserves. The frontend's CapabilityScope union
 // should make this unreachable through the UI; this is the boundary for
 // anything else that speaks the API directly.
-func (s *Service) SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error) {
+//
+// Two guardrails sit in front of the write. The grant set may not reach past
+// what the caller holds themselves (escalation, PHASE-1-RBAC-PLAN §4c), and
+// that covers the WHOLE resulting set rather than only what changed: a PUT is
+// a full replace, so afterwards the role carries every key of it because this
+// caller put it there. And a caller who wears this role may not strip their
+// own role administration out of it (§4b).
+func (s *Service) SetRolePermissions(ctx context.Context, actorID, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error) {
 	role, err := s.repo.GetRoleByID(ctx, roleID)
 	if err != nil {
 		return nil, err
@@ -187,10 +208,30 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID uuid.UUID, gran
 		return nil, ErrRolePresetImmutable
 	}
 
-	for _, g := range grants {
+	keys := make([]string, len(grants))
+	for i, g := range grants {
 		if g.Scope != "own" && g.Scope != "team" && g.Scope != "all" {
 			return nil, ErrCapabilityKeyUnknown
 		}
+		keys[i] = g.Key
+	}
+
+	// Catalogue before reach, or a typo would come back as a 403: an
+	// unknown key is inside nobody's grant set, so the escalation check
+	// below cannot tell it apart from an attempt to grab a real right.
+	unknown, err := s.repo.CountUnknownPermissionKeys(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	if unknown > 0 {
+		return nil, ErrCapabilityKeyUnknown
+	}
+
+	if err := s.assertWithinReach(ctx, actorID, grants); err != nil {
+		return nil, err
+	}
+	if err := s.assertKeepsOwnRoleAdmin(ctx, actorID, roleID, grants); err != nil {
+		return nil, err
 	}
 
 	return s.repo.SetRolePermissions(ctx, roleID, grants)
@@ -209,12 +250,30 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID uuid.UUID, gran
 //
 // Assigning a role the account already holds is a no-op that still returns the
 // current list, so the builder can treat the call as "make it so".
-func (s *Service) AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) ([]string, error) {
+//
+// Handing a role to someone ELSE is not capped by what the caller holds: that
+// delegation is the whole point of hr_admin (admin:role:assign without
+// admin:role:create/edit), which is supposed to staff roles richer than its
+// own. Handing one to ONESELF is capped, because that is the direct route from
+// "may assign roles" to "has every right in the tenant" — the escalation
+// guardrail of PHASE-1-RBAC-PLAN §4c applied to the one case where the
+// assignment enlarges the caller.
+func (s *Service) AssignUserRole(ctx context.Context, actorID, userID, roleID uuid.UUID) ([]string, error) {
 	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
 		return nil, err
 	}
 	if _, err := s.repo.GetRoleByID(ctx, roleID); err != nil {
 		return nil, err
+	}
+
+	if actorID == userID {
+		grants, err := s.repo.GetRolePermissions(ctx, roleID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.assertWithinReach(ctx, actorID, grants); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.repo.AssignUserRole(ctx, userID, roleID); err != nil {
@@ -225,14 +284,19 @@ func (s *Service) AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) 
 
 // RevokeUserRole takes roleID off userID and returns the remaining role ids.
 //
-// The last-admin guardrail (409 last_admin) belongs in front of the revoke and
-// is built in p1b-guardrails together with the other three rules, so that all
-// four sit in one place instead of one of them living here alone.
-func (s *Service) RevokeUserRole(ctx context.Context, userID, roleID uuid.UUID) ([]string, error) {
+// The two guardrails in front of it (PHASE-1-RBAC-PLAN §4a/b) only look at
+// roles that carry the role-administration capability — see
+// assertRevokeKeepsAdmins. Taking any other role away is unremarkable and
+// stays a plain revoke.
+func (s *Service) RevokeUserRole(ctx context.Context, actorID, userID, roleID uuid.UUID) ([]string, error) {
 	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
 		return nil, err
 	}
 	if _, err := s.repo.GetRoleByID(ctx, roleID); err != nil {
+		return nil, err
+	}
+
+	if err := s.assertRevokeKeepsAdmins(ctx, actorID, userID, roleID); err != nil {
 		return nil, err
 	}
 

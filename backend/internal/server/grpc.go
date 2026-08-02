@@ -261,6 +261,20 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 	}, nil
 }
 
+// callerID resolves the account behind the request from the x-user-id the
+// TenantInboundUnaryInterceptor forwards over the gRPC hop. The role guardrails
+// are stated in terms of the caller ("may not hand out what they lack", "may
+// not lock themselves out"), so an unidentified caller cannot be evaluated —
+// and uuid.Nil would read as "an account holding nothing", which turns every
+// guardrail into a rejection instead of an error.
+func callerID(ctx context.Context) (uuid.UUID, error) {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return uuid.Nil, status.Error(codes.Unauthenticated, "missing caller context")
+	}
+	return id, nil
+}
+
 // ListRoles returns the system presets plus the calling tenant's custom
 // roles. TenantID/BasedOn nil renders as the proto zero value (empty string);
 // the gateway is responsible for turning that back into JSON null.
@@ -293,7 +307,12 @@ func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleR
 		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
 	}
 
-	role, err := s.authService.CreateRole(ctx, tenantID, auth.CreateRoleInput{
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	role, err := s.authService.CreateRole(ctx, actorID, tenantID, auth.CreateRoleInput{
 		Name:        req.Name,
 		Description: req.Description,
 		Color:       req.Color,
@@ -366,12 +385,17 @@ func (s *AuthGRPCServer) SetRolePermissions(ctx context.Context, req *authv1.Set
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	grants := make([]auth.RoleGrant, len(req.Grants))
 	for i, g := range req.Grants {
 		grants[i] = auth.RoleGrant{Key: g.Key, Scope: g.Scope}
 	}
 
-	updated, err := s.authService.SetRolePermissions(ctx, roleID, grants)
+	updated, err := s.authService.SetRolePermissions(ctx, actorID, roleID, grants)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -393,7 +417,12 @@ func (s *AuthGRPCServer) AssignUserRole(ctx context.Context, req *authv1.AssignU
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
-	roleIDs, err := s.authService.AssignUserRole(ctx, userID, roleID)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	roleIDs, err := s.authService.AssignUserRole(ctx, actorID, userID, roleID)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -412,7 +441,12 @@ func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeU
 		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
 	}
 
-	roleIDs, err := s.authService.RevokeUserRole(ctx, userID, roleID)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	roleIDs, err := s.authService.RevokeUserRole(ctx, actorID, userID, roleID)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -1011,6 +1045,16 @@ func mapError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, auth.ErrRoleHasMembers):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Guardrails (wave 1b). last_admin and self_lockout are conflicts with the
+	// tenant's current state, so 409 like the other two above; an escalation
+	// attempt is a permission problem and gets the same 403 preset_immutable
+	// gets.
+	case errors.Is(err, auth.ErrLastAdmin):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrSelfLockout):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrPrivilegeEscalation):
+		return status.Error(codes.PermissionDenied, err.Error())
 	// OutOfRange, not InvalidArgument: the gateway maps it to 422, matching
 	// the frontend contract's "unbekannter Key -> 422" — InvalidArgument
 	// would land on 400, which the builder does not distinguish from a

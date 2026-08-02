@@ -31,6 +31,28 @@ type Repository interface {
 	// capability) pair; the union across roles happens in the service.
 	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error)
 
+	// GetUserGrants returns the same rows as GetEffectivePermissions without
+	// the catalogue filter — the coarse legacy keys ("files:write") included.
+	// The guardrails need that wider set: a grant set may name any permission
+	// the catalogue has, and the coarse keys are the currency of the
+	// RequirePermission gates, so leaving them out of the escalation check
+	// would let a caller hand out exactly the rights those gates protect.
+	GetUserGrants(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error)
+
+	// CountUnknownPermissionKeys reports how many of keys the permissions
+	// catalogue does not contain. SetRolePermissions repeats the same check
+	// inside its transaction as a backstop; this one exists so the service can
+	// answer a typo with 422 before the escalation check turns it into a 403 —
+	// a key that does not exist is never within anyone's reach.
+	CountUnknownPermissionKeys(ctx context.Context, keys []string) (int, error)
+
+	// CountRoleAdminsExcluding counts the active accounts of the calling
+	// tenant that hold at least one of keys, ignoring the single assignment
+	// (ignoreUserID, ignoreRoleID) — "who would still be able to administer
+	// roles if this revoke went through". Tenant scoping comes from the users
+	// join, since user_roles carries neither tenant_id nor RLS.
+	CountRoleAdminsExcluding(ctx context.Context, keys []string, ignoreUserID, ignoreRoleID uuid.UUID) (int, error)
+
 	// ListRoles returns the system presets plus the calling tenant's custom
 	// roles, relying entirely on the roles table's RLS read policy for the
 	// tenant scoping.

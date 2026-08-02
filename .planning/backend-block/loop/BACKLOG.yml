@@ -251,7 +251,7 @@ units:
     service: auth
     model: opus
     deps: [p1b-user-roles]
-    status: todo
+    status: done
     scope: >
       Die vier serverseitigen Guardrails aus PHASE-1-RBAC-PLAN §4, zentral im Service:
       (a) **Mindestens-1-Admin** — der letzte Traeger einer Admin-Rolle im Tenant kann sie nicht

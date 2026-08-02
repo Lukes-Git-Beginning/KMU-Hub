@@ -26,6 +26,12 @@ import (
 var (
 	userRoleTenant        = uuid.MustParse("c0117000-0000-4000-8000-000000000001")
 	userRoleForeignTenant = uuid.MustParse("c0117000-0000-4000-8000-000000000002")
+	// userRoleActor is the administrator these tests act as — never the account
+	// under test, so the self-assignment cap of AssignUserRole stays out of the
+	// way here (it has its own tests in guardrails_db_test.go). It wears the
+	// admin preset, which also keeps the tenant's administrator count above
+	// zero so the last-admin guardrail does not fire on unrelated revokes.
+	userRoleActor = uuid.MustParse("c0117000-0000-4000-8000-0000000000a1")
 )
 
 func userRoleSetup(t *testing.T) (*pgxpool.Pool, *auth.Service) {
@@ -45,12 +51,33 @@ func userRoleSetup(t *testing.T) (*pgxpool.Pool, *auth.Service) {
 	}
 	drop()
 	t.Cleanup(drop)
+	seedUserRoleActor(t, pool)
 
 	svc := auth.NewService(
 		auth.NewPostgresRepository(pool),
 		auth.NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour),
 	)
 	return pool, svc
+}
+
+// seedUserRoleActor seeds the administrator whose id these tests pass as the
+// caller, with the admin preset behind it. Plain SQL under system context
+// because the id is fixed: the tests name it, and the guardrails read the
+// caller's grants out of the database rather than trusting the parameter.
+func seedUserRoleActor(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctx,
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name)
+		 VALUES ($1, $2, 'user-role-actor@test.local', 'x', 'User', 'Actor')
+		 ON CONFLICT DO NOTHING`, userRoleActor, userRoleTenant)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id)
+		 SELECT $1, id FROM roles WHERE name = 'admin' AND tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`, userRoleActor)
+	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userRoleActor) })
 }
 
 // userRoleUser seeds an account without any role — the assignment under test
@@ -74,7 +101,7 @@ func userRoleUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, email st
 // kind of role the old oneof validator could never name.
 func userRoleCustom(t *testing.T, svc *auth.Service, pool *pgxpool.Pool, tenantID uuid.UUID, name string) uuid.UUID {
 	t.Helper()
-	role, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), tenantID), tenantID,
+	role, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), tenantID), userRoleActor, tenantID,
 		auth.CreateRoleInput{Name: name, BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 	return role.ID
@@ -90,11 +117,11 @@ func TestAssignUserRole_DB_CustomRoleIsAssignable(t *testing.T) {
 	userID := userRoleUser(t, pool, userRoleTenant, "assign-custom@test.local")
 	roleID := userRoleCustom(t, svc, pool, userRoleTenant, "Lagerleitung")
 
-	roles, err := svc.AssignUserRole(ctx, userID, roleID)
+	roles, err := svc.AssignUserRole(ctx, userRoleActor, userID, roleID)
 	require.NoError(t, err)
 	assert.Equal(t, []string{roleID.String()}, roles, "the response is the account's new role list")
 
-	again, err := svc.AssignUserRole(ctx, userID, roleID)
+	again, err := svc.AssignUserRole(ctx, userRoleActor, userID, roleID)
 	require.NoError(t, err, "assigning a role the account already holds is a no-op, not a conflict")
 	assert.Equal(t, roles, again)
 }
@@ -109,7 +136,7 @@ func TestAssignUserRole_DB_PresetsStayAssignable(t *testing.T) {
 	userID := userRoleUser(t, pool, userRoleTenant, "assign-preset@test.local")
 	member := presetID(t, pool, "member")
 
-	roles, err := svc.AssignUserRole(ctx, userID, member)
+	roles, err := svc.AssignUserRole(ctx, userRoleActor, userID, member)
 	require.NoError(t, err)
 	assert.Equal(t, []string{member.String()}, roles)
 }
@@ -124,9 +151,9 @@ func TestAssignUserRole_DB_MultipleRolesAccumulate(t *testing.T) {
 	first := presetID(t, pool, "member")
 	second := userRoleCustom(t, svc, pool, userRoleTenant, "Zweitrolle")
 
-	_, err := svc.AssignUserRole(ctx, userID, first)
+	_, err := svc.AssignUserRole(ctx, userRoleActor, userID, first)
 	require.NoError(t, err)
-	roles, err := svc.AssignUserRole(ctx, userID, second)
+	roles, err := svc.AssignUserRole(ctx, userRoleActor, userID, second)
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, []string{first.String(), second.String()}, roles)
@@ -141,7 +168,7 @@ func TestAssignUserRole_DB_ForeignTenantUserIsInvisible(t *testing.T) {
 	foreignUser := userRoleUser(t, pool, userRoleForeignTenant, "assign-foreign-user@test.local")
 	roleID := userRoleCustom(t, svc, pool, userRoleTenant, "Eigenrolle")
 
-	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), foreignUser, roleID)
+	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), userRoleActor, foreignUser, roleID)
 	assert.ErrorIs(t, err, auth.ErrUserNotFound)
 
 	var assigned int
@@ -157,7 +184,7 @@ func TestAssignUserRole_DB_ForeignTenantRoleIsInvisible(t *testing.T) {
 	userID := userRoleUser(t, pool, userRoleTenant, "assign-foreign-role@test.local")
 	foreignRole := userRoleCustom(t, svc, pool, userRoleForeignTenant, "Fremdrolle")
 
-	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), userID, foreignRole)
+	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), userRoleActor, userID, foreignRole)
 	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound)
 
 	var assigned int
@@ -195,12 +222,12 @@ func TestRevokeUserRole_DB_RemovesOnlyTheNamedRole(t *testing.T) {
 	keep := presetID(t, pool, "member")
 	drop := userRoleCustom(t, svc, pool, userRoleTenant, "Wegrolle")
 
-	_, err := svc.AssignUserRole(ctx, userID, keep)
+	_, err := svc.AssignUserRole(ctx, userRoleActor, userID, keep)
 	require.NoError(t, err)
-	_, err = svc.AssignUserRole(ctx, userID, drop)
+	_, err = svc.AssignUserRole(ctx, userRoleActor, userID, drop)
 	require.NoError(t, err)
 
-	roles, err := svc.RevokeUserRole(ctx, userID, drop)
+	roles, err := svc.RevokeUserRole(ctx, userRoleActor, userID, drop)
 	require.NoError(t, err)
 	assert.Equal(t, []string{keep.String()}, roles)
 }
@@ -214,10 +241,10 @@ func TestRevokeUserRole_DB_LastRoleLeavesEmptyList(t *testing.T) {
 	userID := userRoleUser(t, pool, userRoleTenant, "revoke-last@test.local")
 	roleID := userRoleCustom(t, svc, pool, userRoleTenant, "Einzelrolle")
 
-	_, err := svc.AssignUserRole(ctx, userID, roleID)
+	_, err := svc.AssignUserRole(ctx, userRoleActor, userID, roleID)
 	require.NoError(t, err)
 
-	roles, err := svc.RevokeUserRole(ctx, userID, roleID)
+	roles, err := svc.RevokeUserRole(ctx, userRoleActor, userID, roleID)
 	require.NoError(t, err)
 	assert.NotNil(t, roles, "an account without roles answers [], never null")
 	assert.Empty(t, roles)
@@ -230,10 +257,10 @@ func TestRevokeUserRole_DB_ForeignTenantUserIsInvisible(t *testing.T) {
 	foreignUser := userRoleUser(t, pool, userRoleForeignTenant, "revoke-foreign@test.local")
 	role := presetID(t, pool, "member")
 
-	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleForeignTenant), foreignUser, role)
+	_, err := svc.AssignUserRole(testutil.WithTenantCtx(context.Background(), userRoleForeignTenant), userRoleActor, foreignUser, role)
 	require.NoError(t, err)
 
-	_, err = svc.RevokeUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), foreignUser, role)
+	_, err = svc.RevokeUserRole(testutil.WithTenantCtx(context.Background(), userRoleTenant), userRoleActor, foreignUser, role)
 	assert.ErrorIs(t, err, auth.ErrUserNotFound)
 
 	var assigned int
@@ -250,7 +277,7 @@ func TestRevokeUserRole_DB_UnheldRoleIsNoOp(t *testing.T) {
 	ctx := testutil.WithTenantCtx(context.Background(), userRoleTenant)
 	userID := userRoleUser(t, pool, userRoleTenant, "revoke-unheld@test.local")
 
-	roles, err := svc.RevokeUserRole(ctx, userID, presetID(t, pool, "member"))
+	roles, err := svc.RevokeUserRole(ctx, userRoleActor, userID, presetID(t, pool, "member"))
 	require.NoError(t, err)
 	assert.Empty(t, roles)
 }

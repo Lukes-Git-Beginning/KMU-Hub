@@ -762,6 +762,11 @@ paths:
         roles:manage (legacy) or admin:role:assign (fine-grained). An account
         or a role outside the caller's tenant is invisible rather than
         forbidden and answers 404.
+        Assigning a role to SOMEONE ELSE is not capped by the caller's own
+        rights — staffing roles richer than one's own is what
+        admin:role:assign delegates. Assigning one to ONESELF is capped: a
+        role whose grants exceed the caller's own answers 403
+        privilege_escalation.
       tags: [users]
       operationId: assignRole
       security:
@@ -786,7 +791,13 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: >
+            insufficient permissions, or privilege_escalation — the caller
+            assigned themselves a role reaching past their own rights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: not_found — no such account or role visible to the caller
           content:
@@ -801,6 +812,10 @@ paths:
         Answers with the role ids the account still holds. Removing a role the
         account does not hold is a no-op. Requires roles:manage (legacy) or
         admin:role:assign (fine-grained).
+        Two guardrails apply to roles that carry role administration itself
+        (roles:manage or admin:role:assign): the tenant's last administrator
+        cannot lose it (last_admin), and callers cannot take it off themselves
+        while other administrators exist (self_lockout). Both answer 409.
       tags: [users]
       operationId: removeRole
       security:
@@ -823,6 +838,14 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: not_found — no such account or role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            last_admin — the tenant's last administrator would lose role
+            administration; or self_lockout — the caller would remove their own
           content:
             application/json:
               schema:
@@ -903,6 +926,10 @@ paths:
         every grant of the source role including its scope. A tenant may own
         at most 20 custom roles; the system presets do not count against that.
         Requires roles:manage (legacy) or admin:role:create (fine-grained).
+        The clone may not reach past the caller's own rights: a source role
+        carrying a capability the caller lacks — or a wider scope than they
+        hold — answers 403 privilege_escalation. In practice only a caller
+        with the admin preset can clone every preset.
       tags: [users]
       operationId: createRole
       security:
@@ -925,7 +952,13 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: >
+            insufficient permissions, or privilege_escalation — the clone
+            source carries rights the caller does not hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: not_found — basedOn names no role visible to the caller
           content:
@@ -1095,13 +1128,24 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
-          description: preset_immutable — system presets cannot be edited
+          description: >
+            preset_immutable — system presets cannot be edited; or
+            privilege_escalation — the grant set names a capability the caller
+            does not hold, or widens a scope past their own
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            self_lockout — the caller wears this role and the new grant set
+            would strip their own role administration
           content:
             application/json:
               schema:

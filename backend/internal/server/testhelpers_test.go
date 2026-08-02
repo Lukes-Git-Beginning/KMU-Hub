@@ -254,6 +254,18 @@ func (m *authMockRepo) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]string,
 	return nil, nil
 }
 
+func (m *authMockRepo) GetUserGrants(_ context.Context, _ uuid.UUID) ([]auth.EffectiveGrantRow, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) CountRoleAdminsExcluding(_ context.Context, _ []string, _, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) CountUnknownPermissionKeys(_ context.Context, _ []string) (int, error) {
+	return 0, nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

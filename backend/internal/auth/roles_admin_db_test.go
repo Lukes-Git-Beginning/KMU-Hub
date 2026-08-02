@@ -27,6 +27,14 @@ import (
 var (
 	roleAdminTenant        = uuid.MustParse("40123a00-0000-4000-8000-000000000001")
 	roleAdminForeignTenant = uuid.MustParse("40123a00-0000-4000-8000-000000000002")
+	// roleAdminActor is the account these tests act as. Since the guardrails
+	// resolve the caller's own grants against the database, a caller has to
+	// exist there: an invented uuid holds nothing, and every clone would come
+	// back as privilege_escalation. This one wears the admin preset, so it is
+	// the widest caller there is and leaves these tests about what they were
+	// about before the guardrails existed — the narrow callers live in
+	// guardrails_db_test.go.
+	roleAdminActor = uuid.MustParse("40123a00-0000-4000-8000-0000000000a1")
 )
 
 // TestRoleAdminErrorsCarryFrontendCodes pins the sentinel messages. They are
@@ -51,6 +59,7 @@ func roleAdminSetup(t *testing.T) (*pgxpool.Pool, *auth.Service) {
 	testutil.EnsureTenant(t, pool, roleAdminTenant, "RoleAdminTenant")
 	testutil.EnsureTenant(t, pool, roleAdminForeignTenant, "RoleAdminForeignTenant")
 	roleAdminCleanupRoles(t, pool)
+	seedRoleAdminActor(t, pool)
 
 	svc := auth.NewService(
 		auth.NewPostgresRepository(pool),
@@ -72,6 +81,26 @@ func roleAdminCleanupRoles(t *testing.T, pool *pgxpool.Pool) {
 	}
 	drop()
 	t.Cleanup(drop)
+}
+
+// seedRoleAdminActor puts the calling account into the tenant and gives it the
+// admin preset. Written as plain SQL under system context rather than through
+// testutil.SeedRow because the id has to be the fixed one above — the tests
+// name it directly, and re-seeding it per test keeps them independent.
+func seedRoleAdminActor(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctx,
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name)
+		 VALUES ($1, $2, 'role-admin-actor@test.local', 'x', 'Role', 'Actor')
+		 ON CONFLICT DO NOTHING`, roleAdminActor, roleAdminTenant)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id)
+		 SELECT $1, id FROM roles WHERE name = 'admin' AND tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`, roleAdminActor)
+	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", roleAdminActor) })
 }
 
 // presetID resolves a preset by name. The tests clone from presets because
@@ -113,7 +142,7 @@ func TestCreateRole_DB_ClonesEveryGrantWithScope(t *testing.T) {
 	source := presetID(t, pool, "extern")
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name:        "  Lagerhilfe  ",
 		Description: "  Aushilfe im Lager  ",
 		Color:       "hsl(217 91% 60%)",
@@ -143,7 +172,7 @@ func TestCreateRole_DB_ListRolesSeesTheClone(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	created, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	created, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Sichtbar", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
@@ -173,13 +202,13 @@ func TestCreateRole_DB_NameCollision(t *testing.T) {
 	source := presetID(t, pool, "extern")
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	_, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Buchhaltung", BasedOn: source})
+	_, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Buchhaltung", BasedOn: source})
 	require.NoError(t, err)
 
-	_, err = svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "buchhaltung", BasedOn: source})
+	_, err = svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "buchhaltung", BasedOn: source})
 	assert.ErrorIs(t, err, auth.ErrRoleNameExists, "the check is case-insensitive")
 
-	_, err = svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Admin", BasedOn: source})
+	_, err = svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Admin", BasedOn: source})
 	assert.ErrorIs(t, err, auth.ErrRoleNameExists, "a preset name is taken too")
 }
 
@@ -190,11 +219,11 @@ func TestCreateRole_DB_NameIsFreeInAnotherTenant(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	source := presetID(t, pool, "extern")
 
-	_, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminTenant),
+	_, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminTenant), roleAdminActor,
 		roleAdminTenant, auth.CreateRoleInput{Name: "Doppelname", BasedOn: source})
 	require.NoError(t, err)
 
-	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Doppelname", BasedOn: source})
 	assert.NoError(t, err, "two tenants may both name a role Doppelname")
 }
@@ -204,15 +233,15 @@ func TestCreateRole_DB_NameIsFreeInAnotherTenant(t *testing.T) {
 // silent empty clone, it is the 404 the builder shows as "not found".
 func TestCreateRole_DB_BasedOnNotVisible(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Fremdrolle", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
-	_, err = svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Klau", BasedOn: foreign.ID})
+	_, err = svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Klau", BasedOn: foreign.ID})
 	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound, "another tenant's role is not a valid clone source")
 
-	_, err = svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Klau", BasedOn: uuid.New()})
+	_, err = svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Klau", BasedOn: uuid.New()})
 	assert.ErrorIs(t, err, auth.ErrBaseRoleNotFound, "an unknown id is a 404 as well")
 
 	// Nothing may survive the rejected clone.
@@ -232,18 +261,18 @@ func TestCreateRole_DB_LimitCountsOnlyCustomRoles(t *testing.T) {
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
 	for i := range auth.CustomRoleLimit {
-		_, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+		_, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 			Name: fmt.Sprintf("Limit %02d", i), BasedOn: source,
 		})
 		require.NoErrorf(t, err, "role %d of %d must still fit — presets are counted against the budget",
 			i+1, auth.CustomRoleLimit)
 	}
 
-	_, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Einer zuviel", BasedOn: source})
+	_, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Einer zuviel", BasedOn: source})
 	assert.ErrorIs(t, err, auth.ErrRoleLimitReached)
 
 	// The other tenant keeps its own budget.
-	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Erste", BasedOn: source})
 	assert.NoError(t, err, "the budget is per tenant")
 }
@@ -277,7 +306,7 @@ func TestUpdateRole_DB_AppliesOnlyProvidedFields(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	created, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	created, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Werkstatt", Description: "Urspruengliche Beschreibung", Color: "hsl(0 0% 50%)",
 		BasedOn: presetID(t, pool, "extern"),
 	})
@@ -300,9 +329,9 @@ func TestUpdateRole_DB_NameCollision(t *testing.T) {
 	source := presetID(t, pool, "extern")
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	taken, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Belegt", BasedOn: source})
+	taken, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Belegt", BasedOn: source})
 	require.NoError(t, err)
-	mine, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{Name: "Eigene", BasedOn: source})
+	mine, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{Name: "Eigene", BasedOn: source})
 	require.NoError(t, err)
 
 	_, err = svc.UpdateRole(ctx, mine.ID, auth.UpdateRoleInput{Name: ptr("belegt")})
@@ -331,7 +360,7 @@ func TestUpdateRole_DB_PresetIsImmutable(t *testing.T) {
 // not even to learn that it exists.
 func TestUpdateRole_DB_ForeignRoleIsNotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Fremd", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -360,7 +389,7 @@ func TestDeleteRole_DB_RoleHasMembers(t *testing.T) {
 	repo := auth.NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Besetzt", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
@@ -382,7 +411,7 @@ func TestDeleteRole_DB_RemovesRoleAndGrants(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Vergaenglich", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
@@ -402,7 +431,7 @@ func TestDeleteRole_DB_RemovesRoleAndGrants(t *testing.T) {
 // alike — both must answer ErrBaseRoleNotFound, never a 500 or a silent no-op.
 func TestDeleteRole_DB_NotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Unerreichbar", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -428,7 +457,7 @@ func TestGetRolePermissions_DB_MatchesClonedGrants(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Leser", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
@@ -457,7 +486,7 @@ func TestGetRolePermissions_DB_ReadsPresets(t *testing.T) {
 // as "role exists but has nothing granted".
 func TestGetRolePermissions_DB_NotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant),
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Verborgen", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -476,7 +505,7 @@ func TestSetRolePermissions_DB_FullReplace(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Umbau", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
@@ -484,7 +513,7 @@ func TestSetRolePermissions_DB_FullReplace(t *testing.T) {
 	require.Equal(t, "team", before["work:task:read"], "fixture assumption from migration 000256's extern seed")
 	require.NotContains(t, before, "crm:contact:read", "fixture assumption: extern does not carry this key")
 
-	updated, err := svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+	updated, err := svc.SetRolePermissions(ctx, roleAdminActor, role.ID, []auth.RoleGrant{
 		{Key: "dashboard:module:view", Scope: "all"}, // unchanged
 		{Key: "work:task:read", Scope: "all"},        // scope raised team -> all
 		{Key: "crm:contact:read", Scope: "own"},      // newly granted
@@ -507,12 +536,12 @@ func TestSetRolePermissions_DB_EmptyRevokesEverything(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Entleert", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
 
-	updated, err := svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{})
+	updated, err := svc.SetRolePermissions(ctx, roleAdminActor, role.ID, []auth.RoleGrant{})
 	require.NoError(t, err)
 	assert.Empty(t, updated)
 	assert.Empty(t, grantsOf(t, pool, role.ID))
@@ -525,7 +554,7 @@ func TestSetRolePermissions_DB_PresetIsImmutable(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	_, err := svc.SetRolePermissions(ctx, presetID(t, pool, "extern"), []auth.RoleGrant{
+	_, err := svc.SetRolePermissions(ctx, roleAdminActor, presetID(t, pool, "extern"), []auth.RoleGrant{
 		{Key: "dashboard:module:view", Scope: "all"},
 	})
 	assert.ErrorIs(t, err, auth.ErrRolePresetImmutable)
@@ -540,13 +569,13 @@ func TestSetRolePermissions_DB_UnknownKeyRejected(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Geschuetzt", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
 	before := grantsOf(t, pool, role.ID)
 
-	_, err = svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+	_, err = svc.SetRolePermissions(ctx, roleAdminActor, role.ID, []auth.RoleGrant{
 		{Key: "dashboard:module:view", Scope: "all"},
 		{Key: "not:a:real:permission", Scope: "all"},
 	})
@@ -562,13 +591,13 @@ func TestSetRolePermissions_DB_InvalidScopeRejected(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Randfall", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)
 	before := grantsOf(t, pool, role.ID)
 
-	_, err = svc.SetRolePermissions(ctx, role.ID, []auth.RoleGrant{
+	_, err = svc.SetRolePermissions(ctx, roleAdminActor, role.ID, []auth.RoleGrant{
 		{Key: "dashboard:module:view", Scope: "not_a_real_scope"},
 	})
 	assert.ErrorIs(t, err, auth.ErrCapabilityKeyUnknown)
@@ -587,7 +616,7 @@ func TestSetRolePermissions_DB_FailureMidwayLeavesOldGrantsStanding(t *testing.T
 	repo := auth.NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), roleAdminTenant)
 
-	role, err := svc.CreateRole(ctx, roleAdminTenant, auth.CreateRoleInput{
+	role, err := svc.CreateRole(ctx, roleAdminActor, roleAdminTenant, auth.CreateRoleInput{
 		Name: "Unversehrt", BasedOn: presetID(t, pool, "extern"),
 	})
 	require.NoError(t, err)

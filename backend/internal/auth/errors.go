@@ -70,6 +70,24 @@ var (
 	// outside own|team|all. Accepting either silently would let the builder
 	// believe it saved a right nothing in the system checks for.
 	ErrCapabilityKeyUnknown = errors.New("unknown_capability_key")
+	// ErrLastAdmin blocks taking the role-administration capability off the
+	// last account in the tenant that still carries it. A tenant that loses it
+	// cannot hand it back to itself — only Zentria could, by hand, in the
+	// database.
+	ErrLastAdmin = errors.New("last_admin")
+	// ErrSelfLockout blocks the caller from removing the very capability they
+	// are using right now, while other administrators still exist. It is not a
+	// weaker ErrLastAdmin: someone can lock themselves out of a tenant that
+	// still has three other admins, and would then need one of them to undo it.
+	//
+	// The message is not (yet) in the frontend's RBAC_ERROR_CODES, so the
+	// builder renders the generic message until rbac-format.ts and the four
+	// message catalogues learn the code.
+	ErrSelfLockout = errors.New("self_lockout")
+	// ErrPrivilegeEscalation blocks defining or taking on a right the caller
+	// does not hold themselves — including widening a scope (own -> all) past
+	// their own. Same frontend caveat as ErrSelfLockout.
+	ErrPrivilegeEscalation = errors.New("privilege_escalation")
 
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")

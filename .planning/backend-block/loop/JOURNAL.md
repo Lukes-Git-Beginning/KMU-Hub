@@ -403,3 +403,70 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     `RBAC_ERROR_CODES` in `rbac-format.ts` kennt den String nicht, das FE zeigt dort also die
     generische Meldung. Bewusst so gelassen: `ErrUserNotFound` ist repo-weit in Auth-Pfaden im
     Einsatz, sein Wortlaut ist kein RBAC-Detail.
+
+## Iteration 7 — p1b-guardrails — done — 2026-08-02 21:15
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Die vier Guardrails aus PHASE-1-RBAC-PLAN §4, zentral in
+  `internal/auth/guardrails.go` (neu) und von `roles_admin.go` aus verdrahtet — kein Handler kennt
+  eine davon. (a) **last_admin**: `CountRoleAdminsExcluding` zaehlt die aktiven Accounts des Tenants,
+  die Rollen vergeben duerfen, unter Ausschluss genau der Zuweisung, die entzogen werden soll; 0 ->
+  `ErrLastAdmin` (409). (b) **self_lockout**: beim Revoke an sich selbst und beim Umschreiben einer
+  Rolle, die der Aufrufer traegt (`assertKeepsOwnRoleAdmin`). (c) **privilege_escalation**: die
+  aufgeloeste Grant-Menge des Aufrufers (`callerReach`, Union ueber seine Rollen, breitester Scope)
+  ist die Obergrenze fuer `SetRolePermissions`, den `CreateRole`-Klon und die **Selbst**-Zuweisung in
+  `AssignUserRole`. (d) **Preset-Immutability** stand schon auf allen drei Schreibpfaden und ist jetzt
+  in einem Test ueber alle drei gepinnt. Actor kommt als Parameter (auth darf `middleware` nicht
+  importieren — Cycle), aufgeloest in `server/grpc.go` via neuem `callerID(ctx)` aus dem
+  propagierten `x-user-id`; fehlt der, ist es `Unauthenticated`, nie `uuid.Nil`.
+- entscheidungen:
+  1. **"Admin" = wer Rollen vergeben darf** (`roles:manage` ODER `admin:role:assign`), nicht "wer
+     das admin-Preset traegt". Ein Tenant, der das Preset in "Geschaeftsfuehrung" klont und das
+     Original ablegt, hat weiterhin Administratoren — ein Namensvergleich saehe sie nicht und
+     last_admin wuerde auf einem gesunden Tenant feuern. Es ist exakt das Paar, das die
+     Assign-Routen seit Iteration 6 bewachen.
+  2. **Fremd-Zuweisung bleibt frei, Selbst-Zuweisung ist gedeckelt.** Der Plan gibt hr_admin
+     `admin:role:assign` ohne `role:create/edit` — es SOLL Rollen besetzen koennen, die mehr
+     duerfen als es selbst (member-Preset ⊄ hr_admin). Haenge ich (c) an jede Zuweisung, ist das
+     Preset wertlos. Der reale Eskalationsweg ist "ich gebe sie MIR", und genau der ist zu.
+  3. **Der Klon faellt unter (c).** Sonst ist er der Weg um `SetRolePermissions` herum: Rechte
+     kommen ueber die Kopie herein statt ueber eine Bearbeitung. Konsequenz, im Test festgehalten:
+     nur wessen Reichweite ein Preset abdeckt, kann es klonen — it_admin scheitert schon an
+     `extern` (documents:file:upload/download fehlen ihm). Praktisch klont nur admin frei.
+  4. **`SetRolePermissions` prueft den Katalog VOR der Reichweite** (neue Repo-Methode
+     `CountUnknownPermissionKeys`). Ohne das kommt ein Tippfehler als 403 zurueck statt als 422:
+     ein Key, den es nicht gibt, liegt in niemandes Grant-Menge, und (c) kann ihn nicht von einem
+     Griff nach einem echten Recht unterscheiden. Der Check im Repo bleibt als Backstop (Race).
+  5. **`GetUserGrants` neben `GetEffectivePermissions`** statt eines Flags: die Bildschirm-Ansicht
+     filtert die groben Alt-Keys (`p.resource LIKE '%:%'`) bewusst weg, die Autorisierung darf das
+     nicht — die groben Keys sind die Waehrung der `RequirePermission`-Gates, wer sie vergeben
+     darf, oeffnet jedes Gate.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd) | vet ok | lint ok (golangci-lint,
+  0 issues ueber auth+server+gateway) | test ok — `go test -count=1 -v ./internal/auth/...
+  ./internal/gateway/ ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **1787 PASS, 0 SKIP, 0 FAIL** (1777 vorher + 10 neue `TestGuardrail_DB_*`, alle namentlich als
+  PASS verifiziert). `TestOpenAPIRouteDrift` gruen, `swagger-cli validate` = valid.
+  | migration n.a. — keine neue Tabelle, kein neuer `RequirePermission`-Guard (die Routen-Guards
+  aus Iteration 6 bleiben unveraendert, also auch kein Seed noetig) | rls-smoke: keine Policy
+  angefasst; die Tenant-Grenze der neuen Zaehlung ist stattdessen im last-admin-Test gepinnt —
+  er seedet einen Admin in einem **fremden** Tenant, der nicht mitzaehlen darf. Ohne den
+  `users`-Join in `CountRoleAdminsExcluding` waere der Test rot.
+- verify vorgaenger: sauber. `60fc6dae` (p1b-user-roles) gegen die acht Klassen geprueft — Handler
+  gehen ueber `client.AssignUserRole`/`client.RevokeUserRole`, kein Stub, kein `.proto` im Diff,
+  Wire-Shape `{roles:[...]}` mit `[]`-Garantie via `toUserRolesBody`, `openapi.yaml` im selben
+  Commit. Klasse 8 gezielt nachgezaehlt: der Wechsel `RequireRole("admin")` ->
+  `RequirePermissionAny({roles,manage},{admin:role,assign})` verliert niemanden, weil 000002 dem
+  admin-Preset per `CROSS JOIN permissions` den ganzen Katalog gibt und `roles:manage` (Zeile 51)
+  darin liegt — `RequirePermissionAny` hat keinen Rollen-Fallback, das war der Punkt zum Pruefen.
+- offen:
+  - **`rbac-format.ts` kennt `self_lockout` und `privilege_escalation` nicht.** `RBAC_ERROR_CODES`
+    listet fuenf Codes, meine beiden neuen sind nicht dabei — der Builder zeigt dort die generische
+    Meldung. Zwei Zeilen dort plus vier i18n-Kataloge; bewusst nicht im Backend-Commit gemacht
+    (i18n ×4 + Screenshot-QA ist ein eigener Workflow).
+  - **Produktentscheidung fuer Luke:** ist "nur admin kann Presets klonen" zu streng? Die
+    Alternative waere, den Klon frei zu lassen und stattdessen JEDE Zuweisung zu deckeln — dann
+    verliert hr_admin sein `role:assign` praktisch. Ich halte die gewaehlte Seite fuer die
+    richtige, aber es ist eine Produktfrage, keine technische.
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6,
+    unveraendert).
+  - `p1b-audit-events` (naechste Unit) setzt genau auf diesen vier Pfaden auf; die Guardrails
+    laufen alle VOR dem Write, ein abgelehnter Versuch darf also kein Event schreiben.

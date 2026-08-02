@@ -255,6 +255,80 @@ func (r *PostgresRepository) GetEffectivePermissions(ctx context.Context, userID
 	return grants, rows.Err()
 }
 
+// GetUserGrants is GetEffectivePermissions without the `p.resource LIKE '%:%'`
+// filter: every grant the user's roles carry, coarse legacy keys included.
+//
+// The two queries stay separate rather than one gaining a flag because they
+// answer different questions. GetEffectivePermissions answers "what does the
+// RBAC screen show", where the coarse keys are noise the frontend has no
+// catalogue entry for. This one answers "what may this caller hand out", and
+// there the coarse keys matter most — they are what RequirePermission gates
+// read, so a caller allowed to grant them silently could open every gate.
+//
+// Roles without any grant produce a row with empty Key/Scope here too: the
+// guardrails ask which roles the caller wears, not only what those roles give.
+func (r *PostgresRepository) GetUserGrants(ctx context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.name, r.color, (r.tenant_id IS NULL) AS is_system,
+		        COALESCE(p.name, ''), COALESCE(rp.scope, '')
+		 FROM user_roles ur
+		 JOIN roles r ON r.id = ur.role_id
+		 LEFT JOIN role_permissions rp ON rp.role_id = r.id
+		 LEFT JOIN permissions p ON p.id = rp.permission_id
+		 WHERE ur.user_id = $1
+		 ORDER BY r.name, p.name`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var grants []EffectiveGrantRow
+	for rows.Next() {
+		var g EffectiveGrantRow
+		if err := rows.Scan(&g.RoleID, &g.RoleName, &g.RoleColor, &g.RoleIsSystem, &g.Key, &g.Scope); err != nil {
+			return nil, err
+		}
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
+// CountUnknownPermissionKeys counts the keys the catalogue does not know. It
+// needs no tenant scoping: permissions is a system-global catalogue (ADR-006),
+// identical for every tenant.
+func (r *PostgresRepository) CountUnknownPermissionKeys(ctx context.Context, keys []string) (int, error) {
+	var unknown int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM unnest($1::text[]) AS k(key)
+		 WHERE NOT EXISTS (SELECT 1 FROM permissions p WHERE p.name = k.key)`,
+		keys,
+	).Scan(&unknown)
+	return unknown, err
+}
+
+// CountRoleAdminsExcluding counts the distinct active accounts that hold one of
+// keys, pretending the assignment (ignoreUserID, ignoreRoleID) is already gone.
+//
+// The users join is the tenant boundary — user_roles has no RLS of its own, so
+// without it this would count every tenant's administrators and the last-admin
+// guardrail would never fire. Inactive accounts do not count: a deactivated
+// administrator cannot log in to hand the right back.
+func (r *PostgresRepository) CountRoleAdminsExcluding(ctx context.Context, keys []string, ignoreUserID, ignoreRoleID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(DISTINCT ur.user_id)
+		 FROM user_roles ur
+		 JOIN users u ON u.id = ur.user_id AND u.is_active
+		 JOIN role_permissions rp ON rp.role_id = ur.role_id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE p.name = ANY($1)
+		   AND NOT (ur.user_id = $2 AND ur.role_id = $3)`,
+		keys, ignoreUserID, ignoreRoleID,
+	).Scan(&count)
+	return count, err
+}
+
 // ListRoles returns the system presets plus the calling tenant's custom
 // roles — the roles table's RLS read policy (tenant_id IS NULL OR own tenant)
 // does the scoping, so the query itself carries no tenant filter.
