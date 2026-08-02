@@ -43,6 +43,10 @@ const (
 	DocumentService_CreateFileComment_FullMethodName       = "/document.v1.DocumentService/CreateFileComment"
 	DocumentService_UpdateFileComment_FullMethodName       = "/document.v1.DocumentService/UpdateFileComment"
 	DocumentService_DeleteFileComment_FullMethodName       = "/document.v1.DocumentService/DeleteFileComment"
+	DocumentService_CreateShareLink_FullMethodName         = "/document.v1.DocumentService/CreateShareLink"
+	DocumentService_ListShareLinks_FullMethodName          = "/document.v1.DocumentService/ListShareLinks"
+	DocumentService_RevokeShareLink_FullMethodName         = "/document.v1.DocumentService/RevokeShareLink"
+	DocumentService_GetSharedFile_FullMethodName           = "/document.v1.DocumentService/GetSharedFile"
 	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
 	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
 	DocumentService_ListShares_FullMethodName              = "/document.v1.DocumentService/ListShares"
@@ -97,6 +101,14 @@ type DocumentServiceClient interface {
 	CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error)
 	UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error)
 	DeleteFileComment(ctx context.Context, in *DeleteFileCommentRequest, opts ...grpc.CallOption) (*DeleteFileCommentResponse, error)
+	// External, unauthenticated read/download links for a file.
+	CreateShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error)
+	ListShareLinks(ctx context.Context, in *ListShareLinksRequest, opts ...grpc.CallOption) (*ListShareLinksResponse, error)
+	RevokeShareLink(ctx context.Context, in *RevokeShareLinkRequest, opts ...grpc.CallOption) (*RevokeShareLinkResponse, error)
+	// GetSharedFile serves the unauthenticated public redemption. It takes no
+	// tenant in the request: the token itself resolves one. See
+	// file.Service.RedeemShareLink.
+	GetSharedFile(ctx context.Context, in *GetSharedFileRequest, opts ...grpc.CallOption) (*GetSharedFileResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(ctx context.Context, in *ShareEntityRequest, opts ...grpc.CallOption) (*ShareEntityResponse, error)
 	UnshareEntity(ctx context.Context, in *UnshareEntityRequest, opts ...grpc.CallOption) (*UnshareEntityResponse, error)
@@ -373,6 +385,46 @@ func (c *documentServiceClient) DeleteFileComment(ctx context.Context, in *Delet
 	return out, nil
 }
 
+func (c *documentServiceClient) CreateShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateShareLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_CreateShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) ListShareLinks(ctx context.Context, in *ListShareLinksRequest, opts ...grpc.CallOption) (*ListShareLinksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShareLinksResponse)
+	err := c.cc.Invoke(ctx, DocumentService_ListShareLinks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) RevokeShareLink(ctx context.Context, in *RevokeShareLinkRequest, opts ...grpc.CallOption) (*RevokeShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeShareLinkResponse)
+	err := c.cc.Invoke(ctx, DocumentService_RevokeShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) GetSharedFile(ctx context.Context, in *GetSharedFileRequest, opts ...grpc.CallOption) (*GetSharedFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSharedFileResponse)
+	err := c.cc.Invoke(ctx, DocumentService_GetSharedFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *documentServiceClient) ShareEntity(ctx context.Context, in *ShareEntityRequest, opts ...grpc.CallOption) (*ShareEntityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ShareEntityResponse)
@@ -605,6 +657,14 @@ type DocumentServiceServer interface {
 	CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error)
 	UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error)
 	DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error)
+	// External, unauthenticated read/download links for a file.
+	CreateShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error)
+	ListShareLinks(context.Context, *ListShareLinksRequest) (*ListShareLinksResponse, error)
+	RevokeShareLink(context.Context, *RevokeShareLinkRequest) (*RevokeShareLinkResponse, error)
+	// GetSharedFile serves the unauthenticated public redemption. It takes no
+	// tenant in the request: the token itself resolves one. See
+	// file.Service.RedeemShareLink.
+	GetSharedFile(context.Context, *GetSharedFileRequest) (*GetSharedFileResponse, error)
 	// ==================== Share operations ====================
 	ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error)
 	UnshareEntity(context.Context, *UnshareEntityRequest) (*UnshareEntityResponse, error)
@@ -712,6 +772,18 @@ func (UnimplementedDocumentServiceServer) UpdateFileComment(context.Context, *Up
 }
 func (UnimplementedDocumentServiceServer) DeleteFileComment(context.Context, *DeleteFileCommentRequest) (*DeleteFileCommentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteFileComment not implemented")
+}
+func (UnimplementedDocumentServiceServer) CreateShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateShareLink not implemented")
+}
+func (UnimplementedDocumentServiceServer) ListShareLinks(context.Context, *ListShareLinksRequest) (*ListShareLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShareLinks not implemented")
+}
+func (UnimplementedDocumentServiceServer) RevokeShareLink(context.Context, *RevokeShareLinkRequest) (*RevokeShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeShareLink not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetSharedFile(context.Context, *GetSharedFileRequest) (*GetSharedFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSharedFile not implemented")
 }
 func (UnimplementedDocumentServiceServer) ShareEntity(context.Context, *ShareEntityRequest) (*ShareEntityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ShareEntity not implemented")
@@ -1226,6 +1298,78 @@ func _DocumentService_DeleteFileComment_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_CreateShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).CreateShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_CreateShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).CreateShareLink(ctx, req.(*CreateShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_ListShareLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShareLinksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).ListShareLinks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_ListShareLinks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).ListShareLinks(ctx, req.(*ListShareLinksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_RevokeShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).RevokeShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_RevokeShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).RevokeShareLink(ctx, req.(*RevokeShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_GetSharedFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSharedFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetSharedFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_GetSharedFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetSharedFile(ctx, req.(*GetSharedFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DocumentService_ShareEntity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ShareEntityRequest)
 	if err := dec(in); err != nil {
@@ -1688,6 +1832,22 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteFileComment",
 			Handler:    _DocumentService_DeleteFileComment_Handler,
+		},
+		{
+			MethodName: "CreateShareLink",
+			Handler:    _DocumentService_CreateShareLink_Handler,
+		},
+		{
+			MethodName: "ListShareLinks",
+			Handler:    _DocumentService_ListShareLinks_Handler,
+		},
+		{
+			MethodName: "RevokeShareLink",
+			Handler:    _DocumentService_RevokeShareLink_Handler,
+		},
+		{
+			MethodName: "GetSharedFile",
+			Handler:    _DocumentService_GetSharedFile_Handler,
 		},
 		{
 			MethodName: "ShareEntity",

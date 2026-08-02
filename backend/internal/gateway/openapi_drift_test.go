@@ -79,6 +79,9 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// Berichte: authenticated routes via the registrar loop, the public read of
 	// a shared report outside it — same split as main.go.
 	berichteRoutes := gateway.NewBerichteRoutes(registry, flagRegistry)
+	// Document: authenticated routes via the registrar loop, the public
+	// redemption of a share link outside it — same split as main.go.
+	documentRoutes := gateway.NewDocumentRoutes(registry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -93,7 +96,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		videoRoutes,
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
-		gateway.NewDocumentRoutes(registry),
+		documentRoutes,
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, "test-state-secret"),
 		gateway.NewDatevUploadRoutes(registry, "test-state-secret"),
@@ -157,6 +160,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	guestRoutes.RegisterPublicRoutes(r)
 	bookingRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	berichteRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	documentRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }

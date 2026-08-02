@@ -245,6 +245,10 @@ func main() {
 	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 
+	// Document routes — standard (via registrars) + the public redemption of a
+	// share link (outside loop, behind the strict public rate limiter)
+	documentRoutes := gateway.NewDocumentRoutes(registry)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		crmRoutes,
@@ -255,7 +259,7 @@ func main() {
 		videoRoutes,
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
-		gateway.NewDocumentRoutes(registry),
+		documentRoutes,
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, cfg.BexioStateSecret),
 		// DATEV upload shares the Bexio OAuth state secret: the signed state only
@@ -348,6 +352,11 @@ func main() {
 	// sit behind the generous authenticated limit.
 	berichteRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "berichte-public")
+
+	// Public redemption of a document share link (no auth middleware). Same
+	// strict per-IP limiter, same reasoning as berichte-public.
+	documentRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "document-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

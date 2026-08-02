@@ -23905,6 +23905,153 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/documents/files/{id}/share-links:
+    get:
+      summary: List external share links for a document file
+      description: Requires documents:read permission. Newest first.
+      tags: [documents]
+      operationId: listDocumentShareLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share link list (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_links:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentShareLink"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an external share link for a document file
+      description: >-
+        Requires documents:write permission plus documents:share_link:create. The password, if
+        given, is bcrypt-hashed and never stored or returned in clear.
+      tags: [documents]
+      operationId: createDocumentShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_days:
+                  type: integer
+                  nullable: true
+                  description: Absent, null or 0 means the link never expires. Max 365.
+                password:
+                  type: string
+                  maxLength: 72
+                  description: Absent or empty means no password.
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_link: { $ref: "#/components/schemas/DocumentShareLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/share-links/{id}:
+    delete:
+      summary: Revoke an external document share link
+      description: >-
+        Requires documents:write permission plus documents:share:manage. Revocation is immediate;
+        the next redemption attempt gets the same generic "invalid" answer an unknown token would.
+      tags: [documents]
+      operationId: revokeDocumentShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked: { type: boolean, example: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/documents/share/{token}:
+    post:
+      summary: Read/download a shared document file (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire credential; the tenant is
+        resolved from it server-side and the response can only ever be the one file the link
+        names.
+
+
+        It is a POST rather than a GET because the password must not travel in a URL — where it
+        would land in access logs, browser history and Referer headers — and because the call
+        increments the link's view counter, which no prefetching GET should be free to do. The
+        request body is optional: a link without a password is read with no body at all.
+
+
+        Unknown token, revoked link, expired link, missing password and wrong password all answer
+        404 with the identical message — deliberately indistinguishable, stricter than the
+        berichte share-token route, which tells "not found" and "wrong password" apart by status
+        code. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS),
+        not the authenticated one.
+      tags: [documents]
+      operationId: getPublicDocumentSharedFile
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Required only if the link is password-protected.
+      responses:
+        "200":
+          description: A short-lived presigned download for the shared file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url: { type: string }
+                  filename: { type: string }
+                  content_type: { type: string }
+                  file_size: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404":
+          description: No such link, or it is expired, revoked, or password-rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/documents/comments/{id}:
     put:
       summary: Update a document file comment
@@ -40732,6 +40879,35 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+
+    DocumentShareLink:
+      type: object
+      description: >-
+        An external, unauthenticated read/download link for one document file. List/create
+        serialize via protojson — created_at and expires_at are always real RFC3339 strings.
+        password_hash never leaves the service; has_password is the only signal a caller gets.
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: The link secret in clear — this is the copyable URL segment.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Absent or null means the link never expires.
+        has_password:
+          type: boolean
+        view_count:
+          type: integer
+        created_at:
           type: string
           format: date-time
 

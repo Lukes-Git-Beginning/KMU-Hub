@@ -4173,3 +4173,115 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - Keine. Fix ist vollstaendig: Create war nie betroffen (Autor kam dort schon vorher aus
     `middleware.GetUserID` in der Gateway, nicht aus dem gRPC-Handler), List braucht keinen
     Actor-Check.
+
+## Iteration 59 — g-dokumente-share-links — done — 2026-08-02
+
+- commit: (folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. `8e7c56d7` (Iteration 58, fix-g-work-task-comment-authz) `git show
+  --stat` gepruefter Diff deckt sich mit dem Journal-Eintrag: `route_work_tasks.go` befuellt
+  `IsAdmin: middleware.IsAdmin(r.Context())` nur fuer Delete, `work_grpc.go` nutzt fuer
+  Update/Delete durchgehend `actorIDFromContext(ctx)` statt `uuid.Nil`; `work.proto` +
+  `.pb.go` im selben Commit regeneriert (kein `_grpc.pb.go`-Diff noetig, da nur ein Feld auf einer
+  bestehenden Request-Message ergaenzt wurde, keine RPC-Signatur geaendert); 6 neue Tests gegen den
+  echten gRPC-Handler (nicht nur den Service); keine Migration, kein RLS-Bezug. Kein
+  Nacharbeitsbedarf.
+- Auftrag: `g-dokumente-share-links` — externe, unauthentifizierte Freigabelinks fuer
+  Dokument-Dateien mit Passwortschutz und Ablaufdatum, serverseitig durchgesetzt, mit Rate-Limit
+  und nicht unterscheidbaren Fehlermeldungen (falsches Passwort vs. abgelaufener Link).
+- SCOPE-KORREKTUR (Fund beim Bau): `fe-documents-links` (Iteration 40) hatte bereits geklaert, dass
+  `/documents/links/{id}` interne CRM/PM-Entity-Links bedient (`DocumentEntityLink`), nicht die hier
+  gemeinten externen Freigabelinks — die vom Backlog vermutete "Freigabelink mit
+  Passwort/Ablauf"-UI (`ShareLinkDialog.tsx`) ist zu 100% clientseitiger Mock (`generateMockLink`,
+  kein API-Call), dokumentiert im Kommentar `route_document.go:63-65` als "documents:share_link:create
+  ... zero backend wiring". Diese Unit baut die echte Luecke, nicht die falsch vermutete.
+- gebaut:
+  - Migration `000266_document_share_links`: neue Tabelle `document_share_links` (id, tenant_id,
+    file_id FK `document_files`, token UNIQUE, password_hash NULL, expires_at NULL, revoked_at NULL,
+    view_count, created_by, created_at), `CALL enable_tenant_rls(...)` (Standardprozedur inkl.
+    `tenant_id IS NULL OR ... OR is_system_context()`-Escape bereits eingebaut — kein manuelles
+    Policy-SQL wie im aelteren `report_share_tokens`/000252-Vorbild noetig). Up/Down lokal
+    durchgetestet (Kopf 266 -> 265 -> 266 sauber).
+  - `internal/models/document.go`: `DocumentShareLink` + `Usable(now)`-Methode (Vorbild:
+    `berichte.ShareToken`).
+  - `internal/document/file/{repository,postgres_repository,service,errors}.go`: neue Methoden
+    direkt auf `file.Repository`/`file.Service` — NICHT als eigenes Sub-Package. Begruendung:
+    Comments und Entity-Links (juengste Faelle im selben Modul) liegen ebenfalls direkt im
+    `file`-Package, nur das etablierte, aeltere interne Sharing (`document_shares`,
+    User-zu-User) hat ein eigenes `share`-Package — externe Freigabelinks sind naeher an
+    Comments/Entity-Links (file-scoped Sub-Feature) als an internem Sharing. `CreateShareLink`
+    (prueft Datei-Eigentuemerschaft ueber `GetByID` vor dem Minten, wie
+    `berichte.CreateShareToken`), `ListShareLinks`, `RevokeShareLink` (Soft-Revoke, zweites Revoke
+    liefert `ErrShareLinkNotFound`, kein stiller No-op), `RedeemShareLink` (die public Kernlogik,
+    s.u.). Token: 32 Byte `crypto/rand`, base64url. Passwort: bcrypt Cost 12, 72-Byte-Cap
+    (`ErrSharePasswordTooLong`), Ablauf: max. 365 Tage (`ErrShareLinkExpiryInvalid`) — beide
+    Konstanten/Grenzen identisch zum `berichte`-Vorbild uebernommen.
+  - `proto/document/v1/document.proto`: 4 neue RPCs `CreateShareLink`/`ListShareLinks`/
+    `RevokeShareLink`/`GetSharedFile` + 6 Messages, `.pb.go`/`_grpc.pb.go` im selben Commit
+    regeneriert (`protoc` direkt via `make proto-document`-Flags — Target existiert diesmal, aber
+    `make` selbst fehlt weiterhin auf dieser Maschine).
+  - `internal/server/document_grpc.go`: 4 neue RPC-Handler + `toProtoShareLink`-Mapper +
+    Fehler-Mapping in `mapDocumentError` (`ErrShareLinkNotFound`/`ErrShareLinkInvalid` -> NotFound,
+    `ErrShareLinkExpiryInvalid`/`ErrSharePasswordTooLong` -> InvalidArgument). `CreateShareLink`/
+    `ListShareLinks`/`RevokeShareLink` ziehen `tenantID` wie ueberall sonst aus
+    `middleware.GetTenantID(ctx)`; `GetSharedFile` zieht **keinen** Tenant aus dem Context — der
+    Token loest ihn intern in `RedeemShareLink` auf, exakt das berichte-Muster.
+  - `internal/gateway/route_document.go`: neuer Guard `docShareLinkCreate` (additiv
+    `documents:write` + `documents:share_link:create`, bereits seit `p1a-migration`/000256
+    vollstaendig geseedet — verifiziert per psql gegen die lokale DB, kein neuer Seed noetig).
+    Authentifiziert: `GET/POST /documents/files/{id}/share-links` (List `docRead`, Create
+    `docShareLinkCreate`), `DELETE /documents/share-links/{id}` (Revoke `docShareManage` — derselbe
+    Key wie ShareEntity/UnshareEntity, weil es fuer Revoke keinen eigenen Katalog-Key gibt;
+    Entscheidung im Kommentar an der Guard-Deklaration begruendet, nicht "sinngemaess" geraten).
+    Unauthentifiziert: neue Methode `DocumentRoutes.RegisterPublicRoutes(r, publicRateLimit)`
+    (Vorbild `route_berichte.go`), registriert `POST /api/v1/public/documents/share/{token}` hinter
+    dem strikten `publicRateLimiter` — in `cmd/gateway/main.go` OUTSIDE der Registrar-Schleife
+    verdrahtet, dieselbe `publicRateLimiter`-Instanz wie booking/berichte-public (kein zweiter
+    Limiter noetig). `documentRoutes` dafuer von einer Inline-Konstruktion in der Registrar-Liste
+    auf eine benannte Variable umgestellt (Vorbild: `berichteRoutes`/`bookingRoutes` sind aus
+    demselben Grund schon benannt).
+  - SICHERHEITS-ENTSCHEIDUNG, staerker als das eigene `berichte`-Vorbild: `RedeemShareLink`
+    liefert fuer unbekannten Token, widerrufenen Link, abgelaufenen Link, fehlendes Passwort UND
+    falsches Passwort **denselben** Fehler `ErrShareLinkInvalid` -> ein einziger
+    `mapDocumentError`-Case -> HTTP 404 mit identischer Nachricht. `berichte.ShareToken`
+    unterscheidet dagegen "not found" (404, `ErrShareNotFound`) von "Passwort fehlt/falsch" (401,
+    `ErrSharePasswordRequired`/`ErrSharePasswordInvalid`) per Status-Code — genau das
+    Enumerations-Leck, das der Auftragstext ("kein Enumerieren ueber unterschiedliche
+    Fehlermeldungen... falsches Passwort und abgelaufener Link antworten gleich") verbietet. Bewusst
+    NICHT das bestehende Vorbild 1:1 kopiert, sondern strenger gefasst — im Code
+    (`RedeemShareLink`-Doc-Kommentar) und hier begruendet, keine stillschweigende Abweichung.
+  - `GetSharedFile`-HTTP-Antwort bleibt bei `response.JSON` mit manueller Map (nicht
+    `response.Proto`/protojson wie bei Comments/ShareLink-CRUD): `file_size` ist `int64`, und
+    protojson serialisiert 64-Bit-Felder laut `response.protoMarshaler`-Doc-Kommentar als
+    JSON-STRING, nicht als Zahl. Shape ist 1:1 identisch zum bestehenden authentifizierten
+    `GET .../download-url` (`download_url`/`filename`/`content_type`/`file_size`), das aus
+    demselben Grund schon `response.JSON` nutzt.
+  - `openapi_drift_test.go` (DB-loses Gegenstueck zu `TestOpenAPIRouteDrift`) baut seinen eigenen
+    Test-Router unabhaengig von `main.go` auf — fehlte dort `documentRoutes.RegisterPublicRoutes`,
+    waere die neue Public-Route dauerhaft unentdeckt als "dokumentiert aber nie registriert"
+    durchgefallen. Im selben Commit nachgezogen (`documentRoutes` dort ebenfalls auf eine benannte
+    Variable umgestellt, analog zu `berichteRoutes`).
+- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet ./...` gruen | `golangci-lint run
+  --config .golangci.yml` fuer `internal/document/... internal/gateway/... internal/server/...
+  cmd/gateway/... cmd/document/...`: 0 issues | swagger-cli validate: `api/openapi.yaml is valid` |
+  Migration lokal Up/Down/Up sauber (Kopf 266). `DATABASE_URL` gesetzt (Rolle `kmuhub_app`,
+  NOSUPERUSER NOBYPASSRLS): `internal/document/...` PASS (0 Skips, per `-v` verifiziert), darunter
+  8 neue DB-Tests in `postgres_repository_sharelink_test.go` (Create+List, Tenant-Isolation
+  [fremder Tenant 0 Zeilen], `GetShareLinkByToken` OHNE Tenant im Context — die
+  Public-Redemption-Situation, ueber `database.WithSystemContext` aufgeloest —, unbekannter Token,
+  Revoke, Doppel-Revoke `ErrShareLinkNotFound`, Revoke unter fremdem Tenant [Zeile bleibt
+  unangetastet], View-Count-Increment) + 12 neue Mock-Service-Tests in `service_test.go`, darunter
+  `TestRedeemShareLink_IndistinguishableFailures` (5 Unterfaelle: unknown/revoked/expired/
+  missing-password/wrong-password, beweist den kollabierten Fehler per `assert.ErrorIs`). `go test
+  ./internal/server/...` PASS | `go test ./internal/gateway/...` PASS inkl. `TestOpenAPIRouteDrift`
+  (777 Routen gegen 779 dokumentierte Pfade, +3/+3 durch die drei neuen Pfade) und
+  `TestOpenAPISpecDrift` (778 dokumentierte Pfade gegen 777 registrierte Routen — Differenz ist die
+  bereits vorbestehende `/api/v1/files/upload`-Allowlist-Ausnahme, unveraendert). 6 neue Faelle in
+  `route_capability_guard_test.go` (List/Create/Revoke je mit erlaubtem und verweigertem Key) PASS.
+  RLS-Smoke: siehe DB-Tests oben (Tenant-Isolation + System-Context-Escape sind der Beweis, kein
+  separater psql-Handlauf noetig — die Go-Tests pruefen exakt dieselbe Eigenschaft mit Assertions
+  statt Augenschein).
+- offen:
+  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. Der bestehende
+    `ShareLinkDialog.tsx`-Mock (`generateMockLink`) bleibt unwired; sobald ein FE-Task die echte
+    Route verdrahtet, ist das Backend inkl. Sicherheits-Design bereits vollstaendig.
+  - Naechste Unit laut Reihenfolge: `g-helpdesk-contact-link` (Block G, deps: [], model: sonnet).

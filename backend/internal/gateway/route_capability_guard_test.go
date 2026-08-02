@@ -262,6 +262,14 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"entity link delete by ID still requires documents:write only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, denied},
 		{"entity link delete by ID with documents:write", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:write"}, allowed},
 
+		// --- documents: share links ---
+		{"share link list, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:file:read"}, allowed},
+		{"share link create, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:share_link:create"}, allowed},
+		{"share link create, legacy key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:write"}, allowed},
+		{"share link create, edit key does not grant it", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:file:edit"}, denied},
+		{"share link revoke, catalogue share:manage key only", documentRouter, "DELETE", "/api/v1/documents/share-links/" + articleID, []string{"documents:share:manage"}, allowed},
+		{"share link revoke, edit key does not grant it", documentRouter, "DELETE", "/api/v1/documents/share-links/" + articleID, []string{"documents:file:edit"}, denied},
+
 		// --- crm: contacts ---
 		{"contact list, legacy key only", crmRouter, "GET", "/api/v1/contacts", []string{"contacts:read"}, allowed},
 		{"contact list, catalogue key only", crmRouter, "GET", "/api/v1/contacts", []string{"crm:contact:read"}, allowed},

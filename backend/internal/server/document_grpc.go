@@ -739,6 +739,108 @@ func (s *DocumentGRPCServer) DeleteFileComment(ctx context.Context, req *documen
 }
 
 // ============================================================================
+// Share Link Operations (external, unauthenticated read/download links)
+// ============================================================================
+
+func (s *DocumentGRPCServer) CreateShareLink(ctx context.Context, req *documentv1.CreateShareLinkRequest) (*documentv1.CreateShareLinkResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	in := file.CreateShareLinkInput{
+		TenantID:      tenantID,
+		FileID:        fileID,
+		ExpiresInDays: req.ExpiresInDays,
+	}
+	if req.Password != nil {
+		in.Password = *req.Password
+	}
+	if req.CreatedBy != nil {
+		if createdBy, parseErr := uuid.Parse(*req.CreatedBy); parseErr == nil {
+			in.CreatedBy = &createdBy
+		}
+	}
+
+	link, err := s.fileService.CreateShareLink(ctx, in)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.CreateShareLinkResponse{ShareLink: toProtoShareLink(link)}, nil
+}
+
+func (s *DocumentGRPCServer) ListShareLinks(ctx context.Context, req *documentv1.ListShareLinksRequest) (*documentv1.ListShareLinksResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	links, err := s.fileService.ListShareLinks(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	protoLinks := make([]*documentv1.ShareLink, 0, len(links))
+	for _, l := range links {
+		protoLinks = append(protoLinks, toProtoShareLink(l))
+	}
+
+	return &documentv1.ListShareLinksResponse{ShareLinks: protoLinks}, nil
+}
+
+func (s *DocumentGRPCServer) RevokeShareLink(ctx context.Context, req *documentv1.RevokeShareLinkRequest) (*documentv1.RevokeShareLinkResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid share link id")
+	}
+
+	if err := s.fileService.RevokeShareLink(ctx, id, tenantID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.RevokeShareLinkResponse{}, nil
+}
+
+// GetSharedFile serves the unauthenticated public redemption of a share link.
+// Unlike every other handler in this file, it takes no tenant from the
+// context — the token itself resolves one, deep inside
+// file.Service.RedeemShareLink.
+func (s *DocumentGRPCServer) GetSharedFile(ctx context.Context, req *documentv1.GetSharedFileRequest) (*documentv1.GetSharedFileResponse, error) {
+	password := ""
+	if req.Password != nil {
+		password = *req.Password
+	}
+
+	dl, err := s.fileService.RedeemShareLink(ctx, req.Token, password)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.GetSharedFileResponse{
+		DownloadUrl: dl.DownloadURL,
+		Filename:    dl.Filename,
+		ContentType: dl.ContentType,
+		FileSize:    dl.FileSize,
+	}, nil
+}
+
+// ============================================================================
 // Share Operations
 // ============================================================================
 
@@ -1398,6 +1500,21 @@ func toProtoFileComment(c *models.DocumentFileComment) *documentv1.DocumentFileC
 	}
 }
 
+func toProtoShareLink(l *models.DocumentShareLink) *documentv1.ShareLink {
+	link := &documentv1.ShareLink{
+		Id:          l.ID.String(),
+		FileId:      l.FileID.String(),
+		Token:       l.Token,
+		HasPassword: l.PasswordHash != nil,
+		ViewCount:   int32(l.ViewCount),
+		CreatedAt:   timestamppb.New(l.CreatedAt),
+	}
+	if l.ExpiresAt != nil {
+		link.ExpiresAt = timestamppb.New(*l.ExpiresAt)
+	}
+	return link
+}
+
 func toProtoVirtualFile(f *models.VirtualFile) *documentv1.VirtualFile {
 	return &documentv1.VirtualFile{
 		Id:             f.ID.String(),
@@ -1602,6 +1719,16 @@ func mapDocumentError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, share.ErrAlreadyShared):
 		return status.Error(codes.AlreadyExists, err.Error())
+
+	// Share link errors. ErrShareLinkInvalid is deliberately the single
+	// answer for every way the public redemption route can fail (unknown
+	// token, revoked, expired, missing or wrong password) — see
+	// file.Service.RedeemShareLink.
+	case errors.Is(err, file.ErrShareLinkNotFound), errors.Is(err, file.ErrShareLinkInvalid):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, file.ErrShareLinkExpiryInvalid),
+		errors.Is(err, file.ErrSharePasswordTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Tag errors
 	case errors.Is(err, tag.ErrTagNotFound):

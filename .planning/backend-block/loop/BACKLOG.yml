@@ -2253,7 +2253,7 @@ units:
     service: document
     model: sonnet
     deps: [fe-documents-links]
-    status: todo
+    status: done
     scope: >
       Externe Freigabelinks mit Passwort und Ablaufdatum.
     sources:
@@ -2263,6 +2263,48 @@ units:
       auth-Moduls), Vergleich konstantzeitig. Ablauf serverseitig durchsetzen, nicht nur anzeigen.
       Unauthentifizierter Zugangsweg: Rate-Limit auf die Einloese-Route, kein Enumerieren ueber
       unterschiedliche Fehlermeldungen (falsches Passwort und abgelaufener Link antworten gleich).
+
+      ERGEBNIS (2026-08-02): SCOPE-KORREKTUR gegenueber der Backlog-Beschreibung — `fe-documents-links`
+      (Iteration 40) hatte bereits geklaert, dass `/documents/links/{id}` interne CRM/PM-Entity-Links
+      bedient, NICHT die hier gemeinten externen Freigabelinks; die im Backlog vermutete
+      "Freigabelink mit Passwort/Ablauf"-UI (`ShareLinkDialog.tsx`) ist zu 100% clientseitiger Mock
+      (`generateMockLink`, kein API-Call) — dieselbe Luecke war seit `route_document.go:63-65`
+      explizit als unwired dokumentiert. Diese Unit schliesst sie jetzt vollstaendig.
+      Neue Tabelle `document_share_links` (Migration 000266, `CALL enable_tenant_rls`, Vorbild
+      `report_share_tokens`/000252 aus Nachtlauf 1), Token 32 Byte crypto/rand base64url, Passwort
+      bcrypt Cost 12 mit 72-Byte-Cap. Neue Methoden direkt auf `file.Service`/`file.Repository`
+      (nicht als eigenes Package — Vorbild: Comments/Entity-Links liegen im selben Package, nicht in
+      eigenen Sub-Packages). 4 neue RPCs in `document.proto`
+      (`CreateShareLink`/`ListShareLinks`/`RevokeShareLink`/`GetSharedFile`) + Regen im selben Commit.
+      Gateway: authentifiziert `GET/POST /documents/files/{id}/share-links` +
+      `DELETE /documents/share-links/{id}` (Guards: List `docRead`, Create additiv
+      `documents:write`+neuer Katalog-Key `documents:share_link:create` [bereits seit `p1a-migration`
+      geseedet, kein neuer Seed], Revoke `docShareManage` — derselbe Key, den ShareEntity/
+      UnshareEntity schon nutzen, da es fuer Revoke keinen eigenen Katalog-Key gibt); unauthentifiziert
+      `POST /public/documents/share/{token}` ueber `DocumentRoutes.RegisterPublicRoutes` (neu, Vorbild
+      `route_berichte.go`), in `main.go` OUTSIDE der Registrar-Schleife hinter `publicRateLimiter`
+      verdrahtet (dieselbe Instanz wie booking/berichte-public, kein zweiter Limiter).
+      SICHERHEITS-ENTSCHEIDUNG (staerker als das bestehende `berichte`-Vorbild): unbekannter Token,
+      widerrufener Link, abgelaufener Link, fehlendes Passwort UND falsches Passwort liefern alle
+      denselben Fehler `ErrShareLinkInvalid` -> HTTP 404 mit identischer Nachricht (ein einziger
+      Error-Mapping-Case in `mapDocumentError`). `berichte.ShareToken` unterscheidet "not found" (404)
+      von "falsches/fehlendes Passwort" (401) per Status-Code — genau das Enumerations-Leck, das der
+      Auftrag ("kein Enumerieren ueber unterschiedliche Fehlermeldungen") verbietet, deshalb bewusst
+      vollstaendig kollabiert statt das Vorbild 1:1 zu uebernehmen (im Journal/Code begruendet).
+      `GetSharedFile`-Response bleibt bei `response.JSON` (nicht `response.Proto`/protojson) wegen
+      `file_size int64` -> protojson würde das als String serialisieren (siehe
+      `response.protoMarshaler`-Doc-Kommentar) — Shape ist 1:1 identisch zum bestehenden
+      authentifizierten `GET .../download-url`.
+      RLS-Smoke: 8 neue DB-Tests (kmuhub_app) in `postgres_repository_sharelink_test.go` — Create+List,
+      Tenant-Isolation (fremder Tenant 0 Zeilen), `GetShareLinkByToken` OHNE Tenant im Context (die
+      Public-Redemption-Situation, System-Context-Escape via `database.WithSystemContext`), unbekannter
+      Token, Revoke (+ Doppel-Revoke = `ErrShareLinkNotFound`, kein stiller No-op), Revoke unter
+      fremdem Tenant (Zeile bleibt unangetastet), View-Count-Increment. Plus 12 Mock-Service-Tests in
+      `service_test.go`, darunter `TestRedeemShareLink_IndistinguishableFailures` (5 Unterfaelle,
+      beweist den kollabierten Fehler).
+      `TestOpenAPISpecDrift` (DB-loses Gegenstueck zu `TestOpenAPIRouteDrift`) fehlte die neue
+      Public-Route, weil `documentRoutes.RegisterPublicRoutes` in `openapi_drift_test.go`s
+      Test-Router-Aufbau noch nicht verdrahtet war — im selben Commit nachgezogen.
     done_when:
       - Passwortschutz und Ablauf serverseitig durchgesetzt
       - Rate-Limit, keine unterscheidbaren Fehlermeldungen

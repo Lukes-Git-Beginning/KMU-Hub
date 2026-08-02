@@ -67,6 +67,7 @@ type MockRepository struct {
 	entityLinks map[uuid.UUID][]*models.DocumentEntityLink
 	activity    map[uuid.UUID][]*models.DocumentFileActivity
 	comments    map[uuid.UUID][]*models.DocumentFileComment
+	shareLinks  map[uuid.UUID]*models.DocumentShareLink
 
 	failCreate           bool
 	failGetByID          bool
@@ -84,6 +85,7 @@ func NewMockRepository() *MockRepository {
 		entityLinks: make(map[uuid.UUID][]*models.DocumentEntityLink),
 		activity:    make(map[uuid.UUID][]*models.DocumentFileActivity),
 		comments:    make(map[uuid.UUID][]*models.DocumentFileComment),
+		shareLinks:  make(map[uuid.UUID]*models.DocumentShareLink),
 	}
 }
 
@@ -316,6 +318,53 @@ func (m *MockRepository) DeleteComment(_ context.Context, id uuid.UUID, tenantID
 		}
 	}
 	return ErrCommentNotFound
+}
+
+func (m *MockRepository) CreateShareLink(_ context.Context, link *models.DocumentShareLink) error {
+	m.shareLinks[link.ID] = link
+	return nil
+}
+
+func (m *MockRepository) ListShareLinks(_ context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentShareLink, error) {
+	var result []*models.DocumentShareLink
+	for _, l := range m.shareLinks {
+		if l.FileID != fileID {
+			continue
+		}
+		if tenantID != uuid.Nil && l.TenantID != uuid.Nil && l.TenantID != tenantID {
+			continue
+		}
+		result = append(result, l)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) RevokeShareLink(_ context.Context, id uuid.UUID, tenantID uuid.UUID, revokedAt time.Time) error {
+	l, ok := m.shareLinks[id]
+	if !ok {
+		return ErrShareLinkNotFound
+	}
+	if tenantID != uuid.Nil && l.TenantID != uuid.Nil && l.TenantID != tenantID {
+		return ErrShareLinkNotFound
+	}
+	l.RevokedAt = &revokedAt
+	return nil
+}
+
+func (m *MockRepository) GetShareLinkByToken(_ context.Context, token string) (*models.DocumentShareLink, error) {
+	for _, l := range m.shareLinks {
+		if l.Token == token {
+			return l, nil
+		}
+	}
+	return nil, ErrShareLinkInvalid
+}
+
+func (m *MockRepository) IncrementShareLinkView(_ context.Context, id uuid.UUID, _ uuid.UUID) error {
+	if l, ok := m.shareLinks[id]; ok {
+		l.ViewCount++
+	}
+	return nil
 }
 
 // --- Helper ---
@@ -890,3 +939,178 @@ func TestListComments_TenantIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, commentsB, "tenant B must not see tenant A's comments")
 }
+
+func TestCreateShareLink_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	days := int32(7)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{
+		TenantID: tenant, FileID: file.ID, ExpiresInDays: &days, Password: "s3cret",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.NotEmpty(t, link.Token)
+	assert.NotNil(t, link.PasswordHash)
+	assert.NotNil(t, link.ExpiresAt)
+	assert.Equal(t, tenant, link.TenantID)
+	assert.Equal(t, file.ID, link.FileID)
+}
+
+func TestCreateShareLink_NoPasswordNoExpiry(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+
+	require.NoError(t, err)
+	assert.Nil(t, link.PasswordHash)
+	assert.Nil(t, link.ExpiresAt)
+}
+
+func TestCreateShareLink_CrossTenant_FileNotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantB, FileID: file.ID})
+
+	assert.ErrorIs(t, err, ErrFileNotFound, "a file from another tenant must not accept a share link")
+}
+
+func TestCreateShareLink_ExpiryTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	days := int32(maxShareLinkExpiryDays + 1)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: &days})
+
+	assert.ErrorIs(t, err, ErrShareLinkExpiryInvalid)
+}
+
+func TestCreateShareLink_PasswordTooLong(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{
+		TenantID: tenant, FileID: file.ID, Password: strings.Repeat("a", maxSharePasswordLen+1),
+	})
+
+	assert.ErrorIs(t, err, ErrSharePasswordTooLong)
+}
+
+func TestListShareLinks_TenantIsolation(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	fileA := seedFileForTenant(repo, tenantA)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantA, FileID: fileA.ID})
+	require.NoError(t, err)
+
+	linksA, err := svc.ListShareLinks(context.Background(), fileA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Len(t, linksA, 1)
+
+	_, err = svc.ListShareLinks(context.Background(), fileA.ID, tenantB)
+	assert.ErrorIs(t, err, ErrFileNotFound, "tenant B must not even learn tenant A's file exists")
+}
+
+func TestRevokeShareLink_CrossTenant_NotFound(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	file := seedFileForTenant(repo, tenantA)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenantA, FileID: file.ID})
+	require.NoError(t, err)
+
+	err = svc.RevokeShareLink(context.Background(), link.ID, tenantB)
+	assert.ErrorIs(t, err, ErrShareLinkNotFound)
+}
+
+func TestRedeemShareLink_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	require.NoError(t, err)
+
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "")
+
+	require.NoError(t, err)
+	require.NotNil(t, dl)
+	assert.Equal(t, file.Filename, dl.Filename)
+	assert.Equal(t, file.MimeType, dl.ContentType)
+	assert.Equal(t, file.FileSize, dl.FileSize)
+	assert.Contains(t, dl.DownloadURL, file.StorageKey)
+
+	links, err := repo.ListShareLinks(context.Background(), file.ID, tenant)
+	require.NoError(t, err)
+	require.Len(t, links, 1)
+	assert.Equal(t, 1, links[0].ViewCount, "a successful redemption must count as a view")
+}
+
+func TestRedeemShareLink_CorrectPassword(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, Password: "s3cret"})
+	require.NoError(t, err)
+
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "s3cret")
+
+	require.NoError(t, err)
+	assert.Equal(t, file.Filename, dl.Filename)
+}
+
+// TestRedeemShareLink_IndistinguishableFailures is the security property this
+// whole feature exists for: an unknown token, a revoked link, an expired
+// link, a missing password and a wrong password must all return the exact
+// same error — a caller probing the public route learns nothing about which
+// case it hit.
+func TestRedeemShareLink_IndistinguishableFailures(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	protectedLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, Password: "s3cret"})
+	require.NoError(t, err)
+
+	expiredDays := int32(1)
+	expiredLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: &expiredDays})
+	require.NoError(t, err)
+	repo.shareLinks[expiredLink.ID].ExpiresAt = timePtr(time.Now().Add(-time.Hour))
+
+	revokedLink, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	require.NoError(t, err)
+	require.NoError(t, svc.RevokeShareLink(context.Background(), revokedLink.ID, tenant))
+
+	cases := []struct {
+		name     string
+		token    string
+		password string
+	}{
+		{"unknown token", "does-not-exist", ""},
+		{"revoked link", revokedLink.Token, ""},
+		{"expired link", expiredLink.Token, ""},
+		{"missing password", protectedLink.Token, ""},
+		{"wrong password", protectedLink.Token, "wrong"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.RedeemShareLink(context.Background(), tc.token, tc.password)
+			assert.ErrorIs(t, err, ErrShareLinkInvalid)
+		})
+	}
+}
+
+func timePtr(t time.Time) *time.Time { return &t }

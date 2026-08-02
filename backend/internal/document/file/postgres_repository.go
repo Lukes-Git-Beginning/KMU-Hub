@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -472,6 +474,98 @@ func (r *PostgresRepository) DeleteComment(ctx context.Context, id uuid.UUID, te
 		return ErrCommentNotFound
 	}
 	return nil
+}
+
+// Share links
+
+func (r *PostgresRepository) CreateShareLink(ctx context.Context, link *models.DocumentShareLink) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO document_share_links
+		    (id, tenant_id, file_id, token, password_hash, expires_at, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		link.ID, link.TenantID, link.FileID, link.Token, link.PasswordHash, link.ExpiresAt, link.CreatedBy, link.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListShareLinks(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) ([]*models.DocumentShareLink, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+shareLinkColumns+`
+		 FROM document_share_links
+		 WHERE file_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC`, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []*models.DocumentShareLink
+	for rows.Next() {
+		l, scanErr := scanShareLink(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		links = append(links, l)
+	}
+	return links, rows.Err()
+}
+
+// RevokeShareLink soft-revokes a link by its own ID. tenantID is required
+// even though RLS also enforces it, same reasoning as DeleteEntityLink: a
+// cross-tenant attempt becomes the same "not found" a bad ID gets.
+func (r *PostgresRepository) RevokeShareLink(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, revokedAt time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE document_share_links SET revoked_at = $1 WHERE id = $2 AND tenant_id = $3 AND revoked_at IS NULL`,
+		revokedAt, id, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrShareLinkNotFound
+	}
+	return nil
+}
+
+// GetShareLinkByToken resolves a link — and with it its tenant — from the
+// secret alone. Runs in the system context (see Repository.GetShareLinkByToken
+// doc comment): RLS would otherwise filter away the one row that answers
+// which tenant the caller may see.
+func (r *PostgresRepository) GetShareLinkByToken(ctx context.Context, token string) (*models.DocumentShareLink, error) {
+	if token == "" {
+		return nil, ErrShareLinkInvalid
+	}
+	row := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareLinkColumns+` FROM document_share_links WHERE token = $1`, token)
+	l, err := scanShareLink(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareLinkInvalid
+	}
+	return l, err
+}
+
+func (r *PostgresRepository) IncrementShareLinkView(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE document_share_links SET view_count = view_count + 1 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	)
+	return err
+}
+
+const shareLinkColumns = `id, tenant_id, file_id, token, password_hash, expires_at, revoked_at, view_count, created_by, created_at`
+
+type shareLinkScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanShareLink(row shareLinkScanner) (*models.DocumentShareLink, error) {
+	var l models.DocumentShareLink
+	err := row.Scan(&l.ID, &l.TenantID, &l.FileID, &l.Token, &l.PasswordHash,
+		&l.ExpiresAt, &l.RevokedAt, &l.ViewCount, &l.CreatedBy, &l.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &l, nil
 }
 
 // scanFile scans a single row into a DocumentFile.

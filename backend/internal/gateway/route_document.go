@@ -1,9 +1,11 @@
 package gateway
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -60,19 +62,24 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// capability check at all, so it keeps its coarse key only. Version
 	// history is only reachable behind the version:restore menu item
 	// (FileContextMenu.tsx:245), so the LIST route gets that alt key too, not
-	// file:read. documents:template:manage and documents:share_link:create
-	// have zero backend wiring (TemplateGalleryDialog and ShareDialog's
-	// copyLink are FE-only mocks, verified no API call in either) — both stay
-	// unwired, no route invented. Tags, entity links, search, virtual files,
-	// WOPI and space initialization have no catalogue subject at all.
+	// file:read. documents:template:manage has zero backend wiring
+	// (TemplateGalleryDialog is an FE-only mock, verified no API call) — stays
+	// unwired, no route invented. documents:share_link:create now gates the
+	// external share-link create route below (g-dokumente-share-links); list
+	// and revoke reuse docShareManage, the same fine key ShareEntity/
+	// UnshareEntity already use for managing a share — there is no separate
+	// catalogue key for those two actions. Tags, entity links, search,
+	// virtual files, WOPI and space initialization have no catalogue subject
+	// at all.
 	var (
-		docRead           = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "read"})
-		docDownload       = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "download"})
-		docUpload         = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "upload"})
-		docEdit           = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "edit"})
-		docDelete         = middleware.RequirePermissionAny([2]string{"documents", "delete"}, [2]string{"documents:file", "delete"})
-		docShareManage    = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:share", "manage"})
-		docVersionRestore = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:version", "restore"})
+		docRead            = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "read"})
+		docDownload        = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "download"})
+		docUpload          = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "upload"})
+		docEdit            = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "edit"})
+		docDelete          = middleware.RequirePermissionAny([2]string{"documents", "delete"}, [2]string{"documents:file", "delete"})
+		docShareManage     = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:share", "manage"})
+		docShareLinkCreate = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:share_link", "create"})
+		docVersionRestore  = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:version", "restore"})
 	)
 
 	// Folders
@@ -105,6 +112,9 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// Comments
 		r.With(docRead).Get("/{id}/comments", d.HandleListFileComments)
 		r.With(docEdit).Post("/{id}/comments", d.HandleCreateFileComment)
+		// Share links (external, unauthenticated read/download links)
+		r.With(docRead).Get("/{id}/share-links", d.HandleListShareLinks)
+		r.With(docShareLinkCreate).Post("/{id}/share-links", d.HandleCreateShareLink)
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
@@ -126,6 +136,12 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Use(authMiddleware)
 		r.With(docEdit).Put("/{id}", d.HandleUpdateFileComment)
 		r.With(docEdit).Delete("/{id}", d.HandleDeleteFileComment)
+	})
+
+	// Share links (standalone, by link ID — mirrors the entity links route above)
+	r.Route("/api/v1/documents/share-links", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(docShareManage).Delete("/{id}", d.HandleRevokeShareLink)
 	})
 
 	// Shares
@@ -164,6 +180,22 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/token", d.HandleGenerateWOPIToken)
 		r.With(middleware.RequirePermission("documents", "read")).Get("/discovery", d.HandleGetWOPIDiscovery)
+	})
+}
+
+// RegisterPublicRoutes mounts the unauthenticated redemption of a document
+// share link. Called from cmd/gateway/main.go OUTSIDE the registrars loop,
+// directly on r, following the berichte public-share-read pattern
+// (route_berichte.go RegisterPublicRoutes).
+//
+// publicRateLimit must be the stricter public limiter, not the global one:
+// this is the only path in the module that answers without a JWT, so per-IP
+// throttling is the only thing standing between a scraper and an unbounded
+// series of token/password guesses.
+func (d *DocumentRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/documents/share/{token}", d.HandleGetSharedFile)
 	})
 }
 
@@ -743,6 +775,150 @@ func (d *DocumentRoutes) HandleDeleteFileComment(w http.ResponseWriter, r *http.
 	}
 
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
+}
+
+// ============================================================================
+// Share Link Handlers (external, unauthenticated read/download links)
+// ============================================================================
+
+func (d *DocumentRoutes) HandleListShareLinks(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	resp, err := client.ListShareLinks(r.Context(), &documentv1.ListShareLinksRequest{
+		FileId: fileID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "share_links", resp.ShareLinks, nil)
+}
+
+type createShareLinkRequest struct {
+	ExpiresInDays *int32 `json:"expires_in_days"`
+	Password      string `json:"password"`
+}
+
+func (d *DocumentRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	req, ok := decodeAndValidate[createShareLinkRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &documentv1.CreateShareLinkRequest{
+		FileId:        fileID,
+		ExpiresInDays: req.ExpiresInDays,
+	}
+	if req.Password != "" {
+		grpcReq.Password = &req.Password
+	}
+	if userID := middleware.GetUserID(r.Context()); userID != "" {
+		grpcReq.CreatedBy = &userID
+	}
+
+	resp, err := client.CreateShareLink(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (d *DocumentRoutes) HandleRevokeShareLink(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err = client.RevokeShareLink(r.Context(), &documentv1.RevokeShareLinkRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"revoked": true})
+}
+
+type publicShareLinkRequest struct {
+	Password string `json:"password"`
+}
+
+// HandleGetSharedFile serves the unauthenticated public redemption of a
+// share link.
+//
+// It is a POST, not a GET, for the same two reasons as berichte's
+// HandleGetSharedReport: the password must not land in a URL (access logs,
+// browser history, Referer headers), and the call increments the link's view
+// counter, which no prefetching GET should be free to do.
+//
+// The response shape mirrors HandleGetFileDownloadURL (the authenticated
+// equivalent) exactly, including file_size as a native JSON number — this
+// stays on response.JSON rather than response.Proto specifically to avoid
+// protojson's int64-as-string encoding (see protoMarshaler's doc comment).
+func (d *DocumentRoutes) HandleGetSharedFile(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		// Same answer a well-formed unknown token gets: this route never
+		// distinguishes "malformed" from "no such link".
+		response.Error(w, http.StatusNotFound, "share link not found")
+		return
+	}
+
+	// The body is optional — a link without a password is read with no body
+	// at all — so an empty or absent one is not an error, only a malformed
+	// one is.
+	var body publicShareLinkRequest
+	raw, readErr := io.ReadAll(io.LimitReader(r.Body, maxSharePasswordBody))
+	if readErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(strings.TrimSpace(string(raw))) > 0 {
+		if err := json.Unmarshal(raw, &body); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+
+	grpcReq := &documentv1.GetSharedFileRequest{Token: token}
+	if body.Password != "" {
+		grpcReq.Password = &body.Password
+	}
+
+	resp, err := client.GetSharedFile(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"download_url": resp.DownloadUrl,
+		"filename":     resp.Filename,
+		"content_type": resp.ContentType,
+		"file_size":    resp.FileSize,
+	})
 }
 
 // ============================================================================
