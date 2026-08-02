@@ -36,10 +36,10 @@ func (r *PostgresRepository) CreateFile(ctx context.Context, file *models.ChatFi
 func (r *PostgresRepository) GetFileByID(ctx context.Context, id uuid.UUID) (*models.ChatFile, error) {
 	var f models.ChatFile
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, message_id, channel_id, filename, mime_type, file_size, storage_key, thumbnail_key,
+		`SELECT id, tenant_id, message_id, channel_id, filename, mime_type, file_size, storage_key, thumbnail_key,
 		        uploaded_by, is_deleted, created_at, deleted_at
 		 FROM chat_files WHERE id = $1`, id,
-	).Scan(&f.ID, &f.MessageID, &f.ChannelID, &f.Filename, &f.MimeType, &f.FileSize,
+	).Scan(&f.ID, &f.TenantID, &f.MessageID, &f.ChannelID, &f.Filename, &f.MimeType, &f.FileSize,
 		&f.StorageKey, &f.ThumbnailKey, &f.UploadedBy, &f.IsDeleted, &f.CreatedAt, &f.DeletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrFileNotFound
@@ -170,29 +170,45 @@ func (r *PostgresRepository) GetChannelRole(ctx context.Context, channelID, user
 	return role, err
 }
 
-// Quota
+// Quota (tenant-scoped since migration 000275)
 
-func (r *PostgresRepository) GetStorageQuota(ctx context.Context) (*models.StorageQuota, error) {
+// GetStorageQuota returns the tenant's quota, or ErrQuotaNotFound when the
+// tenant has never uploaded a file. IncrementUsedBytes creates the row on
+// first write, so there is at most one row per tenant.
+func (r *PostgresRepository) GetStorageQuota(ctx context.Context, tenantID uuid.UUID) (*models.StorageQuota, error) {
 	var q models.StorageQuota
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, max_bytes, used_bytes, updated_at FROM storage_quotas LIMIT 1`,
-	).Scan(&q.ID, &q.MaxBytes, &q.UsedBytes, &q.UpdatedAt)
+		`SELECT id, tenant_id, max_bytes, used_bytes, updated_at FROM storage_quotas WHERE tenant_id = $1`,
+		tenantID,
+	).Scan(&q.ID, &q.TenantID, &q.MaxBytes, &q.UsedBytes, &q.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrQuotaNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &q, nil
 }
 
-func (r *PostgresRepository) IncrementUsedBytes(ctx context.Context, bytes int64) error {
+// IncrementUsedBytes upserts rather than updates: a tenant's first upload has
+// no row yet, and a plain UPDATE would have reported success while changing
+// nothing. The insert branch picks up max_bytes from the column default.
+func (r *PostgresRepository) IncrementUsedBytes(ctx context.Context, tenantID uuid.UUID, bytes int64) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE storage_quotas SET used_bytes = used_bytes + $1, updated_at = NOW()`, bytes,
+		`INSERT INTO storage_quotas (tenant_id, used_bytes, updated_at)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (tenant_id) DO UPDATE
+		 SET used_bytes = storage_quotas.used_bytes + EXCLUDED.used_bytes,
+		     updated_at = NOW()`,
+		tenantID, bytes,
 	)
 	return err
 }
 
-func (r *PostgresRepository) DecrementUsedBytes(ctx context.Context, bytes int64) error {
+func (r *PostgresRepository) DecrementUsedBytes(ctx context.Context, tenantID uuid.UUID, bytes int64) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE storage_quotas SET used_bytes = GREATEST(used_bytes - $1, 0), updated_at = NOW()`, bytes,
+		`UPDATE storage_quotas SET used_bytes = GREATEST(used_bytes - $1, 0), updated_at = NOW()
+		 WHERE tenant_id = $2`, bytes, tenantID,
 	)
 	return err
 }

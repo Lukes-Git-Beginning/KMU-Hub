@@ -1095,3 +1095,60 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
     uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
+
+## Iteration 16 — g-rls-storage-quotas — done — 2026-08-02 23:23
+
+- commit: <wird nachgetragen>
+- gebaut:
+  - `000275_tenant_scope_storage_quotas` — `tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE
+    CASCADE` + `UNIQUE(tenant_id)` (Conflict-Target fuer den Upsert unten) + `enable_tenant_rls()`.
+    Anders als `two_factor_policy`/`presence_config`/`dashboard_defaults` liess sich `used_bytes`
+    NICHT verlustfrei aus der alten globalen Zeile replizieren — die Zahl war eine Summe ueber alle
+    Tenants. Der Backfill berechnet `used_bytes` deshalb je Tenant aus `SUM(file_size)` ueber
+    `chat_files` (tenant-gescopt + RLS seit 000115/000122) neu; `max_bytes` wird wie in
+    000273/000274 1:1 aus der alten globalen Zeile repliziert. Lokal 0 Zeilen in `chat_files` —
+    Backfill also rechnerisch verifiziert (1671 Tenants -> 1671 Zeilen, alle used_bytes=0), nicht
+    gegen echte Dateidaten.
+  - `chat/file`: `GetStorageQuota(ctx, tenantID)` liefert `ErrQuotaNotFound` statt einer Zeile eines
+    fremden Tenants. `IncrementUsedBytes` ist jetzt ein Upsert (INSERT...ON CONFLICT(tenant_id) DO
+    UPDATE) — eine reine WHERE-UPDATE-Variante haette einem Tenant ohne Zeile einen stillen Erfolg
+    ohne Wirkung gemeldet; der Insert-Zweig zieht `max_bytes` aus dem Spalten-Default.
+    `DecrementUsedBytes` bleibt ein WHERE-gescoptes UPDATE (die Zeile existiert immer schon, weil
+    Increment sie beim ersten Upload anlegt). `GetFileByID` selektiert jetzt `tenant_id` mit.
+  - `Service.Upload` loest den Tenant jetzt VOR der Quota-Pruefung auf (vorher erst kurz vor
+    `CreateFile`, ein zweiter Aufruf) und nutzt ihn fuer Quota-Read, Quota-Increment und
+    `chatFile.TenantID`. `Service.Delete` liest den Tenant NICHT aus dem Context, sondern aus dem
+    bereits geladenen `file.TenantID` — vermeidet eine zweite Tenant-Aufloesungspflicht fuer jeden
+    Delete-Caller.
+- entscheidung (die offene Frage der Unit): Code-Default statt Provisioning-Zeile, dieselbe Wahl wie
+  000274 und aus demselben Grund — `IncrementUsedBytes` legt die Zeile beim ersten Upload an, ein
+  Provisioning-Insert haette nur dupliziert, was im Code steht. Bei `ErrQuotaNotFound` faellt
+  `Upload` auf den neuen Code-Default `DefaultMaxQuotaBytes` (10 GB, identisch zum Spalten-Default)
+  zurueck statt den Upload zu blocken.
+- tests: `internal/chat/file/rls_storage_quota_test.go` (3 Faelle: Fremd-Tenant sieht 0 Zeilen,
+  unabhaengige Zaehler unter parallelen Increment/Decrement-Aufrufen, Upsert legt Zeile fuer
+  frischen Tenant an inkl. Spalten-Default-Pruefung). Cleanups als `defer`, nicht `t.Cleanup` (Lehre
+  aus Iteration 15). Bestehende Mocks (`chat/file` und `server`) auf die neue `tenantID`-Signatur
+  angepasst; zwei Upload-Testfaelle ("quota exceeded", "scan failed") liefen vorher mit
+  `context.Background()`, weil ihr Fehlerpfad vor der alten, spaeteren Tenant-Aufloesung lag — jetzt
+  liegt die Aufloesung davor, beide Faelle brauchen darum `tenantCtx(uuid.Nil)` wie die Erfolgsfaelle.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues auf
+  `internal/chat/file`, `internal/server`, `internal/models`) | test ok — `go test -count=1
+  ./internal/chat/file/... ./internal/server/... ./internal/gateway/...` mit `DATABASE_URL` auf
+  `kmuhub_app`, 0 Skips in den neuen RLS-Tests | migration: up/down/up gruen (274 -> 275 -> 274 ->
+  275), Policy `tenant_isolation` mit FORCE ROW LEVEL SECURITY, `tenant_id` NOT NULL,
+  `UNIQUE(tenant_id)`, 1671 Zeilen ueber 1671 Tenants nach Wiederherstellung verifiziert | openapi:
+  keine neue Route, `TestOpenAPIRouteDrift` unberuehrt gruen (782/784).
+- verify vorgaenger: sauber. `c0c30e79` (presence_config/dashboard_defaults) gegen die
+  Fehlerklassen geprueft: keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass; Migration,
+  Backfill, Down-Pfad, Repository-/Service-Callsites und die Cache-Tenant-Scoping passen zusammen.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Stand: 31 offen / 18 done / 2 blocked.
+- offen:
+  - `g-rls-plugin-manifests` bleibt die letzte Tabelle der Fuenfer-Gruppe und hat zusaetzlich eine
+    offene Produktfrage (Tenant-Admin- oder Plattform-Operation) — siehe deren eigene notes.
+  - `desktop/src/renderer/src/api/*` kennt das neue `tenant_id`-Feld auf `StorageQuota` nicht. Kein
+    Bruch (das FE liest es nicht), reiht sich in den offenen Punkt "nicht regenerierte types.ts" ein
+    (jetzt vier Typen tief).
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.

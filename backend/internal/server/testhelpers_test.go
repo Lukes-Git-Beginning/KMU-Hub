@@ -660,7 +660,7 @@ func (m *fileMockRepo) IsChannelArchived(_ context.Context, channelID uuid.UUID)
 	return m.archived[channelID], nil
 }
 
-func (m *fileMockRepo) GetStorageQuota(_ context.Context) (*models.StorageQuota, error) {
+func (m *fileMockRepo) GetStorageQuota(_ context.Context, _ uuid.UUID) (*models.StorageQuota, error) {
 	return m.quota, nil
 }
 
@@ -696,12 +696,12 @@ func (m *fileMockRepo) DeleteFile(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *fileMockRepo) IncrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *fileMockRepo) IncrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes += bytes
 	return nil
 }
 
-func (m *fileMockRepo) DecrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *fileMockRepo) DecrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes -= bytes
 	return nil
 }

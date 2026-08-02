@@ -142,16 +142,16 @@ func (m *MockRepository) GetChannelRole(_ context.Context, channelID, userID uui
 	return role, nil
 }
 
-func (m *MockRepository) GetStorageQuota(_ context.Context) (*models.StorageQuota, error) {
+func (m *MockRepository) GetStorageQuota(_ context.Context, _ uuid.UUID) (*models.StorageQuota, error) {
 	return m.quota, nil
 }
 
-func (m *MockRepository) IncrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *MockRepository) IncrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes += bytes
 	return nil
 }
 
-func (m *MockRepository) DecrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *MockRepository) DecrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes -= bytes
 	if m.quota.UsedBytes < 0 {
 		m.quota.UsedBytes = 0
@@ -372,7 +372,7 @@ func TestService_Upload(t *testing.T) {
 		channelID, userID := setupChannel(repo)
 		repo.quota.UsedBytes = repo.quota.MaxBytes - 100 // Almost full
 
-		_, err := svc.Upload(context.Background(), UploadInput{
+		_, err := svc.Upload(tenantCtx(uuid.Nil), UploadInput{
 			ChannelID: channelID,
 			Filename:  "doc.pdf",
 			MimeType:  "application/pdf",
@@ -426,7 +426,7 @@ func TestService_Upload(t *testing.T) {
 		channelID, userID := setupChannel(repo)
 		scanner.scanErr = ErrScanFailed
 
-		_, err := svc.Upload(context.Background(), UploadInput{
+		_, err := svc.Upload(tenantCtx(uuid.Nil), UploadInput{
 			ChannelID: channelID,
 			Filename:  "virus.pdf",
 			MimeType:  "application/pdf",
