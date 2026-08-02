@@ -206,6 +206,18 @@ func (m *authMockRepo) ListRoles(_ context.Context) ([]auth.Role, error) {
 	return nil, nil
 }
 
+func (m *authMockRepo) CountCustomRoles(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) RoleNameExists(_ context.Context, _ string, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *authMockRepo) CreateRole(_ context.Context, _ uuid.UUID, _ auth.CreateRoleInput) (*auth.Role, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

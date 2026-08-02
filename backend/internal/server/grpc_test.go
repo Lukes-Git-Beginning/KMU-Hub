@@ -49,6 +49,12 @@ func TestMapError(t *testing.T) {
 		{"2fa enforcement required", auth.Err2FAEnforcementRequired, codes.FailedPrecondition},
 		// --- Session errors ---
 		{"session not found", auth.ErrSessionNotFound, codes.NotFound},
+		// --- Role administration (RBAC wave 1b) ---
+		// The gateway turns AlreadyExists and FailedPrecondition into 409 and
+		// NotFound into 404, which is the contract the RBAC builder expects.
+		{"role name exists", auth.ErrRoleNameExists, codes.AlreadyExists},
+		{"role limit reached", auth.ErrRoleLimitReached, codes.FailedPrecondition},
+		{"clone source not found", auth.ErrBaseRoleNotFound, codes.NotFound},
 		// --- Fallback ---
 		{"unknown error", errors.New("boom"), codes.Internal},
 	}

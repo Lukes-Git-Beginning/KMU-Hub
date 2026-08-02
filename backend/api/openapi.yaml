@@ -878,6 +878,57 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a custom role
+      description: >
+        Clones basedOn into a new role owned by the calling tenant, copying
+        every grant of the source role including its scope. A tenant may own
+        at most 20 custom roles; the system presets do not count against that.
+        Requires roles:manage (legacy) or admin:role:create (fine-grained).
+      tags: [users]
+      operationId: createRole
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — basedOn names no role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            role_name_exists — a preset or an own role already carries the name
+            (compared case-insensitively) — or role_limit_reached when the
+            tenant already owns 20 custom roles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: not_found — name or basedOn missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # Custom Fields
   /api/v1/custom-fields:
@@ -30953,6 +31004,34 @@ components:
           items:
             $ref: "#/components/schemas/Role"
       required: [roles]
+
+    RoleResponse:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+      required: [role]
+
+    CreateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        color:
+          type: string
+          maxLength: 40
+          example: hsl(217 91% 60%)
+        basedOn:
+          type: string
+          format: uuid
+          description: >
+            Role the new one is cloned from — usually a preset. Every grant of
+            that role is copied over, scope included.
+      required: [name, basedOn]
 
     StatusResponse:
       type: object

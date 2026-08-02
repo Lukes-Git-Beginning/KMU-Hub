@@ -111,6 +111,10 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 			[2]string{"roles", "manage"},
 			[2]string{"admin:role", "read"},
 		)).Get("/", a.HandleListRoles)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "create"},
+		)).Post("/", a.HandleCreateRole)
 	})
 
 	// Protected user routes
@@ -569,6 +573,12 @@ type rolesBody struct {
 	Roles []roleBody `json:"roles"`
 }
 
+// roleResponseBody wraps a single role — the frontend's RoleResponse reads
+// `resp.role`, so the entity must not go out bare.
+type roleResponseBody struct {
+	Role roleBody `json:"role"`
+}
+
 // nullIfEmpty turns the proto3 zero value for a nullable string field back
 // into JSON null. preset_id is empty on presets themselves as well as on
 // every role with no clone lineage — both cases are "no value", not "".
@@ -614,6 +624,50 @@ func (a *AuthRoutes) HandleListRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, body)
+}
+
+// createRoleRequest mirrors CreateRoleInput in rbac-types.ts. The length
+// bounds match the columns (name VARCHAR(50), color VARCHAR(40)) so an
+// oversized value fails as a 400 instead of a 22001 turned 500. name and
+// basedOn carry no `required` tag on purpose — they are checked below to
+// answer with the 422 the frontend's contract specifies for a missing
+// mandatory field, rather than decodeAndValidate's 400.
+type createRoleRequest struct {
+	Name        string `json:"name" validate:"omitempty,max=50"`
+	Description string `json:"description" validate:"omitempty,max=1000"`
+	Color       string `json:"color" validate:"omitempty,max=40"`
+	BasedOn     string `json:"basedOn" validate:"omitempty,uuid"`
+}
+
+// HandleCreateRole clones an existing role into a new tenant-owned one.
+func (a *AuthRoutes) HandleCreateRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createRoleRequest](w, r)
+	if !ok {
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" || req.BasedOn == "" {
+		response.Error(w, http.StatusUnprocessableEntity, "not_found")
+		return
+	}
+
+	resp, err := client.CreateRole(r.Context(), &authv1.CreateRoleRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+		BasedOn:     req.BasedOn,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, roleResponseBody{Role: toRoleBody(resp.Role)})
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

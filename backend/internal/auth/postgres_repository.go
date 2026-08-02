@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -291,6 +292,97 @@ func (r *PostgresRepository) ListRoles(ctx context.Context) ([]Role, error) {
 		roles = append(roles, role)
 	}
 	return roles, rows.Err()
+}
+
+// CountCustomRoles counts the caller's own roles. The IS NOT NULL filter is
+// what keeps the shared presets out of the tenant's budget; the RLS read
+// policy already limits the rest to this tenant.
+func (r *PostgresRepository) CountCustomRoles(ctx context.Context) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM roles WHERE tenant_id IS NOT NULL`,
+	).Scan(&count)
+	return count, err
+}
+
+// RoleNameExists checks a name against every role the caller can see —
+// presets included — case-insensitively, which is what the frontend contract
+// expects and what idx_roles_tenant_name cannot express.
+func (r *PostgresRepository) RoleNameExists(ctx context.Context, name string, exceptID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM roles WHERE lower(name) = lower($1) AND id <> $2)`,
+		name, exceptID,
+	).Scan(&exists)
+	return exists, err
+}
+
+// CreateRole inserts the role and clones the grants of in.BasedOn in one
+// transaction, so a failed clone leaves no grant-less role behind.
+//
+// The transaction runs on a pooled connection whose RLS GUCs PrepareConn has
+// already stamped from the request context (this package cannot call
+// database.BeginRLSTx — internal/database imports middleware, which imports
+// auth). Both writes therefore see the caller's tenant, and the insert's
+// WITH CHECK holds because tenant_id is that same tenant.
+//
+// The source role is resolved through the RLS read policy (presets plus own
+// tenant) — an id belonging to a different tenant is simply not there, which
+// is exactly the 404 the caller should see.
+func (r *PostgresRepository) CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateRoleInput) (*Role, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var sourceExists bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM roles WHERE id = $1)`, in.BasedOn,
+	).Scan(&sourceExists); err != nil {
+		return nil, err
+	}
+	if !sourceExists {
+		return nil, ErrBaseRoleNotFound
+	}
+
+	role := Role{
+		Name:        in.Name,
+		Description: in.Description,
+		Color:       in.Color,
+		TenantID:    &tenantID,
+		BasedOn:     &in.BasedOn,
+	}
+	err = tx.QueryRow(ctx,
+		`INSERT INTO roles (name, description, tenant_id, based_on, color)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id`,
+		in.Name, in.Description, tenantID, in.BasedOn, in.Color,
+	).Scan(&role.ID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrRoleNameExists
+		}
+		return nil, err
+	}
+
+	// Clone every grant including its scope. INSERT ... SELECT keeps the copy
+	// server-side; the row count is the new role's capability count.
+	tag, err := tx.Exec(ctx,
+		`INSERT INTO role_permissions (role_id, permission_id, scope)
+		 SELECT $1, rp.permission_id, rp.scope FROM role_permissions rp WHERE rp.role_id = $2`,
+		role.ID, in.BasedOn,
+	)
+	if err != nil {
+		return nil, err
+	}
+	role.CapabilityCount = int(tag.RowsAffected())
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &role, nil
 }
 
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {

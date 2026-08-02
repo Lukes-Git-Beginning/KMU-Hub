@@ -176,6 +176,20 @@ func (m *mockRepository) ListRoles(_ context.Context) ([]Role, error) {
 	return nil, nil
 }
 
+// Role administration is exercised against the real database
+// (roles_admin_db_test.go); these three only satisfy the interface.
+func (m *mockRepository) CountCustomRoles(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) RoleNameExists(_ context.Context, _ string, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *mockRepository) CreateRole(_ context.Context, _ uuid.UUID, _ CreateRoleInput) (*Role, error) {
+	return nil, nil
+}
+
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

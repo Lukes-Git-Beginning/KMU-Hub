@@ -271,21 +271,55 @@ func (s *AuthGRPCServer) ListRoles(ctx context.Context, req *authv1.ListRolesReq
 	}
 
 	out := make([]*authv1.Role, len(roles))
-	for i, r := range roles {
-		out[i] = &authv1.Role{
-			Id:              r.ID.String(),
-			Name:            r.Name,
-			Description:     r.Description,
-			TenantId:        uuidStringOrEmpty(r.TenantID),
-			PresetId:        uuidStringOrEmpty(r.BasedOn),
-			IsSystem:        r.IsSystem,
-			Color:           r.Color,
-			MemberCount:     int32(r.MemberCount),
-			CapabilityCount: int32(r.CapabilityCount),
-		}
+	for i := range roles {
+		out[i] = toProtoRole(&roles[i])
 	}
 
 	return &authv1.ListRolesResponse{Roles: out}, nil
+}
+
+// CreateRole clones an existing role — preset or custom — into a new role
+// owned by the calling tenant.
+func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleRequest) (*authv1.CreateRoleResponse, error) {
+	basedOn, err := uuid.Parse(req.BasedOn)
+	if err != nil {
+		// A based_on that is not even a uuid names no role, so this is the
+		// same answer as one that names a role nobody can see: 404.
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	role, err := s.authService.CreateRole(ctx, tenantID, auth.CreateRoleInput{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+		BasedOn:     basedOn,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.CreateRoleResponse{Role: toProtoRole(role)}, nil
+}
+
+// toProtoRole renders a role for the wire. TenantID/BasedOn nil becomes the
+// proto zero value (empty string); the gateway turns that back into JSON null.
+func toProtoRole(r *auth.Role) *authv1.Role {
+	return &authv1.Role{
+		Id:              r.ID.String(),
+		Name:            r.Name,
+		Description:     r.Description,
+		TenantId:        uuidStringOrEmpty(r.TenantID),
+		PresetId:        uuidStringOrEmpty(r.BasedOn),
+		IsSystem:        r.IsSystem,
+		Color:           r.Color,
+		MemberCount:     int32(r.MemberCount),
+		CapabilityCount: int32(r.CapabilityCount),
+	}
 }
 
 // uuidStringOrEmpty renders a nullable uuid column as the proto3 zero value
@@ -838,6 +872,16 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrRoleNotFound):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Role administration (RBAC wave 1b). The messages are the frontend's
+	// error codes, so the code choice only has to land on the right HTTP
+	// status: AlreadyExists and FailedPrecondition both become 409, NotFound
+	// becomes 404.
+	case errors.Is(err, auth.ErrRoleNameExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, auth.ErrRoleLimitReached):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrBaseRoleNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorNotEnabled):

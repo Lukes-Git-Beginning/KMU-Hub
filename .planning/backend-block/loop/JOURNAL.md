@@ -135,3 +135,58 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   internal/server) mussten um eine No-Op-`ListRoles`-Methode ergaenzt werden, damit sie weiterhin das
   `Repository`-Interface erfuellen — reiner Interface-Fixup, keine fachliche Aenderung, aber falls eine
   spaetere Unit echte Rollback-Logik testen will, liefert dieser Mock aktuell immer `nil, nil`.
+
+## Iteration 3 — p1b-roles-create — done — 2026-08-02 21:05
+
+- commit: <wird nachgetragen>
+- gebaut: `POST /admin/roles` Ende-zu-Ende als **Klon**. `Service.CreateRole(ctx, tenantID, CreateRoleInput)`
+  in `internal/auth/roles_admin.go` mit den drei Geschaeftsregeln (Budget `CustomRoleLimit = 20`,
+  Namenskollision, sichtbare Klon-Quelle); Repository-Methoden `CountCustomRoles`, `RoleNameExists`,
+  `CreateRole` (Transaktion: INSERT roles + `INSERT ... SELECT` auf `role_permissions`, `RowsAffected`
+  ist der `capabilityCount` der neuen Rolle). gRPC `AuthGRPCServer.CreateRole` + neuer Mapper
+  `toProtoRole` (den `ListRoles` jetzt mitbenutzt, statt das Mapping ein zweites Mal zu schreiben).
+  Gateway-Handler `HandleCreateRole` mit `roleResponseBody` (`{role:{…}}`, weil das FE `resp.role` liest).
+  Guard `RequirePermissionAny({roles,manage},{admin:role,create})` — `admin:role:create` ist seit
+  Migration 000256 fuer admin und it_admin geseedet (in der DB nachgezaehlt), **kein neuer Seed noetig**.
+  `openapi.yaml`: POST-Pfad + Schemas `RoleResponse`/`CreateRoleRequest`, alle Status-Codes des Handlers
+  (400/401/403/404/409/422).
+- entscheidungen:
+  1. **Fehler-Sentinels tragen die FE-Codes als Message** (`role_limit_reached`, `role_name_exists`,
+     `not_found`). `mapError` reicht `err.Error()` als gRPC-Message durch, `response.Error` schreibt
+     `{"error": "<message>"}`, und `rbac-format.ts` schlaegt genau diesen String in `RBAC_ERROR_CODES`
+     nach. Eine "schoenere" Prosameldung wuerde im Builder still zu "Unbekannter Fehler" —
+     `TestRoleAdminErrorsCarryFrontendCodes` nagelt die drei Strings fest.
+  2. **`ErrBaseRoleNotFound` ist ein eigener Sentinel**, nicht das bestehende `ErrRoleNotFound`: letzteres
+     ist der Alt-Fehler von `AssignRole` und mappt auf FailedPrecondition → 409. Eine fehlende Klon-Quelle
+     muss aber als 404 ankommen.
+  3. **Namenskollision explizit geprueft statt ueber `ON CONFLICT`** (wie in den Unit-Notes angeraten).
+     Der Ausdrucks-Index kann den FE-Vertrag ohnehin nicht abbilden: er vergleicht case-sensitiv und legt
+     die Presets in einen eigenen COALESCE-Eimer, waehrend das FE case-insensitiv **und** gegen die
+     Presets prueft. Die Unique-Violation (23505) wird trotzdem auf `ErrRoleNameExists` gemappt — als
+     Netz fuer das Rennen zwischen Pruefung und INSERT.
+  4. **Kein `database.BeginRLSTx`, sondern `pool.Begin`**: `internal/database` importiert `middleware`,
+     und `middleware` importiert `internal/auth` — der Import waere ein Zyklus (der Compiler hat es
+     sofort gezeigt). Aus demselben Grund kommt die Tenant-ID als Parameter aus der gRPC-Schicht statt
+     via `middleware.GetTenantID` im Service, genau wie bei `CreateInvitation`. Die GUCs stampt
+     `PrepareConn` beim Acquire, die Transaktion laeuft auf derselben Connection — RLS traegt.
+  5. **422 im Handler statt ueber den Validator**: `decodeAndValidate` antwortet mit 400,
+     der FE-Vertrag (`mocks/handlers/rbac.ts`) verlangt fuer fehlenden Namen/`basedOn` aber 422. Deshalb
+     tragen `name`/`basedOn` kein `required`-Tag, sondern werden nach dem Decode explizit geprueft. Die
+     Laengen-Tags (`max=50`/`max=40`) bleiben, sonst wird ein zu langer Name zum 22001 → 500.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd) | vet ok | lint ok (golangci-lint, 0 issues) |
+  test ok — `go test -count=1 ./internal/gateway/` gruen (inkl. `TestOpenAPIRouteDrift`),
+  `go test -count=1 -v ./internal/auth/... ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **639 PASS, 0 SKIP, 0 FAIL** | migration n.a. (keine noetig — `roles`/`role_permissions` tragen seit
+  000256 alles) | rls-smoke: keine Policy angefasst, die Isolation ist aber in zwei DB-Tests belegt
+  (fremde Rolle als `basedOn` → `not_found`; gleicher Rollenname in zwei Tenants → beide erlaubt).
+- verify vorgaenger: sauber. `3dac5856` (p1b-roles-list) gegen die acht Fehlerklassen geprueft — Handler
+  ruft `client.ListRoles` ueber `getAuthClient()` (keine Layer-Umgehung), keine Stubs, kein `.proto` im
+  Diff, Guard additiv (`RequirePermissionAny`), `openapi.yaml` im selben Commit, leere Liste als `[]`.
+- offen:
+  - Sechs neue DB-Tests in `internal/auth/roles_admin_db_test.go` raeumen ihre beiden eigenen Tenants
+    (`40123a00-…-0001/0002`) vor **und** nach dem Lauf aus `roles` — sonst frisst ein abgebrochener
+    Lauf ueber das 20er-Budget den naechsten. Wer die Tenant-UUIDs wiederverwendet, muss das wissen.
+  - Der Klon kopiert Grants **inklusive scope**. Ein Aufrufer kann damit heute eine Rolle klonen, die
+    mehr Rechte traegt als er selbst — der Escalation-Schutz ist bewusst erst `p1b-guardrails` (c).
+  - `RoleNameExists` hat schon den `exceptID`-Parameter, den erst `p1b-roles-update-delete` fuer den
+    Rename braucht; heute wird `uuid.Nil` uebergeben.

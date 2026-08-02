@@ -169,3 +169,35 @@ func TestRolesBody_EmptyIsContainerNotNull(t *testing.T) {
 		t.Errorf("empty roles = %s, want %s", raw, want)
 	}
 }
+
+// --- HandleCreateRole ---
+
+func TestHandleCreateRole_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleCreateRole)
+}
+
+// TestRoleResponseBody_WrapsTheEntity pins the single-entity wrapper: the
+// frontend's createRole reads `resp.role`, so a bare role would arrive as
+// undefined and the builder would render an empty card after a successful
+// create.
+func TestRoleResponseBody_WrapsTheEntity(t *testing.T) {
+	raw, err := json.Marshal(roleResponseBody{Role: toRoleBody(&authv1.Role{
+		Id:              "44444444-4444-4444-4444-444444444444",
+		Name:            "Buchhaltung",
+		TenantId:        "33333333-3333-3333-3333-333333333333",
+		PresetId:        "11111111-1111-1111-1111-111111111111",
+		Color:           "hsl(217 91% 60%)",
+		CapabilityCount: 11,
+	})})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"role":{"id":"44444444-4444-4444-4444-444444444444","name":"Buchhaltung","description":"",` +
+		`"tenantId":"33333333-3333-3333-3333-333333333333","basedOn":"11111111-1111-1111-1111-111111111111",` +
+		`"isSystem":false,"color":"hsl(217 91% 60%)","memberCount":0,"capabilityCount":11}}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}

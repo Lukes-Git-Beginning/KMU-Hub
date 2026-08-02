@@ -43,6 +43,18 @@ var (
 	ErrPendingTokenExpired     = errors.New("pending token expired")
 	Err2FAEnforcementRequired  = errors.New("two-factor authentication setup required by policy")
 
+	// Role administration errors (RBAC phase 1 wave 1b). Their messages are
+	// the error CODES the RBAC frontend maps to i18n (rbac-format.ts,
+	// RBAC_ERROR_CODES) — mapError passes err.Error() through as the gRPC
+	// status message and the gateway renders it as {"error": "<code>"}, so a
+	// prose message here would reach the user as "Unbekannter Fehler".
+	ErrRoleLimitReached = errors.New("role_limit_reached")
+	ErrRoleNameExists   = errors.New("role_name_exists")
+	// ErrBaseRoleNotFound is a distinct sentinel from ErrRoleNotFound: the
+	// latter is the legacy "unknown role name" of AssignRole and maps to 409,
+	// while a missing clone source has to reach the builder as a 404.
+	ErrBaseRoleNotFound = errors.New("not_found")
+
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")
 

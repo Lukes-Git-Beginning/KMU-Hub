@@ -132,7 +132,7 @@ units:
     service: auth
     model: opus
     deps: [p1b-roles-list]
-    status: todo
+    status: done
     scope: >
       `POST /admin/roles` Body `{name,description,color,basedOn}` -> 201 `{role}`.
       Semantik ist **Klon**: die `role_permissions` von `basedOn` werden 1:1 inklusive `scope`

@@ -36,6 +36,20 @@ type Repository interface {
 	// tenant scoping.
 	ListRoles(ctx context.Context) ([]Role, error)
 
+	// CountCustomRoles counts the roles owned by the calling tenant (presets
+	// excluded) for the CustomRoleLimit check.
+	CountCustomRoles(ctx context.Context) (int, error)
+
+	// RoleNameExists reports whether a role visible to the caller — a preset
+	// or one of its own — already carries this name, compared
+	// case-insensitively. exceptID skips one role so a rename onto its own
+	// name is not a collision; pass uuid.Nil when creating.
+	RoleNameExists(ctx context.Context, name string, exceptID uuid.UUID) (bool, error)
+
+	// CreateRole inserts a tenant-owned role and clones every grant of
+	// in.BasedOn onto it in one transaction.
+	CreateRole(ctx context.Context, tenantID uuid.UUID, in CreateRoleInput) (*Role, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error
