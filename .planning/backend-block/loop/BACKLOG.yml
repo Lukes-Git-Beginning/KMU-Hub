@@ -958,7 +958,28 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Praemisse widerlegt, gleiche Fehlerklasse wie `g-crm-contact-timeline` (Iteration 19): die
+      Routen sind NICHT fehlend, sondern seit laengerem vollstaendig gebaut — Proto-RPCs
+      `BookResource`/`CancelBooking` (calendar.proto), Service `resource.Service.Book`/
+      `CancelBooking` MIT Konflikt-Check (DB-EXCLUDE-GIST-Constraint + Alternativen-Vorschlag,
+      service.go:199-263) und Ownership-Check, Gateway-Handler `CalendarRoutes.HandleBookResource`/
+      `HandleCancelBooking` (route_calendar.go:1224-1283) gehen ueber den gRPC-Client, registriert
+      als `POST /api/v1/calendar/bookings` und `DELETE /api/v1/calendar/bookings/{id}`
+      (route_calendar.go:101-102), in openapi.yaml dokumentiert (Zeile 6927/6954).
+      Der reale Fehler sitzt im FE: `desktop/src/renderer/src/api/hooks/useResources.ts:123,138`
+      ruft `/api/v1/calendar/resources/bookings` bzw. `.../resources/bookings/{id}` — ein
+      zusaetzliches `/resources/`-Segment, das im Gateway nicht existiert. Jeder reale Buchungs-/
+      Stornierungsversuch bekommt 404. `GET /resources/{id}/availability` ist NICHT betroffen (der
+      FE-Pfad stimmt dort exakt mit der Route ueberein). Fix ist ein FE-Einzeiler in
+      `useResources.ts` — ausserhalb dieses Backend-Loops.
+      GEFUNDEN UND HIER GEFIXT (nicht Teil dieser Unit, siehe `fix-calendar-cancel-booking-actor`
+      direkt in Block E): ein unabhaengiger, echter Backend-Bug in genau diesem Codepfad — der
+      gRPC-Handler `CancelBooking` uebergab bislang hartcodiert `uuid.Nil` als Actor, wodurch der
+      Owner-Check im Service fuer JEDEN echten Aufrufer fehlschlug. Stornieren war fuer niemanden
+      moeglich, unabhaengig vom FE-Pfad-Bug. Dieser Fund war die eigentliche Substanz der Recherche
+      zu dieser Unit.
     scope: >
       `GET/POST /calendar/resources/bookings` und `DELETE|PATCH /calendar/resources/bookings/{id}` —
       das FE ruft sie ueber `desktop/src/renderer/src/api/hooks/useResources.ts`, im Gateway null
@@ -1043,6 +1064,61 @@ units:
   # ==========================================================================
   # BLOCK E — verifizierte Bestandsbugs
   # ==========================================================================
+
+  - id: fix-calendar-cancel-booking-actor
+    phase: fix
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `CalendarGRPCServer.CancelBooking` (calendar_grpc.go:1101) uebergab hartcodiert `uuid.Nil`
+      als Actor an `resource.Service.CancelBooking`, statt den echten Aufrufer aus dem Kontext zu
+      lesen (Kommentar im Code: "Gateway handles auth; use uuid.Nil as actorID"). Der Service
+      prueft aber `booking.BookedBy != actorID -> ErrNotBookingOwner` — mit `uuid.Nil` als Actor
+      schlaegt dieser Vergleich fuer JEDEN echten Booker fehl. `DELETE /api/v1/calendar/bookings/{id}`
+      war damit fuer niemanden funktionsfaehig, unabhaengig vom FE-Pfad-Bug in
+      `g-calendar-resource-bookings`.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/work/resource/service.go
+      - backend/internal/middleware/grpc_tenant.go
+    notes: >
+      Gefunden waehrend der Recherche zu `g-calendar-resource-bookings` (deren eigentliche
+      Praemisse — fehlende Route — sich als falsch herausstellte). Derselbe Bug-Typ ist im Repo
+      bereits einmal aufgetreten und behoben worden: `fix-g-work-task-comment-authz`
+      (`work_grpc.go`, Regressionstests in `work_comment_test.go`) hatte exakt dasselbe Muster
+      (hartcodierter `uuid.Nil`-Actor bricht einen Owner-Check).
+      Root-Cause-Fix statt Workaround: `x-user-id` propagiert bereits automatisch vom
+      HTTP-Gateway-Kontext ueber `TenantOutboundUnaryInterceptor`/`TenantInboundUnaryInterceptor`
+      in den internen gRPC-Kontext (verifiziert: `cmd/work/main.go:182` registriert den Inbound-,
+      `internal/gateway/registry.go:112` den Outbound-Interceptor). Kein Proto-Feld noetig — nur
+      `middleware.GetUserID(ctx)` im Handler lesen, exakt das etablierte Muster aus
+      `document_grpc.go:1652` (`actorIDFromContext`) und `dialer_grpc.go:76`.
+    done_when:
+      - CancelBooking liest den echten Actor aus dem Kontext statt uuid.Nil
+      - Owner kann seine eigene Buchung stornieren, Nicht-Owner wird abgelehnt
+      - fehlender User-Kontext liefert Unauthenticated statt eines falschen PermissionDenied
+      - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT. `CalendarGRPCServer.CancelBooking` parst jetzt `middleware.GetUserID(ctx)` als
+      Actor (gleiche Fehlermeldung wie die uebrigen `middleware.GetUserID`-Callsites im Paket:
+      `codes.Unauthenticated, "missing or invalid user_id in token"`), keine Proto-/Migrations-
+      Aenderung noetig.
+      Neue Datei `internal/server/calendar_grpc_test.go` mit In-Memory-`resource.Repository`-Mock
+      (`bookingAuthzMockRepo`, Vorlage `commentAuthzMockRepo` aus `work_comment_test.go`) und drei
+      Regressionstests gegen den echten gRPC-Handler (nicht nur den Service):
+      `TestCancelBooking_OwnerCanCancel` (waere vor dem Fix mit `ErrNotBookingOwner`
+      fehlgeschlagen), `TestCancelBooking_NonOwnerDenied`, `TestCancelBooking_MissingActorContext`.
+      gate: build ok (`go build -p 2 ./internal/server/... ./internal/work/resource/...
+      ./internal/gateway/... ./cmd/work/... ./cmd/gateway/...`) | vet ok | lint ok
+      (golangci-lint, 0 issues auf internal/server) | test ok —
+      `go test -count=1 ./internal/server/...`, 210 PASS / 0 SKIP (`DATABASE_URL` gesetzt, auch
+      wenn dieses Paket ausschliesslich In-Memory-Mocks nutzt und keine echte DB braucht).
+      Keine Migration, kein `.proto`, keine neue/geaenderte Route, kein neuer Guard — `openapi.yaml`
+      und `go test ./internal/gateway/` daher nicht Teil dieses Gates.
+      verify vorgaenger: n.a. — die vorige Iteration (19, `84292279`) hat keine Codeaenderung
+      vorgenommen (reine Diagnose zu `g-crm-contact-timeline`), nichts zu verifizieren.
 
   - id: fix-einkauf-po-total
     phase: fix

@@ -1307,3 +1307,47 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
     `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
     409) bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 20 — fix-calendar-cancel-booking-actor — done — 2026-08-03 00:20
+
+- commit: (folgt im naechsten Journal-Update)
+- gebaut: `g-calendar-resource-bookings` gezogen — Praemisse widerlegt, gleiche Fehlerklasse wie
+  `g-crm-contact-timeline` (Iteration 19): `POST/DELETE /calendar/bookings` existieren seit
+  laengerem vollstaendig (Proto, Service mit Konflikt-Check + Owner-Check, gRPC-gebundener
+  Gateway-Handler, openapi.yaml). Das FE ruft ueber `useResources.ts:123,138` ein zusaetzliches
+  `/resources/`-Segment (`/api/v1/calendar/resources/bookings`), das im Gateway nicht existiert —
+  jeder reale Buchungs-/Stornierungsversuch bekommt 404. Fix liegt in `desktop/`, ausserhalb
+  dieses Loops; Unit auf `blocked` mit vollstaendiger Fundstellen-Liste im `blocked_reason`.
+  Bei der Recherche dazu ein zweiter, unabhaengiger und schwererer Fund: `CalendarGRPCServer.
+  CancelBooking` (calendar_grpc.go:1101) uebergab hartcodiert `uuid.Nil` als Actor an
+  `resource.Service.CancelBooking` ("Gateway handles auth; use uuid.Nil as actorID"), dessen
+  Owner-Check aber `booking.BookedBy != actorID` prueft — mit `uuid.Nil` schlaegt das fuer JEDEN
+  echten Booker fehl. Stornieren war also fuer niemanden moeglich, unabhaengig vom FE-Pfad-Bug.
+  Dieselbe Fehlerklasse ist im Repo bereits einmal aufgetreten und behoben worden
+  (`fix-g-work-task-comment-authz`, `work_grpc.go`/`work_comment_test.go`) — dort wie hier ein
+  hartcodierter `uuid.Nil`-Actor, der einen Owner-Check bricht.
+  Root-Cause-Fix statt Proto-Aenderung: `x-user-id` propagiert bereits automatisch vom
+  HTTP-Gateway-Kontext in den internen gRPC-Kontext (`TenantOutboundUnaryInterceptor` in
+  `internal/gateway/registry.go:112`, `TenantInboundUnaryInterceptor` in `cmd/work/main.go:182`)
+  — verifiziert, nicht angenommen. `CancelBooking` liest jetzt `middleware.GetUserID(ctx)`, exakt
+  das etablierte Muster aus `document_grpc.go:1652`/`dialer_grpc.go:76`. Als eigene Fix-Unit
+  `fix-calendar-cancel-booking-actor` in Block E angelegt und in dieser Iteration sofort
+  abgearbeitet (analog zum Verify-Vorspann-Pattern: Fund -> Fix-Unit -> gleiche Iteration).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/work/resource/...
+  ./internal/gateway/... ./cmd/work/... ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint,
+  0 issues auf internal/server) | test ok — `go test -count=1 ./internal/server/...`, 210 PASS /
+  0 SKIP (`DATABASE_URL` gesetzt; das Paket braucht hier keine echte DB, die drei neuen Tests
+  laufen gegen einen In-Memory-`resource.Repository`-Mock). Keine Migration, kein `.proto`, keine
+  neue/geaenderte Route, kein neuer Guard — `openapi.yaml` und
+  `go test ./internal/gateway/` daher nicht Teil dieses Gates.
+- verify vorgaenger: n.a. — `84292279` (Iteration 19) ist eine reine Diagnose ohne Codeaenderung
+  (nur `JOURNAL.md`/`BACKLOG.yml`), nichts zu verifizieren.
+- offen:
+  - **Fuer Luke/eine FE-Session:** `useResources.ts:123,138` von
+    `/api/v1/calendar/resources/bookings(/…)` auf `/api/v1/calendar/bookings(/…)` korrigieren —
+    sonst bleiben Ressourcen-Buchung und -Stornierung im produktiven FE weiterhin 404, auch nach
+    diesem Fix.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug) bleiben unveraendert offen, hier nicht angefasst.

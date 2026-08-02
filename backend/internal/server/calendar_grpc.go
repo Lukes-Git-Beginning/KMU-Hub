@@ -1109,8 +1109,12 @@ func (s *CalendarGRPCServer) CancelBooking(ctx context.Context, req *calv1.Cance
 		return nil, status.Error(codes.InvalidArgument, "invalid booking id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.resourceService.CancelBooking(ctx, bookingID, uuid.Nil, tenantID); err != nil {
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+
+	if err := s.resourceService.CancelBooking(ctx, bookingID, actorID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
