@@ -621,19 +621,21 @@ func (s *Service) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUI
 	return report, nil
 }
 
-// ExportPDF generates a stub PDF for a report with a customer-signature placeholder.
-// TODO Sprint 3: integrate a real PDF library (e.g. gofpdf or chromedp headless).
+// ExportPDF renders a report and its line items as a PDF via maroto.
 func (s *Service) ExportPDF(ctx context.Context, tenantID, reportID uuid.UUID) ([]byte, error) {
 	report, err := s.repo.GetReport(ctx, tenantID, reportID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Stub: minimal text payload representing a PDF skeleton.
-	// Real implementation to follow in Sprint 3.
-	stub := fmt.Sprintf(
-		"Arbeitsbericht: %s\nStatus: %s\nDatum: %s\n\n[Kundenunterschrift]\n_______________________\n",
-		report.Title, report.Status, report.ReportDate.Format("2006-01-02"),
-	)
-	return []byte(stub), nil
+	lines, err := s.repo.ListLines(ctx, tenantID, reportID)
+	if err != nil {
+		return nil, fmt.Errorf("list report lines: %w", err)
+	}
+
+	pdf, err := renderReportPDF(report, lines)
+	if err != nil {
+		return nil, fmt.Errorf("render report pdf: %w", err)
+	}
+	return pdf, nil
 }

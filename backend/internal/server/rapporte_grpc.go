@@ -524,10 +524,10 @@ func (s *RapporteGRPCServer) ExportPDF(ctx context.Context, req *rapportev1.Expo
 		return nil, mapRapporteError(err)
 	}
 
-	filename := fmt.Sprintf("arbeitsbericht_%s.txt", reportID.String()[:8])
+	filename := fmt.Sprintf("arbeitsbericht_%s.pdf", reportID.String()[:8])
 	return &rapportev1.ExportPDFResponse{
 		Payload:     payload,
-		ContentType: "text/plain", // TODO Sprint 3: application/pdf
+		ContentType: "application/pdf",
 		Filename:    filename,
 	}, nil
 }

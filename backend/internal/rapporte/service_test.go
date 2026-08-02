@@ -2,6 +2,7 @@ package rapporte
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -886,20 +887,35 @@ func TestService_ListPendingApprovals_OwnScopeFiltersByAuthor(t *testing.T) {
 }
 
 // ============================================================================
-// ExportPDF (stub test)
+// ExportPDF
 // ============================================================================
 
-func TestService_ExportPDF_ReturnsPayload(t *testing.T) {
+func TestService_ExportPDF_ReturnsRealPDF(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
 	rep := addReport(repo, tenantID, "Dachbericht", StatusApproved)
+	rep.Description = "Dachrinne erneuert und Ziegel ausgetauscht."
+	signedBy := "Max Mustermann"
+	signedAt := time.Now()
+	rep.SignedBy = &signedBy
+	rep.SignedAt = &signedAt
+	rep.Workers = []Worker{
+		{Name: "Erika Musterfrau", Role: sql.NullString{String: "Dachdeckerin", Valid: true}, Hours: sql.NullFloat64{Float64: 6.5, Valid: true}},
+	}
+	repo.reports[rep.ID] = rep
+
+	require.NoError(t, repo.CreateLine(context.Background(), &ReportLine{
+		ID: uuid.New(), TenantID: tenantID, ReportID: rep.ID,
+		Position: 1, Description: "Ziegel ausgetauscht", Quantity: 12, Unit: "Stk",
+	}))
 
 	payload, err := svc.ExportPDF(context.Background(), tenantID, rep.ID)
 
 	require.NoError(t, err)
-	assert.NotEmpty(t, payload)
+	require.True(t, len(payload) > 4)
+	assert.Equal(t, "%PDF", string(payload[:4]))
 }
 
 func TestService_ExportPDF_NotFound(t *testing.T) {

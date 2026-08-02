@@ -1762,7 +1762,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `ExportPDF` liefert heute reinen Text statt PDF. Auf die vorhandene maroto-Erzeugung umstellen.
     sources:
