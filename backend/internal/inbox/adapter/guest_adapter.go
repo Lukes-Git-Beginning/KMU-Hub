@@ -95,17 +95,15 @@ func (a *GuestAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, s
 }
 
 // HandleReply sends an agent reply to a guest chat channel via the chat service.
-// The messageID here is the inbox message ID; the caller resolves the source channel.
-func (a *GuestAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, body string) error {
+func (a *GuestAdapter) HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
 	// For guest replies, agents use the normal chat message flow.
-	// The inbox service resolves the source channel from the inbox message metadata.
 	slog.Warn("guest adapter: HandleReply not implemented, agents reply via normal chat")
 	return nil
 }
 
 // HandleForward is not supported for guest chat — there is no concept of
 // forwarding a guest conversation to an arbitrary external recipient.
-func (a *GuestAdapter) HandleForward(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string, _ string) error {
+func (a *GuestAdapter) HandleForward(_ context.Context, _ string, _ uuid.UUID, _ string, _ string) error {
 	return ErrForwardNotSupported
 }
 

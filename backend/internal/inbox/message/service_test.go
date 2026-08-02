@@ -583,21 +583,26 @@ func TestRemoveTag_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
 
-// mockForwardAdapter is a minimal ChannelAdapter stub for exercising Service.Forward.
+// mockForwardAdapter is a minimal ChannelAdapter stub for exercising
+// Service.Reply and Service.Forward.
 type mockForwardAdapter struct {
 	channel   string
-	forwardFn func(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error
+	replyFn   func(ctx context.Context, sourceID string, userID uuid.UUID, body string) error
+	forwardFn func(ctx context.Context, sourceID string, userID uuid.UUID, to string, note string) error
 }
 
 func (a *mockForwardAdapter) Channel() string { return a.channel }
 func (a *mockForwardAdapter) FetchNewMessages(_ context.Context, _ uuid.UUID, _ time.Time) ([]models.InboxMessage, error) {
 	return nil, nil
 }
-func (a *mockForwardAdapter) HandleReply(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string) error {
-	return nil
+func (a *mockForwardAdapter) HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
+	if a.replyFn == nil {
+		return nil
+	}
+	return a.replyFn(ctx, sourceID, userID, body)
 }
-func (a *mockForwardAdapter) HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error {
-	return a.forwardFn(ctx, messageID, userID, to, note)
+func (a *mockForwardAdapter) HandleForward(ctx context.Context, sourceID string, userID uuid.UUID, to string, note string) error {
+	return a.forwardFn(ctx, sourceID, userID, to, note)
 }
 func (a *mockForwardAdapter) MarkReadOnSource(_ context.Context, _ string, _ uuid.UUID) error {
 	return nil
@@ -607,11 +612,11 @@ func TestForward_Success(t *testing.T) {
 	repo := newMockRepository()
 	registry := adapter.NewAdapterRegistry()
 
-	var gotTo, gotNote string
+	var gotSourceID, gotTo, gotNote string
 	registry.Register(&mockForwardAdapter{
 		channel: "email",
-		forwardFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, to string, note string) error {
-			gotTo, gotNote = to, note
+		forwardFn: func(_ context.Context, sourceID string, _ uuid.UUID, to string, note string) error {
+			gotSourceID, gotTo, gotNote = sourceID, to, note
 			return nil
 		},
 	})
@@ -623,8 +628,48 @@ func TestForward_Success(t *testing.T) {
 	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "FYI")
 
 	require.NoError(t, err)
+	// The adapter must receive the message's origin-system id (SourceID), not
+	// the inbox message's own id -- the email/chat services have no record
+	// under the inbox message's id.
+	assert.Equal(t, msg.SourceID, gotSourceID)
 	assert.Equal(t, "colleague@example.com", gotTo)
 	assert.Equal(t, "FYI", gotNote)
+}
+
+func TestReply_Success(t *testing.T) {
+	repo := newMockRepository()
+	registry := adapter.NewAdapterRegistry()
+
+	var gotSourceID, gotBody string
+	registry.Register(&mockForwardAdapter{
+		channel: "email",
+		replyFn: func(_ context.Context, sourceID string, _ uuid.UUID, body string) error {
+			gotSourceID, gotBody = sourceID, body
+			return nil
+		},
+	})
+	svc := NewService(repo, registry)
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, uuid.New(), "Danke!")
+
+	require.NoError(t, err)
+	assert.Equal(t, msg.SourceID, gotSourceID)
+	assert.Equal(t, "Danke!", gotBody)
+}
+
+func TestReply_NoAdapter(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, uuid.New(), "Danke!")
+
+	require.ErrorIs(t, err, ErrAdapterNotFound)
 }
 
 func TestForward_NoAdapter(t *testing.T) {
@@ -644,7 +689,7 @@ func TestForward_NotSupportedByChannel(t *testing.T) {
 	registry := adapter.NewAdapterRegistry()
 	registry.Register(&mockForwardAdapter{
 		channel: "email",
-		forwardFn: func(context.Context, uuid.UUID, uuid.UUID, string, string) error {
+		forwardFn: func(context.Context, string, uuid.UUID, string, string) error {
 			return adapter.ErrForwardNotSupported
 		},
 	})

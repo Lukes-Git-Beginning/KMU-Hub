@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -16,6 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -36,6 +40,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/notification/notification"
 	"github.com/kmuhub/kmuhub/internal/notification/preference"
 	"github.com/kmuhub/kmuhub/internal/server"
+	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 	notificationv1 "github.com/kmuhub/kmuhub/proto/notification/v1"
 )
@@ -159,10 +164,34 @@ func main() {
 	inboxRoutingRepo := routing.NewPostgresRepository(pool)
 	inboxThreadRepo := thread.NewPostgresRepository(pool)
 
-	// Initialize channel adapters (nil clients for now -- they'll be connected
-	// when concrete gRPC clients are available via gateway connections)
+	// Initialize channel adapters. Email is wired to the real email service
+	// (below); chat and notification stay nil-safe stubs until their own
+	// cross-service clients are wired (they degrade gracefully -- empty
+	// fetch results, no-op reply/forward).
+	var emailClient adapter.EmailClient
+	if cfg.EmailGRPCAddress != "" {
+		emailConn, emailErr := grpc.NewClient(
+			cfg.EmailGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			// Propagate tenant from the inbound notification/inbox context to
+			// email -- the email gRPC handlers read tenant from metadata and
+			// answer InvalidArgument without it.
+			grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+		)
+		if emailErr != nil {
+			slog.Warn("failed to connect to email service, inbox email reply/forward disabled",
+				"address", cfg.EmailGRPCAddress,
+				"error", emailErr,
+			)
+		} else {
+			defer emailConn.Close()
+			emailClient = &emailGRPCClient{client: emailv1.NewEmailServiceClient(emailConn)}
+			slog.Info("email client enabled (inbox reply/forward)", "address", cfg.EmailGRPCAddress)
+		}
+	}
+
 	adapterRegistry := adapter.NewAdapterRegistry()
-	adapterRegistry.Register(adapter.NewEmailAdapter(nil))
+	adapterRegistry.Register(adapter.NewEmailAdapter(emailClient))
 	adapterRegistry.Register(adapter.NewChatAdapter(nil))
 	adapterRegistry.Register(adapter.NewNotificationAdapter(nil))
 
@@ -534,4 +563,134 @@ func (ic *InboxConsumer) extractSenderName(evt models.EventPayload) string {
 	default:
 		return "System"
 	}
+}
+
+// ============================================================================
+// Email Adapter Client (bridges the inbox adapter.EmailClient interface to
+// the real email gRPC service)
+// ============================================================================
+
+// emailGRPCClient implements adapter.EmailClient against the real email
+// service. sourceID/threadID parameters carry the *email message* id -- the
+// same id inbox.HandleEvent stores as InboxMessage.SourceID when it consumes
+// an email.received event (see internal/email/message/service.go emitEvent).
+type emailGRPCClient struct {
+	client emailv1.EmailServiceClient
+}
+
+// resolveAccountID looks up the user's email account. There is at most one
+// account per (user, tenant) -- see email/account.Service.GetByUserIDAndTenant.
+func (c *emailGRPCClient) resolveAccountID(ctx context.Context, userID uuid.UUID) (string, error) {
+	resp, err := c.client.GetEmailAccount(ctx, &emailv1.GetEmailAccountRequest{UserId: userID.String()})
+	if err != nil {
+		return "", fmt.Errorf("resolve email account: %w", err)
+	}
+	return resp.GetAccount().GetId(), nil
+}
+
+// ListMessages fetches the most recent inbox-folder messages for a user's
+// email account, filtered client-side to those received after since.
+//
+// lean: single page (50 messages), no multi-folder/pagination sweep -- there
+// is currently no caller of FetchNewMessages (no polling worker exists, the
+// live inbox path is event-driven via InboxConsumer.HandleEvent). Upgrade to
+// full pagination once a poller starts calling this path.
+func (c *emailGRPCClient) ListMessages(ctx context.Context, userID uuid.UUID, since time.Time) ([]adapter.EmailMessageData, error) {
+	accountID, err := c.resolveAccountID(ctx, userID)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	folders, err := c.client.ListFolders(ctx, &emailv1.ListFoldersRequest{AccountId: accountID})
+	if err != nil {
+		return nil, fmt.Errorf("list email folders: %w", err)
+	}
+
+	var inboxFolderID string
+	for _, f := range folders.GetFolders() {
+		if f.GetFolderType() == "inbox" {
+			inboxFolderID = f.GetId()
+			break
+		}
+	}
+	if inboxFolderID == "" {
+		return nil, nil
+	}
+
+	msgs, err := c.client.ListMessages(ctx, &emailv1.ListMessagesRequest{
+		FolderId: inboxFolderID,
+		Page:     1,
+		PerPage:  50,
+		SortBy:   "date",
+		SortDesc: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list email messages: %w", err)
+	}
+
+	result := make([]adapter.EmailMessageData, 0, len(msgs.GetMessages()))
+	for _, m := range msgs.GetMessages() {
+		receivedAt, parseErr := time.Parse(time.RFC3339, m.GetDate())
+		if parseErr != nil {
+			slog.Warn("email client: unparseable message date, skipping", "message_id", m.GetId(), "date", m.GetDate())
+			continue
+		}
+		if !receivedAt.After(since) {
+			continue
+		}
+		result = append(result, adapter.EmailMessageData{
+			ThreadID:   m.GetThreadId(),
+			FromName:   m.GetFrom().GetName(),
+			FromEmail:  m.GetFrom().GetEmail(),
+			Subject:    m.GetSubject(),
+			Body:       m.GetBodyText(),
+			ReceivedAt: receivedAt,
+			MessageID:  m.GetId(),
+		})
+	}
+	return result, nil
+}
+
+// SendReply sends a reply to the email message identified by sourceID.
+func (c *emailGRPCClient) SendReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
+	accountID, err := c.resolveAccountID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if _, err := c.client.ReplyEmail(ctx, &emailv1.ReplyEmailRequest{
+		AccountId:         accountID,
+		OriginalMessageId: sourceID,
+		BodyText:          body,
+	}); err != nil {
+		return fmt.Errorf("reply email: %w", err)
+	}
+	return nil
+}
+
+// ForwardEmail forwards the email message identified by sourceID to a new recipient.
+func (c *emailGRPCClient) ForwardEmail(ctx context.Context, sourceID string, userID uuid.UUID, to string, note string) error {
+	accountID, err := c.resolveAccountID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if _, err := c.client.ForwardEmail(ctx, &emailv1.ForwardEmailRequest{
+		AccountId:         accountID,
+		OriginalMessageId: sourceID,
+		To:                []*emailv1.EmailAddress{{Email: to}},
+		BodyText:          note,
+	}); err != nil {
+		return fmt.Errorf("forward email: %w", err)
+	}
+	return nil
+}
+
+// MarkRead marks the email message identified by sourceID as read.
+func (c *emailGRPCClient) MarkRead(ctx context.Context, sourceID string, _ uuid.UUID) error {
+	if _, err := c.client.MarkRead(ctx, &emailv1.MarkReadRequest{Id: sourceID}); err != nil {
+		return fmt.Errorf("mark email read: %w", err)
+	}
+	return nil
 }
