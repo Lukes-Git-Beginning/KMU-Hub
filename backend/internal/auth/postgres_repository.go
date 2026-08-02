@@ -557,6 +557,62 @@ func (r *PostgresRepository) SetRolePermissions(ctx context.Context, roleID uuid
 	return grants, nil
 }
 
+// AssignUserRole grants roleID to userID. The insert selects both sides back
+// out of users and roles instead of writing the two parameters straight in:
+// user_roles has neither tenant_id nor an RLS policy of its own (Block B), so
+// those two reads — each confined by its table's RLS policy to the caller's
+// tenant, presets included — are what stops an assignment across tenant lines
+// even if a caller reaches the repository past the service's checks. Holding
+// the role already is not an error; the primary key absorbs the repeat.
+func (r *PostgresRepository) AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id)
+		 SELECT u.id, ro.id FROM users u CROSS JOIN roles ro
+		 WHERE u.id = $1 AND ro.id = $2
+		 ON CONFLICT DO NOTHING`, userID, roleID,
+	)
+	return err
+}
+
+// RevokeUserRole takes roleID off userID, scoped through the same two joins as
+// AssignUserRole. A role the account never held simply deletes zero rows.
+func (r *PostgresRepository) RevokeUserRole(ctx context.Context, userID, roleID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM user_roles ur
+		 USING users u, roles ro
+		 WHERE ur.user_id = u.id AND ur.role_id = ro.id AND u.id = $1 AND ro.id = $2`,
+		userID, roleID,
+	)
+	return err
+}
+
+// GetUserRoleIDs returns the role ids an account holds, oldest assignment
+// first. The users join is the tenant boundary (user_roles carries none), the
+// roles join drops a row whose role the caller cannot see.
+func (r *PostgresRepository) GetUserRoleIDs(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT ro.id::text FROM user_roles ur
+		 JOIN users u ON u.id = ur.user_id
+		 JOIN roles ro ON ro.id = ur.role_id
+		 WHERE ur.user_id = $1
+		 ORDER BY ur.assigned_at, ro.name`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

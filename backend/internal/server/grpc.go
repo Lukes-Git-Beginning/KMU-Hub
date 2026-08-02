@@ -379,6 +379,47 @@ func (s *AuthGRPCServer) SetRolePermissions(ctx context.Context, req *authv1.Set
 	return &authv1.SetRolePermissionsResponse{RoleId: req.RoleId, Grants: toProtoRoleGrants(updated)}, nil
 }
 
+// AssignUserRole grants a role — preset or custom — to an account and answers
+// with the account's role ids afterwards. An unparsable id gets the same
+// not_found a foreign or unknown one gets: the caller may not learn from the
+// error which of the two it hit.
+func (s *AuthGRPCServer) AssignUserRole(ctx context.Context, req *authv1.AssignUserRoleRequest) (*authv1.AssignUserRoleResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	roleIDs, err := s.authService.AssignUserRole(ctx, userID, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.AssignUserRoleResponse{RoleIds: roleIDs}, nil
+}
+
+// RevokeUserRole takes a role off an account and answers with what is left.
+func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeUserRoleRequest) (*authv1.RevokeUserRoleResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	roleIDs, err := s.authService.RevokeUserRole(ctx, userID, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.RevokeUserRoleResponse{RoleIds: roleIDs}, nil
+}
+
 // toProtoRoleGrants renders a grant set for the wire, never nil — an empty
 // slice still marshals through the gateway as [], not the JSON null a
 // nil-slice repeated field would leave in the proto response.

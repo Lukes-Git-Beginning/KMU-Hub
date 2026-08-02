@@ -333,3 +333,73 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     kommt beim FE aktuell als generische Meldung an (`rbac.builder.errors.generic`), nicht als spezifischer
     Text. Kein Blocker (Backend-Scope dieser Unit), aber ein offener FE-Punkt fuer das naechste Antasten
     von `rbac-format.ts`.
+
+## Iteration 6 — p1b-user-roles — done — 2026-08-02 23:05
+- commit: <folgt>
+- gebaut: Rollen-Zuweisung auf IDs umgestellt — `POST /api/v1/users/{id}/roles` nimmt jetzt
+  `{roleId}` (statt `{role_name}` mit `oneof=admin manager member`) und `DELETE
+  /api/v1/users/{id}/roles/{roleId}` traegt die Rolle im Pfad; beide antworten mit
+  `{roles:[<role-ids>]}` (FE-Contract `UserRolesResponse`, `rbac-client.ts`).
+  Service `AssignUserRole`/`RevokeUserRole` in `roles_admin.go`: Ziel-User ueber `GetUserByID`
+  (users-RLS) und Rolle ueber `GetRoleByID` (roles-RLS) aufloesen, dann schreiben, dann die neue
+  Liste lesen. Repo-Trio `AssignUserRole`/`RevokeUserRole`/`GetUserRoleIDs` in
+  `postgres_repository.go`: das INSERT selektiert beide Seiten aus `users` CROSS JOIN `roles`
+  zurueck, das DELETE laeuft ueber `USING users, roles` — weil `user_roles` weder `tenant_id` noch
+  RLS hat (Block B), sind diese Joins die Tenant-Grenze des Schreibens, nicht Komfort.
+  gRPC `AssignUserRole`/`RevokeUserRole` (Proto-RPCs seit Iteration 1 generiert, **keine**
+  `.proto`-Aenderung noetig). `openapi.yaml`: neuer Pfad `/api/v1/users/{id}/roles/{roleId}`,
+  neuer Parameter `RoleId`, Schemas `AssignRoleRequest`/`UserRolesResponse` ersetzen `RoleRequest`.
+- entscheidungen:
+  1. **Das `oneof` ist ersatzlos weg, die Validierung liegt in der DB-Schicht.** Der Tag konnte
+     strukturell nur die drei Seed-Presets nennen — eine Custom-Rolle von Welle 1b war damit nicht
+     zuweisbar, egal wie der Builder sie anlegt. Statisch geht das nicht zu reparieren: welche
+     Rollen ein Tenant hat, weiss nur die `roles`-Tabelle. Der Handler prueft jetzt nur noch
+     UUID-Form (`validate:"required,uuid"`), die Existenz-/Sichtbarkeitsfrage beantwortet der
+     Service gegen RLS.
+  2. **Presets bleiben zuweisbar.** `admin`/`member` SIND Presets — der Preset-Check aus
+     `UpdateRole`/`DeleteRole` hier zu kopieren haette die haeufigste Zuweisung ueberhaupt
+     gesperrt. Immutability betrifft die Rollen-Definition, nicht ihre Traegerschaft.
+  3. **Guard von `RequireRole("admin")` auf `RequirePermissionAny({roles,manage},
+     {admin:role,assign})`** — das ist eine Ausweitung, keine Ersetzung: jedes Admin-Token traegt
+     `roles:manage` (000002 gibt dem admin-Preset per CROSS JOIN den ganzen Katalog, in der
+     Migration nachgelesen), also verliert niemand Zugriff. Gewinnen tun `it_admin`/`hr_admin`,
+     die `admin:role:assign` seit 000256 geseedet haben — genau das Muster aus
+     PHASE-1-RBAC-PLAN (hr_admin darf zuweisen, aber nicht editieren). Kein neuer Seed noetig.
+  4. **DELETE traegt die Rolle im Pfad statt im Body.** Das FE adressiert die Zuweisung als eigene
+     Ressource (`removeUserRole` in `rbac-client.ts`, Mock-Handler `:userId/roles/:roleId`), und
+     ein DELETE mit Payload ist fuer Clients unangenehm. Die alte Body-Variante ist damit weg —
+     verifiziert, dass sie ausser der (generierten) `types.ts` keinen Aufrufer hatte.
+  5. **Ein Revoke einer nicht gehaltenen Rolle ist ein No-Op, kein 404.** Der Aufrufer verlangt
+     einen Zustand, keine Transition; ein 404 wuerde den Doppelklick im Builder zum Fehler machen.
+  6. `withChiURLParam` (Gateway-Testhelfer) haengt einen Parameter jetzt an einen vorhandenen
+     RouteContext an, statt jedes Mal einen neuen anzulegen — vorher verschluckte der zweite
+     Aufruf den ersten Parameter, was bei einer Route mit zwei IDs still das Falsche testet.
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint,
+  0 issues, auth+gateway+server) | test ok — `go test -count=1 -v ./internal/auth/...
+  ./internal/gateway/ ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **1777 PASS, 0 SKIP, 0 FAIL**; die 10 neuen `*_DB_*`-Tests namentlich als PASS verifiziert.
+  `TestOpenAPIRouteDrift` gruen, `swagger-cli validate backend/api/openapi.yaml` = valid.
+  | migration n.a. (keine noetig — `user_roles` und `roles` stehen seit 000002/000256, beide
+  Guard-Keys geseedet) | rls-smoke: keine Policy/Tabelle geaendert; die Isolation ist stattdessen
+  in vier Tests gepinnt (Fremd-Tenant-User -> `user not found`, Fremd-Tenant-Rolle -> `not_found`,
+  jeweils mit Nachzaehlen, dass **null** Zeilen in `user_roles` landen, plus ein Test, der die
+  Repository-Methode direkt unter fremdem Tenant aufruft und beweist, dass die Joins allein
+  schon nichts schreiben).
+- verify vorgaenger: sauber. `cd5e8a79` (p1b-role-permissions) gegen die acht Fehlerklassen
+  geprueft — Gateway-Handler gehen ueber `client.GetRolePermissions`/`client.SetRolePermissions`
+  (keine Layer-Umgehung), die vier `return nil, nil` im Diff liegen ausschliesslich in
+  Test-Mocks (`service_test.go`, `testhelpers_test.go`), kein `.proto` im Commit, Guards additiv
+  mit `admin:role:read|edit` (Seed in 000256 nachgezaehlt), `openapi.yaml` im selben Commit,
+  Wire-Shape `{roleId, grants}` deckt sich mit `rbac-types.ts`.
+- offen:
+  - **`desktop/src/renderer/src/api/types.ts` ist nicht neu generiert** (Zeile ~297 beschreibt
+    weiterhin `RoleRequest`/`StatusResponse` und ein DELETE ohne `{roleId}`). Kein CI-Gate (der
+    `openapi-validate`-Job validiert nur die Spec, er generiert nicht), und `rbac-client.ts`
+    nutzt eigene Typen — aber wer die generierten Typen liest, sieht den alten Vertrag.
+  - `p1b-guardrails` (naechste Unit) setzt vor `RevokeUserRole` an: last_admin (409),
+    Selbst-Aussperrung, Privilege-Escalation, Preset-Immutability. Die Stelle ist im Service
+    kommentiert, absichtlich noch leer — nicht doppelt bauen.
+  - `AssignUserRole` liefert bei unsichtbarem Ziel-Account `user not found`, nicht `not_found`;
+    `RBAC_ERROR_CODES` in `rbac-format.ts` kennt den String nicht, das FE zeigt dort also die
+    generische Meldung. Bewusst so gelassen: `ErrUserNotFound` ist repo-weit in Auth-Pfaden im
+    Einsatz, sein Wortlaut ist kein RBAC-Detail.

@@ -139,8 +139,21 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.With(middleware.RequireRole("admin", "manager")).Get("/", a.HandleListUsers)
 		r.Get("/{id}", a.HandleGetUser)
 		r.With(middleware.RequireRole("admin")).Put("/{id}", a.HandleUpdateUser)
-		r.With(middleware.RequireRole("admin")).Post("/{id}/roles", a.HandleAssignRole)
-		r.With(middleware.RequireRole("admin")).Delete("/{id}/roles", a.HandleRemoveRole)
+		// Role assignment, the same additive guard pair as /admin/roles: every
+		// admin token carries roles:manage (migration 000002 grants the admin
+		// preset the full catalogue), admin:role:assign is the fine successor
+		// seeded for admin/it_admin/hr_admin in 000256. The pair widens the
+		// route rather than narrowing it — hr_admin assigns roles without being
+		// allowed to edit them, which the previous RequireRole("admin") could
+		// not express.
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "assign"},
+		)).Post("/{id}/roles", a.HandleAssignRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "assign"},
+		)).Delete("/{id}/roles/{roleId}", a.HandleRemoveRole)
 	})
 
 	// Effective-permission audit view of any account. Lives under /admin/users
@@ -380,10 +393,32 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// assignRoleRequest mirrors AssignRoleInput in rbac-types.ts. The role travels
+// as an id, not a name: the previous `role_name` with its
+// `oneof=admin manager member` tag could only ever name the three seed presets,
+// which made every custom role of wave 1b structurally unassignable. Whether
+// the id exists and whether the caller may see it is decided against the roles
+// table in the service — a static tag cannot know a tenant's own roles.
 type assignRoleRequest struct {
-	RoleName string `json:"role_name" validate:"required,oneof=admin manager member"`
+	RoleID string `json:"roleId" validate:"required,uuid"`
 }
 
+// userRolesResponseBody mirrors UserRolesResponse in rbac-types.ts: the role
+// ids the account holds after the mutation. Built through toUserRolesBody so
+// an account left without any role marshals as [], not null.
+type userRolesResponseBody struct {
+	Roles []string `json:"roles"`
+}
+
+func toUserRolesBody(roleIDs []string) userRolesResponseBody {
+	if roleIDs == nil {
+		return userRolesResponseBody{Roles: []string{}}
+	}
+	return userRolesResponseBody{Roles: roleIDs}
+}
+
+// HandleAssignRole grants a role to an account. Roles are n:m — an assignment
+// adds to what the account already holds instead of replacing it.
 func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -401,18 +436,22 @@ func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = client.AssignRole(r.Context(), &authv1.AssignRoleRequest{
-		UserId:   userID,
-		RoleName: req.RoleName,
+	resp, err := client.AssignUserRole(r.Context(), &authv1.AssignUserRoleRequest{
+		UserId: userID,
+		RoleId: req.RoleID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "role assigned"})
+	response.JSON(w, http.StatusOK, toUserRolesBody(resp.RoleIds))
 }
 
+// HandleRemoveRole takes one role off an account. The role travels in the path
+// rather than in a body: a DELETE with a payload is awkward for clients, and
+// the frontend addresses the assignment as a resource of its own
+// (rbac-client.ts, removeUserRole).
 func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -425,21 +464,21 @@ func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, ok := decodeAndValidate[assignRoleRequest](w, r)
+	roleID, ok := validateUUIDParam(w, r, "roleId")
 	if !ok {
 		return
 	}
 
-	_, err = client.RemoveRole(r.Context(), &authv1.RemoveRoleRequest{
-		UserId:   userID,
-		RoleName: req.RoleName,
+	resp, err := client.RevokeUserRole(r.Context(), &authv1.RevokeUserRoleRequest{
+		UserId: userID,
+		RoleId: roleID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "role removed"})
+	response.JSON(w, http.StatusOK, toUserRolesBody(resp.RoleIds))
 }
 
 // ============================================================================

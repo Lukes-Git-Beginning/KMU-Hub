@@ -214,6 +214,18 @@ func (m *mockRepository) SetRolePermissions(_ context.Context, _ uuid.UUID, _ []
 	return nil, nil
 }
 
+func (m *mockRepository) AssignUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) RevokeUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {

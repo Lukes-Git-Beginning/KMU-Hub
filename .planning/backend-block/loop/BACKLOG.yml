@@ -219,7 +219,7 @@ units:
     service: auth
     model: opus
     deps: [p1b-role-permissions]
-    status: todo
+    status: done
     scope: >
       `POST /users/{id}/roles` `{roleId}` und `DELETE /users/{id}/roles/{roleId}`, beide ->
       `{roles:[...]}` (die neue Rollenliste des Users).

@@ -61,8 +61,14 @@ func withAuth(r *http.Request, userID string, tenantID uuid.UUID) *http.Request 
 }
 
 // withChiURLParam sets a chi URL parameter on the request context.
+// withChiURLParam adds a path parameter, reusing one already on the request
+// instead of replacing it: a route with two ids (/users/{id}/roles/{roleId})
+// needs both, and a fresh route context per call would drop the first.
 func withChiURLParam(r *http.Request, key, value string) *http.Request {
-	rctx := chi.NewRouteContext()
+	rctx, ok := r.Context().Value(chi.RouteCtxKey).(*chi.Context)
+	if !ok {
+		rctx = chi.NewRouteContext()
+	}
 	rctx.URLParams.Add(key, value)
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }

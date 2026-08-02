@@ -195,3 +195,49 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID uuid.UUID, gran
 
 	return s.repo.SetRolePermissions(ctx, roleID, grants)
 }
+
+// AssignUserRole grants roleID to userID and returns the role ids the account
+// holds afterwards. Presets are assignable — only editing them is forbidden;
+// "admin" and "member" are presets, so a preset check here would lock out the
+// most common assignment there is.
+//
+// Both ids are resolved before the write, and both resolutions are the tenant
+// boundary rather than a friendliness: users and roles each carry an RLS read
+// policy, user_roles carries none. A foreign account and a foreign role are
+// therefore invisible, not forbidden, and both answer 404 — the same
+// indistinguishability GetRoleByID documents.
+//
+// Assigning a role the account already holds is a no-op that still returns the
+// current list, so the builder can treat the call as "make it so".
+func (s *Service) AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) ([]string, error) {
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	if _, err := s.repo.GetRoleByID(ctx, roleID); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.AssignUserRole(ctx, userID, roleID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetUserRoleIDs(ctx, userID)
+}
+
+// RevokeUserRole takes roleID off userID and returns the remaining role ids.
+//
+// The last-admin guardrail (409 last_admin) belongs in front of the revoke and
+// is built in p1b-guardrails together with the other three rules, so that all
+// four sit in one place instead of one of them living here alone.
+func (s *Service) RevokeUserRole(ctx context.Context, userID, roleID uuid.UUID) ([]string, error) {
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	if _, err := s.repo.GetRoleByID(ctx, roleID); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.RevokeUserRole(ctx, userID, roleID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetUserRoleIDs(ctx, userID)
+}

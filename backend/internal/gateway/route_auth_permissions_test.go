@@ -245,6 +245,66 @@ func TestToRoleGrantsBody_EmptyIsContainerNotNull(t *testing.T) {
 	}
 }
 
+// --- HandleAssignRole / HandleRemoveRole ---
+
+func TestHandleAssignRole_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleAssignRole)
+}
+
+func TestHandleRemoveRole_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleRemoveRole)
+}
+
+// TestHandleRemoveRole_InvalidRoleUUID covers the parameter the route gained
+// in wave 1b: the role now travels in the path, so a malformed one has to be
+// caught here rather than reaching the service as an empty id.
+func TestHandleRemoveRole_InvalidRoleUUID(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/users/550e8400-e29b-41d4-a716-446655440000/roles/bad-id", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withChiURLParam(req, "roleId", "not-a-uuid")
+	routes.HandleRemoveRole(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid roleId")
+}
+
+// TestToUserRolesBody_EmptyIsContainerNotNull guards the answer for an account
+// left without any role: removeUserRole does `resp?.roles ?? []`, but the
+// frontend also feeds the value straight into .map/.includes on the summary
+// view, where a JSON null throws before that fallback can help.
+func TestToUserRolesBody_EmptyIsContainerNotNull(t *testing.T) {
+	raw, err := json.Marshal(toUserRolesBody(nil))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"roles":[]}`
+	if string(raw) != want {
+		t.Errorf("empty roles = %s, want %s", raw, want)
+	}
+}
+
+// TestToUserRolesBody_WireShape pins the plain id list AssignRoleInput's
+// counterpart carries — role ids, not names: the frontend matches them against
+// the ids it got from GET /admin/roles.
+func TestToUserRolesBody_WireShape(t *testing.T) {
+	raw, err := json.Marshal(toUserRolesBody([]string{
+		"11111111-1111-1111-1111-111111111111",
+		"22222222-2222-2222-2222-222222222222",
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"roles":["11111111-1111-1111-1111-111111111111","22222222-2222-2222-2222-222222222222"]}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}
+
 // TestToRoleGrantsBody_WireShape pins the map-keyed-by-capability-key shape:
 // RoleGrants in rbac-types.ts is Record<string, {scope}>, the proto's
 // repeated RoleGrant is the wire form the gateway must fold into it.

@@ -84,6 +84,23 @@ type Repository interface {
 	// ErrCapabilityKeyUnknown. Callers must reject presets first.
 	SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error)
 
+	// AssignUserRole grants roleID to userID, idempotently. Both ids are
+	// re-resolved through users and roles inside the statement: user_roles
+	// carries neither tenant_id nor RLS, so those two joins are the tenant
+	// boundary of the write, not a convenience.
+	AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) error
+
+	// RevokeUserRole takes roleID off userID. Removing a role the account does
+	// not hold is a no-op, not an error — the caller asked for a state, not for
+	// a transition.
+	RevokeUserRole(ctx context.Context, userID, roleID uuid.UUID) error
+
+	// GetUserRoleIDs returns the role ids an account holds, oldest assignment
+	// first (the frontend renders them in assignment order). Scoped to the
+	// calling tenant through the users join, for the same reason as
+	// AssignUserRole.
+	GetUserRoleIDs(ctx context.Context, userID uuid.UUID) ([]string, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error

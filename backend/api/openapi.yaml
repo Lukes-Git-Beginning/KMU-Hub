@@ -753,8 +753,15 @@ paths:
 
   /api/v1/users/{id}/roles:
     post:
-      summary: Assign role to user
-      description: Requires admin role.
+      summary: Assign a role to an account
+      description: >
+        Adds a role — a system preset or a tenant-owned custom role — to the
+        account and answers with the role ids it holds afterwards. Roles are
+        n:m, so the assignment adds to the existing ones; assigning a role the
+        account already holds is a no-op that still returns the list. Requires
+        roles:manage (legacy) or admin:role:assign (fine-grained). An account
+        or a role outside the caller's tenant is invisible rather than
+        forbidden and answers 404.
       tags: [users]
       operationId: assignRole
       security:
@@ -766,49 +773,60 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RoleRequest"
+              $ref: "#/components/schemas/AssignRoleRequest"
       responses:
         "200":
           description: Role assigned
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: "#/components/schemas/UserRolesResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — no such account or role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/users/{id}/roles/{roleId}:
     delete:
-      summary: Remove role from user
-      description: Requires admin role.
+      summary: Remove a role from an account
+      description: >
+        Answers with the role ids the account still holds. Removing a role the
+        account does not hold is a no-op. Requires roles:manage (legacy) or
+        admin:role:assign (fine-grained).
       tags: [users]
       operationId: removeRole
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/UserId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RoleRequest"
+        - $ref: "#/components/parameters/RoleId"
       responses:
         "200":
           description: Role removed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: "#/components/schemas/UserRolesResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — no such account or role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # Effective permissions of any account (admin audit view). Under /admin/users
   # rather than /users because that is where the RBAC frontend addresses it.
@@ -30719,6 +30737,14 @@ components:
         type: string
         format: uuid
 
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
     page:
       name: page
       in: query
@@ -30838,13 +30864,28 @@ components:
         is_active:
           type: boolean
 
-    RoleRequest:
+    AssignRoleRequest:
       type: object
-      required: [role_name]
+      required: [roleId]
       properties:
-        role_name:
+        roleId:
           type: string
-          enum: [admin, manager, member]
+          format: uuid
+          description: >
+            Id of a system preset or a custom role of the caller's tenant.
+            Validated against the roles table, not against a fixed list — a
+            tenant's own roles cannot be enumerated in the spec.
+
+    UserRolesResponse:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          description: Role ids the account holds after the mutation, oldest assignment first.
+          items:
+            type: string
+            format: uuid
 
     ChangePasswordRequest:
       type: object
