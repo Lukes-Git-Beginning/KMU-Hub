@@ -52,6 +52,7 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 	// Store event for durability
 	evt := &models.Event{
 		ID:           uuid.New(),
+		TenantID:     payload.TenantID,
 		EventTypeKey: payload.Type,
 		ModuleID:     payload.ModuleID,
 		Priority:     payload.Priority,
@@ -125,8 +126,12 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 			continue
 		}
 
-		// Build notification
+		// Build notification. TenantID was missing here, which is why Create()
+		// carries a sentinel fallback — the grouper's lookup then ran against
+		// uuid.Nil and the row was written under the sentinel tenant instead of
+		// the real one. The payload has always carried it.
 		notif := &models.Notification{
+			TenantID:     payload.TenantID,
 			UserID:       targetUserID,
 			EventTypeKey: payload.Type,
 			ModuleID:     payload.ModuleID,

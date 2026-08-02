@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -223,27 +224,37 @@ func (r *PostgresRepository) IncrementGroupCount(ctx context.Context, id uuid.UU
 	return err
 }
 
+// CreateEvent persists an event to the durability table. It deliberately runs
+// under the caller's tenant context rather than a system context: the RLS policy
+// added in 000271 then checks the insert for real, so a tenant stamped onto the
+// row that disagrees with the one on the connection is rejected instead of
+// silently stored. EventBus.dispatch stamps that context from the payload.
 func (r *PostgresRepository) CreateEvent(ctx context.Context, event *models.Event) error {
 	query := `
-		INSERT INTO events (id, event_type_key, module_id, priority, actor_id, resource_id, payload, processed, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		INSERT INTO events (id, tenant_id, event_type_key, module_id, priority, actor_id, resource_id, payload, processed, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	_, err := r.pool.Exec(ctx, query,
-		event.ID, event.EventTypeKey, event.ModuleID, event.Priority,
+		event.ID, event.TenantID, event.EventTypeKey, event.ModuleID, event.Priority,
 		event.ActorID, event.ResourceID, event.Payload, event.Processed, event.CreatedAt,
 	)
 	return err
 }
 
+// ListUnprocessedEvents is the catch-up read after downtime and spans tenants by
+// definition — there is no single tenant to run it as. It therefore needs the
+// system context; without it the 000271 policy admits nothing and the backlog
+// would silently look empty. Each replayed event carries its own tenant_id, and
+// EventBus.ProcessBacklog puts that back on the context before dispatching.
 func (r *PostgresRepository) ListUnprocessedEvents(ctx context.Context, limit int) ([]models.Event, error) {
 	query := `
-		SELECT id, event_type_key, module_id, priority, actor_id, resource_id, payload, processed, created_at
+		SELECT id, tenant_id, event_type_key, module_id, priority, actor_id, resource_id, payload, processed, created_at
 		FROM events
 		WHERE processed = false
 		ORDER BY created_at ASC
 		LIMIT $1`
 
-	rows, err := r.pool.Query(ctx, query, limit)
+	rows, err := r.pool.Query(sysctx.With(ctx), query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +264,7 @@ func (r *PostgresRepository) ListUnprocessedEvents(ctx context.Context, limit in
 	for rows.Next() {
 		var evt models.Event
 		err := rows.Scan(
-			&evt.ID, &evt.EventTypeKey, &evt.ModuleID, &evt.Priority,
+			&evt.ID, &evt.TenantID, &evt.EventTypeKey, &evt.ModuleID, &evt.Priority,
 			&evt.ActorID, &evt.ResourceID, &evt.Payload, &evt.Processed, &evt.CreatedAt,
 		)
 		if err != nil {
@@ -265,8 +276,11 @@ func (r *PostgresRepository) ListUnprocessedEvents(ctx context.Context, limit in
 	return events, rows.Err()
 }
 
+// MarkEventProcessed closes out an event. Like the catch-up read it runs as
+// system: ProcessBacklog calls it from the worker context, which carries no
+// tenant, and an event that cannot be marked processed is replayed forever.
 func (r *PostgresRepository) MarkEventProcessed(ctx context.Context, eventID string) error {
-	_, err := r.pool.Exec(ctx,
+	_, err := r.pool.Exec(sysctx.With(ctx),
 		"UPDATE events SET processed = true WHERE id = $1",
 		eventID,
 	)

@@ -752,3 +752,92 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Aus Iteration 10 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den uebrigen
     Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
     `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`.
+
+## Iteration 12 — g-rls-events-partition — done — 2026-08-02 23:05
+- commit: <folgt>
+- entscheidung (A), wie vom Backlog verlangt begruendet: **`events` bekommt `tenant_id` + RLS**, kein
+  Allowlist-Eintrag. Der Nachweis fuer (B) waere gewesen, dass die Tabelle ein rein technischer
+  Event-Bus ohne fachliche Nutzdaten ist. Er scheitert nicht am `payload` — dort steht heute
+  tatsaechlich nur `{"calendar_id","event_id"}` (einzige befuellende Stelle:
+  `work/event/service.go:684`) — sondern an drei anderen Punkten:
+  1. **Der Tenant ist am Schreibpfad bekannt und wird weggeworfen.** `models.EventPayload` fuehrt
+     `TenantID` (`models/event.go:42`), jeder Emitter fuellt sie,
+     `notification/service.go:52` baut daraus die Zeile und laesst das Feld weg.
+  2. **Daraus folgt ein Bestandsbug, kein theoretisches Risiko:** `EventBus.ProcessBacklog`
+     (`event/bus.go:157`) rekonstruiert die `EventPayload` aus der gespeicherten Zeile und kann den
+     Tenant nicht wiederherstellen. Jedes nach einem Neustart nachgeholte Event erreichte
+     `preference.Evaluate` mit `uuid.Nil`.
+  3. `actor_id` + `resource_id` sind konstruktionsbedingt tenant-gebunden — genau die
+     Korrelationsdaten, die RLS trennen soll. Und die beiden anderen partitionierten Log-Tabellen
+     (`automation_executions`, `dialer_call_events`) haben seit 000242 beide `tenant_id` + Policy;
+     `events` war der Ausreisser.
+- gebaut:
+  - `000271_rls_events` — `ADD COLUMN tenant_id`, dreistufiger Backfill (1. `actor_id` ->
+    `users.tenant_id`; 2. aktorlose Zeilen nur, wenn genau EIN Tenant existiert — das ist die
+    Prod-Form, der Guard verhindert Raten auf einer Multi-Tenant-DB; 3. Rest loeschen, ephemeres
+    90-Tage-Log, ohne Tenant ohnehin nicht verarbeitbar), `SET NOT NULL`,
+    `idx_events_tenant_id`, `CALL enable_tenant_rls('events')`.
+  - `models.Event.TenantID`; Repository-INSERT/SELECT um die Spalte erweitert.
+  - `notification/service.go`: `evt.TenantID` **und** `notif.TenantID` aus `payload.TenantID`.
+  - `event/bus.go`: `dispatch` stempelt den Tenant in den Handler-Context; `ProcessBacklog` setzt
+    `payload.TenantID` aus der Zeile.
+  - Tests: 3 DB-Tests (`internal/notification/notification/event_tenant_isolation_test.go`) +
+    3 Bus-Tests.
+- BEFUND, der die Umsetzung bestimmt hat (verifiziert, nicht vermutet): **der notification-Worker
+  konnte seit dem Scharfschalten von RLS gar keine Notification mehr schreiben.** Die Handler
+  laufen auf dem Listener-Background-Context (`bus.dispatch`), der weder Tenant noch System-Kontext
+  traegt; `PrepareConn` laesst die GUCs dann leer, `current_tenant_id()` ist NULL und die Policy auf
+  `notifications` (000122) weist den INSERT ab. `ProcessEvent` loggt den Fehler und macht weiter —
+  der Ausfall ist also still. Belegt per psql als `kmuhub_app`:
+  `INSERT INTO notifications (...) -> ERROR: new row violates row-level security policy`.
+  Deshalb steht der Fix im **Bus** und nicht in `ProcessEvent`: dort greift er fuer jeden Handler,
+  auch fuer den zweiten registrierten Konsumenten (`inboxConsumer.HandleEvent`, `cmd/notification/
+  main.go:211`), der dasselbe Problem hat. Haette ich nur `events` unter RLS gestellt, waere
+  derselbe stille Bruch ein zweites Mal entstanden.
+- system-kontext, bewusst asymmetrisch: `ListUnprocessedEvents` und `MarkEventProcessed` laufen als
+  System (`sysctx.With`) — der Catch-up ist per Definition tenant-uebergreifend, und ein Event, das
+  nicht als verarbeitet markiert werden kann, wird bei jedem Neustart erneut abgespielt.
+  `CreateEvent` laeuft **nicht** als System: nur so prueft `WITH CHECK` den Insert wirklich, und ein
+  fuer einen fremden Tenant gestempeltes Event wird abgewiesen statt gespeichert (eigener Testfall).
+- negativprobe, zweistufig — die erste Fassung war zu schwach und ist deshalb nachgeschaerft
+  worden: mit `migrate down` fielen die Tests zwar, aber an *"column tenant_id does not exist"*.
+  Ein Test, den jeder beliebige Fehler zufriedenstellt, ueberlebt das Verschwinden der Policy. Jetzt
+  prueft `assertRLSRejected` auf **SQLSTATE 42501**. Scharfe Probe (Spalte bleibt, nur
+  `DISABLE ROW LEVEL SECURITY`): `TestTenantIsolation_Events_DB` meldet
+  `expected 0 row(s), got 1`, `TestEvents_WriteWithoutTenantContext_Rejected_DB` meldet
+  `succeeded; the RLS policy is not in force`. Danach RLS wieder aktiviert und `pg_class`
+  gegengeprueft (`rowsec=t forced=t`, 0 Restzeilen).
+- gate: build ok (`go build -p 2 ./...`, gesamter Baum) | vet ok | lint ok (golangci-lint,
+  **0 issues** ueber `./internal/notification/... ./internal/models/... ./cmd/notification/...`) |
+  test ok — `go test -count=1 ./internal/notification/... ./internal/models/... ./internal/gateway/
+  ./internal/server/...` gruen, die **6 neuen Tests real gelaufen (0 Skips**, per `-v` geprueft),
+  DB-Tests als `kmuhub_app`. | migration: up/down/up gruen (270 -> 271 -> 270 -> 271), danach
+  `relrowsecurity=t relforcerowsecurity=t`, Policy
+  `((tenant_id = current_tenant_id()) OR is_system_context())`, `tenant_id` NOT NULL.
+  | openapi: keine Route beruehrt, `TestOpenAPIRouteDrift` als Teil von `./internal/gateway/` gruen.
+- stolperstein fuer die naechste Migration: `min(uuid)` gibt es in Postgres nicht — der erste
+  Anlauf starb daran (`schema_migrations` blieb `271 dirty`, die Transaktion selbst war sauber
+  zurueckgerollt). Recovery: `migrate force 270`, dann regulaer hoch. Fuer "der einzige Tenant"
+  also `SELECT count(*)` und `SELECT id` getrennt.
+- verify vorgaenger: sauber. `54d1ef7d` (g-rls-custom-field-values) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein Stub — die Migration ruft nur den Join-Helper,
+  der Rest ist Test. Down-Migration ist symmetrisch zur Up (Policy + FORCE + ENABLE je Tabelle).
+  Read-Seite ist durch die Policy selbst abgedeckt, nicht durch handgeschriebene Praedikate.
+- offen:
+  - **`docs/ARCHITECTURE.md` ergaenzt** um einen Absatz, warum `events` nicht mehr system-global ist.
+    Der Kopfkommentar von `000242` behauptet weiterhin "events — NO tenant_id, NO RLS (system-level
+    event bus)"; historische Migrationen bleiben unangetastet, aber wer dort liest, liest Veraltetes.
+  - **`sentinelTenantID` in `notification/postgres_repository.go:27`** ist jetzt totes Netz: er fing
+    genau den `notif.TenantID == uuid.Nil`-Fall ab, dessen Ursache diese Iteration beseitigt.
+    Entfernen erst, wenn geprueft ist, dass kein anderer Aufrufer von `Create` ohne Tenant kommt —
+    und Bestandszeilen unter dem Sentinel-Tenant `...0001` brauchen dann eine Entscheidung.
+  - **`MarkEventProcessed` filtert nur auf `id`**, der PK ist aber `(id, created_at)`: das UPDATE
+    scannt jede Partition. Bei 15 Monatspartitionen heute egal, mit `created_at` im WHERE waere es
+    ein Partition-Prune. Kein Sicherheitsproblem, eine Zeile Arbeit.
+  - Naechste Unit laut Backlog: `g-rls-allowlist-audit` (Block B, sonnet) — elf Tabellen ohne
+    `tenant_id` und ohne RLS gegen die Vier-Eintraege-Allowlist stellen. `events` ist dort **nicht**
+    zu ergaenzen, es ist ab jetzt geschuetzt.
+  - Aus Iteration 10/11 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den uebrigen
+    Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`; `SeedRow`/
+    `CleanupRow` brauchen eine `id`-Spalte (fuer Tabellen mit zusammengesetztem PK unbrauchbar).

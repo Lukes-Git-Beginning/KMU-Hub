@@ -431,7 +431,7 @@ units:
     service: db
     model: opus
     deps: [g-rls-custom-field-values]
-    status: todo
+    status: done
     scope: >
       `events` ist eine partitionierte Tabelle (`relkind='p'`) mit `relrowsecurity=false` und
       NULL Policies — im Gegensatz zu den beiden anderen partitionierten Eltern

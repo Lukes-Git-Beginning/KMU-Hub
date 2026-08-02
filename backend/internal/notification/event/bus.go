@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -117,7 +119,21 @@ func (bus *EventBus) listenLoop(ctx context.Context) error {
 }
 
 // dispatch sends the event to all matching handlers and wildcard handlers.
+//
+// The context is stamped with the event's tenant first. Handlers run on the
+// listener's background context, which carries no request and therefore no
+// tenant — and every table they touch (events since 000271, notifications since
+// 000122, inbox_messages) is under RLS, whose policy admits nothing when
+// app.tenant_id is empty. Without this the notification insert fails with
+// "new row violates row-level security policy", ProcessEvent logs it and moves
+// on, and the event disappears. Stamping here rather than in each handler keeps
+// the every-handler guarantee: a new consumer registered on this bus is
+// tenant-scoped by construction.
 func (bus *EventBus) dispatch(ctx context.Context, event models.EventPayload) {
+	if event.TenantID != uuid.Nil {
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, event.TenantID.String())
+	}
+
 	bus.mu.RLock()
 	handlers := make([]EventHandler, 0)
 
@@ -157,11 +173,15 @@ func (bus *EventBus) ProcessBacklog(ctx context.Context, repo EventRepository) e
 	slog.Info("processing event backlog", "count", len(events))
 
 	for _, evt := range events {
+		// TenantID comes from the stored row (column added in 000271). Before it
+		// existed this replay could not restore the tenant, so every event
+		// caught up after a restart reached the handlers as uuid.Nil.
 		payload := models.EventPayload{
-			Type:       evt.EventTypeKey,
-			Priority:   evt.Priority,
-			ModuleID:   evt.ModuleID,
-			Timestamp:  evt.CreatedAt,
+			Type:      evt.EventTypeKey,
+			TenantID:  evt.TenantID,
+			Priority:  evt.Priority,
+			ModuleID:  evt.ModuleID,
+			Timestamp: evt.CreatedAt,
 		}
 
 		if evt.ActorID != nil {

@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -265,4 +267,76 @@ func (m *mockEventRepo) ListUnprocessed(_ context.Context, _ int) ([]models.Even
 func (m *mockEventRepo) MarkProcessed(_ context.Context, _ string) error {
 	m.markProcessedCount++
 	return m.err
+}
+
+// dispatch must put the event's tenant on the context before any handler runs.
+// Handlers execute on the listener's background context, which carries no
+// tenant, and every table they write is under RLS — an unstamped context makes
+// the policy admit nothing and the notification insert fails with "new row
+// violates row-level security policy", which ProcessEvent logs and swallows.
+func TestEventBusDispatchStampsTenantContext(t *testing.T) {
+	bus := NewEventBus("postgres://test")
+	tenantID := uuid.New()
+
+	var got string
+	var ok bool
+	bus.RegisterHandler("*", func(ctx context.Context, _ models.EventPayload) error {
+		got, ok = ctx.Value(middleware.TenantIDKey).(string)
+		return nil
+	})
+
+	bus.dispatch(context.Background(), models.EventPayload{
+		Type:     "crm.deal.assigned",
+		TenantID: tenantID,
+		ModuleID: "crm",
+	})
+
+	require.True(t, ok, "handler context carries no tenant — RLS will reject every write it makes")
+	assert.Equal(t, tenantID.String(), got)
+}
+
+// An event without a tenant must not overwrite one already on the context.
+// ProcessBacklog replays rows whose tenant_id is NOT NULL since 000271, but a
+// caller may still dispatch a zero value; stamping it would be worse than
+// leaving the context alone.
+func TestEventBusDispatchLeavesContextAloneWithoutTenant(t *testing.T) {
+	bus := NewEventBus("postgres://test")
+	existing := uuid.New()
+
+	var got string
+	bus.RegisterHandler("*", func(ctx context.Context, _ models.EventPayload) error {
+		got, _ = ctx.Value(middleware.TenantIDKey).(string)
+		return nil
+	})
+
+	ctx := context.WithValue(context.Background(), middleware.TenantIDKey, existing.String())
+	bus.dispatch(ctx, models.EventPayload{Type: "crm.deal.assigned", ModuleID: "crm"})
+
+	assert.Equal(t, existing.String(), got)
+}
+
+// ProcessBacklog rebuilds the payload from the stored row. Before 000271 the
+// tenant could not survive that round trip, so every event replayed after a
+// restart reached preference.Evaluate as uuid.Nil.
+func TestEventBusProcessBacklogRestoresTenant(t *testing.T) {
+	bus := NewEventBus("postgres://test")
+	tenantID := uuid.New()
+
+	var seen uuid.UUID
+	bus.RegisterHandler("*", func(_ context.Context, event models.EventPayload) error {
+		seen = event.TenantID
+		return nil
+	})
+
+	repo := &mockEventRepo{events: []models.Event{{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		EventTypeKey: "crm.deal.assigned",
+		ModuleID:     "crm",
+		Priority:     "normal",
+		CreatedAt:    time.Now(),
+	}}}
+
+	require.NoError(t, bus.ProcessBacklog(context.Background(), repo))
+	assert.Equal(t, tenantID, seen)
 }
