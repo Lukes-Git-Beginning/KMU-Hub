@@ -2663,3 +2663,40 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   - Die OpenAPI-Aussage am Roster ("hasOverrides is omitted") bleibt korrekt und wurde bewusst
     nicht angefasst.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 41 — fix-openapi-flow-mapping-invalid — done — 2026-08-03
+
+- verify vorgaenger (`18bf5c18`, g-rbac-user-overrides-resolver): **sauber**. Handler in
+  `route_auth.go` geht ueber `client.GetEffectivePermissions`, kein Stub. `GetUserOverrides`
+  (postgres_repository.go:710) ist RLS-gescopt, nicht `sysctx` — richtig, weil dieser Pfad (anders
+  als `createTokenPair`) nicht unter Systemkontext laeuft. `NarrowedScopes` bewusst auf
+  `GetRoleUnion` belassen, mit Begruendung im Code und Backlog-Unit `g-rbac-user-overrides-token`
+  verlinkt. Proto: `auth.pb.go` regeneriert, `auth_grpc.pb.go` unveraendert (keine neuen RPCs,
+  konsistent mit dem Commit-Text). Eigenstaendig nachgerechnet statt geglaubt: `go build -p 2 ./...`,
+  `go vet ./...`, `golangci-lint run` (0 issues), `go test -count=1 ./internal/auth/...
+  ./internal/gateway/... ./internal/server/...` — alle gruen, 0 SKIP im auth-Paket
+  (`grep -c '^--- SKIP'` = 0, unabhaengig nachgezaehlt). Der CI-blockierende openapi.yaml-Fund aus
+  Iteration 40 bestaetigt: `swagger-cli validate` liefert weiterhin 75 Fehler, identisch vor und
+  nach `18bf5c18` — Bestand, nicht durch diesen Commit verursacht.
+- gebaut: `fix-openapi-flow-mapping-invalid`. Zwei Fund-Orte, nicht nur der aus Iteration 40
+  vermutete: der Offboard-Block (400/403/409/409, Kommas in der Beschreibung, wie erwartet) UND das
+  eigentliche Wurzelproblem fuer die GET/POST-200/201-Fehler auf `/hr/change-requests` — die
+  Fehlermeldungen zeigten dort scheinbar auf die (bereits Block-Stil) Response-Objekte selbst, aber
+  `swagger-cli` mit vollem Fehlerpfad zeigte: der eigentliche Bruch sass in
+  `components/schemas/ProfileChangeRequest`, dessen Feld `reason` im Flow-Stil mit Komma in der
+  Beschreibung geschrieben war (`reason: { type: string, description: Rejection reason, absent
+  otherwise }`). Weil GET/POST per `$ref` auf dieses Schema zeigen, propagierte
+  "must NOT have additional properties" auf `reason` bis in beide Routen hoch. Ohne den vollen
+  Fehlerpfad (`#/paths/.../schema/properties/requests/items/properties/reason`) waere das leicht mit
+  einem echten Route-Bug verwechselt worden.
+  Alle betroffenen Flow-Mappings — Offboard, change-requests GET/POST, approve/reject/cancel, das
+  Schema — in Block-Stil aufgeloest. Jede Aussage woertlich uebernommen, nur die YAML-Form geaendert
+  (per `git diff` gegengeprueft: keine Wortaenderung, nur Einrueckung).
+- gate: `npx @apidevtools/swagger-cli validate backend/api/openapi.yaml` -> "is valid" (vorher 75
+  Fehler) | `go build -p 2 ./...` ok | `go vet ./...` ok | `go test -count=1 ./internal/gateway/`
+  gruen, `TestOpenAPIRouteDrift` + `TestOpenAPIRouteDriftParserSanity` beide PASS (802 registrierte
+  Routen gegen 804 dokumentierte Pfade, unveraendert gegenueber vorher).
+- offen: keins Neues. Die von Iteration 40 offen gelassenen Punkte
+  (`g-rbac-user-overrides-token`, Roster-`hasOverrides`) bleiben unberuehrt — reine Docs-Unit ohne
+  Code-Aenderung in `internal/`.
+- DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.

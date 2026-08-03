@@ -88,7 +88,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `backend/api/openapi.yaml` ist seit den beiden HR-Units **schema-invalide** — der CI-Job
       "Validate OpenAPI" (`npx @apidevtools/swagger-cli validate backend/api/openapi.yaml`,
@@ -116,6 +116,17 @@ units:
       - swagger-cli validate laeuft ohne Fehler durch
       - keine Aussage inhaltlich veraendert, nur die YAML-Form
       - go test -count=1 ./internal/gateway/ gruen (TestOpenAPIRouteDrift bleibt gruen)
+    ergebnis: >
+      ERLEDIGT (Iteration 41). Zwei Fund-Orte, nicht nur einer: der Offboard-Block (400/403/409/409
+      mit Kommas in der Beschreibung, wie vermutet) UND das eigentliche Wurzelproblem fuer die
+      GET/POST-200/201-Fehler auf `/hr/change-requests` — `components/schemas/ProfileChangeRequest`
+      selbst hatte ein Flow-Mapping-Feld mit Komma: `reason: { type: string, description: Rejection
+      reason, absent otherwise }`. Weil GET/POST per `$ref` auf dieses Schema zeigen, propagierte der
+      Fehler ("must NOT have additional properties" auf `reason`) bis in beide Routen hoch, obwohl
+      deren eigene Response-Bloecke bereits Block-Stil waren. Alle betroffenen Flow-Mappings (Offboard,
+      change-requests GET/POST, approve/reject/cancel, das Schema) in Block-Stil aufgeloest, keine
+      Aussage veraendert. `swagger-cli validate` meldet "is valid", `TestOpenAPIRouteDrift`
+      unveraendert gruen (802 Routen / 804 Pfade).
 
   - id: g-rbac-user-overrides-token
     phase: 3

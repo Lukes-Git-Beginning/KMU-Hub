@@ -11289,12 +11289,18 @@ paths:
                 properties:
                   employee:
                     $ref: "#/components/schemas/EmployeeProfile"
-        "400": { description: Malformed body, unknown exit type, exit date before the last working day, or the named successor is not an active employee of this tenant }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Missing team:employee:offboard, or the caller is offboarding their own account }
-        "404": { description: Employee profile not found }
-        "409": { description: Employee has already left, or is the last active account carrying role administration }
-        "422": { description: The employee still has direct reports and no successor was named }
+        "400":
+          description: Malformed body, unknown exit type, exit date before the last working day, or the named successor is not an active employee of this tenant
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:employee:offboard, or the caller is offboarding their own account
+        "404":
+          description: Employee profile not found
+        "409":
+          description: Employee has already left, or is the last active account carrying role administration
+        "422":
+          description: The employee still has direct reports and no successor was named
 
   /api/v1/hr/change-requests:
     get:
@@ -11329,9 +11335,12 @@ paths:
                     items:
                       $ref: "#/components/schemas/ProfileChangeRequest"
                   total: { type: integer }
-        "400": { description: Invalid status filter }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Neither team:self:propose nor team:data_personal:edit }
+        "400":
+          description: Invalid status filter
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Neither team:self:propose nor team:data_personal:edit
     post:
       summary: Submit a profile change request
       description: >
@@ -11369,10 +11378,14 @@ paths:
                 properties:
                   request:
                     $ref: "#/components/schemas/ProfileChangeRequest"
-        "400": { description: Validation failed or field not proposable }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Missing team:self:propose }
-        "409": { description: A pending request for this field already exists }
+        "400":
+          description: Validation failed or field not proposable
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:self:propose
+        "409":
+          description: A pending request for this field already exists
 
   /api/v1/hr/change-requests/{id}/approve:
     post:
@@ -11395,11 +11408,16 @@ paths:
                 properties:
                   request:
                     $ref: "#/components/schemas/ProfileChangeRequest"
-        "400": { description: Invalid request id or field no longer proposable }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Missing team:data_personal:edit, or proposer outside the approver's scope }
-        "404": { description: Change request not found, or proposer has no employee profile }
-        "409": { description: Change request is no longer pending }
+        "400":
+          description: Invalid request id or field no longer proposable
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:data_personal:edit, or proposer outside the approver's scope
+        "404":
+          description: Change request not found, or proposer has no employee profile
+        "409":
+          description: Change request is no longer pending
 
   /api/v1/hr/change-requests/{id}/reject:
     post:
@@ -11426,12 +11444,18 @@ paths:
                 properties:
                   request:
                     $ref: "#/components/schemas/ProfileChangeRequest"
-        "400": { description: Invalid request id }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Missing team:data_personal:edit, or proposer outside the approver's scope }
-        "404": { description: Change request not found }
-        "409": { description: Change request is no longer pending }
-        "422": { description: Rejection reason missing }
+        "400":
+          description: Invalid request id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:data_personal:edit, or proposer outside the approver's scope
+        "404":
+          description: Change request not found
+        "409":
+          description: Change request is no longer pending
+        "422":
+          description: Rejection reason missing
 
   /api/v1/hr/change-requests/{id}/cancel:
     post:
@@ -11451,11 +11475,16 @@ paths:
                 properties:
                   request:
                     $ref: "#/components/schemas/ProfileChangeRequest"
-        "400": { description: Invalid request id }
-        "401": { description: Missing or invalid tenant }
-        "403": { description: Missing team:self:propose, or caller is not the proposer }
-        "404": { description: Change request not found }
-        "409": { description: Change request is no longer pending }
+        "400":
+          description: Invalid request id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:self:propose, or caller is not the proposer
+        "404":
+          description: Change request not found
+        "409":
+          description: Change request is no longer pending
 
   /api/v1/hr/employees/{id}/documents:
     get:
@@ -37757,7 +37786,9 @@ components:
         oldValue: { type: string }
         newValue: { type: string }
         status: { type: string, enum: [pending, approved, rejected, cancelled] }
-        reason: { type: string, description: Rejection reason, absent otherwise }
+        reason:
+          type: string
+          description: Rejection reason, absent otherwise
         createdAt: { type: string, format: date-time }
         decidedAt: { type: string, format: date-time }
         decidedByName: { type: string }
