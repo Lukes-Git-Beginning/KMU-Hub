@@ -2702,7 +2702,7 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
 
 ## Iteration 42 — g-rbac-user-overrides-token — done — 2026-08-03
-- commit: <sha>
+- commit: a7ae3f56
 - verify vorgaenger (`935c07b8`, fix-openapi-flow-mapping-invalid): **sauber**. Reine YAML-Form,
   keine Code-Aenderung in `internal/`. Diff eigenstaendig durchgesehen: alle sechs Bloecke
   (Offboard, change-requests GET/POST, approve/reject/cancel) plus `ProfileChangeRequest.reason`
