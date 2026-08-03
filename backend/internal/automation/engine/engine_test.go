@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/automation/condition"
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // ============================================================================
@@ -28,6 +29,9 @@ func (m *mockWorkflowRepo) Create(_ context.Context, _ *models.Automation) error
 func (m *mockWorkflowRepo) Update(_ context.Context, _ *models.Automation) error  { return nil }
 func (m *mockWorkflowRepo) Delete(_ context.Context, _, _ uuid.UUID) error        { return nil }
 func (m *mockWorkflowRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*models.Automation, error) {
+	return nil, nil
+}
+func (m *mockWorkflowRepo) GetByIDUnscoped(_ context.Context, _ uuid.UUID) (*models.Automation, error) {
 	return nil, nil
 }
 func (m *mockWorkflowRepo) List(_ context.Context, _ workflow.ListFilter) ([]*models.Automation, int, error) {
@@ -131,6 +135,56 @@ func makeEvent() models.EventPayload {
 		Type:      "contact.created",
 		ModuleID:  "crm",
 		Timestamp: time.Now(),
+	}
+}
+
+// ============================================================================
+// Loop-prevention ModuleID test
+// ============================================================================
+
+// TestExecute_SkipsAutomationModuleEvent verifies the intended loop guard:
+// an event tagged as originating from the automation module itself is
+// dropped before any action runs.
+func TestExecute_SkipsAutomationModuleEvent(t *testing.T) {
+	gate := make(chan struct{})
+	close(gate) // executor would return immediately if ever entered
+	startedCh := make(chan struct{}, 1)
+	executor := &blockingExecutor{started: startedCh, gate: gate}
+	eng := newTestEngine(executor)
+
+	evt := models.EventPayload{Type: "x", ModuleID: event.ModuleAutomation, Timestamp: time.Now()}
+	err := eng.Execute(context.Background(), makeAutomation(uuid.New()), evt)
+	require.NoError(t, err)
+
+	select {
+	case <-startedCh:
+		t.Fatal("action ran for a ModuleAutomation-tagged event; loop prevention did not skip it")
+	default:
+	}
+}
+
+// TestExecute_SchedulerOriginedEventIsNotSkipped is a regression test for the
+// poller ModuleID collision: trigger.TimeTriggerPoller used to tag its
+// synthetic time-based-trigger events with ModuleID "automation", which this
+// exact loop-prevention check then silently discarded before condition
+// evaluation -- biz.invoice.overdue and calendar.event.upcoming never
+// actually executed. The poller now tags them "scheduler"; this asserts that
+// value is not itself caught by the guard.
+func TestExecute_SchedulerOriginedEventIsNotSkipped(t *testing.T) {
+	gate := make(chan struct{})
+	close(gate)
+	startedCh := make(chan struct{}, 1)
+	executor := &blockingExecutor{started: startedCh, gate: gate}
+	eng := newTestEngine(executor)
+
+	evt := models.EventPayload{Type: "x", ModuleID: "scheduler", Timestamp: time.Now()}
+	err := eng.Execute(context.Background(), makeAutomation(uuid.New()), evt)
+	require.NoError(t, err)
+
+	select {
+	case <-startedCh:
+	case <-time.After(time.Second):
+		t.Fatal("action did not run for a scheduler-originated event")
 	}
 }
 

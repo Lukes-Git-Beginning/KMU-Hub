@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/automation/condition"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -24,6 +27,7 @@ type mockRepo struct {
 	updateFn            func(ctx context.Context, a *models.Automation) error
 	deleteFn            func(ctx context.Context, id uuid.UUID) error
 	getByIDFn           func(ctx context.Context, id uuid.UUID) (*models.Automation, error)
+	getByIDUnscopedFn   func(ctx context.Context, id uuid.UUID) (*models.Automation, error)
 	listFn              func(ctx context.Context, f ListFilter) ([]*models.Automation, int, error)
 	listActiveByTrigFn  func(ctx context.Context, triggerType string) ([]*models.Automation, error)
 	listActiveTimeBasFn func(ctx context.Context) ([]*models.Automation, error)
@@ -65,6 +69,13 @@ func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 		return auto, nil
 	}
 	return nil, nil
+}
+
+func (m *mockRepo) GetByIDUnscoped(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+	if m.getByIDUnscopedFn != nil {
+		return m.getByIDUnscopedFn(ctx, id)
+	}
+	return nil, ErrAutomationNotFound
 }
 
 func (m *mockRepo) List(ctx context.Context, f ListFilter) ([]*models.Automation, int, error) {
@@ -172,12 +183,104 @@ func (m *mockTemplateRepo) UpsertTemplate(ctx context.Context, t *models.Automat
 	return nil
 }
 
+// fakeIdempotencyRepo is a minimal in-memory stand-in for idempotency.Repository,
+// mirroring the (tenant_id, key) semantics of the real Postgres-backed store
+// closely enough for TriggerWebhook's tests: fresh key -> (nil, nil); same
+// key+hash after Complete -> cached record; same key, different hash -> ErrConflict.
+type fakeIdempotencyRepo struct {
+	records map[string]*idempotency.Record
+}
+
+func newFakeIdempotencyRepo() *fakeIdempotencyRepo {
+	return &fakeIdempotencyRepo{records: map[string]*idempotency.Record{}}
+}
+
+func (f *fakeIdempotencyRepo) recKey(tenantID uuid.UUID, key string) string {
+	return tenantID.String() + "|" + key
+}
+
+func (f *fakeIdempotencyRepo) Reserve(_ context.Context, key string, tenantID, userID uuid.UUID, method, path, hash string) (*idempotency.Record, error) {
+	rk := f.recKey(tenantID, key)
+	if rec, ok := f.records[rk]; ok {
+		if rec.RequestHash != hash {
+			return nil, idempotency.ErrConflict
+		}
+		if rec.CompletedAt == nil {
+			return nil, nil
+		}
+		return rec, nil
+	}
+	f.records[rk] = &idempotency.Record{
+		Key: key, TenantID: tenantID, UserID: userID,
+		Method: method, Path: path, RequestHash: hash,
+		CreatedAt: time.Now(), ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	return nil, nil
+}
+
+func (f *fakeIdempotencyRepo) Get(_ context.Context, tenantID uuid.UUID, key string) (*idempotency.Record, error) {
+	rec, ok := f.records[f.recKey(tenantID, key)]
+	if !ok {
+		return nil, pgx.ErrNoRows
+	}
+	return rec, nil
+}
+
+func (f *fakeIdempotencyRepo) Complete(_ context.Context, tenantID uuid.UUID, key string, status int, body []byte) error {
+	rec, ok := f.records[f.recKey(tenantID, key)]
+	if !ok {
+		return idempotency.ErrKeyMissing
+	}
+	rec.ResponseStatus = &status
+	rec.ResponseBody = body
+	now := time.Now()
+	rec.CompletedAt = &now
+	return nil
+}
+
+func (f *fakeIdempotencyRepo) Cleanup(_ context.Context) (int, error) { return 0, nil }
+
+func (f *fakeIdempotencyRepo) CleanupWithLock(_ context.Context, _ int64) (int, error) {
+	return 0, nil
+}
+
+// fakeExecutor is a minimal Executor stand-in that records the last automation
+// and event it was called with, optionally blocking until executed is signalled.
+type fakeExecutor struct {
+	mu        sync.Mutex
+	calls     int
+	lastAuto  models.Automation
+	lastEvt   models.EventPayload
+	executed  chan struct{}
+	returnErr error
+}
+
+func newFakeExecutor() *fakeExecutor {
+	return &fakeExecutor{executed: make(chan struct{}, 16)}
+}
+
+func (f *fakeExecutor) Execute(_ context.Context, auto models.Automation, evt models.EventPayload) error {
+	f.mu.Lock()
+	f.calls++
+	f.lastAuto = auto
+	f.lastEvt = evt
+	f.mu.Unlock()
+	f.executed <- struct{}{}
+	return f.returnErr
+}
+
+func (f *fakeExecutor) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
 
 func triggerGet(t string) (any, bool) {
-	if t == "event" || t == "schedule" {
+	if t == "event" || t == "schedule" || t == webhookReceivedTriggerType {
 		return "trigger-def", true
 	}
 	return nil, false
@@ -199,6 +302,13 @@ func actionAllDefs() []any {
 }
 
 func newTestService(repo *mockRepo, execRepo *mockExecRepo, tmplRepo *mockTemplateRepo) *Service {
+	return newTestServiceWithWebhookDeps(repo, execRepo, tmplRepo, nil, nil)
+}
+
+// newTestServiceWithWebhookDeps additionally lets TriggerWebhook tests inject
+// a specific idempotency repo / executor fake; every other test uses
+// newTestService, which defaults both to a fresh fake.
+func newTestServiceWithWebhookDeps(repo *mockRepo, execRepo *mockExecRepo, tmplRepo *mockTemplateRepo, idemRepo idempotency.Repository, executor Executor) *Service {
 	if repo == nil {
 		repo = &mockRepo{}
 	}
@@ -208,7 +318,13 @@ func newTestService(repo *mockRepo, execRepo *mockExecRepo, tmplRepo *mockTempla
 	if tmplRepo == nil {
 		tmplRepo = &mockTemplateRepo{}
 	}
-	return NewService(repo, execRepo, tmplRepo, triggerGet, triggerAll, actionGet, actionAllDefs, condition.NewEvaluator())
+	if idemRepo == nil {
+		idemRepo = newFakeIdempotencyRepo()
+	}
+	if executor == nil {
+		executor = newFakeExecutor()
+	}
+	return NewService(repo, execRepo, tmplRepo, triggerGet, triggerAll, actionGet, actionAllDefs, condition.NewEvaluator(), idemRepo, executor)
 }
 
 func mustJSON(v any) json.RawMessage {

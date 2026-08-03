@@ -489,6 +489,31 @@ func (s *AutomationGRPCServer) GetAutomationStats(ctx context.Context, _ *automa
 }
 
 // ============================================================================
+// Webhook Trigger (1 RPC)
+// ============================================================================
+
+// TriggerWebhook is deliberately the only RPC on this service that does not
+// call middleware.GetTenantID: the caller is the gateway's unauthenticated
+// public webhook route, which has no tenant to offer. workflow.Service
+// resolves the tenant off the automation row itself once the signature has
+// been verified (see workflow.Service.TriggerWebhook's doc comment).
+func (s *AutomationGRPCServer) TriggerWebhook(ctx context.Context, req *automationv1.TriggerWebhookRequest) (*automationv1.TriggerWebhookResponse, error) {
+	automationID, err := uuid.Parse(req.GetAutomationId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
+	}
+
+	result, err := s.svc.TriggerWebhook(ctx, automationID, req.GetBody(), req.GetSignature(), req.GetIdempotencyKey())
+	if err != nil {
+		return nil, mapDomainError(err)
+	}
+
+	return &automationv1.TriggerWebhookResponse{
+		Duplicate: result.Duplicate,
+	}, nil
+}
+
+// ============================================================================
 // Converters
 // ============================================================================
 
@@ -794,6 +819,14 @@ func mapDomainError(err error) error {
 		return status.Error(codes.Aborted, err.Error())
 	case errors.Is(err, workflow.ErrCircuitBreakerOpen):
 		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, workflow.ErrWebhookNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, workflow.ErrWebhookSignatureInvalid):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, workflow.ErrWebhookPayloadTooLarge):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, workflow.ErrWebhookIdempotencyConflict):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled automation service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

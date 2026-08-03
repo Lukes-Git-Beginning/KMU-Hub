@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -12,6 +13,18 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	automationv1 "github.com/kmuhub/kmuhub/proto/automation/v1"
 )
+
+// webhookSignatureHeader is the header inbound webhook deliveries carry their
+// HMAC-SHA256 signature in, matching the outbound convention already used by
+// internal/formulare/worker.go (X-Cosmi-Signature: sha256=<hex>).
+const webhookSignatureHeader = "X-Cosmi-Signature"
+
+// maxWebhookBodyBytes caps the request body accepted by HandleTriggerWebhook.
+// Must match (or be tighter than) workflow.maxWebhookBodyBytes -- kept as an
+// independent constant here since the gateway package cannot import the
+// unexported workflow constant, and enforcing it before the bytes ever leave
+// this handler is the point (defense-in-depth, not merely a mirrored value).
+const maxWebhookBodyBytes = 256 * 1024
 
 // AutomationRoutes handles HTTP routes for the automation service.
 type AutomationRoutes struct {
@@ -93,6 +106,21 @@ func (ar *AutomationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 
 		// Stats (admin only)
 		r.With(middleware.RequireRole("admin")).Get("/stats", ar.HandleGetStats)
+	})
+}
+
+// RegisterPublicRoutes mounts the unauthenticated inbound webhook trigger.
+// Called from cmd/gateway/main.go OUTSIDE the registrars loop, directly on r,
+// following the booking/berichte/document public-route pattern.
+//
+// publicRateLimit must be the stricter public limiter, not the global one:
+// this is the only path in the module that answers without a JWT, and the
+// per-automation HMAC secret is the only other thing standing between an
+// external caller and repeated signature-guessing/DoS attempts.
+func (ar *AutomationRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/automations/webhooks/{automationId}", ar.HandleTriggerWebhook)
 	})
 }
 
@@ -627,6 +655,48 @@ func (ar *AutomationRoutes) HandleGetStats(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Webhook Trigger Handler
+// ============================================================================
+
+// HandleTriggerWebhook processes an inbound webhook delivery for the
+// automation identified by the {automationId} path segment. Unauthenticated
+// by design (external senders carry no JWT); signature verification and
+// tenant resolution happen in workflow.Service.TriggerWebhook, reached here
+// strictly through the gRPC client per the gateway's thin-handler rule.
+func (ar *AutomationRoutes) HandleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
+	client, err := ar.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ar.ServiceName())
+		return
+	}
+
+	automationID, ok := validateUUIDParam(w, r, "automationId")
+	if !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, http.StatusRequestEntityTooLarge, "webhook payload too large")
+		return
+	}
+
+	resp, err := client.TriggerWebhook(r.Context(), &automationv1.TriggerWebhookRequest{
+		AutomationId:   automationID,
+		Body:           body,
+		Signature:      r.Header.Get(webhookSignatureHeader),
+		IdempotencyKey: r.Header.Get("Idempotency-Key"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusAccepted, map[string]bool{"duplicate": resp.GetDuplicate()})
 }
 
 // ============================================================================

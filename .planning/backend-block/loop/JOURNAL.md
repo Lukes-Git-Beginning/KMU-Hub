@@ -2847,3 +2847,66 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   in `internal/biz/lexware/webhook_handler.go` und `internal/formulare/worker.go` (HMAC-SHA256,
   `X-Cosmi-Signature: sha256=…`) — dieselbe Form wiederverwenden statt eine dritte zu erfinden.
 - commit: `cac9f73d` (feat(automation): add an SSRF-guarded http.request action)
+
+## Iteration 44 — 2026-08-03
+
+- verify-vorspann auf `cac9f73d` (Iteration 43, SSRF-guarded http.request action): Diff gelesen
+  (`internal/security/safehttp/`, `internal/automation/action/http_actions.go`,
+  `internal/formulare/worker.go`, Tests). Keine der sechs Fehlerklassen: kein Stub, kein
+  Gateway-Bypass (reines Aktions-/Worker-Paket, keine Route), kein Proto/Migration angefasst, kein
+  neuer Guard. `go build -p 2 ./...` gruen.
+- gebaut: `g-automation-webhook-trigger`.
+- Neuer Trigger `webhook.received` in der Registry, neue Route
+  `POST /api/v1/public/automations/webhooks/{automationId}` (kein Auth, publicRateLimiter wie
+  booking/berichte/document), neue RPC `AutomationService.TriggerWebhook`.
+  **Tenant-Aufloesung ohne JWT** ist die zentrale Entscheidung: neue Repo-Methode
+  `GetByIDUnscoped` (kein `WHERE tenant_id`) hinter `sysctx.With`, Trigger-Type/`is_active` danach
+  im Service geprueft — dieselbe Grenze wie bei `two_factor_policy`/`refresh_tokens`. Signatur
+  HMAC-SHA256, Header `X-Cosmi-Signature: sha256=<hex>` (Vorgabe aus Iteration 43, dieselbe Form wie
+  das ausgehende `internal/formulare/worker.go`), Vergleich konstantzeitig. Secret liegt in
+  `trigger_config.secret`, wird beim Erstellen/Aendern einer `webhook.received`-Automation
+  automatisch generiert (`ensureWebhookSecret`), sonst existiert die Automation nie ohne Secret.
+  Idempotenz wiederverwendet den bestehenden `internal/idempotency`-Store statt einer eigenen
+  Dedup-Tabelle: expliziter `Idempotency-Key`-Header wenn vorhanden, sonst SHA-256 des Bodies als
+  Fallback — ein reiner Resend dedupt also auch ohne Header. Ausfuehrung laeuft asynchron
+  (Goroutine, 30s-Timeout), Muster wie `trigger.TimeTriggerPoller` — schneller 202 fuer den
+  Absender, eine haengende Action haelt die Verbindung nicht offen.
+- **Root-Cause-Fund unterwegs, im selben Commit behoben:** `engine.Execute`s Loop-Prevention
+  verwirft jedes Event mit `ModuleID == "automation"` — genau das setzte `trigger.TimeTriggerPoller`
+  fuer seine eigenen synthetischen Events. `biz.invoice.overdue` und `calendar.event.upcoming` sind
+  dadurch seit ihrem Bau nie wirklich gelaufen (stiller Drop vor jeder Condition-Auswertung, nur ein
+  Debug-Log). Waere ich demselben Muster fuer den neuen Webhook-Trigger gefolgt, waere derselbe
+  Fehler entstanden und "Trigger startet die Automation" schlicht falsch gewesen. Fix: Poller-Event
+  traegt jetzt `ModuleID: "scheduler"`, mein Webhook-Event `event.ModuleIntegration`
+  ("integration" — vorher deklariert, nie genutzt). Zwei neue Regressionstests in `engine_test.go`
+  (`TestExecute_SkipsAutomationModuleEvent`, `TestExecute_SchedulerOriginedEventIsNotSkipped`)
+  belegen beide Seiten.
+- **Gefunden, bewusst nicht angefasst:** `internal/idempotency.PostgresRepository.Reserve`
+  unterscheidet unter der echten Postgres-Implementierung "frisch" und "gleichzeitig in-flight,
+  noch nicht completed" nicht — beide liefern `(nil, nil)`. Der `mockRepository` in
+  `internal/idempotency/repository_test.go` (gegen den `TestReserve_RaceCondition_InFlight` laeuft)
+  tut es korrekt; die echte Postgres-Variante ist gegen dieses Szenario nie getestet. Sehr enges
+  Zeitfenster, betrifft aber Infrastruktur, die Dutzende bereits produktive Endpunkte nutzen —
+  gehoert als eigene Sicherheits-Unit auf den Backlog, nicht in diesen Commit gezogen. Fundstelle:
+  `internal/idempotency/postgres_repository.go`, `Reserve`, `CompletedAt == nil`-Zweig.
+- Neue Repo-Methode `GetByIDUnscoped` DB-getestet (`webhook_db_test.go`, Rolle `kmuhub_app`, je
+  Testlauf ein eigener frischer Tenant statt der geteilten `TenantA`/`TenantB`): unter sysctx ohne
+  jeden Tenant im Context aufloesbar, das normale tenant-gescopte `GetByID` verweigert weiterhin
+  einen fremden Tenant. Zusaetzlicher DB-Test `TestTriggerWebhook_RealRepositories` faehrt den
+  kompletten Pfad gegen die echten Postgres-Repos (nicht Mocks) inkl. Dedup ueber zwei echte Calls.
+- Body-Limit zweistufig: `http.MaxBytesReader` (256 KiB) im Gateway-Handler UND derselbe Cap im
+  Service (Verteidigung in der Tiefe — Service-Tests laufen ohne Gateway und muessen den Cap
+  trotzdem pruefen koennen).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet.
+- gate: `go build -p 2 ./...` ok | `go vet -p 2 ./...` ok | `golangci-lint run` auf
+  `internal/automation/...`, `internal/gateway/...`, `internal/server/...`, `cmd/automation/...`,
+  `cmd/gateway/...` -> **0 issues** | `swagger-cli validate backend/api/openapi.yaml` -> "is valid" |
+  `go test -count=1 ./internal/gateway/...` gruen (`TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift`) |
+  mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 283):
+  `go test -count=1 ./internal/automation/... ./internal/gateway/... ./internal/server/...
+  ./internal/idempotency/...` vollstaendig gruen, die beiden neuen DB-Tests liefen tatsaechlich
+  (nicht uebersprungen). Proto regeneriert im selben Commit (`protoc` direkt, `make` nicht verfuegbar
+  unter Git Bash).
+- offen fuer die naechste Iteration: `g-automation-cron-poller` (haengt an dieser Unit) — der
+  Poller-Bug ist bereits gefixt (siehe oben), nicht erneut suchen. Dort geht es nur noch um die
+  Doppelausfuehrungssperre analog `g-berichte-scheduler`.

@@ -90,10 +90,18 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 			continue
 		}
 
-		// Create synthetic event payload for the time-based trigger
+		// Create synthetic event payload for the time-based trigger.
+		//
+		// ModuleID must NOT be "automation" (event.ModuleAutomation): engine.Execute's
+		// loop-prevention check drops any event carrying that exact value before
+		// evaluating conditions or running actions (see engine.go), so a synthetic
+		// event tagged that way is silently discarded here -- neither
+		// biz.invoice.overdue nor calendar.event.upcoming ever actually executed.
+		// "scheduler" identifies the poller as the origin without colliding with
+		// the sentinel.
 		evt := models.EventPayload{
 			Type:      auto.TriggerType,
-			ModuleID:  "automation",
+			ModuleID:  "scheduler",
 			Timestamp: time.Now(),
 		}
 

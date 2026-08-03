@@ -302,4 +302,18 @@ func (r *TriggerRegistry) registerBuiltins() {
 			{Key: "callback.agent_id", Label: "Agent-ID", Type: "string", Operators: []string{"equals", "not_equals"}},
 		},
 	})
+
+	// =========================================================================
+	// Automation trigger (1) -- generic inbound webhook
+	// =========================================================================
+	r.Register(&TriggerDefinition{
+		Type:        "webhook.received",
+		Module:      "automation",
+		Name:        "Webhook empfangen",
+		Description: "Wird ausgeloest, wenn ein externer Dienst den Webhook dieser Automation aufruft",
+		EventType:   "automation.webhook.received",
+		Fields: []TriggerField{
+			{Key: "webhook.body", Label: "Payload (JSON)", Type: "string", Operators: stringOps()},
+		},
+	})
 }

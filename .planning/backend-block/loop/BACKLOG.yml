@@ -2643,7 +2643,7 @@ units:
     service: automation
     model: sonnet
     deps: [g-automation-http-action]
-    status: todo
+    status: done
     scope: >
       `webhook.received`-Trigger: eingehender Webhook startet eine Automation.
     sources:
@@ -2657,6 +2657,62 @@ units:
       - Trigger startet die Automation, Signatur geprueft
       - Wiederholung erzeugt keinen zweiten Lauf
       - openapi.yaml im selben Commit
+    ergebnis: >
+      ERLEDIGT (Iteration 44). Neuer Trigger `webhook.received` in der Registry (Modul "automation"),
+      neue Route `POST /api/v1/public/automations/webhooks/{automationId}` (kein Auth-Middleware,
+      publicRateLimiter wie booking/berichte/document), neue RPC `AutomationService.TriggerWebhook`.
+      Tenant ist bei einem eingehenden Webhook unbekannt (keine JWT) — geloest wie bei
+      `two_factor_policy`/`refresh_tokens`: neue Repo-Methode `GetByIDUnscoped` (kein
+      `WHERE tenant_id`) hinter `sysctx.With`, danach Trigger-Type/`is_active` im Service selbst
+      geprueft (das ist die einzige Grenze gegen tenant-uebergreifendes Probing beliebiger
+      Automation-IDs). Signatur: HMAC-SHA256, Header `X-Cosmi-Signature: sha256=<hex>` — bewusst
+      dieselbe Konvention wie das ausgehende `internal/formulare/worker.go` (Vorgabe aus Iteration 43),
+      Vergleich konstantzeitig ueber `hmac.Equal`. Secret liegt in `trigger_config.secret`, wird beim
+      Erstellen/Aendern einer `webhook.received`-Automation automatisch generiert
+      (`ensureWebhookSecret`, 32 Byte, hex) falls nicht vorhanden — ein Nutzer kann also nie eine
+      Webhook-Automation ohne Secret anlegen.
+      Idempotenz wiederverwendet den bestehenden `internal/idempotency`-Store (dieselbe Tabelle wie
+      hinter dem authentifizierten Idempotency-Key-Middleware) statt einer eigenen Dedup-Tabelle:
+      expliziter `Idempotency-Key`-Header wenn vorhanden, sonst SHA-256 des Bodies als Fallback-Key —
+      damit dedupt ein reiner Resend derselben Payload auch ohne Header. Ausfuehrung laeuft
+      asynchron (Goroutine mit 30s-Timeout), Muster wie `trigger.TimeTriggerPoller` — der Absender
+      bekommt sofort 202, eine haengende Action haelt die HTTP-Verbindung nicht offen.
+      **Root-Cause-Fund unterwegs, im selben Commit behoben:** `engine.Execute`s Loop-Prevention
+      verwirft JEDES Event mit `ModuleID == "automation"` — und genau das setzte
+      `trigger.TimeTriggerPoller` fuer seine EIGENEN synthetischen Events. Die beiden zeitbasierten
+      Trigger (`biz.invoice.overdue`, `calendar.event.upcoming`) sind dadurch seit ihrem Bau NIE
+      wirklich gelaufen (stiller Drop vor jeder Condition-Auswertung, nur ein Debug-Log). Waere ich
+      demselben Muster fuer den neuen Webhook-Trigger gefolgt, waere der identische Fehler entstanden
+      und "Trigger startet die Automation" waere schlicht falsch gewesen. Fix: Poller-ModuleID auf
+      `"scheduler"` geaendert, mein Webhook-Event traegt `event.ModuleIntegration` ("integration",
+      vorher deklariert, nie genutzt). Zwei Regressionstests in `engine_test.go`
+      (`TestExecute_SkipsAutomationModuleEvent`, `TestExecute_SchedulerOriginedEventIsNotSkipped`)
+      belegen beide Seiten: der Guard funktioniert weiter, der Poller loest ihn nicht mehr aus.
+      **Gefunden, bewusst nicht angefasst:** `internal/idempotency` (`PostgresRepository.Reserve`)
+      unterscheidet unter der echten Postgres-Implementierung "frisch" und "gleichzeitig in-flight,
+      noch nicht completed" NICHT — beide Faelle liefern `(nil, nil)` (der `mockRepository` in
+      `repository_test.go`, gegen den `TestReserve_RaceCondition_InFlight` laeuft, tut es korrekt;
+      die echte Postgres-Variante nie getestet gegen dieses Szenario). Sehr enges Zeitfenster, in dem
+      zwei nahezu gleichzeitige Zustellungen desselben Keys beide ausfuehren koennten. Vorbestehende
+      Luecke in Infrastruktur, die von Dutzenden bereits produktiven Endpunkten genutzt wird — nicht
+      Teil dieser Unit, gehoert als eigene Sicherheits-Unit auf den Backlog (Datei/Zeile:
+      `internal/idempotency/postgres_repository.go` `Reserve`, `CompletedAt == nil`-Zweig).
+      `dashboard_defaults`-artige Kategorie trifft hier nicht zu (das ist der Vollstaendigkeit halber
+      vermerkt, nicht verwechseln mit dem `g-rls-tenant-scoped-admin-writes`-Fund).
+      Neue Repo-Methode `GetByIDUnscoped` DB-getestet (`webhook_db_test.go`, `kmuhub_app`, eigener
+      Tenant je Testlauf statt TenantA/B): unter sysctx aufloesbar ohne jeden Tenant im Context, das
+      normale tenant-gescopte `GetByID` verweigert weiterhin einen fremden Tenant. Zusaetzlicher
+      DB-Test `TestTriggerWebhook_RealRepositories` fuehrt den kompletten Pfad gegen die echten
+      Postgres-Repos (nicht Mocks). Body-Limit zweistufig: `http.MaxBytesReader` (256 KiB) im
+      Gateway-Handler UND ein gleich hoher Cap im Service (Verteidigung in der Tiefe, Service-Tests
+      laufen ohne Gateway).
+      Tests: `go test -count=1 ./internal/automation/... ./internal/gateway/... ./internal/server/...
+      ./internal/idempotency/...` gruen (mit `DATABASE_URL` gegen `kmuhub_app`, 2 zusaetzliche
+      DB-Tests liefen tatsaechlich, nicht uebersprungen). `swagger-cli validate` -> "is valid".
+      `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift` gruen. `golangci-lint run` auf den angefassten
+      Packages -> 0 issues. Proto regeneriert im selben Commit (`make proto-automation` via
+      protoc direkt, kein `make` unter Git Bash verfuegbar).
+      Keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet.
   - id: g-automation-cron-poller
     phase: 3
     service: automation
@@ -2673,6 +2729,13 @@ units:
       Mechanismus gebaut hat, DENSELBEN wiederverwenden statt einen zweiten zu erfinden.
       Verpasste Zeitfenster (Service war aus) nicht nachholen-stampeden: hoechstens den letzten
       faelligen Lauf nachziehen.
+      WICHTIG, bereits erledigt in `g-automation-webhook-trigger` (Iteration 44): der Poller
+      (`trigger/poller.go`) hatte einen Bug, der `biz.invoice.overdue`/`calendar.event.upcoming` seit
+      jeher stumm verhindert hat (`ModuleID: "automation"` kollidierte mit der Loop-Prevention in
+      `engine.Execute` — jedes so getaggte Event wurde vor der Condition-Auswertung verworfen). Ist
+      bereits auf `ModuleID: "scheduler"` gefixt, samt Regressionstest in `engine/engine_test.go`.
+      NICHT erneut suchen/fixen — nur verifizieren, dass es beim Bauen des Cron-Mechanismus noch
+      steht, falls poller.go nochmal angefasst wird.
     done_when:
       - Faellige Automation laeuft, keine Doppelausfuehrung
       - Mechanismus mit g-berichte-scheduler geteilt, falls vorhanden

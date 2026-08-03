@@ -12662,6 +12662,62 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/public/automations/webhooks/{automationId}:
+    post:
+      summary: Trigger an automation via its inbound webhook (no auth)
+      description: >-
+        Unauthenticated by design (external senders carry no JWT). The
+        request is verified via an HMAC-SHA256 signature in the
+        X-Cosmi-Signature header (sha256=<hex>), computed over the raw
+        request body using the automation's configured webhook secret.
+      tags: [automations]
+      operationId: triggerAutomationWebhook
+      security: []
+      parameters:
+        - name: automationId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: X-Cosmi-Signature
+          in: header
+          required: true
+          schema: {type: string}
+          description: "HMAC-SHA256 signature of the raw body, e.g. sha256=<hex>"
+        - name: Idempotency-Key
+          in: header
+          schema: {type: string}
+          description: >-
+            Optional delivery/event ID from the sender. Absent one, an exact
+            resend of the same body is deduped by content hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202":
+          description: Delivery accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  duplicate:
+                    type: boolean
+                    description: true when this delivery was already processed
+        "400":
+          description: Invalid automation_id, payload too large, or Idempotency-Key reused with a different payload
+        "401":
+          description: Missing or invalid webhook signature
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Automation is currently disabled
+        "413":
+          description: Payload exceeds the size cap
+        "429":
+          description: Rate limited
+
   /api/v1/contacts/{contactId}/advisory-protocols:
     get:
       summary: List advisory protocols for a contact

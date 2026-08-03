@@ -14,6 +14,13 @@ type Repository interface {
 	Update(ctx context.Context, automation *models.Automation) error
 	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Automation, error)
+	// GetByIDUnscoped retrieves an automation by ID only, without a tenant
+	// filter. Callers MUST wrap ctx with sysctx.With (RLS admits the row only
+	// under system context) and MUST independently verify any tenant-identifying
+	// assumption before treating the result as authoritative — this exists
+	// solely for the webhook-trigger path, where the tenant is not yet known
+	// and is instead read off the returned row.
+	GetByIDUnscoped(ctx context.Context, id uuid.UUID) (*models.Automation, error)
 	List(ctx context.Context, filter ListFilter) ([]*models.Automation, int, error)
 	ListActiveByTriggerType(ctx context.Context, triggerType string) ([]*models.Automation, error)
 	ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error)

@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
@@ -59,6 +60,7 @@ func main() {
 	// Repositories
 	// =========================================================================
 	repo := workflow.NewPostgresRepository(pool)
+	idempotencyRepo := idempotency.NewPostgresRepository(pool)
 
 	// =========================================================================
 	// Condition evaluator (from Plan 01)
@@ -200,6 +202,8 @@ func main() {
 			return result
 		},
 		condEvaluator,
+		idempotencyRepo,
+		workflowEngine,
 	)
 	// workflowService is used below by AutomationGRPCServer
 

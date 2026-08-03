@@ -119,6 +119,31 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 	return a, nil
 }
 
+// GetByIDUnscoped retrieves an automation by ID without a tenant_id filter.
+// See the Repository interface doc comment: callers must wrap ctx with
+// sysctx.With and must not skip the caller-side trigger-type/active checks.
+func (r *PostgresRepository) GetByIDUnscoped(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+	query := `
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
+			trigger_config, conditions, actions, is_active, max_steps,
+			template_id, last_triggered_at, created_at, updated_at
+		FROM automations WHERE id = $1`
+
+	a := &models.Automation{}
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+		&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
+		&a.TemplateID, &a.LastTriggeredAt, &a.CreatedAt, &a.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAutomationNotFound
+		}
+		return nil, err
+	}
+	return a, nil
+}
+
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.Automation, int, error) {
 	// tenant_id is always the first condition for isolation
 	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}

@@ -31,4 +31,22 @@ var (
 	// ErrCircuitBreakerOpen is returned when the circuit breaker is tripped
 	// due to too many consecutive failures.
 	ErrCircuitBreakerOpen = errors.New("automation circuit breaker is open")
+
+	// ErrWebhookNotFound is returned when the webhook URL does not resolve to
+	// an active automation of trigger type "webhook.received". Deliberately
+	// also returned for a wrong trigger type (not a distinct error) so the
+	// response carries no signal about which case applied.
+	ErrWebhookNotFound = errors.New("webhook automation not found")
+
+	// ErrWebhookSignatureInvalid is returned when the request signature does
+	// not match the automation's configured webhook secret.
+	ErrWebhookSignatureInvalid = errors.New("invalid webhook signature")
+
+	// ErrWebhookPayloadTooLarge is returned when the webhook body exceeds the
+	// configured size cap.
+	ErrWebhookPayloadTooLarge = errors.New("webhook payload too large")
+
+	// ErrWebhookIdempotencyConflict is returned when the caller-supplied
+	// Idempotency-Key was already used for a different payload.
+	ErrWebhookIdempotencyConflict = errors.New("idempotency key reused with a different webhook payload")
 )
