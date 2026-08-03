@@ -2189,7 +2189,29 @@ units:
     service: hr
     model: sonnet
     deps: [g-hr-offboard]
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Die Praemisse der notes (Dokument-Kategorie `hrcat-payroll`) trifft nicht zu — der reale
+      FE-Vertrag ist ein anderer. `SelfServiceView.tsx:60-66` definiert `SalaryStatement` als
+      `{id, month, label, gross, net}`, KEIN `fileId`/keine Download-URL; `downloadStatement()`
+      (Zeile 316) baut den Download client-seitig aus `gross`/`net` als Text-Blob, ruft nie eine
+      Datei ab. Der Endpoint muss also berechnete Monats-Betraege liefern, keine Dokumentenliste.
+      Dafuer gibt es im Backend keine Datenquelle: `EmployeeProfile` (models/hr.go:86-120) traegt
+      nur ein optionales `HourlyRate`, kein Monats-/Jahresgehalt, keine persistierten
+      Abrechnungen, kein Payroll-Lauf. Der MSW-Mock (`hr-change-requests.ts:111-147`) erfindet
+      `net` als `gross * 0.675` — eine geratene LSt/SV-Naeherung. Genau dieses Muster hinter
+      einer echten Route zu bauen waere Fehlerklasse 2 (hartkodierte Beispieldaten). Die
+      DATEV-Integration im Repo (`internal/biz/datev/`) ist Buchungsstapel-Export fuer Finance,
+      keine Lohn-/Gehaltsquelle — nichts davon ist wiederverwendbar. `team:salary:view/edit`
+      stehen im Katalog, sind aber an keiner Backend-Route verdrahtet (verifiziert:
+      `grep -n "team:salary" backend/internal/gateway/route_hr.go` liefert nichts) — die
+      Self-Service-Route waere die allererste.
+      Drei ehrliche Wege, keiner davon eine Ein-Iterationen-Codeaenderung: (1) echtes
+      Monatsgehalt-Feld + eine belastbare Netto-Berechnung (deutsche LSt/SV-Abzuege sind ein
+      eigenes, compliance-kritisches Subsystem), (2) HR laedt echte Abrechnungs-PDFs hoch (naeher
+      am bestehenden Dokumenten-Kategorie-Muster, aendert aber den FE-Vertrag von berechneten
+      Zahlen auf Dateien), oder (3) das Feature vorerst aus dem Scope nehmen. Alle drei sind
+      Produktentscheidungen fuer Luke, keine im Loop zu treffende Wahl.
     scope: >
       `GET /api/v1/hr/employees/me/salary-statements` — die eigenen Lohnabrechnungen im
       Self-Service. Verifiziert am 2026-08-02: das FE ruft den Pfad direkt

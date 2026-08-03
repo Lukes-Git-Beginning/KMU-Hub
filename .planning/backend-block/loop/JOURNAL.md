@@ -2488,3 +2488,37 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   - **`backfill` wird nur protokolliert**, nicht ausgewertet — es gibt im Backend kein
     Stellen-/Recruiting-Modell, an das es andocken koennte. Bewusst so, im Proto kommentiert.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 38 — g-hr-salary-statements — blocked — 2026-08-03 04:42
+- commit: -
+- gebaut: nichts — Unit auf `blocked` gesetzt, Begruendung im `blocked_reason:`-Feld der Unit.
+- gate: n.a. (keine Code-Aenderung)
+- verify vorgaenger (23ceede6, g-hr-offboard): sauber. `client.OffboardEmployee` laeuft ueber den
+  gRPC-Client (kein Direct-Svc); `.proto` + `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert;
+  `team:employee:offboard` steht seit Migration 000256 im Katalog und ist admin+hr_admin
+  zugewiesen (kein fehlender Seed); jede neue/geaenderte SELECT-Query traegt `tenant_id`
+  (offboard-Transaktion scoped users/hr_employee_profiles konsistent, user_roles ueber die
+  Subquery auf users); `OffboardEmployeeResp{employee}` matched `response.Proto(w, ..., resp)` —
+  Wire-Shape `{employee}` stimmt mit dem FE-Client ueberein; openapi.yaml dokumentiert alle fuenf
+  Statuscodes (400/401/403/404/409) im selben Commit; kein TODO/Unimplemented/Fake-Return im
+  neuen Pfad (`UnimplementedHRServiceServer`-Treffer ist der erwartete Boilerplate-Embed). Kein
+  Fund, keine Fix-Unit.
+- Der Befund, der `g-hr-salary-statements` blockiert: die notes der Unit gingen von einer
+  fehlenden Dokument-Kategorie aus (`hrcat-payroll` in `hr_document_categories`), aber der reale
+  FE-Vertrag (`SelfServiceView.tsx:60-66`, `downloadStatement()` Zeile 316) verlangt gar keine
+  Dokumente — `SalaryStatement` ist `{id, month, label, gross, net}` ohne `fileId`, der Download
+  wird client-seitig aus den Zahlen als Text-Blob gebaut. Das Backend hat aber keine Quelle fuer
+  echte Monats-Brutto-/Netto-Betraege: `EmployeeProfile` traegt nur ein optionales `HourlyRate`,
+  kein Monats-/Jahresgehalt, keinen Payroll-Lauf, keine persistierten Abrechnungen. Der MSW-Mock
+  erfindet `net` als `gross * 0.675` — eine geratene Steuer-/SV-Naeherung; dasselbe Muster hinter
+  einer echten Route waere Fehlerklasse 2 (hartkodierte Beispieldaten). DATEV im Repo ist reiner
+  Buchungsstapel-Export fuer Finance, keine Lohnquelle. `team:salary:view/edit` stehen im Katalog,
+  sind aber an keiner Backend-Route verdrahtet — diese Route waere die erste. Drei ehrliche Wege
+  (echtes Gehalts-/Netto-System, HR laedt echte Abrechnungs-PDFs hoch, oder Feature vorerst aus
+  dem Scope) sind Produktentscheidungen fuer Luke, keine Loop-Wahl. Volle Herleitung im
+  `blocked_reason:`-Feld der Unit in BACKLOG.yml.
+- offen:
+  - Luke: Entscheidung zwischen den drei Wegen in `blocked_reason:` treffen, dann Unit
+    reaktivieren bzw. neu scopen.
+  - Naechste Iteration zieht die naechste `todo`-Unit mit erfuellten deps
+    (`g-rbac-user-overrides-model`, opus, deps `p1b-audit-events` erfuellt).
