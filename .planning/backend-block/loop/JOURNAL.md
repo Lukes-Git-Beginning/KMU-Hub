@@ -2069,7 +2069,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
 
 ## Iteration 33 — g-email-messages-bulk — done — 2026-08-03
-- commit: (wird nach dem Commit ergaenzt)
+- commit: 06f1447c
 - verify vorgaenger: sauber. `dcf98a3e` (g-berichte-document-upload, Iteration 32) gegen die acht
   Fehlerklassen geprueft: Klasse 1 N/A — `HandleUploadFile` ruft `client.UploadFile` ueber den
   gRPC-Client, kein direkter Service-Zugriff. Klasse 2 N/A — `UploadFile` ist eine echte
