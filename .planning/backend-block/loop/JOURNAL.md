@@ -2846,3 +2846,4 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   eingehende Gegenpart. Das dort geforderte konstantzeitige Signatur-Pruefen gibt es im Repo schon
   in `internal/biz/lexware/webhook_handler.go` und `internal/formulare/worker.go` (HMAC-SHA256,
   `X-Cosmi-Signature: sha256=…`) — dieselbe Form wiederverwenden statt eine dritte zu erfinden.
+- commit: `cac9f73d` (feat(automation): add an SSRF-guarded http.request action)
