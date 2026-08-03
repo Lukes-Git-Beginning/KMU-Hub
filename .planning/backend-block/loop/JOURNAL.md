@@ -2665,7 +2665,7 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
 
 ## Iteration 41 — fix-openapi-flow-mapping-invalid — done — 2026-08-03
-
+- commit: 935c07b8
 - verify vorgaenger (`18bf5c18`, g-rbac-user-overrides-resolver): **sauber**. Handler in
   `route_auth.go` geht ueber `client.GetEffectivePermissions`, kein Stub. `GetUserOverrides`
   (postgres_repository.go:710) ist RLS-gescopt, nicht `sysctx` — richtig, weil dieser Pfad (anders
