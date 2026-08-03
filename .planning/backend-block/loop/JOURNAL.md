@@ -2407,7 +2407,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
 
 ## Iteration 37 — g-hr-offboard — done — 2026-08-03 04:40
-- commit: <wird im Folgecommit nachgetragen>
+- commit: 23ceede6
 - gebaut: Migration 000282 (status/last_work_day/exit_date/exit_type/exit_reason auf
   `hr_employee_profiles`, drei CHECKs, Index auf (tenant_id,status)), RPC `OffboardEmployee` am
   hr-Proto inkl. Regen, `Service.OffboardEmployee` + `PostgresEmployeeRepo.Offboard` in
