@@ -1986,7 +1986,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24-30 bleiben offen, hier nicht angefasst.
 
 ## Iteration 32 — g-berichte-document-upload — done — 2026-08-03
-- commit: <wird nach dem Commit unten ergaenzt>
+- commit: dcf98a3e
 - verify vorgaenger: sauber. `f3c65ad5` (fix-berichte-kpi-module-scope, Iteration 31) gegen die
   Fehlerklassen geprueft: Klasse 1 (gRPC-Bypass) N/A — Handler ruft weiterhin `client.GetDashboardKPIs`
   ueber den gRPC-Client, kein direkter Service-Zugriff. Klasse 2/3 N/A (kein Stub, kein .proto-Diff).
