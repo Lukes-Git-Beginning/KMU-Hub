@@ -1922,7 +1922,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Fehlerklasse (beide Haelften) vollstaendig geschlossen.
 
 ## Iteration 31 — fix-berichte-kpi-module-scope — done — 2026-08-03
-- commit: <sha folgt>
+- commit: f3c65ad5
 - verify vorgaenger: sauber. `4a02c5e7` (fix-email-export-nil-provider-panic, Iteration 30) gegen
   die Fehlerklassen geprueft: kein Proto-Diff, keine neue Route, kein neuer Guard, kein Stub.
   Klasse 1 (gRPC-Bypass) N/A — `EmailGRPCServer` IST die gRPC-Implementierung. Klasse 5
