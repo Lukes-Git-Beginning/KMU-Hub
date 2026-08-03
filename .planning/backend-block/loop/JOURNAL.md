@@ -2522,3 +2522,75 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
     reaktivieren bzw. neu scopen.
   - Naechste Iteration zieht die naechste `todo`-Unit mit erfuellten deps
     (`g-rbac-user-overrides-model`, opus, deps `p1b-audit-events` erfuellt).
+
+## Iteration 39 — g-rbac-user-overrides-model — done — 2026-08-03
+- commit: de6eb85a
+- gebaut: Persistenz + CRUD fuer Per-User-Rechte-Overrides (RBAC R-6). Migration 000283 legt
+  `user_permission_overrides` an (`tenant_id NOT NULL` + `enable_tenant_rls`, unique ueber
+  `(tenant_id, user_id, permission_key)`, `permission_key` als FK auf `permissions(name)` mit
+  ON DELETE CASCADE — ein aus dem Katalog entfernter Key nimmt seine Overrides mit). Service
+  `internal/auth/user_overrides.go`, Repo-Methoden, drei RPCs, drei Routen
+  `GET/PUT/DELETE /api/v1/admin/users/{id}/overrides` hinter
+  `RequirePermission("admin:user_override","manage")`.
+- **Kein neuer Permission-Seed noetig, und das ist verifiziert, nicht angenommen:**
+  `admin:user_override:manage` steht seit Migration 000256 im Katalog (Zeile 116) und in der
+  admin-Grant-Liste (Zeile 402); DB-Query gegen die lokale Instanz bestaetigt: nur `admin` haelt
+  ihn. `hr_admin` haelt ihn bewusst nicht (R6-Briefing §0.3). Ein zusaetzlicher Seed waere ein
+  No-Op gewesen — im Migrationskopf als Kommentar begruendet.
+- **Fund, der einen Test zuerst falsch gruen aussehen liess:** `hr_admin` haelt selbst
+  `admin:role:assign` und ist damit nach `roleAdminKeys` ein Rollen-Administrator. Der erste
+  Last-Admin-Test benutzte einen hr_admin als Caller und erreichte den Guard nie (Count blieb 1).
+  Von den Presets halten **admin, it_admin und hr_admin** `admin:role:assign` — nur `manager` und
+  darunter nicht. Wer den Last-Admin-Guard testen will, braucht einen Caller unterhalb davon; ein
+  deny braucht keinen Reach, deshalb geht das ueberhaupt.
+- Guardrails serverseitig (das FE erzwingt sie nur als UI):
+  - **Selbst-Bearbeitung komplett gesperrt** (PUT und DELETE, `actorID == userID` →
+    `self_lockout`/409). "Eigener Account nicht editierbar" aus dem Briefing woertlich genommen —
+    ein allow auf sich selbst waere der direkte Weg von "darf feinjustieren" zu "hat alles".
+  - **Eskalation** nur auf der allow-Haelfte, ueber das bestehende `assertWithinReach` (nicht
+    kopiert). Ein `deny` auf einen Key, den der Caller selbst nicht haelt, ist erlaubt — es
+    vergroessert niemanden, und ein Admin muss hinter einem Kollegen mit anderer Rolle aufraeumen
+    koennen.
+  - **Last-Admin** feuert nur, wenn die neue Map *beide* `roleAdminKeys` des Ziels denied. Die
+    Zaehlung der Uebrigen ist **override-aware** (`CountEffectiveRoleAdminsExcluding`): sobald
+    Overrides existieren, kann jemand allein per allow Administrator sein, und eine rein
+    rollenbasierte Zaehlung wuerde ein voellig sicheres deny verweigern.
+  - **422** fuer unbekannten Katalog-Key *und* fuer unspellbares mode/scope — dieselbe
+    Entscheidung wie bei `SetRolePermissions` (ein eigenes Sentinel kaeme im FE als "Unbekannter
+    Fehler" an, weil `rbac-format.ts` es nicht kennt). Ein `deny` ohne scope wird auf `all`
+    normalisiert statt abgelehnt: der scope ist dort bedeutungslos.
+- Audit: ein Event pro **tatsaechlich geaendertem** Key (`permission.override_set` /
+  `permission.override_removed`) ueber `logPermissionEvent`, kein zweiter Pfad. Erneutes Speichern
+  derselben Map schreibt nichts — sonst waere der Trail eine Historie von Save-Klicks statt von
+  Entscheidungen. Der Diff kommt aus dem Service (`OverrideChange`), nicht aus einer zweiten
+  Abfrage im gRPC-Server.
+- Wire-Shape gegen `rbac-types.ts` geprueft: `{userId, overrides: {key: {mode, scope}}}`, leere
+  Map als `{}` nicht `null` (zwei Marshal-Tests pinnen es). DELETE antwortet 204 wie der
+  MSW-Handler.
+- gate: build ok (`go build -p 2` ueber auth, server, gateway, cmd/auth, cmd/gateway) | vet ok |
+  lint ok (golangci-lint, 0 issues) | migration 000283 up/down/up gruen (Kopf 282 → 283) |
+  **rls-smoke bestanden: eigener Tenant 1, fremder Tenant 0** (Smoke-Zeile danach entfernt);
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen | test ok — `go test -count=1
+  ./internal/auth/... ./internal/gateway/ ./internal/server/... ./internal/testutil/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: alles gruen. **12 neue DB-Tests + 4 Audit-Subtests, 0 SKIP**
+  (mit `-v` und `grep -c '^--- SKIP'` = 0 geprueft), 5 neue Gateway-Tests,
+  `TestOpenAPIRouteDrift` gruen. Eigene Tenants (`6b0e0000-…`), nie TenantA/B — diese Tests
+  zaehlen die Administratoren *eines Tenants*.
+- openapi.yaml: ein Pfad mit drei Operationen + drei Schemas, alle real gelieferten Codes
+  (400/401/403/404/409/422 bzw. 204). Zusaetzlich drei **veraltete Aussagen** korrigiert, die
+  jetzt gelogen haetten ("per-user overrides do not exist server-side yet" bei `?base=1`, bei
+  `hasOverrides` im Roster-Schema und in der Roster-Beschreibung) — die Speicherung existiert
+  jetzt, die Aufloesung nicht.
+- offen:
+  - `g-rbac-user-overrides-resolver` (naechste Unit, deps jetzt erfuellt): Aufloesung,
+    `hasOverrides`, `deniedByOverride`, `sources: ['override', …]`, `?base=1`. Erst danach
+    aendert ein Override tatsaechlich ein Gate — bis dahin schreibt und liest der Editor Zeilen,
+    die nichts schalten. Das ist Absicht und in der Migration so kommentiert.
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle noch nicht — das FE-Badge
+    "Angepasst" und der Filter "Nur angepasste Benutzer" (Briefing §0.4) haengen daran. Eigene
+    kleine Unit, gehoert nicht in den Resolver.
+  - Der MSW-Mock (`handlers/rbac.ts:257-318`) kennt keine der vier Guardrails: er laesst
+    Selbst-Bearbeitung zu, prueft weder Eskalation noch Last-Admin noch den Katalog. Die UI wird
+    daran entwickelt — gehoert in eine FE-Unit, sonst faellt der Editor erst gegen das echte
+    Backend um.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
