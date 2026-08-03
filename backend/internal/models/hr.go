@@ -304,3 +304,39 @@ type HRWeekApproval struct {
 	CreatedAt       time.Time          `json:"created_at"`
 	UpdatedAt       time.Time          `json:"updated_at"`
 }
+
+// HRChangeRequestStatus is the lifecycle of a profile change request.
+type HRChangeRequestStatus string
+
+const (
+	HRChangeRequestPending   HRChangeRequestStatus = "pending"
+	HRChangeRequestApproved  HRChangeRequestStatus = "approved"
+	HRChangeRequestRejected  HRChangeRequestStatus = "rejected"
+	HRChangeRequestCancelled HRChangeRequestStatus = "cancelled"
+)
+
+// HRProfileChangeRequest is one employee's proposal to change a single field of
+// their own master data, for tenants where employees may not edit it directly.
+//
+// OldValue is what the proposer saw when submitting, kept verbatim: if HR edits
+// the field before the decision, the approver has to be able to notice that the
+// proposal was written against a different starting point.
+type HRProfileChangeRequest struct {
+	ID         uuid.UUID             `json:"id"`
+	TenantID   uuid.UUID             `json:"tenant_id"`
+	UserID     uuid.UUID             `json:"user_id"`
+	Drawer     string                `json:"drawer"`
+	Field      string                `json:"field"`
+	FieldLabel string                `json:"field_label"`
+	OldValue   string                `json:"old_value"`
+	NewValue   string                `json:"new_value"`
+	Status     HRChangeRequestStatus `json:"status"`
+	Reason     string                `json:"reason"`
+	CreatedAt  time.Time             `json:"created_at"`
+	DecidedAt  *time.Time            `json:"decided_at,omitempty"`
+	DecidedBy  *uuid.UUID            `json:"decided_by,omitempty"`
+
+	// Denormalized fields (populated by queries, not stored)
+	UserName      string `json:"user_name,omitempty"`
+	DecidedByName string `json:"decided_by_name,omitempty"`
+}

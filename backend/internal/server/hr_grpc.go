@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/changerequest"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
@@ -24,11 +25,12 @@ import (
 // HRGRPCServer implements the HRService gRPC service.
 type HRGRPCServer struct {
 	hrv1.UnimplementedHRServiceServer
-	leaveService        *leave.Service
-	timetrackingService *timetracking.Service
-	employeeService     *employee.Service
-	absenceService      *absence.Service
-	settingsRepo        leave.HRSettingsRepository
+	leaveService         *leave.Service
+	timetrackingService  *timetracking.Service
+	employeeService      *employee.Service
+	absenceService       *absence.Service
+	changeRequestService *changerequest.Service
+	settingsRepo         leave.HRSettingsRepository
 }
 
 // NewHRGRPCServer creates a new HRGRPCServer with all HR services.
@@ -37,14 +39,16 @@ func NewHRGRPCServer(
 	timetrackingService *timetracking.Service,
 	employeeService *employee.Service,
 	absenceService *absence.Service,
+	changeRequestService *changerequest.Service,
 	settingsRepo leave.HRSettingsRepository,
 ) *HRGRPCServer {
 	return &HRGRPCServer{
-		leaveService:        leaveService,
-		timetrackingService: timetrackingService,
-		employeeService:     employeeService,
-		absenceService:      absenceService,
-		settingsRepo:        settingsRepo,
+		leaveService:         leaveService,
+		timetrackingService:  timetrackingService,
+		employeeService:      employeeService,
+		absenceService:       absenceService,
+		changeRequestService: changeRequestService,
+		settingsRepo:         settingsRepo,
 	}
 }
 
@@ -2008,6 +2012,24 @@ func mapHRError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrDocumentCategoryNotFound):
 		return status.Error(codes.NotFound, err.Error())
+
+	// Profile change request errors
+	case errors.Is(err, changerequest.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, changerequest.ErrPendingRequestExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, changerequest.ErrNotPending):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, changerequest.ErrFieldNotProposable):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, changerequest.ErrNotProposer), errors.Is(err, changerequest.ErrOutOfScope):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, changerequest.ErrProfileNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// OutOfRange is the gateway's 422 channel (helpers.go grpcStatusToHTTP):
+	// the request is well-formed, the missing reason makes it unprocessable.
+	case errors.Is(err, changerequest.ErrReasonRequired):
+		return status.Error(codes.OutOfRange, err.Error())
 
 	// Absence errors
 	case errors.Is(err, absence.ErrInvalidDateRange):

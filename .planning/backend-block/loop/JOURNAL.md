@@ -2309,3 +2309,99 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     auf `role_ids` umgestellt wird, kann die Spalte weg — nicht in dieser Unit, weil das den
     Antwortvertrag der Legacy-Route bricht.
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 36 — g-hr-change-requests — done — 2026-08-03
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Migration 000281 (`hr_profile_change_requests`, tenant_id + RLS + partieller
+  Unique-Index auf offene Antraege), Package `internal/biz/hr/changerequest` (Service, Repository,
+  Postgres-Impl, Fehler), 5 RPCs auf `HRService` inkl. Regen, 5 Routen unter
+  `/api/v1/hr/change-requests` + openapi-Eintraege, Wiring in `cmd/biz/main.go`.
+- verify vorgaenger (`6c937c7a`, admin-users-write): **sauber**. Handler gehen ueber
+  `client.InviteAdminUser`/`UpdateAdminUser`/`ResendAdminUserInvite`, kein Direct-Svc. Kein Stub
+  (das einzige `return nil, nil` in `admin_users.go:185` heisst "Status unveraendert, nichts zu
+  tun"). `.proto` + beide `.pb.go` im selben Commit. Kein neuer `RequirePermission` — die drei
+  Routen haengen am bestehenden `RequireRole("admin")`, also auch kein Guard-Ersatz (Klasse 8).
+  Keine neue Tabelle; 000280 ergaenzt Spalten auf der bereits RLS-geschuetzten `invitations`,
+  INSERT/UPDATE tragen den Tenant. Die zwei ungescopten Reads (`GetAdminUser`,
+  `GetInvitationAsAdminUser`) laufen NICHT unter sysctx, also filtert RLS — dasselbe Muster, das
+  `ListRoles` dokumentiert. `CountActiveRoleAdminsExcludingUser` holt die Tenant-Grenze ueber den
+  `JOIN users`, wie der bestehende Paar-Zaehler. openapi +236 Zeilen.
+
+- **Der HR-Service liegt nicht, wo der Backlog ihn vermutet.** `sources` nennt `backend/internal/hr/`
+  — das Verzeichnis existiert nicht. HR wohnt in `internal/biz/hr/{leave,employee,timetracking,
+  absence}` und wird auf dem **biz**-gRPC-Server registriert (`HRRoutes.ServiceName()` gibt "biz"
+  zurueck, um die vorhandene Verbindung wiederzuverwenden). Wiring in `cmd/biz/main.go`, nicht in
+  einem eigenen `cmd/hr`.
+- **Feld-Allowlist statt freiem Feldnamen — der Kern der Unit.** Der MSW-Handler schreibt
+  `emp[req.field] = req.newValue`, also einen beliebigen Property-Namen aus dem Request. Serverseitig
+  waere das eine Spalte, und `field` kommt vom Client: das ist eine Injection und ausserdem ein Weg,
+  `salary` oder `manager_user_id` per "Antrag" zu setzen. Deshalb `proposableFields` mit sechs
+  Eintraegen (address_street/city/postal_code/country, emergency_contact_name/phone) — der
+  Spaltenname kommt aus dieser Konstante, nie aus dem Payload.
+  Folge davon, und der einzige echte Vertragsbruch gegen die UI: `SelfServiceView.tsx` bietet
+  **`phone` und `mobile`** an. Beide existieren weder auf `hr_employee_profiles` noch auf `users`
+  (das FE liest sie aus `raw.phone`/`raw.mobile`, die das echte Backend nie fuellt). Ein Antrag
+  darauf ist jetzt 400 `field cannot be proposed`, statt eine Zeile zu speichern, die approve
+  niemals ausfuehren koennte — genau die Fake-Erfolg-Klasse. Wer die Felder will, braucht zuerst die
+  Spalten; das ist eine eigene Unit, keine Zeile hier.
+- **Erster echter Team-Scope-Resolver im Repo.** `middleware.PermissionScope` dokumentiert selbst,
+  dass `ScopeTeam` mangels Resolver wie `ScopeAll` wirkt. Die Unit verlangt aber "ein Manager ohne
+  Scope auf diese Person darf nicht genehmigen". `approveScopeAllows` loest den Scope deshalb gegen
+  `hr_employee_profiles.manager_user_id` auf: `all` = jeder, `team` = eigene Reports (plus man
+  selbst), `own` = nur der eigene Antrag. Fehlt dem Antragsteller das Profil, greift `team` nicht —
+  eine Berichtslinie, die man nicht belegen kann, gibt es nicht.
+  Dieselbe Regel steckt in der LISTE (`Filter.ManagerID`), nicht als Post-Filter, sondern als
+  Praedikat. Sonst zeigt die Inbox Zeilen, die beim Klick 403 antworten.
+- **Sichtbarkeit der Liste ist Handler-Sache, nicht Guard-Sache.** Der Guard laesst Proposer UND
+  Entscheider auf `GET /change-requests` (ein Mitarbeiter muss seine eigenen Antraege sehen). Wer
+  `team:data_personal:edit` NICHT haelt, bekommt `own_only` erzwungen — unabhaengig vom
+  `?scope=`-Parameter. `PermissionScope` kann das nicht beantworten: ein fehlender Key liefert dort
+  absichtlich `all`, ein reiner Proposer haette also volle Reichweite gemeldet. Dafuer gibt es
+  `callerHasPermission` (exakter Key-Treffer). Zwei Gateway-Tests sichern beide Richtungen ab.
+- **422 laeuft ueber `codes.OutOfRange`, nicht ueber den Validator.** Die Unit fordert 422 fuer
+  "reject ohne Grund", die Repo-Konvention `decodeAndValidate` antwortet aber mit **400**
+  (`validation_failed`, siehe Iteration 35). Deshalb ist `reason` im HTTP-Struct `omitempty` und die
+  Pflicht liegt im Service (`ErrReasonRequired`); `grpcStatusToHTTP` mappt `OutOfRange` -> 422.
+- **Approve ist eine Transaktion, kein Zweischritt.** Erst der bedingte UPDATE auf den Antrag
+  (`WHERE status='pending'` ist zugleich der Concurrency-Guard: der zweite Approver trifft null
+  Zeilen), dann der Profil-UPDATE, beides in einer Tx. Kein Profil vorhanden -> Rollback und 404,
+  statt einer Genehmigung, die nichts geaendert hat. Die Alternative (ueber `employee.Service`) waere
+  wiederverwendet gewesen, haette aber genau den halben Zustand erlaubt, den die Offboard-Unit als
+  schlimmsten Ausgang beschreibt.
+- **Der 409 sitzt im partiellen Unique-Index**, nicht nur im Service: `UNIQUE (tenant_id, user_id,
+  field) WHERE status='pending'`. Zwei gleichzeitige POSTs bestehen beide einen vorgeschalteten
+  SELECT. Partiell, damit ein zurueckgezogener oder abgelehnter Antrag denselben Wunsch nicht fuer
+  immer sperrt — dafuer gibt es einen Test.
+- **Kein Permission-Seed noetig, und das ist geprueft, nicht vermutet:** `team:self:propose` und
+  `team:data_personal:edit` stehen seit Migration 000256 im Katalog; `self:propose` haben alle vier
+  Presets, `data_personal:edit` admin + hr_admin (`manager` hat nur `view` — ein Manager entscheidet
+  also erst, wenn ein Tenant ihm per Custom-Rolle `edit` gibt, und dann greift der Team-Scope).
+- **`cancel` schreibt keinen Entscheider.** Ein Rueckzug ist nicht die Entscheidung eines anderen;
+  der MSW-Handler setzt dort ebenfalls weder `decidedAt` noch `decidedByName`. Test sichert es.
+- Wire-Shape gegen `api/hr-change-requests.ts` geprueft, nicht geraten: `{requests,total}` bzw.
+  `{request}`, leere Liste `[]`, und **camelCase** — anders als der Rest von HR. Deshalb ist
+  `changeRequestBody` handgeschrieben statt protojson-marshalled: `cannedResponseMarshaler` setzt
+  `UseProtoNames: true` und haette `user_id` geliefert, wo das FE `userId` liest. Ein Test
+  vergleicht das gerenderte JSON Feld fuer Feld gegen den FE-Typ.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf biz/hr, gateway,
+  server, models, cmd/biz — 0 Issues) | migration 000281 up/down/up gruen | rls-smoke ok (eigener
+  Tenant 1, fremder 0, als `kmuhub_app`; Testzeile danach entfernt) | test ok — `go test -count=1
+  ./internal/biz/hr/... ./internal/gateway/... ./internal/server/... ./internal/testutil/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: alles gruen. **7 neue DB-Tests, 0 SKIP** (mit `-v` geprueft), 5
+  neue Gateway-Tests, `TestOpenAPIRouteDrift` gruen, der RLS-Regressionstest in `internal/testutil`
+  sieht die neue Tabelle und ist zufrieden. Jeder DB-Test seedet einen EIGENEN Tenant — "wer meldet
+  an wen" und "welche Antraege sind offen" sind Eigenschaften der Tenant-Population, ein geteilter
+  Tenant haette unter `-parallel` ueber fremde Ergebnisse entschieden.
+- offen:
+  - **`phone`/`mobile` sind FE-seitig tot** (siehe oben). Bis die Spalten existieren, laufen zwei
+    der sieben angebotenen Felder in der Self-Service-Ansicht in ein 400. Eigene Unit: entweder
+    Spalten nachziehen (dann auch im Employee-Update lesen/schreiben) oder die beiden Eintraege aus
+    `PROPOSABLE_FIELDS` im FE entfernen.
+  - **MSW-Mock weicht in drei Punkten ab** und maskiert das echte Verhalten: er akzeptiert jeden
+    Feldnamen, erlaubt approve/reject auf bereits entschiedenen Antraegen (Backend: 409) und prueft
+    beim Genehmigen keinen Scope. Gehoert in eine FE-Unit — der Mock ist sonst das, woran die UI
+    entwickelt wird.
+  - Der `drawer` "job" hat noch kein beantragbares Feld. Der Wert bleibt im Schema und im Vertrag,
+    weil das FE ihn kennt; sobald ein Job-Feld beantragbar wird, ist es ein Eintrag in
+    `proposableFields`.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.

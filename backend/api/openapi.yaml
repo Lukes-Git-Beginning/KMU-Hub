@@ -11120,6 +11120,167 @@ paths:
               schema:
                 $ref: "#/components/schemas/EmployeeProfile"
 
+  /api/v1/hr/change-requests:
+    get:
+      summary: List profile change requests
+      description: >
+        HR inbox and the employee's own list in one route. A caller without
+        team:data_personal:edit only ever receives their own proposals,
+        regardless of the scope parameter; a caller holding it at scope "team"
+        receives their own plus their direct reports'.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [pending, approved, rejected, cancelled] }
+        - name: scope
+          in: query
+          required: false
+          description: Set to "mine" to ask for the caller's own proposals only.
+          schema: { type: string, enum: [mine] }
+      responses:
+        "200":
+          description: Change requests, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProfileChangeRequest"
+                  total: { type: integer }
+        "400": { description: Invalid status filter }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Neither team:self:propose nor team:data_personal:edit }
+    post:
+      summary: Submit a profile change request
+      description: >
+        Opens a proposal for one field of the caller's own profile. The proposer
+        is taken from the token, never from the body.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [field, newValue]
+              properties:
+                drawer: { type: string, enum: [personal, job] }
+                field:
+                  type: string
+                  maxLength: 64
+                  description: >
+                    Must be one of the proposable fields (addressStreet,
+                    addressCity, addressPostalCode, addressCountry,
+                    emergencyContactName, emergencyContactPhone). Anything else
+                    is 400 — an approval would have no column to write to.
+                fieldLabel: { type: string, maxLength: 120 }
+                oldValue: { type: string, maxLength: 500 }
+                newValue: { type: string, maxLength: 500 }
+      responses:
+        "201":
+          description: Change request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400": { description: Validation failed or field not proposable }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing team:self:propose }
+        "409": { description: A pending request for this field already exists }
+
+  /api/v1/hr/change-requests/{id}/approve:
+    post:
+      summary: Approve a profile change request
+      description: >
+        Writes the proposed value to the employee profile and closes the request
+        in one transaction. Refused when the approver's team:data_personal:edit
+        scope does not reach the proposer.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Change request approved and applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400": { description: Invalid request id or field no longer proposable }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing team:data_personal:edit, or proposer outside the approver's scope }
+        "404": { description: Change request not found, or proposer has no employee profile }
+        "409": { description: Change request is no longer pending }
+
+  /api/v1/hr/change-requests/{id}/reject:
+    post:
+      summary: Reject a profile change request
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Change request rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400": { description: Invalid request id }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing team:data_personal:edit, or proposer outside the approver's scope }
+        "404": { description: Change request not found }
+        "409": { description: Change request is no longer pending }
+        "422": { description: Rejection reason missing }
+
+  /api/v1/hr/change-requests/{id}/cancel:
+    post:
+      summary: Withdraw own profile change request
+      description: Only the proposer may cancel, and only while the request is pending.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Change request cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400": { description: Invalid request id }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing team:self:propose, or caller is not the proposer }
+        "404": { description: Change request not found }
+        "409": { description: Change request is no longer pending }
+
   /api/v1/hr/employees/{id}/documents:
     get:
       summary: List employee documents
@@ -37322,6 +37483,30 @@ components:
         end_date: { type: string, format: date }
         leave_type_name: { type: string }
         leave_type_color: { type: string }
+
+    ProfileChangeRequest:
+      type: object
+      description: >
+        One employee's proposal to change a single field of their own master
+        data. camelCase, unlike the other HR schemas: this contract is consumed
+        by desktop's hr-change-requests client, which was written against
+        camelCase and is the reference for the shape.
+        oldValue is what the proposer saw when submitting, not what the record
+        holds now — the approver has to be able to notice when the two differ.
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        userName: { type: string }
+        drawer: { type: string, enum: [personal, job] }
+        field: { type: string }
+        fieldLabel: { type: string }
+        oldValue: { type: string }
+        newValue: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, cancelled] }
+        reason: { type: string, description: Rejection reason, absent otherwise }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time }
+        decidedByName: { type: string }
 
     EmployeeProfile:
       type: object

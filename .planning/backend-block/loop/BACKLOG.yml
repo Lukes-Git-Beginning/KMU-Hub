@@ -2063,7 +2063,7 @@ units:
     service: hr
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Aenderungsantraege der Mitarbeiter auf ihre eigenen Stammdaten (BambooHR-Muster, R-4).
       Verifiziert am 2026-08-02: der FE-Client `desktop/src/renderer/src/api/hr-change-requests.ts`
@@ -2100,6 +2100,23 @@ units:
       - approve ohne Scope auf den Antragsteller -> 403 (Test)
       - Seeds fuer neue Guards in derselben Migration
       - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/hr/... gruen
+    result: >
+      Gebaut in Iteration 36 (Migration 000281, `internal/biz/hr/changerequest`, 5 Routen).
+      Der HR-Service liegt NICHT unter `internal/hr/`, sondern in `internal/biz/hr/*` und laeuft
+      auf dem biz-gRPC-Server (`ServiceName()` = "biz") — die sources-Zeile war falsch.
+      **Feld-Allowlist statt freiem Feldnamen:** approve schreibt eine Spalte, also darf `field`
+      nicht aus dem Request kommen. Sechs Felder sind beantragbar (address*, emergencyContact*).
+      Die UI bietet zusaetzlich `phone`/`mobile` an — die existieren weder auf
+      `hr_employee_profiles` noch auf `users`, ein Antrag darauf ist jetzt 400 statt eines
+      Datensatzes, den approve nie ausfuehren koennte. Offen als FE/Schema-Unit.
+      **Erster echter Team-Scope-Resolver:** `ScopeTeam` verhielt sich laut
+      `middleware.PermissionScope` bisher wie `ScopeAll`. approve/reject/list loesen ihn hier
+      gegen `hr_employee_profiles.manager_user_id` auf; die Liste filtert mit derselben Regel,
+      damit die Inbox keine Zeile zeigt, die beim Klick 403 gibt.
+      **Kein Permission-Seed noetig:** `team:self:propose` und `team:data_personal:edit` stehen
+      seit 000256 im Katalog und sind den Presets zugewiesen.
+      422 laeuft ueber `codes.OutOfRange` (helpers.go), nicht ueber den Validator — der antwortet
+      im Repo mit 400.
 
   - id: g-hr-offboard
     phase: 3

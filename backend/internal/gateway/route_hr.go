@@ -171,6 +171,21 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(hrDocumentCategoriesGuard).Get("/{id}/documents/categories", h.HandleListEmployeeDocumentCategories)
 	})
 
+	// Profile change requests. The list is readable by anyone who may propose
+	// OR decide; what each of them actually sees is narrowed in the handler,
+	// not by the guard (a proposer sees only their own rows).
+	changeRequestReadGuard := middleware.RequirePermissionAny(
+		[2]string{"team:self", "propose"}, [2]string{"team:data_personal", "edit"},
+	)
+	r.Route("/api/v1/hr/change-requests", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(changeRequestReadGuard).Get("/", h.HandleListChangeRequests)
+		r.With(middleware.RequirePermission("team:self", "propose")).Post("/", h.HandleCreateChangeRequest)
+		r.With(middleware.RequirePermission("team:data_personal", "edit")).Post("/{id}/approve", h.HandleApproveChangeRequest)
+		r.With(middleware.RequirePermission("team:data_personal", "edit")).Post("/{id}/reject", h.HandleRejectChangeRequest)
+		r.With(middleware.RequirePermission("team:self", "propose")).Post("/{id}/cancel", h.HandleCancelChangeRequest)
+	})
+
 	// HR settings (admin only)
 	r.Route("/api/v1/hr/settings", func(r chi.Router) {
 		r.Use(authMiddleware)
