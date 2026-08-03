@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 )
 
 // backoffDurations defines exponential retry delays indexed by attempt number (1-based).
@@ -52,8 +53,12 @@ func NewWebhookWorker(repo Repository, logger *slog.Logger) *WebhookWorker {
 		logger = slog.Default()
 	}
 	return &WebhookWorker{
-		repo:         repo,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		repo: repo,
+		// The URL comes from the tenant, so the same guard the automation
+		// http.request action uses applies here: without it a form webhook
+		// pointed at 169.254.169.254 or at an internal service turns this
+		// worker into a request forwarder inside our own network.
+		httpClient:   safehttp.New(safehttp.WithTimeout(10 * time.Second)),
 		logger:       logger,
 		pollInterval: 5 * time.Second,
 		batchSize:    10,

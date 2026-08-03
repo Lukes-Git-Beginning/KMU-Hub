@@ -120,6 +120,12 @@ func main() {
 		action.SendNotificationDefinition(),
 	)
 
+	// Outbound HTTP action (standalone; the client is SSRF-guarded)
+	actionReg.Register(
+		action.NewHTTPRequestAction(nil),
+		action.HTTPRequestDefinition(),
+	)
+
 	// Calendar action
 	actionReg.Register(
 		action.NewCreateCalendarEventAction(calendarClient),

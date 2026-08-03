@@ -2770,3 +2770,79 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
     durch) und funktioniert auch korrekt, aber der Override-Editor im FE bietet nur feine Keys an.
     Kein Bug, nur eine Asymmetrie, die jemand kennen sollte, der die Tabelle direkt befuellt.
 - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 43 — 2026-08-03
+
+- verify-vorspann auf `a7ae3f56` (Iteration 42, per-user Overrides im Token): 21 Dateien geprueft,
+  keine der sechs Fehlerklassen. Keine Stubs/`Unimplemented`, kein Gateway-Bypass (nur
+  `internal/auth`, `internal/middleware`, `internal/server` — keine Route-Datei), kein Proto
+  angefasst, kein neuer `RequirePermission`-Guard (also kein Seed faellig), Wire-Shape unberuehrt.
+  Der Kern der Aenderung — `RequirePermissionAny` laesst einen groben Key nicht mehr als Platzhalter
+  zaehlen, sobald ein feiner Key desselben Guards denied ist — im Diff nachgelesen und schluessig.
+  `go build -p 2 ./...` gruen.
+- gebaut: `g-automation-http-action`.
+- **Der Schutz sitzt im Dialer, nicht in einer URL-Pruefung.** Das ist die eine Entscheidung, an der
+  diese Unit haengt. Eine Pruefung der konfigurierten URL beantwortet die falsche Frage: sie sieht
+  einen Namen, verbunden wird aber mit einer Adresse, und zwischen beiden liegt eine zweite
+  DNS-Aufloesung, die ein Angreifer kontrolliert (Rebinding). Ausserdem muesste sie bei jedem
+  Redirect wiederholt werden. `net.Dialer.Control` laeuft nach der Aufloesung und vor `connect()`,
+  bekommt das Literal, mit dem der Kernel spricht — und weil jeder Redirect-Hop eine eigene
+  Verbindung aufmacht, ist er ohne Zusatzcode mitgeprueft. Die URL-Pruefung (`safehttp.CheckURL`)
+  bleibt als Komfort fuer eine praezise Fehlermeldung, ist aber ausdruecklich nicht die Grenze —
+  steht so im Doc-Kommentar, damit niemand sie spaeter fuer den Schutz haelt.
+- **Zweiter Fundort, gleiche Luecke, bereits produktiv.** Vor dem Bauen nach vorhandenen ausgehenden
+  Clients gesucht (Lean-Leiter Stufe 2). `internal/formulare/worker.go:56` verschickt
+  Formular-Webhooks an `webhook.URL` — tenant-konfiguriert, aus der DB — mit einem blanken
+  `&http.Client{Timeout: 10s}`, ohne Adressfilter, mit Go-Default-Redirects. Das ist dieselbe
+  SSRF-Falle wie die neue Action, nur seit Monaten scharf. Deshalb wurde der Guard als eigenes Paket
+  gebaut statt in die Action gelegt, und der Worker ist auf eine Zeile umgestellt. Root Cause statt
+  Symptom, und der Diff ist kleiner als zwei getrennte Guards.
+  Wichtig dabei: ALLE bestehenden Erfolgstests des Workers injizieren `server.Client()` und haetten
+  einen Totalausfall der Zustellung durch den Guard nicht bemerkt. Deshalb zwei neue Tests — Sperre
+  greift (`169.254.169.254` -> failed, Grund im `last_error`) und Zustellung laeuft durch den
+  Guard weiterhin. Der bestehende `TestWorker_NetworkError_IncrementsAttempt` faengt jetzt zwar
+  weiterhin, aber aus einem anderen Grund (Adressfilter statt Connection-Refused); inhaltlich
+  unveraendert richtig, hier nur vermerkt, damit es niemanden spaeter verwirrt.
+- **Test-Seam ohne Produktionsrisiko.** Ein `httptest`-Server lebt auf Loopback, also braucht es eine
+  Ausnahme — und eine exportierte Ausnahme ist genau die Zeile, die spaeter in Produktionscode
+  kopiert wird. `safehttp.AllowLoopback()` setzt sein Flag deshalb ueber `testing.Testing()`: unter
+  `go test` wirkt es, im gebauten Binary ist es tot. Kein Env-Var, keine Config, nichts, das im
+  Betrieb umgelegt werden koennte. `TestNew_LoopbackBlockedWithoutOption` haelt fest, dass der
+  Konstruktor ohne Optionen — der, den `cmd/` benutzt — Loopback ablehnt.
+- ueber die notes hinaus gefunden und mitgeschlossen:
+  - Go entfernt beim Redirect auf einen fremden Host nur `Authorization`/`Cookie`. Ein
+    tenant-konfigurierter `X-Api-Key` waere an das Redirect-Ziel weitergereicht worden — der
+    naheliegendste Weg, einem Angreifer den API-Schluessel des Tenants zuzustellen. Beim Hostwechsel
+    fliegen jetzt alle Header ausser einer harmlosen Liste raus (Test fuer beide Richtungen: fremder
+    Host verliert ihn, gleicher Host behaelt ihn).
+  - `Proxy: nil` am Transport. `http.DefaultTransport` liest `HTTP_PROXY` aus der Prozessumgebung;
+    ein Proxy wuerde am Dial-Filter vorbeirouten, weil die Verbindung dann zum Proxy geht und das
+    Ziel im CONNECT steht. Im Repo ist keiner konfiguriert (`deploy/` gegengeprueft).
+  - Header-Werte sind Templates mit Datensatzinhalten. Die CR/LF-Pruefung laeuft deshalb NACH der
+    Aufloesung — sonst schmuggelt ein Kontakt-Notizfeld einen zweiten Header ein. Eigener Test; der
+    abgelehnte Wert wird nicht in die Fehlermeldung zurueckgespiegelt (die landet im Execution-Log).
+  - CONNECT und TRACE verboten. TRACE spiegelt die Request-Header zurueck und ist zusammen mit einem
+    konfigurierten Auth-Header eine Credential-Disclosure gegen den eigenen Endpunkt.
+- entschieden: ein 4xx/5xx ist `Success: false` **ohne** Go-Error, mit Status und Body im Output. Der
+  `on_error`-Zweig der Automation kann nur entscheiden, wenn der Status ehrlich durchgereicht wird;
+  ein verschluckter 403 saehe im Execution-Log aus wie ein Netzproblem.
+- entschieden: Body-Cap zweistufig. 1 MiB am Client (Speicher), zusaetzlich 4096 Zeichen im Output —
+  der Env wandert bei JEDEM Lauf nach `automation_executions`, eine 900-KB-Antwort waere also nicht
+  einmal, sondern pro Ausfuehrung in der DB. Ueberschreitung ist als `body_truncated` sichtbar, nicht
+  still. Der Reader wirft `ErrResponseTooLarge` statt zu kuerzen, damit ein abgeschnittenes JSON
+  nicht als Parse-Fehler weit weg von der Ursache auftaucht — mit einem Byte Kopffreiheit, sonst
+  waere ein Body von exakt Cap-Groesse fehlgeschlagen (eigener Regressionstest fuer beide Faelle).
+- nicht gebaut, bewusst: JSON-Parsing der Antwort in einzelne Output-Keys (`resolveTemplate` kann nur
+  flache Keys — eigene Unit, wenn jemand es braucht) und eine per-Tenant-Allowlist erlaubter
+  Zielhosts (Produktentscheidung, kein Sicherheitsloch: der Filter haelt auch ohne sie).
+- keine neue Route, keine Migration, kein neuer Guard -> `openapi.yaml` unveraendert.
+- gate: `go build -p 2 ./...` ok | `go vet` (safehttp, automation, formulare, cmd/automation) ok |
+  `golangci-lint run` auf denselben -> **0 issues** | `swagger-cli validate backend/api/openapi.yaml`
+  -> "is valid" | `go test -count=1 ./internal/gateway/` gruen (TestOpenAPIRouteDrift) |
+  `go test -count=1 -v ./internal/security/safehttp/ ./internal/automation/action/`:
+  **66 PASS, 0 SKIP** (unabhaengig gezaehlt) | `go test -count=1 -v ./internal/formulare/`: 58 gruen |
+  `./internal/automation/...` vollstaendig gruen.
+- offen fuer die naechste Iteration: `g-automation-webhook-trigger` (haengt an dieser Unit) ist der
+  eingehende Gegenpart. Das dort geforderte konstantzeitige Signatur-Pruefen gibt es im Repo schon
+  in `internal/biz/lexware/webhook_handler.go` und `internal/formulare/worker.go` (HMAC-SHA256,
+  `X-Cosmi-Signature: sha256=…`) — dieselbe Form wiederverwenden statt eine dritte zu erfinden.

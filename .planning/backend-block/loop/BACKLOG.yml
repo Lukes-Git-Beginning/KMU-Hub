@@ -2579,7 +2579,7 @@ units:
     service: automation
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       `http_request`-Action fuer die Automatisierung.
     sources:
@@ -2597,6 +2597,47 @@ units:
       - Action funktioniert gegen eine externe URL
       - Tests belegen: private Bereiche geblockt, Redirect auf privaten Bereich geblockt, Timeout greift
       - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 43). Der Schutz sitzt NICHT in der Action, sondern in einem eigenen Paket
+      `internal/security/safehttp` — und zwar im `Control`-Hook des Dialers, nicht in einer
+      URL-Pruefung. Grund: eine URL-Pruefung ist gegen DNS-Rebinding wirkungslos (Name loest beim
+      Pruefen oeffentlich auf, beim Verbinden auf 127.0.0.1), und sie muesste bei jedem Redirect
+      wiederholt werden. Der Control-Hook laeuft nach der Aufloesung und unmittelbar vor connect(),
+      sieht also die Adresse, mit der der Kernel wirklich spricht — und weil jeder Redirect eine
+      eigene Verbindung aufmacht, ist er dort automatisch mitgeprueft. `safehttp.New()` liefert einen
+      normalen `*http.Client`: Dial-Filter, Redirect-Filter, Timeout und Body-Cap haengen am Client,
+      ein Aufrufer kann also nicht eines davon abwaehlen und die anderen behalten.
+      **Zweiter Fundort, in derselben Iteration geschlossen (Root Cause):** `internal/formulare/
+      worker.go` verschickt seit jeher Formular-Webhooks an eine tenant-konfigurierte URL mit einem
+      blanken `&http.Client{Timeout: 10s}` — dieselbe SSRF-Luecke, nur bereits produktiv. Eine Zeile
+      auf `safehttp.New(...)` umgestellt. Zwei Tests dazu: die Sperre greift (169.254.169.254 ->
+      failed mit "not a public address") und die Zustellung funktioniert durch den Guard weiterhin
+      (alle bestehenden Erfolgstests injizieren ihren eigenen Client und haetten einen Totalausfall
+      der Zustellung NICHT bemerkt).
+      Test-Seam ohne Prod-Risiko: `safehttp.AllowLoopback()` ist ueber `testing.Testing()` ausserhalb
+      von `go test` wirkungslos. Ein Produktionspfad kann den Adressfilter also nicht abschalten,
+      auch nicht durch Kopieren einer Zeile aus einem Test. Eigener Test dafuer
+      (`TestNew_LoopbackBlockedWithoutOption`).
+      Ueber die Unit-notes hinaus gefunden und mitgeschlossen: (a) Go entfernt bei einem Redirect auf
+      einen anderen Host nur `Authorization`/`Cookie` — ein tenant-konfigurierter `X-Api-Key` waere
+      an das Redirect-Ziel weitergereicht worden, deshalb fliegen alle nicht-harmlosen Header beim
+      Hostwechsel raus; (b) `Proxy: nil`, weil ein Proxy aus der Prozessumgebung am Dial-Filter
+      vorbeirouten wuerde (im Repo ist keiner konfiguriert, gepruft); (c) Header-Werte kommen aus
+      Templates mit Datensatzinhalten -> CR/LF-Pruefung NACH der Template-Aufloesung, sonst
+      Header-Injection ueber ein Kontaktfeld; (d) CONNECT/TRACE verboten (TRACE spiegelt Header
+      zurueck, zusammen mit einem konfigurierten Auth-Header eine Credential-Disclosure);
+      (e) Credentials in der URL abgelehnt statt still weitergereicht.
+      Blockiert werden ueber die geforderte Liste hinaus CGNAT (100.64/10, Hoster-Fabric),
+      192.0.0/24, 198.18/15, 240/4 inkl. Broadcast, Multicast, NAT64 und 6to4 (beide betten eine
+      v4-Adresse ein); IPv4-mapped v6 wird vor der Pruefung entpackt (`::ffff:127.0.0.1`).
+      Kein 4xx/5xx wird als Fehler der Action verschluckt: Status und Body landen im Output, damit
+      der `on_error`-Zweig der Automation entscheiden kann. Body-Cap 1 MiB am Client, zusaetzlich
+      4096 Zeichen im Output — der Env geht bei JEDEM Lauf nach `automation_executions`.
+      Keine neue Route, keine Migration, kein neuer Guard -> openapi.yaml unveraendert
+      (TestOpenAPIRouteDrift gruen gegengeprueft).
+      Bewusst NICHT gebaut: JSON-Parsing der Antwort in einzelne Output-Keys (`resolveTemplate` kann
+      nur flache Keys, das waere eine eigene Unit) und eine per-Tenant-Allowlist fuer Zielhosts.
+      Tests: 66 PASS / 0 SKIP in `safehttp` + `automation/action`, `internal/formulare` 58 gruen.
   - id: g-automation-webhook-trigger
     phase: 3
     service: automation
