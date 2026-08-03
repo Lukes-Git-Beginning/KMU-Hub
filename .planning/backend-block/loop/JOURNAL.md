@@ -2146,7 +2146,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
 
 ## Iteration 34 — g-admin-users-list — done — 2026-08-03
-- commit: (wird nach dem Commit ergaenzt)
+- commit: 55f439fe
 - verify vorgaenger: sauber. `06f1447c` (g-email-messages-bulk, Iteration 33) stichprobenartig gegen
   die Fehlerklassen geprueft (Iteration 33 hatte sich selbst bereits ausfuehrlich gegen Iteration 32
   geprueft und dokumentiert — hier nur der unabhaengige Gegen-Check dieser Iteration): Klasse 1 sauber
