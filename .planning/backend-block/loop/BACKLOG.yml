@@ -1721,7 +1721,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Gefunden in Iteration 29 (`fix-email-import-nil-provider-panic`), bewusst nicht mitgefixt
       (Scope der Unit war nur Import). Derselbe Fehlerklasse, spiegelbildlich: in

@@ -39,7 +39,6 @@ type EmailGRPCServer struct {
 	linkRepo          EmailContactLinkRepository
 	contactService    *crmcontact.Service
 	companyService    *crmcompany.Service
-	exportService     *emailcontact.ExportService
 	ruleService       *rule.Service
 	labelService      *label.Service
 }
@@ -63,7 +62,6 @@ func NewEmailGRPCServer(
 	linkRepo EmailContactLinkRepository,
 	contactService *crmcontact.Service,
 	companyService *crmcompany.Service,
-	exportService *emailcontact.ExportService,
 	ruleService *rule.Service,
 	labelService *label.Service,
 ) *EmailGRPCServer {
@@ -77,7 +75,6 @@ func NewEmailGRPCServer(
 		linkRepo:          linkRepo,
 		contactService:    contactService,
 		companyService:    companyService,
-		exportService:     exportService,
 		ruleService:       ruleService,
 		labelService:      labelService,
 	}
@@ -1142,6 +1139,11 @@ func (s *EmailGRPCServer) ImportContactsVCard(ctx context.Context, req *emailv1.
 }
 
 func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.ExportContactsRequest) (*emailv1.ExportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	ids := make([]uuid.UUID, 0, len(req.ContactIds))
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -1151,7 +1153,10 @@ func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.Ex
 		ids = append(ids, id)
 	}
 
-	data, err := s.exportService.ExportCSV(ctx, ids, req.Fields)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
+	data, err := exportSvc.ExportCSV(ctx, ids, req.Fields)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -1163,6 +1168,11 @@ func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.Ex
 }
 
 func (s *EmailGRPCServer) ExportContactsVCard(ctx context.Context, req *emailv1.ExportContactsRequest) (*emailv1.ExportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	ids := make([]uuid.UUID, 0, len(req.ContactIds))
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -1172,7 +1182,10 @@ func (s *EmailGRPCServer) ExportContactsVCard(ctx context.Context, req *emailv1.
 		ids = append(ids, id)
 	}
 
-	data, err := s.exportService.ExportVCard(ctx, ids)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
+	data, err := exportSvc.ExportVCard(ctx, ids)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}

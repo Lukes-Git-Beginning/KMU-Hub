@@ -25,7 +25,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
-	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/email/contactlink"
 	"github.com/kmuhub/kmuhub/internal/email/label"
 	"github.com/kmuhub/kmuhub/internal/email/message"
@@ -125,14 +124,14 @@ func main() {
 		}
 	}()
 
-	// Contact import/export (shared with CRM service via proto). Import binds a
-	// tenant-scoped adapter per request (see EmailGRPCServer.ImportContactsCSV), so it
-	// needs the CRM contact/company services directly rather than a shared singleton.
+	// Contact import/export (shared with CRM service via proto). Both bind a
+	// tenant-scoped adapter per request (see EmailGRPCServer.ImportContactsCSV/
+	// ExportContactsCSV), so they need the CRM contact/company services directly
+	// rather than a shared singleton.
 	contactRepo := contact.NewPostgresRepository(pool)
 	contactService := contact.NewService(contactRepo)
 	companyRepo := company.NewPostgresRepository(pool)
 	companyService := company.NewService(companyRepo)
-	exportService := emailcontact.NewExportService(nil, slog.Default())
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -160,7 +159,6 @@ func main() {
 		linkRepo,
 		contactService,
 		companyService,
-		exportService,
 		ruleService,
 		labelService,
 	)

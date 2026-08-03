@@ -42,7 +42,7 @@ func emailImportSetup(t *testing.T) (*pgxpool.Pool, *EmailGRPCServer, uuid.UUID,
 	contactService := crmcontact.NewService(crmcontact.NewPostgresRepository(pool))
 	companyService := crmcompany.NewService(crmcompany.NewPostgresRepository(pool))
 
-	srv := NewEmailGRPCServer(nil, nil, nil, nil, nil, nil, nil, contactService, companyService, nil, nil, nil)
+	srv := NewEmailGRPCServer(nil, nil, nil, nil, nil, nil, nil, contactService, companyService, nil, nil)
 
 	return pool, srv, tenantID, actorID
 }

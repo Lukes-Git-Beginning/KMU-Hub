@@ -1866,3 +1866,57 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     dem bereits vorhandenen `contactService`/`companyService`.
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24-28 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 30 — fix-email-export-nil-provider-panic — done — 2026-08-03
+- commit: <wird nach dem Commit ergaenzt>
+- verify vorgaenger: sauber. `37f561ad` (fix-email-import-nil-provider-panic, Iteration 29) gegen
+  die acht Fehlerklassen geprueft: kein Proto-Diff (Klasse 3 N/A), keine neue Route/kein Guard
+  (Klasse 4/6/7/8 N/A), kein Stub (Klasse 2 — beide Import-RPCs vollstaendig implementiert und
+  DB-getestet), kein gRPC-Layer-Bypass (Klasse 1 — `EmailGRPCServer` IST die gRPC-Implementierung,
+  `s.contactService`/`s.companyService` direkt aufzurufen ist hier korrekt). Tenant-Luecke (Klasse 5)
+  explizit gegengeprueft: `TenantScopedAdapter` wird pro Request mit `middleware.GetTenantID(ctx)`
+  gebaut, `ownerID` kommt aus `middleware.GetUserID(ctx)`, beide 401 bei Fehlen. Testfalle aus
+  Iteration 15 (`t.Cleanup` nach `defer pool.Close()`) nicht wiederholt — der neue Test nutzt
+  durchgaengig `t.Cleanup` fuer Pool UND Zeilen, korrekte LIFO-Reihenfolge. Nichts zu beanstanden.
+- gebaut: `fix-email-export-nil-provider-panic` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`, der von Iteration 29 selbst angelegte Spiegel-Fund).
+  Root Cause wie im scope-Text: `ExportContactsCSV`/`ExportContactsVCard` in
+  `backend/internal/server/email_grpc.go` riefen `s.exportService.ExportCSV`/`ExportVCard` direkt
+  auf einem Singleton aus `cmd/email/main.go` auf, konstruiert mit
+  `emailcontact.NewExportService(nil, slog.Default())` — jeder echte Aufruf haette im
+  `contactProvider.ListByIDs`-Zugriff (`internal/email/contact/export_service.go`) eine
+  Nil-Pointer-Panik geworfen.
+  Beide RPCs bauen jetzt pro Request `tenantID, err := middleware.GetTenantID(ctx)` (401 bei
+  Fehlen) und `emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` +
+  `emailcontact.NewExportService(provider, nil)`, exakt das Muster aus `crm_grpc.go:2146-2224` und
+  aus den Import-RPCs (Iteration 29). Anders als der CRM-Export-Pfad hat
+  `emailv1.ExportContactsRequest` kein `is_admin`/kein "export ohne IDs"-Feld — `ExportCSV`/
+  `ExportVCard` bleiben deshalb bei `req.ContactIds` wie in den notes vorgesehen, kein
+  `ExportAllCSV`-Zweig.
+  Der `exportService`-Singleton (nil-Provider) wurde komplett entfernt statt nur umgangen: Feld auf
+  `EmailGRPCServer`, Konstruktor-Parameter in `NewEmailGRPCServer` UND die Konstruktion in
+  `cmd/email/main.go` (inkl. des jetzt ungenutzten `emailcontact`-Imports dort) — kein Aufrufer
+  blieb uebrig, Liegenlassen waere totes Konstrukt gewesen.
+  Test (neu, `internal/server/email_grpc_export_test.go`, DB-backed, spiegelt
+  `email_grpc_import_test.go` aus Iteration 29): `TestEmailExportContactsCSV_DB` und
+  `TestEmailExportContactsVCard_DB` seeden je einen Kontakt ueber den bereits bewiesenen
+  Import-Pfad, exportieren ihn ueber den Email-RPC und pruefen E-Mail UND Firmenname im
+  Export-Output (nicht nur Erfolg ohne Panik). `TestEmailExportContactsCSV_MissingTenant` beweist
+  401 statt Panik bei fehlendem Tenant-Context.
+  FUND waehrend des Testens (kein Produktionsbug, reiner Test-Leak): der beim Import via
+  Find-or-Create angelegte Firma-Datensatz ("Acme GmbH") wurde in der ersten Testfassung nie
+  aufgeraeumt und blockierte das User-Cleanup per FK (`companies_created_by_fkey`) —
+  `seedEmailExportContact` liest jetzt `company_id` mit aus und registriert dessen Cleanup VOR dem
+  Cleanup der Kontakt-Zeile im Testkoerper, damit die LIFO-Reihenfolge (Kontakt -> Firma -> User ->
+  Pool) FK-sauber ist. Vor dem Fix lief der Test trotzdem gruen (der Fehler landet nur als geloggte
+  Cleanup-Warnung, nicht als Testfehler) — beim naechsten Mal auf genau solche stillen
+  Cleanup-Zeilen im Testoutput achten, nicht nur auf PASS/FAIL.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/server`, `cmd/email`, 0 issues) | test ok — `go test -count=1 -v ./internal/server/...`
+  mit `DATABASE_URL` auf `kmuhub_app`: 216 PASS, 0 SKIP, 0 FAIL (per `grep -c` gegengeprueft). Keine
+  Migration, keine neue Route, kein neuer Guard — `openapi.yaml`-Diff nicht Pflicht, keiner
+  vorgenommen.
+- offen:
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-29 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst. Damit ist die Email-Import/Export-Nil-Provider-
+    Fehlerklasse (beide Haelften) vollstaendig geschlossen.
