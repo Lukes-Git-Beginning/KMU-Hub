@@ -230,6 +230,26 @@ func (m *mockRepository) ListAdminUsers(_ context.Context) ([]AdminUser, error) 
 	return nil, nil
 }
 
+func (m *mockRepository) GetAdminUser(_ context.Context, _ uuid.UUID) (*AdminUser, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetInvitationAsAdminUser(_ context.Context, _ uuid.UUID) (*AdminUser, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) CountActiveRoleAdminsExcludingUser(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) GetPresetRoleIDByName(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
+func (m *mockRepository) RefreshInvitationToken(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (*models.Invitation, error) {
+	return nil, nil
+}
+
 func (m *mockRepository) GetUserGrants(_ context.Context, _ uuid.UUID) ([]EffectiveGrantRow, error) {
 	return nil, nil
 }

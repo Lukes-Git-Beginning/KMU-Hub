@@ -477,6 +477,22 @@ func (r *PostgresRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*Ro
 	return &role, err
 }
 
+// GetPresetRoleIDByName resolves one of the legacy preset names
+// ("admin"/"manager"/"member") to its role id. Confined to presets
+// (tenant_id IS NULL) on purpose: a name is not a unique handle for a custom
+// role — roles is unique per (tenant, name), so two tenants may each own a
+// "Buchhaltung" — and the legacy invite route only ever names a preset.
+func (r *PostgresRepository) GetPresetRoleIDByName(ctx context.Context, name string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM roles WHERE tenant_id IS NULL AND name = $1`, name,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrRoleNotFound
+	}
+	return id, err
+}
+
 // UpdateRole applies the provided fields (nil = unchanged) and returns the
 // role with fresh member/capability counts, the same shape ListRoles
 // reports. The write policy already confines the UPDATE to the caller's own
@@ -705,11 +721,12 @@ func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.
 
 // invitationColumns is the read shape of an invitation; every invitation query
 // selects exactly these, in this order, and scans through scanInvitation.
-const invitationColumns = `id, tenant_id, email, role, token_hash, created_by, expires_at, accepted_at, created_at`
+const invitationColumns = `id, tenant_id, email, first_name, last_name, role, role_ids, token_hash, created_by, expires_at, accepted_at, created_at`
 
 func scanInvitation(row pgx.Row) (*models.Invitation, error) {
 	var inv models.Invitation
-	err := row.Scan(&inv.ID, &inv.TenantID, &inv.Email, &inv.Role, &inv.TokenHash,
+	err := row.Scan(&inv.ID, &inv.TenantID, &inv.Email, &inv.FirstName, &inv.LastName,
+		&inv.Role, &inv.RoleIDs, &inv.TokenHash,
 		&inv.CreatedBy, &inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvitationNotFound
@@ -722,11 +739,33 @@ func scanInvitation(row pgx.Row) (*models.Invitation, error) {
 
 func (r *PostgresRepository) CreateInvitation(ctx context.Context, inv *models.Invitation) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO invitations (id, tenant_id, email, role, token_hash, created_by, expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		inv.ID, inv.TenantID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
+		// COALESCE, because a nil Go slice arrives as SQL NULL rather than
+		// falling back to the column default, and role_ids is NOT NULL.
+		`INSERT INTO invitations (id, tenant_id, email, first_name, last_name, role, role_ids, token_hash, created_by, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::uuid[], '{}'), $8, $9, $10, $11)`,
+		inv.ID, inv.TenantID, inv.Email, inv.FirstName, inv.LastName, inv.Role, inv.RoleIDs,
+		inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
 	)
 	return err
+}
+
+// RefreshInvitationToken re-issues a pending invitation: new token hash, new
+// expiry, new creation stamp. The old hash is overwritten rather than kept
+// beside the new one, which is the point — two live tokens to the same account
+// would be two ways in, and revoking one would not revoke the other.
+//
+// The conditional (accepted_at IS NULL) is what makes it safe against a race
+// with an accept: the UPDATE takes the row lock, so a resend that arrives after
+// the invitation was claimed touches zero rows instead of handing out a token
+// to an account that already exists.
+func (r *PostgresRepository) RefreshInvitationToken(ctx context.Context, tenantID, id uuid.UUID, tokenHash string, expiresAt time.Time) (*models.Invitation, error) {
+	return scanInvitation(r.pool.QueryRow(ctx,
+		`UPDATE invitations
+		    SET token_hash = $3, expires_at = $4, created_at = NOW()
+		  WHERE id = $1 AND tenant_id = $2 AND accepted_at IS NULL
+		  RETURNING `+invitationColumns,
+		id, tenantID, tokenHash, expiresAt,
+	))
 }
 
 // GetInvitationByToken looks the invitation up by token hash alone. The caller
@@ -834,16 +873,14 @@ func (r *PostgresRepository) ListAdminUsers(ctx context.Context) ([]AdminUser, e
 // (unaccepted, unexpired) as an AdminUser row. Expired invitations are
 // deliberately excluded — they are not an account anyone can still become
 // without a resend, so counting them as "invited" would overstate the
-// roster. FirstName/LastName stay empty: invitations do not collect a name,
-// only email and a single legacy preset name.
+// roster.
+//
+// role_ids is read straight through since migration 000280; rows written
+// before it were backfilled from the legacy preset name, so no name lookup is
+// needed here any more.
 func (r *PostgresRepository) listPendingInvitationsAsAdminUsers(ctx context.Context) ([]AdminUser, error) {
-	presetIDs, err := r.presetRoleIDsByName(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, role, created_at
+		`SELECT id, email, first_name, last_name, role_ids, created_at
 		 FROM invitations
 		 WHERE accepted_at IS NULL AND expires_at > NOW()
 		 ORDER BY created_at DESC`,
@@ -855,50 +892,95 @@ func (r *PostgresRepository) listPendingInvitationsAsAdminUsers(ctx context.Cont
 
 	pending := []AdminUser{}
 	for rows.Next() {
-		var (
-			id        uuid.UUID
-			email     string
-			roleName  string
-			createdAt time.Time
-		)
-		if err := rows.Scan(&id, &email, &roleName, &createdAt); err != nil {
-			return nil, err
+		u, scanErr := scanInvitationAsAdminUser(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
-		u := AdminUser{
-			ID:        id,
-			Email:     email,
-			Status:    AdminUserStatusInvited,
-			InvitedAt: &createdAt,
-		}
-		if presetID, ok := presetIDs[roleName]; ok {
-			u.RoleIDs = []string{presetID.String()}
-		}
-		pending = append(pending, u)
+		pending = append(pending, *u)
 	}
 	return pending, rows.Err()
 }
 
-// presetRoleIDsByName maps the three legacy preset names invitations.role can
-// hold ("admin"/"manager"/"member") to their role ids, so a pending invite's
-// single legacy role name can be rendered as the same role-id shape the rest
-// of AdminUser.RoleIDs uses.
-func (r *PostgresRepository) presetRoleIDsByName(ctx context.Context) (map[string]uuid.UUID, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, name FROM roles WHERE tenant_id IS NULL`)
+// scanInvitationAsAdminUser reads the roster projection of one invitation:
+// id, email, first_name, last_name, role_ids, created_at, in that order.
+func scanInvitationAsAdminUser(row pgx.Row) (*AdminUser, error) {
+	var (
+		u         AdminUser
+		roleIDs   []uuid.UUID
+		createdAt time.Time
+	)
+	if err := row.Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &roleIDs, &createdAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInvitationNotFound
+		}
+		return nil, err
+	}
+	u.Status = AdminUserStatusInvited
+	u.InvitedAt = &createdAt
+	u.RoleIDs = make([]string, len(roleIDs))
+	for i, id := range roleIDs {
+		u.RoleIDs[i] = id.String()
+	}
+	return &u, nil
+}
+
+// GetInvitationAsAdminUser returns one pending invitation in the roster shape,
+// so the writing routes can answer with the same row the list would show.
+func (r *PostgresRepository) GetInvitationAsAdminUser(ctx context.Context, id uuid.UUID) (*AdminUser, error) {
+	return scanInvitationAsAdminUser(r.pool.QueryRow(ctx,
+		`SELECT id, email, first_name, last_name, role_ids, created_at
+		 FROM invitations WHERE id = $1`, id,
+	))
+}
+
+// GetAdminUser returns one account in the roster shape. Same projection as
+// ListAdminUsers, scoped to a single id by RLS plus the predicate.
+func (r *PostgresRepository) GetAdminUser(ctx context.Context, id uuid.UUID) (*AdminUser, error) {
+	var (
+		u        AdminUser
+		isActive bool
+	)
+	err := r.pool.QueryRow(ctx,
+		`SELECT u.id, u.first_name, u.last_name, u.email, u.is_active,
+		        COALESCE(array_agg(DISTINCT ur.role_id::text) FILTER (WHERE ur.role_id IS NOT NULL), '{}'),
+		        MAX(s.created_at)
+		 FROM users u
+		 LEFT JOIN user_roles ur ON ur.user_id = u.id
+		 LEFT JOIN user_sessions s ON s.user_id = u.id
+		 WHERE u.id = $1
+		 GROUP BY u.id`, id,
+	).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &isActive, &u.RoleIDs, &u.LastLoginAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	byName := make(map[string]uuid.UUID)
-	for rows.Next() {
-		var id uuid.UUID
-		var name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return nil, err
-		}
-		byName[name] = id
+	u.Status = AdminUserStatusActive
+	if !isActive {
+		u.Status = AdminUserStatusDeactivated
 	}
-	return byName, rows.Err()
+	return &u, nil
+}
+
+// CountActiveRoleAdminsExcludingUser counts the tenant's ACTIVE accounts that
+// carry role administration, ignoring one account entirely. It is the seat the
+// deactivation guardrail sits on: CountRoleAdminsExcluding ignores one
+// (user, role) PAIR, which answers "may this role be revoked" but not "may
+// this whole account go dark" — an admin holding the capability through two
+// roles would still be counted by the pair variant.
+func (r *PostgresRepository) CountActiveRoleAdminsExcludingUser(ctx context.Context, keys []string, ignoreUserID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(DISTINCT ur.user_id)
+		 FROM user_roles ur
+		 JOIN users u ON u.id = ur.user_id AND u.is_active
+		 JOIN role_permissions rp ON rp.role_id = ur.role_id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE p.name = ANY($1) AND ur.user_id <> $2`,
+		keys, ignoreUserID,
+	).Scan(&count)
+	return count, err
 }
 
 // AcceptInvitation claims the invitation, creates the account and assigns the
@@ -940,12 +1022,20 @@ func (r *PostgresRepository) AcceptInvitation(ctx context.Context, inv *models.I
 		return err
 	}
 
-	// The account is new, so nothing can conflict here: zero rows means the
-	// invited role does not exist. Letting that pass would create an account
+	// The account is new, so nothing can conflict here: zero rows means not one
+	// of the invited roles exists. Letting that pass would create an account
 	// with no role at all, which is a support case, not a login.
+	//
+	// Resolved by id and confined to the invitation's own tenant (or a system
+	// preset). Before migration 000280 this matched on r.name under sysctx,
+	// where RLS is off — an invitation naming "admin" then also picked up any
+	// FOREIGN tenant's custom role of that name and granted it too.
 	assigned, err := tx.Exec(ctx,
 		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, r.id FROM roles r WHERE r.name = $2`, user.ID, inv.Role,
+		 SELECT $1, r.id FROM roles r
+		  WHERE r.id = ANY($2)
+		    AND (r.tenant_id IS NULL OR r.tenant_id = $3)`,
+		user.ID, inv.RoleIDs, inv.TenantID,
 	)
 	if err != nil {
 		return err
@@ -996,9 +1086,20 @@ func (r *PostgresRepository) ProvisionTenant(ctx context.Context, tenant *models
 	}
 
 	if _, err = tx.Exec(ctx,
-		`INSERT INTO invitations (id, tenant_id, email, role, token_hash, created_by, expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		// role_ids is resolved from the preset name inline rather than passed
+		// in: the whole provisioning runs in one transaction and the first
+		// administrator's invitation always names a preset. Leaving it to the
+		// column default would hand the new tenant an invitation that grants
+		// nothing, and the accept path would refuse it with role_not_found.
+		// The name travels twice ($4 for the legacy column, $9 for the lookup)
+		// because one placeholder used both as a varchar(50) value and in a
+		// text comparison makes Postgres refuse to deduce its type.
+		`INSERT INTO invitations (id, tenant_id, email, role, role_ids, token_hash, created_by, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4,
+		         ARRAY(SELECT id FROM roles WHERE tenant_id IS NULL AND name = $9),
+		         $5, $6, $7, $8)`,
 		inv.ID, inv.TenantID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
+		inv.Role,
 	); err != nil {
 		return err
 	}

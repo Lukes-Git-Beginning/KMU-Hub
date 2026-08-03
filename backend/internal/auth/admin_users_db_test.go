@@ -118,7 +118,10 @@ func TestListAdminUsers_DB_MergesAccountsAndInvitations(t *testing.T) {
 		"id":         uuid.New(),
 		"tenant_id":  adminRosterTenant,
 		"email":      "roster-invited@test.local",
+		"first_name": "Invited",
+		"last_name":  "Four",
 		"role":       "member",
+		"role_ids":   []uuid.UUID{memberPreset},
 		"token_hash": uuid.NewString(),
 		"created_by": inviterID,
 		"expires_at": time.Now().Add(24 * time.Hour),
@@ -155,8 +158,10 @@ func TestListAdminUsers_DB_MergesAccountsAndInvitations(t *testing.T) {
 	invited := findAdminUser(users, invID)
 	require.NotNil(t, invited, "open invitation must be in the roster")
 	assert.Equal(t, auth.AdminUserStatusInvited, invited.Status)
-	assert.Empty(t, invited.FirstName, "invitations carry no name")
-	assert.Empty(t, invited.LastName, "invitations carry no name")
+	// Invitations carry a name since migration 000280 — the one the admin
+	// typed into the invite form, shown until the account is accepted.
+	assert.Equal(t, "Invited", invited.FirstName)
+	assert.Equal(t, "Four", invited.LastName)
 	assert.Equal(t, []string{memberPreset.String()}, invited.RoleIDs)
 	require.NotNil(t, invited.InvitedAt)
 	assert.Nil(t, invited.LastLoginAt)

@@ -2207,3 +2207,105 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - `lastLoginAt` unterscheidet nicht zwischen "nie eingeloggt" und "eingeloggt, aber jede Session seither
     geloescht" — beides liefert `null`. Nur relevant, falls das FE das je unterscheiden will.
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 35 — g-admin-users-invite — done — 2026-08-03
+- commit: (siehe naechste Iteration)
+- verify vorgaenger: sauber. `55f439fe` (g-admin-users-list, Iteration 34) gegen die Fehlerklassen
+  geprueft. Klasse 1 sauber — `HandleListAdminUsers` holt sich `a.getAuthClient()` und ruft
+  `client.ListAdminUsers`, keine direkt injizierte Service-Instanz. Klasse 2 sauber —
+  `PostgresRepository.ListAdminUsers` ist eine echte Zwei-Query-Komposition, kein Stub; die drei
+  Datenluecken (jobTitle/hasOverrides/lastLoginAt) sind bewusst leer statt erfunden und im Code sowie
+  in openapi.yaml als solche dokumentiert. Klasse 3 sauber — `auth.pb.go`/`auth_grpc.pb.go` im selben
+  Commit regeneriert. Klasse 4 N/A — kein neuer Permission-Key, `RequireRole("admin")` wie die
+  Nachbarroute. Klasse 5 N/A — keine neue Tabelle. Klasse 7 sauber — Route in openapi.yaml,
+  `TestOpenAPIRouteDrift` gruen. Klasse 8 sauber — die neue `Get("/")` steht neben der bestehenden
+  `/{id}/permissions`, ersetzt nichts. Nichts zu beanstanden.
+- gebaut: `g-admin-users-invite` (naechste `status: todo`-Unit, `deps: [g-admin-users-list]` erfuellt).
+  Drei Routen: `POST /api/v1/admin/users/invite` (201), `PATCH /api/v1/admin/users/{id}`,
+  `POST /api/v1/admin/users/{id}/resend-invite`, alle `RequireRole("admin")` wie die Nachbarroute —
+  kein neuer Permission-Key, also keine Seed-Migration noetig. Antwortform `{user, inviteToken?}`.
+  Migration **000280** (`invitations`: `role_ids UUID[]`, `first_name`, `last_name`; up/down/up gruen).
+  Keine neue Tabelle — `invitations` hat tenant_id + RLS seit 000249, die Spalten erben das.
+  **Die roles-Array-Frage (zentrale Entscheidung der Unit): sauber modelliert, nicht abgeschnitten.**
+  `role_ids` wird autoritativ fuer das, was eine angenommene Einladung gewaehrt; die Legacy-Spalte
+  `role` bleibt NOT NULL, ist aber ab jetzt reine Anzeige (GET /api/v1/invitations liefert sie weiter,
+  ProvisionTenant schreibt sie weiter) und entscheidet nichts mehr. Grund gegen die von den notes
+  ebenfalls erlaubte Variante "erste Rolle nehmen, Rest dokumentieren": ein NAME kann eine
+  Custom-Rolle gar nicht identifizieren — `roles` ist per `(COALESCE(tenant_id,zero), name)` eindeutig,
+  zwei Tenants duerfen dieselbe "Buchhaltung" besitzen. Und das FE schickt ohnehin Rollen-IDs, weil der
+  Roster seit Iteration 34 IDs liefert. Ein Kompromiss haette also nicht weniger Arbeit bedeutet,
+  sondern nur eine Luecke.
+- **Zwei Bestandsdefekte auf demselben Pfad, beide in dieser Iteration geschlossen:**
+  (1) SICHERHEITSRELEVANT: `PostgresRepository.AcceptInvitation` loeste die Rolle mit
+  `INSERT ... SELECT ... WHERE r.name = $2` auf — und der ganze Accept-Pfad laeuft unter
+  `sysctx.With()`, wo RLS aus ist. Sobald irgendein Tenant eine Custom-Rolle namens "admin" besitzt,
+  weist dieses INSERT dem neuen Konto **jede** gleichnamige Zeile zu, fremde Tenants eingeschlossen.
+  Jetzt Aufloesung per ID mit `AND (r.tenant_id IS NULL OR r.tenant_id = <invitation.tenant>)`.
+  Regressionstest `TestAcceptInvitation_DB_ResolvesRolesByID` seedet genau diese Namenskollision ueber
+  zwei Tenants und prueft, dass nur die eigene Rolle ankommt.
+  (2) `ProvisionTenant` hat einen EIGENEN INSERT in `invitations` (nicht ueber `CreateInvitation`) —
+  der haette `role_ids` auf dem Spalten-Default `'{}'` stehen lassen, und der erste Admin-Invite eines
+  frisch provisionierten Tenants waere nicht mehr annehmbar gewesen (`role_not_found`) — der Tenant
+  waere gestrandet. Loest den Preset jetzt inline auf. Der Name muss dabei zweimal als Parameter
+  wandern ($4 Spaltenwert, $9 Vergleich), sonst weigert sich Postgres, den Typ zu deduzieren
+  ("inconsistent types deduced for parameter", varchar(50) vs text). Test
+  `TestProvisionTenant_DB_InvitationCarriesRoleIDs`.
+  Beide fand das Gate, nicht die Planung — (2) haette ohne den vollen `./internal/auth/...`-Lauf
+  niemand bemerkt. Drittes Detail derselben Klasse: ein nil-Go-Slice kommt als SQL NULL an, nicht als
+  Spalten-Default, deshalb `COALESCE($7::uuid[],'{}')` in `CreateInvitation`.
+- **Seat-Limit: existiert bereits, greift automatisch.** Die notes fragten, woher die Platzzahl kommt.
+  Antwort: `tenants.seat_limit` + `Service.assertSeatAvailable` + `repo.CountSeatsInUse` seit
+  Migration 000249, und die Zaehlung schliesst offene, unabgelaufene Einladungen bereits ein. Der neue
+  Invite laeuft ueber dieselbe interne `createInvitation` und erbt die Pruefung; die REAKTIVIERUNG
+  eines deaktivierten Kontos laeuft ebenfalls dagegen, weil ein reaktiviertes Konto einen Platz belegt.
+  Kein erfundener Default noetig.
+- **Guardrails wiederverwendet statt kopiert, mit einer bewussten Abweichung von den notes.** Der
+  Rollen-Vollersatz im PATCH laeuft ueber `AssignUserRole`/`RevokeUserRole` (Revokes zuerst, sonst
+  triggert der Zwischenzustand last_admin), also greifen last_admin, self_lockout und die
+  Escalation-Kappung unveraendert. Die notes forderten zusaetzlich "niemand vergibt per Invite/PATCH
+  eine Rolle, die er selbst nicht haelt" — das waere INKONSISTENT zu `AssignUserRole`, das die
+  Delegation an andere absichtlich erlaubt (hr_admin darf Rollen besetzen, die reicher sind als seine
+  eigene) und nur die Selbstvergabe kappt. Eine strengere Regel nur hier waere ueber
+  `POST /users/{id}/roles` trivial umgehbar gewesen, haette also Sicherheit vorgetaeuscht statt sie zu
+  schaffen. Neu dazugekommen sind drei Regeln, die es vorher nicht gab: `self_deactivation` (409, ein
+  Admin, der sich selbst abschaltet, merkt es erst beim naechsten Login — die laufende Session bleibt
+  gueltig), die Deaktivierungs-Variante von `last_admin`, und `status_not_assignable` (400) fuer
+  "invited". Fuer die Deaktivierungs-Variante braucht es einen neuen Repo-Zaehler
+  `CountActiveRoleAdminsExcludingUser`: der bestehende `CountRoleAdminsExcluding` ignoriert ein
+  user/role-PAAR und beantwortet damit "darf diese Rolle weg", nicht "darf dieses Konto ganz dunkel
+  werden" — ein Admin mit der Faehigkeit ueber zwei Rollen waere von der Paar-Variante mitgezaehlt
+  worden.
+- **`inviteToken` in der Antwort.** Die beiden Invite-Routen liefern den Einmal-Token mit
+  (`{user, inviteToken}`). Grund: **nichts im Backend versendet Einladungsmails** — `auth.Mailer` hat
+  genau eine Methode (`SendPasswordResetEmail`), und `POST /api/v1/invitations` gibt den Token seit
+  jeher in der Antwort zurueck. Ohne dieses Feld waere die neue Route unbenutzbar gewesen (Einladung
+  angelegt, niemand kann sie annehmen). Das FE liest `data.user` und ignoriert das Feld — kein
+  Vertragsbruch, in openapi.yaml dokumentiert.
+- **Nicht-atomar, bewusst:** aendert ein PATCH Rollen UND Status, laufen die Status-Guards vorab, aber
+  ein Fehler beim Status-Write laesst eine bereits geschriebene Rollenaenderung stehen. Der ehrliche
+  Preis dafuer, die geschuetzten Methoden wiederzuverwenden statt user_roles direkt zu schreiben; das
+  FE schickt laut `useAdminUsers.ts` ohnehin eins von beidem. In openapi.yaml benannt, nicht versteckt.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | migration 000280 up/down/up gruen | lint ok
+  (golangci-lint auf auth/gateway/server/models, 0 Issues) | test ok — `go test -count=1
+  ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit `DATABASE_URL` auf
+  `kmuhub_app`: alle gruen, **177 PASS / 0 SKIP** in `internal/auth`, `TestOpenAPIRouteDrift` gruen.
+  8 neue DB-Tests (`admin_users_write_db_test.go`) + 6 neue Gateway-Tests. Der last-admin-Test bekam
+  einen EIGENEN Tenant: "letzter Administrator" ist eine Eigenschaft der Tenant-Population, ein
+  Nachbartest im geteilten Tenant haette ueber sein Ergebnis entschieden (erster Versuch endete
+  genau deshalb in einem Skip — der dann rausgeflogen ist, weil ein Skip nichts beweist).
+  Zur Validator-Konvention: `decodeAndValidate` antwortet mit **400** `validation_failed`, nicht 422 —
+  die openapi-Eintraege dieser Unit sind entsprechend korrigiert worden (erste Fassung dokumentierte
+  faelschlich 422; die Tests haben es aufgedeckt).
+- offen:
+  - **MSW-Mock passt nicht mehr zum echten Backend:** die Invite-Mocks im Desktop arbeiten mit
+    Rollen-NAMEN (`'admin'`), das echte Backend verlangt UUIDs (`dive,uuid` -> 400). Kein
+    Backend-Blocker (der Roster liefert seit Iteration 34 UUIDs, das FE reicht im Echtbetrieb also
+    UUIDs zurueck), aber der Mock maskiert den Unterschied — genau das Muster aus
+    `feedback_nested_proto_flat_type.md`. Gehoert in eine FE-Unit.
+  - **Einladungsmail wird weiterhin nirgends versendet.** `auth.Mailer` kennt nur Passwort-Resets; der
+    Token geht an den Aufrufer. Das ist Bestand, kein Regress, aber A-1 ist erst wirklich fertig, wenn
+    jemand die Zustellung baut (eigene Unit, braucht `SYSTEM_SMTP_*`-Anbindung wie der berichte-Service).
+  - `invitations.role` ist jetzt tote Anzeige-Denormalisierung. Wenn `GET /api/v1/invitations` irgendwann
+    auf `role_ids` umgestellt wird, kann die Spalte weg — nicht in dieser Unit, weil das den
+    Antwortvertrag der Legacy-Route bricht.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.

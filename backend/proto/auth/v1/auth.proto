@@ -36,6 +36,11 @@ service AuthService {
   // its still-open invitations into the one list the account admin surface
   // shows (admin-types.ts, AdminUser).
   rpc ListAdminUsers(ListAdminUsersRequest) returns (ListAdminUsersResponse);
+  // The three writing counterparts of the roster. Each answers with the single
+  // roster row it produced, so the surface can patch its list without refetching.
+  rpc InviteAdminUser(InviteAdminUserRequest) returns (AdminUserResponse);
+  rpc UpdateAdminUser(UpdateAdminUserRequest) returns (AdminUserResponse);
+  rpc ResendAdminUserInvite(ResendAdminUserInviteRequest) returns (AdminUserResponse);
 
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
@@ -163,6 +168,44 @@ message ListAdminUsersRequest {}
 
 message ListAdminUsersResponse {
   repeated AdminUserInfo users = 1;
+}
+
+// AdminUserResponse is the shared answer of the three writing roster routes:
+// the one row the operation produced, in the same shape the list returns.
+//
+// invite_token is set by the two invitation routes and empty otherwise. It is
+// the same one-time token CreateInvitationResponse returns and travels the same
+// way — the caller builds the accept link from it, since nothing in the auth
+// service dispatches invitation mail (Mailer only knows password resets).
+message AdminUserResponse {
+  AdminUserInfo user = 1;
+  string invite_token = 2;
+}
+
+message InviteAdminUserRequest {
+  string email = 1;
+  string first_name = 2;
+  string last_name = 3;
+  // Role ids, not names — a name cannot identify a custom role (roles is
+  // unique per tenant+name, so two tenants may own the same one).
+  repeated string role_ids = 4;
+}
+
+// UpdateAdminUserRequest carries two independent edits. role_ids is a FULL
+// REPLACEMENT when present and untouched when absent, which is why it needs the
+// has_role_ids companion: proto3 cannot tell "clear all roles" from "do not
+// touch roles" on a repeated field.
+message UpdateAdminUserRequest {
+  string user_id = 1;
+  repeated string role_ids = 2;
+  bool has_role_ids = 3;
+  optional string status = 4;
+}
+
+// ResendAdminUserInviteRequest takes the INVITATION id — the id an invited
+// roster row carries, since no user row exists for it yet.
+message ResendAdminUserInviteRequest {
+  string invitation_id = 1;
 }
 
 message UpdateUserRequest {

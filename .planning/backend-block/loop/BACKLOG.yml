@@ -1972,7 +1972,7 @@ units:
     service: auth
     model: opus
     deps: [g-admin-users-list]
-    status: todo
+    status: done
     scope: >
       Die drei schreibenden Routen der Benutzerverwaltung, alle drei vom FE bereits aufgerufen
       (`api/hooks/useAdminUsers.ts:35/52/68`) und im Gateway nicht vorhanden:
@@ -2013,6 +2013,50 @@ units:
       - resend invalidiert den alten Token (Test)
       - Eskalation, Selbst-Deaktivierung und letzter Admin sind geblockt (Tests)
       - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/auth/... gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 35, Migration 000280). Alle drei Routen gebaut, plus zwei
+      Bestandsdefekte, die auf demselben Pfad lagen.
+      **roles-Array-Entscheidung: sauber modelliert, nicht abgeschnitten.** `invitations` bekommt
+      `role_ids UUID[]` (autoritativ) plus `first_name`/`last_name`; die Legacy-Spalte `role` bleibt
+      NOT NULL, ist aber seit dieser Migration reine Anzeige (GET /api/v1/invitations liefert sie
+      weiter, ProvisionTenant schreibt sie weiter) — es entscheidet nichts mehr auf ihr. Der Grund
+      gegen "erste Rolle nehmen": ein NAME kann eine Custom-Rolle gar nicht identifizieren, weil
+      `roles` per (COALESCE(tenant_id,zero), name) eindeutig ist — zwei Tenants duerfen dieselbe
+      "Buchhaltung" besitzen. Das FE schickt ohnehin Rollen-IDS (der Roster liefert seit
+      g-admin-users-list IDs).
+      **Bestandsdefekt 1 (sicherheitsrelevant), in derselben Migration geschlossen:**
+      `AcceptInvitation` loeste die Rolle mit `WHERE r.name = $1` auf — unter `sysctx.With()`, wo RLS
+      aus ist. Sobald irgendein Tenant eine Custom-Rolle "admin" besass, wies das `INSERT ... SELECT`
+      dem neuen Konto ALLE Treffer zu, fremde Tenants eingeschlossen. Jetzt per ID plus
+      `(tenant_id IS NULL OR tenant_id = <invitation.tenant>)`. Regressionstest
+      `TestAcceptInvitation_DB_ResolvesRolesByID` seedet genau diese Namenskollision.
+      **Bestandsdefekt 2, erst durch das Gate sichtbar:** der eigene INSERT in `ProvisionTenant`
+      haette `role_ids` auf dem Spalten-Default stehen lassen — der erste Admin-Invite eines neuen
+      Tenants waere unannehmbar gewesen (`role_not_found`), der Tenant gestrandet. Test
+      `TestProvisionTenant_DB_InvitationCarriesRoleIDs`. Nebenbei: ein nil-Go-Slice kommt als SQL NULL
+      an, nicht als Spalten-Default — `CreateInvitation` braucht deshalb `COALESCE($7::uuid[],'{}')`.
+      **Seat-Limit: existiert bereits und greift automatisch** — `tenants.seat_limit` +
+      `assertSeatAvailable` (Migration 000249). Die Notes-Frage "woher die Platzzahl kommt" ist damit
+      beantwortet, kein erfundener Default noetig. Der Invite laeuft ueber `createInvitation` und erbt
+      die Pruefung; die REAKTIVIERUNG eines Kontos laeuft ebenfalls dagegen (ein reaktiviertes Konto
+      belegt einen Platz).
+      **Guardrails: wiederverwendet, nicht kopiert.** Der Rollen-Vollersatz in PATCH laeuft ueber
+      `AssignUserRole`/`RevokeUserRole`, also greifen last_admin, self_lockout und die
+      Escalation-Kappung unveraendert. Bewusste Abweichung von den notes ("niemand vergibt per Invite
+      eine Rolle, die er nicht haelt"): das waere INKONSISTENT zu `AssignUserRole`, das Delegation an
+      andere absichtlich erlaubt (hr_admin-Muster) und nur die Selbstvergabe kappt — eine strengere
+      Regel hier waere ueber `POST /users/{id}/roles` umgehbar gewesen. Neu dazu: `self_deactivation`
+      (409) und die Deaktivierungs-Variante von `last_admin` (neuer Repo-Zaehler
+      `CountActiveRoleAdminsExcludingUser`: der bestehende ignoriert ein user/role-PAAR, was fuer
+      "darf dieses Konto ganz dunkel werden" zu wenig ist), plus `status_not_assignable` (400) fuer
+      "invited".
+      **inviteToken:** die beiden Invite-Routen liefern den Einmal-Token in der Antwort mit
+      (`{user, inviteToken}`). Nichts im Backend versendet Einladungsmails — `auth.Mailer` kennt nur
+      Passwort-Resets, und `POST /api/v1/invitations` gibt den Token seit jeher genauso zurueck.
+      Ohne das waere die Route unbenutzbar gewesen.
+      Tests: 8 neue DB-Tests in `admin_users_write_db_test.go` (eigene Tenants, der last-admin-Fall
+      sogar ein eigener Tenant, weil "letzter Admin" eine Eigenschaft der Tenant-Population ist), 6
+      neue Gateway-Tests. `go test -count=1 ./internal/auth/...`: 177 PASS, **0 SKIP**.
 
   - id: g-hr-change-requests
     phase: 3

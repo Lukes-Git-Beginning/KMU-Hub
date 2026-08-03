@@ -880,6 +880,180 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # Invite into the roster. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/invite:
+    post:
+      summary: Invite a new account
+      description: >
+        Opens an invitation and answers with the roster row it produced, so the
+        surface can insert it without refetching. roles carries role IDS (preset
+        or custom), not names — a name does not identify a custom role uniquely.
+        Every id is resolved under the roles RLS read policy first, so a role
+        from another tenant answers 404.
+
+
+        inviteToken is the one-time accept token. It travels back to the caller
+        because nothing server-side dispatches invitation mail — the same way
+        POST /api/v1/invitations already works.
+
+
+        A seat is taken by every active account and every pending, unexpired
+        invitation; exceeding tenants.seat_limit answers 409. Requires the
+        admin role.
+      tags: [users]
+      operationId: inviteAdminUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteAdminUserRequest"
+      responses:
+        "201":
+          description: Invitation opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — a named role does not exist or is not visible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            The address already holds an account or a pending invitation, or the
+            tenant's booked seats are all taken.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Roles/status of one account. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}:
+    patch:
+      summary: Change an account's roles or status
+      description: >
+        Both fields are optional and independent. An absent `roles` leaves the
+        account's roles untouched; `"roles": []` strips every role. The role
+        edit runs through the same guarded assign/revoke path as
+        /api/v1/users/{id}/roles, so the wave-1b guardrails apply unchanged
+        (last_admin, self_lockout, and the escalation cap on assigning to
+        oneself).
+
+
+        status accepts active and deactivated only — "invited" is derived from a
+        pending invitation, not a state an account can be put into (400).
+        Deactivating oneself is refused, as is deactivating the tenant's last
+        active administrator. Reactivating takes a seat and can hit the seat
+        limit.
+
+
+        The two edits are not atomic: a failure while writing the status leaves
+        an already-applied role change standing. Requires the admin role.
+      tags: [users]
+      operationId: updateAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminUserRequest"
+      responses:
+        "200":
+          description: Updated roster row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserResult"
+        "400":
+          description: >
+            A malformed body (role ids that are not uuids, a status outside
+            active|deactivated), or status_not_assignable — "invited" is not a
+            state an account can hold.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            Missing the admin role, or privilege_escalation — the caller tried
+            to take on a right they do not hold themselves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such account, or a named role is not visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            last_admin — the tenant's last administrator would go dark;
+            self_lockout — the caller would remove their own role
+            administration; self_deactivation — the caller tried to switch off
+            their own account; or the seat limit blocks a reactivation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Re-issue a pending invitation. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/resend-invite:
+    post:
+      summary: Re-send a pending invitation
+      description: >
+        Issues a fresh token with a fresh expiry and overwrites the old hash in
+        place, so the previous link stops working — two live tokens to one
+        account would be two ways in.
+
+
+        The path id is the INVITATION id, which is what an invited roster row
+        carries (no account exists for it yet). An already-accepted or unknown
+        invitation answers 404. Requires the admin role.
+      tags: [users]
+      operationId: resendAdminUserInvite
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Invitation re-issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No such pending invitation visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Effective permissions of any account (admin audit view). Under /admin/users
   # rather than /users because that is where the RBAC frontend addresses it.
   # Handler: internal/gateway/route_auth.go (AuthRoutes)
@@ -31659,6 +31833,68 @@ components:
           items:
             $ref: "#/components/schemas/AdminUser"
       required: [users]
+
+    AdminUserResult:
+      type: object
+      description: >
+        The answer of the three writing roster routes: the one row the operation
+        produced, in the shape the list returns.
+      properties:
+        user:
+          $ref: "#/components/schemas/AdminUser"
+        inviteToken:
+          type: string
+          description: >
+            One-time accept token, present on the two invitation routes and
+            omitted otherwise. Returned to the caller rather than mailed, the
+            same way POST /api/v1/invitations works.
+      required: [user]
+
+    InviteAdminUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          maxLength: 100
+          description: >
+            Stored on the invitation since migration 000280, so the invited row
+            shows the name the admin typed. The person accepting still enters
+            their own name, which is what the account gets.
+        lastName:
+          type: string
+          maxLength: 100
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Role IDS, preset or custom. At least one — an account with no role
+            has no rights and cannot repair that itself.
+      required: [email, roles]
+
+    UpdateAdminUserRequest:
+      type: object
+      properties:
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+          description: >
+            Full replacement of the account's roles. Absent leaves them
+            untouched; an empty array strips them.
+        status:
+          type: string
+          enum: [active, deactivated]
+          description: >
+            "invited" is not accepted — it is derived from a pending invitation,
+            not a state an existing account can hold.
 
     # RBAC — role administration (Phase 1 wave 1b). camelCase and the null
     # sentinels on tenantId/basedOn are intentional: app-owned contract

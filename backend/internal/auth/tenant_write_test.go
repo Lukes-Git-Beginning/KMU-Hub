@@ -145,11 +145,21 @@ func TestInvitationsWrites_LandInCallerTenant(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "users", inviter.ID)
 
+	// RoleIDs, not just the legacy Role name: since migration 000280 that is
+	// what AcceptInvitation resolves, and an invitation without it grants
+	// nothing.
+	var memberPresetID uuid.UUID
+	if err := pool.QueryRow(sysCtx,
+		`SELECT id FROM roles WHERE tenant_id IS NULL AND name = 'member'`).Scan(&memberPresetID); err != nil {
+		t.Fatalf("member preset lookup: %v", err)
+	}
+
 	inv := &models.Invitation{
 		ID:        uuid.New(),
 		TenantID:  tenantOwn,
 		Email:     "invited-" + uuid.New().String() + "@test.local",
 		Role:      "member",
+		RoleIDs:   []uuid.UUID{memberPresetID},
 		TokenHash: uuid.NewString(),
 		CreatedBy: inviter.ID,
 		ExpiresAt: time.Now().Add(24 * time.Hour),

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -129,6 +130,24 @@ type Repository interface {
 	// Roles and last-login load once each, not once per account.
 	ListAdminUsers(ctx context.Context) ([]AdminUser, error)
 
+	// GetAdminUser and GetInvitationAsAdminUser return a single roster row —
+	// the answer the three writing roster routes give, in the shape the list
+	// returns. GetAdminUser answers ErrUserNotFound and
+	// GetInvitationAsAdminUser ErrInvitationNotFound for a row RLS hides,
+	// since a foreign row is invisible rather than forbidden.
+	GetAdminUser(ctx context.Context, id uuid.UUID) (*AdminUser, error)
+	GetInvitationAsAdminUser(ctx context.Context, id uuid.UUID) (*AdminUser, error)
+
+	// CountActiveRoleAdminsExcludingUser counts the tenant's active accounts
+	// carrying role administration, ignoring one account whole. Unlike
+	// CountRoleAdminsExcluding (which ignores one user/role PAIR) this is what
+	// "may this account be deactivated" needs.
+	CountActiveRoleAdminsExcludingUser(ctx context.Context, keys []string, ignoreUserID uuid.UUID) (int, error)
+
+	// GetPresetRoleIDByName resolves a legacy preset name to its role id.
+	// Presets only — a name does not identify a custom role uniquely.
+	GetPresetRoleIDByName(ctx context.Context, name string) (uuid.UUID, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error
@@ -138,6 +157,10 @@ type Repository interface {
 	// refuse an address that is already invited somewhere else.
 	GetPendingInvitationByEmail(ctx context.Context, email string) (*models.Invitation, error)
 	GetInvitationByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invitation, error)
+	// RefreshInvitationToken re-issues a still-pending invitation with a new
+	// token hash and expiry, invalidating the old token by overwriting it.
+	// Answers ErrInvitationNotFound when the row is gone or already accepted.
+	RefreshInvitationToken(ctx context.Context, tenantID, id uuid.UUID, tokenHash string, expiresAt time.Time) (*models.Invitation, error)
 	ListPendingInvitations(ctx context.Context, tenantID uuid.UUID) ([]*models.Invitation, error)
 	AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error
 	CountSeatsInUse(ctx context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) (used int, limit *int, err error)

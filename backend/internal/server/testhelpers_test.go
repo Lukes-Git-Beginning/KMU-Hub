@@ -259,6 +259,26 @@ func (m *authMockRepo) ListAdminUsers(_ context.Context) ([]auth.AdminUser, erro
 	return nil, nil
 }
 
+func (m *authMockRepo) GetAdminUser(_ context.Context, _ uuid.UUID) (*auth.AdminUser, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetInvitationAsAdminUser(_ context.Context, _ uuid.UUID) (*auth.AdminUser, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) CountActiveRoleAdminsExcludingUser(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) GetPresetRoleIDByName(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
+func (m *authMockRepo) RefreshInvitationToken(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (*models.Invitation, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) GetUserGrants(_ context.Context, _ uuid.UUID) ([]auth.EffectiveGrantRow, error) {
 	return nil, nil
 }

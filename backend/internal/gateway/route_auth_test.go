@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -214,6 +215,69 @@ func TestHandleListAdminUsers_ServiceUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
 	routes.HandleListAdminUsers(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- Writing roster routes ---
+
+func TestHandleInviteAdminUser_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/admin/users/invite",
+		strings.NewReader(`{"email":"a@b.test","roles":["550e8400-e29b-41d4-a716-446655440000"]}`))
+	routes.HandleInviteAdminUser(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// A role list that is not made of uuids has to be refused at the boundary:
+// role NAMES used to be the wire format, and silently accepting one would
+// invite into nothing.
+func TestHandleInviteAdminUser_RejectsRoleNames(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/admin/users/invite",
+		strings.NewReader(`{"email":"a@b.test","roles":["admin"]}`))
+	routes.HandleInviteAdminUser(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+// An invite without a role is refused before it reaches the service — the
+// account it would create could do nothing and could not repair itself.
+func TestHandleInviteAdminUser_RejectsEmptyRoles(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/admin/users/invite",
+		strings.NewReader(`{"email":"a@b.test","roles":[]}`))
+	routes.HandleInviteAdminUser(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUpdateAdminUser_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/admin/users/123", strings.NewReader(`{"status":"active"}`))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateAdminUser(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// "invited" is derived from a pending invitation, not a state an account can
+// be put into — the validator says so before the service has to.
+func TestHandleUpdateAdminUser_RejectsInvitedStatus(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/admin/users/123", strings.NewReader(`{"status":"invited"}`))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateAdminUser(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleResendAdminUserInvite_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/admin/users/123/resend-invite", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleResendAdminUserInvite(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 

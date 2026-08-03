@@ -1079,6 +1079,93 @@ func (s *AuthGRPCServer) ListAdminUsers(ctx context.Context, _ *authv1.ListAdmin
 	return &authv1.ListAdminUsersResponse{Users: out}, nil
 }
 
+// parseRoleIDs turns the wire's role id strings into uuids, refusing the whole
+// set on the first malformed one rather than silently dropping it — a dropped
+// role is a right the caller believes they granted.
+func parseRoleIDs(raw []string) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, len(raw))
+	for i, s := range raw {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid role id")
+		}
+		ids[i] = id
+	}
+	return ids, nil
+}
+
+func (s *AuthGRPCServer) InviteAdminUser(ctx context.Context, req *authv1.InviteAdminUserRequest) (*authv1.AdminUserResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	roleIDs, err := parseRoleIDs(req.RoleIds)
+	if err != nil {
+		return nil, err
+	}
+
+	row, token, err := s.authService.InviteAdminUser(ctx, tenantID, actorID, req.Email, req.FirstName, req.LastName, roleIDs)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row), InviteToken: token}, nil
+}
+
+func (s *AuthGRPCServer) UpdateAdminUser(ctx context.Context, req *authv1.UpdateAdminUserRequest) (*authv1.AdminUserResponse, error) {
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	// HasRoleIds is what separates "replace the roles with none" from "leave
+	// the roles alone" — proto3 renders both as an empty repeated field.
+	var roleIDs *[]uuid.UUID
+	if req.HasRoleIds {
+		parsed, parseErr := parseRoleIDs(req.RoleIds)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		roleIDs = &parsed
+	}
+
+	var wantStatus *auth.AdminUserStatus
+	if req.Status != nil {
+		s := auth.AdminUserStatus(req.GetStatus())
+		wantStatus = &s
+	}
+
+	row, err := s.authService.UpdateAdminUser(ctx, actorID, userID, roleIDs, wantStatus)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row)}, nil
+}
+
+func (s *AuthGRPCServer) ResendAdminUserInvite(ctx context.Context, req *authv1.ResendAdminUserInviteRequest) (*authv1.AdminUserResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	invitationID, err := uuid.Parse(req.InvitationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid invitation id")
+	}
+
+	row, token, err := s.authService.ResendAdminUserInvite(ctx, tenantID, invitationID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row), InviteToken: token}, nil
+}
+
 // ============================================================================
 // Password Reset Handlers
 // ============================================================================
@@ -1160,6 +1247,13 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrPrivilegeEscalation):
 		return status.Error(codes.PermissionDenied, err.Error())
+	// Roster guardrails (phase 3). Deactivating oneself is the same kind of
+	// state conflict as self_lockout and gets the same 409; an unassignable
+	// status is a bad value in the body, so InvalidArgument -> 400.
+	case errors.Is(err, auth.ErrSelfDeactivation):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrStatusNotAssignable):
+		return status.Error(codes.InvalidArgument, err.Error())
 	// OutOfRange, not InvalidArgument: the gateway maps it to 422, matching
 	// the frontend contract's "unbekannter Key -> 422" — InvalidArgument
 	// would land on 400, which the builder does not distinguish from a

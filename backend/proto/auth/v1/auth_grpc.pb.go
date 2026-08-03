@@ -40,6 +40,9 @@ const (
 	AuthService_AssignUserRole_FullMethodName          = "/auth.v1.AuthService/AssignUserRole"
 	AuthService_RevokeUserRole_FullMethodName          = "/auth.v1.AuthService/RevokeUserRole"
 	AuthService_ListAdminUsers_FullMethodName          = "/auth.v1.AuthService/ListAdminUsers"
+	AuthService_InviteAdminUser_FullMethodName         = "/auth.v1.AuthService/InviteAdminUser"
+	AuthService_UpdateAdminUser_FullMethodName         = "/auth.v1.AuthService/UpdateAdminUser"
+	AuthService_ResendAdminUserInvite_FullMethodName   = "/auth.v1.AuthService/ResendAdminUserInvite"
 	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
 	AuthService_UpdateProfile_FullMethodName           = "/auth.v1.AuthService/UpdateProfile"
 	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
@@ -94,6 +97,11 @@ type AuthServiceClient interface {
 	// its still-open invitations into the one list the account admin surface
 	// shows (admin-types.ts, AdminUser).
 	ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error)
+	// The three writing counterparts of the roster. Each answers with the single
+	// roster row it produced, so the surface can patch its list without refetching.
+	InviteAdminUser(ctx context.Context, in *InviteAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
+	UpdateAdminUser(ctx context.Context, in *UpdateAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
+	ResendAdminUserInvite(ctx context.Context, in *ResendAdminUserInviteRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
 	// Profile & Password
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileResponse, error)
@@ -342,6 +350,36 @@ func (c *authServiceClient) ListAdminUsers(ctx context.Context, in *ListAdminUse
 	return out, nil
 }
 
+func (c *authServiceClient) InviteAdminUser(ctx context.Context, in *InviteAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_InviteAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateAdminUser(ctx context.Context, in *UpdateAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ResendAdminUserInvite(ctx context.Context, in *ResendAdminUserInviteRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_ResendAdminUserInvite_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetProfileResponse)
@@ -583,6 +621,11 @@ type AuthServiceServer interface {
 	// its still-open invitations into the one list the account admin surface
 	// shows (admin-types.ts, AdminUser).
 	ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error)
+	// The three writing counterparts of the roster. Each answers with the single
+	// roster row it produced, so the surface can patch its list without refetching.
+	InviteAdminUser(context.Context, *InviteAdminUserRequest) (*AdminUserResponse, error)
+	UpdateAdminUser(context.Context, *UpdateAdminUserRequest) (*AdminUserResponse, error)
+	ResendAdminUserInvite(context.Context, *ResendAdminUserInviteRequest) (*AdminUserResponse, error)
 	// Profile & Password
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileResponse, error)
@@ -683,6 +726,15 @@ func (UnimplementedAuthServiceServer) RevokeUserRole(context.Context, *RevokeUse
 }
 func (UnimplementedAuthServiceServer) ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAdminUsers not implemented")
+}
+func (UnimplementedAuthServiceServer) InviteAdminUser(context.Context, *InviteAdminUserRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InviteAdminUser not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateAdminUser(context.Context, *UpdateAdminUserRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAdminUser not implemented")
+}
+func (UnimplementedAuthServiceServer) ResendAdminUserInvite(context.Context, *ResendAdminUserInviteRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResendAdminUserInvite not implemented")
 }
 func (UnimplementedAuthServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
@@ -1142,6 +1194,60 @@ func _AuthService_ListAdminUsers_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).ListAdminUsers(ctx, req.(*ListAdminUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_InviteAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InviteAdminUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).InviteAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_InviteAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).InviteAdminUser(ctx, req.(*InviteAdminUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAdminUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateAdminUser(ctx, req.(*UpdateAdminUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ResendAdminUserInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResendAdminUserInviteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ResendAdminUserInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ResendAdminUserInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ResendAdminUserInvite(ctx, req.(*ResendAdminUserInviteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1614,6 +1720,18 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAdminUsers",
 			Handler:    _AuthService_ListAdminUsers_Handler,
+		},
+		{
+			MethodName: "InviteAdminUser",
+			Handler:    _AuthService_InviteAdminUser_Handler,
+		},
+		{
+			MethodName: "UpdateAdminUser",
+			Handler:    _AuthService_UpdateAdminUser_Handler,
+		},
+		{
+			MethodName: "ResendAdminUserInvite",
+			Handler:    _AuthService_ResendAdminUserInvite_Handler,
 		},
 		{
 			MethodName: "GetProfile",

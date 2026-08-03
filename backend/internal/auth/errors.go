@@ -88,6 +88,17 @@ var (
 	// does not hold themselves — including widening a scope (own -> all) past
 	// their own. Same frontend caveat as ErrSelfLockout.
 	ErrPrivilegeEscalation = errors.New("privilege_escalation")
+	// ErrSelfDeactivation blocks an administrator from switching their own
+	// account off. It is not covered by ErrSelfLockout, which is about losing
+	// a capability: deactivation takes away every capability at once, and does
+	// it silently — the current session keeps working until it expires, so the
+	// mistake only surfaces at the next login.
+	ErrSelfDeactivation = errors.New("self_deactivation")
+	// ErrStatusNotAssignable rejects a status an account cannot be put into.
+	// "invited" is the only one: it is derived from a pending invitation, not
+	// a state a real account can hold, so accepting it would silently do
+	// nothing.
+	ErrStatusNotAssignable = errors.New("status_not_assignable")
 
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")

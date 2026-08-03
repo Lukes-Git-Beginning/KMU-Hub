@@ -164,6 +164,9 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 	r.Route("/api/v1/admin/users", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequireRole("admin")).Get("/", a.HandleListAdminUsers)
+		r.With(middleware.RequireRole("admin")).Post("/invite", a.HandleInviteAdminUser)
+		r.With(middleware.RequireRole("admin")).Patch("/{id}", a.HandleUpdateAdminUser)
+		r.With(middleware.RequireRole("admin")).Post("/{id}/resend-invite", a.HandleResendAdminUserInvite)
 		r.With(middleware.RequireRole("admin")).Get("/{id}/permissions", a.HandleGetUserPermissions)
 	})
 
@@ -415,6 +418,121 @@ func (a *AuthRoutes) HandleListAdminUsers(w http.ResponseWriter, r *http.Request
 	}
 
 	response.JSON(w, http.StatusOK, body)
+}
+
+// adminUserResultBody is the answer of the three writing roster routes. The
+// frontend reads `user` alone (useAdminUsers.ts); inviteToken rides along on
+// the two invitation routes because nothing server-side dispatches invitation
+// mail — the caller builds the accept link, exactly as POST /api/v1/invitations
+// already works.
+type adminUserResultBody struct {
+	User        adminUserBody `json:"user"`
+	InviteToken string        `json:"inviteToken,omitempty"`
+}
+
+func respondAdminUser(w http.ResponseWriter, code int, resp *authv1.AdminUserResponse) {
+	response.JSON(w, code, adminUserResultBody{
+		User:        toAdminUserBody(resp.User),
+		InviteToken: resp.InviteToken,
+	})
+}
+
+type inviteAdminUserRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	FirstName string `json:"firstName" validate:"omitempty,max=100"`
+	LastName  string `json:"lastName" validate:"omitempty,max=100"`
+	// No oneof on the ids: role ids are resolved dynamically against the roles
+	// table, which is the only way a custom role can ever be invited. min=1
+	// because an account with no role has no rights and cannot fix that itself.
+	Roles []string `json:"roles" validate:"required,min=1,dive,uuid"`
+}
+
+// HandleInviteAdminUser opens an invitation for an address and answers with the
+// roster row it produced, so the surface can insert it without refetching.
+func (a *AuthRoutes) HandleInviteAdminUser(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[inviteAdminUserRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.InviteAdminUser(r.Context(), &authv1.InviteAdminUserRequest{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		RoleIds:   req.Roles,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusCreated, resp)
+}
+
+type updateAdminUserRequest struct {
+	// A pointer to a slice, not a slice: an absent `roles` leaves the account's
+	// roles alone, while `"roles": []` strips them. Collapsing the two would
+	// make every status-only PATCH silently clear the account's rights.
+	Roles  *[]string `json:"roles" validate:"omitempty,dive,uuid"`
+	Status *string   `json:"status" validate:"omitempty,oneof=active deactivated"`
+}
+
+// HandleUpdateAdminUser changes an account's roles and/or its active state.
+func (a *AuthRoutes) HandleUpdateAdminUser(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[updateAdminUserRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &authv1.UpdateAdminUserRequest{
+		UserId: chi.URLParam(r, "id"),
+		Status: req.Status,
+	}
+	if req.Roles != nil {
+		grpcReq.HasRoleIds = true
+		grpcReq.RoleIds = *req.Roles
+	}
+
+	resp, err := client.UpdateAdminUser(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusOK, resp)
+}
+
+// HandleResendAdminUserInvite re-issues a pending invitation. The path id is
+// the INVITATION id, which is what an invited roster row carries — no account
+// exists for it yet.
+func (a *AuthRoutes) HandleResendAdminUserInvite(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ResendAdminUserInvite(r.Context(), &authv1.ResendAdminUserInviteRequest{
+		InvitationId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusOK, resp)
 }
 
 type updateUserRequest struct {
