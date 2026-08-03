@@ -40,7 +40,7 @@ func (m *mockWorkflowRepo) List(_ context.Context, _ workflow.ListFilter) ([]*mo
 func (m *mockWorkflowRepo) ListActiveByTriggerType(_ context.Context, _ string) ([]*models.Automation, error) {
 	return nil, nil
 }
-func (m *mockWorkflowRepo) ListActiveTimeBased(_ context.Context) ([]*models.Automation, error) {
+func (m *mockWorkflowRepo) ListActiveTimeBased(_ context.Context, _ []string) ([]*models.Automation, error) {
 	return nil, nil
 }
 func (m *mockWorkflowRepo) SetActive(_ context.Context, _, _ uuid.UUID, _ bool) error {
@@ -48,6 +48,9 @@ func (m *mockWorkflowRepo) SetActive(_ context.Context, _, _ uuid.UUID, _ bool) 
 }
 func (m *mockWorkflowRepo) UpdateLastTriggered(_ context.Context, _ uuid.UUID, _ time.Time) error {
 	return nil
+}
+func (m *mockWorkflowRepo) ClaimTimeTrigger(_ context.Context, _ uuid.UUID, _ *time.Time, _ time.Time) (bool, error) {
+	return true, nil
 }
 
 // mockExecRepo satisfies workflow.ExecutionRepository with no-op stubs.

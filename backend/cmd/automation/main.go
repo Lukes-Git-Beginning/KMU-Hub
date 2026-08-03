@@ -171,7 +171,7 @@ func main() {
 	// =========================================================================
 	// Time-based trigger poller
 	// =========================================================================
-	timeTriggerPoller := trigger.NewTimeTriggerPoller(repo, repo, workflowEngine, pool)
+	timeTriggerPoller := trigger.NewTimeTriggerPoller(repo, workflowEngine, pool, triggerReg)
 	go timeTriggerPoller.Start(ctx)
 
 	// =========================================================================

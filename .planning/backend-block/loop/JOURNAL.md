@@ -2910,3 +2910,74 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - offen fuer die naechste Iteration: `g-automation-cron-poller` (haengt an dieser Unit) — der
   Poller-Bug ist bereits gefixt (siehe oben), nicht erneut suchen. Dort geht es nur noch um die
   Doppelausfuehrungssperre analog `g-berichte-scheduler`.
+
+## Iteration 45 — g-automation-cron-poller — done — 2026-08-03 06:55
+
+- verify-vorspann auf `45e0dc91` (Iteration 44, webhook.received-Trigger): Diff gelesen
+  (`route_automation.go`, `automation_grpc.go`, `webhook.go`, `poller.go`, proto + Regen,
+  openapi.yaml, Tests). Handler geht ueber `client.TriggerWebhook` (kein Gateway-Bypass), gRPC-Server
+  liest bewusst keinen Tenant aus dem Context (dokumentiert, Tenant kommt aus der Automation-Zeile
+  unter sysctx), `.proto` + `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert, keine neue
+  `RequirePermission` (Route ist bewusst unauthenticated, kein Seed noetig), keine Tenant-Luecke
+  (Webhook-Secret + sysctx-Read + explizite Trigger-Type/Active-Pruefung), Wire-Shape
+  `{duplicate: bool}` passt zum simplen Accepted-Response, Route in openapi.yaml eingetragen
+  (`TestOpenAPIRouteDrift` gruen). Kein Fund. Sauber.
+- gebaut: `g-automation-cron-poller`.
+- **Zweiter, tieferer Bug gefunden, der den in Iteration 44 gefixten ModuleID-Bug wirkungslos
+  gehalten haette:** `ListActiveTimeBased` filterte `WHERE trigger_type = 'time_based'` — dieser
+  String ist in der 14-Eintraege-Trigger-Registry NIRGENDS registriert (die echten Typen heissen
+  `biz.invoice.overdue`, `calendar.event.upcoming` usw.), und `validateAutomation` lehnt beim
+  Anlegen jeden nicht-registrierten `trigger_type` ab — die Query lieferte also strukturell IMMER
+  null Zeilen. Der Poller lief brav alle 5 Minuten, fand aber nie etwas zu tun. Ohne diesen Fix waere
+  "Faellige Automation laeuft" aus dem `done_when` schlicht falsch gewesen, unabhaengig von einer
+  Ausfuehrungssperre.
+- Fix: `Repository.ListActiveTimeBased(ctx, triggerTypes []string)` nimmt jetzt die konkrete
+  Typliste vom Aufrufer entgegen statt selbst zu entscheiden, was "zeitbasiert" heisst.
+  `trigger.TimeTriggerPoller` berechnet sie einmalig bei Konstruktion aus der Registry
+  (`timeBasedTriggerTypes()`, filtert `TriggerDefinition.TimeBased == true`) — bewusst nicht
+  umgekehrt (Registry-Zugriff aus `workflow` heraus), das haette einen Importzyklus erzeugt
+  (`trigger` importiert bereits `workflow`, nicht umgekehrt).
+- **Ausfuehrungssperre** wie von der Unit gefordert, 1:1 gespiegelt von
+  `berichte/scheduler.ClaimSchedule`: neue Methode `ClaimTimeTrigger` macht ein
+  Optimistic-Concurrency-`UPDATE` auf einen Zeitstempel, `RowsAffected()==1` entscheidet claimed
+  ja/nein. Neue Spalte `automations.last_polled_at` (Migration 000284) statt Wiederverwendung von
+  `last_triggered_at` — Letzteres ist FE-sichtbar ("letzte Ausfuehrung",
+  `AutomatisierungPage.tsx`/`automation-types.ts`) und wird nur nach erfolgreicher
+  Actions-Ausfuehrung gesetzt; ein Claim-Versuch ist semantisch etwas anderes (kann gewinnen, obwohl
+  die Condition danach false auswertet) und haette dort einen falschen Zeitstempel gezeigt.
+  Die racy History-Pruefung `wasRecentlyExecuted` (Check-then-Act-Query gegen
+  `automation_executions`) ist komplett entfernt, `execRepo` damit aus dem Poller-Konstruktor raus
+  (war nur dafuer da) — ein Mechanismus statt zwei ueberlappenden, von denen einer racy war.
+- "Verpasste Zeitfenster nicht nachholen-stampeden" war bereits durch das bestehende Design erfuellt
+  (`Start()` feuert einmal sofort, danach fester 5-Minuten-Tick, kein Aufholen mehrerer verpasster
+  Ticks) — keine Aenderung noetig, nur verifiziert.
+- **Gefunden, bewusst nicht angefasst (ausserhalb des Scopes dieser Unit):** die synthetischen
+  Poller-Events tragen kein `Payload` (`evt := models.EventPayload{Type, ModuleID, Timestamp}`),
+  wodurch `engine.buildEnvFromPayload` ein leeres Environment baut. Eine Condition wie
+  "invoice.days_overdue > 3" sieht dieses Feld nie — die Automation feuert bei jedem Tick
+  unconditional statt nur beim tatsaechlichen Erreichen der Schwelle, weil nirgends einzelne
+  ueberfaellige Rechnungen/anstehende Termine aufgeloest und pro Ressource ein Event gebaut wird.
+  Eigenstaendiges, deutlich groesseres Feature (Resource-Level-Polling pro Trigger-Typ), stand nicht
+  in den Notes dieser Unit — Kandidat fuer einen neuen Backlog-Eintrag
+  `g-automation-resource-level-time-triggers`, nicht in diesem Commit geloest (analog zur
+  Idempotency-Reserve-Race aus Iteration 44, die ebenfalls nur im Journal vermerkt und nicht selbst
+  als Unit angelegt wurde).
+- Tests: 2 neue DB-Tests (`workflow/time_trigger_db_test.go`,
+  `TestListActiveTimeBased_FiltersByProvidedTypes` + `TestClaimTimeTrigger_AtomicClaim`, echte
+  Postgres-Rolle `kmuhub_app`, je ein frischer Tenant statt TenantA/B), 5 neue Unit-Tests
+  (`trigger/poller_test.go`: Registry-Flag-Abgleich, Claim-gated-Execute inkl. verlorenem Claim,
+  leere Registry ueberspringt den Repo-Call komplett, Claim-Fehler blockt Ausfuehrung ohne die
+  restliche Schleife abzubrechen).
+- Migration 000284 (`automations.last_polled_at`, nullable, kein Backfill noetig) — up/down/up
+  lokal gruen. RLS auf `automations` nach der Migration weiterhin `relrowsecurity=t` mit
+  unveraenderter Policy `tenant_isolation` (per psql verifiziert, keine Policy angefasst, keine
+  neue Tabelle).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, keine neue
+  Route (openapi.yaml unveraendert, `swagger-cli validate` -> "is valid").
+- gate: `go build -p 2` + `go vet` + `golangci-lint run` auf `internal/automation/...`,
+  `internal/gateway/...`, `internal/models/...`, `cmd/automation/...`, `cmd/gateway/...` ->
+  0 issues. Mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 284):
+  `go test -count=1 -v ./internal/automation/... ./internal/gateway/...` -> 768 PASS, 0 SKIP,
+  0 FAIL, die beiden neuen DB-Tests liefen tatsaechlich (nicht uebersprungen).
+- offen fuer Luke: Triage von `g-automation-resource-level-time-triggers` (siehe oben) als neue
+  Backlog-Unit, falls gewuenscht — nicht in dieser Iteration angelegt.

@@ -2718,7 +2718,7 @@ units:
     service: automation
     model: sonnet
     deps: [g-automation-webhook-trigger]
-    status: todo
+    status: done
     scope: >
       Cron-Trigger: zeitgesteuerte Automationen tatsaechlich ausloesen.
     sources:
@@ -2740,6 +2740,57 @@ units:
       - Faellige Automation laeuft, keine Doppelausfuehrung
       - Mechanismus mit g-berichte-scheduler geteilt, falls vorhanden
       - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 45). **Zweiter, tieferer Bug gefunden und behoben, der die ModuleID-Fixe
+      aus Iteration 44 wirkungslos gehalten haette:** `ListActiveTimeBased` filterte
+      `WHERE trigger_type = 'time_based'` — dieser String existiert in der Trigger-Registry
+      nirgends (die 14 registrierten Typen heissen z.B. `biz.invoice.overdue`,
+      `calendar.event.upcoming`; `validateAutomation` lehnt jeden anderen `trigger_type` beim
+      Anlegen ab). Die Query lieferte dadurch IMMER null Zeilen — der Poller lief alle 5 Minuten,
+      fand aber strukturell nie eine Automation. Ohne diesen Fix waere "Faellige Automation laeuft"
+      aus dem `done_when` schlicht falsch gewesen, unabhaengig von der Ausfuehrungssperre.
+      Fix: `Repository.ListActiveTimeBased(ctx, triggerTypes []string)` nimmt jetzt die konkrete
+      Typliste vom Aufrufer entgegen; `trigger.TimeTriggerPoller` berechnet sie einmalig bei
+      Konstruktion aus der Registry (`timeBasedTriggerTypes()`, filtert `TriggerDefinition.TimeBased
+      == true`) — bewusst NICHT der Registry-Zugriff aus dem `workflow`-Paket heraus, das wuerde
+      einen Importzyklus erzeugen (`trigger` importiert bereits `workflow`).
+      **Ausfuehrungssperre** wie in der Unit gefordert: `ClaimTimeTrigger` spiegelt
+      `berichte/scheduler.ClaimSchedule` 1:1 (Optimistic-Concurrency-UPDATE auf einen Zeitstempel,
+      `RowsAffected()==1` entscheidet). Neue Spalte `automations.last_polled_at`
+      (Migration 000284) statt Wiederverwendung von `last_triggered_at` — Letzteres ist FE-sichtbar
+      ("letzte Ausfuehrung", `AutomatisierungPage.tsx`/`automation-types.ts`) und wird nur nach
+      erfolgreicher Actions-Ausfuehrung gesetzt; ein Claim-Versuch waere semantisch etwas anderes
+      (ein Claim kann gewinnen, obwohl die Condition danach false auswertet) und haette dort falsche
+      Zeitstempel gezeigt. Die racy History-Pruefung `wasRecentlyExecuted` (Query gegen
+      `automation_executions` als Check-then-Act) ist komplett entfernt, `execRepo` damit aus dem
+      Poller-Konstruktor raus (war nur dafuer da) — ein Mechanismus statt zwei ueberlappenden, einer
+      davon racy.
+      "Verpasste Zeitfenster nicht nachholen-stampeden": bereits durch das bestehende Design erfuellt
+      (`Start()` feuert einmal sofort, danach fester 5-Minuten-Tick, kein Nachholen mehrerer
+      verpasster Ticks) — keine Aenderung noetig, nur verifiziert.
+      **Nicht angefasst, bewusst ausserhalb des Scopes:** die synthetischen Poller-Events tragen kein
+      `Payload` (`evt := models.EventPayload{Type, ModuleID, Timestamp}` — kein Payload-Feld gesetzt),
+      wodurch `engine.buildEnvFromPayload` ein leeres Environment baut. Conditions, die auf
+      `invoice.days_overdue`/`event.minutes_until` pruefen, sehen diese Felder nie — die Automation
+      feuert bei jedem Tick unconditional statt nur beim echten Erreichen der Schwelle, weil das
+      Backend nirgends einzelne ueberfaellige Rechnungen/anstehende Termine auflockert und pro
+      Ressource ein Event baut. Das ist ein eigenstaendiges, deutlich groesseres Feature (Resource-
+      Level-Polling pro Trigger-Typ) und stand in den Notes dieser Unit nicht — als Kandidat fuer
+      einen neuen Backlog-Eintrag `g-automation-resource-level-time-triggers` vormerken, nicht in
+      diesem Commit geloest.
+      Tests: 2 neue DB-Tests (`workflow/time_trigger_db_test.go`,
+      `TestListActiveTimeBased_FiltersByProvidedTypes` + `TestClaimTimeTrigger_AtomicClaim`, echte
+      Postgres-Rolle `kmuhub_app`, je ein frischer Tenant), 5 neue Unit-Tests
+      (`trigger/poller_test.go`, Registry-Flag-Abgleich + Claim-gated-Execute + leere Registry
+      ueberspringt den Repo-Call + Claim-Fehler blockt Ausfuehrung ohne die Schleife abzubrechen).
+      Migration 000284 (`last_polled_at`, nullable, kein Backfill noetig) — up/down/up lokal gruen,
+      RLS auf `automations` nach der Migration weiterhin `relrowsecurity=t` mit unveraenderter Policy
+      (verifiziert per psql, keine Policy angefasst).
+      Gate: `go build -p 2` + `go vet` + `golangci-lint` auf
+      `internal/automation/...`, `internal/gateway/...`, `internal/models/...`, `cmd/automation/...`,
+      `cmd/gateway/...` → 0 issues. `swagger-cli validate` → "is valid" (keine Route angefasst).
+      Mit `DATABASE_URL` gegen `kmuhub_app`: `go test -count=1 -v ./internal/automation/...
+      ./internal/gateway/...` → 768 PASS, 0 SKIP, 0 FAIL.
   - id: g-mails-multi-account
     phase: 3
     service: mails

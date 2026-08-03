@@ -30,9 +30,10 @@ type mockRepo struct {
 	getByIDUnscopedFn   func(ctx context.Context, id uuid.UUID) (*models.Automation, error)
 	listFn              func(ctx context.Context, f ListFilter) ([]*models.Automation, int, error)
 	listActiveByTrigFn  func(ctx context.Context, triggerType string) ([]*models.Automation, error)
-	listActiveTimeBasFn func(ctx context.Context) ([]*models.Automation, error)
+	listActiveTimeBasFn func(ctx context.Context, triggerTypes []string) ([]*models.Automation, error)
 	setActiveFn         func(ctx context.Context, id uuid.UUID, active bool) error
 	updateLastTriggFn   func(ctx context.Context, id uuid.UUID, at time.Time) error
+	claimTimeTriggerFn  func(ctx context.Context, id uuid.UUID, previous *time.Time, now time.Time) (bool, error)
 }
 
 func (m *mockRepo) Create(ctx context.Context, a *models.Automation) error {
@@ -92,9 +93,9 @@ func (m *mockRepo) ListActiveByTriggerType(ctx context.Context, triggerType stri
 	return nil, nil
 }
 
-func (m *mockRepo) ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error) {
+func (m *mockRepo) ListActiveTimeBased(ctx context.Context, triggerTypes []string) ([]*models.Automation, error) {
 	if m.listActiveTimeBasFn != nil {
-		return m.listActiveTimeBasFn(ctx)
+		return m.listActiveTimeBasFn(ctx, triggerTypes)
 	}
 	return nil, nil
 }
@@ -111,6 +112,13 @@ func (m *mockRepo) UpdateLastTriggered(ctx context.Context, id uuid.UUID, at tim
 		return m.updateLastTriggFn(ctx, id, at)
 	}
 	return nil
+}
+
+func (m *mockRepo) ClaimTimeTrigger(ctx context.Context, id uuid.UUID, previous *time.Time, now time.Time) (bool, error) {
+	if m.claimTimeTriggerFn != nil {
+		return m.claimTimeTriggerFn(ctx, id, previous, now)
+	}
+	return true, nil
 }
 
 type mockExecRepo struct {
