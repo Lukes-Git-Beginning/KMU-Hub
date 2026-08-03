@@ -61,6 +61,7 @@ service HRService {
   rpc ListEmployees(ListEmployeesReq) returns (ListEmployeesResp);
   rpc GetEmployee(GetEmployeeReq) returns (GetEmployeeResp);
   rpc UpdateEmployee(UpdateEmployeeReq) returns (UpdateEmployeeResp);
+  rpc OffboardEmployee(OffboardEmployeeReq) returns (OffboardEmployeeResp);
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
@@ -232,6 +233,13 @@ message EmployeeProfile {
   string user_name = 18;
   string user_email = 19;
   string manager_name = 20;
+  // Offboarding state. status is active | inactive; the exit_* fields stay
+  // empty until the employee leaves.
+  string status = 21;
+  string last_work_day = 22;         // YYYY-MM-DD
+  string exit_date = 23;             // YYYY-MM-DD
+  string exit_type = 24;
+  string exit_reason = 25;
 }
 
 message HRDocumentCategory {
@@ -605,6 +613,27 @@ message UpdateEmployeeReq {
 }
 
 message UpdateEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
+message OffboardEmployeeReq {
+  // The employee profile id from the route, not the user id.
+  string employee_id = 1;
+  string last_work_day = 2;          // YYYY-MM-DD
+  string exit_date = 3;              // YYYY-MM-DD
+  // resignation | termination | fixed_term_expired | mutual_termination |
+  // retirement. String, not an enum: the gateway marshals enums as numbers
+  // (UseEnumNumbers) and the desktop dialog types this as a string union.
+  string exit_type = 4;
+  string reason = 5;
+  // Whether the position is to be refilled. Recorded for the audit trail; it
+  // has no effect on the cascade.
+  bool backfill = 6;
+  // Required when the leaver still has direct reports.
+  string successor_user_id = 7;
+}
+
+message OffboardEmployeeResp {
   EmployeeProfile employee = 1;
 }
 

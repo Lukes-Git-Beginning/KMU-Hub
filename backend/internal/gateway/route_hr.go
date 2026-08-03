@@ -162,6 +162,9 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
+		// team:employee:offboard is in the catalogue since 000256 and assigned
+		// to admin and hr_admin, so no seed migration is needed here.
+		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/offboard", h.HandleOffboardEmployee)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
 		// Additive guard: the legacy "hr:read" key stays valid AND the
@@ -1087,6 +1090,52 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.Proto(w, http.StatusOK, resp.Employee)
+}
+
+type offboardEmployeeHTTPReq struct {
+	LastWorkDay string `json:"lastWorkDay"                validate:"omitempty,datetime=2006-01-02"`
+	ExitDate    string `json:"exitDate"                   validate:"required,datetime=2006-01-02"`
+	// The five values the offboard dialog offers; the service checks the set
+	// again, this only keeps a typo out of the service.
+	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement"`
+	Reason          string `json:"reason"`
+	Backfill        bool   `json:"backfill"`
+	SuccessorUserID string `json:"successorUserId"    validate:"omitempty,uuid"`
+}
+
+// HandleOffboardEmployee ends an employment. The body is camelCase, unlike the
+// rest of the HR routes: the desktop client posts the offboard dialog's form
+// state unchanged (hr-client.ts:943), so snake_case keys would arrive empty.
+func (h *HRRoutes) HandleOffboardEmployee(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[offboardEmployeeHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	// The tenant and the acting user are not passed on: the service reads both
+	// from the context, which is what makes the self-offboard guard hold.
+	resp, err := client.OffboardEmployee(r.Context(), &hrv1.OffboardEmployeeReq{
+		EmployeeId:      chi.URLParam(r, "id"),
+		LastWorkDay:     req.LastWorkDay,
+		ExitDate:        req.ExitDate,
+		ExitType:        req.ExitType,
+		Reason:          req.Reason,
+		Backfill:        req.Backfill,
+		SuccessorUserId: req.SuccessorUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// The whole response, not resp.Employee: the client reads `{employee}`.
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateSelfProfileHTTPReq struct {

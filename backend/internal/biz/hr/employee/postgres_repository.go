@@ -52,6 +52,7 @@ func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate,
+			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -71,6 +72,7 @@ func (r *PostgresEmployeeRepo) GetByUserID(ctx context.Context, userID uuid.UUID
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate,
+			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -135,6 +137,7 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate,
+			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -186,6 +189,146 @@ func (r *PostgresEmployeeRepo) Update(ctx context.Context, profile *models.Emplo
 	)
 	return err
 }
+
+// CountOtherActiveRoleAdmins counts the tenant's active accounts that still
+// carry role administration, ignoring one user. Mirrors
+// auth.PostgresRepository.CountActiveRoleAdminsExcludingUser — the same query
+// behind the same guard, kept here because HR runs the offboard transaction and
+// there is no service-to-service gRPC in this repository.
+//
+// user_roles has neither tenant_id nor RLS (backlog unit g-user-roles-rls); the
+// join on users is what scopes this to the tenant, so it must not be dropped.
+func (r *PostgresEmployeeRepo) CountOtherActiveRoleAdmins(ctx context.Context, userID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(DISTINCT ur.user_id)
+		   FROM user_roles ur
+		   JOIN users u ON u.id = ur.user_id AND u.is_active
+		   JOIN role_permissions rp ON rp.role_id = ur.role_id
+		   JOIN permissions p ON p.id = rp.permission_id
+		  WHERE p.name = ANY($1) AND ur.user_id <> $2`,
+		roleAdminKeys, userID,
+	).Scan(&count)
+	return count, err
+}
+
+// CountDirectReports returns how many active employees report to userID.
+func (r *PostgresEmployeeRepo) CountDirectReports(ctx context.Context, tenantID, userID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM hr_employee_profiles
+		  WHERE tenant_id = $1 AND manager_user_id = $2 AND status = 'active'`,
+		tenantID, userID,
+	).Scan(&count)
+	return count, err
+}
+
+// Offboard performs the whole exit cascade in one transaction: the personnel
+// record goes inactive, the account loses its login and its roles, and the
+// direct reports move to the successor.
+//
+// One transaction rather than a sequence of service calls: users,
+// user_roles and hr_employee_profiles live in the same database, so the
+// distributed-transaction problem the split into services would normally create
+// does not arise here. A partial offboard — a personnel file marked inactive
+// behind an account that can still log in — is the failure nobody notices.
+//
+// The seat comes back on its own: auth counts seats as active users
+// (CountSeatsInUse), so is_active = false releases it without a separate step.
+func (r *PostgresEmployeeRepo) Offboard(ctx context.Context, in OffboardWrite) (*models.EmployeeProfile, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// The condition on status is the concurrency guard: a second offboard
+	// arriving at the same time finds no row and gets ErrAlreadyOffboarded
+	// instead of overwriting the first one's exit data.
+	tag, err := tx.Exec(ctx,
+		`UPDATE hr_employee_profiles
+		    SET status = 'inactive', last_work_day = $1, exit_date = $2,
+		        exit_type = $3, exit_reason = $4, updated_at = NOW()
+		  WHERE id = $5 AND tenant_id = $6 AND status = 'active'`,
+		in.LastWorkDay, in.ExitDate, in.ExitType, in.ExitReason, in.EmployeeID, in.TenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrAlreadyOffboarded
+	}
+
+	// Locking the login first: everything below can still fail and roll the
+	// whole thing back, but no ordering inside the transaction can leave the
+	// account reachable while the file says the person is gone.
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET is_active = false, updated_at = NOW()
+		  WHERE id = $1 AND tenant_id = $2`,
+		in.UserID, in.TenantID,
+	); err != nil {
+		return nil, err
+	}
+
+	// user_roles is not RLS-protected, so the tenant has to come from the
+	// subquery on users rather than from the session.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM user_roles
+		  WHERE user_id = (SELECT id FROM users WHERE id = $1 AND tenant_id = $2)`,
+		in.UserID, in.TenantID,
+	); err != nil {
+		return nil, err
+	}
+
+	if in.SuccessorUserID != nil {
+		if err := reassignReports(ctx, tx, in); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return r.GetByID(ctx, in.EmployeeID)
+}
+
+// reassignReports moves the leaver's direct reports to the successor without
+// creating a management cycle.
+//
+// The successor may sit anywhere below the leaver. Handing every report to them
+// unconditionally would make the successor their own manager (successor is a
+// direct report) or close a longer loop (successor is a grandchild: their
+// manager gets moved under them). Everyone on the chain from the successor
+// upwards therefore inherits the leaver's own manager instead — which is what a
+// promotion actually means — and everybody else gets the successor.
+func reassignReports(ctx context.Context, tx pgx.Tx, in OffboardWrite) error {
+	_, err := tx.Exec(ctx,
+		`WITH RECURSIVE chain AS (
+		     SELECT user_id, manager_user_id, 1 AS depth
+		       FROM hr_employee_profiles
+		      WHERE tenant_id = $1 AND user_id = $2
+		     UNION ALL
+		     SELECT p.user_id, p.manager_user_id, c.depth + 1
+		       FROM hr_employee_profiles p
+		       JOIN chain c ON p.user_id = c.manager_user_id
+		      WHERE p.tenant_id = $1 AND c.depth < 64
+		 )
+		 UPDATE hr_employee_profiles
+		    SET manager_user_id = CASE
+		            WHEN user_id IN (SELECT user_id FROM chain) THEN $3
+		            ELSE $2
+		        END,
+		        updated_at = NOW()
+		  WHERE tenant_id = $1 AND manager_user_id = $4`,
+		in.TenantID, *in.SuccessorUserID, in.LeaverManagerUserID, in.UserID,
+	)
+	return err
+}
+
+// roleAdminKeys are the capability keys that make an account able to hand out
+// roles. Copy of auth.roleAdminKeys (unexported there); if that list grows,
+// this one has to grow with it.
+var roleAdminKeys = []string{"roles:manage", "admin:role:assign"}
 
 // ============================================================================
 // Document Category Repository
@@ -350,6 +493,7 @@ func scanEmployeeProfile(row pgx.Row) (*models.EmployeeProfile, error) {
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
 		&p.CreatedAt, &p.UpdatedAt, &p.HourlyRate,
+		&p.Status, &p.LastWorkDay, &p.ExitDate, &p.ExitType, &p.ExitReason,
 		&p.UserName, &p.UserEmail, &p.ManagerName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -369,6 +513,7 @@ func scanEmployeeProfileFromRows(rows pgx.Rows) (*models.EmployeeProfile, error)
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
 		&p.CreatedAt, &p.UpdatedAt, &p.HourlyRate,
+		&p.Status, &p.LastWorkDay, &p.ExitDate, &p.ExitType, &p.ExitReason,
 		&p.UserName, &p.UserEmail, &p.ManagerName,
 	)
 	if err != nil {

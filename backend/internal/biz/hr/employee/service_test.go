@@ -20,6 +20,12 @@ import (
 type mockEmployeeRepo struct {
 	profiles map[uuid.UUID]*models.EmployeeProfile // key: profile ID
 	byUser   map[uuid.UUID]*models.EmployeeProfile // key: user ID
+
+	// Offboard fixtures. otherRoleAdmins is what the last-admin guard reads,
+	// directReports what the successor guard reads.
+	otherRoleAdmins int
+	directReports   int
+	offboardCalls   []OffboardWrite
 }
 
 func newMockEmployeeRepo() *mockEmployeeRepo {
@@ -63,6 +69,26 @@ func (m *mockEmployeeRepo) Update(_ context.Context, profile *models.EmployeePro
 	m.profiles[profile.ID] = profile
 	m.byUser[profile.UserID] = profile
 	return nil
+}
+
+func (m *mockEmployeeRepo) CountOtherActiveRoleAdmins(_ context.Context, _ uuid.UUID) (int, error) {
+	return m.otherRoleAdmins, nil
+}
+
+func (m *mockEmployeeRepo) CountDirectReports(_ context.Context, _, _ uuid.UUID) (int, error) {
+	return m.directReports, nil
+}
+
+func (m *mockEmployeeRepo) Offboard(_ context.Context, in OffboardWrite) (*models.EmployeeProfile, error) {
+	m.offboardCalls = append(m.offboardCalls, in)
+	p, ok := m.profiles[in.EmployeeID]
+	if !ok {
+		return nil, ErrEmployeeNotFound
+	}
+	p.Status = models.EmployeeStatusInactive
+	p.ExitDate = &in.ExitDate
+	p.ExitType = in.ExitType
+	return p, nil
 }
 
 type mockDocCategoryRepo struct {

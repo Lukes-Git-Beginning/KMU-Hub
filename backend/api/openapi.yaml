@@ -11120,6 +11120,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/EmployeeProfile"
 
+  /api/v1/hr/employees/{id}/offboard:
+    post:
+      summary: Offboard an employee
+      description: >
+        Ends an employment in one transaction: the personnel record goes
+        inactive with its exit data, the account loses its login and all role
+        assignments (which releases its seat), and the leaver's direct reports
+        move to the successor. The body is camelCase because the desktop
+        offboard dialog posts its form state unchanged.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OffboardEmployeeInput"
+      responses:
+        "200":
+          description: Employee offboarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
+        "400": { description: Malformed body, unknown exit type, exit date before the last working day, or the named successor is not an active employee of this tenant }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing team:employee:offboard, or the caller is offboarding their own account }
+        "404": { description: Employee profile not found }
+        "409": { description: Employee has already left, or is the last active account carrying role administration }
+        "422": { description: The employee still has direct reports and no successor was named }
+
   /api/v1/hr/change-requests:
     get:
       summary: List profile change requests
@@ -37531,6 +37567,27 @@ components:
         manager_name: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, inactive] }
+        last_work_day: { type: string, format: date }
+        exit_date: { type: string, format: date }
+        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exit_reason: { type: string }
+
+    OffboardEmployeeInput:
+      type: object
+      required: [exitDate, exitType]
+      properties:
+        lastWorkDay: { type: string, format: date }
+        exitDate: { type: string, format: date }
+        exitType: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        reason: { type: string }
+        backfill:
+          type: boolean
+          description: Whether the position is to be refilled. Recorded only; it has no effect on the cascade.
+        successorUserId:
+          type: string
+          format: uuid
+          description: Required when the employee still has direct reports.
 
     UpdateEmployeeInput:
       type: object

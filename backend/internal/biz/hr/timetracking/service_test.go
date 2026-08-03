@@ -236,6 +236,15 @@ func (m *mockEmployeeRepo) List(_ context.Context, _ employee.EmployeeFilter) ([
 	return m.profiles, len(m.profiles), nil
 }
 func (m *mockEmployeeRepo) Update(_ context.Context, _ *models.EmployeeProfile) error { return nil }
+func (m *mockEmployeeRepo) CountOtherActiveRoleAdmins(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockEmployeeRepo) CountDirectReports(_ context.Context, _, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockEmployeeRepo) Offboard(_ context.Context, _ employee.OffboardWrite) (*models.EmployeeProfile, error) {
+	return nil, nil
+}
 
 type mockSettingsRepo struct {
 	settings *models.HRCompanySettings

@@ -61,6 +61,7 @@ const (
 	HRService_ListEmployees_FullMethodName               = "/hr.v1.HRService/ListEmployees"
 	HRService_GetEmployee_FullMethodName                 = "/hr.v1.HRService/GetEmployee"
 	HRService_UpdateEmployee_FullMethodName              = "/hr.v1.HRService/UpdateEmployee"
+	HRService_OffboardEmployee_FullMethodName            = "/hr.v1.HRService/OffboardEmployee"
 	HRService_UpdateSelfProfile_FullMethodName           = "/hr.v1.HRService/UpdateSelfProfile"
 	HRService_ListEmployeeDocuments_FullMethodName       = "/hr.v1.HRService/ListEmployeeDocuments"
 	HRService_UploadEmployeeDocument_FullMethodName      = "/hr.v1.HRService/UploadEmployeeDocument"
@@ -130,6 +131,7 @@ type HRServiceClient interface {
 	ListEmployees(ctx context.Context, in *ListEmployeesReq, opts ...grpc.CallOption) (*ListEmployeesResp, error)
 	GetEmployee(ctx context.Context, in *GetEmployeeReq, opts ...grpc.CallOption) (*GetEmployeeResp, error)
 	UpdateEmployee(ctx context.Context, in *UpdateEmployeeReq, opts ...grpc.CallOption) (*UpdateEmployeeResp, error)
+	OffboardEmployee(ctx context.Context, in *OffboardEmployeeReq, opts ...grpc.CallOption) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(ctx context.Context, in *ListEmployeeDocumentsReq, opts ...grpc.CallOption) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(ctx context.Context, in *UploadEmployeeDocumentReq, opts ...grpc.CallOption) (*UploadEmployeeDocumentResp, error)
@@ -574,6 +576,16 @@ func (c *hRServiceClient) UpdateEmployee(ctx context.Context, in *UpdateEmployee
 	return out, nil
 }
 
+func (c *hRServiceClient) OffboardEmployee(ctx context.Context, in *OffboardEmployeeReq, opts ...grpc.CallOption) (*OffboardEmployeeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OffboardEmployeeResp)
+	err := c.cc.Invoke(ctx, HRService_OffboardEmployee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateSelfProfileResp)
@@ -749,6 +761,7 @@ type HRServiceServer interface {
 	ListEmployees(context.Context, *ListEmployeesReq) (*ListEmployeesResp, error)
 	GetEmployee(context.Context, *GetEmployeeReq) (*GetEmployeeResp, error)
 	UpdateEmployee(context.Context, *UpdateEmployeeReq) (*UpdateEmployeeResp, error)
+	OffboardEmployee(context.Context, *OffboardEmployeeReq) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(context.Context, *ListEmployeeDocumentsReq) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error)
@@ -898,6 +911,9 @@ func (UnimplementedHRServiceServer) GetEmployee(context.Context, *GetEmployeeReq
 }
 func (UnimplementedHRServiceServer) UpdateEmployee(context.Context, *UpdateEmployeeReq) (*UpdateEmployeeResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEmployee not implemented")
+}
+func (UnimplementedHRServiceServer) OffboardEmployee(context.Context, *OffboardEmployeeReq) (*OffboardEmployeeResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method OffboardEmployee not implemented")
 }
 func (UnimplementedHRServiceServer) UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateSelfProfile not implemented")
@@ -1712,6 +1728,24 @@ func _HRService_UpdateEmployee_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_OffboardEmployee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OffboardEmployeeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).OffboardEmployee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_OffboardEmployee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).OffboardEmployee(ctx, req.(*OffboardEmployeeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_UpdateSelfProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateSelfProfileReq)
 	if err := dec(in); err != nil {
@@ -2102,6 +2136,10 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateEmployee",
 			Handler:    _HRService_UpdateEmployee_Handler,
+		},
+		{
+			MethodName: "OffboardEmployee",
+			Handler:    _HRService_OffboardEmployee_Handler,
 		},
 		{
 			MethodName: "UpdateSelfProfile",

@@ -104,10 +104,49 @@ type EmployeeProfile struct {
 	CreatedAt             time.Time        `json:"created_at"`
 	UpdatedAt             time.Time        `json:"updated_at"`
 
+	// Offboarding state. Status is active until the employee leaves; the exit
+	// fields are only set together with an inactive status (enforced by
+	// chk_hr_employee_exit_complete).
+	Status      EmployeeStatus `json:"status"`
+	LastWorkDay *time.Time     `json:"last_work_day,omitempty"`
+	ExitDate    *time.Time     `json:"exit_date,omitempty"`
+	ExitType    string         `json:"exit_type,omitempty"`
+	ExitReason  string         `json:"exit_reason,omitempty"`
+
 	// Denormalized fields (populated by queries, not stored)
 	UserName     string `json:"user_name,omitempty"`
 	UserEmail    string `json:"user_email,omitempty"`
 	ManagerName  string `json:"manager_name,omitempty"`
+}
+
+// EmployeeStatus is the employment state of a personnel record.
+type EmployeeStatus string
+
+const (
+	EmployeeStatusActive   EmployeeStatus = "active"
+	EmployeeStatusInactive EmployeeStatus = "inactive"
+)
+
+// ExitType values the offboard dialog offers. Mirrors
+// chk_hr_employee_exit_type; a value outside this set is refused at the border
+// rather than by the constraint, so the caller gets a field error instead of a
+// database one.
+const (
+	ExitTypeResignation       = "resignation"
+	ExitTypeTermination       = "termination"
+	ExitTypeFixedTermExpired  = "fixed_term_expired"
+	ExitTypeMutualTermination = "mutual_termination"
+	ExitTypeRetirement        = "retirement"
+)
+
+// ValidExitType reports whether t is one of the five accepted exit types.
+func ValidExitType(t string) bool {
+	switch t {
+	case ExitTypeResignation, ExitTypeTermination, ExitTypeFixedTermExpired,
+		ExitTypeMutualTermination, ExitTypeRetirement:
+		return true
+	}
+	return false
 }
 
 // LeaveType defines a type of leave (system or admin-created).

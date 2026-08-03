@@ -2405,3 +2405,86 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     weil das FE ihn kennt; sobald ein Job-Feld beantragbar wird, ist es ein Eintrag in
     `proposableFields`.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 37 — g-hr-offboard — done — 2026-08-03 04:40
+- commit: <wird im Folgecommit nachgetragen>
+- gebaut: Migration 000282 (status/last_work_day/exit_date/exit_type/exit_reason auf
+  `hr_employee_profiles`, drei CHECKs, Index auf (tenant_id,status)), RPC `OffboardEmployee` am
+  hr-Proto inkl. Regen, `Service.OffboardEmployee` + `PostgresEmployeeRepo.Offboard` in
+  `internal/biz/hr/employee`, Route `POST /api/v1/hr/employees/{id}/offboard` hinter
+  `RequirePermission("team:employee","offboard")`, OpenAPI-Pfad + zwei Schemas.
+- verify vorgaenger (dbcf2493): sauber. Gateway-Handler gehen alle ueber `h.getHRClient()`, kein
+  Direct-Svc; `.proto` + beide `.pb.go` im selben Commit; jeder SELECT in
+  `changerequest/postgres_repository.go` traegt `tenant_id`; kein neuer Guard ohne Katalog-Eintrag;
+  openapi.yaml mit 185 Zeilen im selben Commit. Kein Fund, keine Fix-Unit.
+
+**Die Architektur-Entscheidung, weil die notes hier eine falsche Praemisse hatten.** Die Unit
+schreibt vor: "Liegt HR-Profil und Auth-Konto in verschiedenen Services, ist eine verteilte
+Transaktion nicht baubar." Das stimmt fuer die Prozessgrenze, aber nicht fuer die Datengrenze:
+`users`, `user_roles` und `hr_employee_profiles` liegen in derselben Postgres-Instanz, und der
+biz-Pool sieht alle drei (er liest `users` heute schon in jedem Employee-SELECT). Die Kaskade
+laeuft deshalb als EINE Transaktion, nicht als geordnete Schrittfolge mit Nachprotokollierung —
+der "Konto kann noch einloggen, Akte sagt ausgeschieden"-Zustand ist damit unerreichbar statt nur
+unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
+- **Warum HR und nicht auth**, obwohl `ErrSelfDeactivation`, `ErrLastAdmin` und `RevokeUserRole`
+  dort schon stehen: der Vertrag ist HR-foermig (`POST /hr/employees/{id}/offboard` -> `{employee}`).
+  Ein auth-RPC muesste `hr.v1.EmployeeProfile` importieren (Proto-Kopplung zweier Services) oder
+  das Gateway zu einem Zweischritt zwingen. Umgekehrt kostet der gewaehlte Weg genau ein Duplikat:
+  die COUNT-Query hinter dem Last-Admin-Guard, kommentiert mit Verweis auf
+  `auth.PostgresRepository.CountActiveRoleAdminsExcludingUser` und `auth.roleAdminKeys` (dort
+  unexportiert). Die Alternative haette die sicherheitskritische Logik dupliziert statt eines
+  COUNTs. Es gibt in diesem Repo **keinen** Service-zu-Service-gRPC-Client (verifiziert:
+  `grpc.NewClient` kommt ausschliesslich in `internal/gateway/` vor) — eine dritte Option war das
+  also nicht.
+- **"Platz freigeben" ist kein eigener Kaskadenschritt.** auth zaehlt Seats als
+  `COUNT(users WHERE is_active)` (`CountSeatsInUse`, postgres_repository.go:1114) — `is_active =
+  false` gibt den Platz von selbst zurueck. Und das Sperren ist vollstaendig: Login (service.go:197)
+  **und** Refresh (service.go:248) pruefen beide `!user.IsActive`. Refresh-Tokens zu loeschen waere
+  wirkungslose Zusatzarbeit gewesen. Was bleibt: ein bereits ausgestelltes Access-Token laeuft bis
+  zum Ablauf weiter — dasselbe Verhalten wie bei `UpdateAdminUser`, kein Sonderfall dieser Route.
+- **Der Zyklus-Schutz ist eine rekursive CTE, kein Skip des Nachfolgers.** Der naheliegende Fix
+  ("Nachfolger von der Umhaenge-Menge ausnehmen") deckt nur den direkten Fall. Sitzt der Nachfolger
+  zwei Ebenen tief — Teamleiter scheidet aus, jemand aus einem Unterteam uebernimmt —, dann wird
+  dessen eigener Vorgesetzter auf ihn umgehaengt und die beiden managen sich gegenseitig. Die CTE
+  laeuft vom Nachfolger nach oben (Tiefenlimit 64) und gibt allen Knoten auf dieser Kette den
+  Vorgesetzten des Ausscheidenden — was eine Befoerderung fachlich ohnehin bedeutet. Beide Faelle
+  haben einen eigenen DB-Test.
+- **Fuenf Exit-Types, nicht die vier aus dem scope-Text.** `OffboardEmployeeDialog.tsx:46-50` bietet
+  zusaetzlich `fixed_term_expired`. Ein Backend, das nur die vier genannten kennt, haette einen
+  Wert, den die UI produziert, an der Grenze abgelehnt. Ein Gateway-Test geht alle fuenf durch.
+- **Der Body ist camelCase**, anders als der Rest der HR-Routen: `hr-client.ts:943` postet die
+  Formularwerte des Dialogs unveraendert. Ein Test schickt bewusst einen snake_case-Body und
+  erwartet 400 — sonst wandert diese Abweichung unbemerkt.
+- **Response gewrappt.** `response.Proto(w, …, resp.Employee)` liefert das Profil nackt; der Client
+  liest `{employee}`. Der Handler schreibt deshalb die ganze Resp-Message. **Fund im Bestand:** die
+  Nachbar-Handler `HandleCreateEmployee`/`HandleUpdateEmployee` liefern nackt, waehrend
+  `hrEmployeeApi.create/update` `raw.employee` liest — dort duerfte `adaptEmployee` heute
+  `undefined` bekommen. Nicht in dieser Unit gefixt (Bestandsvertrag, keine Testabdeckung); als
+  Unit-Kandidat notiert.
+- **Kein Permission-Seed** — geprueft, nicht vermutet: `team:employee:offboard` steht in
+  `permissions` und ist `admin` + `hr_admin` zugewiesen.
+- **422 fuer "Reports ohne Nachfolger"** laeuft ueber `codes.OutOfRange` (der Repo-Weg seit
+  Iteration 36), nicht ueber den Validator — der antwortet mit 400.
+- **Zweiter Fund im Bestand:** `scanEmployeeProfile` liest `emergency_contact_name` und
+  Geschwister in plain `string`; eine Zeile mit NULL dort sprengt jeden Read dieses Profils. Die App
+  schreibt immer `""`, handgeschriebene Zeilen nicht — der erste Testlauf ist genau darueber
+  gefallen. Fixture angeglichen (mit Kommentar), Produktionscode bewusst nicht angefasst.
+- gate: build ok (`go build -p 2` ueber biz/hr, gateway, server, models, cmd/biz, cmd/gateway) |
+  vet ok | lint ok (golangci-lint, 0 issues) | migration 000282 up/down/up gruen | rls-smoke n.a.
+  (keine neue Tabelle; `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen) | test ok — `go test
+  -count=1 ./internal/biz/hr/... ./internal/gateway/ ./internal/server/... ./internal/testutil/...`
+  mit `DATABASE_URL` auf `kmuhub_app`: alles gruen. **9 neue DB-Tests, 0 SKIP** (mit `-v` und
+  `grep -c '^--- SKIP'` = 0 geprueft), 4 neue Gateway-Tests, `TestOpenAPIRouteDrift` gruen. Jeder
+  DB-Test seedet einen EIGENEN Tenant — "wer meldet an wen" und "wer ist der letzte
+  Rollen-Administrator" sind Eigenschaften der Tenant-Population.
+- offen:
+  - **`{employee}`-Wrapping bei create/update** (Fund oben). Eigene Unit: entweder die beiden
+    Handler auf die Resp-Message umstellen oder den FE-Client auf die nackte Antwort. Ein
+    Alleingang auf einer Seite bricht die andere.
+  - **Der MSW-Mock kennt die Guards nicht** (`handlers/team.ts:366`): er offboardet ohne
+    Nachfolger-Pflicht, ohne Last-Admin-Pruefung und ohne Selbst-Schutz, und er haengt Reports
+    unbesehen auf den Nachfolger um — inklusive des Zyklus, den das Backend jetzt verhindert. Der
+    Mock ist das, woran die UI entwickelt wird; gehoert in eine FE-Unit.
+  - **`backfill` wird nur protokolliert**, nicht ausgewertet — es gibt im Backend kein
+    Stellen-/Recruiting-Modell, an das es andocken koennte. Bewusst so, im Proto kommentiert.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.

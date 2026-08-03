@@ -2123,7 +2123,7 @@ units:
     service: hr
     model: opus
     deps: [g-hr-change-requests]
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/hr/employees/{id}/offboard` — Austritt eines Mitarbeiters als EINE
       transaktionale Operation. Verifiziert am 2026-08-02: das FE ruft die Route bereits
@@ -2160,6 +2160,29 @@ units:
       - Zyklus-Schutz beim Umhaengen (Test)
       - Selbst-Offboard und letzter Admin geblockt
       - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/hr/... gruen
+    result: >
+      Gebaut in Iteration 37 (Migration 000282, `OffboardEmployee` in
+      `internal/biz/hr/employee`, Route `POST /api/v1/hr/employees/{id}/offboard`).
+      **Die "verteilte Transaktion nicht baubar"-Praemisse der notes trifft NICHT zu.** users,
+      user_roles und hr_employee_profiles liegen in DERSELBEN Postgres-Instanz; die Trennung
+      zwischen biz und auth ist eine Prozess-, keine Datenbankgrenze. Die ganze Kaskade laeuft
+      als EINE Transaktion in `PostgresEmployeeRepo.Offboard` — der halbe Zustand, vor dem die
+      Unit warnt, ist damit unerreichbar statt nur unwahrscheinlich.
+      **Heimat = biz/HR, nicht auth**, obwohl dort die Guards liegen: der Route- und
+      Response-Vertrag ist HR-foermig (`{employee}`), ein auth-RPC muesste `hr.v1.EmployeeProfile`
+      importieren. Dupliziert wird deshalb nur die Last-Admin-COUNT-Query (kommentiert, mit
+      Verweis auf `auth.CountActiveRoleAdminsExcludingUser`), nicht die Business-Logik.
+      **"Platz freigeben" ist kein eigener Schritt:** auth zaehlt Seats als aktive User
+      (`CountSeatsInUse`), `is_active = false` gibt den Platz von selbst zurueck. Login UND
+      Refresh pruefen `!IsActive` (service.go:197/248), das Sperren ist also vollstaendig; nur
+      laufende Access-Tokens leben bis zum Ablauf.
+      **Zyklus-Schutz per rekursiver CTE, nicht per Skip:** der Nachfolger kann zwei Ebenen tief
+      sitzen — dann bekaeme sein eigener Vorgesetzter ihn als Chef. Alle Knoten auf der Kette vom
+      Nachfolger aufwaerts erben stattdessen den Vorgesetzten des Ausscheidenden. Zwei DB-Tests.
+      **Fuenf Exit-Types, nicht vier:** die UI bietet zusaetzlich `fixed_term_expired` an; die
+      scope-Zeile dieser Unit war unvollstaendig.
+      **Kein Permission-Seed noetig, geprueft:** `team:employee:offboard` steht im Katalog und ist
+      admin + hr_admin zugewiesen.
 
   - id: g-hr-salary-statements
     phase: 3
