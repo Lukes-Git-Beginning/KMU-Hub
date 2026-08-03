@@ -1040,6 +1040,45 @@ func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 	}
 }
 
+// timeStringOrEmpty renders a nullable timestamp as the proto3 zero value for
+// a missing string — the gateway turns "" back into JSON null, same
+// convention as uuidStringOrEmpty.
+func timeStringOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
+func toAdminUserInfo(u *auth.AdminUser) *authv1.AdminUserInfo {
+	return &authv1.AdminUserInfo{
+		Id:          u.ID.String(),
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		Email:       u.Email,
+		RoleIds:     u.RoleIDs,
+		Status:      string(u.Status),
+		LastLoginAt: timeStringOrEmpty(u.LastLoginAt),
+		InvitedAt:   timeStringOrEmpty(u.InvitedAt),
+	}
+}
+
+// ListAdminUsers returns the calling tenant's account roster — real accounts
+// and still-open invitations merged into one list (admin-types.ts, AdminUser).
+func (s *AuthGRPCServer) ListAdminUsers(ctx context.Context, _ *authv1.ListAdminUsersRequest) (*authv1.ListAdminUsersResponse, error) {
+	users, err := s.authService.ListAdminUsers(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	out := make([]*authv1.AdminUserInfo, len(users))
+	for i := range users {
+		out[i] = toAdminUserInfo(&users[i])
+	}
+
+	return &authv1.ListAdminUsersResponse{Users: out}, nil
+}
+
 // ============================================================================
 // Password Reset Handlers
 // ============================================================================

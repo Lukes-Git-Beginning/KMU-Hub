@@ -207,6 +207,16 @@ func TestHandleListUsers_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
+// --- HandleListAdminUsers ---
+
+func TestHandleListAdminUsers_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+	routes.HandleListAdminUsers(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
 // --- HandleGetUser ---
 
 func TestHandleGetUser_ServiceUnavailable(t *testing.T) {

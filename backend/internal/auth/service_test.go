@@ -226,6 +226,10 @@ func (m *mockRepository) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]strin
 	return nil, nil
 }
 
+func (m *mockRepository) ListAdminUsers(_ context.Context) ([]AdminUser, error) {
+	return nil, nil
+}
+
 func (m *mockRepository) GetUserGrants(_ context.Context, _ uuid.UUID) ([]EffectiveGrantRow, error) {
 	return nil, nil
 }

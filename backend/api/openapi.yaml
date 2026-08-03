@@ -851,6 +851,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # Account roster (phase 3 admin surface). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users:
+    get:
+      summary: List the tenant's account roster
+      description: >
+        Every real account (active/deactivated, from users) plus every
+        still-open invitation (invited, from invitations) merged into one
+        list. jobTitle is always "" — the backend has no job-title data on an
+        account. hasOverrides is omitted — per-user permission overrides
+        (R-6) do not exist yet. lastLoginAt is derived from the most recent
+        user_sessions row and is therefore only as complete as session
+        history: a session removed by logout/termination no longer counts.
+        Requires the admin role.
+      tags: [users]
+      operationId: listAdminUsers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account roster
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # Effective permissions of any account (admin audit view). Under /admin/users
   # rather than /users because that is where the RBAC frontend addresses it.
   # Handler: internal/gateway/route_auth.go (AuthRoutes)
@@ -31569,6 +31598,67 @@ components:
         permissions:
           $ref: "#/components/schemas/EffectivePermissions"
       required: [permissions]
+
+    # Account roster (phase 3 admin surface). app-owned contract mirroring
+    # admin-types.ts, not a proto passthrough.
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: >
+            The account id for a real user, or the invitation id while
+            status is "invited" — no user row exists yet in that case.
+        firstName:
+          type: string
+          description: Empty for an invited row — invitations do not collect a name.
+        lastName:
+          type: string
+          description: Empty for an invited row — invitations do not collect a name.
+        email:
+          type: string
+        jobTitle:
+          type: string
+          description: >
+            Always "" — the backend has no job-title data on an account
+            (that lives in the HR employee record, a different service).
+        roles:
+          type: array
+          items:
+            type: string
+          description: >
+            Role ids (preset or custom). An invited row carries at most the
+            one preset id its invitations.role legacy name resolves to.
+        hasOverrides:
+          type: boolean
+          description: Per-user permission overrides (R-6) do not exist yet — always omitted.
+        status:
+          type: string
+          enum: [active, invited, deactivated]
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Most recent user_sessions row for the account. Null if the
+            account never logged in, or every session since has been removed
+            by logout/termination.
+        invitedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null unless status is "invited".
+      required: [id, firstName, lastName, email, jobTitle, roles, status, lastLoginAt, invitedAt]
+
+    AdminUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+      required: [users]
 
     # RBAC — role administration (Phase 1 wave 1b). camelCase and the null
     # sentinels on tenantId/basedOn are intentional: app-owned contract

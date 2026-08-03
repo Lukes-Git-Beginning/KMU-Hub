@@ -2144,3 +2144,66 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     es eine eigene Entscheidung: taggen (add) oder ersetzen (replace), plus Tenant-Ownership-Check auf
     das Label wie bei `AssignMessageLabels`.
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 34 — g-admin-users-list — done — 2026-08-03
+- commit: (wird nach dem Commit ergaenzt)
+- verify vorgaenger: sauber. `06f1447c` (g-email-messages-bulk, Iteration 33) stichprobenartig gegen
+  die Fehlerklassen geprueft (Iteration 33 hatte sich selbst bereits ausfuehrlich gegen Iteration 32
+  geprueft und dokumentiert — hier nur der unabhaengige Gegen-Check dieser Iteration): Klasse 1 sauber
+  — `HandleBulkMessageAction` ruft `client.BulkMessageAction`, kein direkter Service-Zugriff. Klasse 2
+  sauber — `Service.BulkAction` ist eine echte Implementierung (Per-ID-Tenant-Check via `GetByID`,
+  echtes Mapping auf bestehende Methoden, Teil-Erfolg statt Abbruch), kein Stub. Klasse 3 sauber —
+  `email.pb.go`/`email_grpc.pb.go` im selben Commit regeneriert. Klasse 4 N/A — kein neuer Permission-
+  Key, nur eine zusaetzliche Pruefung auf bereits bestehendes `email:delete`. Klasse 5 N/A — keine neue
+  Tabelle. Klasse 7 sauber — `/api/v1/email/messages/bulk` in openapi.yaml. Klasse 8 sauber — der
+  zusaetzliche `email:delete`-Check verschaerft die bestehende Route, ersetzt sie nicht. Nichts zu
+  beanstanden.
+- gebaut: `g-admin-users-list` gezogen (naechste `status: todo`-Unit mit erfuellten `deps: []`).
+  Verifiziert wie in den Notes beschrieben: `useAdminUsers.ts:21` ruft `GET /api/v1/admin/users`, im
+  Gateway existierte dort nur `/{id}/permissions`. Die Substanz war vorhanden (`HandleListUsers` unter
+  `/api/v1/users`, `user_roles`, `invitations`) — diese Unit ist eine reine Zusammenfuehrung, kein
+  neuer Datenbestand, deshalb KEINE Migration in diesem Commit.
+  Neue RPC `ListAdminUsers` in `auth.proto` + Regen im selben Commit. Komposition lebt in
+  `PostgresRepository.ListAdminUsers` (zwei Queries, keine pro Nutzer): (1) `users` LEFT JOIN
+  `user_roles` LEFT JOIN `user_sessions`, `GROUP BY u.id` — Postgres erlaubt dank funktionaler
+  Abhaengigkeit vom Primary Key, `first_name`/`last_name`/`email`/`is_active` im SELECT zu fuehren, ohne
+  sie in GROUP BY aufzunehmen; (2) offene Einladungen (`accepted_at IS NULL AND expires_at > NOW()`)
+  gegen eine einmalige Preset-Name→ID-Lookup (`roles WHERE tenant_id IS NULL`) aufgeloest. `Service.
+  ListAdminUsers` ist reiner Pass-Through wie `ListRoles` — die Komposition sitzt in der Repository-
+  Query, nicht verstreut ueber Service/Handler. Tenant-Scoping laeuft fuer beide Quellen vollstaendig
+  ueber RLS, kein expliziter `tenantID`-Parameter (wie bei `ListUsers`/`ListRoles`) — sicher, weil die
+  Route immer unter authentifiziertem Kontext laeuft, nie unter `sysctx.With()`.
+  DREI Entscheidungen bewusst getroffen und hier dokumentiert (die Notes hatten nur zwei vorausgesehen):
+  (1) `lastLoginAt` = `MAX(user_sessions.created_at)` — `created_at` markiert den Moment der
+  Session-Erzeugung (`Service.CreateSession` laeuft direkt nach erfolgreichem Login), nicht
+  `last_active_at`, das mit jeder Aktivitaet weiterlaeuft und damit vom Wortsinn "letzter Login"
+  wegdriften wuerde. Bekannte Grenze: eine per Logout/Terminate geloeschte Session zaehlt nicht mehr
+  mit — dokumentiert in openapi.yaml, nicht versteckt.
+  (2) `roles` sind Rollen-IDs direkt aus `user_roles.role_id` — kein Join auf `roles` noetig, weil
+  `AdminUser.roles` laut `admin-types.ts` bereits IDs erwartet (Preset- oder Custom-Rollen-IDs), keine
+  Namen.
+  (3) NEU, in den Notes nicht erwaehnt: `jobTitle` hat KEINE Datenquelle im Backend (`users` hat keine
+  Spalte dafuer, das Feld lebt nur in der HR-Employee-Tabelle eines anderen Service mit eigener ID) —
+  liefert bewusst immer `""` statt eines erfundenen Werts, dokumentiert in openapi.yaml. `hasOverrides`
+  bleibt `omitempty` (R-6 Permission-Overrides existieren serverseitig noch nicht, siehe
+  `g-rbac-user-overrides-model`, weiterhin offen).
+  Invited-Zeilen kommen NICHT aus `users` — ein Invite legt laut `Service.CreateInvitation` keine
+  Nutzerzeile an, nur eine `invitations`-Zeile. Deshalb firstName/lastName dort bewusst leer statt aus
+  der E-Mail-Adresse geraten (`nameFromEmail`-Stil waere Erfindung, kein Datum) — derselbe Massstab wie
+  bei lastLoginAt. Abgelaufene Einladungen zaehlen bewusst NICHT als "invited" (`expires_at > NOW()` im
+  Query), sonst haette der Builder eine tote Einladung als aktiven Vorgang angezeigt.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | migration: keine (kein
+  Schema-Change) | lint ok (golangci-lint, 0 Issues auf den geaenderten Packages) | test ok — `go test
+  -count=1 ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit `DATABASE_URL` auf
+  `kmuhub_app`: alle gruen, `TestOpenAPIRouteDrift` 793 gegen 795 dokumentierte Pfade. Zwei neue
+  DB-Tests in `admin_users_db_test.go` (Merge aktiv/deaktiviert/eingeladen inkl. ausgeschlossener
+  abgelaufener Einladung; Tenant-Isolation fuer User UND Invitation, eigene Tenants nicht TenantA/B),
+  ein neuer Gateway-Test `TestHandleListAdminUsers_ServiceUnavailable`.
+- offen:
+  - `jobTitle`/`hasOverrides` bleiben leer/omitted, bis es eine echte Backend-Quelle gibt (HR-Verknuepfung
+    bzw. `g-rbac-user-overrides-model`). Kein Blocker fuer diese Unit, aber relevant fuer `g-admin-users-
+    invite` (naechste Unit): falls die Schreibrouten je Vor-/Nachnamen bei Invite erfassen sollen, braucht
+    `invitations` dafuer neue Spalten.
+  - `lastLoginAt` unterscheidet nicht zwischen "nie eingeloggt" und "eingeloggt, aber jede Session seither
+    geloescht" — beides liefert `null`. Nur relevant, falls das FE das je unterscheiden will.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.

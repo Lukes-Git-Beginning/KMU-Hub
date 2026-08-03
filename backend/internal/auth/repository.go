@@ -123,6 +123,12 @@ type Repository interface {
 	// AssignUserRole.
 	GetUserRoleIDs(ctx context.Context, userID uuid.UUID) ([]string, error)
 
+	// ListAdminUsers returns the tenant's account roster: every real account
+	// (users, RLS-scoped) plus every still-open invitation (invitations,
+	// RLS-scoped), merged into the one list the account admin surface shows.
+	// Roles and last-login load once each, not once per account.
+	ListAdminUsers(ctx context.Context) ([]AdminUser, error)
+
 	// Invitation methods. Everything but the token lookup is tenant-scoped:
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error

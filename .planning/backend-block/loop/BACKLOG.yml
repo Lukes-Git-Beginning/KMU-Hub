@@ -1901,7 +1901,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/admin/users` -> `{users:[AdminUser]}`. Verifiziert am 2026-08-02: das FE ruft
       die Route ueber `desktop/src/renderer/src/api/hooks/useAdminUsers.ts:21`, im Gateway
@@ -1934,6 +1934,38 @@ units:
       - status/roles korrekt abgeleitet, tenant-gescopt (Test mit zweitem Tenant)
       - lastLoginAt-Entscheidung umgesetzt und im Journal begruendet
       - openapi.yaml + go test -count=1 ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 34, kein Migrations-Commit — reine Zusammenfuehrung bestehender Tabellen).
+      Neue RPC `ListAdminUsers` in auth.proto + Regen; Komposition in
+      `PostgresRepository.ListAdminUsers` (zwei Queries: users+user_roles+user_sessions per
+      GROUP BY u.id, dann offene invitations), `Service.ListAdminUsers` reiner Pass-Through wie
+      `ListRoles`. Gateway mappt auf `adminUserBody` (camelCase, kein Proto-Passthrough), Guard
+      `RequireRole("admin")` wie die Nachbarroute.
+      DREI Entscheidungen im Journal von Iteration 34 begruendet (die Notes nannten nur zwei):
+      lastLoginAt aus `MAX(user_sessions.created_at)` (Session-Erzeugung = Login-Moment, nicht
+      `last_active_at`), roles als Rollen-IDs aus `user_roles.role_id` direkt (kein Join auf
+      `roles` noetig, da AdminUser.roles bereits IDs erwartet), und NEU: `jobTitle` liefert immer
+      `""` — das Feld hat keine Datenquelle im Backend (lebt in der HR-Employee-Tabelle, einem
+      anderen Service mit eigener ID) und `hasOverrides` bleibt `omitempty` (R-6 noch nicht gebaut).
+      Invited-Zeilen kommen NICHT aus `users` (ein Invite legt laut `CreateInvitation` keine
+      Nutzerzeile an) sondern direkt aus `invitations` mit `accepted_at IS NULL AND
+      expires_at > NOW()` — abgelaufene Einladungen zaehlen bewusst NICHT als "invited". Da
+      `invitations` keinen Namen speichert, bleiben firstName/lastName dort leer statt aus der
+      E-Mail geraten (derselbe "nicht erfinden"-Massstab wie bei lastLoginAt). Die einzige
+      Rolle einer Einladung ist ein Legacy-Presetname (`oneof=admin manager member`); aufgeloest
+      auf die Preset-ID ueber eine einmalige Lookup-Query (`roles WHERE tenant_id IS NULL`), kein
+      N+1. Tenant-Scoping fuer beide Queries laeuft vollstaendig ueber RLS (kein expliziter
+      `tenantID`-Parameter, wie bei `ListUsers`/`ListRoles`) — sicher, weil die Route immer unter
+      authentifiziertem Kontext laeuft, nie unter `sysctx.With()`.
+      Tests: zwei neue DB-Tests in `admin_users_db_test.go` (Merge aller drei Status plus
+      abgelaufene Einladung ausgeschlossen; Tenant-Isolation fuer User UND Invitation), plus
+      `TestHandleListAdminUsers_ServiceUnavailable` im Gateway. `go test -count=1
+      ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit `DATABASE_URL` auf
+      `kmuhub_app`: alle gruen, `TestOpenAPIRouteDrift` 793 gegen 795 dokumentierte Pfade.
+      golangci-lint 0 Issues, `go build`/`go vet` ueber das gesamte Modul sauber.
+      Offen fuer `g-admin-users-invite` (naechste Unit): `jobTitle`/`hasOverrides` bleiben leer,
+      bis es eine echte Quelle gibt; falls die Schreibrouten je Namen fuer Invites erfassen sollen,
+      braucht `invitations` dafuer neue Spalten.
 
   - id: g-admin-users-invite
     phase: 3

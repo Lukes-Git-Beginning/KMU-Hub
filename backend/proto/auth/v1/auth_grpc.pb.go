@@ -39,6 +39,7 @@ const (
 	AuthService_SetRolePermissions_FullMethodName      = "/auth.v1.AuthService/SetRolePermissions"
 	AuthService_AssignUserRole_FullMethodName          = "/auth.v1.AuthService/AssignUserRole"
 	AuthService_RevokeUserRole_FullMethodName          = "/auth.v1.AuthService/RevokeUserRole"
+	AuthService_ListAdminUsers_FullMethodName          = "/auth.v1.AuthService/ListAdminUsers"
 	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
 	AuthService_UpdateProfile_FullMethodName           = "/auth.v1.AuthService/UpdateProfile"
 	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
@@ -89,6 +90,10 @@ type AuthServiceClient interface {
 	SetRolePermissions(ctx context.Context, in *SetRolePermissionsRequest, opts ...grpc.CallOption) (*SetRolePermissionsResponse, error)
 	AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*AssignUserRoleResponse, error)
 	RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*RevokeUserRoleResponse, error)
+	// Admin account roster (phase 3) — the tenant's login accounts merged with
+	// its still-open invitations into the one list the account admin surface
+	// shows (admin-types.ts, AdminUser).
+	ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error)
 	// Profile & Password
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileResponse, error)
@@ -321,6 +326,16 @@ func (c *authServiceClient) RevokeUserRole(ctx context.Context, in *RevokeUserRo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevokeUserRoleResponse)
 	err := c.cc.Invoke(ctx, AuthService_RevokeUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminUsersResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListAdminUsers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -564,6 +579,10 @@ type AuthServiceServer interface {
 	SetRolePermissions(context.Context, *SetRolePermissionsRequest) (*SetRolePermissionsResponse, error)
 	AssignUserRole(context.Context, *AssignUserRoleRequest) (*AssignUserRoleResponse, error)
 	RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error)
+	// Admin account roster (phase 3) — the tenant's login accounts merged with
+	// its still-open invitations into the one list the account admin surface
+	// shows (admin-types.ts, AdminUser).
+	ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error)
 	// Profile & Password
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileResponse, error)
@@ -661,6 +680,9 @@ func (UnimplementedAuthServiceServer) AssignUserRole(context.Context, *AssignUse
 }
 func (UnimplementedAuthServiceServer) RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeUserRole not implemented")
+}
+func (UnimplementedAuthServiceServer) ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAdminUsers not implemented")
 }
 func (UnimplementedAuthServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
@@ -1102,6 +1124,24 @@ func _AuthService_RevokeUserRole_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).RevokeUserRole(ctx, req.(*RevokeUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListAdminUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListAdminUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListAdminUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListAdminUsers(ctx, req.(*ListAdminUsersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1570,6 +1610,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeUserRole",
 			Handler:    _AuthService_RevokeUserRole_Handler,
+		},
+		{
+			MethodName: "ListAdminUsers",
+			Handler:    _AuthService_ListAdminUsers_Handler,
 		},
 		{
 			MethodName: "GetProfile",

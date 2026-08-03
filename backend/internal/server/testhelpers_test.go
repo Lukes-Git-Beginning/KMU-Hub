@@ -255,6 +255,10 @@ func (m *authMockRepo) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]string,
 	return nil, nil
 }
 
+func (m *authMockRepo) ListAdminUsers(_ context.Context) ([]auth.AdminUser, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) GetUserGrants(_ context.Context, _ uuid.UUID) ([]auth.EffectiveGrantRow, error) {
 	return nil, nil
 }

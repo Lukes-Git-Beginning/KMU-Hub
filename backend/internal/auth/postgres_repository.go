@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -780,6 +781,124 @@ func (r *PostgresRepository) ListPendingInvitations(ctx context.Context, tenantI
 		invitations = append(invitations, inv)
 	}
 	return invitations, rows.Err()
+}
+
+// ListAdminUsers returns the account roster: every real account with its
+// assigned role ids and most recent login, plus every still-open invitation.
+// Two queries total, neither repeated per account — GROUP BY u.id lets the
+// SELECT list carry u.first_name/u.last_name/u.email/u.is_active without
+// listing them in GROUP BY, since they are functionally dependent on the
+// primary key.
+func (r *PostgresRepository) ListAdminUsers(ctx context.Context) ([]AdminUser, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT u.id, u.first_name, u.last_name, u.email, u.is_active,
+		        COALESCE(array_agg(DISTINCT ur.role_id::text) FILTER (WHERE ur.role_id IS NOT NULL), '{}'),
+		        MAX(s.created_at)
+		 FROM users u
+		 LEFT JOIN user_roles ur ON ur.user_id = u.id
+		 LEFT JOIN user_sessions s ON s.user_id = u.id
+		 GROUP BY u.id
+		 ORDER BY u.created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	users := []AdminUser{}
+	for rows.Next() {
+		var u AdminUser
+		var isActive bool
+		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &isActive, &u.RoleIDs, &u.LastLoginAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		u.Status = AdminUserStatusActive
+		if !isActive {
+			u.Status = AdminUserStatusDeactivated
+		}
+		users = append(users, u)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	pending, err := r.listPendingInvitationsAsAdminUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return append(users, pending...), nil
+}
+
+// listPendingInvitationsAsAdminUsers renders every currently open invitation
+// (unaccepted, unexpired) as an AdminUser row. Expired invitations are
+// deliberately excluded — they are not an account anyone can still become
+// without a resend, so counting them as "invited" would overstate the
+// roster. FirstName/LastName stay empty: invitations do not collect a name,
+// only email and a single legacy preset name.
+func (r *PostgresRepository) listPendingInvitationsAsAdminUsers(ctx context.Context) ([]AdminUser, error) {
+	presetIDs, err := r.presetRoleIDsByName(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, email, role, created_at
+		 FROM invitations
+		 WHERE accepted_at IS NULL AND expires_at > NOW()
+		 ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pending := []AdminUser{}
+	for rows.Next() {
+		var (
+			id        uuid.UUID
+			email     string
+			roleName  string
+			createdAt time.Time
+		)
+		if err := rows.Scan(&id, &email, &roleName, &createdAt); err != nil {
+			return nil, err
+		}
+		u := AdminUser{
+			ID:        id,
+			Email:     email,
+			Status:    AdminUserStatusInvited,
+			InvitedAt: &createdAt,
+		}
+		if presetID, ok := presetIDs[roleName]; ok {
+			u.RoleIDs = []string{presetID.String()}
+		}
+		pending = append(pending, u)
+	}
+	return pending, rows.Err()
+}
+
+// presetRoleIDsByName maps the three legacy preset names invitations.role can
+// hold ("admin"/"manager"/"member") to their role ids, so a pending invite's
+// single legacy role name can be rendered as the same role-id shape the rest
+// of AdminUser.RoleIDs uses.
+func (r *PostgresRepository) presetRoleIDsByName(ctx context.Context) (map[string]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, name FROM roles WHERE tenant_id IS NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byName := make(map[string]uuid.UUID)
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		byName[name] = id
+	}
+	return byName, rows.Err()
 }
 
 // AcceptInvitation claims the invitation, creates the account and assigns the

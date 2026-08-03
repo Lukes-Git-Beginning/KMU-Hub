@@ -32,6 +32,11 @@ service AuthService {
   rpc AssignUserRole(AssignUserRoleRequest) returns (AssignUserRoleResponse);
   rpc RevokeUserRole(RevokeUserRoleRequest) returns (RevokeUserRoleResponse);
 
+  // Admin account roster (phase 3) — the tenant's login accounts merged with
+  // its still-open invitations into the one list the account admin surface
+  // shows (admin-types.ts, AdminUser).
+  rpc ListAdminUsers(ListAdminUsersRequest) returns (ListAdminUsersResponse);
+
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
@@ -136,6 +141,28 @@ message ListUsersRequest {
 message ListUsersResponse {
   repeated UserInfo users = 1;
   int32 total = 2;
+}
+
+// AdminUserInfo is one row of the account roster: either a real account
+// (status active/deactivated, derived from users.is_active) or a still-open
+// invitation (status invited, no user row exists yet — first_name/last_name
+// are empty because invitations do not collect a name). Dates are RFC3339
+// strings, empty when unset, matching TenantInfo/InvitationInfo.
+message AdminUserInfo {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  repeated string role_ids = 5;
+  string status = 6;
+  string last_login_at = 7;
+  string invited_at = 8;
+}
+
+message ListAdminUsersRequest {}
+
+message ListAdminUsersResponse {
+  repeated AdminUserInfo users = 1;
 }
 
 message UpdateUserRequest {

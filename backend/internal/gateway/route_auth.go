@@ -156,12 +156,14 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		)).Delete("/{id}/roles/{roleId}", a.HandleRemoveRole)
 	})
 
-	// Effective-permission audit view of any account. Lives under /admin/users
-	// rather than /users because that is where the RBAC frontend addresses it
-	// (rbac-client.ts) — same guard as the other admin user operations, so no
-	// new permission key and no seed are needed.
+	// Effective-permission audit view of any account, and the account roster
+	// itself. Lives under /admin/users rather than /users because that is
+	// where the RBAC/account admin frontend addresses both (rbac-client.ts,
+	// useAdminUsers.ts) — RequireRole("admin") throughout, since the roster
+	// carries every tenant member's e-mail address and rights.
 	r.Route("/api/v1/admin/users", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.With(middleware.RequireRole("admin")).Get("/", a.HandleListAdminUsers)
 		r.With(middleware.RequireRole("admin")).Get("/{id}/permissions", a.HandleGetUserPermissions)
 	})
 
@@ -348,6 +350,71 @@ func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// adminUserBody mirrors AdminUser in admin-types.ts. Two fields carry a
+// deliberate gap, documented rather than invented:
+//   - jobTitle is always "" — the backend has no job-title data on an
+//     account (that lives in the HR employee record, a different service,
+//     addressed by a different id). Inventing one would be worse than empty.
+//   - hasOverrides is omitted (omitempty): per-user permission overrides
+//     (R-6) do not exist server-side yet.
+type adminUserBody struct {
+	ID           string   `json:"id"`
+	FirstName    string   `json:"firstName"`
+	LastName     string   `json:"lastName"`
+	Email        string   `json:"email"`
+	JobTitle     string   `json:"jobTitle"`
+	Roles        []string `json:"roles"`
+	HasOverrides bool     `json:"hasOverrides,omitempty"`
+	Status       string   `json:"status"`
+	LastLoginAt  *string  `json:"lastLoginAt"`
+	InvitedAt    *string  `json:"invitedAt"`
+}
+
+type adminUsersBody struct {
+	Users []adminUserBody `json:"users"`
+}
+
+func toAdminUserBody(u *authv1.AdminUserInfo) adminUserBody {
+	roles := u.RoleIds
+	if roles == nil {
+		roles = []string{}
+	}
+	return adminUserBody{
+		ID:          u.Id,
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		Email:       u.Email,
+		Roles:       roles,
+		Status:      u.Status,
+		LastLoginAt: nullIfEmpty(u.LastLoginAt),
+		InvitedAt:   nullIfEmpty(u.InvitedAt),
+	}
+}
+
+// HandleListAdminUsers returns the tenant's account roster: every real
+// account plus every still-open invitation, merged into the one list the
+// account admin surface shows.
+func (a *AuthRoutes) HandleListAdminUsers(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ListAdminUsers(r.Context(), &authv1.ListAdminUsersRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	body := adminUsersBody{Users: make([]adminUserBody, len(resp.Users))}
+	for i, u := range resp.Users {
+		body.Users[i] = toAdminUserBody(u)
+	}
+
+	response.JSON(w, http.StatusOK, body)
 }
 
 type updateUserRequest struct {
