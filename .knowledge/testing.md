@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-06-18
+updated: 2026-08-03
 ---
 # Test-Strategie
 
@@ -56,6 +56,25 @@ type MockRepository struct {
 - **Mock-Copy-Semantik bei Async-Services** (2026-06-05, `91a3014c`) — **Regel: Wenn der Service Goroutinen spawnt, braucht der Mock DB-Semantik** (Mutex + Snapshot-Copy bei jedem Read/Write), sonst flaky `-race`-Fails. Fall: GDPR-`ApproveExport` startet `ExecuteExportAsync` async; der Mock gab geteilte Map-Pointer heraus → Test-Assertion ("approved") raste gegen die Goroutine-Mutation ("processing"). `gdpr/service_test.go::MockRepository` ist jetzt das Referenz-Pattern (Copy-on-Read/Write, `sync.Mutex`). Tests duerfen nach Service-Calls nur ueber frische Map-Lookups oder Returns asserten, nie ueber vorher gehaltene Pointer.
 
 - **Input-Validation-Framework (S4.1, 2026-06-08, Commits `3937ff2d`+`cb784f79`)** — neue Test-Suiten fuer das `go-playground/validator`-Framework (siehe [[security]] "Validation-Framework"): `internal/dachfmt/dachfmt_test.go` (offizielle IBAN-Testvektoren DE/AT/CH/GB/FR/NL inkl. mod-97-Negativfaelle, BIC 8/11, PLZ je Land, USt-IdNr DACH+EU-VIES, Steuernummer-Laengen/Bundesland, Phone DE/AT/CH), `internal/validation/validation_test.go` (Builtins + Custom-Validatoren + Aggregat-String + `ErrorBody`-Shape). **Gateway-Test-Pattern:** invalid-input-Tests nutzen `assertValidationError(t, rec, "field")` (prueft 400 + `code=="validation_failed"` + Feld in `details`), Malformed-JSON bleibt auf `assertErrorContains(rec, "invalid request body")`. `route_auth_test.go` ist die Referenz; Welle 2 ergaenzte Format-Tests in route_biz/crm/dialer/video/helpdesk/wiki/security/guest. **Lesson (Welle-2-Incident):** parallele Subagenten im **geteilten** Working-Tree duerfen NIE `git stash`/`pull`/`reset`/`checkout` ausfuehren — ein Stash-Pop riss `server/websocket.go` in Konflikt (S4.7-Redis-Konstanten) und verwarf eine Handler-Konversion; Recovery via `git checkout HEAD --` + manuelles Nachziehen. Brief muss git-Mutationen in Subagenten explizit verbieten.
+
+### RLS-Regressions-Guard (Standing-Test, seit Nachtlauf 4 / 2026-08-02, `ead9923e`)
+
+`backend/internal/testutil/rls_regression_test.go` — `TestAllPublicTablesHaveRLSOrAreAllowlisted`. Scannt `pg_class` nach jeder Tabelle in `public` mit `relkind IN ('r','p')` und `NOT relrowsecurity` und failt, sofern der Name nicht in einer der zwei Listen der Datei steht:
+
+- `systemGlobalAllowlist` — spiegelt die ADR-006-Tabelle aus `docs/ARCHITECTURE.md` (7 Eintraege). Ein Name gehoert hier nur hin, wenn die Begruendung *dort* steht; ein Eintrag ohne Doku-Gegenstueck hebelt den Guard aus.
+- `knownRLSGaps` — getrackte Luecken mit eigener Backlog-Unit. **Seit `57343f38` leer**, nachdem Migration 000286 `user_roles` geschlossen hat. Leer ist der Sollzustand.
+
+`relispartition`-Kinder sind ausgenommen: die Policy sitzt am partitionierten Eltern-Table und Postgres wertet sie dort aus, nicht am Kind (verifiziert fuer `automation_executions` und `dialer_call_events`). Der Guard ersetzt den manuellen `pg_class`-Handscan, der die fuenf Cross-Tenant-Luecken von Block B gefunden hat — eine neue Migration mit ungeschuetzter Tabelle failt jetzt die Suite, statt aufs naechste Audit zu warten. Braucht `DATABASE_URL` (sonst `SkipIfNoDB`), in CI gegen `kmuhub_app` erfuellt.
+
+### Fallstrick: `defer pool.Close()` + `t.Cleanup(CleanupRow)` (Nachtlauf 4, Iterationen 47 und 48)
+
+Zweimal in einer Nacht dieselbe Falle, beide Male in neuen DB-Tests: `t.Cleanup` laeuft **nach** dem `defer` der Testfunktion. Wer den Pool per `defer pool.Close()` schliesst und die Zeilen-Aufraeumung per `t.Cleanup(...)` registriert, feuert die Cleanup-Querys gegen einen bereits geschlossenen Pool. Das ist nicht fatal (die Helper loggen per `t.Logf` statt `t.Fatalf`), aber die Zeilen bleiben stehen und der **naechste** Lauf kollidiert mit einem Unique-Constraint — ein Fehler, der aussieht, als haette der Testcode ein Problem, und dessen Ursache eine Iteration frueher liegt.
+
+Zwei gleichwertige Auswege, beide im Bestand vorhanden: durchgaengig `defer` (so macht es `rls_refresh_tokens_test.go`) oder durchgaengig `t.Cleanup`, wobei `t.Cleanup(func(){ pool.Close() })` **zuerst** registriert wird (LIFO → laeuft zuletzt). Nie mischen.
+
+### Test-Isolation: eigene Tenants statt geteilter Akteure
+
+Solange `user_roles` keine RLS hatte, konnte ein fester Akteur in Tests ueber zwei Tenants hinweg als Aufrufer auftreten — real unmoeglich, weil der JWT-Tenant immer mit der eigenen Zeile des Halters uebereinstimmt. Migration 000286 hat das aufgedeckt: sechs Stellen in `roles_admin_db_test.go`/`user_roles_db_test.go` brauchten einen tenant-eigenen Akteur. **Regel:** neue DB-Tests seeden ihre eigenen Tenants, statt `TenantA`/`TenantB` mit anderen Tests zu teilen.
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`

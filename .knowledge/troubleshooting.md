@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-22
+updated: 2026-08-03
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -168,6 +168,34 @@ Timestamp-/int64-**unabhängige** Schwester der ProtoTimestamp-Schuld: der FE-Cl
 - **6-Baustellen-Kampagne (3 Wellen, Worktree-Agenten + Main-Session-Gate, `c13586a3`→`39f6393c`→`e8bb19df`, alle CD-deployt):** hr/Leave (Envelope-Unwrap + Adapter; **Bonus-Bug:** ausgehende POST-Bodies camelCase→snake_case) · Integrations (**BE-Fix:** `HandleGetLinkStatus` ehrt jetzt `{platform}`-Pfad-Param + liefert flach — Proto-Request hat kein platform-Feld) · auth/2FA+Sessions+Audit (`security-client.ts` Pfade/Bodies; Audit `first_invalid_sequence`; `RecoveryCodes.recovery_codes`) · automation (echte Stats-Felder, `success_rate` FE-berechnet ÷0-Guard, Dead-Field `total`→`total_count`) · produktion (`.order`-Envelope-Unwrap, Typ schon snake_case 1:1 → kein Adapter) · formulare (Drilldown auf 4 echte BE-Zähler gekappt, fiktive Analytics fieldStats/conversion/dropoff/timeseries raus — kein Backend, bräuchte View-Tracking; 18 tote i18n-Keys symmetrisch über 4 Locales).
 - **Zwei bewusste BE-Wahrheit-Ausnahmen:** Integrations (Handler war buggy → **BE** gefixt) · formulare (FE-Erwartung auf BE-Realität **reduziert**, echte Analytics = Produkt-Ticket).
 - **Gate (Worktree-Agenten haben kein `node_modules`):** Main-Session cherry-pickt + `tsc --noEmit` (Default-tsconfig) + `eslint src/` (0 errors) + `vitest run` + Go bei BE-Änderung, committet gesammelt, pausiert pro Welle. ⚠ Electron-Screenshot-QA nicht durchführbar (GUI nicht erfassbar). Detail + Backlog: memory `project_fe_be_contract_mismatch_20260712`.
+
+## „Die Route fehlt" ist meistens „das FE ruft ein Segment zu viel" (Nachtlauf 4, 2026-08-03)
+
+Unterklasse des Contract-Mismatch oben, aber mit eigener Diagnose-Reihenfolge — und die falsche
+Reihenfolge kostet einen halben Tag Backend-Arbeit fuer nichts. Der Backend-Nachtloop hatte vier
+Units im Backlog, die als „fehlende Route" gescopt waren. In **keinem** der vier Faelle fehlte etwas
+im Backend:
+
+| Symptom | Realitaet |
+|---|---|
+| Kontakt-Timeline liefert 404 | Route existiert seit Langem, E2E-getestet. `useTimeline.ts:40` rief `/api/v1/crm/contacts/{id}/timeline` — ein `/crm/`-Segment, das **kein** anderer CRM-Hook nutzt |
+| Ressourcen-Buchung liefert 404 | `BookResource`/`CancelBooking` existieren inkl. EXCLUDE-GIST-Konfliktpruefung. `useResources.ts:123,138` rief `/calendar/resources/bookings` statt `/calendar/bookings`. `GET /resources/{id}/availability` war korrekt — der Fehler betraf nur zwei von drei Aufrufen derselben Datei |
+| Admin-Billing „ohne Backend" | Das FE ruft **gar keine** Route: `useBilling.ts` liefert `Promise.resolve(MOCK_*)` bzw. liest `localStorage`. Die Daten existieren real unter `/api/v1/admin/subscription` und `/admin/license` |
+| Gehaltsabrechnungen fehlen | Es gibt keine Datenquelle: `EmployeeProfile` traegt nur `HourlyRate`, kein Monatsgehalt, keinen Payroll-Lauf. Der MSW-Mock erfindet `net = gross * 0.675`. Die DATEV-Integration ist Buchungsstapel-Export, keine Lohnquelle |
+
+**Diagnose-Reihenfolge bei jedem gemeldeten 404 auf einer „fehlenden" Route:**
+
+1. `grep -rn "<pfad-fragment>" backend/internal/gateway/` — ist die Route registriert, nur anders?
+2. Den FE-Pfad gegen die **Nachbar-Hooks derselben Domain** halten. Ein Segment, das nur *eine*
+   Datei fuehrt, ist fast immer der Fehler — nicht die Route.
+3. Ruft das FE ueberhaupt? `Promise.resolve(MOCK_*)` im Hook heisst: es gibt kein Contract, das
+   verletzt sein koennte.
+4. Existiert eine echte Datenquelle? Wenn der MSW-Mock Werte *ausrechnet* (Naeherungen, feste Listen,
+   abgeleitete Prozentsaetze), ist die Route nicht „fehlend", sondern **noch nicht entworfen**.
+
+Warum es so lange unbemerkt bleibt: der MSW-Mock antwortet auf den *falschen* Pfad genauso brav wie
+auf den richtigen. In Demo und in jedem Test ist alles gruen; erst gegen ein echtes Gateway kommt
+der 404. Deshalb gehoert der Mock-Pfad an die Wire-Wahrheit angeglichen, nicht an die FE-Erwartung.
 
 ## CI Desktop „Run ESLint" rot, aber `eslint .` zeigt Hunderte Probleme (2026-06-21)
 - CI fuehrt `npm run lint` = **`eslint src/`** (nur `desktop/src/`), NICHT `eslint .`. Der `desktop/design-reference/`-Ordner ist Grundrauschen (~100 no-unused-vars/no-explicit-any) und **zaehlt nicht** fuer CI.

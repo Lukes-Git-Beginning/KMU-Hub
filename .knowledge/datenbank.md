@@ -1,6 +1,6 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-07-02
+updated: 2026-08-03
 ---
 # Datenbank
 
@@ -9,6 +9,101 @@ updated: 2026-07-02
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
 - **Migrations-Dateien** in `backend/migrations/` (Kopf **000242** auf main (Partitionierung R2-P1.10 2026-07-02; avatar/inventar 2026-06-28) [Welle F: 222 audit_log-append-only + 223 validate 29 tenant-FKs; Welle G: 224 RBAC manager/member operativ-Seed; **Meeting-Parität 2026-06-23: 225 meeting_chat, 226 meeting_cohosts+meetings.locked**]; ✅ Partitionierung (R2-P1.10) als **242** gemergt + im Maintenance-Window deployed 2026-07-02 (`f137707f`); Nummern-Luecken durch Reverts/Renumber) (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten · **214 seed_finance_manager_permissions** [manager→finance:read+write, kein delete/admin] **· 215 finance_payments_idempotency_key** [F5 DB-Dedup: idempotency_key + partieller Unique-Index `(tenant_id, idempotency_key) WHERE NOT NULL`])
 - **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`** (auf Server verifiziert 2026-06-10, clean). **2026-06-10:** Marathon-Tag-2-Welle-1 — Migr. **137/138** (advisory_protocols + settings-foundation, Commits `6b211222`+`360f92e6`) gepusht → Head wird **`138`**; nur statisch geprüft (keine lokale Dev-DB), CD-Migrate testet real. **2026-06-10/11:** Welle 2 + Backend-Sessions — Migr. **139–147** (GoBD/E-Rechnung/Kontakt-FK, RLS-Nachzug, Signaturen, Files-Seeds, Work-Labels/Custom-Fields) → Head **`147`**, Prod auf 147 verifiziert (Session 2 `cc5c1cbd`). 000148 reserviert (contract_events-Audit). **2026-06-18 (live gemessen):** Repo-Kopf **000213** (182 `.up.sql`-Dateien, Luecken durch Reverts/Renumber), Production-Kopf **209** (4 Migr. zurueck = CD-Lag zum Mess-Zeitpunkt) — die FE↔Backend-Wiring-Wellen (helpdesk/schichten/hr/wiki/rapporte/inventar/fuhrpark/einkauf/produktion) brachten Migr. 148–213. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]]. **2026-06-19:** Finance/biz-Härtung Wave 3 — Migr. **214/215** (manager-finance-Permissions + payment idempotency_key) → Repo-Kopf **215**. **2026-06-20 (Pre-Launch-Wellen):** Migr. **216** add_currency_to_finance (B6) + **217** drop_line_items_jsonb (Dual-Write entfernt, alle Reads relational — ADR-0007-Abschluss) → main-Kopf **217**. **2026-06-20 (Rigorosum R3 Welle 7a):** Migr. **218** RLS auf `advisory_protocols`+`tenant_settings`/`tenant_module_leads`/`user_settings` (`60e3a250`) → main-Kopf **218**. ✅ **Partitionierung deployed (2026-07-02):** `partition_ephemeral_log_tables` (events/dialer_call_events/automation_executions deklarativ RANGE-partitioniert, je 17 Partitionen = 16 Monate + DEFAULT; pg_cron-90d-Retention; audit_log AUSGESCHLOSSEN wg. §257/§147 AO + Hash-Kette) als Migr. **242** (`f137707f`, direct-to-main, PR #13 superseded). Custom pg_cron-Image `deploy/docker/postgres/Dockerfile` (pgvector/pgvector:pg16 + postgresql-16-cron) + Compose-`command` `shared_preload_libraries=pg_cron`/`cron.database_name=kmuhub`; im Hetzner-Maintenance-Window manuell gefahren (Backup→Image-Build→Postgres-Recreate→migrate→verify), CD währenddessen `disabled_manually`. pg_cron 1.6 aktiv, 2 Jobs (partition-advance-events 25./Monat 02:00 UTC, partition-retention-drop täglich 03:30 UTC). Runbook `deploy/PARTITION_MAINTENANCE_RUNBOOK.md`. ⚠ deploy.sh-Ordering (migrate VOR postgres-Restart, postgres nicht in BUILDABLE_SERVICES) macht Auto-CD ungeeignet für die Erst-Anwendung → immer manuelles Window. **2026-06-21 (Welle E):** Migr. **219** datev_consultant_client_numbers (7c) + **220** user_module_grants + **221** seed_module_grants_permissions → main-Kopf **221**. **2026-06-21 (Welle F, Data-Integrity + P0-1-Rest):** Migr. **222** audit_log_append_only (`BEFORE UPDATE OR DELETE`-Row-Trigger → DB-seitige GoBD/§257/§147-AO-Immutability; INSERT erlaubt, Partition-DROP=DDL unberührt; einziger Test der audit_log mutierte auf Append-Only-Assert umgestellt) + **223** validate_tenant_fks (29 NOT-VALID `tenant_id`-FKs aus 114/115/125/126 via Orphan-Guard-`DO`-Block validiert; golang-migrate atomar → Orphan-Fail rollt zurück, Kopf bleibt 222; forward-only Down=No-op) → main-Kopf **223** (CI grün inkl. `-race`/OpenAPI; CD-Apply gegen Prod beobachten, **bestätigt grün** — keine Orphans, Smoke 24/24). **2026-06-21 (Welle G, Permission-Seed-Nachzug):** Migr. **224** seed_module_manager_member_permissions — die 5 Module booking-pages/schichten/hr:time_*/inventar/einkauf waren komplett admin-only (403 für manager+member, kein operativer Zugriff); manager→voll operativ (alle Actions über 19 Resources), member→Self-Service (schichten:swap read+create, booking-pages:read, inventar:*:read); reiner `role_permissions`-Seed (Permissions existierten, nur Grants fehlten), Resource/Name-Strings 1:1 gegen Seeds verifiziert → main-Kopf **224**. **2026-06-23 (Meeting-Parität W2/W3):** Migr. **225** create_meeting_chat (`meeting_chat` tenant_id+RLS via `enable_tenant_rls`, FK meetings ON DELETE CASCADE, append-only In-Call-Chat) + **226** meeting_cohosts_and_lock (`meeting_cohosts` tenant_id+RLS + `meetings.locked BOOLEAN`-Spalte für server-autoritative Host-Controls) → main-Kopf **226**, **Prod 226 clean verifiziert** (`psql -U kmuhub -d kmuhub -tAc 'SELECT version,dirty FROM schema_migrations'` → `226|f`, beide Tabellen existieren). **2026-06-23/28 (Meeting-Parität 7A–7C + 6A Breakout):** Migr. **227** meeting_crm_link (contact_id/deal_id nullable FK) · **228** meeting_ai_summary · 229–234 (notif-pin/wiki-hr-RLS/task-prio-normalize/helpdesk-hours/retention_policies/wave2-perms) · **235** meeting_breakout_rooms + meeting_breakout_assignments (beide tenant_id NOT NULL + RLS via `enable_tenant_rls`, FK meetings ON DELETE CASCADE, tenant via Parent-Meeting-Subquery; UNIQUE(meeting_id,user_id) für Upsert-Assignment) → main-Kopf **235**, **Prod 235 clean** (CD 2026-06-28 grün, `235|f`, beide Breakout-Tabellen verifiziert). **2026-06-28 (Darien-Backend + avatar/inventar):** Migr. **236** helpdesk_ticket_fields (denormalize assignee/requester_name + description/category + per-Tenant `helpdesk_ticket_counters`-ticket_number) · **237** inbox_thread_messages · **238** inbox_canned_responses (beide reuse `inbox:read/write` → kein Permission-Seed) · **239** add_users_avatar_url (users system-global, custom RLS-Policy 120 → keine neue Policy; `TEXT NOT NULL DEFAULT ''`, speichert presign-object-key) · **240** create_inventory_item_attachments (tenant_id NOT NULL + RLS via `enable_tenant_rls`, FK inventory_items ON DELETE CASCADE, spiegelt fuhrpark vehicle_documents/194) · **241** seed_inventar_attachment_permissions (`inventar:attachment:read/write`→admin, neuer RequirePermission-Guard sonst 403) → main-Kopf **241**, **Prod 241 clean** (CD 2026-06-28 auf `f825b29c` grün). **2026-07-02:** Migr. **242** partition_ephemeral_log_tables (`f137707f`) im Maintenance-Window angewendet → main-Kopf + **Prod-Kopf 242** (`242|f` verifiziert). Anschließender Reconcile-CD-Deploy (`fe78b981`, workflow_dispatch) → **Prod voll = Repo** (App-Binaries + DB + Label konsistent); Postgres dabei NICHT recreated (Compose-`command` unverändert → `up -d postgres` no-op), migrate no-op.
+
+## Migrationen 243–287 — die drei Backend-Nachtlaeufe (2026-07-26 bis 2026-08-03)
+
+Der Abschnitt oben endet bei **242**. Alles danach stammt aus den Nachtlaeufen des Backend-Loops
+(`.planning/backend-block/loop/`, Journal + Archive dort). **Repo-Kopf 287**, Prod folgt mit dem
+Merge von PR #17.
+
+**Lauf 1 + 3 (243–268)** — Feature-Nachzug quer durch die Module: Bexio-Invoice-Pull (243),
+Inbox-Status (244), Berichte-Persistenz (245, 252), Finance-Ausbau (246 wiederkehrende Rechnungen,
+247 Kontoauszuege, 257 Auslagen, 258 Bankkonten), Tenant-Lizenz/Subscription (250, 251),
+RLS-Nachzug fuer Chat und Projekte (253, 254), CRM-Config-Unique-Indizes pro Tenant (255),
+**RBAC Phase 1a** (256, s.u.), Kontakt-Lead-Lifecycle (259), E-Mail-Regeln und -Labels (260, 261),
+Dokument-Aktivitaet/Kommentare/Share-Links (264–266), Helpdesk-Kontakt-Bezug und Quell-Kanal
+(267, 268). **249** hat `invitations` tenant-gescopt — vor dem Merge von Lauf 1 war die
+Backfill-Reichweite dieser Migration der Punkt, der auf Prod gezaehlt werden musste.
+
+**Lauf 4 (269–287)** — zwei thematische Bloecke plus Feature-Reste.
+
+### RLS-Welle (269–276, 286) — 20 Tabellen nachgezogen
+
+Grundlage war ein `pg_class`-Vollscan (318 Tabellen, 249 mit RLS): die ADR-006-Allowlist nannte
+vier Ausnahmen, ungeschuetzt waren deutlich mehr. Partitionen von `automation_executions` und
+`dialer_call_events` sind ueber den Eltern-Table geschuetzt — kein Befund, nur ein Scan-Artefakt.
+
+| Migration | Tabellen | Form |
+|---|---|---|
+| 269 | `email_contact_links`, `validation_rules`, `workflow_rules` | `enable_tenant_rls` |
+| 270 | 4× `*_custom_field_values` (contact/company/deal/activity) | `enable_tenant_rls_via_join` ueber die Parent-Tabelle |
+| 271 | `events` | `enable_tenant_rls`, s. ADR-Notiz unten |
+| 272 | `refresh_tokens`, `plugin_permissions` | direkt bzw. via `plugin_installations` |
+| 273 | `two_factor_policy` | Replikations-Backfill, s.u. |
+| 274 | `presence_config`, `dashboard_defaults` | Replikations-Backfill |
+| 275 | `storage_quotas` | Replikations-Backfill |
+| 276 | `plugin_manifests` | **Split-Policy** (Lese-/Schreib-Policy getrennt), nicht `enable_tenant_rls` |
+| 286 | `user_roles` | `enable_tenant_rls`, Einzel-Policy |
+
+**Wiederverwendbares Muster — der Replikations-Backfill (273/274/275).** Fuer Tabellen, die genau
+eine globale Konfigurationszeile fuehrten, die faktisch fuer alle Tenants galt:
+
+```sql
+ALTER TABLE t ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+INSERT INTO t (id, tenant_id, <spalten>)
+SELECT gen_random_uuid(), tn.id, <spalten> FROM t CROSS JOIN tenants tn WHERE t.tenant_id IS NULL;
+DELETE FROM t WHERE tenant_id IS NULL;
+ALTER TABLE t ALTER COLUMN tenant_id SET NOT NULL;
+CREATE UNIQUE INDEX ... ON t (tenant_id, <key>);   -- ersetzt den globalen Unique-Key
+CALL enable_tenant_rls('t');
+```
+
+Verlustfrei, weil die Zeile vorher fuer alle galt — jeder Tenant behaelt genau die Einstellung, unter
+der er stand. Auf Single-Tenant-Prod ist es 1:1. **Achtung beim Deploy:** der Schritt ersetzt globale
+Unique-Keys (`dashboard_defaults_role_key`, `plugin_manifests_slug_key`, `idx_dashboard_defaults_role`)
+und bricht hart ab, wenn die auf der Zieldatenbank anders heissen — Namen vor dem Deploy pruefen.
+
+`269` verzichtet bewusst auf einen DELETE-Fallback: bleibt nach dem Backfill eine Zeile ohne
+`tenant_id`, stimmt die FK-Annahme auf dieser Datenbank nicht und die Migration soll stehenbleiben,
+statt Link-Zeilen still wegzuwerfen. Vor dem Deploy also Waisen zaehlen.
+
+`271` korrigiert eine Praemisse aus `000242`: `events` galt als system-global und wurde mit dieser
+Begruendung partitioniert. `models.EventPayload` fuehrt aber eine `TenantID`, nur der Schreibpfad
+verwarf sie — `EventBus.ProcessBacklog` konnte den Tenant nach einem Neustart nicht wiederherstellen
+und reichte jedes nachgeholte Event mit `uuid.Nil` an die Handler. Policy sitzt am partitionierten
+Eltern-Table, wie schon bei `dialer_call_events`.
+
+### RBAC Phase 1 (256 = Welle 1a, 280/283 = Welle 1b)
+
+`256` fuehrt tenant-eigene Rollen neben System-Presets ein: `roles`/`role_permissions` sind
+RLS-aktiviert, aber `tenant_id` ist NULLable — NULL heisst „System-Preset, fuer jeden Tenant
+sichtbar". Deshalb Split-Policy statt `enable_tenant_rls` (DELETE wertet nur USING aus; eine einzelne
+permissive Policy liesse einen Tenant die Presets loeschen).
+
+`280` erweitert `invitations` um Rollen-IDs und Namen, `283` legt `user_permission_overrides` an
+(`tenant_id NOT NULL` + RLS): per-User-Abweichungen vom Rollenstand, in beide Richtungen — ein
+`deny` schliesst ein Tor, das die Rolle offen laesst, ein `allow` oeffnet eines. Details und die
+vier Guardrails in [[security]].
+
+### Neue Tabellen (5)
+
+`vendor_access_requests` (277), `driver_licenses` (279), `hr_profile_change_requests` (281),
+`user_permission_overrides` (283), `email_templates` (287) — alle mit `tenant_id NOT NULL` + RLS.
+`email_templates` fuehrt zusaetzlich `owner_id` (NULL = geteilt) und `visibility CHECK IN
+('personal','shared')`; die Sichtbarkeit ist **eine** WHERE-Klausel, die `GetByID` und `ListVisible`
+teilen — uebernommen von `crm/contact`, nicht neu erfunden.
+
+### Sonstige
+
+`278` backfillt abgestandene Nullsummen in `purchase_orders.total_amount`, `282` ergaenzt
+HR-Offboarding-Felder, `284` den DB-Claim des Automation-Zeit-Trigger-Pollers (s. [[architektur]]),
+`285` erlaubt mehrere E-Mail-Konten pro Nutzer.
+
+### Standing-Guard statt naechstem Handscan
+
+`backend/internal/testutil/rls_regression_test.go` scannt `pg_class` bei jedem Testlauf und failt
+bei jeder Tabelle ohne RLS, die nicht in der ADR-006-Allowlist steht. Eine neue Migration mit
+ungeschuetzter Tabelle bricht damit die Suite. Details: [[testing]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 
