@@ -2945,7 +2945,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       `user_roles` traegt weder `tenant_id` noch eine RLS-Policy — als einzige Tabelle des
       RBAC-Kerns (`roles`/`role_permissions` sind seit 000256 abgesichert, `permissions` ist
@@ -2974,3 +2974,36 @@ units:
       - AssignRole/RemoveRole schreiben und filtern tenant-gescoped
       - RLS-Smoke: eigener Tenant > 0, fremder Tenant = 0
       - go build/vet/lint/test gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 47). Migration 000286: `tenant_id` per Backfill aus `users.tenant_id`,
+      NOT NULL, FK auf `tenants`, `CALL enable_tenant_rls('user_roles')` — Einzel-Policy reicht
+      (jede Zuweisung gehoert immer einem echten Tenant, anders als bei `roles` gibt es hier keine
+      System-Preset-Zeile).
+      Der zweite, schwerere Fund aus den Notes war real und stand kurz vor Ausnutzbarkeit: Welle 1b
+      (jetzt fertig) erlaubt tenant-eigene Rollen mit demselben Namen wie ein Preset (Index liegt auf
+      `COALESCE(tenant_id, sentinel)`, ein echter `tenant_id` kollidiert nie mit dem Sentinel der
+      Presets). `AssignRole(ctx, userID, "member")` — der Pfad, den JEDE Registrierung durchlaeuft
+      (`service.go:107`, unter `sysctx.With()`, RLS also wirkungslos) — matchte per
+      `WHERE r.name = $2` BEIDE Zeilen und haette jeden neuen Registranten, tenant-uebergreifend, in
+      die gleichnamige Custom-Rolle eines fremden Tenants gehaengt. Fix sitzt in der Query, nicht in
+      RLS: `AssignRole`/`RemoveRole` loesen jetzt ausschliesslich System-Presets auf
+      (`r.tenant_id IS NULL`); Custom-Rollen laufen ausschliesslich ueber den ID-basierten
+      `AssignUserRole`/`RevokeUserRole`-Pfad aus 1b. Regressionstest
+      `TestAssignRole_DB_PresetOnlyDespiteNameCollision` seedet eine Tenant-Rolle namens "member" und
+      beweist: genau eine Zuweisung, die des Presets, im Tenant des Opfers.
+      13 Bestandsstellen (Repository + `AcceptInvitation` + 11 Test-/Seed-Dateien) haben `tenant_id`
+      beim Insert nachgezogen, sonst waere die neue NOT-NULL-Spalte ein harter Bruch gewesen.
+      Nebenbefund waehrend der Testfixes: mehrere Tests (`roles_admin_db_test.go`,
+      `user_roles_db_test.go`) liessen denselben Akteur ueber zwei Tenants hinweg agieren
+      (moeglich nur, weil `user_roles` vorher RLS-frei war) — real waere das nie erreichbar (ein
+      JWT-Tenant stimmt immer mit der eigenen Zeile des Halters ueberein). Gefixt durch je einen
+      tenant-eigenen Akteur statt eines geteilten. Ein Test (`TestEffectivePermissions_DB_
+      ForeignCustomRoleStaysInvisible`) stand auf einer jetzt UEBERHOLTEN Annahme (Presets bleiben
+      tenant-uebergreifend sichtbar) — echte Verschaerfung, keine Regression: `HandleGetUserPermissions`
+      loest das Ziel schon vorher ueber `GetUser` (RLS-geschuetzt) auf, ein fremder User war ueber
+      HTTP nie erreichbar; Erwartung im Test angepasst, Kommentar an der Route (verwies auf die jetzt
+      falsche Praemisse "user_roles hat keine RLS") korrigiert.
+      migrate up/down/up lokal gruen (Kopf 286). `go build -p 2` + `go vet` + `golangci-lint run` auf
+      dem gesamten Repo (`./...`) → 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`:
+      `go test -count=1 ./internal/auth/... ./internal/server/... ./internal/biz/hr/employee/...
+      ./internal/gateway/...` → alles PASS, 0 SKIP.

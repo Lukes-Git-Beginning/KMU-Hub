@@ -35,6 +35,16 @@ var (
 	// about before the guardrails existed — the narrow callers live in
 	// guardrails_db_test.go.
 	roleAdminActor = uuid.MustParse("40123a00-0000-4000-8000-0000000000a1")
+	// roleAdminForeignActor is roleAdminActor's counterpart for
+	// roleAdminForeignTenant. Before migration 000286, user_roles carried no
+	// RLS of its own, so roleAdminActor's admin-preset assignment stayed
+	// visible even from a mismatched tenant ctx and one fixed actor could
+	// stand in for "an administrator" in either tenant. Now user_roles is
+	// itself tenant-scoped — the same mismatch production could never
+	// present either, since a JWT's tenant always matches its holder's own
+	// row — so every CreateRole call made against roleAdminForeignTenant
+	// needs an actor whose own assignment actually lives there.
+	roleAdminForeignActor = uuid.MustParse("40123a00-0000-4000-8000-0000000000a2")
 )
 
 // TestRoleAdminErrorsCarryFrontendCodes pins the sentinel messages. They are
@@ -59,7 +69,8 @@ func roleAdminSetup(t *testing.T) (*pgxpool.Pool, *auth.Service) {
 	testutil.EnsureTenant(t, pool, roleAdminTenant, "RoleAdminTenant")
 	testutil.EnsureTenant(t, pool, roleAdminForeignTenant, "RoleAdminForeignTenant")
 	roleAdminCleanupRoles(t, pool)
-	seedRoleAdminActor(t, pool)
+	seedRoleAdminActor(t, pool, roleAdminActor, roleAdminTenant, "role-admin-actor@test.local")
+	seedRoleAdminActor(t, pool, roleAdminForeignActor, roleAdminForeignTenant, "role-admin-foreign-actor@test.local")
 
 	svc := auth.NewService(
 		auth.NewPostgresRepository(pool),
@@ -83,24 +94,27 @@ func roleAdminCleanupRoles(t *testing.T, pool *pgxpool.Pool) {
 	t.Cleanup(drop)
 }
 
-// seedRoleAdminActor puts the calling account into the tenant and gives it the
-// admin preset. Written as plain SQL under system context rather than through
-// testutil.SeedRow because the id has to be the fixed one above — the tests
-// name it directly, and re-seeding it per test keeps them independent.
-func seedRoleAdminActor(t *testing.T, pool *pgxpool.Pool) {
+// seedRoleAdminActor puts an account with the given fixed id into tenantID
+// and gives it the admin preset. Written as plain SQL under system context
+// rather than through testutil.SeedRow because the id has to be the fixed one
+// the tests name directly, and re-seeding it per test keeps them independent.
+// One actor per tenant: an account belongs to exactly one tenant, so
+// roleAdminActor cannot also carry a grant in roleAdminForeignTenant now that
+// user_roles is itself tenant-scoped (migration 000286).
+func seedRoleAdminActor(t *testing.T, pool *pgxpool.Pool, id, tenantID uuid.UUID, email string) {
 	t.Helper()
 	ctx := testutil.WithSystemCtx(context.Background())
 	_, err := pool.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name)
-		 VALUES ($1, $2, 'role-admin-actor@test.local', 'x', 'Role', 'Actor')
-		 ON CONFLICT DO NOTHING`, roleAdminActor, roleAdminTenant)
+		 VALUES ($1, $2, $3, 'x', 'Role', 'Actor')
+		 ON CONFLICT DO NOTHING`, id, tenantID, email)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, id FROM roles WHERE name = 'admin' AND tenant_id IS NULL
-		 ON CONFLICT DO NOTHING`, roleAdminActor)
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT $1, id, $2 FROM roles WHERE name = 'admin' AND tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`, id, tenantID)
 	require.NoError(t, err)
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", roleAdminActor) })
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", id) })
 }
 
 // presetID resolves a preset by name. The tests clone from presets because
@@ -223,7 +237,7 @@ func TestCreateRole_DB_NameIsFreeInAnotherTenant(t *testing.T) {
 		roleAdminTenant, auth.CreateRoleInput{Name: "Doppelname", BasedOn: source})
 	require.NoError(t, err)
 
-	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Doppelname", BasedOn: source})
 	assert.NoError(t, err, "two tenants may both name a role Doppelname")
 }
@@ -233,7 +247,7 @@ func TestCreateRole_DB_NameIsFreeInAnotherTenant(t *testing.T) {
 // silent empty clone, it is the 404 the builder shows as "not found".
 func TestCreateRole_DB_BasedOnNotVisible(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Fremdrolle", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -272,7 +286,7 @@ func TestCreateRole_DB_LimitCountsOnlyCustomRoles(t *testing.T) {
 	assert.ErrorIs(t, err, auth.ErrRoleLimitReached)
 
 	// The other tenant keeps its own budget.
-	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	_, err = svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Erste", BasedOn: source})
 	assert.NoError(t, err, "the budget is per tenant")
 }
@@ -360,7 +374,7 @@ func TestUpdateRole_DB_PresetIsImmutable(t *testing.T) {
 // not even to learn that it exists.
 func TestUpdateRole_DB_ForeignRoleIsNotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Fremd", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -395,12 +409,15 @@ func TestDeleteRole_DB_RoleHasMembers(t *testing.T) {
 	require.NoError(t, err)
 
 	user := roleAdminUser(t, pool, repo, roleAdminTenant)
-	require.NoError(t, repo.AssignRole(ctx, user.ID, role.Name))
+	// AssignRole/RemoveRole are the legacy name-based path and resolve system
+	// presets only (migration 000286) — "Besetzt" is a custom role, so it has
+	// to go through the id-based AssignUserRole/RevokeUserRole instead.
+	require.NoError(t, repo.AssignUserRole(ctx, user.ID, role.ID))
 
 	err = svc.DeleteRole(ctx, role.ID)
 	assert.ErrorIs(t, err, auth.ErrRoleHasMembers)
 
-	require.NoError(t, repo.RemoveRole(ctx, user.ID, role.Name))
+	require.NoError(t, repo.RevokeUserRole(ctx, user.ID, role.ID))
 	assert.NoError(t, svc.DeleteRole(ctx, role.ID), "once the last holder is gone the role must be deletable")
 }
 
@@ -431,7 +448,7 @@ func TestDeleteRole_DB_RemovesRoleAndGrants(t *testing.T) {
 // alike — both must answer ErrBaseRoleNotFound, never a 500 or a silent no-op.
 func TestDeleteRole_DB_NotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Unerreichbar", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 
@@ -486,7 +503,7 @@ func TestGetRolePermissions_DB_ReadsPresets(t *testing.T) {
 // as "role exists but has nothing granted".
 func TestGetRolePermissions_DB_NotFound(t *testing.T) {
 	pool, svc := roleAdminSetup(t)
-	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminActor,
+	foreign, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), roleAdminForeignTenant), roleAdminForeignActor,
 		roleAdminForeignTenant, auth.CreateRoleInput{Name: "Verborgen", BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 

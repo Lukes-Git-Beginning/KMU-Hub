@@ -799,10 +799,11 @@ func (a *AuthRoutes) HandleGetMyPermissions(w http.ResponseWriter, r *http.Reque
 // admin audit view.
 //
 // Fetching the target user first is a security step, not a convenience:
-// user_roles carries neither tenant_id nor an RLS policy, so the resolver
-// filters the roles but not the membership — handed a foreign tenant's user id
-// it would resolve that user's preset roles just fine. GetUser runs under the
-// users RLS policy and turns a foreign id into a clean 404.
+// GetUser runs under the users RLS policy and turns a foreign id into a clean
+// 404 before the resolver ever runs. user_roles carries its own tenant_id/RLS
+// since migration 000286 and would already refuse a foreign id's roles on its
+// own — this stays as the outer, user-facing gate (a clean 404 beats an empty
+// permission set) and as defense in depth for the resolver itself.
 func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {

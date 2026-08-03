@@ -802,16 +802,17 @@ ON CONFLICT (id) DO NOTHING;
 -- Legt den User NICHT an (das macht register), hebt nur die Rolle wenn vorhanden.
 DO $$
 DECLARE
-  v_user_id  uuid;
-  v_admin_id uuid;
+  v_user_id   uuid;
+  v_tenant_id uuid;
+  v_admin_id  uuid;
   v_member_id uuid;
 BEGIN
-  SELECT id INTO v_user_id  FROM users WHERE email = 'demo@local.test';
-  SELECT id INTO v_admin_id FROM roles WHERE name = 'admin';
-  SELECT id INTO v_member_id FROM roles WHERE name = 'member';
+  SELECT id, tenant_id INTO v_user_id, v_tenant_id FROM users WHERE email = 'demo@local.test';
+  SELECT id INTO v_admin_id FROM roles WHERE name = 'admin' AND tenant_id IS NULL;
+  SELECT id INTO v_member_id FROM roles WHERE name = 'member' AND tenant_id IS NULL;
   IF v_user_id IS NOT NULL AND v_admin_id IS NOT NULL THEN
-    INSERT INTO user_roles (user_id, role_id)
-      VALUES (v_user_id, v_admin_id)
+    INSERT INTO user_roles (user_id, role_id, tenant_id)
+      VALUES (v_user_id, v_admin_id, v_tenant_id)
       ON CONFLICT DO NOTHING;
     IF v_member_id IS NOT NULL THEN
       DELETE FROM user_roles WHERE user_id = v_user_id AND role_id = v_member_id;

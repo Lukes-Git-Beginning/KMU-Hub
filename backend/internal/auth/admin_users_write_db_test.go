@@ -61,7 +61,7 @@ func seedAdminWriteUser(t *testing.T, pool *pgxpool.Pool, tenant uuid.UUID, emai
 		// user_roles has a composite PK and no surrogate id, so SeedRow's
 		// RETURNING id does not apply. Deleted by the users cascade.
 		_, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
-			`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, id, roleID)
+			`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`, id, roleID, tenant)
 		require.NoError(t, err)
 	}
 	return id

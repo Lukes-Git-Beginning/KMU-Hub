@@ -3042,3 +3042,61 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - offen fuer Luke: keine FE-Anbindung an `.list()`/`.default` in diesem Commit (Backend-Scope) —
   FE-Client/Mocks erwarten die Wire-Shape bereits, ein FE-seitiger Smoke-Test gegen das echte
   Backend steht noch aus.
+
+## Iteration 47 — g-user-roles-rls — done — 2026-08-03
+
+- verify-vorspann auf `364b5756` (Iteration 46, Mail-Multi-Account): `git show --stat` gelesen,
+  Diff deckt sich mit der Journal-Beschreibung. Migration 000285 additiv, kein neues
+  `RequirePermission`, RLS auf `email_accounts` unveraendert. Kein Fund. Sauber.
+- gebaut: `g-user-roles-rls`, die letzte ungeschuetzte Tabelle des RBAC-Kerns. Migration 000286:
+  `tenant_id` per Backfill aus `users.tenant_id`, NOT NULL, FK auf `tenants`,
+  `CALL enable_tenant_rls('user_roles')` — Einzel-Policy reicht, weil eine Zuweisung immer einem
+  echten Tenant gehoert (anders als bei `roles` gibt es hier keine System-Preset-Zeile, die eine
+  Split-Policy noetig macht).
+- **Kritischer Fund vor dem Bauen, wie in den Notes vermutet und real ausnutzbar:** Welle 1b (jetzt
+  abgeschlossen) erlaubt tenant-eigenen Rollen denselben Namen wie ein Preset (Arbiter-Index liegt
+  auf `COALESCE(tenant_id, sentinel)`, ein echter `tenant_id` kollidiert nie mit dem Sentinel der
+  Presets). `AssignRole(ctx, userID, "member")` — der Pfad, den JEDE Registrierung durchlaeuft
+  (`service.go:107`, unter `sysctx.With()`, RLS also wirkungslos) — matchte per `WHERE r.name = $2`
+  beide Zeilen und haette jeden neuen Registranten, tenant-uebergreifend, zusaetzlich in die
+  gleichnamige Custom-Rolle eines fremden Tenants gehaengt — eine Rechte-Uebertragung ueber die
+  Tenant-Grenze, auslösbar durch nichts weiter als eine Registrierung. Fix sitzt in der Query, nicht
+  in RLS (die unter `sysctx` ohnehin nicht filtert): `AssignRole`/`RemoveRole` loesen jetzt
+  ausschliesslich System-Presets auf (`r.tenant_id IS NULL`); Custom-Rollen laufen ausschliesslich
+  ueber den ID-basierten `AssignUserRole`/`RevokeUserRole`-Pfad aus 1b. Neuer Test
+  `TestAssignRole_DB_PresetOnlyDespiteNameCollision` seedet eine Tenant-Rolle namens "member" und
+  beweist: genau eine Zuweisung entsteht, die des Presets, im Tenant des Opfers — nicht die des
+  Angreifer-Tenants.
+- 13 Bestandsstellen mussten `tenant_id` beim Insert nachziehen (Repository: `AssignRole`,
+  `AssignUserRole`, `AcceptInvitation`; dazu 10 Test-/Seed-Dateien), sonst waere die neue
+  NOT-NULL-Spalte ein harter Bruch gewesen. Alle bereits vorhandenen Kommentare, die "user_roles hat
+  keine RLS" behaupteten (postgres_repository.go, repository.go, roles_admin.go, route_auth.go,
+  hr/employee/postgres_repository.go, mehrere *_db_test.go), auf den neuen Stand korrigiert statt
+  stehen gelassen — die Joins ueber `users`/`roles` bleiben trotzdem drin, weil mehrere Pfade unter
+  `sysctx.With()` laufen, wo RLS nicht greift (Doppelabsicherung, kein Widerspruch).
+- Zwei Nebenbefunde beim Testfixen, beide Test-Artefakte, keine Produktionsluecken:
+  (1) `roles_admin_db_test.go` und `user_roles_db_test.go` liessen denselben festen Akteur ueber
+  ZWEI Tenants hinweg als Aufrufer agieren (nur moeglich, weil `user_roles` vorher RLS-frei war —
+  real waere das nie erreichbar, ein JWT-Tenant stimmt immer mit der eigenen Zeile des Halters
+  ueberein). Sechs betroffene Stellen bekommen jetzt einen tenant-eigenen Akteur
+  (`roleAdminForeignActor`, `userRoleCustomOwner`) statt des geteilten.
+  (2) `TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible` stand auf einer jetzt
+  UEBERHOLTEN Annahme (Presets bleiben tenant-uebergreifend sichtbar, nur Custom-Rollen nicht) —
+  echte Verschaerfung, keine Regression: `HandleGetUserPermissions` loest das Ziel schon vorher ueber
+  `GetUser` (RLS-geschuetzt) auf, ein fremder User war ueber HTTP nie erreichbar. Erwartung im Test
+  angepasst, der zugehoerige (jetzt falsche) Kommentar an der Route korrigiert.
+  (3) Ein drittes Test-Artefakt in derselben Runde, kein Produktionscode: der eigene
+  `rls_user_roles_test.go`-Test `TestAssignRole_DB_PresetOnlyDespiteNameCollision` mischte
+  `defer pool.Close()` mit `t.Cleanup(...)` fuer Row-Aufraeumung — `t.Cleanup` laeuft NACH dem
+  eigenen `defer` der Funktion, die Aufraeum-Querys liefen also gegen einen bereits geschlossenen
+  Pool und hinterliessen eine Leiche, die den naechsten Testlauf mit einem Unique-Constraint-Fehler
+  kollidieren liess. Auf durchgaengige `defer` umgestellt (mirrors `rls_refresh_tokens_test.go`).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, keine neue
+  Route (kein `.proto` angefasst, `api/openapi.yaml` unveraendert).
+- gate: `go build -p 2 ./...` + `go vet ./...` + `golangci-lint run ./...` -> 0 issues (voller
+  Repo-Scope, weil die Query-Aenderung ausserhalb von `internal/auth` Bestandscode beruehrt hat:
+  `internal/gateway/route_auth.go`, `internal/biz/hr/employee/postgres_repository.go`). Mit
+  `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 286):
+  `go test -count=1 ./internal/auth/... ./internal/server/... ./internal/biz/hr/employee/...
+  ./internal/gateway/...` -> alles PASS, 0 SKIP, inkl. 3 neuer RLS-Tests fuer `user_roles`.
+  migrate up/down/up lokal gruen (Kopf 286).

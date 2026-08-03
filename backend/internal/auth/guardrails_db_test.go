@@ -73,8 +73,8 @@ func guardUserIn(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, email str
 
 	for _, preset := range presets {
 		_, err := pool.Exec(ctx,
-			`INSERT INTO user_roles (user_id, role_id)
-			 SELECT $1, id FROM roles WHERE name = $2 AND tenant_id IS NULL`, userID, preset)
+			`INSERT INTO user_roles (user_id, role_id, tenant_id)
+			 SELECT $1, id, $3 FROM roles WHERE name = $2 AND tenant_id IS NULL`, userID, preset, tenantID)
 		require.NoErrorf(t, err, "preset %q missing — migration 000256 not applied?", preset)
 	}
 	return userID
@@ -95,7 +95,7 @@ func guardRole(t *testing.T, pool *pgxpool.Pool, svc *auth.Service, admin uuid.U
 
 	for _, wearer := range wearers {
 		_, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
-			`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, wearer, role.ID)
+			`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`, wearer, role.ID, guardTenant)
 		require.NoError(t, err)
 	}
 	return role.ID
@@ -108,9 +108,10 @@ func TestGuardrail_DB_LastAdminCannotLoseTheRole(t *testing.T) {
 	pool, svc := guardSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), guardTenant)
 	admin := guardUser(t, pool, "guard-last-admin@test.local", "admin")
-	// Another tenant's administrator must not count. user_roles has no RLS of
-	// its own, so the count is only tenant-scoped through its users join —
-	// without that join this revoke would look perfectly safe.
+	// Another tenant's administrator must not count. The guardrail's count
+	// query still scopes through a users join on top of user_roles' own RLS
+	// (migration 000286) — without that join this revoke would look
+	// perfectly safe.
 	guardUserIn(t, pool, guardForeignTenant, "guard-foreign-admin@test.local", "admin")
 
 	_, err := svc.RevokeUserRole(ctx, admin, admin, presetID(t, pool, "admin"))

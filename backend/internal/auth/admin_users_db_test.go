@@ -14,11 +14,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
-// The roster merges two RLS-scoped sources (users, invitations) plus a
-// tenant-unscoped join (user_roles, user_sessions) — every failure mode here
-// is a database property (cross-tenant leak, a JOIN losing the GROUP BY
-// functional dependency), so this runs against the real database with its
-// own tenants rather than the shared testutil.TenantA/B.
+// The roster merges RLS-scoped sources (users, invitations, user_roles,
+// user_sessions) through a LEFT JOIN — every failure mode here is a database
+// property (cross-tenant leak, a JOIN losing the GROUP BY functional
+// dependency), so this runs against the real database with its own tenants
+// rather than the shared testutil.TenantA/B.
 var (
 	adminRosterTenant        = uuid.MustParse("40123b00-0000-4000-8000-000000000001")
 	adminRosterForeignTenant = uuid.MustParse("40123b00-0000-4000-8000-000000000002")
@@ -81,7 +81,7 @@ func TestListAdminUsers_DB_MergesAccountsAndInvitations(t *testing.T) {
 	// SeedRow's `RETURNING id` does not apply — plain insert under system
 	// context, same as roleAdminSetup's seedRoleAdminActor.
 	_, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
-		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, activeID, adminPreset)
+		`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`, activeID, adminPreset, adminRosterTenant)
 	require.NoError(t, err)
 
 	loginAt := time.Now().Add(-2 * time.Hour).Truncate(time.Second)

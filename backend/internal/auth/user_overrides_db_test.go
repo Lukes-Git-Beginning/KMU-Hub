@@ -77,8 +77,8 @@ func ovrUserIn(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, email strin
 
 	for _, preset := range presets {
 		_, err := pool.Exec(ctx,
-			`INSERT INTO user_roles (user_id, role_id)
-			 SELECT $1, id FROM roles WHERE name = $2 AND tenant_id IS NULL`, userID, preset)
+			`INSERT INTO user_roles (user_id, role_id, tenant_id)
+			 SELECT $1, id, $3 FROM roles WHERE name = $2 AND tenant_id IS NULL`, userID, preset, tenantID)
 		require.NoErrorf(t, err, "preset %q missing — migration 000256 not applied?", preset)
 	}
 	return userID
@@ -281,9 +281,10 @@ func TestSetUserOverrides_DB_LastAdminCannotBeDenied(t *testing.T) {
 	// no reach of its own, which is what lets a non-administrator trigger it.
 	actor := ovrUser(t, pool, "ovr-actor-lastadmin@test.local", "manager")
 	target := ovrUser(t, pool, "ovr-target-lastadmin@test.local", "admin")
-	// A foreign tenant's administrator must not count: user_roles has no RLS
-	// of its own, so the count is tenant-scoped only through its users join —
-	// without it this deny would look perfectly safe.
+	// A foreign tenant's administrator must not count: the guardrail's count
+	// query still scopes through a users join on top of user_roles' own RLS
+	// (migration 000286) — without that join this deny would look perfectly
+	// safe.
 	ovrUserIn(t, pool, ovrForeignTenant, "ovr-foreign-admin@test.local", "admin")
 
 	// Both role-admin keys have to go: denying one would leave the target an

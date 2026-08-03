@@ -15,11 +15,10 @@ import (
 )
 
 // Role assignment runs against the real database for one reason above all
-// others: user_roles carries neither tenant_id nor an RLS policy (Block B,
-// g-user-roles-rls). Its tenant boundary is entirely made of joins against
-// users and roles, and only the real policies can prove those joins hold. A
-// mock repository would happily "assign" a foreign tenant's role and the test
-// would pass.
+// others: user_roles' tenant boundary is made of joins against users and
+// roles PLUS its own tenant_id/RLS (migration 000286, g-user-roles-rls), and
+// only the real policies can prove either holds. A mock repository would
+// happily "assign" a foreign tenant's role and the test would pass.
 //
 // Own tenants throughout, never the shared testutil.TenantA/B — these tests
 // seed users and roles and run beside the rest of the package.
@@ -73,9 +72,9 @@ func seedUserRoleActor(t *testing.T, pool *pgxpool.Pool) {
 		 ON CONFLICT DO NOTHING`, userRoleActor, userRoleTenant)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, id FROM roles WHERE name = 'admin' AND tenant_id IS NULL
-		 ON CONFLICT DO NOTHING`, userRoleActor)
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT $1, id, $2 FROM roles WHERE name = 'admin' AND tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`, userRoleActor, userRoleTenant)
 	require.NoError(t, err)
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userRoleActor) })
 }
@@ -101,10 +100,41 @@ func userRoleUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, email st
 // kind of role the old oneof validator could never name.
 func userRoleCustom(t *testing.T, svc *auth.Service, pool *pgxpool.Pool, tenantID uuid.UUID, name string) uuid.UUID {
 	t.Helper()
-	role, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), tenantID), userRoleActor, tenantID,
+	role, err := svc.CreateRole(testutil.WithTenantCtx(context.Background(), tenantID), userRoleCustomOwner(t, pool, tenantID), tenantID,
 		auth.CreateRoleInput{Name: name, BasedOn: presetID(t, pool, "extern")})
 	require.NoError(t, err)
 	return role.ID
+}
+
+// userRoleCustomOwner returns an administrator whose own grants are visible
+// in tenantID. userRoleActor only lives in userRoleTenant; reusing it as the
+// caller for a userRoleForeignTenant clone used to work because user_roles
+// carried no RLS of its own and presets stayed visible from any tenant ctx —
+// now that the table is tenant-scoped (migration 000286), an account whose
+// real assignment lives elsewhere resolves to zero grants and CreateRole's
+// escalation guard rejects the clone. No production caller could present that
+// mismatch either: a JWT's tenant always matches its holder's own row.
+func userRoleCustomOwner(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID) uuid.UUID {
+	t.Helper()
+	if tenantID == userRoleTenant {
+		return userRoleActor
+	}
+	ownerID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"tenant_id":     tenantID,
+		"email":         "userrole-owner-" + uuid.NewString()[:8] + "@test.local",
+		"password_hash": "x",
+		"first_name":    "Owner",
+		"last_name":     "Fixture",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", ownerID) })
+	ctx := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT $1, id, $2 FROM roles WHERE name = 'admin' AND tenant_id IS NULL`,
+		ownerID, tenantID)
+	require.NoError(t, err)
+	return ownerID
 }
 
 // TestAssignUserRole_DB_CustomRoleIsAssignable is the point of the unit. Until
@@ -174,7 +204,7 @@ func TestAssignUserRole_DB_ForeignTenantUserIsInvisible(t *testing.T) {
 	var assigned int
 	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
 		`SELECT COUNT(*) FROM user_roles WHERE user_id = $1`, foreignUser).Scan(&assigned))
-	assert.Zero(t, assigned, "no row may reach the unprotected user_roles table")
+	assert.Zero(t, assigned, "no row may reach user_roles")
 }
 
 // TestAssignUserRole_DB_ForeignTenantRoleIsInvisible is the other half: a role
@@ -195,8 +225,8 @@ func TestAssignUserRole_DB_ForeignTenantRoleIsInvisible(t *testing.T) {
 
 // TestAssignUserRole_DB_RepositoryAloneRefusesForeignRole proves the write is
 // safe even without the service's pre-checks. The repository is where a later
-// caller (a guardrail path, a migration script) might land directly, and
-// user_roles has no policy of its own to catch it there.
+// caller (a guardrail path, a migration script) might land directly, before
+// user_roles' own RLS (migration 000286) would even get a chance to catch it.
 func TestAssignUserRole_DB_RepositoryAloneRefusesForeignRole(t *testing.T) {
 	pool, svc := userRoleSetup(t)
 	repo := auth.NewPostgresRepository(pool)

@@ -164,8 +164,10 @@ func promoteToAdmin(t *testing.T, userID string) {
 	defer conn.Close(ctx)
 
 	_, err = conn.Exec(ctx, `
-		INSERT INTO user_roles (user_id, role_id)
-		SELECT $1, r.id FROM roles r WHERE r.name = 'admin'
+		INSERT INTO user_roles (user_id, role_id, tenant_id)
+		SELECT u.id, r.id, u.tenant_id
+		FROM users u, roles r
+		WHERE u.id = $1 AND r.name = 'admin' AND r.tenant_id IS NULL
 		ON CONFLICT DO NOTHING`, userID)
 	if err != nil {
 		t.Fatalf("failed to assign admin role: %v", err)

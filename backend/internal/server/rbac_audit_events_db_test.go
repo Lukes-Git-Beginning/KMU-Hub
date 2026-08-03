@@ -60,9 +60,9 @@ func auditEventsSetup(t *testing.T) (*pgxpool.Pool, *AuthGRPCServer, uuid.UUID, 
 	require.NoError(t, err)
 
 	_, err = pool.Exec(sysCtx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, id FROM roles WHERE name = 'admin' AND tenant_id IS NULL
-		 ON CONFLICT DO NOTHING`, actor)
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT $1, id, $2 FROM roles WHERE name = 'admin' AND tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`, actor, auditEventsTenant)
 	require.NoError(t, err, "admin preset missing — migration 000256 not applied?")
 
 	target := uuid.New()

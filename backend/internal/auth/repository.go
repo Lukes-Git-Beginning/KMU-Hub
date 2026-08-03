@@ -51,7 +51,7 @@ type Repository interface {
 	// tenant that hold at least one of keys, ignoring the single assignment
 	// (ignoreUserID, ignoreRoleID) — "who would still be able to administer
 	// roles if this revoke went through". Tenant scoping comes from the users
-	// join, since user_roles carries neither tenant_id nor RLS.
+	// join on top of user_roles' own tenant_id/RLS (migration 000286).
 	CountRoleAdminsExcluding(ctx context.Context, keys []string, ignoreUserID, ignoreRoleID uuid.UUID) (int, error)
 
 	// ListRoles returns the system presets plus the calling tenant's custom
@@ -86,8 +86,8 @@ type Repository interface {
 	UpdateRole(ctx context.Context, roleID uuid.UUID, in UpdateRoleInput) (*Role, error)
 
 	// RoleHasMembers reports whether any account currently carries roleID,
-	// scoped to the calling tenant through the users join — user_roles itself
-	// carries neither tenant_id nor RLS.
+	// scoped to the calling tenant through the users join on top of
+	// user_roles' own tenant_id/RLS (migration 000286).
 	RoleHasMembers(ctx context.Context, roleID uuid.UUID) (bool, error)
 
 	// DeleteRole removes a tenant-owned role. role_permissions and user_roles
@@ -108,9 +108,10 @@ type Repository interface {
 	SetRolePermissions(ctx context.Context, roleID uuid.UUID, grants []RoleGrant) ([]RoleGrant, error)
 
 	// AssignUserRole grants roleID to userID, idempotently. Both ids are
-	// re-resolved through users and roles inside the statement: user_roles
-	// carries neither tenant_id nor RLS, so those two joins are the tenant
-	// boundary of the write, not a convenience.
+	// re-resolved through users and roles inside the statement — the first
+	// tenant boundary the write crosses, before user_roles' own tenant_id/RLS
+	// (migration 000286) is even reached, and the one that still holds for
+	// callers running under sysctx.With() where RLS does not filter.
 	AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) error
 
 	// RevokeUserRole takes roleID off userID. Removing a role the account does

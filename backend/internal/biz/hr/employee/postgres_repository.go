@@ -196,8 +196,10 @@ func (r *PostgresEmployeeRepo) Update(ctx context.Context, profile *models.Emplo
 // behind the same guard, kept here because HR runs the offboard transaction and
 // there is no service-to-service gRPC in this repository.
 //
-// user_roles has neither tenant_id nor RLS (backlog unit g-user-roles-rls); the
-// join on users is what scopes this to the tenant, so it must not be dropped.
+// user_roles carries its own tenant_id/RLS since migration 000286, but this
+// join on users predates it and stays as the same defense-in-depth every
+// other user_roles query in auth/postgres_repository.go keeps, so it must
+// not be dropped.
 func (r *PostgresEmployeeRepo) CountOtherActiveRoleAdmins(ctx context.Context, userID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
@@ -270,8 +272,10 @@ func (r *PostgresEmployeeRepo) Offboard(ctx context.Context, in OffboardWrite) (
 		return nil, err
 	}
 
-	// user_roles is not RLS-protected, so the tenant has to come from the
-	// subquery on users rather than from the session.
+	// The subquery on users, not the session, is what pins the tenant here —
+	// this transaction runs under the caller's own context, but naming the
+	// tenant explicitly keeps this delete correct independent of how ctx got
+	// built, the same defense-in-depth the auth package keeps for user_roles.
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM user_roles
 		  WHERE user_id = (SELECT id FROM users WHERE id = $1 AND tenant_id = $2)`,

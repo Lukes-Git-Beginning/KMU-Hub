@@ -153,18 +153,36 @@ func (r *PostgresRepository) RevokeAllUserTokens(ctx context.Context, userID uui
 	return err
 }
 
+// AssignRole grants a role by NAME rather than id — the pre-Welle-1b path,
+// still used by Register to hand out the "member" default and reachable
+// through the AssignRole gRPC RPC. It resolves system presets only
+// (tenant_id IS NULL): since migration 000256 a tenant may name a custom role
+// identically to a preset, and matching by name alone would then pick up both
+// rows, silently enrolling the caller into a foreign tenant's role too. This
+// runs under sysctx.With() at registration, where RLS does not filter, so the
+// restriction has to sit in the query itself, not rely on the table's policy.
+// Custom roles are only ever reachable through AssignUserRole (by id).
 func (r *PostgresRepository) AssignRole(ctx context.Context, userID uuid.UUID, roleName string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, r.id FROM roles r WHERE r.name = $2
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT u.id, r.id, u.tenant_id
+		 FROM users u, roles r
+		 WHERE u.id = $1 AND r.name = $2 AND r.tenant_id IS NULL
 		 ON CONFLICT DO NOTHING`, userID, roleName,
 	)
 	return err
 }
 
+// RemoveRole mirrors AssignRole's preset-only restriction. Before it, the
+// subquery `(SELECT id FROM roles WHERE name = $2)` returned more than one row
+// once a tenant owned a same-named custom role, and Postgres rejects a scalar
+// subquery with multiple rows outright — every call would have started
+// erroring the moment such a role existed.
 func (r *PostgresRepository) RemoveRole(ctx context.Context, userID uuid.UUID, roleName string) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM user_roles WHERE user_id = $1 AND role_id = (SELECT id FROM roles WHERE name = $2)`,
+		`DELETE FROM user_roles
+		 WHERE user_id = $1
+		   AND role_id = (SELECT id FROM roles WHERE name = $2 AND tenant_id IS NULL)`,
 		userID, roleName,
 	)
 	return err
@@ -311,10 +329,11 @@ func (r *PostgresRepository) CountUnknownPermissionKeys(ctx context.Context, key
 // CountRoleAdminsExcluding counts the distinct active accounts that hold one of
 // keys, pretending the assignment (ignoreUserID, ignoreRoleID) is already gone.
 //
-// The users join is the tenant boundary — user_roles has no RLS of its own, so
-// without it this would count every tenant's administrators and the last-admin
-// guardrail would never fire. Inactive accounts do not count: a deactivated
-// administrator cannot log in to hand the right back.
+// The users join is a second tenant boundary beside user_roles' own RLS
+// (migration 000286, defense in depth for any caller running under
+// sysctx.With()): without it this would count every tenant's administrators
+// and the last-admin guardrail would never fire. Inactive accounts do not
+// count: a deactivated administrator cannot log in to hand the right back.
 func (r *PostgresRepository) CountRoleAdminsExcluding(ctx context.Context, keys []string, ignoreUserID, ignoreRoleID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
@@ -337,10 +356,10 @@ func (r *PostgresRepository) CountRoleAdminsExcluding(ctx context.Context, keys 
 // member_count and capability_count are correlated subqueries rather than a
 // single query with two LEFT JOINs on purpose: joining user_roles and
 // role_permissions in the same FROM clause would cross the two relations and
-// inflate both counts. The member_count subquery joins through users (RLS
-// read-scoped) because user_roles itself carries neither tenant_id nor RLS —
-// without that join a preset's member_count would count every tenant's
-// holders, not just the caller's.
+// inflate both counts. The member_count subquery still joins through users
+// on top of user_roles' own RLS (migration 000286) — belt and braces for a
+// preset row, which is shared by every tenant and so relies entirely on this
+// scoping rather than on a tenant_id of its own.
 func (r *PostgresRepository) ListRoles(ctx context.Context) ([]Role, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT r.id, r.name, r.description, r.tenant_id, r.based_on, r.color,
@@ -650,15 +669,18 @@ func (r *PostgresRepository) SetRolePermissions(ctx context.Context, roleID uuid
 
 // AssignUserRole grants roleID to userID. The insert selects both sides back
 // out of users and roles instead of writing the two parameters straight in:
-// user_roles has neither tenant_id nor an RLS policy of its own (Block B), so
 // those two reads — each confined by its table's RLS policy to the caller's
-// tenant, presets included — are what stops an assignment across tenant lines
-// even if a caller reaches the repository past the service's checks. Holding
-// the role already is not an error; the primary key absorbs the repeat.
+// tenant, presets included — are the first thing that stops an assignment
+// across tenant lines, before user_roles' own tenant_id/RLS (migration
+// 000286) even gets a say. Both layers matter: this repository is also
+// called under sysctx.With() (AcceptInvitation's sibling insert), where RLS
+// does not filter, so the join stays the boundary that actually holds there.
+// Holding the role already is not an error; the primary key absorbs the
+// repeat.
 func (r *PostgresRepository) AssignUserRole(ctx context.Context, userID, roleID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT u.id, ro.id FROM users u CROSS JOIN roles ro
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT u.id, ro.id, u.tenant_id FROM users u CROSS JOIN roles ro
 		 WHERE u.id = $1 AND ro.id = $2
 		 ON CONFLICT DO NOTHING`, userID, roleID,
 	)
@@ -678,7 +700,7 @@ func (r *PostgresRepository) RevokeUserRole(ctx context.Context, userID, roleID 
 }
 
 // GetUserRoleIDs returns the role ids an account holds, oldest assignment
-// first. The users join is the tenant boundary (user_roles carries none), the
+// first. The users join backs user_roles' own RLS (migration 000286), the
 // roles join drops a row whose role the caller cannot see.
 func (r *PostgresRepository) GetUserRoleIDs(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	rows, err := r.pool.Query(ctx,
@@ -810,9 +832,9 @@ func (r *PostgresRepository) ClearUserOverrides(ctx context.Context, userID uuid
 // outright. That is the same precedence the resolver uses — override wins per
 // key over the whole role union.
 //
-// The users row is the tenant boundary: user_roles has no RLS of its own, so
-// without that join this would count other tenants' administrators and the
-// last-admin guardrail would never fire. Inactive accounts do not count — a
+// The users row backs user_roles' own RLS (migration 000286): without that
+// join this would count other tenants' administrators and the last-admin
+// guardrail would never fire. Inactive accounts do not count — a
 // deactivated administrator cannot log in to hand the right back.
 func (r *PostgresRepository) CountEffectiveRoleAdminsExcluding(ctx context.Context, keys []string, excludeUserID uuid.UUID) (int, error) {
 	var count int
@@ -1170,8 +1192,8 @@ func (r *PostgresRepository) AcceptInvitation(ctx context.Context, inv *models.I
 	// where RLS is off — an invitation naming "admin" then also picked up any
 	// FOREIGN tenant's custom role of that name and granted it too.
 	assigned, err := tx.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id)
-		 SELECT $1, r.id FROM roles r
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT $1, r.id, $3 FROM roles r
 		  WHERE r.id = ANY($2)
 		    AND (r.tenant_id IS NULL OR r.tenant_id = $3)`,
 		user.ID, inv.RoleIDs, inv.TenantID,

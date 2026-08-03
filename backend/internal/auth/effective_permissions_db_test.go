@@ -73,7 +73,7 @@ func effPermUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, email str
 		require.NoErrorf(t, err, "preset role %q missing — migration 000256 not applied?", name)
 
 		_, err = pool.Exec(sysCtx,
-			`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, userID, roleID)
+			`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`, userID, roleID, tenantID)
 		require.NoError(t, err)
 	}
 	// user_roles rows go away with the user (ON DELETE CASCADE).
@@ -197,9 +197,16 @@ func TestEffectivePermissions_DB_PresetsVisibleUnderForeignTenant(t *testing.T) 
 		"a member of a second tenant resolves to a non-empty capability set")
 }
 
-// TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible is the other half:
-// the read policy widens visibility for presets only. A tenant-owned role must
-// not bleed into another tenant's resolved rights.
+// TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible is the other
+// half: an owner sees their own custom role and its grants, a stranger tenant
+// sees nothing about that account at all — not even the preset it also wears.
+// Before migration 000286 user_roles carried no RLS of its own, so a stranger
+// resolving a foreign user_id still saw the preset assignment (roles' own
+// policy lets tenant_id IS NULL rows through from anywhere); only the custom
+// role was hidden. That was never reachable over HTTP even then —
+// HandleGetUserPermissions resolves the target through GetUser first, which
+// 404s a foreign id before this ever runs — so tightening it here to "nothing
+// at all" only removes a repository-level nuance, not a product guarantee.
 func TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible(t *testing.T) {
 	pool, svc := effPermSetup(t)
 	sysCtx := testutil.WithSystemCtx(context.Background())
@@ -226,7 +233,7 @@ func TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible(t *testing.T) {
 
 	userID := effPermUser(t, pool, effPermForeignTenant, "eff-custom@test.local", "member")
 	_, err = pool.Exec(sysCtx,
-		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, userID, customRole)
+		`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`, userID, customRole, effPermForeignTenant)
 	require.NoError(t, err)
 
 	// Resolved by its owner: the custom role and its key are there.
@@ -236,14 +243,15 @@ func TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible(t *testing.T) {
 	assert.Contains(t, effPermCapMap(owner.Capabilities), "fuhrpark:gps:read")
 	assert.Contains(t, effPermRoleNames(owner.Roles), "eff-perm-custom")
 
-	// Resolved under a different tenant: presets remain, the custom role does
-	// not — RLS on roles filters it out before the join ever sees it.
+	// Resolved under a different tenant: user_roles' own RLS (migration
+	// 000286) hides the account's assignments entirely, presets included —
+	// there is nothing left for roles' tenant_id IS NULL carve-out to widen.
 	strangerCtx := testutil.WithTenantCtx(context.Background(), effPermTenant)
 	stranger, err := svc.GetEffectivePermissions(strangerCtx, userID)
 	require.NoError(t, err)
 	assert.NotContains(t, effPermCapMap(stranger.Capabilities), "fuhrpark:gps:read")
 	assert.NotContains(t, effPermRoleNames(stranger.Roles), "eff-perm-custom")
-	assert.NotEmpty(t, stranger.Roles, "the presets stay visible — two zeroes would be a broken test")
+	assert.Empty(t, stranger.Roles, "a stranger tenant resolves nothing about a foreign account")
 }
 
 func effPermRoleNames(roles []auth.EffectiveRole) []string {

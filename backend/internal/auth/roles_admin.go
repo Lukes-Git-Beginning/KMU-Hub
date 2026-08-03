@@ -242,11 +242,11 @@ func (s *Service) SetRolePermissions(ctx context.Context, actorID, roleID uuid.U
 // "admin" and "member" are presets, so a preset check here would lock out the
 // most common assignment there is.
 //
-// Both ids are resolved before the write, and both resolutions are the tenant
-// boundary rather than a friendliness: users and roles each carry an RLS read
-// policy, user_roles carries none. A foreign account and a foreign role are
-// therefore invisible, not forbidden, and both answer 404 — the same
-// indistinguishability GetRoleByID documents.
+// Both ids are resolved before the write, and both resolutions are the first
+// tenant boundary rather than a friendliness: users and roles each carry an
+// RLS read policy, so a foreign account or a foreign role is invisible here
+// before user_roles' own tenant_id/RLS (migration 000286) is even reached.
+// Both answer 404 — the same indistinguishability GetRoleByID documents.
 //
 // Assigning a role the account already holds is a no-op that still returns the
 // current list, so the builder can treat the call as "make it so".

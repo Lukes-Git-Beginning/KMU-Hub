@@ -93,8 +93,8 @@ func grantRoleAdmin(t *testing.T, pool *pgxpool.Pool, tenantID, userID uuid.UUID
 		t.Fatalf("grant roles:manage: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)
-		 ON CONFLICT DO NOTHING`, userID, roleID); err != nil {
+		`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)
+		 ON CONFLICT DO NOTHING`, userID, roleID, tenantID); err != nil {
 		t.Fatalf("assign role: %v", err)
 	}
 }
