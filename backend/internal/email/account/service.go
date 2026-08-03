@@ -81,11 +81,13 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateIn
 		return nil, fmt.Errorf("invalid email address: %w", err)
 	}
 
-	// Check if user already has an account within this tenant
-	existing, _ := s.repo.GetByUserIDAndTenant(ctx, input.UserID, tenantID)
-	if existing != nil {
-		return nil, ErrAccountExists
+	// The first account a user creates within a tenant becomes their default;
+	// every account after that is added alongside the existing ones.
+	existing, err := s.repo.ListByUserAndTenant(ctx, input.UserID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing accounts: %w", err)
 	}
+	isDefault := len(existing) == 0
 
 	// Validate required fields
 	if strings.TrimSpace(input.IMAPHost) == "" {
@@ -122,6 +124,7 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateIn
 		PasswordEncrypted: encrypted,
 		UseSSL:            input.UseSSL,
 		SyncEnabled:       true,
+		IsDefault:         isDefault,
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}
@@ -141,6 +144,7 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateIn
 		"account_id", account.ID,
 		"user_id", account.UserID,
 		"email", account.EmailAddress,
+		"is_default", account.IsDefault,
 	)
 
 	// Return without password
@@ -158,7 +162,7 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID)
 	return account, nil
 }
 
-// GetByUserIDAndTenant retrieves an email account by user ID and tenant (without decrypted password).
+// GetByUserIDAndTenant retrieves the user's default account (without decrypted password).
 func (s *Service) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
 	account, err := s.repo.GetByUserIDAndTenant(ctx, userID, tenantID)
 	if err != nil {
@@ -166,6 +170,39 @@ func (s *Service) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, te
 	}
 	account.PasswordEncrypted = ""
 	return account, nil
+}
+
+// ListByUserAndTenant returns every account a user holds within a tenant,
+// oldest first, without decrypted passwords.
+func (s *Service) ListByUserAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAccount, error) {
+	accounts, err := s.repo.ListByUserAndTenant(ctx, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range accounts {
+		a.PasswordEncrypted = ""
+	}
+	return accounts, nil
+}
+
+// SetDefault marks an account as the default for its user, clearing any prior default.
+func (s *Service) SetDefault(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	acct, err := s.repo.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.SetDefault(ctx, id, acct.UserID, tenantID); err != nil {
+		return fmt.Errorf("failed to set default account: %w", err)
+	}
+
+	slog.Info("email account set as default",
+		"account_id", id,
+		"user_id", acct.UserID,
+		"tenant_id", tenantID,
+	)
+
+	return nil
 }
 
 // GetDecryptedCredentials returns the decrypted IMAP/SMTP credentials for connection.
@@ -250,7 +287,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, 
 	return account, nil
 }
 
-// Delete removes an email account.
+// Delete removes an email account. If it was the user's default and other
+// accounts remain, the oldest remaining account is promoted to default --
+// callers that resolve "the" account for a user (GetByUserIDAndTenant, and
+// through it the notification adapter) depend on a default always existing
+// as long as the user holds at least one account.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	account, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
@@ -259,6 +300,23 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) 
 
 	if err := s.repo.Delete(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
+	}
+
+	if account.IsDefault {
+		remaining, err := s.repo.ListByUserAndTenant(ctx, account.UserID, tenantID)
+		if err != nil {
+			return fmt.Errorf("failed to list remaining accounts: %w", err)
+		}
+		if len(remaining) > 0 {
+			if err := s.repo.SetDefault(ctx, remaining[0].ID, account.UserID, tenantID); err != nil {
+				return fmt.Errorf("failed to promote new default account: %w", err)
+			}
+			slog.Info("email account promoted to default after deletion",
+				"account_id", remaining[0].ID,
+				"user_id", account.UserID,
+				"tenant_id", tenantID,
+			)
+		}
 	}
 
 	slog.Info("email account deleted",

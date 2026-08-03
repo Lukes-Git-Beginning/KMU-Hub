@@ -2981,3 +2981,64 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   0 FAIL, die beiden neuen DB-Tests liefen tatsaechlich (nicht uebersprungen).
 - offen fuer Luke: Triage von `g-automation-resource-level-time-triggers` (siehe oben) als neue
   Backlog-Unit, falls gewuenscht — nicht in dieser Iteration angelegt.
+
+## Iteration 46 — g-mails-multi-account — done — 2026-08-03
+
+- verify-vorspann auf `d1efda2d` (Iteration 45, Cron-Poller): `git show --stat` gelesen, Diff deckt
+  sich mit der Journal-Beschreibung. Keine Route/kein `.proto`/kein `RequirePermission` angefasst,
+  Migration 000284 nur additiv (nullable Spalte), RLS unveraendert. Kein Fund. Sauber.
+- gebaut: `g-mails-multi-account`. `email_accounts` hatte bereits `tenant_id NOT NULL` + RLS seit
+  Migration 000124 — die einzige Sperre gegen Mehrfachkonten war `UNIQUE(user_id)` aus Migration
+  000041. Migration 000285: Constraint faellt, neue Spalte `is_default BOOLEAN NOT NULL DEFAULT
+  true` (jedes Bestandskonto wird automatisch sein eigenes Default, kein Backfill noetig, da vorher
+  exakt 1 Konto/User existierte), Ausdrucks-Unique-Index
+  `idx_email_accounts_user_default ON email_accounts(user_id) WHERE is_default` erzwingt "genau ein
+  Default pro User" als DB-Invariante.
+- **Kritischer Fund vor dem Bauen:** `cmd/notification/main.go:resolveAccountID` verlaesst sich
+  laut eigenem Kommentar auf "at most one account per (user, tenant)" via
+  `GetEmailAccount`/`GetByUserIDAndTenant`. Ohne Gegenmassnahme haette die Umstellung diesen und
+  jeden aehnlichen Caller lautlos auf eine beliebige DB-Zeile statt "das eine Konto" umgestellt —
+  kein Fehler, kein rotes Gate, einfach das falsche Konto. Fix: `GetByUserIDAndTenant` filtert
+  zusaetzlich `is_default = true`; "das eine Konto" heisst ab jetzt "das Default-Konto", bestehende
+  Caller bleiben unveraendert kompatibel.
+- Zweiter Fund: `Delete` brauchte eine Promotion-Regel. Das Default-Konto bei vorhandenen weiteren
+  Konten zu loeschen, haette sonst den User ohne Default zurueckgelassen und
+  `resolveAccountID` haette 404 geliefert, bis jemand manuell ein neues Default setzt.
+  `Service.Delete` promotet jetzt das aelteste verbleibende Konto (`ListByUserAndTenant`,
+  `ORDER BY created_at ASC`) ueber dieselbe `SetDefault`-Methode, die auch der neue
+  `SetDefaultEmailAccount`-RPC nutzt. Das letzte Konto zu loeschen laesst den User bewusst ohne
+  Default zurueck (kein Konto = kein Default noetig).
+- `Repository.SetDefault` ist EIN atomares `UPDATE ... SET is_default = (id = $1) WHERE
+  tenant_id=$2 AND user_id=$3` statt eines Clear-dann-Set-Zweischritts (das Muster, das
+  `email_signature.Service.SetDefault` verwendet) — vermeidet dessen Race bei einem Doppel-Klick,
+  kein Mehraufwand gegenueber der Vorlage.
+- `ErrAccountExists` entfernt: Create erlaubt jetzt beliebig viele Konten je User, die alte
+  1:1-Pruefung war der einzige Aufrufer. Zugehoerige `mapEmailError`-Klausel mitentfernt.
+- Proto: `ListEmailAccounts`, `SetDefaultEmailAccount` neu, `EmailAccountInfo.is_default` (Feld
+  15), `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert.
+- Gateway: `GET /accounts/list` (User aus `middleware.GetUserID(ctx)`, NICHT aus einem
+  client-gelieferten `?user_id=` wie die Nachbarrouten — das FE ruft `.list()` ohnehin ohne
+  Parameter, also die Chance auf eine IDOR-freie Variante statt das bestehende Muster zu kopieren)
+  und `POST /accounts/{id}/default` (kein Body, User wird serverseitig aus dem Konto aufgeloest).
+  Beide Pfade + Schemas in openapi.yaml, `swagger-cli validate` -> "is valid",
+  `TestOpenAPIRouteDrift` gruen.
+- Wire-Shape gegen den Bestand geprueft, nicht geraten: FE-Client (`email-client.ts:97-99`) und
+  MSW-Mock (`mocks/handlers/email.ts:56-58`) erwarten `GET /api/v1/email/accounts/list` ->
+  `{accounts:[...]}` bereits seit einer frueheren FE-Iteration ("Account-Switcher/Unified-Inbox").
+  Backend zieht jetzt nach — keine Frontend-Aenderung in diesem Commit (Backend-Nachtloop-Scope).
+- RLS: keine neue Policy noetig (Tabelle war schon geschuetzt), aber Tabelle angefasst -> Smoke
+  gelaufen ueber `TestTenantIsolation_Email/email_accounts` (echter `kmuhub_app`-DB-Test, eigener
+  Tenant vs. fremder Tenant), PASS.
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, kein neuer
+  `RequirePermission`-Guard (beide neuen Routen haengen unter dem bestehenden
+  `RequirePermission("email", ...)`-Muster der Nachbarrouten, kein Seed noetig).
+- gate: `go build -p 2` + `go vet` + `golangci-lint run` auf `internal/email/...`,
+  `internal/gateway/...`, `internal/server/...`, `internal/models/...`, `cmd/email/...`,
+  `cmd/gateway/...`, `cmd/notification/...` -> 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`
+  (lokaler Docker-Postgres, Migrationskopf 285): `go test -count=1 -v
+  ./internal/email/account/...` -> 10 Testfunktionen mit Subtests, 0 SKIP (inkl. echtem DB-Test
+  `TestTenantIsolation_Email`); `go test -count=1 ./internal/email/... ./internal/gateway/...
+  ./internal/server/...` komplett gruen. migrate up/down/up lokal gruen (Kopf 285).
+- offen fuer Luke: keine FE-Anbindung an `.list()`/`.default` in diesem Commit (Backend-Scope) —
+  FE-Client/Mocks erwarten die Wire-Shape bereits, ein FE-seitiger Smoke-Test gegen das echte
+  Backend steht noch aus.

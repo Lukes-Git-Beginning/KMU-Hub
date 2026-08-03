@@ -2796,7 +2796,7 @@ units:
     service: mails
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Mehrere E-Mail-Konten je User.
     sources:
@@ -2810,6 +2810,57 @@ units:
       - Mehrere Konten verwaltbar, Zugangsdaten verschluesselt ueber den Bestand
       - Migration mit tenant_id + RLS, RLS-Smoke gruen
       - openapi.yaml im selben Commit
+    ergebnis: >
+      ERLEDIGT (Iteration 46). `email_accounts` hatte bereits `tenant_id NOT NULL` + RLS seit
+      Migration 000124 — die Sperre war ausschliesslich `UNIQUE(user_id)` aus Migration 000041.
+      Migration 000285: Constraint faellt, neue Spalte `is_default BOOLEAN NOT NULL DEFAULT true`
+      (macht jedes Bestandskonto automatisch zum eigenen Default, kein separater Backfill noetig,
+      da vorher exakt 1 Konto/User galt), plus Ausdrucks-Unique-Index
+      `idx_email_accounts_user_default ON email_accounts(user_id) WHERE is_default` — genau ein
+      Default pro User ist eine DB-Invariante, keine App-Konvention.
+      **Kritischer Fund vor dem Bauen:** `cmd/notification/main.go:resolveAccountID` und die
+      Single-Account-Seite des FE verlassen sich auf `GetEmailAccount`/`GetByUserIDAndTenant` als
+      "das eine Konto" eines Users. Ohne Gegenmassnahme haette die Umstellung auf Mehrfachkonten
+      das FUER JEDEN CALLER dieser RPC lautlos auf eine beliebige DB-Zeile umgestellt (kein Fehler,
+      kein Test rot, einfach das falsche Konto). Fix: `GetByUserIDAndTenant` filtert jetzt zusaetzlich
+      `is_default = true` — "das eine Konto" bedeutet ab jetzt "das Default-Konto", bestehende Caller
+      bleiben unveraendert kompatibel.
+      Zweiter Fund: `Delete` musste eine Promotion-Regel bekommen. Loeschen des Default-Kontos bei
+      vorhandenen weiteren Konten haette sonst temporaer/dauerhaft KEIN Default hinterlassen und
+      `resolveAccountID` (Notification-Adapter) haette 404 geliefert, bis ein User manuell ein neues
+      Default setzt. `Service.Delete` promotet jetzt das aelteste verbleibende Konto
+      (`ListByUserAndTenant`, `ORDER BY created_at ASC`) atomar ueber dieselbe `SetDefault`-Methode,
+      die auch der neue `SetDefaultEmailAccount`-RPC nutzt. Einziges verbleibendes Konto loeschen
+      laesst den User bewusst ohne Default zurueck (kein Konto = kein Default noetig).
+      `SetDefault`-Repo-Methode ist EIN atomares `UPDATE ... SET is_default = (id = $1) WHERE
+      tenant_id=$2 AND user_id=$3` statt eines Clear-dann-Set-Zweischritts (das bestehende Muster in
+      `email_signature.Service.SetDefault`) — vermeidet die Race dieses Zweischritts bei einem
+      Doppel-Klick, kein Mehraufwand gegenueber der Vorlage.
+      `ErrAccountExists` entfernt (Create erlaubt jetzt beliebig viele Konten je User; die alte
+      1:1-Pruefung war der einzige Aufrufer) inkl. der zugehoerigen `mapEmailError`-Klausel.
+      Proto: `ListEmailAccounts`, `SetDefaultEmailAccount` neu, `EmailAccountInfo.is_default` (Feld
+      15), Regen im selben Commit. Gateway: `GET /accounts/list` (User aus `middleware.GetUserID`,
+      NICHT aus einem client-gelieferten Query-Param — FE ruft `.list()` ohnehin ohne Parameter,
+      also war das die Chance auf eine IDOR-freie Variante statt das bestehende `?user_id=`-Muster
+      der Nachbarrouten zu kopieren) und `POST /accounts/{id}/default` (kein Body, User wird
+      serverseitig aus dem Konto aufgeloest). Beide Pfade + Schemas in openapi.yaml,
+      `swagger-cli validate` -> "is valid", `TestOpenAPIRouteDrift` gruen.
+      Wire-Shape gegen den Bestand geprueft: FE-Client (`email-client.ts:97-99`) und MSW-Mock
+      (`mocks/handlers/email.ts:56-58`) erwarten `GET /api/v1/email/accounts/list` ->
+      `{accounts:[...]}` bereits seit einer frueheren FE-Iteration — Backend zieht jetzt nach, keine
+      Frontend-Aenderung in diesem Commit (Backend-Nachtloop-Scope).
+      RLS: keine neue Policy noetig (Tabelle war schon geschuetzt), aber Tabelle angefasst -> Smoke
+      gelaufen ueber `TestTenantIsolation_Email/email_accounts` (echter `kmuhub_app`-DB-Test, eigener
+      Tenant vs. fremder Tenant), PASS.
+      migrate up/down/up lokal gruen (Kopf 285). Tests: 10 Test-Funktionen mit Subtests in
+      `internal/email/account`, davon `TestTenantIsolation_Email` echter DB-Test — `go test -count=1
+      -v ./internal/email/account/...`: 0 SKIP. `go test -count=1 ./internal/email/...
+      ./internal/gateway/... ./internal/server/...` komplett gruen. `golangci-lint run` auf
+      `internal/email/...`, `internal/gateway/...`, `internal/server/...`, `cmd/email/...`,
+      `cmd/notification/...` -> 0 issues.
+      keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag, kein `RequirePermission`
+      -Guard neu (beide neuen Routen haengen unter dem bestehenden `RequirePermission("email", ...)`
+      -Muster der Nachbarrouten, kein Seed noetig).
   - id: g-mails-templates
     phase: 3
     service: mails

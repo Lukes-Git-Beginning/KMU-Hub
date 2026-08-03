@@ -21,8 +21,10 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	EmailService_CreateEmailAccount_FullMethodName       = "/email.v1.EmailService/CreateEmailAccount"
 	EmailService_GetEmailAccount_FullMethodName          = "/email.v1.EmailService/GetEmailAccount"
+	EmailService_ListEmailAccounts_FullMethodName        = "/email.v1.EmailService/ListEmailAccounts"
 	EmailService_UpdateEmailAccount_FullMethodName       = "/email.v1.EmailService/UpdateEmailAccount"
 	EmailService_DeleteEmailAccount_FullMethodName       = "/email.v1.EmailService/DeleteEmailAccount"
+	EmailService_SetDefaultEmailAccount_FullMethodName   = "/email.v1.EmailService/SetDefaultEmailAccount"
 	EmailService_TestEmailConnection_FullMethodName      = "/email.v1.EmailService/TestEmailConnection"
 	EmailService_ListFolders_FullMethodName              = "/email.v1.EmailService/ListFolders"
 	EmailService_GetFolder_FullMethodName                = "/email.v1.EmailService/GetFolder"
@@ -78,8 +80,10 @@ type EmailServiceClient interface {
 	// Account management
 	CreateEmailAccount(ctx context.Context, in *CreateEmailAccountRequest, opts ...grpc.CallOption) (*CreateEmailAccountResponse, error)
 	GetEmailAccount(ctx context.Context, in *GetEmailAccountRequest, opts ...grpc.CallOption) (*GetEmailAccountResponse, error)
+	ListEmailAccounts(ctx context.Context, in *ListEmailAccountsRequest, opts ...grpc.CallOption) (*ListEmailAccountsResponse, error)
 	UpdateEmailAccount(ctx context.Context, in *UpdateEmailAccountRequest, opts ...grpc.CallOption) (*UpdateEmailAccountResponse, error)
 	DeleteEmailAccount(ctx context.Context, in *DeleteEmailAccountRequest, opts ...grpc.CallOption) (*DeleteEmailAccountResponse, error)
+	SetDefaultEmailAccount(ctx context.Context, in *SetDefaultEmailAccountRequest, opts ...grpc.CallOption) (*SetDefaultEmailAccountResponse, error)
 	TestEmailConnection(ctx context.Context, in *TestEmailConnectionRequest, opts ...grpc.CallOption) (*TestEmailConnectionResponse, error)
 	// Folder operations
 	ListFolders(ctx context.Context, in *ListFoldersRequest, opts ...grpc.CallOption) (*ListFoldersResponse, error)
@@ -166,6 +170,16 @@ func (c *emailServiceClient) GetEmailAccount(ctx context.Context, in *GetEmailAc
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailAccounts(ctx context.Context, in *ListEmailAccountsRequest, opts ...grpc.CallOption) (*ListEmailAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailAccountsResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *emailServiceClient) UpdateEmailAccount(ctx context.Context, in *UpdateEmailAccountRequest, opts ...grpc.CallOption) (*UpdateEmailAccountResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateEmailAccountResponse)
@@ -180,6 +194,16 @@ func (c *emailServiceClient) DeleteEmailAccount(ctx context.Context, in *DeleteE
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteEmailAccountResponse)
 	err := c.cc.Invoke(ctx, EmailService_DeleteEmailAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) SetDefaultEmailAccount(ctx context.Context, in *SetDefaultEmailAccountRequest, opts ...grpc.CallOption) (*SetDefaultEmailAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetDefaultEmailAccountResponse)
+	err := c.cc.Invoke(ctx, EmailService_SetDefaultEmailAccount_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -653,8 +677,10 @@ type EmailServiceServer interface {
 	// Account management
 	CreateEmailAccount(context.Context, *CreateEmailAccountRequest) (*CreateEmailAccountResponse, error)
 	GetEmailAccount(context.Context, *GetEmailAccountRequest) (*GetEmailAccountResponse, error)
+	ListEmailAccounts(context.Context, *ListEmailAccountsRequest) (*ListEmailAccountsResponse, error)
 	UpdateEmailAccount(context.Context, *UpdateEmailAccountRequest) (*UpdateEmailAccountResponse, error)
 	DeleteEmailAccount(context.Context, *DeleteEmailAccountRequest) (*DeleteEmailAccountResponse, error)
+	SetDefaultEmailAccount(context.Context, *SetDefaultEmailAccountRequest) (*SetDefaultEmailAccountResponse, error)
 	TestEmailConnection(context.Context, *TestEmailConnectionRequest) (*TestEmailConnectionResponse, error)
 	// Folder operations
 	ListFolders(context.Context, *ListFoldersRequest) (*ListFoldersResponse, error)
@@ -727,11 +753,17 @@ func (UnimplementedEmailServiceServer) CreateEmailAccount(context.Context, *Crea
 func (UnimplementedEmailServiceServer) GetEmailAccount(context.Context, *GetEmailAccountRequest) (*GetEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetEmailAccount not implemented")
 }
+func (UnimplementedEmailServiceServer) ListEmailAccounts(context.Context, *ListEmailAccountsRequest) (*ListEmailAccountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailAccounts not implemented")
+}
 func (UnimplementedEmailServiceServer) UpdateEmailAccount(context.Context, *UpdateEmailAccountRequest) (*UpdateEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEmailAccount not implemented")
 }
 func (UnimplementedEmailServiceServer) DeleteEmailAccount(context.Context, *DeleteEmailAccountRequest) (*DeleteEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteEmailAccount not implemented")
+}
+func (UnimplementedEmailServiceServer) SetDefaultEmailAccount(context.Context, *SetDefaultEmailAccountRequest) (*SetDefaultEmailAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetDefaultEmailAccount not implemented")
 }
 func (UnimplementedEmailServiceServer) TestEmailConnection(context.Context, *TestEmailConnectionRequest) (*TestEmailConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestEmailConnection not implemented")
@@ -928,6 +960,24 @@ func _EmailService_GetEmailAccount_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailAccounts(ctx, req.(*ListEmailAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EmailService_UpdateEmailAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateEmailAccountRequest)
 	if err := dec(in); err != nil {
@@ -960,6 +1010,24 @@ func _EmailService_DeleteEmailAccount_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(EmailServiceServer).DeleteEmailAccount(ctx, req.(*DeleteEmailAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_SetDefaultEmailAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultEmailAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).SetDefaultEmailAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_SetDefaultEmailAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).SetDefaultEmailAccount(ctx, req.(*SetDefaultEmailAccountRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1808,12 +1876,20 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _EmailService_GetEmailAccount_Handler,
 		},
 		{
+			MethodName: "ListEmailAccounts",
+			Handler:    _EmailService_ListEmailAccounts_Handler,
+		},
+		{
 			MethodName: "UpdateEmailAccount",
 			Handler:    _EmailService_UpdateEmailAccount_Handler,
 		},
 		{
 			MethodName: "DeleteEmailAccount",
 			Handler:    _EmailService_DeleteEmailAccount_Handler,
+		},
+		{
+			MethodName: "SetDefaultEmailAccount",
+			Handler:    _EmailService_SetDefaultEmailAccount_Handler,
 		},
 		{
 			MethodName: "TestEmailConnection",

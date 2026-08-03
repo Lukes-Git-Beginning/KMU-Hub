@@ -112,8 +112,10 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateAccount)
 		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleGetAccount)
+		r.With(middleware.RequirePermission("email", "read")).Get("/list", e.HandleListAccounts)
 		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateAccount)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteAccount)
+		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/default", e.HandleSetDefaultAccount)
 		r.With(middleware.RequirePermission("email", "write")).Post("/test", e.HandleTestConnection)
 	})
 
@@ -261,6 +263,26 @@ func (e *EmailRoutes) HandleGetAccount(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, resp)
 }
 
+// HandleListAccounts lists every email account the calling user holds.
+// The user is resolved from the auth token, not a client-supplied query
+// param, so a user can only ever list their own accounts.
+func (e *EmailRoutes) HandleListAccounts(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	resp, err := client.ListEmailAccounts(r.Context(), &emailv1.ListEmailAccountsRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
 func (e *EmailRoutes) HandleUpdateAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
@@ -293,6 +315,24 @@ func (e *EmailRoutes) HandleDeleteAccount(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.DeleteEmailAccount(r.Context(), &emailv1.DeleteEmailAccountRequest{
+		Id: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleSetDefaultAccount(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.SetDefaultEmailAccount(r.Context(), &emailv1.SetDefaultEmailAccountRequest{
 		Id: chi.URLParam(r, "id"),
 	})
 	if err != nil {

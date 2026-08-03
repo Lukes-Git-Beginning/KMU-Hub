@@ -8,8 +8,10 @@ service EmailService {
   // Account management
   rpc CreateEmailAccount(CreateEmailAccountRequest) returns (CreateEmailAccountResponse);
   rpc GetEmailAccount(GetEmailAccountRequest) returns (GetEmailAccountResponse);
+  rpc ListEmailAccounts(ListEmailAccountsRequest) returns (ListEmailAccountsResponse);
   rpc UpdateEmailAccount(UpdateEmailAccountRequest) returns (UpdateEmailAccountResponse);
   rpc DeleteEmailAccount(DeleteEmailAccountRequest) returns (DeleteEmailAccountResponse);
+  rpc SetDefaultEmailAccount(SetDefaultEmailAccountRequest) returns (SetDefaultEmailAccountResponse);
   rpc TestEmailConnection(TestEmailConnectionRequest) returns (TestEmailConnectionResponse);
 
   // Folder operations
@@ -116,6 +118,7 @@ message EmailAccountInfo {
   string last_sync_at = 12;
   string created_at = 13;
   string updated_at = 14;
+  bool is_default = 15;
 }
 
 message CreateEmailAccountRequest {
@@ -144,6 +147,14 @@ message GetEmailAccountResponse {
   EmailAccountInfo account = 1;
 }
 
+message ListEmailAccountsRequest {
+  string user_id = 1;
+}
+
+message ListEmailAccountsResponse {
+  repeated EmailAccountInfo accounts = 1;
+}
+
 message UpdateEmailAccountRequest {
   string id = 1;
   optional string display_name = 2;
@@ -166,6 +177,14 @@ message DeleteEmailAccountRequest {
 }
 
 message DeleteEmailAccountResponse {}
+
+message SetDefaultEmailAccountRequest {
+  string id = 1;
+}
+
+message SetDefaultEmailAccountResponse {
+  EmailAccountInfo account = 1;
+}
 
 message TestEmailConnectionRequest {
   string imap_host = 1;

@@ -26,12 +26,12 @@ func (r *PostgresRepository) Create(ctx context.Context, account *models.EmailAc
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO email_accounts (id, tenant_id, user_id, email_address, display_name,
 			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
-			use_ssl, sync_enabled, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+			use_ssl, sync_enabled, is_default, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
 		account.ID, account.TenantID, account.UserID, account.EmailAddress, account.DisplayName,
 		account.IMAPHost, account.IMAPPort, account.SMTPHost, account.SMTPPort,
 		account.Username, account.PasswordEncrypted,
-		account.UseSSL, account.SyncEnabled, account.CreatedAt, account.UpdatedAt,
+		account.UseSSL, account.SyncEnabled, account.IsDefault, account.CreatedAt, account.UpdatedAt,
 	)
 	return err
 }
@@ -40,20 +40,56 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, user_id, email_address, display_name,
 			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
-			use_ssl, last_sync_at, sync_enabled, created_at, updated_at
+			use_ssl, last_sync_at, sync_enabled, is_default, created_at, updated_at
 		 FROM email_accounts WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanAccount(row)
 }
 
+// GetByUserIDAndTenant returns the user's default account. Callers that need
+// every account the user holds must use ListByUserAndTenant instead.
 func (r *PostgresRepository) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, user_id, email_address, display_name,
 			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
-			use_ssl, last_sync_at, sync_enabled, created_at, updated_at
-		 FROM email_accounts WHERE user_id = $1 AND tenant_id = $2`, userID, tenantID,
+			use_ssl, last_sync_at, sync_enabled, is_default, created_at, updated_at
+		 FROM email_accounts WHERE user_id = $1 AND tenant_id = $2 AND is_default = true`, userID, tenantID,
 	)
 	return scanAccount(row)
+}
+
+func (r *PostgresRepository) ListByUserAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAccount, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, user_id, email_address, display_name,
+			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
+			use_ssl, last_sync_at, sync_enabled, is_default, created_at, updated_at
+		 FROM email_accounts WHERE user_id = $1 AND tenant_id = $2 ORDER BY created_at ASC`, userID, tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []*models.EmailAccount
+	for rows.Next() {
+		a, scanErr := scanAccount(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		accounts = append(accounts, a)
+	}
+	return accounts, rows.Err()
+}
+
+// SetDefault atomically makes id the sole default account for userID in one
+// statement -- avoids the clear-then-set race a two-step update would have.
+func (r *PostgresRepository) SetDefault(ctx context.Context, id uuid.UUID, userID uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE email_accounts SET is_default = (id = $1), updated_at = $4
+		 WHERE tenant_id = $2 AND user_id = $3`,
+		id, tenantID, userID, time.Now().UTC(),
+	)
+	return err
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, account *models.EmailAccount) error {
@@ -83,7 +119,7 @@ func (r *PostgresRepository) ListActive(ctx context.Context, tenantID uuid.UUID)
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, user_id, email_address, display_name,
 			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
-			use_ssl, last_sync_at, sync_enabled, created_at, updated_at
+			use_ssl, last_sync_at, sync_enabled, is_default, created_at, updated_at
 		 FROM email_accounts WHERE sync_enabled = true AND tenant_id = $1`, tenantID,
 	)
 	if err != nil {
@@ -120,7 +156,7 @@ func (r *PostgresRepository) ListAllActive(ctx context.Context) ([]*models.Email
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, user_id, email_address, display_name,
 			imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted,
-			use_ssl, last_sync_at, sync_enabled, created_at, updated_at
+			use_ssl, last_sync_at, sync_enabled, is_default, created_at, updated_at
 		 FROM email_accounts WHERE sync_enabled = true`,
 	)
 	if err != nil {
@@ -146,7 +182,7 @@ func scanAccount(row pgx.Row) (*models.EmailAccount, error) {
 		&a.ID, &a.TenantID, &a.UserID, &a.EmailAddress, &a.DisplayName,
 		&a.IMAPHost, &a.IMAPPort, &a.SMTPHost, &a.SMTPPort,
 		&a.Username, &a.PasswordEncrypted,
-		&a.UseSSL, &a.LastSyncAt, &a.SyncEnabled,
+		&a.UseSSL, &a.LastSyncAt, &a.SyncEnabled, &a.IsDefault,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if err != nil {

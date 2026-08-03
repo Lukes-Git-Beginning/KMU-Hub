@@ -146,6 +146,30 @@ func (s *EmailGRPCServer) GetEmailAccount(ctx context.Context, req *emailv1.GetE
 	}, nil
 }
 
+func (s *EmailGRPCServer) ListEmailAccounts(ctx context.Context, req *emailv1.ListEmailAccountsRequest) (*emailv1.ListEmailAccountsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	accounts, err := s.accountService.ListByUserAndTenant(ctx, userID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	protoAccounts := make([]*emailv1.EmailAccountInfo, 0, len(accounts))
+	for _, acct := range accounts {
+		protoAccounts = append(protoAccounts, toEmailAccountInfo(acct))
+	}
+
+	return &emailv1.ListEmailAccountsResponse{Accounts: protoAccounts}, nil
+}
+
 func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.UpdateEmailAccountRequest) (*emailv1.UpdateEmailAccountResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -224,6 +248,29 @@ func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.D
 	}
 
 	return &emailv1.DeleteEmailAccountResponse{}, nil
+}
+
+func (s *EmailGRPCServer) SetDefaultEmailAccount(ctx context.Context, req *emailv1.SetDefaultEmailAccountRequest) (*emailv1.SetDefaultEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid account id")
+	}
+
+	if err := s.accountService.SetDefault(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	acct, err := s.accountService.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.SetDefaultEmailAccountResponse{Account: toEmailAccountInfo(acct)}, nil
 }
 
 func (s *EmailGRPCServer) TestEmailConnection(ctx context.Context, req *emailv1.TestEmailConnectionRequest) (*emailv1.TestEmailConnectionResponse, error) {
@@ -1236,6 +1283,7 @@ func toEmailAccountInfo(acct *models.EmailAccount) *emailv1.EmailAccountInfo {
 		Username:     acct.Username,
 		UseSsl:       acct.UseSSL,
 		SyncEnabled:  acct.SyncEnabled,
+		IsDefault:    acct.IsDefault,
 		CreatedAt:    acct.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:    acct.UpdatedAt.Format(time.RFC3339),
 	}
@@ -1379,8 +1427,6 @@ func mapEmailError(err error) error {
 	// Account errors
 	case errors.Is(err, account.ErrAccountNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, account.ErrAccountExists):
-		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, account.ErrInvalidCredentials):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):

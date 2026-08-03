@@ -46,6 +46,7 @@ type EmailAccount struct {
 	UseSSL            bool       `json:"use_ssl"`
 	LastSyncAt        *time.Time `json:"last_sync_at,omitempty"`
 	SyncEnabled       bool       `json:"sync_enabled"`
+	IsDefault         bool       `json:"is_default"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }

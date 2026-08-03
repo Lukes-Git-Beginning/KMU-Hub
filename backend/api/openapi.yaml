@@ -20583,6 +20583,23 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/email/accounts/list:
+    get:
+      summary: List every email account the calling user holds
+      tags: [mails]
+      operationId: listEmailAccounts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailAccountsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/email/accounts/{id}:
     put:
       summary: Update an email account
@@ -20626,6 +20643,27 @@ paths:
             application/json:
               schema:
                 type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/accounts/{id}/default:
+    post:
+      summary: Set an email account as the default for its user
+      tags: [mails]
+      operationId: setDefaultEmailAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Account set as default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetDefaultEmailAccountResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -39731,6 +39769,8 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_default:
+          type: boolean
 
     CreateEmailAccountRequest:
       type: object
@@ -39769,6 +39809,20 @@ components:
           $ref: "#/components/schemas/EmailAccountInfo"
 
     GetEmailAccountResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/EmailAccountInfo"
+
+    ListEmailAccountsResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAccountInfo"
+
+    SetDefaultEmailAccountResponse:
       type: object
       properties:
         account:
