@@ -51,11 +51,15 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Delete("/vault/{keyName}", sr.HandleDeleteVaultSecret)
 
 		// GDPR
-		r.Post("/gdpr/export", sr.HandleRequestDataExport)
+		r.Route("/gdpr/export", func(r chi.Router) {
+			r.Post("/request", sr.HandleRequestDataExport)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequireRole("admin")).Post("/approve", sr.HandleApproveDataExport)
+				r.With(middleware.RequireRole("admin")).Post("/deny", sr.HandleDenyDataExport)
+				r.Get("/download", sr.HandleGetExportDownload)
+			})
+		})
 		r.Get("/gdpr/exports", sr.HandleListDataExports)
-		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/approve", sr.HandleApproveDataExport)
-		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/deny", sr.HandleDenyDataExport)
-		r.Get("/gdpr/download/{token}", sr.HandleGetExportDownload)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/preview", sr.HandlePreviewErasure)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/execute", sr.HandleExecuteErasure)
 		r.With(middleware.RequireRole("admin")).Get("/dsar/search", sr.HandleDSARSearch)
@@ -75,6 +79,16 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Post("/retention-policies", sr.HandleCreateRetentionPolicy)
 		r.With(middleware.RequireRole("admin")).Put("/retention-policies/{id}", sr.HandleUpdateRetentionPolicy)
 		r.With(middleware.RequireRole("admin")).Delete("/retention-policies/{id}", sr.HandleDeleteRetentionPolicy)
+	})
+
+	r.Route("/api/v1/vendor-access", func(r chi.Router) {
+		r.Use(authMiddleware)
+		guard := middleware.RequirePermission("security:vendor_access", "manage")
+		r.With(guard).Get("/", sr.HandleListVendorAccessRequests)
+		r.With(guard).Post("/{id}/approve", sr.HandleApproveVendorAccessRequest)
+		r.With(guard).Post("/{id}/decline", sr.HandleDeclineVendorAccessRequest)
+		r.With(guard).Post("/{id}/counter-propose", sr.HandleCounterProposeVendorAccessRequest)
+		r.With(guard).Post("/{id}/revoke", sr.HandleRevokeVendorAccessRequest)
 	})
 }
 
@@ -139,6 +153,14 @@ type updateRetentionPolicyRequest struct {
 	Action        string `json:"action" validate:"required,oneof=delete anonymize"`
 	Enabled       bool   `json:"enabled"`
 	Description   string `json:"description"`
+}
+
+type approveVendorAccessRequest struct {
+	SensitiveAck bool `json:"sensitive_ack"`
+}
+
+type counterProposeVendorAccessRequest struct {
+	ProposedStart string `json:"proposed_start" validate:"required"`
 }
 
 // ============================================================================
@@ -437,7 +459,11 @@ func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http
 		return
 	}
 
-	token := chi.URLParam(r, "token")
+	// Route param is named "id" (chi forbids two differently-named wildcards
+	// at the same tree position — "/export/{id}/approve" already claims it),
+	// but the value carried here is the one-time download token, not an
+	// export ID: GetExportDownload resolves purely by token.
+	token := chi.URLParam(r, "id")
 	if token == "" {
 		response.Error(w, http.StatusBadRequest, "download token is required")
 		return
@@ -836,4 +862,134 @@ func (sr *SecurityRoutes) HandleDeleteRetentionPolicy(w http.ResponseWriter, r *
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "retention policy deleted"})
+}
+
+// ============================================================================
+// Vendor Access Handlers (RBAC R-5 B, GDAP-light v3)
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleListVendorAccessRequests(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.ListVendorAccessRequests(r.Context(), &securityv1.ListVendorAccessRequestsRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleApproveVendorAccessRequest(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	requestID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	actorID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[approveVendorAccessRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ApproveVendorAccessRequest(r.Context(), &securityv1.ApproveVendorAccessRequestRequest{
+		RequestId:    requestID,
+		ActorId:      actorID,
+		SensitiveAck: req.SensitiveAck,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleDeclineVendorAccessRequest(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	requestID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.DeclineVendorAccessRequest(r.Context(), &securityv1.DeclineVendorAccessRequestRequest{
+		RequestId: requestID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleCounterProposeVendorAccessRequest(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	requestID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[counterProposeVendorAccessRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CounterProposeVendorAccessRequest(r.Context(), &securityv1.CounterProposeVendorAccessRequestRequest{
+		RequestId:     requestID,
+		ProposedStart: req.ProposedStart,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleRevokeVendorAccessRequest(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	requestID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	actorID := middleware.GetUserID(r.Context())
+
+	resp, err := client.RevokeVendorAccessRequest(r.Context(), &securityv1.RevokeVendorAccessRequestRequest{
+		RequestId: requestID,
+		ActorId:   actorID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }

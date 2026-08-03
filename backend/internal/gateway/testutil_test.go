@@ -60,9 +60,23 @@ func withAuth(r *http.Request, userID string, tenantID uuid.UUID) *http.Request 
 	return withTenantID(withUserID(r, userID), tenantID)
 }
 
+// withRoles creates a request with a role list in the context, as the auth
+// middleware does after decoding an access token. Use it to satisfy
+// middleware.RequireRole in router-level tests.
+func withRoles(r *http.Request, roles ...string) *http.Request {
+	ctx := context.WithValue(r.Context(), middleware.UserRolesKey, roles)
+	return r.WithContext(ctx)
+}
+
 // withChiURLParam sets a chi URL parameter on the request context.
+// withChiURLParam adds a path parameter, reusing one already on the request
+// instead of replacing it: a route with two ids (/users/{id}/roles/{roleId})
+// needs both, and a fresh route context per call would drop the first.
 func withChiURLParam(r *http.Request, key, value string) *http.Request {
-	rctx := chi.NewRouteContext()
+	rctx, ok := r.Context().Value(chi.RouteCtxKey).(*chi.Context)
+	if !ok {
+		rctx = chi.NewRouteContext()
+	}
 	rctx.URLParams.Add(key, value)
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }

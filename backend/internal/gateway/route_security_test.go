@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // SecurityRoutes registers under the "auth" gRPC service connection.
@@ -217,6 +219,79 @@ func TestHandleApproveDataExport_InvalidJSON(t *testing.T) {
 	routes.HandleApproveDataExport(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
+}
+
+// --- GDPR export route paths (fix-security-gdpr-paths) ---
+//
+// The desktop client (security-client.ts) calls a singular "/gdpr/export/..."
+// tree; the gateway used to serve a mismatched mix of "/gdpr/export",
+// "/gdpr/exports/{id}/..." and "/gdpr/download/{token}". These are
+// router-level tests on purpose: a handler unit test calling
+// HandleApproveDataExport directly can never catch a mistyped path, only a
+// real chi.ServeHTTP round trip can.
+
+// TestGDPRExportRoutes_MatchFrontendPaths locks in the four paths the
+// frontend actually calls. The registry is empty, so a request that resolves
+// to a handler dies at the gRPC client with 503; 404 would mean the path
+// itself is unmatched, which is exactly the defect this test guards against.
+func TestGDPRExportRoutes_MatchFrontendPaths(t *testing.T) {
+	r := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(r, guardTestAuth)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		admin  bool
+	}{
+		{"request", http.MethodPost, "/api/v1/security/gdpr/export/request", false},
+		{"approve", http.MethodPost, "/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/approve", true},
+		{"deny", http.MethodPost, "/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/deny", true},
+		{"download", http.MethodGet, "/api/v1/security/gdpr/export/one-time-token-value/download", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			if tc.admin {
+				req = withRoles(req, "admin")
+			}
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}
+
+// TestGDPRExportRoutes_ApproveDenyRequireAdmin verifies the path move did not
+// drop the RequireRole("admin") guard on approve/deny.
+func TestGDPRExportRoutes_ApproveDenyRequireAdmin(t *testing.T) {
+	r := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(r, guardTestAuth)
+
+	for _, path := range []string{
+		"/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/approve",
+		"/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/deny",
+	} {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		assertStatus(t, rec, http.StatusForbidden)
+	}
+}
+
+// TestGDPRExportRoutes_DownloadUsesTokenNotID verifies HandleGetExportDownload
+// reads the one-time download token out of the "id" chi param (the shared
+// wildcard name forced by "/export/{id}/approve" already claiming that tree
+// position — see the comment in HandleGetExportDownload) rather than "token".
+func TestGDPRExportRoutes_DownloadUsesTokenNotID(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = withChiURLParam(req, "id", "")
+	routes.HandleGetExportDownload(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "download token is required")
 }
 
 // --- HandleUpdatePasswordPolicy ---

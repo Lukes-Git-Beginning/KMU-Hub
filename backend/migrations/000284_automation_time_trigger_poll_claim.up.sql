@@ -1,0 +1,18 @@
+-- Backlog unit g-automation-cron-poller. trigger.TimeTriggerPoller polls
+-- active time-based automations (biz.invoice.overdue, calendar.event.upcoming)
+-- on a fixed interval and fires each one via a background goroutine. Two
+-- running instances of the automation service (or two overlapping ticks)
+-- would otherwise both read the same due automation and both fire it --
+-- the same double-execution hazard internal/berichte/scheduler solves for
+-- report schedules via an optimistic-concurrency claim on last_run_at.
+--
+-- last_polled_at is that same mechanism for automations: the poller reads
+-- it, then atomically advances it only if it still matches what was just
+-- read (see workflow.Repository.ClaimTimeTrigger). It intentionally does
+-- NOT reuse last_triggered_at -- that column is user-facing ("last real
+-- execution", surfaced in the automation list UI) and is only updated by
+-- engine.Execute after conditions actually matched and actions ran. A claim
+-- attempt is neither: overloading last_triggered_at would show "last
+-- triggered" for a tick where the claim succeeded but the condition later
+-- evaluated false.
+ALTER TABLE automations ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMPTZ NULL;

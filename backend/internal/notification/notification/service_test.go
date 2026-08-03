@@ -754,9 +754,9 @@ func (m *mockPrefRepoForService) CreateMute(_ context.Context, mute *models.Noti
 	return nil
 }
 
-func (m *mockPrefRepoForService) DeleteMute(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
+func (m *mockPrefRepoForService) DeleteMute(_ context.Context, _ uuid.UUID, userID uuid.UUID, muteID uuid.UUID) error {
 	for i, mute := range m.mutes {
-		if mute.UserID == userID && mute.ModuleID == moduleID && mute.ResourceID == resourceID {
+		if mute.UserID == userID && mute.ID == muteID {
 			m.mutes = append(m.mutes[:i], m.mutes[i+1:]...)
 			return nil
 		}

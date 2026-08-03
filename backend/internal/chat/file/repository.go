@@ -22,10 +22,10 @@ type Repository interface {
 	IsChannelArchived(ctx context.Context, channelID uuid.UUID) (bool, error)
 	GetChannelRole(ctx context.Context, channelID, userID uuid.UUID) (models.ChannelRole, error)
 
-	// Quota
-	GetStorageQuota(ctx context.Context) (*models.StorageQuota, error)
-	IncrementUsedBytes(ctx context.Context, bytes int64) error
-	DecrementUsedBytes(ctx context.Context, bytes int64) error
+	// Quota (tenant-scoped since 000275)
+	GetStorageQuota(ctx context.Context, tenantID uuid.UUID) (*models.StorageQuota, error)
+	IncrementUsedBytes(ctx context.Context, tenantID uuid.UUID, bytes int64) error
+	DecrementUsedBytes(ctx context.Context, tenantID uuid.UUID, bytes int64) error
 
 	// User info
 	GetUserInfo(ctx context.Context, userID uuid.UUID) (firstName, lastName string, err error)

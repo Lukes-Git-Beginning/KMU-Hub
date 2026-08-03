@@ -398,7 +398,12 @@ func (s *NotificationGRPCServer) UnmuteResource(ctx context.Context, req *notifi
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.prefService.UnmuteResource(ctx, tenantID, userID, req.ModuleId, req.ResourceId); err != nil {
+	muteID, err := uuid.Parse(req.MuteId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid mute_id")
+	}
+
+	if err := s.prefService.UnmuteResource(ctx, tenantID, userID, muteID); err != nil {
 		return nil, mapNotificationError(err)
 	}
 

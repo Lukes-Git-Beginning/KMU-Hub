@@ -51,6 +51,10 @@ const (
 	FuhrparkService_IngestGpsPositions_FullMethodName    = "/fuhrpark.v1.FuhrparkService/IngestGpsPositions"
 	FuhrparkService_GetVehicleRoutes_FullMethodName      = "/fuhrpark.v1.FuhrparkService/GetVehicleRoutes"
 	FuhrparkService_GetGpsPositions_FullMethodName       = "/fuhrpark.v1.FuhrparkService/GetGpsPositions"
+	FuhrparkService_ListDriverLicenses_FullMethodName    = "/fuhrpark.v1.FuhrparkService/ListDriverLicenses"
+	FuhrparkService_CreateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/CreateDriverLicense"
+	FuhrparkService_UpdateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/UpdateDriverLicense"
+	FuhrparkService_DeleteDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/DeleteDriverLicense"
 )
 
 // FuhrparkServiceClient is the client API for FuhrparkService service.
@@ -97,6 +101,11 @@ type FuhrparkServiceClient interface {
 	IngestGpsPositions(ctx context.Context, in *IngestGpsPositionsRequest, opts ...grpc.CallOption) (*IngestGpsPositionsResponse, error)
 	GetVehicleRoutes(ctx context.Context, in *GetVehicleRoutesRequest, opts ...grpc.CallOption) (*GetVehicleRoutesResponse, error)
 	GetGpsPositions(ctx context.Context, in *GetGpsPositionsRequest, opts ...grpc.CallOption) (*GetGpsPositionsResponse, error)
+	// Driver licenses (Fuehrerscheinkontrolle)
+	ListDriverLicenses(ctx context.Context, in *ListDriverLicensesRequest, opts ...grpc.CallOption) (*ListDriverLicensesResponse, error)
+	CreateDriverLicense(ctx context.Context, in *CreateDriverLicenseRequest, opts ...grpc.CallOption) (*CreateDriverLicenseResponse, error)
+	UpdateDriverLicense(ctx context.Context, in *UpdateDriverLicenseRequest, opts ...grpc.CallOption) (*UpdateDriverLicenseResponse, error)
+	DeleteDriverLicense(ctx context.Context, in *DeleteDriverLicenseRequest, opts ...grpc.CallOption) (*DeleteDriverLicenseResponse, error)
 }
 
 type fuhrparkServiceClient struct {
@@ -427,6 +436,46 @@ func (c *fuhrparkServiceClient) GetGpsPositions(ctx context.Context, in *GetGpsP
 	return out, nil
 }
 
+func (c *fuhrparkServiceClient) ListDriverLicenses(ctx context.Context, in *ListDriverLicensesRequest, opts ...grpc.CallOption) (*ListDriverLicensesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDriverLicensesResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ListDriverLicenses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) CreateDriverLicense(ctx context.Context, in *CreateDriverLicenseRequest, opts ...grpc.CallOption) (*CreateDriverLicenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDriverLicenseResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_CreateDriverLicense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) UpdateDriverLicense(ctx context.Context, in *UpdateDriverLicenseRequest, opts ...grpc.CallOption) (*UpdateDriverLicenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateDriverLicenseResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_UpdateDriverLicense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) DeleteDriverLicense(ctx context.Context, in *DeleteDriverLicenseRequest, opts ...grpc.CallOption) (*DeleteDriverLicenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDriverLicenseResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_DeleteDriverLicense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FuhrparkServiceServer is the server API for FuhrparkService service.
 // All implementations must embed UnimplementedFuhrparkServiceServer
 // for forward compatibility.
@@ -471,6 +520,11 @@ type FuhrparkServiceServer interface {
 	IngestGpsPositions(context.Context, *IngestGpsPositionsRequest) (*IngestGpsPositionsResponse, error)
 	GetVehicleRoutes(context.Context, *GetVehicleRoutesRequest) (*GetVehicleRoutesResponse, error)
 	GetGpsPositions(context.Context, *GetGpsPositionsRequest) (*GetGpsPositionsResponse, error)
+	// Driver licenses (Fuehrerscheinkontrolle)
+	ListDriverLicenses(context.Context, *ListDriverLicensesRequest) (*ListDriverLicensesResponse, error)
+	CreateDriverLicense(context.Context, *CreateDriverLicenseRequest) (*CreateDriverLicenseResponse, error)
+	UpdateDriverLicense(context.Context, *UpdateDriverLicenseRequest) (*UpdateDriverLicenseResponse, error)
+	DeleteDriverLicense(context.Context, *DeleteDriverLicenseRequest) (*DeleteDriverLicenseResponse, error)
 	mustEmbedUnimplementedFuhrparkServiceServer()
 }
 
@@ -576,6 +630,18 @@ func (UnimplementedFuhrparkServiceServer) GetVehicleRoutes(context.Context, *Get
 }
 func (UnimplementedFuhrparkServiceServer) GetGpsPositions(context.Context, *GetGpsPositionsRequest) (*GetGpsPositionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetGpsPositions not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ListDriverLicenses(context.Context, *ListDriverLicensesRequest) (*ListDriverLicensesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDriverLicenses not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) CreateDriverLicense(context.Context, *CreateDriverLicenseRequest) (*CreateDriverLicenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDriverLicense not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) UpdateDriverLicense(context.Context, *UpdateDriverLicenseRequest) (*UpdateDriverLicenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDriverLicense not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) DeleteDriverLicense(context.Context, *DeleteDriverLicenseRequest) (*DeleteDriverLicenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDriverLicense not implemented")
 }
 func (UnimplementedFuhrparkServiceServer) mustEmbedUnimplementedFuhrparkServiceServer() {}
 func (UnimplementedFuhrparkServiceServer) testEmbeddedByValue()                         {}
@@ -1174,6 +1240,78 @@ func _FuhrparkService_GetGpsPositions_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FuhrparkService_ListDriverLicenses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDriverLicensesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ListDriverLicenses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ListDriverLicenses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ListDriverLicenses(ctx, req.(*ListDriverLicensesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_CreateDriverLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDriverLicenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).CreateDriverLicense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_CreateDriverLicense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).CreateDriverLicense(ctx, req.(*CreateDriverLicenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_UpdateDriverLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDriverLicenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).UpdateDriverLicense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_UpdateDriverLicense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).UpdateDriverLicense(ctx, req.(*UpdateDriverLicenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_DeleteDriverLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDriverLicenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).DeleteDriverLicense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_DeleteDriverLicense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).DeleteDriverLicense(ctx, req.(*DeleteDriverLicenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FuhrparkService_ServiceDesc is the grpc.ServiceDesc for FuhrparkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1308,6 +1446,22 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGpsPositions",
 			Handler:    _FuhrparkService_GetGpsPositions_Handler,
+		},
+		{
+			MethodName: "ListDriverLicenses",
+			Handler:    _FuhrparkService_ListDriverLicenses_Handler,
+		},
+		{
+			MethodName: "CreateDriverLicense",
+			Handler:    _FuhrparkService_CreateDriverLicense_Handler,
+		},
+		{
+			MethodName: "UpdateDriverLicense",
+			Handler:    _FuhrparkService_UpdateDriverLicense_Handler,
+		},
+		{
+			MethodName: "DeleteDriverLicense",
+			Handler:    _FuhrparkService_DeleteDriverLicense_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

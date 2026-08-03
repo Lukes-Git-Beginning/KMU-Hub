@@ -1008,9 +1008,16 @@ type EmployeeProfile struct {
 	CreatedAt             *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt             *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Denormalized fields for display
-	UserName      string `protobuf:"bytes,18,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
-	UserEmail     string `protobuf:"bytes,19,opt,name=user_email,json=userEmail,proto3" json:"user_email,omitempty"`
-	ManagerName   string `protobuf:"bytes,20,opt,name=manager_name,json=managerName,proto3" json:"manager_name,omitempty"`
+	UserName    string `protobuf:"bytes,18,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	UserEmail   string `protobuf:"bytes,19,opt,name=user_email,json=userEmail,proto3" json:"user_email,omitempty"`
+	ManagerName string `protobuf:"bytes,20,opt,name=manager_name,json=managerName,proto3" json:"manager_name,omitempty"`
+	// Offboarding state. status is active | inactive; the exit_* fields stay
+	// empty until the employee leaves.
+	Status        string `protobuf:"bytes,21,opt,name=status,proto3" json:"status,omitempty"`
+	LastWorkDay   string `protobuf:"bytes,22,opt,name=last_work_day,json=lastWorkDay,proto3" json:"last_work_day,omitempty"` // YYYY-MM-DD
+	ExitDate      string `protobuf:"bytes,23,opt,name=exit_date,json=exitDate,proto3" json:"exit_date,omitempty"`            // YYYY-MM-DD
+	ExitType      string `protobuf:"bytes,24,opt,name=exit_type,json=exitType,proto3" json:"exit_type,omitempty"`
+	ExitReason    string `protobuf:"bytes,25,opt,name=exit_reason,json=exitReason,proto3" json:"exit_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1181,6 +1188,41 @@ func (x *EmployeeProfile) GetUserEmail() string {
 func (x *EmployeeProfile) GetManagerName() string {
 	if x != nil {
 		return x.ManagerName
+	}
+	return ""
+}
+
+func (x *EmployeeProfile) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *EmployeeProfile) GetLastWorkDay() string {
+	if x != nil {
+		return x.LastWorkDay
+	}
+	return ""
+}
+
+func (x *EmployeeProfile) GetExitDate() string {
+	if x != nil {
+		return x.ExitDate
+	}
+	return ""
+}
+
+func (x *EmployeeProfile) GetExitType() string {
+	if x != nil {
+		return x.ExitType
+	}
+	return ""
+}
+
+func (x *EmployeeProfile) GetExitReason() string {
+	if x != nil {
+		return x.ExitReason
 	}
 	return ""
 }
@@ -4662,6 +4704,149 @@ func (x *UpdateEmployeeResp) GetEmployee() *EmployeeProfile {
 	return nil
 }
 
+type OffboardEmployeeReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The employee profile id from the route, not the user id.
+	EmployeeId  string `protobuf:"bytes,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	LastWorkDay string `protobuf:"bytes,2,opt,name=last_work_day,json=lastWorkDay,proto3" json:"last_work_day,omitempty"` // YYYY-MM-DD
+	ExitDate    string `protobuf:"bytes,3,opt,name=exit_date,json=exitDate,proto3" json:"exit_date,omitempty"`            // YYYY-MM-DD
+	// resignation | termination | fixed_term_expired | mutual_termination |
+	// retirement. String, not an enum: the gateway marshals enums as numbers
+	// (UseEnumNumbers) and the desktop dialog types this as a string union.
+	ExitType string `protobuf:"bytes,4,opt,name=exit_type,json=exitType,proto3" json:"exit_type,omitempty"`
+	Reason   string `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Whether the position is to be refilled. Recorded for the audit trail; it
+	// has no effect on the cascade.
+	Backfill bool `protobuf:"varint,6,opt,name=backfill,proto3" json:"backfill,omitempty"`
+	// Required when the leaver still has direct reports.
+	SuccessorUserId string `protobuf:"bytes,7,opt,name=successor_user_id,json=successorUserId,proto3" json:"successor_user_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *OffboardEmployeeReq) Reset() {
+	*x = OffboardEmployeeReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OffboardEmployeeReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OffboardEmployeeReq) ProtoMessage() {}
+
+func (x *OffboardEmployeeReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OffboardEmployeeReq.ProtoReflect.Descriptor instead.
+func (*OffboardEmployeeReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *OffboardEmployeeReq) GetEmployeeId() string {
+	if x != nil {
+		return x.EmployeeId
+	}
+	return ""
+}
+
+func (x *OffboardEmployeeReq) GetLastWorkDay() string {
+	if x != nil {
+		return x.LastWorkDay
+	}
+	return ""
+}
+
+func (x *OffboardEmployeeReq) GetExitDate() string {
+	if x != nil {
+		return x.ExitDate
+	}
+	return ""
+}
+
+func (x *OffboardEmployeeReq) GetExitType() string {
+	if x != nil {
+		return x.ExitType
+	}
+	return ""
+}
+
+func (x *OffboardEmployeeReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *OffboardEmployeeReq) GetBackfill() bool {
+	if x != nil {
+		return x.Backfill
+	}
+	return false
+}
+
+func (x *OffboardEmployeeReq) GetSuccessorUserId() string {
+	if x != nil {
+		return x.SuccessorUserId
+	}
+	return ""
+}
+
+type OffboardEmployeeResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Employee      *EmployeeProfile       `protobuf:"bytes,1,opt,name=employee,proto3" json:"employee,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OffboardEmployeeResp) Reset() {
+	*x = OffboardEmployeeResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OffboardEmployeeResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OffboardEmployeeResp) ProtoMessage() {}
+
+func (x *OffboardEmployeeResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OffboardEmployeeResp.ProtoReflect.Descriptor instead.
+func (*OffboardEmployeeResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *OffboardEmployeeResp) GetEmployee() *EmployeeProfile {
+	if x != nil {
+		return x.Employee
+	}
+	return nil
+}
+
 type UpdateSelfProfileReq struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	UserId                string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -4678,7 +4863,7 @@ type UpdateSelfProfileReq struct {
 
 func (x *UpdateSelfProfileReq) Reset() {
 	*x = UpdateSelfProfileReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[60]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4690,7 +4875,7 @@ func (x *UpdateSelfProfileReq) String() string {
 func (*UpdateSelfProfileReq) ProtoMessage() {}
 
 func (x *UpdateSelfProfileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[60]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4703,7 +4888,7 @@ func (x *UpdateSelfProfileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSelfProfileReq.ProtoReflect.Descriptor instead.
 func (*UpdateSelfProfileReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{60}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *UpdateSelfProfileReq) GetUserId() string {
@@ -4771,7 +4956,7 @@ type UpdateSelfProfileResp struct {
 
 func (x *UpdateSelfProfileResp) Reset() {
 	*x = UpdateSelfProfileResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[61]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4783,7 +4968,7 @@ func (x *UpdateSelfProfileResp) String() string {
 func (*UpdateSelfProfileResp) ProtoMessage() {}
 
 func (x *UpdateSelfProfileResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[61]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4796,7 +4981,7 @@ func (x *UpdateSelfProfileResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSelfProfileResp.ProtoReflect.Descriptor instead.
 func (*UpdateSelfProfileResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{61}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *UpdateSelfProfileResp) GetEmployee() *EmployeeProfile {
@@ -4817,7 +5002,7 @@ type ListEmployeeDocumentsReq struct {
 
 func (x *ListEmployeeDocumentsReq) Reset() {
 	*x = ListEmployeeDocumentsReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[62]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4829,7 +5014,7 @@ func (x *ListEmployeeDocumentsReq) String() string {
 func (*ListEmployeeDocumentsReq) ProtoMessage() {}
 
 func (x *ListEmployeeDocumentsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[62]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4842,7 +5027,7 @@ func (x *ListEmployeeDocumentsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmployeeDocumentsReq.ProtoReflect.Descriptor instead.
 func (*ListEmployeeDocumentsReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{62}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ListEmployeeDocumentsReq) GetEmployeeId() string {
@@ -4875,7 +5060,7 @@ type ListEmployeeDocumentsResp struct {
 
 func (x *ListEmployeeDocumentsResp) Reset() {
 	*x = ListEmployeeDocumentsResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[63]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4887,7 +5072,7 @@ func (x *ListEmployeeDocumentsResp) String() string {
 func (*ListEmployeeDocumentsResp) ProtoMessage() {}
 
 func (x *ListEmployeeDocumentsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[63]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4900,7 +5085,7 @@ func (x *ListEmployeeDocumentsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmployeeDocumentsResp.ProtoReflect.Descriptor instead.
 func (*ListEmployeeDocumentsResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{63}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListEmployeeDocumentsResp) GetDocuments() []*EmployeeDocument {
@@ -4911,15 +5096,20 @@ func (x *ListEmployeeDocumentsResp) GetDocuments() []*EmployeeDocument {
 }
 
 type ListDocumentCategoriesReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// "own" | "team" | "all", the caller's team:documents:view permission scope
+	// (middleware.PermissionScope) — filters which category visibility tiers
+	// (hr_only/manager/employee) come back. Empty defaults to "all" (internal
+	// callers with no HTTP-layer scope to resolve).
+	CallerScope   string `protobuf:"bytes,2,opt,name=caller_scope,json=callerScope,proto3" json:"caller_scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListDocumentCategoriesReq) Reset() {
 	*x = ListDocumentCategoriesReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[64]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4931,7 +5121,7 @@ func (x *ListDocumentCategoriesReq) String() string {
 func (*ListDocumentCategoriesReq) ProtoMessage() {}
 
 func (x *ListDocumentCategoriesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[64]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4944,12 +5134,19 @@ func (x *ListDocumentCategoriesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentCategoriesReq.ProtoReflect.Descriptor instead.
 func (*ListDocumentCategoriesReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{64}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListDocumentCategoriesReq) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListDocumentCategoriesReq) GetCallerScope() string {
+	if x != nil {
+		return x.CallerScope
 	}
 	return ""
 }
@@ -4963,7 +5160,7 @@ type ListDocumentCategoriesResp struct {
 
 func (x *ListDocumentCategoriesResp) Reset() {
 	*x = ListDocumentCategoriesResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[65]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4975,7 +5172,7 @@ func (x *ListDocumentCategoriesResp) String() string {
 func (*ListDocumentCategoriesResp) ProtoMessage() {}
 
 func (x *ListDocumentCategoriesResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[65]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4988,7 +5185,7 @@ func (x *ListDocumentCategoriesResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentCategoriesResp.ProtoReflect.Descriptor instead.
 func (*ListDocumentCategoriesResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{65}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListDocumentCategoriesResp) GetCategories() []*HRDocumentCategory {
@@ -5012,7 +5209,7 @@ type UploadEmployeeDocumentReq struct {
 
 func (x *UploadEmployeeDocumentReq) Reset() {
 	*x = UploadEmployeeDocumentReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[66]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5024,7 +5221,7 @@ func (x *UploadEmployeeDocumentReq) String() string {
 func (*UploadEmployeeDocumentReq) ProtoMessage() {}
 
 func (x *UploadEmployeeDocumentReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[66]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5037,7 +5234,7 @@ func (x *UploadEmployeeDocumentReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadEmployeeDocumentReq.ProtoReflect.Descriptor instead.
 func (*UploadEmployeeDocumentReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{66}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *UploadEmployeeDocumentReq) GetEmployeeId() string {
@@ -5091,7 +5288,7 @@ type UploadEmployeeDocumentResp struct {
 
 func (x *UploadEmployeeDocumentResp) Reset() {
 	*x = UploadEmployeeDocumentResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[67]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5103,7 +5300,7 @@ func (x *UploadEmployeeDocumentResp) String() string {
 func (*UploadEmployeeDocumentResp) ProtoMessage() {}
 
 func (x *UploadEmployeeDocumentResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[67]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5116,7 +5313,7 @@ func (x *UploadEmployeeDocumentResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadEmployeeDocumentResp.ProtoReflect.Descriptor instead.
 func (*UploadEmployeeDocumentResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{67}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *UploadEmployeeDocumentResp) GetDocument() *EmployeeDocument {
@@ -5135,7 +5332,7 @@ type GetHRSettingsReq struct {
 
 func (x *GetHRSettingsReq) Reset() {
 	*x = GetHRSettingsReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[68]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5147,7 +5344,7 @@ func (x *GetHRSettingsReq) String() string {
 func (*GetHRSettingsReq) ProtoMessage() {}
 
 func (x *GetHRSettingsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[68]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5160,7 +5357,7 @@ func (x *GetHRSettingsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHRSettingsReq.ProtoReflect.Descriptor instead.
 func (*GetHRSettingsReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{68}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *GetHRSettingsReq) GetTenantId() string {
@@ -5179,7 +5376,7 @@ type GetHRSettingsResp struct {
 
 func (x *GetHRSettingsResp) Reset() {
 	*x = GetHRSettingsResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[69]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5191,7 +5388,7 @@ func (x *GetHRSettingsResp) String() string {
 func (*GetHRSettingsResp) ProtoMessage() {}
 
 func (x *GetHRSettingsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[69]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5204,7 +5401,7 @@ func (x *GetHRSettingsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHRSettingsResp.ProtoReflect.Descriptor instead.
 func (*GetHRSettingsResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{69}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *GetHRSettingsResp) GetSettings() *HRSettings {
@@ -5231,7 +5428,7 @@ type UpdateHRSettingsReq struct {
 
 func (x *UpdateHRSettingsReq) Reset() {
 	*x = UpdateHRSettingsReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5243,7 +5440,7 @@ func (x *UpdateHRSettingsReq) String() string {
 func (*UpdateHRSettingsReq) ProtoMessage() {}
 
 func (x *UpdateHRSettingsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5256,7 +5453,7 @@ func (x *UpdateHRSettingsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateHRSettingsReq.ProtoReflect.Descriptor instead.
 func (*UpdateHRSettingsReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{70}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpdateHRSettingsReq) GetTenantId() string {
@@ -5324,7 +5521,7 @@ type UpdateHRSettingsResp struct {
 
 func (x *UpdateHRSettingsResp) Reset() {
 	*x = UpdateHRSettingsResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5336,7 +5533,7 @@ func (x *UpdateHRSettingsResp) String() string {
 func (*UpdateHRSettingsResp) ProtoMessage() {}
 
 func (x *UpdateHRSettingsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5349,7 +5546,7 @@ func (x *UpdateHRSettingsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateHRSettingsResp.ProtoReflect.Descriptor instead.
 func (*UpdateHRSettingsResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{71}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *UpdateHRSettingsResp) GetSettings() *HRSettings {
@@ -5382,7 +5579,7 @@ type CreateEmployeeReq struct {
 
 func (x *CreateEmployeeReq) Reset() {
 	*x = CreateEmployeeReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[72]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5394,7 +5591,7 @@ func (x *CreateEmployeeReq) String() string {
 func (*CreateEmployeeReq) ProtoMessage() {}
 
 func (x *CreateEmployeeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[72]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5407,7 +5604,7 @@ func (x *CreateEmployeeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmployeeReq.ProtoReflect.Descriptor instead.
 func (*CreateEmployeeReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{72}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *CreateEmployeeReq) GetTenantId() string {
@@ -5524,7 +5721,7 @@ type CreateEmployeeResp struct {
 
 func (x *CreateEmployeeResp) Reset() {
 	*x = CreateEmployeeResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[73]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5536,7 +5733,7 @@ func (x *CreateEmployeeResp) String() string {
 func (*CreateEmployeeResp) ProtoMessage() {}
 
 func (x *CreateEmployeeResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[73]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5549,7 +5746,7 @@ func (x *CreateEmployeeResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmployeeResp.ProtoReflect.Descriptor instead.
 func (*CreateEmployeeResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{73}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *CreateEmployeeResp) GetEmployee() *EmployeeProfile {
@@ -5575,7 +5772,7 @@ type TimeCategory struct {
 
 func (x *TimeCategory) Reset() {
 	*x = TimeCategory{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[74]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5587,7 +5784,7 @@ func (x *TimeCategory) String() string {
 func (*TimeCategory) ProtoMessage() {}
 
 func (x *TimeCategory) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[74]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5600,7 +5797,7 @@ func (x *TimeCategory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeCategory.ProtoReflect.Descriptor instead.
 func (*TimeCategory) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{74}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *TimeCategory) GetId() string {
@@ -5668,7 +5865,7 @@ type ListTimeCategoriesReq struct {
 
 func (x *ListTimeCategoriesReq) Reset() {
 	*x = ListTimeCategoriesReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[75]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5680,7 +5877,7 @@ func (x *ListTimeCategoriesReq) String() string {
 func (*ListTimeCategoriesReq) ProtoMessage() {}
 
 func (x *ListTimeCategoriesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[75]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5693,7 +5890,7 @@ func (x *ListTimeCategoriesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeCategoriesReq.ProtoReflect.Descriptor instead.
 func (*ListTimeCategoriesReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{75}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ListTimeCategoriesReq) GetTenantId() string {
@@ -5712,7 +5909,7 @@ type ListTimeCategoriesResp struct {
 
 func (x *ListTimeCategoriesResp) Reset() {
 	*x = ListTimeCategoriesResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[76]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5724,7 +5921,7 @@ func (x *ListTimeCategoriesResp) String() string {
 func (*ListTimeCategoriesResp) ProtoMessage() {}
 
 func (x *ListTimeCategoriesResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[76]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5737,7 +5934,7 @@ func (x *ListTimeCategoriesResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeCategoriesResp.ProtoReflect.Descriptor instead.
 func (*ListTimeCategoriesResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{76}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ListTimeCategoriesResp) GetCategories() []*TimeCategory {
@@ -5760,7 +5957,7 @@ type CreateTimeCategoryReq struct {
 
 func (x *CreateTimeCategoryReq) Reset() {
 	*x = CreateTimeCategoryReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[77]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5772,7 +5969,7 @@ func (x *CreateTimeCategoryReq) String() string {
 func (*CreateTimeCategoryReq) ProtoMessage() {}
 
 func (x *CreateTimeCategoryReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[77]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5785,7 +5982,7 @@ func (x *CreateTimeCategoryReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeCategoryReq.ProtoReflect.Descriptor instead.
 func (*CreateTimeCategoryReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{77}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *CreateTimeCategoryReq) GetTenantId() string {
@@ -5832,7 +6029,7 @@ type CreateTimeCategoryResp struct {
 
 func (x *CreateTimeCategoryResp) Reset() {
 	*x = CreateTimeCategoryResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[78]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5844,7 +6041,7 @@ func (x *CreateTimeCategoryResp) String() string {
 func (*CreateTimeCategoryResp) ProtoMessage() {}
 
 func (x *CreateTimeCategoryResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[78]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5857,7 +6054,7 @@ func (x *CreateTimeCategoryResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeCategoryResp.ProtoReflect.Descriptor instead.
 func (*CreateTimeCategoryResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{78}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *CreateTimeCategoryResp) GetCategory() *TimeCategory {
@@ -5881,7 +6078,7 @@ type UpdateTimeCategoryReq struct {
 
 func (x *UpdateTimeCategoryReq) Reset() {
 	*x = UpdateTimeCategoryReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[79]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5893,7 +6090,7 @@ func (x *UpdateTimeCategoryReq) String() string {
 func (*UpdateTimeCategoryReq) ProtoMessage() {}
 
 func (x *UpdateTimeCategoryReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[79]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5906,7 +6103,7 @@ func (x *UpdateTimeCategoryReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTimeCategoryReq.ProtoReflect.Descriptor instead.
 func (*UpdateTimeCategoryReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{79}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *UpdateTimeCategoryReq) GetId() string {
@@ -5960,7 +6157,7 @@ type UpdateTimeCategoryResp struct {
 
 func (x *UpdateTimeCategoryResp) Reset() {
 	*x = UpdateTimeCategoryResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[80]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5972,7 +6169,7 @@ func (x *UpdateTimeCategoryResp) String() string {
 func (*UpdateTimeCategoryResp) ProtoMessage() {}
 
 func (x *UpdateTimeCategoryResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[80]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5985,7 +6182,7 @@ func (x *UpdateTimeCategoryResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTimeCategoryResp.ProtoReflect.Descriptor instead.
 func (*UpdateTimeCategoryResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{80}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *UpdateTimeCategoryResp) GetCategory() *TimeCategory {
@@ -6005,7 +6202,7 @@ type DeleteTimeCategoryReq struct {
 
 func (x *DeleteTimeCategoryReq) Reset() {
 	*x = DeleteTimeCategoryReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[81]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6017,7 +6214,7 @@ func (x *DeleteTimeCategoryReq) String() string {
 func (*DeleteTimeCategoryReq) ProtoMessage() {}
 
 func (x *DeleteTimeCategoryReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[81]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6030,7 +6227,7 @@ func (x *DeleteTimeCategoryReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeCategoryReq.ProtoReflect.Descriptor instead.
 func (*DeleteTimeCategoryReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{81}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *DeleteTimeCategoryReq) GetId() string {
@@ -6055,7 +6252,7 @@ type DeleteTimeCategoryResp struct {
 
 func (x *DeleteTimeCategoryResp) Reset() {
 	*x = DeleteTimeCategoryResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[82]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6067,7 +6264,7 @@ func (x *DeleteTimeCategoryResp) String() string {
 func (*DeleteTimeCategoryResp) ProtoMessage() {}
 
 func (x *DeleteTimeCategoryResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[82]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6080,7 +6277,7 @@ func (x *DeleteTimeCategoryResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeCategoryResp.ProtoReflect.Descriptor instead.
 func (*DeleteTimeCategoryResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{82}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{84}
 }
 
 type TimeTemplate struct {
@@ -6099,7 +6296,7 @@ type TimeTemplate struct {
 
 func (x *TimeTemplate) Reset() {
 	*x = TimeTemplate{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[83]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6111,7 +6308,7 @@ func (x *TimeTemplate) String() string {
 func (*TimeTemplate) ProtoMessage() {}
 
 func (x *TimeTemplate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[83]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6124,7 +6321,7 @@ func (x *TimeTemplate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeTemplate.ProtoReflect.Descriptor instead.
 func (*TimeTemplate) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{83}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *TimeTemplate) GetId() string {
@@ -6192,7 +6389,7 @@ type ListTimeTemplatesReq struct {
 
 func (x *ListTimeTemplatesReq) Reset() {
 	*x = ListTimeTemplatesReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[84]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6204,7 +6401,7 @@ func (x *ListTimeTemplatesReq) String() string {
 func (*ListTimeTemplatesReq) ProtoMessage() {}
 
 func (x *ListTimeTemplatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[84]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6217,7 +6414,7 @@ func (x *ListTimeTemplatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeTemplatesReq.ProtoReflect.Descriptor instead.
 func (*ListTimeTemplatesReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{84}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ListTimeTemplatesReq) GetTenantId() string {
@@ -6236,7 +6433,7 @@ type ListTimeTemplatesResp struct {
 
 func (x *ListTimeTemplatesResp) Reset() {
 	*x = ListTimeTemplatesResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[85]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6248,7 +6445,7 @@ func (x *ListTimeTemplatesResp) String() string {
 func (*ListTimeTemplatesResp) ProtoMessage() {}
 
 func (x *ListTimeTemplatesResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[85]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6261,7 +6458,7 @@ func (x *ListTimeTemplatesResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeTemplatesResp.ProtoReflect.Descriptor instead.
 func (*ListTimeTemplatesResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{85}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *ListTimeTemplatesResp) GetTemplates() []*TimeTemplate {
@@ -6284,7 +6481,7 @@ type CreateTimeTemplateReq struct {
 
 func (x *CreateTimeTemplateReq) Reset() {
 	*x = CreateTimeTemplateReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[86]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6296,7 +6493,7 @@ func (x *CreateTimeTemplateReq) String() string {
 func (*CreateTimeTemplateReq) ProtoMessage() {}
 
 func (x *CreateTimeTemplateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[86]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6309,7 +6506,7 @@ func (x *CreateTimeTemplateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeTemplateReq.ProtoReflect.Descriptor instead.
 func (*CreateTimeTemplateReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{86}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *CreateTimeTemplateReq) GetTenantId() string {
@@ -6356,7 +6553,7 @@ type CreateTimeTemplateResp struct {
 
 func (x *CreateTimeTemplateResp) Reset() {
 	*x = CreateTimeTemplateResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[87]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6368,7 +6565,7 @@ func (x *CreateTimeTemplateResp) String() string {
 func (*CreateTimeTemplateResp) ProtoMessage() {}
 
 func (x *CreateTimeTemplateResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[87]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6381,7 +6578,7 @@ func (x *CreateTimeTemplateResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeTemplateResp.ProtoReflect.Descriptor instead.
 func (*CreateTimeTemplateResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{87}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *CreateTimeTemplateResp) GetTemplate() *TimeTemplate {
@@ -6401,7 +6598,7 @@ type DeleteTimeTemplateReq struct {
 
 func (x *DeleteTimeTemplateReq) Reset() {
 	*x = DeleteTimeTemplateReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[88]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6413,7 +6610,7 @@ func (x *DeleteTimeTemplateReq) String() string {
 func (*DeleteTimeTemplateReq) ProtoMessage() {}
 
 func (x *DeleteTimeTemplateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[88]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6426,7 +6623,7 @@ func (x *DeleteTimeTemplateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeTemplateReq.ProtoReflect.Descriptor instead.
 func (*DeleteTimeTemplateReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{88}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *DeleteTimeTemplateReq) GetId() string {
@@ -6451,7 +6648,7 @@ type DeleteTimeTemplateResp struct {
 
 func (x *DeleteTimeTemplateResp) Reset() {
 	*x = DeleteTimeTemplateResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[89]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6463,7 +6660,7 @@ func (x *DeleteTimeTemplateResp) String() string {
 func (*DeleteTimeTemplateResp) ProtoMessage() {}
 
 func (x *DeleteTimeTemplateResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[89]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6476,7 +6673,7 @@ func (x *DeleteTimeTemplateResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeTemplateResp.ProtoReflect.Descriptor instead.
 func (*DeleteTimeTemplateResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{89}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{91}
 }
 
 type TimeProject struct {
@@ -6495,7 +6692,7 @@ type TimeProject struct {
 
 func (x *TimeProject) Reset() {
 	*x = TimeProject{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[90]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6507,7 +6704,7 @@ func (x *TimeProject) String() string {
 func (*TimeProject) ProtoMessage() {}
 
 func (x *TimeProject) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[90]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6520,7 +6717,7 @@ func (x *TimeProject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeProject.ProtoReflect.Descriptor instead.
 func (*TimeProject) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{90}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *TimeProject) GetId() string {
@@ -6588,7 +6785,7 @@ type ListTimeProjectsReq struct {
 
 func (x *ListTimeProjectsReq) Reset() {
 	*x = ListTimeProjectsReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[91]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6600,7 +6797,7 @@ func (x *ListTimeProjectsReq) String() string {
 func (*ListTimeProjectsReq) ProtoMessage() {}
 
 func (x *ListTimeProjectsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[91]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6613,7 +6810,7 @@ func (x *ListTimeProjectsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeProjectsReq.ProtoReflect.Descriptor instead.
 func (*ListTimeProjectsReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{91}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ListTimeProjectsReq) GetTenantId() string {
@@ -6632,7 +6829,7 @@ type ListTimeProjectsResp struct {
 
 func (x *ListTimeProjectsResp) Reset() {
 	*x = ListTimeProjectsResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[92]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6644,7 +6841,7 @@ func (x *ListTimeProjectsResp) String() string {
 func (*ListTimeProjectsResp) ProtoMessage() {}
 
 func (x *ListTimeProjectsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[92]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6657,7 +6854,7 @@ func (x *ListTimeProjectsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeProjectsResp.ProtoReflect.Descriptor instead.
 func (*ListTimeProjectsResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{92}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ListTimeProjectsResp) GetProjects() []*TimeProject {
@@ -6680,7 +6877,7 @@ type CreateTimeProjectReq struct {
 
 func (x *CreateTimeProjectReq) Reset() {
 	*x = CreateTimeProjectReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[93]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6692,7 +6889,7 @@ func (x *CreateTimeProjectReq) String() string {
 func (*CreateTimeProjectReq) ProtoMessage() {}
 
 func (x *CreateTimeProjectReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[93]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6705,7 +6902,7 @@ func (x *CreateTimeProjectReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeProjectReq.ProtoReflect.Descriptor instead.
 func (*CreateTimeProjectReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{93}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *CreateTimeProjectReq) GetTenantId() string {
@@ -6752,7 +6949,7 @@ type CreateTimeProjectResp struct {
 
 func (x *CreateTimeProjectResp) Reset() {
 	*x = CreateTimeProjectResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[94]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6764,7 +6961,7 @@ func (x *CreateTimeProjectResp) String() string {
 func (*CreateTimeProjectResp) ProtoMessage() {}
 
 func (x *CreateTimeProjectResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[94]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6777,7 +6974,7 @@ func (x *CreateTimeProjectResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTimeProjectResp.ProtoReflect.Descriptor instead.
 func (*CreateTimeProjectResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{94}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *CreateTimeProjectResp) GetProject() *TimeProject {
@@ -6809,7 +7006,7 @@ type CreateManualEntryReq struct {
 
 func (x *CreateManualEntryReq) Reset() {
 	*x = CreateManualEntryReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[95]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6821,7 +7018,7 @@ func (x *CreateManualEntryReq) String() string {
 func (*CreateManualEntryReq) ProtoMessage() {}
 
 func (x *CreateManualEntryReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[95]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6834,7 +7031,7 @@ func (x *CreateManualEntryReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateManualEntryReq.ProtoReflect.Descriptor instead.
 func (*CreateManualEntryReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{95}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *CreateManualEntryReq) GetTenantId() string {
@@ -6944,7 +7141,7 @@ type CreateManualEntryResp struct {
 
 func (x *CreateManualEntryResp) Reset() {
 	*x = CreateManualEntryResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[96]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6956,7 +7153,7 @@ func (x *CreateManualEntryResp) String() string {
 func (*CreateManualEntryResp) ProtoMessage() {}
 
 func (x *CreateManualEntryResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[96]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6969,7 +7166,7 @@ func (x *CreateManualEntryResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateManualEntryResp.ProtoReflect.Descriptor instead.
 func (*CreateManualEntryResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{96}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *CreateManualEntryResp) GetEntry() *WorkTimeEntry {
@@ -6989,7 +7186,7 @@ type GetTimeBalanceReq struct {
 
 func (x *GetTimeBalanceReq) Reset() {
 	*x = GetTimeBalanceReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[97]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7001,7 +7198,7 @@ func (x *GetTimeBalanceReq) String() string {
 func (*GetTimeBalanceReq) ProtoMessage() {}
 
 func (x *GetTimeBalanceReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[97]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7014,7 +7211,7 @@ func (x *GetTimeBalanceReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeBalanceReq.ProtoReflect.Descriptor instead.
 func (*GetTimeBalanceReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{97}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *GetTimeBalanceReq) GetTenantId() string {
@@ -7043,7 +7240,7 @@ type GetTimeBalanceResp struct {
 
 func (x *GetTimeBalanceResp) Reset() {
 	*x = GetTimeBalanceResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[98]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7055,7 +7252,7 @@ func (x *GetTimeBalanceResp) String() string {
 func (*GetTimeBalanceResp) ProtoMessage() {}
 
 func (x *GetTimeBalanceResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[98]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7068,7 +7265,7 @@ func (x *GetTimeBalanceResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeBalanceResp.ProtoReflect.Descriptor instead.
 func (*GetTimeBalanceResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{98}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *GetTimeBalanceResp) GetBalanceMinutes() int32 {
@@ -7110,7 +7307,7 @@ type DayTrendEntry struct {
 
 func (x *DayTrendEntry) Reset() {
 	*x = DayTrendEntry{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[99]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7122,7 +7319,7 @@ func (x *DayTrendEntry) String() string {
 func (*DayTrendEntry) ProtoMessage() {}
 
 func (x *DayTrendEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[99]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7135,7 +7332,7 @@ func (x *DayTrendEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DayTrendEntry.ProtoReflect.Descriptor instead.
 func (*DayTrendEntry) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{99}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *DayTrendEntry) GetDate() string {
@@ -7170,7 +7367,7 @@ type ProjectBreakdown struct {
 
 func (x *ProjectBreakdown) Reset() {
 	*x = ProjectBreakdown{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[100]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7182,7 +7379,7 @@ func (x *ProjectBreakdown) String() string {
 func (*ProjectBreakdown) ProtoMessage() {}
 
 func (x *ProjectBreakdown) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[100]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7195,7 +7392,7 @@ func (x *ProjectBreakdown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectBreakdown.ProtoReflect.Descriptor instead.
 func (*ProjectBreakdown) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{100}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *ProjectBreakdown) GetProjectId() string {
@@ -7230,7 +7427,7 @@ type GetTimeAnalyticsReq struct {
 
 func (x *GetTimeAnalyticsReq) Reset() {
 	*x = GetTimeAnalyticsReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[101]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7242,7 +7439,7 @@ func (x *GetTimeAnalyticsReq) String() string {
 func (*GetTimeAnalyticsReq) ProtoMessage() {}
 
 func (x *GetTimeAnalyticsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[101]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7255,7 +7452,7 @@ func (x *GetTimeAnalyticsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeAnalyticsReq.ProtoReflect.Descriptor instead.
 func (*GetTimeAnalyticsReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{101}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *GetTimeAnalyticsReq) GetTenantId() string {
@@ -7293,7 +7490,7 @@ type GetTimeAnalyticsResp struct {
 
 func (x *GetTimeAnalyticsResp) Reset() {
 	*x = GetTimeAnalyticsResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[102]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7305,7 +7502,7 @@ func (x *GetTimeAnalyticsResp) String() string {
 func (*GetTimeAnalyticsResp) ProtoMessage() {}
 
 func (x *GetTimeAnalyticsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[102]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7318,7 +7515,7 @@ func (x *GetTimeAnalyticsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeAnalyticsResp.ProtoReflect.Descriptor instead.
 func (*GetTimeAnalyticsResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{102}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *GetTimeAnalyticsResp) GetTotalMinutes() int32 {
@@ -7379,7 +7576,7 @@ type TeamTimeEntry struct {
 
 func (x *TeamTimeEntry) Reset() {
 	*x = TeamTimeEntry{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[103]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7391,7 +7588,7 @@ func (x *TeamTimeEntry) String() string {
 func (*TeamTimeEntry) ProtoMessage() {}
 
 func (x *TeamTimeEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[103]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7404,7 +7601,7 @@ func (x *TeamTimeEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TeamTimeEntry.ProtoReflect.Descriptor instead.
 func (*TeamTimeEntry) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{103}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *TeamTimeEntry) GetEmployeeId() string {
@@ -7473,7 +7670,7 @@ type GetTeamTimeReq struct {
 
 func (x *GetTeamTimeReq) Reset() {
 	*x = GetTeamTimeReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[104]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7485,7 +7682,7 @@ func (x *GetTeamTimeReq) String() string {
 func (*GetTeamTimeReq) ProtoMessage() {}
 
 func (x *GetTeamTimeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[104]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7498,7 +7695,7 @@ func (x *GetTeamTimeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamTimeReq.ProtoReflect.Descriptor instead.
 func (*GetTeamTimeReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{104}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *GetTeamTimeReq) GetTenantId() string {
@@ -7524,7 +7721,7 @@ type GetTeamTimeResp struct {
 
 func (x *GetTeamTimeResp) Reset() {
 	*x = GetTeamTimeResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[105]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7536,7 +7733,7 @@ func (x *GetTeamTimeResp) String() string {
 func (*GetTeamTimeResp) ProtoMessage() {}
 
 func (x *GetTeamTimeResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[105]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7549,7 +7746,7 @@ func (x *GetTeamTimeResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamTimeResp.ProtoReflect.Descriptor instead.
 func (*GetTeamTimeResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{105}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *GetTeamTimeResp) GetTeam() []*TeamTimeEntry {
@@ -7578,7 +7775,7 @@ type WeekApproval struct {
 
 func (x *WeekApproval) Reset() {
 	*x = WeekApproval{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[106]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7590,7 +7787,7 @@ func (x *WeekApproval) String() string {
 func (*WeekApproval) ProtoMessage() {}
 
 func (x *WeekApproval) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[106]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7603,7 +7800,7 @@ func (x *WeekApproval) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeekApproval.ProtoReflect.Descriptor instead.
 func (*WeekApproval) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{106}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *WeekApproval) GetId() string {
@@ -7694,7 +7891,7 @@ type GetMyWeekStatusReq struct {
 
 func (x *GetMyWeekStatusReq) Reset() {
 	*x = GetMyWeekStatusReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[107]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7706,7 +7903,7 @@ func (x *GetMyWeekStatusReq) String() string {
 func (*GetMyWeekStatusReq) ProtoMessage() {}
 
 func (x *GetMyWeekStatusReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[107]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7719,7 +7916,7 @@ func (x *GetMyWeekStatusReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyWeekStatusReq.ProtoReflect.Descriptor instead.
 func (*GetMyWeekStatusReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{107}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *GetMyWeekStatusReq) GetTenantId() string {
@@ -7754,7 +7951,7 @@ type GetMyWeekStatusResp struct {
 
 func (x *GetMyWeekStatusResp) Reset() {
 	*x = GetMyWeekStatusResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[108]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7766,7 +7963,7 @@ func (x *GetMyWeekStatusResp) String() string {
 func (*GetMyWeekStatusResp) ProtoMessage() {}
 
 func (x *GetMyWeekStatusResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[108]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7779,7 +7976,7 @@ func (x *GetMyWeekStatusResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyWeekStatusResp.ProtoReflect.Descriptor instead.
 func (*GetMyWeekStatusResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{108}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *GetMyWeekStatusResp) GetWeekApproval() *WeekApproval {
@@ -7814,7 +8011,7 @@ type SubmitWeekReq struct {
 
 func (x *SubmitWeekReq) Reset() {
 	*x = SubmitWeekReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[109]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7826,7 +8023,7 @@ func (x *SubmitWeekReq) String() string {
 func (*SubmitWeekReq) ProtoMessage() {}
 
 func (x *SubmitWeekReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[109]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7839,7 +8036,7 @@ func (x *SubmitWeekReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitWeekReq.ProtoReflect.Descriptor instead.
 func (*SubmitWeekReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{109}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SubmitWeekReq) GetTenantId() string {
@@ -7872,7 +8069,7 @@ type SubmitWeekResp struct {
 
 func (x *SubmitWeekResp) Reset() {
 	*x = SubmitWeekResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[110]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7884,7 +8081,7 @@ func (x *SubmitWeekResp) String() string {
 func (*SubmitWeekResp) ProtoMessage() {}
 
 func (x *SubmitWeekResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[110]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7897,7 +8094,7 @@ func (x *SubmitWeekResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitWeekResp.ProtoReflect.Descriptor instead.
 func (*SubmitWeekResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{110}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *SubmitWeekResp) GetWeekApproval() *WeekApproval {
@@ -7919,7 +8116,7 @@ type ApproveWeekReq struct {
 
 func (x *ApproveWeekReq) Reset() {
 	*x = ApproveWeekReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[111]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7931,7 +8128,7 @@ func (x *ApproveWeekReq) String() string {
 func (*ApproveWeekReq) ProtoMessage() {}
 
 func (x *ApproveWeekReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[111]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7944,7 +8141,7 @@ func (x *ApproveWeekReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveWeekReq.ProtoReflect.Descriptor instead.
 func (*ApproveWeekReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{111}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *ApproveWeekReq) GetTenantId() string {
@@ -7984,7 +8181,7 @@ type ApproveWeekResp struct {
 
 func (x *ApproveWeekResp) Reset() {
 	*x = ApproveWeekResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[112]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7996,7 +8193,7 @@ func (x *ApproveWeekResp) String() string {
 func (*ApproveWeekResp) ProtoMessage() {}
 
 func (x *ApproveWeekResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[112]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8009,7 +8206,7 @@ func (x *ApproveWeekResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveWeekResp.ProtoReflect.Descriptor instead.
 func (*ApproveWeekResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{112}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *ApproveWeekResp) GetWeekApproval() *WeekApproval {
@@ -8032,7 +8229,7 @@ type RejectWeekReq struct {
 
 func (x *RejectWeekReq) Reset() {
 	*x = RejectWeekReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8044,7 +8241,7 @@ func (x *RejectWeekReq) String() string {
 func (*RejectWeekReq) ProtoMessage() {}
 
 func (x *RejectWeekReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8057,7 +8254,7 @@ func (x *RejectWeekReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectWeekReq.ProtoReflect.Descriptor instead.
 func (*RejectWeekReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{113}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *RejectWeekReq) GetTenantId() string {
@@ -8104,7 +8301,7 @@ type RejectWeekResp struct {
 
 func (x *RejectWeekResp) Reset() {
 	*x = RejectWeekResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8116,7 +8313,7 @@ func (x *RejectWeekResp) String() string {
 func (*RejectWeekResp) ProtoMessage() {}
 
 func (x *RejectWeekResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8129,7 +8326,7 @@ func (x *RejectWeekResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectWeekResp.ProtoReflect.Descriptor instead.
 func (*RejectWeekResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{114}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *RejectWeekResp) GetWeekApproval() *WeekApproval {
@@ -8153,7 +8350,7 @@ type ReopenWeekReq struct {
 
 func (x *ReopenWeekReq) Reset() {
 	*x = ReopenWeekReq{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[115]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8165,7 +8362,7 @@ func (x *ReopenWeekReq) String() string {
 func (*ReopenWeekReq) ProtoMessage() {}
 
 func (x *ReopenWeekReq) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[115]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8178,7 +8375,7 @@ func (x *ReopenWeekReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReopenWeekReq.ProtoReflect.Descriptor instead.
 func (*ReopenWeekReq) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{115}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ReopenWeekReq) GetTenantId() string {
@@ -8225,7 +8422,7 @@ type ReopenWeekResp struct {
 
 func (x *ReopenWeekResp) Reset() {
 	*x = ReopenWeekResp{}
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[116]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8237,7 +8434,7 @@ func (x *ReopenWeekResp) String() string {
 func (*ReopenWeekResp) ProtoMessage() {}
 
 func (x *ReopenWeekResp) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_hr_v1_hr_proto_msgTypes[116]
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8250,12 +8447,768 @@ func (x *ReopenWeekResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReopenWeekResp.ProtoReflect.Descriptor instead.
 func (*ReopenWeekResp) Descriptor() ([]byte, []int) {
-	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{116}
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *ReopenWeekResp) GetWeekApproval() *WeekApproval {
 	if x != nil {
 		return x.WeekApproval
+	}
+	return nil
+}
+
+// ProfileChangeRequest is one employee's proposal to change a single field of
+// their own master data. old_value is what they saw when proposing, not what
+// the record holds now — the approver has to notice when those differ.
+type ProfileChangeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserName      string                 `protobuf:"bytes,3,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"` // denormalized for display
+	Drawer        string                 `protobuf:"bytes,4,opt,name=drawer,proto3" json:"drawer,omitempty"`                     // personal | job
+	Field         string                 `protobuf:"bytes,5,opt,name=field,proto3" json:"field,omitempty"`
+	FieldLabel    string                 `protobuf:"bytes,6,opt,name=field_label,json=fieldLabel,proto3" json:"field_label,omitempty"`
+	OldValue      string                 `protobuf:"bytes,7,opt,name=old_value,json=oldValue,proto3" json:"old_value,omitempty"`
+	NewValue      string                 `protobuf:"bytes,8,opt,name=new_value,json=newValue,proto3" json:"new_value,omitempty"`
+	Status        string                 `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"`  // pending | approved | rejected | cancelled
+	Reason        string                 `protobuf:"bytes,10,opt,name=reason,proto3" json:"reason,omitempty"` // rejection reason, empty otherwise
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	DecidedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=decided_at,json=decidedAt,proto3" json:"decided_at,omitempty"`
+	DecidedByName string                 `protobuf:"bytes,13,opt,name=decided_by_name,json=decidedByName,proto3" json:"decided_by_name,omitempty"` // denormalized for display
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProfileChangeRequest) Reset() {
+	*x = ProfileChangeRequest{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileChangeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileChangeRequest) ProtoMessage() {}
+
+func (x *ProfileChangeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileChangeRequest.ProtoReflect.Descriptor instead.
+func (*ProfileChangeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{119}
+}
+
+func (x *ProfileChangeRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetDrawer() string {
+	if x != nil {
+		return x.Drawer
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetFieldLabel() string {
+	if x != nil {
+		return x.FieldLabel
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetOldValue() string {
+	if x != nil {
+		return x.OldValue
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetNewValue() string {
+	if x != nil {
+		return x.NewValue
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ProfileChangeRequest) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ProfileChangeRequest) GetDecidedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAt
+	}
+	return nil
+}
+
+func (x *ProfileChangeRequest) GetDecidedByName() string {
+	if x != nil {
+		return x.DecidedByName
+	}
+	return ""
+}
+
+// ListProfileChangeRequestsReq filters the tenant's proposals. own_only limits
+// the answer to actor_id's own rows (the self-service view); the inbox leaves
+// it false and sees every proposal in the tenant.
+type ListProfileChangeRequestsReq struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId  string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	OwnOnly  bool                   `protobuf:"varint,3,opt,name=own_only,json=ownOnly,proto3" json:"own_only,omitempty"`
+	Status   string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // optional filter
+	// The lister's team:data_personal:edit scope. At "team" the answer is limited
+	// to the actor's direct reports, so the inbox shows exactly the proposals the
+	// actor may also decide.
+	ActorScope    string `protobuf:"bytes,5,opt,name=actor_scope,json=actorScope,proto3" json:"actor_scope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProfileChangeRequestsReq) Reset() {
+	*x = ListProfileChangeRequestsReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[120]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProfileChangeRequestsReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProfileChangeRequestsReq) ProtoMessage() {}
+
+func (x *ListProfileChangeRequestsReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[120]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProfileChangeRequestsReq.ProtoReflect.Descriptor instead.
+func (*ListProfileChangeRequestsReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{120}
+}
+
+func (x *ListProfileChangeRequestsReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListProfileChangeRequestsReq) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *ListProfileChangeRequestsReq) GetOwnOnly() bool {
+	if x != nil {
+		return x.OwnOnly
+	}
+	return false
+}
+
+func (x *ListProfileChangeRequestsReq) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListProfileChangeRequestsReq) GetActorScope() string {
+	if x != nil {
+		return x.ActorScope
+	}
+	return ""
+}
+
+type ListProfileChangeRequestsResp struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Requests      []*ProfileChangeRequest `protobuf:"bytes,1,rep,name=requests,proto3" json:"requests,omitempty"`
+	Total         int32                   `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProfileChangeRequestsResp) Reset() {
+	*x = ListProfileChangeRequestsResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[121]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProfileChangeRequestsResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProfileChangeRequestsResp) ProtoMessage() {}
+
+func (x *ListProfileChangeRequestsResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[121]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProfileChangeRequestsResp.ProtoReflect.Descriptor instead.
+func (*ListProfileChangeRequestsResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{121}
+}
+
+func (x *ListProfileChangeRequestsResp) GetRequests() []*ProfileChangeRequest {
+	if x != nil {
+		return x.Requests
+	}
+	return nil
+}
+
+func (x *ListProfileChangeRequestsResp) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+// CreateProfileChangeRequestReq opens a proposal. The proposer is actor_id from
+// the auth context and is never taken from the request body.
+type CreateProfileChangeRequestReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	Drawer        string                 `protobuf:"bytes,3,opt,name=drawer,proto3" json:"drawer,omitempty"`
+	Field         string                 `protobuf:"bytes,4,opt,name=field,proto3" json:"field,omitempty"`
+	FieldLabel    string                 `protobuf:"bytes,5,opt,name=field_label,json=fieldLabel,proto3" json:"field_label,omitempty"`
+	OldValue      string                 `protobuf:"bytes,6,opt,name=old_value,json=oldValue,proto3" json:"old_value,omitempty"`
+	NewValue      string                 `protobuf:"bytes,7,opt,name=new_value,json=newValue,proto3" json:"new_value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateProfileChangeRequestReq) Reset() {
+	*x = CreateProfileChangeRequestReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[122]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateProfileChangeRequestReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateProfileChangeRequestReq) ProtoMessage() {}
+
+func (x *CreateProfileChangeRequestReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[122]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateProfileChangeRequestReq.ProtoReflect.Descriptor instead.
+func (*CreateProfileChangeRequestReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{122}
+}
+
+func (x *CreateProfileChangeRequestReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetDrawer() string {
+	if x != nil {
+		return x.Drawer
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetFieldLabel() string {
+	if x != nil {
+		return x.FieldLabel
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetOldValue() string {
+	if x != nil {
+		return x.OldValue
+	}
+	return ""
+}
+
+func (x *CreateProfileChangeRequestReq) GetNewValue() string {
+	if x != nil {
+		return x.NewValue
+	}
+	return ""
+}
+
+type CreateProfileChangeRequestResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *ProfileChangeRequest  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateProfileChangeRequestResp) Reset() {
+	*x = CreateProfileChangeRequestResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[123]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateProfileChangeRequestResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateProfileChangeRequestResp) ProtoMessage() {}
+
+func (x *CreateProfileChangeRequestResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[123]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateProfileChangeRequestResp.ProtoReflect.Descriptor instead.
+func (*CreateProfileChangeRequestResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{123}
+}
+
+func (x *CreateProfileChangeRequestResp) GetRequest() *ProfileChangeRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+// ApproveProfileChangeRequestReq applies the proposal to the employee profile.
+// actor_scope is the approver's team:data_personal:edit scope (own|team|all) —
+// the service refuses a proposal the approver's scope does not reach.
+type ApproveProfileChangeRequestReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ActorScope    string                 `protobuf:"bytes,4,opt,name=actor_scope,json=actorScope,proto3" json:"actor_scope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveProfileChangeRequestReq) Reset() {
+	*x = ApproveProfileChangeRequestReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[124]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveProfileChangeRequestReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveProfileChangeRequestReq) ProtoMessage() {}
+
+func (x *ApproveProfileChangeRequestReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[124]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveProfileChangeRequestReq.ProtoReflect.Descriptor instead.
+func (*ApproveProfileChangeRequestReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{124}
+}
+
+func (x *ApproveProfileChangeRequestReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ApproveProfileChangeRequestReq) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *ApproveProfileChangeRequestReq) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ApproveProfileChangeRequestReq) GetActorScope() string {
+	if x != nil {
+		return x.ActorScope
+	}
+	return ""
+}
+
+type ApproveProfileChangeRequestResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *ProfileChangeRequest  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveProfileChangeRequestResp) Reset() {
+	*x = ApproveProfileChangeRequestResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveProfileChangeRequestResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveProfileChangeRequestResp) ProtoMessage() {}
+
+func (x *ApproveProfileChangeRequestResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveProfileChangeRequestResp.ProtoReflect.Descriptor instead.
+func (*ApproveProfileChangeRequestResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *ApproveProfileChangeRequestResp) GetRequest() *ProfileChangeRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type RejectProfileChangeRequestReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ActorScope    string                 `protobuf:"bytes,4,opt,name=actor_scope,json=actorScope,proto3" json:"actor_scope,omitempty"`
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"` // mandatory
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectProfileChangeRequestReq) Reset() {
+	*x = RejectProfileChangeRequestReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectProfileChangeRequestReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectProfileChangeRequestReq) ProtoMessage() {}
+
+func (x *RejectProfileChangeRequestReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectProfileChangeRequestReq.ProtoReflect.Descriptor instead.
+func (*RejectProfileChangeRequestReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{126}
+}
+
+func (x *RejectProfileChangeRequestReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RejectProfileChangeRequestReq) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *RejectProfileChangeRequestReq) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *RejectProfileChangeRequestReq) GetActorScope() string {
+	if x != nil {
+		return x.ActorScope
+	}
+	return ""
+}
+
+func (x *RejectProfileChangeRequestReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type RejectProfileChangeRequestResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *ProfileChangeRequest  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectProfileChangeRequestResp) Reset() {
+	*x = RejectProfileChangeRequestResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectProfileChangeRequestResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectProfileChangeRequestResp) ProtoMessage() {}
+
+func (x *RejectProfileChangeRequestResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectProfileChangeRequestResp.ProtoReflect.Descriptor instead.
+func (*RejectProfileChangeRequestResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *RejectProfileChangeRequestResp) GetRequest() *ProfileChangeRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+// CancelProfileChangeRequestReq withdraws a proposal. Only the proposer may
+// cancel, and only while it is still pending.
+type CancelProfileChangeRequestReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelProfileChangeRequestReq) Reset() {
+	*x = CancelProfileChangeRequestReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[128]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelProfileChangeRequestReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelProfileChangeRequestReq) ProtoMessage() {}
+
+func (x *CancelProfileChangeRequestReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[128]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelProfileChangeRequestReq.ProtoReflect.Descriptor instead.
+func (*CancelProfileChangeRequestReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{128}
+}
+
+func (x *CancelProfileChangeRequestReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CancelProfileChangeRequestReq) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *CancelProfileChangeRequestReq) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type CancelProfileChangeRequestResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *ProfileChangeRequest  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelProfileChangeRequestResp) Reset() {
+	*x = CancelProfileChangeRequestResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[129]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelProfileChangeRequestResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelProfileChangeRequestResp) ProtoMessage() {}
+
+func (x *CancelProfileChangeRequestResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[129]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelProfileChangeRequestResp.ProtoReflect.Descriptor instead.
+func (*CancelProfileChangeRequestResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{129}
+}
+
+func (x *CancelProfileChangeRequestResp) GetRequest() *ProfileChangeRequest {
+	if x != nil {
+		return x.Request
 	}
 	return nil
 }
@@ -8361,7 +9314,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
 	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12)\n" +
-	"\x10duration_minutes\x18\x05 \x01(\x05R\x0fdurationMinutes\"\xc1\x06\n" +
+	"\x10duration_minutes\x18\x05 \x01(\x05R\x0fdurationMinutes\"\xd8\a\n" +
 	"\x0fEmployeeProfile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1e\n" +
@@ -8389,7 +9342,13 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\tuser_name\x18\x12 \x01(\tR\buserName\x12\x1d\n" +
 	"\n" +
 	"user_email\x18\x13 \x01(\tR\tuserEmail\x12!\n" +
-	"\fmanager_name\x18\x14 \x01(\tR\vmanagerName\"\xfe\x01\n" +
+	"\fmanager_name\x18\x14 \x01(\tR\vmanagerName\x12\x16\n" +
+	"\x06status\x18\x15 \x01(\tR\x06status\x12\"\n" +
+	"\rlast_work_day\x18\x16 \x01(\tR\vlastWorkDay\x12\x1b\n" +
+	"\texit_date\x18\x17 \x01(\tR\bexitDate\x12\x1b\n" +
+	"\texit_type\x18\x18 \x01(\tR\bexitType\x12\x1f\n" +
+	"\vexit_reason\x18\x19 \x01(\tR\n" +
+	"exitReason\"\xfe\x01\n" +
 	"\x12HRDocumentCategory\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
@@ -8681,6 +9640,17 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"start_date\x18\t \x01(\tR\tstartDate\"H\n" +
 	"\x12UpdateEmployeeResp\x122\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xf4\x01\n" +
+	"\x13OffboardEmployeeReq\x12\x1f\n" +
+	"\vemployee_id\x18\x01 \x01(\tR\n" +
+	"employeeId\x12\"\n" +
+	"\rlast_work_day\x18\x02 \x01(\tR\vlastWorkDay\x12\x1b\n" +
+	"\texit_date\x18\x03 \x01(\tR\bexitDate\x12\x1b\n" +
+	"\texit_type\x18\x04 \x01(\tR\bexitType\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12\x1a\n" +
+	"\bbackfill\x18\x06 \x01(\bR\bbackfill\x12*\n" +
+	"\x11successor_user_id\x18\a \x01(\tR\x0fsuccessorUserId\"J\n" +
+	"\x14OffboardEmployeeResp\x122\n" +
 	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xdd\x02\n" +
 	"\x14UpdateSelfProfileReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
@@ -8700,9 +9670,10 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\vcategory_id\x18\x03 \x01(\tR\n" +
 	"categoryId\"R\n" +
 	"\x19ListEmployeeDocumentsResp\x125\n" +
-	"\tdocuments\x18\x01 \x03(\v2\x17.hr.v1.EmployeeDocumentR\tdocuments\"8\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x17.hr.v1.EmployeeDocumentR\tdocuments\"[\n" +
 	"\x19ListDocumentCategoriesReq\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"W\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\fcaller_scope\x18\x02 \x01(\tR\vcallerScope\"W\n" +
 	"\x1aListDocumentCategoriesResp\x129\n" +
 	"\n" +
 	"categories\x18\x01 \x03(\v2\x19.hr.v1.HRDocumentCategoryR\n" +
@@ -8985,7 +9956,72 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"week_start\x18\x04 \x01(\tR\tweekStart\x12\x16\n" +
 	"\x06reason\x18\x05 \x01(\tR\x06reason\"J\n" +
 	"\x0eReopenWeekResp\x128\n" +
-	"\rweek_approval\x18\x01 \x01(\v2\x13.hr.v1.WeekApprovalR\fweekApproval*\x8a\x01\n" +
+	"\rweek_approval\x18\x01 \x01(\v2\x13.hr.v1.WeekApprovalR\fweekApproval\"\xb3\x03\n" +
+	"\x14ProfileChangeRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tuser_name\x18\x03 \x01(\tR\buserName\x12\x16\n" +
+	"\x06drawer\x18\x04 \x01(\tR\x06drawer\x12\x14\n" +
+	"\x05field\x18\x05 \x01(\tR\x05field\x12\x1f\n" +
+	"\vfield_label\x18\x06 \x01(\tR\n" +
+	"fieldLabel\x12\x1b\n" +
+	"\told_value\x18\a \x01(\tR\boldValue\x12\x1b\n" +
+	"\tnew_value\x18\b \x01(\tR\bnewValue\x12\x16\n" +
+	"\x06status\x18\t \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\n" +
+	" \x01(\tR\x06reason\x129\n" +
+	"\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"decided_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12&\n" +
+	"\x0fdecided_by_name\x18\r \x01(\tR\rdecidedByName\"\xaa\x01\n" +
+	"\x1cListProfileChangeRequestsReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x19\n" +
+	"\bown_only\x18\x03 \x01(\bR\aownOnly\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1f\n" +
+	"\vactor_scope\x18\x05 \x01(\tR\n" +
+	"actorScope\"n\n" +
+	"\x1dListProfileChangeRequestsResp\x127\n" +
+	"\brequests\x18\x01 \x03(\v2\x1b.hr.v1.ProfileChangeRequestR\brequests\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe0\x01\n" +
+	"\x1dCreateProfileChangeRequestReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x16\n" +
+	"\x06drawer\x18\x03 \x01(\tR\x06drawer\x12\x14\n" +
+	"\x05field\x18\x04 \x01(\tR\x05field\x12\x1f\n" +
+	"\vfield_label\x18\x05 \x01(\tR\n" +
+	"fieldLabel\x12\x1b\n" +
+	"\told_value\x18\x06 \x01(\tR\boldValue\x12\x1b\n" +
+	"\tnew_value\x18\a \x01(\tR\bnewValue\"W\n" +
+	"\x1eCreateProfileChangeRequestResp\x125\n" +
+	"\arequest\x18\x01 \x01(\v2\x1b.hr.v1.ProfileChangeRequestR\arequest\"\x98\x01\n" +
+	"\x1eApproveProfileChangeRequestReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x03 \x01(\tR\trequestId\x12\x1f\n" +
+	"\vactor_scope\x18\x04 \x01(\tR\n" +
+	"actorScope\"X\n" +
+	"\x1fApproveProfileChangeRequestResp\x125\n" +
+	"\arequest\x18\x01 \x01(\v2\x1b.hr.v1.ProfileChangeRequestR\arequest\"\xaf\x01\n" +
+	"\x1dRejectProfileChangeRequestReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x03 \x01(\tR\trequestId\x12\x1f\n" +
+	"\vactor_scope\x18\x04 \x01(\tR\n" +
+	"actorScope\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\"W\n" +
+	"\x1eRejectProfileChangeRequestResp\x125\n" +
+	"\arequest\x18\x01 \x01(\v2\x1b.hr.v1.ProfileChangeRequestR\arequest\"v\n" +
+	"\x1dCancelProfileChangeRequestReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x03 \x01(\tR\trequestId\"W\n" +
+	"\x1eCancelProfileChangeRequestResp\x125\n" +
+	"\arequest\x18\x01 \x01(\v2\x1b.hr.v1.ProfileChangeRequestR\arequest*\x8a\x01\n" +
 	"\x12LeaveRequestStatus\x12$\n" +
 	" LEAVE_REQUEST_STATUS_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rLEAVE_PENDING\x10\x01\x12\x12\n" +
@@ -9009,7 +10045,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\rHalfDayPeriod\x12\x1f\n" +
 	"\x1bHALF_DAY_PERIOD_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10HALF_DAY_MORNING\x10\x01\x12\x16\n" +
-	"\x12HALF_DAY_AFTERNOON\x10\x022\x89\x1d\n" +
+	"\x12HALF_DAY_AFTERNOON\x10\x022\xed!\n" +
 	"\tHRService\x12Q\n" +
 	"\x12CreateLeaveRequest\x12\x1c.hr.v1.CreateLeaveRequestReq\x1a\x1d.hr.v1.CreateLeaveRequestResp\x12H\n" +
 	"\x0fGetLeaveRequest\x12\x19.hr.v1.GetLeaveRequestReq\x1a\x1a.hr.v1.GetLeaveRequestResp\x12N\n" +
@@ -9056,12 +10092,18 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x12GetAbsenceCalendar\x12\x1c.hr.v1.GetAbsenceCalendarReq\x1a\x1d.hr.v1.GetAbsenceCalendarResp\x12B\n" +
 	"\rListEmployees\x12\x17.hr.v1.ListEmployeesReq\x1a\x18.hr.v1.ListEmployeesResp\x12<\n" +
 	"\vGetEmployee\x12\x15.hr.v1.GetEmployeeReq\x1a\x16.hr.v1.GetEmployeeResp\x12E\n" +
-	"\x0eUpdateEmployee\x12\x18.hr.v1.UpdateEmployeeReq\x1a\x19.hr.v1.UpdateEmployeeResp\x12N\n" +
+	"\x0eUpdateEmployee\x12\x18.hr.v1.UpdateEmployeeReq\x1a\x19.hr.v1.UpdateEmployeeResp\x12K\n" +
+	"\x10OffboardEmployee\x12\x1a.hr.v1.OffboardEmployeeReq\x1a\x1b.hr.v1.OffboardEmployeeResp\x12N\n" +
 	"\x11UpdateSelfProfile\x12\x1b.hr.v1.UpdateSelfProfileReq\x1a\x1c.hr.v1.UpdateSelfProfileResp\x12Z\n" +
 	"\x15ListEmployeeDocuments\x12\x1f.hr.v1.ListEmployeeDocumentsReq\x1a .hr.v1.ListEmployeeDocumentsResp\x12]\n" +
 	"\x16UploadEmployeeDocument\x12 .hr.v1.UploadEmployeeDocumentReq\x1a!.hr.v1.UploadEmployeeDocumentResp\x12]\n" +
 	"\x16ListDocumentCategories\x12 .hr.v1.ListDocumentCategoriesReq\x1a!.hr.v1.ListDocumentCategoriesResp\x12E\n" +
-	"\x0eCreateEmployee\x12\x18.hr.v1.CreateEmployeeReq\x1a\x19.hr.v1.CreateEmployeeResp\x12B\n" +
+	"\x0eCreateEmployee\x12\x18.hr.v1.CreateEmployeeReq\x1a\x19.hr.v1.CreateEmployeeResp\x12f\n" +
+	"\x19ListProfileChangeRequests\x12#.hr.v1.ListProfileChangeRequestsReq\x1a$.hr.v1.ListProfileChangeRequestsResp\x12i\n" +
+	"\x1aCreateProfileChangeRequest\x12$.hr.v1.CreateProfileChangeRequestReq\x1a%.hr.v1.CreateProfileChangeRequestResp\x12l\n" +
+	"\x1bApproveProfileChangeRequest\x12%.hr.v1.ApproveProfileChangeRequestReq\x1a&.hr.v1.ApproveProfileChangeRequestResp\x12i\n" +
+	"\x1aRejectProfileChangeRequest\x12$.hr.v1.RejectProfileChangeRequestReq\x1a%.hr.v1.RejectProfileChangeRequestResp\x12i\n" +
+	"\x1aCancelProfileChangeRequest\x12$.hr.v1.CancelProfileChangeRequestReq\x1a%.hr.v1.CancelProfileChangeRequestResp\x12B\n" +
 	"\rGetHRSettings\x12\x17.hr.v1.GetHRSettingsReq\x1a\x18.hr.v1.GetHRSettingsResp\x12K\n" +
 	"\x10UpdateHRSettings\x12\x1a.hr.v1.UpdateHRSettingsReq\x1a\x1b.hr.v1.UpdateHRSettingsRespB+Z)github.com/kmuhub/kmuhub/proto/hr/v1;hrv1b\x06proto3"
 
@@ -9078,157 +10120,170 @@ func file_proto_hr_v1_hr_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_hr_v1_hr_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 117)
+var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 130)
 var file_proto_hr_v1_hr_proto_goTypes = []any{
-	(LeaveRequestStatus)(0),             // 0: hr.v1.LeaveRequestStatus
-	(WorkTimeEntryStatus)(0),            // 1: hr.v1.WorkTimeEntryStatus
-	(ContractType)(0),                   // 2: hr.v1.ContractType
-	(HalfDayPeriod)(0),                  // 3: hr.v1.HalfDayPeriod
-	(*LeaveType)(nil),                   // 4: hr.v1.LeaveType
-	(*LeaveRequest)(nil),                // 5: hr.v1.LeaveRequest
-	(*LeaveBalance)(nil),                // 6: hr.v1.LeaveBalance
-	(*WorkTimeEntry)(nil),               // 7: hr.v1.WorkTimeEntry
-	(*BreakEntry)(nil),                  // 8: hr.v1.BreakEntry
-	(*EmployeeProfile)(nil),             // 9: hr.v1.EmployeeProfile
-	(*HRDocumentCategory)(nil),          // 10: hr.v1.HRDocumentCategory
-	(*EmployeeDocument)(nil),            // 11: hr.v1.EmployeeDocument
-	(*HRSettings)(nil),                  // 12: hr.v1.HRSettings
-	(*AbsenceEntry)(nil),                // 13: hr.v1.AbsenceEntry
-	(*DailySummary)(nil),                // 14: hr.v1.DailySummary
-	(*WeeklySummary)(nil),               // 15: hr.v1.WeeklySummary
-	(*CreateLeaveRequestReq)(nil),       // 16: hr.v1.CreateLeaveRequestReq
-	(*CreateLeaveRequestResp)(nil),      // 17: hr.v1.CreateLeaveRequestResp
-	(*GetLeaveRequestReq)(nil),          // 18: hr.v1.GetLeaveRequestReq
-	(*GetLeaveRequestResp)(nil),         // 19: hr.v1.GetLeaveRequestResp
-	(*ListLeaveRequestsReq)(nil),        // 20: hr.v1.ListLeaveRequestsReq
-	(*ListLeaveRequestsResp)(nil),       // 21: hr.v1.ListLeaveRequestsResp
-	(*ApproveLeaveRequestReq)(nil),      // 22: hr.v1.ApproveLeaveRequestReq
-	(*ApproveLeaveRequestResp)(nil),     // 23: hr.v1.ApproveLeaveRequestResp
-	(*RejectLeaveRequestReq)(nil),       // 24: hr.v1.RejectLeaveRequestReq
-	(*RejectLeaveRequestResp)(nil),      // 25: hr.v1.RejectLeaveRequestResp
-	(*CancelLeaveRequestReq)(nil),       // 26: hr.v1.CancelLeaveRequestReq
-	(*CancelLeaveRequestResp)(nil),      // 27: hr.v1.CancelLeaveRequestResp
-	(*GetLeaveBalanceReq)(nil),          // 28: hr.v1.GetLeaveBalanceReq
-	(*GetLeaveBalanceResp)(nil),         // 29: hr.v1.GetLeaveBalanceResp
-	(*GetEmployeeLeaveBalanceReq)(nil),  // 30: hr.v1.GetEmployeeLeaveBalanceReq
-	(*GetEmployeeLeaveBalanceResp)(nil), // 31: hr.v1.GetEmployeeLeaveBalanceResp
-	(*ListLeaveTypesReq)(nil),           // 32: hr.v1.ListLeaveTypesReq
-	(*ListLeaveTypesResp)(nil),          // 33: hr.v1.ListLeaveTypesResp
-	(*RecordSickLeaveReq)(nil),          // 34: hr.v1.RecordSickLeaveReq
-	(*RecordSickLeaveResp)(nil),         // 35: hr.v1.RecordSickLeaveResp
-	(*ClockInReq)(nil),                  // 36: hr.v1.ClockInReq
-	(*ClockInResp)(nil),                 // 37: hr.v1.ClockInResp
-	(*ClockOutReq)(nil),                 // 38: hr.v1.ClockOutReq
-	(*ClockOutResp)(nil),                // 39: hr.v1.ClockOutResp
-	(*StartBreakReq)(nil),               // 40: hr.v1.StartBreakReq
-	(*StartBreakResp)(nil),              // 41: hr.v1.StartBreakResp
-	(*EndBreakReq)(nil),                 // 42: hr.v1.EndBreakReq
-	(*EndBreakResp)(nil),                // 43: hr.v1.EndBreakResp
-	(*GetActiveShiftReq)(nil),           // 44: hr.v1.GetActiveShiftReq
-	(*GetActiveShiftResp)(nil),          // 45: hr.v1.GetActiveShiftResp
-	(*ListWorkTimeEntriesReq)(nil),      // 46: hr.v1.ListWorkTimeEntriesReq
-	(*ListWorkTimeEntriesResp)(nil),     // 47: hr.v1.ListWorkTimeEntriesResp
-	(*GetDailySummaryReq)(nil),          // 48: hr.v1.GetDailySummaryReq
-	(*GetDailySummaryResp)(nil),         // 49: hr.v1.GetDailySummaryResp
-	(*GetWeeklySummaryReq)(nil),         // 50: hr.v1.GetWeeklySummaryReq
-	(*GetWeeklySummaryResp)(nil),        // 51: hr.v1.GetWeeklySummaryResp
-	(*SubmitTimeCorrectionReq)(nil),     // 52: hr.v1.SubmitTimeCorrectionReq
-	(*SubmitTimeCorrectionResp)(nil),    // 53: hr.v1.SubmitTimeCorrectionResp
-	(*ApproveTimeCorrectionReq)(nil),    // 54: hr.v1.ApproveTimeCorrectionReq
-	(*ApproveTimeCorrectionResp)(nil),   // 55: hr.v1.ApproveTimeCorrectionResp
-	(*GetAbsenceCalendarReq)(nil),       // 56: hr.v1.GetAbsenceCalendarReq
-	(*GetAbsenceCalendarResp)(nil),      // 57: hr.v1.GetAbsenceCalendarResp
-	(*ListEmployeesReq)(nil),            // 58: hr.v1.ListEmployeesReq
-	(*ListEmployeesResp)(nil),           // 59: hr.v1.ListEmployeesResp
-	(*GetEmployeeReq)(nil),              // 60: hr.v1.GetEmployeeReq
-	(*GetEmployeeResp)(nil),             // 61: hr.v1.GetEmployeeResp
-	(*UpdateEmployeeReq)(nil),           // 62: hr.v1.UpdateEmployeeReq
-	(*UpdateEmployeeResp)(nil),          // 63: hr.v1.UpdateEmployeeResp
-	(*UpdateSelfProfileReq)(nil),        // 64: hr.v1.UpdateSelfProfileReq
-	(*UpdateSelfProfileResp)(nil),       // 65: hr.v1.UpdateSelfProfileResp
-	(*ListEmployeeDocumentsReq)(nil),    // 66: hr.v1.ListEmployeeDocumentsReq
-	(*ListEmployeeDocumentsResp)(nil),   // 67: hr.v1.ListEmployeeDocumentsResp
-	(*ListDocumentCategoriesReq)(nil),   // 68: hr.v1.ListDocumentCategoriesReq
-	(*ListDocumentCategoriesResp)(nil),  // 69: hr.v1.ListDocumentCategoriesResp
-	(*UploadEmployeeDocumentReq)(nil),   // 70: hr.v1.UploadEmployeeDocumentReq
-	(*UploadEmployeeDocumentResp)(nil),  // 71: hr.v1.UploadEmployeeDocumentResp
-	(*GetHRSettingsReq)(nil),            // 72: hr.v1.GetHRSettingsReq
-	(*GetHRSettingsResp)(nil),           // 73: hr.v1.GetHRSettingsResp
-	(*UpdateHRSettingsReq)(nil),         // 74: hr.v1.UpdateHRSettingsReq
-	(*UpdateHRSettingsResp)(nil),        // 75: hr.v1.UpdateHRSettingsResp
-	(*CreateEmployeeReq)(nil),           // 76: hr.v1.CreateEmployeeReq
-	(*CreateEmployeeResp)(nil),          // 77: hr.v1.CreateEmployeeResp
-	(*TimeCategory)(nil),                // 78: hr.v1.TimeCategory
-	(*ListTimeCategoriesReq)(nil),       // 79: hr.v1.ListTimeCategoriesReq
-	(*ListTimeCategoriesResp)(nil),      // 80: hr.v1.ListTimeCategoriesResp
-	(*CreateTimeCategoryReq)(nil),       // 81: hr.v1.CreateTimeCategoryReq
-	(*CreateTimeCategoryResp)(nil),      // 82: hr.v1.CreateTimeCategoryResp
-	(*UpdateTimeCategoryReq)(nil),       // 83: hr.v1.UpdateTimeCategoryReq
-	(*UpdateTimeCategoryResp)(nil),      // 84: hr.v1.UpdateTimeCategoryResp
-	(*DeleteTimeCategoryReq)(nil),       // 85: hr.v1.DeleteTimeCategoryReq
-	(*DeleteTimeCategoryResp)(nil),      // 86: hr.v1.DeleteTimeCategoryResp
-	(*TimeTemplate)(nil),                // 87: hr.v1.TimeTemplate
-	(*ListTimeTemplatesReq)(nil),        // 88: hr.v1.ListTimeTemplatesReq
-	(*ListTimeTemplatesResp)(nil),       // 89: hr.v1.ListTimeTemplatesResp
-	(*CreateTimeTemplateReq)(nil),       // 90: hr.v1.CreateTimeTemplateReq
-	(*CreateTimeTemplateResp)(nil),      // 91: hr.v1.CreateTimeTemplateResp
-	(*DeleteTimeTemplateReq)(nil),       // 92: hr.v1.DeleteTimeTemplateReq
-	(*DeleteTimeTemplateResp)(nil),      // 93: hr.v1.DeleteTimeTemplateResp
-	(*TimeProject)(nil),                 // 94: hr.v1.TimeProject
-	(*ListTimeProjectsReq)(nil),         // 95: hr.v1.ListTimeProjectsReq
-	(*ListTimeProjectsResp)(nil),        // 96: hr.v1.ListTimeProjectsResp
-	(*CreateTimeProjectReq)(nil),        // 97: hr.v1.CreateTimeProjectReq
-	(*CreateTimeProjectResp)(nil),       // 98: hr.v1.CreateTimeProjectResp
-	(*CreateManualEntryReq)(nil),        // 99: hr.v1.CreateManualEntryReq
-	(*CreateManualEntryResp)(nil),       // 100: hr.v1.CreateManualEntryResp
-	(*GetTimeBalanceReq)(nil),           // 101: hr.v1.GetTimeBalanceReq
-	(*GetTimeBalanceResp)(nil),          // 102: hr.v1.GetTimeBalanceResp
-	(*DayTrendEntry)(nil),               // 103: hr.v1.DayTrendEntry
-	(*ProjectBreakdown)(nil),            // 104: hr.v1.ProjectBreakdown
-	(*GetTimeAnalyticsReq)(nil),         // 105: hr.v1.GetTimeAnalyticsReq
-	(*GetTimeAnalyticsResp)(nil),        // 106: hr.v1.GetTimeAnalyticsResp
-	(*TeamTimeEntry)(nil),               // 107: hr.v1.TeamTimeEntry
-	(*GetTeamTimeReq)(nil),              // 108: hr.v1.GetTeamTimeReq
-	(*GetTeamTimeResp)(nil),             // 109: hr.v1.GetTeamTimeResp
-	(*WeekApproval)(nil),                // 110: hr.v1.WeekApproval
-	(*GetMyWeekStatusReq)(nil),          // 111: hr.v1.GetMyWeekStatusReq
-	(*GetMyWeekStatusResp)(nil),         // 112: hr.v1.GetMyWeekStatusResp
-	(*SubmitWeekReq)(nil),               // 113: hr.v1.SubmitWeekReq
-	(*SubmitWeekResp)(nil),              // 114: hr.v1.SubmitWeekResp
-	(*ApproveWeekReq)(nil),              // 115: hr.v1.ApproveWeekReq
-	(*ApproveWeekResp)(nil),             // 116: hr.v1.ApproveWeekResp
-	(*RejectWeekReq)(nil),               // 117: hr.v1.RejectWeekReq
-	(*RejectWeekResp)(nil),              // 118: hr.v1.RejectWeekResp
-	(*ReopenWeekReq)(nil),               // 119: hr.v1.ReopenWeekReq
-	(*ReopenWeekResp)(nil),              // 120: hr.v1.ReopenWeekResp
-	(*timestamppb.Timestamp)(nil),       // 121: google.protobuf.Timestamp
+	(LeaveRequestStatus)(0),                 // 0: hr.v1.LeaveRequestStatus
+	(WorkTimeEntryStatus)(0),                // 1: hr.v1.WorkTimeEntryStatus
+	(ContractType)(0),                       // 2: hr.v1.ContractType
+	(HalfDayPeriod)(0),                      // 3: hr.v1.HalfDayPeriod
+	(*LeaveType)(nil),                       // 4: hr.v1.LeaveType
+	(*LeaveRequest)(nil),                    // 5: hr.v1.LeaveRequest
+	(*LeaveBalance)(nil),                    // 6: hr.v1.LeaveBalance
+	(*WorkTimeEntry)(nil),                   // 7: hr.v1.WorkTimeEntry
+	(*BreakEntry)(nil),                      // 8: hr.v1.BreakEntry
+	(*EmployeeProfile)(nil),                 // 9: hr.v1.EmployeeProfile
+	(*HRDocumentCategory)(nil),              // 10: hr.v1.HRDocumentCategory
+	(*EmployeeDocument)(nil),                // 11: hr.v1.EmployeeDocument
+	(*HRSettings)(nil),                      // 12: hr.v1.HRSettings
+	(*AbsenceEntry)(nil),                    // 13: hr.v1.AbsenceEntry
+	(*DailySummary)(nil),                    // 14: hr.v1.DailySummary
+	(*WeeklySummary)(nil),                   // 15: hr.v1.WeeklySummary
+	(*CreateLeaveRequestReq)(nil),           // 16: hr.v1.CreateLeaveRequestReq
+	(*CreateLeaveRequestResp)(nil),          // 17: hr.v1.CreateLeaveRequestResp
+	(*GetLeaveRequestReq)(nil),              // 18: hr.v1.GetLeaveRequestReq
+	(*GetLeaveRequestResp)(nil),             // 19: hr.v1.GetLeaveRequestResp
+	(*ListLeaveRequestsReq)(nil),            // 20: hr.v1.ListLeaveRequestsReq
+	(*ListLeaveRequestsResp)(nil),           // 21: hr.v1.ListLeaveRequestsResp
+	(*ApproveLeaveRequestReq)(nil),          // 22: hr.v1.ApproveLeaveRequestReq
+	(*ApproveLeaveRequestResp)(nil),         // 23: hr.v1.ApproveLeaveRequestResp
+	(*RejectLeaveRequestReq)(nil),           // 24: hr.v1.RejectLeaveRequestReq
+	(*RejectLeaveRequestResp)(nil),          // 25: hr.v1.RejectLeaveRequestResp
+	(*CancelLeaveRequestReq)(nil),           // 26: hr.v1.CancelLeaveRequestReq
+	(*CancelLeaveRequestResp)(nil),          // 27: hr.v1.CancelLeaveRequestResp
+	(*GetLeaveBalanceReq)(nil),              // 28: hr.v1.GetLeaveBalanceReq
+	(*GetLeaveBalanceResp)(nil),             // 29: hr.v1.GetLeaveBalanceResp
+	(*GetEmployeeLeaveBalanceReq)(nil),      // 30: hr.v1.GetEmployeeLeaveBalanceReq
+	(*GetEmployeeLeaveBalanceResp)(nil),     // 31: hr.v1.GetEmployeeLeaveBalanceResp
+	(*ListLeaveTypesReq)(nil),               // 32: hr.v1.ListLeaveTypesReq
+	(*ListLeaveTypesResp)(nil),              // 33: hr.v1.ListLeaveTypesResp
+	(*RecordSickLeaveReq)(nil),              // 34: hr.v1.RecordSickLeaveReq
+	(*RecordSickLeaveResp)(nil),             // 35: hr.v1.RecordSickLeaveResp
+	(*ClockInReq)(nil),                      // 36: hr.v1.ClockInReq
+	(*ClockInResp)(nil),                     // 37: hr.v1.ClockInResp
+	(*ClockOutReq)(nil),                     // 38: hr.v1.ClockOutReq
+	(*ClockOutResp)(nil),                    // 39: hr.v1.ClockOutResp
+	(*StartBreakReq)(nil),                   // 40: hr.v1.StartBreakReq
+	(*StartBreakResp)(nil),                  // 41: hr.v1.StartBreakResp
+	(*EndBreakReq)(nil),                     // 42: hr.v1.EndBreakReq
+	(*EndBreakResp)(nil),                    // 43: hr.v1.EndBreakResp
+	(*GetActiveShiftReq)(nil),               // 44: hr.v1.GetActiveShiftReq
+	(*GetActiveShiftResp)(nil),              // 45: hr.v1.GetActiveShiftResp
+	(*ListWorkTimeEntriesReq)(nil),          // 46: hr.v1.ListWorkTimeEntriesReq
+	(*ListWorkTimeEntriesResp)(nil),         // 47: hr.v1.ListWorkTimeEntriesResp
+	(*GetDailySummaryReq)(nil),              // 48: hr.v1.GetDailySummaryReq
+	(*GetDailySummaryResp)(nil),             // 49: hr.v1.GetDailySummaryResp
+	(*GetWeeklySummaryReq)(nil),             // 50: hr.v1.GetWeeklySummaryReq
+	(*GetWeeklySummaryResp)(nil),            // 51: hr.v1.GetWeeklySummaryResp
+	(*SubmitTimeCorrectionReq)(nil),         // 52: hr.v1.SubmitTimeCorrectionReq
+	(*SubmitTimeCorrectionResp)(nil),        // 53: hr.v1.SubmitTimeCorrectionResp
+	(*ApproveTimeCorrectionReq)(nil),        // 54: hr.v1.ApproveTimeCorrectionReq
+	(*ApproveTimeCorrectionResp)(nil),       // 55: hr.v1.ApproveTimeCorrectionResp
+	(*GetAbsenceCalendarReq)(nil),           // 56: hr.v1.GetAbsenceCalendarReq
+	(*GetAbsenceCalendarResp)(nil),          // 57: hr.v1.GetAbsenceCalendarResp
+	(*ListEmployeesReq)(nil),                // 58: hr.v1.ListEmployeesReq
+	(*ListEmployeesResp)(nil),               // 59: hr.v1.ListEmployeesResp
+	(*GetEmployeeReq)(nil),                  // 60: hr.v1.GetEmployeeReq
+	(*GetEmployeeResp)(nil),                 // 61: hr.v1.GetEmployeeResp
+	(*UpdateEmployeeReq)(nil),               // 62: hr.v1.UpdateEmployeeReq
+	(*UpdateEmployeeResp)(nil),              // 63: hr.v1.UpdateEmployeeResp
+	(*OffboardEmployeeReq)(nil),             // 64: hr.v1.OffboardEmployeeReq
+	(*OffboardEmployeeResp)(nil),            // 65: hr.v1.OffboardEmployeeResp
+	(*UpdateSelfProfileReq)(nil),            // 66: hr.v1.UpdateSelfProfileReq
+	(*UpdateSelfProfileResp)(nil),           // 67: hr.v1.UpdateSelfProfileResp
+	(*ListEmployeeDocumentsReq)(nil),        // 68: hr.v1.ListEmployeeDocumentsReq
+	(*ListEmployeeDocumentsResp)(nil),       // 69: hr.v1.ListEmployeeDocumentsResp
+	(*ListDocumentCategoriesReq)(nil),       // 70: hr.v1.ListDocumentCategoriesReq
+	(*ListDocumentCategoriesResp)(nil),      // 71: hr.v1.ListDocumentCategoriesResp
+	(*UploadEmployeeDocumentReq)(nil),       // 72: hr.v1.UploadEmployeeDocumentReq
+	(*UploadEmployeeDocumentResp)(nil),      // 73: hr.v1.UploadEmployeeDocumentResp
+	(*GetHRSettingsReq)(nil),                // 74: hr.v1.GetHRSettingsReq
+	(*GetHRSettingsResp)(nil),               // 75: hr.v1.GetHRSettingsResp
+	(*UpdateHRSettingsReq)(nil),             // 76: hr.v1.UpdateHRSettingsReq
+	(*UpdateHRSettingsResp)(nil),            // 77: hr.v1.UpdateHRSettingsResp
+	(*CreateEmployeeReq)(nil),               // 78: hr.v1.CreateEmployeeReq
+	(*CreateEmployeeResp)(nil),              // 79: hr.v1.CreateEmployeeResp
+	(*TimeCategory)(nil),                    // 80: hr.v1.TimeCategory
+	(*ListTimeCategoriesReq)(nil),           // 81: hr.v1.ListTimeCategoriesReq
+	(*ListTimeCategoriesResp)(nil),          // 82: hr.v1.ListTimeCategoriesResp
+	(*CreateTimeCategoryReq)(nil),           // 83: hr.v1.CreateTimeCategoryReq
+	(*CreateTimeCategoryResp)(nil),          // 84: hr.v1.CreateTimeCategoryResp
+	(*UpdateTimeCategoryReq)(nil),           // 85: hr.v1.UpdateTimeCategoryReq
+	(*UpdateTimeCategoryResp)(nil),          // 86: hr.v1.UpdateTimeCategoryResp
+	(*DeleteTimeCategoryReq)(nil),           // 87: hr.v1.DeleteTimeCategoryReq
+	(*DeleteTimeCategoryResp)(nil),          // 88: hr.v1.DeleteTimeCategoryResp
+	(*TimeTemplate)(nil),                    // 89: hr.v1.TimeTemplate
+	(*ListTimeTemplatesReq)(nil),            // 90: hr.v1.ListTimeTemplatesReq
+	(*ListTimeTemplatesResp)(nil),           // 91: hr.v1.ListTimeTemplatesResp
+	(*CreateTimeTemplateReq)(nil),           // 92: hr.v1.CreateTimeTemplateReq
+	(*CreateTimeTemplateResp)(nil),          // 93: hr.v1.CreateTimeTemplateResp
+	(*DeleteTimeTemplateReq)(nil),           // 94: hr.v1.DeleteTimeTemplateReq
+	(*DeleteTimeTemplateResp)(nil),          // 95: hr.v1.DeleteTimeTemplateResp
+	(*TimeProject)(nil),                     // 96: hr.v1.TimeProject
+	(*ListTimeProjectsReq)(nil),             // 97: hr.v1.ListTimeProjectsReq
+	(*ListTimeProjectsResp)(nil),            // 98: hr.v1.ListTimeProjectsResp
+	(*CreateTimeProjectReq)(nil),            // 99: hr.v1.CreateTimeProjectReq
+	(*CreateTimeProjectResp)(nil),           // 100: hr.v1.CreateTimeProjectResp
+	(*CreateManualEntryReq)(nil),            // 101: hr.v1.CreateManualEntryReq
+	(*CreateManualEntryResp)(nil),           // 102: hr.v1.CreateManualEntryResp
+	(*GetTimeBalanceReq)(nil),               // 103: hr.v1.GetTimeBalanceReq
+	(*GetTimeBalanceResp)(nil),              // 104: hr.v1.GetTimeBalanceResp
+	(*DayTrendEntry)(nil),                   // 105: hr.v1.DayTrendEntry
+	(*ProjectBreakdown)(nil),                // 106: hr.v1.ProjectBreakdown
+	(*GetTimeAnalyticsReq)(nil),             // 107: hr.v1.GetTimeAnalyticsReq
+	(*GetTimeAnalyticsResp)(nil),            // 108: hr.v1.GetTimeAnalyticsResp
+	(*TeamTimeEntry)(nil),                   // 109: hr.v1.TeamTimeEntry
+	(*GetTeamTimeReq)(nil),                  // 110: hr.v1.GetTeamTimeReq
+	(*GetTeamTimeResp)(nil),                 // 111: hr.v1.GetTeamTimeResp
+	(*WeekApproval)(nil),                    // 112: hr.v1.WeekApproval
+	(*GetMyWeekStatusReq)(nil),              // 113: hr.v1.GetMyWeekStatusReq
+	(*GetMyWeekStatusResp)(nil),             // 114: hr.v1.GetMyWeekStatusResp
+	(*SubmitWeekReq)(nil),                   // 115: hr.v1.SubmitWeekReq
+	(*SubmitWeekResp)(nil),                  // 116: hr.v1.SubmitWeekResp
+	(*ApproveWeekReq)(nil),                  // 117: hr.v1.ApproveWeekReq
+	(*ApproveWeekResp)(nil),                 // 118: hr.v1.ApproveWeekResp
+	(*RejectWeekReq)(nil),                   // 119: hr.v1.RejectWeekReq
+	(*RejectWeekResp)(nil),                  // 120: hr.v1.RejectWeekResp
+	(*ReopenWeekReq)(nil),                   // 121: hr.v1.ReopenWeekReq
+	(*ReopenWeekResp)(nil),                  // 122: hr.v1.ReopenWeekResp
+	(*ProfileChangeRequest)(nil),            // 123: hr.v1.ProfileChangeRequest
+	(*ListProfileChangeRequestsReq)(nil),    // 124: hr.v1.ListProfileChangeRequestsReq
+	(*ListProfileChangeRequestsResp)(nil),   // 125: hr.v1.ListProfileChangeRequestsResp
+	(*CreateProfileChangeRequestReq)(nil),   // 126: hr.v1.CreateProfileChangeRequestReq
+	(*CreateProfileChangeRequestResp)(nil),  // 127: hr.v1.CreateProfileChangeRequestResp
+	(*ApproveProfileChangeRequestReq)(nil),  // 128: hr.v1.ApproveProfileChangeRequestReq
+	(*ApproveProfileChangeRequestResp)(nil), // 129: hr.v1.ApproveProfileChangeRequestResp
+	(*RejectProfileChangeRequestReq)(nil),   // 130: hr.v1.RejectProfileChangeRequestReq
+	(*RejectProfileChangeRequestResp)(nil),  // 131: hr.v1.RejectProfileChangeRequestResp
+	(*CancelProfileChangeRequestReq)(nil),   // 132: hr.v1.CancelProfileChangeRequestReq
+	(*CancelProfileChangeRequestResp)(nil),  // 133: hr.v1.CancelProfileChangeRequestResp
+	(*timestamppb.Timestamp)(nil),           // 134: google.protobuf.Timestamp
 }
 var file_proto_hr_v1_hr_proto_depIdxs = []int32{
-	121, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
+	134, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 1: hr.v1.LeaveRequest.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
 	3,   // 2: hr.v1.LeaveRequest.half_day_period_end:type_name -> hr.v1.HalfDayPeriod
 	0,   // 3: hr.v1.LeaveRequest.status:type_name -> hr.v1.LeaveRequestStatus
-	121, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
-	121, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
-	121, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
-	121, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
-	121, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
-	121, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
-	121, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
+	134, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
+	134, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
+	134, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
+	134, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
+	134, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
+	134, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
+	134, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
 	1,   // 11: hr.v1.WorkTimeEntry.status:type_name -> hr.v1.WorkTimeEntryStatus
-	121, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
-	121, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
-	121, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
+	134, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
+	134, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
+	134, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
 	8,   // 15: hr.v1.WorkTimeEntry.breaks:type_name -> hr.v1.BreakEntry
-	121, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
-	121, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
+	134, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
+	134, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
 	2,   // 18: hr.v1.EmployeeProfile.contract_type:type_name -> hr.v1.ContractType
-	121, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
-	121, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
-	121, // 21: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
-	121, // 22: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
-	121, // 23: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
-	121, // 24: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
+	134, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
+	134, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
+	134, // 21: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
+	134, // 22: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
+	134, // 23: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
+	134, // 24: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
 	7,   // 25: hr.v1.DailySummary.entries:type_name -> hr.v1.WorkTimeEntry
 	14,  // 26: hr.v1.WeeklySummary.daily_summaries:type_name -> hr.v1.DailySummary
 	3,   // 27: hr.v1.CreateLeaveRequestReq.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
@@ -9243,21 +10298,21 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	6,   // 36: hr.v1.GetEmployeeLeaveBalanceResp.balance:type_name -> hr.v1.LeaveBalance
 	4,   // 37: hr.v1.ListLeaveTypesResp.leave_types:type_name -> hr.v1.LeaveType
 	5,   // 38: hr.v1.RecordSickLeaveResp.leave_request:type_name -> hr.v1.LeaveRequest
-	121, // 39: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
+	134, // 39: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
 	7,   // 40: hr.v1.ClockInResp.entry:type_name -> hr.v1.WorkTimeEntry
-	121, // 41: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
+	134, // 41: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
 	7,   // 42: hr.v1.ClockOutResp.entry:type_name -> hr.v1.WorkTimeEntry
-	121, // 43: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	134, // 43: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,   // 44: hr.v1.StartBreakResp.break_entry:type_name -> hr.v1.BreakEntry
-	121, // 45: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	134, // 45: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,   // 46: hr.v1.EndBreakResp.break_entry:type_name -> hr.v1.BreakEntry
 	7,   // 47: hr.v1.GetActiveShiftResp.entry:type_name -> hr.v1.WorkTimeEntry
 	8,   // 48: hr.v1.GetActiveShiftResp.active_break:type_name -> hr.v1.BreakEntry
 	7,   // 49: hr.v1.ListWorkTimeEntriesResp.entries:type_name -> hr.v1.WorkTimeEntry
 	14,  // 50: hr.v1.GetDailySummaryResp.summary:type_name -> hr.v1.DailySummary
 	15,  // 51: hr.v1.GetWeeklySummaryResp.summary:type_name -> hr.v1.WeeklySummary
-	121, // 52: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
-	121, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
+	134, // 52: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
+	134, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
 	7,   // 54: hr.v1.SubmitTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	7,   // 55: hr.v1.ApproveTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	13,  // 56: hr.v1.GetAbsenceCalendarResp.absences:type_name -> hr.v1.AbsenceEntry
@@ -9265,145 +10320,165 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	9,   // 58: hr.v1.GetEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
 	2,   // 59: hr.v1.UpdateEmployeeReq.contract_type:type_name -> hr.v1.ContractType
 	9,   // 60: hr.v1.UpdateEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
-	9,   // 61: hr.v1.UpdateSelfProfileResp.employee:type_name -> hr.v1.EmployeeProfile
-	11,  // 62: hr.v1.ListEmployeeDocumentsResp.documents:type_name -> hr.v1.EmployeeDocument
-	10,  // 63: hr.v1.ListDocumentCategoriesResp.categories:type_name -> hr.v1.HRDocumentCategory
-	11,  // 64: hr.v1.UploadEmployeeDocumentResp.document:type_name -> hr.v1.EmployeeDocument
-	12,  // 65: hr.v1.GetHRSettingsResp.settings:type_name -> hr.v1.HRSettings
-	12,  // 66: hr.v1.UpdateHRSettingsResp.settings:type_name -> hr.v1.HRSettings
-	2,   // 67: hr.v1.CreateEmployeeReq.contract_type:type_name -> hr.v1.ContractType
-	9,   // 68: hr.v1.CreateEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
-	121, // 69: hr.v1.TimeCategory.created_at:type_name -> google.protobuf.Timestamp
-	121, // 70: hr.v1.TimeCategory.updated_at:type_name -> google.protobuf.Timestamp
-	78,  // 71: hr.v1.ListTimeCategoriesResp.categories:type_name -> hr.v1.TimeCategory
-	78,  // 72: hr.v1.CreateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
-	78,  // 73: hr.v1.UpdateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
-	121, // 74: hr.v1.TimeTemplate.created_at:type_name -> google.protobuf.Timestamp
-	121, // 75: hr.v1.TimeTemplate.updated_at:type_name -> google.protobuf.Timestamp
-	87,  // 76: hr.v1.ListTimeTemplatesResp.templates:type_name -> hr.v1.TimeTemplate
-	87,  // 77: hr.v1.CreateTimeTemplateResp.template:type_name -> hr.v1.TimeTemplate
-	121, // 78: hr.v1.TimeProject.created_at:type_name -> google.protobuf.Timestamp
-	121, // 79: hr.v1.TimeProject.updated_at:type_name -> google.protobuf.Timestamp
-	94,  // 80: hr.v1.ListTimeProjectsResp.projects:type_name -> hr.v1.TimeProject
-	94,  // 81: hr.v1.CreateTimeProjectResp.project:type_name -> hr.v1.TimeProject
-	121, // 82: hr.v1.CreateManualEntryReq.clock_in:type_name -> google.protobuf.Timestamp
-	121, // 83: hr.v1.CreateManualEntryReq.clock_out:type_name -> google.protobuf.Timestamp
-	7,   // 84: hr.v1.CreateManualEntryResp.entry:type_name -> hr.v1.WorkTimeEntry
-	103, // 85: hr.v1.GetTimeAnalyticsResp.day_trend:type_name -> hr.v1.DayTrendEntry
-	104, // 86: hr.v1.GetTimeAnalyticsResp.by_project:type_name -> hr.v1.ProjectBreakdown
-	107, // 87: hr.v1.GetTeamTimeResp.team:type_name -> hr.v1.TeamTimeEntry
-	121, // 88: hr.v1.WeekApproval.submitted_at:type_name -> google.protobuf.Timestamp
-	121, // 89: hr.v1.WeekApproval.approved_at:type_name -> google.protobuf.Timestamp
-	121, // 90: hr.v1.WeekApproval.created_at:type_name -> google.protobuf.Timestamp
-	121, // 91: hr.v1.WeekApproval.updated_at:type_name -> google.protobuf.Timestamp
-	110, // 92: hr.v1.GetMyWeekStatusResp.week_approval:type_name -> hr.v1.WeekApproval
-	110, // 93: hr.v1.SubmitWeekResp.week_approval:type_name -> hr.v1.WeekApproval
-	110, // 94: hr.v1.ApproveWeekResp.week_approval:type_name -> hr.v1.WeekApproval
-	110, // 95: hr.v1.RejectWeekResp.week_approval:type_name -> hr.v1.WeekApproval
-	110, // 96: hr.v1.ReopenWeekResp.week_approval:type_name -> hr.v1.WeekApproval
-	16,  // 97: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
-	18,  // 98: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
-	20,  // 99: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
-	22,  // 100: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
-	24,  // 101: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
-	26,  // 102: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
-	28,  // 103: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
-	30,  // 104: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
-	32,  // 105: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
-	34,  // 106: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
-	36,  // 107: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
-	38,  // 108: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
-	40,  // 109: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
-	42,  // 110: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
-	44,  // 111: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
-	46,  // 112: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
-	48,  // 113: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
-	50,  // 114: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
-	52,  // 115: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
-	54,  // 116: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
-	99,  // 117: hr.v1.HRService.CreateManualEntry:input_type -> hr.v1.CreateManualEntryReq
-	101, // 118: hr.v1.HRService.GetTimeBalance:input_type -> hr.v1.GetTimeBalanceReq
-	105, // 119: hr.v1.HRService.GetTimeAnalytics:input_type -> hr.v1.GetTimeAnalyticsReq
-	108, // 120: hr.v1.HRService.GetTeamTime:input_type -> hr.v1.GetTeamTimeReq
-	111, // 121: hr.v1.HRService.GetMyWeekStatus:input_type -> hr.v1.GetMyWeekStatusReq
-	113, // 122: hr.v1.HRService.SubmitWeek:input_type -> hr.v1.SubmitWeekReq
-	115, // 123: hr.v1.HRService.ApproveWeek:input_type -> hr.v1.ApproveWeekReq
-	117, // 124: hr.v1.HRService.RejectWeek:input_type -> hr.v1.RejectWeekReq
-	119, // 125: hr.v1.HRService.ReopenWeek:input_type -> hr.v1.ReopenWeekReq
-	79,  // 126: hr.v1.HRService.ListTimeCategories:input_type -> hr.v1.ListTimeCategoriesReq
-	81,  // 127: hr.v1.HRService.CreateTimeCategory:input_type -> hr.v1.CreateTimeCategoryReq
-	83,  // 128: hr.v1.HRService.UpdateTimeCategory:input_type -> hr.v1.UpdateTimeCategoryReq
-	85,  // 129: hr.v1.HRService.DeleteTimeCategory:input_type -> hr.v1.DeleteTimeCategoryReq
-	88,  // 130: hr.v1.HRService.ListTimeTemplates:input_type -> hr.v1.ListTimeTemplatesReq
-	90,  // 131: hr.v1.HRService.CreateTimeTemplate:input_type -> hr.v1.CreateTimeTemplateReq
-	92,  // 132: hr.v1.HRService.DeleteTimeTemplate:input_type -> hr.v1.DeleteTimeTemplateReq
-	95,  // 133: hr.v1.HRService.ListTimeProjects:input_type -> hr.v1.ListTimeProjectsReq
-	97,  // 134: hr.v1.HRService.CreateTimeProject:input_type -> hr.v1.CreateTimeProjectReq
-	56,  // 135: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
-	58,  // 136: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
-	60,  // 137: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
-	62,  // 138: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
-	64,  // 139: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
-	66,  // 140: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
-	70,  // 141: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
-	68,  // 142: hr.v1.HRService.ListDocumentCategories:input_type -> hr.v1.ListDocumentCategoriesReq
-	76,  // 143: hr.v1.HRService.CreateEmployee:input_type -> hr.v1.CreateEmployeeReq
-	72,  // 144: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
-	74,  // 145: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
-	17,  // 146: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
-	19,  // 147: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
-	21,  // 148: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
-	23,  // 149: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
-	25,  // 150: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
-	27,  // 151: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
-	29,  // 152: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
-	31,  // 153: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
-	33,  // 154: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
-	35,  // 155: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
-	37,  // 156: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
-	39,  // 157: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
-	41,  // 158: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
-	43,  // 159: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
-	45,  // 160: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
-	47,  // 161: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
-	49,  // 162: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
-	51,  // 163: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
-	53,  // 164: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
-	55,  // 165: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
-	100, // 166: hr.v1.HRService.CreateManualEntry:output_type -> hr.v1.CreateManualEntryResp
-	102, // 167: hr.v1.HRService.GetTimeBalance:output_type -> hr.v1.GetTimeBalanceResp
-	106, // 168: hr.v1.HRService.GetTimeAnalytics:output_type -> hr.v1.GetTimeAnalyticsResp
-	109, // 169: hr.v1.HRService.GetTeamTime:output_type -> hr.v1.GetTeamTimeResp
-	112, // 170: hr.v1.HRService.GetMyWeekStatus:output_type -> hr.v1.GetMyWeekStatusResp
-	114, // 171: hr.v1.HRService.SubmitWeek:output_type -> hr.v1.SubmitWeekResp
-	116, // 172: hr.v1.HRService.ApproveWeek:output_type -> hr.v1.ApproveWeekResp
-	118, // 173: hr.v1.HRService.RejectWeek:output_type -> hr.v1.RejectWeekResp
-	120, // 174: hr.v1.HRService.ReopenWeek:output_type -> hr.v1.ReopenWeekResp
-	80,  // 175: hr.v1.HRService.ListTimeCategories:output_type -> hr.v1.ListTimeCategoriesResp
-	82,  // 176: hr.v1.HRService.CreateTimeCategory:output_type -> hr.v1.CreateTimeCategoryResp
-	84,  // 177: hr.v1.HRService.UpdateTimeCategory:output_type -> hr.v1.UpdateTimeCategoryResp
-	86,  // 178: hr.v1.HRService.DeleteTimeCategory:output_type -> hr.v1.DeleteTimeCategoryResp
-	89,  // 179: hr.v1.HRService.ListTimeTemplates:output_type -> hr.v1.ListTimeTemplatesResp
-	91,  // 180: hr.v1.HRService.CreateTimeTemplate:output_type -> hr.v1.CreateTimeTemplateResp
-	93,  // 181: hr.v1.HRService.DeleteTimeTemplate:output_type -> hr.v1.DeleteTimeTemplateResp
-	96,  // 182: hr.v1.HRService.ListTimeProjects:output_type -> hr.v1.ListTimeProjectsResp
-	98,  // 183: hr.v1.HRService.CreateTimeProject:output_type -> hr.v1.CreateTimeProjectResp
-	57,  // 184: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
-	59,  // 185: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
-	61,  // 186: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
-	63,  // 187: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
-	65,  // 188: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
-	67,  // 189: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
-	71,  // 190: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
-	69,  // 191: hr.v1.HRService.ListDocumentCategories:output_type -> hr.v1.ListDocumentCategoriesResp
-	77,  // 192: hr.v1.HRService.CreateEmployee:output_type -> hr.v1.CreateEmployeeResp
-	73,  // 193: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
-	75,  // 194: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
-	146, // [146:195] is the sub-list for method output_type
-	97,  // [97:146] is the sub-list for method input_type
-	97,  // [97:97] is the sub-list for extension type_name
-	97,  // [97:97] is the sub-list for extension extendee
-	0,   // [0:97] is the sub-list for field type_name
+	9,   // 61: hr.v1.OffboardEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
+	9,   // 62: hr.v1.UpdateSelfProfileResp.employee:type_name -> hr.v1.EmployeeProfile
+	11,  // 63: hr.v1.ListEmployeeDocumentsResp.documents:type_name -> hr.v1.EmployeeDocument
+	10,  // 64: hr.v1.ListDocumentCategoriesResp.categories:type_name -> hr.v1.HRDocumentCategory
+	11,  // 65: hr.v1.UploadEmployeeDocumentResp.document:type_name -> hr.v1.EmployeeDocument
+	12,  // 66: hr.v1.GetHRSettingsResp.settings:type_name -> hr.v1.HRSettings
+	12,  // 67: hr.v1.UpdateHRSettingsResp.settings:type_name -> hr.v1.HRSettings
+	2,   // 68: hr.v1.CreateEmployeeReq.contract_type:type_name -> hr.v1.ContractType
+	9,   // 69: hr.v1.CreateEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
+	134, // 70: hr.v1.TimeCategory.created_at:type_name -> google.protobuf.Timestamp
+	134, // 71: hr.v1.TimeCategory.updated_at:type_name -> google.protobuf.Timestamp
+	80,  // 72: hr.v1.ListTimeCategoriesResp.categories:type_name -> hr.v1.TimeCategory
+	80,  // 73: hr.v1.CreateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
+	80,  // 74: hr.v1.UpdateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
+	134, // 75: hr.v1.TimeTemplate.created_at:type_name -> google.protobuf.Timestamp
+	134, // 76: hr.v1.TimeTemplate.updated_at:type_name -> google.protobuf.Timestamp
+	89,  // 77: hr.v1.ListTimeTemplatesResp.templates:type_name -> hr.v1.TimeTemplate
+	89,  // 78: hr.v1.CreateTimeTemplateResp.template:type_name -> hr.v1.TimeTemplate
+	134, // 79: hr.v1.TimeProject.created_at:type_name -> google.protobuf.Timestamp
+	134, // 80: hr.v1.TimeProject.updated_at:type_name -> google.protobuf.Timestamp
+	96,  // 81: hr.v1.ListTimeProjectsResp.projects:type_name -> hr.v1.TimeProject
+	96,  // 82: hr.v1.CreateTimeProjectResp.project:type_name -> hr.v1.TimeProject
+	134, // 83: hr.v1.CreateManualEntryReq.clock_in:type_name -> google.protobuf.Timestamp
+	134, // 84: hr.v1.CreateManualEntryReq.clock_out:type_name -> google.protobuf.Timestamp
+	7,   // 85: hr.v1.CreateManualEntryResp.entry:type_name -> hr.v1.WorkTimeEntry
+	105, // 86: hr.v1.GetTimeAnalyticsResp.day_trend:type_name -> hr.v1.DayTrendEntry
+	106, // 87: hr.v1.GetTimeAnalyticsResp.by_project:type_name -> hr.v1.ProjectBreakdown
+	109, // 88: hr.v1.GetTeamTimeResp.team:type_name -> hr.v1.TeamTimeEntry
+	134, // 89: hr.v1.WeekApproval.submitted_at:type_name -> google.protobuf.Timestamp
+	134, // 90: hr.v1.WeekApproval.approved_at:type_name -> google.protobuf.Timestamp
+	134, // 91: hr.v1.WeekApproval.created_at:type_name -> google.protobuf.Timestamp
+	134, // 92: hr.v1.WeekApproval.updated_at:type_name -> google.protobuf.Timestamp
+	112, // 93: hr.v1.GetMyWeekStatusResp.week_approval:type_name -> hr.v1.WeekApproval
+	112, // 94: hr.v1.SubmitWeekResp.week_approval:type_name -> hr.v1.WeekApproval
+	112, // 95: hr.v1.ApproveWeekResp.week_approval:type_name -> hr.v1.WeekApproval
+	112, // 96: hr.v1.RejectWeekResp.week_approval:type_name -> hr.v1.WeekApproval
+	112, // 97: hr.v1.ReopenWeekResp.week_approval:type_name -> hr.v1.WeekApproval
+	134, // 98: hr.v1.ProfileChangeRequest.created_at:type_name -> google.protobuf.Timestamp
+	134, // 99: hr.v1.ProfileChangeRequest.decided_at:type_name -> google.protobuf.Timestamp
+	123, // 100: hr.v1.ListProfileChangeRequestsResp.requests:type_name -> hr.v1.ProfileChangeRequest
+	123, // 101: hr.v1.CreateProfileChangeRequestResp.request:type_name -> hr.v1.ProfileChangeRequest
+	123, // 102: hr.v1.ApproveProfileChangeRequestResp.request:type_name -> hr.v1.ProfileChangeRequest
+	123, // 103: hr.v1.RejectProfileChangeRequestResp.request:type_name -> hr.v1.ProfileChangeRequest
+	123, // 104: hr.v1.CancelProfileChangeRequestResp.request:type_name -> hr.v1.ProfileChangeRequest
+	16,  // 105: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
+	18,  // 106: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
+	20,  // 107: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
+	22,  // 108: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
+	24,  // 109: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
+	26,  // 110: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
+	28,  // 111: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
+	30,  // 112: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
+	32,  // 113: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
+	34,  // 114: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
+	36,  // 115: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
+	38,  // 116: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
+	40,  // 117: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
+	42,  // 118: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
+	44,  // 119: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
+	46,  // 120: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
+	48,  // 121: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
+	50,  // 122: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
+	52,  // 123: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
+	54,  // 124: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
+	101, // 125: hr.v1.HRService.CreateManualEntry:input_type -> hr.v1.CreateManualEntryReq
+	103, // 126: hr.v1.HRService.GetTimeBalance:input_type -> hr.v1.GetTimeBalanceReq
+	107, // 127: hr.v1.HRService.GetTimeAnalytics:input_type -> hr.v1.GetTimeAnalyticsReq
+	110, // 128: hr.v1.HRService.GetTeamTime:input_type -> hr.v1.GetTeamTimeReq
+	113, // 129: hr.v1.HRService.GetMyWeekStatus:input_type -> hr.v1.GetMyWeekStatusReq
+	115, // 130: hr.v1.HRService.SubmitWeek:input_type -> hr.v1.SubmitWeekReq
+	117, // 131: hr.v1.HRService.ApproveWeek:input_type -> hr.v1.ApproveWeekReq
+	119, // 132: hr.v1.HRService.RejectWeek:input_type -> hr.v1.RejectWeekReq
+	121, // 133: hr.v1.HRService.ReopenWeek:input_type -> hr.v1.ReopenWeekReq
+	81,  // 134: hr.v1.HRService.ListTimeCategories:input_type -> hr.v1.ListTimeCategoriesReq
+	83,  // 135: hr.v1.HRService.CreateTimeCategory:input_type -> hr.v1.CreateTimeCategoryReq
+	85,  // 136: hr.v1.HRService.UpdateTimeCategory:input_type -> hr.v1.UpdateTimeCategoryReq
+	87,  // 137: hr.v1.HRService.DeleteTimeCategory:input_type -> hr.v1.DeleteTimeCategoryReq
+	90,  // 138: hr.v1.HRService.ListTimeTemplates:input_type -> hr.v1.ListTimeTemplatesReq
+	92,  // 139: hr.v1.HRService.CreateTimeTemplate:input_type -> hr.v1.CreateTimeTemplateReq
+	94,  // 140: hr.v1.HRService.DeleteTimeTemplate:input_type -> hr.v1.DeleteTimeTemplateReq
+	97,  // 141: hr.v1.HRService.ListTimeProjects:input_type -> hr.v1.ListTimeProjectsReq
+	99,  // 142: hr.v1.HRService.CreateTimeProject:input_type -> hr.v1.CreateTimeProjectReq
+	56,  // 143: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
+	58,  // 144: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
+	60,  // 145: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
+	62,  // 146: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
+	64,  // 147: hr.v1.HRService.OffboardEmployee:input_type -> hr.v1.OffboardEmployeeReq
+	66,  // 148: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
+	68,  // 149: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
+	72,  // 150: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
+	70,  // 151: hr.v1.HRService.ListDocumentCategories:input_type -> hr.v1.ListDocumentCategoriesReq
+	78,  // 152: hr.v1.HRService.CreateEmployee:input_type -> hr.v1.CreateEmployeeReq
+	124, // 153: hr.v1.HRService.ListProfileChangeRequests:input_type -> hr.v1.ListProfileChangeRequestsReq
+	126, // 154: hr.v1.HRService.CreateProfileChangeRequest:input_type -> hr.v1.CreateProfileChangeRequestReq
+	128, // 155: hr.v1.HRService.ApproveProfileChangeRequest:input_type -> hr.v1.ApproveProfileChangeRequestReq
+	130, // 156: hr.v1.HRService.RejectProfileChangeRequest:input_type -> hr.v1.RejectProfileChangeRequestReq
+	132, // 157: hr.v1.HRService.CancelProfileChangeRequest:input_type -> hr.v1.CancelProfileChangeRequestReq
+	74,  // 158: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
+	76,  // 159: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
+	17,  // 160: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
+	19,  // 161: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
+	21,  // 162: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
+	23,  // 163: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
+	25,  // 164: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
+	27,  // 165: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
+	29,  // 166: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
+	31,  // 167: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
+	33,  // 168: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
+	35,  // 169: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
+	37,  // 170: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
+	39,  // 171: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
+	41,  // 172: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
+	43,  // 173: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
+	45,  // 174: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
+	47,  // 175: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
+	49,  // 176: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
+	51,  // 177: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
+	53,  // 178: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
+	55,  // 179: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
+	102, // 180: hr.v1.HRService.CreateManualEntry:output_type -> hr.v1.CreateManualEntryResp
+	104, // 181: hr.v1.HRService.GetTimeBalance:output_type -> hr.v1.GetTimeBalanceResp
+	108, // 182: hr.v1.HRService.GetTimeAnalytics:output_type -> hr.v1.GetTimeAnalyticsResp
+	111, // 183: hr.v1.HRService.GetTeamTime:output_type -> hr.v1.GetTeamTimeResp
+	114, // 184: hr.v1.HRService.GetMyWeekStatus:output_type -> hr.v1.GetMyWeekStatusResp
+	116, // 185: hr.v1.HRService.SubmitWeek:output_type -> hr.v1.SubmitWeekResp
+	118, // 186: hr.v1.HRService.ApproveWeek:output_type -> hr.v1.ApproveWeekResp
+	120, // 187: hr.v1.HRService.RejectWeek:output_type -> hr.v1.RejectWeekResp
+	122, // 188: hr.v1.HRService.ReopenWeek:output_type -> hr.v1.ReopenWeekResp
+	82,  // 189: hr.v1.HRService.ListTimeCategories:output_type -> hr.v1.ListTimeCategoriesResp
+	84,  // 190: hr.v1.HRService.CreateTimeCategory:output_type -> hr.v1.CreateTimeCategoryResp
+	86,  // 191: hr.v1.HRService.UpdateTimeCategory:output_type -> hr.v1.UpdateTimeCategoryResp
+	88,  // 192: hr.v1.HRService.DeleteTimeCategory:output_type -> hr.v1.DeleteTimeCategoryResp
+	91,  // 193: hr.v1.HRService.ListTimeTemplates:output_type -> hr.v1.ListTimeTemplatesResp
+	93,  // 194: hr.v1.HRService.CreateTimeTemplate:output_type -> hr.v1.CreateTimeTemplateResp
+	95,  // 195: hr.v1.HRService.DeleteTimeTemplate:output_type -> hr.v1.DeleteTimeTemplateResp
+	98,  // 196: hr.v1.HRService.ListTimeProjects:output_type -> hr.v1.ListTimeProjectsResp
+	100, // 197: hr.v1.HRService.CreateTimeProject:output_type -> hr.v1.CreateTimeProjectResp
+	57,  // 198: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
+	59,  // 199: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
+	61,  // 200: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
+	63,  // 201: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
+	65,  // 202: hr.v1.HRService.OffboardEmployee:output_type -> hr.v1.OffboardEmployeeResp
+	67,  // 203: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
+	69,  // 204: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
+	73,  // 205: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
+	71,  // 206: hr.v1.HRService.ListDocumentCategories:output_type -> hr.v1.ListDocumentCategoriesResp
+	79,  // 207: hr.v1.HRService.CreateEmployee:output_type -> hr.v1.CreateEmployeeResp
+	125, // 208: hr.v1.HRService.ListProfileChangeRequests:output_type -> hr.v1.ListProfileChangeRequestsResp
+	127, // 209: hr.v1.HRService.CreateProfileChangeRequest:output_type -> hr.v1.CreateProfileChangeRequestResp
+	129, // 210: hr.v1.HRService.ApproveProfileChangeRequest:output_type -> hr.v1.ApproveProfileChangeRequestResp
+	131, // 211: hr.v1.HRService.RejectProfileChangeRequest:output_type -> hr.v1.RejectProfileChangeRequestResp
+	133, // 212: hr.v1.HRService.CancelProfileChangeRequest:output_type -> hr.v1.CancelProfileChangeRequestResp
+	75,  // 213: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
+	77,  // 214: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
+	160, // [160:215] is the sub-list for method output_type
+	105, // [105:160] is the sub-list for method input_type
+	105, // [105:105] is the sub-list for extension type_name
+	105, // [105:105] is the sub-list for extension extendee
+	0,   // [0:105] is the sub-list for field type_name
 }
 
 func init() { file_proto_hr_v1_hr_proto_init() }
@@ -9417,7 +10492,7 @@ func file_proto_hr_v1_hr_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_hr_v1_hr_proto_rawDesc), len(file_proto_hr_v1_hr_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   117,
+			NumMessages:   130,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

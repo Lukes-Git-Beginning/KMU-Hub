@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrManifestNotFound       = errors.New("plugin manifest not found")
 	ErrManifestSlugExists     = errors.New("plugin manifest with this slug already exists")
+	ErrManifestImmutable      = errors.New("plugin manifest ships with the product and cannot be modified by a tenant")
 	ErrInstallationNotFound   = errors.New("plugin installation not found")
 	ErrAlreadyInstalled       = errors.New("plugin is already installed for this tenant")
 	ErrInstallationNotActive  = errors.New("plugin installation is not active")

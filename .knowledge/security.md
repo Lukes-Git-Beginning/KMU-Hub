@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-21
+updated: 2026-08-03
 ---
 # Security & Compliance
 
@@ -37,6 +37,74 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - **Permission-Seed-Pflicht (Lesson 2026-06-05, Migration 129):** Diese Doktrin wurde fuer 35 Permissions NICHT befolgt — documents/email/finance/formulare/helpdesk/hr/inbox/wiki/automations/search/settings/recording hatten `RequirePermission`-Guards ohne DB-Rows → **403 fuer JEDEN inkl. Admin**, monatelang unbemerkt. Admin bekommt NICHT automatisch neue Permissions (Migration-000002-CROSS-JOIN galt nur fuer damals existierende). Migration 129 seedet die 35 **admin-only**; Manager/Member-Mapping pro Modul ist Produktentscheidung (Followup F1 in `docs/e2e-modernization-followups.md`). Diff-Check Code-vs-DB vor jedem Modul-Launch: `grep -rhoP 'RequirePermission\("\K[^"]+", "[^"]+' --include='*.go' internal/gateway internal/server | sed 's/", "/:/' | sort -u` gegen `select resource||':'||action from permissions`.
 - **Manager/Member-Mapping nachgezogen (Welle G, Migration 224, 2026-06-21):** Die 5 operativen Module `booking-pages` / `schichten` (shift/template/assignment/swap) / `hr:time_*` / `inventar` / `einkauf` waren komplett **admin-only** (403 fuer manager+member, kein operativer Zugriff). Migr.224 seedet die fehlenden `role_permissions`: **manager → voll operativ** (alle Actions ueber 19 Resources, **40 Grants**), **member → Self-Service** (`schichten:swap:read|create`, `booking-pages:read`, `inventar:*:read` = **8 Grants**). Reiner additiver Seed (Permissions existierten bereits, nur Grants fehlten); Resource/Name-Strings 1:1 gegen Seed-Migrationen verifiziert; **Prod-verifiziert** (`role_permissions`-Count manager=40/member=8, Migr.-Head 224 not dirty). Damit ist der F1-Followup fuer diese 5 Module erledigt (finance via Migr.214); weitere admin-only Module aus Migr.129 offen.
 - **JWT-Snapshot:** Rollen/Permissions werden beim Login ins Token gebacken (kein DB-Lookup zur Request-Zeit) — nach Rollenaenderung oder Permission-Seed ist Re-Login zwingend. E2E/Smoke nutzen deshalb `registerAndLoginAdmin` (DB-Promote + Re-Login), siehe [[testing]].
+
+## RBAC Phase 1 — tenant-eigene Rollen + per-User-Overrides (Nachtlaeufe 3/4, Migr. 256/280/283)
+
+Die drei fixen Rollen sind nicht mehr das Ende: ein Tenant darf eigene Rollen anlegen, und einzelne
+Accounts duerfen vom Rollenstand abweichen.
+
+### Welle 1a — Rollen-Scope + Presets (Migration 000256)
+
+`roles`/`role_permissions` bekommen ein NULLables `tenant_id`. **NULL = System-Preset** (admin,
+manager, member — fuer jeden Tenant sichtbar), ein echter Wert = tenant-eigene Rolle. RLS ist aktiv,
+aber nicht ueber `enable_tenant_rls`, sondern als **Split-Policy**: Lesen sieht
+`tenant_id IS NULL OR tenant_id = current_tenant_id()`, Schreiben nur den eigenen Tenant. Die
+Trennung ist zwingend — DELETE wertet ausschliesslich die USING-Klausel aus, eine einzelne permissive
+Policy liesse jeden Tenant die Presets loeschen.
+
+### Welle 1b — Rollen-CRUD, Zuweisung, Guardrails, Audit (`/admin/roles`, Nachtlauf 4 Iter. 1–9)
+
+Rollen-CRUD, Zuweisung ueber Rollen-**ID** (nicht mehr ueber den Namen), Guardrails und Audit-Events.
+
+### Per-User-Permission-Overrides (Migration 000283, Nachtlauf 4 Iter. 39–42)
+
+`user_permission_overrides` (`tenant_id NOT NULL` + RLS) haelt Abweichungen vom Rollenstand — in
+**beide** Richtungen: ein `deny` schliesst ein Tor, das die Rolle offen laesst, ein `allow` oeffnet
+eines, das sie zulaesst. `SetUserOverrides` ist ein Voll-Ersatz wie `SetRolePermissions`: ein Key,
+der im Input fehlt, folgt wieder live der Rolle; leerer Input = „auf Rollen-Stand zurueck".
+
+Vier Guardrails, in dieser Reihenfolge (`internal/auth/user_overrides.go`):
+
+1. **Selbst-Sperre** — der Aufrufer darf den eigenen Account gar nicht bearbeiten, in keine Richtung.
+2. **Katalog-Check** — Mode/Scope muessen schreibbar sein, jeder Key muss im Katalog stehen.
+3. **Eskalations-Grenze** — kein `allow` darf ueber das hinausreichen, was der Aufrufer selbst haelt.
+4. **Letzter Admin** — der Tenant muss mindestens einen Rollen-Administrator behalten.
+
+(2) laeuft bewusst vor (3), aus demselben Grund wie bei `SetRolePermissions`: ein unbekannter Key
+ist in niemandes Grant-Set, die Eskalationspruefung koennte einen Tippfehler nicht von einem
+Griff nach echten Rechten unterscheiden und wuerde 403 auf ein 422-Problem antworten.
+
+Die Tenant-Grenze des **Ziel**-Accounts kommt nicht aus einem expliziten Vergleich, sondern aus
+`repo.GetUserByID(ctx, userID)` — `users` ist RLS-geschuetzt, ein fremder Account ist damit
+nicht-existent statt verboten. Dieselbe „invisible, not forbidden"-Konvention wie bei den Presets.
+
+### Der Fund, der das Muster erklaert: `AssignRole` unter `sysctx` (Migration 000286)
+
+Der namensbasierte `AssignRole`/`RemoveRole`-Pfad laeuft bei der Registrierung unter
+`sysctx.With()` — `Register` haengt jeden neuen Account an "member". Im System-Kontext filtert RLS
+nichts. Seit Migration 000256 darf ein Tenant eine eigene Rolle exakt wie ein Preset nennen
+(`idx_roles_tenant_name` kollidiert nicht, weil Presets `tenant_id IS NULL` fuehren und der
+Arbiter-Index auf `COALESCE(tenant_id, sentinel)` liegt). `WHERE r.name = $2` matchte damit **beide**
+Zeilen — jeder neue Registrant, jedes Tenants, waere zusaetzlich in die gleichnamige Custom-Rolle
+eines fremden Tenants gelandet. Eine Rechte-Uebertragung ueber die Tenant-Grenze, ausgeloest durch
+nichts weiter als eine Registrierung.
+
+Der Fix sitzt in der Query, nicht in der Policy: beide Funktionen loesen jetzt ausschliesslich
+System-Presets auf (`r.tenant_id IS NULL`), Custom-Rollen laufen nur noch ueber den ID-basierten
+`AssignUserRole`/`RevokeUserRole`-Pfad aus Welle 1b. Regressionstest
+`TestAssignRole_DB_PresetOnlyDespiteNameCollision`.
+
+> **Merksatz:** RLS ist unter `sysctx.With()` wirkungslos. Was dort passieren darf, muss die Query
+> selbst einschraenken — eine Policy ist dort kein Backstop, sondern eine Illusion.
+
+### Neue Permission-Keys aus Nachtlauf 4 (alle geseedet)
+
+`security:vendor_access:manage`, `admin:user_override:manage`, `fuhrpark:license:read|write`,
+`team:data_personal:edit`, `team:employee:offboard`, `team:self:propose` — Seeds in
+000256/000279/000281/000283. Die E-Mail-Features (Templates, Multi-Account, Bulk) teilen bewusst das
+bestehende `email:read|write|delete`-Trio, statt eigene Keys einzufuehren: **jedes** E-Mail-Feature
+(signatures, rules, labels, accounts) tut das schon, eine Ausnahme haette eine Migration und ein
+Seed-Risiko gekostet.
 
 ## Middleware-Stack (Reihenfolge)
 1. Metrics → 2. RequestID → 3. SecurityHeaders → 4. Logging → 5. CORS → 6. IP Filter → 7. Rate Limiting → 8. Audit Logger → 9. Auth (JWT) → 10. RBAC → 11. Idempotency (WarnMode bis Welle 4)

@@ -61,11 +61,19 @@ service HRService {
   rpc ListEmployees(ListEmployeesReq) returns (ListEmployeesResp);
   rpc GetEmployee(GetEmployeeReq) returns (GetEmployeeResp);
   rpc UpdateEmployee(UpdateEmployeeReq) returns (UpdateEmployeeResp);
+  rpc OffboardEmployee(OffboardEmployeeReq) returns (OffboardEmployeeResp);
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
   rpc ListDocumentCategories(ListDocumentCategoriesReq) returns (ListDocumentCategoriesResp);
   rpc CreateEmployee(CreateEmployeeReq) returns (CreateEmployeeResp);
+
+  // ==================== Profile Change Requests ====================
+  rpc ListProfileChangeRequests(ListProfileChangeRequestsReq) returns (ListProfileChangeRequestsResp);
+  rpc CreateProfileChangeRequest(CreateProfileChangeRequestReq) returns (CreateProfileChangeRequestResp);
+  rpc ApproveProfileChangeRequest(ApproveProfileChangeRequestReq) returns (ApproveProfileChangeRequestResp);
+  rpc RejectProfileChangeRequest(RejectProfileChangeRequestReq) returns (RejectProfileChangeRequestResp);
+  rpc CancelProfileChangeRequest(CancelProfileChangeRequestReq) returns (CancelProfileChangeRequestResp);
 
   // ==================== HR Settings ====================
   rpc GetHRSettings(GetHRSettingsReq) returns (GetHRSettingsResp);
@@ -225,6 +233,13 @@ message EmployeeProfile {
   string user_name = 18;
   string user_email = 19;
   string manager_name = 20;
+  // Offboarding state. status is active | inactive; the exit_* fields stay
+  // empty until the employee leaves.
+  string status = 21;
+  string last_work_day = 22;         // YYYY-MM-DD
+  string exit_date = 23;             // YYYY-MM-DD
+  string exit_type = 24;
+  string exit_reason = 25;
 }
 
 message HRDocumentCategory {
@@ -601,6 +616,27 @@ message UpdateEmployeeResp {
   EmployeeProfile employee = 1;
 }
 
+message OffboardEmployeeReq {
+  // The employee profile id from the route, not the user id.
+  string employee_id = 1;
+  string last_work_day = 2;          // YYYY-MM-DD
+  string exit_date = 3;              // YYYY-MM-DD
+  // resignation | termination | fixed_term_expired | mutual_termination |
+  // retirement. String, not an enum: the gateway marshals enums as numbers
+  // (UseEnumNumbers) and the desktop dialog types this as a string union.
+  string exit_type = 4;
+  string reason = 5;
+  // Whether the position is to be refilled. Recorded for the audit trail; it
+  // has no effect on the cascade.
+  bool backfill = 6;
+  // Required when the leaver still has direct reports.
+  string successor_user_id = 7;
+}
+
+message OffboardEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
 message UpdateSelfProfileReq {
   string user_id = 1;
   string tenant_id = 2;
@@ -628,6 +664,11 @@ message ListEmployeeDocumentsResp {
 
 message ListDocumentCategoriesReq {
   string tenant_id = 1;
+  // "own" | "team" | "all", the caller's team:documents:view permission scope
+  // (middleware.PermissionScope) — filters which category visibility tiers
+  // (hr_only/manager/employee) come back. Empty defaults to "all" (internal
+  // callers with no HTTP-layer scope to resolve).
+  string caller_scope = 2;
 }
 
 message ListDocumentCategoriesResp {
@@ -1003,4 +1044,100 @@ message ReopenWeekReq {
 
 message ReopenWeekResp {
   WeekApproval week_approval = 1;
+}
+
+// ============================================================================
+// Profile Change Requests
+// ============================================================================
+
+// ProfileChangeRequest is one employee's proposal to change a single field of
+// their own master data. old_value is what they saw when proposing, not what
+// the record holds now — the approver has to notice when those differ.
+message ProfileChangeRequest {
+  string id = 1;
+  string user_id = 2;
+  string user_name = 3;             // denormalized for display
+  string drawer = 4;                // personal | job
+  string field = 5;
+  string field_label = 6;
+  string old_value = 7;
+  string new_value = 8;
+  string status = 9;                // pending | approved | rejected | cancelled
+  string reason = 10;               // rejection reason, empty otherwise
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp decided_at = 12;
+  string decided_by_name = 13;      // denormalized for display
+}
+
+// ListProfileChangeRequestsReq filters the tenant's proposals. own_only limits
+// the answer to actor_id's own rows (the self-service view); the inbox leaves
+// it false and sees every proposal in the tenant.
+message ListProfileChangeRequestsReq {
+  string tenant_id = 1;
+  string actor_id = 2;
+  bool own_only = 3;
+  string status = 4;                // optional filter
+  // The lister's team:data_personal:edit scope. At "team" the answer is limited
+  // to the actor's direct reports, so the inbox shows exactly the proposals the
+  // actor may also decide.
+  string actor_scope = 5;
+}
+
+message ListProfileChangeRequestsResp {
+  repeated ProfileChangeRequest requests = 1;
+  int32 total = 2;
+}
+
+// CreateProfileChangeRequestReq opens a proposal. The proposer is actor_id from
+// the auth context and is never taken from the request body.
+message CreateProfileChangeRequestReq {
+  string tenant_id = 1;
+  string actor_id = 2;
+  string drawer = 3;
+  string field = 4;
+  string field_label = 5;
+  string old_value = 6;
+  string new_value = 7;
+}
+
+message CreateProfileChangeRequestResp {
+  ProfileChangeRequest request = 1;
+}
+
+// ApproveProfileChangeRequestReq applies the proposal to the employee profile.
+// actor_scope is the approver's team:data_personal:edit scope (own|team|all) —
+// the service refuses a proposal the approver's scope does not reach.
+message ApproveProfileChangeRequestReq {
+  string tenant_id = 1;
+  string actor_id = 2;
+  string request_id = 3;
+  string actor_scope = 4;
+}
+
+message ApproveProfileChangeRequestResp {
+  ProfileChangeRequest request = 1;
+}
+
+message RejectProfileChangeRequestReq {
+  string tenant_id = 1;
+  string actor_id = 2;
+  string request_id = 3;
+  string actor_scope = 4;
+  string reason = 5;                // mandatory
+}
+
+message RejectProfileChangeRequestResp {
+  ProfileChangeRequest request = 1;
+}
+
+// CancelProfileChangeRequestReq withdraws a proposal. Only the proposer may
+// cancel, and only while it is still pending.
+message CancelProfileChangeRequestReq {
+  string tenant_id = 1;
+  string actor_id = 2;
+  string request_id = 3;
+}
+
+message CancelProfileChangeRequestResp {
+  ProfileChangeRequest request = 1;
 }

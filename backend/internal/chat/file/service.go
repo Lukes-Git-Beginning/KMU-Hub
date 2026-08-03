@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// DefaultMaxQuotaBytes is the storage quota a tenant has before its first
+// upload. It mirrors the storage_quotas.max_bytes column default (000018) so
+// a fresh tenant sees the same limit before and after its row exists.
+const DefaultMaxQuotaBytes int64 = 10737418240 // 10 GB
 
 // Allowed MIME types
 var allowedMimeTypes = map[string]bool{
@@ -101,10 +107,20 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 		return nil, ErrInvalidMimeType
 	}
 
-	// Check quota
-	quota, err := s.repo.GetStorageQuota(ctx)
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, fmt.Errorf("upload file: %w", tenantErr)
+	}
+
+	// Check quota. A tenant that has never uploaded a file has no row yet —
+	// it gets the code default rather than an error, since IncrementUsedBytes
+	// creates the row on first write below.
+	quota, err := s.repo.GetStorageQuota(ctx, tenantID)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, ErrQuotaNotFound) {
+			return nil, err
+		}
+		quota = &models.StorageQuota{TenantID: tenantID, MaxBytes: DefaultMaxQuotaBytes}
 	}
 	if quota.UsedBytes+input.FileSize > quota.MaxBytes {
 		return nil, ErrQuotaExceeded
@@ -145,11 +161,6 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 		}
 	}
 
-	tenantID, tenantErr := middleware.GetTenantID(ctx)
-	if tenantErr != nil {
-		return nil, fmt.Errorf("upload file: %w", tenantErr)
-	}
-
 	// Create DB record
 	chatFile := &models.ChatFile{
 		ID:           fileID,
@@ -173,7 +184,7 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 	}
 
 	// Increment quota
-	if quotaErr := s.repo.IncrementUsedBytes(ctx, input.FileSize); quotaErr != nil {
+	if quotaErr := s.repo.IncrementUsedBytes(ctx, tenantID, input.FileSize); quotaErr != nil {
 		slog.Error("failed to increment storage quota", "error", quotaErr)
 	}
 
@@ -305,8 +316,10 @@ func (s *Service) Delete(ctx context.Context, fileID, userID uuid.UUID) error {
 		return deleteErr
 	}
 
-	// Decrement quota
-	if quotaErr := s.repo.DecrementUsedBytes(ctx, file.FileSize); quotaErr != nil {
+	// Decrement quota. Uses the file's own tenant rather than resolving one
+	// from ctx: the row being deleted already carries the tenant that owns
+	// its quota, so no caller of Delete needs to thread one through.
+	if quotaErr := s.repo.DecrementUsedBytes(ctx, file.TenantID, file.FileSize); quotaErr != nil {
 		slog.Error("failed to decrement storage quota", "error", quotaErr)
 	}
 

@@ -18,18 +18,38 @@ type TenantedContactService interface {
 	ListVisible(ctx context.Context, userID uuid.UUID, isAdmin bool, tenantID uuid.UUID) ([]*models.Contact, error)
 }
 
-// TenantScopedAdapter wraps a TenantedContactService and binds it to a fixed
-// tenantID, exposing the old ContactProvider interface. Use this when
-// constructing ImportService / ExportService inside a request handler that
-// already knows the tenant.
+// TenantedCompanyService is the subset of the CRM company service that this
+// package needs to resolve a contact's company relation during import/export.
+type TenantedCompanyService interface {
+	FindOrCreateByName(ctx context.Context, tenantID uuid.UUID, name string, createdBy uuid.UUID) (*models.Company, error)
+	GetNamesByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (map[uuid.UUID]string, error)
+}
+
+// TenantScopedAdapter wraps a TenantedContactService and a TenantedCompanyService and
+// binds both to a fixed tenantID, exposing the old ContactProvider interface. Use this
+// when constructing ImportService / ExportService inside a request handler that already
+// knows the tenant.
 type TenantScopedAdapter struct {
-	svc      TenantedContactService
-	tenantID uuid.UUID
+	svc        TenantedContactService
+	companySvc TenantedCompanyService
+	tenantID   uuid.UUID
 }
 
 // NewTenantScopedAdapter creates an adapter that satisfies ContactProvider.
-func NewTenantScopedAdapter(svc TenantedContactService, tenantID uuid.UUID) *TenantScopedAdapter {
-	return &TenantScopedAdapter{svc: svc, tenantID: tenantID}
+func NewTenantScopedAdapter(svc TenantedContactService, companySvc TenantedCompanyService, tenantID uuid.UUID) *TenantScopedAdapter {
+	return &TenantScopedAdapter{svc: svc, companySvc: companySvc, tenantID: tenantID}
+}
+
+func (a *TenantScopedAdapter) FindOrCreateCompany(ctx context.Context, name string, createdBy uuid.UUID) (uuid.UUID, error) {
+	c, err := a.companySvc.FindOrCreateByName(ctx, a.tenantID, name, createdBy)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return c.ID, nil
+}
+
+func (a *TenantScopedAdapter) GetCompanyNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	return a.companySvc.GetNamesByIDs(ctx, ids, a.tenantID)
 }
 
 func (a *TenantScopedAdapter) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {

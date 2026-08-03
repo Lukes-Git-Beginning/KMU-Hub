@@ -96,7 +96,24 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID)
 // document_file_tags.tenant_id has been NOT NULL since migration 000114 — this
 // insert used to omit the column entirely, so every TagFile call failed the
 // constraint in production; the feature was dead, not degraded.
+//
+// The document_tags(id) FK on document_file_tags is checked by a trigger that
+// runs with the table owner's privileges, not the caller's RLS session — it
+// would happily accept a tag_id belonging to a different tenant. The explicit
+// existence check below is what actually enforces tenant ownership of the tag
+// before the association is created.
 func (r *PostgresRepository) TagFile(ctx context.Context, tenantID, fileID, tagID uuid.UUID) error {
+	var ownedByTenant bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM document_tags WHERE id = $1 AND tenant_id = $2)`,
+		tagID, tenantID,
+	).Scan(&ownedByTenant); err != nil {
+		return fmt.Errorf("check tag ownership: %w", err)
+	}
+	if !ownedByTenant {
+		return ErrTagNotFound
+	}
+
 	query := `
 		INSERT INTO document_file_tags (tenant_id, file_id, tag_id)
 		VALUES ($1, $2, $3)
@@ -130,4 +147,3 @@ func (r *PostgresRepository) UntagFile(ctx context.Context, tenantID, fileID, ta
 	)
 	return nil
 }
-

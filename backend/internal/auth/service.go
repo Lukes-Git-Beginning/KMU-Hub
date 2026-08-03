@@ -395,17 +395,17 @@ func (s *Service) CheckPermission(ctx context.Context, userID uuid.UUID, resourc
 // entry per refresh interval and every entry would look like a separate login.
 func (s *Service) createTokenPair(ctx context.Context, user *models.User, rotatedFrom *uuid.UUID) (*models.TokenPair, error) {
 	roles, _ := s.repo.GetUserRoles(ctx, user.ID)
-	permissions, _ := s.repo.GetUserPermissions(ctx, user.ID)
 
-	// Unlike roles and permissions above, a failed scope lookup is fatal: an
-	// empty scope map reads as "everything reaches all", so swallowing the
-	// error would hand out a token that shows more rows than it should.
-	scopes, err := s.NarrowedScopes(ctx, user.ID)
+	// Unlike the roles above, a failed permission lookup is fatal. An empty
+	// scope map reads as "everything reaches all" and a missing deny list reads
+	// as "no override takes anything away", so swallowing the error would hand
+	// out a token that reaches further than the account is allowed to.
+	perms, err := s.ResolveTokenPermissions(ctx, user.TenantID, user.ID)
 	if err != nil {
-		return nil, fmt.Errorf("resolve permission scopes: %w", err)
+		return nil, fmt.Errorf("resolve token permissions: %w", err)
 	}
 
-	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions, scopes)
+	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, perms)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +414,7 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User, rotate
 
 	refreshToken := &models.RefreshToken{
 		ID:        uuid.New(),
+		TenantID:  user.TenantID,
 		UserID:    user.ID,
 		TokenHash: hash,
 		ExpiresAt: expiresAt,
@@ -506,6 +507,21 @@ const invitationExpiry = 7 * 24 * time.Hour // 7 days
 // tenant is passed in rather than read from ctx: internal/auth cannot import
 // internal/middleware (middleware → auth), so the gRPC layer resolves it.
 func (s *Service) CreateInvitation(ctx context.Context, tenantID uuid.UUID, email, role string, createdBy uuid.UUID) (*models.Invitation, string, error) {
+	// The legacy route names a preset; role_ids is what the accept path
+	// resolves since migration 000280, so the name is turned into an id here
+	// rather than at accept time, where RLS is off and a name is ambiguous.
+	roleID, err := s.repo.GetPresetRoleIDByName(ctx, role)
+	if err != nil {
+		return nil, "", err
+	}
+	return s.createInvitation(ctx, tenantID, email, "", "", role, []uuid.UUID{roleID}, createdBy)
+}
+
+// createInvitation is the shared body of the two invite routes: the legacy
+// /invitations one (a preset name) and the account admin one (role ids and a
+// name). displayRole feeds the legacy invitations.role column, which is display
+// only — roleIDs is what an accepted invitation actually grants.
+func (s *Service) createInvitation(ctx context.Context, tenantID uuid.UUID, email, firstName, lastName, displayRole string, roleIDs []uuid.UUID, createdBy uuid.UUID) (*models.Invitation, string, error) {
 	email = normalizeEmail(email)
 	// Check if email already exists as a user
 	if existing, _ := s.repo.GetUserByEmail(ctx, email); existing != nil {
@@ -527,7 +543,10 @@ func (s *Service) CreateInvitation(ctx context.Context, tenantID uuid.UUID, emai
 		ID:        uuid.New(),
 		TenantID:  tenantID,
 		Email:     email,
-		Role:      role,
+		FirstName: firstName,
+		LastName:  lastName,
+		Role:      displayRole,
+		RoleIDs:   roleIDs,
 		TokenHash: hash,
 		CreatedBy: createdBy,
 		ExpiresAt: time.Now().Add(invitationExpiry),
@@ -538,7 +557,7 @@ func (s *Service) CreateInvitation(ctx context.Context, tenantID uuid.UUID, emai
 		return nil, "", err
 	}
 
-	slog.Info("invitation created", "email", email, "role", role, "created_by", createdBy)
+	slog.Info("invitation created", "email", email, "role_ids", roleIDs, "created_by", createdBy)
 	return inv, token, nil
 }
 

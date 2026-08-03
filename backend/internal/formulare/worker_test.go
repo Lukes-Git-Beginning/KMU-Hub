@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 )
 
 // ============================================================================
@@ -484,5 +486,75 @@ func TestWorker_EventHeader(t *testing.T) {
 
 	if !strings.HasPrefix(receivedEvent, "submission") {
 		t.Errorf("expected X-Cosmi-Event to start with 'submission', got %q", receivedEvent)
+	}
+}
+
+// ============================================================================
+// SSRF guard on the default client
+//
+// The webhook URL is tenant data. The two tests below hold the ends of that:
+// the worker's own client refuses a private target, and it still delivers to a
+// reachable one — the second matters because every other success test in this
+// file injects its own client and would not notice if the guard broke delivery
+// outright.
+// ============================================================================
+
+func TestWorker_DefaultClient_BlocksPrivateTarget(t *testing.T) {
+	repo := newStubRepo()
+	tenantID := uuid.New()
+	webhookID := uuid.New()
+	schemaID := uuid.New()
+
+	// The cloud metadata endpoint: reachable from the host, hands out
+	// credentials, and one UPDATE on a webhook row away from being called.
+	wh := newWebhook(webhookID, tenantID, schemaID, "http://169.254.169.254/latest/meta-data/", true, nil)
+	repo.webhooks[webhookID] = wh
+
+	del := newDelivery(webhookID, tenantID, 0, 5)
+	repo.deliveries[del.ID] = del
+
+	worker := NewWebhookWorker(repo, nil)
+	worker.deliver(context.Background(), del)
+
+	repo.mu.Lock()
+	updated := repo.deliveries[del.ID]
+	repo.mu.Unlock()
+
+	if updated.Status != WebhookDeliveryStatusFailed {
+		t.Errorf("expected failed for a blocked target, got %s", updated.Status)
+	}
+	if updated.LastError == nil || !strings.Contains(*updated.LastError, "not a public address") {
+		t.Errorf("expected the address filter to be the reason, got %v", updated.LastError)
+	}
+}
+
+func TestWorker_GuardedClient_StillDelivers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	repo := newStubRepo()
+	tenantID := uuid.New()
+	webhookID := uuid.New()
+	schemaID := uuid.New()
+
+	wh := newWebhook(webhookID, tenantID, schemaID, server.URL, true, nil)
+	repo.webhooks[webhookID] = wh
+
+	del := newDelivery(webhookID, tenantID, 0, 5)
+	repo.deliveries[del.ID] = del
+
+	// The production client except that loopback is permitted, which is the
+	// only concession an httptest server needs.
+	worker := newWorkerWithHTTPClient(repo, safehttp.New(safehttp.AllowLoopback()))
+	worker.deliver(context.Background(), del)
+
+	repo.mu.Lock()
+	updated := repo.deliveries[del.ID]
+	repo.mu.Unlock()
+
+	if updated.Status != WebhookDeliveryStatusDelivered {
+		t.Errorf("expected delivered through the guarded client, got %s (%v)", updated.Status, updated.LastError)
 	}
 }

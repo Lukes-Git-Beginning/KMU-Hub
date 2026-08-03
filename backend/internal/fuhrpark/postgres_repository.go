@@ -840,6 +840,139 @@ func (r *PostgresRepository) DeleteVehicleDocument(ctx context.Context, tenantID
 }
 
 // ============================================================================
+// Driver Licenses
+// ============================================================================
+
+func (r *PostgresRepository) ListDriverLicenses(ctx context.Context, params ListDriverLicensesParams) ([]DriverLicense, int, error) {
+	pageSize := params.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	page := params.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+	hasDriverFilter := params.DriverID != uuid.Nil
+
+	var rows pgx.Rows
+	var err error
+	if hasDriverFilter {
+		rows, err = r.pool.Query(ctx, `
+			SELECT id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at
+			FROM driver_licenses
+			WHERE tenant_id=$1 AND driver_id=$2
+			ORDER BY checked_at DESC, created_at DESC
+			LIMIT $3 OFFSET $4`,
+			params.TenantID, params.DriverID, pageSize, offset)
+	} else {
+		rows, err = r.pool.Query(ctx, `
+			SELECT id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at
+			FROM driver_licenses
+			WHERE tenant_id=$1
+			ORDER BY checked_at DESC, created_at DESC
+			LIMIT $2 OFFSET $3`,
+			params.TenantID, pageSize, offset)
+	}
+	if err != nil {
+		return nil, 0, fmt.Errorf("list driver licenses: %w", err)
+	}
+	licenses, err := scanDriverLicenses(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var total int
+	if hasDriverFilter {
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM driver_licenses WHERE tenant_id=$1 AND driver_id=$2`,
+			params.TenantID, params.DriverID).Scan(&total)
+	} else {
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM driver_licenses WHERE tenant_id=$1`,
+			params.TenantID).Scan(&total)
+	}
+	return licenses, total, err
+}
+
+// CreateDriverLicense inserts through a join on users so the driver_id can
+// never resolve to another tenant's account, the same defence-in-depth used
+// by AssignUserRole for user_roles (which has no RLS of its own). Here
+// driver_licenses already has RLS on tenant_id, but the join still prevents
+// attaching a check to a driver who isn't visible in the caller's tenant.
+func (r *PostgresRepository) CreateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error) {
+	lic.ID = uuid.New()
+	now := time.Now()
+	lic.CreatedAt = now
+	lic.UpdatedAt = now
+	ct, err := r.pool.Exec(ctx, `
+		INSERT INTO driver_licenses (id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at)
+		SELECT $1, $3, u.id, $4, $5, $6, $7, $8, $9, $9
+		FROM users u
+		WHERE u.id = $2 AND u.tenant_id = $3`,
+		lic.ID, lic.DriverID, lic.TenantID, lic.LicenseClasses, lic.ExpiryDate,
+		lic.CheckedAt, lic.NextCheckDueDate, lic.Notes, lic.CreatedAt)
+	if err != nil {
+		return DriverLicense{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return DriverLicense{}, ErrDriverNotFound
+	}
+	return lic, nil
+}
+
+func (r *PostgresRepository) UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error) {
+	lic.UpdatedAt = time.Now()
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE driver_licenses SET
+			license_classes=$3, expiry_date=$4, checked_at=$5, next_check_due_date=$6, notes=$7, updated_at=$8
+		WHERE id=$1 AND tenant_id=$2`,
+		lic.ID, lic.TenantID, lic.LicenseClasses, lic.ExpiryDate, lic.CheckedAt,
+		lic.NextCheckDueDate, lic.Notes, lic.UpdatedAt)
+	if err != nil {
+		return DriverLicense{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return DriverLicense{}, ErrDriverLicenseNotFound
+	}
+	var updated DriverLicense
+	err = r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at
+		FROM driver_licenses WHERE id=$1 AND tenant_id=$2`,
+		lic.ID, lic.TenantID).Scan(
+		&updated.ID, &updated.TenantID, &updated.DriverID, &updated.LicenseClasses, &updated.ExpiryDate,
+		&updated.CheckedAt, &updated.NextCheckDueDate, &updated.Notes, &updated.CreatedAt, &updated.UpdatedAt)
+	return updated, err
+}
+
+func (r *PostgresRepository) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx, `DELETE FROM driver_licenses WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrDriverLicenseNotFound
+	}
+	return nil
+}
+
+func scanDriverLicenses(rows pgx.Rows) ([]DriverLicense, error) {
+	defer rows.Close()
+	var licenses []DriverLicense
+	for rows.Next() {
+		var l DriverLicense
+		if err := rows.Scan(
+			&l.ID, &l.TenantID, &l.DriverID, &l.LicenseClasses, &l.ExpiryDate,
+			&l.CheckedAt, &l.NextCheckDueDate, &l.Notes, &l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan driver license row: %w", err)
+		}
+		licenses = append(licenses, l)
+	}
+	return licenses, rows.Err()
+}
+
+// ============================================================================
 // GPS Positions
 // ============================================================================
 

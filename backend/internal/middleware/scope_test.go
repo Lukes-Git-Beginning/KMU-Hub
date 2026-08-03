@@ -25,7 +25,10 @@ func scopeFromToken(t *testing.T, scopes map[string]string, resource, action str
 
 	tm := newTestTokenMaker()
 	token, err := tm.CreateAccessToken(uuid.New(), uuid.New().String(),
-		[]string{"member"}, []string{resource + ":" + action}, scopes)
+		[]string{"member"}, &auth.TokenPermissions{
+			Permissions: []string{resource + ":" + action},
+			Scopes:      scopes,
+		})
 	if err != nil {
 		t.Fatalf("CreateAccessToken: %v", err)
 	}

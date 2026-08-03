@@ -4742,6 +4742,570 @@ func (x *GetGpsPositionsResponse) GetPositions() []*GpsPosition {
 	return nil
 }
 
+type DriverLicense struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId         string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DriverId         string                 `protobuf:"bytes,3,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
+	LicenseClasses   []string               `protobuf:"bytes,4,rep,name=license_classes,json=licenseClasses,proto3" json:"license_classes,omitempty"`
+	ExpiryDate       string                 `protobuf:"bytes,5,opt,name=expiry_date,json=expiryDate,proto3" json:"expiry_date,omitempty"`                       // optional, ISO date
+	CheckedAt        string                 `protobuf:"bytes,6,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`                          // ISO date
+	NextCheckDueDate string                 `protobuf:"bytes,7,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"` // ISO date
+	Notes            string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`                                                   // optional
+	CreatedAt        string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt        string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *DriverLicense) Reset() {
+	*x = DriverLicense{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DriverLicense) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DriverLicense) ProtoMessage() {}
+
+func (x *DriverLicense) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DriverLicense.ProtoReflect.Descriptor instead.
+func (*DriverLicense) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *DriverLicense) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetDriverId() string {
+	if x != nil {
+		return x.DriverId
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetLicenseClasses() []string {
+	if x != nil {
+		return x.LicenseClasses
+	}
+	return nil
+}
+
+func (x *DriverLicense) GetExpiryDate() string {
+	if x != nil {
+		return x.ExpiryDate
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetCheckedAt() string {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetNextCheckDueDate() string {
+	if x != nil {
+		return x.NextCheckDueDate
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *DriverLicense) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListDriverLicensesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DriverId      string                 `protobuf:"bytes,1,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"` // optional filter
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDriverLicensesRequest) Reset() {
+	*x = ListDriverLicensesRequest{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDriverLicensesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDriverLicensesRequest) ProtoMessage() {}
+
+func (x *ListDriverLicensesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDriverLicensesRequest.ProtoReflect.Descriptor instead.
+func (*ListDriverLicensesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListDriverLicensesRequest) GetDriverId() string {
+	if x != nil {
+		return x.DriverId
+	}
+	return ""
+}
+
+func (x *ListDriverLicensesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListDriverLicensesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListDriverLicensesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Licenses      []*DriverLicense       `protobuf:"bytes,1,rep,name=licenses,proto3" json:"licenses,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDriverLicensesResponse) Reset() {
+	*x = ListDriverLicensesResponse{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDriverLicensesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDriverLicensesResponse) ProtoMessage() {}
+
+func (x *ListDriverLicensesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDriverLicensesResponse.ProtoReflect.Descriptor instead.
+func (*ListDriverLicensesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListDriverLicensesResponse) GetLicenses() []*DriverLicense {
+	if x != nil {
+		return x.Licenses
+	}
+	return nil
+}
+
+func (x *ListDriverLicensesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type CreateDriverLicenseRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	DriverId         string                 `protobuf:"bytes,1,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
+	LicenseClasses   []string               `protobuf:"bytes,2,rep,name=license_classes,json=licenseClasses,proto3" json:"license_classes,omitempty"`
+	ExpiryDate       string                 `protobuf:"bytes,3,opt,name=expiry_date,json=expiryDate,proto3" json:"expiry_date,omitempty"` // optional
+	CheckedAt        string                 `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`    // optional, defaults to today
+	NextCheckDueDate string                 `protobuf:"bytes,5,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"`
+	Notes            string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"` // optional
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CreateDriverLicenseRequest) Reset() {
+	*x = CreateDriverLicenseRequest{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDriverLicenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDriverLicenseRequest) ProtoMessage() {}
+
+func (x *CreateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDriverLicenseRequest.ProtoReflect.Descriptor instead.
+func (*CreateDriverLicenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *CreateDriverLicenseRequest) GetDriverId() string {
+	if x != nil {
+		return x.DriverId
+	}
+	return ""
+}
+
+func (x *CreateDriverLicenseRequest) GetLicenseClasses() []string {
+	if x != nil {
+		return x.LicenseClasses
+	}
+	return nil
+}
+
+func (x *CreateDriverLicenseRequest) GetExpiryDate() string {
+	if x != nil {
+		return x.ExpiryDate
+	}
+	return ""
+}
+
+func (x *CreateDriverLicenseRequest) GetCheckedAt() string {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return ""
+}
+
+func (x *CreateDriverLicenseRequest) GetNextCheckDueDate() string {
+	if x != nil {
+		return x.NextCheckDueDate
+	}
+	return ""
+}
+
+func (x *CreateDriverLicenseRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type CreateDriverLicenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	License       *DriverLicense         `protobuf:"bytes,1,opt,name=license,proto3" json:"license,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDriverLicenseResponse) Reset() {
+	*x = CreateDriverLicenseResponse{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDriverLicenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDriverLicenseResponse) ProtoMessage() {}
+
+func (x *CreateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDriverLicenseResponse.ProtoReflect.Descriptor instead.
+func (*CreateDriverLicenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *CreateDriverLicenseResponse) GetLicense() *DriverLicense {
+	if x != nil {
+		return x.License
+	}
+	return nil
+}
+
+type UpdateDriverLicenseRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	LicenseClasses   []string               `protobuf:"bytes,2,rep,name=license_classes,json=licenseClasses,proto3" json:"license_classes,omitempty"`
+	ExpiryDate       string                 `protobuf:"bytes,3,opt,name=expiry_date,json=expiryDate,proto3" json:"expiry_date,omitempty"` // optional
+	CheckedAt        string                 `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
+	NextCheckDueDate string                 `protobuf:"bytes,5,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"`
+	Notes            string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"` // optional
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *UpdateDriverLicenseRequest) Reset() {
+	*x = UpdateDriverLicenseRequest{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDriverLicenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDriverLicenseRequest) ProtoMessage() {}
+
+func (x *UpdateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDriverLicenseRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDriverLicenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *UpdateDriverLicenseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateDriverLicenseRequest) GetLicenseClasses() []string {
+	if x != nil {
+		return x.LicenseClasses
+	}
+	return nil
+}
+
+func (x *UpdateDriverLicenseRequest) GetExpiryDate() string {
+	if x != nil {
+		return x.ExpiryDate
+	}
+	return ""
+}
+
+func (x *UpdateDriverLicenseRequest) GetCheckedAt() string {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return ""
+}
+
+func (x *UpdateDriverLicenseRequest) GetNextCheckDueDate() string {
+	if x != nil {
+		return x.NextCheckDueDate
+	}
+	return ""
+}
+
+func (x *UpdateDriverLicenseRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type UpdateDriverLicenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	License       *DriverLicense         `protobuf:"bytes,1,opt,name=license,proto3" json:"license,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDriverLicenseResponse) Reset() {
+	*x = UpdateDriverLicenseResponse{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDriverLicenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDriverLicenseResponse) ProtoMessage() {}
+
+func (x *UpdateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDriverLicenseResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDriverLicenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *UpdateDriverLicenseResponse) GetLicense() *DriverLicense {
+	if x != nil {
+		return x.License
+	}
+	return nil
+}
+
+type DeleteDriverLicenseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDriverLicenseRequest) Reset() {
+	*x = DeleteDriverLicenseRequest{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDriverLicenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDriverLicenseRequest) ProtoMessage() {}
+
+func (x *DeleteDriverLicenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDriverLicenseRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDriverLicenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *DeleteDriverLicenseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteDriverLicenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDriverLicenseResponse) Reset() {
+	*x = DeleteDriverLicenseResponse{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDriverLicenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDriverLicenseResponse) ProtoMessage() {}
+
+func (x *DeleteDriverLicenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDriverLicenseResponse.ProtoReflect.Descriptor instead.
+func (*DeleteDriverLicenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{74}
+}
+
 var File_proto_fuhrpark_v1_fuhrpark_proto protoreflect.FileDescriptor
 
 const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
@@ -5274,7 +5838,55 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x02to\x18\x03 \x01(\tR\x02to\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\"Q\n" +
 	"\x17GetGpsPositionsResponse\x126\n" +
-	"\tpositions\x18\x01 \x03(\v2\x18.fuhrpark.v1.GpsPositionR\tpositions2\xe1\x16\n" +
+	"\tpositions\x18\x01 \x03(\v2\x18.fuhrpark.v1.GpsPositionR\tpositions\"\xc5\x02\n" +
+	"\rDriverLicense\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
+	"\tdriver_id\x18\x03 \x01(\tR\bdriverId\x12'\n" +
+	"\x0flicense_classes\x18\x04 \x03(\tR\x0elicenseClasses\x12\x1f\n" +
+	"\vexpiry_date\x18\x05 \x01(\tR\n" +
+	"expiryDate\x12\x1d\n" +
+	"\n" +
+	"checked_at\x18\x06 \x01(\tR\tcheckedAt\x12-\n" +
+	"\x13next_check_due_date\x18\a \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\tR\tupdatedAt\"i\n" +
+	"\x19ListDriverLicensesRequest\x12\x1b\n" +
+	"\tdriver_id\x18\x01 \x01(\tR\bdriverId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"j\n" +
+	"\x1aListDriverLicensesResponse\x126\n" +
+	"\blicenses\x18\x01 \x03(\v2\x1a.fuhrpark.v1.DriverLicenseR\blicenses\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe7\x01\n" +
+	"\x1aCreateDriverLicenseRequest\x12\x1b\n" +
+	"\tdriver_id\x18\x01 \x01(\tR\bdriverId\x12'\n" +
+	"\x0flicense_classes\x18\x02 \x03(\tR\x0elicenseClasses\x12\x1f\n" +
+	"\vexpiry_date\x18\x03 \x01(\tR\n" +
+	"expiryDate\x12\x1d\n" +
+	"\n" +
+	"checked_at\x18\x04 \x01(\tR\tcheckedAt\x12-\n" +
+	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\"S\n" +
+	"\x1bCreateDriverLicenseResponse\x124\n" +
+	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"\xda\x01\n" +
+	"\x1aUpdateDriverLicenseRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
+	"\x0flicense_classes\x18\x02 \x03(\tR\x0elicenseClasses\x12\x1f\n" +
+	"\vexpiry_date\x18\x03 \x01(\tR\n" +
+	"expiryDate\x12\x1d\n" +
+	"\n" +
+	"checked_at\x18\x04 \x01(\tR\tcheckedAt\x12-\n" +
+	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\"S\n" +
+	"\x1bUpdateDriverLicenseResponse\x124\n" +
+	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\",\n" +
+	"\x1aDeleteDriverLicenseRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1d\n" +
+	"\x1bDeleteDriverLicenseResponse2\x86\x1a\n" +
 	"\x0fFuhrparkService\x12P\n" +
 	"\rCreateVehicle\x12!.fuhrpark.v1.CreateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12P\n" +
 	"\rUpdateVehicle\x12!.fuhrpark.v1.UpdateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12V\n" +
@@ -5308,7 +5920,11 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x15DeleteVehicleDocument\x12).fuhrpark.v1.DeleteVehicleDocumentRequest\x1a*.fuhrpark.v1.DeleteVehicleDocumentResponse\x12e\n" +
 	"\x12IngestGpsPositions\x12&.fuhrpark.v1.IngestGpsPositionsRequest\x1a'.fuhrpark.v1.IngestGpsPositionsResponse\x12_\n" +
 	"\x10GetVehicleRoutes\x12$.fuhrpark.v1.GetVehicleRoutesRequest\x1a%.fuhrpark.v1.GetVehicleRoutesResponse\x12\\\n" +
-	"\x0fGetGpsPositions\x12#.fuhrpark.v1.GetGpsPositionsRequest\x1a$.fuhrpark.v1.GetGpsPositionsResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
+	"\x0fGetGpsPositions\x12#.fuhrpark.v1.GetGpsPositionsRequest\x1a$.fuhrpark.v1.GetGpsPositionsResponse\x12e\n" +
+	"\x12ListDriverLicenses\x12&.fuhrpark.v1.ListDriverLicensesRequest\x1a'.fuhrpark.v1.ListDriverLicensesResponse\x12h\n" +
+	"\x13CreateDriverLicense\x12'.fuhrpark.v1.CreateDriverLicenseRequest\x1a(.fuhrpark.v1.CreateDriverLicenseResponse\x12h\n" +
+	"\x13UpdateDriverLicense\x12'.fuhrpark.v1.UpdateDriverLicenseRequest\x1a(.fuhrpark.v1.UpdateDriverLicenseResponse\x12h\n" +
+	"\x13DeleteDriverLicense\x12'.fuhrpark.v1.DeleteDriverLicenseRequest\x1a(.fuhrpark.v1.DeleteDriverLicenseResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
 
 var (
 	file_proto_fuhrpark_v1_fuhrpark_proto_rawDescOnce sync.Once
@@ -5322,7 +5938,7 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP() []byte {
 	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescData
 }
 
-var file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
+var file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
 	(*Vehicle)(nil),                       // 0: fuhrpark.v1.Vehicle
 	(*VehicleService)(nil),                // 1: fuhrpark.v1.VehicleService
@@ -5390,24 +6006,33 @@ var file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
 	(*GetVehicleRoutesResponse)(nil),      // 63: fuhrpark.v1.GetVehicleRoutesResponse
 	(*GetGpsPositionsRequest)(nil),        // 64: fuhrpark.v1.GetGpsPositionsRequest
 	(*GetGpsPositionsResponse)(nil),       // 65: fuhrpark.v1.GetGpsPositionsResponse
-	(*timestamppb.Timestamp)(nil),         // 66: google.protobuf.Timestamp
+	(*DriverLicense)(nil),                 // 66: fuhrpark.v1.DriverLicense
+	(*ListDriverLicensesRequest)(nil),     // 67: fuhrpark.v1.ListDriverLicensesRequest
+	(*ListDriverLicensesResponse)(nil),    // 68: fuhrpark.v1.ListDriverLicensesResponse
+	(*CreateDriverLicenseRequest)(nil),    // 69: fuhrpark.v1.CreateDriverLicenseRequest
+	(*CreateDriverLicenseResponse)(nil),   // 70: fuhrpark.v1.CreateDriverLicenseResponse
+	(*UpdateDriverLicenseRequest)(nil),    // 71: fuhrpark.v1.UpdateDriverLicenseRequest
+	(*UpdateDriverLicenseResponse)(nil),   // 72: fuhrpark.v1.UpdateDriverLicenseResponse
+	(*DeleteDriverLicenseRequest)(nil),    // 73: fuhrpark.v1.DeleteDriverLicenseRequest
+	(*DeleteDriverLicenseResponse)(nil),   // 74: fuhrpark.v1.DeleteDriverLicenseResponse
+	(*timestamppb.Timestamp)(nil),         // 75: google.protobuf.Timestamp
 }
 var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
-	66, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
-	66, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
-	66, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
-	66, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
-	66, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
-	66, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
-	66, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
-	66, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
+	75, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
+	75, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
+	75, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
+	75, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
+	75, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
+	75, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
+	75, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
+	75, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: fuhrpark.v1.VehicleResponse.vehicle:type_name -> fuhrpark.v1.Vehicle
 	0,  // 9: fuhrpark.v1.ListVehiclesResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	1,  // 10: fuhrpark.v1.VehicleServiceResponse.service:type_name -> fuhrpark.v1.VehicleService
 	1,  // 11: fuhrpark.v1.ListServicesResponse.services:type_name -> fuhrpark.v1.VehicleService
 	2,  // 12: fuhrpark.v1.DamageResponse.damage:type_name -> fuhrpark.v1.Damage
 	2,  // 13: fuhrpark.v1.ListDamagesResponse.damages:type_name -> fuhrpark.v1.Damage
-	66, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
+	75, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
 	26, // 15: fuhrpark.v1.VehicleHistoryResponse.entries:type_name -> fuhrpark.v1.VehicleHistoryEntry
 	0,  // 16: fuhrpark.v1.CheckTuevDueResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	33, // 17: fuhrpark.v1.ListFuelLogsResponse.fuel_logs:type_name -> fuhrpark.v1.FuelLog
@@ -5422,75 +6047,86 @@ var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
 	58, // 26: fuhrpark.v1.IngestGpsPositionsRequest.positions:type_name -> fuhrpark.v1.GpsPosition
 	59, // 27: fuhrpark.v1.GetVehicleRoutesResponse.routes:type_name -> fuhrpark.v1.VehicleRoute
 	58, // 28: fuhrpark.v1.GetGpsPositionsResponse.positions:type_name -> fuhrpark.v1.GpsPosition
-	3,  // 29: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
-	4,  // 30: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
-	5,  // 31: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
-	7,  // 32: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
-	9,  // 33: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
-	11, // 34: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
-	12, // 35: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
-	13, // 36: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
-	15, // 37: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
-	16, // 38: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
-	19, // 39: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
-	20, // 40: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
-	21, // 41: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
-	22, // 42: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
-	25, // 43: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
-	28, // 44: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
-	30, // 45: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
-	31, // 46: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
-	34, // 47: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
-	36, // 48: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
-	38, // 49: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
-	40, // 50: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
-	43, // 51: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
-	45, // 52: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
-	47, // 53: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
-	49, // 54: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
-	52, // 55: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
-	54, // 56: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
-	56, // 57: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
-	60, // 58: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
-	62, // 59: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
-	64, // 60: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
-	8,  // 61: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	8,  // 62: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	6,  // 63: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
-	8,  // 64: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	10, // 65: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
-	17, // 66: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	17, // 67: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	14, // 68: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
-	17, // 69: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	18, // 70: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
-	23, // 71: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 72: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 73: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
-	24, // 74: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
-	27, // 75: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
-	29, // 76: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
-	18, // 77: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
-	32, // 78: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
-	35, // 79: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
-	37, // 80: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
-	39, // 81: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
-	41, // 82: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
-	44, // 83: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
-	46, // 84: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
-	48, // 85: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
-	50, // 86: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
-	53, // 87: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
-	55, // 88: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
-	57, // 89: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
-	61, // 90: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
-	63, // 91: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
-	65, // 92: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
-	61, // [61:93] is the sub-list for method output_type
-	29, // [29:61] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	66, // 29: fuhrpark.v1.ListDriverLicensesResponse.licenses:type_name -> fuhrpark.v1.DriverLicense
+	66, // 30: fuhrpark.v1.CreateDriverLicenseResponse.license:type_name -> fuhrpark.v1.DriverLicense
+	66, // 31: fuhrpark.v1.UpdateDriverLicenseResponse.license:type_name -> fuhrpark.v1.DriverLicense
+	3,  // 32: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
+	4,  // 33: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
+	5,  // 34: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
+	7,  // 35: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
+	9,  // 36: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
+	11, // 37: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
+	12, // 38: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
+	13, // 39: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
+	15, // 40: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
+	16, // 41: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
+	19, // 42: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
+	20, // 43: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
+	21, // 44: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
+	22, // 45: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
+	25, // 46: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
+	28, // 47: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
+	30, // 48: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
+	31, // 49: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
+	34, // 50: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
+	36, // 51: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
+	38, // 52: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
+	40, // 53: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
+	43, // 54: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
+	45, // 55: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
+	47, // 56: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
+	49, // 57: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
+	52, // 58: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
+	54, // 59: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
+	56, // 60: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
+	60, // 61: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
+	62, // 62: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
+	64, // 63: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
+	67, // 64: fuhrpark.v1.FuhrparkService.ListDriverLicenses:input_type -> fuhrpark.v1.ListDriverLicensesRequest
+	69, // 65: fuhrpark.v1.FuhrparkService.CreateDriverLicense:input_type -> fuhrpark.v1.CreateDriverLicenseRequest
+	71, // 66: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:input_type -> fuhrpark.v1.UpdateDriverLicenseRequest
+	73, // 67: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:input_type -> fuhrpark.v1.DeleteDriverLicenseRequest
+	8,  // 68: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	8,  // 69: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	6,  // 70: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
+	8,  // 71: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	10, // 72: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
+	17, // 73: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	17, // 74: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	14, // 75: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
+	17, // 76: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	18, // 77: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
+	23, // 78: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 79: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 80: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
+	24, // 81: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
+	27, // 82: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
+	29, // 83: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
+	18, // 84: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
+	32, // 85: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
+	35, // 86: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
+	37, // 87: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
+	39, // 88: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
+	41, // 89: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
+	44, // 90: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
+	46, // 91: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
+	48, // 92: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
+	50, // 93: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
+	53, // 94: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
+	55, // 95: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
+	57, // 96: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
+	61, // 97: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
+	63, // 98: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
+	65, // 99: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
+	68, // 100: fuhrpark.v1.FuhrparkService.ListDriverLicenses:output_type -> fuhrpark.v1.ListDriverLicensesResponse
+	70, // 101: fuhrpark.v1.FuhrparkService.CreateDriverLicense:output_type -> fuhrpark.v1.CreateDriverLicenseResponse
+	72, // 102: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:output_type -> fuhrpark.v1.UpdateDriverLicenseResponse
+	74, // 103: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:output_type -> fuhrpark.v1.DeleteDriverLicenseResponse
+	68, // [68:104] is the sub-list for method output_type
+	32, // [32:68] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_proto_fuhrpark_v1_fuhrpark_proto_init() }
@@ -5519,7 +6155,7 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   66,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

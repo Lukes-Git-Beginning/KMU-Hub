@@ -269,10 +269,12 @@ func (s *Service) Check2FAEnforcement(ctx context.Context, userID uuid.UUID) (*T
 		return nil, fmt.Errorf("get user roles: %w", err)
 	}
 
-	// Check policies for each role
+	// Check policies for each role. The tenant comes off the user, not off the
+	// context: Login runs this whole path inside sysctx.With, so the context
+	// carries no tenant and RLS filters nothing.
 	result := &TwoFactorEnforcementResult{}
 	for _, roleName := range roles {
-		policy, err := s.repo.GetTwoFactorPolicy(ctx, roleName)
+		policy, err := s.repo.GetTwoFactorPolicy(ctx, user.TenantID, roleName)
 		if err != nil {
 			return nil, fmt.Errorf("get 2FA policy for role %s: %w", roleName, err)
 		}
@@ -297,20 +299,26 @@ func (s *Service) Check2FAEnforcement(ctx context.Context, userID uuid.UUID) (*T
 	return result, nil
 }
 
-// GetTwoFactorPolicy returns the 2FA enforcement policy for a role.
-func (s *Service) GetTwoFactorPolicy(ctx context.Context, roleName string) (*models.TwoFactorPolicy, error) {
-	return s.repo.GetTwoFactorPolicy(ctx, roleName)
+// The three policy methods take the tenant as a parameter rather than reading
+// it from the context, the same way CreateRole does: this package cannot import
+// middleware without an import cycle, so the gRPC layer resolves it.
+
+// GetTwoFactorPolicy returns the tenant's 2FA enforcement policy for a role.
+func (s *Service) GetTwoFactorPolicy(ctx context.Context, tenantID uuid.UUID, roleName string) (*models.TwoFactorPolicy, error) {
+	return s.repo.GetTwoFactorPolicy(ctx, tenantID, roleName)
 }
 
-// ListTwoFactorPolicies returns all 2FA enforcement policies.
-func (s *Service) ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error) {
-	return s.repo.ListTwoFactorPolicies(ctx)
+// ListTwoFactorPolicies returns the tenant's 2FA enforcement policies.
+func (s *Service) ListTwoFactorPolicies(ctx context.Context, tenantID uuid.UUID) ([]*models.TwoFactorPolicy, error) {
+	return s.repo.ListTwoFactorPolicies(ctx, tenantID)
 }
 
-// UpdateTwoFactorPolicy creates or updates the 2FA enforcement policy for a role.
-func (s *Service) UpdateTwoFactorPolicy(ctx context.Context, roleName string, enforced bool, gracePeriodDays int, updatedBy uuid.UUID) (*models.TwoFactorPolicy, error) {
+// UpdateTwoFactorPolicy creates or updates the tenant's 2FA enforcement policy
+// for a role.
+func (s *Service) UpdateTwoFactorPolicy(ctx context.Context, tenantID uuid.UUID, roleName string, enforced bool, gracePeriodDays int, updatedBy uuid.UUID) (*models.TwoFactorPolicy, error) {
 	policy := &models.TwoFactorPolicy{
 		ID:              uuid.New(),
+		TenantID:        tenantID,
 		RoleName:        roleName,
 		Enforced:        enforced,
 		GracePeriodDays: gracePeriodDays,
@@ -323,6 +331,7 @@ func (s *Service) UpdateTwoFactorPolicy(ctx context.Context, roleName string, en
 	}
 
 	slog.Info("2FA policy updated",
+		"tenant_id", tenantID,
 		"role_name", roleName,
 		"enforced", enforced,
 		"grace_period_days", gracePeriodDays,

@@ -27,19 +27,23 @@ func NewCachedDashboardRepository(inner DashboardRepository, c *cache.Client) *C
 	return &CachedDashboardRepository{inner: inner, cache: c}
 }
 
-func (r *CachedDashboardRepository) GetDefaultLayout(ctx context.Context, role string) (*models.DashboardDefault, error) {
-	key := keyDashboardDefaults + role
+// GetDefaultLayout caches per tenant and role. The tenant belongs in the key
+// since 000274: role defaults used to be installation-wide, so a role-only key
+// would now serve the first tenant to warm it to every other tenant for the
+// next 30 minutes — the same leak in Redis that the migration closed in the table.
+func (r *CachedDashboardRepository) GetDefaultLayout(ctx context.Context, tenantID uuid.UUID, role string) (*models.DashboardDefault, error) {
+	key := keyDashboardDefaults + tenantID.String() + ":" + role
 	return cache.Get(ctx, r.cache, key, ttlDashboardLayout, func(ctx context.Context) (*models.DashboardDefault, error) {
-		return r.inner.GetDefaultLayout(ctx, role)
+		return r.inner.GetDefaultLayout(ctx, tenantID, role)
 	})
 }
 
-func (r *CachedDashboardRepository) UpsertDefaultLayout(ctx context.Context, def *models.DashboardDefault) (*models.DashboardDefault, error) {
-	result, err := r.inner.UpsertDefaultLayout(ctx, def)
+func (r *CachedDashboardRepository) UpsertDefaultLayout(ctx context.Context, tenantID uuid.UUID, def *models.DashboardDefault) (*models.DashboardDefault, error) {
+	result, err := r.inner.UpsertDefaultLayout(ctx, tenantID, def)
 	if err != nil {
 		return nil, err
 	}
-	cache.Delete(ctx, r.cache, keyDashboardDefaults+def.Role)
+	cache.Delete(ctx, r.cache, keyDashboardDefaults+tenantID.String()+":"+def.Role)
 	return result, nil
 }
 

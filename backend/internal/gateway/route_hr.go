@@ -145,6 +145,14 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "read")).Get("/calendar", h.HandleGetAbsenceCalendar)
 	})
 
+	// Same additive-guard rationale as zeitTeamView etc. above: "hr:read" is
+	// admin-only today (migration 000129), so without the second key manager
+	// and member (both hold team:documents:view, see migration 000256) could
+	// never reach this route at all.
+	hrDocumentCategoriesGuard := middleware.RequirePermissionAny(
+		[2]string{"hr", "read"}, [2]string{"team:documents", "view"},
+	)
+
 	// Employee profiles
 	r.Route("/api/v1/hr/employees", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -154,15 +162,31 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
+		// team:employee:offboard is in the catalogue since 000256 and assigned
+		// to admin and hr_admin, so no seed migration is needed here.
+		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/offboard", h.HandleOffboardEmployee)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
+		// Additive guard: the legacy "hr:read" key stays valid AND the
+		// capability-catalogue key (manager scope='team', member scope='own')
+		// grants access — see the zeiterfassung guards above for the same
+		// pattern and its rationale (never replace a baked-in JWT key outright).
+		r.With(hrDocumentCategoriesGuard).Get("/{id}/documents/categories", h.HandleListEmployeeDocumentCategories)
 	})
 
-	// Document categories — tenant master data, not an employee attribute, so
-	// they hang off /hr and not off /hr/employees/{id}.
-	r.Route("/api/v1/hr/document-categories", func(r chi.Router) {
+	// Profile change requests. The list is readable by anyone who may propose
+	// OR decide; what each of them actually sees is narrowed in the handler,
+	// not by the guard (a proposer sees only their own rows).
+	changeRequestReadGuard := middleware.RequirePermissionAny(
+		[2]string{"team:self", "propose"}, [2]string{"team:data_personal", "edit"},
+	)
+	r.Route("/api/v1/hr/change-requests", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListDocumentCategories)
+		r.With(changeRequestReadGuard).Get("/", h.HandleListChangeRequests)
+		r.With(middleware.RequirePermission("team:self", "propose")).Post("/", h.HandleCreateChangeRequest)
+		r.With(middleware.RequirePermission("team:data_personal", "edit")).Post("/{id}/approve", h.HandleApproveChangeRequest)
+		r.With(middleware.RequirePermission("team:data_personal", "edit")).Post("/{id}/reject", h.HandleRejectChangeRequest)
+		r.With(middleware.RequirePermission("team:self", "propose")).Post("/{id}/cancel", h.HandleCancelChangeRequest)
 	})
 
 	// HR settings (admin only)
@@ -1068,6 +1092,52 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 	response.Proto(w, http.StatusOK, resp.Employee)
 }
 
+type offboardEmployeeHTTPReq struct {
+	LastWorkDay string `json:"lastWorkDay"                validate:"omitempty,datetime=2006-01-02"`
+	ExitDate    string `json:"exitDate"                   validate:"required,datetime=2006-01-02"`
+	// The five values the offboard dialog offers; the service checks the set
+	// again, this only keeps a typo out of the service.
+	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement"`
+	Reason          string `json:"reason"`
+	Backfill        bool   `json:"backfill"`
+	SuccessorUserID string `json:"successorUserId"    validate:"omitempty,uuid"`
+}
+
+// HandleOffboardEmployee ends an employment. The body is camelCase, unlike the
+// rest of the HR routes: the desktop client posts the offboard dialog's form
+// state unchanged (hr-client.ts:943), so snake_case keys would arrive empty.
+func (h *HRRoutes) HandleOffboardEmployee(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[offboardEmployeeHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	// The tenant and the acting user are not passed on: the service reads both
+	// from the context, which is what makes the self-offboard guard hold.
+	resp, err := client.OffboardEmployee(r.Context(), &hrv1.OffboardEmployeeReq{
+		EmployeeId:      chi.URLParam(r, "id"),
+		LastWorkDay:     req.LastWorkDay,
+		ExitDate:        req.ExitDate,
+		ExitType:        req.ExitType,
+		Reason:          req.Reason,
+		Backfill:        req.Backfill,
+		SuccessorUserId: req.SuccessorUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// The whole response, not resp.Employee: the client reads `{employee}`.
+	response.Proto(w, http.StatusOK, resp)
+}
+
 type updateSelfProfileHTTPReq struct {
 	EmergencyContactName  string `json:"emergency_contact_name"`
 	EmergencyContactPhone string `json:"emergency_contact_phone" validate:"omitempty,phone_dach"`
@@ -1128,7 +1198,14 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 	response.ProtoList(w, http.StatusOK, resp.Documents)
 }
 
-func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.Request) {
+// HandleListEmployeeDocumentCategories lists document categories, filtered by
+// the visibility tiers the caller's team:documents:view scope permits for
+// employee {id}'s Akte (hr_only/manager/employee — same tiers RLS migration
+// 000127 already enforces on the documents themselves). Category master data
+// carries no per-employee RLS of its own, so this is the only place that
+// stops a caller opening a stranger's file from learning hr_only categories
+// exist at all.
+func (h *HRRoutes) HandleListEmployeeDocumentCategories(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {
 		respondServiceUnavailable(w, h.ServiceName())
@@ -1141,8 +1218,11 @@ func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	callerScope := middleware.PermissionScope(r.Context(), "team:documents", "view")
+
 	resp, err := client.ListDocumentCategories(r.Context(), &hrv1.ListDocumentCategoriesReq{
-		TenantId: tenantID,
+		TenantId:    tenantID,
+		CallerScope: callerScope,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/audit"
 )
 
 // ---------------------------------------------------------------------------
@@ -202,6 +203,114 @@ func (m *authMockRepo) GetEffectivePermissions(_ context.Context, userID uuid.UU
 	return m.effectiveGrants[userID], nil
 }
 
+func (m *authMockRepo) ListRoles(_ context.Context) ([]auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) CountCustomRoles(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) RoleNameExists(_ context.Context, _ string, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *authMockRepo) CreateRole(_ context.Context, _ uuid.UUID, _ auth.CreateRoleInput) (*auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetRoleByID(_ context.Context, _ uuid.UUID) (*auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) UpdateRole(_ context.Context, _ uuid.UUID, _ auth.UpdateRoleInput) (*auth.Role, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) RoleHasMembers(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *authMockRepo) DeleteRole(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *authMockRepo) GetRolePermissions(_ context.Context, _ uuid.UUID) ([]auth.RoleGrant, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) SetRolePermissions(_ context.Context, _ uuid.UUID, _ []auth.RoleGrant) ([]auth.RoleGrant, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) AssignUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *authMockRepo) RevokeUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *authMockRepo) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetUserOverrides(_ context.Context, _ uuid.UUID) ([]auth.CapabilityOverride, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetUserOverridesForTenant(_ context.Context, _, _ uuid.UUID) ([]auth.CapabilityOverride, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) SetUserOverrides(_ context.Context, _, _, _ uuid.UUID, overrides []auth.CapabilityOverride) ([]auth.CapabilityOverride, error) {
+	return overrides, nil
+}
+
+func (m *authMockRepo) ClearUserOverrides(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *authMockRepo) CountEffectiveRoleAdminsExcluding(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) ListAdminUsers(_ context.Context) ([]auth.AdminUser, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetAdminUser(_ context.Context, _ uuid.UUID) (*auth.AdminUser, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetInvitationAsAdminUser(_ context.Context, _ uuid.UUID) (*auth.AdminUser, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) CountActiveRoleAdminsExcludingUser(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) GetPresetRoleIDByName(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
+func (m *authMockRepo) RefreshInvitationToken(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (*models.Invitation, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) GetUserGrants(_ context.Context, _ uuid.UUID) ([]auth.EffectiveGrantRow, error) {
+	return nil, nil
+}
+
+func (m *authMockRepo) CountRoleAdminsExcluding(_ context.Context, _ []string, _, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *authMockRepo) CountUnknownPermissionKeys(_ context.Context, _ []string) (int, error) {
+	return 0, nil
+}
+
 func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	target := resource + ":" + action
 	for _, p := range m.userPerms[userID] {
@@ -356,24 +465,33 @@ func (m *authMockRepo) ReplaceRecoveryCodes(_ context.Context, _ uuid.UUID, _ []
 
 // --- 2FA Policies ---
 
-func (m *authMockRepo) GetTwoFactorPolicy(_ context.Context, roleName string) (*models.TwoFactorPolicy, error) {
-	p, ok := m.policies[roleName]
+// policyKey mirrors the unique index migration 000273 put on
+// (tenant_id, role_name). Keying the mock on the role alone would let a test
+// pass that reads another tenant's policy — the exact bug that migration fixed.
+func policyKey(tenantID uuid.UUID, roleName string) string {
+	return tenantID.String() + "/" + roleName
+}
+
+func (m *authMockRepo) GetTwoFactorPolicy(_ context.Context, tenantID uuid.UUID, roleName string) (*models.TwoFactorPolicy, error) {
+	p, ok := m.policies[policyKey(tenantID, roleName)]
 	if !ok {
 		return nil, nil
 	}
 	return p, nil
 }
 
-func (m *authMockRepo) ListTwoFactorPolicies(_ context.Context) ([]*models.TwoFactorPolicy, error) {
+func (m *authMockRepo) ListTwoFactorPolicies(_ context.Context, tenantID uuid.UUID) ([]*models.TwoFactorPolicy, error) {
 	var all []*models.TwoFactorPolicy
 	for _, p := range m.policies {
-		all = append(all, p)
+		if p.TenantID == tenantID {
+			all = append(all, p)
+		}
 	}
 	return all, nil
 }
 
 func (m *authMockRepo) UpsertTwoFactorPolicy(_ context.Context, policy *models.TwoFactorPolicy) error {
-	m.policies[policy.RoleName] = policy
+	m.policies[policyKey(policy.TenantID, policy.RoleName)] = policy
 	return nil
 }
 
@@ -492,11 +610,41 @@ func (m *authMockRepo) MarkPasswordResetTokenUsed(_ context.Context, _ uuid.UUID
 
 const testJWTSecret = "test-secret-minimum-32-characters!"
 
+// auditMockRepo is an in-memory stand-in for audit.Repository. The gRPC-layer
+// tests that use newTestAuthGRPCServer exercise error mapping and wire shape,
+// not the audit trail itself (that needs the real hash chain and RLS policy —
+// see the _db_test.go coverage) — this only has to satisfy the interface so
+// AuthGRPCServer has somewhere to write the permission-change events it emits.
+type auditMockRepo struct {
+	entries []*models.AuditEntry
+}
+
+func (m *auditMockRepo) Create(_ context.Context, entry *models.AuditEntry) error {
+	m.entries = append(m.entries, entry)
+	return nil
+}
+
+func (m *auditMockRepo) List(_ context.Context, _ *models.AuditFilter) ([]*models.AuditEntry, int, error) {
+	return m.entries, len(m.entries), nil
+}
+
+func (m *auditMockRepo) GetLastHash(_ context.Context) (string, error) {
+	if len(m.entries) == 0 {
+		return "", nil
+	}
+	return m.entries[len(m.entries)-1].EntryHash, nil
+}
+
+func (m *auditMockRepo) VerifyChain(_ context.Context, _, _ int64) (bool, int64, error) {
+	return true, 0, nil
+}
+
 func newTestAuthGRPCServer() (*AuthGRPCServer, *authMockRepo) {
 	repo := newAuthMockRepo()
 	tm := auth.NewTokenMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
 	svc := auth.NewService(repo, tm)
-	return NewAuthGRPCServer(svc), repo
+	auditSvc := audit.NewService(&auditMockRepo{})
+	return NewAuthGRPCServer(svc, auditSvc), repo
 }
 
 func createAuthTestUser(repo *authMockRepo, email, password string, active bool) *models.User {
@@ -556,7 +704,7 @@ func (m *fileMockRepo) IsChannelArchived(_ context.Context, channelID uuid.UUID)
 	return m.archived[channelID], nil
 }
 
-func (m *fileMockRepo) GetStorageQuota(_ context.Context) (*models.StorageQuota, error) {
+func (m *fileMockRepo) GetStorageQuota(_ context.Context, _ uuid.UUID) (*models.StorageQuota, error) {
 	return m.quota, nil
 }
 
@@ -592,12 +740,12 @@ func (m *fileMockRepo) DeleteFile(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *fileMockRepo) IncrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *fileMockRepo) IncrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes += bytes
 	return nil
 }
 
-func (m *fileMockRepo) DecrementUsedBytes(_ context.Context, bytes int64) error {
+func (m *fileMockRepo) DecrementUsedBytes(_ context.Context, _ uuid.UUID, bytes int64) error {
 	m.quota.UsedBytes -= bytes
 	return nil
 }

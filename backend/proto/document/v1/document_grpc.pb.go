@@ -39,6 +39,7 @@ const (
 	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
 	DocumentService_ListFileActivity_FullMethodName        = "/document.v1.DocumentService/ListFileActivity"
 	DocumentService_RegisterUploadedFile_FullMethodName    = "/document.v1.DocumentService/RegisterUploadedFile"
+	DocumentService_UploadFile_FullMethodName              = "/document.v1.DocumentService/UploadFile"
 	DocumentService_ListFileComments_FullMethodName        = "/document.v1.DocumentService/ListFileComments"
 	DocumentService_CreateFileComment_FullMethodName       = "/document.v1.DocumentService/CreateFileComment"
 	DocumentService_UpdateFileComment_FullMethodName       = "/document.v1.DocumentService/UpdateFileComment"
@@ -97,6 +98,10 @@ type DocumentServiceClient interface {
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(ctx context.Context, in *RegisterUploadedFileRequest, opts ...grpc.CallOption) (*RegisterUploadedFileResponse, error)
+	// Uploads file bytes directly (gateway multipart -> gRPC), writes them to
+	// object storage itself, and creates the DB record. Unlike
+	// RegisterUploadedFile, the caller never talks to MinIO directly.
+	UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error)
 	ListFileComments(ctx context.Context, in *ListFileCommentsRequest, opts ...grpc.CallOption) (*ListFileCommentsResponse, error)
 	CreateFileComment(ctx context.Context, in *CreateFileCommentRequest, opts ...grpc.CallOption) (*CreateFileCommentResponse, error)
 	UpdateFileComment(ctx context.Context, in *UpdateFileCommentRequest, opts ...grpc.CallOption) (*UpdateFileCommentResponse, error)
@@ -339,6 +344,16 @@ func (c *documentServiceClient) RegisterUploadedFile(ctx context.Context, in *Re
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterUploadedFileResponse)
 	err := c.cc.Invoke(ctx, DocumentService_RegisterUploadedFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadFileResponse)
+	err := c.cc.Invoke(ctx, DocumentService_UploadFile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -653,6 +668,10 @@ type DocumentServiceServer interface {
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
 	RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error)
+	// Uploads file bytes directly (gateway multipart -> gRPC), writes them to
+	// object storage itself, and creates the DB record. Unlike
+	// RegisterUploadedFile, the caller never talks to MinIO directly.
+	UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error)
 	ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error)
 	CreateFileComment(context.Context, *CreateFileCommentRequest) (*CreateFileCommentResponse, error)
 	UpdateFileComment(context.Context, *UpdateFileCommentRequest) (*UpdateFileCommentResponse, error)
@@ -760,6 +779,9 @@ func (UnimplementedDocumentServiceServer) ListFileActivity(context.Context, *Lis
 }
 func (UnimplementedDocumentServiceServer) RegisterUploadedFile(context.Context, *RegisterUploadedFileRequest) (*RegisterUploadedFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterUploadedFile not implemented")
+}
+func (UnimplementedDocumentServiceServer) UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UploadFile not implemented")
 }
 func (UnimplementedDocumentServiceServer) ListFileComments(context.Context, *ListFileCommentsRequest) (*ListFileCommentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFileComments not implemented")
@@ -1222,6 +1244,24 @@ func _DocumentService_RegisterUploadedFile_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).RegisterUploadedFile(ctx, req.(*RegisterUploadedFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_UploadFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).UploadFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_UploadFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).UploadFile(ctx, req.(*UploadFileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1816,6 +1856,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterUploadedFile",
 			Handler:    _DocumentService_RegisterUploadedFile_Handler,
+		},
+		{
+			MethodName: "UploadFile",
+			Handler:    _DocumentService_UploadFile_Handler,
 		},
 		{
 			MethodName: "ListFileComments",

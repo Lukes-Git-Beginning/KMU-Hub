@@ -18,9 +18,14 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **Keine neue `config.RequireX`-Assertion** und **kein Scharfschalten neuer `modules.*`-Flags**.
   Beides ist ein Deploy-Hazard (`COSMI_ENV=production` ist live, CD deployt automatisch). Brauchst du eins,
   markier die Unit `blocked` mit Grund.
-- **RBAC Phase 1 Welle 1a ist fuer diesen Lauf freigegeben** (Datenmodell, Seed, Resolver,
-  `/auth/me/permissions`). **Welle 1b** (Rollen-CRUD `/admin/roles` + Guardrails) und **Phase 4**
-  (Branchen-BE) bleiben gesperrt — die macht Luke selbst. Faellt eine Unit in 1b, markier sie `blocked`.
+- **RBAC Phase 1 Welle 1a UND 1b sind fuer diesen Lauf freigegeben** (Datenmodell, Seed, Resolver,
+  `/auth/me/permissions` — und neu: Rollen-CRUD `/admin/roles`, Rollen-Zuweisung, Guardrails,
+  Audit-Events). Luke hat 1b am 2026-08-02 freigegeben; Block A des Backlogs besteht daraus.
+  **Eine 1b-Unit ist also NICHT mehr zu blocken.**
+- **Phase 4 heisst: kein Neubau ganzer Branchen-Module.** Verifizierte Einzelluecken und Bugfixes
+  in bereits bestehenden Branchen-Modulen (fuhrpark, inventar, vermietung, einkauf, produktion,
+  schichten, rapporte) sind erlaubt und stehen als Units im Backlog — die arbeitest du normal ab.
+  Gesperrt ist, ein solches Modul von Grund auf neu aufzuziehen.
 - Keine AI-Attribution in Commits. Conventional Commits, englisch, imperativ.
 - Deutsch fuer Journal/Notizen, Englisch fuer Code, Identifier und Commit-Messages.
 

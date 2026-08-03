@@ -248,6 +248,9 @@ func main() {
 	// Document routes — standard (via registrars) + the public redemption of a
 	// share link (outside loop, behind the strict public rate limiter)
 	documentRoutes := gateway.NewDocumentRoutes(registry)
+	// Automation: authenticated CRUD via the registrar loop, the public
+	// inbound webhook trigger outside it — same split as document/berichte.
+	automationRoutes := gateway.NewAutomationRoutes(registry)
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
@@ -277,7 +280,7 @@ func main() {
 		gateway.NewIntegrationRoutes(registry),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
-		gateway.NewAutomationRoutes(registry),
+		automationRoutes,
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
@@ -357,6 +360,12 @@ func main() {
 	// strict per-IP limiter, same reasoning as berichte-public.
 	documentRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "document-public")
+
+	// Public inbound webhook trigger for automations (no auth middleware).
+	// Same strict per-IP limiter: the per-automation HMAC secret is the real
+	// gate, but per-IP throttling still bounds signature-guessing attempts.
+	automationRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "automation-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

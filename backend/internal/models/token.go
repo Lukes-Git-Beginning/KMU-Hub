@@ -7,7 +7,11 @@ import (
 )
 
 type RefreshToken struct {
-	ID        uuid.UUID `json:"id"`
+	ID uuid.UUID `json:"id"`
+	// TenantID is NOT NULL in the table since migration 000272 and is what the
+	// RLS policy filters on. Set from the owning user's tenant at issuance
+	// (createTokenPair), the same way PasswordResetToken.TenantID is set.
+	TenantID  uuid.UUID `json:"tenant_id"`
 	UserID    uuid.UUID `json:"user_id"`
 	TokenHash string    `json:"-"`
 	ExpiresAt time.Time `json:"expires_at"`

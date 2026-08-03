@@ -46,6 +46,7 @@ type EmailAccount struct {
 	UseSSL            bool       `json:"use_ssl"`
 	LastSyncAt        *time.Time `json:"last_sync_at,omitempty"`
 	SyncEnabled       bool       `json:"sync_enabled"`
+	IsDefault         bool       `json:"is_default"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
@@ -155,6 +156,23 @@ type EmailSignature struct {
 	IsDefault   bool      `json:"is_default"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// EmailTemplate represents a reusable message body ("Vorlage"/"Quicktext").
+// OwnerID is nil for shared templates and set to the creator for personal
+// ones; Visibility is "personal" or "shared" (CHECK constraint, migration
+// 000287).
+type EmailTemplate struct {
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	OwnerID    *uuid.UUID `json:"owner_id,omitempty"`
+	Visibility string     `json:"visibility"`
+	Name       string     `json:"name"`
+	Subject    string     `json:"subject"`
+	BodyHTML   string     `json:"body_html"`
+	BodyText   string     `json:"body_text"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 // Email rule field, operator and action values. They match the frontend's

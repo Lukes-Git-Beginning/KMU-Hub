@@ -1349,12 +1349,19 @@ func (s *VideoGRPCServer) SetPresenceStatus(ctx context.Context, req *videov1.Se
 }
 
 func (s *VideoGRPCServer) UpdatePresenceConfig(ctx context.Context, req *videov1.UpdatePresenceConfigRequest) (*emptypb.Empty, error) {
-	tenantID, tenantErr := middleware.GetTenantID(ctx)
-	if tenantErr != nil {
+	if _, tenantErr := middleware.GetTenantID(ctx); tenantErr != nil {
 		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
 	}
 
-	if err := s.presenceService.UpdateConfig(ctx, int(req.AwayTimeoutSeconds), tenantID); err != nil {
+	// updated_by references users(id). This used to pass the tenant id, which
+	// meant the write hit a foreign key violation for every caller whose tenant
+	// id was not coincidentally also a user id — the endpoint could not succeed.
+	updatedBy, parseErr := uuid.Parse(middleware.GetUserID(ctx))
+	if parseErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user_id in token")
+	}
+
+	if err := s.presenceService.UpdateConfig(ctx, int(req.AwayTimeoutSeconds), updatedBy); err != nil {
 		return nil, mapPresenceError(err)
 	}
 
@@ -1364,7 +1371,7 @@ func (s *VideoGRPCServer) UpdatePresenceConfig(ctx context.Context, req *videov1
 func (s *VideoGRPCServer) GetPresenceConfig(ctx context.Context, _ *videov1.GetPresenceConfigRequest) (*videov1.PresenceConfig, error) {
 	cfg, err := s.presenceService.GetConfig(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get presence config")
+		return nil, mapPresenceError(err)
 	}
 
 	return &videov1.PresenceConfig{
@@ -1955,6 +1962,8 @@ func mapPresenceError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, presence.ErrInvalidAwayTimeout):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, presence.ErrMissingTenant):
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		slog.Error("unhandled presence service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

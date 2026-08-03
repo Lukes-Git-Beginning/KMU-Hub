@@ -6,12 +6,14 @@ package employee
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -318,9 +320,165 @@ func (s *Service) DeleteEmployeeDocument(ctx context.Context, tenantID, id uuid.
 	return s.docRepo.Delete(ctx, tenantID, id)
 }
 
-// ListDocumentCategories retrieves all document categories for a tenant.
-func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error) {
-	return s.docCatRepo.ListByTenant(ctx, tenantID)
+// ListDocumentCategories retrieves document categories for a tenant, filtered
+// to the visibility tiers callerScope (the caller's team:documents:view
+// permission scope: "own", "team", or "all") permits — the same tiers RLS
+// migration 000127 enforces on the documents themselves. A caller who cannot
+// see hr_only documents must not learn hr_only categories exist either.
+func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID, callerScope string) ([]*models.HRDocumentCategory, error) {
+	categories, err := s.docCatRepo.ListByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return filterCategoriesByScope(categories, callerScope), nil
+}
+
+// filterCategoriesByScope mirrors the visibility tiers in
+// PostgresEmployeeDocRepo.ListByEmployee: scope "all" (admin/hr_admin) sees
+// every category, "team" (manager) sees manager+employee, and "own" (or any
+// other/empty value) sees employee-visibility only.
+func filterCategoriesByScope(categories []*models.HRDocumentCategory, callerScope string) []*models.HRDocumentCategory {
+	if callerScope == auth.ScopeAll {
+		return categories
+	}
+
+	allowed := map[models.HRDocVisibility]bool{models.HRDocVisibilityEmployee: true}
+	if callerScope == auth.ScopeTeam {
+		allowed[models.HRDocVisibilityManager] = true
+	}
+
+	filtered := make([]*models.HRDocumentCategory, 0, len(categories))
+	for _, c := range categories {
+		if allowed[c.Visibility] {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+// ============================================================================
+// Offboarding
+// ============================================================================
+
+// OffboardInput is the request side of an exit, straight from the offboard
+// dialog. Backfill is recorded for the audit trail only.
+type OffboardInput struct {
+	LastWorkDay     *time.Time
+	ExitDate        time.Time
+	ExitType        string
+	Reason          string
+	Backfill        bool
+	SuccessorUserID *uuid.UUID
+}
+
+// OffboardEmployee ends an employment: the personnel record goes inactive, the
+// account loses its login and its roles, its seat comes back, and the direct
+// reports move to the successor. The cascade itself is one transaction in the
+// repository — everything here decides whether it may run at all.
+func (s *Service) OffboardEmployee(
+	ctx context.Context,
+	tenantID, employeeID, actorUserID uuid.UUID,
+	in OffboardInput,
+) (*models.EmployeeProfile, error) {
+	if !models.ValidExitType(in.ExitType) {
+		return nil, ErrInvalidExitType
+	}
+	if in.LastWorkDay != nil && in.ExitDate.Before(*in.LastWorkDay) {
+		return nil, ErrExitBeforeLastWorkDay
+	}
+
+	profile, err := s.employeeRepo.GetByID(ctx, employeeID)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Status == models.EmployeeStatusInactive {
+		return nil, ErrAlreadyOffboarded
+	}
+
+	// Nobody offboards themselves. The session stays valid until it expires, so
+	// the mistake would only surface at the next login — the same reasoning
+	// behind auth.ErrSelfDeactivation.
+	if profile.UserID == actorUserID {
+		return nil, ErrSelfOffboard
+	}
+
+	// A tenant that loses its last role administrator cannot give the right
+	// back to itself.
+	remaining, err := s.employeeRepo.CountOtherActiveRoleAdmins(ctx, profile.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if remaining == 0 {
+		return nil, ErrLastRoleAdmin
+	}
+
+	// Orphaned reports are the point of this guard: approvals would otherwise
+	// hang off a locked account.
+	reports, err := s.employeeRepo.CountDirectReports(ctx, tenantID, profile.UserID)
+	if err != nil {
+		return nil, err
+	}
+	successor, err := s.resolveSuccessor(ctx, profile, reports, in.SuccessorUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := s.employeeRepo.Offboard(ctx, OffboardWrite{
+		TenantID:            tenantID,
+		EmployeeID:          employeeID,
+		UserID:              profile.UserID,
+		LastWorkDay:         in.LastWorkDay,
+		ExitDate:            in.ExitDate,
+		ExitType:            in.ExitType,
+		ExitReason:          in.Reason,
+		SuccessorUserID:     successor,
+		LeaverManagerUserID: profile.ManagerUserID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "employee offboarded",
+		"tenant_id", tenantID, "employee_id", employeeID, "user_id", profile.UserID,
+		"actor_id", actorUserID, "exit_type", in.ExitType, "backfill", in.Backfill,
+		"reports_reassigned", reports,
+	)
+	return updated, nil
+}
+
+// resolveSuccessor decides whether a successor is needed and whether the named
+// one may take over. Returns nil when the leaver has no reports — naming a
+// successor without reports is harmless and simply has no effect.
+func (s *Service) resolveSuccessor(
+	ctx context.Context,
+	profile *models.EmployeeProfile,
+	reports int,
+	successorUserID *uuid.UUID,
+) (*uuid.UUID, error) {
+	if reports == 0 {
+		return nil, nil
+	}
+	if successorUserID == nil {
+		return nil, ErrSuccessorRequired
+	}
+	if *successorUserID == profile.UserID {
+		return nil, ErrInvalidSuccessor
+	}
+
+	// The successor has to be a real, active employee of this tenant: RLS scopes
+	// the lookup, and an inactive one would inherit a team they can no longer
+	// log in to manage.
+	successor, err := s.employeeRepo.GetByUserID(ctx, *successorUserID)
+	if err != nil {
+		if errors.Is(err, ErrEmployeeNotFound) {
+			return nil, ErrInvalidSuccessor
+		}
+		return nil, err
+	}
+	if successor.TenantID != profile.TenantID || successor.Status != models.EmployeeStatusActive {
+		return nil, ErrInvalidSuccessor
+	}
+	return successorUserID, nil
 }
 
 // ============================================================================

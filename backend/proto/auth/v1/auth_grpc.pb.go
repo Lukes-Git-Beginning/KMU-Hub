@@ -31,6 +31,21 @@ const (
 	AuthService_RemoveRole_FullMethodName              = "/auth.v1.AuthService/RemoveRole"
 	AuthService_CheckPermission_FullMethodName         = "/auth.v1.AuthService/CheckPermission"
 	AuthService_GetEffectivePermissions_FullMethodName = "/auth.v1.AuthService/GetEffectivePermissions"
+	AuthService_ListRoles_FullMethodName               = "/auth.v1.AuthService/ListRoles"
+	AuthService_CreateRole_FullMethodName              = "/auth.v1.AuthService/CreateRole"
+	AuthService_UpdateRole_FullMethodName              = "/auth.v1.AuthService/UpdateRole"
+	AuthService_DeleteRole_FullMethodName              = "/auth.v1.AuthService/DeleteRole"
+	AuthService_GetRolePermissions_FullMethodName      = "/auth.v1.AuthService/GetRolePermissions"
+	AuthService_SetRolePermissions_FullMethodName      = "/auth.v1.AuthService/SetRolePermissions"
+	AuthService_AssignUserRole_FullMethodName          = "/auth.v1.AuthService/AssignUserRole"
+	AuthService_RevokeUserRole_FullMethodName          = "/auth.v1.AuthService/RevokeUserRole"
+	AuthService_GetUserOverrides_FullMethodName        = "/auth.v1.AuthService/GetUserOverrides"
+	AuthService_SetUserOverrides_FullMethodName        = "/auth.v1.AuthService/SetUserOverrides"
+	AuthService_ClearUserOverrides_FullMethodName      = "/auth.v1.AuthService/ClearUserOverrides"
+	AuthService_ListAdminUsers_FullMethodName          = "/auth.v1.AuthService/ListAdminUsers"
+	AuthService_InviteAdminUser_FullMethodName         = "/auth.v1.AuthService/InviteAdminUser"
+	AuthService_UpdateAdminUser_FullMethodName         = "/auth.v1.AuthService/UpdateAdminUser"
+	AuthService_ResendAdminUserInvite_FullMethodName   = "/auth.v1.AuthService/ResendAdminUserInvite"
 	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
 	AuthService_UpdateProfile_FullMethodName           = "/auth.v1.AuthService/UpdateProfile"
 	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
@@ -71,6 +86,31 @@ type AuthServiceClient interface {
 	CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error)
 	// Resolves the fine-grained capability keys of a user across all assigned roles.
 	GetEffectivePermissions(ctx context.Context, in *GetEffectivePermissionsRequest, opts ...grpc.CallOption) (*GetEffectivePermissionsResponse, error)
+	// Role administration — tenant-scoped custom roles on top of the immutable
+	// system presets. Presets are readable by every tenant and writable by none.
+	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
+	CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error)
+	UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error)
+	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*DeleteRoleResponse, error)
+	GetRolePermissions(ctx context.Context, in *GetRolePermissionsRequest, opts ...grpc.CallOption) (*GetRolePermissionsResponse, error)
+	SetRolePermissions(ctx context.Context, in *SetRolePermissionsRequest, opts ...grpc.CallOption) (*SetRolePermissionsResponse, error)
+	AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*AssignUserRoleResponse, error)
+	RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*RevokeUserRoleResponse, error)
+	// Per-user permission overrides (RBAC R-6) — the deviations one account
+	// carries on top of its roles. Storage and CRUD only; folding them into the
+	// resolved capability set is a separate step.
+	GetUserOverrides(ctx context.Context, in *GetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error)
+	SetUserOverrides(ctx context.Context, in *SetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error)
+	ClearUserOverrides(ctx context.Context, in *ClearUserOverridesRequest, opts ...grpc.CallOption) (*ClearUserOverridesResponse, error)
+	// Admin account roster (phase 3) — the tenant's login accounts merged with
+	// its still-open invitations into the one list the account admin surface
+	// shows (admin-types.ts, AdminUser).
+	ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error)
+	// The three writing counterparts of the roster. Each answers with the single
+	// roster row it produced, so the surface can patch its list without refetching.
+	InviteAdminUser(ctx context.Context, in *InviteAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
+	UpdateAdminUser(ctx context.Context, in *UpdateAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
+	ResendAdminUserInvite(ctx context.Context, in *ResendAdminUserInviteRequest, opts ...grpc.CallOption) (*AdminUserResponse, error)
 	// Profile & Password
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileResponse, error)
@@ -223,6 +263,156 @@ func (c *authServiceClient) GetEffectivePermissions(ctx context.Context, in *Get
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetEffectivePermissionsResponse)
 	err := c.cc.Invoke(ctx, AuthService_GetEffectivePermissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRolesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_CreateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*DeleteRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_DeleteRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetRolePermissions(ctx context.Context, in *GetRolePermissionsRequest, opts ...grpc.CallOption) (*GetRolePermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRolePermissionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetRolePermissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) SetRolePermissions(ctx context.Context, in *SetRolePermissionsRequest, opts ...grpc.CallOption) (*SetRolePermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetRolePermissionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_SetRolePermissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*AssignUserRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssignUserRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_AssignUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*RevokeUserRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeUserRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_RevokeUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetUserOverrides(ctx context.Context, in *GetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetUserOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) SetUserOverrides(ctx context.Context, in *SetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_SetUserOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ClearUserOverrides(ctx context.Context, in *ClearUserOverridesRequest, opts ...grpc.CallOption) (*ClearUserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClearUserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ClearUserOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminUsersResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListAdminUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) InviteAdminUser(ctx context.Context, in *InviteAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_InviteAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateAdminUser(ctx context.Context, in *UpdateAdminUserRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ResendAdminUserInvite(ctx context.Context, in *ResendAdminUserInviteRequest, opts ...grpc.CallOption) (*AdminUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_ResendAdminUserInvite_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -456,6 +646,31 @@ type AuthServiceServer interface {
 	CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error)
 	// Resolves the fine-grained capability keys of a user across all assigned roles.
 	GetEffectivePermissions(context.Context, *GetEffectivePermissionsRequest) (*GetEffectivePermissionsResponse, error)
+	// Role administration — tenant-scoped custom roles on top of the immutable
+	// system presets. Presets are readable by every tenant and writable by none.
+	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
+	CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error)
+	UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error)
+	DeleteRole(context.Context, *DeleteRoleRequest) (*DeleteRoleResponse, error)
+	GetRolePermissions(context.Context, *GetRolePermissionsRequest) (*GetRolePermissionsResponse, error)
+	SetRolePermissions(context.Context, *SetRolePermissionsRequest) (*SetRolePermissionsResponse, error)
+	AssignUserRole(context.Context, *AssignUserRoleRequest) (*AssignUserRoleResponse, error)
+	RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error)
+	// Per-user permission overrides (RBAC R-6) — the deviations one account
+	// carries on top of its roles. Storage and CRUD only; folding them into the
+	// resolved capability set is a separate step.
+	GetUserOverrides(context.Context, *GetUserOverridesRequest) (*UserOverridesResponse, error)
+	SetUserOverrides(context.Context, *SetUserOverridesRequest) (*UserOverridesResponse, error)
+	ClearUserOverrides(context.Context, *ClearUserOverridesRequest) (*ClearUserOverridesResponse, error)
+	// Admin account roster (phase 3) — the tenant's login accounts merged with
+	// its still-open invitations into the one list the account admin surface
+	// shows (admin-types.ts, AdminUser).
+	ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error)
+	// The three writing counterparts of the roster. Each answers with the single
+	// roster row it produced, so the surface can patch its list without refetching.
+	InviteAdminUser(context.Context, *InviteAdminUserRequest) (*AdminUserResponse, error)
+	UpdateAdminUser(context.Context, *UpdateAdminUserRequest) (*AdminUserResponse, error)
+	ResendAdminUserInvite(context.Context, *ResendAdminUserInviteRequest) (*AdminUserResponse, error)
 	// Profile & Password
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileResponse, error)
@@ -529,6 +744,51 @@ func (UnimplementedAuthServiceServer) CheckPermission(context.Context, *CheckPer
 }
 func (UnimplementedAuthServiceServer) GetEffectivePermissions(context.Context, *GetEffectivePermissionsRequest) (*GetEffectivePermissionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetEffectivePermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedAuthServiceServer) CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRole not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRole not implemented")
+}
+func (UnimplementedAuthServiceServer) DeleteRole(context.Context, *DeleteRoleRequest) (*DeleteRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRole not implemented")
+}
+func (UnimplementedAuthServiceServer) GetRolePermissions(context.Context, *GetRolePermissionsRequest) (*GetRolePermissionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRolePermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) SetRolePermissions(context.Context, *SetRolePermissionsRequest) (*SetRolePermissionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetRolePermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) AssignUserRole(context.Context, *AssignUserRoleRequest) (*AssignUserRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignUserRole not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeUserRole not implemented")
+}
+func (UnimplementedAuthServiceServer) GetUserOverrides(context.Context, *GetUserOverridesRequest) (*UserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserOverrides not implemented")
+}
+func (UnimplementedAuthServiceServer) SetUserOverrides(context.Context, *SetUserOverridesRequest) (*UserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetUserOverrides not implemented")
+}
+func (UnimplementedAuthServiceServer) ClearUserOverrides(context.Context, *ClearUserOverridesRequest) (*ClearUserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClearUserOverrides not implemented")
+}
+func (UnimplementedAuthServiceServer) ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAdminUsers not implemented")
+}
+func (UnimplementedAuthServiceServer) InviteAdminUser(context.Context, *InviteAdminUserRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InviteAdminUser not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateAdminUser(context.Context, *UpdateAdminUserRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAdminUser not implemented")
+}
+func (UnimplementedAuthServiceServer) ResendAdminUserInvite(context.Context, *ResendAdminUserInviteRequest) (*AdminUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResendAdminUserInvite not implemented")
 }
 func (UnimplementedAuthServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
@@ -826,6 +1086,276 @@ func _AuthService_GetEffectivePermissions_Handler(srv interface{}, ctx context.C
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).GetEffectivePermissions(ctx, req.(*GetEffectivePermissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListRoles(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CreateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CreateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CreateRole(ctx, req.(*CreateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateRole(ctx, req.(*UpdateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_DeleteRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).DeleteRole(ctx, req.(*DeleteRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetRolePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRolePermissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetRolePermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetRolePermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetRolePermissions(ctx, req.(*GetRolePermissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_SetRolePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRolePermissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SetRolePermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SetRolePermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SetRolePermissions(ctx, req.(*SetRolePermissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_AssignUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).AssignUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_AssignUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).AssignUserRole(ctx, req.(*AssignUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RevokeUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeUserRole(ctx, req.(*RevokeUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetUserOverrides(ctx, req.(*GetUserOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_SetUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SetUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SetUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SetUserOverrides(ctx, req.(*SetUserOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ClearUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ClearUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ClearUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ClearUserOverrides(ctx, req.(*ClearUserOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListAdminUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListAdminUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListAdminUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListAdminUsers(ctx, req.(*ListAdminUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_InviteAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InviteAdminUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).InviteAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_InviteAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).InviteAdminUser(ctx, req.(*InviteAdminUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAdminUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateAdminUser(ctx, req.(*UpdateAdminUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ResendAdminUserInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResendAdminUserInviteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ResendAdminUserInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ResendAdminUserInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ResendAdminUserInvite(ctx, req.(*ResendAdminUserInviteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1262,6 +1792,66 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetEffectivePermissions",
 			Handler:    _AuthService_GetEffectivePermissions_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _AuthService_ListRoles_Handler,
+		},
+		{
+			MethodName: "CreateRole",
+			Handler:    _AuthService_CreateRole_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _AuthService_UpdateRole_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _AuthService_DeleteRole_Handler,
+		},
+		{
+			MethodName: "GetRolePermissions",
+			Handler:    _AuthService_GetRolePermissions_Handler,
+		},
+		{
+			MethodName: "SetRolePermissions",
+			Handler:    _AuthService_SetRolePermissions_Handler,
+		},
+		{
+			MethodName: "AssignUserRole",
+			Handler:    _AuthService_AssignUserRole_Handler,
+		},
+		{
+			MethodName: "RevokeUserRole",
+			Handler:    _AuthService_RevokeUserRole_Handler,
+		},
+		{
+			MethodName: "GetUserOverrides",
+			Handler:    _AuthService_GetUserOverrides_Handler,
+		},
+		{
+			MethodName: "SetUserOverrides",
+			Handler:    _AuthService_SetUserOverrides_Handler,
+		},
+		{
+			MethodName: "ClearUserOverrides",
+			Handler:    _AuthService_ClearUserOverrides_Handler,
+		},
+		{
+			MethodName: "ListAdminUsers",
+			Handler:    _AuthService_ListAdminUsers_Handler,
+		},
+		{
+			MethodName: "InviteAdminUser",
+			Handler:    _AuthService_InviteAdminUser_Handler,
+		},
+		{
+			MethodName: "UpdateAdminUser",
+			Handler:    _AuthService_UpdateAdminUser_Handler,
+		},
+		{
+			MethodName: "ResendAdminUserInvite",
+			Handler:    _AuthService_ResendAdminUserInvite_Handler,
 		},
 		{
 			MethodName: "GetProfile",

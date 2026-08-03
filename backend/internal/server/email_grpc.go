@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	crmcompany "github.com/kmuhub/kmuhub/internal/crm/company"
+	crmcontact "github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
@@ -20,6 +22,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
+	"github.com/kmuhub/kmuhub/internal/email/template"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
@@ -35,10 +38,11 @@ type EmailGRPCServer struct {
 	attachmentService *attachment.Service
 	syncEngine        *emailsync.Engine
 	linkRepo          EmailContactLinkRepository
-	importService     *emailcontact.ImportService
-	exportService     *emailcontact.ExportService
+	contactService    *crmcontact.Service
+	companyService    *crmcompany.Service
 	ruleService       *rule.Service
 	labelService      *label.Service
+	templateService   *template.Service
 }
 
 // EmailContactLinkRepository defines the interface for CRM email linking.
@@ -58,10 +62,11 @@ func NewEmailGRPCServer(
 	attachmentService *attachment.Service,
 	syncEngine *emailsync.Engine,
 	linkRepo EmailContactLinkRepository,
-	importService *emailcontact.ImportService,
-	exportService *emailcontact.ExportService,
+	contactService *crmcontact.Service,
+	companyService *crmcompany.Service,
 	ruleService *rule.Service,
 	labelService *label.Service,
+	templateService *template.Service,
 ) *EmailGRPCServer {
 	return &EmailGRPCServer{
 		accountService:    accountService,
@@ -71,10 +76,11 @@ func NewEmailGRPCServer(
 		attachmentService: attachmentService,
 		syncEngine:        syncEngine,
 		linkRepo:          linkRepo,
-		importService:     importService,
-		exportService:     exportService,
+		contactService:    contactService,
+		companyService:    companyService,
 		ruleService:       ruleService,
 		labelService:      labelService,
+		templateService:   templateService,
 	}
 }
 
@@ -142,6 +148,30 @@ func (s *EmailGRPCServer) GetEmailAccount(ctx context.Context, req *emailv1.GetE
 	return &emailv1.GetEmailAccountResponse{
 		Account: toEmailAccountInfo(acct),
 	}, nil
+}
+
+func (s *EmailGRPCServer) ListEmailAccounts(ctx context.Context, req *emailv1.ListEmailAccountsRequest) (*emailv1.ListEmailAccountsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	accounts, err := s.accountService.ListByUserAndTenant(ctx, userID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	protoAccounts := make([]*emailv1.EmailAccountInfo, 0, len(accounts))
+	for _, acct := range accounts {
+		protoAccounts = append(protoAccounts, toEmailAccountInfo(acct))
+	}
+
+	return &emailv1.ListEmailAccountsResponse{Accounts: protoAccounts}, nil
 }
 
 func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.UpdateEmailAccountRequest) (*emailv1.UpdateEmailAccountResponse, error) {
@@ -222,6 +252,29 @@ func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.D
 	}
 
 	return &emailv1.DeleteEmailAccountResponse{}, nil
+}
+
+func (s *EmailGRPCServer) SetDefaultEmailAccount(ctx context.Context, req *emailv1.SetDefaultEmailAccountRequest) (*emailv1.SetDefaultEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid account id")
+	}
+
+	if err := s.accountService.SetDefault(ctx, id, tenantID); err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	acct, err := s.accountService.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.SetDefaultEmailAccountResponse{Account: toEmailAccountInfo(acct)}, nil
 }
 
 func (s *EmailGRPCServer) TestEmailConnection(ctx context.Context, req *emailv1.TestEmailConnectionRequest) (*emailv1.TestEmailConnectionResponse, error) {
@@ -497,6 +550,29 @@ func (s *EmailGRPCServer) DeleteMessage(ctx context.Context, req *emailv1.Delete
 	}
 
 	return &emailv1.DeleteMessageResponse{}, nil
+}
+
+func (s *EmailGRPCServer) BulkMessageAction(ctx context.Context, req *emailv1.BulkMessageActionRequest) (*emailv1.BulkMessageActionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	ids := make([]uuid.UUID, 0, len(req.Ids))
+	for _, raw := range req.Ids {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid message id: "+raw)
+		}
+		ids = append(ids, id)
+	}
+
+	affected, err := s.messageService.BulkAction(ctx, tenantID, ids, req.Action, req.Target)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.BulkMessageActionResponse{Affected: int32(affected)}, nil
 }
 
 // ============================================================================
@@ -1077,13 +1153,28 @@ func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *ema
 // ============================================================================
 
 func (s *EmailGRPCServer) ImportContactsCSV(ctx context.Context, req *emailv1.ImportContactsCSVRequest) (*emailv1.ImportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	userID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	// Tenant-scoped adapter built per request, mirroring CRMGRPCServer.ImportContactsCSV —
+	// the shared importService singleton is wired with a nil ContactProvider because it has
+	// no tenant to bind to outside a request.
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
 	reader := bytes.NewReader(req.FileContent)
-	result, err := s.importService.ImportCSV(
+	result, err := importSvc.ImportCSV(
 		ctx,
 		reader,
 		req.FieldMapping,
 		req.Visibility,
-		uuid.Nil, // Owner determined by auth context
+		userID,
 		req.MergeByEmail,
 	)
 	if err != nil {
@@ -1094,12 +1185,24 @@ func (s *EmailGRPCServer) ImportContactsCSV(ctx context.Context, req *emailv1.Im
 }
 
 func (s *EmailGRPCServer) ImportContactsVCard(ctx context.Context, req *emailv1.ImportContactsVCardRequest) (*emailv1.ImportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	userID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
 	reader := bytes.NewReader(req.FileContent)
-	result, err := s.importService.ImportVCard(
+	result, err := importSvc.ImportVCard(
 		ctx,
 		reader,
 		req.Visibility,
-		uuid.Nil,
+		userID,
 		req.MergeByEmail,
 	)
 	if err != nil {
@@ -1110,6 +1213,11 @@ func (s *EmailGRPCServer) ImportContactsVCard(ctx context.Context, req *emailv1.
 }
 
 func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.ExportContactsRequest) (*emailv1.ExportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	ids := make([]uuid.UUID, 0, len(req.ContactIds))
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -1119,7 +1227,10 @@ func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.Ex
 		ids = append(ids, id)
 	}
 
-	data, err := s.exportService.ExportCSV(ctx, ids, req.Fields)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
+	data, err := exportSvc.ExportCSV(ctx, ids, req.Fields)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -1131,6 +1242,11 @@ func (s *EmailGRPCServer) ExportContactsCSV(ctx context.Context, req *emailv1.Ex
 }
 
 func (s *EmailGRPCServer) ExportContactsVCard(ctx context.Context, req *emailv1.ExportContactsRequest) (*emailv1.ExportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	ids := make([]uuid.UUID, 0, len(req.ContactIds))
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -1140,7 +1256,10 @@ func (s *EmailGRPCServer) ExportContactsVCard(ctx context.Context, req *emailv1.
 		ids = append(ids, id)
 	}
 
-	data, err := s.exportService.ExportVCard(ctx, ids)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
+	data, err := exportSvc.ExportVCard(ctx, ids)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -1168,6 +1287,7 @@ func toEmailAccountInfo(acct *models.EmailAccount) *emailv1.EmailAccountInfo {
 		Username:     acct.Username,
 		UseSsl:       acct.UseSSL,
 		SyncEnabled:  acct.SyncEnabled,
+		IsDefault:    acct.IsDefault,
 		CreatedAt:    acct.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:    acct.UpdatedAt.Format(time.RFC3339),
 	}
@@ -1311,8 +1431,6 @@ func mapEmailError(err error) error {
 	// Account errors
 	case errors.Is(err, account.ErrAccountNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, account.ErrAccountExists):
-		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, account.ErrInvalidCredentials):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):
@@ -1325,6 +1443,12 @@ func mapEmailError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, message.ErrThreadNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// OutOfRange -> 422: a semantically valid request with an unprocessable
+	// value, same convention as the RBAC capability-key check.
+	case errors.Is(err, message.ErrUnknownBulkAction):
+		return status.Error(codes.OutOfRange, err.Error())
+	case errors.Is(err, message.ErrBulkTargetRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Send errors
 	case errors.Is(err, send.ErrSendFailed):
@@ -1371,6 +1495,13 @@ func mapEmailError(err error) error {
 	case errors.Is(err, label.ErrNameRequired),
 		errors.Is(err, label.ErrColorInvalid),
 		errors.Is(err, label.ErrTargetInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Template errors
+	case errors.Is(err, template.ErrTemplateNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, template.ErrNameRequired),
+		errors.Is(err, template.ErrInvalidVisibility):
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Import errors
@@ -1602,5 +1733,162 @@ func toEmailLabelInfo(l *models.EmailLabel) *emailv1.EmailLabelInfo {
 		Id:    l.ID.String(),
 		Name:  l.Name,
 		Color: l.Color,
+	}
+}
+
+// ============================================================================
+// Template Operations (Vorlagen & Quicktexte)
+// ============================================================================
+
+func (s *EmailGRPCServer) ListEmailTemplates(ctx context.Context, req *emailv1.ListEmailTemplatesRequest) (*emailv1.ListEmailTemplatesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	templates, err := s.templateService.List(ctx, tenantID, userID, req.IsAdmin)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	protoTemplates := make([]*emailv1.EmailTemplateInfo, 0, len(templates))
+	for _, tpl := range templates {
+		protoTemplates = append(protoTemplates, toEmailTemplateInfo(tpl))
+	}
+
+	return &emailv1.ListEmailTemplatesResponse{Templates: protoTemplates}, nil
+}
+
+func (s *EmailGRPCServer) GetEmailTemplate(ctx context.Context, req *emailv1.GetEmailTemplateRequest) (*emailv1.GetEmailTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template id")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	tpl, err := s.templateService.GetByID(ctx, id, tenantID, userID, req.IsAdmin)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.GetEmailTemplateResponse{Template: toEmailTemplateInfo(tpl)}, nil
+}
+
+func (s *EmailGRPCServer) CreateEmailTemplate(ctx context.Context, req *emailv1.CreateEmailTemplateRequest) (*emailv1.CreateEmailTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	tpl, err := s.templateService.Create(ctx, tenantID, userID, req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.CreateEmailTemplateResponse{Template: toEmailTemplateInfo(tpl)}, nil
+}
+
+func (s *EmailGRPCServer) UpdateEmailTemplate(ctx context.Context, req *emailv1.UpdateEmailTemplateRequest) (*emailv1.UpdateEmailTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template id")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	tpl, err := s.templateService.Update(ctx, id, tenantID, userID, req.IsAdmin,
+		req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.UpdateEmailTemplateResponse{Template: toEmailTemplateInfo(tpl)}, nil
+}
+
+func (s *EmailGRPCServer) DeleteEmailTemplate(ctx context.Context, req *emailv1.DeleteEmailTemplateRequest) (*emailv1.DeleteEmailTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template id")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if err := s.templateService.Delete(ctx, id, tenantID, userID, req.IsAdmin); err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.DeleteEmailTemplateResponse{}, nil
+}
+
+func (s *EmailGRPCServer) RenderEmailTemplate(ctx context.Context, req *emailv1.RenderEmailTemplateRequest) (*emailv1.RenderEmailTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template id")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	subject, bodyHTML, bodyText, err := s.templateService.Render(ctx, id, tenantID, userID, req.IsAdmin, req.Values)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.RenderEmailTemplateResponse{Subject: subject, BodyHtml: bodyHTML, BodyText: bodyText}, nil
+}
+
+func toEmailTemplateInfo(tpl *models.EmailTemplate) *emailv1.EmailTemplateInfo {
+	ownerID := ""
+	if tpl.OwnerID != nil {
+		ownerID = tpl.OwnerID.String()
+	}
+	return &emailv1.EmailTemplateInfo{
+		Id:         tpl.ID.String(),
+		OwnerId:    ownerID,
+		Visibility: tpl.Visibility,
+		Name:       tpl.Name,
+		Subject:    tpl.Subject,
+		BodyHtml:   tpl.BodyHTML,
+		BodyText:   tpl.BodyText,
+		CreatedAt:  tpl.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  tpl.UpdatedAt.Format(time.RFC3339),
 	}
 }

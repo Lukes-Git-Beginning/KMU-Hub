@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
@@ -25,25 +24,42 @@ type EngineExecutor interface {
 type TimeTriggerPoller struct {
 	interval     time.Duration
 	workflowRepo workflow.Repository
-	execRepo     workflow.ExecutionRepository
 	engine       EngineExecutor
 	pool         *pgxpool.Pool
+
+	// timeBasedTypes is the set of TriggerDefinition.Type values with
+	// TimeBased=true, computed once from registry at construction. The
+	// registry only registers built-ins at startup (see
+	// TriggerRegistry.registerBuiltins), so this does not go stale.
+	timeBasedTypes []string
 }
 
 // NewTimeTriggerPoller creates a new time-based trigger poller.
 func NewTimeTriggerPoller(
 	repo workflow.Repository,
-	execRepo workflow.ExecutionRepository,
 	engine EngineExecutor,
 	pool *pgxpool.Pool,
+	registry *TriggerRegistry,
 ) *TimeTriggerPoller {
 	return &TimeTriggerPoller{
-		interval:     5 * time.Minute,
-		workflowRepo: repo,
-		execRepo:     execRepo,
-		engine:       engine,
-		pool:         pool,
+		interval:       5 * time.Minute,
+		workflowRepo:   repo,
+		engine:         engine,
+		pool:           pool,
+		timeBasedTypes: timeBasedTriggerTypes(registry),
 	}
+}
+
+// timeBasedTriggerTypes collects the Type of every registered
+// TriggerDefinition with TimeBased=true.
+func timeBasedTriggerTypes(registry *TriggerRegistry) []string {
+	var types []string
+	for _, def := range registry.All() {
+		if def.TimeBased {
+			types = append(types, def.Type)
+		}
+	}
+	return types
 }
 
 // Start begins the polling loop. It blocks until the context is cancelled.
@@ -71,7 +87,11 @@ func (p *TimeTriggerPoller) Start(ctx context.Context) {
 // checkTimeTriggers queries active time-based automations and creates
 // synthetic events for each that matches.
 func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
-	automations, err := p.workflowRepo.ListActiveTimeBased(ctx)
+	if len(p.timeBasedTypes) == 0 {
+		return
+	}
+
+	automations, err := p.workflowRepo.ListActiveTimeBased(ctx, p.timeBasedTypes)
 	if err != nil {
 		slog.Error("failed to list time-based automations", "error", err)
 		return
@@ -83,18 +103,43 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 
 	slog.Debug("checking time-based triggers", "count", len(automations))
 
+	now := time.Now()
 	for _, auto := range automations {
-		// Dedup: skip if this automation was already executed in the last polling interval
-		// for the same resource (check via automation_executions table)
-		if p.wasRecentlyExecuted(ctx, auto.ID) {
+		// Atomic claim: last_polled_at only advances if it still matches the
+		// value just read above. Two TimeTriggerPoller instances (or two
+		// overlapping ticks) racing on the same automation will have exactly
+		// one Exec affect a row -- the other observes 0 rows and skips,
+		// exactly mirroring berichte/scheduler.ClaimSchedule. Replaces the
+		// former history-query dedup (workflowRepo.ListExecutions lookback),
+		// which was a check-then-act race between separate instances.
+		claimed, claimErr := p.workflowRepo.ClaimTimeTrigger(ctx, auto.ID, auto.LastPolledAt, now)
+		if claimErr != nil {
+			slog.Error("failed to claim time-based trigger",
+				"automation_id", auto.ID,
+				"error", claimErr,
+			)
+			continue
+		}
+		if !claimed {
+			slog.Debug("time-based trigger claim lost to another tick/instance",
+				"automation_id", auto.ID,
+			)
 			continue
 		}
 
-		// Create synthetic event payload for the time-based trigger
+		// Create synthetic event payload for the time-based trigger.
+		//
+		// ModuleID must NOT be "automation" (event.ModuleAutomation): engine.Execute's
+		// loop-prevention check drops any event carrying that exact value before
+		// evaluating conditions or running actions (see engine.go), so a synthetic
+		// event tagged that way is silently discarded here -- neither
+		// biz.invoice.overdue nor calendar.event.upcoming ever actually executed.
+		// "scheduler" identifies the poller as the origin without colliding with
+		// the sentinel.
 		evt := models.EventPayload{
 			Type:      auto.TriggerType,
-			ModuleID:  "automation",
-			Timestamp: time.Now(),
+			ModuleID:  "scheduler",
+			Timestamp: now,
 		}
 
 		// Execute in a goroutine with timeout
@@ -110,23 +155,4 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 			}
 		}(auto, evt)
 	}
-}
-
-// wasRecentlyExecuted checks if the automation was executed within the last polling interval.
-func (p *TimeTriggerPoller) wasRecentlyExecuted(ctx context.Context, automationID uuid.UUID) bool {
-	since := time.Now().Add(-p.interval)
-	filter := workflow.ExecutionFilter{
-		AutomationID: &automationID,
-		StartedAfter: &since,
-		Limit:        1,
-	}
-	execs, _, err := p.execRepo.ListExecutions(ctx, filter)
-	if err != nil {
-		slog.Warn("failed to check recent executions for dedup",
-			"automation_id", automationID,
-			"error", err,
-		)
-		return false
-	}
-	return len(execs) > 0
 }

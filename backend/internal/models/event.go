@@ -24,7 +24,12 @@ type EventType struct {
 
 // Event represents a persisted event in the events durability table
 type Event struct {
-	ID           uuid.UUID       `json:"id"`
+	ID uuid.UUID `json:"id"`
+	// TenantID is NOT NULL in the table since migration 000271 and is what the
+	// RLS policy filters on. It also carries the tenant across a restart:
+	// EventBus.ProcessBacklog rebuilds an EventPayload from this row, and
+	// before the column existed it had no way to restore the tenant.
+	TenantID     uuid.UUID       `json:"tenant_id"`
 	EventTypeKey string          `json:"event_type_key"`
 	ModuleID     string          `json:"module_id"`
 	Priority     string          `json:"priority"`

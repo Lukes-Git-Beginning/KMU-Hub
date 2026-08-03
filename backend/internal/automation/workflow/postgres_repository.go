@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -119,6 +120,31 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 	return a, nil
 }
 
+// GetByIDUnscoped retrieves an automation by ID without a tenant_id filter.
+// See the Repository interface doc comment: callers must wrap ctx with
+// sysctx.With and must not skip the caller-side trigger-type/active checks.
+func (r *PostgresRepository) GetByIDUnscoped(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+	query := `
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
+			trigger_config, conditions, actions, is_active, max_steps,
+			template_id, last_triggered_at, created_at, updated_at
+		FROM automations WHERE id = $1`
+
+	a := &models.Automation{}
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+		&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
+		&a.TemplateID, &a.LastTriggeredAt, &a.CreatedAt, &a.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAutomationNotFound
+		}
+		return nil, err
+	}
+	return a, nil
+}
+
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.Automation, int, error) {
 	// tenant_id is always the first condition for isolation
 	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
@@ -216,22 +242,67 @@ func (r *PostgresRepository) ListActiveByTriggerType(ctx context.Context, trigge
 	return scanAutomations(rows)
 }
 
-func (r *PostgresRepository) ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error) {
+// ListActiveTimeBased returns active automations whose trigger_type is in
+// triggerTypes. Unlike scanAutomations' callers, this also selects
+// last_polled_at (needed by the caller to attempt an optimistic-concurrency
+// claim via ClaimTimeTrigger), so it scans its own rows rather than sharing
+// scanAutomations' column set.
+func (r *PostgresRepository) ListActiveTimeBased(ctx context.Context, triggerTypes []string) ([]*models.Automation, error) {
+	if len(triggerTypes) == 0 {
+		return nil, nil
+	}
+
 	query := `
 		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
-			template_id, last_triggered_at, created_at, updated_at
+			template_id, last_triggered_at, last_polled_at, created_at, updated_at
 		FROM automations
-		WHERE trigger_type = 'time_based' AND is_active = true
+		WHERE trigger_type = ANY($1) AND is_active = true
 		ORDER BY created_at ASC`
 
-	rows, err := r.pool.Query(ctx, query)
+	rows, err := r.pool.Query(ctx, query, triggerTypes)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	return scanAutomations(rows)
+	var automations []*models.Automation
+	for rows.Next() {
+		a := &models.Automation{}
+		if scanErr := rows.Scan(
+			&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+			&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
+			&a.TemplateID, &a.LastTriggeredAt, &a.LastPolledAt, &a.CreatedAt, &a.UpdatedAt,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		automations = append(automations, a)
+	}
+	return automations, rows.Err()
+}
+
+// ClaimTimeTrigger atomically advances last_polled_at iff it still matches
+// previousLastPolledAt, exactly mirroring
+// internal/berichte/scheduler.PostgresRepository.ClaimSchedule's
+// optimistic-concurrency pattern on report_schedules.last_run_at.
+func (r *PostgresRepository) ClaimTimeTrigger(ctx context.Context, id uuid.UUID, previousLastPolledAt *time.Time, now time.Time) (bool, error) {
+	var tag pgconn.CommandTag
+	var err error
+	if previousLastPolledAt == nil {
+		tag, err = r.pool.Exec(ctx,
+			`UPDATE automations SET last_polled_at = $1 WHERE id = $2 AND last_polled_at IS NULL`,
+			now, id,
+		)
+	} else {
+		tag, err = r.pool.Exec(ctx,
+			`UPDATE automations SET last_polled_at = $1 WHERE id = $2 AND last_polled_at = $3`,
+			now, id, *previousLastPolledAt,
+		)
+	}
+	if err != nil {
+		return false, fmt.Errorf("claim time trigger: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func (r *PostgresRepository) SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error {

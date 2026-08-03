@@ -49,6 +49,24 @@ func TestMapError(t *testing.T) {
 		{"2fa enforcement required", auth.Err2FAEnforcementRequired, codes.FailedPrecondition},
 		// --- Session errors ---
 		{"session not found", auth.ErrSessionNotFound, codes.NotFound},
+		// --- Role administration (RBAC wave 1b) ---
+		// The gateway turns AlreadyExists and FailedPrecondition into 409 and
+		// NotFound into 404, which is the contract the RBAC builder expects.
+		{"role name exists", auth.ErrRoleNameExists, codes.AlreadyExists},
+		{"role limit reached", auth.ErrRoleLimitReached, codes.FailedPrecondition},
+		{"clone source not found", auth.ErrBaseRoleNotFound, codes.NotFound},
+		{"preset immutable", auth.ErrRolePresetImmutable, codes.PermissionDenied},
+		{"role has members", auth.ErrRoleHasMembers, codes.FailedPrecondition},
+		// --- Guardrails (RBAC wave 1b) ---
+		// last_admin and self_lockout are conflicts with the tenant's current
+		// state (409), privilege_escalation is a rights problem (403) — the
+		// same code preset_immutable gets. guardrails_db_test.go proves the
+		// auth.Service returns these sentinels; this proves mapError still
+		// carries them to the right gRPC code, which is the only part of the
+		// chain a copy-paste error in the switch would not otherwise catch.
+		{"last admin", auth.ErrLastAdmin, codes.FailedPrecondition},
+		{"self lockout", auth.ErrSelfLockout, codes.FailedPrecondition},
+		{"privilege escalation", auth.ErrPrivilegeEscalation, codes.PermissionDenied},
 		// --- Fallback ---
 		{"unknown error", errors.New("boom"), codes.Internal},
 	}
@@ -1019,13 +1037,22 @@ func TestAuthGRPC_TerminateAllSessions(t *testing.T) {
 // 2FA Policy
 // ============================================================================
 
+// tenantCtx stamps a tenant onto the context the way the gateway's propagated
+// claims do. The 2FA policy RPCs need it since migration 000273 made the table
+// tenant-scoped.
+func tenantCtx(tenantID uuid.UUID) context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+}
+
 func TestAuthGRPC_GetTwoFactorPolicy(t *testing.T) {
-	ctx := context.Background()
+	tenantID := uuid.New()
+	ctx := tenantCtx(tenantID)
 
 	t.Run("by role name", func(t *testing.T) {
 		srv, repo := newTestAuthGRPCServer()
-		repo.policies["admin"] = &models.TwoFactorPolicy{
+		repo.policies[policyKey(tenantID, "admin")] = &models.TwoFactorPolicy{
 			ID:              uuid.New(),
+			TenantID:        tenantID,
 			RoleName:        "admin",
 			Enforced:        true,
 			GracePeriodDays: 7,
@@ -1041,11 +1068,11 @@ func TestAuthGRPC_GetTwoFactorPolicy(t *testing.T) {
 
 	t.Run("list all policies", func(t *testing.T) {
 		srv, repo := newTestAuthGRPCServer()
-		repo.policies["admin"] = &models.TwoFactorPolicy{
-			ID: uuid.New(), RoleName: "admin", Enforced: true, UpdatedAt: time.Now(),
+		repo.policies[policyKey(tenantID, "admin")] = &models.TwoFactorPolicy{
+			ID: uuid.New(), TenantID: tenantID, RoleName: "admin", Enforced: true, UpdatedAt: time.Now(),
 		}
-		repo.policies["member"] = &models.TwoFactorPolicy{
-			ID: uuid.New(), RoleName: "member", Enforced: false, UpdatedAt: time.Now(),
+		repo.policies[policyKey(tenantID, "member")] = &models.TwoFactorPolicy{
+			ID: uuid.New(), TenantID: tenantID, RoleName: "member", Enforced: false, UpdatedAt: time.Now(),
 		}
 
 		resp, err := srv.GetTwoFactorPolicy(ctx, &authv1.GetTwoFactorPolicyRequest{})
@@ -1060,10 +1087,36 @@ func TestAuthGRPC_GetTwoFactorPolicy(t *testing.T) {
 		requireGRPCOK(t, err)
 		assert.Empty(t, resp.Policies)
 	})
+
+	// The pre-000273 bug in read form: one tenant's enforcement showing up as
+	// another's. Both sub-cases have to hold — a foreign policy must neither be
+	// returned by name nor leak into the unfiltered list.
+	t.Run("another tenant's policy is invisible", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		other := uuid.New()
+		repo.policies[policyKey(other, "admin")] = &models.TwoFactorPolicy{
+			ID: uuid.New(), TenantID: other, RoleName: "admin", Enforced: true, UpdatedAt: time.Now(),
+		}
+
+		byName, err := srv.GetTwoFactorPolicy(ctx, &authv1.GetTwoFactorPolicyRequest{RoleName: "admin"})
+		requireGRPCOK(t, err)
+		assert.Empty(t, byName.Policies)
+
+		all, err := srv.GetTwoFactorPolicy(ctx, &authv1.GetTwoFactorPolicyRequest{})
+		requireGRPCOK(t, err)
+		assert.Empty(t, all.Policies)
+	})
+
+	t.Run("without tenant context", func(t *testing.T) {
+		srv, _ := newTestAuthGRPCServer()
+		_, err := srv.GetTwoFactorPolicy(context.Background(), &authv1.GetTwoFactorPolicyRequest{})
+		requireGRPCCode(t, err, codes.Unauthenticated)
+	})
 }
 
 func TestAuthGRPC_UpdateTwoFactorPolicy(t *testing.T) {
-	ctx := context.Background()
+	tenantID := uuid.New()
+	ctx := tenantCtx(tenantID)
 
 	t.Run("success", func(t *testing.T) {
 		srv, _ := newTestAuthGRPCServer()
@@ -1079,6 +1132,32 @@ func TestAuthGRPC_UpdateTwoFactorPolicy(t *testing.T) {
 		assert.Equal(t, "admin", resp.Policy.RoleName)
 		assert.True(t, resp.Policy.Enforced)
 		assert.Equal(t, int32(14), resp.Policy.GracePeriodDays)
+	})
+
+	// The bug this migration exists for: before it, role_name alone was the
+	// upsert arbiter, so this write would have overwritten the other tenant's
+	// row instead of creating one of its own.
+	t.Run("write does not touch another tenant's policy", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		other := uuid.New()
+		foreign := &models.TwoFactorPolicy{
+			ID: uuid.New(), TenantID: other, RoleName: "admin", Enforced: true,
+			GracePeriodDays: 7, UpdatedAt: time.Now(),
+		}
+		repo.policies[policyKey(other, "admin")] = foreign
+
+		_, err := srv.UpdateTwoFactorPolicy(ctx, &authv1.UpdateTwoFactorPolicyRequest{
+			RoleName:        "admin",
+			Enforced:        false,
+			GracePeriodDays: 0,
+			UpdatedBy:       uuid.New().String(),
+		})
+		requireGRPCOK(t, err)
+
+		still := repo.policies[policyKey(other, "admin")]
+		require.NotNil(t, still)
+		assert.True(t, still.Enforced, "the other tenant's 2FA enforcement must survive")
+		assert.Equal(t, 7, still.GracePeriodDays)
 	})
 
 	t.Run("missing role name", func(t *testing.T) {
@@ -1097,6 +1176,15 @@ func TestAuthGRPC_UpdateTwoFactorPolicy(t *testing.T) {
 			UpdatedBy: "bad",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("without tenant context", func(t *testing.T) {
+		srv, _ := newTestAuthGRPCServer()
+		_, err := srv.UpdateTwoFactorPolicy(context.Background(), &authv1.UpdateTwoFactorPolicyRequest{
+			RoleName:  "admin",
+			UpdatedBy: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 }
 

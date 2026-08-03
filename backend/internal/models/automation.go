@@ -24,8 +24,12 @@ type Automation struct {
 	MaxSteps        int             `json:"max_steps"`
 	TemplateID      *string         `json:"template_id,omitempty"`
 	LastTriggeredAt *time.Time      `json:"last_triggered_at,omitempty"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
+	// LastPolledAt is internal bookkeeping for trigger.TimeTriggerPoller's
+	// atomic claim (see workflow.Repository.ClaimTimeTrigger) and is never
+	// populated outside that path or exposed via the API.
+	LastPolledAt *time.Time `json:"-"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // AutomationExecution represents a single execution of an automation workflow.

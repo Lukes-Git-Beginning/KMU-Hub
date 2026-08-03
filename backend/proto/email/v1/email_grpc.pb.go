@@ -21,8 +21,10 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	EmailService_CreateEmailAccount_FullMethodName       = "/email.v1.EmailService/CreateEmailAccount"
 	EmailService_GetEmailAccount_FullMethodName          = "/email.v1.EmailService/GetEmailAccount"
+	EmailService_ListEmailAccounts_FullMethodName        = "/email.v1.EmailService/ListEmailAccounts"
 	EmailService_UpdateEmailAccount_FullMethodName       = "/email.v1.EmailService/UpdateEmailAccount"
 	EmailService_DeleteEmailAccount_FullMethodName       = "/email.v1.EmailService/DeleteEmailAccount"
+	EmailService_SetDefaultEmailAccount_FullMethodName   = "/email.v1.EmailService/SetDefaultEmailAccount"
 	EmailService_TestEmailConnection_FullMethodName      = "/email.v1.EmailService/TestEmailConnection"
 	EmailService_ListFolders_FullMethodName              = "/email.v1.EmailService/ListFolders"
 	EmailService_GetFolder_FullMethodName                = "/email.v1.EmailService/GetFolder"
@@ -35,6 +37,7 @@ const (
 	EmailService_ToggleStar_FullMethodName               = "/email.v1.EmailService/ToggleStar"
 	EmailService_MoveToFolder_FullMethodName             = "/email.v1.EmailService/MoveToFolder"
 	EmailService_DeleteMessage_FullMethodName            = "/email.v1.EmailService/DeleteMessage"
+	EmailService_BulkMessageAction_FullMethodName        = "/email.v1.EmailService/BulkMessageAction"
 	EmailService_SendEmail_FullMethodName                = "/email.v1.EmailService/SendEmail"
 	EmailService_SaveDraft_FullMethodName                = "/email.v1.EmailService/SaveDraft"
 	EmailService_ReplyEmail_FullMethodName               = "/email.v1.EmailService/ReplyEmail"
@@ -68,6 +71,12 @@ const (
 	EmailService_UpdateEmailLabel_FullMethodName         = "/email.v1.EmailService/UpdateEmailLabel"
 	EmailService_DeleteEmailLabel_FullMethodName         = "/email.v1.EmailService/DeleteEmailLabel"
 	EmailService_AssignMessageLabels_FullMethodName      = "/email.v1.EmailService/AssignMessageLabels"
+	EmailService_ListEmailTemplates_FullMethodName       = "/email.v1.EmailService/ListEmailTemplates"
+	EmailService_GetEmailTemplate_FullMethodName         = "/email.v1.EmailService/GetEmailTemplate"
+	EmailService_CreateEmailTemplate_FullMethodName      = "/email.v1.EmailService/CreateEmailTemplate"
+	EmailService_UpdateEmailTemplate_FullMethodName      = "/email.v1.EmailService/UpdateEmailTemplate"
+	EmailService_DeleteEmailTemplate_FullMethodName      = "/email.v1.EmailService/DeleteEmailTemplate"
+	EmailService_RenderEmailTemplate_FullMethodName      = "/email.v1.EmailService/RenderEmailTemplate"
 )
 
 // EmailServiceClient is the client API for EmailService service.
@@ -77,8 +86,10 @@ type EmailServiceClient interface {
 	// Account management
 	CreateEmailAccount(ctx context.Context, in *CreateEmailAccountRequest, opts ...grpc.CallOption) (*CreateEmailAccountResponse, error)
 	GetEmailAccount(ctx context.Context, in *GetEmailAccountRequest, opts ...grpc.CallOption) (*GetEmailAccountResponse, error)
+	ListEmailAccounts(ctx context.Context, in *ListEmailAccountsRequest, opts ...grpc.CallOption) (*ListEmailAccountsResponse, error)
 	UpdateEmailAccount(ctx context.Context, in *UpdateEmailAccountRequest, opts ...grpc.CallOption) (*UpdateEmailAccountResponse, error)
 	DeleteEmailAccount(ctx context.Context, in *DeleteEmailAccountRequest, opts ...grpc.CallOption) (*DeleteEmailAccountResponse, error)
+	SetDefaultEmailAccount(ctx context.Context, in *SetDefaultEmailAccountRequest, opts ...grpc.CallOption) (*SetDefaultEmailAccountResponse, error)
 	TestEmailConnection(ctx context.Context, in *TestEmailConnectionRequest, opts ...grpc.CallOption) (*TestEmailConnectionResponse, error)
 	// Folder operations
 	ListFolders(ctx context.Context, in *ListFoldersRequest, opts ...grpc.CallOption) (*ListFoldersResponse, error)
@@ -93,6 +104,7 @@ type EmailServiceClient interface {
 	ToggleStar(ctx context.Context, in *ToggleStarRequest, opts ...grpc.CallOption) (*ToggleStarResponse, error)
 	MoveToFolder(ctx context.Context, in *MoveToFolderRequest, opts ...grpc.CallOption) (*MoveToFolderResponse, error)
 	DeleteMessage(ctx context.Context, in *DeleteMessageRequest, opts ...grpc.CallOption) (*DeleteMessageResponse, error)
+	BulkMessageAction(ctx context.Context, in *BulkMessageActionRequest, opts ...grpc.CallOption) (*BulkMessageActionResponse, error)
 	// Send/compose operations
 	SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error)
 	SaveDraft(ctx context.Context, in *SaveDraftRequest, opts ...grpc.CallOption) (*SaveDraftResponse, error)
@@ -134,6 +146,13 @@ type EmailServiceClient interface {
 	UpdateEmailLabel(ctx context.Context, in *UpdateEmailLabelRequest, opts ...grpc.CallOption) (*UpdateEmailLabelResponse, error)
 	DeleteEmailLabel(ctx context.Context, in *DeleteEmailLabelRequest, opts ...grpc.CallOption) (*DeleteEmailLabelResponse, error)
 	AssignMessageLabels(ctx context.Context, in *AssignMessageLabelsRequest, opts ...grpc.CallOption) (*AssignMessageLabelsResponse, error)
+	// Templates (Vorlagen & Quicktexte)
+	ListEmailTemplates(ctx context.Context, in *ListEmailTemplatesRequest, opts ...grpc.CallOption) (*ListEmailTemplatesResponse, error)
+	GetEmailTemplate(ctx context.Context, in *GetEmailTemplateRequest, opts ...grpc.CallOption) (*GetEmailTemplateResponse, error)
+	CreateEmailTemplate(ctx context.Context, in *CreateEmailTemplateRequest, opts ...grpc.CallOption) (*CreateEmailTemplateResponse, error)
+	UpdateEmailTemplate(ctx context.Context, in *UpdateEmailTemplateRequest, opts ...grpc.CallOption) (*UpdateEmailTemplateResponse, error)
+	DeleteEmailTemplate(ctx context.Context, in *DeleteEmailTemplateRequest, opts ...grpc.CallOption) (*DeleteEmailTemplateResponse, error)
+	RenderEmailTemplate(ctx context.Context, in *RenderEmailTemplateRequest, opts ...grpc.CallOption) (*RenderEmailTemplateResponse, error)
 }
 
 type emailServiceClient struct {
@@ -164,6 +183,16 @@ func (c *emailServiceClient) GetEmailAccount(ctx context.Context, in *GetEmailAc
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailAccounts(ctx context.Context, in *ListEmailAccountsRequest, opts ...grpc.CallOption) (*ListEmailAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailAccountsResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *emailServiceClient) UpdateEmailAccount(ctx context.Context, in *UpdateEmailAccountRequest, opts ...grpc.CallOption) (*UpdateEmailAccountResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateEmailAccountResponse)
@@ -178,6 +207,16 @@ func (c *emailServiceClient) DeleteEmailAccount(ctx context.Context, in *DeleteE
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteEmailAccountResponse)
 	err := c.cc.Invoke(ctx, EmailService_DeleteEmailAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) SetDefaultEmailAccount(ctx context.Context, in *SetDefaultEmailAccountRequest, opts ...grpc.CallOption) (*SetDefaultEmailAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetDefaultEmailAccountResponse)
+	err := c.cc.Invoke(ctx, EmailService_SetDefaultEmailAccount_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -298,6 +337,16 @@ func (c *emailServiceClient) DeleteMessage(ctx context.Context, in *DeleteMessag
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteMessageResponse)
 	err := c.cc.Invoke(ctx, EmailService_DeleteMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) BulkMessageAction(ctx context.Context, in *BulkMessageActionRequest, opts ...grpc.CallOption) (*BulkMessageActionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkMessageActionResponse)
+	err := c.cc.Invoke(ctx, EmailService_BulkMessageAction_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -634,6 +683,66 @@ func (c *emailServiceClient) AssignMessageLabels(ctx context.Context, in *Assign
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailTemplates(ctx context.Context, in *ListEmailTemplatesRequest, opts ...grpc.CallOption) (*ListEmailTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailTemplatesResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) GetEmailTemplate(ctx context.Context, in *GetEmailTemplateRequest, opts ...grpc.CallOption) (*GetEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_GetEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) CreateEmailTemplate(ctx context.Context, in *CreateEmailTemplateRequest, opts ...grpc.CallOption) (*CreateEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_CreateEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) UpdateEmailTemplate(ctx context.Context, in *UpdateEmailTemplateRequest, opts ...grpc.CallOption) (*UpdateEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_UpdateEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) DeleteEmailTemplate(ctx context.Context, in *DeleteEmailTemplateRequest, opts ...grpc.CallOption) (*DeleteEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_DeleteEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) RenderEmailTemplate(ctx context.Context, in *RenderEmailTemplateRequest, opts ...grpc.CallOption) (*RenderEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenderEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_RenderEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EmailServiceServer is the server API for EmailService service.
 // All implementations must embed UnimplementedEmailServiceServer
 // for forward compatibility.
@@ -641,8 +750,10 @@ type EmailServiceServer interface {
 	// Account management
 	CreateEmailAccount(context.Context, *CreateEmailAccountRequest) (*CreateEmailAccountResponse, error)
 	GetEmailAccount(context.Context, *GetEmailAccountRequest) (*GetEmailAccountResponse, error)
+	ListEmailAccounts(context.Context, *ListEmailAccountsRequest) (*ListEmailAccountsResponse, error)
 	UpdateEmailAccount(context.Context, *UpdateEmailAccountRequest) (*UpdateEmailAccountResponse, error)
 	DeleteEmailAccount(context.Context, *DeleteEmailAccountRequest) (*DeleteEmailAccountResponse, error)
+	SetDefaultEmailAccount(context.Context, *SetDefaultEmailAccountRequest) (*SetDefaultEmailAccountResponse, error)
 	TestEmailConnection(context.Context, *TestEmailConnectionRequest) (*TestEmailConnectionResponse, error)
 	// Folder operations
 	ListFolders(context.Context, *ListFoldersRequest) (*ListFoldersResponse, error)
@@ -657,6 +768,7 @@ type EmailServiceServer interface {
 	ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error)
 	MoveToFolder(context.Context, *MoveToFolderRequest) (*MoveToFolderResponse, error)
 	DeleteMessage(context.Context, *DeleteMessageRequest) (*DeleteMessageResponse, error)
+	BulkMessageAction(context.Context, *BulkMessageActionRequest) (*BulkMessageActionResponse, error)
 	// Send/compose operations
 	SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error)
 	SaveDraft(context.Context, *SaveDraftRequest) (*SaveDraftResponse, error)
@@ -698,6 +810,13 @@ type EmailServiceServer interface {
 	UpdateEmailLabel(context.Context, *UpdateEmailLabelRequest) (*UpdateEmailLabelResponse, error)
 	DeleteEmailLabel(context.Context, *DeleteEmailLabelRequest) (*DeleteEmailLabelResponse, error)
 	AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error)
+	// Templates (Vorlagen & Quicktexte)
+	ListEmailTemplates(context.Context, *ListEmailTemplatesRequest) (*ListEmailTemplatesResponse, error)
+	GetEmailTemplate(context.Context, *GetEmailTemplateRequest) (*GetEmailTemplateResponse, error)
+	CreateEmailTemplate(context.Context, *CreateEmailTemplateRequest) (*CreateEmailTemplateResponse, error)
+	UpdateEmailTemplate(context.Context, *UpdateEmailTemplateRequest) (*UpdateEmailTemplateResponse, error)
+	DeleteEmailTemplate(context.Context, *DeleteEmailTemplateRequest) (*DeleteEmailTemplateResponse, error)
+	RenderEmailTemplate(context.Context, *RenderEmailTemplateRequest) (*RenderEmailTemplateResponse, error)
 	mustEmbedUnimplementedEmailServiceServer()
 }
 
@@ -714,11 +833,17 @@ func (UnimplementedEmailServiceServer) CreateEmailAccount(context.Context, *Crea
 func (UnimplementedEmailServiceServer) GetEmailAccount(context.Context, *GetEmailAccountRequest) (*GetEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetEmailAccount not implemented")
 }
+func (UnimplementedEmailServiceServer) ListEmailAccounts(context.Context, *ListEmailAccountsRequest) (*ListEmailAccountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailAccounts not implemented")
+}
 func (UnimplementedEmailServiceServer) UpdateEmailAccount(context.Context, *UpdateEmailAccountRequest) (*UpdateEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEmailAccount not implemented")
 }
 func (UnimplementedEmailServiceServer) DeleteEmailAccount(context.Context, *DeleteEmailAccountRequest) (*DeleteEmailAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteEmailAccount not implemented")
+}
+func (UnimplementedEmailServiceServer) SetDefaultEmailAccount(context.Context, *SetDefaultEmailAccountRequest) (*SetDefaultEmailAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetDefaultEmailAccount not implemented")
 }
 func (UnimplementedEmailServiceServer) TestEmailConnection(context.Context, *TestEmailConnectionRequest) (*TestEmailConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestEmailConnection not implemented")
@@ -755,6 +880,9 @@ func (UnimplementedEmailServiceServer) MoveToFolder(context.Context, *MoveToFold
 }
 func (UnimplementedEmailServiceServer) DeleteMessage(context.Context, *DeleteMessageRequest) (*DeleteMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMessage not implemented")
+}
+func (UnimplementedEmailServiceServer) BulkMessageAction(context.Context, *BulkMessageActionRequest) (*BulkMessageActionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkMessageAction not implemented")
 }
 func (UnimplementedEmailServiceServer) SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SendEmail not implemented")
@@ -855,6 +983,24 @@ func (UnimplementedEmailServiceServer) DeleteEmailLabel(context.Context, *Delete
 func (UnimplementedEmailServiceServer) AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AssignMessageLabels not implemented")
 }
+func (UnimplementedEmailServiceServer) ListEmailTemplates(context.Context, *ListEmailTemplatesRequest) (*ListEmailTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailTemplates not implemented")
+}
+func (UnimplementedEmailServiceServer) GetEmailTemplate(context.Context, *GetEmailTemplateRequest) (*GetEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) CreateEmailTemplate(context.Context, *CreateEmailTemplateRequest) (*CreateEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) UpdateEmailTemplate(context.Context, *UpdateEmailTemplateRequest) (*UpdateEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) DeleteEmailTemplate(context.Context, *DeleteEmailTemplateRequest) (*DeleteEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) RenderEmailTemplate(context.Context, *RenderEmailTemplateRequest) (*RenderEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RenderEmailTemplate not implemented")
+}
 func (UnimplementedEmailServiceServer) mustEmbedUnimplementedEmailServiceServer() {}
 func (UnimplementedEmailServiceServer) testEmbeddedByValue()                      {}
 
@@ -912,6 +1058,24 @@ func _EmailService_GetEmailAccount_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailAccounts(ctx, req.(*ListEmailAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EmailService_UpdateEmailAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateEmailAccountRequest)
 	if err := dec(in); err != nil {
@@ -944,6 +1108,24 @@ func _EmailService_DeleteEmailAccount_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(EmailServiceServer).DeleteEmailAccount(ctx, req.(*DeleteEmailAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_SetDefaultEmailAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultEmailAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).SetDefaultEmailAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_SetDefaultEmailAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).SetDefaultEmailAccount(ctx, req.(*SetDefaultEmailAccountRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1160,6 +1342,24 @@ func _EmailService_DeleteMessage_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(EmailServiceServer).DeleteMessage(ctx, req.(*DeleteMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_BulkMessageAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkMessageActionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).BulkMessageAction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_BulkMessageAction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).BulkMessageAction(ctx, req.(*BulkMessageActionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1758,6 +1958,114 @@ func _EmailService_AssignMessageLabels_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailTemplates(ctx, req.(*ListEmailTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_GetEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).GetEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_GetEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).GetEmailTemplate(ctx, req.(*GetEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_CreateEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).CreateEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_CreateEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).CreateEmailTemplate(ctx, req.(*CreateEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_UpdateEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).UpdateEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_UpdateEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).UpdateEmailTemplate(ctx, req.(*UpdateEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_DeleteEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).DeleteEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_DeleteEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).DeleteEmailTemplate(ctx, req.(*DeleteEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_RenderEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).RenderEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_RenderEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).RenderEmailTemplate(ctx, req.(*RenderEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EmailService_ServiceDesc is the grpc.ServiceDesc for EmailService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1774,12 +2082,20 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _EmailService_GetEmailAccount_Handler,
 		},
 		{
+			MethodName: "ListEmailAccounts",
+			Handler:    _EmailService_ListEmailAccounts_Handler,
+		},
+		{
 			MethodName: "UpdateEmailAccount",
 			Handler:    _EmailService_UpdateEmailAccount_Handler,
 		},
 		{
 			MethodName: "DeleteEmailAccount",
 			Handler:    _EmailService_DeleteEmailAccount_Handler,
+		},
+		{
+			MethodName: "SetDefaultEmailAccount",
+			Handler:    _EmailService_SetDefaultEmailAccount_Handler,
 		},
 		{
 			MethodName: "TestEmailConnection",
@@ -1828,6 +2144,10 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMessage",
 			Handler:    _EmailService_DeleteMessage_Handler,
+		},
+		{
+			MethodName: "BulkMessageAction",
+			Handler:    _EmailService_BulkMessageAction_Handler,
 		},
 		{
 			MethodName: "SendEmail",
@@ -1960,6 +2280,30 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AssignMessageLabels",
 			Handler:    _EmailService_AssignMessageLabels_Handler,
+		},
+		{
+			MethodName: "ListEmailTemplates",
+			Handler:    _EmailService_ListEmailTemplates_Handler,
+		},
+		{
+			MethodName: "GetEmailTemplate",
+			Handler:    _EmailService_GetEmailTemplate_Handler,
+		},
+		{
+			MethodName: "CreateEmailTemplate",
+			Handler:    _EmailService_CreateEmailTemplate_Handler,
+		},
+		{
+			MethodName: "UpdateEmailTemplate",
+			Handler:    _EmailService_UpdateEmailTemplate_Handler,
+		},
+		{
+			MethodName: "DeleteEmailTemplate",
+			Handler:    _EmailService_DeleteEmailTemplate_Handler,
+		},
+		{
+			MethodName: "RenderEmailTemplate",
+			Handler:    _EmailService_RenderEmailTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

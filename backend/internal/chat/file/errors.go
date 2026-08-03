@@ -12,4 +12,5 @@ var (
 	ErrFileDeleted      = errors.New("file has been deleted")
 	ErrNotAuthorized    = errors.New("not authorized to perform this action")
 	ErrScanFailed       = errors.New("file failed security scan")
+	ErrQuotaNotFound    = errors.New("storage quota not found for tenant")
 )

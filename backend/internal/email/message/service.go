@@ -136,6 +136,97 @@ func (s *Service) MoveToFolder(ctx context.Context, id uuid.UUID, folderID uuid.
 	return s.repo.MoveToFolder(ctx, id, folderID)
 }
 
+// SetStarred sets the starred state explicitly, unlike ToggleStar which flips
+// whatever the current value is. Bulk star/unstar need every selected message
+// to land in the same state regardless of where it started.
+func (s *Service) SetStarred(ctx context.Context, id uuid.UUID, starred bool) error {
+	return s.repo.UpdateFlags(ctx, id, nil, &starred)
+}
+
+// bulkActions are the actions BulkAction accepts. "move" additionally requires
+// target; the rest ignore it (archive/spam resolve their own target below).
+var bulkActions = map[string]bool{
+	"read": true, "unread": true, "star": true, "unstar": true,
+	"archive": true, "spam": true, "move": true, "delete": true,
+}
+
+// BulkAction applies action to every message in ids that belongs to tenantID.
+// An id that does not exist or belongs to another tenant is silently skipped
+// — not counted in the returned affected total, and not treated as a fatal
+// error for the rest of the batch. archive/spam resolve their destination
+// folder per message from that message's OWN account (a selection spanning
+// the unified inbox can touch several accounts, each with its own Archive/
+// Spam folder) and are skipped, not failed, if that account has none.
+func (s *Service) BulkAction(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID, action, target string) (int, error) {
+	if !bulkActions[action] {
+		return 0, ErrUnknownBulkAction
+	}
+
+	var moveFolderID uuid.UUID
+	if action == "move" {
+		if target == "" {
+			return 0, ErrBulkTargetRequired
+		}
+		parsed, err := uuid.Parse(target)
+		if err != nil {
+			return 0, ErrBulkTargetRequired
+		}
+		if _, err := s.folderRepo.GetByID(ctx, parsed); err != nil {
+			return 0, err
+		}
+		moveFolderID = parsed
+	}
+
+	folderType := ""
+	switch action {
+	case "archive":
+		folderType = models.FolderTypeArchive
+	case "spam":
+		folderType = models.FolderTypeSpam
+	}
+	resolvedAccountFolders := make(map[uuid.UUID]uuid.UUID)
+
+	affected := 0
+	for _, id := range ids {
+		msg, err := s.repo.GetByID(ctx, id, tenantID)
+		if err != nil {
+			continue
+		}
+
+		switch action {
+		case "read":
+			err = s.MarkRead(ctx, id)
+		case "unread":
+			err = s.MarkUnread(ctx, id)
+		case "star":
+			err = s.SetStarred(ctx, id, true)
+		case "unstar":
+			err = s.SetStarred(ctx, id, false)
+		case "delete":
+			err = s.Delete(ctx, id)
+		case "move":
+			err = s.MoveToFolder(ctx, id, moveFolderID)
+		case "archive", "spam":
+			folderID, ok := resolvedAccountFolders[msg.AccountID]
+			if !ok {
+				f, ferr := s.folderRepo.GetByAccountAndType(ctx, msg.AccountID, folderType)
+				if ferr != nil {
+					continue
+				}
+				folderID = f.ID
+				resolvedAccountFolders[msg.AccountID] = folderID
+			}
+			err = s.MoveToFolder(ctx, id, folderID)
+		}
+		if err != nil {
+			continue
+		}
+		affected++
+	}
+
+	return affected, nil
+}
+
 // Delete deletes a message.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.repo.Delete(ctx, id); err != nil {

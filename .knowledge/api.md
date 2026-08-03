@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-07-02
+updated: 2026-08-03
 ---
 # API-Referenz
 
@@ -65,6 +65,40 @@ updated: 2026-07-02
 | Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |
 
 > **RBAC Welle-2 (Migr. 234, 2026-06-26, `17e609e9`):** berichte/helpdesk/wiki/formulare/vertraege waren admin-only (manager+member → 403 auf allen Routen). Jetzt: `manager` = volle operative Rechte (read+write auf alle 5), `member` = read-only + Self-Service `formulare:submissions:write` (helpdesk bleibt für member read-only — flache Permission, write würde SLA/Queue-Config freigeben). Permissions existierten bereits (Seed 080/090/129); 234 fügt nur `role_permissions`-Rows hinzu (idempotent). Prod-Grant-Counts verifiziert: admin=20, manager=20, member=11. ⚠ Wirkt erst nach JWT-Refresh (perms im Token). Siehe [[security]].
+
+## Nachtlauf 4 — 42 neue Routen (2026-08-02/03, PR #17)
+
+Stand nach der letzten Iteration: **808 registrierte Routen / 810 OpenAPI-Pfade**
+(`TestOpenAPIRouteDrift`, harter CI-Fehler bei Drift).
+
+| Bereich | Routen | Notizen |
+|---|---|---|
+| **Rollen-Admin** | `/api/v1/admin/roles` CRUD + `/{id}/permissions` | RBAC Welle 1b: tenant-eigene Rollen neben System-Presets, Zuweisung ueber Rollen-**ID**. Guardrails + Audit-Events. Siehe [[security]] |
+| **User-Overrides** | `GET|PUT|DELETE /api/v1/admin/users/{id}/overrides` | `admin:user_override:manage`. Per-User-Abweichung vom Rollenstand, `deny` **und** `allow` |
+| **Admin-User-Verwaltung** | Roster + Invite unter `/api/v1/admin/users` | Invite traegt seit Migr. 280 Rollen-IDs |
+| **HR Self-Service** | `/api/v1/hr/change-requests` (+`/{id}/approve|reject|cancel`) | Antrag: `team:self:propose`, Entscheid: `team:data_personal:edit` |
+| **HR Offboarding** | `POST /api/v1/hr/employees/{id}/offboard` | `team:employee:offboard` |
+| **Vendor-Access** | Lifecycle unter `/api/v1/security/vendor-access` | Request → approve / decline / counter-propose, `security:vendor_access:manage` |
+| **Fuhrpark-Fuehrerschein** | `/api/v1/fuhrpark/licenses` CRUD | Fuehrerscheinkontrolle, `fuhrpark:license:read|write` |
+| **E-Mail-Templates** | `/api/v1/email/templates` CRUD + `POST /{id}/render` | Platzhalter-Ersetzung, s.u. |
+| **E-Mail Multi-Account** | `GET /api/v1/email/accounts/list`, `POST /{id}/default` | Mehrere Konten pro Nutzer (Migr. 285) |
+| **E-Mail Bulk** | `POST /api/v1/email/messages/bulk` | Sammelaktion auf Nachrichten |
+| **Dokument-Direktupload** | Multipart-Route im Document-Store | Ergaenzt den Presign-Weg fuer kleine Uploads |
+| **Notification-Mutes** | `DELETE /api/v1/notifications/mutes/{muteId}` | Gegenstueck zum bestehenden Mute |
+
+**Pfad-Korrekturen an den FE-Vertrag** (Routen existierten, lagen aber unter einem Pfad, den das FE
+nie aufrief): GDPR-Export, HR-Dokument-Kategorien, Finance- und Notification-Routen.
+
+**Platzhalter-Ersetzung in E-Mail-Templates** (`Service.Render`) iteriert ueber eine feste 6-Key-Liste
+(`AllowedPlaceholders`: contact_first_name/_last_name/_email, company_name, sender_name, today) und
+schlaegt jeden Key im Body nach — **nicht** umgekehrt ueber die vom Aufrufer gelieferten Keys. Ein Key
+ausserhalb der Liste wird nie gelesen, sein `{{key}}` bleibt literal stehen. Kein `text/template`,
+keine Reflection-basierte Feldaufloesung, damit ueber eine Vorlage nichts abfliessen kann, was der
+Aufrufer nicht ohnehin kennt.
+
+**IDOR-Konvention bei den neuen Routen:** `user_id`/`is_admin` loest der Handler serverseitig aus
+`middleware.GetUserID`/`IsAdmin` auf, nie aus dem Request-Body — die DTOs haben diese Felder bewusst
+nicht. Sichtbarkeitsverletzungen antworten mit *not found*, nicht 403 („invisible, not forbidden").
 
 ## Auth-Flow
 1. POST `/api/v1/auth/login` (email + password)

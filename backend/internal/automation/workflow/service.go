@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/automation/condition"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -54,11 +55,15 @@ type Service struct {
 	triggerCatalog  TriggerCatalog
 	actionCatalog   ActionCatalog
 	condEvaluator   *condition.Evaluator
+	idempotencyRepo idempotency.Repository
+	executor        Executor
 }
 
 // NewService creates a new workflow service.
 // triggerGet/triggerAll and actionGet/actionAllDefs are function references
 // from the trigger and action registries to avoid import cycles.
+// idempotencyRepo and executor are used exclusively by TriggerWebhook (the
+// inbound webhook-trigger path); every other method ignores them.
 func NewService(
 	repo Repository,
 	execRepo ExecutionRepository,
@@ -68,6 +73,8 @@ func NewService(
 	actionGet func(string) (any, bool),
 	actionAllDefs func() []any,
 	condEval *condition.Evaluator,
+	idempotencyRepo idempotency.Repository,
+	executor Executor,
 ) *Service {
 	return &Service{
 		repo:         repo,
@@ -81,7 +88,9 @@ func NewService(
 			getFn:    actionGet,
 			allDefFn: actionAllDefs,
 		},
-		condEvaluator: condEval,
+		condEvaluator:   condEval,
+		idempotencyRepo: idempotencyRepo,
+		executor:        executor,
 	}
 }
 
@@ -117,12 +126,20 @@ func (s *Service) Create(ctx context.Context, auto *models.Automation) error {
 		auto.Actions = json.RawMessage(`[]`)
 	}
 
+	if err := ensureWebhookSecret(auto); err != nil {
+		return err
+	}
+
 	return s.repo.Create(ctx, auto)
 }
 
 // Update updates an existing automation after validating its configuration.
 func (s *Service) Update(ctx context.Context, auto *models.Automation) error {
 	if err := s.validateAutomation(auto); err != nil {
+		return err
+	}
+
+	if err := ensureWebhookSecret(auto); err != nil {
 		return err
 	}
 

@@ -10,9 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin/config"
 )
+
+// testTenantID is the tenant every service test operates as. CreateManifest
+// stamps it on the manifest since 000276, so a bare context.Background() no
+// longer gets past the manifest paths.
+var testTenantID = uuid.MustParse("11111111-1111-1111-1111-111111111111")
+
+func tenantCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, testTenantID.String())
+}
 
 // ============================================================================
 // Mock Repositories
@@ -474,7 +484,7 @@ type testRepos struct {
 
 func TestCreateManifestConfigSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "test-plugin",
@@ -497,7 +507,7 @@ func TestCreateManifestConfigSuccess(t *testing.T) {
 
 func TestCreateManifestSlugExists(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "duplicate",
@@ -518,7 +528,7 @@ func TestCreateManifestSlugExists(t *testing.T) {
 
 func TestCreateManifestWASMBinaryRequired(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "wasm-no-binary",
@@ -531,7 +541,7 @@ func TestCreateManifestWASMBinaryRequired(t *testing.T) {
 
 func TestCreateManifestWASMBinaryNotAllowedForConfig(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "config-with-binary",
@@ -545,7 +555,7 @@ func TestCreateManifestWASMBinaryNotAllowedForConfig(t *testing.T) {
 
 func TestCreateManifestWASMSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "wasm-plugin",
@@ -560,7 +570,7 @@ func TestCreateManifestWASMSuccess(t *testing.T) {
 
 func TestGetManifestSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m := &models.PluginManifest{
 		Slug:       "get-me",
@@ -578,7 +588,7 @@ func TestGetManifestSuccess(t *testing.T) {
 
 func TestGetManifestNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.GetManifest(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrManifestNotFound)
@@ -586,7 +596,7 @@ func TestGetManifestNotFound(t *testing.T) {
 
 func TestListManifests(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "p1", Name: "P1", PluginType: models.PluginTypeConfig,
@@ -604,7 +614,7 @@ func TestListManifests(t *testing.T) {
 
 func TestDeleteManifestSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "delete-me", Name: "Delete Me", PluginType: models.PluginTypeConfig,
@@ -620,7 +630,7 @@ func TestDeleteManifestSuccess(t *testing.T) {
 
 func TestDeleteManifestNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.DeleteManifest(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrManifestNotFound)
@@ -628,7 +638,7 @@ func TestDeleteManifestNotFound(t *testing.T) {
 
 func TestDeleteManifestHasInstallations(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "has-installs", Name: "Has Installs", PluginType: models.PluginTypeConfig,
@@ -641,13 +651,49 @@ func TestDeleteManifestHasInstallations(t *testing.T) {
 	assert.ErrorIs(t, err, ErrPluginHasInstallations)
 }
 
+func TestCreateManifestStampsCallingTenant(t *testing.T) {
+	svc, _ := newTestService()
+
+	m, err := svc.CreateManifest(tenantCtx(), &models.PluginManifest{
+		Slug: "owned", Name: "Owned", PluginType: models.PluginTypeConfig,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, m.TenantID)
+	assert.Equal(t, testTenantID, *m.TenantID)
+}
+
+func TestCreateManifestWithoutTenantContext(t *testing.T) {
+	svc, _ := newTestService()
+
+	_, err := svc.CreateManifest(context.Background(), &models.PluginManifest{
+		Slug: "no-tenant", Name: "No Tenant", PluginType: models.PluginTypeConfig,
+	})
+	assert.Error(t, err)
+}
+
+// A catalogue manifest (tenant_id NULL) is readable by every tenant and owned
+// by none. Without this guard the DELETE would match no rows under the write
+// policy and still report success.
+func TestDeleteManifestCatalogueImmutable(t *testing.T) {
+	svc, repos := newTestService()
+
+	catalogue := &models.PluginManifest{
+		ID: uuid.New(), Slug: "catalogue", Name: "Catalogue", PluginType: models.PluginTypeConfig,
+	}
+	repos.manifests.manifests[catalogue.ID] = catalogue
+	repos.manifests.slugIndex[catalogue.Slug] = catalogue.ID
+
+	err := svc.DeleteManifest(tenantCtx(), catalogue.ID)
+	assert.ErrorIs(t, err, ErrManifestImmutable)
+}
+
 // ============================================================================
 // Installation Tests
 // ============================================================================
 
 func TestInstallPluginSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "installable", Name: "Installable", PluginType: models.PluginTypeConfig,
@@ -667,7 +713,7 @@ func TestInstallPluginSuccess(t *testing.T) {
 
 func TestInstallPluginManifestNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.InstallPlugin(ctx, uuid.New(), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrManifestNotFound)
@@ -675,7 +721,7 @@ func TestInstallPluginManifestNotFound(t *testing.T) {
 
 func TestInstallPluginAlreadyInstalled(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "double-install", Name: "Double", PluginType: models.PluginTypeConfig,
@@ -692,7 +738,7 @@ func TestInstallPluginAlreadyInstalled(t *testing.T) {
 
 func TestInstallPluginReinstallAfterUninstall(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "reinstall", Name: "Reinstall", PluginType: models.PluginTypeConfig,
@@ -713,7 +759,7 @@ func TestInstallPluginReinstallAfterUninstall(t *testing.T) {
 
 func TestGetInstallationSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "get-inst", Name: "Get Inst", PluginType: models.PluginTypeConfig,
@@ -730,7 +776,7 @@ func TestGetInstallationSuccess(t *testing.T) {
 
 func TestGetInstallationNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.GetInstallation(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -738,7 +784,7 @@ func TestGetInstallationNotFound(t *testing.T) {
 
 func TestEnablePluginSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "enable-me", Name: "Enable Me", PluginType: models.PluginTypeConfig,
@@ -755,7 +801,7 @@ func TestEnablePluginSuccess(t *testing.T) {
 
 func TestEnablePluginNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.EnablePlugin(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -763,7 +809,7 @@ func TestEnablePluginNotFound(t *testing.T) {
 
 func TestDisablePluginSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "disable-me", Name: "Disable Me", PluginType: models.PluginTypeConfig,
@@ -780,7 +826,7 @@ func TestDisablePluginSuccess(t *testing.T) {
 
 func TestUninstallPluginSuccess(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "uninstall-me", Name: "Uninstall Me", PluginType: models.PluginTypeConfig,
@@ -809,7 +855,7 @@ func TestUninstallPluginSuccess(t *testing.T) {
 
 func TestUninstallPluginNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.UninstallPlugin(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -821,7 +867,7 @@ func TestUninstallPluginNotFound(t *testing.T) {
 
 func TestApprovePermissionsSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug:        "perm-plugin",
@@ -846,7 +892,7 @@ func TestApprovePermissionsSuccess(t *testing.T) {
 
 func TestApprovePermissionsNotDeclared(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug:        "limited-perm",
@@ -865,7 +911,7 @@ func TestApprovePermissionsNotDeclared(t *testing.T) {
 
 func TestApprovePermissionsInstallationNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.ApprovePermissions(ctx, uuid.New(), []string{"read:contacts"}, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -873,7 +919,7 @@ func TestApprovePermissionsInstallationNotFound(t *testing.T) {
 
 func TestHasPermission(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug:        "has-perm",
@@ -904,7 +950,7 @@ func TestHasPermission(t *testing.T) {
 
 func TestUpdatePluginSettingsSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	schema := json.RawMessage(`{
 		"type": "object",
@@ -937,7 +983,7 @@ func TestUpdatePluginSettingsSuccess(t *testing.T) {
 
 func TestUpdatePluginSettingsInvalid(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	schema := json.RawMessage(`{
 		"type": "object",
@@ -966,7 +1012,7 @@ func TestUpdatePluginSettingsInvalid(t *testing.T) {
 
 func TestGetPluginSettingsNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.GetPluginSettings(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -974,7 +1020,7 @@ func TestGetPluginSettingsNotFound(t *testing.T) {
 
 func TestGetPluginSettingsSchema(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	schema := json.RawMessage(`{"type": "object", "properties": {"key": {"type": "string"}}}`)
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
@@ -999,7 +1045,7 @@ func TestGetPluginSettingsSchema(t *testing.T) {
 
 func TestKVSetAndGet(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	instID := uuid.New()
 
 	value := json.RawMessage(`{"foo": "bar"}`)
@@ -1014,7 +1060,7 @@ func TestKVSetAndGet(t *testing.T) {
 
 func TestKVGetNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, found, err := svc.KVGet(ctx, uuid.New(), "nonexistent")
 	require.NoError(t, err)
@@ -1023,7 +1069,7 @@ func TestKVGetNotFound(t *testing.T) {
 
 func TestKVDelete(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	instID := uuid.New()
 
 	err := svc.KVSet(ctx, instID, "delete-key", json.RawMessage(`"value"`))
@@ -1039,7 +1085,7 @@ func TestKVDelete(t *testing.T) {
 
 func TestKVList(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	instID := uuid.New()
 
 	err := svc.KVSet(ctx, instID, "key1", json.RawMessage(`"v1"`))
@@ -1058,7 +1104,7 @@ func TestKVList(t *testing.T) {
 
 func TestCreateValidationRuleSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule := &models.ValidationRule{
 		TenantID:     uuid.New(),
@@ -1081,7 +1127,7 @@ func TestCreateValidationRuleSuccess(t *testing.T) {
 
 func TestListValidationRules(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	_, err := svc.CreateValidationRule(ctx, &models.ValidationRule{
@@ -1107,7 +1153,7 @@ func TestListValidationRules(t *testing.T) {
 
 func TestDeleteValidationRuleSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule, err := svc.CreateValidationRule(ctx, &models.ValidationRule{
 		TenantID:   uuid.New(),
@@ -1123,7 +1169,7 @@ func TestDeleteValidationRuleSuccess(t *testing.T) {
 
 func TestDeleteValidationRuleNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.DeleteValidationRule(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrValidationRuleNotFound)
@@ -1131,7 +1177,7 @@ func TestDeleteValidationRuleNotFound(t *testing.T) {
 
 func TestUpdateValidationRule(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule, err := svc.CreateValidationRule(ctx, &models.ValidationRule{
 		TenantID:     uuid.New(),
@@ -1162,7 +1208,7 @@ func TestUpdateValidationRule(t *testing.T) {
 
 func TestUpdateValidationRuleNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.UpdateValidationRule(ctx, &models.ValidationRule{
 		ID:   uuid.New(),
@@ -1173,7 +1219,7 @@ func TestUpdateValidationRuleNotFound(t *testing.T) {
 
 func TestValidateEntity(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	_, err := svc.CreateValidationRule(ctx, &models.ValidationRule{
@@ -1207,7 +1253,7 @@ func TestValidateEntity(t *testing.T) {
 
 func TestCreateWorkflowRuleSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule := &models.WorkflowRule{
 		TenantID:     uuid.New(),
@@ -1227,7 +1273,7 @@ func TestCreateWorkflowRuleSuccess(t *testing.T) {
 
 func TestListWorkflowRules(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	_, err := svc.CreateWorkflowRule(ctx, &models.WorkflowRule{
@@ -1246,7 +1292,7 @@ func TestListWorkflowRules(t *testing.T) {
 
 func TestDeleteWorkflowRuleSuccess(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule, err := svc.CreateWorkflowRule(ctx, &models.WorkflowRule{
 		TenantID:     uuid.New(),
@@ -1263,7 +1309,7 @@ func TestDeleteWorkflowRuleSuccess(t *testing.T) {
 
 func TestDeleteWorkflowRuleNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.DeleteWorkflowRule(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrWorkflowRuleNotFound)
@@ -1271,7 +1317,7 @@ func TestDeleteWorkflowRuleNotFound(t *testing.T) {
 
 func TestUpdateWorkflowRule(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	rule, err := svc.CreateWorkflowRule(ctx, &models.WorkflowRule{
 		TenantID:     uuid.New(),
@@ -1300,7 +1346,7 @@ func TestUpdateWorkflowRule(t *testing.T) {
 
 func TestUpdateWorkflowRuleNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.UpdateWorkflowRule(ctx, &models.WorkflowRule{
 		ID:   uuid.New(),
@@ -1311,7 +1357,7 @@ func TestUpdateWorkflowRuleNotFound(t *testing.T) {
 
 func TestEvaluateWorkflows(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	_, err := svc.CreateWorkflowRule(ctx, &models.WorkflowRule{
@@ -1345,7 +1391,7 @@ func TestEvaluateWorkflows(t *testing.T) {
 
 func TestLogExecution(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	log := &models.PluginExecutionLog{
 		InstallationID: uuid.New(),
@@ -1365,7 +1411,7 @@ func TestLogExecution(t *testing.T) {
 
 func TestListExecutionLogs(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	for i := 0; i < 3; i++ {
@@ -1391,7 +1437,7 @@ func TestListExecutionLogs(t *testing.T) {
 
 func TestListIndustryTemplates(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	id := uuid.New()
 	repos.templates.templates[id] = &models.IndustryTemplate{
@@ -1409,7 +1455,7 @@ func TestListIndustryTemplates(t *testing.T) {
 
 func TestApplyIndustryTemplateSuccess(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 	tenantID := uuid.New()
 
 	tmplID := uuid.New()
@@ -1445,7 +1491,7 @@ func TestApplyIndustryTemplateSuccess(t *testing.T) {
 
 func TestApplyIndustryTemplateNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	err := svc.ApplyIndustryTemplate(ctx, uuid.New(), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrTemplateNotFound)
@@ -1457,7 +1503,7 @@ func TestApplyIndustryTemplateNotFound(t *testing.T) {
 
 func TestGetManifestForInstallation(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug: "manifest-lookup", Name: "Manifest Lookup", PluginType: models.PluginTypeConfig,
@@ -1474,7 +1520,7 @@ func TestGetManifestForInstallation(t *testing.T) {
 
 func TestGetManifestForInstallationNotFound(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	_, err := svc.GetManifestForInstallation(ctx, uuid.New())
 	assert.ErrorIs(t, err, ErrInstallationNotFound)
@@ -1482,7 +1528,7 @@ func TestGetManifestForInstallationNotFound(t *testing.T) {
 
 func TestGetWASMBinary(t *testing.T) {
 	svc, _ := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	binary := []byte("wasm-content-here")
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
@@ -1504,7 +1550,7 @@ func TestGetWASMBinary(t *testing.T) {
 
 func TestListInstallationsEnrichesPermissions(t *testing.T) {
 	svc, repos := newTestService()
-	ctx := context.Background()
+	ctx := tenantCtx()
 
 	m, err := svc.CreateManifest(ctx, &models.PluginManifest{
 		Slug:        "list-inst",

@@ -748,6 +748,39 @@ func (s *Service) DeleteVehicleDocument(ctx context.Context, tenantID, id uuid.U
 }
 
 // ============================================================================
+// Driver Licenses
+// ============================================================================
+
+// ListDriverLicenses retrieves driver license checks, optionally filtered by driver.
+func (s *Service) ListDriverLicenses(ctx context.Context, params ListDriverLicensesParams) ([]DriverLicense, int, error) {
+	return s.repo.ListDriverLicenses(ctx, params)
+}
+
+// CreateDriverLicense records a new driver license compliance check.
+func (s *Service) CreateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error) {
+	if lic.DriverID == (uuid.UUID{}) || lic.NextCheckDueDate.IsZero() {
+		return DriverLicense{}, ErrInvalidInput
+	}
+	if lic.CheckedAt.IsZero() {
+		lic.CheckedAt = time.Now()
+	}
+	return s.repo.CreateDriverLicense(ctx, lic)
+}
+
+// UpdateDriverLicense corrects an existing driver license check entry.
+func (s *Service) UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error) {
+	if lic.ID == (uuid.UUID{}) || lic.NextCheckDueDate.IsZero() {
+		return DriverLicense{}, ErrInvalidInput
+	}
+	return s.repo.UpdateDriverLicense(ctx, lic)
+}
+
+// DeleteDriverLicense deletes a driver license check entry.
+func (s *Service) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.DeleteDriverLicense(ctx, tenantID, id)
+}
+
+// ============================================================================
 // GPS
 // ============================================================================
 

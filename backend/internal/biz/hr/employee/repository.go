@@ -2,6 +2,7 @@ package employee
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,6 +16,31 @@ type EmployeeRepository interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmployeeProfile, error)
 	List(ctx context.Context, filter EmployeeFilter) ([]*models.EmployeeProfile, int, error)
 	Update(ctx context.Context, profile *models.EmployeeProfile) error
+
+	CountOtherActiveRoleAdmins(ctx context.Context, userID uuid.UUID) (int, error)
+	CountDirectReports(ctx context.Context, tenantID, userID uuid.UUID) (int, error)
+	Offboard(ctx context.Context, in OffboardWrite) (*models.EmployeeProfile, error)
+}
+
+// OffboardWrite is the resolved input of the exit cascade. Everything in it has
+// already been validated and looked up by the service; the repository only runs
+// the transaction.
+type OffboardWrite struct {
+	TenantID   uuid.UUID
+	EmployeeID uuid.UUID
+	// UserID is the leaver's account, resolved from the profile rather than
+	// taken from the request.
+	UserID      uuid.UUID
+	LastWorkDay *time.Time
+	ExitDate    time.Time
+	ExitType    string
+	ExitReason  string
+	// SuccessorUserID is nil when the leaver has no direct reports.
+	SuccessorUserID *uuid.UUID
+	// LeaverManagerUserID is the leaver's own manager; the successor and
+	// everyone between them and the leaver inherit it, which is what keeps the
+	// reassignment free of cycles.
+	LeaverManagerUserID *uuid.UUID
 }
 
 // DocumentCategoryRepository defines the interface for HR document category persistence.

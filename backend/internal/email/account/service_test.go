@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -41,24 +42,18 @@ func (m *mockEncryptor) Decrypt(ctx context.Context, encrypted string) ([]byte, 
 
 type mockRepo struct {
 	accounts map[uuid.UUID]*models.EmailAccount
-	byUser   map[uuid.UUID]*models.EmailAccount
 }
 
 func newMockRepo() *mockRepo {
 	return &mockRepo{
 		accounts: make(map[uuid.UUID]*models.EmailAccount),
-		byUser:   make(map[uuid.UUID]*models.EmailAccount),
 	}
 }
 
 func (r *mockRepo) Create(ctx context.Context, account *models.EmailAccount) error {
-	if _, exists := r.byUser[account.UserID]; exists {
-		return ErrAccountExists
-	}
 	// Store a copy to avoid the service modifying the stored value
 	copy := *account
 	r.accounts[account.ID] = &copy
-	r.byUser[account.UserID] = &copy
 	return nil
 }
 
@@ -76,15 +71,25 @@ func (r *mockRepo) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 }
 
 func (r *mockRepo) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
-	a, ok := r.byUser[userID]
-	if !ok {
-		return nil, ErrAccountNotFound
+	for _, a := range r.accounts {
+		if a.UserID == userID && a.TenantID == tenantID && a.IsDefault {
+			copy := *a
+			return &copy, nil
+		}
 	}
-	if a.TenantID != tenantID {
-		return nil, ErrAccountNotFound
+	return nil, ErrAccountNotFound
+}
+
+func (r *mockRepo) ListByUserAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAccount, error) {
+	var result []*models.EmailAccount
+	for _, a := range r.accounts {
+		if a.UserID == userID && a.TenantID == tenantID {
+			copy := *a
+			result = append(result, &copy)
+		}
 	}
-	copy := *a
-	return &copy, nil
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
+	return result, nil
 }
 
 func (r *mockRepo) Update(ctx context.Context, account *models.EmailAccount) error {
@@ -93,7 +98,6 @@ func (r *mockRepo) Update(ctx context.Context, account *models.EmailAccount) err
 	}
 	copy := *account
 	r.accounts[account.ID] = &copy
-	r.byUser[account.UserID] = &copy
 	return nil
 }
 
@@ -106,7 +110,17 @@ func (r *mockRepo) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID)
 		return ErrAccountNotFound
 	}
 	delete(r.accounts, id)
-	delete(r.byUser, a.UserID)
+	return nil
+}
+
+// SetDefault mirrors the atomic single-statement semantics of the real
+// repository: id becomes the sole default for userID within tenantID.
+func (r *mockRepo) SetDefault(ctx context.Context, id uuid.UUID, userID uuid.UUID, tenantID uuid.UUID) error {
+	for _, a := range r.accounts {
+		if a.UserID == userID && a.TenantID == tenantID {
+			a.IsDefault = a.ID == id
+		}
+	}
 	return nil
 }
 
@@ -192,18 +206,28 @@ func TestService_Create(t *testing.T) {
 		assert.Equal(t, encryptedValue, stored.PasswordEncrypted)
 	})
 
-	t.Run("duplicate user same tenant rejected", func(t *testing.T) {
+	t.Run("first account becomes default, second does not", func(t *testing.T) {
 		repo := newMockRepo()
 		enc := &mockEncryptor{}
 		svc := NewService(repo, enc)
 
-		input := validInput()
-		_, err := svc.Create(context.Background(), testTenantID, input)
+		userID := uuid.New()
+		input1 := validInput()
+		input1.UserID = userID
+		account1, err := svc.Create(context.Background(), testTenantID, input1)
 		require.NoError(t, err)
+		assert.True(t, account1.IsDefault)
 
-		// Same user, same tenant again
-		_, err = svc.Create(context.Background(), testTenantID, input)
-		assert.ErrorIs(t, err, ErrAccountExists)
+		input2 := validInput()
+		input2.UserID = userID
+		input2.EmailAddress = "second@example.com"
+		account2, err := svc.Create(context.Background(), testTenantID, input2)
+		require.NoError(t, err)
+		assert.False(t, account2.IsDefault)
+
+		accounts, err := svc.ListByUserAndTenant(context.Background(), userID, testTenantID)
+		require.NoError(t, err)
+		assert.Len(t, accounts, 2)
 	})
 
 	t.Run("invalid email rejected", func(t *testing.T) {
@@ -416,6 +440,133 @@ func TestService_Delete(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		err := svc.Delete(context.Background(), uuid.New(), testTenantID)
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+
+	t.Run("deleting the default promotes the oldest remaining account", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		userID := uuid.New()
+		input1 := validInput()
+		input1.UserID = userID
+		accountA, err := svc.Create(context.Background(), testTenantID, input1)
+		require.NoError(t, err)
+		assert.True(t, accountA.IsDefault)
+
+		input2 := validInput()
+		input2.UserID = userID
+		input2.EmailAddress = "second@example.com"
+		accountB, err := svc.Create(context.Background(), testTenantID, input2)
+		require.NoError(t, err)
+		assert.False(t, accountB.IsDefault)
+
+		require.NoError(t, svc.Delete(context.Background(), accountA.ID, testTenantID))
+
+		promoted, err := svc.GetByID(context.Background(), accountB.ID, testTenantID)
+		require.NoError(t, err)
+		assert.True(t, promoted.IsDefault)
+
+		got, err := svc.GetByUserIDAndTenant(context.Background(), userID, testTenantID)
+		require.NoError(t, err)
+		assert.Equal(t, accountB.ID, got.ID)
+	})
+
+	t.Run("deleting the last account leaves no default", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), testTenantID, input)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.Delete(context.Background(), account.ID, testTenantID))
+
+		accounts, err := svc.ListByUserAndTenant(context.Background(), input.UserID, testTenantID)
+		require.NoError(t, err)
+		assert.Empty(t, accounts)
+	})
+
+	t.Run("deleting a non-default account does not touch the default", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		userID := uuid.New()
+		input1 := validInput()
+		input1.UserID = userID
+		accountA, err := svc.Create(context.Background(), testTenantID, input1)
+		require.NoError(t, err)
+
+		input2 := validInput()
+		input2.UserID = userID
+		input2.EmailAddress = "second@example.com"
+		accountB, err := svc.Create(context.Background(), testTenantID, input2)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.Delete(context.Background(), accountB.ID, testTenantID))
+
+		got, err := svc.GetByID(context.Background(), accountA.ID, testTenantID)
+		require.NoError(t, err)
+		assert.True(t, got.IsDefault)
+	})
+}
+
+func TestService_SetDefault(t *testing.T) {
+	t.Run("switches default and clears the prior one", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		userID := uuid.New()
+		input1 := validInput()
+		input1.UserID = userID
+		accountA, err := svc.Create(context.Background(), testTenantID, input1)
+		require.NoError(t, err)
+
+		input2 := validInput()
+		input2.UserID = userID
+		input2.EmailAddress = "second@example.com"
+		accountB, err := svc.Create(context.Background(), testTenantID, input2)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.SetDefault(context.Background(), accountB.ID, testTenantID))
+
+		gotB, err := svc.GetByID(context.Background(), accountB.ID, testTenantID)
+		require.NoError(t, err)
+		assert.True(t, gotB.IsDefault)
+
+		gotA, err := svc.GetByID(context.Background(), accountA.ID, testTenantID)
+		require.NoError(t, err)
+		assert.False(t, gotA.IsDefault)
+
+		got, err := svc.GetByUserIDAndTenant(context.Background(), userID, testTenantID)
+		require.NoError(t, err)
+		assert.Equal(t, accountB.ID, got.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		err := svc.SetDefault(context.Background(), uuid.New(), testTenantID)
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+
+	t.Run("wrong tenant rejected", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), testTenantID, input)
+		require.NoError(t, err)
+
+		otherTenant := uuid.New()
+		err = svc.SetDefault(context.Background(), account.ID, otherTenant)
 		assert.ErrorIs(t, err, ErrAccountNotFound)
 	})
 }

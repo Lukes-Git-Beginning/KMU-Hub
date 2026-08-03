@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
@@ -328,6 +329,66 @@ func (s *DocumentGRPCServer) RegisterUploadedFile(ctx context.Context, req *docu
 	}
 
 	return &documentv1.RegisterUploadedFileResponse{File: toProtoFile(f)}, nil
+}
+
+// UploadFile stores file bytes the gateway received over multipart directly
+// (unlike RegisterUploadedFile, whose bytes already sit in MinIO). folder_id
+// is resolved through the tenant-scoped folder service BEFORE anything is
+// written — folderService.GetByID returns folder.ErrFolderNotFound for a
+// folder outside the caller's tenant, which is exactly the check that keeps
+// this endpoint from writing into another tenant's folder. The resolved
+// folder's own space also seeds the storage key, matching how fileService.Upload
+// is used everywhere else in this package.
+func (s *DocumentGRPCServer) UploadFile(ctx context.Context, req *documentv1.UploadFileRequest) (*documentv1.UploadFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	folderID, err := uuid.Parse(req.FolderId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
+	}
+	ownerID, err := uuid.Parse(req.OwnerId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid owner id")
+	}
+
+	targetFolder, err := s.folderService.GetByID(ctx, tenantID, folderID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	f, err := s.fileService.Upload(ctx, file.UploadInput{
+		TenantID:  tenantID,
+		FolderID:  folderID,
+		Filename:  req.Filename,
+		MimeType:  req.MimeType,
+		FileSize:  req.FileSize,
+		Reader:    bytes.NewReader(req.Content),
+		SpaceType: targetFolder.SpaceType,
+		SpaceID:   targetFolder.SpaceID,
+		OwnerID:   ownerID,
+	})
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	// tag_id is optional. TagFile itself verifies the tag belongs to the
+	// caller's tenant (tag.PostgresRepository.TagFile) — a tag from another
+	// tenant is rejected the same way a foreign folder would be, not silently
+	// attached.
+	if req.TagId != "" {
+		tagID, err := uuid.Parse(req.TagId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tag id")
+		}
+		if err := s.tagService.TagFile(ctx, tenantID, f.ID, tagID); err != nil {
+			return nil, mapDocumentError(err)
+		}
+	}
+
+	return &documentv1.UploadFileResponse{File: toProtoFile(f)}, nil
 }
 
 func (s *DocumentGRPCServer) ListFiles(ctx context.Context, req *documentv1.ListFilesRequest) (*documentv1.ListFilesResponse, error) {

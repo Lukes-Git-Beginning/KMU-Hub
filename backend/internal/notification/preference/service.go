@@ -251,9 +251,9 @@ func (s *Service) MuteResource(ctx context.Context, tenantID uuid.UUID, userID u
 	return mute, nil
 }
 
-// UnmuteResource removes a mute for a specific resource within a tenant.
-func (s *Service) UnmuteResource(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
-	return s.repo.DeleteMute(ctx, tenantID, userID, moduleID, resourceID)
+// UnmuteResource removes a mute by ID, scoped to the requesting tenant and user.
+func (s *Service) UnmuteResource(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, muteID uuid.UUID) error {
+	return s.repo.DeleteMute(ctx, tenantID, userID, muteID)
 }
 
 // ListMutedResources returns muted resources for a user within a tenant.

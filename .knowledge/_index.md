@@ -1,10 +1,23 @@
 ---
 tags: [index]
-updated: 2026-06-18
+updated: 2026-08-03
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-06-18)
+## Projektstand (2026-08-03)
+
+**Backend-Nachtlaeufe 1–4 durch.** Der Backend-Loop (`.planning/backend-block/loop/`) hat in vier
+Naechten die Migrationen **243–287** geliefert: Feature-Nachzug quer durch die Module (Laeufe 1+3,
+243–268), dann in Lauf 4 die RLS-Welle (20 Tabellen nachgezogen, dazu ein Standing-Guard, der die
+naechste Luecke selbst findet), **RBAC Phase 1** (tenant-eigene Rollen + per-User-Overrides) und 42
+neue Routen. **Repo-Kopf 287**, Prod folgt mit PR #17. Lauf 4 lief fehlerfrei durch (48 Iterationen,
+94 Commits, CI gruen). Der Backlog ist damit praktisch leer — ein Lauf 5 braucht zuerst
+`.planning/backend-block/PROMPT-BACKLOG-NACHLEGEN.md`.
+
+Details: [[datenbank]] (Migrationen + RLS-Muster) · [[security]] (RBAC Phase 1, `sysctx`-Merksatz) ·
+[[api]] (neue Routen) · [[testing]] (RLS-Guard, Test-Fallstricke) · [[architektur]] (Automation-Trigger).
+
+## Projektstand (2026-06-18, historisch)
 
 **Aktueller Stand (live gemessen 2026-06-18):** Sprint 4 aktiv (2026-06-08–06-21, Tag 11/14), Sprint 5 (Pre-Launch-Audit + Rigorosum R3) ab 06-22. **Alle 16 P0-Launch-Blocker dicht** (7 R1 + 9 R2, zuletzt R2-P0.4 am 2026-06-05); launch-kritisch offen nur noch R2-P1.10 (Partitionierung). `COSMI_ENV=production` seit 2026-06-05 **scharf**, **RLS produktiv**. **Finance-Normalisierung** nach ADR-0007 (Migr. 000132/133) erledigt. **FE↔Backend-Wiring-Wellen** laufen (helpdesk/schichten/hr/wiki/rapporte/inventar/vermietung gewired; fuhrpark/einkauf/produktion Welle 3 offen). **Repo-Migrationskopf 000213 / Production 209** (CD-Lag 4 Migr.), **24 `backend/cmd/*`-Dirs** (23 µSvc + Gateway), **17 Feature-Flags**. Kombinierte Launch-Reife 3.7 (Rigorosum R3 in S5). Detail-Historie: [[milestones]].
 

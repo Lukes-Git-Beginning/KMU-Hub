@@ -25,10 +25,20 @@ type Claims struct {
 	Permissions []string `json:"perms"`
 
 	// Scopes carries only the capability keys that reach less far than the
-	// whole tenant, as key -> "own" | "team" (see Service.NarrowedScopes).
+	// whole tenant, as key -> "own" | "team" (see narrowScopes).
 	// A key that is absent — and every key in a token minted before this claim
 	// existed — reaches "all".
 	Scopes map[string]string `json:"scopes,omitempty"`
+
+	// Denied lists the capability keys a per-user deny override took away.
+	// They are already missing from Permissions; this claim carries the
+	// difference between "never had it" and "taken away", which
+	// RequirePermissionAny needs: 154 of its 164 call sites pair a coarse
+	// legacy key with the fine key that replaced it, and without this list the
+	// coarse one would keep the door open against an explicit deny.
+	// Absent in tokens minted before this claim existed, which reads as "no
+	// override denies anything" — the behaviour those tokens already had.
+	Denied []string `json:"den,omitempty"`
 }
 
 func NewTokenMaker(secret string, accessExpiry, refreshExpiry time.Duration) *TokenMaker {
@@ -42,8 +52,9 @@ func NewTokenMaker(secret string, accessExpiry, refreshExpiry time.Duration) *To
 // CreateAccessToken creates a signed JWT containing the user identity, tenant, roles and permissions.
 // tenantID must be a non-empty UUID string; an empty string results in a legacy token that will be
 // rejected by GetTenantID in the middleware (fail-closed).
-// scopes may be nil, which means every permission in the token reaches "all".
-func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles, permissions []string, scopes map[string]string) (string, error) {
+// perms carries the allow set, the denied keys and the narrowed scopes together — they are resolved
+// as one answer (Service.ResolveTokenPermissions) and must not be assembled from separate sources.
+func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles []string, perms *TokenPermissions) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -54,8 +65,9 @@ func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles
 		UserID:      userID.String(),
 		TenantID:    tenantID,
 		Roles:       roles,
-		Permissions: permissions,
-		Scopes:      scopes,
+		Permissions: perms.Permissions,
+		Scopes:      perms.Scopes,
+		Denied:      perms.Denied,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

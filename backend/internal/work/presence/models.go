@@ -37,12 +37,13 @@ type UserPresence struct {
 	LastName  string `json:"last_name,omitempty"`
 }
 
-// PresenceConfig holds system-wide presence configuration
+// PresenceConfig holds a tenant's presence configuration
 type PresenceConfig struct {
-	ID                  uuid.UUID  `json:"id"`
-	AwayTimeoutSeconds  int        `json:"away_timeout_seconds"`
-	UpdatedAt           time.Time  `json:"updated_at"`
-	UpdatedBy           *uuid.UUID `json:"updated_by,omitempty"`
+	ID                 uuid.UUID  `json:"id"`
+	TenantID           uuid.UUID  `json:"tenant_id"`
+	AwayTimeoutSeconds int        `json:"away_timeout_seconds"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	UpdatedBy          *uuid.UUID `json:"updated_by,omitempty"`
 }
 
 // DefaultAwayTimeoutSeconds is the default idle timeout before marking a user as away

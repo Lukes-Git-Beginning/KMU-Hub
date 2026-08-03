@@ -19,55 +19,61 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	HRService_CreateLeaveRequest_FullMethodName      = "/hr.v1.HRService/CreateLeaveRequest"
-	HRService_GetLeaveRequest_FullMethodName         = "/hr.v1.HRService/GetLeaveRequest"
-	HRService_ListLeaveRequests_FullMethodName       = "/hr.v1.HRService/ListLeaveRequests"
-	HRService_ApproveLeaveRequest_FullMethodName     = "/hr.v1.HRService/ApproveLeaveRequest"
-	HRService_RejectLeaveRequest_FullMethodName      = "/hr.v1.HRService/RejectLeaveRequest"
-	HRService_CancelLeaveRequest_FullMethodName      = "/hr.v1.HRService/CancelLeaveRequest"
-	HRService_GetLeaveBalance_FullMethodName         = "/hr.v1.HRService/GetLeaveBalance"
-	HRService_GetEmployeeLeaveBalance_FullMethodName = "/hr.v1.HRService/GetEmployeeLeaveBalance"
-	HRService_ListLeaveTypes_FullMethodName          = "/hr.v1.HRService/ListLeaveTypes"
-	HRService_RecordSickLeave_FullMethodName         = "/hr.v1.HRService/RecordSickLeave"
-	HRService_ClockIn_FullMethodName                 = "/hr.v1.HRService/ClockIn"
-	HRService_ClockOut_FullMethodName                = "/hr.v1.HRService/ClockOut"
-	HRService_StartBreak_FullMethodName              = "/hr.v1.HRService/StartBreak"
-	HRService_EndBreak_FullMethodName                = "/hr.v1.HRService/EndBreak"
-	HRService_GetActiveShift_FullMethodName          = "/hr.v1.HRService/GetActiveShift"
-	HRService_ListWorkTimeEntries_FullMethodName     = "/hr.v1.HRService/ListWorkTimeEntries"
-	HRService_GetDailySummary_FullMethodName         = "/hr.v1.HRService/GetDailySummary"
-	HRService_GetWeeklySummary_FullMethodName        = "/hr.v1.HRService/GetWeeklySummary"
-	HRService_SubmitTimeCorrection_FullMethodName    = "/hr.v1.HRService/SubmitTimeCorrection"
-	HRService_ApproveTimeCorrection_FullMethodName   = "/hr.v1.HRService/ApproveTimeCorrection"
-	HRService_CreateManualEntry_FullMethodName       = "/hr.v1.HRService/CreateManualEntry"
-	HRService_GetTimeBalance_FullMethodName          = "/hr.v1.HRService/GetTimeBalance"
-	HRService_GetTimeAnalytics_FullMethodName        = "/hr.v1.HRService/GetTimeAnalytics"
-	HRService_GetTeamTime_FullMethodName             = "/hr.v1.HRService/GetTeamTime"
-	HRService_GetMyWeekStatus_FullMethodName         = "/hr.v1.HRService/GetMyWeekStatus"
-	HRService_SubmitWeek_FullMethodName              = "/hr.v1.HRService/SubmitWeek"
-	HRService_ApproveWeek_FullMethodName             = "/hr.v1.HRService/ApproveWeek"
-	HRService_RejectWeek_FullMethodName              = "/hr.v1.HRService/RejectWeek"
-	HRService_ReopenWeek_FullMethodName              = "/hr.v1.HRService/ReopenWeek"
-	HRService_ListTimeCategories_FullMethodName      = "/hr.v1.HRService/ListTimeCategories"
-	HRService_CreateTimeCategory_FullMethodName      = "/hr.v1.HRService/CreateTimeCategory"
-	HRService_UpdateTimeCategory_FullMethodName      = "/hr.v1.HRService/UpdateTimeCategory"
-	HRService_DeleteTimeCategory_FullMethodName      = "/hr.v1.HRService/DeleteTimeCategory"
-	HRService_ListTimeTemplates_FullMethodName       = "/hr.v1.HRService/ListTimeTemplates"
-	HRService_CreateTimeTemplate_FullMethodName      = "/hr.v1.HRService/CreateTimeTemplate"
-	HRService_DeleteTimeTemplate_FullMethodName      = "/hr.v1.HRService/DeleteTimeTemplate"
-	HRService_ListTimeProjects_FullMethodName        = "/hr.v1.HRService/ListTimeProjects"
-	HRService_CreateTimeProject_FullMethodName       = "/hr.v1.HRService/CreateTimeProject"
-	HRService_GetAbsenceCalendar_FullMethodName      = "/hr.v1.HRService/GetAbsenceCalendar"
-	HRService_ListEmployees_FullMethodName           = "/hr.v1.HRService/ListEmployees"
-	HRService_GetEmployee_FullMethodName             = "/hr.v1.HRService/GetEmployee"
-	HRService_UpdateEmployee_FullMethodName          = "/hr.v1.HRService/UpdateEmployee"
-	HRService_UpdateSelfProfile_FullMethodName       = "/hr.v1.HRService/UpdateSelfProfile"
-	HRService_ListEmployeeDocuments_FullMethodName   = "/hr.v1.HRService/ListEmployeeDocuments"
-	HRService_UploadEmployeeDocument_FullMethodName  = "/hr.v1.HRService/UploadEmployeeDocument"
-	HRService_ListDocumentCategories_FullMethodName  = "/hr.v1.HRService/ListDocumentCategories"
-	HRService_CreateEmployee_FullMethodName          = "/hr.v1.HRService/CreateEmployee"
-	HRService_GetHRSettings_FullMethodName           = "/hr.v1.HRService/GetHRSettings"
-	HRService_UpdateHRSettings_FullMethodName        = "/hr.v1.HRService/UpdateHRSettings"
+	HRService_CreateLeaveRequest_FullMethodName          = "/hr.v1.HRService/CreateLeaveRequest"
+	HRService_GetLeaveRequest_FullMethodName             = "/hr.v1.HRService/GetLeaveRequest"
+	HRService_ListLeaveRequests_FullMethodName           = "/hr.v1.HRService/ListLeaveRequests"
+	HRService_ApproveLeaveRequest_FullMethodName         = "/hr.v1.HRService/ApproveLeaveRequest"
+	HRService_RejectLeaveRequest_FullMethodName          = "/hr.v1.HRService/RejectLeaveRequest"
+	HRService_CancelLeaveRequest_FullMethodName          = "/hr.v1.HRService/CancelLeaveRequest"
+	HRService_GetLeaveBalance_FullMethodName             = "/hr.v1.HRService/GetLeaveBalance"
+	HRService_GetEmployeeLeaveBalance_FullMethodName     = "/hr.v1.HRService/GetEmployeeLeaveBalance"
+	HRService_ListLeaveTypes_FullMethodName              = "/hr.v1.HRService/ListLeaveTypes"
+	HRService_RecordSickLeave_FullMethodName             = "/hr.v1.HRService/RecordSickLeave"
+	HRService_ClockIn_FullMethodName                     = "/hr.v1.HRService/ClockIn"
+	HRService_ClockOut_FullMethodName                    = "/hr.v1.HRService/ClockOut"
+	HRService_StartBreak_FullMethodName                  = "/hr.v1.HRService/StartBreak"
+	HRService_EndBreak_FullMethodName                    = "/hr.v1.HRService/EndBreak"
+	HRService_GetActiveShift_FullMethodName              = "/hr.v1.HRService/GetActiveShift"
+	HRService_ListWorkTimeEntries_FullMethodName         = "/hr.v1.HRService/ListWorkTimeEntries"
+	HRService_GetDailySummary_FullMethodName             = "/hr.v1.HRService/GetDailySummary"
+	HRService_GetWeeklySummary_FullMethodName            = "/hr.v1.HRService/GetWeeklySummary"
+	HRService_SubmitTimeCorrection_FullMethodName        = "/hr.v1.HRService/SubmitTimeCorrection"
+	HRService_ApproveTimeCorrection_FullMethodName       = "/hr.v1.HRService/ApproveTimeCorrection"
+	HRService_CreateManualEntry_FullMethodName           = "/hr.v1.HRService/CreateManualEntry"
+	HRService_GetTimeBalance_FullMethodName              = "/hr.v1.HRService/GetTimeBalance"
+	HRService_GetTimeAnalytics_FullMethodName            = "/hr.v1.HRService/GetTimeAnalytics"
+	HRService_GetTeamTime_FullMethodName                 = "/hr.v1.HRService/GetTeamTime"
+	HRService_GetMyWeekStatus_FullMethodName             = "/hr.v1.HRService/GetMyWeekStatus"
+	HRService_SubmitWeek_FullMethodName                  = "/hr.v1.HRService/SubmitWeek"
+	HRService_ApproveWeek_FullMethodName                 = "/hr.v1.HRService/ApproveWeek"
+	HRService_RejectWeek_FullMethodName                  = "/hr.v1.HRService/RejectWeek"
+	HRService_ReopenWeek_FullMethodName                  = "/hr.v1.HRService/ReopenWeek"
+	HRService_ListTimeCategories_FullMethodName          = "/hr.v1.HRService/ListTimeCategories"
+	HRService_CreateTimeCategory_FullMethodName          = "/hr.v1.HRService/CreateTimeCategory"
+	HRService_UpdateTimeCategory_FullMethodName          = "/hr.v1.HRService/UpdateTimeCategory"
+	HRService_DeleteTimeCategory_FullMethodName          = "/hr.v1.HRService/DeleteTimeCategory"
+	HRService_ListTimeTemplates_FullMethodName           = "/hr.v1.HRService/ListTimeTemplates"
+	HRService_CreateTimeTemplate_FullMethodName          = "/hr.v1.HRService/CreateTimeTemplate"
+	HRService_DeleteTimeTemplate_FullMethodName          = "/hr.v1.HRService/DeleteTimeTemplate"
+	HRService_ListTimeProjects_FullMethodName            = "/hr.v1.HRService/ListTimeProjects"
+	HRService_CreateTimeProject_FullMethodName           = "/hr.v1.HRService/CreateTimeProject"
+	HRService_GetAbsenceCalendar_FullMethodName          = "/hr.v1.HRService/GetAbsenceCalendar"
+	HRService_ListEmployees_FullMethodName               = "/hr.v1.HRService/ListEmployees"
+	HRService_GetEmployee_FullMethodName                 = "/hr.v1.HRService/GetEmployee"
+	HRService_UpdateEmployee_FullMethodName              = "/hr.v1.HRService/UpdateEmployee"
+	HRService_OffboardEmployee_FullMethodName            = "/hr.v1.HRService/OffboardEmployee"
+	HRService_UpdateSelfProfile_FullMethodName           = "/hr.v1.HRService/UpdateSelfProfile"
+	HRService_ListEmployeeDocuments_FullMethodName       = "/hr.v1.HRService/ListEmployeeDocuments"
+	HRService_UploadEmployeeDocument_FullMethodName      = "/hr.v1.HRService/UploadEmployeeDocument"
+	HRService_ListDocumentCategories_FullMethodName      = "/hr.v1.HRService/ListDocumentCategories"
+	HRService_CreateEmployee_FullMethodName              = "/hr.v1.HRService/CreateEmployee"
+	HRService_ListProfileChangeRequests_FullMethodName   = "/hr.v1.HRService/ListProfileChangeRequests"
+	HRService_CreateProfileChangeRequest_FullMethodName  = "/hr.v1.HRService/CreateProfileChangeRequest"
+	HRService_ApproveProfileChangeRequest_FullMethodName = "/hr.v1.HRService/ApproveProfileChangeRequest"
+	HRService_RejectProfileChangeRequest_FullMethodName  = "/hr.v1.HRService/RejectProfileChangeRequest"
+	HRService_CancelProfileChangeRequest_FullMethodName  = "/hr.v1.HRService/CancelProfileChangeRequest"
+	HRService_GetHRSettings_FullMethodName               = "/hr.v1.HRService/GetHRSettings"
+	HRService_UpdateHRSettings_FullMethodName            = "/hr.v1.HRService/UpdateHRSettings"
 )
 
 // HRServiceClient is the client API for HRService service.
@@ -125,11 +131,18 @@ type HRServiceClient interface {
 	ListEmployees(ctx context.Context, in *ListEmployeesReq, opts ...grpc.CallOption) (*ListEmployeesResp, error)
 	GetEmployee(ctx context.Context, in *GetEmployeeReq, opts ...grpc.CallOption) (*GetEmployeeResp, error)
 	UpdateEmployee(ctx context.Context, in *UpdateEmployeeReq, opts ...grpc.CallOption) (*UpdateEmployeeResp, error)
+	OffboardEmployee(ctx context.Context, in *OffboardEmployeeReq, opts ...grpc.CallOption) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(ctx context.Context, in *ListEmployeeDocumentsReq, opts ...grpc.CallOption) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(ctx context.Context, in *UploadEmployeeDocumentReq, opts ...grpc.CallOption) (*UploadEmployeeDocumentResp, error)
 	ListDocumentCategories(ctx context.Context, in *ListDocumentCategoriesReq, opts ...grpc.CallOption) (*ListDocumentCategoriesResp, error)
 	CreateEmployee(ctx context.Context, in *CreateEmployeeReq, opts ...grpc.CallOption) (*CreateEmployeeResp, error)
+	// ==================== Profile Change Requests ====================
+	ListProfileChangeRequests(ctx context.Context, in *ListProfileChangeRequestsReq, opts ...grpc.CallOption) (*ListProfileChangeRequestsResp, error)
+	CreateProfileChangeRequest(ctx context.Context, in *CreateProfileChangeRequestReq, opts ...grpc.CallOption) (*CreateProfileChangeRequestResp, error)
+	ApproveProfileChangeRequest(ctx context.Context, in *ApproveProfileChangeRequestReq, opts ...grpc.CallOption) (*ApproveProfileChangeRequestResp, error)
+	RejectProfileChangeRequest(ctx context.Context, in *RejectProfileChangeRequestReq, opts ...grpc.CallOption) (*RejectProfileChangeRequestResp, error)
+	CancelProfileChangeRequest(ctx context.Context, in *CancelProfileChangeRequestReq, opts ...grpc.CallOption) (*CancelProfileChangeRequestResp, error)
 	// ==================== HR Settings ====================
 	GetHRSettings(ctx context.Context, in *GetHRSettingsReq, opts ...grpc.CallOption) (*GetHRSettingsResp, error)
 	UpdateHRSettings(ctx context.Context, in *UpdateHRSettingsReq, opts ...grpc.CallOption) (*UpdateHRSettingsResp, error)
@@ -563,6 +576,16 @@ func (c *hRServiceClient) UpdateEmployee(ctx context.Context, in *UpdateEmployee
 	return out, nil
 }
 
+func (c *hRServiceClient) OffboardEmployee(ctx context.Context, in *OffboardEmployeeReq, opts ...grpc.CallOption) (*OffboardEmployeeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OffboardEmployeeResp)
+	err := c.cc.Invoke(ctx, HRService_OffboardEmployee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateSelfProfileResp)
@@ -607,6 +630,56 @@ func (c *hRServiceClient) CreateEmployee(ctx context.Context, in *CreateEmployee
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateEmployeeResp)
 	err := c.cc.Invoke(ctx, HRService_CreateEmployee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ListProfileChangeRequests(ctx context.Context, in *ListProfileChangeRequestsReq, opts ...grpc.CallOption) (*ListProfileChangeRequestsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProfileChangeRequestsResp)
+	err := c.cc.Invoke(ctx, HRService_ListProfileChangeRequests_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) CreateProfileChangeRequest(ctx context.Context, in *CreateProfileChangeRequestReq, opts ...grpc.CallOption) (*CreateProfileChangeRequestResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateProfileChangeRequestResp)
+	err := c.cc.Invoke(ctx, HRService_CreateProfileChangeRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ApproveProfileChangeRequest(ctx context.Context, in *ApproveProfileChangeRequestReq, opts ...grpc.CallOption) (*ApproveProfileChangeRequestResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveProfileChangeRequestResp)
+	err := c.cc.Invoke(ctx, HRService_ApproveProfileChangeRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) RejectProfileChangeRequest(ctx context.Context, in *RejectProfileChangeRequestReq, opts ...grpc.CallOption) (*RejectProfileChangeRequestResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectProfileChangeRequestResp)
+	err := c.cc.Invoke(ctx, HRService_RejectProfileChangeRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) CancelProfileChangeRequest(ctx context.Context, in *CancelProfileChangeRequestReq, opts ...grpc.CallOption) (*CancelProfileChangeRequestResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelProfileChangeRequestResp)
+	err := c.cc.Invoke(ctx, HRService_CancelProfileChangeRequest_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -688,11 +761,18 @@ type HRServiceServer interface {
 	ListEmployees(context.Context, *ListEmployeesReq) (*ListEmployeesResp, error)
 	GetEmployee(context.Context, *GetEmployeeReq) (*GetEmployeeResp, error)
 	UpdateEmployee(context.Context, *UpdateEmployeeReq) (*UpdateEmployeeResp, error)
+	OffboardEmployee(context.Context, *OffboardEmployeeReq) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(context.Context, *ListEmployeeDocumentsReq) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error)
 	ListDocumentCategories(context.Context, *ListDocumentCategoriesReq) (*ListDocumentCategoriesResp, error)
 	CreateEmployee(context.Context, *CreateEmployeeReq) (*CreateEmployeeResp, error)
+	// ==================== Profile Change Requests ====================
+	ListProfileChangeRequests(context.Context, *ListProfileChangeRequestsReq) (*ListProfileChangeRequestsResp, error)
+	CreateProfileChangeRequest(context.Context, *CreateProfileChangeRequestReq) (*CreateProfileChangeRequestResp, error)
+	ApproveProfileChangeRequest(context.Context, *ApproveProfileChangeRequestReq) (*ApproveProfileChangeRequestResp, error)
+	RejectProfileChangeRequest(context.Context, *RejectProfileChangeRequestReq) (*RejectProfileChangeRequestResp, error)
+	CancelProfileChangeRequest(context.Context, *CancelProfileChangeRequestReq) (*CancelProfileChangeRequestResp, error)
 	// ==================== HR Settings ====================
 	GetHRSettings(context.Context, *GetHRSettingsReq) (*GetHRSettingsResp, error)
 	UpdateHRSettings(context.Context, *UpdateHRSettingsReq) (*UpdateHRSettingsResp, error)
@@ -832,6 +912,9 @@ func (UnimplementedHRServiceServer) GetEmployee(context.Context, *GetEmployeeReq
 func (UnimplementedHRServiceServer) UpdateEmployee(context.Context, *UpdateEmployeeReq) (*UpdateEmployeeResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEmployee not implemented")
 }
+func (UnimplementedHRServiceServer) OffboardEmployee(context.Context, *OffboardEmployeeReq) (*OffboardEmployeeResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method OffboardEmployee not implemented")
+}
 func (UnimplementedHRServiceServer) UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateSelfProfile not implemented")
 }
@@ -846,6 +929,21 @@ func (UnimplementedHRServiceServer) ListDocumentCategories(context.Context, *Lis
 }
 func (UnimplementedHRServiceServer) CreateEmployee(context.Context, *CreateEmployeeReq) (*CreateEmployeeResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateEmployee not implemented")
+}
+func (UnimplementedHRServiceServer) ListProfileChangeRequests(context.Context, *ListProfileChangeRequestsReq) (*ListProfileChangeRequestsResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProfileChangeRequests not implemented")
+}
+func (UnimplementedHRServiceServer) CreateProfileChangeRequest(context.Context, *CreateProfileChangeRequestReq) (*CreateProfileChangeRequestResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProfileChangeRequest not implemented")
+}
+func (UnimplementedHRServiceServer) ApproveProfileChangeRequest(context.Context, *ApproveProfileChangeRequestReq) (*ApproveProfileChangeRequestResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveProfileChangeRequest not implemented")
+}
+func (UnimplementedHRServiceServer) RejectProfileChangeRequest(context.Context, *RejectProfileChangeRequestReq) (*RejectProfileChangeRequestResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectProfileChangeRequest not implemented")
+}
+func (UnimplementedHRServiceServer) CancelProfileChangeRequest(context.Context, *CancelProfileChangeRequestReq) (*CancelProfileChangeRequestResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelProfileChangeRequest not implemented")
 }
 func (UnimplementedHRServiceServer) GetHRSettings(context.Context, *GetHRSettingsReq) (*GetHRSettingsResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHRSettings not implemented")
@@ -1630,6 +1728,24 @@ func _HRService_UpdateEmployee_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_OffboardEmployee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OffboardEmployeeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).OffboardEmployee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_OffboardEmployee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).OffboardEmployee(ctx, req.(*OffboardEmployeeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_UpdateSelfProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateSelfProfileReq)
 	if err := dec(in); err != nil {
@@ -1716,6 +1832,96 @@ func _HRService_CreateEmployee_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HRServiceServer).CreateEmployee(ctx, req.(*CreateEmployeeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ListProfileChangeRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProfileChangeRequestsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ListProfileChangeRequests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ListProfileChangeRequests_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ListProfileChangeRequests(ctx, req.(*ListProfileChangeRequestsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_CreateProfileChangeRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProfileChangeRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateProfileChangeRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateProfileChangeRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateProfileChangeRequest(ctx, req.(*CreateProfileChangeRequestReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ApproveProfileChangeRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveProfileChangeRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ApproveProfileChangeRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ApproveProfileChangeRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ApproveProfileChangeRequest(ctx, req.(*ApproveProfileChangeRequestReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_RejectProfileChangeRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectProfileChangeRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).RejectProfileChangeRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_RejectProfileChangeRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).RejectProfileChangeRequest(ctx, req.(*RejectProfileChangeRequestReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_CancelProfileChangeRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelProfileChangeRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CancelProfileChangeRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CancelProfileChangeRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CancelProfileChangeRequest(ctx, req.(*CancelProfileChangeRequestReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1932,6 +2138,10 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HRService_UpdateEmployee_Handler,
 		},
 		{
+			MethodName: "OffboardEmployee",
+			Handler:    _HRService_OffboardEmployee_Handler,
+		},
+		{
 			MethodName: "UpdateSelfProfile",
 			Handler:    _HRService_UpdateSelfProfile_Handler,
 		},
@@ -1950,6 +2160,26 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateEmployee",
 			Handler:    _HRService_CreateEmployee_Handler,
+		},
+		{
+			MethodName: "ListProfileChangeRequests",
+			Handler:    _HRService_ListProfileChangeRequests_Handler,
+		},
+		{
+			MethodName: "CreateProfileChangeRequest",
+			Handler:    _HRService_CreateProfileChangeRequest_Handler,
+		},
+		{
+			MethodName: "ApproveProfileChangeRequest",
+			Handler:    _HRService_ApproveProfileChangeRequest_Handler,
+		},
+		{
+			MethodName: "RejectProfileChangeRequest",
+			Handler:    _HRService_RejectProfileChangeRequest_Handler,
+		},
+		{
+			MethodName: "CancelProfileChangeRequest",
+			Handler:    _HRService_CancelProfileChangeRequest_Handler,
 		},
 		{
 			MethodName: "GetHRSettings",

@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // --- Mock Store ---
@@ -68,36 +70,60 @@ func (m *mockStore) UpdateLastActivity(_ context.Context, userID string) error {
 
 // --- Mock Config Repository ---
 
+// mockConfigRepo keys on the tenant, not on a single shared row: a mock with
+// one global config would let a test that reads a foreign tenant's timeout pass.
 type mockConfigRepo struct {
-	config *PresenceConfig
+	configs map[uuid.UUID]*PresenceConfig
 }
 
 func newMockConfigRepo() *mockConfigRepo {
-	return &mockConfigRepo{
-		config: &PresenceConfig{
-			ID:                 uuid.New(),
-			AwayTimeoutSeconds: DefaultAwayTimeoutSeconds,
-			UpdatedAt:          time.Now().UTC(),
-		},
+	return &mockConfigRepo{configs: make(map[uuid.UUID]*PresenceConfig)}
+}
+
+// seed installs a config for a tenant, as if that tenant had written one.
+func (m *mockConfigRepo) seed(tenantID uuid.UUID, awayTimeoutSeconds int) *PresenceConfig {
+	cfg := &PresenceConfig{
+		ID:                 uuid.New(),
+		TenantID:           tenantID,
+		AwayTimeoutSeconds: awayTimeoutSeconds,
+		UpdatedAt:          time.Now().UTC(),
 	}
+	m.configs[tenantID] = cfg
+	return cfg
 }
 
-func (m *mockConfigRepo) GetConfig(_ context.Context) (*PresenceConfig, error) {
-	return m.config, nil
+func (m *mockConfigRepo) GetConfig(_ context.Context, tenantID uuid.UUID) (*PresenceConfig, error) {
+	if cfg, ok := m.configs[tenantID]; ok {
+		return cfg, nil
+	}
+	return nil, ErrConfigNotFound
 }
 
-func (m *mockConfigRepo) UpdateConfig(_ context.Context, awayTimeoutSeconds int, updatedBy uuid.UUID) error {
-	m.config.AwayTimeoutSeconds = awayTimeoutSeconds
-	m.config.UpdatedBy = &updatedBy
-	m.config.UpdatedAt = time.Now().UTC()
+func (m *mockConfigRepo) UpdateConfig(_ context.Context, tenantID uuid.UUID, awayTimeoutSeconds int, updatedBy uuid.UUID) error {
+	cfg, ok := m.configs[tenantID]
+	if !ok {
+		cfg = m.seed(tenantID, awayTimeoutSeconds)
+	}
+	cfg.AwayTimeoutSeconds = awayTimeoutSeconds
+	cfg.UpdatedBy = &updatedBy
+	cfg.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
 // --- Helper Functions ---
 
+// testTenantID is the tenant every presence test runs under; testCtx puts it on
+// the context the way the gRPC inbound interceptor does in production.
+var testTenantID = uuid.New()
+
+func testCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, testTenantID.String())
+}
+
 func newTestPresenceService() (*Service, *mockStore, *mockConfigRepo) {
 	store := newMockStore()
 	configRepo := newMockConfigRepo()
+	configRepo.seed(testTenantID, DefaultAwayTimeoutSeconds)
 	svc := NewService(store, configRepo)
 	return svc, store, configRepo
 }
@@ -110,7 +136,7 @@ func testUserID() string {
 
 func TestHeartbeat_SetsOnline(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	err := svc.Heartbeat(ctx, userID)
@@ -124,7 +150,7 @@ func TestHeartbeat_SetsOnline(t *testing.T) {
 
 func TestHeartbeat_DoesNotOverrideDND(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Manually set DND
@@ -142,7 +168,7 @@ func TestHeartbeat_DoesNotOverrideDND(t *testing.T) {
 
 func TestHeartbeat_DoesNotOverrideManualAway(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Manually set away
@@ -160,7 +186,7 @@ func TestHeartbeat_DoesNotOverrideManualAway(t *testing.T) {
 
 func TestHeartbeat_DoesNotOverrideInCall(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Set in_call
@@ -177,7 +203,7 @@ func TestHeartbeat_DoesNotOverrideInCall(t *testing.T) {
 
 func TestGetPresence_Offline(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	p, err := svc.GetPresence(ctx, userID)
@@ -187,11 +213,11 @@ func TestGetPresence_Offline(t *testing.T) {
 
 func TestGetPresence_LazyAwayDetection(t *testing.T) {
 	svc, store, configRepo := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Set away timeout to 1 second for testing
-	configRepo.config.AwayTimeoutSeconds = 1
+	configRepo.configs[testTenantID].AwayTimeoutSeconds = 1
 
 	// Set user online with last activity 2 seconds ago
 	uid, _ := uuid.Parse(userID)
@@ -210,10 +236,10 @@ func TestGetPresence_LazyAwayDetection(t *testing.T) {
 
 func TestGetPresence_ManualOnlineNotAffectedByAwayDetection(t *testing.T) {
 	svc, store, configRepo := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
-	configRepo.config.AwayTimeoutSeconds = 1
+	configRepo.configs[testTenantID].AwayTimeoutSeconds = 1
 
 	// Manually set online (which means manual=false for online)
 	uid, _ := uuid.Parse(userID)
@@ -233,7 +259,7 @@ func TestGetPresence_ManualOnlineNotAffectedByAwayDetection(t *testing.T) {
 
 func TestSetManualStatus_DND(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	err := svc.SetManualStatus(ctx, userID, PresenceDND)
@@ -246,7 +272,7 @@ func TestSetManualStatus_DND(t *testing.T) {
 
 func TestSetManualStatus_Away(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	err := svc.SetManualStatus(ctx, userID, PresenceAway)
@@ -259,7 +285,7 @@ func TestSetManualStatus_Away(t *testing.T) {
 
 func TestSetManualStatus_OnlineClearsManual(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Set DND first
@@ -277,7 +303,7 @@ func TestSetManualStatus_OnlineClearsManual(t *testing.T) {
 
 func TestSetManualStatus_InvalidStatus(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	err := svc.SetManualStatus(ctx, userID, PresenceInCall)
@@ -289,7 +315,7 @@ func TestSetManualStatus_InvalidStatus(t *testing.T) {
 
 func TestSetInCall_And_ClearInCall(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Set online first
@@ -309,7 +335,7 @@ func TestSetInCall_And_ClearInCall(t *testing.T) {
 
 func TestClearInCall_NotInCall(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Set online
@@ -324,7 +350,7 @@ func TestClearInCall_NotInCall(t *testing.T) {
 
 func TestDisconnect(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	err := svc.Heartbeat(ctx, userID)
@@ -338,7 +364,7 @@ func TestDisconnect(t *testing.T) {
 
 func TestGetBulkPresence_MixedStatuses(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
 	onlineUser := testUserID()
 	dndUser := testUserID()
@@ -362,9 +388,9 @@ func TestGetBulkPresence_MixedStatuses(t *testing.T) {
 
 func TestGetBulkPresence_AwayDetection(t *testing.T) {
 	svc, store, configRepo := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
-	configRepo.config.AwayTimeoutSeconds = 1
+	configRepo.configs[testTenantID].AwayTimeoutSeconds = 1
 
 	staleUser := testUserID()
 	activeUser := testUserID()
@@ -386,18 +412,18 @@ func TestGetBulkPresence_AwayDetection(t *testing.T) {
 
 func TestUpdateConfig_Valid(t *testing.T) {
 	svc, _, configRepo := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	updatedBy := uuid.New()
 
 	err := svc.UpdateConfig(ctx, 120, updatedBy)
 	require.NoError(t, err)
 
-	assert.Equal(t, 120, configRepo.config.AwayTimeoutSeconds)
+	assert.Equal(t, 120, configRepo.configs[testTenantID].AwayTimeoutSeconds)
 }
 
 func TestUpdateConfig_TooLow(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
 	err := svc.UpdateConfig(ctx, 30, uuid.New())
 	assert.ErrorIs(t, err, ErrInvalidAwayTimeout)
@@ -405,7 +431,7 @@ func TestUpdateConfig_TooLow(t *testing.T) {
 
 func TestUpdateConfig_TooHigh(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
 	err := svc.UpdateConfig(ctx, 7200, uuid.New())
 	assert.ErrorIs(t, err, ErrInvalidAwayTimeout)
@@ -413,7 +439,7 @@ func TestUpdateConfig_TooHigh(t *testing.T) {
 
 func TestUpdateConfig_BoundaryValues(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	updatedBy := uuid.New()
 
 	// Minimum: 60 should pass
@@ -435,7 +461,7 @@ func TestUpdateConfig_BoundaryValues(t *testing.T) {
 
 func TestGetConfig(t *testing.T) {
 	svc, _, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
 	cfg, err := svc.GetConfig(ctx)
 	require.NoError(t, err)
@@ -444,9 +470,9 @@ func TestGetConfig(t *testing.T) {
 
 func TestAwayTimeoutCaching(t *testing.T) {
 	svc, store, configRepo := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 
-	configRepo.config.AwayTimeoutSeconds = 1
+	configRepo.configs[testTenantID].AwayTimeoutSeconds = 1
 
 	userID := testUserID()
 	uid, _ := uuid.Parse(userID)
@@ -459,7 +485,7 @@ func TestAwayTimeoutCaching(t *testing.T) {
 	assert.Equal(t, PresenceAway, p.Status)
 
 	// Change config in DB directly (cache should still return old value)
-	configRepo.config.AwayTimeoutSeconds = 3600
+	configRepo.configs[testTenantID].AwayTimeoutSeconds = 3600
 
 	// Second call uses cached value (still 1 second timeout)
 	store.data[userID].Status = PresenceOnline
@@ -470,7 +496,7 @@ func TestAwayTimeoutCaching(t *testing.T) {
 
 func TestFiveStatusLevels(t *testing.T) {
 	svc, store, _ := newTestPresenceService()
-	ctx := context.Background()
+	ctx := testCtx()
 	userID := testUserID()
 
 	// Online

@@ -379,9 +379,11 @@ paths:
       description: >
         Resolved multi-role union of the authenticated account: the roles it
         holds and, per fine-grained capability key, the widest scope any of
-        those roles grants. The account is taken from the JWT, never from the
-        request. No permission guard — every signed-in user may read their own
-        rights.
+        those roles grants, with the account's per-user overrides (R-6) folded
+        in — deny drops a key into deniedByOverride, allow sets its scope and
+        tags the grant with the "override" source. The account is taken from
+        the JWT, never from the request. No permission guard — every signed-in
+        user may read their own rights.
       tags: [auth]
       operationId: getMyEffectivePermissions
       security:
@@ -753,8 +755,20 @@ paths:
 
   /api/v1/users/{id}/roles:
     post:
-      summary: Assign role to user
-      description: Requires admin role.
+      summary: Assign a role to an account
+      description: >
+        Adds a role — a system preset or a tenant-owned custom role — to the
+        account and answers with the role ids it holds afterwards. Roles are
+        n:m, so the assignment adds to the existing ones; assigning a role the
+        account already holds is a no-op that still returns the list. Requires
+        roles:manage (legacy) or admin:role:assign (fine-grained). An account
+        or a role outside the caller's tenant is invisible rather than
+        forbidden and answers 404.
+        Assigning a role to SOMEONE ELSE is not capped by the caller's own
+        rights — staffing roles richer than one's own is what
+        admin:role:assign delegates. Assigning one to ONESELF is capped: a
+        role whose grants exceed the caller's own answers 403
+        privilege_escalation.
       tags: [users]
       operationId: assignRole
       security:
@@ -766,26 +780,192 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RoleRequest"
+              $ref: "#/components/schemas/AssignRoleRequest"
       responses:
         "200":
           description: Role assigned
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: "#/components/schemas/UserRolesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            insufficient permissions, or privilege_escalation — the caller
+            assigned themselves a role reaching past their own rights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such account or role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/users/{id}/roles/{roleId}:
+    delete:
+      summary: Remove a role from an account
+      description: >
+        Answers with the role ids the account still holds. Removing a role the
+        account does not hold is a no-op. Requires roles:manage (legacy) or
+        admin:role:assign (fine-grained).
+        Two guardrails apply to roles that carry role administration itself
+        (roles:manage or admin:role:assign): the tenant's last administrator
+        cannot lose it (last_admin), and callers cannot take it off themselves
+        while other administrators exist (self_lockout). Both answer 409.
+      tags: [users]
+      operationId: removeRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/RoleId"
+      responses:
+        "200":
+          description: Role removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRolesResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — no such account or role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            last_admin — the tenant's last administrator would lose role
+            administration; or self_lockout — the caller would remove their own
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-    delete:
-      summary: Remove role from user
-      description: Requires admin role.
+  # Account roster (phase 3 admin surface). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users:
+    get:
+      summary: List the tenant's account roster
+      description: >
+        Every real account (active/deactivated, from users) plus every
+        still-open invitation (invited, from invitations) merged into one
+        list. jobTitle is always "" — the backend has no job-title data on an
+        account. hasOverrides is omitted — per-user permission overrides
+        (R-6) are stored and editable under /admin/users/{id}/overrides, but
+        this roster does not yet report whether an account carries any.
+        lastLoginAt is derived from the most recent
+        user_sessions row and is therefore only as complete as session
+        history: a session removed by logout/termination no longer counts.
+        Requires the admin role.
       tags: [users]
-      operationId: removeRole
+      operationId: listAdminUsers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account roster
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Invite into the roster. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/invite:
+    post:
+      summary: Invite a new account
+      description: >
+        Opens an invitation and answers with the roster row it produced, so the
+        surface can insert it without refetching. roles carries role IDS (preset
+        or custom), not names — a name does not identify a custom role uniquely.
+        Every id is resolved under the roles RLS read policy first, so a role
+        from another tenant answers 404.
+
+
+        inviteToken is the one-time accept token. It travels back to the caller
+        because nothing server-side dispatches invitation mail — the same way
+        POST /api/v1/invitations already works.
+
+
+        A seat is taken by every active account and every pending, unexpired
+        invitation; exceeding tenants.seat_limit answers 409. Requires the
+        admin role.
+      tags: [users]
+      operationId: inviteAdminUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteAdminUserRequest"
+      responses:
+        "201":
+          description: Invitation opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — a named role does not exist or is not visible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            The address already holds an account or a pending invitation, or the
+            tenant's booked seats are all taken.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Roles/status of one account. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}:
+    patch:
+      summary: Change an account's roles or status
+      description: >
+        Both fields are optional and independent. An absent `roles` leaves the
+        account's roles untouched; `"roles": []` strips every role. The role
+        edit runs through the same guarded assign/revoke path as
+        /api/v1/users/{id}/roles, so the wave-1b guardrails apply unchanged
+        (last_admin, self_lockout, and the escalation cap on assigning to
+        oneself).
+
+
+        status accepts active and deactivated only — "invited" is derived from a
+        pending invitation, not a state an account can be put into (400).
+        Deactivating oneself is refused, as is deactivating the tenant's last
+        active administrator. Reactivating takes a seat and can hit the seat
+        limit.
+
+
+        The two edits are not atomic: a failure while writing the status leaves
+        an already-applied role change standing. Requires the admin role.
+      tags: [users]
+      operationId: updateAdminUser
       security:
         - bearerAuth: []
       parameters:
@@ -795,20 +975,88 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RoleRequest"
+              $ref: "#/components/schemas/UpdateAdminUserRequest"
       responses:
         "200":
-          description: Role removed
+          description: Updated roster row
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: "#/components/schemas/AdminUserResult"
+        "400":
+          description: >
+            A malformed body (role ids that are not uuids, a status outside
+            active|deactivated), or status_not_assignable — "invited" is not a
+            state an account can hold.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            Missing the admin role, or privilege_escalation — the caller tried
+            to take on a right they do not hold themselves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such account, or a named role is not visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            last_admin — the tenant's last administrator would go dark;
+            self_lockout — the caller would remove their own role
+            administration; self_deactivation — the caller tried to switch off
+            their own account; or the seat limit blocks a reactivation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Re-issue a pending invitation. Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/resend-invite:
+    post:
+      summary: Re-send a pending invitation
+      description: >
+        Issues a fresh token with a fresh expiry and overwrites the old hash in
+        place, so the previous link stops working — two live tokens to one
+        account would be two ways in.
+
+
+        The path id is the INVITATION id, which is what an invited roster row
+        carries (no account exists for it yet). An already-accepted or unknown
+        invitation answers 404. Requires the admin role.
+      tags: [users]
+      operationId: resendAdminUserInvite
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Invitation re-issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserResult"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No such pending invitation visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # Effective permissions of any account (admin audit view). Under /admin/users
   # rather than /users because that is where the RBAC frontend addresses it.
@@ -831,9 +1079,11 @@ paths:
           in: query
           required: false
           description: >
-            Reserved for the role union without per-user overrides. Per-user
-            overrides do not exist server-side yet, so the parameter is
-            currently accepted and ignored.
+            "1" returns the pure role union, before the account's per-user
+            overrides (see /admin/users/{id}/overrides) are folded in — the
+            inherited baseline the override editor renders behind the
+            deviations. hasOverrides and deniedByOverride are then omitted.
+            Any other value is ignored and yields the effective set.
           schema:
             type: string
             enum: ["1"]
@@ -852,6 +1102,412 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # Role administration (RBAC Phase 1 wave 1b). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/roles:
+    get:
+      summary: List roles
+      description: >
+        System presets (tenant_id IS NULL) plus the calling tenant's custom
+        roles — exactly the rows the roles table's RLS read policy admits.
+        memberCount is scoped to the caller's tenant even for a preset shared
+        across tenants. Requires roles:manage (legacy) or admin:role:read
+        (fine-grained; also held by the it_admin and hr_admin presets).
+      tags: [users]
+      operationId: listRoles
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Presets and tenant custom roles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a custom role
+      description: >
+        Clones basedOn into a new role owned by the calling tenant, copying
+        every grant of the source role including its scope. A tenant may own
+        at most 20 custom roles; the system presets do not count against that.
+        Requires roles:manage (legacy) or admin:role:create (fine-grained).
+        The clone may not reach past the caller's own rights: a source role
+        carrying a capability the caller lacks — or a wider scope than they
+        hold — answers 403 privilege_escalation. In practice only a caller
+        with the admin preset can clone every preset.
+      tags: [users]
+      operationId: createRole
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            insufficient permissions, or privilege_escalation — the clone
+            source carries rights the caller does not hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — basedOn names no role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            role_name_exists — a preset or an own role already carries the name
+            (compared case-insensitively) — or role_limit_reached when the
+            tenant already owns 20 custom roles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: not_found — name or basedOn missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/admin/roles/{id}:
+    patch:
+      summary: Rename/re-describe/recolor a custom role
+      description: >
+        Every field is optional; an absent one is left unchanged. System
+        presets answer 403 preset_immutable. Requires roles:manage (legacy)
+        or admin:role:edit (fine-grained).
+      tags: [users]
+      operationId: updateRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: preset_immutable — system presets cannot be edited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: role_name_exists — a preset or an own role already carries the name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a custom role
+      description: >
+        System presets answer 403 preset_immutable; a role still assigned to
+        at least one account answers 409 role_has_members. Requires
+        roles:manage (legacy) or admin:role:delete (fine-grained).
+      tags: [users]
+      operationId: deleteRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Role deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: preset_immutable — system presets cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: role_has_members — the role still has at least one holder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Per-user permission overrides (RBAC R-6). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/overrides:
+    get:
+      summary: Per-user permission overrides of an account
+      description: >
+        The deviations one account carries on top of its roles: `allow` sets or
+        raises a capability key, `deny` takes it away regardless of how many
+        roles grant it. A key absent from the map keeps following the roles
+        live. An account without deviations answers an empty object, not null.
+        Requires admin:user_override:manage — held by the admin preset alone,
+        deliberately not by hr_admin.
+      tags: [users]
+      operationId: getUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Override map of the account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOverridesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      summary: Replace the override map of an account
+      description: >
+        Full replacement: every key missing from overrides goes back to
+        following the roles, every key present is stored, in one transaction.
+        An empty map clears all overrides — the same effect as DELETE. Each key
+        must exist in the capability catalogue, and mode/scope must be
+        spellable; either problem aborts the whole write with 422. One audit
+        event (permission.override_set / permission.override_removed) is
+        written per key that actually changed.
+
+
+        Takes effect for the target account with their NEXT access token: the
+        permission, deny and scope claims are baked in at login and refresh and
+        are never re-read per request. Until then the account keeps the rights
+        its current token carries. GET /auth/me/permissions shows the new state
+        immediately — it resolves live — so the two can disagree for the
+        lifetime of one access token.
+      tags: [users]
+      operationId: setUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserOverridesRequest"
+      responses:
+        "200":
+          description: Override map replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOverridesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            privilege_escalation — an allow names a capability the caller does
+            not hold, or widens a scope past their own
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            self_lockout — the caller may not edit their own account; or
+            last_admin — the deny would take the role administration off the
+            last account that still has it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: >
+            unknown_capability_key — a key is not in the permissions catalogue,
+            or mode/scope is outside allow|deny / own|team|all
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Clear all overrides of an account
+      description: >
+        Puts the account back on the pure role stand. Clearing an account that
+        has no overrides is a no-op and still answers 204. Like the PUT, the
+        caller may not do this to their own account, and like the PUT it takes
+        effect for the target with their next access token.
+      tags: [users]
+      operationId: clearUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204":
+          description: Overrides cleared
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: self_lockout — the caller may not edit their own account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/admin/roles/{id}/permissions:
+    get:
+      summary: Grant set of a role
+      description: >
+        Presets are readable too — the builder needs to see what it is
+        cloning. Requires roles:manage (legacy) or admin:role:read
+        (fine-grained).
+      tags: [users]
+      operationId: getRolePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Grant set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePermissionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      summary: Replace the grant set of a custom role
+      description: >
+        Full replacement: every key missing from grants is revoked, every key
+        present is (re)inserted with its scope, in one transaction. System
+        presets answer 403 preset_immutable. Every key must exist in the
+        capability catalogue — an unknown key aborts the whole write with 422.
+        Requires roles:manage (legacy) or admin:role:edit (fine-grained).
+      tags: [users]
+      operationId: setRolePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRolePermissionsRequest"
+      responses:
+        "200":
+          description: Grant set replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePermissionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            preset_immutable — system presets cannot be edited; or
+            privilege_escalation — the grant set names a capability the caller
+            does not hold, or widens a scope past their own
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: not_found — no such role visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            self_lockout — the caller wears this role and the new grant set
+            would strip their own role administration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: unknown_capability_key — a grant key is not in the permissions catalogue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # Custom Fields
   /api/v1/custom-fields:
@@ -3800,31 +4456,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-    delete:
-      summary: Unmute notifications for a resource
-      tags: [notifications]
-      operationId: unmuteResource
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [module_id, resource_id]
-              properties:
-                module_id:
-                  type: string
-                resource_id:
-                  type: string
-      responses:
-        "200":
-          description: Resource unmuted
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
     get:
       summary: List muted resources
       tags: [notifications]
@@ -3862,6 +4493,30 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/mutes/{muteId}:
+    delete:
+      summary: Unmute a previously muted resource
+      tags: [notifications]
+      operationId: unmuteResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: muteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resource unmuted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/notifications/quiet-hours:
     get:
@@ -8278,7 +8933,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
 
-  /api/v1/finance/invoices/{id}/pay:
+  /api/v1/finance/invoices/{id}/mark-paid:
     post:
       summary: Mark an invoice as fully paid
       tags: [invoices]
@@ -10614,6 +11269,232 @@ paths:
               schema:
                 $ref: "#/components/schemas/EmployeeProfile"
 
+  /api/v1/hr/employees/{id}/offboard:
+    post:
+      summary: Offboard an employee
+      description: >
+        Ends an employment in one transaction: the personnel record goes
+        inactive with its exit data, the account loses its login and all role
+        assignments (which releases its seat), and the leaver's direct reports
+        move to the successor. The body is camelCase because the desktop
+        offboard dialog posts its form state unchanged.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OffboardEmployeeInput"
+      responses:
+        "200":
+          description: Employee offboarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
+        "400":
+          description: Malformed body, unknown exit type, exit date before the last working day, or the named successor is not an active employee of this tenant
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:employee:offboard, or the caller is offboarding their own account
+        "404":
+          description: Employee profile not found
+        "409":
+          description: Employee has already left, or is the last active account carrying role administration
+        "422":
+          description: The employee still has direct reports and no successor was named
+
+  /api/v1/hr/change-requests:
+    get:
+      summary: List profile change requests
+      description: >
+        HR inbox and the employee's own list in one route. A caller without
+        team:data_personal:edit only ever receives their own proposals,
+        regardless of the scope parameter; a caller holding it at scope "team"
+        receives their own plus their direct reports'.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [pending, approved, rejected, cancelled] }
+        - name: scope
+          in: query
+          required: false
+          description: Set to "mine" to ask for the caller's own proposals only.
+          schema: { type: string, enum: [mine] }
+      responses:
+        "200":
+          description: Change requests, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProfileChangeRequest"
+                  total: { type: integer }
+        "400":
+          description: Invalid status filter
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Neither team:self:propose nor team:data_personal:edit
+    post:
+      summary: Submit a profile change request
+      description: >
+        Opens a proposal for one field of the caller's own profile. The proposer
+        is taken from the token, never from the body.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [field, newValue]
+              properties:
+                drawer: { type: string, enum: [personal, job] }
+                field:
+                  type: string
+                  maxLength: 64
+                  description: >
+                    Must be one of the proposable fields (addressStreet,
+                    addressCity, addressPostalCode, addressCountry,
+                    emergencyContactName, emergencyContactPhone). Anything else
+                    is 400 — an approval would have no column to write to.
+                fieldLabel: { type: string, maxLength: 120 }
+                oldValue: { type: string, maxLength: 500 }
+                newValue: { type: string, maxLength: 500 }
+      responses:
+        "201":
+          description: Change request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400":
+          description: Validation failed or field not proposable
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:self:propose
+        "409":
+          description: A pending request for this field already exists
+
+  /api/v1/hr/change-requests/{id}/approve:
+    post:
+      summary: Approve a profile change request
+      description: >
+        Writes the proposed value to the employee profile and closes the request
+        in one transaction. Refused when the approver's team:data_personal:edit
+        scope does not reach the proposer.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Change request approved and applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400":
+          description: Invalid request id or field no longer proposable
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:data_personal:edit, or proposer outside the approver's scope
+        "404":
+          description: Change request not found, or proposer has no employee profile
+        "409":
+          description: Change request is no longer pending
+
+  /api/v1/hr/change-requests/{id}/reject:
+    post:
+      summary: Reject a profile change request
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Change request rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400":
+          description: Invalid request id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:data_personal:edit, or proposer outside the approver's scope
+        "404":
+          description: Change request not found
+        "409":
+          description: Change request is no longer pending
+        "422":
+          description: Rejection reason missing
+
+  /api/v1/hr/change-requests/{id}/cancel:
+    post:
+      summary: Withdraw own profile change request
+      description: Only the proposer may cancel, and only while the request is pending.
+      tags: [hr-change-request]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Change request cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/ProfileChangeRequest"
+        "400":
+          description: Invalid request id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:self:propose, or caller is not the proposer
+        "404":
+          description: Change request not found
+        "409":
+          description: Change request is no longer pending
+
   /api/v1/hr/employees/{id}/documents:
     get:
       summary: List employee documents
@@ -10658,16 +11539,22 @@ paths:
   # ===========================================================================
   # HR: Document categories (tenant master data)
   # ===========================================================================
-  /api/v1/hr/document-categories:
+  /api/v1/hr/employees/{id}/documents/categories:
     get:
-      summary: List HR document categories
+      summary: List HR document categories visible for an employee's Akte
       description: >
         Returns the tenant's document categories plus the system seed categories
-        (migration 000046), which are the ones every tenant starts with. These
-        are tenant master data, not an employee attribute — the ids returned here
+        (migration 000046), filtered to the visibility tiers (hr_only/manager/
+        employee) the caller's team:documents:view permission scope permits —
+        the same tiers RLS migration 000127 enforces on the documents
+        themselves, so a caller who cannot see hr_only documents for this
+        employee does not learn hr_only categories exist either. These are
+        tenant master data, not an employee attribute — the ids returned here
         are the ones POST /api/v1/hr/employees/{id}/documents accepts.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: Category list
@@ -10681,7 +11568,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/HRDocumentCategory"
         "401": { description: Missing or invalid tenant }
-        "403": { description: Missing hr:read permission }
+        "403": { description: Missing hr:read or team:documents:view permission }
         "503": { description: HR service unavailable }
 
   # ===========================================================================
@@ -11774,6 +12661,62 @@ paths:
                 $ref: "#/components/schemas/AutomationStats"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/public/automations/webhooks/{automationId}:
+    post:
+      summary: Trigger an automation via its inbound webhook (no auth)
+      description: >-
+        Unauthenticated by design (external senders carry no JWT). The
+        request is verified via an HMAC-SHA256 signature in the
+        X-Cosmi-Signature header (sha256=<hex>), computed over the raw
+        request body using the automation's configured webhook secret.
+      tags: [automations]
+      operationId: triggerAutomationWebhook
+      security: []
+      parameters:
+        - name: automationId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: X-Cosmi-Signature
+          in: header
+          required: true
+          schema: {type: string}
+          description: "HMAC-SHA256 signature of the raw body, e.g. sha256=<hex>"
+        - name: Idempotency-Key
+          in: header
+          schema: {type: string}
+          description: >-
+            Optional delivery/event ID from the sender. Absent one, an exact
+            resend of the same body is deduped by content hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202":
+          description: Delivery accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  duplicate:
+                    type: boolean
+                    description: true when this delivery was already processed
+        "400":
+          description: Invalid automation_id, payload too large, or Idempotency-Key reused with a different payload
+        "401":
+          description: Missing or invalid webhook signature
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Automation is currently disabled
+        "413":
+          description: Payload exceeds the size cap
+        "429":
+          description: Rate limited
 
   /api/v1/contacts/{contactId}/advisory-protocols:
     get:
@@ -15720,6 +16663,111 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/fuhrpark/driver-licenses:
+    get:
+      summary: List driver license checks (tenant-wide, optionally filtered by driver)
+      tags: [fuhrpark]
+      operationId: listDriverLicenses
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: driver_id, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Driver license check list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  licenses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkDriverLicense'
+                  total:
+                    type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Record a new driver license check
+      tags: [fuhrpark]
+      operationId: createDriverLicense
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [driver_id, license_classes, next_check_due_date]
+              properties:
+                driver_id: { type: string, format: uuid }
+                license_classes: { type: array, items: { type: string } }
+                expiry_date: { type: string, format: date }
+                checked_at: { type: string, format: date }
+                next_check_due_date: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Driver license check recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  license:
+                    $ref: '#/components/schemas/FuhrparkDriverLicense'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/driver-licenses/{id}:
+    patch:
+      summary: Correct a driver license check entry
+      tags: [fuhrpark]
+      operationId: updateDriverLicense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [license_classes, next_check_due_date]
+              properties:
+                license_classes: { type: array, items: { type: string } }
+                expiry_date: { type: string, format: date }
+                checked_at: { type: string, format: date }
+                next_check_due_date: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Driver license check updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  license:
+                    $ref: '#/components/schemas/FuhrparkDriverLicense'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a driver license check entry
+      tags: [fuhrpark]
+      operationId: deleteDriverLicense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/fuhrpark/gps/ingest:
     post:
       summary: Ingest GPS positions for a vehicle
@@ -18010,7 +19058,7 @@ paths:
   # GDPR — data export
   # --------------------------------------------------------------------------
 
-  /api/v1/security/gdpr/export:
+  /api/v1/security/gdpr/export/request:
     post:
       summary: Request a personal data export (GDPR Art. 20)
       tags: [security]
@@ -18056,7 +19104,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /api/v1/security/gdpr/exports/{id}/approve:
+  /api/v1/security/gdpr/export/{id}/approve:
     post:
       summary: Approve a GDPR export request (admin only)
       tags: [security]
@@ -18090,7 +19138,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/security/gdpr/exports/{id}/deny:
+  /api/v1/security/gdpr/export/{id}/deny:
     post:
       summary: Deny a GDPR export request (admin only)
       tags: [security]
@@ -18124,7 +19172,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/security/gdpr/download/{token}:
+  /api/v1/security/gdpr/export/{id}/download:
     get:
       summary: Download approved GDPR export archive by one-time token
       tags: [security]
@@ -18132,9 +19180,10 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: token
+        - name: id
           in: path
           required: true
+          description: One-time download token (not the export request ID)
           schema:
             type: string
       responses:
@@ -18505,6 +19554,167 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # Vendor Access (RBAC R-5 B, GDAP-light v3). Own top-level prefix, not under
+  # /api/v1/security -- matches the path the frontend already calls
+  # (desktop/src/renderer/src/api/vendor-access.ts).
+  # --------------------------------------------------------------------------
+
+  /api/v1/vendor-access:
+    get:
+      summary: List vendor access requests for the caller's tenant
+      tags: [security]
+      operationId: listVendorAccessRequests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of vendor access requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/vendor-access/{id}/approve:
+    post:
+      summary: Approve a vendor access request
+      tags: [security]
+      operationId: approveVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveVendorAccessRequest"
+      responses:
+        "200":
+          description: Vendor access request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+        "422":
+          description: sensitive_ack required for a sensitive scope
+
+  /api/v1/vendor-access/{id}/decline:
+    post:
+      summary: Decline a vendor access request
+      tags: [security]
+      operationId: declineVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vendor access request declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+
+  /api/v1/vendor-access/{id}/counter-propose:
+    post:
+      summary: Propose an alternative start date for a pending vendor access request
+      tags: [security]
+      operationId: counterProposeVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterProposeVendorAccessRequest"
+      responses:
+        "200":
+          description: Vendor access request counter-proposed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
+
+  /api/v1/vendor-access/{id}/revoke:
+    post:
+      summary: Revoke an active vendor access request
+      tags: [security]
+      operationId: revokeVendorAccessRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vendor access request revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorAccessRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not in a valid state for this operation
 
   # ---------------------------------------------------------------------------
   # Modul: formulare
@@ -19373,6 +20583,23 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/email/accounts/list:
+    get:
+      summary: List every email account the calling user holds
+      tags: [mails]
+      operationId: listEmailAccounts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailAccountsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/email/accounts/{id}:
     put:
       summary: Update an email account
@@ -19416,6 +20643,27 @@ paths:
             application/json:
               schema:
                 type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/accounts/{id}/default:
+    post:
+      summary: Set an email account as the default for its user
+      tags: [mails]
+      operationId: setDefaultEmailAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Account set as default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetDefaultEmailAccountResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -19753,6 +21001,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Message not found, or one of the label ids does not belong to the tenant
+
+  /api/v1/email/messages/bulk:
+    post:
+      summary: Apply an action to many messages at once
+      description: >-
+        Requires email:write; action=delete additionally requires
+        email:delete, matching the single-message DELETE route. Ids that
+        don't exist or belong to another tenant are silently excluded from
+        the result, not errored. archive/spam resolve the destination folder
+        per message from that message's own account.
+      tags: [mails]
+      operationId: bulkEmailMessageAction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkMessageActionRequest"
+      responses:
+        "200":
+          description: Bulk action applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkMessageActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Unknown action
 
   /api/v1/email/send:
     post:
@@ -20132,6 +21415,140 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/email/templates:
+    get:
+      summary: List email templates visible to the caller (own personal + shared)
+      tags: [mails]
+      operationId: listEmailTemplates
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Template list, name-ordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailTemplatesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create an email template
+      tags: [mails]
+      operationId: createEmailTemplate
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailTemplateRequest"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEmailTemplateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/templates/{id}:
+    get:
+      summary: Get an email template
+      tags: [mails]
+      operationId: getEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetEmailTemplateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update an email template
+      tags: [mails]
+      operationId: updateEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailTemplateRequest"
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateEmailTemplateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an email template
+      tags: [mails]
+      operationId: deleteEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Template deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/templates/{id}/render:
+    post:
+      summary: Render an email template, substituting the fixed set of allowed placeholders
+      tags: [mails]
+      operationId: renderEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenderEmailTemplateRequest"
+      responses:
+        "200":
+          description: Rendered subject and body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderEmailTemplateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/email/labels:
     get:
@@ -23329,7 +24746,7 @@ paths:
       parameters:
         - name: modules
           in: query
-          description: "Comma-separated module list (e.g. finanzen,crm,helpdesk); empty means all modules"
+          description: "Comma-separated module list (e.g. finanzen,crm,helpdesk). The list is intersected server-side with the caller's <module>:module:view capabilities; empty means every module the caller may see, and a module they may not see is dropped rather than rejected."
           schema: { type: string }
       responses:
         "200":
@@ -23692,6 +25109,57 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/documents/files/upload:
+    post:
+      summary: Upload a file directly into the document store
+      description: >-
+        Requires documents:write permission. Unlike POST /api/v1/documents/files
+        (which only registers metadata for bytes already in MinIO via a
+        presigned PUT), this route streams the file itself through the
+        gateway. Intended for small server-generated files (e.g. a report
+        PDF) where a presign round-trip is unnecessary overhead. folder_id
+        and, if given, tag_id must belong to the caller's tenant. Owner is
+        taken from the JWT.
+      tags: [documents]
+      operationId: uploadDocumentFile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, folder_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (max 50 MiB, allowlisted content types only)
+                folder_id:
+                  type: string
+                  format: uuid
+                tag_id:
+                  type: string
+                  format: uuid
+                  description: Optional — tag applied to the file after upload
+      responses:
+        "201":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file: { $ref: "#/components/schemas/DocumentFile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413":
+          description: File exceeds the 50 MiB limit
+        "415":
+          description: Content type not in the document upload allowlist
 
   /api/v1/documents/files/{id}:
     get:
@@ -24851,6 +26319,10 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       summary: Delete a plugin manifest (admin-only)
+      description: >-
+        Only manifests the calling tenant created itself can be deleted.
+        Manifests shipped with the product are readable by every tenant and
+        owned by none; deleting one answers 403.
       tags: [plugins]
       operationId: deletePluginManifest
       security: [{ bearerAuth: [] }]
@@ -30477,6 +31949,14 @@ components:
         type: string
         format: uuid
 
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
     page:
       name: page
       in: query
@@ -30596,13 +32076,28 @@ components:
         is_active:
           type: boolean
 
-    RoleRequest:
+    AssignRoleRequest:
       type: object
-      required: [role_name]
+      required: [roleId]
       properties:
-        role_name:
+        roleId:
           type: string
-          enum: [admin, manager, member]
+          format: uuid
+          description: >
+            Id of a system preset or a custom role of the caller's tenant.
+            Validated against the roles table, not against a fixed list — a
+            tenant's own roles cannot be enumerated in the spec.
+
+    UserRolesResponse:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          description: Role ids the account holds after the mutation, oldest assignment first.
+          items:
+            type: string
+            format: uuid
 
     ChangePasswordRequest:
       type: object
@@ -30851,11 +32346,36 @@ components:
           description: >
             IDs of every role contributing this grant, including those that lost
             the scope comparison. Resolvable against the roles list of the same
-            response.
+            response. A grant set or raised by an allow override carries the
+            literal sentinel "override" as its last entry, next to the role IDs
+            that also grant the key — it is not a UUID and resolves against no
+            role.
+          items:
+            type: string
+      required: [scope, sources]
+
+    DeniedCapability:
+      type: object
+      description: >
+        A capability the account's roles grant and a deny override takes away.
+        It is absent from capabilities; this entry keeps what the roles would
+        have given so the effective view can show the row struck through
+        instead of silently missing.
+      properties:
+        key:
+          type: string
+          example: crm:contact:delete
+        roleScope:
+          type: string
+          enum: [own, team, all]
+          description: Scope the roles would have granted.
+        sources:
+          type: array
+          description: IDs of the roles that grant the revoked key.
           items:
             type: string
             format: uuid
-      required: [scope, sources]
+      required: [key, roleScope, sources]
 
     EffectivePermissions:
       type: object
@@ -30872,6 +32392,20 @@ components:
             scope. Coarse legacy permission names are filtered out.
           additionalProperties:
             $ref: "#/components/schemas/EffectiveCapability"
+        hasOverrides:
+          type: boolean
+          description: >
+            True when the account carries at least one per-user override.
+            Omitted when it carries none and for a base=1 request, which keeps
+            the answer for an account without overrides identical to the one
+            this route gave before R-6.
+        deniedByOverride:
+          type: array
+          description: >
+            Keys the roles grant and a deny override revokes. Omitted when
+            empty and for a base=1 request.
+          items:
+            $ref: "#/components/schemas/DeniedCapability"
       required: [roles, capabilities]
 
     EffectivePermissionsResponse:
@@ -30880,6 +32414,288 @@ components:
         permissions:
           $ref: "#/components/schemas/EffectivePermissions"
       required: [permissions]
+
+    # Account roster (phase 3 admin surface). app-owned contract mirroring
+    # admin-types.ts, not a proto passthrough.
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: >
+            The account id for a real user, or the invitation id while
+            status is "invited" — no user row exists yet in that case.
+        firstName:
+          type: string
+          description: Empty for an invited row — invitations do not collect a name.
+        lastName:
+          type: string
+          description: Empty for an invited row — invitations do not collect a name.
+        email:
+          type: string
+        jobTitle:
+          type: string
+          description: >
+            Always "" — the backend has no job-title data on an account
+            (that lives in the HR employee record, a different service).
+        roles:
+          type: array
+          items:
+            type: string
+          description: >
+            Role ids (preset or custom). An invited row carries at most the
+            one preset id its invitations.role legacy name resolves to.
+        hasOverrides:
+          type: boolean
+          description: >
+            Whether the account carries any per-user override. Always omitted:
+            the overrides themselves exist under /admin/users/{id}/overrides,
+            but the roster query does not join them yet.
+        status:
+          type: string
+          enum: [active, invited, deactivated]
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Most recent user_sessions row for the account. Null if the
+            account never logged in, or every session since has been removed
+            by logout/termination.
+        invitedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null unless status is "invited".
+      required: [id, firstName, lastName, email, jobTitle, roles, status, lastLoginAt, invitedAt]
+
+    AdminUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+      required: [users]
+
+    AdminUserResult:
+      type: object
+      description: >
+        The answer of the three writing roster routes: the one row the operation
+        produced, in the shape the list returns.
+      properties:
+        user:
+          $ref: "#/components/schemas/AdminUser"
+        inviteToken:
+          type: string
+          description: >
+            One-time accept token, present on the two invitation routes and
+            omitted otherwise. Returned to the caller rather than mailed, the
+            same way POST /api/v1/invitations works.
+      required: [user]
+
+    InviteAdminUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          maxLength: 100
+          description: >
+            Stored on the invitation since migration 000280, so the invited row
+            shows the name the admin typed. The person accepting still enters
+            their own name, which is what the account gets.
+        lastName:
+          type: string
+          maxLength: 100
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Role IDS, preset or custom. At least one — an account with no role
+            has no rights and cannot repair that itself.
+      required: [email, roles]
+
+    UpdateAdminUserRequest:
+      type: object
+      properties:
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+          description: >
+            Full replacement of the account's roles. Absent leaves them
+            untouched; an empty array strips them.
+        status:
+          type: string
+          enum: [active, deactivated]
+          description: >
+            "invited" is not accepted — it is derived from a pending invitation,
+            not a state an existing account can hold.
+
+    # RBAC — role administration (Phase 1 wave 1b). camelCase and the null
+    # sentinels on tenantId/basedOn are intentional: app-owned contract
+    # mirroring the frontend type, not a proto passthrough.
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Technical name, unique per tenant.
+        description:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for a Zentria-maintained system preset.
+        basedOn:
+          type: string
+          format: uuid
+          nullable: true
+          description: Id of the preset (or role) a custom role was cloned from. Null on presets.
+        isSystem:
+          type: boolean
+        color:
+          type: string
+          example: hsl(217 91% 60%)
+        memberCount:
+          type: integer
+          description: Accounts in the caller's tenant currently holding this role.
+        capabilityCount:
+          type: integer
+          description: Number of capability grants the role carries.
+      required:
+        [id, name, description, tenantId, basedOn, isSystem, color, memberCount, capabilityCount]
+
+    RolesResponse:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+      required: [roles]
+
+    RoleResponse:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+      required: [role]
+
+    CreateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        color:
+          type: string
+          maxLength: 40
+          example: hsl(217 91% 60%)
+        basedOn:
+          type: string
+          format: uuid
+          description: >
+            Role the new one is cloned from — usually a preset. Every grant of
+            that role is copied over, scope included.
+      required: [name, basedOn]
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        color:
+          type: string
+          maxLength: 40
+          example: hsl(217 91% 60%)
+
+    RoleGrant:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [own, team, all]
+      required: [scope]
+
+    RolePermissionsResponse:
+      type: object
+      properties:
+        roleId:
+          type: string
+          format: uuid
+        grants:
+          type: object
+          description: Capability key (resource:action) → grant. Missing key = not granted.
+          additionalProperties:
+            $ref: "#/components/schemas/RoleGrant"
+      required: [roleId, grants]
+
+    UpdateRolePermissionsRequest:
+      type: object
+      properties:
+        grants:
+          type: object
+          description: Full replacement grant map — keys absent here are revoked.
+          additionalProperties:
+            $ref: "#/components/schemas/RoleGrant"
+      required: [grants]
+
+    CapabilityOverride:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [allow, deny]
+          description: allow sets or raises the key, deny removes it from the effective set.
+        scope:
+          type: string
+          enum: [own, team, all]
+          description: Target scope of an allow. Stored but meaningless for deny.
+      required: [mode, scope]
+
+    UserOverridesResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        overrides:
+          type: object
+          description: Capability key (resource:action) → override. Missing key = follows the roles.
+          additionalProperties:
+            $ref: "#/components/schemas/CapabilityOverride"
+      required: [userId, overrides]
+
+    UpdateUserOverridesRequest:
+      type: object
+      properties:
+        overrides:
+          type: object
+          description: Full replacement map — keys absent here go back to following the roles.
+          additionalProperties:
+            $ref: "#/components/schemas/CapabilityOverride"
+      required: [overrides]
 
     StatusResponse:
       type: object
@@ -36188,6 +38004,32 @@ components:
         leave_type_name: { type: string }
         leave_type_color: { type: string }
 
+    ProfileChangeRequest:
+      type: object
+      description: >
+        One employee's proposal to change a single field of their own master
+        data. camelCase, unlike the other HR schemas: this contract is consumed
+        by desktop's hr-change-requests client, which was written against
+        camelCase and is the reference for the shape.
+        oldValue is what the proposer saw when submitting, not what the record
+        holds now — the approver has to be able to notice when the two differ.
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        userName: { type: string }
+        drawer: { type: string, enum: [personal, job] }
+        field: { type: string }
+        fieldLabel: { type: string }
+        oldValue: { type: string }
+        newValue: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, cancelled] }
+        reason:
+          type: string
+          description: Rejection reason, absent otherwise
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time }
+        decidedByName: { type: string }
+
     EmployeeProfile:
       type: object
       properties:
@@ -36211,6 +38053,27 @@ components:
         manager_name: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, inactive] }
+        last_work_day: { type: string, format: date }
+        exit_date: { type: string, format: date }
+        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exit_reason: { type: string }
+
+    OffboardEmployeeInput:
+      type: object
+      required: [exitDate, exitType]
+      properties:
+        lastWorkDay: { type: string, format: date }
+        exitDate: { type: string, format: date }
+        exitType: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        reason: { type: string }
+        backfill:
+          type: boolean
+          description: Whether the position is to be refilled. Recorded only; it has no effect on the cascade.
+        successorUserId:
+          type: string
+          format: uuid
+          description: Required when the employee still has direct reports.
 
     UpdateEmployeeInput:
       type: object
@@ -37589,6 +39452,97 @@ components:
           type: string
 
     # -----------------------------------------------------------------------
+    # Vendor Access (RBAC R-5 B, GDAP-light v3)
+    # -----------------------------------------------------------------------
+
+    VendorAccessAgent:
+      type: object
+      properties:
+        name:
+          type: string
+
+    VendorAccessRequest:
+      type: object
+      description: A time-boxed Zentria support access request into a tenant's data.
+      properties:
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        description:
+          type: string
+        ticket_ref:
+          type: string
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorAccessAgent"
+        scope:
+          type: array
+          items:
+            type: string
+          description: Area IDs from the frontend's VENDOR_ACCESS_AREAS catalogue.
+        requested_start:
+          type: string
+          format: date
+        duration_days:
+          type: integer
+        expires_at:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [pending, counter_proposed, active, declined, expired, revoked, completed]
+        counter_proposed_start:
+          type: string
+          format: date
+        approved_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        approved_by:
+          type: string
+          description: Reviewer display name, resolved server-side.
+        sensitive_ack:
+          type: boolean
+        revoked_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        revoked_by:
+          type: string
+          description: Reviewer display name, resolved server-side.
+        completed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VendorAccessListResponse:
+      type: object
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorAccessRequest"
+
+    VendorAccessRequestResponse:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/VendorAccessRequest"
+
+    ApproveVendorAccessRequest:
+      type: object
+      properties:
+        sensitive_ack:
+          type: boolean
+
+    CounterProposeVendorAccessRequest:
+      type: object
+      required: [proposed_start]
+      properties:
+        proposed_start:
+          type: string
+          format: date
+
+    # -----------------------------------------------------------------------
     # Modul: formulare
     # -----------------------------------------------------------------------
 
@@ -37949,6 +39903,8 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_default:
+          type: boolean
 
     CreateEmailAccountRequest:
       type: object
@@ -37987,6 +39943,20 @@ components:
           $ref: "#/components/schemas/EmailAccountInfo"
 
     GetEmailAccountResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/EmailAccountInfo"
+
+    ListEmailAccountsResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAccountInfo"
+
+    SetDefaultEmailAccountResponse:
       type: object
       properties:
         account:
@@ -38231,6 +40201,32 @@ components:
         target_folder_id:
           type: string
           format: uuid
+
+    BulkMessageActionRequest:
+      type: object
+      required: [ids, action]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+        action:
+          type: string
+          enum: [read, unread, star, unstar, archive, spam, move, delete]
+        target:
+          type: string
+          format: uuid
+          description: Destination folder id. Required for "move"; ignored otherwise.
+
+    BulkMessageActionResponse:
+      type: object
+      properties:
+        affected:
+          type: integer
+          description: Number of messages actually changed. Ids outside the caller's tenant are silently excluded, not errored.
 
     SendEmailRequest:
       type: object
@@ -38639,6 +40635,118 @@ components:
       properties:
         signature:
           $ref: "#/components/schemas/EmailSignatureInfo"
+
+    EmailTemplateInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+          description: Empty when visibility is "shared".
+        visibility:
+          type: string
+          enum: [personal, shared]
+        name:
+          type: string
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListEmailTemplatesResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailTemplateInfo"
+
+    GetEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    CreateEmailTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        visibility:
+          type: string
+          enum: [personal, shared]
+          description: Defaults to "personal" when omitted.
+
+    CreateEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    UpdateEmailTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        body_html:
+          type: string
+          nullable: true
+        body_text:
+          type: string
+          nullable: true
+        visibility:
+          type: string
+          enum: [personal, shared]
+          nullable: true
+
+    UpdateEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    RenderEmailTemplateRequest:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Only keys from the server-side fixed placeholder allow-list are
+            substituted; unknown keys are ignored.
+
+    RenderEmailTemplateResponse:
+      type: object
+      properties:
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
 
     EmailContactLinkInfo:
       type: object
@@ -40201,6 +42309,40 @@ components:
         updated_at:
           type: string
 
+    FuhrparkDriverLicense:
+      type: object
+      description: A driving-licence compliance check for a driver (proto DriverLicense). Rows are append-only history; the most recent row per driver_id is the current status.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        driver_id:
+          type: string
+          format: uuid
+        license_classes:
+          type: array
+          items: { type: string }
+        expiry_date:
+          type: string
+          nullable: true
+          description: "ISO date YYYY-MM-DD; absent when the licence has no expiry"
+        checked_at:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        next_check_due_date:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        notes:
+          type: string
+        created_at:
+          type: string
+          description: "ISO-8601 string (proto string field, not Timestamp)"
+        updated_at:
+          type: string
+
     FuhrparkFuelLog:
       type: object
       description: A fuel refuelling log entry (proto FuelLog).
@@ -41142,7 +43284,9 @@ components:
           format: uuid
         slug:
           type: string
-          description: Unique plugin slug.
+          description: >-
+            Plugin slug, unique per tenant. A manifest shipped with the product
+            and a tenant's own manifest never share one.
         name:
           type: string
         description:

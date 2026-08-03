@@ -35,6 +35,7 @@ const (
 	AutomationService_TestCondition_FullMethodName          = "/automation.v1.AutomationService/TestCondition"
 	AutomationService_DryRunAutomation_FullMethodName       = "/automation.v1.AutomationService/DryRunAutomation"
 	AutomationService_GetAutomationStats_FullMethodName     = "/automation.v1.AutomationService/GetAutomationStats"
+	AutomationService_TriggerWebhook_FullMethodName         = "/automation.v1.AutomationService/TriggerWebhook"
 )
 
 // AutomationServiceClient is the client API for AutomationService service.
@@ -78,6 +79,10 @@ type AutomationServiceClient interface {
 	// Stats (1 RPC)
 	// =========================================================================
 	GetAutomationStats(ctx context.Context, in *GetAutomationStatsRequest, opts ...grpc.CallOption) (*GetAutomationStatsResponse, error)
+	// =========================================================================
+	// Webhook Trigger (1 RPC)
+	// =========================================================================
+	TriggerWebhook(ctx context.Context, in *TriggerWebhookRequest, opts ...grpc.CallOption) (*TriggerWebhookResponse, error)
 }
 
 type automationServiceClient struct {
@@ -248,6 +253,16 @@ func (c *automationServiceClient) GetAutomationStats(ctx context.Context, in *Ge
 	return out, nil
 }
 
+func (c *automationServiceClient) TriggerWebhook(ctx context.Context, in *TriggerWebhookRequest, opts ...grpc.CallOption) (*TriggerWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TriggerWebhookResponse)
+	err := c.cc.Invoke(ctx, AutomationService_TriggerWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AutomationServiceServer is the server API for AutomationService service.
 // All implementations must embed UnimplementedAutomationServiceServer
 // for forward compatibility.
@@ -289,6 +304,10 @@ type AutomationServiceServer interface {
 	// Stats (1 RPC)
 	// =========================================================================
 	GetAutomationStats(context.Context, *GetAutomationStatsRequest) (*GetAutomationStatsResponse, error)
+	// =========================================================================
+	// Webhook Trigger (1 RPC)
+	// =========================================================================
+	TriggerWebhook(context.Context, *TriggerWebhookRequest) (*TriggerWebhookResponse, error)
 	mustEmbedUnimplementedAutomationServiceServer()
 }
 
@@ -346,6 +365,9 @@ func (UnimplementedAutomationServiceServer) DryRunAutomation(context.Context, *D
 }
 func (UnimplementedAutomationServiceServer) GetAutomationStats(context.Context, *GetAutomationStatsRequest) (*GetAutomationStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAutomationStats not implemented")
+}
+func (UnimplementedAutomationServiceServer) TriggerWebhook(context.Context, *TriggerWebhookRequest) (*TriggerWebhookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TriggerWebhook not implemented")
 }
 func (UnimplementedAutomationServiceServer) mustEmbedUnimplementedAutomationServiceServer() {}
 func (UnimplementedAutomationServiceServer) testEmbeddedByValue()                           {}
@@ -656,6 +678,24 @@ func _AutomationService_GetAutomationStats_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AutomationService_TriggerWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TriggerWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).TriggerWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_TriggerWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).TriggerWebhook(ctx, req.(*TriggerWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AutomationService_ServiceDesc is the grpc.ServiceDesc for AutomationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -726,6 +766,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAutomationStats",
 			Handler:    _AutomationService_GetAutomationStats_Handler,
+		},
+		{
+			MethodName: "TriggerWebhook",
+			Handler:    _AutomationService_TriggerWebhook_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

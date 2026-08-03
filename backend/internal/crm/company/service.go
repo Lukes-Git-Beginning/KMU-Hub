@@ -2,6 +2,7 @@ package company
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -101,6 +102,52 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Compan
 	)
 
 	return s.getWithRelations(ctx, company, tenantID)
+}
+
+// FindOrCreateByName finds a non-merged company by case-insensitive name match within a
+// tenant, or creates a bare company (name only) if none exists. Used by contact import,
+// where a company name string is the only signal available and re-running the same import
+// must not create duplicate companies.
+func (s *Service) FindOrCreateByName(ctx context.Context, tenantID uuid.UUID, name string, createdBy uuid.UUID) (*models.Company, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
+	}
+
+	existing, err := s.repo.GetByName(ctx, tenantID, name)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, ErrCompanyNotFound) {
+		return nil, err
+	}
+
+	company := &models.Company{
+		ID:        uuid.New(),
+		Name:      name,
+		TenantID:  tenantID,
+		CreatedBy: createdBy,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := s.repo.Create(ctx, company); err != nil {
+		return nil, err
+	}
+
+	slog.Info("company created via find-or-create", "company_id", company.ID, "name", company.Name)
+
+	return company, nil
+}
+
+// GetNamesByIDs returns company names keyed by ID, scoped to a tenant.
+func (s *Service) GetNamesByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (map[uuid.UUID]string, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	return s.repo.GetNamesByIDs(ctx, ids, tenantID)
 }
 
 // GetByID retrieves a company by ID scoped to a tenant

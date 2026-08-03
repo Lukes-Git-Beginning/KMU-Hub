@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/changerequest"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
@@ -24,11 +25,12 @@ import (
 // HRGRPCServer implements the HRService gRPC service.
 type HRGRPCServer struct {
 	hrv1.UnimplementedHRServiceServer
-	leaveService        *leave.Service
-	timetrackingService *timetracking.Service
-	employeeService     *employee.Service
-	absenceService      *absence.Service
-	settingsRepo        leave.HRSettingsRepository
+	leaveService         *leave.Service
+	timetrackingService  *timetracking.Service
+	employeeService      *employee.Service
+	absenceService       *absence.Service
+	changeRequestService *changerequest.Service
+	settingsRepo         leave.HRSettingsRepository
 }
 
 // NewHRGRPCServer creates a new HRGRPCServer with all HR services.
@@ -37,14 +39,16 @@ func NewHRGRPCServer(
 	timetrackingService *timetracking.Service,
 	employeeService *employee.Service,
 	absenceService *absence.Service,
+	changeRequestService *changerequest.Service,
 	settingsRepo leave.HRSettingsRepository,
 ) *HRGRPCServer {
 	return &HRGRPCServer{
-		leaveService:        leaveService,
-		timetrackingService: timetrackingService,
-		employeeService:     employeeService,
-		absenceService:      absenceService,
-		settingsRepo:        settingsRepo,
+		leaveService:         leaveService,
+		timetrackingService:  timetrackingService,
+		employeeService:      employeeService,
+		absenceService:       absenceService,
+		changeRequestService: changeRequestService,
+		settingsRepo:         settingsRepo,
 	}
 }
 
@@ -797,6 +801,59 @@ func (s *HRGRPCServer) UpdateEmployee(ctx context.Context, req *hrv1.UpdateEmplo
 	}, nil
 }
 
+func (s *HRGRPCServer) OffboardEmployee(ctx context.Context, req *hrv1.OffboardEmployeeReq) (*hrv1.OffboardEmployeeResp, error) {
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+	// Tenant and actor come from the context, never from the request: x-tenant-id
+	// and x-user-id propagate across the gRPC hop, and the self-offboard guard
+	// is only worth anything if the caller cannot name themselves.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	exitDate, err := time.Parse("2006-01-02", req.GetExitDate())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid exit_date")
+	}
+
+	in := employee.OffboardInput{
+		ExitDate: exitDate,
+		ExitType: req.GetExitType(),
+		Reason:   req.GetReason(),
+		Backfill: req.GetBackfill(),
+	}
+	if v := req.GetLastWorkDay(); v != "" {
+		lastWorkDay, parseErr := time.Parse("2006-01-02", v)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid last_work_day")
+		}
+		in.LastWorkDay = &lastWorkDay
+	}
+	if v := req.GetSuccessorUserId(); v != "" {
+		successorID, parseErr := uuid.Parse(v)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid successor_user_id")
+		}
+		in.SuccessorUserID = &successorID
+	}
+
+	updated, err := s.employeeService.OffboardEmployee(ctx, tenantID, employeeID, actorID, in)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.OffboardEmployeeResp{
+		Employee: toProtoEmployeeProfile(updated),
+	}, nil
+}
+
 func (s *HRGRPCServer) UpdateSelfProfile(ctx context.Context, req *hrv1.UpdateSelfProfileReq) (*hrv1.UpdateSelfProfileResp, error) {
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
@@ -906,13 +963,13 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 	}, nil
 }
 
-func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, _ *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
+func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, req *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
-	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID)
+	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID, req.GetCallerScope())
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -1669,9 +1726,18 @@ func toProtoEmployeeProfile(e *models.EmployeeProfile) *hrv1.EmployeeProfile {
 		UserName:              e.UserName,
 		UserEmail:             e.UserEmail,
 		ManagerName:           e.ManagerName,
+		Status:                string(e.Status),
+		ExitType:              e.ExitType,
+		ExitReason:            e.ExitReason,
 	}
 	if e.ManagerUserID != nil {
 		pe.ManagerUserId = e.ManagerUserID.String()
+	}
+	if e.LastWorkDay != nil {
+		pe.LastWorkDay = e.LastWorkDay.Format("2006-01-02")
+	}
+	if e.ExitDate != nil {
+		pe.ExitDate = e.ExitDate.Format("2006-01-02")
 	}
 	return pe
 }
@@ -2008,6 +2074,37 @@ func mapHRError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrDocumentCategoryNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, employee.ErrSelfOffboard):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, employee.ErrLastRoleAdmin),
+		errors.Is(err, employee.ErrAlreadyOffboarded):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	// 422, not 400: the body is well-formed, but an employee with reports
+	// cannot leave without naming who takes them over.
+	case errors.Is(err, employee.ErrSuccessorRequired):
+		return status.Error(codes.OutOfRange, err.Error())
+	case errors.Is(err, employee.ErrInvalidSuccessor),
+		errors.Is(err, employee.ErrInvalidExitType),
+		errors.Is(err, employee.ErrExitBeforeLastWorkDay):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Profile change request errors
+	case errors.Is(err, changerequest.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, changerequest.ErrPendingRequestExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, changerequest.ErrNotPending):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, changerequest.ErrFieldNotProposable):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, changerequest.ErrNotProposer), errors.Is(err, changerequest.ErrOutOfScope):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, changerequest.ErrProfileNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// OutOfRange is the gateway's 422 channel (helpers.go grpcStatusToHTTP):
+	// the request is well-formed, the missing reason makes it unprocessable.
+	case errors.Is(err, changerequest.ErrReasonRequired):
+		return status.Error(codes.OutOfRange, err.Error())
 
 	// Absence errors
 	case errors.Is(err, absence.ErrInvalidDateRange):

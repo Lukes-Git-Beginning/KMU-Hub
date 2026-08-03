@@ -100,23 +100,84 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		})
 	})
 
+	// Role administration (RBAC Phase 1 wave 1b). roles:manage is the coarse
+	// legacy key every admin token has always carried (migration 000002);
+	// admin:role:read is the fine-grained successor seeded for admin/it_admin/
+	// hr_admin (migration 000256). RequirePermissionAny keeps a session minted
+	// before 000256 working until it refreshes, instead of a hard 403.
+	r.Route("/api/v1/admin/roles", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "read"},
+		)).Get("/", a.HandleListRoles)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "create"},
+		)).Post("/", a.HandleCreateRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "edit"},
+		)).Patch("/{id}", a.HandleUpdateRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "delete"},
+		)).Delete("/{id}", a.HandleDeleteRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "read"},
+		)).Get("/{id}/permissions", a.HandleGetRolePermissions)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "edit"},
+		)).Put("/{id}/permissions", a.HandleSetRolePermissions)
+	})
+
 	// Protected user routes
 	r.Route("/api/v1/users", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequireRole("admin", "manager")).Get("/", a.HandleListUsers)
 		r.Get("/{id}", a.HandleGetUser)
 		r.With(middleware.RequireRole("admin")).Put("/{id}", a.HandleUpdateUser)
-		r.With(middleware.RequireRole("admin")).Post("/{id}/roles", a.HandleAssignRole)
-		r.With(middleware.RequireRole("admin")).Delete("/{id}/roles", a.HandleRemoveRole)
+		// Role assignment, the same additive guard pair as /admin/roles: every
+		// admin token carries roles:manage (migration 000002 grants the admin
+		// preset the full catalogue), admin:role:assign is the fine successor
+		// seeded for admin/it_admin/hr_admin in 000256. The pair widens the
+		// route rather than narrowing it — hr_admin assigns roles without being
+		// allowed to edit them, which the previous RequireRole("admin") could
+		// not express.
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "assign"},
+		)).Post("/{id}/roles", a.HandleAssignRole)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"roles", "manage"},
+			[2]string{"admin:role", "assign"},
+		)).Delete("/{id}/roles/{roleId}", a.HandleRemoveRole)
 	})
 
-	// Effective-permission audit view of any account. Lives under /admin/users
-	// rather than /users because that is where the RBAC frontend addresses it
-	// (rbac-client.ts) — same guard as the other admin user operations, so no
-	// new permission key and no seed are needed.
+	// Effective-permission audit view of any account, and the account roster
+	// itself. Lives under /admin/users rather than /users because that is
+	// where the RBAC/account admin frontend addresses both (rbac-client.ts,
+	// useAdminUsers.ts) — RequireRole("admin") throughout, since the roster
+	// carries every tenant member's e-mail address and rights.
 	r.Route("/api/v1/admin/users", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.With(middleware.RequireRole("admin")).Get("/", a.HandleListAdminUsers)
+		r.With(middleware.RequireRole("admin")).Post("/invite", a.HandleInviteAdminUser)
+		r.With(middleware.RequireRole("admin")).Patch("/{id}", a.HandleUpdateAdminUser)
+		r.With(middleware.RequireRole("admin")).Post("/{id}/resend-invite", a.HandleResendAdminUserInvite)
 		r.With(middleware.RequireRole("admin")).Get("/{id}/permissions", a.HandleGetUserPermissions)
+		// Per-user overrides (RBAC R-6) guard with their own catalogue key
+		// rather than RequireRole("admin") like their neighbours: fine-tuning
+		// an individual is deliberately NOT part of the hr_admin delegation
+		// that hands out roles (R6 briefing §0.3), and only the admin preset
+		// carries admin:user_override:manage since migration 000256. A key
+		// instead of a role name also lets a tenant that clones the preset
+		// into its own "Geschäftsführung" keep the right.
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Get("/{id}/overrides", a.HandleGetUserOverrides)
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Put("/{id}/overrides", a.HandleSetUserOverrides)
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Delete("/{id}/overrides", a.HandleClearUserOverrides)
 	})
 
 	// Tenant provisioning. Not RequireRole("admin"): a tenant admin
@@ -304,6 +365,186 @@ func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// adminUserBody mirrors AdminUser in admin-types.ts. Two fields carry a
+// deliberate gap, documented rather than invented:
+//   - jobTitle is always "" — the backend has no job-title data on an
+//     account (that lives in the HR employee record, a different service,
+//     addressed by a different id). Inventing one would be worse than empty.
+//   - hasOverrides is omitted (omitempty): per-user permission overrides
+//     (R-6) do not exist server-side yet.
+type adminUserBody struct {
+	ID           string   `json:"id"`
+	FirstName    string   `json:"firstName"`
+	LastName     string   `json:"lastName"`
+	Email        string   `json:"email"`
+	JobTitle     string   `json:"jobTitle"`
+	Roles        []string `json:"roles"`
+	HasOverrides bool     `json:"hasOverrides,omitempty"`
+	Status       string   `json:"status"`
+	LastLoginAt  *string  `json:"lastLoginAt"`
+	InvitedAt    *string  `json:"invitedAt"`
+}
+
+type adminUsersBody struct {
+	Users []adminUserBody `json:"users"`
+}
+
+func toAdminUserBody(u *authv1.AdminUserInfo) adminUserBody {
+	roles := u.RoleIds
+	if roles == nil {
+		roles = []string{}
+	}
+	return adminUserBody{
+		ID:          u.Id,
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		Email:       u.Email,
+		Roles:       roles,
+		Status:      u.Status,
+		LastLoginAt: nullIfEmpty(u.LastLoginAt),
+		InvitedAt:   nullIfEmpty(u.InvitedAt),
+	}
+}
+
+// HandleListAdminUsers returns the tenant's account roster: every real
+// account plus every still-open invitation, merged into the one list the
+// account admin surface shows.
+func (a *AuthRoutes) HandleListAdminUsers(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ListAdminUsers(r.Context(), &authv1.ListAdminUsersRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	body := adminUsersBody{Users: make([]adminUserBody, len(resp.Users))}
+	for i, u := range resp.Users {
+		body.Users[i] = toAdminUserBody(u)
+	}
+
+	response.JSON(w, http.StatusOK, body)
+}
+
+// adminUserResultBody is the answer of the three writing roster routes. The
+// frontend reads `user` alone (useAdminUsers.ts); inviteToken rides along on
+// the two invitation routes because nothing server-side dispatches invitation
+// mail — the caller builds the accept link, exactly as POST /api/v1/invitations
+// already works.
+type adminUserResultBody struct {
+	User        adminUserBody `json:"user"`
+	InviteToken string        `json:"inviteToken,omitempty"`
+}
+
+func respondAdminUser(w http.ResponseWriter, code int, resp *authv1.AdminUserResponse) {
+	response.JSON(w, code, adminUserResultBody{
+		User:        toAdminUserBody(resp.User),
+		InviteToken: resp.InviteToken,
+	})
+}
+
+type inviteAdminUserRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	FirstName string `json:"firstName" validate:"omitempty,max=100"`
+	LastName  string `json:"lastName" validate:"omitempty,max=100"`
+	// No oneof on the ids: role ids are resolved dynamically against the roles
+	// table, which is the only way a custom role can ever be invited. min=1
+	// because an account with no role has no rights and cannot fix that itself.
+	Roles []string `json:"roles" validate:"required,min=1,dive,uuid"`
+}
+
+// HandleInviteAdminUser opens an invitation for an address and answers with the
+// roster row it produced, so the surface can insert it without refetching.
+func (a *AuthRoutes) HandleInviteAdminUser(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[inviteAdminUserRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.InviteAdminUser(r.Context(), &authv1.InviteAdminUserRequest{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		RoleIds:   req.Roles,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusCreated, resp)
+}
+
+type updateAdminUserRequest struct {
+	// A pointer to a slice, not a slice: an absent `roles` leaves the account's
+	// roles alone, while `"roles": []` strips them. Collapsing the two would
+	// make every status-only PATCH silently clear the account's rights.
+	Roles  *[]string `json:"roles" validate:"omitempty,dive,uuid"`
+	Status *string   `json:"status" validate:"omitempty,oneof=active deactivated"`
+}
+
+// HandleUpdateAdminUser changes an account's roles and/or its active state.
+func (a *AuthRoutes) HandleUpdateAdminUser(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[updateAdminUserRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &authv1.UpdateAdminUserRequest{
+		UserId: chi.URLParam(r, "id"),
+		Status: req.Status,
+	}
+	if req.Roles != nil {
+		grpcReq.HasRoleIds = true
+		grpcReq.RoleIds = *req.Roles
+	}
+
+	resp, err := client.UpdateAdminUser(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusOK, resp)
+}
+
+// HandleResendAdminUserInvite re-issues a pending invitation. The path id is
+// the INVITATION id, which is what an invited roster row carries — no account
+// exists for it yet.
+func (a *AuthRoutes) HandleResendAdminUserInvite(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ResendAdminUserInvite(r.Context(), &authv1.ResendAdminUserInviteRequest{
+		InvitationId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondAdminUser(w, http.StatusOK, resp)
+}
+
 type updateUserRequest struct {
 	FirstName *string `json:"first_name,omitempty" validate:"omitempty,min=1"`
 	LastName  *string `json:"last_name,omitempty" validate:"omitempty,min=1"`
@@ -347,10 +588,32 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// assignRoleRequest mirrors AssignRoleInput in rbac-types.ts. The role travels
+// as an id, not a name: the previous `role_name` with its
+// `oneof=admin manager member` tag could only ever name the three seed presets,
+// which made every custom role of wave 1b structurally unassignable. Whether
+// the id exists and whether the caller may see it is decided against the roles
+// table in the service — a static tag cannot know a tenant's own roles.
 type assignRoleRequest struct {
-	RoleName string `json:"role_name" validate:"required,oneof=admin manager member"`
+	RoleID string `json:"roleId" validate:"required,uuid"`
 }
 
+// userRolesResponseBody mirrors UserRolesResponse in rbac-types.ts: the role
+// ids the account holds after the mutation. Built through toUserRolesBody so
+// an account left without any role marshals as [], not null.
+type userRolesResponseBody struct {
+	Roles []string `json:"roles"`
+}
+
+func toUserRolesBody(roleIDs []string) userRolesResponseBody {
+	if roleIDs == nil {
+		return userRolesResponseBody{Roles: []string{}}
+	}
+	return userRolesResponseBody{Roles: roleIDs}
+}
+
+// HandleAssignRole grants a role to an account. Roles are n:m — an assignment
+// adds to what the account already holds instead of replacing it.
 func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -368,18 +631,22 @@ func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = client.AssignRole(r.Context(), &authv1.AssignRoleRequest{
-		UserId:   userID,
-		RoleName: req.RoleName,
+	resp, err := client.AssignUserRole(r.Context(), &authv1.AssignUserRoleRequest{
+		UserId: userID,
+		RoleId: req.RoleID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "role assigned"})
+	response.JSON(w, http.StatusOK, toUserRolesBody(resp.RoleIds))
 }
 
+// HandleRemoveRole takes one role off an account. The role travels in the path
+// rather than in a body: a DELETE with a payload is awkward for clients, and
+// the frontend addresses the assignment as a resource of its own
+// (rbac-client.ts, removeUserRole).
 func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -392,21 +659,21 @@ func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, ok := decodeAndValidate[assignRoleRequest](w, r)
+	roleID, ok := validateUUIDParam(w, r, "roleId")
 	if !ok {
 		return
 	}
 
-	_, err = client.RemoveRole(r.Context(), &authv1.RemoveRoleRequest{
-		UserId:   userID,
-		RoleName: req.RoleName,
+	resp, err := client.RevokeUserRole(r.Context(), &authv1.RevokeUserRoleRequest{
+		UserId: userID,
+		RoleId: roleID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "role removed"})
+	response.JSON(w, http.StatusOK, toUserRolesBody(resp.RoleIds))
 }
 
 // ============================================================================
@@ -425,6 +692,22 @@ type effectivePermissionsBody struct {
 type effectivePermissions struct {
 	Roles        []effectiveRole                `json:"roles"`
 	Capabilities map[string]effectiveCapability `json:"capabilities"`
+	// Both optional in rbac-types.ts and both omitted whenever they carry
+	// nothing — for ?base=1 and for every account without an override. That is
+	// not a shortcut: it makes the answer for an account without overrides
+	// byte-identical to the one this route gave before R-6 existed, and the
+	// frontend defaults both (`deniedByOverride = []`, `hasOverrides = false`).
+	HasOverrides     bool                   `json:"hasOverrides,omitempty"`
+	DeniedByOverride []deniedCapabilityBody `json:"deniedByOverride,omitempty"`
+}
+
+// deniedCapabilityBody is a key the roles grant and a deny override revokes.
+// roleScope is what the roles would have given — the effective view strikes
+// the row through and still shows it.
+type deniedCapabilityBody struct {
+	Key       string   `json:"key"`
+	RoleScope string   `json:"roleScope"`
+	Sources   []string `json:"sources"`
 }
 
 // effectiveRole spells isSystem in camelCase because the frontend type does
@@ -466,8 +749,26 @@ func toEffectivePermissionsBody(resp *authv1.GetEffectivePermissionsResponse) ef
 		caps[c.Key] = effectiveCapability{Scope: c.Scope, Sources: sources}
 	}
 
+	var denied []deniedCapabilityBody
+	for _, d := range resp.DeniedByOverride {
+		sources := d.Sources
+		if sources == nil {
+			sources = []string{}
+		}
+		denied = append(denied, deniedCapabilityBody{
+			Key:       d.Key,
+			RoleScope: d.RoleScope,
+			Sources:   sources,
+		})
+	}
+
 	return effectivePermissionsBody{
-		Permissions: effectivePermissions{Roles: roles, Capabilities: caps},
+		Permissions: effectivePermissions{
+			Roles:            roles,
+			Capabilities:     caps,
+			HasOverrides:     resp.HasOverrides,
+			DeniedByOverride: denied,
+		},
 	}
 }
 
@@ -498,10 +799,11 @@ func (a *AuthRoutes) HandleGetMyPermissions(w http.ResponseWriter, r *http.Reque
 // admin audit view.
 //
 // Fetching the target user first is a security step, not a convenience:
-// user_roles carries neither tenant_id nor an RLS policy, so the resolver
-// filters the roles but not the membership — handed a foreign tenant's user id
-// it would resolve that user's preset roles just fine. GetUser runs under the
-// users RLS policy and turns a foreign id into a clean 404.
+// GetUser runs under the users RLS policy and turns a foreign id into a clean
+// 404 before the resolver ever runs. user_roles carries its own tenant_id/RLS
+// since migration 000286 and would already refuse a foreign id's roles on its
+// own — this stays as the outer, user-facing gate (a clean 404 beats an empty
+// permission set) and as defense in depth for the resolver itself.
 func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -519,17 +821,429 @@ func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// lean: the frontend sends ?base=1 to ask for the role union without
-	// per-user overrides. Overrides do not exist server-side yet (RBAC R-6), so
-	// both answers are identical and the parameter is accepted and ignored.
-	// Branch on it once the override table lands.
-	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{UserId: userID})
+	// ?base=1 asks for the role union without the account's per-user overrides
+	// (RBAC R-6) — the inherited baseline the override editor greys out behind
+	// the deviations. Only the exact "1" switches it: an unknown value means a
+	// caller who did not mean to ask, and the effective set is the safer answer
+	// to hand someone who guessed wrong.
+	base := r.URL.Query().Get("base") == "1"
+
+	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{
+		UserId: userID,
+		Base:   base,
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, toEffectivePermissionsBody(resp))
+}
+
+// ============================================================================
+// Role Administration Handlers (RBAC Phase 1 wave 1b)
+// ============================================================================
+
+// roleBody is the wire shape the RBAC frontend consumes (rbac-types.ts,
+// Role). It is app-owned rather than proto passthrough: tenantId/basedOn must
+// render as JSON null on a system preset, which proto3's empty string cannot
+// express, and the frontend spells every field camelCase.
+type roleBody struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Description     string  `json:"description"`
+	TenantID        *string `json:"tenantId"`
+	BasedOn         *string `json:"basedOn"`
+	IsSystem        bool    `json:"isSystem"`
+	Color           string  `json:"color"`
+	MemberCount     int32   `json:"memberCount"`
+	CapabilityCount int32   `json:"capabilityCount"`
+}
+
+type rolesBody struct {
+	Roles []roleBody `json:"roles"`
+}
+
+// roleResponseBody wraps a single role — the frontend's RoleResponse reads
+// `resp.role`, so the entity must not go out bare.
+type roleResponseBody struct {
+	Role roleBody `json:"role"`
+}
+
+// nullIfEmpty turns the proto3 zero value for a nullable string field back
+// into JSON null. preset_id is empty on presets themselves as well as on
+// every role with no clone lineage — both cases are "no value", not "".
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func toRoleBody(r *authv1.Role) roleBody {
+	return roleBody{
+		ID:              r.Id,
+		Name:            r.Name,
+		Description:     r.Description,
+		TenantID:        nullIfEmpty(r.TenantId),
+		BasedOn:         nullIfEmpty(r.PresetId),
+		IsSystem:        r.IsSystem,
+		Color:           r.Color,
+		MemberCount:     r.MemberCount,
+		CapabilityCount: r.CapabilityCount,
+	}
+}
+
+// HandleListRoles returns the system presets plus the calling tenant's custom
+// roles.
+func (a *AuthRoutes) HandleListRoles(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	resp, err := client.ListRoles(r.Context(), &authv1.ListRolesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	body := rolesBody{Roles: make([]roleBody, len(resp.Roles))}
+	for i, role := range resp.Roles {
+		body.Roles[i] = toRoleBody(role)
+	}
+
+	response.JSON(w, http.StatusOK, body)
+}
+
+// createRoleRequest mirrors CreateRoleInput in rbac-types.ts. The length
+// bounds match the columns (name VARCHAR(50), color VARCHAR(40)) so an
+// oversized value fails as a 400 instead of a 22001 turned 500. name and
+// basedOn carry no `required` tag on purpose — they are checked below to
+// answer with the 422 the frontend's contract specifies for a missing
+// mandatory field, rather than decodeAndValidate's 400.
+type createRoleRequest struct {
+	Name        string `json:"name" validate:"omitempty,max=50"`
+	Description string `json:"description" validate:"omitempty,max=1000"`
+	Color       string `json:"color" validate:"omitempty,max=40"`
+	BasedOn     string `json:"basedOn" validate:"omitempty,uuid"`
+}
+
+// HandleCreateRole clones an existing role into a new tenant-owned one.
+func (a *AuthRoutes) HandleCreateRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createRoleRequest](w, r)
+	if !ok {
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" || req.BasedOn == "" {
+		response.Error(w, http.StatusUnprocessableEntity, "not_found")
+		return
+	}
+
+	resp, err := client.CreateRole(r.Context(), &authv1.CreateRoleRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+		BasedOn:     req.BasedOn,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, roleResponseBody{Role: toRoleBody(resp.Role)})
+}
+
+// updateRoleRequest mirrors UpdateRoleInput in rbac-types.ts: every field is
+// optional, absence means "leave unchanged". The length bounds match
+// createRoleRequest's — same columns, same overflow-to-500 concern.
+type updateRoleRequest struct {
+	Name        *string `json:"name,omitempty" validate:"omitempty,max=50"`
+	Description *string `json:"description,omitempty" validate:"omitempty,max=1000"`
+	Color       *string `json:"color,omitempty" validate:"omitempty,max=40"`
+}
+
+// HandleUpdateRole renames/re-describes/recolors a tenant-owned role.
+func (a *AuthRoutes) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateRoleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateRole(r.Context(), &authv1.UpdateRoleRequest{
+		RoleId:      roleID,
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, roleResponseBody{Role: toRoleBody(resp.Role)})
+}
+
+// HandleDeleteRole removes a tenant-owned role. Presets are immutable and a
+// role still worn by a member cannot be deleted out from under its holders —
+// both answer through respondGRPCError, not a bare 500.
+func (a *AuthRoutes) HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.DeleteRole(r.Context(), &authv1.DeleteRoleRequest{RoleId: roleID}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// roleGrantBody is one capability grant on the wire — RoleGrants in
+// rbac-types.ts is a plain `Record<string, {scope}>`, the key never travels
+// as a field of its own.
+type roleGrantBody struct {
+	Scope string `json:"scope"`
+}
+
+// rolePermissionsResponseBody mirrors RolePermissionsResponse in
+// rbac-types.ts. Grants is built through toRoleGrantsBody so it always
+// marshals as `{}`, never `null`, on a role with zero grants.
+type rolePermissionsResponseBody struct {
+	RoleID string                   `json:"roleId"`
+	Grants map[string]roleGrantBody `json:"grants"`
+}
+
+func toRoleGrantsBody(grants []*authv1.RoleGrant) map[string]roleGrantBody {
+	body := make(map[string]roleGrantBody, len(grants))
+	for _, g := range grants {
+		body[g.Key] = roleGrantBody{Scope: g.Scope}
+	}
+	return body
+}
+
+// HandleGetRolePermissions returns the grant set of a role visible to the
+// caller — presets included, so the builder can read what it is cloning.
+func (a *AuthRoutes) HandleGetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetRolePermissions(r.Context(), &authv1.GetRolePermissionsRequest{RoleId: roleID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, rolePermissionsResponseBody{
+		RoleID: resp.RoleId,
+		Grants: toRoleGrantsBody(resp.Grants),
+	})
+}
+
+// putRolePermissionsRequest mirrors UpdateRolePermissionsInput in
+// rbac-types.ts. Scope shape (own|team|all) is not a validate tag here: the
+// catalogue check that also rejects an unknown key needs the database, so
+// both travel to the service together instead of splitting the validation
+// across two layers.
+type putRolePermissionsRequest struct {
+	Grants map[string]roleGrantBody `json:"grants"`
+}
+
+// HandleSetRolePermissions replaces the entire grant set of a tenant-owned
+// role. Presets and unknown capability keys are rejected in the service —
+// this handler only reshapes the map the frontend sends into the repeated
+// RoleGrant the proto carries.
+func (a *AuthRoutes) HandleSetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[putRolePermissionsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grants := make([]*authv1.RoleGrant, 0, len(req.Grants))
+	for key, g := range req.Grants {
+		grants = append(grants, &authv1.RoleGrant{Key: key, Scope: g.Scope})
+	}
+
+	resp, err := client.SetRolePermissions(r.Context(), &authv1.SetRolePermissionsRequest{
+		RoleId: roleID,
+		Grants: grants,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, rolePermissionsResponseBody{
+		RoleID: resp.RoleId,
+		Grants: toRoleGrantsBody(resp.Grants),
+	})
+}
+
+// overrideBody is one per-user override on the wire. Like roleGrantBody the
+// capability key never travels as a field of its own — UserOverrides in
+// rbac-types.ts is a plain `Record<string, {mode, scope}>`.
+type overrideBody struct {
+	Mode  string `json:"mode"`
+	Scope string `json:"scope"`
+}
+
+// userOverridesResponseBody mirrors UserOverridesResponse in rbac-types.ts.
+// Overrides is built through toOverridesBody so an account without any
+// deviation marshals as `{}`, never `null`.
+type userOverridesResponseBody struct {
+	UserID    string                  `json:"userId"`
+	Overrides map[string]overrideBody `json:"overrides"`
+}
+
+func toOverridesBody(overrides []*authv1.CapabilityOverride) map[string]overrideBody {
+	body := make(map[string]overrideBody, len(overrides))
+	for _, o := range overrides {
+		body[o.Key] = overrideBody{Mode: o.Mode, Scope: o.Scope}
+	}
+	return body
+}
+
+// HandleGetUserOverrides returns the per-user permission overrides of an
+// account — the deviations the editor renders on top of the inherited role
+// stand.
+func (a *AuthRoutes) HandleGetUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetUserOverrides(r.Context(), &authv1.GetUserOverridesRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, userOverridesResponseBody{
+		UserID:    resp.UserId,
+		Overrides: toOverridesBody(resp.Overrides),
+	})
+}
+
+// putUserOverridesRequest mirrors UpdateUserOverridesInput in rbac-types.ts.
+// mode and scope carry no validate tags: the catalogue check that rejects an
+// unknown key needs the database, so all three travel to the service together
+// instead of splitting the validation across two layers — the same call
+// putRolePermissionsRequest makes.
+type putUserOverridesRequest struct {
+	Overrides map[string]overrideBody `json:"overrides"`
+}
+
+// HandleSetUserOverrides replaces the entire override map of an account. An
+// empty map clears every deviation, which is the editor's "back to the role
+// stand". Guardrails (self-edit, escalation, last admin) and the catalogue
+// check live in the service.
+func (a *AuthRoutes) HandleSetUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[putUserOverridesRequest](w, r)
+	if !ok {
+		return
+	}
+
+	overrides := make([]*authv1.CapabilityOverride, 0, len(req.Overrides))
+	for key, o := range req.Overrides {
+		overrides = append(overrides, &authv1.CapabilityOverride{Key: key, Mode: o.Mode, Scope: o.Scope})
+	}
+
+	resp, err := client.SetUserOverrides(r.Context(), &authv1.SetUserOverridesRequest{
+		UserId:    userID,
+		Overrides: overrides,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, userOverridesResponseBody{
+		UserID:    resp.UserId,
+		Overrides: toOverridesBody(resp.Overrides),
+	})
+}
+
+// HandleClearUserOverrides drops every override of an account.
+func (a *AuthRoutes) HandleClearUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.ClearUserOverrides(r.Context(), &authv1.ClearUserOverridesRequest{UserId: userID}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

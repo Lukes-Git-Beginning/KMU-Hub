@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-28
+updated: 2026-08-03
 ---
 # Architektur
 
@@ -18,7 +18,7 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern. Tenant-Isolation auf 
 | email | :50056 | IMAP/SMTP Accounts, Messages, Signatures |
 | document | :50057 | Files, Folders, Versions, WOPI Locks |
 | biz | :50058 | Finance, HR, Bexio, Lexware, DATEV, PDF, Dunning |
-| automation | :50059 | Workflows, Conditions, Actions, Templates |
+| automation | :50059 | Workflows, Conditions, Actions, Templates, Zeit-/Cron-Trigger-Poller, Inbound-Webhooks, `http.request`-Action (Nachtlauf 4) |
 | plugin | :50060 | WASM Sandbox (flag off), SDK, Host API, Lifecycle |
 | dialer | :50061 | Campaigns, Call Sessions, Agent Status, Outcomes |
 | wiki | :50062 | Articles, Versions, Attachments, Categories, FTS (tsvector+GIN), Share-Links (Sprint 1 Welle 2) |
@@ -318,6 +318,16 @@ Bugfix-Sweep nach Welle 3 (Commit `d443ab4`, 34 Findings closed: 17 P0 + 17 P1, 
 3. **Idempotency + Recording-Robustness** — Middleware-Stack-Position fix nach Auth+RBAC. `errors.Is` statt String-Equality. Atomares `Reserve` via `INSERT ... ON CONFLICT DO UPDATE RETURNING`. `context.WithoutCancel` fuer async Complete. Cleanup-Worker echte `pg_try_advisory_xact_lock`-Leader-Election. Migration 000108 setzt PK auf `(tenant_id, key)`. `Recording.StartRecording` reordert Pre-Consent-Check VOR `CreateRecording` (verhindert Orphan-Rows). Frontend: `CallControls` hat Doppelklick-Guard via `isPending`-Flags + try/catch-Toast auf `confirmInitiatorConsent`-Failure; `offline-queue` retried bei 409 statt silent-drop. Details: [[security]] Idempotency + Pre-Recording-Consent.
 
 Pause-Gate: Nach Welle 3.5 → User-Review + Welle-4-Plan (Idempotency HardMode, restliche 15 Top-20-Repos, Top-30+ Tabellen).
+
+## Backend-Nachtlauf 4 — Automation-Trigger + Aktionen scharf (2026-08-02/03)
+
+Drei Bausteine, die die Automation-Engine von „reagiert auf interne Events" auf „reagiert auf Zeit und auf die Aussenwelt, und kann selbst nach draussen" heben. Alle drei waren als Datenmodell/Registry vorhanden, aber ohne den Teil, der sie tatsaechlich ausloest.
+
+**Zeit-/Cron-Trigger-Poller** (`d1efda2d`, Migration 000284) — `trigger.NewTimeTriggerPoller(repo, workflowEngine, pool, triggerReg)`, gestartet als Goroutine in `cmd/automation/main.go:172-175`, beendet ueber denselben `cancel()` wie EventBus und laufende Executions. Der Claim laeuft ueber die DB (Migration 000284), nicht ueber einen Prozess-Lock — zwei automation-Instanzen ziehen sich denselben Zeit-Trigger nicht doppelt.
+
+**Inbound-`webhook.received`-Trigger** (`45e0dc91`) — externe Systeme koennen Workflows anstossen, Gegenstueck zum bereits vorhandenen ausgehenden Webhook-Worker der `formulare`.
+
+**SSRF-geschuetzte `http.request`-Action** (`cac9f73d`) — Workflows duerfen HTTP-Requests absetzen. Der Guard ist der interessante Teil: eine Action, die eine benutzerdefinierte URL aufruft, laeuft im Netzwerk-Kontext des Services und erreicht damit alles, was die anderen Container erreichen (Postgres, Redis, MinIO, die Metadaten-Endpunkte des Hosters). Ziel-Aufloesung und Adressbereiche werden deshalb serverseitig geprueft, nicht dem Aufrufer ueberlassen.
 
 ## WASM-Plugin-System — Feature-Flag OFF (Sprint 0 S0.6 / R2-P1.2)
 

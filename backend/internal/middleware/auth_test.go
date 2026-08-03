@@ -34,7 +34,7 @@ func TestAuthMiddleware(t *testing.T) {
 	}))
 
 	t.Run("valid token", func(t *testing.T) {
-		token, _ := tm.CreateAccessToken(uuid.New(), uuid.New().String(), []string{"admin"}, []string{"contacts:read"}, nil)
+		token, _ := tm.CreateAccessToken(uuid.New(), uuid.New().String(), []string{"admin"}, &auth.TokenPermissions{Permissions: []string{"contacts:read"}})
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -63,7 +63,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("expired token", func(t *testing.T) {
 		expiredTM := auth.NewTokenMaker("test-secret-minimum-32-characters!", -1*time.Minute, 7*24*time.Hour)
-		token, _ := expiredTM.CreateAccessToken(uuid.New(), uuid.New().String(), nil, nil, nil)
+		token, _ := expiredTM.CreateAccessToken(uuid.New(), uuid.New().String(), nil, &auth.TokenPermissions{})
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -92,7 +92,7 @@ func TestGetUserContext(t *testing.T) {
 	roles := []string{"admin", "manager"}
 	perms := []string{"contacts:read", "deals:write"}
 
-	token, _ := tm.CreateAccessToken(userID, tenantID.String(), roles, perms, nil)
+	token, _ := tm.CreateAccessToken(userID, tenantID.String(), roles, &auth.TokenPermissions{Permissions: perms})
 
 	handler := Auth(authService)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, userID.String(), GetUserID(r.Context()))
@@ -120,7 +120,7 @@ func TestGetTenantID_WithValidTid(t *testing.T) {
 	tm := newTestTokenMaker()
 	tenantID := uuid.New()
 
-	token, err := tm.CreateAccessToken(uuid.New(), tenantID.String(), nil, nil, nil)
+	token, err := tm.CreateAccessToken(uuid.New(), tenantID.String(), nil, &auth.TokenPermissions{})
 	require.NoError(t, err)
 
 	var gotTenantID uuid.UUID
@@ -147,7 +147,7 @@ func TestGetTenantID_WithEmptyTid(t *testing.T) {
 	tm := newTestTokenMaker()
 
 	// Issue a token with an explicitly empty tid (simulates legacy / pre-migration token)
-	token, err := tm.CreateAccessToken(uuid.New(), "", nil, nil, nil)
+	token, err := tm.CreateAccessToken(uuid.New(), "", nil, &auth.TokenPermissions{})
 	require.NoError(t, err)
 
 	var gotErr error

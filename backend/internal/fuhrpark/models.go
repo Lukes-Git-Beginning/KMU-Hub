@@ -20,41 +20,41 @@ const (
 type DamageStatus string
 
 const (
-	DamageStatusReported  DamageStatus = "reported"
-	DamageStatusInRepair  DamageStatus = "in_repair"
-	DamageStatusResolved  DamageStatus = "resolved"
+	DamageStatusReported DamageStatus = "reported"
+	DamageStatusInRepair DamageStatus = "in_repair"
+	DamageStatusResolved DamageStatus = "resolved"
 )
 
 // VehicleStatus represents the operational state of a vehicle.
 type VehicleStatus string
 
 const (
-	VehicleStatusActive          VehicleStatus = "active"
-	VehicleStatusInService       VehicleStatus = "in_service"
-	VehicleStatusInactive        VehicleStatus = "inactive"
-	VehicleStatusDecommissioned  VehicleStatus = "decommissioned"
+	VehicleStatusActive         VehicleStatus = "active"
+	VehicleStatusInService      VehicleStatus = "in_service"
+	VehicleStatusInactive       VehicleStatus = "inactive"
+	VehicleStatusDecommissioned VehicleStatus = "decommissioned"
 )
 
 // Vehicle represents a fleet vehicle.
 type Vehicle struct {
-	ID                   uuid.UUID     `json:"id"`
-	TenantID             uuid.UUID     `json:"tenant_id"`
-	LicensePlate         string        `json:"license_plate"`
-	Make                 string        `json:"make"`
-	Model                string        `json:"model"`
-	Year                 int           `json:"year"`
-	VIN                  *string       `json:"vin,omitempty"`
-	Color                *string       `json:"color,omitempty"`
-	FuelType             string        `json:"fuel_type"`
-	Status               VehicleStatus `json:"status"`
-	MileageKm            int64         `json:"mileage_km"`
-	TuevDueDate          *time.Time    `json:"tuev_due_date,omitempty"`
-	TuevReminderSentAt   *time.Time    `json:"tuev_reminder_sent_at,omitempty"`
-	AssignedDriverID     *uuid.UUID    `json:"assigned_driver_id,omitempty"`
-	Notes                *string       `json:"notes,omitempty"`
-	CreatedAt            time.Time     `json:"created_at"`
-	UpdatedAt            time.Time     `json:"updated_at"`
-	DeletedAt            *time.Time    `json:"deleted_at,omitempty"`
+	ID                 uuid.UUID     `json:"id"`
+	TenantID           uuid.UUID     `json:"tenant_id"`
+	LicensePlate       string        `json:"license_plate"`
+	Make               string        `json:"make"`
+	Model              string        `json:"model"`
+	Year               int           `json:"year"`
+	VIN                *string       `json:"vin,omitempty"`
+	Color              *string       `json:"color,omitempty"`
+	FuelType           string        `json:"fuel_type"`
+	Status             VehicleStatus `json:"status"`
+	MileageKm          int64         `json:"mileage_km"`
+	TuevDueDate        *time.Time    `json:"tuev_due_date,omitempty"`
+	TuevReminderSentAt *time.Time    `json:"tuev_reminder_sent_at,omitempty"`
+	AssignedDriverID   *uuid.UUID    `json:"assigned_driver_id,omitempty"`
+	Notes              *string       `json:"notes,omitempty"`
+	CreatedAt          time.Time     `json:"created_at"`
+	UpdatedAt          time.Time     `json:"updated_at"`
+	DeletedAt          *time.Time    `json:"deleted_at,omitempty"`
 }
 
 // VehicleService records a maintenance or inspection event for a vehicle.
@@ -150,16 +150,32 @@ type VehicleDocument struct {
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
+// DriverLicense records a single driving-licence compliance check for a
+// driver (Fuehrerscheinkontrolle). Rows are append-only history; the most
+// recent row per driver_id is the current status.
+type DriverLicense struct {
+	ID               uuid.UUID  `json:"id"`
+	TenantID         uuid.UUID  `json:"tenant_id"`
+	DriverID         uuid.UUID  `json:"driver_id"`
+	LicenseClasses   []string   `json:"license_classes"`
+	ExpiryDate       *time.Time `json:"expiry_date,omitempty"`
+	CheckedAt        time.Time  `json:"checked_at"`
+	NextCheckDueDate time.Time  `json:"next_check_due_date"`
+	Notes            *string    `json:"notes,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
 // GpsPosition represents a single GPS fix for a vehicle.
 type GpsPosition struct {
-	ID         uuid.UUID  `json:"id"`
-	TenantID   uuid.UUID  `json:"tenant_id"`
-	VehicleID  uuid.UUID  `json:"vehicle_id"`
-	Lat        float64    `json:"lat"`
-	Lng        float64    `json:"lng"`
-	SpeedKmh   *float64   `json:"speed_kmh,omitempty"`
-	RecordedAt time.Time  `json:"recorded_at"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	VehicleID  uuid.UUID `json:"vehicle_id"`
+	Lat        float64   `json:"lat"`
+	Lng        float64   `json:"lng"`
+	SpeedKmh   *float64  `json:"speed_kmh,omitempty"`
+	RecordedAt time.Time `json:"recorded_at"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // VehicleRouteAggregation is the result of aggregating GPS positions per vehicle per day.
@@ -194,6 +210,14 @@ type ListVehicleDocumentsParams struct {
 	VehicleID uuid.UUID
 	Page      int32
 	PageSize  int32
+}
+
+// ListDriverLicensesParams holds filtering and pagination for driver license queries.
+type ListDriverLicensesParams struct {
+	TenantID uuid.UUID
+	DriverID uuid.UUID // zero value = no filter
+	Page     int32
+	PageSize int32
 }
 
 // GetVehicleRoutesParams holds filtering for vehicle route aggregation.

@@ -19,32 +19,37 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SecurityService_CreateAuditEntry_FullMethodName      = "/security.v1.SecurityService/CreateAuditEntry"
-	SecurityService_ListAuditEntries_FullMethodName      = "/security.v1.SecurityService/ListAuditEntries"
-	SecurityService_ExportAuditLog_FullMethodName        = "/security.v1.SecurityService/ExportAuditLog"
-	SecurityService_VerifyAuditChain_FullMethodName      = "/security.v1.SecurityService/VerifyAuditChain"
-	SecurityService_GetVaultSecret_FullMethodName        = "/security.v1.SecurityService/GetVaultSecret"
-	SecurityService_SetVaultSecret_FullMethodName        = "/security.v1.SecurityService/SetVaultSecret"
-	SecurityService_ListVaultSecrets_FullMethodName      = "/security.v1.SecurityService/ListVaultSecrets"
-	SecurityService_DeleteVaultSecret_FullMethodName     = "/security.v1.SecurityService/DeleteVaultSecret"
-	SecurityService_RequestDataExport_FullMethodName     = "/security.v1.SecurityService/RequestDataExport"
-	SecurityService_ListDataExports_FullMethodName       = "/security.v1.SecurityService/ListDataExports"
-	SecurityService_ApproveDataExport_FullMethodName     = "/security.v1.SecurityService/ApproveDataExport"
-	SecurityService_DenyDataExport_FullMethodName        = "/security.v1.SecurityService/DenyDataExport"
-	SecurityService_GetExportDownload_FullMethodName     = "/security.v1.SecurityService/GetExportDownload"
-	SecurityService_PreviewErasure_FullMethodName        = "/security.v1.SecurityService/PreviewErasure"
-	SecurityService_ExecuteErasure_FullMethodName        = "/security.v1.SecurityService/ExecuteErasure"
-	SecurityService_DSARSearch_FullMethodName            = "/security.v1.SecurityService/DSARSearch"
-	SecurityService_GetPasswordPolicy_FullMethodName     = "/security.v1.SecurityService/GetPasswordPolicy"
-	SecurityService_UpdatePasswordPolicy_FullMethodName  = "/security.v1.SecurityService/UpdatePasswordPolicy"
-	SecurityService_ValidatePassword_FullMethodName      = "/security.v1.SecurityService/ValidatePassword"
-	SecurityService_ListIPRules_FullMethodName           = "/security.v1.SecurityService/ListIPRules"
-	SecurityService_CreateIPRule_FullMethodName          = "/security.v1.SecurityService/CreateIPRule"
-	SecurityService_DeleteIPRule_FullMethodName          = "/security.v1.SecurityService/DeleteIPRule"
-	SecurityService_ListRetentionPolicies_FullMethodName = "/security.v1.SecurityService/ListRetentionPolicies"
-	SecurityService_CreateRetentionPolicy_FullMethodName = "/security.v1.SecurityService/CreateRetentionPolicy"
-	SecurityService_UpdateRetentionPolicy_FullMethodName = "/security.v1.SecurityService/UpdateRetentionPolicy"
-	SecurityService_DeleteRetentionPolicy_FullMethodName = "/security.v1.SecurityService/DeleteRetentionPolicy"
+	SecurityService_CreateAuditEntry_FullMethodName                  = "/security.v1.SecurityService/CreateAuditEntry"
+	SecurityService_ListAuditEntries_FullMethodName                  = "/security.v1.SecurityService/ListAuditEntries"
+	SecurityService_ExportAuditLog_FullMethodName                    = "/security.v1.SecurityService/ExportAuditLog"
+	SecurityService_VerifyAuditChain_FullMethodName                  = "/security.v1.SecurityService/VerifyAuditChain"
+	SecurityService_GetVaultSecret_FullMethodName                    = "/security.v1.SecurityService/GetVaultSecret"
+	SecurityService_SetVaultSecret_FullMethodName                    = "/security.v1.SecurityService/SetVaultSecret"
+	SecurityService_ListVaultSecrets_FullMethodName                  = "/security.v1.SecurityService/ListVaultSecrets"
+	SecurityService_DeleteVaultSecret_FullMethodName                 = "/security.v1.SecurityService/DeleteVaultSecret"
+	SecurityService_RequestDataExport_FullMethodName                 = "/security.v1.SecurityService/RequestDataExport"
+	SecurityService_ListDataExports_FullMethodName                   = "/security.v1.SecurityService/ListDataExports"
+	SecurityService_ApproveDataExport_FullMethodName                 = "/security.v1.SecurityService/ApproveDataExport"
+	SecurityService_DenyDataExport_FullMethodName                    = "/security.v1.SecurityService/DenyDataExport"
+	SecurityService_GetExportDownload_FullMethodName                 = "/security.v1.SecurityService/GetExportDownload"
+	SecurityService_PreviewErasure_FullMethodName                    = "/security.v1.SecurityService/PreviewErasure"
+	SecurityService_ExecuteErasure_FullMethodName                    = "/security.v1.SecurityService/ExecuteErasure"
+	SecurityService_DSARSearch_FullMethodName                        = "/security.v1.SecurityService/DSARSearch"
+	SecurityService_GetPasswordPolicy_FullMethodName                 = "/security.v1.SecurityService/GetPasswordPolicy"
+	SecurityService_UpdatePasswordPolicy_FullMethodName              = "/security.v1.SecurityService/UpdatePasswordPolicy"
+	SecurityService_ValidatePassword_FullMethodName                  = "/security.v1.SecurityService/ValidatePassword"
+	SecurityService_ListIPRules_FullMethodName                       = "/security.v1.SecurityService/ListIPRules"
+	SecurityService_CreateIPRule_FullMethodName                      = "/security.v1.SecurityService/CreateIPRule"
+	SecurityService_DeleteIPRule_FullMethodName                      = "/security.v1.SecurityService/DeleteIPRule"
+	SecurityService_ListRetentionPolicies_FullMethodName             = "/security.v1.SecurityService/ListRetentionPolicies"
+	SecurityService_CreateRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/CreateRetentionPolicy"
+	SecurityService_UpdateRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/UpdateRetentionPolicy"
+	SecurityService_DeleteRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/DeleteRetentionPolicy"
+	SecurityService_ListVendorAccessRequests_FullMethodName          = "/security.v1.SecurityService/ListVendorAccessRequests"
+	SecurityService_ApproveVendorAccessRequest_FullMethodName        = "/security.v1.SecurityService/ApproveVendorAccessRequest"
+	SecurityService_DeclineVendorAccessRequest_FullMethodName        = "/security.v1.SecurityService/DeclineVendorAccessRequest"
+	SecurityService_CounterProposeVendorAccessRequest_FullMethodName = "/security.v1.SecurityService/CounterProposeVendorAccessRequest"
+	SecurityService_RevokeVendorAccessRequest_FullMethodName         = "/security.v1.SecurityService/RevokeVendorAccessRequest"
 )
 
 // SecurityServiceClient is the client API for SecurityService service.
@@ -83,6 +88,12 @@ type SecurityServiceClient interface {
 	CreateRetentionPolicy(ctx context.Context, in *CreateRetentionPolicyRequest, opts ...grpc.CallOption) (*CreateRetentionPolicyResponse, error)
 	UpdateRetentionPolicy(ctx context.Context, in *UpdateRetentionPolicyRequest, opts ...grpc.CallOption) (*UpdateRetentionPolicyResponse, error)
 	DeleteRetentionPolicy(ctx context.Context, in *DeleteRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteRetentionPolicyResponse, error)
+	// Vendor Access (RBAC R-5 B, GDAP-light v3)
+	ListVendorAccessRequests(ctx context.Context, in *ListVendorAccessRequestsRequest, opts ...grpc.CallOption) (*ListVendorAccessRequestsResponse, error)
+	ApproveVendorAccessRequest(ctx context.Context, in *ApproveVendorAccessRequestRequest, opts ...grpc.CallOption) (*ApproveVendorAccessRequestResponse, error)
+	DeclineVendorAccessRequest(ctx context.Context, in *DeclineVendorAccessRequestRequest, opts ...grpc.CallOption) (*DeclineVendorAccessRequestResponse, error)
+	CounterProposeVendorAccessRequest(ctx context.Context, in *CounterProposeVendorAccessRequestRequest, opts ...grpc.CallOption) (*CounterProposeVendorAccessRequestResponse, error)
+	RevokeVendorAccessRequest(ctx context.Context, in *RevokeVendorAccessRequestRequest, opts ...grpc.CallOption) (*RevokeVendorAccessRequestResponse, error)
 }
 
 type securityServiceClient struct {
@@ -353,6 +364,56 @@ func (c *securityServiceClient) DeleteRetentionPolicy(ctx context.Context, in *D
 	return out, nil
 }
 
+func (c *securityServiceClient) ListVendorAccessRequests(ctx context.Context, in *ListVendorAccessRequestsRequest, opts ...grpc.CallOption) (*ListVendorAccessRequestsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVendorAccessRequestsResponse)
+	err := c.cc.Invoke(ctx, SecurityService_ListVendorAccessRequests_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) ApproveVendorAccessRequest(ctx context.Context, in *ApproveVendorAccessRequestRequest, opts ...grpc.CallOption) (*ApproveVendorAccessRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveVendorAccessRequestResponse)
+	err := c.cc.Invoke(ctx, SecurityService_ApproveVendorAccessRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) DeclineVendorAccessRequest(ctx context.Context, in *DeclineVendorAccessRequestRequest, opts ...grpc.CallOption) (*DeclineVendorAccessRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeclineVendorAccessRequestResponse)
+	err := c.cc.Invoke(ctx, SecurityService_DeclineVendorAccessRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) CounterProposeVendorAccessRequest(ctx context.Context, in *CounterProposeVendorAccessRequestRequest, opts ...grpc.CallOption) (*CounterProposeVendorAccessRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CounterProposeVendorAccessRequestResponse)
+	err := c.cc.Invoke(ctx, SecurityService_CounterProposeVendorAccessRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) RevokeVendorAccessRequest(ctx context.Context, in *RevokeVendorAccessRequestRequest, opts ...grpc.CallOption) (*RevokeVendorAccessRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeVendorAccessRequestResponse)
+	err := c.cc.Invoke(ctx, SecurityService_RevokeVendorAccessRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SecurityServiceServer is the server API for SecurityService service.
 // All implementations must embed UnimplementedSecurityServiceServer
 // for forward compatibility.
@@ -389,6 +450,12 @@ type SecurityServiceServer interface {
 	CreateRetentionPolicy(context.Context, *CreateRetentionPolicyRequest) (*CreateRetentionPolicyResponse, error)
 	UpdateRetentionPolicy(context.Context, *UpdateRetentionPolicyRequest) (*UpdateRetentionPolicyResponse, error)
 	DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error)
+	// Vendor Access (RBAC R-5 B, GDAP-light v3)
+	ListVendorAccessRequests(context.Context, *ListVendorAccessRequestsRequest) (*ListVendorAccessRequestsResponse, error)
+	ApproveVendorAccessRequest(context.Context, *ApproveVendorAccessRequestRequest) (*ApproveVendorAccessRequestResponse, error)
+	DeclineVendorAccessRequest(context.Context, *DeclineVendorAccessRequestRequest) (*DeclineVendorAccessRequestResponse, error)
+	CounterProposeVendorAccessRequest(context.Context, *CounterProposeVendorAccessRequestRequest) (*CounterProposeVendorAccessRequestResponse, error)
+	RevokeVendorAccessRequest(context.Context, *RevokeVendorAccessRequestRequest) (*RevokeVendorAccessRequestResponse, error)
 	mustEmbedUnimplementedSecurityServiceServer()
 }
 
@@ -476,6 +543,21 @@ func (UnimplementedSecurityServiceServer) UpdateRetentionPolicy(context.Context,
 }
 func (UnimplementedSecurityServiceServer) DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRetentionPolicy not implemented")
+}
+func (UnimplementedSecurityServiceServer) ListVendorAccessRequests(context.Context, *ListVendorAccessRequestsRequest) (*ListVendorAccessRequestsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVendorAccessRequests not implemented")
+}
+func (UnimplementedSecurityServiceServer) ApproveVendorAccessRequest(context.Context, *ApproveVendorAccessRequestRequest) (*ApproveVendorAccessRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveVendorAccessRequest not implemented")
+}
+func (UnimplementedSecurityServiceServer) DeclineVendorAccessRequest(context.Context, *DeclineVendorAccessRequestRequest) (*DeclineVendorAccessRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeclineVendorAccessRequest not implemented")
+}
+func (UnimplementedSecurityServiceServer) CounterProposeVendorAccessRequest(context.Context, *CounterProposeVendorAccessRequestRequest) (*CounterProposeVendorAccessRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CounterProposeVendorAccessRequest not implemented")
+}
+func (UnimplementedSecurityServiceServer) RevokeVendorAccessRequest(context.Context, *RevokeVendorAccessRequestRequest) (*RevokeVendorAccessRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeVendorAccessRequest not implemented")
 }
 func (UnimplementedSecurityServiceServer) mustEmbedUnimplementedSecurityServiceServer() {}
 func (UnimplementedSecurityServiceServer) testEmbeddedByValue()                         {}
@@ -966,6 +1048,96 @@ func _SecurityService_DeleteRetentionPolicy_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SecurityService_ListVendorAccessRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVendorAccessRequestsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).ListVendorAccessRequests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_ListVendorAccessRequests_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).ListVendorAccessRequests(ctx, req.(*ListVendorAccessRequestsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_ApproveVendorAccessRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveVendorAccessRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).ApproveVendorAccessRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_ApproveVendorAccessRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).ApproveVendorAccessRequest(ctx, req.(*ApproveVendorAccessRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_DeclineVendorAccessRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeclineVendorAccessRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).DeclineVendorAccessRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_DeclineVendorAccessRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).DeclineVendorAccessRequest(ctx, req.(*DeclineVendorAccessRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_CounterProposeVendorAccessRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CounterProposeVendorAccessRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).CounterProposeVendorAccessRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_CounterProposeVendorAccessRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).CounterProposeVendorAccessRequest(ctx, req.(*CounterProposeVendorAccessRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_RevokeVendorAccessRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeVendorAccessRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).RevokeVendorAccessRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_RevokeVendorAccessRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).RevokeVendorAccessRequest(ctx, req.(*RevokeVendorAccessRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SecurityService_ServiceDesc is the grpc.ServiceDesc for SecurityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1076,6 +1248,26 @@ var SecurityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRetentionPolicy",
 			Handler:    _SecurityService_DeleteRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "ListVendorAccessRequests",
+			Handler:    _SecurityService_ListVendorAccessRequests_Handler,
+		},
+		{
+			MethodName: "ApproveVendorAccessRequest",
+			Handler:    _SecurityService_ApproveVendorAccessRequest_Handler,
+		},
+		{
+			MethodName: "DeclineVendorAccessRequest",
+			Handler:    _SecurityService_DeclineVendorAccessRequest_Handler,
+		},
+		{
+			MethodName: "CounterProposeVendorAccessRequest",
+			Handler:    _SecurityService_CounterProposeVendorAccessRequest_Handler,
+		},
+		{
+			MethodName: "RevokeVendorAccessRequest",
+			Handler:    _SecurityService_RevokeVendorAccessRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

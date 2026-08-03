@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -1060,19 +1062,86 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 // KPI Handler
 // ============================================================================
 
+// kpiModuleVisibility maps every module id the KPI dashboard can report on to
+// the level-1 capability that makes it visible. It is the server-side twin of
+// REPORT_MODULE_KEY in
+// desktop/src/renderer/src/modules/berichte/report-module-visibility.ts: the
+// frontend hides tiles, this map keeps the numbers from travelling at all.
+//
+// The two spellings are deliberately not derived from one another — the
+// berichte module id is "finanzen" while the RBAC key is "finance:module:view",
+// so any string surgery would silently open a module the day those drift.
+//
+// An empty value means "no module-level capability required": "cross" carries
+// aggregate figures not attributable to a single module and stays behind the
+// route's own berichte:reports:read guard, matching the frontend's
+// `cross: null`. A module id absent from this map fails closed.
+var kpiModuleVisibility = map[string]string{
+	"finanzen":   "finance:module:view",
+	"crm":        "crm:module:view",
+	"helpdesk":   "helpdesk:module:view",
+	"inventar":   "inventar:module:view",
+	"produktion": "produktion:module:view",
+	"cross":      "",
+}
+
+// visibleKPIModules narrows a requested KPI module list down to what the caller
+// may actually see, fail-closed. An empty request no longer means "every
+// module" but "every module this caller may see", and an unknown or ungranted
+// module id is dropped rather than passed through.
+//
+// The returned slice can be empty — that case must NOT reach the RPC, which
+// still reads an empty list as "all modules" (see HandleGetDashboardKPIs).
+func visibleKPIModules(r *http.Request, requested []string) []string {
+	granted := make(map[string]struct{})
+	for _, p := range middleware.GetUserPermissions(r.Context()) {
+		granted[p] = struct{}{}
+	}
+
+	visible := func(module string) bool {
+		perm, known := kpiModuleVisibility[module]
+		if !known {
+			return false
+		}
+		if perm == "" {
+			return true
+		}
+		_, ok := granted[perm]
+		return ok
+	}
+
+	if len(requested) == 0 {
+		out := make([]string, 0, len(kpiModuleVisibility))
+		for module := range kpiModuleVisibility {
+			if visible(module) {
+				out = append(out, module)
+			}
+		}
+		// Map iteration order is random; the RPC argument must not be.
+		sort.Strings(out)
+		return out
+	}
+
+	out := make([]string, 0, len(requested))
+	for _, module := range requested {
+		if visible(module) {
+			out = append(out, module)
+		}
+	}
+	return out
+}
+
 func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	client, err := br.getClient()
-	if err != nil {
-		respondServiceUnavailable(w, br.ServiceName())
-		return
-	}
 
-	// ?modules=finanzen,crm,helpdesk — empty means all modules
+	// ?modules=finanzen,crm,helpdesk — empty means every module this caller may
+	// see. The route guard (berichte:reports:read) only says "may open the
+	// reports module"; without the cut below a member without
+	// finance:module:view reads the company's revenue off ?modules=finanzen.
 	var modules []string
 	if m := r.URL.Query().Get("modules"); m != "" {
 		for _, mod := range strings.Split(m, ",") {
@@ -1081,6 +1150,25 @@ func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.
 				modules = append(modules, mod)
 			}
 		}
+	}
+
+	modules = visibleKPIModules(r, modules)
+	if len(modules) == 0 {
+		// Everything asked for was filtered away. The request must not travel:
+		// the RPC reads an empty module list as "all modules" and would hand
+		// back exactly the numbers just denied. Answering here rather than
+		// after getClient() also keeps the decision independent of whether the
+		// berichte service happens to be reachable.
+		response.Proto(w, http.StatusOK, &berichtev1.DashboardKPIsResponse{
+			GeneratedAt: timestamppb.Now(),
+		})
+		return
+	}
+
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
 	}
 
 	resp, err := client.GetDashboardKPIs(r.Context(), &berichtev1.DashboardKPIsRequest{

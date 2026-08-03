@@ -24,6 +24,12 @@ type ContactProvider interface {
 	UpdateForImport(ctx context.Context, c *models.Contact) error
 	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error)
 	ListVisible(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error)
+
+	// FindOrCreateCompany resolves a company name to the company-relation ID, creating a
+	// bare company (name only) if none exists yet. createdBy is the importing user.
+	FindOrCreateCompany(ctx context.Context, name string, createdBy uuid.UUID) (uuid.UUID, error)
+	// GetCompanyNames resolves company IDs to names in a single batch, for export.
+	GetCompanyNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 // ImportService handles importing contacts from CSV and vCard files.
@@ -146,6 +152,7 @@ func (s *ImportService) ImportCSV(
 
 	result := &ImportResult{}
 	rowNum := 1 // 1-based (header is row 0)
+	companyCache := make(map[string]uuid.UUID)
 
 	for {
 		row, readErr := csvReader.Read()
@@ -163,7 +170,7 @@ func (s *ImportService) ImportCSV(
 		// Extract fields using mapping
 		fields := extractFieldsFromRow(row, header, fieldMapping, colIndex)
 
-		importErr := s.importSingleContact(ctx, fields, visibility, ownerID, mergeByEmail, result)
+		importErr := s.importSingleContact(ctx, fields, visibility, ownerID, mergeByEmail, result, companyCache)
 		if importErr != nil {
 			result.Errors = append(result.Errors, ImportError{Row: rowNum, Reason: importErr.Error()})
 			result.SkippedCount++
@@ -190,6 +197,7 @@ func (s *ImportService) ImportVCard(
 	dec := vcard.NewDecoder(reader)
 	result := &ImportResult{}
 	rowNum := 0
+	companyCache := make(map[string]uuid.UUID)
 
 	for {
 		card, err := dec.Decode()
@@ -206,7 +214,7 @@ func (s *ImportService) ImportVCard(
 
 		fields := extractFieldsFromVCard(card)
 
-		importErr := s.importSingleContact(ctx, fields, visibility, ownerID, mergeByEmail, result)
+		importErr := s.importSingleContact(ctx, fields, visibility, ownerID, mergeByEmail, result, companyCache)
 		if importErr != nil {
 			result.Errors = append(result.Errors, ImportError{Row: rowNum, Reason: importErr.Error()})
 			result.SkippedCount++
@@ -230,6 +238,7 @@ func (s *ImportService) importSingleContact(
 	ownerID uuid.UUID,
 	mergeByEmail bool,
 	result *ImportResult,
+	companyCache map[string]uuid.UUID,
 ) error {
 	emailVal := strings.TrimSpace(fields["email"])
 
@@ -275,6 +284,16 @@ func (s *ImportService) importSingleContact(
 				existing.Notes = &notes
 				changed = true
 			}
+			if existing.CompanyID == nil {
+				companyID, companyErr := s.resolveCompany(ctx, fields["company"], ownerID, companyCache)
+				if companyErr != nil {
+					return companyErr
+				}
+				if companyID != nil {
+					existing.CompanyID = companyID
+					changed = true
+				}
+			}
 
 			if changed {
 				existing.UpdatedAt = time.Now()
@@ -314,12 +333,39 @@ func (s *ImportService) importSingleContact(
 	if notes != "" {
 		contact.Notes = &notes
 	}
+	companyID, companyErr := s.resolveCompany(ctx, fields["company"], ownerID, companyCache)
+	if companyErr != nil {
+		return companyErr
+	}
+	contact.CompanyID = companyID
 
 	if createErr := s.contactProvider.CreateForImport(ctx, contact); createErr != nil {
 		return createErr
 	}
 	result.ImportedCount++
 	return nil
+}
+
+// resolveCompany maps a company name to the company-relation ID, reusing companyCache
+// within one import run so a file with many rows for the same company issues exactly one
+// find-or-create call instead of one per row. Returns nil, nil if name is blank.
+func (s *ImportService) resolveCompany(ctx context.Context, name string, ownerID uuid.UUID, cache map[string]uuid.UUID) (*uuid.UUID, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, nil
+	}
+
+	key := strings.ToLower(name)
+	if id, ok := cache[key]; ok {
+		return &id, nil
+	}
+
+	id, err := s.contactProvider.FindOrCreateCompany(ctx, name, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve company %q: %w", name, err)
+	}
+	cache[key] = id
+	return &id, nil
 }
 
 // extractFieldsFromRow maps a CSV row to CRM fields using the column mapping.

@@ -104,10 +104,49 @@ type EmployeeProfile struct {
 	CreatedAt             time.Time        `json:"created_at"`
 	UpdatedAt             time.Time        `json:"updated_at"`
 
+	// Offboarding state. Status is active until the employee leaves; the exit
+	// fields are only set together with an inactive status (enforced by
+	// chk_hr_employee_exit_complete).
+	Status      EmployeeStatus `json:"status"`
+	LastWorkDay *time.Time     `json:"last_work_day,omitempty"`
+	ExitDate    *time.Time     `json:"exit_date,omitempty"`
+	ExitType    string         `json:"exit_type,omitempty"`
+	ExitReason  string         `json:"exit_reason,omitempty"`
+
 	// Denormalized fields (populated by queries, not stored)
 	UserName     string `json:"user_name,omitempty"`
 	UserEmail    string `json:"user_email,omitempty"`
 	ManagerName  string `json:"manager_name,omitempty"`
+}
+
+// EmployeeStatus is the employment state of a personnel record.
+type EmployeeStatus string
+
+const (
+	EmployeeStatusActive   EmployeeStatus = "active"
+	EmployeeStatusInactive EmployeeStatus = "inactive"
+)
+
+// ExitType values the offboard dialog offers. Mirrors
+// chk_hr_employee_exit_type; a value outside this set is refused at the border
+// rather than by the constraint, so the caller gets a field error instead of a
+// database one.
+const (
+	ExitTypeResignation       = "resignation"
+	ExitTypeTermination       = "termination"
+	ExitTypeFixedTermExpired  = "fixed_term_expired"
+	ExitTypeMutualTermination = "mutual_termination"
+	ExitTypeRetirement        = "retirement"
+)
+
+// ValidExitType reports whether t is one of the five accepted exit types.
+func ValidExitType(t string) bool {
+	switch t {
+	case ExitTypeResignation, ExitTypeTermination, ExitTypeFixedTermExpired,
+		ExitTypeMutualTermination, ExitTypeRetirement:
+		return true
+	}
+	return false
 }
 
 // LeaveType defines a type of leave (system or admin-created).
@@ -303,4 +342,40 @@ type HRWeekApproval struct {
 	RejectionReason *string            `json:"rejection_reason,omitempty"`
 	CreatedAt       time.Time          `json:"created_at"`
 	UpdatedAt       time.Time          `json:"updated_at"`
+}
+
+// HRChangeRequestStatus is the lifecycle of a profile change request.
+type HRChangeRequestStatus string
+
+const (
+	HRChangeRequestPending   HRChangeRequestStatus = "pending"
+	HRChangeRequestApproved  HRChangeRequestStatus = "approved"
+	HRChangeRequestRejected  HRChangeRequestStatus = "rejected"
+	HRChangeRequestCancelled HRChangeRequestStatus = "cancelled"
+)
+
+// HRProfileChangeRequest is one employee's proposal to change a single field of
+// their own master data, for tenants where employees may not edit it directly.
+//
+// OldValue is what the proposer saw when submitting, kept verbatim: if HR edits
+// the field before the decision, the approver has to be able to notice that the
+// proposal was written against a different starting point.
+type HRProfileChangeRequest struct {
+	ID         uuid.UUID             `json:"id"`
+	TenantID   uuid.UUID             `json:"tenant_id"`
+	UserID     uuid.UUID             `json:"user_id"`
+	Drawer     string                `json:"drawer"`
+	Field      string                `json:"field"`
+	FieldLabel string                `json:"field_label"`
+	OldValue   string                `json:"old_value"`
+	NewValue   string                `json:"new_value"`
+	Status     HRChangeRequestStatus `json:"status"`
+	Reason     string                `json:"reason"`
+	CreatedAt  time.Time             `json:"created_at"`
+	DecidedAt  *time.Time            `json:"decided_at,omitempty"`
+	DecidedBy  *uuid.UUID            `json:"decided_by,omitempty"`
+
+	// Denormalized fields (populated by queries, not stored)
+	UserName      string `json:"user_name,omitempty"`
+	DecidedByName string `json:"decided_by_name,omitempty"`
 }

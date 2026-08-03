@@ -19,6 +19,7 @@ const (
 	UserRolesKey  userContextKey = "user_roles"
 	UserPermsKey  userContextKey = "user_permissions"
 	UserScopesKey userContextKey = "user_permission_scopes"
+	UserDeniedKey userContextKey = "user_denied_permissions"
 	TenantIDKey   userContextKey = "tenant_id"
 )
 
@@ -52,6 +53,7 @@ func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, UserPermsKey, claims.Permissions)
 			ctx = context.WithValue(ctx, UserScopesKey, claims.Scopes)
+			ctx = context.WithValue(ctx, UserDeniedKey, claims.Denied)
 			// TenantID is stored as-is (may be empty for legacy tokens without tid claim).
 			// GetTenantID enforces non-empty + valid UUID — no placeholder substitution here.
 			ctx = context.WithValue(ctx, TenantIDKey, claims.TenantID)
@@ -93,6 +95,24 @@ func GetUserRoles(ctx context.Context) []string {
 func GetUserPermissions(ctx context.Context) []string {
 	if perms, ok := ctx.Value(UserPermsKey).([]string); ok {
 		return perms
+	}
+	return nil
+}
+
+// GetDeniedPermissions returns the capability keys a per-user deny override
+// took away from the current account.
+//
+// These keys are already absent from GetUserPermissions — the list is not a
+// second allow check. It answers the one question absence cannot: whether a
+// coarse legacy key in the same guard is still a legitimate stand-in for the
+// fine key next to it (RequirePermissionAny) or whether an administrator
+// deliberately closed that door.
+//
+// Empty for every account without overrides and for every token minted before
+// the claim existed, which is the behaviour those tokens already had.
+func GetDeniedPermissions(ctx context.Context) []string {
+	if denied, ok := ctx.Value(UserDeniedKey).([]string); ok {
+		return denied
 	}
 	return nil
 }

@@ -44,6 +44,13 @@ service SecurityService {
   rpc CreateRetentionPolicy(CreateRetentionPolicyRequest) returns (CreateRetentionPolicyResponse);
   rpc UpdateRetentionPolicy(UpdateRetentionPolicyRequest) returns (UpdateRetentionPolicyResponse);
   rpc DeleteRetentionPolicy(DeleteRetentionPolicyRequest) returns (DeleteRetentionPolicyResponse);
+
+  // Vendor Access (RBAC R-5 B, GDAP-light v3)
+  rpc ListVendorAccessRequests(ListVendorAccessRequestsRequest) returns (ListVendorAccessRequestsResponse);
+  rpc ApproveVendorAccessRequest(ApproveVendorAccessRequestRequest) returns (ApproveVendorAccessRequestResponse);
+  rpc DeclineVendorAccessRequest(DeclineVendorAccessRequestRequest) returns (DeclineVendorAccessRequestResponse);
+  rpc CounterProposeVendorAccessRequest(CounterProposeVendorAccessRequestRequest) returns (CounterProposeVendorAccessRequestResponse);
+  rpc RevokeVendorAccessRequest(RevokeVendorAccessRequestRequest) returns (RevokeVendorAccessRequestResponse);
 }
 
 // ---------------------------------------------------------------------------
@@ -428,3 +435,74 @@ message DeleteRetentionPolicyRequest {
 }
 
 message DeleteRetentionPolicyResponse {}
+
+// ---------------------------------------------------------------------------
+// Vendor Access (RBAC R-5 B, GDAP-light v3)
+// ---------------------------------------------------------------------------
+
+message VendorAccessAgent {
+  string name = 1;
+}
+
+message VendorAccessRequest {
+  string id = 1;
+  string reason = 2;
+  string description = 3;
+  string ticket_ref = 4;
+  repeated VendorAccessAgent agents = 5;
+  repeated string scope = 6;
+  string requested_start = 7;  // ISO date (YYYY-MM-DD)
+  int32 duration_days = 8;
+  string expires_at = 9;       // ISO date (YYYY-MM-DD)
+  string status = 10;
+  string counter_proposed_start = 11;  // ISO date, empty if not counter-proposed
+  google.protobuf.Timestamp approved_at = 12;
+  string approved_by = 13;     // reviewer display name, resolved server-side
+  bool sensitive_ack = 14;
+  google.protobuf.Timestamp revoked_at = 15;
+  string revoked_by = 16;      // reviewer display name, resolved server-side
+  google.protobuf.Timestamp completed_at = 17;
+  google.protobuf.Timestamp created_at = 18;
+}
+
+message ListVendorAccessRequestsRequest {}
+
+message ListVendorAccessRequestsResponse {
+  repeated VendorAccessRequest requests = 1;
+}
+
+message ApproveVendorAccessRequestRequest {
+  string request_id = 1;
+  string actor_id = 2;
+  bool sensitive_ack = 3;
+}
+
+message ApproveVendorAccessRequestResponse {
+  VendorAccessRequest request = 1;
+}
+
+message DeclineVendorAccessRequestRequest {
+  string request_id = 1;
+}
+
+message DeclineVendorAccessRequestResponse {
+  VendorAccessRequest request = 1;
+}
+
+message CounterProposeVendorAccessRequestRequest {
+  string request_id = 1;
+  string proposed_start = 2;
+}
+
+message CounterProposeVendorAccessRequestResponse {
+  VendorAccessRequest request = 1;
+}
+
+message RevokeVendorAccessRequestRequest {
+  string request_id = 1;
+  string actor_id = 2;
+}
+
+message RevokeVendorAccessRequestResponse {
+  VendorAccessRequest request = 1;
+}

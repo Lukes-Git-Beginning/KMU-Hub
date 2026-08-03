@@ -2106,7 +2106,7 @@ func (s *CRMGRPCServer) ImportContactsCSV(ctx context.Context, req *crmv1.Import
 
 	// Wrap the contact service with a tenant-scoped adapter so the import
 	// provider is bound to the caller's tenant for this request.
-	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
 	importSvc := emailcontact.NewImportService(provider, nil)
 
 	result, err := importSvc.ImportCSV(ctx, bytes.NewReader(req.FileContent), req.FieldMapping, req.Visibility, userID, req.MergeByEmail)
@@ -2132,7 +2132,7 @@ func (s *CRMGRPCServer) ImportContactsVCard(ctx context.Context, req *crmv1.Impo
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
 	importSvc := emailcontact.NewImportService(provider, nil)
 
 	result, err := importSvc.ImportVCard(ctx, bytes.NewReader(req.FileContent), req.Visibility, userID, req.MergeByEmail)
@@ -2162,7 +2162,7 @@ func (s *CRMGRPCServer) ExportContactsCSV(ctx context.Context, req *crmv1.Export
 		ids = append(ids, id)
 	}
 
-	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
 	exportSvc := emailcontact.NewExportService(provider, nil)
 
 	var data []byte
@@ -2208,7 +2208,7 @@ func (s *CRMGRPCServer) ExportContactsVCard(ctx context.Context, req *crmv1.Expo
 		ids = append(ids, id)
 	}
 
-	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
 	exportSvc := emailcontact.NewExportService(provider, nil)
 
 	data, err := exportSvc.ExportVCard(ctx, ids)

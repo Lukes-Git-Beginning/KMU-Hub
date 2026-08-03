@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -73,6 +74,39 @@ type moveToFolderDTO struct {
 	TargetFolderID string `json:"target_folder_id" validate:"required,uuid"`
 }
 
+// bulkMessageActionDTO backs POST /api/v1/email/messages/bulk. 500 mirrors the
+// largest selection a "select all" in the message list can realistically
+// produce (per_page caps at 100, so 500 already covers several pages).
+type bulkMessageActionDTO struct {
+	IDs    []string `json:"ids" validate:"required,min=1,max=500,dive,uuid"`
+	Action string   `json:"action" validate:"required"`
+	Target string   `json:"target" validate:"omitempty,uuid"`
+}
+
+// createEmailTemplateDTO backs POST /api/v1/email/templates. user_id/is_admin
+// are resolved server-side from the auth token, not accepted from the body —
+// the same IDOR-avoidance as the account-switcher routes (route_email.go
+// HandleListAccounts).
+type createEmailTemplateDTO struct {
+	Name       string `json:"name" validate:"required"`
+	Subject    string `json:"subject"`
+	BodyHtml   string `json:"body_html"`
+	BodyText   string `json:"body_text"`
+	Visibility string `json:"visibility" validate:"omitempty,oneof=personal shared"`
+}
+
+type updateEmailTemplateDTO struct {
+	Name       *string `json:"name"`
+	Subject    *string `json:"subject"`
+	BodyHtml   *string `json:"body_html"`
+	BodyText   *string `json:"body_text"`
+	Visibility *string `json:"visibility" validate:"omitempty,oneof=personal shared"`
+}
+
+type renderEmailTemplateDTO struct {
+	Values map[string]string `json:"values"`
+}
+
 // EmailRoutes handles HTTP routes for the Email backend service.
 type EmailRoutes struct {
 	registry *ServiceRegistry
@@ -102,8 +136,10 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateAccount)
 		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleGetAccount)
+		r.With(middleware.RequirePermission("email", "read")).Get("/list", e.HandleListAccounts)
 		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateAccount)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteAccount)
+		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/default", e.HandleSetDefaultAccount)
 		r.With(middleware.RequirePermission("email", "write")).Post("/test", e.HandleTestConnection)
 	})
 
@@ -127,6 +163,11 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/move", e.HandleMoveToFolder)
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/labels", e.HandleAssignMessageLabels)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteMessage)
+		// "write" is the floor; HandleBulkMessageAction itself requires
+		// "email:delete" additionally when action == "delete", matching the
+		// single-message DELETE route above instead of letting bulk act as a
+		// backdoor around it.
+		r.With(middleware.RequirePermission("email", "write")).Post("/bulk", e.HandleBulkMessageAction)
 	})
 
 	// Send/Compose
@@ -166,6 +207,17 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailLabel)
 		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailLabel)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailLabel)
+	})
+
+	// Templates (Vorlagen & Quicktexte)
+	r.Route("/api/v1/email/templates", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailTemplates)
+		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetEmailTemplate)
+		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailTemplate)
+		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateEmailTemplate)
+		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailTemplate)
+		r.With(middleware.RequirePermission("email", "read")).Post("/{id}/render", e.HandleRenderEmailTemplate)
 	})
 
 	// CRM Links
@@ -246,6 +298,26 @@ func (e *EmailRoutes) HandleGetAccount(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, resp)
 }
 
+// HandleListAccounts lists every email account the calling user holds.
+// The user is resolved from the auth token, not a client-supplied query
+// param, so a user can only ever list their own accounts.
+func (e *EmailRoutes) HandleListAccounts(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	resp, err := client.ListEmailAccounts(r.Context(), &emailv1.ListEmailAccountsRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
 func (e *EmailRoutes) HandleUpdateAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
@@ -278,6 +350,24 @@ func (e *EmailRoutes) HandleDeleteAccount(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.DeleteEmailAccount(r.Context(), &emailv1.DeleteEmailAccountRequest{
+		Id: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleSetDefaultAccount(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.SetDefaultEmailAccount(r.Context(), &emailv1.SetDefaultEmailAccountRequest{
 		Id: chi.URLParam(r, "id"),
 	})
 	if err != nil {
@@ -536,6 +626,43 @@ func (e *EmailRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 	response.JSON(w, http.StatusOK, resp)
 }
 
+// HandleBulkMessageAction handles POST /api/v1/email/messages/bulk. Unlike the
+// per-message routes above, "delete" here needs an explicit second permission
+// check: the route guard only requires email:write (the floor every action in
+// this handler needs), so without this check a role holding write but not
+// delete could delete messages in bulk that the single DELETE /{id} route
+// would refuse them — bulk would silently become a wider door than the
+// permission model intends.
+func (e *EmailRoutes) HandleBulkMessageAction(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	dto, ok := decodeAndValidate[bulkMessageActionDTO](w, r)
+	if !ok {
+		return
+	}
+
+	if dto.Action == "delete" && !slices.Contains(middleware.GetUserPermissions(r.Context()), "email:delete") {
+		response.Error(w, http.StatusForbidden, "insufficient permissions")
+		return
+	}
+
+	resp, err := client.BulkMessageAction(r.Context(), &emailv1.BulkMessageActionRequest{
+		Ids:    dto.IDs,
+		Action: dto.Action,
+		Target: dto.Target,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{"affected": int(resp.Affected)})
+}
+
 // ============================================================================
 // Send/Compose Handlers
 // ============================================================================
@@ -782,6 +909,156 @@ func (e *EmailRoutes) HandleSetDefaultSignature(w http.ResponseWriter, r *http.R
 	resp, err := client.SetDefaultSignature(r.Context(), &emailv1.SetDefaultSignatureRequest{
 		Id:     chi.URLParam(r, "id"),
 		UserId: body.UserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Template Handlers (Vorlagen & Quicktexte)
+// ============================================================================
+
+func (e *EmailRoutes) HandleListEmailTemplates(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	isAdmin := middleware.IsAdmin(r.Context())
+
+	resp, err := client.ListEmailTemplates(r.Context(), &emailv1.ListEmailTemplatesRequest{
+		UserId:  userID,
+		IsAdmin: isAdmin,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleGetEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.GetEmailTemplate(r.Context(), &emailv1.GetEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleCreateEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[createEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateEmailTemplate(r.Context(), &emailv1.CreateEmailTemplateRequest{
+		UserId:     middleware.GetUserID(r.Context()),
+		Name:       body.Name,
+		Subject:    body.Subject,
+		BodyHtml:   body.BodyHtml,
+		BodyText:   body.BodyText,
+		Visibility: body.Visibility,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (e *EmailRoutes) HandleUpdateEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[updateEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateEmailTemplate(r.Context(), &emailv1.UpdateEmailTemplateRequest{
+		Id:         chi.URLParam(r, "id"),
+		UserId:     middleware.GetUserID(r.Context()),
+		IsAdmin:    middleware.IsAdmin(r.Context()),
+		Name:       body.Name,
+		Subject:    body.Subject,
+		BodyHtml:   body.BodyHtml,
+		BodyText:   body.BodyText,
+		Visibility: body.Visibility,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleDeleteEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.DeleteEmailTemplate(r.Context(), &emailv1.DeleteEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleRenderEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[renderEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RenderEmailTemplate(r.Context(), &emailv1.RenderEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+		Values:  body.Values,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

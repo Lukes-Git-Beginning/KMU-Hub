@@ -6,9 +6,12 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/emersion/go-vcard"
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/models"
 )
 
 // ExportService handles exporting contacts to CSV and vCard formats.
@@ -54,6 +57,11 @@ func (s *ExportService) ExportCSV(ctx context.Context, contactIDs []uuid.UUID, f
 		return nil, fmt.Errorf("failed to fetch contacts: %w", err)
 	}
 
+	companyNames, err := s.resolveCompanyNames(ctx, contacts, fields)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve company names: %w", err)
+	}
+
 	var buf bytes.Buffer
 
 	// UTF-8 BOM for Excel compatibility (same pattern as audit log CSV in Phase 9)
@@ -96,9 +104,11 @@ func (s *ExportService) ExportCSV(ctx context.Context, contactIDs []uuid.UUID, f
 					row = append(row, "")
 				}
 			case "company":
-				// Company name is not on the contact model directly,
-				// so we leave empty for now (would need company join).
-				row = append(row, "")
+				if c.CompanyID != nil {
+					row = append(row, companyNames[*c.CompanyID])
+				} else {
+					row = append(row, "")
+				}
 			case "position":
 				if c.Position != nil {
 					row = append(row, *c.Position)
@@ -156,6 +166,11 @@ func (s *ExportService) ExportVCard(ctx context.Context, contactIDs []uuid.UUID)
 		return nil, fmt.Errorf("failed to fetch contacts: %w", err)
 	}
 
+	companyNames, err := s.resolveCompanyNames(ctx, contacts, []string{"company"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve company names: %w", err)
+	}
+
 	var buf bytes.Buffer
 	enc := vcard.NewEncoder(&buf)
 
@@ -197,6 +212,13 @@ func (s *ExportService) ExportVCard(ctx context.Context, contactIDs []uuid.UUID)
 			card.SetValue(vcard.FieldNote, *c.Notes)
 		}
 
+		// Organization
+		if c.CompanyID != nil {
+			if name := companyNames[*c.CompanyID]; name != "" {
+				card.SetValue(vcard.FieldOrganization, name)
+			}
+		}
+
 		if err := enc.Encode(card); err != nil {
 			return nil, fmt.Errorf("failed to encode vCard: %w", err)
 		}
@@ -205,4 +227,26 @@ func (s *ExportService) ExportVCard(ctx context.Context, contactIDs []uuid.UUID)
 	s.logger.Info("vCard export complete", "contacts", len(contacts))
 
 	return buf.Bytes(), nil
+}
+
+// resolveCompanyNames batches company_id -> name lookups for the given contacts in a
+// single call instead of one per contact. Returns nil if "company" isn't requested.
+func (s *ExportService) resolveCompanyNames(ctx context.Context, contacts []*models.Contact, fields []string) (map[uuid.UUID]string, error) {
+	if !slices.Contains(fields, "company") {
+		return nil, nil
+	}
+
+	seen := make(map[uuid.UUID]bool)
+	var ids []uuid.UUID
+	for _, c := range contacts {
+		if c.CompanyID != nil && !seen[*c.CompanyID] {
+			seen[*c.CompanyID] = true
+			ids = append(ids, *c.CompanyID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	return s.contactProvider.GetCompanyNames(ctx, ids)
 }

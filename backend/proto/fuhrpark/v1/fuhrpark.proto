@@ -54,6 +54,12 @@ service FuhrparkService {
   rpc IngestGpsPositions(IngestGpsPositionsRequest)   returns (IngestGpsPositionsResponse);
   rpc GetVehicleRoutes(GetVehicleRoutesRequest)       returns (GetVehicleRoutesResponse);
   rpc GetGpsPositions(GetGpsPositionsRequest)         returns (GetGpsPositionsResponse);
+
+  // Driver licenses (Fuehrerscheinkontrolle)
+  rpc ListDriverLicenses(ListDriverLicensesRequest)   returns (ListDriverLicensesResponse);
+  rpc CreateDriverLicense(CreateDriverLicenseRequest) returns (CreateDriverLicenseResponse);
+  rpc UpdateDriverLicense(UpdateDriverLicenseRequest) returns (UpdateDriverLicenseResponse);
+  rpc DeleteDriverLicense(DeleteDriverLicenseRequest) returns (DeleteDriverLicenseResponse);
 }
 
 // ============================================================================
@@ -531,3 +537,49 @@ message GetGpsPositionsRequest {
 message GetGpsPositionsResponse {
   repeated GpsPosition positions = 1;
 }
+
+// ============================================================================
+// Driver Licenses (Fuehrerscheinkontrolle)
+// ============================================================================
+
+message DriverLicense {
+  string id                   = 1;
+  string tenant_id            = 2;
+  string driver_id            = 3;
+  repeated string license_classes = 4;
+  string expiry_date          = 5; // optional, ISO date
+  string checked_at           = 6; // ISO date
+  string next_check_due_date  = 7; // ISO date
+  string notes                = 8; // optional
+  string created_at           = 9;
+  string updated_at           = 10;
+}
+message ListDriverLicensesRequest {
+  string driver_id = 1; // optional filter
+  int32  page       = 2;
+  int32  page_size  = 3;
+}
+message ListDriverLicensesResponse {
+  repeated DriverLicense licenses = 1;
+  int32 total = 2;
+}
+message CreateDriverLicenseRequest {
+  string driver_id            = 1;
+  repeated string license_classes = 2;
+  string expiry_date          = 3; // optional
+  string checked_at           = 4; // optional, defaults to today
+  string next_check_due_date  = 5;
+  string notes                = 6; // optional
+}
+message CreateDriverLicenseResponse { DriverLicense license = 1; }
+message UpdateDriverLicenseRequest {
+  string id                   = 1;
+  repeated string license_classes = 2;
+  string expiry_date          = 3; // optional
+  string checked_at           = 4;
+  string next_check_due_date  = 5;
+  string notes                = 6; // optional
+}
+message UpdateDriverLicenseResponse { DriverLicense license = 1; }
+message DeleteDriverLicenseRequest  { string id = 1; }
+message DeleteDriverLicenseResponse {}

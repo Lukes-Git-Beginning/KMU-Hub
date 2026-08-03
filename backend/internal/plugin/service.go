@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin/config"
 )
@@ -60,8 +61,16 @@ func NewService(
 // Manifest CRUD
 // ============================================================================
 
-// CreateManifest creates a new plugin manifest
+// CreateManifest creates a new plugin manifest owned by the calling tenant.
+//
+// Manifests shipped with the product (tenant_id NULL) are seeded by migration,
+// not created here: since 000276 the write policy on plugin_manifests only
+// admits rows carrying the caller's own tenant.
 func (s *Service) CreateManifest(ctx context.Context, m *models.PluginManifest) (*models.PluginManifest, error) {
+	// The slug check reads under RLS, so it spans the tenant's own manifests
+	// and the catalogue. Colliding with a catalogue slug is refused too: the
+	// expression index would allow the row, but GetBySlug could then no longer
+	// name one manifest unambiguously.
 	existing, _ := s.manifests.GetBySlug(ctx, m.Slug)
 	if existing != nil {
 		return nil, ErrManifestSlugExists
@@ -73,6 +82,14 @@ func (s *Service) CreateManifest(ctx context.Context, m *models.PluginManifest) 
 	if m.PluginType == models.PluginTypeConfig && len(m.WASMBinary) > 0 {
 		return nil, ErrWASMBinaryNotAllowed
 	}
+
+	// Resolved after the input checks, not before: a malformed manifest is a
+	// 400 regardless of who sent it.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create manifest: %w", err)
+	}
+	m.TenantID = &tenantID
 
 	m.ID = uuid.New()
 	now := time.Now()
@@ -131,6 +148,13 @@ func (s *Service) DeleteManifest(ctx context.Context, id uuid.UUID) error {
 	}
 	if m == nil {
 		return ErrManifestNotFound
+	}
+
+	// Catalogue manifests are readable by every tenant but owned by none, so
+	// the write policy would simply match no rows and the delete would report
+	// success while changing nothing. Say so instead.
+	if m.TenantID == nil {
+		return ErrManifestImmutable
 	}
 
 	hasInstalls, err := s.manifests.HasActiveInstallations(ctx, id)

@@ -70,6 +70,12 @@ type Repository interface {
 	CreateVehicleDocument(ctx context.Context, doc VehicleDocument) (VehicleDocument, error)
 	DeleteVehicleDocument(ctx context.Context, tenantID, id uuid.UUID) error
 
+	// Driver licenses
+	ListDriverLicenses(ctx context.Context, params ListDriverLicensesParams) ([]DriverLicense, int, error)
+	CreateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
+	UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
+	DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error
+
 	// GPS
 	IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error)
 	GetVehicleRoutes(ctx context.Context, params GetVehicleRoutesParams) ([]VehicleRouteAggregation, error)

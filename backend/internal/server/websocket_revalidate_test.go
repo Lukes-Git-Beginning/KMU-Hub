@@ -33,7 +33,7 @@ func TestRevalidateTokenLoop_ExpiredToken(t *testing.T) {
 	// Issue a token that expires immediately (1 ns TTL).
 	tm := auth.NewTokenMaker(secret, time.Nanosecond, 7*24*time.Hour)
 	userID := uuid.New()
-	rawToken, err := tm.CreateAccessToken(userID, uuid.New().String(), []string{"member"}, nil, nil)
+	rawToken, err := tm.CreateAccessToken(userID, uuid.New().String(), []string{"member"}, &auth.TokenPermissions{})
 	require.NoError(t, err)
 
 	// The token is already expired by the time the goroutine ticks.
@@ -108,7 +108,7 @@ func TestRevalidateTokenLoop_ValidToken(t *testing.T) {
 	// Token valid for a long time.
 	tm := auth.NewTokenMaker(secret, time.Hour, 7*24*time.Hour)
 	userID := uuid.New()
-	rawToken, err := tm.CreateAccessToken(userID, uuid.New().String(), []string{"member"}, nil, nil)
+	rawToken, err := tm.CreateAccessToken(userID, uuid.New().String(), []string{"member"}, &auth.TokenPermissions{})
 	require.NoError(t, err)
 
 	hub := &WebSocketHub{tokenMaker: tm}

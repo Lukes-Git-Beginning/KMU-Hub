@@ -8,8 +8,10 @@ service EmailService {
   // Account management
   rpc CreateEmailAccount(CreateEmailAccountRequest) returns (CreateEmailAccountResponse);
   rpc GetEmailAccount(GetEmailAccountRequest) returns (GetEmailAccountResponse);
+  rpc ListEmailAccounts(ListEmailAccountsRequest) returns (ListEmailAccountsResponse);
   rpc UpdateEmailAccount(UpdateEmailAccountRequest) returns (UpdateEmailAccountResponse);
   rpc DeleteEmailAccount(DeleteEmailAccountRequest) returns (DeleteEmailAccountResponse);
+  rpc SetDefaultEmailAccount(SetDefaultEmailAccountRequest) returns (SetDefaultEmailAccountResponse);
   rpc TestEmailConnection(TestEmailConnectionRequest) returns (TestEmailConnectionResponse);
 
   // Folder operations
@@ -26,6 +28,7 @@ service EmailService {
   rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
   rpc MoveToFolder(MoveToFolderRequest) returns (MoveToFolderResponse);
   rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc BulkMessageAction(BulkMessageActionRequest) returns (BulkMessageActionResponse);
 
   // Send/compose operations
   rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
@@ -75,6 +78,14 @@ service EmailService {
   rpc UpdateEmailLabel(UpdateEmailLabelRequest) returns (UpdateEmailLabelResponse);
   rpc DeleteEmailLabel(DeleteEmailLabelRequest) returns (DeleteEmailLabelResponse);
   rpc AssignMessageLabels(AssignMessageLabelsRequest) returns (AssignMessageLabelsResponse);
+
+  // Templates (Vorlagen & Quicktexte)
+  rpc ListEmailTemplates(ListEmailTemplatesRequest) returns (ListEmailTemplatesResponse);
+  rpc GetEmailTemplate(GetEmailTemplateRequest) returns (GetEmailTemplateResponse);
+  rpc CreateEmailTemplate(CreateEmailTemplateRequest) returns (CreateEmailTemplateResponse);
+  rpc UpdateEmailTemplate(UpdateEmailTemplateRequest) returns (UpdateEmailTemplateResponse);
+  rpc DeleteEmailTemplate(DeleteEmailTemplateRequest) returns (DeleteEmailTemplateResponse);
+  rpc RenderEmailTemplate(RenderEmailTemplateRequest) returns (RenderEmailTemplateResponse);
 }
 
 // ============================================================================
@@ -115,6 +126,7 @@ message EmailAccountInfo {
   string last_sync_at = 12;
   string created_at = 13;
   string updated_at = 14;
+  bool is_default = 15;
 }
 
 message CreateEmailAccountRequest {
@@ -143,6 +155,14 @@ message GetEmailAccountResponse {
   EmailAccountInfo account = 1;
 }
 
+message ListEmailAccountsRequest {
+  string user_id = 1;
+}
+
+message ListEmailAccountsResponse {
+  repeated EmailAccountInfo accounts = 1;
+}
+
 message UpdateEmailAccountRequest {
   string id = 1;
   optional string display_name = 2;
@@ -165,6 +185,14 @@ message DeleteEmailAccountRequest {
 }
 
 message DeleteEmailAccountResponse {}
+
+message SetDefaultEmailAccountRequest {
+  string id = 1;
+}
+
+message SetDefaultEmailAccountResponse {
+  EmailAccountInfo account = 1;
+}
 
 message TestEmailConnectionRequest {
   string imap_host = 1;
@@ -320,6 +348,20 @@ message DeleteMessageRequest {
 }
 
 message DeleteMessageResponse {}
+
+// action is one of: read, unread, star, unstar, archive, spam, move, delete.
+// target is the destination folder id, required only for "move" — for
+// "archive"/"spam" the target folder is resolved server-side per message
+// (each message's own account may have a different archive/spam folder).
+message BulkMessageActionRequest {
+  repeated string ids = 1;
+  string action = 2;
+  string target = 3;
+}
+
+message BulkMessageActionResponse {
+  int32 affected = 1;
+}
 
 // ============================================================================
 // Send/Compose Messages
@@ -724,4 +766,96 @@ message AssignMessageLabelsRequest {
 
 message AssignMessageLabelsResponse {
   EmailMessageInfo message = 1;
+}
+
+// ============================================================================
+// Templates (Vorlagen & Quicktexte)
+// ============================================================================
+
+message EmailTemplateInfo {
+  string id = 1;
+  // Empty when visibility is "shared".
+  string owner_id = 2;
+  // "personal" or "shared".
+  string visibility = 3;
+  string name = 4;
+  string subject = 5;
+  string body_html = 6;
+  string body_text = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListEmailTemplatesRequest {
+  string user_id = 1;
+  bool is_admin = 2;
+}
+
+message ListEmailTemplatesResponse {
+  repeated EmailTemplateInfo templates = 1;
+}
+
+message GetEmailTemplateRequest {
+  string id = 1;
+  string user_id = 2;
+  bool is_admin = 3;
+}
+
+message GetEmailTemplateResponse {
+  EmailTemplateInfo template = 1;
+}
+
+message CreateEmailTemplateRequest {
+  string user_id = 1;
+  string name = 2;
+  string subject = 3;
+  string body_html = 4;
+  string body_text = 5;
+  // "personal" or "shared"; empty defaults to "personal".
+  string visibility = 6;
+}
+
+message CreateEmailTemplateResponse {
+  EmailTemplateInfo template = 1;
+}
+
+message UpdateEmailTemplateRequest {
+  string id = 1;
+  string user_id = 2;
+  bool is_admin = 3;
+  optional string name = 4;
+  optional string subject = 5;
+  optional string body_html = 6;
+  optional string body_text = 7;
+  optional string visibility = 8;
+}
+
+message UpdateEmailTemplateResponse {
+  EmailTemplateInfo template = 1;
+}
+
+message DeleteEmailTemplateRequest {
+  string id = 1;
+  string user_id = 2;
+  bool is_admin = 3;
+}
+
+message DeleteEmailTemplateResponse {}
+
+// RenderEmailTemplateRequest substitutes placeholders in a template. Only
+// keys from the server-side fixed allow-list are ever substituted (see
+// template.AllowedPlaceholders) — this is deliberately not a general
+// template engine, so unknown keys in values are silently ignored rather
+// than reflected into the output.
+message RenderEmailTemplateRequest {
+  string id = 1;
+  string user_id = 2;
+  bool is_admin = 3;
+  map<string, string> values = 4;
+}
+
+message RenderEmailTemplateResponse {
+  string subject = 1;
+  string body_html = 2;
+  string body_text = 3;
 }

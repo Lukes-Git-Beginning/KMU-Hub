@@ -19,11 +19,12 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
+	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
-	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/email/contactlink"
 	"github.com/kmuhub/kmuhub/internal/email/label"
 	"github.com/kmuhub/kmuhub/internal/email/message"
@@ -31,6 +32,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
+	"github.com/kmuhub/kmuhub/internal/email/template"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -93,6 +95,7 @@ func main() {
 	linkRepo := contactlink.NewPostgresRepository(pool)
 	ruleRepo := rule.NewPostgresRepository(pool)
 	labelRepo := label.NewPostgresRepository(pool)
+	templateRepo := template.NewPostgresRepository(pool)
 
 	// Initialize services
 	accountService := account.NewService(accountRepo, vaultEncryptor)
@@ -100,6 +103,7 @@ func main() {
 	signatureService := signature.NewService(signatureRepo)
 	ruleService := rule.NewService(ruleRepo)
 	labelService := label.NewService(labelRepo, messageService)
+	templateService := template.NewService(templateRepo)
 
 	// Send service (needs account for SMTP creds, message for local storage, signature for appending).
 	// R3-P0-4: enforce active email consent before sending contact-tagged mail. The asserter is
@@ -123,9 +127,14 @@ func main() {
 		}
 	}()
 
-	// Contact import/export (shared with CRM service via proto)
-	importService := emailcontact.NewImportService(nil, slog.Default())
-	exportService := emailcontact.NewExportService(nil, slog.Default())
+	// Contact import/export (shared with CRM service via proto). Both bind a
+	// tenant-scoped adapter per request (see EmailGRPCServer.ImportContactsCSV/
+	// ExportContactsCSV), so they need the CRM contact/company services directly
+	// rather than a shared singleton.
+	contactRepo := contact.NewPostgresRepository(pool)
+	contactService := contact.NewService(contactRepo)
+	companyRepo := company.NewPostgresRepository(pool)
+	companyService := company.NewService(companyRepo)
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -151,10 +160,11 @@ func main() {
 		attachmentService,
 		syncEngine,
 		linkRepo,
-		importService,
-		exportService,
+		contactService,
+		companyService,
 		ruleService,
 		labelService,
+		templateService,
 	)
 	emailv1.RegisterEmailServiceServer(grpcServer, emailGRPC)
 

@@ -16,10 +16,10 @@ import (
 // ============================================================================
 
 type mockRepository struct {
-	vehicles  map[uuid.UUID]*Vehicle
-	services  map[uuid.UUID]*VehicleService
-	damages   map[uuid.UUID]*VehicleDamage
-	plates    map[string]uuid.UUID // tenantID:plate -> vehicleID
+	vehicles map[uuid.UUID]*Vehicle
+	services map[uuid.UUID]*VehicleService
+	damages  map[uuid.UUID]*VehicleDamage
+	plates   map[string]uuid.UUID // tenantID:plate -> vehicleID
 
 	createVehicleErr error
 	updateVehicleErr error
@@ -277,6 +277,17 @@ func (m *mockRepository) CreateVehicleDocument(_ context.Context, doc VehicleDoc
 	return doc, nil
 }
 func (m *mockRepository) DeleteVehicleDocument(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) ListDriverLicenses(_ context.Context, _ ListDriverLicensesParams) ([]DriverLicense, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) CreateDriverLicense(_ context.Context, lic DriverLicense) (DriverLicense, error) {
+	return lic, nil
+}
+func (m *mockRepository) UpdateDriverLicense(_ context.Context, lic DriverLicense) (DriverLicense, error) {
+	return lic, nil
+}
+func (m *mockRepository) DeleteDriverLicense(_ context.Context, _, _ uuid.UUID) error { return nil }
 
 func (m *mockRepository) IngestGpsPositions(_ context.Context, _, _ uuid.UUID, positions []GpsPosition) (int, error) {
 	return len(positions), nil
@@ -701,7 +712,7 @@ func TestService_CheckTuevDue_Success(t *testing.T) {
 
 	soon := time.Now().AddDate(0, 0, 10)
 	v, _ := svc.CreateVehicle(context.Background(), CreateVehicleInput{
-		TenantID:    tenantID,
+		TenantID:     tenantID,
 		LicensePlate: "TUV-1",
 		Make:         "VW",
 		Model:        "T",
@@ -815,10 +826,10 @@ func TestMarkTuevReminderSent_CrossTenant_ReturnsNotFound(t *testing.T) {
 	vid := uuid.New()
 	due := time.Now().AddDate(0, 0, 7)
 	repo.vehicles[vid] = &Vehicle{
-		ID:          vid,
-		TenantID:    tenantA,
+		ID:           vid,
+		TenantID:     tenantA,
 		LicensePlate: "CT-1",
-		TuevDueDate: &due,
+		TuevDueDate:  &due,
 	}
 
 	// tenantB tries to stamp tenantA's vehicle → must fail

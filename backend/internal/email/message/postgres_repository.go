@@ -407,6 +407,26 @@ func (r *PostgresFolderRepository) ListByAccount(ctx context.Context, accountID 
 	return folders, rows.Err()
 }
 
+func (r *PostgresFolderRepository) GetByAccountAndType(ctx context.Context, accountID uuid.UUID, folderType string) (*models.EmailFolder, error) {
+	var f models.EmailFolder
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, account_id, name, imap_name, folder_type, uid_validity,
+			highest_uid, message_count, unread_count, sort_order, created_at, updated_at
+		 FROM email_folders WHERE account_id = $1 AND folder_type = $2
+		 ORDER BY sort_order ASC LIMIT 1`, accountID, folderType,
+	).Scan(&f.ID, &f.AccountID, &f.Name, &f.IMAPName, &f.FolderType,
+		&f.UIDValidity, &f.HighestUID, &f.MessageCount, &f.UnreadCount,
+		&f.SortOrder, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrFolderNotFound
+		}
+		return nil, err
+	}
+	return &f, nil
+}
+
 func (r *PostgresFolderRepository) UpdateCounts(ctx context.Context, folderID uuid.UUID, messageCount, unreadCount int) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE email_folders SET message_count = $2, unread_count = $3, updated_at = $4 WHERE id = $1`,

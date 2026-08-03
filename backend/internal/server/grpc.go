@@ -13,17 +13,44 @@ import (
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/audit"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
 
 type AuthGRPCServer struct {
 	authv1.UnimplementedAuthServiceServer
-	authService *auth.Service
+	authService  *auth.Service
+	auditService *audit.Service
 }
 
-func NewAuthGRPCServer(authService *auth.Service) *AuthGRPCServer {
-	return &AuthGRPCServer{authService: authService}
+func NewAuthGRPCServer(authService *auth.Service, auditService *audit.Service) *AuthGRPCServer {
+	return &AuthGRPCServer{authService: authService, auditService: auditService}
+}
+
+// tenantAndCaller resolves the two identities every permission-change audit
+// event needs: the tenant the change happened in, and the account that made
+// it. Both come from the same JWT claims callerID already reads — this just
+// adds the tenant half so callers that did not otherwise need it (UpdateRole,
+// DeleteRole) can still be audited.
+func tenantAndCaller(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return tenantID, actorID, nil
+}
+
+// logPermissionEvent appends one audit_log entry for a role/permission change.
+// It runs after the write already succeeded — the four guardrails in
+// internal/auth reject an unlawful attempt before it reaches here, so a
+// rejected attempt never reaches this call and never writes an event.
+func (s *AuthGRPCServer) logPermissionEvent(ctx context.Context, tenantID, actorID uuid.UUID, action, target, targetType string, details map[string]any) {
+	s.auditService.LogEvent(ctx, tenantID, &actorID, action, target, targetType, details, "", "", "success")
 }
 
 func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
@@ -231,7 +258,13 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	perms, err := s.authService.GetEffectivePermissions(ctx, userID)
+	// base=true stops before the per-user overrides — the editor needs the
+	// inherited baseline to show what a deviation deviates from.
+	resolve := s.authService.GetEffectivePermissions
+	if req.Base {
+		resolve = s.authService.GetRoleUnion
+	}
+	perms, err := resolve(ctx, userID)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -255,10 +288,379 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 		}
 	}
 
+	denied := make([]*authv1.DeniedCapability, len(perms.DeniedByOverride))
+	for i, d := range perms.DeniedByOverride {
+		denied[i] = &authv1.DeniedCapability{
+			Key:       d.Key,
+			RoleScope: d.RoleScope,
+			Sources:   d.Sources,
+		}
+	}
+
 	return &authv1.GetEffectivePermissionsResponse{
-		Roles:        roles,
-		Capabilities: capabilities,
+		Roles:            roles,
+		Capabilities:     capabilities,
+		HasOverrides:     perms.HasOverrides,
+		DeniedByOverride: denied,
 	}, nil
+}
+
+// callerID resolves the account behind the request from the x-user-id the
+// TenantInboundUnaryInterceptor forwards over the gRPC hop. The role guardrails
+// are stated in terms of the caller ("may not hand out what they lack", "may
+// not lock themselves out"), so an unidentified caller cannot be evaluated —
+// and uuid.Nil would read as "an account holding nothing", which turns every
+// guardrail into a rejection instead of an error.
+func callerID(ctx context.Context) (uuid.UUID, error) {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return uuid.Nil, status.Error(codes.Unauthenticated, "missing caller context")
+	}
+	return id, nil
+}
+
+// ListRoles returns the system presets plus the calling tenant's custom
+// roles. TenantID/BasedOn nil renders as the proto zero value (empty string);
+// the gateway is responsible for turning that back into JSON null.
+func (s *AuthGRPCServer) ListRoles(ctx context.Context, req *authv1.ListRolesRequest) (*authv1.ListRolesResponse, error) {
+	roles, err := s.authService.ListRoles(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	out := make([]*authv1.Role, len(roles))
+	for i := range roles {
+		out[i] = toProtoRole(&roles[i])
+	}
+
+	return &authv1.ListRolesResponse{Roles: out}, nil
+}
+
+// CreateRole clones an existing role — preset or custom — into a new role
+// owned by the calling tenant.
+func (s *AuthGRPCServer) CreateRole(ctx context.Context, req *authv1.CreateRoleRequest) (*authv1.CreateRoleResponse, error) {
+	basedOn, err := uuid.Parse(req.BasedOn)
+	if err != nil {
+		// A based_on that is not even a uuid names no role, so this is the
+		// same answer as one that names a role nobody can see: 404.
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	role, err := s.authService.CreateRole(ctx, actorID, tenantID, auth.CreateRoleInput{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+		BasedOn:     basedOn,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_created", role.ID.String(), "role",
+		map[string]any{"name": role.Name, "based_on": basedOn.String()})
+
+	return &authv1.CreateRoleResponse{Role: toProtoRole(role)}, nil
+}
+
+// UpdateRole renames/re-describes/recolors a tenant-owned role. Tenant
+// scoping needs no explicit parameter here — GetRoleByID and the UPDATE both
+// run through the roles table's RLS policies on the request-scoped connection.
+// Tenant and actor are still resolved explicitly, purely for the audit event.
+func (s *AuthGRPCServer) UpdateRole(ctx context.Context, req *authv1.UpdateRoleRequest) (*authv1.UpdateRoleResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		// Same reasoning as CreateRole's based_on: an id that isn't even a
+		// uuid names no role, so it is the same 404 as one nobody can see.
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	role, err := s.authService.UpdateRole(ctx, roleID, auth.UpdateRoleInput{
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_updated", role.ID.String(), "role",
+		map[string]any{"name": role.Name})
+
+	return &authv1.UpdateRoleResponse{Role: toProtoRole(role)}, nil
+}
+
+// DeleteRole removes a tenant-owned role. Tenant and actor are resolved
+// purely for the audit event — GetRoleByID and the DELETE are RLS-scoped on
+// their own.
+func (s *AuthGRPCServer) DeleteRole(ctx context.Context, req *authv1.DeleteRoleRequest) (*authv1.DeleteRoleResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.authService.DeleteRole(ctx, roleID); err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.role_deleted", roleID.String(), "role", nil)
+
+	return &authv1.DeleteRoleResponse{}, nil
+}
+
+// GetRolePermissions returns the grant set of a role visible to the caller —
+// presets included, since the builder reads a preset's grants when cloning it.
+func (s *AuthGRPCServer) GetRolePermissions(ctx context.Context, req *authv1.GetRolePermissionsRequest) (*authv1.GetRolePermissionsResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	grants, err := s.authService.GetRolePermissions(ctx, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.GetRolePermissionsResponse{RoleId: req.RoleId, Grants: toProtoRoleGrants(grants)}, nil
+}
+
+// SetRolePermissions replaces the entire grant set of a tenant-owned role.
+func (s *AuthGRPCServer) SetRolePermissions(ctx context.Context, req *authv1.SetRolePermissionsRequest) (*authv1.SetRolePermissionsResponse, error) {
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	grants := make([]auth.RoleGrant, len(req.Grants))
+	for i, g := range req.Grants {
+		grants[i] = auth.RoleGrant{Key: g.Key, Scope: g.Scope}
+	}
+
+	updated, err := s.authService.SetRolePermissions(ctx, actorID, roleID, grants)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.SetRolePermissionsResponse{RoleId: req.RoleId, Grants: toProtoRoleGrants(updated)}, nil
+}
+
+// AssignUserRole grants a role — preset or custom — to an account and answers
+// with the account's role ids afterwards. An unparsable id gets the same
+// not_found a foreign or unknown one gets: the caller may not learn from the
+// error which of the two it hit.
+func (s *AuthGRPCServer) AssignUserRole(ctx context.Context, req *authv1.AssignUserRoleRequest) (*authv1.AssignUserRoleResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	roleIDs, err := s.authService.AssignUserRole(ctx, actorID, userID, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.assigned", userID.String(), "user",
+		map[string]any{"role_id": roleID.String()})
+
+	return &authv1.AssignUserRoleResponse{RoleIds: roleIDs}, nil
+}
+
+// RevokeUserRole takes a role off an account and answers with what is left.
+func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeUserRoleRequest) (*authv1.RevokeUserRoleResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrBaseRoleNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	roleIDs, err := s.authService.RevokeUserRole(ctx, actorID, userID, roleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logPermissionEvent(ctx, tenantID, actorID, "permission.revoked", userID.String(), "user",
+		map[string]any{"role_id": roleID.String()})
+
+	return &authv1.RevokeUserRoleResponse{RoleIds: roleIDs}, nil
+}
+
+// GetUserOverrides returns one account's per-user permission overrides.
+func (s *AuthGRPCServer) GetUserOverrides(ctx context.Context, req *authv1.GetUserOverridesRequest) (*authv1.UserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	overrides, err := s.authService.GetUserOverrides(ctx, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.UserOverridesResponse{UserId: req.UserId, Overrides: toProtoOverrides(overrides)}, nil
+}
+
+// SetUserOverrides replaces an account's override map and writes one audit
+// event per key that actually changed — re-sending an unchanged map produces
+// no events at all, which is what makes the log readable as a history of
+// decisions rather than of save clicks.
+func (s *AuthGRPCServer) SetUserOverrides(ctx context.Context, req *authv1.SetUserOverridesRequest) (*authv1.UserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides := make([]auth.CapabilityOverride, len(req.Overrides))
+	for i, o := range req.Overrides {
+		overrides[i] = auth.CapabilityOverride{Key: o.Key, Mode: o.Mode, Scope: o.Scope}
+	}
+
+	stored, changes, err := s.authService.SetUserOverrides(ctx, actorID, tenantID, userID, overrides)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logOverrideChanges(ctx, tenantID, actorID, userID, changes)
+
+	return &authv1.UserOverridesResponse{UserId: req.UserId, Overrides: toProtoOverrides(stored)}, nil
+}
+
+// ClearUserOverrides puts an account back on the pure role stand.
+func (s *AuthGRPCServer) ClearUserOverrides(ctx context.Context, req *authv1.ClearUserOverridesRequest) (*authv1.ClearUserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	changes, err := s.authService.ClearUserOverrides(ctx, actorID, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logOverrideChanges(ctx, tenantID, actorID, userID, changes)
+
+	return &authv1.ClearUserOverridesResponse{}, nil
+}
+
+// logOverrideChanges appends one audit event per changed key, through the same
+// helper the role events use. A key that gained or changed an override is
+// permission.override_set, one that went back to following the roles is
+// permission.override_removed — the two actions the frontend's audit view
+// already renders (mocks/handlers/rbac.ts).
+func (s *AuthGRPCServer) logOverrideChanges(ctx context.Context, tenantID, actorID, userID uuid.UUID, changes []auth.OverrideChange) {
+	for _, c := range changes {
+		details := map[string]any{"key": c.Key}
+		if c.Before != nil {
+			details["previous_mode"] = c.Before.Mode
+			details["previous_scope"] = c.Before.Scope
+		} else {
+			details["previous_mode"] = "inherited"
+		}
+
+		action := "permission.override_removed"
+		if c.After != nil {
+			action = "permission.override_set"
+			details["mode"] = c.After.Mode
+			details["scope"] = c.After.Scope
+		} else {
+			details["mode"] = "inherited"
+		}
+
+		s.logPermissionEvent(ctx, tenantID, actorID, action, userID.String(), "user", details)
+	}
+}
+
+// toProtoOverrides renders an override map for the wire, never nil — same
+// reasoning as toProtoRoleGrants.
+func toProtoOverrides(overrides []auth.CapabilityOverride) []*authv1.CapabilityOverride {
+	out := make([]*authv1.CapabilityOverride, len(overrides))
+	for i, o := range overrides {
+		out[i] = &authv1.CapabilityOverride{Key: o.Key, Mode: o.Mode, Scope: o.Scope}
+	}
+	return out
+}
+
+// toProtoRoleGrants renders a grant set for the wire, never nil — an empty
+// slice still marshals through the gateway as [], not the JSON null a
+// nil-slice repeated field would leave in the proto response.
+func toProtoRoleGrants(grants []auth.RoleGrant) []*authv1.RoleGrant {
+	out := make([]*authv1.RoleGrant, len(grants))
+	for i, g := range grants {
+		out[i] = &authv1.RoleGrant{Key: g.Key, Scope: g.Scope}
+	}
+	return out
+}
+
+// toProtoRole renders a role for the wire. TenantID/BasedOn nil becomes the
+// proto zero value (empty string); the gateway turns that back into JSON null.
+func toProtoRole(r *auth.Role) *authv1.Role {
+	return &authv1.Role{
+		Id:              r.ID.String(),
+		Name:            r.Name,
+		Description:     r.Description,
+		TenantId:        uuidStringOrEmpty(r.TenantID),
+		PresetId:        uuidStringOrEmpty(r.BasedOn),
+		IsSystem:        r.IsSystem,
+		Color:           r.Color,
+		MemberCount:     int32(r.MemberCount),
+		CapabilityCount: int32(r.CapabilityCount),
+	}
+}
+
+// uuidStringOrEmpty renders a nullable uuid column as the proto3 zero value
+// for a missing string — callers that need to distinguish "empty" from
+// "absent" (the gateway, rendering tenant_id/preset_id as JSON null) do so on
+// the way out, not here.
+func uuidStringOrEmpty(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
 }
 
 func (s *AuthGRPCServer) GetProfile(ctx context.Context, req *authv1.GetProfileRequest) (*authv1.GetProfileResponse, error) {
@@ -619,9 +1021,17 @@ func (s *AuthGRPCServer) TerminateAllSessions(ctx context.Context, req *authv1.T
 // Two-Factor Policy Handlers
 // ============================================================================
 
+// GetTwoFactorPolicy returns the calling tenant's 2FA policies. Since migration
+// 000273 the table is tenant-scoped, so the tenant has to be resolved here —
+// the auth package cannot read it from the context itself.
 func (s *AuthGRPCServer) GetTwoFactorPolicy(ctx context.Context, req *authv1.GetTwoFactorPolicyRequest) (*authv1.GetTwoFactorPolicyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
 	if req.RoleName != "" {
-		policy, err := s.authService.GetTwoFactorPolicy(ctx, req.RoleName)
+		policy, err := s.authService.GetTwoFactorPolicy(ctx, tenantID, req.RoleName)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to get 2FA policy")
 		}
@@ -633,7 +1043,7 @@ func (s *AuthGRPCServer) GetTwoFactorPolicy(ctx context.Context, req *authv1.Get
 	}
 
 	// Return all policies
-	dbPolicies, err := s.authService.ListTwoFactorPolicies(ctx)
+	dbPolicies, err := s.authService.ListTwoFactorPolicies(ctx, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list 2FA policies")
 	}
@@ -656,7 +1066,16 @@ func (s *AuthGRPCServer) UpdateTwoFactorPolicy(ctx context.Context, req *authv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid updated_by")
 	}
 
-	policy, err := s.authService.UpdateTwoFactorPolicy(ctx, req.RoleName, req.Enforced, int(req.GracePeriodDays), updatedBy)
+	// The route guard is RequireRole("admin"), which answers "is an admin" but
+	// not "an admin of which tenant" — before migration 000273 that let any
+	// tenant's admin rewrite everyone's policy. The tenant from the propagated
+	// claims is what scopes the write now.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	policy, err := s.authService.UpdateTwoFactorPolicy(ctx, tenantID, req.RoleName, req.Enforced, int(req.GracePeriodDays), updatedBy)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -743,6 +1162,132 @@ func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 	}
 }
 
+// timeStringOrEmpty renders a nullable timestamp as the proto3 zero value for
+// a missing string — the gateway turns "" back into JSON null, same
+// convention as uuidStringOrEmpty.
+func timeStringOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
+func toAdminUserInfo(u *auth.AdminUser) *authv1.AdminUserInfo {
+	return &authv1.AdminUserInfo{
+		Id:          u.ID.String(),
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		Email:       u.Email,
+		RoleIds:     u.RoleIDs,
+		Status:      string(u.Status),
+		LastLoginAt: timeStringOrEmpty(u.LastLoginAt),
+		InvitedAt:   timeStringOrEmpty(u.InvitedAt),
+	}
+}
+
+// ListAdminUsers returns the calling tenant's account roster — real accounts
+// and still-open invitations merged into one list (admin-types.ts, AdminUser).
+func (s *AuthGRPCServer) ListAdminUsers(ctx context.Context, _ *authv1.ListAdminUsersRequest) (*authv1.ListAdminUsersResponse, error) {
+	users, err := s.authService.ListAdminUsers(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	out := make([]*authv1.AdminUserInfo, len(users))
+	for i := range users {
+		out[i] = toAdminUserInfo(&users[i])
+	}
+
+	return &authv1.ListAdminUsersResponse{Users: out}, nil
+}
+
+// parseRoleIDs turns the wire's role id strings into uuids, refusing the whole
+// set on the first malformed one rather than silently dropping it — a dropped
+// role is a right the caller believes they granted.
+func parseRoleIDs(raw []string) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, len(raw))
+	for i, s := range raw {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid role id")
+		}
+		ids[i] = id
+	}
+	return ids, nil
+}
+
+func (s *AuthGRPCServer) InviteAdminUser(ctx context.Context, req *authv1.InviteAdminUserRequest) (*authv1.AdminUserResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	roleIDs, err := parseRoleIDs(req.RoleIds)
+	if err != nil {
+		return nil, err
+	}
+
+	row, token, err := s.authService.InviteAdminUser(ctx, tenantID, actorID, req.Email, req.FirstName, req.LastName, roleIDs)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row), InviteToken: token}, nil
+}
+
+func (s *AuthGRPCServer) UpdateAdminUser(ctx context.Context, req *authv1.UpdateAdminUserRequest) (*authv1.AdminUserResponse, error) {
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	// HasRoleIds is what separates "replace the roles with none" from "leave
+	// the roles alone" — proto3 renders both as an empty repeated field.
+	var roleIDs *[]uuid.UUID
+	if req.HasRoleIds {
+		parsed, parseErr := parseRoleIDs(req.RoleIds)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		roleIDs = &parsed
+	}
+
+	var wantStatus *auth.AdminUserStatus
+	if req.Status != nil {
+		s := auth.AdminUserStatus(req.GetStatus())
+		wantStatus = &s
+	}
+
+	row, err := s.authService.UpdateAdminUser(ctx, actorID, userID, roleIDs, wantStatus)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row)}, nil
+}
+
+func (s *AuthGRPCServer) ResendAdminUserInvite(ctx context.Context, req *authv1.ResendAdminUserInviteRequest) (*authv1.AdminUserResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+	invitationID, err := uuid.Parse(req.InvitationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid invitation id")
+	}
+
+	row, token, err := s.authService.ResendAdminUserInvite(ctx, tenantID, invitationID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.AdminUserResponse{User: toAdminUserInfo(row), InviteToken: token}, nil
+}
+
 // ============================================================================
 // Password Reset Handlers
 // ============================================================================
@@ -800,6 +1345,43 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrRoleNotFound):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Role administration (RBAC wave 1b). The messages are the frontend's
+	// error codes, so the code choice only has to land on the right HTTP
+	// status: AlreadyExists and FailedPrecondition both become 409, NotFound
+	// becomes 404.
+	case errors.Is(err, auth.ErrRoleNameExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, auth.ErrRoleLimitReached):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrBaseRoleNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, auth.ErrRolePresetImmutable):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, auth.ErrRoleHasMembers):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	// Guardrails (wave 1b). last_admin and self_lockout are conflicts with the
+	// tenant's current state, so 409 like the other two above; an escalation
+	// attempt is a permission problem and gets the same 403 preset_immutable
+	// gets.
+	case errors.Is(err, auth.ErrLastAdmin):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrSelfLockout):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrPrivilegeEscalation):
+		return status.Error(codes.PermissionDenied, err.Error())
+	// Roster guardrails (phase 3). Deactivating oneself is the same kind of
+	// state conflict as self_lockout and gets the same 409; an unassignable
+	// status is a bad value in the body, so InvalidArgument -> 400.
+	case errors.Is(err, auth.ErrSelfDeactivation):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrStatusNotAssignable):
+		return status.Error(codes.InvalidArgument, err.Error())
+	// OutOfRange, not InvalidArgument: the gateway maps it to 422, matching
+	// the frontend contract's "unbekannter Key -> 422" — InvalidArgument
+	// would land on 400, which the builder does not distinguish from a
+	// malformed request body.
+	case errors.Is(err, auth.ErrCapabilityKeyUnknown):
+		return status.Error(codes.OutOfRange, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorNotEnabled):

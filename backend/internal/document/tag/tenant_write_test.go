@@ -151,6 +151,81 @@ func TestDocumentTagWrites_LandInCallerTenant(t *testing.T) {
 	testutil.AssertRowCount(t, pool, sysCtx, "document_tags", tag.ID, 0)
 }
 
+// TestTagFile_RejectsTagFromAnotherTenant covers the gap RLS's WITH CHECK
+// does not: a session using its OWN correct tenant context, tagging its OWN
+// file, but with a tag_id that belongs to a different tenant. RLS's INSERT
+// policy only checks that the new row's own tenant_id column matches
+// current_tenant_id() — it says nothing about whether tag_id itself is
+// owned by that tenant, and the document_tags(id) FK is checked by a trigger
+// that runs with the table owner's privileges, bypassing RLS entirely. Before
+// TagFile's explicit ownership check, this call succeeded and silently
+// attached a foreign tenant's tag to the caller's file.
+func TestTagFile_RejectsTagFromAnotherTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantForeign := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Doctag Foreign-Tag Own Tenant")
+	testutil.EnsureTenant(t, pool, tenantForeign, "Doctag Foreign-Tag Foreign Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantForeign)
+
+	ownUserID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("doctag-foreign-own-%s@tenanta.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", ownUserID)
+
+	foreignUserID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantForeign,
+		"email":         fmt.Sprintf("doctag-foreign-other-%s@tenantb.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", foreignUserID)
+
+	folderID := testutil.SeedRow(t, pool, "document_folders", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Foreign-Tag-Test-Folder",
+		"space_type": "team",
+		"space_id":   uuid.New(),
+		"created_by": ownUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_folders", folderID)
+
+	fileID := testutil.SeedRow(t, pool, "document_files", map[string]any{
+		"tenant_id":   tenantOwn,
+		"folder_id":   folderID,
+		"filename":    "foreign-tag-test.pdf",
+		"mime_type":   "application/pdf",
+		"file_size":   1024,
+		"storage_key": "documents/" + uuid.New().String() + ".pdf",
+		"owner_id":    ownUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_files", fileID)
+
+	foreignTagID := testutil.SeedRow(t, pool, "document_tags", map[string]any{
+		"tenant_id":  tenantForeign,
+		"name":       "Foreign-Tag-" + uuid.New().String()[:8],
+		"created_by": foreignUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_tags", foreignTagID)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	// Correct tenant context, own file — but tag_id names a tag that belongs
+	// to a different tenant.
+	if err := repo.TagFile(ctxOwn, tenantOwn, fileID, foreignTagID); !errors.Is(err, ErrTagNotFound) {
+		t.Fatalf("TagFile (foreign tag_id): expected ErrTagNotFound, got %v", err)
+	}
+	assertFileTagCount(t, pool, sysCtx, fileID, foreignTagID, 0)
+}
+
 // assertFileTagCount checks document_file_tags row presence under ctx's RLS
 // visibility. The table has a composite (file_id, tag_id) primary key, not a
 // single UUID id column, so testutil.AssertRowCount does not apply directly.

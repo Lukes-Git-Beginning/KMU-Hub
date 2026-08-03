@@ -51,6 +51,11 @@ service AutomationService {
   // Stats (1 RPC)
   // =========================================================================
   rpc GetAutomationStats(GetAutomationStatsRequest) returns (GetAutomationStatsResponse);
+
+  // =========================================================================
+  // Webhook Trigger (1 RPC)
+  // =========================================================================
+  rpc TriggerWebhook(TriggerWebhookRequest) returns (TriggerWebhookResponse);
 }
 
 // ============================================================================
@@ -375,4 +380,21 @@ message GetAutomationStatsResponse {
   int32 failed_executions = 5;
   int32 skipped_executions = 6;
   double average_duration_ms = 7;
+}
+
+// ============================================================================
+// Webhook Trigger RPC - Request & Response
+// ============================================================================
+
+message TriggerWebhookRequest {
+  string automation_id = 1;
+  bytes body = 2;
+  string signature = 3;
+  string idempotency_key = 4;
+}
+
+message TriggerWebhookResponse {
+  // duplicate is true when the delivery (same Idempotency-Key or, absent
+  // one, the same body) was already processed and no second execution ran.
+  bool duplicate = 1;
 }

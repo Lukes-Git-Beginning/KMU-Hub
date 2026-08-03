@@ -59,7 +59,7 @@ func (n *NotificationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(ht
 
 		// Mutes
 		r.With(middleware.RequirePermission("notifications", "write")).Post("/mutes", n.HandleMuteResource)
-		r.With(middleware.RequirePermission("notifications", "write")).Delete("/mutes", n.HandleUnmuteResource)
+		r.With(middleware.RequirePermission("notifications", "write")).Delete("/mutes/{muteId}", n.HandleUnmuteResource)
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/mutes", n.HandleListMutedResources)
 
 		// Quiet Hours
@@ -453,11 +453,6 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 	response.Proto(w, http.StatusCreated, resp)
 }
 
-type unmuteResourceRequest struct {
-	ModuleID   string `json:"module_id"   validate:"required"`
-	ResourceID string `json:"resource_id" validate:"required"`
-}
-
 func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http.Request) {
 	client, err := n.getNotificationClient()
 	if err != nil {
@@ -467,15 +462,14 @@ func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http
 
 	userID := middleware.GetUserID(r.Context())
 
-	req, ok := decodeAndValidate[unmuteResourceRequest](w, r)
+	muteID, ok := validateUUIDParam(w, r, "muteId")
 	if !ok {
 		return
 	}
 
 	_, err = client.UnmuteResource(r.Context(), &notificationv1.UnmuteResourceRequest{
-		UserId:     userID,
-		ModuleId:   req.ModuleID,
-		ResourceId: req.ResourceID,
+		UserId: userID,
+		MuteId: muteID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

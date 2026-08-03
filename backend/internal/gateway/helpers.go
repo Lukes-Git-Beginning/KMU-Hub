@@ -63,6 +63,11 @@ func grpcStatusToHTTP(code codes.Code) int {
 		return http.StatusTooManyRequests
 	case codes.Unimplemented:
 		return http.StatusNotImplemented
+	// OutOfRange carries "semantically valid request, unprocessable value"
+	// errors (currently: an unknown RBAC capability key) — 422, distinct from
+	// InvalidArgument's 400 malformed-request meaning.
+	case codes.OutOfRange:
+		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
 	}

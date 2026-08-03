@@ -30,9 +30,10 @@ type ChatFileWithUploader struct {
 	UploaderLastName  string `json:"uploader_last_name"`
 }
 
-// StorageQuota tracks org-level storage usage
+// StorageQuota tracks per-tenant storage usage (tenant-scoped since 000275)
 type StorageQuota struct {
 	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	MaxBytes  int64     `json:"max_bytes"`
 	UsedBytes int64     `json:"used_bytes"`
 	UpdatedAt time.Time `json:"updated_at"`

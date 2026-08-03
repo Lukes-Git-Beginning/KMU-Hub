@@ -42,6 +42,10 @@ type FolderRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.EmailFolder, error)
 	GetByIMAPName(ctx context.Context, accountID uuid.UUID, imapName string) (*models.EmailFolder, error)
 	ListByAccount(ctx context.Context, accountID uuid.UUID) ([]*models.EmailFolder, error)
+	// GetByAccountAndType returns the first folder of the given type (e.g.
+	// models.FolderTypeArchive) for an account, or ErrFolderNotFound if the
+	// account has none — not every synced account has an Archive/Spam folder.
+	GetByAccountAndType(ctx context.Context, accountID uuid.UUID, folderType string) (*models.EmailFolder, error)
 	UpdateCounts(ctx context.Context, folderID uuid.UUID, messageCount, unreadCount int) error
 	UpdateUIDValidity(ctx context.Context, folderID uuid.UUID, uidValidity int64) error
 	DeleteMessagesByFolder(ctx context.Context, folderID uuid.UUID) error

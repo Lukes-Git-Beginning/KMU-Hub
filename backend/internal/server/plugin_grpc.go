@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin"
 	pluginv1 "github.com/kmuhub/kmuhub/proto/plugin/v1"
@@ -284,10 +285,30 @@ func (s *PluginGRPCServer) GetPluginSettingsSchema(ctx context.Context, req *plu
 // Validation Rules
 // ============================================================================
 
-func (s *PluginGRPCServer) CreateValidationRule(ctx context.Context, req *pluginv1.CreateValidationRuleRequest) (*pluginv1.CreateValidationRuleResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+// ruleTenant resolves the caller's tenant for the validation_rules and
+// workflow_rules paths from the propagated x-tenant-id metadata rather than
+// from the request body. Both tables are under RLS since migration 000269, so
+// a body-supplied foreign tenant now fails the policy's WITH CHECK anyway —
+// but it fails as an opaque database error deep inside the repository. Reading
+// the tenant here keeps the rejection at the service boundary, where it can say
+// what is wrong, and it makes the reads (which pass the tenant as a plain
+// predicate) consistent with the writes.
+//
+// The tenant_id field on the requests stays in the proto for compatibility;
+// the gateway already fills it from the JWT (route_plugin.go), so no caller
+// loses anything by it being ignored here.
+func ruleTenant(ctx context.Context) (uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return uuid.Nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	return tenantID, nil
+}
+
+func (s *PluginGRPCServer) CreateValidationRule(ctx context.Context, req *pluginv1.CreateValidationRuleRequest) (*pluginv1.CreateValidationRuleResponse, error) {
+	tenantID, err := ruleTenant(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	rule := &models.ValidationRule{
@@ -318,9 +339,9 @@ func (s *PluginGRPCServer) CreateValidationRule(ctx context.Context, req *plugin
 }
 
 func (s *PluginGRPCServer) ListValidationRules(ctx context.Context, req *pluginv1.ListValidationRulesRequest) (*pluginv1.ListValidationRulesResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := ruleTenant(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, err
 	}
 
 	rules, err := s.svc.ListValidationRules(ctx, tenantID, req.GetEntityType())
@@ -375,9 +396,9 @@ func (s *PluginGRPCServer) DeleteValidationRule(ctx context.Context, req *plugin
 // ============================================================================
 
 func (s *PluginGRPCServer) CreateWorkflowRule(ctx context.Context, req *pluginv1.CreateWorkflowRuleRequest) (*pluginv1.CreateWorkflowRuleResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := ruleTenant(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, err
 	}
 
 	rule := &models.WorkflowRule{
@@ -406,9 +427,9 @@ func (s *PluginGRPCServer) CreateWorkflowRule(ctx context.Context, req *pluginv1
 }
 
 func (s *PluginGRPCServer) ListWorkflowRules(ctx context.Context, req *pluginv1.ListWorkflowRulesRequest) (*pluginv1.ListWorkflowRulesResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := ruleTenant(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, err
 	}
 
 	rules, err := s.svc.ListWorkflowRules(ctx, tenantID, req.GetTriggerEvent())
@@ -475,10 +496,12 @@ func (s *PluginGRPCServer) ListIndustryTemplates(ctx context.Context, req *plugi
 	return &pluginv1.ListIndustryTemplatesResponse{Templates: result}, nil
 }
 
+// ApplyIndustryTemplate writes into validation_rules and workflow_rules, so it
+// takes the tenant from the context for the same reason the rule handlers do.
 func (s *PluginGRPCServer) ApplyIndustryTemplate(ctx context.Context, req *pluginv1.ApplyIndustryTemplateRequest) (*pluginv1.ApplyIndustryTemplateResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := ruleTenant(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, err
 	}
 	templateID, err := uuid.Parse(req.GetTemplateId())
 	if err != nil {
@@ -813,6 +836,8 @@ func mapPluginError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case isInvalidArgument(err):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case err == plugin.ErrManifestImmutable:
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		slog.Error("unhandled plugin service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

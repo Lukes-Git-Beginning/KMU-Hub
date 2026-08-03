@@ -1,6 +1,11 @@
-# Backend-Nachtloop — Journal (Lauf 3)
+# Backend-Nachtloop — Journal (Lauf 4)
 
-Append-only. Eine Iteration = ein Eintrag. Vorlage:
+Append-only. Eine Iteration = ein Eintrag. **Immer ans Dateiende anhaengen, nie vor einen
+bestehenden Eintrag einsortieren** — der Treiber leitet die Fortschrittsanzeige aus der hoechsten
+Iterationsnummer ab, und ein eingeschobener Eintrag hat in Lauf 3 zwei Iterationen lang denselben
+Stand gemeldet.
+
+Vorlage:
 
 ```markdown
 ## Iteration <n> — <unit-id> — <done|blocked> — <YYYY-MM-DD HH:MM>
@@ -13,4411 +18,3148 @@ Append-only. Eine Iteration = ein Eintrag. Vorlage:
 
 Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steht in `logs/run.log`.
 
-**Laeufe 1 und 2** (26.–28.07., 60 Iterationen, 58 Units, alles ueber PR #15 auf `main`):
-`archive/lauf-1-2/JOURNAL.md` und `archive/lauf-1-2/BACKLOG.yml`.
+Journale der Vorlaeufe: `archive/lauf-1-2/JOURNAL.md` (58 Units, PR #15),
+`archive/lauf-3/JOURNAL.md` (61 Units, PR #16).
 
 ---
 
-## Lauf 3 — Ausgangslage (2026-08-01)
+## Ausgangslage Lauf 4 (2026-08-02, vor der ersten Iteration)
 
-- Branch `backend-loop` == `main` (`2ce86506`), Repo-Migrationskopf **000255**.
-- Schwerpunkt laut Absprache mit Luke: **RBAC Phase 1 Welle 1a** und **E-Rechnung-Ausgang (Welle 5)**,
-  danach RBAC Phase 2 (additiv), drei FE-only-Cluster, zuletzt die Code-Scan-Funde.
-- **Neu freigegeben:** Phase-1-Units der **Welle 1a**. Welle **1b** (Rollen-CRUD + Guardrails) und
-  **Phase 4** (Branchen-BE) bleiben gesperrt.
-- Zwei Korrekturen gegenueber `PHASE-1-RBAC-PLAN.md`, verifiziert gegen
-  `migrations/000118_rls_foundation.up.sql:42-79` — stehen in den Notes von `p1a-migration`:
-  1. Das RLS-Setting heisst **`app.tenant_id`**, die Helper **`current_tenant_id()`** /
-     **`is_system_context()`**. Der Plan schreibt `app.current_tenant` — existiert in keiner Migration.
-  2. `roles` darf **nicht** ueber `CALL enable_tenant_rls('roles')` laufen: das Standardmuster blendet die
-     System-Presets mit `tenant_id IS NULL` aus und erzeugt 403 fuer alle.
+Kein Vorgaenger-Commit zu verifizieren — Lauf 3 ist abgenommen, durch CI und gemergt. Die erste
+Iteration ueberspringt den Verify-Vorspann daher zu Recht und beginnt direkt mit `p1b-proto`.
+
+Stand, gegen den gebaut wird:
+
+- Migrationskopf Repo **268**. Naechste freie Nummer zur Laufzeit ermitteln, nicht annehmen:
+  `ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1`
+- Registrierte Routen **778** gegen **780** dokumentierte Pfade (`TestOpenAPIRouteDrift` gruen).
+- Backend-Gates zuletzt vollstaendig gruen: `golangci-lint ./...` 0 issues,
+  `go test ./...` 130 ok / 0 FAIL gegen echte DB, Coverage 28,3 %.
+- RBAC-Fundament aus Welle 1a steht und ist empirisch geprueft: als `kmuhub_app` 8 Preset-Rollen,
+  1179 Grants, admin = 454 Capabilities. Presets sind lesbar, aber fuer Tenants nicht
+  schreib- oder loeschbar (Schreib-Policy ohne die NULL-Klausel; DELETE wertet nur USING aus).
+- **Neu freigegeben:** RBAC Welle 1b (Block A). Gesperrt bleiben Phase 4 (Branchen-BE), neue
+  `config.RequireX`-Assertionen, das Scharfschalten neuer `modules.*`-Flags sowie Merge/Deploy.
+
+Schwerpunkte dieses Laufs: **Sicherheit/RLS-Reste** (Block B — die Allowlist in ADR-006 kennt vier
+Ausnahmen, ungeschuetzt sind deutlich mehr), **Automatisierung fertigbauen** (Block C) und die vier
+verifizierten FE-Luecken (Block D).
+
+Ein Hinweis zur Erwartung: der Backlog hat **29 offene Units**, nicht 40. Die FE-Client-Pfade
+aller Module wurden gegen die registrierten Routen gediffed — die duennen Module (fuhrpark,
+inventar, vermietung, einkauf, produktion, schichten, rapporte) haben keine Routen-Luecken mehr.
+Sind alle Units abgearbeitet, ist `ALLE UNITS ABGEARBEITET` ins Journal zu schreiben, `STOP`
+anzulegen und der Lauf zu beenden — nicht nach Arbeit zu suchen.
 
 ---
 
-## Iteration 1 — p1a-proto — done — 2026-08-01 21:40
+## Iteration 1 — p1b-proto — done — 2026-08-02 20:15
 
-- commit: f2b98a7b
-- gebaut: RPC `GetEffectivePermissions` in `proto/auth/v1/auth.proto` (direkt hinter
-  `CheckPermission`, weil naechste Verwandtschaft) plus die vier Messages
-  `GetEffectivePermissionsRequest{user_id}`, `EffectiveRole{id,name,is_system,color}`,
-  `EffectiveCapability{key,scope,repeated sources}` und
-  `GetEffectivePermissionsResponse{repeated roles, repeated capabilities}`.
-  `.pb.go` und `_grpc.pb.go` im selben Commit regeneriert.
-- gate: build ok (`./proto/auth/... ./internal/auth/...` **und** `./...` komplett) | vet ok |
-  lint ok (0 issues) | test ok (`./internal/auth/...` 7,6 s mit gesetzter `DATABASE_URL` gegen
-  `kmuhub_app` — also real gelaufen, nicht ueber `SkipIfNoDB` weggeskippt) |
-  migration n.a. | rls-smoke n.a. (reine Schnittstellendefinition, kein Datenpfad)
-- verify vorgaenger: n.a. — Vorgaenger-Commit `7e0b1a4a` ist der Backlog-Reset fuer Lauf 3, enthaelt
-  keinen Code. Erste Code-Iteration des Laufs.
-- offen: Der neue RPC steht erwartungsgemaess in `UnimplementedAuthServiceServer`
-  (`auth_grpc.pb.go:530`) — das ist Codegen-Boilerplate und **kein** Stub-Fund, so auch in den Notes
-  von `p1a-proto` vorab festgehalten. Die Implementierung kommt in `p1a-resolver` (Service) und
-  `p1a-grpc` (Handler); erst danach ist der RPC ueber die Leitung nutzbar.
-  Kein handgeschriebener Fake des `AuthServiceClient`/`AuthServiceServer`-Interfaces im Repo
-  (geprueft) — die Interface-Erweiterung bricht also keine Testdoubles.
-  Der 819-Zeilen-Diff in `auth.pb.go` ist harmlos: alle Loeschungen sind
-  `msgTypes[n]`-Index-Verschiebungen und `rawDesc`-Bytes, die protoc-gen-go-Version hat sich nicht
-  geaendert (Header-Diff leer).
-  Naechste Unit: `p1a-seed-generator` (deps erfuellt).
+- commit: dbe58528
+- gebaut: 8 Rollen-Admin-RPCs am `AuthService` (`ListRoles`, `CreateRole`, `UpdateRole`,
+  `DeleteRole`, `GetRolePermissions`, `SetRolePermissions`, `AssignUserRole`, `RevokeUserRole`)
+  plus die Messages `Role`, `RoleGrant` und die acht Request/Response-Paare in
+  `backend/proto/auth/v1/auth.proto`. Regenerat (`auth.pb.go`, `auth_grpc.pb.go`) liegt im
+  selben Commit. **Nur Proto + Regen — keine Implementierung**, so wie die Unit es vorsieht.
+- gate: build ok (`go build ./...` gesamtes Backend, Exit 0) | vet ok | lint ok
+  (`golangci-lint run ./proto/auth/... ./internal/auth/... ./internal/server/...` → 0 issues)
+  | test n.a. (kein Testcode in dieser Unit) | migration n.a. | rls-smoke n.a.
+- verify vorgaenger: entfaellt — Lauf 3 ist abgenommen, gemergt und deployt; es gibt keinen
+  Vorgaenger-Commit dieses Laufs.
 
-## Iteration 2 — p1a-seed-generator — done — 2026-08-01 22:10
+### Vertrags-Entscheidungen (bindend fuer p1b-roles-list ff.)
 
-- commit: (siehe unten)
-- gebaut: `desktop/scripts/gen-rbac-seed.mjs` liest `mocks/data/rbac.ts` (`ROLE_DEFS`) und
-  `config/capability-catalog.ts` (`CAPABILITY_CATALOG` + `MODULE_KEYS`/`moduleViewKey` aus
-  `config/capabilities.ts`) und emittiert auf stdout: (a) `INSERT INTO permissions` fuer alle 282
-  Keys (30 L1-View-Keys + 252 feine Katalog-Keys), (b) `INSERT INTO roles` fuer die 4 fehlenden
-  Presets (it_admin/hr_admin/readonly/extern, tenant_id NULL) plus `UPDATE roles SET color=...` fuer
-  die 3 bestehenden (admin/manager/member), (c) `INSERT INTO role_permissions ... SELECT` je Rolle
-  gruppiert nach Scope (own/team/all) mit IN-Liste — 14 Bloecke fuer 7 Rollen. Alle INSERTs mit
-  `ON CONFLICT DO NOTHING` wie in den Notes gefordert.
-  Toolchain-Fund: `tsx` (bereits Dependency) muss mit `--tsconfig tsconfig.web.json` laufen, sonst
-  loest es den `@/`-Alias aus `rbac.ts` nicht auf. Zweiter Fund, unabhaengig vom Alias: auf dieser
-  Maschine (tsx 4.21.0/Node 22.19.0/Windows) landen benannte Exports von `.ts`-Dateien beim Import via
-  `tsx` unter `.default` statt als Top-Level-Named-Exports (reproduziert auch mit einer Datei ohne
-  jeden `@/`-Import) — der Generator destructured deshalb defensiv `pkg.default ?? pkg`. Lauffaehiger
-  Befehl steht im Script-Header: `cd desktop && npx tsx --tsconfig tsconfig.web.json
-  scripts/gen-rbac-seed.mjs`.
-- gate: Script-Lauf exit 0, stderr meldet die Grant-Zahlen: admin 282, it_admin 104, hr_admin 71,
-  manager 205, member 110, readonly 74, extern 11 (Summe 857 — Notes-Schaetzung war "~828", plausibel).
-  282 permissions-Zeilen, das erwartete Groessenmuster "~279". Alle 30 L1-View-Keys ueber
-  `moduleViewKey()`/`MODULE_KEYS` mitgeneriert, geprueft per Diff gegen die Katalog-Summe (30+252=282).
-  Struktur-Check des SQL-Outputs (kein DB-Zugriff moeglich, da `roles.tenant_id/color` und
-  `role_permissions.scope` erst in `p1a-migration` entstehen): 16 `INSERT`, 3 `UPDATE`, 19
-  Zeilen auf `;`, Anfuehrungszeichen- und Klammernzahl gerade/balanciert. `extern`-Block stichprobenhaft
-  gegen `rbac.ts` gegengelesen (6 all + 3 team + 2 own = 11, exakt der ROLE_DEFS-Wert).
-  go build/vet/test: n.a. — reine Frontend-Tooling-Datei, kein Go-Code angefasst.
-- verify vorgaenger: sauber. `f2b98a7b` (p1a-proto) gegen alle acht Fehlerklassen geprueft:
-  Proto-Diff matcht exakt die Notes-Spezifikation (RPC + 4 Messages), `.proto`-Aenderung UND
-  `_grpc.pb.go`-Regen im selben Commit vorhanden und inhaltlich konsistent (grep bestaetigt
-  `GetEffectivePermissions` an allen erwarteten Stellen: Client-Interface, Server-Interface,
-  Unimplemented-Stub, Handler-Registrierung). Kein Gateway/Guard/Tenant/Wire-Shape-Code in diesem
-  Commit, diese Klassen n.a.
-- offen: **Sicherheits-relevante Beobachtung fuer `p1a-migration` (naechste Unit, opus):** die
-  `own`/`team`-Scope-Grants in `ROLE_DEFS` (z.B. member `work:task:edit`→own,
-  manager `team:data_personal:view`→team, extern `work:task:read`→team) betreffen ausschliesslich
-  Keys, die VOR dieser Migration noch KEINE `role_permissions`-Zeile hatten — verifiziert per Grep
-  gegen alle bestehenden `*_permissions*.up.sql`-Migrationen (work:task, crm:contact,
-  team:data_personal/data_job/salary/documents/absence_data, schichten:swap:read/create fuer member,
-  rapporte:report fuer member, helpdesk:ticket: keine Treffer ausser admin-only in 000161/000164).
-  Das `ON CONFLICT (role_id, permission_id) DO NOTHING` in Block (c) kann deshalb bei DIESER Migration
-  keinen bestehenden Scope stillschweigend auf `all` (Spalten-Default) haengen lassen — aber bei
-  spaeteren Katalog-Aenderungen mit neuen Scope-Downgrades auf einen Key mit bereits existierender
-  Zeile wuerde genau das passieren (DO NOTHING gewinnt gegen den neuen, engeren Scope). Kein Fund fuer
-  HEUTE, aber ein Muster, das `p1a-migration` kennen sollte, falls es den generierten Block (c)
-  irgendwann per Diff gegen eine bereits teilmigrierte DB laufen laesst.
-  `p1a-migration` muss aus den Notes zusaetzlich sicherstellen, dass die neue
-  `idx_roles_tenant_name`-Indexdefinition EXAKT `COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)`
-  lautet — das ist die Ausdrucksform, gegen die der generierte `ON CONFLICT`-Klausel in Block (b)
-  matcht; weicht der Index-Ausdruck (z.B. ohne `::uuid`-Cast oder andere Klammerung) davon ab, findet
-  Postgres keinen Arbiter-Index und die INSERT schlaegt fehl.
-  Keine Migration in dieser Iteration angefasst (das ist explizit `p1a-migration`s Scope) — DB-Gate
-  daher nicht gelaufen, es gibt noch keine anzuwendende `.sql`-Datei.
+Die Feldnamen sind aus dem FE-Vertrag gezogen (`desktop/src/renderer/src/api/rbac-types.ts`,
+Verhalten gegengeprueft an `mocks/handlers/rbac.ts`). Drei Stellen weichen bewusst ab und
+muessen im Gateway gemappt werden — wer das vergisst, baut genau den
+Nested-Proto-vs-flacher-FE-Typ-Bruch, der dieses Repo schon mehrfach gekostet hat:
 
-## Iteration 3 — p1a-migration — done — 2026-08-01 15:54
+1. **`preset_id` (Proto) ↔ `basedOn` (FE).** Die DB-Spalte aus Welle 1a heisst `preset_id`;
+   der FE-Typ nennt dasselbe Feld `basedOn`. Im Request heisst es `based_on` (so wie das FE
+   es beim Anlegen schickt), im `Role`-Objekt `preset_id` (so wie die DB es haelt).
+2. **`tenant_id` leer ⇒ JSON `null`.** proto3 kennt kein NULL fuer Strings. `tenant_id == ""`
+   bedeutet System-Preset; der Gateway-Handler MUSS daraus `null` machen, weil der FE-Typ
+   `tenantId: string | null` ist und `isSystem` daran haengt.
+3. **`role_ids` (Proto) ↔ `roles` (FE).** `AssignUserRoleResponse`/`RevokeUserRoleResponse`
+   tragen `repeated string role_ids`; der FE-Vertrag `UserRolesResponse` heisst `roles` und ist
+   ebenfalls eine reine ID-Liste — **keine** Objekte. Nicht versehentlich `Role`-Objekte
+   zurueckgeben.
 
-- commit: (siehe unten)
-- gebaut: Migration `000256_rbac_phase1a_role_scope_and_presets` (lokaler Kopf war 255 = Repo-Kopf,
-  zur Laufzeit ermittelt). `.up.sql`: (a) `roles` bekommt `tenant_id UUID NULL REFERENCES tenants(id)
-  ON DELETE CASCADE`, `based_on UUID NULL REFERENCES roles(id) ON DELETE SET NULL`,
-  `color VARCHAR(40) NOT NULL DEFAULT ''`; (b) `idx_roles_name` (global unique) ersetzt durch
-  `idx_roles_tenant_name ON roles (COALESCE(tenant_id,'00000000-0000-0000-0000-000000000000'::uuid), name)`
-  — Ausdruck byte-identisch zur ON-CONFLICT-Klausel des Generators, sonst fehlt der Arbiter-Index;
-  (c) `role_permissions.scope VARCHAR(8) NOT NULL DEFAULT 'all'` mit benanntem CHECK
-  (`own`/`team`/`all`); (d) RLS auf beiden Tabellen; (e) Generator-Output von
-  `desktop/scripts/gen-rbac-seed.mjs` woertlich eingebettet. `.down.sql` gefuellt.
-  **RLS-Form (Abweichung vom Standardmuster, bewusst):** statt einer Policy zwei — `tenant_isolation_read`
-  (`FOR SELECT`, `tenant_id IS NULL OR tenant_id = current_tenant_id() OR is_system_context()`) und
-  `tenant_isolation_write` (`FOR ALL`, ohne die NULL-Bedingung). Grund: DELETE wertet **ausschliesslich**
-  USING aus, nie WITH CHECK. Eine einzelne permissive Policy, die die Presets lesbar macht, macht sie
-  damit auch fuer jeden Tenant loeschbar. Mit der Trennung gilt: lesen ja, schreiben/aendern/loeschen
-  nein. `role_permissions` analog ueber den `roles`-Join (die Subquery laeuft selbst unter der
-  roles-Read-Policy, deshalb greift sie).
-  `permissions` und `user_roles` bleiben ohne RLS — `permissions` ist echter System-Katalog und wurde
-  dafuer in die ADR-006-Liste in `docs/ARCHITECTURE.md` eingetragen, `user_roles` ist eine echte Luecke
-  (siehe unten), die dort als offen dokumentiert und als Backlog-Unit `g-user-roles-rls` angelegt ist.
-- **Korrektur am Generator aus Iteration 2 (echter Fund, nicht kosmetisch):** die
-  `role_permissions`-Bloecke liefen mit `ON CONFLICT (role_id, permission_id) DO NOTHING`. Die
-  Iteration-2-Pruefung dieses Risikos war ein Grep gegen die Migrations-DATEIEN und hat deshalb nichts
-  gefunden; der Abgleich gegen die laufende DB zeigt zwei Treffer: `member` hatte
-  `schichten:swap:create` und `schichten:swap:read` bereits als Grant, der Katalog fuehrt beide auf
-  `own`. Mit DO NOTHING waeren beide auf dem Spaltendefault `all` haengen geblieben — ein `member`
-  haette alle Schichttausch-Anfragen des Tenants gesehen und angelegt statt nur die eigenen. Der
-  Generator emittiert fuer die role_permissions-Bloecke jetzt
-  `DO UPDATE SET scope = EXCLUDED.scope`; der Katalog ist SSOT fuer System-Presets, ein Re-Run
-  konvergiert damit statt zu driften. Bloecke (a) permissions und (b) roles bleiben auf DO NOTHING.
-  Verifiziert nach dem Lauf: beide Keys stehen auf `own`.
-- gate: `migrate up` 256 gruen, `down 1` -> 255 gruen, `up` erneut gruen — Zustand danach
-  bit-identisch zum ersten Lauf (8 Rollen, 1179 Grants, 40 davon `own`/`team`, `user_roles`
-  unveraendert 12). Die 3 bestehenden Presets und `platform_admin` behalten ihre IDs, nur `color`
-  kam dazu; 7 von 8 Rollen tragen eine Farbe (`platform_admin` bewusst nicht, steht nicht im
-  FE-Katalog). permissions 212 -> 456, role_permissions 394 -> 1179.
-  **RLS-Smoke als `kmuhub_app` (NOSUPERUSER NOBYPASSRLS), Lesepfad:** Tenant A sieht 9 Rollen
-  (8 Presets + 1 Fixture-Custom-Rolle), Tenant B sieht 8 und die fremde Custom-Rolle **0**-mal, ihre
-  Grants ebenfalls 0-mal. Kein Tenant-Kontext gesetzt (Login vor Tenant-Aufloesung): 8 Rollen und
-  1179 Grants weiterhin lesbar — genau der Fall, den das Standardmuster kaputtgemacht haette.
-  Aufgeloeste Capability-Menge fuer `member` unter fremdem Tenant: **159**, nicht leer.
-  **Schreibpfad:** `DELETE FROM roles WHERE name='admin'` -> 0 Zeilen, `UPDATE` auf ein Preset ->
-  0 Zeilen, `DELETE` der fremden Custom-Rolle -> 0 Zeilen, `DELETE` der Preset-Grants -> 0 Zeilen,
-  INSERT mit `tenant_id = NULL` (Preset-Faelschung) und INSERT auf fremden Tenant -> beide
-  `new row violates row-level security policy`. INSERT auf den eigenen Tenant funktioniert.
-  Fixtures danach entfernt, `admin.color` unveraendert.
-  `go build -p 2` + `go vet` auf auth/gateway/settings gruen. `go test -count=1` mit gesetztem
-  `DATABASE_URL` (Rolle `kmuhub_app`): `internal/auth` ok 6.7s (Laufzeit belegt, dass die DB-Tests
-  wirklich liefen und nicht per SkipIfNoDB uebersprungen wurden), `internal/settings` ok,
-  `internal/gateway` ok (TestOpenAPIRouteDrift). Keine Go-Datei in dieser Unit geaendert, lint daher
-  ohne neuen Angriffspunkt.
-- verify vorgaenger: `29172d54` (p1a-seed-generator) — Dateiliste sauber (nur BACKLOG, JOURNAL,
-  `desktop/scripts/gen-rbac-seed.mjs`, kein Go/Proto/Route/Migration), Fehlerklassen 1-6 daher n.a.
-  Der Script-Lauf ist reproduziert: exit 0, dieselben Zahlen wie im Journal behauptet (282
-  permissions; admin 282 / it_admin 104 / hr_admin 71 / manager 205 / member 110 / readonly 74 /
-  extern 11). Ein Fund: die DO-NOTHING-Klausel der role_permissions-Bloecke, oben korrigiert.
-- offen: **`user_roles` hat weder `tenant_id` noch RLS** — als einzige Tabelle des RBAC-Kerns. Heute
-  kein Leck, weil `GetUserRoles`/`GetUserPermissions`/`UserHasPermission` alle ueber eine `user_id`
-  aus dem JWT filtern, aber der Datenbank-Backstop fehlt. Unit `g-user-roles-rls` angelegt.
-  Zweiter Fund an derselben Datei: `AssignRole` (`internal/auth/postgres_repository.go:157`) sucht die
-  Rolle per `WHERE r.name = $2` ohne Tenant-Bedingung. Solange nur System-Presets existieren, ist der
-  Name eindeutig — sobald Welle 1b tenant-eigene Rollen zulaesst, kann derselbe Name zweimal
-  auftreten und die Subquery liefert zwei Zeilen. Steht in `g-user-roles-rls` mit drin und gehoert
-  spaetestens in 1b geprueft.
-  Fuer `p1a-resolver` (naechste Unit): die Union-Aufloesung muss auf die 3-segmentigen Katalog-Keys
-  filtern; in `permissions` liegen jetzt 456 Zeilen, davon 102 grobe Alt-Keys (`resource` ohne
-  Doppelpunkt) — `resource LIKE '%:%'` trennt beide Welten zuverlaessig (geprueft: `name` ist in
-  allen 456 Zeilen exakt `resource || ':' || action`).
+Weiter: `RoleGrant` ist bewusst `repeated {key, scope}` und keine Proto-`map`. Der FE-Vertrag
+ist eine Map (`Record<string, {scope}>`), die Uebersetzung Liste→Map gehoert in den Handler.
+Eine Proto-Map haette hier keine stabile Reihenfolge und laesst sich schlechter validieren.
 
-## Iteration 4 — p1a-resolver — done — 2026-08-01 16:04
+`UpdateRoleRequest` nutzt `optional` fuer `name`/`description`/`color` — PATCH-Semantik: nicht
+gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
+`UpdateUserRequest`.
 
-- commit: 7b6cfb2e
-- gebaut: die Aufloesung der feinen Capabilities, Repo-Query + Service-Union.
-  **Repo** (`internal/auth/postgres_repository.go`): `GetEffectivePermissions(ctx, userID)` liefert
-  `[]EffectiveGrantRow` — eine Zeile je (Rolle × feine Capability). Join
-  `user_roles -> roles LEFT JOIN (role_permissions JOIN permissions WHERE p.resource LIKE '%:%')`.
-  Der Filter steckt in der Subquery, nicht in der WHERE-Klausel: sonst faellt eine Rolle, die
-  ausschliesslich grobe Alt-Grants haelt, ganz aus dem Ergebnis und taucht in `roles[]` nicht auf,
-  obwohl der User sie nachweislich hat. Mit dem LEFT JOIN kommt sie mit leerem `Key` durch.
-  `p.resource LIKE '%:%'` trennt die beiden Permission-Welten, die seit 000256 koexistieren
-  (feiner Katalog `work:task:edit` -> resource `work:task`, grobe Alt-Keys `files:write` ->
-  resource `files`); der Vorgaenger-Journaleintrag hatte das als tragfaehig verifiziert (`name` ist
-  in allen 456 Zeilen exakt `resource || ':' || action`).
-  **Service** (`internal/auth/effective_permissions.go`, neue Datei): Union nach Regel
-  `own < team < all`, breitester Scope gewinnt, `sources` kumuliert **alle** beitragenden Rollen —
-  auch die, die den Scope-Vergleich verloren haben. Ausgabe deterministisch sortiert
-  (Capabilities nach Key, Rollen nach Name, Sources alphabetisch), beide Slices nie nil.
-  Unbekannter Scope faellt auf `own` zurueck statt durchgereicht zu werden: der CHECK auf
-  `role_permissions.scope` macht das heute unerreichbar, aber die Fehlerrichtung "zu viel gewaehrt"
-  ist die einzige, die man sich hier nicht leisten kann.
-  `GetUserRoles`/`GetUserPermissions`/`UserHasPermission` unangetastet — Login und die 812
-  bestehenden Gates haengen daran.
-- gate: build ok (`./internal/auth/... ./internal/server/... ./internal/gateway/...`) | vet ok |
-  lint ok (0 issues, auth + server) | test ok: `./internal/auth/...` 7,1 s und `./internal/server/...`
-  0,9 s und `./internal/gateway/` 0,3 s, alle mit `DATABASE_URL` gegen `kmuhub_app` gesetzt.
-  Die 11 neuen Tests einzeln nachgefahren, DB-Faelle mit 0,06–0,15 s Laufzeit — also real gelaufen
-  und nicht per `SkipIfNoDB` uebersprungen. migration n.a. (kein Schema-Eingriff).
-  **RLS-relevant:** zwei der DB-Tests pruefen genau die Policy-Asymmetrie aus 000256 — ein `member`
-  eines zweiten Tenants loest zu einer nicht-leeren Menge auf (Presets mit `tenant_id IS NULL`
-  bleiben lesbar), und eine tenant-eigene Custom-Rolle mit `fuhrpark:gps:read` ist fuer ihren
-  Besitzer sichtbar, unter fremdem Tenant-Kontext dagegen weder in `roles[]` noch in den
-  Capabilities. Der Fremd-Fall assertet zusaetzlich, dass die Presets dort **nicht** verschwunden
-  sind — zwei Nullen waeren ein kaputter Test statt eines Beweises.
-- tests: 5 Unit-Tests ueber `mockRepository` (breitester Scope gewinnt in beiden Reihenfolgen,
-  sources kumuliert, unbekannter Scope, Rolle ohne feine Grants bleibt gelistet, leeres Ergebnis
-  ist `[]` und nicht nil, Sortierung) + 5 DB-Tests gegen die echten Seeds
-  (`effective_permissions_db_test.go`, package `auth_test`). Zahlen aus der laufenden DB:
-  extern **11** Keys exakt, admin **354** (Assertion `>250`, plus: jeder Key ist 3-segmentig, kein
-  grober Alt-Key leakt), member **117**; `member+extern` loest auf **117** auf, also genau die
-  member-Menge, und die drei Keys, die extern enger fuehrt (`documents:file:read` team,
-  `work:task:read` team, `work:task:comment` own), stehen auf `all` mit `sources = [extern, member]`.
-  Eigene Tenants (`e4fec700-…-0001/-0002`), nicht die geteilten `TenantA/TenantB` — die Kollision
-  aus Nachtlauf 1 ist so ausgeschlossen.
-  `user_roles` wird per direktem INSERT gesetzt, nicht ueber `AssignRole`: dessen
-  `WHERE r.name = $2` ist ohne Tenant-Bedingung (bekannter Fund aus Iteration 3, Unit
-  `g-user-roles-rls`) und wuerde den Test an einer Stelle festnageln, die sich in Welle 1b aendert.
-- verify vorgaenger: `214d2931` (p1a-migration) — Dateiliste sauber und deckungsgleich mit der Unit
-  (2 Migrationsdateien, Generator, ARCHITECTURE.md, BACKLOG, JOURNAL; kein Go, kein Proto, keine
-  Route), Fehlerklassen 1/3/4 damit n.a. Die im Journal behaupteten Zahlen gegen die laufende DB
-  nachgezaehlt: 456 permissions (354 davon feine), 8 Rollen, 1179 Grants, 40 mit Scope != all,
-  12 `user_roles` — stimmt. Die RLS-Form der Migration gegengelesen: Read-Policy mit
-  `tenant_id IS NULL OR …`, Write-Policy ohne die NULL-Bedingung; die Begruendung (DELETE wertet nur
-  USING aus) traegt. Kein Fund.
-- offen: nichts blockierend. Zwei Beobachtungen fuer spaeter:
-  (1) Der Fremd-Tenant-Test belegt nebenbei, dass ein fremder Tenant-Kontext die **Preset**-Rollen
-  eines fremden Users aufloesen kann — die Custom-Rollen sind dicht, aber der Backstop fehlt, weil
-  `user_roles` weder `tenant_id` noch RLS hat. Genau die schon angelegte Unit `g-user-roles-rls`;
-  in der Praxis heute nicht erreichbar, weil jeder Aufrufer die `user_id` aus dem eigenen JWT nimmt.
-  Sobald `p1a-gateway` die Route `GET /admin/users/{id}/permissions` baut, wird daraus ein echter
-  Pfad mit fremder `user_id` — dort MUSS der Handler zusaetzlich pruefen, dass der Ziel-User im
-  eigenen Tenant liegt (`GetUserByID` steht unter der users-RLS und leistet genau das).
-  Das gehoert in die Notes von `p1a-gateway`, bevor die Route gebaut wird.
-  (2) `EffectiveGrantRow` liegt bewusst im Repo-Vertrag (Rohzeilen), die Faltung im Service — falls
-  `p1a-grpc` in Versuchung kommt, die Union im Handler zu wiederholen: nicht tun, sie ist fertig.
+### Hinweise fuer die naechste Iteration
 
-## Iteration 5 — p1a-grpc — done — 2026-08-01 16:20
+- Der Auftritt der acht neuen Methoden in `UnimplementedAuthServiceServer` ist erwartete
+  gRPC-Boilerplate und **kein** Stub-Fund im Sinne des Verify-Vorspanns. Der Diff im
+  Regenerat (285 Loeschungen) besteht ausschliesslich aus verschobenen `msgTypes`-Indizes;
+  der Generator-Versions-Header ist unveraendert, es gab also keinen Werkzeug-Drift.
+- Fehlercodes stehen noch nicht im Proto. Der Vertrag aus `mocks/handlers/rbac.ts` ist:
+  `preset_immutable` (403), `role_limit_reached` (409), `role_name_exists` (409),
+  `role_has_members` (409), `last_admin` (409), `not_found` (404/422). Die Abbildung
+  gRPC-Status → HTTP-Code gehoert in die Handler der Folge-Units.
+- offen: nichts zu pruefen ausser dem Regenerat selbst.
 
-- commit: d6f3a1f6
-- gebaut: `GetEffectivePermissions` im auth-gRPC-Server (`internal/server/grpc.go`), direkt nach
-  `CheckPermission` eingefuegt (gleiches Muster: `uuid.Parse` -> `InvalidArgument`, `mapError` fuer
-  Service-Fehler). Leeres `user_id` faellt auf `middleware.GetUserID(ctx)` zurueck — verifiziert, dass
-  das trotz echtem Netzwerk-gRPC (nicht in-process) funktioniert: `TenantOutboundUnaryInterceptor`
-  (Gateway-Client) haengt `x-user-id`/`x-tenant-id` als Metadata an, `TenantInboundUnaryInterceptor`
-  (Service-Server) liest sie zurueck in den Context unter denselben Keys wie die HTTP-Auth-Middleware —
-  bestehendes Muster (`grpc_tenant.go`, Sprint-4-Welle-5), nicht neu erfunden. Kein nicht-parsebares
-  `user_id` faellt still auf `uuid.Nil` durch — beide Faelle (kaputte UUID im Request, leeres Feld ohne
-  Caller-Context) enden bei `InvalidArgument`.
-  Ergebnis-Mapping ueber `make([]*authv1.X, len(...))` statt `append` an nil-Slice, damit eine leere
-  Antwort ein nicht-nil `[]` bleibt (Resolver-Vertrag aus `p1a-resolver`: "beide Slices nie nil").
-  Kein eigener DB-Zugriff im Handler, keine Union-Logik wiederholt — nur Service-Aufruf + Mapping,
-  exakt wie in den Notes gefordert.
-- gate: build ok (`./internal/auth/... ./internal/gateway/... ./internal/server/... ./cmd/auth/...
-  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, auth+gateway+server) | test ok: `./internal/auth/...`
-  7,4 s (DB-Tests real gelaufen, nicht uebersprungen), `./internal/server/...` 0,9 s (Mock-Repo, keine
-  DB-Abhaengigkeit), `./internal/gateway/` 0,3 s (TestOpenAPIRouteDrift, vorsorglich mitgelaufen obwohl
-  keine Route angefasst — die naechste Unit `p1a-gateway` baut die Routen). Alle mit `DATABASE_URL`
-  gegen `kmuhub_app` gesetzt. migration n.a. (kein Schema-Eingriff), rls-smoke n.a. (keine Tabelle/Policy
-  angefasst).
-  5 neue Testfaelle in `TestAuthGRPC_GetEffectivePermissions` (explizite user_id, leere user_id mit
-  Caller-Context, keine Rollen -> leere aber nicht-nil Slices, kaputte UUID, leere user_id ohne
-  Caller-Context) — alle gegen den echten `auth.Service` ueber `newTestAuthGRPCServer()`, nicht gegen
-  einen isolierten Mock des Handlers. `authMockRepo` (in `testhelpers_test.go`, package `server`) bekam
-  dafuer ein `effectiveGrants`-Feld; der bisherige Stub-Return (`nil, nil`) war nur ein
-  Interface-Erfueller fuer unbeteiligte Tests im selben Package und ist jetzt real nutzbar.
-- verify vorgaenger: `7b6cfb2e` (p1a-resolver) — Dateiliste sauber und deckungsgleich mit der Unit
-  (Repo-Methode + Service-Datei + drei Testdateien, kein Proto, keine Route, keine Migration),
-  Fehlerklassen 1/3/4/5/7 damit n.a. Code gegengelesen: Union-Regel (breitester Scope gewinnt, sources
-  kumuliert auch Verlierer-Rollen), `p.resource LIKE '%:%'`-Filter sitzt in der LEFT-JOIN-Subquery statt
-  der WHERE-Klausel (rollen mit nur groben Grants bleiben in `roles[]`), Sortierung deterministisch,
-  beide Slices explizit als leere (nicht nil) Literale initialisiert. Kein Fund.
-- offen: nichts blockierend. `p1a-gateway` (naechste Unit) baut jetzt auf einem RPC auf, der laut Test
-  auch bei leerem `user_id` den Caller aus dem Context zieht — die Gateway-Route fuer
-  `/auth/me/permissions` kann den Request also mit leerem `user_id` an den auth-Client durchreichen,
-  MUSS aber fuer `/admin/users/{id}/permissions` weiterhin den bereits in `p1a-resolver` festgehaltenen
-  Tenant-Check via `GetUserByID` selbst machen — der neue RPC prueft NICHT, ob eine explizit uebergebene
-  fremde `user_id` zum aufrufenden Tenant gehoert (das ist laut Notes bewusst Aufgabe des Gateway-Handlers,
-  nicht des RPC).
+## Iteration 2 — p1b-roles-list — done — 2026-08-02 20:29
 
-## Iteration 6 — p1a-gateway — done — 2026-08-01 16:22
+- commit: 3dac5856
+- gebaut: `GET /admin/roles` Ende-zu-Ende. `auth.Role` + `Service.ListRoles` (internal/auth/roles_admin.go),
+  `PostgresRepository.ListRoles` mit zwei korrelierten Subqueries fuer member_count/capability_count
+  (kein Cross-Join zweier LEFT JOINs — haette beide Zaehler aufgeblaeht), gRPC-Implementierung in
+  `AuthGRPCServer.ListRoles` (internal/server/grpc.go), Gateway-Handler `HandleListRoles` mit
+  `roleBody`/`rolesBody`-Mapping (camelCase, `tenantId`/`basedOn` als JSON `null` auf Presets — proto3
+  liefert dafuer nur den leeren String, `nullIfEmpty` macht die Rueckuebersetzung). Route-Guard
+  `RequirePermissionAny({"roles","manage"}, {"admin:role","read"})`: `roles:manage` ist die seit
+  Migration 000002 bestehende grobe Admin-Permission, `admin:role:read` die feine Nachfolgerin aus
+  Migration 000256 (dort schon fuer admin/it_admin/hr_admin geseedet — kein neuer Seed in dieser Unit
+  noetig). `openapi.yaml`: Pfad `/api/v1/admin/roles` + Schemas `Role`/`RolesResponse`.
+- member_count-Fund (aus den Unit-Notes uebernommen und umgesetzt): `user_roles` hat weder `tenant_id`
+  noch RLS. Die Subquery joint deshalb ueber `users` (RLS-gescopt), sonst wuerde der member_count eines
+  Presets (dieselbe role_id fuer alle Tenants) tenant-uebergreifend zaehlen.
+- gate: build ok (`go build -p 2` fuer gateway/auth/server/cmd/auth/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues auf allen drei Paketen) | test ok — `go test -count=1 ./internal/gateway/`
+  gruen (inkl. `TestOpenAPIRouteDrift`: 779 registrierte Routen gegen 781 dokumentierte Pfade) und
+  `go test -count=1 -v ./internal/auth/... ./internal/server/...` mit gesetzter `DATABASE_URL`
+  (kmuhub_app): 319 PASS, 0 SKIP, 0 FAIL | migration n.a. (roles.tenant_id/based_on/color existieren
+  schon seit 000256) | rls-smoke n.a. (keine Tabelle/Policy angefasst, RLS der Vorgaenger-Migration
+  traegt die Query bereits)
+- verify vorgaenger: sauber. `dbe58528` (p1b-proto) gegen die sechs Fehlerklassen geprueft — reiner
+  Proto+Regen-Commit, `go build ./proto/auth/... ./internal/auth/... ./internal/server/...` gruen, keine
+  Service-Implementierung im Diff (kein Stub-Fund im Sinne des Vorspanns).
+- offen: Vier bestehende Mock-Repositories (`mockRepository` in internal/auth, `authMockRepo` in
+  internal/server) mussten um eine No-Op-`ListRoles`-Methode ergaenzt werden, damit sie weiterhin das
+  `Repository`-Interface erfuellen — reiner Interface-Fixup, keine fachliche Aenderung, aber falls eine
+  spaetere Unit echte Rollback-Logik testen will, liefert dieser Mock aktuell immer `nil, nil`.
 
-- commit: 0d84142a
-- gebaut: Beide Routen in `internal/gateway/route_auth.go`.
-  `GET /api/v1/auth/me/permissions` haengt in der bestehenden protected auth-Group (kein neuer Guard —
-  jeder eingeloggte User darf seine eigenen Rechte lesen, und ein neuer Guard haette Seed-Pflicht).
-  `GET /api/v1/admin/users/{id}/permissions` in einer neuen `/api/v1/admin/users`-Gruppe mit dem
-  BESTEHENDEN `RequireRole("admin")` wie die Nachbar-Routen — kein neuer Permission-Key, kein Seed.
-  Beide Handler gehen ueber `getAuthClient()`, keine direkt injizierte Service-Instanz.
-  Der Tenant-Check auf der Admin-Route ist verdrahtet: `client.GetUser` VOR dem Resolver. Verifiziert,
-  dass das traegt — `users` hat seit Migration 000120 die Policy
-  `tenant_id = current_tenant_id() OR id = current_user_id() OR is_system_context()`, ein fremder
-  Tenant-User faellt dort raus und `GetUserByID` liefert `ErrUserNotFound` -> 404. Ohne diesen Schritt
-  waere die Route ein tenant-uebergreifendes Leseleck, weil `user_roles` weder `tenant_id` noch RLS hat
-  (Fund aus `p1a-resolver`).
-  Wire-Shape in einem eigenen Mapping (`toEffectivePermissionsBody`), nicht `response.Proto`: die
-  Antwort traegt `capabilities` als MAP (key -> {scope,sources}), das Proto als repeated list.
-  `roles[]` in camelCase (`isSystem`), weil der FE-Typ das so definiert.
-- FUND, korrigiert (Wire-Shape, haette das FE still degradiert): der Resolver aus `p1a-resolver`
-  fuellte `Sources` mit Rollen-**Namen**. Der FE-Vertrag verlangt Rollen-**IDs** — `rbac-types.ts`
-  sagt es im Kommentar ("Role ids (Role.id)"), der MSW-Mock emittiert `sources: [roleId]`
-  (`mocks/data/rbac.ts:597`), und `EffectivePermissionsView.tsx:180` loest per
-  `roles.find((r) => r.id === src)` gegen die `roles[]`-Liste derselben Response auf. Mit Namen greift
-  dort der Fallback `label = src`: Chip ohne Rollenfarbe und ohne i18n-Label, kein Fehler, kein Crash —
-  genau die Sorte Defekt, die erst im Pilotbetrieb auffaellt. Die Backlog-Note zu dieser Unit behauptete
-  ebenfalls Namen (`["manager","hr_admin"]`) und war damit falsch; sie ist im BACKLOG mit Begruendung
-  korrigiert, damit Welle 1b und R-6 nicht darauf aufbauen.
-  Umgestellt in `effective_permissions.go` (`g.RoleID.String()` statt `g.RoleName`, Sortierung bleibt,
-  Antwort bleibt byte-stabil), Tests in allen drei betroffenen Dateien nachgezogen. Der DB-Test
-  `..._OnlyCatalogueKeys` prueft jetzt zusaetzlich, dass JEDE Source gegen `roles[]` aufloest — das ist
-  der eigentliche Vertrag und faellt beim naechsten Rueckfall auf Namen sofort auf.
-- openapi.yaml im selben Commit: beide Pfade plus vier Schemas (`EffectivePermissionsResponse`,
-  `EffectivePermissions`, `EffectiveRole`, `EffectiveCapability`). `capabilities` als
-  `additionalProperties`-Map modelliert, `scope` als Enum `own|team|all`. Status-Codes wie der Handler
-  sie wirklich liefert: me -> 200/401; admin -> 200/400/401/403/404. Der `?base=1`-Query-Param, den
-  `rbac-client.ts` schickt, ist dokumentiert und als "aktuell akzeptiert und ignoriert" beschrieben —
-  er gehoert zu R-6 (per-user Overrides), die serverseitig nicht existieren; `lean:`-Marker mit
-  Upgrade-Trigger sitzt am Handler.
-- gate: build ok | vet ok | lint ok (0 issues, auth+gateway+server) | test ok:
-  `./internal/gateway/` 0,34 s (TestOpenAPIRouteDrift gruen — beide Richtungen, die Routen sind also
-  registriert UND dokumentiert), `./internal/auth/...` 9,2 s, `./internal/server/...` 1,0 s.
-  Alle mit `DATABASE_URL` gegen `kmuhub_app`. Gegengeprueft, dass die DB-Tests wirklich liefen und
-  nicht `SkipIfNoDB` durchrutschte: `-run TestEffectivePermissions_DB -v` -> 5× PASS, 0× SKIP.
-  migration n.a. (kein Schema-Eingriff), rls-smoke n.a. (keine Tabelle/Policy angefasst — die
-  Policy-Verifikation ist die naechste Unit `p1a-rls-verify`).
-  4 neue Gateway-Tests in `route_auth_permissions_test.go`: 503 ohne Backend, 400 bei kaputter UUID,
-  und zwei, die die Wire-Shape als JSON-String festnageln (Map-Form + camelCase `isSystem`; leere
-  Antwort ist `{"roles":[],"capabilities":{}}`, nil-Sources marshallt als `[]` nicht `null`).
-- verify vorgaenger: `d6f3a1f6` (p1a-grpc) — Dateiliste deckungsgleich mit der Unit (gRPC-Handler +
-  zwei Testdateien + BACKLOG, kein Proto, keine Route, keine Migration), Fehlerklassen 3/4/5 damit n.a.
-  Handler gegengelesen: thin (Parse -> Service -> Mapping), kein DB-Zugriff, keine wiederholte
-  Union-Logik, `uuid.Parse`-Fehler -> `InvalidArgument` statt stillem `uuid.Nil`, Slices ueber
-  `make(..., len)` also nie nil. Kein Fund im Commit selbst — der Sources-Defekt oben stammt aus
-  `7b6cfb2e` (p1a-resolver) und war in dessen eigenem Verify nicht auffindbar, weil er sich erst gegen
-  den FE-Typ zeigt und dieser erst in dieser Unit zum Pruefgegenstand wurde.
-- offen: nichts blockierend.
-  (1) `p1a-rls-verify` (naechste Unit) hat jetzt einen echten Endpunkt zum Gegenpruefen. Die dort
-  geforderte Aussage "member bekommt eine nicht-leere Capability-Menge" ist auf Resolver-Ebene bereits
-  durch `TestEffectivePermissions_DB_UnionAcrossRoles` belegt; was noch fehlt, ist der explizite
-  RLS-Smoke auf `roles`/`role_permissions` als `kmuhub_app` mit dokumentierten Zeilenzahlen.
-  (2) R-6 (per-user Overrides) bleibt die einzige Luecke gegenueber dem FE-Typ: `hasOverrides` und
-  `deniedByOverride` sind dort optional und werden bewusst nicht geliefert, `?base=1` ist deshalb
-  wirkungslos. Sobald die Override-Tabelle existiert, sind das drei Stellen: Resolver (Overrides
-  anwenden + verdraengte Keys sammeln), Mapping (`hasOverrides`/`deniedByOverride` fuellen), Handler
-  (auf `base` verzweigen).
-  (3) `g-user-roles-rls` bleibt sinnvoll als Backstop, ist durch den `GetUser`-Vorschalt-Check auf der
-  Admin-Route aber nicht mehr akut.
+## Iteration 3 — p1b-roles-create — done — 2026-08-02 21:05
 
-## Iteration 7 — p1a-rls-verify — done — 2026-08-01 (Nachtlauf 3)
+- commit: 797dfdb4
+- gebaut: `POST /admin/roles` Ende-zu-Ende als **Klon**. `Service.CreateRole(ctx, tenantID, CreateRoleInput)`
+  in `internal/auth/roles_admin.go` mit den drei Geschaeftsregeln (Budget `CustomRoleLimit = 20`,
+  Namenskollision, sichtbare Klon-Quelle); Repository-Methoden `CountCustomRoles`, `RoleNameExists`,
+  `CreateRole` (Transaktion: INSERT roles + `INSERT ... SELECT` auf `role_permissions`, `RowsAffected`
+  ist der `capabilityCount` der neuen Rolle). gRPC `AuthGRPCServer.CreateRole` + neuer Mapper
+  `toProtoRole` (den `ListRoles` jetzt mitbenutzt, statt das Mapping ein zweites Mal zu schreiben).
+  Gateway-Handler `HandleCreateRole` mit `roleResponseBody` (`{role:{…}}`, weil das FE `resp.role` liest).
+  Guard `RequirePermissionAny({roles,manage},{admin:role,create})` — `admin:role:create` ist seit
+  Migration 000256 fuer admin und it_admin geseedet (in der DB nachgezaehlt), **kein neuer Seed noetig**.
+  `openapi.yaml`: POST-Pfad + Schemas `RoleResponse`/`CreateRoleRequest`, alle Status-Codes des Handlers
+  (400/401/403/404/409/422).
+- entscheidungen:
+  1. **Fehler-Sentinels tragen die FE-Codes als Message** (`role_limit_reached`, `role_name_exists`,
+     `not_found`). `mapError` reicht `err.Error()` als gRPC-Message durch, `response.Error` schreibt
+     `{"error": "<message>"}`, und `rbac-format.ts` schlaegt genau diesen String in `RBAC_ERROR_CODES`
+     nach. Eine "schoenere" Prosameldung wuerde im Builder still zu "Unbekannter Fehler" —
+     `TestRoleAdminErrorsCarryFrontendCodes` nagelt die drei Strings fest.
+  2. **`ErrBaseRoleNotFound` ist ein eigener Sentinel**, nicht das bestehende `ErrRoleNotFound`: letzteres
+     ist der Alt-Fehler von `AssignRole` und mappt auf FailedPrecondition → 409. Eine fehlende Klon-Quelle
+     muss aber als 404 ankommen.
+  3. **Namenskollision explizit geprueft statt ueber `ON CONFLICT`** (wie in den Unit-Notes angeraten).
+     Der Ausdrucks-Index kann den FE-Vertrag ohnehin nicht abbilden: er vergleicht case-sensitiv und legt
+     die Presets in einen eigenen COALESCE-Eimer, waehrend das FE case-insensitiv **und** gegen die
+     Presets prueft. Die Unique-Violation (23505) wird trotzdem auf `ErrRoleNameExists` gemappt — als
+     Netz fuer das Rennen zwischen Pruefung und INSERT.
+  4. **Kein `database.BeginRLSTx`, sondern `pool.Begin`**: `internal/database` importiert `middleware`,
+     und `middleware` importiert `internal/auth` — der Import waere ein Zyklus (der Compiler hat es
+     sofort gezeigt). Aus demselben Grund kommt die Tenant-ID als Parameter aus der gRPC-Schicht statt
+     via `middleware.GetTenantID` im Service, genau wie bei `CreateInvitation`. Die GUCs stampt
+     `PrepareConn` beim Acquire, die Transaktion laeuft auf derselben Connection — RLS traegt.
+  5. **422 im Handler statt ueber den Validator**: `decodeAndValidate` antwortet mit 400,
+     der FE-Vertrag (`mocks/handlers/rbac.ts`) verlangt fuer fehlenden Namen/`basedOn` aber 422. Deshalb
+     tragen `name`/`basedOn` kein `required`-Tag, sondern werden nach dem Decode explizit geprueft. Die
+     Laengen-Tags (`max=50`/`max=40`) bleiben, sonst wird ein zu langer Name zum 22001 → 500.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd) | vet ok | lint ok (golangci-lint, 0 issues) |
+  test ok — `go test -count=1 ./internal/gateway/` gruen (inkl. `TestOpenAPIRouteDrift`),
+  `go test -count=1 -v ./internal/auth/... ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **639 PASS, 0 SKIP, 0 FAIL** | migration n.a. (keine noetig — `roles`/`role_permissions` tragen seit
+  000256 alles) | rls-smoke: keine Policy angefasst, die Isolation ist aber in zwei DB-Tests belegt
+  (fremde Rolle als `basedOn` → `not_found`; gleicher Rollenname in zwei Tenants → beide erlaubt).
+- verify vorgaenger: sauber. `3dac5856` (p1b-roles-list) gegen die acht Fehlerklassen geprueft — Handler
+  ruft `client.ListRoles` ueber `getAuthClient()` (keine Layer-Umgehung), keine Stubs, kein `.proto` im
+  Diff, Guard additiv (`RequirePermissionAny`), `openapi.yaml` im selben Commit, leere Liste als `[]`.
+- offen:
+  - Sechs neue DB-Tests in `internal/auth/roles_admin_db_test.go` raeumen ihre beiden eigenen Tenants
+    (`40123a00-…-0001/0002`) vor **und** nach dem Lauf aus `roles` — sonst frisst ein abgebrochener
+    Lauf ueber das 20er-Budget den naechsten. Wer die Tenant-UUIDs wiederverwendet, muss das wissen.
+  - Der Klon kopiert Grants **inklusive scope**. Ein Aufrufer kann damit heute eine Rolle klonen, die
+    mehr Rechte traegt als er selbst — der Escalation-Schutz ist bewusst erst `p1b-guardrails` (c).
+  - `RoleNameExists` hat schon den `exceptID`-Parameter, den erst `p1b-roles-update-delete` fuer den
+    Rename braucht; heute wird `uuid.Nil` uebergeben.
 
-- commit: (nur BACKLOG.yml, kein Quellcode — reine Verifikations-Unit)
-- gebaut: nichts Neues. Abschluss-Verifikation von Block A (RBAC Phase 1 Welle 1a): RLS-Smoke gegen
-  `roles`/`role_permissions` als `kmuhub_app` plus Bestaetigung, dass die geforderte DB-Test-Aussage
-  bereits existiert.
-- RLS-Smoke (manuell, Transaktion mit `ROLLBACK`, keine Datenspuren):
-  Das Standard-Smoke-Muster aus `GATE-COMMANDS.md` passt hier nicht 1:1 — die Policy lautet
-  `tenant_id IS NULL OR tenant_id = current_tenant_id() OR is_system_context()`, Presets (tenant_id
-  NULL) sind also bewusst unter JEDEM Tenant sichtbar. Getestet wurde deshalb zusaetzlich mit einer
-  temporaeren Custom-Rolle unter Tenant A (`aaaa0000-...0001`), die vor dem Commit zurueckgerollt wurde:
-  - Presets (superuser, sanity): 8 Zeilen (`tenant_id IS NULL`)
-  - Eigener Tenant (A) unter `kmuhub_app`: `roles` liefert 9 (8 Presets + 1 eigene Custom-Rolle),
-    `role_permissions` fuer die Custom-Rolle liefert 1
-  - Fremder Tenant (B) unter `kmuhub_app`: `roles` liefert 8 (nur Presets, Custom-Rolle ausgeblendet),
-    direkte Abfrage der Custom-Rolle liefert 0, ihre `role_permissions`-Zeile liefert 0
-  - Write-Policy: `DELETE FROM roles WHERE name='member' AND tenant_id IS NULL` unter fremdem
-    Tenant-Context (B) betrifft 0 Zeilen, Preset danach weiterhin vorhanden (1) — die
-    Read/Write-Split-Policy aus der Migration haelt wie begruendet.
-  Ergebnis: Presets tenant-uebergreifend lesbar (Design-Absicht), Custom-Rollen strikt
-  tenant-isoliert (Lesen UND Schreiben), keine der beiden Nullen ein kaputter Test.
-- DB-Test "member bekommt nicht-leere Capabilities": existiert bereits, nicht neu gebaut.
-  `TestEffectivePermissions_DB_UnionAcrossRoles` (`require.NotEmpty(t, memberGot.Capabilities, ...)`)
-  und `TestEffectivePermissions_DB_PresetsVisibleUnderForeignTenant` (member-Rolle unter fremdem
-  Tenant, `assert.NotEmpty(t, got.Capabilities, ...)`) belegen das bereits aus `p1a-resolver`/
-  `p1a-gateway`. Zusaetzlich per SQL bestaetigt: `role_permissions` fuer die Rolle `member` traegt 159
-  Zeilen (`admin` 454, `manager` 305, `it_admin` 104, `readonly` 74, `hr_admin` 71, `extern` 11,
-  `platform_admin` 1 — Summe 1179), also strukturell nicht leer.
-- gate: build ok (`./internal/auth/... ./internal/gateway/... ./cmd/auth/... ./cmd/gateway/...`) |
-  vet ok | lint ok (0 issues) |
-  test ok: `./internal/auth/...` 9,02 s, `./internal/gateway/` 0,35 s (inkl.
-  `TestOpenAPIRouteDrift` PASS). Gezielt `-run TestEffectivePermissions_DB -v`: 5× PASS, 0× SKIP.
-  Alle mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Migrationskopf 256 = Repo-Kopf, keine Migration
-  in dieser Unit noetig). migration n.a. (keine Schema-Aenderung in dieser Unit).
-- verify vorgaenger: `0d84142a` (p1a-gateway) — Dateiliste passt zur Unit (Gateway-Routen + Mapping +
-  zwei Testdateien, `effective_permissions.go`-Korrektur, openapi.yaml, kein Proto-Diff ohne Regen).
-  Gateway-Handler gegengelesen: beide Routen gehen ueber `getAuthClient()`, kein direkter
-  Service-Zugriff (Fehlerklasse 1 n.a.). `/auth/me/permissions` ohne neuen Guard (korrekt, jeder
-  eingeloggte User darf eigene Rechte lesen), `/admin/users/{id}/permissions` nutzt den bestehenden
-  `RequireRole("admin")` (Fehlerklasse 4 n.a., kein neuer Key). Tenant-Check via `client.GetUser` vor
-  dem Resolver-Aufruf verifiziert vorhanden. Wire-Shape (Fehlerklasse 6) gegen `rbac-types.ts`
-  gegengelesen: `capabilities` als Map, `roles[].isSystem` camelCase, leere Antwort marshallt als
-  `{"roles":[],"capabilities":{}}` nicht `null`. Sources-Korrektur (Rollen-IDs statt Namen) im Diff
-  bestaetigt (`g.RoleID.String()`). openapi.yaml traegt beide Pfade plus vier Schemas mit den Handler-
-  Statuscodes (me: 200/401; admin: 200/400/401/403/404), `TestOpenAPIRouteDrift` bestaetigt gruen.
-  Kein Fund.
-- offen: **Block A (RBAC Phase 1 Welle 1a) ist damit vollstaendig abgeschlossen** — alle sieben Units
-  (`p1a-proto` bis `p1a-rls-verify`) `done`. Welle 1b (Rollen-CRUD) und Phase 2 (Guard-Verfeinerung je
-  Modul) bleiben wie im Backlog vermerkt gesperrt bzw. warten auf `p2-guard-compat`. R-6 (per-user
-  Overrides) bleibt offen, siehe Iteration 6. Naechste ziehbare Unit laut Backlog-Reihenfolge:
-  `w5-ubl-generator` (Block C, E-Rechnung-Ausgang, keine deps).
+## Iteration 4 — p1b-roles-update-delete — done — 2026-08-02 22:10
 
-## Iteration 8 — w5-ubl-generator — done — 2026-08-01 (Nachtlauf 3)
+- commit: 1f0f7c66
+- gebaut: `PATCH /admin/roles/{id}` (Teil-Update: nur mitgeschickte Felder aendern sich) und
+  `DELETE /admin/roles/{id}` (204). Service `UpdateRole`/`DeleteRole` in `internal/auth/roles_admin.go`
+  pruefen ERST per neuem `Repository.GetRoleByID` (RLS-Read: Preset oder eigener Tenant, alles andere
+  `ErrBaseRoleNotFound`), ob die Zielrolle ein Preset ist (`ErrRolePresetImmutable`), bevor irgendetwas
+  geschrieben wird — die Schreib-Policy wuerde ein Preset ohnehin nur mit 0 Zeilen treffen, das waere ein
+  stilles No-Op statt eines Fehlers. `UpdateRole` prueft danach `RoleNameExists(..., exceptID=roleID)`
+  (Rename auf den eigenen aktuellen Namen ist keine Kollision), `DeleteRole` prueft `RoleHasMembers`
+  (Join `user_roles` -> `users`, da `user_roles` weder `tenant_id` noch RLS hat — dasselbe Muster wie
+  `ListRoles.member_count`). Repository: `GetRoleByID`, `UpdateRole` (eine Query, CTE-UPDATE + RETURNING
+  mit denselben Member-/Capability-Count-Subqueries wie `ListRoles`), `RoleHasMembers`, `DeleteRole`
+  (verlaesst sich auf die FK-Kaskaden von `role_permissions`/`user_roles` auf `role_id`, migration 000002).
+  gRPC `AuthGRPCServer.UpdateRole`/`DeleteRole` + zwei neue `mapError`-Faelle
+  (`ErrRolePresetImmutable` -> PermissionDenied/403, `ErrRoleHasMembers` -> FailedPrecondition/409).
+  Gateway-Handler `HandleUpdateRole`/`HandleDeleteRole`, Guards additiv
+  (`RequirePermissionAny({roles,manage},{admin:role,edit|delete})` — beide Keys seit Migration 000256 fuer
+  admin und it_admin geseedet, in der DB nachgezaehlt, **kein neuer Seed noetig**). `openapi.yaml`: neuer
+  Pfad `/api/v1/admin/roles/{id}` mit PATCH/DELETE + Schema `UpdateRoleRequest`.
+- entscheidungen:
+  1. **`GetRoleByID` vor jedem Schreibzugriff, nicht die Schreib-Policy allein entscheiden lassen.** Ein
+     UPDATE/DELETE auf ein Preset traefe wegen `tenant_id = current_tenant_id()` in der `WITH CHECK`/
+     `USING`-Klausel ohnehin 0 Zeilen — aber 0 betroffene Zeilen ist im Code nicht von "Rolle existiert
+     nicht" unterscheidbar, und der FE-Vertrag (`mocks/handlers/rbac.ts:150,175`) verlangt fuer ein Preset
+     explizit `preset_immutable` (403), nicht `not_found` (404). Deshalb liest der Service die Rolle zuerst.
+  2. **`GetRoleByID` liefert `ErrBaseRoleNotFound` sowohl fuer unbekannte IDs als auch fuer Rollen anderer
+     Tenants** — die RLS-Read-Policy macht Fremdrollen unsichtbar, ein Aufrufer darf nicht lernen, dass sie
+     existieren. Getestet in `TestUpdateRole_DB_ForeignRoleIsNotFound`/`TestDeleteRole_DB_NotFound`.
+  3. **`RoleHasMembers` und der `member_count` in `UpdateRole`s RETURNING joinen ueber `users`**, weil
+     `user_roles` selbst weder `tenant_id` noch RLS traegt (siehe Block-B-Befund `g-user-roles-rls`) — ohne
+     den Join wuerde `role_has_members` tenant-uebergreifend zaehlen. Exakt dasselbe Muster wie
+     `ListRoles.member_count` (Iteration 2), hier wiederverwendet statt neu erfunden.
+  4. **`UpdateRole`-Repo-Query ist eine einzige `WITH updated AS (UPDATE ... RETURNING ...) SELECT ...`
+     Anweisung**, keine zwei Roundtrips: die Member-/Capability-Counts kommen als korrelierte Subqueries im
+     selben Statement, damit der Aufrufer nicht zwischen UPDATE und Re-Read eine inkonsistente Zwischenzeile
+     sehen kann.
+  5. **`DeleteRole`s `RowsAffected()==0`-Check ist ein Race-Backstop, kein Primaerschutz** — Preset- und
+     Members-Pruefung laufen bereits im Service davor; der Check faengt nur die theoretische Luecke
+     zwischen Pruefung und DELETE ab (kein `SELECT ... FOR UPDATE`, bewusst: Rollen-Admin ist kein
+     Hochlast-Pfad, ein zusaetzlicher Lock waere Overhead ohne echten Nutzen hier).
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint, 0 issues) |
+  test ok — `go test -count=1 ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit
+  `DATABASE_URL` als `kmuhub_app`: alle vier Pakete gruen, 649 PASS (334 Top-Level + 315 Subtests laut
+  `--- PASS`-Zeilen), **0 SKIP, 0 FAIL** (gezaehlt ueber `grep -c`). `TestOpenAPIRouteDrift`: 780
+  registrierte gegen 782 dokumentierte Pfade, gruen. | migration n.a. (keine noetig — `roles`/
+  `role_permissions`/Guards tragen seit 000256 alles) | rls-smoke: keine neue Policy/Tabelle angefasst,
+  nur neue tenant-gescopte SELECTs/UPDATE/DELETE auf `roles`; Isolation ueber vier neue DB-Tests belegt
+  (`TestUpdateRole_DB_ForeignRoleIsNotFound`, `TestDeleteRole_DB_NotFound`, `TestUpdateRole_DB_NameCollision`
+  ueber zwei eigene Tenants, `TestDeleteRole_DB_RoleHasMembers` inkl. echtem User+Assignment) statt eines
+  manuellen psql-Snippets.
+- verify vorgaenger: sauber. `797dfdb4` (p1b-roles-create) gegen die acht Fehlerklassen geprueft — Handler
+  geht ueber `client.CreateRole` (keine Layer-Umgehung), keine Stubs, kein `.proto`-Drift in diesem Commit
+  (bereits in Iteration 1 regeneriert), Guard additiv, `openapi.yaml` im selben Commit, Fehlercode
+  `not_found` bei fehlendem Namen/`basedOn` deckt sich exakt mit `mocks/handlers/rbac.ts:133`.
+- offen:
+  - Vier Mock-Repositories (`mockRepository` in `internal/auth`, `authMockRepo` in `internal/server`)
+    mussten um No-Op-`GetRoleByID`/`UpdateRole`/`RoleHasMembers`/`DeleteRole` ergaenzt werden, damit sie das
+    `Repository`-Interface weiter erfuellen — reiner Interface-Fixup, kein fachlicher Test dahinter (echte
+    Abdeckung liegt in `roles_admin_db_test.go` gegen die echte DB).
+  - `p1b-role-permissions` (naechste Unit) baut `GET/PUT /admin/roles/{id}/permissions` — die
+    Preset-Immutability-Pruefung dort sollte denselben `GetRoleByID`-Weg gehen statt eine dritte Variante zu
+    erfinden.
+  - Escalation-Schutz beim Rename/Grant-Wechsel ist weiterhin bewusst nicht Teil dieser Unit
+    (`p1b-guardrails`, Regel c) — `UpdateRole` aendert nur Name/Beschreibung/Farbe, keine Grants.
 
-- commits: `d321f482` (fix, Test-Isolation) + Feature-Commit dieser Iteration
-- gebaut: XRechnung-UBL-2.1-Ausgang (EN 16931). Zwei neue Dateien im einvoice-Paket:
-  - `generator_doc.go` — neutrales Zwischenmodell `invoiceDoc` + `buildInvoiceDoc`. Traegt die
-    gesamte Betrags- und Steuergruppenlogik, damit UBL und der kommende CII-Weg sich ueber die
-    Zahlen nie uneinig werden koennen (so vom Backlog fuer `w5-cii-generator` gefordert).
-  - `generator_ubl.go` — `GenerateUBL(invoice, settings, buyerReference)`.
-  - `errors.go` um `ErrGenerateFailed` und `ErrTotalsMismatch` ergaenzt.
-- ABWEICHUNG VON DER UNIT-NOTE (bewusst, technisch erzwungen): Die Note verlangte, die
-  UBL-Structs aus `parser.go:318ff` fuer die Schreibrichtung wiederzuverwenden. Das geht mit
-  `encoding/xml` nicht. Die Lesestructs tragen `xml:"ID"` **ohne** Namespace und matchen damit
-  jeden Absender-Namespace; XRechnung schreiben verlangt die Praefixe `cbc:`/`cac:` woertlich.
-  Ein Feld kann nur eines von beidem: mit namespace-qualifiziertem Tag wuerde der Eingangs-Parser
-  Dokumente fremder Namespaces ablehnen (Regression im Bestand), mit Praefix-Tag matcht er beim
-  Decoden nie. Also getrennte Write-Structs, mit dem Grund als Kommentarblock im Code, und der
-  Roundtrip-Test als Klammer. Vorher verifiziert (Scratch-Programm): Go schreibt bei
-  `xml:"cbc:ID"` tatsaechlich `<cbc:ID>`, escaped automatisch, und der namespace-agnostische
-  Parser liest es zurueck.
-- Format gegen `testdata/ubl_minimal.xml` gespiegelt (Default-NS am Root + cac/cbc-Praefixe),
-  Element-Reihenfolge nach den UBL-2.1-XSD-Sequences. Erzeugtes Dokument einmal vollstaendig
-  ausgegeben und Zeile fuer Zeile gegengelesen, nicht nur die Assertions geglaubt.
-- Entscheidungen, die nicht offensichtlich waren:
-  (1) **Summen werden aus den Zeilen neu berechnet**, nicht aus der Rechnung uebernommen — so
-      halten BR-CO-10/13/14/15 und BR-S-08 immer. Damit dabei aber nie still ein anderer Betrag
-      rausgeht als auf dem PDF steht, prueft `assertTotalsMatch` gegen die gespeicherten Summen
-      und bricht bei mehr als 1 Cent Abweichung mit `ErrTotalsMismatch` ab.
-  (2) **Kaeuferadresse:** `models.Invoice` speichert sie als einen Freitext, XRechnung macht
-      BT-50/52/53 zur Pflicht. `splitPostalAddress` trennt die uebliche Form "Strasse\nPLZ Ort";
-      was nicht passt, bleibt unveraendert in der Strassenzeile. Ohne das waere JEDES erzeugte
-      Dokument bei oeffentlichen Empfaengern unzustellbar — deshalb kein Nice-to-have.
-      `lean:`-Marker gesetzt, Trigger: sobald `finance_invoices` die Adressteile getrennt fuehrt.
-  (3) Steuerkategorien: `S` / `Z` bei 0 % / `AE` reverse charge / `E` Kleinunternehmer, bei den
-      steuerfreien Modi Zeilensatz auf 0 (BR-AE-05/BR-E-05) und Befreiungsgrund gesetzt.
-  (4) BT-10 (Leitweg-ID) als Parameter — kein Feld im Datenmodell. Bei leerem Wert entfaellt das
-      Element. Die Pflichtfeld-Meldung dazu gehoert in `w5-en16931-validation`.
-- keine neue Dependency (`go.mod`/`go.sum` unveraendert), reine Stdlib `encoding/xml`.
-- FUNDE IM BESTAND (beide ins BACKLOG uebertragen, weil sie den Zuschnitt der Folge-Units aendern):
-  (a) **Ein CII-Generator existiert bereits**: `pdf.GenerateZUGFeRDXML`
-      (`internal/biz/pdf/zugferd.go:27`), komplett mit EN16931-Profil-URN und BG-23-Aufschluesselung.
-      `w5-cii-generator` ist damit **Zusammenfuehrung, kein Neubau** — Unit-Notes entsprechend
-      umgeschrieben. Zwei Abweichungen dort sind beim Zusammenfuehren zu bereinigen: Steuerbasis
-      aus `Quantity*UnitPrice` gegen Zeilenbetrag aus `LineTotal` (verletzt BR-S-08, sobald sie
-      divergieren) und CategoryCode `S` auch bei 0 %.
-  (b) `pdf.EmbedZUGFeRDXML` **verschluckt jeden Fehler** und liefert das PDF ohne Anhang zurueck;
-      der einzige Test dafuer skippt still, weil das Stub-PDF fuer pdfcpu unlesbar ist. Die
-      Einbettung ist faktisch ungetestet. In die Notes von `w5-pdfa3-embed` uebertragen, samt der
-      Info, dass pdfcpu v0.6.0 (`api.AddAttachments`) bereits im Modulgraph liegt — fuer den
-      Anhang-Teil braucht die Unit also keine neue Dependency.
-- NEBENFIX (eigener Commit `d321f482`): `TestTenantIsolation_IncomingInvoices` importierte das
-  Fixture-XML mit konstanter Rechnungsnummer in die geteilten `testutil.TenantA/TenantB` und lief
-  deshalb nur beim ersten Mal pro Datenbank gruen — beim zweiten Lauf schlug der
-  Duplikat-Check zu statt der Isolation. Jetzt frische Tenants pro Lauf. Der Fehlschlag reproduziert
-  auf unveraendertem Tree (per `git stash` verifiziert, bevor ich ihn angefasst habe) und war
-  vorher unsichtbar, weil das Paket ohne `DATABASE_URL` still skippt.
-- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok | lint ok (0 issues) |
-  gofmt ok (nur eigene Dateien angefasst; `parser.go`/`service_test.go` sind im Bestand
-  unformatiert und blieben unberuehrt) |
-  test ok: `./internal/biz/einvoice/...` zweimal hintereinander gruen (Wiederholbarkeit nach dem
-  Isolationsfix belegt), zusaetzlich `./internal/biz/pdf/...` und `./internal/biz/invoice/...` gruen.
-  Alles mit `DATABASE_URL` gegen `kmuhub_app`. 30 neue Testfaelle, 0 SKIP unter den neuen;
-  einziger SKIP im Paket ist der bestehende `TestExtractXMLFromPDF_HappyPath` (Fund (b) oben).
-  migration n.a. (keine Schema-Aenderung). openapi n.a. (keine Route — die kommt in `w5-route`).
-- verify vorgaenger: `f069b086` (p1a-rls-verify) — Commit aendert ausschliesslich `BACKLOG.yml`
-  (Statuswechsel auf `done`), kein Quellcode. Deckt sich mit dem Journaleintrag, der die Unit als
-  reine Verifikation ohne Codeaenderung ausweist; der geforderte DB-Test existierte bereits aus
-  `p1a-resolver`/`p1a-gateway`. Der Prefix `test(auth):` ohne Testdatei im Diff ist unsauber, aber
-  kein Fund im Sinne der sechs Fehlerklassen — kein Stub, kein Proto-Diff ohne Regen, kein
-  Guard ohne Seed, keine Service-Direktinjektion, keine Wire-Shape-Aenderung. Kein Fund.
-- offen: `w5-cii-generator` als naechste Unit (jetzt Zusammenfuehrung, siehe Fund (a)). Die
-  Ausgangsroute (`w5-route`) haengt weiterhin hinter Validierung und PDF-Entscheidung. Fuer die
-  Route offen: woher die Leitweg-ID kommt — sie hat kein Feld in `finance_invoices` und muss
-  entweder als Request-Parameter durchgereicht oder am Kontakt/Tenant hinterlegt werden.
+## Iteration 5 — p1b-role-permissions — done — 2026-08-02 22:35
 
-## Iteration 9 — w5-cii-generator — done — 2026-08-01 (Nachtlauf 3)
+- commit: cd5e8a79
+- gebaut: `GET /admin/roles/{id}/permissions` -> `{roleId, grants:{key:{scope}}}` (Presets lesbar — der
+  Builder zeigt das Grant-Set eines Presets waehrend er noch auswaehlt, wovon geklont wird) und
+  `PUT /admin/roles/{id}/permissions` (Vollersatz: fehlende Keys entzogen, neue eingefuegt, geaenderte
+  Scopes aktualisiert, alles in einer Transaktion). Service `GetRolePermissions`/`SetRolePermissions` in
+  `internal/auth/roles_admin.go` gehen denselben `GetRoleByID`-Weg wie `UpdateRole`/`DeleteRole` (Vorschlag
+  aus Iteration 4 aufgegriffen): GET erlaubt Presets, PUT prueft `TenantID == nil` -> `ErrRolePresetImmutable`
+  vor jedem Schreiben. Neuer Scope-Check im Service (jeder Grant muss `own|team|all` sein, sonst
+  `ErrCapabilityKeyUnknown`) faengt zu lange/falsche Werte ab, BEVOR sie die DB erreichen — ohne ihn waere
+  ein Scope laenger als `VARCHAR(8)` ein rohes 500 statt des sauberen 422 (real beim ersten Testlauf
+  aufgefallen: `22001 value too long` statt der erwarteten Sentinel). Repository:
+  `GetRolePermissions` (Read ueber `role_permissions`' eigene RLS-Policy, kein expliziter Tenant-Filter
+  noetig), `SetRolePermissions` (eine Transaktion: erst alle Keys per `unnest($1::text[])` LEFT-JOIN-Check
+  gegen `permissions.name` validieren — ein unbekannter Key bricht den GESAMTEN Schreibvorgang ab, bevor
+  irgendetwas geloescht wird —, dann `DELETE FROM role_permissions WHERE role_id=$1`, dann Bulk-`INSERT
+  ... SELECT ... FROM unnest($2::text[], $3::text[]) AS g(key, scope) JOIN permissions`; der
+  `role_permissions_scope_check`-Constraint (000256) ist ein zweiter Backstop, den ein direkter
+  Repo-Aufruf mit ungueltigem Scope tatsaechlich mid-transaction ausloest). gRPC `AuthGRPCServer.
+  GetRolePermissions`/`SetRolePermissions` (Proto-RPCs/Messages waren seit Iteration 1 fertig generiert,
+  keine `.proto`-Aenderung noetig) + `mapError`-Fall `ErrCapabilityKeyUnknown` -> `codes.OutOfRange`.
+  Gateway-Handler `HandleGetRolePermissions`/`HandleSetRolePermissions`, Guards additiv
+  (`RequirePermissionAny({roles,manage},{admin:role,read|edit})` — beide Keys seit Migration 000256
+  geseedet, **kein neuer Seed noetig**). `grpcStatusToHTTP` bekam einen neuen Fall
+  `codes.OutOfRange -> http.StatusUnprocessableEntity` (422) — vorher unbenutzt im Repo, verifiziert per
+  Grep. `openapi.yaml`: neuer Pfad `/api/v1/admin/roles/{id}/permissions` mit GET/PUT + Schemas
+  `RoleGrant`/`RolePermissionsResponse`/`UpdateRolePermissionsRequest`.
+- entscheidungen:
+  1. **GET erlaubt Presets, nur PUT ist gesperrt.** Weder Backlog-Notes noch FE-Mock verlangen eine
+     Preset-Sperre beim Lesen (`rbac.ts` hat keinen `isPresetRole`-Check auf der GET-Route), und der Builder
+     braucht das Preset-Grant-Set als Ausgangspunkt beim Klonen. Nur `PUT` prueft `TenantID == nil`.
+  2. **Scope-Validierung im Service, nicht nur der DB-Constraint ueberlassen.** Der ADR-Notiz-Gedanke
+     "der Wert kommt vom FE-Typunion, kann also nicht falsch sein" haelt nicht fuer jeden Aufrufer der API —
+     ein zu langer String durchbricht die Kette VOR dem CHECK-Constraint mit einem Laengenfehler
+     (`22001`), der als 500 durchgereicht worden waere. Der Service-Check faengt beides (unbekannter Wert
+     UND falsche Laenge) einheitlich als `unknown_capability_key`/422 ab; der DB-Constraint bleibt Backstop
+     fuer den direkten Repo-Aufruf (siehe Transaktionalitaets-Test).
+  3. **Unbekannte Keys werden VOR jedem Schreiben geprueft (SELECT vor DELETE), nicht erst beim INSERT
+     erkannt.** Ein LEFT-JOIN-basierter INSERT wuerde einen unbekannten Key stillschweigend fallenlassen
+     (`JOIN permissions` liefert fuer ihn keine Zeile) statt den ganzen Aufruf abzulehnen — genau das
+     verbietet der Backlog explizit ("nicht still verschluckt"). Die separate Validierungsquery lohnt sich:
+     ein `COUNT(*)`-Check gegen `unnest($1::text[])` ist billiger als das Risiko eines Teil-Schreibens.
+  4. **Delete-dann-Insert statt Upsert+Differenz**, weil die Semantik "Vollersatz" ist (jeder fehlende Key
+     wird entzogen) — ein Upsert muesste die verschwundenen Keys separat per Diff loeschen, was zwei
+     Statements plus eine Zwischenmenge braucht; Delete-dann-Insert ist ein Statement pro Richtung und
+     dieselbe Transaktion deckt beide ab.
+  5. **`toProtoRoleGrants`/`toRoleGrantsBody` bauen IMMER eine nicht-nil Struktur** (leere Grants ->
+     `[]`/`{}`, nie `null`) — dasselbe Wire-Shape-Muster wie `toEffectivePermissionsBody` aus Welle 1a,
+     hier neu fuer eine Map statt einer Liste angewendet und mit einem eigenen Test gepinnt
+     (`TestToRoleGrantsBody_EmptyIsContainerNotNull`).
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint, 0 issues,
+  auth+gateway+server) | test ok — `go test -count=1 ./internal/auth/... ./internal/gateway/...
+  ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`: alle vier Pakete gruen, **1762 PASS, 0 SKIP,
+  0 FAIL** (gezaehlt ueber `grep -c -- "--- PASS/SKIP/FAIL"`). `TestOpenAPIRouteDrift`: 781 registrierte
+  gegen 783 dokumentierte Pfade, gruen. | migration n.a. (keine noetig — `role_permissions` traegt Scope
+  und RLS seit 000256) | rls-smoke: keine neue Policy/Tabelle angefasst, nur neue tenant-gescopte
+  SELECT/DELETE/INSERT auf `role_permissions` ueber dessen bestehende RLS-Policy; Isolation ueber
+  `TestGetRolePermissions_DB_NotFound` (fremde Rolle -> `not_found`, RLS macht sie unsichtbar) belegt statt
+  eines manuellen psql-Snippets.
+- verify vorgaenger: sauber. `1f0f7c66` (p1b-roles-update-delete) gegen die acht Fehlerklassen geprueft —
+  Handler gehen ueber `client.UpdateRole`/`client.DeleteRole` (keine Layer-Umgehung), keine Stubs, kein
+  `.proto`-Drift (bereits Iteration 1), Guards additiv mit bereits geseedeten `admin:role:edit`/`delete`
+  (in der Migration nachgezaehlt), `openapi.yaml` im selben Commit, `GetRoleByID`-Vorcheck verhindert den
+  stillen No-Op auf Presets, den die Schreib-Policy allein erzeugt haette.
+- offen:
+  - `p1b-user-roles` (naechste Unit in der Kette) muss das `oneof` in `assignRoleRequest`/dem Validator
+    entkoppeln, damit Custom-Rollen ueberhaupt zuweisbar werden — diese Unit hat daran nichts geaendert.
+  - Der neue `codes.OutOfRange -> 422`-Fall in `grpcStatusToHTTP` ist bisher nur von
+    `ErrCapabilityKeyUnknown` belegt; falls ein spaeterer Fund einen echten OutOfRange-Anwendungsfall
+    braucht (z. B. Pagination), diesen Praezedenzfall zuerst lesen statt eine zweite 422-Konvention
+    einzufuehren.
+  - `unknown_capability_key` steht noch nicht in `RBAC_ERROR_CODES` (`rbac-format.ts:50`) — der Fehler
+    kommt beim FE aktuell als generische Meldung an (`rbac.builder.errors.generic`), nicht als spezifischer
+    Text. Kein Blocker (Backend-Scope dieser Unit), aber ein offener FE-Punkt fuer das naechste Antasten
+    von `rbac-format.ts`.
 
-- commit: Feature-Commit dieser Iteration
-- gebaut: `internal/biz/einvoice/generator_cii.go` — `GenerateCII(invoice, settings,
-  buyerReference)` rendert ZUGFeRD 2.1 / Factur-X (CII, Profil EN16931) ueber `buildInvoiceDoc`,
-  also ueber dieselbe Betrags- und Steuergruppenlogik wie `GenerateUBL`. Write-Structs mit
-  `rsm:`/`ram:`/`udt:`-Praefixen, getrennt von den Lesestructs in `parser.go` — identische
-  Begruendung wie beim UBL-Writer (der Parser matcht namespace-agnostisch, das Schreiben braucht
-  woertliche Praefixe; ein Feld kann nur eines von beidem).
-- ZUSAMMENFUEHRUNG statt Neubau, wie die Unit-Note es nach dem Fund aus Iteration 8 verlangte:
-  `pdf.GenerateZUGFeRDXML` ist jetzt ein Delegator auf `einvoice.GenerateCII`. Der alte
-  `fmt.Sprintf`-Template-Writer samt `buildHeaderTradeTax`, `xmlEscape` und `countryCode` ist
-  entfallen (rund 200 Zeilen). Die beiden §14-UStG-Vorbedingungen des PDF-Pfades — Faelligkeits-
-  datum und vollstaendiger Ausstellerblock (`ValidateCompanySettingsForPDF`) — bleiben in
-  `GenerateZUGFeRDXML`, weil sie nur fuer die PDF-Auslieferung gelten, nicht fuer reines XML.
-- die zwei Abweichungen aus der Unit-Note sind damit beseitigt, jede mit eigenem Test:
-  (a) BR-S-08: Der Bestand nahm `Quantity*UnitPrice` als Steuerbasis, schrieb als Zeilenbetrag
-      aber `LineTotal`. Bei einer rabattierten Position (3 x 100,00 -> 270,00) ergab das ein
-      Dokument, dessen Kategorie-Basis 300,00 und dessen Zeilensumme 270,00 sagte.
-      `TestGenerateCII_TaxBasisMatchesLineAmounts` faehrt genau diesen Fall und prueft nach dem
-      Roundtrip `TaxBreakdown[0].TaxableNet == LineItems[0].LineTotal`.
-  (b) CategoryCode `S` auch bei 0 % -> jetzt `Z` (`TestGenerateCII_ZeroRatedLineUsesCategoryZ`).
-- DRITTER FUND beim Bau, nicht in der Note: der alte Writer schrieb die
-  `IncludedSupplyChainTradeLineItem`-Bloecke ans ENDE von `SupplyChainTradeTransaction`. Die
-  CII-XSD-Sequenz verlangt sie VOR den drei Header-Gruppen. Das parst hier durch und faellt
-  erst beim Empfaenger in der Schema-Validierung auf — also unsichtbar, bis eine Rechnung
-  draussen abgelehnt wird. `TestGenerateCII_LineItemsPrecedeHeaderGroups` haelt die Reihenfolge
-  fest. Erzeugtes Dokument einmal vollstaendig ausgegeben und gegengelesen, nicht nur die
-  Assertions geglaubt.
-- IMPORT-ZYKLUS (der eigentliche Umbau-Aufwand): `pdf` importiert jetzt `einvoice`. Die
-  einvoice-Tests lagen alle in `package einvoice` und zwei davon importierten `pdf` — das
-  schliesst im Test-Build einen Zyklus. Aufgeloest ohne Testabdeckung zu verlieren:
-  `parser_test.go` erzeugt sein CII jetzt direkt ueber `GenerateCII` (der `pdf`-Import faellt
-  weg), `pdf_extract_test.go` liegt in `package einvoice_test`, weil es `EmbedZUGFeRDXML`
-  wirklich braucht. Die Richtung `pdf -> einvoice` ist damit fest; als Randbedingung in die
-  Notes von `w5-pdfa3-embed` uebernommen.
-- VERHALTENSAENDERUNG AM PDF-PFAD, bewusst: `buildInvoiceDoc` lehnt eine Rechnung ohne Positionen
-  ab (BG-25). Der Bestand erzeugte dafuer ein zeilenloses Dokument. Zwei bestehende Tests
-  (`_CurrencyFromInvoice`, `_CurrencyDefaultsToEUR`) nutzten positionslose Rechnungen, um die
-  Waehrung zu pruefen — die haben jetzt eine Position, und `TestGenerateZUGFeRDXML_NoLineItems`
-  haelt die Verschaerfung ausdruecklich fest. Ebenso erbt der PDF-Pfad `assertTotalsMatch`.
-  Beides ist die gewollte Folge der Zusammenfuehrung, kein Kollateralschaden.
-- keine neue Dependency (`go.mod`/`go.sum` unveraendert), reine Stdlib `encoding/xml`.
-- FUNDE IM BESTAND (in die Notes der Folge-Units uebertragen):
-  (a) `pdf.GenerateZUGFeRDInvoicePDF` hat **keinen einzigen Test** — nicht nur die Einbettung ist
-      ungetestet, der ganze PDF-plus-XML-Pfad ist es. -> `w5-pdfa3-embed`.
-  (b) `server/biz_grpc.go:1365` faengt JEDEN Generierungsfehler ab und liefert still das PDF ohne
-      XML aus. Durch die BG-25-Verschaerfung trifft das jetzt auch positionslose Rechnungen: der
-      Aufrufer bekommt ein PDF und kann nicht erkennen, dass kein E-Rechnungs-XML entstanden ist.
-      Fuer `w5-route` festgehalten (dort 422 statt stiller Degradation), fuer `w5-pdfa3-embed` als
-      Mit-zu-aendernder Aufrufer.
-  (c) Fuer `w5-en16931-validation`: die Validierung gehoert auf `invoiceDoc`, nicht auf
-      `models.Invoice` — dort gilt sie fuer beide Formate zugleich. In die Notes uebernommen.
-- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok (`./...`) | lint ok
-  (golangci-lint auf einvoice + pdf: 0 issues) | gofmt ok (alle sechs beruehrten Dateien, gegen
-  LF-normalisierten Inhalt geprueft — `gofmt -l` meldet auf diesem Windows-Tree sonst reine
-  CRLF-Treffer; der Index ist LF) |
-  test ok: `./internal/biz/...` und `./internal/server/...` vollstaendig gruen, mit
-  `DATABASE_URL` gegen `kmuhub_app`. 66 Testfaelle im einvoice-Paket, 15 davon neu; einziger SKIP
-  im Lauf ist der bestehende `TestExtractXMLFromPDF_HappyPath` (Fund (b) aus Iteration 8).
-  migration n.a. (keine Schema-Aenderung). openapi n.a. (keine Route — die kommt in `w5-route`).
-- verify vorgaenger: `58b27948` (w5-ubl-generator) gegen die sechs Fehlerklassen geprueft.
-  Diff umfasst nur `errors.go`, `generator_doc.go`, `generator_ubl.go`, `generator_ubl_test.go`
-  plus Loop-Dateien: keine Migration, keine Route, kein Proto, kein neuer Guard, kein DB-Zugriff,
-  kein gRPC-Layer betroffen — die vier darauf zielenden Klassen sind hier gegenstandslos. Kein
-  Stub und kein `Unimplemented` im Diff; `buildInvoiceDoc`/`renderUBL` sind vollstaendig
-  implementiert und durch 30 Testfaelle gedeckt. Die Wire-Shape-Klasse trifft nicht zu (kein
-  JSON-Handler), das erzeugte XML habe ich in dieser Iteration ohnehin gegen `ParseUBL` und gegen
-  den CII-Zwilling gegengeprueft. Kein Fund. Beim Weiterbauen bestaetigt: `buildInvoiceDoc` traegt
-  die Betragslogik tatsaechlich vollstaendig, der CII-Writer brauchte keine eigene Zahl.
-- offen: `w5-en16931-validation` als naechste Unit (Ansatzpunkt `invoiceDoc`, siehe oben).
-  Weiterhin offen fuer `w5-route`: woher die Leitweg-ID (BT-10) kommt — sie hat kein Feld in
-  `finance_invoices`.
+## Iteration 6 — p1b-user-roles — done — 2026-08-02 23:05
+- commit: 60fc6dae
+- gebaut: Rollen-Zuweisung auf IDs umgestellt — `POST /api/v1/users/{id}/roles` nimmt jetzt
+  `{roleId}` (statt `{role_name}` mit `oneof=admin manager member`) und `DELETE
+  /api/v1/users/{id}/roles/{roleId}` traegt die Rolle im Pfad; beide antworten mit
+  `{roles:[<role-ids>]}` (FE-Contract `UserRolesResponse`, `rbac-client.ts`).
+  Service `AssignUserRole`/`RevokeUserRole` in `roles_admin.go`: Ziel-User ueber `GetUserByID`
+  (users-RLS) und Rolle ueber `GetRoleByID` (roles-RLS) aufloesen, dann schreiben, dann die neue
+  Liste lesen. Repo-Trio `AssignUserRole`/`RevokeUserRole`/`GetUserRoleIDs` in
+  `postgres_repository.go`: das INSERT selektiert beide Seiten aus `users` CROSS JOIN `roles`
+  zurueck, das DELETE laeuft ueber `USING users, roles` — weil `user_roles` weder `tenant_id` noch
+  RLS hat (Block B), sind diese Joins die Tenant-Grenze des Schreibens, nicht Komfort.
+  gRPC `AssignUserRole`/`RevokeUserRole` (Proto-RPCs seit Iteration 1 generiert, **keine**
+  `.proto`-Aenderung noetig). `openapi.yaml`: neuer Pfad `/api/v1/users/{id}/roles/{roleId}`,
+  neuer Parameter `RoleId`, Schemas `AssignRoleRequest`/`UserRolesResponse` ersetzen `RoleRequest`.
+- entscheidungen:
+  1. **Das `oneof` ist ersatzlos weg, die Validierung liegt in der DB-Schicht.** Der Tag konnte
+     strukturell nur die drei Seed-Presets nennen — eine Custom-Rolle von Welle 1b war damit nicht
+     zuweisbar, egal wie der Builder sie anlegt. Statisch geht das nicht zu reparieren: welche
+     Rollen ein Tenant hat, weiss nur die `roles`-Tabelle. Der Handler prueft jetzt nur noch
+     UUID-Form (`validate:"required,uuid"`), die Existenz-/Sichtbarkeitsfrage beantwortet der
+     Service gegen RLS.
+  2. **Presets bleiben zuweisbar.** `admin`/`member` SIND Presets — der Preset-Check aus
+     `UpdateRole`/`DeleteRole` hier zu kopieren haette die haeufigste Zuweisung ueberhaupt
+     gesperrt. Immutability betrifft die Rollen-Definition, nicht ihre Traegerschaft.
+  3. **Guard von `RequireRole("admin")` auf `RequirePermissionAny({roles,manage},
+     {admin:role,assign})`** — das ist eine Ausweitung, keine Ersetzung: jedes Admin-Token traegt
+     `roles:manage` (000002 gibt dem admin-Preset per CROSS JOIN den ganzen Katalog, in der
+     Migration nachgelesen), also verliert niemand Zugriff. Gewinnen tun `it_admin`/`hr_admin`,
+     die `admin:role:assign` seit 000256 geseedet haben — genau das Muster aus
+     PHASE-1-RBAC-PLAN (hr_admin darf zuweisen, aber nicht editieren). Kein neuer Seed noetig.
+  4. **DELETE traegt die Rolle im Pfad statt im Body.** Das FE adressiert die Zuweisung als eigene
+     Ressource (`removeUserRole` in `rbac-client.ts`, Mock-Handler `:userId/roles/:roleId`), und
+     ein DELETE mit Payload ist fuer Clients unangenehm. Die alte Body-Variante ist damit weg —
+     verifiziert, dass sie ausser der (generierten) `types.ts` keinen Aufrufer hatte.
+  5. **Ein Revoke einer nicht gehaltenen Rolle ist ein No-Op, kein 404.** Der Aufrufer verlangt
+     einen Zustand, keine Transition; ein 404 wuerde den Doppelklick im Builder zum Fehler machen.
+  6. `withChiURLParam` (Gateway-Testhelfer) haengt einen Parameter jetzt an einen vorhandenen
+     RouteContext an, statt jedes Mal einen neuen anzulegen — vorher verschluckte der zweite
+     Aufruf den ersten Parameter, was bei einer Route mit zwei IDs still das Falsche testet.
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd) | vet ok | lint ok (golangci-lint,
+  0 issues, auth+gateway+server) | test ok — `go test -count=1 -v ./internal/auth/...
+  ./internal/gateway/ ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **1777 PASS, 0 SKIP, 0 FAIL**; die 10 neuen `*_DB_*`-Tests namentlich als PASS verifiziert.
+  `TestOpenAPIRouteDrift` gruen, `swagger-cli validate backend/api/openapi.yaml` = valid.
+  | migration n.a. (keine noetig — `user_roles` und `roles` stehen seit 000002/000256, beide
+  Guard-Keys geseedet) | rls-smoke: keine Policy/Tabelle geaendert; die Isolation ist stattdessen
+  in vier Tests gepinnt (Fremd-Tenant-User -> `user not found`, Fremd-Tenant-Rolle -> `not_found`,
+  jeweils mit Nachzaehlen, dass **null** Zeilen in `user_roles` landen, plus ein Test, der die
+  Repository-Methode direkt unter fremdem Tenant aufruft und beweist, dass die Joins allein
+  schon nichts schreiben).
+- verify vorgaenger: sauber. `cd5e8a79` (p1b-role-permissions) gegen die acht Fehlerklassen
+  geprueft — Gateway-Handler gehen ueber `client.GetRolePermissions`/`client.SetRolePermissions`
+  (keine Layer-Umgehung), die vier `return nil, nil` im Diff liegen ausschliesslich in
+  Test-Mocks (`service_test.go`, `testhelpers_test.go`), kein `.proto` im Commit, Guards additiv
+  mit `admin:role:read|edit` (Seed in 000256 nachgezaehlt), `openapi.yaml` im selben Commit,
+  Wire-Shape `{roleId, grants}` deckt sich mit `rbac-types.ts`.
+- offen:
+  - **`desktop/src/renderer/src/api/types.ts` ist nicht neu generiert** (Zeile ~297 beschreibt
+    weiterhin `RoleRequest`/`StatusResponse` und ein DELETE ohne `{roleId}`). Kein CI-Gate (der
+    `openapi-validate`-Job validiert nur die Spec, er generiert nicht), und `rbac-client.ts`
+    nutzt eigene Typen — aber wer die generierten Typen liest, sieht den alten Vertrag.
+  - `p1b-guardrails` (naechste Unit) setzt vor `RevokeUserRole` an: last_admin (409),
+    Selbst-Aussperrung, Privilege-Escalation, Preset-Immutability. Die Stelle ist im Service
+    kommentiert, absichtlich noch leer — nicht doppelt bauen.
+  - `AssignUserRole` liefert bei unsichtbarem Ziel-Account `user not found`, nicht `not_found`;
+    `RBAC_ERROR_CODES` in `rbac-format.ts` kennt den String nicht, das FE zeigt dort also die
+    generische Meldung. Bewusst so gelassen: `ErrUserNotFound` ist repo-weit in Auth-Pfaden im
+    Einsatz, sein Wortlaut ist kein RBAC-Detail.
 
-## Iteration 10 — w5-en16931-validation — done — 2026-08-01 (Nachtlauf 3)
+## Iteration 7 — p1b-guardrails — done — 2026-08-02 21:15
+- commit: 95ce32f0
+- gebaut: Die vier Guardrails aus PHASE-1-RBAC-PLAN §4, zentral in
+  `internal/auth/guardrails.go` (neu) und von `roles_admin.go` aus verdrahtet — kein Handler kennt
+  eine davon. (a) **last_admin**: `CountRoleAdminsExcluding` zaehlt die aktiven Accounts des Tenants,
+  die Rollen vergeben duerfen, unter Ausschluss genau der Zuweisung, die entzogen werden soll; 0 ->
+  `ErrLastAdmin` (409). (b) **self_lockout**: beim Revoke an sich selbst und beim Umschreiben einer
+  Rolle, die der Aufrufer traegt (`assertKeepsOwnRoleAdmin`). (c) **privilege_escalation**: die
+  aufgeloeste Grant-Menge des Aufrufers (`callerReach`, Union ueber seine Rollen, breitester Scope)
+  ist die Obergrenze fuer `SetRolePermissions`, den `CreateRole`-Klon und die **Selbst**-Zuweisung in
+  `AssignUserRole`. (d) **Preset-Immutability** stand schon auf allen drei Schreibpfaden und ist jetzt
+  in einem Test ueber alle drei gepinnt. Actor kommt als Parameter (auth darf `middleware` nicht
+  importieren — Cycle), aufgeloest in `server/grpc.go` via neuem `callerID(ctx)` aus dem
+  propagierten `x-user-id`; fehlt der, ist es `Unauthenticated`, nie `uuid.Nil`.
+- entscheidungen:
+  1. **"Admin" = wer Rollen vergeben darf** (`roles:manage` ODER `admin:role:assign`), nicht "wer
+     das admin-Preset traegt". Ein Tenant, der das Preset in "Geschaeftsfuehrung" klont und das
+     Original ablegt, hat weiterhin Administratoren — ein Namensvergleich saehe sie nicht und
+     last_admin wuerde auf einem gesunden Tenant feuern. Es ist exakt das Paar, das die
+     Assign-Routen seit Iteration 6 bewachen.
+  2. **Fremd-Zuweisung bleibt frei, Selbst-Zuweisung ist gedeckelt.** Der Plan gibt hr_admin
+     `admin:role:assign` ohne `role:create/edit` — es SOLL Rollen besetzen koennen, die mehr
+     duerfen als es selbst (member-Preset ⊄ hr_admin). Haenge ich (c) an jede Zuweisung, ist das
+     Preset wertlos. Der reale Eskalationsweg ist "ich gebe sie MIR", und genau der ist zu.
+  3. **Der Klon faellt unter (c).** Sonst ist er der Weg um `SetRolePermissions` herum: Rechte
+     kommen ueber die Kopie herein statt ueber eine Bearbeitung. Konsequenz, im Test festgehalten:
+     nur wessen Reichweite ein Preset abdeckt, kann es klonen — it_admin scheitert schon an
+     `extern` (documents:file:upload/download fehlen ihm). Praktisch klont nur admin frei.
+  4. **`SetRolePermissions` prueft den Katalog VOR der Reichweite** (neue Repo-Methode
+     `CountUnknownPermissionKeys`). Ohne das kommt ein Tippfehler als 403 zurueck statt als 422:
+     ein Key, den es nicht gibt, liegt in niemandes Grant-Menge, und (c) kann ihn nicht von einem
+     Griff nach einem echten Recht unterscheiden. Der Check im Repo bleibt als Backstop (Race).
+  5. **`GetUserGrants` neben `GetEffectivePermissions`** statt eines Flags: die Bildschirm-Ansicht
+     filtert die groben Alt-Keys (`p.resource LIKE '%:%'`) bewusst weg, die Autorisierung darf das
+     nicht — die groben Keys sind die Waehrung der `RequirePermission`-Gates, wer sie vergeben
+     darf, oeffnet jedes Gate.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd) | vet ok | lint ok (golangci-lint,
+  0 issues ueber auth+server+gateway) | test ok — `go test -count=1 -v ./internal/auth/...
+  ./internal/gateway/ ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`:
+  **1787 PASS, 0 SKIP, 0 FAIL** (1777 vorher + 10 neue `TestGuardrail_DB_*`, alle namentlich als
+  PASS verifiziert). `TestOpenAPIRouteDrift` gruen, `swagger-cli validate` = valid.
+  | migration n.a. — keine neue Tabelle, kein neuer `RequirePermission`-Guard (die Routen-Guards
+  aus Iteration 6 bleiben unveraendert, also auch kein Seed noetig) | rls-smoke: keine Policy
+  angefasst; die Tenant-Grenze der neuen Zaehlung ist stattdessen im last-admin-Test gepinnt —
+  er seedet einen Admin in einem **fremden** Tenant, der nicht mitzaehlen darf. Ohne den
+  `users`-Join in `CountRoleAdminsExcluding` waere der Test rot.
+- verify vorgaenger: sauber. `60fc6dae` (p1b-user-roles) gegen die acht Klassen geprueft — Handler
+  gehen ueber `client.AssignUserRole`/`client.RevokeUserRole`, kein Stub, kein `.proto` im Diff,
+  Wire-Shape `{roles:[...]}` mit `[]`-Garantie via `toUserRolesBody`, `openapi.yaml` im selben
+  Commit. Klasse 8 gezielt nachgezaehlt: der Wechsel `RequireRole("admin")` ->
+  `RequirePermissionAny({roles,manage},{admin:role,assign})` verliert niemanden, weil 000002 dem
+  admin-Preset per `CROSS JOIN permissions` den ganzen Katalog gibt und `roles:manage` (Zeile 51)
+  darin liegt — `RequirePermissionAny` hat keinen Rollen-Fallback, das war der Punkt zum Pruefen.
+- offen:
+  - **`rbac-format.ts` kennt `self_lockout` und `privilege_escalation` nicht.** `RBAC_ERROR_CODES`
+    listet fuenf Codes, meine beiden neuen sind nicht dabei — der Builder zeigt dort die generische
+    Meldung. Zwei Zeilen dort plus vier i18n-Kataloge; bewusst nicht im Backend-Commit gemacht
+    (i18n ×4 + Screenshot-QA ist ein eigener Workflow).
+  - **Produktentscheidung fuer Luke:** ist "nur admin kann Presets klonen" zu streng? Die
+    Alternative waere, den Klon frei zu lassen und stattdessen JEDE Zuweisung zu deckeln — dann
+    verliert hr_admin sein `role:assign` praktisch. Ich halte die gewaehlte Seite fuer die
+    richtige, aber es ist eine Produktfrage, keine technische.
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6,
+    unveraendert).
+  - `p1b-audit-events` (naechste Unit) setzt genau auf diesen vier Pfaden auf; die Guardrails
+    laufen alle VOR dem Write, ein abgelehnter Versuch darf also kein Event schreiben.
 
-- Validierung auf `invoiceDoc` gelegt (neue `internal/biz/einvoice/validation.go`), wie in der
-  Unit-Note vorgegeben: dort gilt sie fuer XRechnung und ZUGFeRD zugleich, weil beide Formate durch
-  dasselbe neutrale Modell laufen. Auf `models.Invoice` haette man die Ableitungen (Steuerkategorien,
-  BG-23-Gruppen, Summen) ein zweites Mal nachbauen muessen — genau das, was `w5-cii-generator`
-  gerade beseitigt hat.
-- `*ValidationError` traegt ALLE Verstoesse (`Violations[]{Rule, Term, Message}`) und unwrappt auf
-  `ErrValidationFailed`, also `errors.Is` fuer den 422-Fall und `errors.As` fuer die Liste. Kein
-  Abbruch beim ersten Fund — eine E-Rechnung wird beim Empfaenger abgelehnt, der Kunde erfaehrt es
-  Wochen spaeter ueber seine Buchhaltung, und pro Runde ein Feld nachzureichen ist der eigentliche
-  Schaden. `TestValidate_ReportsEveryViolationAtOnce` faehrt sechs Verstoesse in einem Durchlauf.
-- Geprueft wird nur, was `buildInvoiceDoc` NICHT schon ablehnt (BT-1, BT-2, BG-25, Summen-Drift,
-  unparsebare Positionen sind dort und bleiben dort): Verkaeufer-Name/Land (BR-06/BR-09),
-  Kaeufer-Name/Land (BR-07/BR-11), Steueridentifikation des Verkaeufers (BR-S-02/BR-E-02/BR-Z-02/
-  BR-AE-02 je nach Kategorie), Kaeufer-USt-ID bei Reverse Charge (BR-AE-03), Positionsbezeichnung
-  (BR-25), negativer Einzelpreis (BR-27), und BR-CO-25 (Faelligkeitsdatum ODER Zahlungsbedingungen —
-  nicht beides, sonst wuerde eine Rechnung abgelehnt, die das Zahlungsziel in Worten nennt).
-- ZWEI PROFILE, und die Trennung ist der eigentliche Entwurfsentscheid. `ProfileEN16931` ist die
-  Untergrenze und wird von `GenerateUBL`/`GenerateCII` selbst erzwungen — ab jetzt verlaesst kein
-  halb gueltiges Dokument den Generator. `ProfileXRechnung` (BR-DE-15 Leitweg-ID, BR-DE-1
-  Zahlungsangaben, zerlegte Postanschriften BT-35/37/38 + BT-50/52/53) liegt NICHT im Generator:
-  ob der Empfaenger ein oeffentlicher Auftraggeber ist, weiss nur der Aufrufer. Haette ich BR-DE-15
-  hart in `GenerateUBL` gezogen, waere jede B2B-XRechnung unerzeugbar geworden — der bestehende
-  `TestGenerateUBL_OmitsBuyerReferenceWhenEmpty` haelt genau dieses Verhalten fest, und er hat
-  recht. Deshalb exportiert `Validate(invoice, settings, buyerReference, profile)` die strengere
-  Stufe; `w5-route` ruft sie, wenn eine Leitweg-ID im Request mitkommt. In die Notes uebertragen.
-- FUND BEIM BAUEN, mit behoben (sonst waere die eigene Regel eine Sackgasse): Das Dokument schrieb
-  nur BT-31 (USt-ID). `ValidateCompanySettingsForPDF` akzeptiert aber seit jeher Steuernummer ODER
-  USt-ID, und ein Kleinunternehmer hat per Definition keine USt-ID. Ergebnis: dessen ZUGFeRD-
-  Rechnungen verletzten BR-E-02 immer, und die Meldung "USt-ID fehlt" waere fuer ihn nicht
-  behebbar gewesen. `docParty.TaxRegID` traegt jetzt BT-32 (Steuernummer) als Rueckfall, in UBL als
-  TaxScheme `FC`, in CII als `schemeID="FC"`. Bewusst nur EINES von beiden: der Eingangs-Parser
-  liest ein einzelnes `SpecifiedTaxRegistration`/`PartyTaxScheme` und wuerde bei zwei Elementen das
-  letzte nehmen, also die Steuernummer fuer die USt-ID halten. `TestGenerate_VATIDWinsOverTaxNumber`
-  haelt das inklusive Parser-Roundtrip fest.
-- VERHALTENSAENDERUNG AM PDF-PFAD, bewusst und gleicher Art wie in Iteration 9: `GenerateZUGFeRDXML`
-  erbt die Validierung. Vier bestehende `pdf`-Tests fielen, alle vier zu Recht — ihre Fixtures
-  hatten keinen Kundennamen (BT-44), der Reverse-Charge-Fall zusaetzlich keine Kaeufer-USt-ID
-  (BR-AE-03). Fixtures ergaenzt statt Regel entschaerft: eine Rechnung ohne Kundennamen ist ein
-  Datendefekt, kein Testfall. `server/biz_grpc.go:1365` verschluckt den neuen Fehler weiterhin still
-  und liefert das PDF ohne XML (nur `slog.Error`) — nicht angefasst, das ist `w5-pdfa3-embed`; der
-  Nachtrag steht dort in den Notes, samt dem Hinweis, dass jetzt die Verstossliste hochzureichen ist.
-- Kommentar in `buildBuyerParty` korrigiert: er versprach, diese Unit melde BT-55. Tut sie nicht und
-  kann sie nicht — `isoCountryCode` liefert immer einen Wert, das geratene Kaeuferland hinterlaesst
-  keine Luecke. Steht jetzt als `lean:`-Marker mit Trigger "sobald Rechnungen die Grenze
-  ueberschreiten". Zweiter `lean:`-Marker an `xrechnungViolations` fuer BR-DE-2/5..7 (Kontaktdaten
-  des Verkaeufers) — das Datenmodell hat keine Kontaktfelder, also gibt es nichts zu pruefen;
-  Trigger "sobald ein Kunde einen oeffentlichen Auftraggeber beliefert, der sie erzwingt".
-- keine neue Dependency, keine Migration, keine Route, kein Proto, kein Guard.
-- gate: build ok (`./internal/biz/... ./internal/server/... ./cmd/gateway/...`) | vet ok |
-  lint ok (golangci-lint auf einvoice + pdf: 0 issues) | gofmt ok (alle sieben beruehrten Dateien
-  gegen LF-normalisierten Inhalt geprueft; zwei echte Treffer gefunden und behoben — Struct-Feld-
-  Ausrichtung, keine CRLF-Artefakte) | test ok: `./internal/biz/...` und `./internal/server/...`
-  vollstaendig gruen mit `DATABASE_URL` gegen `kmuhub_app`, 12 neue Testfaelle. openapi n.a.,
-  migration n.a., gateway n.a. (keine Route).
-- verify vorgaenger: `3b45e1e1` (w5-cii-generator) gegen die sechs Fehlerklassen geprueft. Diff
-  umfasst `generator_cii.go` + Test, `parser_test.go`, `pdf_extract_test.go`, `pdf/zugferd.go` +
-  Test, plus Loop-Dateien — keine Migration, keine Route, kein Proto, kein Guard, kein JSON-Handler,
-  kein DB-Zugriff, kein gRPC-Layer. Kein `Unimplemented`, kein Stub. Gezielt nachgesehen, ob der
-  Umbau die Delivery-Gruppe verliert: der alte Writer schrieb `ApplicableHeaderTradeDelivery` immer
-  mit Rueckfall auf das Rechnungsdatum, der neue schreibt sie unter `if !doc.DeliveryDate.IsZero()`.
-  Kein Fund — `buildInvoiceDoc` setzt denselben Rueckfall (`generator_doc.go:127`), und da BT-2
-  vorher erzwungen wird, ist das Feld nie leer. Beim Weiterbauen bestaetigt: `buildInvoiceDoc` war
-  der richtige Ansatzpunkt, die Validierung brauchte keine einzige Zahl neu.
-- offen: `w5-pdfa3-embed` als naechste Unit. Weiterhin offen fuer `w5-route`: woher die Leitweg-ID
-  (BT-10) kommt — sie hat kein Feld in `finance_invoices`. Mit den zwei Profilen ist die Frage jetzt
-  scharf gestellt: Leitweg-ID mitgeliefert = oeffentlicher Auftraggeber = strenges Profil.
+## Iteration 8 — p1b-audit-events — done — 2026-08-02 21:40
+- commit: aa5fcca8
+- gebaut: Die fuenf Audit-Events aus PHASE-1-RBAC-PLAN §4 (`permission.role_created/_updated/
+  _deleted/assigned/revoked`) auf dem bestehenden `audit_log` (Migration 000039, append-only seit
+  000222) — keine zweite Audit-Infrastruktur, sondern der schon vorhandene `audit.Service` aus
+  `internal/security/audit`, der im auth-Prozess laengst konstruiert wird (`cmd/auth/main.go:87f`,
+  bislang nur an `SecurityGRPCServer` durchgereicht). Neu in `internal/server/grpc.go`:
+  `AuthGRPCServer` bekommt `auditService` als zweiten Konstruktor-Parameter, `tenantAndCaller(ctx)`
+  buendelt die Tenant-/Akteur-Aufloesung (bislang nur `callerID`, UpdateRole/DeleteRole brauchten
+  bisher keine von beiden), `logPermissionEvent` haengt EIN `LogEvent`-Aufruf direkt hinter den
+  erfolgreichen Service-Call in allen fuenf Handlern (CreateRole, UpdateRole, DeleteRole,
+  AssignUserRole, RevokeUserRole). Ziel-Ressource ist die Rolle (role_created/_updated/_deleted)
+  bzw. der betroffene Account (assigned/revoked, `role_id` in `details`) — nie der Akteur selbst,
+  der steht in `user_id`. `SetRolePermissions` bleibt bewusst ohne eigenes Event: das ist keine der
+  fuenf Aenderungsarten aus dem Scope, sondern der Weg, ueber den role_updated fachlich hinausgeht
+  (Namensaenderung) bzw. hinausginge, wenn spaeter Grant-Aenderungen mitprotokolliert werden sollen
+  — als offener Punkt unten, nicht mitgebaut.
+- entscheidungen:
+  1. **Kein gRPC-Hop zur security.** `audit_log` gehoert der security-Domaene, aber `cmd/auth`
+     hostet AuthGRPCServer UND SecurityGRPCServer im selben Prozess (Kommentar dort: "co-located in
+     auth process") — genau wie SecurityGRPCServer selbst tut, haelt AuthGRPCServer jetzt eine
+     direkte `*audit.Service`-Referenz. Ein RPC zur eigenen Security-Instanz waere ein
+     Netzwerk-Hop fuer einen In-Prozess-Aufruf gewesen und keine echte Service-Grenze — die einzige
+     bestehende Cross-Service-Nutzung von `SecurityServiceClient` sitzt im Gateway (Middleware),
+     nicht zwischen zwei Domain-Services.
+  2. **Event NACH dem Service-Call, nie davor.** Die vier Guardrails aus Iteration 7 lehnen einen
+     unrechtmaessigen Versuch VOR dem Schreiben ab (`mapError` gibt zurueck, `logPermissionEvent`
+     wird nie erreicht) — pytest-artig durch `TestPermissionAuditEvents_DB_RejectedWriteLeavesNoEvent`
+     belegt (DeleteRole auf eine Rolle mit Mitglied: 409, Audit-Log-Zeilenzahl unveraendert).
+  3. **`tenantAndCaller` statt getrennter Aufrufe** in UpdateRole/DeleteRole: beide brauchten vorher
+     weder Tenant noch Akteur (RLS scopt Read+Write allein), jetzt brauchen sie beides nur fuer das
+     Event. Ein Bundling-Helfer statt zwei separate Boilerplate-Zeilen pro Handler, konsistent mit
+     dem bereits vorhandenen `callerID`.
+  4. **IP-Adresse/User-Agent bleiben leer.** Diese Events entstehen im internen auth<->auth-Aufruf,
+     nicht im HTTP-Request-Pfad wie `middleware/audit.go`s generisches CRUD-Logging — der
+     Client-Kontext (X-Forwarded-For etc.) existiert an dieser Stelle nicht. `audit.Repository.Create`
+     normalisiert die leere IP bereits auf SQL NULL (bestehender Code, nicht neu).
+  5. **Fester Akteur-Testfixture statt `uuid.New()` pro Lauf.** Erster Testlauf zeigte: das
+     `t.Cleanup`-DELETE auf den seedenden `users`-Datensatz schlaegt fehl, sobald ein Audit-Event
+     ihn als `user_id` referenziert — `audit_log_user_id_fkey` plus Append-Only-Trigger machen den
+     Fixture-User dauerhaft unloeschbar. Umgestellt auf eine feste UUID, idempotent geseedet
+     (`ON CONFLICT DO NOTHING`), nie geloescht — analog dazu, wie `testutil.EnsureTenant` Tenants
+     dauerhaft stehen laesst. Der `target`-User (nur im `target`-String, nie `user_id`) bleibt
+     `uuid.New()` + normalem Cleanup, das funktioniert unveraendert.
+- gate: build ok (`go build -p 2` auth/server/gateway/cmd/auth/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues ueber server + cmd/auth) | test ok — `go test -count=1 -v
+  ./internal/server/...` mit `DATABASE_URL` als `kmuhub_app`: **207 PASS, 0 SKIP, 0 FAIL**
+  (196 vorher + 11 neue: 5 Erfolgspfade als Subtests von `TestPermissionAuditEvents_DB` plus
+  `TestPermissionAuditEvents_DB_RejectedWriteLeavesNoEvent`, alle real gegen die DB gelaufen, nicht
+  uebersprungen). `go test ./internal/gateway/` nicht erneut gelaufen — keine Route, kein
+  `.proto`, kein `openapi.yaml` in diesem Diff, der Drift-Test ist also nicht beruehrt. | migration
+  n.a. — `audit_log.action` ist ein freies VARCHAR(100) ohne CHECK/ENUM (gegen die Migrationen
+  verifiziert), die neue Taxonomie braucht kein Schema. | rls-smoke n.a. — keine Tabelle/Policy
+  angefasst, `audit_log`s RLS (000120) und Append-Only-Trigger (000222) unveraendert; die
+  Nicht-Loeschbarkeit selbst ist im Test sichtbar geworden (siehe Entscheidung 5) statt eigens
+  geprueft zu werden.
+- verify vorgaenger: sauber. `95ce32f0` (p1b-guardrails) gegen die acht Klassen geprueft — kein
+  gRPC-Bypass (Guardrails sitzen im `auth.Service`, keine Handler-Logik), kein Stub, kein `.proto`
+  im Diff (reine Service-Aenderung, keine RPC-Signatur neu), kein neuer `RequirePermission`-Guard
+  (wiederverwendet `roles:manage`/`admin:role:assign`), Tenant-Scoping von
+  `CountRoleAdminsExcluding` ueber den `users`-Join korrekt und im Code kommentiert, `openapi.yaml`
+  nur um Fehlerfall-Doku auf bestehenden Routen erweitert (keine neue Route, Drift-Test also nicht
+  betroffen). `go build -p 2` auth/server/gateway lief zusaetzlich gruen als Sanity-Check.
+- offen:
+  - **`p1b-guardrail-tests` (naechste Unit)** deckt laut Backlog dieselben sieben Faelle nochmal
+    explizit ab (last-admin, Selbst-Aussperrung, Escalation, Preset-Immutability x4, Custom-Limit,
+    Tenant-Isolation) — die Guardrail-Logik selbst ist durch `guardrails_db_test.go` aus Iteration 7
+    schon abgedeckt, diese Unit muesste also pruefen, ob echte Luecken bleiben, statt blind zu
+    duplizieren.
+  - `SetRolePermissions` (Grant-Aenderung an einer Rolle) schreibt bewusst kein Audit-Event — war
+    nicht in den fuenf geforderten Aenderungsarten. Falls das GoBD-relevant werden soll (Rechte
+    geaendert ohne Rollen-Rename), ist das ein separater Scope-Punkt fuer Luke, keine Nachlaessigkeit.
+  - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke aus Iteration 7 weiterhin offen (self_lockout,
+    privilege_escalation fehlen im FE-Katalog).
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
 
-## Iteration 11 — w5-pdfa3-embed — done — 2026-08-01 (Nachtlauf 3)
-- commit: c12467c8
-- ENTSCHEIDUNG (die Unit verlangte sie ausdruecklich): **kein PDF/A-3b.** Nachgesehen statt geraten —
-  maroto/v2 v2.3.3 zeichnet mit den nicht eingebetteten Standard-14-Fonts (Einbettung nur ueber
-  `AddUTF8Font` + TTF-Asset im Repo), pdfcpu v0.6.0 kennt `AFRelationship` und `OutputIntent`
-  ausschliesslich im Validierungspfad (`pkg/pdfcpu/validate/`) und hat keinen XMP-Writer. PDF/A-3b
-  braucht alle drei: eingebettete Fonts, sRGB-OutputIntent, XMP mit pdfaid- und Factur-X-Schema. Das
-  waere eine neue Dependency plus ein ICC-Profil-Asset gewesen — beides ausgeschlossen.
-  Der Ausschlag gab aber nicht der Aufwand: XMP-Konformitaet zu behaupten, ohne sie zu erfuellen,
-  waere schlechter als sie wegzulassen. Ein pruefender Empfaenger lehnt eine Datei ab, die ueber den
-  eigenen Standard luegt; die Datei ohne Anspruch nimmt er an. Als `lean:`-Marker an
-  `EmbedZUGFeRDXML` mit Trigger "sobald die Empfangssoftware eines Kunden PDF/A-3b verlangt".
-- Statt Konformitaets-Etikett die Ebene gebaut, die ueber Auffindbarkeit entscheidet — und dort lag
-  der eigentliche Fund: **der Anhang hiess `factur-x_RE-2026-0001_20260801.xml`.** Die Factur-X-Spec
-  fixiert `factur-x.xml`, Empfangssoftware matcht literal. Die Rechnung trug das XML also mit sich
-  und kam beim Empfaenger trotzdem als Rechnung ohne strukturierte Daten an. Dazu fehlten `/AF` im
-  Catalog und `/AFRelationship /Alternative` an der Filespec — ohne die ist der Anhang eine Beilage,
-  keine E-Rechnung. Alle drei sitzen jetzt (`declareFacturXAssociatedFile`), plus `/Subtype
-  /text#2Fxml` am Stream (`#2F` ist die Escape-Form des Solidus im PDF-Name-Token; pdfcpu reicht
-  Name-Bytes unveraendert durch, `Name.Value()` dekodiert zurueck — im Test als `text/xml` geprueft).
-- Kein Temp-File mehr: `NewEmbeddedStreamDict` nimmt einen `io.Reader`, also `bytes.NewReader`. Damit
-  fallen `MkdirTemp` und `WriteFile` als Fehlerquellen ersatzlos weg. Keine neue Dependency (go.mod
-  unveraendert), pdfcpu war laengst im Graph.
-- **Stille Degradierung entfernt, an beiden Stellen.** `EmbedZUGFeRDXML` gab bei jedem Fehler das PDF
-  OHNE Anhang zurueck (drei `slog.Warn`-Pfade, `error` immer nil); `server/biz_grpc.go:1365` fing
-  zusaetzlich jeden Generierungsfehler ab und lieferte das nackte PDF unter anderem Dateinamen aus.
-  Zusammen hiess das: der Aufrufer konnte eine E-Rechnung nicht von einer gewoehnlichen unterscheiden,
-  und der Kunde erfuhr es erst, wenn beim Empfaenger nichts zu importieren war. Jetzt kommt jeder
-  Fehler an. `mapBizError` kennt `ErrValidationFailed`/`ErrGenerateFailed`/`ErrTotalsMismatch` und
-  macht `FailedPrecondition` daraus — die vollstaendige Verstossliste aus `ValidationError.Error()`
-  geht mit raus, ueber `grpcStatusToHTTP` als **409**. Die beiden Vorpruefungen in
-  `GenerateZUGFeRDXML` (BT-9 Faelligkeit, §14-Stammdaten) wrappen dafuer `ErrGenerateFailed` statt
-  eines nackten `fmt.Errorf` — fehlende Stammdaten sind kein 500.
-- **Der Test, der sich selbst uebersprang, tut es nicht mehr.** `TestExtractXMLFromPDF_HappyPath`
-  baute auf einem handgeschriebenen PDF-Stub auf, den pdfcpu nicht lesen konnte; die Einbettung
-  degradierte still, `len(out) == len(in)`, `t.Skip`. Beide Tests rendern jetzt ueber
-  `pdf.NewGenerator(...).GenerateInvoicePDF` ein echtes maroto-PDF (`renderInvoicePDF`-Helfer), der
-  Stub ist geloescht. Neu in `internal/biz/pdf`: `TestGenerateZUGFeRDInvoicePDF_
-  DeclaresFacturXAttachment` faehrt den kompletten Pfad (maroto -> CII -> Einbettung -> Extraktion)
-  und prueft Name, Byte-Gleichheit gegen das Referenzdokument, `/AF`, `/AFRelationship` und Subtype;
-  dazu je ein Test fuer den harten Fehlerpfad und fuer eine EN-16931-widrige Rechnung.
-  `GenerateZUGFeRDInvoicePDF` hatte vorher keinen einzigen Test.
-- openapi.yaml: `/finance/invoices/{id}/pdf` dokumentiert jetzt den `format=zugferd`-Query-Parameter
-  und die Codes 404/409 — der 409 ist neu, weil dieser Pfad vorher gar nicht fehlschlagen konnte.
-- gate: build ok (`./internal/biz/... ./internal/server/... ./internal/gateway/...`) | vet ok |
-  lint ok (golangci-lint auf pdf+einvoice+server+gateway: 0 issues; 7x QF1008 unterwegs behoben) |
-  gofmt ok (fuenf beruehrte Dateien gegen LF-normalisierten Inhalt, keine echten Diffs — die
-  gofmt-Treffer sind CRLF im Bestand) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
-  einvoice 57 Tests **0 Skips** (darunter `TestTenantIsolation_IncomingInvoices` real gegen die DB),
-  pdf gruen, `./internal/server/...` gruen, `./internal/gateway/` gruen inkl. TestOpenAPIRouteDrift.
-  migration n.a., rls-smoke n.a. (keine Tabelle/Policy angefasst), proto n.a.
-- verify vorgaenger: `a7fe6318` (w5-en16931-validation) gegen die acht Fehlerklassen geprueft. Diff
-  beruehrt nur `internal/biz/einvoice/*` plus einen pdf-Test — keine Migration, keine Route, kein
-  Proto, kein Guard, keine Tabelle, kein Gateway-Handler, kein DB-Zugriff. Kein `Unimplemented`,
-  kein TODO, kein leerer Return; `Validate` und `validateInvoiceDoc` sind vollstaendig ausgefuehrt.
-  Sauber, keine Fix-Unit noetig.
-- offen fuer Luke:
-  (1) VERHALTENSAENDERUNG an `GET /finance/invoices/{id}/pdf?format=zugferd`: unvollstaendige
-      Rechnung liefert 409 statt eines PDF ohne XML. Im Desktop-Code gibt es aktuell **keinen**
-      Aufrufer mit `format=zugferd` (nur das Anzeige-Widget `EInvoiceIndicator.tsx`), das FE bricht
-      also nichts — sobald `w5-route` das UI anbindet, muss die Fehlermeldung dort aber sichtbar
-      werden, sonst ist die Verstossliste umsonst erhoben.
-  (2) 409 statt 422 fuer Validierungsfehler ist eine Folge von `grpcStatusToHTTP`, das kein 422
-      kennt. Fuer die neue Route in `w5-route` ist das die offene Wahl (Nachtrag steht dort).
-  (3) Das erzeugte PDF ist bewusst kein PDF/A-3b. Fuer oeffentliche Auftraggeber ist ohnehin
-      XRechnung (reines XML) der Weg; fuer B2B-Empfaenger reicht der deklarierte Anhang.
+## Iteration 9 — p1b-guardrail-tests — done — 2026-08-02 22:05
+- commit: 26388dae
+- gebaut: Die sieben im Backlog geforderten Faelle (last-admin, Selbst-Aussperrung, Escalation
+  inkl. scope-Aufwertung, Preset-Immutability, Custom-Limit 20, Tenant-Isolation der
+  Rollenzuweisung) haben sich bei der Recherche als bereits vollstaendig durch echte DB-Tests
+  abgedeckt herausgestellt — verteilt ueber `guardrails_db_test.go` (Iteration 7),
+  `roles_admin_db_test.go` und `user_roles_db_test.go` (Iterationen 3-6). Blind duplizieren haette
+  nur Testmasse ohne neuen Erkenntniswert erzeugt.
+  Stattdessen die tatsaechliche Luecke geschlossen: `TestMapError` in
+  `backend/internal/server/grpc_test.go` deckte `ErrRoleNameExists`, `ErrRoleLimitReached`,
+  `ErrBaseRoleNotFound`, `ErrRolePresetImmutable`, `ErrRoleHasMembers` ab, aber NICHT die drei
+  eigentlichen Guardrail-Sentinels `ErrLastAdmin`/`ErrSelfLockout`/`ErrPrivilegeEscalation` — obwohl
+  `mapError` (grpc.go:1101-1106) alle drei behandelt. Ein vertauschter Case in diesem Switch (z.B.
+  `ErrSelfLockout` faellt auf `codes.NotFound`) waere von keinem bestehenden Test bemerkt worden:
+  die Service-Tests pruefen nur, dass `auth.Service` den richtigen Go-Fehler zurueckgibt, nicht dass
+  `mapError` ihn auf den richtigen gRPC-Code abbildet und `respondGRPCError` daraus den richtigen
+  HTTP-Code macht. Drei Tabellenzeilen ergaenzt (last_admin -> FailedPrecondition/409, self_lockout
+  -> FailedPrecondition/409, privilege_escalation -> PermissionDenied/403), keine neue Test-Infra.
+- entscheidungen:
+  1. **Kein neuer Gateway-Mock-Harness.** `route_auth_test.go` hat kein Fake fuer
+     `authv1.AuthServiceClient` — die bestehenden Route-Tests pruefen nur ServiceUnavailable/
+     Validierung, nie einen simulierten gRPC-Fehler durchs HTTP. Ein solcher Harness allein fuer
+     drei Fehlerfaelle waere die groessere Abstraktion fuer den kleineren Nutzen gewesen — der
+     Luecken-Schluss sitzt bewusst auf der Ebene, auf der er entstehen kann (der `mapError`-Switch),
+     nicht eine Ebene hoeher noch einmal neu gebaut. `grpcStatusToHTTP` selbst ist reiner, bereits
+     durch bestehende Gateway-Tests belegter Code und war nicht die Luecke.
+  2. **Keine weiteren DB-Tests ergaenzt.** Alle sieben fachlichen Faelle liefen beim Nachmessen real
+     und ungeskippt; ein achter, ergaenzender DB-Test haette nur eine bereits bewiesene Eigenschaft
+     ein zweites Mal bewiesen.
+- gate: build ok (`go build -p 2` auth/gateway/server/cmd/auth/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues ueber auth+gateway+server) | test ok — `go test -count=1 -v
+  ./internal/auth/...` als `kmuhub_app`: **158 PASS, 0 SKIP, 0 FAIL**. `go test -count=1 -v
+  ./internal/server/...`: **207 PASS, 0 SKIP, 0 FAIL**, darunter die drei neuen
+  `TestMapError/last_admin`, `/self_lockout`, `/privilege_escalation`. `go test -count=1
+  ./internal/gateway/` (inkl. `TestOpenAPIRouteDrift`) gruen. | migration n.a. — keine Tabelle,
+  keine Route, kein `.proto` angefasst. | rls-smoke n.a. — keine Policy beruehrt.
+- verify vorgaenger: sauber. `aa5fcca8` (p1b-audit-events) gegen die acht Klassen geprueft — kein
+  gRPC-Bypass (AuthGRPCServer haelt `auditService` direkt, weil Auth- und SecurityGRPCServer im
+  selben Prozess co-located sind, kein Netzwerk-Hop noetig; keine Gateway-Umgehung), kein Stub,
+  kein `.proto` im Diff, kein neuer `RequirePermission`-Guard, keine neue Tabelle, Events entstehen
+  nachweislich nur NACH erfolgreichem Schreiben (Test `..._RejectedWriteLeavesNoEvent`), Test seedet
+  eigenen Tenant/Actor statt TenantA/B. `go build -p 2` zusaetzlich als Sanity-Check gruen.
+- offen:
+  - Block A (RBAC Welle 1b) ist damit **vollstaendig abgearbeitet** — naechste Unit laut Backlog ist
+    `g-rls-tenant-id-ohne-policy` (Block B, Sicherheit/RLS-Reste, model: opus).
+  - `SetRolePermissions` schreibt weiterhin kein eigenes Audit-Event (siehe Iteration 8, offener
+    Punkt fuer Luke — kein Blocker).
+  - `rbac-format.ts`/`RBAC_ERROR_CODES`-Luecke im FE (self_lockout, privilege_escalation fehlen im
+    Katalog) weiterhin offen — FE-seitig, dieser Loop fasst das Frontend nicht an.
+  - `desktop/src/renderer/src/api/types.ts` weiterhin nicht regeneriert (Befund aus Iteration 6).
 
-## Iteration 12 — w5-route — done — 2026-08-01 (Nachtlauf 3)
-- commit: 38cae79b
-- gebaut: neuer RPC `FinanceService.GenerateEInvoice` (`GenerateEInvoiceRequest{id, tenant_id,
-  format, buyer_reference}` -> `GenerateEInvoiceResponse{data, filename}`) plus
-  `POST /api/v1/finance/invoices/{id}/erechnung`. `format=xrechnung` ruft `einvoice.GenerateUBL`
-  direkt; `format=zugferd` ruft `pdf.NewGenerator(settings).GenerateZUGFeRDInvoicePDF(inv)` — exakt
-  der Helper, den `w5-pdfa3-embed` schon gebaut hatte, nichts davon neu geschrieben. Gateway prueft
-  `format` gegen eine feste Map (`eInvoiceContentTypes`) VOR dem gRPC-Call und setzt daraus
-  Content-Type (`application/xml` bzw. `application/pdf`); unbekannt/leer -> 400 ohne RPC-Aufruf.
-- ENTSCHEIDUNG (a) — 409, nicht 422: `mapBizError` kannte `ErrValidationFailed`/`ErrGenerateFailed`/
-  `ErrTotalsMismatch` bereits aus `w5-pdfa3-embed` und mappt sie auf `FailedPrecondition` ->
-  `grpcStatusToHTTP` -> 409. Diese Route nutzt denselben Pfad, statt einen zweiten
-  Fehlercode-Vertrag fuer dieselbe Fehlerfamilie zu erfinden — die Geschwister-Route
-  `/pdf?format=zugferd` liefert für dieselben Fehler bereits 409, zwei verschiedene Codes für
-  denselben Fehlertyp waeren die schlechtere API. In `openapi.yaml` als 409 dokumentiert.
-- ENTSCHEIDUNG (b) — buyer_reference gilt nur fuer xrechnung: bei `format=zugferd` wird jeder
-  `buyer_reference`-Wert stillschweigend ignoriert (bestehendes Verhalten aus
-  `pdf.GenerateZUGFeRDXML`, das intern immer mit leerem BuyerReference an `einvoice.GenerateCII`
-  geht — ZUGFeRD-im-PDF ist fuer private Empfaenger, die keine Leitweg-ID haben). Ist
-  `buyer_reference` gesetzt UND `format=xrechnung`, laeuft vor `GenerateUBL` zusaetzlich
-  `einvoice.Validate(..., ProfileXRechnung)` — die deutschen CIUS-Regeln (Leitweg-ID, IBAN,
-  zerlegte Adressen), die `GenerateUBL` selbst nur mit dem EN-16931-Kern prueft.
-- Neues Message-Paar `GenerateEInvoiceRequest/Response` statt eins der bestehenden
-  wiederzuverwenden — `GenerateZUGFeRDInvoicePDFResponse` heisst sein bytes-Feld `pdf_data` und ist
-  an ZUGFeRD gebunden; ein XRechnung-Ergebnis darin unterzubringen waere Etikettenschwindel. Proto
-  im selben Commit regeneriert (`protoc --go_out --go-grpc_out`, `make` war in der Bash-Umgebung
-  nicht auf PATH, direkter `protoc`-Aufruf mit denselben Flags wie `make proto-biz`).
-  Nebenbei korrigiert: der Kommentar an `GenerateZUGFeRDInvoicePDFResponse` behauptete noch
-  "graceful degradation (plain PDF on failure)" — das hat `w5-pdfa3-embed` bereits entfernt, der
-  Kommentar war seither falsch.
-  `respondPDF` in `route_biz.go` auf einen generischen `respondFile(w, data, filename,
-  contentType)` umgestellt (Ein-Zeilen-Wrapper), damit die neue Route denselben Header-Code nutzt
-  statt ihn zu duplizieren.
-- Kein neuer Guard: bestehendes `RequirePermission("finance","read")` wiederverwendet (wie bei der
-  Schwester-Route `/pdf`), kein Seed noetig. Kein 404-Zusatzcode noetig — `invoiceService.GetByID`
-  ist bereits tenant-gescoped und liefert `ErrInvoiceNotFound` fuer fremde Rechnungen, `mapBizError`
-  macht daraus 404 (identisch zum bestehenden Verhalten der PDF-Route).
-- Kein Server-Test (`internal/server`) fuer den neuen RPC angelegt — bewusst, nicht vergessen: die
-  Schwester-RPC `GenerateZUGFeRDInvoicePDF` hat ebenfalls keinen direkten Test in diesem Paket, die
-  eigentliche Logik ist bereits in `internal/biz/einvoice` und `internal/biz/pdf` vollstaendig
-  getestet, und der RPC selbst ist duenne Verdrahtung (Tenant/ID parsen, Invoice+Settings laden,
-  dispatch, mapBizError). Inhaltliche Pruefung des Outputs ist explizit `w5-roundtrip-test`
-  zugewiesen — Nachtrag mit den exakten RPC-Signaturen steht jetzt dort im Backlog.
-  Gateway-Tests neu: `TestHandleGenerateEInvoice_ServiceUnavailable`,
-  `_MissingFormat`, `_InvalidFormat` — folgen dem bestehenden Muster (Validierung vor dem
-  gRPC-Call wird ohne echte Verbindung getestet, echte Erzeugung nicht — dafuer gibt es keine
-  Server-Test-Infrastruktur in diesem Paket, siehe oben).
-- gate: build ok (`./internal/server/... ./internal/gateway/... ./internal/biz/... ./cmd/gateway/...
-  ./cmd/biz/...`) | vet ok | lint ok (golangci-lint auf server+gateway+einvoice+pdf: 0 issues) |
-  gofmt ok (drei beruehrte Go-Dateien gegen LF-normalisierten Inhalt geprueft, keine echten Diffs —
-  CRLF im Bestand) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/gateway/...` gruen
-  inkl. `TestOpenAPIRouteDrift` (739 Routen gegen 741 dokumentierte Pfade), `./internal/server/...`
-  und `./internal/biz/einvoice/...` zusammen 256 Tests, **0 Skips**. migration n.a. (keine Tabelle),
-  rls-smoke n.a. (keine Policy angefasst), proto-regen durchgefuehrt und geprueft.
-- verify vorgaenger: `c12467c8` (w5-pdfa3-embed) gegen die acht Fehlerklassen geprueft. Diff:
-  `zugferd.go`+Test, `biz_grpc.go`, `route_biz_invoices.go`, `openapi.yaml`. gRPC-Client-Aufruf im
-  Gateway unveraendert (`client.GenerateZUGFeRDInvoicePDF`, Fehlerklasse 1 n.a.). Kein Stub, kein
-  TODO. Keine `.proto`-Aenderung in diesem Commit (Fehlerklasse 3 n.a.). Kein neuer Guard
-  (Fehlerklasse 4/8 n.a.). Keine neue Tabelle (Fehlerklasse 5 n.a.). Route unveraendert, nur ihr
-  Fehlerverhalten (Fehlerklasse 7 n.a. — `/pdf` stand schon in openapi.yaml, der Commit ergaenzt nur
-  409+Beschreibung). Wire-Shape (Fehlerklasse 6) gegen den Test gegengelesen: `/AF`, `/AFRelationship
-  /Alternative`, `text/xml`, exakter Dateiname `factur-x.xml` — alles wie behauptet, im Test
-  verifiziert statt geglaubt. Kein Fund.
-- offen fuer Luke:
-  (1) Die neue Route ist noch ungetestet gegen echten Content — `w5-roundtrip-test` (naechste Unit)
-      schliesst das, indem er Rechnung -> Route -> `Service.Import` zurueckspielt.
-  (2) `models.Invoice` hat weiterhin kein Leitweg-ID-Feld — `buyer_reference` kommt ausschliesslich
-      als Query-Parameter, nicht aus gespeicherten Rechnungsdaten. Wenn ein Kunde die Leitweg-ID
-      dauerhaft am Kontakt/Rechnung hinterlegen will, ist das ein FE+Migrations-Thema, nicht Teil
-      dieser Welle.
-  (3) Kein Desktop-Aufrufer fuer `/erechnung` existiert (wie schon bei `/pdf?format=zugferd` in
-      Iteration 11 notiert) — `EInvoiceIndicator.tsx` ist reines Mock-Widget ohne API-Calls. Sobald
-      das FE anbindet, muss die 400/409-Fehlerdarstellung dort sichtbar werden.
+## Iteration 10 — g-rls-tenant-id-ohne-policy — done — 2026-08-02 22:40
+- commit: bfb89c8b
+- gebaut: Migration `000269_rls_email_contact_links_and_plugin_rules` setzt RLS auf die drei
+  Tabellen, die `tenant_id` tragen, aber weder RLS noch Policy hatten
+  (`email_contact_links`, `validation_rules`, `workflow_rules`), plus zwei Isolationstests und
+  einen Schreibpfad-Fix im plugin-gRPC-Server.
+  Der Befund ist groesser als "Policy fehlt": `ValidationRuleRepository.GetByID/.Update/.Delete`
+  und die `workflow_rules`-Entsprechungen laufen samtlich als `WHERE id = $1` — **ohne**
+  Tenant-Praedikat. Wer eine Regel-UUID kannte, konnte bis eben die Regel eines fremden Tenants
+  lesen, aendern und loeschen. Der Service darueber (`plugin/service.go`) reicht die ID
+  ungefiltert durch. RLS schliesst das an der einzigen Stelle, an der es fuer alle Aufrufer
+  zugleich zu schliessen ist; die Repos bleiben unveraendert, weil ein nachtraeglich
+  eingebautes Praedikat je Methode genau der groessere Diff mit der kleineren Wirkung waere.
+  `email_contact_links.tenant_id` war seit Migration 000110 **nullable und nie gebackfillt**.
+  Eine Policy auf einer NULL-Spalte macht die Tabelle unsichtbar statt sicher (Phantom-404), also
+  erst Backfill aus `email_messages.tenant_id` (Join ueber `message_id`, das NOT NULL + FK mit
+  ON DELETE CASCADE ist, und `email_messages.tenant_id` ist selbst NOT NULL — der Backfill ist
+  damit vollstaendig), dann `SET NOT NULL`, dann die Policy.
+- entscheidungen:
+  1. **Kein DELETE-Fallback fuer nicht aufloesbare Zeilen.** Die naheliegende Zeile
+     `DELETE FROM email_contact_links WHERE tenant_id IS NULL` haette die Migration auf jeder
+     Datenbank durchlaufen lassen. Genau das ist der Fehler: traegt die FK-Annahme auf Prod nicht,
+     soll die Migration stehenbleiben und nicht stillschweigend Verknuepfungen loeschen. Lokal
+     ist die Tabelle leer (0 Zeilen), auf Prod entscheidet der Backfill; schlaegt `SET NOT NULL`
+     dort fehl, ist das die gewuenschte Bremse.
+  2. **Schreibpfad-Fix im Service, nicht nur RLS.** `plugin_grpc.go` nahm die `tenant_id` fuer
+     `CreateValidationRule`, `ListValidationRules`, `CreateWorkflowRule`, `ListWorkflowRules` und
+     `ApplyIndustryTemplate` **aus dem Request-Body** — die Datei benutzte
+     `middleware.GetTenantID` an keiner einzigen Stelle. Ueber HTTP war das gedeckt (das Gateway
+     fuellt das Feld aus dem JWT, `route_plugin.go`), am gRPC-Port aber nicht. Neuer Helper
+     `ruleTenant(ctx)` liest den propagierten `x-tenant-id`. Ohne ihn waere der Angriffsversuch
+     nach dieser Migration zwar geblockt, aber als undurchsichtiger DB-Fehler tief im Repository
+     statt als `InvalidArgument` an der Grenze. Das proto-Feld bleibt (Kompatibilitaet), es wird
+     nur nicht mehr geglaubt.
+  3. **Bewusst nicht angefasst:** die uebrigen Handler derselben Datei (KV-Store, Installationen,
+     Manifeste, `ValidateEntity`, `ExecuteHooks`) nehmen den Tenant weiterhin aus dem Body. Ihre
+     Tabellen stehen seit Migration 000126 unter RLS, der Vektor ist also gedeckt; ein Umbau
+     aller Handler ist eine eigene Unit und haette den Diff dieser verwaessert. **Offener Punkt
+     unten.**
+  4. **Tests gegen die echten Repo-Methoden, nicht ueber `SeedRow`.** Ein seed-basierter Test
+     haette nur bewiesen, dass ein handgeschriebenes INSERT die Policy respektiert — die
+     eigentliche Luecke (ungescoptes `GetByID`/`Delete`) waere unsichtbar geblieben. Der Test
+     ruft deshalb `repo.GetByID` und `repo.Delete` als fremder Tenant auf und prueft, dass die
+     Zeile danach noch steht.
+- gate: build ok (`go build -p 2` server/plugin/email + cmd/plugin,email,gateway) | vet ok |
+  lint ok (golangci-lint, **0 issues** ueber server+plugin+email) | test ok — `go test -count=1`
+  ueber `./internal/plugin/... ./internal/email/... ./internal/server/...` **14 Pakete gruen**,
+  darunter die drei neuen `TestTenantIsolation_ValidationRules_DB`,
+  `_WorkflowRules_DB`, `_EmailContactLinks_DB` (real gelaufen als `kmuhub_app`, **0 Skips**);
+  `go test -count=1 ./internal/gateway/` inkl. `TestOpenAPIRouteDrift` gruen. |
+  migration: up/down/up gruen (268 -> 269 -> 268 -> 269), danach per `pg_class`/`pg_policies`
+  verifiziert: alle drei `rowsec=true forced=true` mit Policy
+  `tenant_id = current_tenant_id() OR is_system_context()`, `email_contact_links.tenant_id`
+  `nullable=NO`. | rls-smoke: durch die drei Isolationstests abgedeckt (eigener Tenant sieht 1,
+  fremder 0; fremdes DELETE aendert nichts; INSERT auf fremden Tenant wird von WITH CHECK
+  abgelehnt).
+- verify vorgaenger: sauber. `26388dae` (p1b-guardrail-tests) gegen die acht Klassen geprueft —
+  reine Testergaenzung (10 Zeilen in `grpc_test.go`), kein Produktionscode, kein `.proto`, keine
+  Route, keine Tabelle, kein neuer Guard. Die drei ergaenzten Tabellenzeilen decken sich mit dem
+  tatsaechlichen `mapError`-Switch (`grpc.go:1101-1106`) — nachgelesen, nicht geglaubt.
+- offen:
+  - **Neuer Fund, eigene Unit wert:** `backend/internal/server/plugin_grpc.go` liest den Tenant in
+    allen uebrigen Handlern weiter aus dem Request-Body (`req.GetTenantId()`) statt aus dem
+    Context. Nach dieser Iteration ist die Datei uneinheitlich — die Rule-Pfade lesen den Context,
+    der Rest nicht. Kandidat fuer eine kleine Aufraeum-Unit in Lauf 5.
+  - Testfixture-Fallstrick, den der naechste Isolationstest wissen sollte: `t.Cleanup` laeuft
+    **nach** allen `defer`s der Testfunktion. Ein `defer pool.Close()` schliesst den Pool also,
+    bevor per `t.Cleanup` registrierte Fixture-Cleanups laufen — sie scheitern still mit
+    "closed pool" und lassen die FK-Kette in der DB stehen (im ersten Lauf genau so passiert,
+    Reste manuell entfernt). Loesung im contactlink-Test: Pool ebenfalls per `t.Cleanup`
+    schliessen, als erstes registriert (LIFO -> laeuft zuletzt).
+  - Naechste Unit laut Backlog: `g-rls-custom-field-values` (Block B, opus) — vier
+    `*_custom_field_values`-Tabellen ohne eigene `tenant_id`, Absicherung ueber
+    `enable_tenant_rls_via_join()`.
+  - `SetRolePermissions` ohne Audit-Event, `rbac-format.ts`-Katalogluecke und die nicht
+    regenerierte `desktop/src/renderer/src/api/types.ts` bleiben unveraendert offen (FE-seitig
+    bzw. Scope-Frage fuer Luke).
 
-## Iteration 13 — w5-roundtrip-test — done — 2026-08-01 (Nachtlauf 3)
-- commit: 0c56cd6e
-- gebaut: zwei DB-Tests in `internal/biz/einvoice/roundtrip_outbound_test.go` (Paket
-  `einvoice_test`, external — importiert `internal/server` fuer `BizGRPCServer`, das seinerseits
-  `einvoice` importiert; ein in-package-Test haette einen Zyklus geschlossen, exakt der Grund, aus
-  dem `pdf_extract_test.go` schon dort liegt). Ablauf je Test: frischer Tenant + EN-16931-taugliche
-  Test-Rechnung (2 Steuersaetze: 2x100,00 @19%, 3x50,00 @7%, netto 350,00/Steuer 48,50/brutto
-  398,50) direkt ueber `invoice.NewPostgresRepository(pool).Create` + Company-Settings ueber
-  `quote.NewPostgresCompanySettingsRepo(pool).Upsert` persistiert (bewusst NICHT ueber
-  `invoice.Service.Create`, das zusaetzlich Nummernkreis/Tax-Berechnung mitbringt und fuer diesen
-  Test nur Rauschen waere) -> `BizGRPCServer.GenerateEInvoice` (mit `nil` fuer alle Dependencies
-  ausser `invoiceService`+`companySettings`, da `GenerateEInvoice` sonst nichts vom Server-Struct
-  liest) fuer `format=xrechnung` bzw. `zugferd` -> Ergebnis-Bytes direkt (ohne manuelles
-  `ExtractXMLFromPDF`) an `einvoice.Service.Import` mit MimeType `application/xml` bzw.
-  `application/pdf` — `Import` extrahiert bei "pdf" intern selbst, das ist also ein echter Test des
-  Extraktionspfads gegen ein real generiertes PDF (`pdf.NewGenerator(...).GenerateZUGFeRDInvoicePDF`),
-  nicht nur der beiden Text-Generatoren. Assertions: Subtotal/TotalTax/GrossTotal, Positionsliste
-  (Beschreibung + Zeilensumme je Position) und beide Tax-Breakdown-Eintraege (Satz + Steuerbetrag)
-  gegen die Ausgangsrechnung.
-  Zwei eigene Tenants (einer je Format), keine geteilten Konstanten — vermeidet die aus Nachtlauf 1
-  bekannte Duplicate-Key-Falle, hier zusaetzlich real: gleiche Rechnungsnummer+Lieferant in
-  BEIDEN Formaten haette in einem gemeinsamen Tenant den zweiten Import als Duplikat abgewiesen.
-- gate: build ok (`./internal/biz/einvoice/... ./internal/server/... ./internal/gateway/...
-  ./cmd/gateway/... ./cmd/biz/...`) | vet ok | lint ok (golangci-lint auf einvoice: 0 issues) |
-  gofmt ok | migration n.a. (lokaler Kopf 256 = Repo-Kopf, keine Migration in dieser Unit) |
-  test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/biz/einvoice/...` 59 Tests, **0 Skips**,
-  beide neuen Roundtrip-Tests PASS (0,10s/0,06s); `./internal/server/...` zur Sicherheit mitgelaufen
-  (unveraendertes Paket, nur als Aufrufer importiert), gruen. rls-smoke n.a. (keine neue Tabelle,
-  keine Policy angefasst — nur bestehende, seit Migration 000122/000132 RLS-gesicherte Tabellen
-  ueber den normalen Tenant-Ctx-Pfad gelesen/geschrieben, exakt das Muster aus
-  `tenant_isolation_test.go`). `go test ./internal/gateway/` nicht erneut als Pflichtschritt
-  gelaufen — diese Unit haben keine Route/keinen Handler angefasst (nur ein neuer Test importiert
-  bestehenden Server-Code), TestOpenAPIRouteDrift ist von Iteration 12 unveraendert.
-- verify vorgaenger: `38cae79b` (w5-route) gegen die acht Fehlerklassen geprueft. Diff:
-  `route_biz.go`, `route_biz_invoices.go`, `route_biz_test.go`, `biz_grpc.go`, `biz.proto`+`.pb.go`
-  (regeneriert im selben Commit, Fehlerklasse 3 n.a.), `openapi.yaml`. Handler geht ueber
-  `getBizClient()` -> `client.GenerateEInvoice` (gRPC-Client, Fehlerklasse 1 n.a.). Kein Stub: der
-  RPC-Server implementiert xrechnung/zugferd vollstaendig, kein `Unimplemented`, kein TODO
-  (Fehlerklasse 2 n.a.). Kein neuer Guard (wiederverwendet `RequirePermission("finance","read")`,
-  Fehlerklassen 4/8 n.a.). Keine neue Tabelle (Fehlerklasse 5 n.a.). `invoiceService.GetByID` ist
-  tenant-gescoped, liefert 404 fuer fremde Rechnungen ueber `mapBizError`. `openapi.yaml` traegt die
-  neue Route inkl. 409 im selben Commit, `TestOpenAPIRouteDrift` lief in Iteration 12 gruen
-  (Fehlerklasse 7 n.a.). Wire-Shape (Fehlerklasse 6): Content-Type wird serverseitig aus einer festen
-  Map vor dem gRPC-Call gesetzt (`application/xml`/`application/pdf`), unbekanntes Format 400 ohne
-  RPC-Aufruf — im Code nachvollzogen, kein Fund. Kein Fund.
-- offen fuer Luke:
-  (1) Damit ist Block C (E-Rechnung Ausgang) vollstaendig abgearbeitet — alle sechs `w5-*`-Units
-      sind `done`. Die drei aus Iteration 11/12 bekannten offenen Punkte bleiben unveraendert:
-      kein PDF/A-3b (bewusst, Begruendung dort), 409 statt 422 fuer Validierungsfehler (Begruendung
-      in Iteration 12), kein Desktop-Aufrufer fuer `/erechnung`.
-  (2) Naechste Unit laut Backlog-Reihenfolge waere `p2-guard-compat` (Block B, RBAC Phase 2) — die
-      naechste Iteration zieht sie automatisch, kein Handlungsbedarf hier.
+## Iteration 11 — g-rls-custom-field-values — done — 2026-08-02 22:20
+- commit: 54d1ef7d
+- gebaut: Migration `000270_rls_crm_custom_field_values` setzt die vier CRM-Custom-Field-Value-
+  Tabellen (`contact_`/`company_`/`deal_`/`activity_custom_field_values`) ueber
+  `enable_tenant_rls_via_join()` unter RLS — Join jeweils auf die Eltern-Entitaet.
+  Dazu `internal/crm/customfield/value_tenant_isolation_test.go` (external test package) mit einem
+  tabellengetriebenen Isolationstest ueber alle vier Repos und einem Merge-Regressionstest.
+  **Kein Go-Produktionscode geaendert** — das ist der Punkt der gewaehlten Loesung.
+- entscheidungen:
+  1. **Join-Policy statt eigener `tenant_id`-Spalte** — bewusst gegen den Praezedenzfall aus
+     Migration 000126 (die fuer `ticket_messages` die Spalte ergaenzt und den Join-Helper
+     ausdruecklich ablehnt). 000126 argumentiert mit Query-Volumen (Plugin-Execution-Log wird in
+     Masse gescannt). Hier trifft das nicht: die vier Tabellen werden ausschliesslich ueber die
+     Eltern-ID gelesen, und die ist die fuehrende Spalte ihres Primaerschluessels. Der teurere Weg
+     waere die Spalte gewesen: `NOT NULL` haette alle vier Schreibpfade in Go erzwungen,
+     inklusive des `INSERT ... SELECT`-Merge in `contact/postgres_repository.go:717` — und ein
+     dabei uebersehener Pfad bricht Schreiben komplett (die dokumentierte NULL-tenant_id-Falle
+     dieses Repos). Migration 000118 nennt den Join-Helper genau dafuer den vorgesehenen Fallback.
+     Er wurde damit **zum ersten Mal produktiv benutzt** — bis jetzt stand er nur definiert im
+     Schema.
+  2. **`task_custom_field_values` gegengeprueft, nicht geglaubt.** Der Backlog vermutete sie
+     ausserhalb der Liste; `pg_class` bestaetigt: `relrowsecurity=t`, eigene `tenant_id`, eine
+     Policy. Zu Recht nicht angefasst.
+  3. **Negativprobe statt Vertrauen ins gruene Ergebnis.** Migration einmal zurueckgerollt und den
+     Test erneut gefahren: alle vier Faelle fallen mit `cross-tenant read ... leaked 1 row(s)`.
+     Damit ist belegt, dass der Test die Luecke wirklich misst und nicht nur mitlaeuft.
+  4. **Merge-Regressionstest zusaetzlich.** `MergeInto` kopiert Custom-Field-Werte mit
+     `INSERT INTO contact_custom_field_values ... SELECT ... FROM contact_custom_field_values`
+     in einer Transaktion — nach dieser Migration filtert die Policy dort **beide** Seiten.
+     Beide Kontakte gehoeren demselben Tenant, es muss also weiter kopieren; ein still leerer
+     Merge waere genau die Phantom-Form, die dieses Repo schon produziert hat. Test beweist, dass
+     der Wert ankommt.
+- befund (real, kein Blocker): die eigentliche Luecke war groesser als "RLS fehlt". **Saemtliche
+  zwoelf Zugriffsstellen filtern nur auf die Eltern-ID** (`WHERE cfv.contact_id = $1`), ohne
+  jeden Tenant-Praedikat — Lesen, Batch-Lesen und der Upsert. Wer eine fremde Kontakt-UUID kannte,
+  konnte deren Custom-Field-Werte lesen **und ueberschreiben**. Deshalb geht der Test durch die
+  echten Repo-Methoden und nicht ueber `SeedRow`: ein Seed-Test haette nur bewiesen, dass ein
+  handgeschriebenes INSERT die Policy respektiert.
+- query-plan (der im Backlog erbetene Check): bei 12 Kontakten waehlt der Planner fuer die
+  Policy-Subquery einen **hashed SubPlan mit Seq Scan auf `contacts`** — bei dieser Groesse die
+  billigere Wahl. Der korrelierte Plan existiert und ist erreichbar: mit `enable_seqscan=off`
+  zeigt derselbe Query `Index Scan using contacts_pkey ... Index Cond: (id = cfv.contact_id)`.
+  Der Planner kippt also kostenbasiert auf den PK-Lookup, sobald `contacts` waechst. Kein
+  Handlungsbedarf, aber der Beleg gehoert hierher statt in eine Behauptung.
+- gate: build ok (`go build -p 2` ueber `./internal/crm/... ./internal/gateway/... ./cmd/crm/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint, **0 issues** ueber `./internal/crm/...`) |
+  test ok — `go test -count=1 ./internal/crm/...` **12 Pakete gruen, 0 Skips**, darunter die neuen
+  `TestTenantIsolation_CRMCustomFieldValues_DB` (4 Subtests) und
+  `TestMergeInto_CarriesCustomFieldValues_DB`, real gelaufen als `kmuhub_app`;
+  `go test -count=1 ./internal/gateway/ ./internal/server/...` gruen. |
+  migration: up/down/up gruen (269 -> 270 -> 269 -> 270), danach per `pg_class`/`pg_policies`
+  verifiziert: alle vier `rowsec=true forced=true` mit Policy
+  `EXISTS (SELECT 1 FROM <parent> p WHERE p.id = <child>.<fk> AND (p.tenant_id =
+  current_tenant_id() OR is_system_context()))`. | rls-smoke: durch die Isolationstests
+  abgedeckt (eigener Tenant 1 Zeile, fremder 0; fremder Upsert laesst den Wert des Eigentuemers
+  unveraendert).
+- verify vorgaenger: sauber. `bfb89c8b` (g-rls-tenant-id-ohne-policy) gegen die acht Klassen
+  geprueft. Keine Route, kein `.proto`, kein neuer Guard. Klasse 5 gezielt nachgezogen, weil die
+  Migration `email_contact_links.tenant_id` auf `NOT NULL` hebt: der einzige Schreibpfad ist
+  `server/email_grpc.go:843 LinkEmailToContact`, er zieht den Tenant aus
+  `middleware.GetTenantID(ctx)` und reicht ihn an `contactlink/repository.go:33` durch; die
+  Lesepfade sind zusaetzlich per `tenant_id = $2` gescopt. Kein Pfad kann die Spalte leer lassen.
+- offen:
+  - Der Join-Helper ist mit dieser Migration erstmals im Einsatz. Wenn `g-rls-regression-guard`
+    (Block B) den Schema-Scan baut, sollte er Join-geschuetzte Tabellen genauso als "geschuetzt"
+    zaehlen wie spalten-geschuetzte — beide zeigen `relrowsecurity=true`, das reicht als Kriterium.
+  - `SeedRow`/`CleanupRow` in `testutil` setzen eine `id`-Spalte voraus (`RETURNING id`,
+    `DELETE ... WHERE id = $1`). Fuer Tabellen mit zusammengesetztem Primaerschluessel — wie diese
+    vier — sind sie unbrauchbar; der Test zaehlt deshalb selbst. Falls weitere Units auf solche
+    Tabellen treffen, lohnt ein Helper mit frei waehlbarem Praedikat.
+  - Naechste Unit laut Backlog: `g-rls-events-partition` (Block B, opus) — `events` ist
+    partitioniert, ohne `tenant_id` und ohne Policy; Entscheidung zwischen Spalte+Backfill (A)
+    und begruendetem Allowlist-Eintrag (B).
+  - Aus Iteration 10 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den uebrigen
+    Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`.
 
-## Iteration 14 — p2-guard-compat — done — 2026-08-01 (Nachtlauf 3)
-- commit: dfb10919
-- gebaut: `RequirePermissionAny` in `internal/middleware/rbac.go` — laesst durch, sobald der
-  Perms-Slice aus dem Context MINDESTENS EINEN der uebergebenen `resource:action`-Keys enthaelt.
-  Aufbau wie beim Nachbarn `RequireRole`: das Key-Set wird einmal beim Wiring gebaut (Map), pro
-  Request nur ein Lookup je Token-Key; kein DB-Query, kein Cache, `RequirePermission` unveraendert.
-  SIGNATUR-ABWEICHUNG vom Backlog-Vorschlag, bewusst: `(first [2]string, rest ...[2]string)` statt
-  `(pairs ...[2]string)`. Mit reinem Variadic waere `RequirePermissionAny()` gueltiger Go-Code, der
-  ein leeres Key-Set baut und damit JEDEN aussperrt — ein Fehler, der lokal nie auffaellt und erst in
-  Produktion als flaechiges 403 sichtbar wird. Mit dem gezogenen ersten Parameter faellt genau dieser
-  Fall beim Kompilieren durch, ohne Runtime-Check und ohne panic. Die Call-Site aus dem Backlog
-  bleibt Zeichen fuer Zeichen dieselbe.
-  Tests: sechs Faelle in `rbac_test.go` — Alt-Token (nur grober Key) kommt durch, frisches Token (nur
-  feiner Key) kommt durch, beide Keys durch, keiner von beiden 403, gar keine Permissions 403, und
-  "gleiche Resource, andere Action" (`documents:file:delete`) 403, damit der Match nicht versehentlich
-  auf Praefix-Ebene passiert.
-- gate: build ok (`./internal/middleware/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok |
-  lint ok (golangci-lint auf middleware: 0 issues) | gofmt ok fuer die beiden geaenderten Dateien
-  (`gofmt -l` meldet 7 unveraenderte Bestandsdateien im Paket, u.a. `cors.go`/`ratelimit.go` — nicht
-  von dieser Unit, nicht angefasst) | migration n.a. | rls-smoke n.a. (kein SQL, keine Tabelle,
-  keine Policy) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/middleware/` 64 Tests,
-  **0 Skips**, alle PASS. `go test ./internal/gateway/` NICHT gelaufen — diese Unit hat keine Route,
-  keinen Handler und keine `openapi.yaml` angefasst (nur einen bisher nirgends aufgerufenen Helper
-  hinzugefuegt); `TestOpenAPIRouteDrift` ist seit Iteration 12 unveraendert. Ab `p2a` gilt die
-  Pflicht wieder, dort werden Routen angefasst.
-- verify vorgaenger: `0c56cd6e` (w5-roundtrip-test) gegen die acht Fehlerklassen geprueft. Diff sind
-  genau zwei Dateien: `BACKLOG.yml` und die neue `internal/biz/einvoice/roundtrip_outbound_test.go`
-  — kein Handler, kein Proto, keine Migration, keine Route, kein Guard, also Klassen 1/3/4/5/6/7/8
-  n.a. Klasse 2 (Stub/Fake) gezielt am Testinhalt geprueft, weil ein Test der plausibelste Ort fuer
-  einen Schein-Beweis ist: der Test ruft den echten `BizGRPCServer.GenerateEInvoice`, schiebt das
-  Ergebnis durch den echten DB-gestuetzten `einvoice.Service.Import` und vergleicht Subtotal,
-  TotalTax, GrossTotal, beide Positionen (Beschreibung + Zeilensumme) und beide
-  Tax-Breakdown-Eintraege gegen die Ausgangsrechnung — keine hartkodierten Erwartungswerte neben der
-  Quelle, kein `t.Skip` ausser dem regulaeren `SkipIfNoDB`, keine Fake-Bytes. Zwei frische Tenants
-  per `uuid.New()` statt der geteilten Konstanten, also keine Duplicate-Key-Falle unter
-  `t.Parallel()`. Kein Fund.
-- offen fuer Luke:
-  (1) TOKEN-GROESSE — Fund am Rande dieser Unit, gehoert NICHT zu Block B, entstand aber durch
-      `p1a-migration` und trifft dessen Annahmen. In der lokalen DB haengen nach Migration 000256
-      **454 Permission-Keys** an der Rolle `admin` (9040 Byte reiner Key-Text), 305 an `manager`,
-      159 an `member`. `createTokenPair` backt sie ALLE ungefiltert in den Access-Token —
-      als JSON-Claim rund 10 KB, base64-kodiert also ein Bearer-Header von grob **14 KB pro
-      Request**. Tragfaehig ist das aktuell: das Backend setzt nirgends `SetCookie` (das
-      4-KB-Cookie-Hardlimit der Browser greift also nicht), und weder das Gateway noch der Caddyfile
-      setzen `MaxHeaderBytes`, es gilt Gos 1-MB-Default. Risikoreich wird es, sobald irgendein Proxy
-      oder CDN mit dem branchenueblichen 8-KB-Header-Limit davorkommt (nginx, ALB, Cloudflare) —
-      dann bekommt ausgerechnet der Admin 431 und niemand sonst. Zwei saubere Auswege, beide
-      ausserhalb dieses Loops: die feinen Keys aus dem Token nehmen und per
-      `/auth/me/permissions` (existiert seit `p1a-gateway`) clientseitig laden, oder sie im Token
-      komprimiert/als Bitmaske fuehren. Vor dem Launch entscheiden, nicht danach.
-  (2) Der Helper hat noch keinen einzigen Aufrufer — das ist Absicht (`p2a` ff. verdrahten ihn).
-      Bis dahin veraendert dieser Commit das Verhalten in Produktion an keiner Stelle.
-
-## Iteration 15 — p2a-wiki-zeiterfassung-infra — done — 2026-08-01 (Nachtlauf 3)
-- commit: 20685fab
-- Fortsetzung einer bereits im Arbeitsverzeichnis vorbereiteten, aber nie committeten Iteration
-  (Code + BACKLOG-Statuswechsel lagen unstaged vor, kein eigener Journal-Eintrag). Vor dem Commit
-  vollstaendig gegengeprueft statt blind uebernommen: Diff gelesen, Guard-Logik gegen
-  `RequirePermissionAny` aus Iteration 14 nachvollzogen, alle neun referenzierten Katalog-Keys per
-  SQL gegen die laufende DB verifiziert (`wiki:article:{read,create,edit,delete}`,
-  `wiki:category:manage`, `wiki:share_token:create`, `zeiterfassung:{team:view,week:approve,
-  corrections:approve}` — alle vorhanden, aus dem `p1a-migration`-Gesamtkatalog).
-- gebaut: `RequirePermissionAny(alt, neu)` auf allen wiki- und zeiterfassung-Supervisor-Routen.
-  `route_wiki.go`: sechs Guard-Variablen (`wikiRead/Create/Edit/Delete/Share/CatManage`) vor
-  `r.Route(...)`, additiv auf Artikel/Versionen/Attachments/Share-Tokens/Kategorien. Alt-Key bleibt
-  ueberall erhalten. `wiki:categories:read` hat keine Katalog-Entsprechung und blieb unveraendert
-  auf dem reinen `RequirePermission`. `route_hr.go`: drei Guard-Variablen
-  (`zeitTeamView/WeekApprove/CorrApprove`) auf `/team`, `/weeks/{approve,reject,reopen}`,
-  `/corrections/{id}/approve`. Persoenliche Zeiterfassung (Clock-in/-out, eigene Eintraege,
-  Wochenstatus) bleibt bewusst auf dem groben `hr:read`/`hr:write` — der Katalog fuehrt dafuer
-  keinen eigenen Key.
-  Drittes Modul im Scope, **infrastructure, hat ueberhaupt keine Backend-Routen** — verifiziert per
-  Grep (`grep -rn infrastructure backend/internal/gateway/` — 0 Treffer) und per Sub-Agent-Recherche:
-  `InfrastrukturPage.tsx` ist explizit als Mock deklariert ("All data is mock — the real backend
-  integration comes in Luke's phases"), keine `fetch`/`apiClient`-Aufrufe, alle Aktionen (Service
-  restart, Backup, SSL renew, Firewall-Toggle, Update-Check, Log-Export) enden in
-  `toast.success(...)` ohne Netzwerk-Call. Die fuenf `infrastructure:*`-Katalog-Keys existieren zwar
-  seit `p1a-migration` in `permissions` (per SQL bestaetigt), aber es gibt nichts zu gaten — keine
-  Route erfunden, wie in den Unit-Notes Punkt (d) gefordert.
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (golangci-lint auf gateway+middleware: 0 issues) | gofmt: `route_hr.go`/
-  `route_wiki.go` von `gofmt -l` gemeldet, aber Fehlalarm — Diff gegen den committeten HEAD-Stand
-  zeigt reinen CRLF-Checkout-Artefakt (`core.autocrlf=true`, Datei-Tool hat die Zeilenenden des
-  Bestands beibehalten), der committete Inhalt ist LF und gofmt-clean (git normalisiert beim
-  Commit zurueck). Neue Testdatei selbst gofmt-clean.
-  test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/gateway/...` (inkl. der 22 neuen Faelle
-  in `TestCapabilityGuards_AdditiveWiring` und `TestOpenAPIRouteDrift` — 739 Routen/741 Pfade, keine
-  neue Route in dieser Unit) und `./internal/middleware/...` beide gruen. Kein Skip.
-  migration n.a. (Seeds bereits aus 000256 vorhanden). openapi n.a. (keine neue Route, nur Guards
-  ausgetauscht).
-- verify vorgaenger: `dfb10919` (p2-guard-compat) gegen die acht Fehlerklassen geprueft. Diff: nur
-  `rbac.go`+`rbac_test.go` (plus BACKLOG/JOURNAL). `RequirePermissionAny` folgt exakt dem
-  Nachbarmuster `RequireRole`/`RequirePermission` (Map-Aufbau beim Wiring, ein Lookup pro Request,
-  `response.Error` bei Miss), Signatur mit gezogenem erstem Parameter wie in den Notes gefordert,
-  `RequirePermission` unangetastet. Kein Handler/Proto/Migration/Route/Wire-Shape in diesem Commit,
-  Fehlerklassen 1/3/5/6/7 n.a. Kein Fund.
-- offen fuer Luke:
-  (1) Block B (RBAC Phase 2, Guard-Verfeinerung) ist mit dieser Unit fuer wiki+zeiterfassung
-      abgeschlossen, `p2b-helpdesk-kommunikation-kalender` ist die naechste ziehbare Unit — ihre
-      Notes tragen jetzt einen "MUSTER AUS p2a"-Absatz mit fuenf konkreten Punkten (Seed-Check-Query,
-      Guard-als-lokale-Variable-Konvention, Testdatei-Konvention, Endpoint-ohne-Key/Key-ohne-Endpoint-
-      Regel, additiv-heisst-erweiternd), damit die naechste Iteration nicht bei null anfaengt.
-  (2) infrastructure bleibt ein reines FE-Mock ohne Backend — falls/wenn Luke das Modul mit echten
-      Endpoints baut (Service-Steuerung, Backup-Trigger, o.ae.), MUESSEN die fuenf bereits geseedeten
-      `infrastructure:*`-Keys von Anfang an als Guards verdrahtet werden, nicht nachtraeglich. Keine
-      Backlog-Unit dafuer angelegt — das ist Neubau, nicht additive Guard-Tightening, und ausserhalb
-      dessen, was dieser Loop bauen darf ohne Rueckfrage.
-  (3) TOKEN-GROESSE (Iteration 14, Punkt 1) bleibt unveraendert offen und wird durch diese Unit nicht
-      groesser: keine neuen Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
-
-## Iteration 16 — p2b-helpdesk-kommunikation-kalender — done — 2026-08-01 (Nachtlauf 3)
-- commit: 89789994
-- gebaut: `RequirePermissionAny(alt, neu)` additiv auf helpdesk-, kommunikation- und
-  kalender-Routen, verteilt ueber vier Gateway-Dateien (kein 1:1 Modul-zu-Datei-Mapping):
-  `route_helpdesk.go` — sieben Guard-Variablen (`hdTicketRead/Create/Edit/Reply`,
-  `hdKbManage`, `hdCannedManage`, `hdStatsView`). Tickets: create/read wie erwartet;
-  edit deckt PUT + close/reopen/assign/merge ab (verifiziert gegen den FE-Gate-Block
-  `canEditTicket` in `HelpdeskPage.tsx:1047`, der genau diese vier Aktionen hinter
-  `helpdesk:ticket:edit` versammelt). Queues/SLA-Policies/Routing-Rules/Business-Hours haben
-  keine Katalog-Entsprechung (backend-gaps.md §RBAC: "helpdesk BE seedet nur das grobe Paar
-  ausserhalb Tickets/KB/Canned/Stats") und blieben unangetastet.
-  `route_chat.go` — `kommunikation:channel:manage` auf Channel-Create/Update/Delete/Archive/
-  Member-Role (Administration); Join/Leave/DM/Messages/Files bleiben auf dem reinen
-  `channels:*`-Key (persoenliche Nutzung, Katalog-Kommentar `capability-catalog.ts:118-121`).
-  `route_inbox.go` — `kommunikation:canned:manage` auf die INBOX-eigenen Canned-Responses
-  (separat von `helpdesk:canned:manage`, zwei verschiedene Canned-Response-Systeme).
-  `kommunikation:team_inbox:manage` additiv NUR auf die drei bereits `RequirePermission`-
-  gegateten Team-Inbox-Routen (Update, Add-/RemoveMember) — Create/Delete bleiben auf
-  `RequireRole("admin","manager")`, siehe Fund unten.
-  `route_calendar.go` + `route_booking.go` — `kalender:category:manage` auf Event-Kategorie
-  Create/Delete, `kalender:booking_page:manage` auf Booking-Page Create/Update/Delete. Rest
-  von Kalender (Calendars/Members/Events/Resources/Holidays/Preferences/LiveKit) hat keine
-  Katalog-Entsprechung, unangetastet.
-  Test: `route_capability_guard_test.go` um 4 Router-Setups (helpdesk via bestehendem
-  `newHelpdeskRoutes`-Helper, chat, inbox, calendar+booking) und 22 neue Faelle erweitert —
-  je Modul: Alt-Key-only, Neu-Key-only, Fremd-Key-denied, plus "personal-use bleibt eng"
-  Faelle (Channel-Join, Clock-in-Analog) und "kein-Katalog-Key-Route bleibt eng" Faelle
-  (Queue-Create, Calendar-Create).
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
-  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` 51 Faelle gruen,
-  `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route in dieser Unit)
-  und `./internal/middleware/...` beide gruen, 0 Skips. migration n.a. (Seeds bereits aus
-  000256 vorhanden, gegen die laufende DB verifiziert: alle referenzierten
-  helpdesk/kommunikation/kalender-Keys existieren). openapi n.a. (keine neue Route, nur Guards
-  ausgetauscht). gofmt: `route_helpdesk.go`/`route_inbox.go`/`route_calendar.go`/
-  `route_booking.go` von `gofmt -l` gemeldet — Diff-Pruefung (`gofmt -d`) zeigt reinen
-  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15: `core.autocrlf=true`,
-  `file`-Kommando bestaetigt CRLF-Terminatoren im Arbeitsverzeichnis, git normalisiert beim
-  Commit zurueck auf LF). `route_chat.go` und die Testdatei waren bereits LF und wurden nicht
-  gemeldet.
-- verify vorgaenger: `20685fab` (p2a-wiki-zeiterfassung-infra) gegen die acht Fehlerklassen
-  geprueft. Diff: nur `route_hr.go`/`route_wiki.go`/neue Testdatei/BACKLOG/JOURNAL. Alle neun
-  referenzierten Katalog-Keys per SQL gegen die laufende DB verifiziert (vorhanden). Additiv
-  durchgehend (`RequirePermissionAny(alt, neu)`, kein einziger `RequirePermission`-Alt-Key
-  entfernt). Kein Proto/Migration/neue Route/Handler-Direktzugriff in diesem Commit,
-  Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
-- offen fuer Luke:
-  (1) DREI KATALOG-KEYS OHNE ADDITIVES ZIEL, bewusst nicht verdrahtet:
-      `kommunikation:routing:manage` — JEDE Routing-Rule-Mutation in `route_inbox.go` haengt an
-      `RequireRole("admin","manager")`, keine einzige an `RequirePermission`, also kein
-      Alt-Key zum Erweitern vorhanden. `kommunikation:team_inbox:manage` deckt nur
-      Update/Add-/RemoveMember ab — Create/Delete bleiben aus demselben Grund rollenbasiert.
-      `kommunikation:webhook:manage` hat ueberhaupt keinen Backend-Endpoint (weder chat noch
-      inbox haben je eine Webhook-Route bekommen). Alle drei sind Entscheidungen fuer Luke:
-      entweder bleibt die Verwaltung dauerhaft rollen-exklusiv (dann sind die Keys im Katalog
-      irrefuehrend), oder es braucht einen neuen `RequireRoleOrPermissionAny`-Helper, der
-      Rolle UND Permission additiv kombiniert — bewusst NICHT in dieser Guard-Tightening-Unit
-      gebaut (Scope-Kriechen, neue Middleware-Semantik verdient eigene Ueberlegung/Review).
-  (2) Wie in p2a: Block B ist fuer helpdesk+kommunikation+kalender abgeschlossen,
-      `p2c-work-documents-crm-finance` ist die naechste ziehbare Unit. Ihre Notes tragen jetzt
-      einen "MUSTER AUS p2b"-Absatz (vier Punkte: RequireRole-Routen nicht anfassen,
-      Katalog-Key kann mehrere Gateway-Dateien treffen, "manage"-Key deckt nicht zwingend alle
-      CRUD-Verben ab, Guard-Test-Helper wiederverwenden) zusaetzlich zu p2a's fuenf Punkten.
-  (3) TOKEN-GROESSE (Iteration 14/15) bleibt unveraendert offen, waechst durch diese Unit nicht:
-      keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
-
-## Iteration 17 — p2c-work-documents-crm-finance — done (GETEILT, work+documents) — 2026-08-01 (Nachtlauf 3)
-- commit: 94c26a40
-- gebaut: `RequirePermissionAny(alt, neu)` additiv auf work- und documents-Routen (beide 1:1 in
-  `route_work.go`/`route_document.go`, keine weiteren Dateien). Groesster Batch bisher — 13
-  Katalog-Keys (work) + 9 (documents) — deshalb wie in den Notes vorgesehen NACH ZWEI MODULEN
-  geteilt: crm+finance sind als neue Folge-Unit `p2c-work-documents-crm-finance-2` (deps: diese
-  Unit) direkt vor `p2c-inventar-einkauf-produktion-vertraege` eingehaengt, deren `deps` entsprechend
-  umgebogen.
-  `route_work.go`: zwei Guard-Bloecke (Projects, Tasks). Projects: `projRead`/`projCreate`/`projEdit`/
-  `projDelete`/`projMemberManage` + `projStatusDelete` (Sonderfall: Kanban-Spalten-DELETE traegt
-  legacy `projects:delete`, additiver Key ist trotzdem `work:project:edit`, weil Create/Update/
-  Reorder/Delete der Statuses alle in derselben `projectCan.edit`-gated `ProjectSettingsDialog`-Tab
-  sitzen — verifiziert gegen `ProjectSettingsDialog.tsx`). Tasks: `taskRead`/`taskCreate`/`taskEdit`/
-  `taskDelete`/`taskComment`/`timeLog`/`labelEdit` + `taskEditDel` (DeleteTaskDependency/
-  UnlinkEntityFromTask/RemoveTaskFile tragen legacy `tasks:delete`, additiver Key `work:task:edit`,
-  weil alle Sub-Ressourcen-Sektionen in `TaskDetailPage.tsx` denselben `can.edit`-Prop durchreichen —
-  verifiziert Zeile fuer Zeile, nicht angenommen).
-  `route_document.go`: ein Guard-Block. `docRead`/`docDownload`/`docUpload`/`docEdit`/`docDelete`/
-  `docShareManage`/`docVersionRestore`. Bemerkenswert: `documents:file:edit` deckt sowohl Datei-
-  Rename+Move ALS AUCH Ordner-NewSubfolder+Rename ab (verifiziert gegen `FileContextMenu.tsx`:
-  `canNewFolder = canEditAllowed` in `DokumentePage.tsx:144`, explizit NICHT `documents:file:upload`).
-  Version-Liste (GET .../versions) traegt `documents:version:restore` statt `documents:file:read`,
-  weil der einzige FE-Zugang (Kontextmenue "Version history") komplett hinter `canVersionRestore`
-  sitzt (`FileContextMenu.tsx:245-247`) — es gibt keinen separaten Lese-Pfad.
-  ZWEI KATALOG-KEYS OHNE JEDEN BACKEND-ENDPOINT, verifiziert per Code-Lesen (nicht nur "keine Route
-  gefunden"): `documents:template:manage` — `TemplateGalleryDialog.tsx` hat null API-Calls, reiner FE-
-  Stub. `documents:share_link:create` — `ShareDialog.tsx` `copyLink()` ist `toast.success(...)` ohne
-  jeden Netzwerk-Call. `work:board:export` hat weder FE-Aufrufer noch Backend-Route. Alle drei bleiben
-  unwired, keine Route erfunden (wie infrastructure in p2a, webhook:manage in p2b).
-  ROUTEN OHNE FE-CAPABILITY-AUFRUF BLEIBEN AUF DEM COARSE-KEY, auch wo ein Katalog-Key thematisch
-  passen wuerde (bewusst nicht geraten, per grep auf `useHasCapability`/`useScopedCapability`
-  verifiziert dass 0 Treffer existieren): work `AddProjectMember`/`UpdateProjectMemberRole`/
-  `CreateProjectFromTemplate`/`SetUserProjectPreference`/`MoveTask` sowie die vier `isOwn`/
-  `isOwner`-Client-Checks (`UpdateTimeEntry`/`DeleteTimeEntry`/`UpdateTaskComment`/
-  `DeleteTaskComment` — kein Capability-Aufruf im FE, nur Besitzer-Vergleich); documents `CopyFile`
-  (FE-Kommentar: "Copy is read-action — always visible", kein Gate).
-  Test: `route_capability_guard_test.go` um zwei Router-Setups (`workRouter`, `documentRouter`) und
-  47 neue Faelle erweitert — je Guard-Paar: Katalog-Key-only, plus fuer die Sonderfaelle (Kanban-
-  Status-Delete, Dependency-Delete, Version-Liste) einen "falscher Key oeffnet es NICHT"-Gegenfall.
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
-  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen inkl.
-  47 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route) und
-  `./internal/middleware/...` beide gruen, 0 Skips. migration n.a. (alle referenzierten
-  work/documents-Keys per SQL gegen die laufende DB verifiziert: vorhanden aus 000256). openapi n.a.
-  (keine neue Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt:
-  `route_document.go` von `gofmt -l` gemeldet — Diff-Pruefung (CRLF strippen, dann `gofmt -l` erneut)
-  bestaetigt reinen CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15/16,
-  `core.autocrlf=true`), committeter Inhalt ist LF und gofmt-clean. `route_work.go` und die Testdatei
-  waren bereits LF/ASCII und wurden nicht gemeldet.
-- verify vorgaenger: `89789994` (p2b-helpdesk-kommunikation-kalender) gegen die acht Fehlerklassen
-  geprueft. Diff: `route_booking.go`/`route_calendar.go`/`route_capability_guard_test.go`/
-  `route_chat.go`/`route_helpdesk.go`/`route_inbox.go`. Alle Alt-Keys additiv erweitert (kein
-  einziger `RequirePermission`-Aufruf ersetzt statt erweitert), Testfaelle substantiell (nicht nur
-  "irgendwas ausser 403"). Kein Proto/Migration/neue Route/Handler-Direktzugriff/Stub in diesem
-  Commit, Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
-- offen fuer Luke:
-  (1) `p2c-work-documents-crm-finance-2` (crm+finance) ist die naechste ziehbare Unit in Block B,
-      `p2c-inventar-einkauf-produktion-vertraege` deps entsprechend umgebogen. Ihre Notes nennen
-      bereits die betroffenen Gateway-Dateien (kein 1:1-Modul-Mapping bei crm, kein dediziertes
-      `route_finance.go`) und die Katalog-Key-Zahlen (14+14).
-  (2) Zu pruefen, ob `work:board:export`, `documents:template:manage` und
-      `documents:share_link:create` dauerhaft ohne Backend bleiben sollen oder ob die FE-Stubs
-      (TemplateGalleryDialog, ShareDialog-Link-Copy, Board-Export) noch gebaut werden — das ist
-      Neubau, keine Guard-Tightening-Frage, keine Backlog-Unit dafuer angelegt.
-
-## Iteration 18 — p2c-work-documents-crm-finance-2 — done (crm+finance) — 2026-08-01 (Nachtlauf 3)
-- commit: f534ef8e
-- gebaut: `RequirePermissionAny(alt, neu)` additiv auf allen crm- und finance-Routen. crm sitzt
-  komplett in `route_crm.go` (Contacts/Companies/Deals/Activities/Reports — die anderen
-  `route_crm_*.go`-Dateien enthalten nur Handler, keine eigenen `r.Route`-Bloecke, Korrektur zur
-  Datei-Vermutung aus der vorigen Unit). finance sitzt komplett in `route_biz.go`
-  (Invoices/Quotes/Recurring/CreditNotes/Dunning/Export/Deal-to-Quote — `route_biz_invoices.go`/
-  `route_biz_quotes.go`/`route_biz_einvoice.go` ebenfalls nur Handler). 15 Guard-Variablen crm
-  (`contactRead/Create/Edit/Delete/Import/Export`, `companyRead/Create/Edit/Delete`,
-  `dealRead/Create/Edit/Delete`, `activityRead/Edit/Delete`, `reportRead`), 14 Guard-Variablen
-  finance (`invoiceRead/Create/Edit/Delete/Send`, `creditNoteCreate`, `quoteRead/Write/Send/Convert`,
-  `dunningRun/RunWrite/Settings/SettingsWrite`, `exportRun`).
-  ZWEI NEUE MUSTER (zusaetzlich zu p2a-p2c's Katalog): (a) eine Route kann durch mehrere fine Keys
-  geoeffnet werden, wenn zwei FE-Aktionen mit unterschiedlicher Capability auf denselben Endpoint
-  zielen — `POST /finance/credit-notes` ist sowohl "neue Gutschrift" (`finance:invoice:create`,
-  FinanzenPage.tsx canCreateInvoice) als auch "Storno einer versendeten Rechnung"
-  (`finance:invoice:delete`, canDeleteInvoice); `creditNoteCreate` traegt beide als Alternativen.
-  (b) ein legacy-Verb kann durch ein ANDERES catalogue-Verb erweitert werden, wenn es keinen
-  eigenen Key gibt — Quote-Edit/Accept/Reject haben keinen `quote:edit`-Key, QuoteDetailPanel.tsx
-  kommentiert sie explizit als "-> quote:create"; Quote-Convert-to-Invoice ist laut Kommentar
-  "-> invoice:create" (erzeugt ja tatsaechlich eine Rechnung).
-  GROESSTER FUND: ein grosser Teil des finance-Katalogs hat aktuell KEINEN echten Backend-Anschluss,
-  weil die konsumierenden FE-Komponenten selbst Mocks sind (per Code-Lesen verifiziert, nicht
-  geraten). `BankingWidget.tsx` ("Mock data for design — backend: FinAPI integration") ruft
-  `/finance/bank-accounts` + `/finance/bank-transactions/{id}/match|reject-match` — Pfade, die im
-  Gateway gar nicht existieren (das sind die kuenftigen `fe-finance-bank-accounts`/
-  `-bank-transactions-matching`-Units aus Block D). `TransactionsTab.tsx` und `BerichteTab.tsx`
-  lesen explizit aus `useFinanceStore`/`useFinanceLedger` (Zustand-Mock, Datei-Kopfkommentar
-  "Backend-Anbindung folgt in einem spaeteren Sprint"). `ExpensesTab.tsx`/`ExpenseDetailPanel.tsx`
-  laufen ueber den MSW-"swap-ready Mock" aus `fe-finance-expenses` (Block D, weiterhin `todo`).
-  Ergebnis: `finance:incoming:review`, `finance:incoming:book`, `finance:amounts:view` gaten reale
-  FE-Buttons, aber KEINE bestehende Backend-Route (`bank-statements`, `bank-transactions`,
-  `incoming-invoices`, `journal/summary`, `stats/payments`, `open-items` bleiben komplett
-  legacy-only). `finance:settings:manage` hat KEINEN FE-Gate-Call auf `PUT /finance/settings`
-  (StammdatenTab.tsx/CompanySettingsTab.tsx speichern ungegated) — nur der Dunning-Config-Teil ist
-  real verdrahtet (`DunningConfigDialog`). Bei crm analog: die komplette Advisory-Protokoll-Funktion
-  (`route_crm_advisory.go`, 8 Routen — List/Create/Get/Update/Delete/HandOver/PDF +
-  ReferralReport) ist FE-seitig 100 % lokaler Zustand (`stores/advisoryProtocols.ts`, kein
-  einziger API-Call trotz echter `crm:advisory:read`/`write`-Gate-Calls im FE) — Datei komplett
-  unangetastet gelassen. `crm:pipeline:manage` (PipelineStagesEditor.tsx ohne Capability-Hook) und
-  `crm:segment:override` (reiner Zustand-Persist-Store, Code-Kommentar "Backend target" noch offen)
-  ebenfalls FE-seitig ungegatet, pipeline-stages-Routen unangetastet.
-  Nebenfunde ohne FE-Aufrufer, legacy-only belassen: `HandleUpdateContactVisibility`,
-  `HandleValidateInvoiceNumber`, `HandleImportInvoice`, `HandleLockInvoice`, `HandleDeletePayment`,
-  `HandleUpdateDunningStatus`/`HandleSendDunningNotice`, `HandleGenerateGoBDExport`,
-  `HandleFindContactDuplicates`/`HandleMergeContacts` (+ Company-Pendants), `HandleAddDealTags`/
-  `HandleRemoveDealTags` (Handler ist ein reiner 501-Stub). `/api/v1/finance/document-chains`
-  (Belegkette-Tab-Aufruf) existiert im Gateway ueberhaupt nicht — Phantom-Endpoint, ausserhalb
-  des Guard-Tightening-Scopes, nicht behoben.
-  Test: `route_capability_guard_test.go` um zwei Router-Setups (`crmRouter`, `bizRouter`) und 76
-  neue Faelle erweitert. Sonderfall `HandleAddDealTags`: 501-Stub dekodiert den Body VOR jedem
-  Client-Call, bestandener Guard ist bei leerem Test-Body als 400 sichtbar statt 503 — im
-  Testkommentar dokumentiert, nicht als Bug behandelt.
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
-  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen
-  inkl. 76 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route)
-  und `./internal/middleware/...` gruen, 0 Skips. migration n.a. (alle referenzierten crm/finance-
-  Keys per SQL gegen die laufende DB verifiziert: vorhanden aus 000256). openapi n.a. (keine neue
-  Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt:
-  `route_biz.go` von `gofmt -l` gemeldet — Diff-Pruefung (CRLF strippen, dann `gofmt -l` erneut auf
-  einer temporaeren Kopie) bestaetigt reinen CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus
-  Iteration 15-17, `core.autocrlf=true`), committeter Inhalt ist LF und gofmt-clean. `route_crm.go`
-  und die Testdatei waren bereits LF und wurden nicht gemeldet.
-- verify vorgaenger: `94c26a40` (p2c-work-documents-crm-finance, work+documents) gegen die acht
-  Fehlerklassen geprueft. Diff: `route_work.go`/`route_document.go`/`route_capability_guard_test.go`.
-  Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden durch benannte
-  `RequirePermissionAny(alt, neu)`-Variablen ersetzt (additiv, kein Key verengt), Testfaelle
-  substantiell. Kein Proto/Migration/neue Route/Handler-Direktzugriff/Stub in diesem Commit,
-  Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
-- offen fuer Luke:
-  (1) `p2c-inventar-einkauf-produktion-vertraege` ist die naechste ziehbare Unit in Block B (deps
-      bereits auf diese Unit umgebogen).
-  (2) Grosses FE/BE-Luecken-Inventar im finance-Modul entdeckt (siehe "gebaut" oben): Banking/
-      Transaktionen/Ausgaben/Berichte laufen komplett gegen Mocks, nicht gegen die bestehenden
-      Backend-Routen. Die Block-D-Units (`fe-finance-expenses`, `fe-finance-bank-accounts`,
-      `fe-finance-bank-transactions-matching`) muessen das schliessen — bis dahin sind
-      `finance:incoming:review`/`book`/`amounts:view` reine FE-UI-Capabilities ohne Backend-Wirkung.
-  (3) `/api/v1/finance/document-chains` (Belegkette-Tab) ist ein Phantom-Endpoint — FE ruft ihn,
-      Gateway hat ihn nicht. Ausserhalb des Scopes dieser Unit, aber ein echter Bug fuer den
-      Belegkette-Tab in Produktion.
-  (4) Advisory-Protokolle (`route_crm_advisory.go`, 8 Routen) sind seit Bestand reine FE-Mock-
-      Funktion ohne API-Anbindung — falls das Feature scharf geschaltet werden soll, ist das
-      Neubau (FE-Hooks + Wiring), keine Guard-Tightening-Frage.
-  (5) TOKEN-GROESSE bleibt unveraendert offen, waechst durch diese Unit nicht (keine neuen
-      Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards).
-  (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht.
-
-## Iteration 19 — p2c-inventar-einkauf-produktion-vertraege — done — 2026-08-01 (Nachtlauf 3)
-- commit: 07004000
-- gebaut: `RequirePermissionAny(alt, neu)` additiv auf inventar-, einkauf-, produktion- und
-  vertraege-Routen. Alle vier Module hatten aus fruehren Migrationen (000084/000185/000241
-  inventar, 000086/000209 einkauf, 000088/000191 produktion, 000090 vertraege) bereits
-  granulare `modul:subjekt:read/write`-Guards statt eines einzigen groben Legacy-Keys — anders
-  als bei wiki/zeiterfassung/helpdesk (Iteration 15/16) oder crm/finance (Iteration 17/18). Reads
-  entsprechen deshalb schon 1:1 dem Katalog-Key und blieben unveraendert; getightened wurden nur
-  die Writes, wo der Katalog eine feinere Aufteilung als das bestehende "write" vorschreibt.
-  Per SQL gegen die laufende DB verifiziert (nicht geraten): saemtliche 30 referenzierten
-  Katalog-Keys der vier Module existieren bereits in `permissions` (aus `p1a-migration`, die
-  den gesamten FE-Katalog seedet) — keine eigene Migration noetig.
-  inventar (`route_inventar.go`): `item:create/edit/delete` additiv auf das bestehende
-  `item:write`; `movement:adjust` (AdjustStock) getrennt von `movement:create` (RecordMovement) —
-  beide liefen bisher unter demselben `item:write` bzw. `movement:write`, aber das FE gated die
-  "Korrektur"-Bewegungsart per eigenem Fine-Switch (`InventarPage.tsx:403`, Kommentar "corrections
-  rewrite stock without a movement reason"); `attachment:manage` auf Attachment-Create+Delete;
-  `inventur:create` auf CreateInventurSession; `inventur:count` auf BEIDE Endpoints, die
-  `InventurSessionCard` gated (Status-Patch fuer die Zaehlen-Uebergaenge UND Counts-Upsert);
-  `inventur:book` auf BookInventurDifferences. `export:run` hat KEINEN Backend-Anker — alle drei
-  FE-Export-Buttons (Artikel/Bewegungen/Inventur) bauen die CSV client-seitig aus bereits
-  geladenen Daten (`inventar-export.ts`), `useStockReport`/`getExportUrl` sind tote Hooks;
-  `GetStockReport`/`ExportInventory`-Routen bleiben deshalb unveraendert. Legacy-only (kein
-  FE-Aufrufer, verifiziert per Grep): TransferStock, alle vier Warning-Handler (Katalog hat
-  gar kein `inventar:warning:*`), DeleteInventurSession, Location-Writes (Katalog hat nur
-  `location:read`).
-  einkauf (`route_einkauf.go`/`route_einkauf_extended.go`): `po:create/edit/delete` additiv;
-  `po:send` UND `po:approve` oeffnen denselben Submit-Endpoint (OrderDetailModal ruft
-  `submitPOMutation` sowohl fuers "Senden"-Button als auch den Genehmigungs-Banner — dritte
-  Instanz des "zwei FE-Aktionen, ein Endpoint"-Musters aus Iteration 18); `po:cancel`;
-  `po:receive` oeffnet BEIDE Endpoints, die `WareneingangDialog` nutzt (ReceiveGoods +
-  PartialReceive); `supplier:create/edit`; `supplier:deactivate` auf DeleteSupplier (FE-Label
-  "Deaktivieren" ist ein Soft-Delete-Wortlaut ueber dem echten DELETE-Call, per Code verifiziert);
-  `rating:create` (Ressourcen-Sprung: legacy war `supplier:write`, Katalog ist `rating:create`,
-  wie bei den crm/finance-Kreuz-Faellen aus Iteration 18); `contract:call` auf CreateContractCall
-  (ebenfalls Ressourcen-Sprung von `contract:write`). Legacy-only: PO-Lines (kein `line`-Subjekt
-  im Katalog), Catalog-CRUD und Framework-Contract-CRUD (Katalog hat nur `catalog:read`/
-  `contract:read`, kein write), Rating-Delete (Hook `useDeleteSupplierRating` existiert, hat aber
-  keinen FE-Aufrufer). `einkauf:export:run` ebenfalls ohne Backend-Anker (PDF-Export in
-  `EinkaufDetailModals.tsx` ist client-seitig via `buildPOPdf`).
-  produktion (`route_produktion.go`/`route_produktion_ext.go`): `order:create/edit/delete/
-  start/complete/cancel` additiv; `bom:create/edit` (BOM-Delete hat keinen FE-Aufrufer);
-  `machine:manage` oeffnet SOWOHL CreateMachine ALS AUCH UpdateMachine (Katalog hat keine
-  separate create/edit-Aufteilung fuer Maschinen, ein einziger Fine-Switch fuer beides, verifiziert
-  gegen `ProduktionPage.tsx` Neu-Button UND `MachineDetailModal`-Statuswechsel); `quality:create`;
-  `workstep:edit` auf UpdateWorkStep (Schritt vorwaerts schalten in `ProduktionDetailModals.tsx`).
-  Legacy-only: Machine Bookings und Production Plans (Katalog kennt beide Subjekte gar nicht),
-  WorkStep-Create/Delete, Machine-Delete, BOM-Delete. `produktion:export:run` wieder ohne
-  Backend-Anker (Laufkarten-PDF client-seitig via `buildOrderPdf`, BOM-CSV via
-  `buildBomItemsCsv`) — durchgaengiges Muster ueber alle drei Module: kein einziges
-  `<modul>:export:run` im Katalog hat je einen Backend-Endpoint gegated, weil jeder Export-Button
-  im FE aus bereits geladenen React-Query-Daten baut statt einen eigenen Endpoint aufzurufen.
-  vertraege (`route_vertraege.go`): `contract:create` additiv; `contract:edit` UND
-  `contract:terminate` oeffnen denselben UpdateContract-Endpoint (Kuendigungsdialog setzt nur
-  `status=terminated` + Grund ueber denselben RPC wie ein normales Edit, viertes Beispiel des
-  Mehrfach-Key-Musters); `contract:delete`. Legacy-only: Parties, Reminders, Export, Signature
-  (Katalog kennt fuer `vertraege` ausschliesslich das `contract`-Subjekt).
-  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`inventarRouter`,
-  `einkaufRouter`, `produktionRouter`, `vertraegeRouter`) und 71 neue Faelle erweitert. Da alle
-  vier Module hinter einem Feature-Flag registrieren (`flags.IsEnabled("modules.<x>")`), brauchten
-  sie — anders als crm/biz — eigene Test-Konstruktoren (`newInventarRoutes` etc. in den jeweiligen
-  `route_<modul>_test.go`, Muster von `newHelpdeskRoutes`/`newWikiRoutes` uebernommen), die den
-  Flag ueber `featureflag.NewRegistry().Load(...)` erzwingen — sonst haette `RegisterRoutes` still
-  gar keine Route registriert und jeder Testfall waere an einem 404 vorbeigelaufen, nicht am Guard.
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
-  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen
-  inkl. 71 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route)
-  und `./internal/middleware/...` gruen, 0 Skips. migration n.a. (alle referenzierten Keys per
-  SQL gegen die laufende DB verifiziert: vorhanden aus fruehen Modul-Migrationen + p1a-migration).
-  openapi n.a. (keine neue Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy
-  angefasst). gofmt: alle sechs geaenderten Route-Dateien von `gofmt -l` gemeldet — Diff-Pruefung
-  (CRLF strippen auf temporaeren Kopien, dann `gofmt -l` erneut) bestaetigt reinen
-  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-18, `core.autocrlf=true`),
-  committeter Inhalt ist LF und gofmt-clean. Testdateien waren bereits LF und wurden nicht
-  gemeldet.
-- verify vorgaenger: `f534ef8e` (p2c-work-documents-crm-finance-2, crm+finance) gegen die acht
-  Fehlerklassen geprueft. Diff: `route_crm.go`/`route_biz.go`/`route_capability_guard_test.go`.
-  Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden durch benannte
-  `RequirePermissionAny(alt, neu)`-Variablen ersetzt (additiv, kein Key verengt), Testfaelle
-  substantiell (76 neue Faelle inkl. Kreuz-Ressourcen- und Mehrfach-Key-Faelle). Kein Proto/
-  Migration/neue Route/Handler-Direktzugriff/Stub in diesem Commit, Fehlerklassen 1/2/3/5/6/7
-  n.a. Kein Fund.
-- offen fuer Luke:
-  (1) `p2c-schichten-fuhrpark-vermietung-rapporte` ist die naechste ziehbare Unit in Block B
-      (deps bereits erfuellt).
-  (2) Durchgaengiger Fund ueber jetzt sieben Module (crm, finance, work, documents, inventar,
-      einkauf, produktion): das `<modul>:export:run`-Fine-Switch-Muster im Katalog hat in KEINEM
-      der drei Industrie-Module (inventar/einkauf/produktion) einen Backend-Endpoint hinter sich —
-      alle Export-Buttons bauen client-seitig aus geladenen Daten. Falls das absichtlich so bleibt
-      (Server-Export nie gebraucht), waere Aufraeumen des toten `useStockReport`-Hooks und der
-      toten `getExportUrl`-Funktion in `inventar-client.ts` ein Kandidat fuer `/lean-debt` — kein
-      Blocker, nur Karteileiche.
-  (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht
-      (keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen).
-
-## Iteration 20 — p2c-schichten-fuhrpark-vermietung-rapporte — done — 2026-08-01 20:17 (Nachtlauf 3)
-- commit: (siehe naechster `git log`, wird nach diesem Eintrag erstellt)
-- gebaut: additive `RequirePermissionAny(legacy, catalogue)`-Guards fuer schichten (shift:publish,
-  assignment:manage, template:manage), fuhrpark (vehicle:manage, service/damage/fuel/trip:create),
-  vermietung (object create/edit/delete, rental create/edit/cancel/handover, inspection:create) und
-  rapporte (report create/edit/delete). Alle 19 referenzierten Keys vorab per SQL gegen die lokale
-  DB verifiziert (aus `p1a-migration`/000256 geseedet) — keine neue Migration noetig.
-  schichten (`route_schichten.go`): `shift:publish` auf PublishShifts; `assignment:manage` auf
-  AssignEmployee UND UnassignEmployee (ShiftDetailModal.tsx `onUnassign`); `template:manage` auf
-  Create/Update/DeleteTemplate (alle drei haengen an `getTemplateActions`, komplett hinter
-  `canTemplateManage` versteckt). ZWEI CROSS-RESOURCE-FAELLE (Legacy-Verb bleibt, Zusatz-Key kommt
-  von einer ANDEREN Ressource, analog zum Kanban-Status-Fund aus Iteration 17): CreateShift ist nur
-  ueber den "Schicht zuweisen"-Dialog erreichbar (`handleAssignSubmit` legt bei fehlender
-  Datum+Vorlage-Kombination erst die Shift an, dann die Zuweisung) — additiver Key ist
-  `schichten:assignment:manage`, nicht ein `shift:*`-Key; ApplyTemplate liegt komplett hinter
-  `canTemplateManage`, additiver Key ist `schichten:template:manage` bei Legacy `schichten:shift:write`.
-  Swap-Requests (Create/Approve/Reject) nutzen bereits die feinen Katalog-Keys direkt (`create`/
-  `approve`, kein grobes `write` je existiert) — unangetastet.
-  fuhrpark (`route_fuhrpark.go`): `vehicle:manage` NUR auf CreateVehicle (kein FE-Aufrufer fuer
-  Update/Delete, verifiziert — `FuhrparkDetailModals.tsx` hat keine Mutation-Hooks, `FuhrparkPage.tsx`
-  ruft nie `useUpdateVehicle`/`useDeleteVehicle`); `service:create`/`damage:create`/`fuel:create`/
-  `trip:create` je auf den einzigen Create-Endpoint ihrer Ressource. Update/Delete/Complete/Resolve
-  fuer alle vier Ressourcen legacy-only, weil der Katalog dafuer gar keinen Key hat (nicht weil kein
-  FE-Aufrufer existiert — bei service/fuel/trip GIBT es Update/Delete-Aufrufer im FE, aber keinen
-  passenden Katalog-Key, also Guard unveraendert per Vorgabe (d)). `fuhrpark:document:*` hat ueberhaupt
-  keinen Katalog-Key, GPS-Guards bleiben unangetastet (gps:read matcht 1:1, gps:write hat keinen
-  Katalog-Key, gps:read bewusst NICHT grosszuegig erweitern lt. Backlog-Notiz). `fuhrpark:export:run`
-  wieder ohne Backend-Anker (CSV/PDF laufen client-seitig aus geladenen Daten).
-  **FUND (Routing-Bug, nicht RBAC):** `/vehicles/{id}` war ZWEIMAL gemountet — einmal verschachtelt
-  unter `r.Route("/vehicles", ...)` (GetVehicle/UpdateVehicle/DeleteVehicle/History/Services/Damages)
-  und ein zweites Mal als eigener Top-Level-Block "Vehicle sub-resources (extended)"
-  (Fuel-Logs/Trip-Logs/Documents). chi dispatcht bei zwei Mounts auf demselben Pattern nur zum
-  ZULETZT registrierten — dadurch waren GetVehicle, UpdateVehicle, DeleteVehicle, GetVehicleHistory,
-  ListVehicleServices, ScheduleService, ListVehicleDamages und ReportDamage in Produktion komplett
-  unerreichbar (404), obwohl `chi.Walk` sie brav als registriert auflistete (Dispatch != Walk-Baum).
-  Gefunden durch den neuen Capability-Guard-Test (erster Test, der die echte chi-Route ueber
-  `ServeHTTP` statt direkten Handler-Aufruf ausloest — die Bestandstests riefen `routes.HandleX()`
-  immer direkt auf und haben das Mounting nie geprueft). Bug ist vorbestehend (verifiziert: identische
-  Struktur bereits im Commit vor dieser Iteration), nicht durch RBAC-Arbeit eingefuehrt. Behoben im
-  selben Commit durch Zusammenlegen beider Bloecke in EINEN `r.Route("/{id}", ...)`-Mount — noetig,
-  weil sonst `service:create`/`damage:create` (meine eigenen neuen Guards) unerreichbar geblieben
-  waeren UND weil es ein launch-kritischer Funktionsbug ist (Fahrzeug-Detail/-Update/-Loeschen,
-  Wartungshistorie, Schadensliste alle kaputt). Routenzahl unveraendert (739/741 vor und nach dem
-  Merge — der Merge aendert nur, WELCHER Mount gewinnt, nicht welche Pfade existieren).
-  vermietung (`route_vermietung.go`): `object:create/edit/delete` additiv, matcht 1:1 auf
-  `canCreateObject`/`canEditObject`/`canDeleteObject` in `VermietungPage.tsx`; `rental:create/edit`
-  additiv; `rental:cancel` auf DeleteRental (RentalDetailModal.tsx "Stornieren"-Button ist ein
-  Soft-Label ueber dem echten DELETE-Call, per Code verifiziert — viertes Beispiel dieses Musters
-  nach einkauf/supplier, vertraege/contract); `rental:handover` oeffnet SOWOHL StartRental ALS AUCH
-  EndRental (beide Buttons in `RentalDetailModal.tsx` teilen sich den einen `canHandoverRental`-Gate,
-  kein separates Katalog-Verb fuer Start vs. Ende); `inspection:create` auf CreateInspection
-  (ZustandsprotokollDialog.tsx). Signature hat keinen Katalog-Key, legacy-only. `vermietung:export:run`
-  wieder ohne Backend-Anker (client-seitig).
-  rapporte (`route_rapporte.go`): `report:create/edit/delete` additiv (edit/delete sind FE-seitig
-  `useScopedCapability`-gated auf `report.authorId` — der eigentliche own-Scope-Listenfilter ist
-  separate Zukunfts-Unit `p2-own-scope-list-filter`, hier nur die Guard-Verdrahtung). Approve/Reject
-  nutzen bereits den feinen `approve`-Key direkt, unangetastet. Submit/Lines/Attachments/Signature
-  haben keinen Katalog-Key, legacy-only. **FUND:** `rapporte:measurement:read`/`:manage` haben TROTZ
-  existierendem Katalog-Key KEINEN Backend-Anker — der komplette "Aufmass"-Tab (`RapportePage.tsx`)
-  laeuft auf einem rein lokalen Zustand-Store (`stores/rapporte.ts`, `MOCK_MEASUREMENTS`, kein
-  einziger API-Call fuer Create/Delete/AddPosition) — analog zum Advisory-Protokoll-Fund aus
-  Iteration 18 (Katalog-Key real, FE-Consumer ist ein No-op-Mock). Measurement-Routen bleiben
-  komplett legacy-only. `rapporte:export:run` ebenfalls ohne Backend-Anker (PDF client-seitig via
-  `buildReportPdf`, obwohl ein echter `HandleExportPDF`/`GET /export/pdf`-Endpoint existiert — der
-  wird vom FE schlicht nie aufgerufen).
-  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`schichtenRouter`,
-  `fuhrparkRouter`, `vermietungRouter`, `rapporteRouter`) und 58 neue Faelle erweitert. Alle vier
-  Module sind feature-flag-gated, brauchten also eigene Test-Konstruktoren (`newSchichtenRoutes` etc.
-  in den jeweiligen `route_<modul>_test.go`, Muster von `newInventarRoutes` uebernommen).
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
-  `./internal/gateway/...` komplett gruen (`TestCapabilityGuards_AdditiveWiring` alle Faelle inkl.
-  58 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert), 0 Skips. migration n.a.
-  (alle Keys per SQL gegen die laufende DB verifiziert). openapi n.a. (keine neue Route, nur Guards
-  + der Mount-Merge, der KEINE neuen Pfade registriert). rls-smoke n.a. (keine Tabelle/Policy
-  angefasst). gofmt: `route_schichten.go`/`route_fuhrpark.go`/`route_vermietung.go`/`route_rapporte.go`
-  von `gofmt -l` gemeldet — CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-19),
-  nach CRLF-Strip clean. `route_schichten_test.go` bleibt auch NACH CRLF-Strip gemeldet
-  (Map-Literal-Spaltenausrichtung ab Zeile 111) — verifiziert VORBESTEHEND im Commit vor dieser
-  Iteration (`git show HEAD:...` + CRLF-Strip zeigt denselben Drift), nicht durch diese Iteration
-  eingefuehrt, nicht angefasst (ausserhalb Scope).
-- verify vorgaenger: `07004000` (p2c-inventar-einkauf-produktion-vertraege) gegen die Fehlerklassen
-  geprueft. Diff: sechs Route-Dateien + `route_capability_guard_test.go`, kein Proto/Migration/neue
-  Route/Handler-Direktzugriff/Stub. Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden
-  additiv durch `RequirePermissionAny(alt, neu)` ersetzt. Stichprobe: alle 36 referenzierten
-  Capability-Keys per SQL gegen die laufende DB verifiziert (vorhanden). Kein Fund.
-- offen fuer Luke:
-  (1) `p2c-dialer-berichte-formulare-automatisierung` ist die naechste ziehbare Unit in Block B
-      (deps bereits erfuellt).
-  (2) ROUTING-BUG-MUSTER: der `/vehicles/{id}`-Doppel-Mount in fuhrpark koennte sich in anderen
-      Modulen wiederholen, wenn dort ebenfalls ein "erweiterter" Routen-Block spaeter unter
-      demselben Prefix wie ein frueherer verschachtelter Block gemountet wurde. Bisher nur in
-      fuhrpark gefunden (durch den ersten echten `ServeHTTP`-Dispatch-Test in diesem Modul) — ein
-      gezielter Grep/Audit auf "gleiches Mount-Pattern zweimal in derselben `RegisterRoutes`" ueber
-      alle Gateway-Route-Dateien waere ein guter Kandidat fuer eine eigene Unit, da Bestandstests
-      (die immer `routes.HandleX()` direkt aufrufen) so etwas grundsaetzlich nicht faengen.
-  (3) `rapporte:measurement:*` und `rapporte:export:run` haben trotz Katalog-Keys keinen
-      Backend-Anker (Mock-Store bzw. Client-Export) — analog zu den bereits bekannten toten
-      Katalog-Keys aus Iteration 17/18/19. Kein Blocker, nur zur Kenntnis.
-  (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum
-      (nur zusaetzliche OR-Bedingungen, keine neuen Permission-Keys).
-
-## Iteration 21 — p2c-dialer-berichte-formulare-automatisierung — done — 2026-08-01 20:35 (Nachtlauf 3)
-- commit: (siehe naechster `git log`, wird nach diesem Eintrag erstellt)
-- gebaut: additive `RequirePermissionAny(legacy, catalogue)`-Guards fuer dialer, berichte, formulare
-  und automatisierung. Alle 19 neu referenzierten Katalog-Keys vorab per SQL gegen die lokale DB
-  verifiziert (aus `p1a-migration`/000256 geseedet) — keine neue Migration noetig. Damit ist der
-  komplette p2c-Modul-Sweep aus Block B (12 Industrie-/Querschnitt-Module) abgeschlossen.
-  dialer (`route_dialer.go`): einziges Modul, dessen Legacy-Ressourcen schon in `modul:subject`-Form
-  seedeten (`dialer:campaigns`, `dialer:calls`, `dialer:agent`, `dialer:outcomes`) — read/calls:write/
-  agent:manage/outcomes:manage konkatenieren dadurch 1:1 auf ihren Katalog-Key und blieben unangetastet.
-  Einzige echte Luecke: `dialer:campaigns:write` (Legacy) vs. `dialer:campaigns:manage` (Katalog) —
-  additiv auf alle Campaign-Management-Routen. **FUND (Cross-Resource):** Skip/Requeue teilen sich
-  EINEN Handler zwischen zwei FE-Oberflaechen mit unterschiedlichen Capabilities — dem Agenten-Live-
-  Workspace (`DialerWorkspacePage.tsx`, `dialer:calls:write`, unveraendert) und der Supervisor-Queue-
-  Tabelle im Kampagnen-Detail (`ContactQueueTable.tsx`, Kommentar "Derived from dialer:campaigns:manage",
-  verifiziert bis `CampaignDetailPage.tsx:247 canManage={canManageCampaigns}`). Ohne Erweiterung haette
-  ein Manager mit `campaigns:manage` aber ohne `calls:write` 403 auf Skip/Requeue aus der eigenen
-  Kampagnen-Ansicht bekommen — additiv `dialer:campaigns:manage` als zweite Alternative ergaenzt.
-  `GetNextContact` bleibt unangetastet (nur vom Workspace aufgerufen, kein Supervisor-Pfad).
-  berichte (`route_berichte.go`): `reports:create/edit/delete` additiv nach HTTP-Verb (POST/PATCH/
-  DELETE) auf definitions UND documents. `documents/{id}` PATCH traegt sowohl Content-Edits als auch
-  den Status-Lifecycle (`ReportDocumentEditor.tsx transitionTo()` ruft denselben UpdateDocument-Call
-  wie ein normaler Save) — additiv DREI Alternativen (write/edit/publish). `schedule:manage` additiv
-  auf alle vier Schedule-Routen, `share:manage` additiv auf Share-Create/-Revoke (Kommentar im Code
-  bestaetigt: Minting = write-aequivalent). **FUND:** `/definitions/{id}/export` wird von ZWEI FE-
-  Stellen aufgerufen — `DatevView.tsx` mit explizitem `canExport = useHasCapability('berichte:export:
-  run')`-Gate, `MyReportsLibrary.tsx` (`exportAs()`) OHNE jedes Capability-Gate. Der Legacy-Guard
-  (`reports:read`) ist damit ein striktes Superset von `export:run` — additiv beide Keys ergaenzt
-  (macht praktisch aktuell nichts, da read bereits alles abdeckt), aber die Additiv-Regel verbietet
-  ausdruecklich das Verengen von `read` auf `export:run` (JWT-Bake-in, Aussperr-Risiko) — ein
-  `readonly`-User mit `reports:read`, aber ohne `export:run`, kann den Export-Endpoint aktuell trotzdem
-  direkt per API aufrufen, obwohl die FE-Absicht ("readonly sieht, laedt nie herunter", Kommentar in
-  DatevView.tsx) das verhindern will. Kein Fix in dieser Unit moeglich (additiv-only), nur dokumentiert.
-  `datev:read` hat weiterhin keinen eigenen Backend-Anker (reiner Tab-Gate, Bestand aus Iteration-
-  Notiz). Cache-Invalidierung und der Dokument-PDF-Export haben keinen Katalog-Verb-Aequivalent — die
-  PDF-Route hat zusaetzlich GAR KEINEN FE-Aufrufer (nur `window.print()` ist verdrahtet, laut
-  Code-Kommentar in `route_berichte.go` selbst) — beide legacy-only.
-  formulare (`route_formulare.go`): `schemas:create/edit/delete` additiv nach Verb. PATCH traegt wie
-  bei berichte sowohl Content-Edit als auch den Draft/Active/Closed/Archived-Toggle (`canSchemasPublish`
-  ruft denselben `updateSchema`-Call wie `canSchemasEdit`) — additiv edit+publish. Duplicate ist laut
-  FE `canSchemasCreate`-gated (nicht edit) — additiv `schemas:create`. `submissions/export` additiv
-  `export:run` (echter Backend-Anker, `FormularePage.tsx canExportRun`), gleiche Read-ist-Superset-
-  Einschraenkung wie bei berichte. **FUND (fehlende Route, kein Wiring-Fall):** `formulare:share:manage`
-  gated in `FormularePage.tsx` einen echten Button ("Share opens the link-create dialog — that IS share
-  management"), der `useCreateShareLink`/`useUpdateShareLink`/`useDeleteShareLink` aufruft — diese
-  Hooks rufen `{BASE}/schemas/{id}/share-links` und `{BASE}/share-links/{id}`
-  (`formulare-client.ts:183-209`), und KEINE dieser Routen existiert in `route_formulare.go`. Anders
-  als die bisherigen "toter Katalog-Key"-Funde (FE-Aufrufer fehlt) ist hier der FE-Aufrufer real und
-  die Route fehlt — ein Feature-Gap, kein additiver Guard-Fall, also nichts zu verdrahten. Webhooks
-  bleiben komplett legacy-only (Katalog-Notiz: FE-UI ist ein unmontierter Stub, noch kein Key).
-  automatisierung (`route_automation.go`): einziges Modul, dessen Legacy-Ressource `automations` OHNE
-  Modul-Praefix seedete (vor 000129) — dadurch konkateniert KEIN einziger Legacy-Key zufaellig auf
-  seinen Katalog-Key (anders als bei allen anderen elf p2c-Modulen), jede Route brauchte den additiven
-  Wrapper. Triggers/Actions/Templates haben kein eigenes Katalog-Verb: additiv auf `automations:read`
-  (Triggers/Actions, aus `AutomationDetailModal.tsx`, nur nach Oeffnen aus der bereits-`read`-gated
-  Liste erreichbar) bzw. `automations:create` (Templates-Tab, `AutomatisierungPage.tsx` Zeile 52:
-  `templates: 'automatisierung:automations:create'` — Vorlagen durchstoebern ist nur mit
-  Instanziierungsrecht sinnvoll). Test-Condition/Dry-Run laufen aus `AutomationWizard.tsx`, der laut
-  eigenem Doc-Kommentar in `AutomationDetailModal.tsx` sowohl fuer Neu-Anlage als auch fuer den
-  "Bearbeiten"-Hand-off wiederverwendet wird — additiv `create` UND `edit`. Stats bleibt auf
-  `RequireRole("admin")`, ein komplett anderer Mechanismus ohne Katalog-Aequivalent — unangetastet.
-  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`dialerRouter`, `berichteRouter`,
-  `formulareRouter`, `automationRouter`) und 59 neue Faelle erweitert. `formulare` brauchte einen
-  neuen Test-Konstruktor (`newFormulareRoutes` in neuer `route_formulare_test.go`, Muster von
-  `newSchichtenRoutes` uebernommen — bislang existierten fuer formulare nur Handler-Unit-Tests, kein
-  eigener Router-Konstruktor). `berichte` nutzt den bereits vorhandenen `berichteFlagsON()`-Helper aus
-  `route_berichte_test.go`. `dialer`/`automatisierung` sind nicht feature-flag-gated, direkter
-  Konstruktor-Aufruf ohne Wrapper.
-- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
-  vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
-  `./internal/gateway/...` komplett gruen (`TestCapabilityGuards_AdditiveWiring` alle Faelle inkl.
-  59 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert), 0 Skips. migration n.a.
-  (alle 19 neuen Keys per SQL gegen die laufende DB verifiziert). openapi n.a. (keine neue Route, nur
-  Guards). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt: `route_dialer.go`/
-  `route_berichte.go`/`route_formulare.go`/`route_automation.go` von `gofmt -l` gemeldet —
-  CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-20, `git show HEAD:...` liefert
-  reines ASCII/LF fuer alle vier Dateien, git diff --stat zeigt gezielte 31-53-Zeilen-Diffs statt
-  vollstaendiger Umschreibung — kein echter Format-Fund).
-- verify vorgaenger: `3778c05d` (p2c-schichten-fuhrpark-vermietung-rapporte) gegen die acht
-  Fehlerklassen geprueft. Diff: vier Route-Dateien + `route_capability_guard_test.go`, kein Proto/
-  Migration/Handler-Direktzugriff/Stub. Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden
-  additiv durch `RequirePermissionAny(alt, neu)` ersetzt (Fehlerklasse 8 n.a.). Der im selben Commit
-  behobene Doppel-Mount-Bug (`/vehicles/{id}`) ist als vorbestehend dokumentiert und veraendert die
-  Routenzahl nicht (739/741 vor und nach dem Merge, Fehlerklasse 7 n.a.). Kein Fund.
-- offen fuer Luke:
-  (1) Damit ist der komplette p2c-Modul-Sweep (12 Industrie-/Querschnitt-Module: work/documents/crm/
-      finance/inventar/einkauf/produktion/vertraege/schichten/fuhrpark/vermietung/rapporte/dialer/
-      berichte/formulare/automatisierung) abgeschlossen. Naechste ziehbare Unit in Block B ist
-      `p2-owner-fk-crm` (deps `[p1a-migration]`, bereits erfuellt) — Voraussetzung fuer
-      `p2-own-scope-list-filter` danach.
-  (2) `berichte:export:run`/`formulare:export:run` sind additiv verdrahtet, aber wirkungslos: der
-      Legacy-Guard (`reports:read`/`submissions:read`) ist ein striktes Superset, additiv-only kann
-      das nicht verengen. Ein `readonly`-User kann den Export-Endpoint aktuell per direktem API-Call
-      umgehen, obwohl die FE-Absicht das verhindern will (DatevView.tsx-Kommentar "readonly sieht,
-      laedt nie herunter"). Braucht einen bewussten harten Cutover (Token-Rotation abwarten), kein
-      additiver Fix.
-  (3) `formulare:share:manage` hat einen echten FE-Aufrufer (`FormularePage.tsx` "Teilen"-Aktion ->
-      `useCreateShareLink`/`useUpdateShareLink`/`useDeleteShareLink`), aber die aufgerufenen Routen
-      (`/schemas/{id}/share-links`, `/share-links/{id}`) existieren nicht in `route_formulare.go` —
-      ein Feature-Gap (Endpoint fehlt komplett), kein additiver Guard-Fall. Kandidat fuer eine eigene
-      `g-formulare-share-links`-Unit, falls das Feature launch-relevant ist.
-  (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum (nur
-      zusaetzliche OR-Bedingungen + 6 neue Basis-Keys `automatisierung:automations:read/create/edit/
-      delete/toggle` + `executions:read`, die aber schon seit `p1a-migration` im Katalog-Seed stehen).
-
-## Iteration 22 — p2-owner-fk-crm — done — 2026-08-01 21:05 (Nachtlauf 3)
-- commit: (siehe naechster `git log`)
-- gebaut: kein Produktionscode geaendert — die Unit war beim Recherchieren bereits erfuellt.
-  `created_by UUID NOT NULL REFERENCES users(id)` existiert an `contacts` (000007) und `deals`
-  (000009) seit den CRM-Basis-Migrationen, lange vor RBAC. Die Befuellung aus dem Auth-Context ist
-  bereits durchgaengig verdrahtet: `HandleCreateContact`/`HandleCreateDeal`
-  (`route_crm_contacts.go`/`route_crm_pipeline.go`) setzen `CreatedBy: middleware.GetUserID(r.
-  Context())` auf den gRPC-Request, NIE aus dem Body — kein Client-Spoofing moeglich. Von dort laeuft
-  es unveraendert durch `CreateInput.CreatedBy` -> `models.{Contact,Deal}.CreatedBy` -> Repository-
-  INSERT. `backend-gaps.md:54` ("CRM contact/deal tragen KEIN owner_id/created_by") bezog sich
-  offenbar auf fehlende Wire-Exposure ans FE, nicht auf die DB-Spalte — fuer serverseitiges
-  `own`-Filtern (naechste Unit) reicht die WHERE-Klausel auf der Repo-Query, ein FE-sichtbares Feld
-  ist dafuer nicht Voraussetzung.
-  Einzige echte Luecke gegen `done_when`: kein Test bewies den Round-Trip. Geschlossen mit vier
-  Assertions in bestehenden Tests (kein neuer Testfall, keine neue Infrastruktur): `TestContactWrites_
-  LandInCallerTenant`/`TestDealWrites_LandInCallerTenant` (`tenant_write_test.go`, echte DB als
-  `kmuhub_app`) pruefen nach Create+GetByID jetzt zusaetzlich `got.CreatedBy == userID`;
-  `TestService_Create_Success` in beiden Paketen prueft zusaetzlich `contact.CreatedBy`/`deal.
-  CreatedBy == input.CreatedBy` auf Service-Ebene (Mock-Repo).
-- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/... ./cmd/gateway/...` ok | vet ok |
-  lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: alle 12 `internal/crm/*`-Pakete
-  gruen, die beiden geaenderten DB-Tests einzeln verbose gegengeprueft (PAUSE/CONT sichtbar, kein
-  SKIP). migration n.a. (keine Schemaaenderung). openapi n.a. (keine Route). rls-smoke n.a. (keine
-  Tabelle/Policy angefasst, bestehende RLS-Write-Tests nur um eine Feldassertion erweitert). gofmt:
-  `contact/tenant_write_test.go`/`deal/tenant_write_test.go` von `gofmt -l` gemeldet — CRLF-Checkout-
-  Artefakt (Muster aus Iteration 15-21, `git show HEAD:...` liefert reines LF). `deal/service_test.go`
-  ebenfalls gemeldet, aber verifiziert VORBESTEHEND: `git show HEAD:...` durch `gofmt -l` gejagt
-  meldet denselben Import-Reihenfolge-Fund (`errors` nach den externen Imports) unabhaengig von diesem
-  Commit — nicht in dieser Iteration eingefuehrt, nicht angefasst (Scope-Disziplin).
-- verify vorgaenger: `c3721884` (p2c-dialer-berichte-formulare-automatisierung) gegen die acht
-  Fehlerklassen geprueft. Diff: vier Route-Dateien + `route_capability_guard_test.go` + neue
-  `route_formulare_test.go`, kein Proto/Migration/Handler-Direktzugriff/Stub. Alle ersetzten
-  `RequirePermission(...)`-Direktaufrufe wurden additiv durch `RequirePermissionAny(alt, neu[,
-  neu2])` erweitert, kein Alt-Key verloren (Fehlerklasse 8 n.a.). Kein Fund.
-- offen fuer Luke:
-  (1) `p2-own-scope-list-filter` (naechste Unit, deps erfuellt) muss fuer deals entscheiden, ob
-      `own`-Scope gegen `created_by` (Ersteller) oder `owner_id` (Business-Owner, vom Client im
-      Request settable) filtert — das ist eine Produktentscheidung, keine Code-Luecke. Bei contact
-      gibt es nur `created_by`, keine Ambiguitaet.
-  (2) `crm:pipeline:manage`/`crm:segment:override` (Iteration 18-Fund) und die komplette
-      Advisory-Protokoll-Funktion bleiben FE-seitig ungegatet/Mock — unveraendert offen, nur zur
-      Erinnerung, betrifft diese Unit nicht direkt.
-  (3) TOKEN-GROESSE (Iteration 14-16) unveraendert offen, durch diese Unit nicht beruehrt (keine
-      neuen Permission-Keys).
-
-## Iteration 23 — p2-own-scope-list-filter — done — 2026-08-01 22:10 (Nachtlauf 3)
-- commit: `78985af4` feat(rbac): filter list endpoints server-side when a grant is scoped to own
-- ausgangslage: Der Scope war **zur Laufzeit nirgends lesbar**. Der JWT traegt `perms []string`
-  (nur Keys), `role_permissions.scope` lag ausschliesslich in der DB, und `GetEffectivePermissions`
-  wurde nur von der `/auth/me/permissions`-Route fuers Admin-UI benutzt. Die Unit war damit zu
-  ~70 % Transportweg-Bau und nur zu ~30 % Filter.
-- gebaut, drei Schichten:
-  (1) TRANSPORT. `Service.NarrowedScopes(ctx, userID)` (`internal/auth/effective_permissions.go`)
-      faehrt den vorhandenen Union-Resolver aus `p1a-resolver` und behaelt nur die Keys mit Scope
-      < `all`. `createTokenPair` legt die Map in den neuen JWT-Claim `scopes` (`omitempty`).
-      `middleware.PermissionScope(ctx, resource, action)` liest sie zurueck.
-      **Abwesenheit = `all`** — bewusst, zweifach begruendet: (a) in einem neu ausgestellten Token
-      ist ein fehlender Key per Konstruktion unbeschraenkt, (b) ein Alt-Token ohne den Claim
-      verhaelt sich exakt wie bisher. Die Gegenrichtung (`own` als Default) haette JEDEM User mit
-      gueltigem Alt-Token alle Listen geleert. Der Guard entscheidet weiterhin das Ob, der Scope nur
-      das Wieviel — ohne Guard-Pass erreicht niemand den Handler.
-      Token-Groesse: nur verengte Keys reisen. Gemessen an der lokalen DB traegt `member` 17 solche
-      Keys, `admin` **null** (alle 454 Grants stehen auf `all`) — der Claim entfaellt dort ganz.
-      Fehler beim Scope-Lookup ist im Gegensatz zu `GetUserRoles`/`GetUserPermissions` **fatal**
-      (Login schlaegt fehl): eine leere Map liest sich als "alles unbeschraenkt".
-  (2) SCOPE-KORREKTUR — CRM war der falsche Ort. Die Unit-deps zeigten auf `p2-owner-fk-crm`, aber
-      **kein einziger CRM-Key traegt im Seed 000256 Scope `own`**; ein Filter auf `contacts`/`deals`
-      waere toter Code gewesen (und die offene `created_by`-vs-`owner_id`-Frage aus Iteration 22
-      damit gegenstandslos — sie stellt sich erst, wenn jemand einem CRM-Key `own` gibt).
-      Die einzigen READ-Keys mit `own` im Seed sind `rapporte:report:read` und
-      `helpdesk:ticket:read`, beide an Rolle `member`. Die uebrigen 15 `own`-Keys sind Edit-/
-      Create-Keys (`work:task:edit`, `wiki:article:edit`, …) — die verengen eine Liste nicht, weil
-      der Listen-Guard der Read-Key ist. `schichten:swap:read` hat `own`, ist aber **nicht
-      umsetzbar**: `shift_swap_requests` fuehrt `requested_by_employee_id` (employee-ID), und ein
-      user-zu-employee-Mapping existiert in der DB nicht (es gibt gar keine `employees`-Tabelle).
-      Die `team:*:view`-Keys sind FE-only, im Backend nirgends verdrahtet.
-  (3) FILTER an drei Endpoints. Gemeinsamer Helper `ownerFilterForScope(w, r, resource, action)
-      (*string, bool)` in `internal/gateway/helpers.go` — Hausstil analog `validateUUIDParam`,
-      schreibt im Fehlerfall selbst 401. Angeschlossen:
-      - `GET /rapporte/reports` — `author_id`-Filter existierte bereits samt Index
-        `idx_work_reports_author (tenant_id, author_id)`; **kein** Proto/Repo-Change noetig.
-        Bei `own` ueberschreibt die Caller-ID ein vom Client mitgegebenes `author_id`.
-      - `GET /rapporte/pending` — neues Proto-Feld `author_id`; `Service.ListPendingApprovals`
-        delegierte schon an `ListReports`, also nur durchreichen, kein Repo-Change.
-      - `GET /helpdesk/tickets` — neues Proto-Feld `participant_id`; Repo-Condition
-        `(requester_id = $n OR assignee_id = $n)`. Ownership ist bewusst requester-ODER-assignee:
-        ein Agent, der sein zugewiesenes Ticket nicht sieht, kann es nicht bearbeiten.
-      Filter sitzt ueberall in der WHERE-Klausel, nie als Nachfilter — `total` und Seitengrenzen
-      beschreiben dieselbe Menge wie die Zeilen.
-- gate: build ok (`-p 2`, `./internal/... ./cmd/{gateway,auth,helpdesk,rapporte}/...`; `go build ./...`
-  ohne `-p 2` stirbt weiterhin an OOM) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL`
-  gegen `kmuhub_app`: `./internal/{auth,middleware,helpdesk,rapporte,server}/...` + `./internal/
-  gateway/` gruen, TestOpenAPIRouteDrift gruen. openapi n.a. — **keine neue Route**, nur
-  Verhaltensaenderung bestehender; keine neuen Query-Parameter (der Filter ist serverseitig
-  erzwungen, nicht anfragbar). migration n.a. gofmt: neun Dateien von `gofmt -l` gemeldet, alle
-  CRLF-Checkout-Artefakt (LF-Kopien durch `gofmt -l` gejagt: sauber) bis auf
-  `server/rapporte_grpc.go` — dort ein vorbestehender Alignment-Fund im Measurement-Mapping
-  (Z. ~972), gegen `git show HEAD:` gegengeprueft, nicht von dieser Iteration, nicht angefasst.
-- neue tests: `helpdesk/own_scope_list_test.go` (echte DB — 4 Tickets, own-Scope liefert 3 Zeilen
-  UND total 3, Fremdticket fehlt; zusaetzlich Status+Participant kombiniert, weil der
-  Platzhalter dabei von `$2` auf `$3` wandert), `rapporte/own_scope_list_test.go` (echte DB, ueber
-  den Service wegen page-zu-offset-Umrechnung; deckt Liste + Genehmigungsqueue ab und prueft, dass
-  die ungefilterte Queue unveraendert 2 liefert), `middleware/scope_test.go` (vier Faelle durch ein
-  echtes signiertes Token: own, team, Key-nicht-verengt, Legacy-Token ohne Claim),
-  `gateway/own_scope_filter_test.go` (Helper inkl. 401 ohne User-ID),
-  zwei Faelle fuer `NarrowedScopes` (nur Verengtes; nil wenn nichts verengt ist).
-  Beide DB-Tests seeden **eigene** Tenants (sie zaehlen alle Zeilen des Tenants) und raeumen per
-  `defer`, nicht `t.Cleanup` — letzteres laeuft nach dem deferten `pool.Close()` und liess die
-  Zeilen beim ersten Lauf mit "closed pool" liegen.
-- rls-verifikation (per psql als `kmuhub_app`, ohne Tenant-Kontext — so laeuft der Login):
-  `current_tenant_id()` ist NULL, `is_system_context()` false, und die Preset-Scopes sind trotzdem
-  lesbar (17 verengte Keys fuer `member`, darunter `rapporte:report:read` und
-  `helpdesk:ticket:read`, beide `own`). Die `roles`-Policy `tenant_id IS NULL OR tenant_id =
-  current_tenant_id() OR is_system_context()` traegt also auch den Token-Pfad.
-- verify vorgaenger: `9e29cbe8` (p2-owner-fk-crm) gegen die acht Fehlerklassen geprueft. Diff sind
-  ausschliesslich vier Testdateien plus BACKLOG/JOURNAL, kein Produktionscode, kein Proto, keine
-  Migration, keine Route. Kein Fund.
-- offen fuer Luke:
-  (1) CUSTOM-ROLLEN UND DER LOGIN-PFAD (aus der psql-Verifikation oben, betrifft Welle 1b): der
-      Login laeuft ohne Tenant-Kontext, die `roles`-Policy zeigt dort nur `tenant_id IS NULL`.
-      Sobald es Custom-Rollen mit gesetztem `tenant_id` gibt, sind die beim Token-Bau unsichtbar —
-      ihre Permissions fehlen dann im Token (fail-closed, faellt sofort auf) und ihre Scopes auch
-      (fail-open, faellt NICHT auf: der Key steht dann auf `all`). Das ist Bestandsverhalten von
-      `GetUserPermissions`, kein Regress dieser Unit, aber vor Welle 1b zu loesen — sonst ist die
-      erste Custom-Rolle mit `own`-Scope wirkungslos. Loesung vermutlich: Token-Bau im
-      System-Kontext oder mit dem Tenant des Users fahren.
-  (2) NUR LISTEN, NICHT DETAILS. `GET /rapporte/reports/{id}`, `/export/pdf`, `/stats` und der
-      Ticket-Detailzugriff bleiben tenant-weit — ein `member` mit `own` kann einen fremden Rapport
-      weiterhin per direkter ID oeffnen. Die Unit-Beschreibung ging davon aus, dass der
-      Detailzugriff bereits 403 liefert; das tut er nicht, es gab vor dieser Unit ueberhaupt keine
-      Scope-Auswertung. Braucht eine eigene Unit (Muster: Scope im Handler lesen, ID-Read gegen die
-      Owner-Spalte pruefen, 404 statt 403 — sonst verraet der Statuscode die Existenz).
-  (3) `schichten:swap:read` traegt `own` im Seed, ist aber mangels user-zu-employee-Mapping nicht
-      erfuellbar (s.o.). Entweder Mapping nachziehen oder den Scope im Seed auf `all` korrigieren —
-      aktuell verspricht die Rechteverwaltung dort eine Einschraenkung, die es nicht gibt.
-  (4) `team`-Scope verhaelt sich weiterhin wie `all` (Reporting-Line-Resolver fehlt). Betrifft
-      heute nur `crm:contact:create/edit` bei `member` und `wiki:article:edit` bei `manager`.
-  (5) TOKEN-GROESSE (Iteration 14-16) unveraendert offen; diese Unit erhoeht sie fuer `member` um
-      17 Map-Eintraege, fuer `admin` um nichts.
-
-## Iteration 24 — fe-finance-expenses — done — 2026-08-01 21:30 (Nachtlauf 3)
-- commit: 8e3ab489
-- gebaut: Ausgaben-Modul komplett von der Tabelle bis zur Route. Migration 000257
-  `finance_expenses` (tenant_id NOT NULL + FK auf tenants, RLS mit USING **und** WITH CHECK,
-  drei Indizes, CHECK auf status und auf amount > 0); `internal/biz/expense/` (Repository-
-  Interface, PostgresRepository, Service, Errors); sechs RPCs am FinanceService
-  (`CreateExpense`/`ListExpenses`/`UpdateExpense`/`DeleteExpense`/`DecideExpense`/
-  `AttachExpenseReceipt`) mit Regen im selben Commit; `internal/server/biz_grpc_expense.go`;
-  sieben Gateway-Routen in `route_biz_expenses.go` plus openapi.yaml-Pfade und drei Schemas.
-- fachliche entscheidungen (keine davon aus dem Backlog uebernommen, alle begruendet):
-  - VIER-AUGEN serverseitig: `decide()` lehnt den Einreicher ab (`ErrSelfApproval`) und
-    laesst nur `pending` zu. Deshalb traegt die Tabelle `submitted_by` UND `decided_by`
-    getrennt — aus einem "letzter Akteur"-Feld waere die Regel nachtraeglich nicht mehr
-    pruefbar. Beide Guards liegen in `decide()`, nicht in Approve/Reject, damit keiner in
-    einem der beiden vergessen werden kann.
-  - EDIT NACH DER ENTSCHEIDUNG: `account` (Kontierung) und `receipt_name` bleiben offen,
-    Betrag/Datum/Beschreibung/Kategorie/Lieferant/Projekt nicht (`ErrDecided`). Kontierung
-    passiert fachlich NACH der Genehmigung — die Seed-Daten des Mocks zeigen genau das
-    (approved + account gesetzt). Ein aenderbarer Betrag haette die Genehmigung entwertet.
-  - DELETE nur solange `pending`; eine getroffene Entscheidung ist ein Datensatz, kein Entwurf.
-  - BELEG-UPLOAD ist bewusst NUR ein Dateiname. Der FE-Vertrag (`financeExpenseApi.
-    attachReceipt`) postet `{receiptName}` als JSON, es gibt kein Upload-Widget und keinen
-    Download-Link. Das Presign-Muster aus der Unit-Note waere Infrastruktur ohne Aufrufer.
-    `lean:`-Marker mit Upgrade-Trigger steht im Paketkommentar von
-    `internal/biz/expense/service.go`, der Verweis auf `internal/biz/gobdarchive` als
-    zukuenftiger Ablageort ebenfalls.
-- WIRE-SHAPE-FUND (wichtigster Punkt fuer die restlichen Block-D-Units): `response.Proto` und
-  `ProtoListWrapped` sind fuer diese Endpunkte unbrauchbar. Der repo-weite protoMarshaler
-  laeuft mit `UseProtoNames: true` → snake_case, und Decimals reisen im Repo als String. Der
-  FE-Typ (`stores/finance.ts:304` + `finance-client.ts:434ff`) verlangt aber `receiptName`
-  in camelCase und `amount` als JSON-**Zahl**. Geloest mit einer hand-gemappten
-  `expenseWire`-Struct im Gateway plus zwei Tests darauf
-  (`route_biz_expenses_test.go`) — inklusive der Gegenprobe, dass `tenant_id`/`submitted_by`
-  NICHT in die Antwort lecken. `receipt` wird aus `receiptName` abgeleitet statt gespeichert,
-  damit Liste und Detail nicht auseinanderlaufen koennen. Antwortform exakt wie der Mock:
-  Liste `{expenses,total}` (leer als `[]`, nicht `null`), Einzelentitaet `{expense}`,
-  DELETE `{}`.
-- guards: bestehende `RequirePermission("finance", "read"/"write"/"delete")`, kein neuer Key
-  und damit keine Seed-Pflicht. `capability-catalog.ts` hat ueberhaupt keinen
-  `finance:expense:*`-Key — ein additives `RequirePermissionAny` haette einen Key versprochen,
-  den niemand bekommt.
-- gate: build ok (`-p 2`, `./internal/biz/expense/... ./internal/server/... ./internal/gateway/...
-  ./cmd/biz/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL`
-  gegen `kmuhub_app`: `./internal/biz/expense/...` (19 Testfaelle, davon 3 echte DB-Tests mit
-  9 Unterfaellen — **null Skips**, im `-v`-Lauf verifiziert), `./internal/gateway/` und
-  `./internal/server/...` gruen. TestOpenAPIRouteDrift gruen: 744 registrierte Routen gegen
-  746 dokumentierte Pfade. gofmt sauber auf allen neuen Dateien (die drei gemeldeten
-  Bestandsdateien `cmd/biz/main.go`, `route_biz.go`, `biz_grpc.go` sind das bekannte
-  CRLF-Checkout-Artefakt — ganze Datei als Diff, kein inhaltlicher Fund).
-- migration: 000257 up und `down 1` und wieder up lokal sauber durchgelaufen, Kopf zurueck
-  auf 257. Prod steht auf 243 — dieser Commit erhoeht den Nachhol-Stapel um eine Migration.
-- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): eigener Tenant **1** Zeile, fremder
-  Tenant **0**, und ein INSERT mit fremder `tenant_id` wurde von der WITH-CHECK-Klausel
-  **abgelehnt** (nicht still in den falschen Tenant geschrieben). Zusaetzlich im Go-Test:
-  fremde ID liest als ErrNotFound, fremde ID laesst sich nicht loeschen, und die Zeile ist
-  danach fuer ihren Besitzer noch da.
-- verify vorgaenger: `78985af4` (p2-own-scope-list-filter) gegen die acht Fehlerklassen
-  geprueft. Handler gehen ueber `client.ListTickets`/`ListReports`/`ListPendingApprovals`
-  (kein Layer-Bypass); `.proto` und `.pb.go` beider Dienste im selben Commit; kein neuer
-  Guard, keine neue Route, keine neue Tabelle; der `whereExtra`-Umbau in
-  `helpdesk/postgres_repository.go` numeriert die Platzhalter jetzt korrekt ueber
-  `len(args)+1` statt hart `$2`. Kein Fund.
-- offen fuer Luke:
-  (1) KEIN FEINER CAPABILITY-KEY. `finance:expense:*` fehlt in `capability-catalog.ts`. Der
-      Scope-Filter der Liste ist trotzdem verdrahtet (`ownerFilterForScope(w, r,
-      "finance:expense", "read")`, Repo-Filter `submitted_by`, Index dafuer angelegt) und
-      loest heute immer auf `all` auf. Sobald der Key katalogisiert und geseedet ist, greift
-      die Einschraenkung ohne weitere Code-Aenderung. Bewusst so herum: ein Scope, der still
-      NICHT wirkt, ist die Richtung, die Zeilen leakt.
-  (2) GENEHMIGUNG HAENGT AN `finance:write`. Ein eigener `finance:expense:approve`-Key
-      gehoert in den Katalog — heute darf jeder, der Ausgaben anlegen darf, auch fremde
-      genehmigen. Die Vier-Augen-Regel greift trotzdem (niemand genehmigt sich selbst), aber
-      das ist eine schwaechere Aussage als "nur Vorgesetzte genehmigen".
-  (3) KEIN GET-BY-ID UND KEIN DETAIL-ENDPOINT. Das FE hat keinen (`financeExpenseApi` kennt
-      nur list/create/update/approve/reject/receipt/delete), also wurde keiner gebaut. Der
-      Service kann es (`Service.Get`), die Route fehlt bewusst.
-  (4) BELEG IST METADATEN. Wer eine echte Beleg-Ablage will (GoBD §147), braucht Upload +
-      Dokument-ID; Trigger und Ablageort stehen als `lean:`-Marker im Paketkommentar.
-  (5) `finance_expenses.submitted_by` ist `NULL`-bar mit `ON DELETE SET NULL` — ein
-      geloeschter Mitarbeiter reisst seine Ausgaben nicht mit. Folge: nach dem Loeschen des
-      Einreichers greift die Vier-Augen-Pruefung fuer diese Zeile nicht mehr (sie kann
-      niemanden mehr vergleichen). Bei `pending`-Zeilen eines geloeschten Users ist das
-      vertretbar, wenn es auffaellt — sonst muesste die Zeile beim User-Delete auf
-      `rejected` laufen.
-
-## Iteration 25 — fe-finance-bank-accounts — done — 2026-08-01 21:50 (Nachtlauf 3)
-- gebaut: Bankkonten-Stammdaten von der Tabelle bis zur Route. Migration 000258
-  `finance_bank_accounts` (tenant_id NOT NULL + FK auf tenants, RLS mit USING **und** WITH CHECK,
-  `UNIQUE (tenant_id, iban)`, CHECK dass die IBAN kanonisch ist, CHECK auf ISO-4217-Form der
-  Waehrung) plus ein Index auf `finance_bank_statements (tenant_id, account_iban, statement_date
-  DESC, created_at DESC)`; `models.BankAccount`; Repo- und Service-Methoden **im bestehenden
-  Paket `internal/biz/banking`** (nicht daneben); fuenf RPCs am FinanceService
-  (`ListBankAccounts`/`CreateBankAccount`/`UpdateBankAccount`/`DeleteBankAccount`/
-  `ConnectBankAccount`) mit Regen im selben Commit; `internal/server/biz_grpc_bankaccount.go`;
-  fuenf Gateway-Routen in `route_biz_bank_accounts.go` plus vier openapi.yaml-Pfade und drei
-  Schemas.
-- lean-fund vorab: das Backlog liest sich wie ein Neubau, aber `internal/biz/banking` existiert
-  bereits (Migration 000247: Auszugs-Import CAMT.053/MT940 + Matcher). Es fehlte nur der
-  Kontenstamm — `finance_bank_statements.account_iban` ist Freitext aus der hochgeladenen Datei.
-  Deshalb kein neues Paket: die Saldo-Ableitung liest die Statements-Tabelle, die diesem Paket
-  gehoert; ein Fremdpaket haette quer hineingegriffen. Der IBAN-Validator kam aus
-  `internal/dachfmt` (S4.1), nicht neu geschrieben — nur `NormalizeIBAN`/`FormatIBAN` daneben
-  ergaenzt (je ~8 Zeilen, gehoeren fachlich genau dorthin).
-- fachliche entscheidungen (alle begruendet, keine aus dem Backlog uebernommen):
-  - KEINE `balance`-SPALTE. Der FE-Typ verlangt `balance: number`, aber eine gespeicherte Zahl
-    waere nur im Moment des Schreibens wahr und wuerde danach still zur Luege altern — und der
-    Buchhalter kann eine gealterte Zahl nicht von einer echten unterscheiden. Der Saldo kommt per
-    `LEFT JOIN LATERAL` aus dem `closing_balance` des juengsten importierten Auszugs derselben
-    IBAN, `last_sync` aus dessen `statement_date`. Ohne Import: `0.00` und `lastSync: null` — das
-    ist, was das System ehrlich weiss. Der Test dazu treibt genau das (kein Auszug -> 0, juengerer
-    Auszug gewinnt, fremder Tenant mit derselben IBAN bleibt unsichtbar).
-  - IBAN KANONISCH GESPEICHERT (Upper-Case, ohne Trennzeichen), gruppiert erst beim Ausliefern
-    (`dachfmt.FormatIBAN`). Grund: ein Mensch tippt "DE89 3704 …", eine CAMT.053-Datei traegt
-    "DE89370400440532013000". Duerften beide Formen in die Tabelle, existierte dasselbe Konto
-    zweimal und der Saldo verteilte sich auf die Kopien. Ein CHECK in der Migration haelt die
-    Spalte kanonisch, auch gegen einen kuenftigen Direkt-INSERT. Test:
-    `TestCreateAccount_SameIBANDifferentSpellingCollides`.
-  - MOD-97 SERVERSEITIG, nicht nur am Rand. Eine IBAN mit einer vertauschten Ziffer ist formal
-    speicherbar, findet aber nie einen ihrer Auszuege — und nichts sagte, warum. Deshalb im
-    Service (`ErrInvalidIBAN`) und zusaetzlich als `validate:"iban"` am Gateway, damit der Nutzer
-    einen Feldfehler statt eines nackten 400 aus dem RPC bekommt.
-  - IBAN-KORREKTUR ERLAUBT und sie verschiebt bewusst den Saldo: ein mit Tippfehler angelegtes
-    Konto bliebe sonst fuer immer von seinen eigenen Importen getrennt. `UpdateAccount` liest nach
-    dem Schreiben neu, damit die Antwort den Saldo der NEUEN IBAN traegt statt den der alten.
-  - `connect` IST EIN FLAG, keine Bankverbindung. Der PSD2-Handshake ist im Desktop-Client
-    simuliert (`BankConnectDialog.tsx`, "echte Anbindung folgt mit FinAPI (P5)"). Ein zweiter
-    Aufruf haelt den urspruenglichen Zeitstempel (der Dialog ist wieder oeffenbar); ein Disconnect
-    loescht `connected_at`, sonst liesse sich ein spaeteres Reconnect als "war die ganze Zeit
-    verbunden" lesen. `lean:`-Marker mit Upgrade-Trigger steht an `Service.ConnectAccount`.
-  - KEIN LOGGING VON KONTODATEN. Weder Service noch gRPC-Handler schreiben IBAN, BIC oder
-    Bankname in ein Log, auch nicht auf Debug — nur `account_id` und `tenant_id`. Als Kommentar am
-    Paketkopf beider Dateien festgehalten, damit es nicht beim naechsten Anfassen zurueckkommt.
-- scope-abweichung, bewusst: der MSW-Mock kennt nur `GET /bank-accounts` und
-  `POST /bank-accounts/{id}/connect` — es gibt im FE keinen Anlege-Dialog. Gebaut wurden trotzdem
-  POST/PATCH/DELETE (Backlog-Scope), denn ohne sie waere die Liste in Produktion fuer immer leer
-  und Konten kaemen nur per SQL in die Datenbank. `connect` ist mitgebaut, weil das FE sonst
-  gegen 404 laeuft.
-- wire-shape (gegen `types/finance-types.ts:386` geprueft, nicht geraten): Liste
-  `{accounts: [...]}` (leer als `[]`, nicht `null`), Einzelentitaet `{account}`, DELETE `{}`.
-  Felder camelCase (`bankName`, `lastSync`), `balance` als JSON-**Zahl**. `lastSync` ist ein
-  NICHT-`omitempty` Pointer: der FE-Typ ist `string | null` und rendert den
-  Nie-synchronisiert-Fall aus dem `null` — ein fehlender Key liefe dort in `undefined`. Zwei
-  Tests darauf (`route_biz_bank_accounts_test.go`), inklusive der Gegenprobe, dass
-  `tenant_id`/`tenantId` nicht in die Antwort lecken.
-- guards: bestehende `RequirePermission("finance","read"/"write"/"delete")`, kein neuer Key und
-  damit keine Seed-Pflicht. `capability-catalog.ts` hat keinen `finance:bank-account:*`-Key —
-  ein additives `RequirePermissionAny` haette einen Key versprochen, den niemand bekommt.
-  `connect` liegt auf `write`, nicht auf `read`: es aendert gespeicherten Zustand.
-- gate: build ok (`-p 2`, `./internal/biz/banking/... ./internal/server/... ./internal/gateway/...
-  ./internal/dachfmt/... ./cmd/biz/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok
-  mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/biz/banking/...` (11 Testfunktionen, davon
-  3 echte DB-Tests — im `-v`-Lauf verifiziert, **null Skips**), `./internal/dachfmt/...`,
-  `./internal/gateway/` und `./internal/server/...` gruen. TestOpenAPIRouteDrift gruen:
-  747 registrierte Routen gegen 749 dokumentierte Pfade. gofmt sauber auf allen neuen Dateien
-  (die zehn gemeldeten Bestandsdateien in `internal/biz/banking` sind das bekannte
-  CRLF-Checkout-Artefakt — mit `cat -A` verifiziert, ganze Datei als `^M`-Diff, kein inhaltlicher
-  Fund).
-- migration: 000258 up, `down 1` und wieder up lokal sauber durchgelaufen, Kopf zurueck auf 258.
-  Prod steht auf 243 — dieser Commit erhoeht den Nachhol-Stapel um eine Migration.
-- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS, alles in einer zurueckgerollten
-  Transaktion): eigener Tenant **1** Konto, fremder Tenant **0**, der abgeleitete Saldo lieferte
-  **1234.56** (den eigenen Auszug) und nicht die **999999.99** des Fremd-Tenants mit derselben
-  IBAN — das ist der eigentliche Beweis, dass die laterale Statement-Query nicht ueber die
-  Tenant-Grenze liest. Ein INSERT mit fremder `tenant_id` wurde von der WITH-CHECK-Klausel
-  **abgelehnt**. Zusaetzlich im Go-Test: fremde ID liest als ErrAccountNotFound, fremde ID laesst
-  sich nicht loeschen, die Zeile ist danach fuer ihren Besitzer noch da, und dieselbe IBAN unter
-  zwei Tenants ist erlaubt (Unique ist per Tenant).
-- test-hygiene: `t.Cleanup(pool.Close)` statt `defer pool.Close()`. Beim ersten Lauf meldeten die
-  Zeilen-Cleanups "closed pool" — `t.Cleanup` der Fixtures laeuft NACH einem `defer` der
-  Testfunktion, die Testdaten waeren also liegen geblieben. Mit `t.Cleanup` greift LIFO und der
-  Pool lebt noch, wenn aufgeraeumt wird. (Der Expense-Test loest dasselbe andersherum per
-  `defer` an den Fixtures — beides geht, mischen nicht.)
-- verify vorgaenger: `8e3ab489` (fe-finance-expenses) gegen die Fehlerklassen geprueft. Alle
-  sieben Handler gehen ueber `b.getBizClient()` (kein Layer-Bypass); jeder SELECT/UPDATE/DELETE in
-  `expense/postgres_repository.go` traegt `tenant_id = $1`; `.proto` und beide `.pb.go` im selben
-  Commit; openapi.yaml im selben Commit; Migration mit up UND down; einziger `Unimplemented` ist
-  der `requireExpense()`-nil-Guard, also erwartete Boilerplate. Kein Fund.
-- offen fuer Luke:
-  (1) KEIN FEINER CAPABILITY-KEY, gleiche Lage wie bei den Ausgaben: `finance:bank-account:*`
-      fehlt in `capability-catalog.ts`. Wer `finance:read` hat, sieht alle Konten des Tenants —
-      inklusive IBAN und Saldo. Fuer ein KMU mit getrennter Buchhaltung ist das vermutlich zu
-      grob; ein eigener Key waere hier wertvoller als bei den Ausgaben.
-  (2) DER MOCK BLEIBT AKTIV. `handlers/finance.ts` beantwortet `/finance/bank-accounts` weiterhin
-      aus `mockBanking.accounts`. Das Umschalten des FE auf das echte Backend war nicht Teil
-      dieser Unit — es faellt auf, sobald jemand die Liste real leer sieht.
-  (3) KEIN ANLEGE-DIALOG IM FE. POST/PATCH/DELETE existieren jetzt serverseitig, aber das
-      Frontend hat kein Formular dafuer (`BankConnectDialog` verbindet nur ein bestehendes
-      Konto). Bis das nachkommt, kommen Konten nur per API-Aufruf in die Datenbank.
-  (4) SALDO NUR SO FRISCH WIE DER LETZTE IMPORT. Das ist Absicht (siehe oben), aber es heisst:
-      wer nie einen Auszug hochlaedt, sieht dauerhaft `0,00 €` — auch bei einem verbundenen
-      Konto. Wenn das im Pilot als Fehler gelesen wird, ist die Antwort ein Hinweis in der UI
-      ("noch kein Auszug importiert"), nicht eine manuell gepflegte Saldo-Spalte.
-  (5) `connected` OHNE FOLGEN. Ein verbundenes Konto tut heute nichts anderes als ein
-      unverbundenes — kein Polling, kein automatischer Abruf. Der Upgrade-Trigger steht als
-      `lean:`-Marker an `Service.ConnectAccount`.
-
-## Iteration 26 — fe-finance-bank-transactions-matching — done — 2026-08-01 22:15 (Nachtlauf 3)
-- ausgangslage bestaetigt: die Scope-Korrektur der Unit stimmte. Tabelle (000247), Import, Matcher,
-  `Reconcile`/`Ignore` und drei Gateway-Routen waren da. **Keine Migration**, kein neuer Service —
-  die Unit war Namensgebung, Wire-Shape und eine echte Luecke (siehe unten).
-- namensfrage entschieden: `POST .../{id}/reconcile` **umbenannt** zu `.../match`; `.../ignore`
-  BLEIBT. Begruendung: `match` und `reconcile` sind dieselbe Operation (bestaetigen + buchen), zwei
-  Namen dafuer driften auseinander — die Backlog-Vorgabe "nicht beide Namenspaare" trifft genau
-  dieses Paar. `ignore` dagegen ist eine ANDERE Entscheidung als `reject-match`: ablehnen heisst
-  "nicht diese Rechnung" (zurueck in die Queue als `unmatched`), ignorieren heisst "gar keine
-  Kundenzahlung" (raus aus der Queue als `ignored`). Beide zu einem Endpoint zu verschmelzen haette
-  Eintraege aus der Queue genommen, die noch eine Entscheidung brauchen. Kein Alias auf den alten
-  Pfad: das FE ruft `reconcile` nirgends (grep ueber `desktop/src` leer), es gibt keinen externen
-  Konsumenten, und ein Alias waere genau die Doppelung, die vermieden werden soll.
-- echte luecke gefunden: **`reject-match` existierte im Backend gar nicht.** Der Bestand konnte
-  einen Vorschlag nur buchen (`Reconcile`) oder aus der Queue nehmen (`Ignore`) — "diesen Vorschlag
-  verwerfen, Eintrag bleibt offen" war nicht abbildbar, obwohl der MSW-Mock (`handlers/finance.ts`)
-  genau das seit P2.5e tut. Neu: `Service.RejectMatch` + RPC `RejectBankTransactionMatch`.
-  Idempotent auf `unmatched` (zweimal geklickt = dasselbe Ergebnis, kein 409), `matched`/`ignored`
-  dagegen `ErrNothingToReject` -> FailedPrecondition -> **409**: beides sind Umkehrungen, die eine
-  Zahlung bzw. eine bewusste Ablage aufloesen muessten, und das gehoert nicht in diesen Endpoint.
-- wire-shape (gegen `types/finance-types.ts:397` und `api/finance-client.ts:581ff` geprueft, nicht
-  geraten): flach + camelCase (`matchStatus`, `matchedInvoice`, `counterpart`), `amount` als
-  JSON-**Zahl** mit erhaltenem Vorzeichen, `type` als `credit|debit` aus dem Vorzeichen abgeleitet,
-  `date` = `value_date`, `description` = `remittance_info` mit Fallback auf `entry_ref` (eine
-  Bankgebuehr hat oft keinen Verwendungszweck, eine leere Zeile in der Queue ist nicht
-  entscheidbar). Liste `{transactions:[...], total}` (leer als `[]`), Einzelentitaet
-  `{transaction}` — auch bei `ignore`, das vorher als nacktes Proto antwortete.
-  Zwei Tests darauf (`route_biz_bank_transactions_test.go`), inkl. Gegenprobe, dass
-  `statement_id`/`counterparty_iban`/`matched_invoice_id` nicht in die Antwort lecken und
-  `matchedInvoice` bei nichts-gematcht **fehlt** (der FE-Typ hat es optional, nicht nullable).
-- `ignored` wird aus der Queue gefiltert: der FE-Typ `BankMatchStatus` kennt nur
-  `matched|suggested|unmatched`; ein durchgereichtes `ignored` liefe in
-  `BankTransactionDetailPanel.tsx:18` in `STATUS_LABEL_KEYS[undefined]` und damit in `t(undefined)`.
-  Deshalb `?status=` (ersetzt `?match_status=`): leer oder `all` = Queue ohne `ignored`,
-  `status=ignored` holt sie explizit. Umgesetzt ueber `BankTransactionFilter.ExcludeMatchStatus` +
-  Proto-Feld `exclude_match_status` — im Gateway nachzufiltern haette `total` und die Seitengroesse
-  loechrig gemacht. Unbekannter Wert = 400, nicht stillschweigend "alles".
-- `matchedInvoice` ist die Rechnungs**nummer** und kommt aus einem LEFT JOIN auf `finance_invoices`
-  im Repo (Backlog-Vorgabe c), nicht aus einem zweiten Roundtrip. Dafuer sind `transactionColumns`
-  jetzt auf `t` aliasiert und `transactionFrom` traegt den Join — **wer dort eine WHERE-Bedingung
-  ergaenzt, muss praefixen**, sonst ist sie mehrdeutig. Der Join fuehrt `tenant_id` mit, obwohl RLS
-  `finance_invoices` schon scoped: unter einem System-Context waere die Nummer sonst
-  tenant-uebergreifend lesbar.
-- zwei stillere funde, beide gefixt, weil das FE `matchedInvoice` DIREKT anzeigt:
-  (1) `Reconcile` setzte nach einem Override `matched_invoice_id` neu, liess die Nummer aber stehen
-      — die Antwort haette den Namen der ERSETZTEN Rechnung getragen. Jetzt liest `Reconcile` nach
-      dem Update einmal nach (der Join ist die einzige Wahrheit); schlaegt der Read fehl, kostet das
-      die Nummer, nicht die Buchung.
-  (2) `Ignore` liess die Nummer ebenfalls stehen, obwohl es `matched_invoice_id` auf NULL setzt.
-  Ausserdem traegt `MatchResult` jetzt die Nummer mit, damit die Import-Antwort den Vorschlag
-  genauso benennt wie ein spaeterer Read der Queue.
-- manuelle zuordnung per nummer: das FE sendet `{invoice_number}` (nicht die id). Aufloesung im
-  Repo (`FindInvoiceIDByNumber`, tenant-gescopt) und im **Service**, nicht im Handler. Eine Nummer,
-  die nichts trifft, ist `ErrInvoiceNotFound` -> **404** und faellt NICHT auf den Vorschlag zurueck
-  — das haette Geld gegen eine Rechnung gebucht, die niemand gewaehlt hat. `invoice_id` schlaegt
-  `invoice_number`, wenn beides kommt (die id ist eindeutig, die Nummer nur pro Tenant).
-- openapi: `reconcile`-Pfad raus, `match` und `reject-match` rein, GET-Parameter auf `status`
-  umgestellt, neues Schema `BankTransactionQueueEntry`. Zwei Schemas fuer dieselbe Tabelle ist
-  Absicht: die Statement-Routen liefern weiter das volle proto-`BankTransaction` (entry_ref,
-  end_to_end_id, counterparty_iban, payment_id …), die Queue nur das, worueber entschieden wird.
-  Alle Codes dokumentiert, die der Handler wirklich liefert — inkl. 400 (unbekannter Status) und
-  409 (bereits gebucht / Debit / nichts zu verwerfen).
-- guards unveraendert: bestehende `RequirePermission("finance","read"/"write")`, kein neuer Key,
-  keine Seed-Pflicht. `capability-catalog.ts` hat weiterhin keinen `finance:bank-transaction:*`-Key.
-- gate: build ok (`-p 2`) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen
-  `kmuhub_app`: `./internal/biz/banking/...` **47 PASS, 0 SKIP, 0 FAIL** (im `-v`-Lauf gezaehlt),
-  `./internal/gateway/`, `./internal/server/...`, `./internal/biz/payment/...`,
-  `./internal/biz/invoice/...` gruen. TestOpenAPIRouteDrift gruen: 748 registrierte Routen gegen
-  750 dokumentierte Pfade. Proto im selben Commit regeneriert (biz.pb.go + biz_grpc.pb.go).
-  gofmt: die acht gemeldeten Bestandsdateien sind das bekannte CRLF-Checkout-Artefakt (mit `cat -A`
-  verifiziert, ganze Datei als `^M`-Diff); die drei neuen Dateien sind sauber.
-- CRLF-FALLE (kostet sonst eine Iteration): ein `python`-Replace mit LF-Suchstring greift auf diesen
-  Dateien **still nicht** — es meldet Erfolg und aendert nichts. Erst der naechste Build zeigt es.
-  Fuer Bestandsdateien in `internal/biz/banking` das Edit-Tool nehmen.
-- rls-smoke (als `kmuhub_app`, alles in einer zurueckgerollten Transaktion, zwei Tenants mit je
-  einer Rechnung + gematchter Transaktion): Tenant A sieht **2** Zeilen (seine gematchte + seine
-  ignorierte) und als Nummer **nur** `RE-SMOKE-MINE`; die Queue-Bedingung `match_status <> ALL`
-  liefert dort **1**; Tenant B sieht **1** Zeile mit `RE-SMOKE-THEIRS`. Der Join leckt also keine
-  fremde Rechnungsnummer. Zusaetzlich im Go-Test: fremde Transaktion liest als
-  ErrTransactionNotFound, `FindInvoiceIDByNumber` findet die Nummer eines fremden Tenants nicht.
-- verify vorgaenger: `689149dd` (fe-finance-bank-accounts) gegen die Fehlerklassen geprueft. Alle
-  fuenf Handler ueber `b.getBizClient()`; jeder SELECT/UPDATE/DELETE in
-  `postgres_repository_accounts.go` traegt `tenant_id = $1`, der laterale Statement-Read joint ueber
-  `s.tenant_id = a.tenant_id`; `.proto` + beide `.pb.go` im selben Commit; openapi.yaml im selben
-  Commit; Migration 000258 mit up UND down. Kein Stub, kein Fund.
-- offen fuer Luke:
-  (1) DER MOCK BLEIBT AKTIV. `handlers/finance.ts` beantwortet `/finance/bank-transactions*`
-      weiterhin aus `mockBanking.transactions` — das Umschalten des FE aufs echte Backend war nicht
-      Teil dieser Unit. Fuer die Queue heisst das: erst wenn der Mock faellt, sieht jemand, dass die
-      Liste ohne importierten Kontoauszug leer ist.
-  (2) KEIN FEINER CAPABILITY-KEY, dritte Unit in Folge mit derselben Lage. Wer `finance:read` hat,
-      sieht jede Kontobewegung des Tenants inklusive Gegenpartei und Betrag. Bei Gehaltszahlungen
-      ("Gehaelter Februar" steht so im Mock) ist das mehr als "Buchhaltung darf Rechnungen sehen" —
-      hier waere ein eigener Key wertvoller als bei Ausgaben und Konten.
-  (3) `reject-match` SETZT `reconciled_at`/`reconciled_by`. Die Spalten heissen nach dem Buchen,
-      tragen jetzt aber auch "wer hat wann abgelehnt". Das ist bewusst (die Information ist es wert)
-      und `match_reason = 'rejected'` unterscheidet die Faelle — aber wer die Spalte fuer eine
-      Buchungs-Statistik auswertet, muss auf `match_status` filtern, nicht auf `reconciled_at IS
-      NOT NULL`.
-  (4) EINE ABGELEHNTE ZUORDNUNG KOMMT SOFORT ZURUECK. `RejectMatch` setzt `unmatched`, der naechste
-      Import-Lauf matcht dieselbe Rechnung womoeglich erneut vor. Ein "nicht mehr vorschlagen"-
-      Merker existiert nicht; ob er gebraucht wird, zeigt der Pilot.
-
-## Iteration 27 — fe-finance-document-chains — done — 2026-08-01 22:40 (Nachtlauf 3)
-- commit: f7fd0ce3f0fcbec8a31877b8384e9f5372bb5c24
+## Iteration 12 — g-rls-events-partition — done — 2026-08-02 23:05
+- commit: dd99f2d7
+- entscheidung (A), wie vom Backlog verlangt begruendet: **`events` bekommt `tenant_id` + RLS**, kein
+  Allowlist-Eintrag. Der Nachweis fuer (B) waere gewesen, dass die Tabelle ein rein technischer
+  Event-Bus ohne fachliche Nutzdaten ist. Er scheitert nicht am `payload` — dort steht heute
+  tatsaechlich nur `{"calendar_id","event_id"}` (einzige befuellende Stelle:
+  `work/event/service.go:684`) — sondern an drei anderen Punkten:
+  1. **Der Tenant ist am Schreibpfad bekannt und wird weggeworfen.** `models.EventPayload` fuehrt
+     `TenantID` (`models/event.go:42`), jeder Emitter fuellt sie,
+     `notification/service.go:52` baut daraus die Zeile und laesst das Feld weg.
+  2. **Daraus folgt ein Bestandsbug, kein theoretisches Risiko:** `EventBus.ProcessBacklog`
+     (`event/bus.go:157`) rekonstruiert die `EventPayload` aus der gespeicherten Zeile und kann den
+     Tenant nicht wiederherstellen. Jedes nach einem Neustart nachgeholte Event erreichte
+     `preference.Evaluate` mit `uuid.Nil`.
+  3. `actor_id` + `resource_id` sind konstruktionsbedingt tenant-gebunden — genau die
+     Korrelationsdaten, die RLS trennen soll. Und die beiden anderen partitionierten Log-Tabellen
+     (`automation_executions`, `dialer_call_events`) haben seit 000242 beide `tenant_id` + Policy;
+     `events` war der Ausreisser.
 - gebaut:
-  - `GET /api/v1/finance/document-chains` liefert alle Belegketten des Tenants (mandantenweite
-    Uebersicht, kein Parameter — FE filtert/sucht client-seitig). Keine neue Tabelle: Ketten
-    entstehen als Read-Time-Assembly ueber fuenf tenant-gescopte Queries in
-    `internal/biz/invoice/postgres_document_chains.go`, verkettet ueber bestehende FKs
-    (`finance_invoices.source_quote_id`, `finance_payments`/`finance_dunning_records.invoice_id`,
-    `finance_credit_notes.original_invoice_id`).
-  - Proto: `ChainNode`/`DocumentChain`/`ListDocumentChainsRequest/Response` in `biz.proto` + RPC
-    `ListDocumentChains`, im selben Commit regeneriert (`biz.pb.go`, `biz_grpc.pb.go`).
-  - `BizGRPCServer.ListDocumentChains` (`internal/server/biz_grpc_document_chains.go`) ruft
-    `invoiceService.ListDocumentChains` (duenner Passthrough zum Repo, wie `List`/`ListForDATEVExport`
-    im selben Service).
-  - Gateway-Handler `route_biz_document_chains.go`: Hand-Mapping wie bei Bankkonten/-transaktionen
-    (repo-weiter protojson-Marshaller ist `UseProtoNames: true`, FE braucht aber `totalValue`/
-    `isComplete` camelCase), plus DACH-Betragsformatierung ("CHF 12.450,00") — die Komponente
-    rendert `amount`/`totalValue` unveraendert, kein `parseFloat` im Client (verifiziert).
-  - `models.DocumentChain`/`ChainNode` in `internal/models/finance.go`, Status-/Typ-Konstanten
-    passend zum FE-Union-Typ.
-  - Test: `internal/biz/tenant_isolation_document_chains_test.go` — frische Tenants, `kmuhub_app`.
-- verify vorgaenger: `d18c622e` (fe-finance-bank-transactions-matching) gegen alle acht
-  Fehlerklassen geprueft. Alle Handler ueber `b.getBizClient()`; Proto+beide `.pb.go` im selben
-  Commit; Guards unveraendert (`RequirePermission("finance", "write"/"read")`, keine Ersetzung,
-  kein neuer Key -> keine Seed-Pflicht); jeder Query/Join im Repo traegt `tenant_id`; openapi.yaml
-  im selben Commit, `TestOpenAPIRouteDrift` lokal nachgefahren: gruen (748/750 vor dem Commit).
-  Kein Fund.
-- SCOPE-KORREKTUR (Fund beim Bau): Backlog-Scope-Text ("Kette zu einem Beleg") stimmte nicht mit dem
-  bereits verdrahteten FE-Vertrag ueberein — `useDocumentChains()` ruft die Route ganz ohne Parameter,
-  `BelegketteTab.tsx` ist eine mandantenweite Liste mit Client-seitiger Suche. Gebaut wie der reale
-  Vertrag es verlangt (siehe Backlog-Notiz "ERGEBNIS" fuer Details: Sortierung, Platzhalter-Logik,
-  `isComplete`-Regel, abgeleitete Nummern fuer Zahlung/Mahnung ohne eigene Sequenz).
-- gate: build ok (`-p 2`, `internal/biz/...`, `internal/gateway/...`, `internal/server/...`,
-  `cmd/gateway/...`, `cmd/biz/...`) | vet ok | lint ok (`golangci-lint`, 0 issues) | test ok mit
-  `DATABASE_URL` gegen `kmuhub_app`: `internal/biz/...` + `internal/biz/invoice/...` **603 PASS,
-  0 SKIP** (per `-v`-Lauf gezaehlt); `internal/gateway/...`, `internal/server/...` gruen.
-  `TestOpenAPIRouteDrift` gruen: 749 registrierte Routen gegen 751 dokumentierte Pfade.
-  rls-smoke: `TestTenantIsolation_DocumentChains` — Eigentuemer sieht 2 Ketten (Rechnungs-Kette mit
-  6 Knoten in chronologischer Reihenfolge, Restbetrag 500 von 1000 EUR nach 400 Zahlung + 100
-  Gutschrift; Solo-Angebot-Kette, abgelehnt, `isComplete=true`), fremder Tenant sieht exakt 1 eigene
-  Kette ohne jede Spur der Kunden-/Betragsdaten des anderen Tenants.
+  - `000271_rls_events` — `ADD COLUMN tenant_id`, dreistufiger Backfill (1. `actor_id` ->
+    `users.tenant_id`; 2. aktorlose Zeilen nur, wenn genau EIN Tenant existiert — das ist die
+    Prod-Form, der Guard verhindert Raten auf einer Multi-Tenant-DB; 3. Rest loeschen, ephemeres
+    90-Tage-Log, ohne Tenant ohnehin nicht verarbeitbar), `SET NOT NULL`,
+    `idx_events_tenant_id`, `CALL enable_tenant_rls('events')`.
+  - `models.Event.TenantID`; Repository-INSERT/SELECT um die Spalte erweitert.
+  - `notification/service.go`: `evt.TenantID` **und** `notif.TenantID` aus `payload.TenantID`.
+  - `event/bus.go`: `dispatch` stempelt den Tenant in den Handler-Context; `ProcessBacklog` setzt
+    `payload.TenantID` aus der Zeile.
+  - Tests: 3 DB-Tests (`internal/notification/notification/event_tenant_isolation_test.go`) +
+    3 Bus-Tests.
+- BEFUND, der die Umsetzung bestimmt hat (verifiziert, nicht vermutet): **der notification-Worker
+  konnte seit dem Scharfschalten von RLS gar keine Notification mehr schreiben.** Die Handler
+  laufen auf dem Listener-Background-Context (`bus.dispatch`), der weder Tenant noch System-Kontext
+  traegt; `PrepareConn` laesst die GUCs dann leer, `current_tenant_id()` ist NULL und die Policy auf
+  `notifications` (000122) weist den INSERT ab. `ProcessEvent` loggt den Fehler und macht weiter —
+  der Ausfall ist also still. Belegt per psql als `kmuhub_app`:
+  `INSERT INTO notifications (...) -> ERROR: new row violates row-level security policy`.
+  Deshalb steht der Fix im **Bus** und nicht in `ProcessEvent`: dort greift er fuer jeden Handler,
+  auch fuer den zweiten registrierten Konsumenten (`inboxConsumer.HandleEvent`, `cmd/notification/
+  main.go:211`), der dasselbe Problem hat. Haette ich nur `events` unter RLS gestellt, waere
+  derselbe stille Bruch ein zweites Mal entstanden.
+- system-kontext, bewusst asymmetrisch: `ListUnprocessedEvents` und `MarkEventProcessed` laufen als
+  System (`sysctx.With`) — der Catch-up ist per Definition tenant-uebergreifend, und ein Event, das
+  nicht als verarbeitet markiert werden kann, wird bei jedem Neustart erneut abgespielt.
+  `CreateEvent` laeuft **nicht** als System: nur so prueft `WITH CHECK` den Insert wirklich, und ein
+  fuer einen fremden Tenant gestempeltes Event wird abgewiesen statt gespeichert (eigener Testfall).
+- negativprobe, zweistufig — die erste Fassung war zu schwach und ist deshalb nachgeschaerft
+  worden: mit `migrate down` fielen die Tests zwar, aber an *"column tenant_id does not exist"*.
+  Ein Test, den jeder beliebige Fehler zufriedenstellt, ueberlebt das Verschwinden der Policy. Jetzt
+  prueft `assertRLSRejected` auf **SQLSTATE 42501**. Scharfe Probe (Spalte bleibt, nur
+  `DISABLE ROW LEVEL SECURITY`): `TestTenantIsolation_Events_DB` meldet
+  `expected 0 row(s), got 1`, `TestEvents_WriteWithoutTenantContext_Rejected_DB` meldet
+  `succeeded; the RLS policy is not in force`. Danach RLS wieder aktiviert und `pg_class`
+  gegengeprueft (`rowsec=t forced=t`, 0 Restzeilen).
+- gate: build ok (`go build -p 2 ./...`, gesamter Baum) | vet ok | lint ok (golangci-lint,
+  **0 issues** ueber `./internal/notification/... ./internal/models/... ./cmd/notification/...`) |
+  test ok — `go test -count=1 ./internal/notification/... ./internal/models/... ./internal/gateway/
+  ./internal/server/...` gruen, die **6 neuen Tests real gelaufen (0 Skips**, per `-v` geprueft),
+  DB-Tests als `kmuhub_app`. | migration: up/down/up gruen (270 -> 271 -> 270 -> 271), danach
+  `relrowsecurity=t relforcerowsecurity=t`, Policy
+  `((tenant_id = current_tenant_id()) OR is_system_context())`, `tenant_id` NOT NULL.
+  | openapi: keine Route beruehrt, `TestOpenAPIRouteDrift` als Teil von `./internal/gateway/` gruen.
+- stolperstein fuer die naechste Migration: `min(uuid)` gibt es in Postgres nicht — der erste
+  Anlauf starb daran (`schema_migrations` blieb `271 dirty`, die Transaktion selbst war sauber
+  zurueckgerollt). Recovery: `migrate force 270`, dann regulaer hoch. Fuer "der einzige Tenant"
+  also `SELECT count(*)` und `SELECT id` getrennt.
+- verify vorgaenger: sauber. `54d1ef7d` (g-rls-custom-field-values) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein Stub — die Migration ruft nur den Join-Helper,
+  der Rest ist Test. Down-Migration ist symmetrisch zur Up (Policy + FORCE + ENABLE je Tabelle).
+  Read-Seite ist durch die Policy selbst abgedeckt, nicht durch handgeschriebene Praedikate.
 - offen:
-  - `finance-chains.ts`-Mock bleibt aktiv im FE — Umschalten auf das echte Backend war nicht Teil
-    dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-Units in Block D).
-  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance","read")`
-    wie ihre Nachbarn. Belegketten zeigen Kundennamen und Betraege quer durch alle Belegarten — falls
-    Block-B-artige Verfeinerung noch kommt, waere das ein Kandidat.
-  - Mahnungs- und Zahlungs-"Nummer" sind abgeleitet (`{Rechnungsnummer}/M{level}` bzw. Fallback auf
-    die Rechnungsnummer), da beide Belegarten keine eigene Nummernsequenz haben — falls das je stoert,
-    ist das der Punkt, an dem eine echte Sequenz eingefuehrt werden muesste.
+  - **`docs/ARCHITECTURE.md` ergaenzt** um einen Absatz, warum `events` nicht mehr system-global ist.
+    Der Kopfkommentar von `000242` behauptet weiterhin "events — NO tenant_id, NO RLS (system-level
+    event bus)"; historische Migrationen bleiben unangetastet, aber wer dort liest, liest Veraltetes.
+  - **`sentinelTenantID` in `notification/postgres_repository.go:27`** ist jetzt totes Netz: er fing
+    genau den `notif.TenantID == uuid.Nil`-Fall ab, dessen Ursache diese Iteration beseitigt.
+    Entfernen erst, wenn geprueft ist, dass kein anderer Aufrufer von `Create` ohne Tenant kommt —
+    und Bestandszeilen unter dem Sentinel-Tenant `...0001` brauchen dann eine Entscheidung.
+  - **`MarkEventProcessed` filtert nur auf `id`**, der PK ist aber `(id, created_at)`: das UPDATE
+    scannt jede Partition. Bei 15 Monatspartitionen heute egal, mit `created_at` im WHERE waere es
+    ein Partition-Prune. Kein Sicherheitsproblem, eine Zeile Arbeit.
+  - Naechste Unit laut Backlog: `g-rls-allowlist-audit` (Block B, sonnet) — elf Tabellen ohne
+    `tenant_id` und ohne RLS gegen die Vier-Eintraege-Allowlist stellen. `events` ist dort **nicht**
+    zu ergaenzen, es ist ab jetzt geschuetzt.
+  - Aus Iteration 10/11 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den uebrigen
+    Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; nicht regenerierte `desktop/.../api/types.ts`; `SeedRow`/
+    `CleanupRow` brauchen eine `id`-Spalte (fuer Tabellen mit zusammengesetztem PK unbrauchbar).
 
-## Iteration 28 — fe-finance-time-entries — done — 2026-08-01 23:05 (Nachtlauf 3)
-- commit: c414b61d
+## Iteration 13 — g-rls-allowlist-audit — done — 2026-08-02 22:30
+
+- commit: a732b743
 - gebaut:
-  - `GET /api/v1/finance/time-entries` liefert abrechenbare Zeiteintraege des Tenants (Filter
-    `?billed=false`/`true`, matched das FE `financeTimeEntryApi.listUnbilled()`). KORREKTUR zur
-    Backlog-Notiz: nicht die HR-Aggregation (`CreateInvoiceFromTimeEntries`/`hr_work_time_entries`),
-    sondern die WORK-Tabelle `time_entries` (Migration 000030, `task_id -> tasks -> projects`) ist
-    die Datenquelle — der FE-Vertrag (`FinanceTimeEntry`: project/task/employee/description) passt
-    nur zu dieser, nicht zur ArbZG-Clock-in/out-Tabelle.
-  - Neuer RPC `WorkService.ListBillableTimeEntries` (`work.proto`, tenant aus RLS-Context wie alle
-    Nachbar-RPCs in dieser Datei, keine explizite `tenant_id` im Request), im selben Commit
-    regeneriert (`work.pb.go`, `work_grpc.pb.go`).
-  - `internal/work/timeentry`: `Repository.ListBillable` (neue Interface-Methode) + Postgres-Impl
-    (JOIN `time_entries`/`tasks`/`projects`/`users`, alle drei Tabellen tenant-gescoped, nur
-    `ended_at IS NOT NULL AND duration_seconds IS NOT NULL` zaehlt als abrechenbar) +
-    `Service.ListBillable`-Passthrough. `models.BillableTimeEntry` neu.
-  - `WorkGRPCServer.ListBillableTimeEntries` (`internal/server/work_grpc.go`) mapped auf Proto,
-    `hours` als `duration_seconds/3600` gerundet auf 2 Nachkommastellen.
-  - Gateway: `getWorkClient()` neu auf `BizRoutes` (`route_biz_time_entries.go`) — die Route haengt
-    unter `/finance/` (FE-Pfad), die Daten gehoeren aber Work; Precedent fuer mehrere Routes-Structs
-    mit demselben Client-Typ ist `BizExtRoutes`, das ebenfalls eine eigene `getBizClient()`-Kopie
-    neben `BizRoutes` haelt. Route haengt am bestehenden `RequirePermission("finance","read")`, kein
-    neuer Key, keine Seed-Pflicht.
-  - `billed` ist im Gateway-Handler hartkodiert `false` (`lean:`-Marker) — die Invoice-Erstellung aus
-    `HoursToInvoiceDialog` laeuft ueber die generische Create-Invoice-Route mit frei gebauten
-    Line-Items und persistiert keine Zeiteintrag-IDs, anders als der HR-Pfad ueber
-    `finance_invoices.time_tracking_source`. `?billed=true` liefert deshalb konsequent `[]`.
-  - Test: `TestListBillable_TenantIsolation` (`internal/work/timeentry/tenant_isolation_phase2_test.go`)
-    — frische Tenants (nicht die geteilten `TenantA`/`TenantB`), beweist: fremder Tenant sieht 0
-    Eintraege, Eigentuemer sieht genau 1 (die abgeschlossene, mit korrekt gejointen Projekt-/Task-/
-    Mitarbeiternamen), ein laufender Timer ohne `ended_at`/`duration_seconds` erscheint nicht.
-- verify vorgaenger: `f7fd0ce3` (fe-finance-document-chains) gegen alle acht Fehlerklassen geprueft.
-  Handler ueber `b.getBizClient()`; Proto+beide `.pb.go` im selben Commit; Guard unveraendert
-  (`RequirePermission("finance","read")`, kein neuer Key); alle fuenf Repo-Queries tenant-gescoped
-  (`tenant_id = $1` bzw. Join-Bedingung); openapi.yaml im selben Commit. Unabhaengig nachgefahren:
-  `go build`/`go test ./internal/biz/...` (alle Pakete inkl. `invoice` gruen, `TestTenantIsolation_
-  DocumentChains` PASS ohne Skip), `go test ./internal/gateway/... ./internal/server/...` gruen.
-  Kein Fund.
-- gate: build ok (`-p 2`, `internal/work/...`, `internal/models/...`, `internal/server/...`,
-  `internal/gateway/...`, `cmd/work/...`, `cmd/gateway/...`) | vet ok | lint ok (`golangci-lint`,
-  0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `internal/work/...` komplett gruen
-  (alle Unterpakete inkl. `timeentry`), `internal/server/...` + `internal/gateway/...` gruen.
-  `TestOpenAPIRouteDrift` gruen: 750 registrierte Routen gegen 752 dokumentierte Pfade (+1
-  gegenueber Iteration 27, wie erwartet).
-  rls-smoke: `TestListBillable_TenantIsolation` — Details oben unter "gebaut".
+  - `000272_rls_refresh_tokens_and_plugin_permissions` — `refresh_tokens` bekommt `tenant_id NOT
+    NULL` (Backfill per Join ueber `user_id -> users.tenant_id`, FK garantiert 0 Waisen, kein
+    DO-Block noetig — anders als bei `events`) + `enable_tenant_rls('refresh_tokens')`. Neuer Index
+    `idx_refresh_tokens_tenant_id`. `plugin_permissions` bekommt
+    `enable_tenant_rls_via_join('plugin_permissions', 'plugin_installations', 'installation_id')`.
+  - `models.RefreshToken.TenantID`; `auth/postgres_repository.go` StoreRefreshToken/
+    GetRefreshTokenByHash um die Spalte erweitert; `auth/service.go` `createTokenPair` setzt
+    `TenantID: user.TenantID` beim Ausstellen — exakt das Muster von `PasswordResetToken.TenantID`
+    (`RequestPasswordReset`), das schon vor dieser Iteration existierte und als Vorlage diente.
+  - Tests: `internal/auth/rls_refresh_tokens_test.go` (4 Faelle: Tenant-B sieht nichts, System-
+    Kontext sieht alles — deckt die bestehenden `sysctx.With()`-Aufrufe in RefreshToken/Logout ab —,
+    Cross-Tenant-Revoke 0 Zeilen betroffen, Cross-Tenant-gestempelter Write via echtem
+    `StoreRefreshToken` mit SQLSTATE 42501 abgelehnt) + `internal/plugin/repository/
+    permission_rls_test.go` (2 Faelle: Tenant-Trennung beim Lesen, Cross-Tenant-Grant via echtem
+    `Grant()` abgelehnt).
+  - `docs/ARCHITECTURE.md`: drei neue Allowlist-Zeilen (`automation_templates`, `event_types`,
+    `public_holidays` — alle verifiziert schreibfrei zur Laufzeit bzw. tenant-invariant), ein Absatz
+    zur Schliessung von refresh_tokens/plugin_permissions, ein Absatz "Offener Befund" fuer die
+    fuenf verbleibenden Tabellen (siehe unten).
+- rechercheergebnis (der eigentliche Kern dieser Iteration): die elf Tabellen aus dem Backlog-Scope
+  zerfallen nicht in zwei, sondern drei Gruppen:
+  1. **RLS-Luecke, jetzt geschlossen:** `refresh_tokens`, `plugin_permissions` (oben).
+  2. **Echte Katalog-/Seed-Daten, jetzt allowlisted:** `automation_templates` (nur
+     `TemplateRegistry.SeedToDatabase()` beim Start, keine HTTP-Route schreibt), `event_types` (nur
+     Migrations-Seeds 000027/000048, kein Laufzeit-Writer), `public_holidays` (nur
+     `SeedHolidays()` aus der externen Nager.Date-API, Upsert auf `date,country_code,name` — jeder
+     Tenant, der den Sync ausloest, schreibt dieselben Zeilen, keine Divergenz moeglich).
+     `industry_templates` stand schon in der Allowlist, gegengeprueft: weiterhin korrekt.
+  3. **Neuer Fund, nicht geloest:** `dashboard_defaults`, `presence_config`, `two_factor_policy`,
+     `storage_quotas`, `plugin_manifests` sind eine dritte Kategorie, die die urspruengliche
+     Zwei-Wege-Frage (RLS oder Allowlist) schlicht nicht beantwortet. Alle fuenf sind eine einzige
+     globale Zeile (`LIMIT 1` bzw. `UNIQUE(role)`-Lookup) bzw. ein globaler Katalog, aenderbar ueber
+     eine Route, die nur `RequireRole("admin")`/`RequirePermission(...,"write")` prueft — ALSO "ist
+     irgendein Tenant-Admin", nicht "ist Admin des richtigen Tenants". Verifiziert Zeile fuer Zeile:
+     `PUT /admin/dashboard/defaults/{role}` (dashboard_service.go:144, `UNIQUE(role)`), `PUT
+     /presence/config` (route_video.go:136, `settings:write`, UPDATE ohne WHERE auf der einen
+     Zeile), `PUT /2fa/policy` (route_auth.go:90, `RequireRole("admin")`, `UNIQUE(role_name)`),
+     `IncrementUsedBytes`/`DecrementUsedBytes` (chat/file/postgres_repository.go:186ff, UPDATE ohne
+     WHERE), `POST /api/v1/plugins/manifests` (route_plugin.go:53, `RequireRole("admin")`, kein
+     `tenant_id`, `GET /manifests` ohne Filter — nur `plugin_type=wasm` ist durch den Feature-Flag
+     gesondert blockiert, `config`-Manifeste nicht). Weder RLS (kein `tenant_id` zum Filtern) noch
+     Allowlist (der Inhalt ist echt admin-mutable, keine Seed-Daten) beantwortet das ehrlich — es
+     braucht `tenant_id` + Backfill + tenant-gescopte Unique-Constraints + einen Provisioning-
+     Schritt fuer neue Tenants (ohne den liefert der Read nach RLS ein leeres Ergebnis statt eines
+     Fallbacks). Groesser als eine Iteration, deshalb bewusst NICHT in 000272 mit hineingezogen.
+     Ausgelagert in eine neue, direkt danach eingefuegte Backlog-Unit `g-rls-tenant-scoped-admin-
+     writes` (model: opus). `g-rls-regression-guard` haengt jetzt an dieser neuen Unit statt an
+     `g-rls-allowlist-audit`, sonst wuerde der Guard live gehen, bevor die Allowlist wirklich
+     vollstaendig ist.
+  Die urspruengliche Vermutung im Backlog-scope-Text, `dashboard_defaults` sei ein "starker
+  Allowlist-Kandidat", hat sich beim Nachpruefen NICHT bestaetigt — der Bewertungsmassstab war
+  richtig (Katalog/Seed -> Allowlist, pro-Tenant-divergent -> absichern), die Vorab-Einschaetzung
+  dieser einen Tabelle war es nicht: sie SOLLTE divergieren koennen (ist admin-editierbar), kann es
+  aber wegen der fehlenden Tenant-Spalte nicht sauber, und genau das ist der Bug.
+- gate: build ok (`go build -p 2 ./internal/auth/... ./internal/plugin/... ./internal/models/...
+  ./internal/gateway/... ./internal/testutil/... ./cmd/auth/... ./cmd/plugin/... ./cmd/gateway/...`)
+  | vet ok | lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/auth/...`
+  162 PASS / 0 SKIP, `./internal/plugin/...` gruen (4 neue Tests real gelaufen), `./internal/
+  gateway/` gruen (TestOpenAPIRouteDrift unberuehrt, keine Route angefasst) | migration: up/down/up
+  gruen (272 -> 271 -> 272), danach `relrowsecurity=t relforcerowsecurity=t` auf beiden Tabellen,
+  `tenant_id` auf refresh_tokens NOT NULL | rls-smoke: die vier Cross-Tenant-Faelle sind die
+  Isolationstests selbst (kein separates manuelles psql noetig, siehe oben).
+- stolperstein: `t.Cleanup` in einem Test-Helper (`seedInstallation`) plus `defer pool.Close()` in
+  der aufrufenden Testfunktion feuern in der falschen Reihenfolge — `defer` laeuft beim Return der
+  Funktion, `t.Cleanup` erst danach, also war der Pool beim Aufraeumen schon zu (stille
+  "closed pool"-Logzeile, Test bleibt gruen, aber die Zeilen blieben in der DB liegen und
+  `plugin_manifests.slug` ist UNIQUE — ein zweiter Lauf waere kollidiert). Fix: `pool.Close()`
+  selbst ueber `t.Cleanup` registrieren, VOR dem Aufruf des Helpers, dann laeuft die Schliessung in
+  der korrekten LIFO-Reihenfolge zuletzt. Verifiziert: zweiter Testlauf hinterlaesst 0 Zeilen.
+- verify vorgaenger: sauber. `dd99f2d7` (g-rls-events-partition) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Tenant-Handling korrekt
+  asymmetrisch (Catch-up-Read + processed-Flag als System, CreateEvent bewusst nicht). Migration
+  und Code passen zueinander, docs/ARCHITECTURE.md wurde im selben Commit aktualisiert.
 - offen:
-  - `finance-time-entries.ts`-Mock (`mockFinanceTimeEntries`) bleibt aktiv im FE — Umschalten auf
-    das echte Backend war nicht Teil dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-
-    Units in Block D).
-  - `billed` ist dauerhaft `false`, bis die Invoice-Erstellung Zeiteintrag-IDs persistiert (siehe
-    `lean:`-Marker in `route_biz_time_entries.go`). Ohne diese Verknuepfung erscheint ein bereits
-    abgerechneter Eintrag beim naechsten Aufruf wieder in der Liste — funktional identisch zum
-    heutigen FE-Mock-Verhalten (der Mock hat dieselbe Luecke: `billed` steht dort statisch fest),
-    aber ein Kandidat fuer eine Folge-Unit, sobald die reale Verknuepfung gebraucht wird.
-  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance","read")`.
-    Zeiteintraege zeigen Mitarbeiternamen und Projektzuordnung quer durchs Team — falls Block-B-
-    artige Verfeinerung noch kommt, waere das ein Kandidat (aehnlich der Notiz bei
-    `fe-finance-bank-transactions-matching`).
+  - **Neue Unit `g-rls-tenant-scoped-admin-writes`** wartet als naechste in Block B — fuenf Tabellen,
+    Kernfrage vor dem Bauen ist, ob ein Tenant-Provisioning-Hook fuer Default-Zeilen ueberhaupt
+    existiert (siehe notes der Unit). `plugin_manifests` hat zusaetzlich eine offene Produktfrage
+    (Tenant-Admin-Operation vs. Plattform-Operation), keine reine Migrationsfrage.
+  - `g-rls-regression-guard` bleibt `todo`, haengt jetzt an der neuen Unit statt an dieser.
+  - Aus Iteration 10/11 unveraendert offen (nicht Teil dieser Iteration): `server/plugin_grpc.go`
+    liest den Tenant in den uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions`
+    ohne Audit-Event; `rbac-format.ts`-Katalogluecke; nicht regenerierte
+    `desktop/.../api/types.ts`; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
 
-## Iteration 29 — fe-finance-transactions — done — 2026-08-01 23:15 (Nachtlauf 3)
-- commit: 120b32a4
+## Iteration 14 — g-rls-tenant-scoped-admin-writes (Teil 1: two_factor_policy) — done — 2026-08-02 23:50
+
+- commit: c65d762c
+- entscheidung vorab: die Unit umfasste fuenf Tabellen und war, wie ihre eigenen notes vorhergesagt
+  hatten, groesser als eine Iteration. Aufgeteilt statt halb gebaut. `two_factor_policy` zuerst —
+  genau der Fall, den die notes als "falls die Unit zerfaellt, diese zuerst" benannt hatten.
 - gebaut:
-  - `GET /api/v1/finance/transactions` liefert die konsolidierte Zahlungsbewegungs-Liste des
-    Tenants (`{transactions:[...], total}`), `DELETE /api/v1/finance/transactions/{id}` entfernt
-    einen Eintrag. SCOPE-KORREKTUR zur Backlog-Notiz: nicht Banktransaktionen, sondern
-    `finance_payments` + `finance_expenses` — der reale FE-Vertrag ist `financeTransactionApi`
-    (`finance-client.ts`) + `useTransactions`/`useDeleteTransaction` (`useFinanceLedger.ts`),
-    konsumiert von `TransactionsTab.tsx`/`BerichteTab.tsx`/`TransactionDetailPanel.tsx`. Die
-    Legacy-`useFinanceStore` (`stores/finance.ts`, "Mock-Store fuer BuchhaltungPage — nicht im
-    Router") liefert nur die geteilte `Transaction`-Typdefinition, keine Daten.
-  - Kein neuer Tisch: `internal/biz/invoice/postgres_transactions.go` (neue Datei, Muster wie
-    `postgres_document_chains.go`) liest `finance_payments` JOIN `finance_invoices` (Type
-    `income`, Description "Rechnung {number} {customer}", Category hartkodiert "Umsatzerlöse"
-    mangels besserer Spalte, Reference = Rechnungsnummer) und `finance_expenses WHERE
-    status='approved'` (Type `expense`) und merged sortiert nach Datum absteigend. Pending/
-    rejected Ausgaben bewegen nie Geld und fehlen bewusst aus der Liste.
-  - Neue RPCs `ListFinanceTransactions`/`DeleteFinanceTransaction` (`biz.proto`, im selben Commit
-    regeneriert: `biz.pb.go`/`biz_grpc.pb.go`), Server-Seite in
-    `internal/server/biz_grpc_transactions.go`, delegiert an `invoiceService.ListTransactions`
-    (neue Repository-/Service-Methode) fuer den Read.
-  - IDs sind praefixiert (`pay-<uuid>`/`exp-<uuid>`), damit Delete weiss, welche Tabelle gemeint
-    ist — Loeschen bedeutet je Seite etwas anderes: eine Zahlung loeschen revertiert ggf. den
-    Rechnungsstatus (bestehendes `payment.Service.Delete`, unveraendert wiederverwendet), eine
-    bereits entschiedene Ausgabe zu loeschen ist von `expense.Service.Delete` verboten
-    (`ErrDecided` -> 409) — bei dieser Ansicht IMMER, weil jede Expense-Zeile hier per Konstruktion
-    approved ist. Echtes, bestehendes Geschaeftsverhalten, kein Stub.
-  - Root-Cause-Fix im selben Commit (kein separates Scope-Kriechen — `DeleteFinanceTransaction`
-    ruft diesen Pfad direkt auf): `payment.Service`/`Repository.GetByID` gab bei "nicht gefunden"
-    einen rohen `errors.New("payment not found")` statt eines Sentinels zurueck, `mapBizError` traf
-    keinen Fall und liess die bestehende `DeletePayment`-Route bei unbekannter ID auf 500 statt 404
-    laufen. `payment.ErrNotFound`-Sentinel ergaenzt, Postgres-Repo + Mock-Repo (`service_test.go`)
-    darauf umgestellt, `mapBizError`-Fall ergaenzt — behebt denselben Bug auch fuer die bestehende
-    Payment-Route.
-  - Guard: `RequirePermission("finance","read"/"delete")` wie die Nachbarrouten (kein Katalog-Key
-    fuer transactions, gleiche Begruendung wie bei expenses/bank-accounts in `p2c-work-documents-
-    crm-finance-2`).
-  - Tests: `TestTenantIsolation_Transactions` (`internal/biz/`, echte DB) — Eigentuemer sieht genau
-    2 Eintraege (1 Payment + 1 approved Expense; pending/rejected Ausgaben fehlen), sortiert
-    neueste zuerst, Description/Category/Reference/InvoiceID wie oben. Fremder Tenant sieht exakt
-    seine eigenen 2, keine Spur der Tenant-A-Daten. `TestToFinanceTransactionWire_Income`/
-    `_ExpenseOmitsAbsentOptionals` (`internal/gateway/`) pinnen den Wire-Shape (camelCase
-    `invoiceId`, `amount` als JSON-Zahl, optionale Felder bei Expense-Zeilen abwesend).
-- verify vorgaenger: `c414b61d` (fe-finance-time-entries) gegen alle acht Fehlerklassen geprueft.
-  Handler ueber `b.getWorkClient()`; Proto+beide `.pb.go` im selben Commit; Guard unveraendert
-  (`RequirePermission("finance","read")`, kein neuer Key); Repo-Query tenant-gescoped ueber alle
-  drei gejointen Tabellen; openapi.yaml im selben Commit. Unabhaengig nachgefahren: `go build`,
-  `go vet`, `golangci-lint` (0 issues), `go test ./internal/work/... ./internal/server/...
-  ./internal/gateway/...` mit `DATABASE_URL` gegen `kmuhub_app` — alles gruen, 0 SKIP (per `-v`
-  gezaehlt), `TestListBillable_TenantIsolation` PASS. `TestOpenAPIRouteDrift` gruen. Kein Fund.
-- gate: build ok (`-p 2`, `internal/biz/...`, `internal/gateway/...`, `internal/server/...`,
-  `internal/models/...`, `proto/biz/v1/...`, `cmd/biz/...`, `cmd/gateway/...`) | vet ok | lint ok
-  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
-  `internal/biz/...` (alle Unterpakete inkl. `invoice`, `payment`), `internal/gateway/...`,
-  `internal/server/...` gruen, 0 SKIP (per `-v` gezaehlt auf den neuen/beruehrten Paketen).
-  `TestOpenAPIRouteDrift` gruen: 752 registrierte Routen gegen 754 dokumentierte Pfade (+2
-  gegenueber Iteration 28, wie erwartet: GET + DELETE).
-  rls-smoke: `TestTenantIsolation_Transactions` — Details oben unter "gebaut".
+  - `000273_tenant_scope_two_factor_policy` — `tenant_id UUID NOT NULL REFERENCES tenants(id) ON
+    DELETE CASCADE`, alter `idx_two_factor_policy_role` (global eindeutig auf `role_name`) ersetzt
+    durch `idx_two_factor_policy_tenant_role` auf `(tenant_id, role_name)`, `enable_tenant_rls()`.
+    Der Index wird VOR dem Backfill gedroppt, sonst kollidiert die Replikation mit sich selbst.
+  - Backfill: jede bestehende globale Zeile per `CROSS JOIN tenants` auf jeden Tenant repliziert.
+    Das ist die einzige verlustfreie Lesart der Altdaten — die Zeile galt vorher fuer alle, also
+    behaelt jeder Tenant exakt die Policy, unter der er stand. `updated_by` wird nur fuer den
+    Tenant uebernommen, dem der bearbeitende Nutzer angehoert (`CASE WHEN u.tenant_id = t.id`);
+    sonst waere eine fremde User-Referenz ueber genau die Grenze gewandert, die die Migration
+    zieht. Lokal 0 Zeilen (Tabelle leer), Prod ist single-tenant -> dort 1:1.
+  - `models.TwoFactorPolicy.TenantID`; Repository-Signaturen `GetTwoFactorPolicy(ctx, tenantID,
+    roleName)` und `ListTwoFactorPolicies(ctx, tenantID)`; `UpsertTwoFactorPolicy` konfliktet jetzt
+    auf `(tenant_id, role_name)`; Service-Methoden durchgereicht; `Check2FAEnforcement` nimmt
+    `user.TenantID`; `AuthGRPCServer.GetTwoFactorPolicy`/`UpdateTwoFactorPolicy` loesen den Tenant
+    ueber `middleware.GetTenantID(ctx)` auf (`Unauthenticated`, wenn er fehlt).
+  - Tests: `internal/auth/rls_two_factor_policy_test.go` (4 Faelle gegen die echte DB) +
+    2 neue gRPC-Faelle je Richtung in `internal/server/grpc_test.go`; der `authMockRepo` keyt jetzt
+    auf `(tenant, role)` statt nur auf `role`, sonst haette ein Test gruen sein koennen, der die
+    Policy eines fremden Tenants liest.
+- der eigentliche Fund dieser Iteration (wichtiger als die Migration): **RLS allein haette den Bug
+  NICHT geschlossen.** `Login` (auth/service.go:119) wickelt seinen ganzen Rumpf in
+  `sysctx.With(ctx)`, weil der User-Lookup vor jedem Tenant-Kontext passiert — und
+  `Check2FAEnforcement` erbt diesen Kontext. Im System-Kontext laesst
+  `tenant_id = current_tenant_id() OR is_system_context()` jede Zeile durch; `QueryRow` haette
+  also nach der Migration die Policy eines beliebigen fremden Tenants geliefert und den Login
+  danach beurteilt. Deshalb laeuft der Tenant explizit als Parameter durch Repository und Service
+  (dasselbe Muster wie `CreateRole` aus Welle 1b: `internal/auth` darf `middleware` nicht
+  importieren, der gRPC-Layer loest auf). Der vierte Test deckt genau das ab.
+- bewusst NICHT gebaut: eine Provisioning-Default-Zeile fuer neue Tenants, obwohl das `done_when`
+  der Unit sie fuer die Gruppe forderte. Fuer `two_factor_policy` waere sie tot: der Lesepfad wertet
+  eine fehlende Policy als "nicht erzwungen" (totp.go:281, `policy == nil -> continue`), und das ist
+  identisch zu einer Zeile mit den Spalten-Defaults (`enforced=false`, `grace_period_days=14`). Die
+  Zeile entsteht beim ersten Upsert. Fuer die vier verbleibenden Tabellen gilt das nicht — die lesen
+  mit `LIMIT 1` und brauchen den Schritt wirklich.
+- kernfrage der Unit beantwortet: **der Provisioning-Hook existiert bereits.**
+  `Service.ProvisionTenant` (auth/provisioning.go:76) + `PostgresRepository.ProvisionTenant`
+  (auth/postgres_repository.go:849) legen Tenant, Modul-Aktivierungen und Erst-Einladung in EINER
+  Transaktion unter `sysctx.With()` an. Die Sorge der notes ("falls der fehlt, ist DAS der
+  eigentliche fehlende Baustein") hat sich nicht bestaetigt. Steht im `ergebnis:`-Feld der Unit,
+  damit die Folge-Units es nicht erneut recherchieren.
+- backlog: Ursprungs-Unit auf `done` mit `ergebnis:`-Feld; drei Folge-Units eingefuegt
+  (`g-rls-presence-and-dashboard-defaults`, `g-rls-storage-quotas`, `g-rls-plugin-manifests`),
+  `g-rls-regression-guard` haengt jetzt an der letzten davon statt an der Ursprungs-Unit. Stand:
+  33 offen / 16 done / 2 blocked.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues nach Fix eines
+  SA5011 im neuen Test) | test ok — `go test -count=1 -v ./internal/auth/...` **166 PASS / 0 SKIP**
+  (mit gesetztem `DATABASE_URL` auf `kmuhub_app`), `./internal/server/...` gruen,
+  `./internal/gateway/` gruen (keine Route angefasst, `TestOpenAPIRouteDrift` unberuehrt) |
+  migration: up/down/up gruen (273 -> 272 -> 273), danach verifiziert `relrowsecurity=t
+  relforcerowsecurity=t`, Policy `tenant_isolation`, `tenant_id` NOT NULL, nur noch der
+  tenant-gescopte Unique-Index | rls-smoke: die vier Isolationsfaelle sind die Go-Tests selbst;
+  `two_factor_policy` hinterher wieder bei 0 Zeilen (kein Test-Rueckstand).
+- stolperstein: `golangci-lint` meldet SA5011 fuer `if x == nil { t.Fatal(...) }` gefolgt von einer
+  Dereferenzierung — `t.Fatal` gilt staticcheck nicht als noreturn. Ein explizites `return` nach
+  `t.Fatal` loest es. Derselbe Befund wie in Lauf 1 (dort 5x); offenbar tritt er bei jedem neuen
+  Test mit Nil-Check-plus-Zugriff wieder auf.
+- verify vorgaenger: sauber. `a732b743` (g-rls-allowlist-audit) gegen die Fehlerklassen geprueft:
+  keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Migration, Backfill, Down-Pfad und
+  die vier Go-Callsites passen zusammen. Zusaetzlich die beiden GDPR-Pfade
+  (`security/gdpr/erasure.go:109`, `export.go:196`) gegengeprueft, die `refresh_tokens` per
+  `user_id` anfassen — sie laufen im Tenant-Kontext des betroffenen Nutzers, RLS trifft sie also
+  korrekt und nicht ueberraschend.
 - offen:
-  - `finance-ledger.ts`-Mock (`mockTransactions`) bleibt aktiv im FE — Umschalten auf das echte
-    Backend war nicht Teil dieser Unit (gleiche Lage wie bei den anderen `fe-finance-*`-Units in
-    Block D).
-  - Kein eigener Capability-Key: die Route haengt am bestehenden `RequirePermission("finance",
-    "read"/"delete")`. Der reale FE-Gate-Call fuer den Loeschen-Button ist `finance:incoming:book`
-    (verifiziert in `TransactionsTab.tsx`) — analog zur Notiz bei `p2c-work-documents-crm-finance-2`
-    gaten `finance:incoming:*` reale Buttons ohne eigenen Backend-Anschluss; ein Kandidat fuer eine
-    kuenftige Block-B-artige Verfeinerung.
-  - Das Loeschen eines Expense-Eintrags aus dieser Ansicht schlaegt IMMER mit 409 fehl (jede
-    Expense-Zeile hier ist per Konstruktion `approved`, und `expense.Service.Delete` verbietet das
-    Loeschen entschiedener Ausgaben). Der FE-Loeschen-Button unterscheidet nicht zwischen Payment-
-    und Expense-Zeilen — das ist eine FE-Produktentscheidung ausserhalb des Backend-Scopes dieser
-    Unit, aber ein sichtbares Verhalten, das Luke kennen sollte.
+  - Die vier Rest-Tabellen (siehe Folge-Units). `g-rls-plugin-manifests` traegt eine echte
+    Produktfrage; im Backlog steht ein dritter Weg, der in der Ursprungs-Unit fehlte: `tenant_id`
+    NULLable mit NULL = "von Zentria ausgeliefert", also dasselbe Policy-Paar wie `roles` seit
+    000256 — das loest Katalog und Tenant-Manifeste in einem Schema.
+  - `desktop/src/renderer/src/api/security-types.ts` `TwoFactorPolicy` kennt das neue Feld
+    `tenant_id` nicht. Kein Bruch (das FE liest es nicht), aber die generierte `types.ts` ist damit
+    einen Tick veraltet — reiht sich in den schon offenen Punkt "nicht regenerierte types.ts" ein.
+  - Aus Iteration 10/11/13 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
 
-## Iteration 30 — fe-leads-lifecycle — done — 2026-08-01 23:35
-- commit: 6b570fcc
+## Iteration 15 — g-rls-presence-and-dashboard-defaults — done — 2026-08-03 00:45
+
+- commit: c0c30e79
 - gebaut:
-  - **Leads sind Kontakte, keine zweite Tabelle.** Migration `000259_contact_lead_lifecycle`
-    haengt sechs Spalten an `contacts`: `lifecycle_stage VARCHAR(20) NOT NULL DEFAULT 'customer'`
-    (CHECK lead|qualified|customer — Bestandszeilen bekommen per Default den Wert, der dem
-    heutigen Verhalten entspricht, kein NULL-Loch), `lead_source`, `lead_score SMALLINT` (CHECK
-    0–100), `lead_temperature` (NUR der manuelle Override, NULL = aus dem Score ableiten),
-    `lead_status`, `lead_company`. Dazu ein partieller Index
-    `(tenant_id, lifecycle_stage, created_at DESC) WHERE lifecycle_stage <> 'customer'`.
-    `contacts` traegt `tenant_id NOT NULL` + Policy schon seit Migr. 000070/RLS-Welle — neue
-    Spalten erben beides, keine neue Policy noetig. Down-Migration getestet (259/d dann 259/u).
-  - `lead_company` ist keine Bequemlichkeit: der FE-`Lead`-Typ fuehrt `company` als Pflicht-String,
-    und CSV-/Dialer-Intake nennt einen Arbeitgeber lange bevor jemand eine `companies`-Zeile
-    anlegt. Ohne die Spalte waere der Wert beim Anlegen still verloren gegangen. Read loest ueber
-    `COALESCE(companies.name, contacts.lead_company)` auf.
-  - Vier Routen — mehr als der Scope woertlich nannte (`GET` + Convert), aber ohne Schreibpfad
-    waere `GET /leads` per Konstruktion immer leer und `lead_status` eine Spalte, die man nie
-    setzen kann: `GET /api/v1/leads` (`{items,total}`, Filter `stage`/`status`/`search`,
-    Pagination), `POST /api/v1/leads`, `PATCH /api/v1/leads/{id}` (status/temperature; leerer
-    String loescht den Override), `POST /api/v1/leads/{id}/convert`.
-  - Service-Layer in `internal/crm/contact/lead.go` (`CreateLead`/`ListLeads`/`UpdateLead`/
-    `ConvertLead` + `ComputeLeadScore`/`ScoreToTemperature`/`EffectiveTemperature`), Persistenz in
-    `postgres_lead.go` (2 neue Repository-Methoden `ListLeads`/`UpdateLead`, beide tenant-gescoped;
-    Mock im `service_test.go` nachgezogen). `CreateInput` bekam ein optionales `Lead *LeadIntake`
-    statt eines zweiten Create-Pfads — bestehende Aufrufer bleiben unveraendert.
-  - Scoring serverseitig, regelbasiert, kein ML: spiegelt `DEFAULT_LEAD_SCORING` aus
-    `stores/leadScoring.ts` exakt (dialer 35 / manual 25 / csv 10, unbekannte Quelle 15; +email 20
-    +phone 15 +company 20 +notes 10; Schwellen hot 66 / warm 33). Der Score wird nie vom Client
-    uebernommen — ein Client-Score waere eine Client-gewaehlte Prioritaet. `lean:`-Marker mit
-    Upgrade-Trigger auf `tenant_settings (module_id='crm', key='leadScoring.*')`.
-  - Neue RPCs `ListLeads`/`CreateLead`/`UpdateLead`/`ConvertLead` in `crm.proto`, im selben Commit
-    regeneriert (`crm.pb.go`/`crm_grpc.pb.go`), Server-Seite in `internal/server/crm_grpc_leads.go`
-    ueber `contactService`. Gateway-Handler gehen ausschliesslich ueber `c.getCRMClient()`.
-  - Guards: bestehende `contactRead`/`contactCreate`/`contactEdit` (`RequirePermissionAny`,
-    `contacts`+`crm:contact`). **Kein neuer Permission-Key, also kein Seed noetig** — und kein
-    bestehender Guard ersetzt.
-  - Sicherheitsdetail: der UPDATE-Pfad hat `AND lifecycle_stage <> 'customer'` in der WHERE-Klausel.
-    Der Lead-Endpoint darf keine Seitentuer zum Editieren gewoehnlicher Kontakte sein; ein Test
-    deckt genau das ab (Update auf eine Customer-Zeile -> `ErrLeadNotFound`).
-  - Tests: `TestLeads_TenantIsolation` (echte DB, `kmuhub_app`) — Eigentuemer sieht genau seine 2
-    Leads, die gewoehnliche Kontaktzeile taucht NICHT im Inbox auf; derselbe `ListLeads`-Aufruf aus
-    der Fremd-Session mit der *echten* fremden `tenantID` liefert 0 Zeilen (nur RLS kann das
-    stoppen), waehrend der fremde Tenant seinen eigenen Lead sehr wohl sieht; Status-Filter,
-    Override-Setzen und -Loeschen. `TestCreateLead_PersistsComputedScore` — Score 100 persistiert,
-    Lead ist ueber `GetByID` auch als Kontakt lesbar, Convert aendert die Stage **derselben** Zeile
-    (`COUNT(*) = 1` nach Convert: eine Person, eine Zeile). Dazu Scoring-Tabellentests,
-    Validierungstests und zwei Gateway-Wire-Shape-Tests (`route_crm_leads_test.go`), die camelCase
-    pinnen und dass `temperatureOverride` ohne Pin abwesend bleibt.
-- verify vorgaenger: `120b32a4` (fe-finance-transactions) gegen alle acht Fehlerklassen geprueft.
-  Handler ueber `b.getBizClient()`; `biz.proto` + beide `.pb.go` im selben Commit; keine
-  `Unimplemented`/`TODO` im neuen Pfad (`postgres_transactions.go`, `biz_grpc_transactions.go`);
-  Guards `RequirePermission("finance","read"/"delete")` sind bestehende Keys der Nachbarrouten
-  (Zeilen 98/155/225/245 in `route_biz.go`) — additiv ergaenzt, keiner ersetzt, also kein Seed
-  faellig; keine neue Tabelle (Read-Zeit-Union); Wire-Shape `{transactions, total}` deckt sich
-  exakt mit `financeTransactionApi.list()` in `desktop/src/renderer/src/api/finance-client.ts:494`;
-  openapi.yaml im selben Commit (+123 Zeilen), `TestOpenAPIRouteDrift` gruen. Kein Fund.
-- gate: build ok (`-p 2`: `internal/crm/...`, `internal/gateway/...`, `internal/server/...`,
-  `internal/models/...`, `proto/crm/...`, `cmd/crm/...`, `cmd/gateway/...`) | vet ok | lint ok
-  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`
-  (verifiziert NOSUPERUSER/NOBYPASSRLS via `pg_roles`): `internal/crm/...` (alle 12 Unterpakete),
-  `internal/gateway/`, `internal/server/...` gruen, **0 SKIP** (per `-v` gezaehlt auf
-  `internal/crm/contact` + `internal/gateway`). migration ok (259 up, down 1, up — sauberer
-  Roundtrip). rls-smoke ok: `TestLeads_TenantIsolation`, Details oben.
-  `TestOpenAPIRouteDrift` gruen (4 neue Routen, 4 neue Pfad-Eintraege).
+  - `000274_tenant_scope_presence_and_dashboard_defaults` — beide Tabellen bekommen `tenant_id UUID
+    NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` + `enable_tenant_rls()`. `presence_config`
+    hatte ueberhaupt keinen Unique-Key (nur PK auf `id`), bekommt jetzt `idx_presence_config_tenant`
+    auf `tenant_id`; `dashboard_defaults` verliert `dashboard_defaults_role_key` (UNIQUE(role)) und
+    das redundante `idx_dashboard_defaults_role` zugunsten von `(tenant_id, role)`.
+    Backfill wie in 000273 per `CROSS JOIN tenants`: 1 -> 1655 Zeilen (presence), 3 -> 4965
+    (dashboard). Bei `presence_config` nimmt der Backfill bewusst nur die zuletzt bearbeitete
+    globale Zeile (`ORDER BY updated_at DESC LIMIT 1`) — die Tabelle konnte mangels Unique-Key
+    mehrere tragen, und die haetten sich beim Replizieren gegenseitig auf dem neuen Index blockiert.
+  - `presence`: `ConfigRepository.GetConfig/UpdateConfig` nehmen `tenantID` explizit; `UpdateConfig`
+    ist ein **Upsert** (`ON CONFLICT (tenant_id)`), weil ein Tenant ohne Zeile sonst einen stillen
+    Erfolg ohne Wirkung bekommen haette. `ErrConfigNotFound`/`ErrMissingTenant` neu.
+  - `gateway`: `GetDefaultLayout`/`UpsertDefaultLayout` nehmen `tenantID`, filtern bzw. schreiben
+    explizit darauf (nicht nur ueber RLS — dieselbe sysctx-Begruendung wie 000273), `ON CONFLICT
+    (tenant_id, role)`. Die Admin-Handler loesen den Tenant auf und liefern 401 ohne ihn; beide
+    Routen hatten den Tenant vorher gar nicht gebraucht.
+- entscheidung (die offene Frage der Unit): **Weg (b), Code-Default statt Provisioning-Zeile.** Nicht
+  weil er leaner ist, sondern weil beide Lesepfade ihn schon hatten: `hardcodedDefaultLayout()` ist
+  seit jeher die dritte Stufe von `GetDashboard` (dashboard_service.go:24), und
+  `DefaultAwayTimeoutSeconds` war bereits der Fallback beider `getAwayTimeout`-Aufrufer — die notes
+  verlangten genau diese Pruefung ("nur, wenn der Default wirklich im Code steht"). Ein
+  Provisioning-Insert haette dupliziert, was im Code steht, und 1655 Zeilen je Tabelle erzeugt, die
+  nichts aussagen. `presence.Service.GetConfig` beantwortet `ErrConfigNotFound` jetzt mit dem
+  Default statt mit einem Fehler; damit liefert `GET /presence/config` fuer einen frischen Tenant
+  200 statt 500.
+- der eigentliche Fund dieser Iteration: **die Migration allein haette die Luecke nicht geschlossen —
+  zwei Caches haetten sie im Betrieb wieder geoeffnet.**
+  - `presence.Service` hielt den Away-Timeout in einem prozessweiten Feld (`cachedAwayTimeout` +
+    `cachedAwayTimeoutAt`, 60 s TTL). Der erste Tenant, der den Cache fuellt, haette seinen Timeout
+    fuer die naechste Minute an alle anderen ausgeliefert. Jetzt `map[uuid.UUID]awayTimeoutEntry`,
+    und `UpdateConfig` invalidiert nur den eigenen Eintrag.
+  - `CachedDashboardRepository` cachte unter `cache:dashboard:defaults:<role>` in Redis, 30 min TTL —
+    dasselbe Muster, nur laenger und ueber Prozessgrenzen hinweg. Key traegt jetzt den Tenant
+    (`<tenant>:<role>`), analog zum schon vorhandenen `keyDashboardUser`. Regressionstest
+    `TestCachedDashboard_GetDefaultLayout_NotSharedAcrossTenants`.
+  Das ist die Lehre fuer die zwei Rest-Units: nach der Tabelle die Caches suchen.
+- bestandsbug mitgefixt (liegt auf demselben Schreibpfad): `UpdatePresenceConfig`
+  (server/video_grpc.go:1350) uebergab die **Tenant-ID** als `updated_by`, obwohl die Spalte
+  `users(id)` referenziert. `PUT /presence/config` lief damit in einen Fremdschluesselfehler, sobald
+  die Tenant-ID nicht zufaellig auch eine User-ID war — der Endpoint konnte gar nicht erfolgreich
+  sein. Jetzt `middleware.GetUserID(ctx)`, mit `Unauthenticated` wenn er fehlt. `GetPresenceConfig`
+  gibt seinen Fehler jetzt durch `mapPresenceError` statt pauschal `Internal`.
+- tests: `internal/work/presence/rls_config_test.go` (5 Faelle: Isolation, unabhaengige Timeouts,
+  Upsert fuer frischen Tenant, Code-Default, fehlender Tenant) und
+  `internal/gateway/rls_dashboard_defaults_test.go` (3 Faelle: Isolation, unabhaengige Presets,
+  fremder Tenant liest NotFound). Dazu 2 x 401 fuer die Admin-Defaults-Routen in
+  `tenant_isolation_test.go` und der Cache-Isolationstest. Beide Mocks keyen jetzt auf den Tenant
+  (`mockConfigRepo`, `mockDashboardRepo`) — mit einem globalen Mock waere ein Test gruen geblieben,
+  der eine fremde Zeile liest, derselbe Griff wie beim `authMockRepo` in Iteration 14.
+- stolperstein (neu, kostet sonst still Daten): **`t.Cleanup` laeuft NACH allen `defer`s**, also auch
+  nach `defer pool.Close()`. Ein dort registriertes `CleanupRow` trifft einen geschlossenen Pool,
+  `CleanupRow` loggt den Fehler nur (`t.Logf`) — der Test bleibt gruen und laesst Daten liegen. In
+  den ersten Laeufen dieser Iteration sind so 22 Tenants + 12 Test-User haengengeblieben (hinterher
+  entfernt, lokale DB wieder sauber). Cleanups in diesen Tests laufen jetzt als `defer` in der
+  Testfunktion, mit `func()`-Rueckgabe aus den Seed-Helfern.
+- gate: build ok (`go build -p 2 ./internal/... ./cmd/gateway/... ./cmd/work/...`) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/gateway/ ./internal/work/...
+  ./internal/server/...` alles gruen, mit `DATABASE_URL` auf `kmuhub_app`: **presence 28 PASS /
+  0 SKIP**, **gateway 604 PASS / 0 SKIP** | migration: up/down/up gruen (274 -> 273 -> 274), danach
+  verifiziert `relrowsecurity=t relforcerowsecurity=t`, Policy `tenant_isolation`, `tenant_id`
+  NOT NULL, tenant-gescopte Unique-Indizes, 1655/4965 Zeilen ueber 1655 Tenants | openapi: keine neue
+  Route, `401` war fuer alle vier betroffenen Operationen bereits dokumentiert — `TestOpenAPIRouteDrift`
+  unberuehrt gruen.
+- verify vorgaenger: sauber. `c65d762c` (two_factor_policy) gegen die Fehlerklassen geprueft: keine
+  Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass; Migration, Backfill, Down-Pfad und die
+  Callsites in `auth`/`server` passen zusammen. Der Down-Pfad kollabiert per `DISTINCT ON (role_name)`
+  bewusst verlustbehaftet — dokumentiert im Migrationskopf.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld (Entscheidung + die drei Funde, damit
+  `g-rls-storage-quotas` und `g-rls-plugin-manifests` sie nicht erneut herleiten muessen).
+  Stand: 32 offen / 17 done / 2 blocked.
 - offen:
-  - **`useLeads.ts` bleibt Mock-first.** Der FE-Hook arbeitet weiter auf seinem In-Memory-Array;
-    das Umstellen auf `/api/v1/leads` war nicht Teil dieser Unit (gleiche Lage wie bei den
-    `fe-finance-*`-Units). Beim Umbau beachten: `useLeads()` liefert heute ein *nacktes* Array,
-    der Endpoint liefert `{items,total}` (Backlog-Vorgabe).
-  - **Produktfrage fuer Luke: Leads erscheinen jetzt auch in `GET /api/v1/contacts`.** Das folgt
-    zwingend aus der Modell-Entscheidung (ein Lead *ist* ein Kontakt) und ich habe die bestehende
-    Route bewusst NICHT angefasst — eine stille Verhaltensaenderung an einer Bestandsroute waere
-    schlimmer als die offene Frage. Fuer Bestandsdaten aendert sich faktisch nichts (alle sind
-    `customer`). Sobald echte Leads angelegt werden, ist zu entscheiden, ob die Kontaktliste
-    `lifecycle_stage = 'lead'` per Default ausblendet.
-  - **Batch-Anlage fehlt** (`useCreateLeadsBatch`, CSV-Import von Leads). `ImportContactsCSV`
-    existiert, kennt aber die Lead-Spalten nicht. Eigene Unit wert.
-  - `lead_temperature` speichert ausschliesslich den manuellen Override; die effektive Temperatur
-    wird serverseitig in `toLeadInfo` abgeleitet, damit sie nicht an zwei Orten driftet.
+  - Die zwei Rest-Tabellen der Gruppe. Fuer `storage_quotas` ist die Backfill-Frage offen (der
+    globale `used_bytes` laesst sich nicht auf Tenants aufteilen); fuer `plugin_manifests` steht die
+    Produktfrage.
+  - `desktop/src/renderer/src/api/*`: weder `PresenceConfig` noch `DashboardDefault` kennen das neue
+    `tenant_id`-Feld. Kein Bruch (das FE liest es nicht), reiht sich in den offenen Punkt
+    "nicht regenerierte types.ts" ein — jetzt drei Typen tief.
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
 
-## Iteration 31 — fe-projects-time-entries — done — 2026-08-01 23:45 (Nachtlauf 3)
-- commit: db17bb62
+## Iteration 16 — g-rls-storage-quotas — done — 2026-08-02 23:23
+
+- commit: d48eab68
 - gebaut:
-  - `GET /api/v1/projects/{id}/time-entries` liefert die abgeschlossenen Zeiteintraege eines
-    Projekts (`{entries:[...]}`, Felder `id/date/task/person/hours/description`). KORREKTUR zur
-    Backlog-Sources-Notiz: `desktop/src/renderer/src/api/clients` existiert nicht — der reale
-    FE-Vertrag ist `useProjectTimeEntries` (`api/hooks/useProjects.ts:507`), Typ `ProjectTimeEntry`.
-    Keine Migration noetig: `tasks.project_id` existiert bereits seit Migration 000025 — die andere
-    Kandidaten-Spalte `hr_work_time_entries.project_id` (000212) gehoert zur ArbZG-Clock-in/out-
-    Tabelle und ist der falsche Join fuer diesen FE-Vertrag (gleiche Verwechslungsgefahr wie bei
-    `fe-finance-time-entries`, Iteration 28).
-  - Neuer RPC `WorkService.ListProjectTimeEntries` (`work.proto`, Request nur `project_id`), im
-    selben Commit regeneriert (`work.pb.go`, `work_grpc.pb.go`). `billed` bleibt bewusst ausserhalb
-    des RPC-Vertrags und wird im Gateway gefiltert — Precedent `ListBillableTimeEntries`.
-  - `internal/work/timeentry`: neue Interface-Methode `Repository.ListByProject` + Postgres-Impl
-    (JOIN `time_entries`/`tasks`/`projects`/`users`, alle drei Tabellen tenant-gescoped ueber
-    `p.tenant_id = $2 AND te.tenant_id = $2`, nur `ended_at IS NOT NULL AND duration_seconds IS
-    NOT NULL` zaehlt) + `Service.ListByProject`-Passthrough. `models.ProjectTimeEntry` neu.
-  - `WorkGRPCServer.ListProjectTimeEntries` (`internal/server/work_grpc.go`) prueft
-    Projekt-Zugehoerigkeit SERVERSEITIG, nicht nur ueber RLS: ruft zuerst `projectService.Get(ctx,
-    projectID, tenantID, uuid.Nil, true)` (dasselbe Muster wie die bestehende `GetProject`-RPC) —
-    ein fremder Tenant oder eine falsche ID landet als `NotFound`, bevor ueberhaupt eine Zeitzeile
-    abgefragt wird. Die Repository-Query filtert zusaetzlich selbst ueber `p.tenant_id` (defense
-    in depth, kein Verlass allein auf RLS).
-  - Gateway: `WorkRoutes.HandleListProjectTimeEntries` (`route_work_time.go`) haengt am bestehenden
-    `projRead`-Guard (`RequirePermissionAny(projects:read, work:project:read)`) unter
-    `/api/v1/projects/{id}/time-entries` in `route_work.go` — kein neuer Permission-Key, keine
-    Seed-Pflicht. `billed=true` liefert konsequent `[]entries` (`lean:`-Marker mit demselben
-    Upgrade-Trigger wie `route_biz_time_entries.go`: Invoice-Erstellung persistiert bisher keine
-    Zeiteintrag-IDs, also kann kein Eintrag als tatsaechlich abgerechnet erkannt werden).
-  - Tests: `TestListByProject_TenantIsolation` (echte DB, `kmuhub_app`) — zwei Projekte DESSELBEN
-    Tenants duerfen sich nicht vermischen (project_id grenzt ein, nicht nur tenant_id: Projekt A
-    sieht nur seinen abgeschlossenen Eintrag, nicht den von Projekt B), ein laufender Timer ohne
-    `ended_at` erscheint nicht, ein fremder Tenant mit der geratenen echten Projekt-ID von A sieht
-    0 Zeilen. Gateway-Wire-Shape-Test `TestToProjectTimeEntryWire_Keys` pinnt die sechs erwarteten
-    Felder und beweist, dass weder `project` noch `billed` noch `employee` (das Finance-Pendant-Feld
-    aus `FinanceTimeEntry`) im Body landen.
-- verify vorgaenger: `344f17de`/`6b570fcc` (fe-leads-lifecycle) gegen alle acht Fehlerklassen
-  geprueft. Alle vier Lead-Routen ueber `c.getCRMClient()`; `crm.proto` + beide `.pb.go` im selben
-  Commit regeneriert; Repository tenant-gescoped (`ct.tenant_id = $1` bzw. `$2`, UPDATE/GetByID mit
-  `AND ct.tenant_id = $2`); keine neue Tabelle (Spalten an `contacts`, bereits RLS-geschuetzt); Guards
-  bestehende `contactRead`/`contactCreate`/`contactEdit`, kein neuer Key, keine Seed-Pflicht.
-  Unabhaengig nachgefahren: `go build -p 2` auf `internal/crm/...`, `internal/gateway/...`,
-  `internal/server/...`, `internal/models/...`, `proto/crm/...`, `cmd/crm/...`, `cmd/gateway/...`
-  gruen. Kein Fund.
-- gate: build ok (`-p 2`: `internal/gateway/...`, `internal/work/...`, `internal/server/...`,
-  `internal/models/...`, `proto/work/...`, `cmd/gateway/...`, `cmd/work/...`) | vet ok | lint ok
-  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app` (verifiziert
-  NOSUPERUSER/NOBYPASSRLS via `pg_roles`): `internal/work/...` (alle 17 Unterpakete inkl.
-  `timeentry`), `internal/gateway/`, `internal/server/...` gruen, **0 SKIP** (per `-v` gezaehlt auf
-  `internal/work/timeentry`: 26 PASS). `TestOpenAPIRouteDrift` gruen: 756 registrierte Routen gegen
-  758 dokumentierte Pfade (+1 gegenueber Iteration 30, wie erwartet).
-  rls-smoke: `TestListByProject_TenantIsolation`, Details oben.
+  - `000275_tenant_scope_storage_quotas` — `tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE
+    CASCADE` + `UNIQUE(tenant_id)` (Conflict-Target fuer den Upsert unten) + `enable_tenant_rls()`.
+    Anders als `two_factor_policy`/`presence_config`/`dashboard_defaults` liess sich `used_bytes`
+    NICHT verlustfrei aus der alten globalen Zeile replizieren — die Zahl war eine Summe ueber alle
+    Tenants. Der Backfill berechnet `used_bytes` deshalb je Tenant aus `SUM(file_size)` ueber
+    `chat_files` (tenant-gescopt + RLS seit 000115/000122) neu; `max_bytes` wird wie in
+    000273/000274 1:1 aus der alten globalen Zeile repliziert. Lokal 0 Zeilen in `chat_files` —
+    Backfill also rechnerisch verifiziert (1671 Tenants -> 1671 Zeilen, alle used_bytes=0), nicht
+    gegen echte Dateidaten.
+  - `chat/file`: `GetStorageQuota(ctx, tenantID)` liefert `ErrQuotaNotFound` statt einer Zeile eines
+    fremden Tenants. `IncrementUsedBytes` ist jetzt ein Upsert (INSERT...ON CONFLICT(tenant_id) DO
+    UPDATE) — eine reine WHERE-UPDATE-Variante haette einem Tenant ohne Zeile einen stillen Erfolg
+    ohne Wirkung gemeldet; der Insert-Zweig zieht `max_bytes` aus dem Spalten-Default.
+    `DecrementUsedBytes` bleibt ein WHERE-gescoptes UPDATE (die Zeile existiert immer schon, weil
+    Increment sie beim ersten Upload anlegt). `GetFileByID` selektiert jetzt `tenant_id` mit.
+  - `Service.Upload` loest den Tenant jetzt VOR der Quota-Pruefung auf (vorher erst kurz vor
+    `CreateFile`, ein zweiter Aufruf) und nutzt ihn fuer Quota-Read, Quota-Increment und
+    `chatFile.TenantID`. `Service.Delete` liest den Tenant NICHT aus dem Context, sondern aus dem
+    bereits geladenen `file.TenantID` — vermeidet eine zweite Tenant-Aufloesungspflicht fuer jeden
+    Delete-Caller.
+- entscheidung (die offene Frage der Unit): Code-Default statt Provisioning-Zeile, dieselbe Wahl wie
+  000274 und aus demselben Grund — `IncrementUsedBytes` legt die Zeile beim ersten Upload an, ein
+  Provisioning-Insert haette nur dupliziert, was im Code steht. Bei `ErrQuotaNotFound` faellt
+  `Upload` auf den neuen Code-Default `DefaultMaxQuotaBytes` (10 GB, identisch zum Spalten-Default)
+  zurueck statt den Upload zu blocken.
+- tests: `internal/chat/file/rls_storage_quota_test.go` (3 Faelle: Fremd-Tenant sieht 0 Zeilen,
+  unabhaengige Zaehler unter parallelen Increment/Decrement-Aufrufen, Upsert legt Zeile fuer
+  frischen Tenant an inkl. Spalten-Default-Pruefung). Cleanups als `defer`, nicht `t.Cleanup` (Lehre
+  aus Iteration 15). Bestehende Mocks (`chat/file` und `server`) auf die neue `tenantID`-Signatur
+  angepasst; zwei Upload-Testfaelle ("quota exceeded", "scan failed") liefen vorher mit
+  `context.Background()`, weil ihr Fehlerpfad vor der alten, spaeteren Tenant-Aufloesung lag — jetzt
+  liegt die Aufloesung davor, beide Faelle brauchen darum `tenantCtx(uuid.Nil)` wie die Erfolgsfaelle.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues auf
+  `internal/chat/file`, `internal/server`, `internal/models`) | test ok — `go test -count=1
+  ./internal/chat/file/... ./internal/server/... ./internal/gateway/...` mit `DATABASE_URL` auf
+  `kmuhub_app`, 0 Skips in den neuen RLS-Tests | migration: up/down/up gruen (274 -> 275 -> 274 ->
+  275), Policy `tenant_isolation` mit FORCE ROW LEVEL SECURITY, `tenant_id` NOT NULL,
+  `UNIQUE(tenant_id)`, 1671 Zeilen ueber 1671 Tenants nach Wiederherstellung verifiziert | openapi:
+  keine neue Route, `TestOpenAPIRouteDrift` unberuehrt gruen (782/784).
+- verify vorgaenger: sauber. `c0c30e79` (presence_config/dashboard_defaults) gegen die
+  Fehlerklassen geprueft: keine Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass; Migration,
+  Backfill, Down-Pfad, Repository-/Service-Callsites und die Cache-Tenant-Scoping passen zusammen.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Stand: 31 offen / 18 done / 2 blocked.
 - offen:
-  - `useProjectTimeEntries`/`useProjectTeamUtilization`/`useProjectGuestOverview` bleiben laut
-    FE-Kommentar "Mock-served (design preview)" — Umstellung auf das echte Backend war nicht Teil
-    dieser Unit (gleiche Lage wie bei den `fe-finance-*`-Units).
-  - `billed` ist dauerhaft `false` bis zur selben Invoice-Zeiteintrag-Verknuepfung, die schon bei
-    `fe-finance-time-entries` (Iteration 28) offen blieb — eine Folge-Unit koennte beide Endpoints
-    in einem Rutsch fixen, sobald die Verknuepfung existiert.
-  - Naechste Unit `fe-projects-team-utilization` haengt an dieser (deps: [fe-projects-time-entries])
-    und braucht eine SQL-Aggregation ueber Zeiteintraege + Sollarbeitszeit — `hr_work_time_entries`
-    (ArbZG) vs. `time_entries` (PM) ist dort erneut zu klaeren, vermutlich ist wieder `time_entries`
-    gemeint (Team-Auslastung nach Projekt, nicht nach Anwesenheit).
+  - `g-rls-plugin-manifests` bleibt die letzte Tabelle der Fuenfer-Gruppe und hat zusaetzlich eine
+    offene Produktfrage (Tenant-Admin- oder Plattform-Operation) — siehe deren eigene notes.
+  - `desktop/src/renderer/src/api/*` kennt das neue `tenant_id`-Feld auf `StorageQuota` nicht. Kein
+    Bruch (das FE liest es nicht), reiht sich in den offenen Punkt "nicht regenerierte types.ts" ein
+    (jetzt vier Typen tief).
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
 
-## Iteration 32 — fe-projects-team-utilization — done — 2026-08-02 00:05 (Nachtlauf 3)
-- commit: 3f26f98a
+## Iteration 17 — g-rls-plugin-manifests — done — 2026-08-03 00:31
+
+- commit: 15c2ccd6
+- entscheidung (die Produktfrage der Unit): **gebaut, nicht blockiert.** Von den drei Wegen der notes
+  traegt der dritte: nullable `tenant_id` mit dem Policy-Paar aus 000256 (`roles`/`role_permissions`).
+  NULL = "mit dem Produkt ausgeliefert, fuer jeden Tenant lesbar, fuer keinen schreibbar", gesetzter
+  Tenant = "eigenes Manifest"; Lesen sieht beides, Schreiben nur das eigene. Weg (A) `tenant_id NOT
+  NULL` kann keinen Zentria-Katalog ausdruecken, Weg (B) Plattform-Operation braucht eine Rolle, die
+  heute keine Route vergibt, und naehme Tenants die eigenen Config-Plugins. Der dritte loest beides in
+  einem Schema und haelt EIN Muster im Schema statt zwei.
 - gebaut:
-  - `GET /api/v1/projects/{id}/team-utilization` liefert das Auslastungs-Aggregat je Projektmitglied:
-    Stunden pro Woche (letzte 6 ISO-Wochen) und pro Monat (letzte 3 Monate), inklusive Mitglieder
-    ohne jeden Zeiteintrag (0-gefuellt statt weggelassen — "je Teammitglied" heisst nicht "je
-    Mitglied mit Eintraegen"). KORREKTUR zur Backlog-Sources-Notiz: `api/clients` existiert nicht —
-    realer FE-Vertrag ist `useProjectTeamUtilization` (`api/hooks/useProjects.ts:522`), Typ
-    `MemberUtilization`.
-  - **Echter Zielkonflikt gefunden und zugunsten der Sicherheitsvorgabe geloest.** Der FE-Mock
-    liefert pro Mitglied `rate` (EUR/h), das `AuslastungReport.tsx` zu einer "Personalkosten"-Kachel
-    hochrechnet (`cost += hours * rate`) — exakt die Kostendarstellung, die die Backlog-Notiz
-    verbietet. Einzige reale Quelle eines Stundensatzes ist `EmployeeProfile.HourlyRate`
-    (`internal/models/hr.go:103`), das hinter `team:salary:view` liegt; diese Route haengt aber am
-    bestehenden `projRead`-Guard (`projects:read`/`work:project:read`). `rate` durchzureichen waere
-    ein Permission-Bypass — jeder mit Projekt-Lesezugriff saehe Gehaltsdaten ohne HR-Berechtigung.
-    Die Antwort traegt deshalb bewusst KEIN `rate`-Feld; Wire-Shape-Test prueft das explizit (String-
-    Suche nach `"rate"` im marshalten JSON, nicht nur "Feld X fehlt"). `role` kommt aus
-    `ProjectMember.Role` (owner/member/viewer — bereits oeffentlich am selben Guard ueber `GET
-    /projects/{id}/members`), NICHT aus den erfundenen Jobtiteln des Mocks ("Frontend Lead" etc.),
-    fuer die es keine Datenquelle gibt. `weeklyTarget` ist ein fixer 40h-Default mit `lean:`-Marker:
-    die echte Vertragsstundenzahl (`EmployeeProfile.WorkDaysPerWeek` x
-    `HRCompanySettings.WorkHoursPerDay`) liegt hinter `team:data_job:view`, ebenfalls ausserhalb
-    dieses Route-Scopes. FE bleibt fuers Kosten-Kaertchen Mock-served (gleiche Lage wie alle
-    `fe-*`-Units dieses Laufs) — wer es anschliesst, braucht zuerst einen `team:salary:view`-Pfad.
-  - Neuer RPC `WorkService.ListProjectTeamUtilization` (`work.proto`, Request nur `project_id`), im
-    selben Commit regeneriert. Neue Messages `UtilizationPointProto{label,hours}` und
-    `ProjectMemberUtilizationProto{user_id,name,role,weekly_target,weekly_data,monthly_data}`
-    (bewusst KEIN `rate`-Feld im Proto selbst — der Schnitt sitzt schon an der Quelle, nicht erst am
-    Gateway-Mapping).
-  - `internal/work/timeentry`: neue Repository-Methode `AggregateProjectHours(ctx, projectID,
-    tenantID, trunc, since)` — EIN SQL-Query fuer Wochen- UND Monats-Buckets (Parameter `trunc`
-    "week"/"month" via `date_trunc($1, te.started_at AT TIME ZONE 'UTC')`, explizit UTC-truncated
-    statt Session-Timezone, damit die Bucket-Grenzen exakt zu den Go-seitig erzeugten Periods-Keys
-    passen), `SUM(duration_seconds) GROUP BY user_id, period` — Aggregation komplett SQL-seitig, kein
-    zeilenweises Summieren in Go. `since` grenzt das Zeitfenster ein (5 Wochen bzw. 2 Monate zurueck),
-    damit ein altes Projekt nicht jeden je erfassten Eintrag scannt.
-  - Service `ProjectUtilization(ctx, projectID, tenantID, members, now)`: ruft `AggregateProjectHours`
-    zweimal (week/month), delegiert Zero-Fill + Label-Erzeugung an die reine Funktion
-    `buildMemberUtilization` (kein ctx/DB-Zugriff, daher ohne DB unit-testbar). Wochenlabel `KW <n>`
-    ueber `time.Time.ISOWeek()` (Stdlib, keine neue Dependency), Monatslabel deutsche
-    3-Buchstaben-Abkuerzung aus einer festen Tabelle (`Jan…Dez`) plus Jahr. Bucket-Grenzen ueber
-    `startOfISOWeek`/`startOfMonth` (Montag-Anker bzw. Monatserster, beide UTC) — dieselbe Logik
-    erzeugt sowohl die SQL-`since`-Grenze als auch die Go-seitigen Vergleichsschluessel, damit beide
-    Seiten deckungsgleich bleiben.
-  - `WorkGRPCServer.ListProjectTeamUtilization` (`internal/server/work_grpc.go`): gleiches
-    Tenant/Projekt-Zugehoerigkeits-Muster wie `ListProjectTimeEntries`
-    (`projectService.Get(ctx,…,uuid.Nil,true)` vor jedem Datenzugriff), dann
-    `projectService.ListMembers(ctx,…,uuid.Nil,true)` fuer die vollstaendige Mitgliederliste (damit
-    auch Mitglieder ohne Eintraege erscheinen), dann `timeEntryService.ProjectUtilization`.
-  - Gateway: `WorkRoutes.HandleListProjectTeamUtilization` (`route_work_time.go`) haengt am
-    bestehenden `projRead`-Guard unter `/api/v1/projects/{id}/team-utilization` in `route_work.go` —
-    kein neuer Permission-Key, keine Seed-Pflicht. Eigenes Wire-Mapping (`toMemberUtilizationWire`)
-    statt `response.Proto`, weil `avatarInitial` (aus dem Namen abgeleitet, wie im Mock) im Proto
-    nicht existiert und `rate` bewusst fehlt.
-  - Tests: `TestBuildMemberUtilization` (rein, keine DB) — Bucket-Platzierung fuer ein Mitglied mit
-    Eintraegen (aeltester/aktueller Bucket korrekt, alles dazwischen 0-gefuellt), Wochenlabel
-    unabhaengig ueber `time.Time.ISOWeek()` nachgerechnet statt gegen die eigene Funktion zirkulaer
-    zu pruefen, Monatslabel exakt ("Jun/Jul/Aug 2026" bei 3 Buckets — Index 0 ist ZWEI Monate
-    zurueck, nicht einer; das war ein Bug im ersten Testentwurf, nicht im Produktionscode, per
-    fehlgeschlagenem Testlauf gefunden und korrigiert), Mitglied ohne jeden Eintrag komplett
-    0-gefuellt statt weggelassen. `TestAggregateProjectHours_TenantIsolation` (echte DB,
-    `kmuhub_app`) — Eintrag vor dem `since`-Fenster ausgeschlossen (nicht nur Tenant/Projekt-Filter),
-    laufender Timer ausgeschlossen, fremder Tenant mit geratener echter `project_id` sieht 0 Buckets.
-    Gateway-Wire-Shape-Test `TestToMemberUtilizationWire_Keys` prueft `member.{id,name,role,
-    avatarInitial,weeklyTarget}` vorhanden, `weeklyData[0]`/`monthlyData[0]` mit `label`/`hours`, UND
-    per String-Suche im marshalten JSON, dass `"rate"` an KEINER Stelle vorkommt (nicht nur "Feld X
-    im erwarteten Objekt fehlt" — eine zukuenftige unbedachte Struct-Erweiterung waere sonst nicht
-    abgefangen).
-- verify vorgaenger: `db17bb62`/`f204eac3` (fe-projects-time-entries) gegen alle sechs
-  Fehlerklassen der Architektur-Regeln geprueft. Handler ueber `getWorkClient()`, kein direkter
-  Service-Zugriff; `work.proto` + beide `.pb.go` im selben Commit regeneriert; Repository
-  tenant-gescoped ueber den `tasks`/`projects`-Join (`p.tenant_id = $2 AND te.tenant_id = $2`);
-  keine neue Tabelle; Guard `projRead` bestehend, kein neuer Key, keine Seed-Pflicht; Wire-Shape
-  `{entries:[...]}` mit `id/date/task/person/hours/description` exakt gegen
-  `useProjectTimeEntries`/`ProjectTimeEntry` in `useProjects.ts` gegengelesen; openapi.yaml im
-  selben Commit. Unabhaengig nachgefahren: `go build -p 2` gruen, `go vet`/`golangci-lint` 0 Issues,
-  `go test ./internal/work/... ./internal/gateway/... ./internal/server/...` gruen mit
-  `DATABASE_URL` gegen `kmuhub_app`, `TestListByProject_TenantIsolation` gezielt mit `-v` als real
-  gelaufen (0,12 s, kein SKIP) verifiziert, `TestOpenAPIRouteDrift` gruen (756 Routen/758 Pfade zu
-  diesem Zeitpunkt). Kein Fund.
-- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok (`go vet ./...`) | lint ok
-  (`golangci-lint`, 0 issues auf gateway+work+server) | gofmt: KEINE neue Unformatierung — `git
-  stash`/gofmt/`stash pop` gegenprobiert, dieselben zehn Dateien (`time_entry.go`,
-  `timeentry/errors.go|postgres_repository.go|repository.go|service.go|service_test.go|
-  tenant_write_test.go`, `server/work_grpc.go|work_label_test.go`, `gateway/route_work_time.go`)
-  waren bereits VOR meinen Aenderungen unformatiert (Bestandsschulden wie in Iteration 8
-  dokumentiert) — meine drei neuen/erweiterten Dateien (`route_work.go`,
-  `route_work_time_test.go`, `tenant_isolation_phase2_test.go`) tauchen in keiner der beiden Listen
-  auf. | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `internal/work/...` (alle Unterpakete inkl.
-  `timeentry`: 29 PASS, 0 SKIP per `-v`), `internal/gateway/`, `internal/server/...`,
-  `internal/models/...` (keine Testdateien) alle gruen. `TestOpenAPIRouteDrift` gruen: 757
-  registrierte Routen gegen 759 dokumentierte Pfade (+1 gegenueber Iteration 31, wie erwartet).
-  migration n.a. (keine Schema-Aenderung — reine Aggregation auf `time_entries`/`tasks`/`projects`).
-  rls-smoke: `TestAggregateProjectHours_TenantIsolation`, Details oben.
+  - `000276_tenant_scope_plugin_manifests` — `tenant_id UUID NULL REFERENCES tenants(id) ON DELETE
+    CASCADE`, `plugin_manifests_slug_key` (global unique) ersetzt durch den Ausdrucks-Index
+    `(COALESCE(tenant_id,'0000…'::uuid), slug)` byte-identisch zu 000256, RLS ENABLE+FORCE mit
+    `tenant_isolation_read` (`tenant_id IS NULL OR = current_tenant_id() OR is_system_context()`) und
+    `tenant_isolation_write` (nur eigener Tenant). **Kein `enable_tenant_rls()`** — dessen symmetrische
+    Policy haette den Katalog fuer jeden Tenant unsichtbar gemacht. Kein Backfill: bestehende Zeilen
+    bleiben NULL, das ist die verlustfreie Lesart (sie waren fuer alle sichtbar und bleiben es).
+  - `plugin/repository/manifest.go`: `tenant_id` in INSERT und allen drei SELECTs; `GetBySlug` mit
+    `ORDER BY (tenant_id IS NULL), id LIMIT 1`, damit ein spaeter nachgeschobener Katalog-Slug die
+    eigene Zeile nicht verdraengt.
+  - `plugin/service.go`: `CreateManifest` stempelt `middleware.GetTenantID(ctx)` — aber NACH den
+    Eingabepruefungen, damit ein fehlerhaftes Manifest weiterhin 400 statt 500 liefert.
+    `DeleteManifest` weist Katalog-Manifeste mit `ErrManifestImmutable` ab (neu, gemappt auf
+    `codes.PermissionDenied` -> 403).
+- funde ueber die Unit hinaus (beide hier gefixt):
+  1. **`DELETE /manifests/{id}` war tenant-uebergreifend destruktiv.** `DeleteManifest` verweigert das
+     Loeschen bei aktiven Installationen, zaehlt sie aber ueber `plugin_installations` — das seit
+     000122 RLS hat. Fremde Installationen waren fuer die Zaehlung unsichtbar, der Count kam als 0
+     zurueck, und `manifest_id ON DELETE CASCADE` riss die Installation des fremden Tenants mit.
+     Nach 000276 sind Katalog-Zeilen fuer Tenants nicht mehr loeschbar.
+  2. **`wasm_binary_hash` ist NULLable ohne Default gegen ein `string`-Feld im Model.** Eine Zeile ohne
+     diesen Wert — genau das, was die jetzt vorgesehene Katalog-Seed-Migration schreiben wuerde — liess
+     jeden Read fuer ALLE Tenants am Scan scheitern (`cannot scan NULL into *string`). Die drei
+     Lesequeries nutzen jetzt `COALESCE(wasm_binary_hash, '')`. Aufgefallen nur, weil der
+     Isolationstest eine Katalog-Zeile per `SeedRow` anlegt.
+- gepruefte Lehren der Vorgaenger-Iterationen: **kein Cache** im Plugin-Modul (Iteration 15) und **kein
+  `sysctx.With()`-Lesepfad** (Iteration 14) — beide Suchen negativ, hier also nichts zu scopen.
+- tests: `internal/plugin/repository/manifest_rls_test.go` (4 Faelle: eigenes Manifest fuer den fremden
+  Tenant unsichtbar + Katalog fuer beide sichtbar, Create fuer fremden Tenant und Create einer
+  Katalog-Zeile beide mit SQLSTATE 42501 abgewiesen, gleicher Slug in zwei Tenants erlaubt und
+  `GetBySlug` liefert die eigene Zeile, DELETE einer Katalog-Zeile trifft still nichts). Eigene Tenants
+  per `uuid.New()`, Cleanups als `defer` inklusive der `tenants`-Zeilen (0 liegengeblieben verifiziert).
+  Drei Service-Tests neu (Tenant-Stempel, fehlender Tenant-Context, Katalog-Immutability).
+  Bestand: `service_test.go` musste von `context.Background()` auf einen Tenant-Context umgestellt
+  werden (57 Stellen, ein `tenantCtx()`-Helper) — dieselbe Klasse wie in Iteration 16 bei `chat/file`.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint, 0 issues auf
+  `internal/plugin`, `internal/server`, `internal/models`) | test ok — `go test -count=1
+  ./internal/plugin/... ./internal/server/... ./internal/gateway/` mit `DATABASE_URL` auf `kmuhub_app`,
+  **71 PASS / 0 SKIP** im Plugin-Baum | migration: up/down/up gruen (275 -> 276 -> 275 -> 276), Policies
+  und Ausdrucks-Index nach Wiederherstellung verifiziert. Der **Down-Pfad wurde mit echten Duplikaten
+  geprueft**, nicht nur auf der leeren Tabelle: drei Zeilen mit demselben Slug (zwei Tenants + Katalog),
+  nach `down` ueberlebt wie dokumentiert die Katalog-Zeile | openapi: keine neue Route,
+  `TestOpenAPIRouteDrift` gruen (782/784); 403 war am DELETE bereits dokumentiert, Beschreibung um den
+  neuen Fall und die Slug-Semantik ergaenzt.
+- verify vorgaenger: sauber. `d48eab68` (storage_quotas) gegen die acht Fehlerklassen geprueft: keine
+  neue Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass. Migration setzt `tenant_id` NOT NULL,
+  Unique-Index und RLS; der Upsert-Conflict-Target passt zum Index; `GetStorageQuota` hat genau einen
+  Aufrufer (`Upload`), der `ErrQuotaNotFound` behandelt — kein Pfad laeuft in den neuen Fehler.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Damit ist die Fuenfer-Gruppe aus
+  `g-rls-tenant-scoped-admin-writes` (000273-000276) vollstaendig geschlossen.
+  Stand: 30 offen / 19 done / 2 blocked.
 - offen:
-  - **Produktentscheidung fuer Luke:** das FE-Personalkosten-Kaertchen in `AuslastungReport.tsx`
-    bleibt ohne echten Backend-Wert (Mock-`rate`), weil ein korrekter Wert `team:salary:view`
-    braucht, das dieser project-read-gegatete Endpoint nicht hat. Optionen: (a) eigene
-    salary-gegatete Zusatzroute, die das FE nur fuer berechtigte User abruft; (b) die Kostenkachel im
-    FE ganz entfernen/hinter eine eigene Capability legen; (c) so lassen bis ein Kunde das Feature
-    real verlangt. Keine dieser Optionen wurde umgesetzt — reine Beobachtung.
-  - `weeklyTarget` (40h-Default) und `role` (Projekt-Rolle statt Jobtitel) weichen bewusst vom
-    FE-Mock ab; sollte das FE spaeter von Mock auf diesen Endpoint umgestellt werden, aendert sich
-    dort sichtbar die Darstellung (kein "Frontend Lead" mehr, sondern "owner"/"member"/"viewer").
-  - Naechste Unit laut Backlog-Reihenfolge: `fe-projects-guest-overview` (deps erfuellt). Deren
-    Notes verlangen explizit eine schmale, handgebaute Feldliste ohne interne Notizen/Kosten/
-    Mitarbeiterdaten fuer die Rolle `extern` — dieselbe Guard-Kategorie (`projRead`) wie hier, selbes
-    Risiko falls versehentlich HR- oder Kostenfelder durchgereicht werden.
+  - Naechste Unit ist `g-rls-regression-guard` — der Test, der genau diesen Block kuenftig verhindert.
+    `plugin_manifests` hat jetzt ein Policy-PAAR statt der Standard-`tenant_isolation`; der Guard darf
+    also nicht auf den Policy-Namen pruefen, sondern auf `relrowsecurity`.
+  - `ErrPluginHasInstallations` faellt in `mapPluginError` in den `default`-Zweig und wird als 500
+    beantwortet, obwohl es fachlich ein 409 ist. Bestand, nicht in dieser Unit angefasst.
+  - `desktop/src/renderer/src/api/*` kennt `tenant_id` auf keinem der betroffenen Typen — hier ohne
+    Wirkung, weil das Proto (`ManifestMsg`) kein Feld dafuer hat und die HTTP-Antwort es nicht traegt.
+  - Aus Iteration 10/11/13/14 unveraendert offen: `server/plugin_grpc.go` liest den Tenant in den
+    uebrigen Handlern weiter aus dem Request-Body; `SetRolePermissions` ohne Audit-Event;
+    `rbac-format.ts`-Katalogluecke; `SeedRow`/`CleanupRow` brauchen eine `id`-Spalte.
 
-## Iteration 33 — fe-projects-guest-overview — blocked — 2026-08-02 00:20 (Nachtlauf 3)
-- commit: - (keine Code-Aenderung, nur BACKLOG.yml-Status)
-- verify vorgaenger: sauber. `3f26f98a` (fe-projects-team-utilization) gegen alle acht
-  Fehlerklassen geprueft: Handler ueber `getWorkClient()`, kein direkter Service-Zugriff;
-  `work.proto` + `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert; kein neuer
-  `RequirePermission`-Guard (haengt am bestehenden `projRead`), also auch keine Seed-Pflicht und
-  kein verlorener Alt-Key; kein neuer Table, Repository tenant-gescoped ueber
-  `te.tenant_id = $3 AND p.tenant_id = $3` im JOIN; Wire-Shape `{team:[...]}` mit
-  `member.{id,name,role,avatarInitial,weeklyTarget}` + `weeklyData`/`monthlyData` exakt gegen
-  `MemberUtilization`/`useProjectTeamUtilization` in `useProjects.ts:26-38,522-533` gegengelesen —
-  das bewusst fehlende `rate`-Feld ist dokumentierte Sicherheitsentscheidung (team:salary:view),
-  kein uebersehener Drift; openapi.yaml-Eintrag vorhanden. Unabhaengig nachgefahren:
-  `go test -count=1 -v ./internal/work/timeentry/... -run
-  'TestAggregateProjectHours_TenantIsolation|TestBuildMemberUtilization'` gegen `kmuhub_app` real
-  gelaufen (2 PASS, 0 SKIP, 0.24s). Kein Fund.
-- gebaut: nichts — Unit als `blocked` markiert, siehe `blocked_reason` in BACKLOG.yml.
-- Grund (Kurzfassung, Volltext im Backlog-Eintrag): Fuer `GET
-  /api/v1/projects/{id}/guest-overview` erwartet der reale FE-Vertrag
-  (`useProjectGuestOverview`, `useProjects.ts:536`) als GESAMTE Antwort
-  `{milestones: GuestMilestone[], statusUpdates: GuestStatusUpdate[]}`. Fuer beide Konzepte
-  existiert im Backend NICHTS — keine Tabelle, kein Model, kein interner Schreibpfad (verifiziert
-  per Volltextsuche ueber `backend/`, inkl. Migrations und `internal/models`). Der MSW-Mock
-  (`mocks/handlers/work.ts:1087`) erzeugt "Milestones" aus sechs hartkodierten Platzhaltertiteln
-  ("Konzept & Setup" ... "Go-Live"), gleichmaessig ueber Start-/Enddatum verteilt — reine
-  Design-Preview-Fiktion, kein Bezug zu echten Projektdaten. Diese Route ehrlich zu bauen braucht
-  zuerst ein echtes Datenmodell (mind. zwei neue Tabellen) UND einen internen Schreibpfad, damit
-  ein PM-User ueberhaupt Milestones/Status-Updates anlegen kann — beides existiert nirgends, auch
-  nicht ausserhalb der Guest-View. Ohne Schreibpfad waere die Route dauerhaft leer (Fehlerklasse 2,
-  "leerer Return" hinter einem echten GET). Interne Task-Kommentare als Ersatzquelle zu nehmen
-  wuerde die Sicherheitsvorgabe der Unit verletzen ("keine internen Notizen" fuer `extern`). Die
-  FE-Platzhalterfiktion serverseitig nachzubauen waere umgekehrt ein hartkodierter Beispieldatensatz
-  hinter einer echten Route. Alle drei Auswege (neues Feature aufsetzen / Milestones aus
-  vorhandenen Daten ableiten und Status-Updates streichen / Route auf echte Projekt-Kernfelder
-  beschraenken) sind Produkt-/Architekturentscheidungen — nicht spontan zu treffen.
-- gate: n.a. (kein Code geaendert)
+## Iteration 18 — g-rls-regression-guard — done — 2026-08-03 01:15
+
+- commit: ead9923e
+- gebaut: `backend/internal/testutil/rls_regression_test.go`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`. Scannt `pg_class` in `public` fuer
+  `relkind IN ('r','p')`, schliesst Partitionen ueber `relispartition` aus (direkter als ein Join
+  ueber `pg_inherits`, auf PG16 verifiziert) und verlangt fuer den Rest `relrowsecurity = true`.
+  Zwei Ausnahme-Maps: `systemGlobalAllowlist` (die sieben ADR-006-Tabellen aus
+  docs/ARCHITECTURE.md) und `knownRLSGaps` (aktuell nur `user_roles`, mit Verweis auf die offene
+  Unit `g-user-roles-rls`). Absichtlich getrennt: die erste Map ist dauerhaft legitim, die zweite
+  ist bekannte Schuld, die beim Schliessen ihrer Unit wieder rausfliegt — ein neuer, unbenannter
+  Fund faellt durch keine von beiden und macht den Test rot.
+- scan-ergebnis (Kopf 276, verifiziert gegen die lokale DB): genau 7 Allowlist-Treffer + 1
+  bekannter Gap (`user_roles`) = 8 Tabellen ohne RLS ausserhalb von Partitionen. Alle 32
+  Partitions-Kinder von `automation_executions`, `dialer_call_events`, `events` zeigen
+  `relispartition=true` und werden uebersprungen; ihre drei Eltern haben `relrowsecurity=true`
+  und werden korrekt NICHT ausgenommen — waeren sie es, haette der Test diese drei Familien nie
+  geprueft, und genau das war das Risiko, das die Unit adressiert.
+- gate: build ok (`go build -p 2 ./internal/testutil/...`) | vet ok | lint ok (golangci-lint,
+  0 issues) | test ok — `go test -count=1 ./internal/testutil/...`, **4/4 PASS, 0 Skips**
+  (`DATABASE_URL` auf `kmuhub_app`). Keine Migration, kein Proto, keine Route angefasst —
+  `go test ./internal/gateway/` ist deshalb nicht Teil dieses Gates.
+- verify vorgaenger: sauber. `15c2ccd6` (plugin_manifests, Iteration 17) gegen die acht
+  Fehlerklassen geprueft: keine neue Route, kein `.proto`, kein neuer Guard, kein gRPC-Bypass,
+  Migration (nullable `tenant_id` + asymmetrisches Policy-Paar statt `enable_tenant_rls()`,
+  begruendet) und Down-Pfad sauber, `CreateManifest` stempelt den Tenant nach den
+  Eingabepruefungen wie beschrieben.
+- backlog: Unit auf `done` mit `ergebnis:`-Feld. Damit ist **Block B (Sicherheit/RLS-Reste)
+  vollstaendig geschlossen** — der Scan, der ihn ausgeloest hat, ist jetzt Dauerpruefung statt
+  Einmalaktion.
+  Stand: 29 offen / 20 done / 2 blocked.
 - offen:
-  - **Entscheidung fuer Luke:** siehe `blocked_reason` in BACKLOG.yml, drei Optionen zur Auswahl.
-  - Naechste Unit laut Reihenfolge: `fe-customization-labels` (deps: [], unabhaengig von dieser
-    blockierten Unit).
+  - `user_roles` bleibt ein echter, wenn auch heute ungefaehrlicher Gap — `g-user-roles-rls`
+    steht weiterhin als eigene Unit im Backlog (Block G/3), nicht in diesem Lauf gezogen.
+  - Alle unveraendert offenen Punkte aus Iteration 17 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`) bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 34 — fe-customization-labels — done — 2026-08-02 00:40 (Nachtlauf 3)
-- commit: 528a7868
-- verify vorgaenger: `95ff9dbc` (Iteration 33) war reiner Doku-Commit (BACKLOG.yml/JOURNAL.md,
-  keine Code-Zeile) — nichts zu verifizieren. Der letzte echte Code-Commit `3f26f98a`
-  (fe-projects-team-utilization) wurde bereits in Iteration 33 gegen alle Fehlerklassen geprueft
-  und als "Kein Fund" journalisiert; keine erneute Pruefung noetig.
-- gebaut:
-  - `GET /api/v1/customization/labels?locale=de[&base=1]` und
-    `PUT /api/v1/customization/labels` — tenant-eigene Umbenennungen von UI-Begriffen
-    (`desktop/src/renderer/src/api/customization-types.ts`). Scope bewusst so eng wie in der
-    Backlog-Note verlangt: nur die Tenant-Overlay-Schicht von Label-Overrides, NICHT Value-Sets,
-    Drafts/Scheduling oder der Vendor-Resolver — die bleiben unangetastet.
-  - **Keine neue Tabelle, keine neue Migration, keine neue Proto-RPC.** `tenant_settings`
-    (Migration 000138, RLS seit 000218 per `enable_tenant_rls`) traegt das bereits generisch als
-    `(tenant_id, module_id, key) -> JSONB`. Neue Datei `backend/internal/gateway/route_customization.go`
-    (`CustomizationRoutes`, eigener `RouteRegistrar`) ruft dafuer ausschliesslich die BEREITS
-    vorhandenen `SettingsService.GetTenantSettings`/`PutTenantSettings`-RPCs mit
-    `module_id="customization"` auf — ein Row pro Locale, Value ist die sparse
-    `{labelKey: overrideText}`-Map (via `structpb.Value`/`AsInterface()` hin- und rueckkonvertiert).
-    Damit ist dies der erste Consumer, der die Settings-Foundation-Infrastruktur (Sprint 4/07-xx)
-    fuer einen fachfremden Zweck zweitverwertet, statt einen neuen Dienst zu bauen.
-  - Whitelist-Filterung (nur `LABEL_WHITELIST`-Keys aus `mocks/data/customization.ts` werden
-    angenommen, unbekannte Keys still verworfen — identisch zum MSW-Mock-Verhalten) und die
-    Default/Tenant-Provenance-Aufloesung sind pure Funktionen (`resolveLabels`,
-    `applyLabelOverrides`, `structValueToStringMap`) im Gateway-Package, nicht im Handler selbst —
-    Praezedenzfall dafuer ist `internal/modules`/`toTenantModuleJSON` (statische Katalogdaten direkt
-    im Gateway, kein gRPC-Umweg fuer reine Shape-Transformation auf bereits tenant-gescopten Daten).
-  - **Fund beim Bau:** `desktop/src/renderer/src/api/hooks/useLabelOverrides.ts` ist KEIN totes
-    Type-File, sondern ein echter, bereits verdrahteter Consumer
-    (`modules/admin/anpassungen/BegriffeTab.tsx`) — `useLabelOverrides`/`useSetLabelOverrides`/
-    `useResetLabelOverride`/`useResetAllLabelOverrides` sind dort live im Editor genutzt. Der Hook
-    `useLabelDefaults` (fuer `?base=1`, "Cosmi-Standard"-Baseline-Ansicht) ist im Hook-File definiert,
-    aber aktuell in KEINER Seite importiert — trotzdem mitgebaut, weil der Vertrag real existiert und
-    ein spaeteres Wieder-Einschalten sonst still falsche Daten (Tenant-Overrides statt Default)
-    gezeigt haette. `base=1` überspringt den `GetTenantSettings`-Call komplett (jeder Whitelist-Key
-    kommt mit `provenance="default"`/`value=""` zurueck), getestet auch mit absichtlich kaputter
-    Settings-Verbindung (`registryWithService`, Adresse loest nie real auf) — beweist, dass der
-    Fetch fuer `base=1` wirklich uebersprungen wird und nicht nur zufaellig durchlaeuft.
-  - Guard: `RequirePermission("admin:customization","manage")` NUR auf PUT — GET ist fuer jeden
-    authentifizierten User offen, weil aufgeloeste Labels UI-Text fuer ALLE User treiben, nicht nur
-    fuer die, die ihn editieren duerfen (gleiches Muster wie `/auth/me/permissions`). Kein neuer
-    Seed noetig: `admin:customization:manage` steht bereits seit `p1a-migration`/000256 im
-    Gesamt-Katalog-Seed und ist an `admin`+`it_admin` vergeben (gegen die lokale DB verifiziert,
-    nicht angenommen). Da dies eine BRANDNEUE Route ist (nicht die additive Verschaerfung eines
-    Bestandsguards aus Block B), gibt es keinen Alt-Key zu bewahren — der einzelne Fine-Key reicht.
-  - Vendor-Layer bewusst abgelehnt: `PUT` mit `layer:"vendor"` liefert 400 statt den Request
-    stillschweigend in die Tenant-Schicht zu schreiben. Grund: R-5 (GDAP-Vendor-Access) ist nicht
-    verdrahtet, `activeConfigLayer()` im FE-Mock liefert selbst in v1.0 immer nur `"tenant"` — ein
-    Vendor-Schreibpfad waere unbenutzt bis dahin und ein falsch benannter Layer haette sonst leise
-    im Tenant-Overlay gelandet.
-  - Tests (`route_customization_test.go`, neu): pure Funktionstests fuer `resolveLabels` (Default-
-    vs. Tenant-Provenance, nicht-Whitelist-Key filtert sich raus), `applyLabelOverrides`
-    (unbekannter Key verworfen, leerer Wert loescht, bestehende unberuehrte Keys bleiben stehen),
-    `structValueToStringMap` (Objekt-Roundtrip, nicht-String-Werte defensiv verworfen, nil/Array
-    liefert nil) sowie ein Wire-Shape-Test (`json.Marshal` gegen den exakten erwarteten String, wie
-    bei `TestToEffectivePermissionsBody_WireShape`). HTTP-Verdrahtungstests ueber
-    `emptyRegistry()`/`registryWithService()` (Muster aus `testutil_test.go`): GET ohne Guard
-    erreicht den Handler auch mit leerem Permission-Slice (503 statt 403), PUT ohne
-    `admin:customization:manage` liefert 403, PUT mit dem Key erreicht den Handler (503 an der
-    leeren Registry, nicht 403), Vendor-Layer-Ablehnung, ungueltige Locale (400), `base=1`-Erfolg
-    trotz kaputter Verbindung.
-  - `backend/api/openapi.yaml`: neuer Tag `Customization`, Pfad `/api/v1/customization/labels`
-    (GET+PUT) sowie Schemas `ResolvedLabel`/`LabelOverridesResponse`/`UpdateLabelOverridesRequest`
-    im selben Commit.
-- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
-  (`golangci-lint`, 0 issues — drei Anfangsfunde selbst behoben: `interface{}` -> `any`,
-  Merge-Loop -> `maps.Copy`) | gofmt: `route_customization.go`/`route_customization_test.go` sauber;
-  `openapi_drift_test.go`/`cmd/gateway/main.go` per `git stash`/gofmt/`stash pop` gegengeprueft —
-  waren bereits VOR meiner Ein-Zeilen-Aenderung unformatiert (Bestandsschulden), meine Zeile selbst
-  nicht betroffen. | test ok: `go test -count=1 -v ./internal/gateway/` — 571 PASS, 0 FAIL, 0 SKIP.
-  `TestOpenAPIRouteDrift` gruen: 758 registrierte Routen gegen 760 dokumentierte Pfade (+1 gegenueber
-  Iteration 32, wie erwartet — GET+PUT teilen sich einen Pfad-Eintrag). `npx @apidevtools/swagger-cli
-  validate backend/api/openapi.yaml` gruen (identisch zum CI-Job `openapi-validate`). migration: keine
-  (reine Zweitverwertung von `tenant_settings`). rls-smoke: manuell gegen `tenant_settings` mit
-  `module_id='customization'` unter `kmuhub_app` gefahren (Muster aus GATE-COMMANDS.md) — eigener
-  Tenant 1, fremder Tenant 0, Testzeile danach wieder geloescht. Kein Fund.
+## Iteration 19 — g-crm-contact-timeline — blocked — 2026-08-03 02:00
+
+- commit: 84292279
+- gebaut: nichts — Praemisse der Unit widerlegt. `GET /api/v1/contacts/{id}/timeline` existiert
+  bereits vollstaendig und korrekt: Proto-RPC (crm.proto:93/1018-1041), Service
+  `activity.Service.GetContactTimeline` (activity/service.go:422), Repository-Query unioniert
+  `activities`+`deals` tenant-gescopt in beiden Armen (activity/postgres_repository.go:372-403),
+  Gateway-Handler geht ueber den gRPC-Client (route_crm_ext.go:146), Route registriert
+  (route_crm.go:103, route_crm_ext.go:367), openapi.yaml dokumentiert (Zeile 28390), sogar per
+  `test/e2e/dialer_test.go:155` end-to-end geprueft. Kein Stub, kein Bypass, kein Tenant-Leck.
+- befund: der reale Fehler ist FE-seitig. `desktop/src/renderer/src/api/hooks/useTimeline.ts:40`
+  ruft `/api/v1/crm/contacts/${contactId}/timeline` — ein `/crm/`-Segment, das kein anderer
+  CRM-Hook nutzt (`useContacts.ts`, `useContactTags.ts` gehen alle direkt unter
+  `/api/v1/contacts/...`). Jeder echte Aufruf bekommt 404. Kein totes FE-Feature: der Hook wird
+  von `ContactTimeline.tsx` genutzt, gerendert in `modules/kontakte/ContactDetailPanel.tsx` — die
+  Kontakt-Chronik ist in der Detailansicht produktiv nie sichtbar.
+  Zweiter, unabhaengiger Vertragsbruch, der erst nach dem Pfad-Fix sichtbar wuerde: openapi.yaml
+  dokumentiert den Query-Parameter `offset` explizit als 1-basierte Seitenzahl, nicht als
+  Zeilen-Offset (Zeile 28398-28400), der Gateway-Handler reicht ihn so an `Page` durch
+  (route_crm_ext.go:158-161). `useTimeline.ts:63` berechnet aber einen echten Zeilen-Offset
+  (`(page-1)*pageSize`) — fuer Seite 1 zufaellig 0 (passt), ab Seite 2 waere die angefragte RPC-Seite
+  falsch (offset=20 bei pageSize=20 -> Page=20 statt Page=2). Ungetestet, weil der einzige
+  bestehende Test nur Seite 1 abruft.
+- gate: n.a. — keine Codeaenderung, reine Diagnose. Kein Build/Test noetig.
+- verify vorgaenger: sauber. `ead9923e` (RLS-Regression-Guard, Iteration 18) gegen die acht
+  Fehlerklassen geprueft: reiner Testzusatz, keine Route/Proto/Migration/Guard angefasst, Test
+  selbst korrekt (siehe Code-Review oben in dieser Iteration) — nichts zu beanstanden.
+- backlog: Unit auf `blocked` mit `blocked_reason:`. Beide noetigen Fixes liegen in
+  `desktop/src/renderer/src/api/hooks/useTimeline.ts` (Pfad korrigieren + Offset/Page-Semantik
+  entscheiden) — dieser Backend-Loop fasst `desktop/` nicht an, das ist eine FE-Session- bzw.
+  Luke-Entscheidung (welche Seite sich an die andere anpasst).
+  Stand: 26 offen / 20 done / 3 blocked.
 - offen:
-  - `useLabelDefaults`/`?base=1` ist backend-seitig fertig, aber FE-seitig noch nirgends verbaut
-    (kein Import ausserhalb des Hook-Files) — reine Beobachtung, keine Aktion noetig.
-  - Value-Sets (`/customization/value-sets[/:id]`), Drafts/Scheduling (`/customization/drafts`) und
-    der Vendor-Overlay-Schreibpfad (R-5-Anbindung) sind im FE-Type-File vollstaendig spezifiziert,
-    aber laut dieser Unit explizit nicht im Scope — eigene Folge-Units, falls gewuenscht.
-  - Naechste Unit laut Reihenfolge: `fe-email-rules` (Block E, deps: [], model: opus).
+  - **Fuer Luke/eine FE-Session:** `useTimeline.ts:40` von `/api/v1/crm/contacts/{id}/timeline`
+    auf `/api/v1/contacts/{id}/timeline` korrigieren, DANACH die Offset/Page-Frage klaeren (FE
+    sendet echte Page-Nummer statt berechnetem Zeilen-Offset, ODER Backend interpretiert den
+    Parameter als echten Offset um) — sonst ist Seite 1 der Chronik korrekt und jede Folgeseite
+    liefert falsche Events.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409) bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 35 — fe-email-rules — done — 2026-08-02 01:05 (Nachtlauf 3)
-- commit: (siehe git log, dieser Lauf)
-- verify vorgaenger: `528a7868` (fe-customization-labels) gegen die sechs Fehlerklassen geprueft —
-  **kein Fund**. Handler geht ueber `settingsv1.NewSettingsServiceClient(conn)` (kein direkt
-  injizierter Service), Tenant kommt aus `middleware.GetTenantID(r.Context())`, Guard
-  `RequirePermission("admin:customization","manage")` nur auf PUT mit vorhandenem Seed,
-  `openapi.yaml` im selben Commit, kein Proto angefasst, keine Stubs/`TODO`/`panic` in den neuen
-  Dateien.
-- gebaut:
-  - **E-Mail-Regeln (Regeln & Filter)**, fuenf Routen im Gateway, alle ueber den email-gRPC-Client:
-    `GET /api/v1/email/rules`, `POST /api/v1/email/rules`, `PATCH /api/v1/email/rules/{id}`,
-    `DELETE /api/v1/email/rules/{id}`, `POST /api/v1/email/rules/apply`.
-    Vertrag ist `EmailRuleInfo` aus `desktop/src/renderer/src/api/email-types.ts:181` — Felder
-    1:1 uebernommen (`field`/`op`/`value`/`action_type`/`action_target`), gegen den FE-Typ und den
-    MSW-Handler geprueft, nicht geraten. Konsument ist der bereits verdrahtete
-    `modules/mails/RulesDialog.tsx` (`useEmailRules`/`useCreateRule`/`useDeleteRule`/
-    `useApplyRules`).
-  - **WIEDERVERWENDUNGS-ENTSCHEIDUNG (von der Unit ausdruecklich verlangt):**
-    - `internal/automation/condition` **wird wiederverwendet**. `Evaluator.Evaluate` mit
-      `ConditionConfig{Mode: simple, Simple: &Condition{Field, Operator, Value}}` deckt das
-      Regel-Matching vollstaendig ab, und `OpContains` ist bereits
-      `strings.Contains(ToLower(field), ToLower(needle))` — bit-genau die Semantik des FE-Mocks
-      (`email-store.ts:569 ruleMatches`). Es entsteht KEIN zweiter Matcher im Mail-Modul. Die
-      DB-CHECKs auf `field`/`op` sind bewusst CHECK statt Enum-Typ: der Evaluator kennt schon 15
-      Operatoren, das Aufbohren ist damit ein reines ALTER ohne Service-Koordination.
-    - `internal/automation/action` **wird NICHT wiederverwendet**. Das `ActionExecutor`-Interface
-      arbeitet ueber `json.RawMessage`-Configs plus globale `ActionRegistry`-Registrierung und
-      zielt auf modul-uebergreifende Workflow-Schritte; hier gibt es genau zwei fest verdrahtete
-      Aktionen (`label`, `move`) im selben Service auf derselben Tabelle. Der Registry-Umweg waere
-      mehr Code als der direkte Aufruf und wuerde eine Executor-Verdrahtung in `cmd/email`
-      erzwingen, die sonst niemand braucht. Es gibt dort ausserdem nur `email.send`, keine
-      Label-/Move-Aktion, die man haette nutzen koennen.
-  - Migration **000260** (Repo-Kopf war 259): Tabelle `email_rules` mit `tenant_id NOT NULL`
-    (FK auf `tenants`), CHECKs auf `field`/`op`/`action_type` sowie gegen leeren Namen und leeren
-    Suchwert (ein leerer Needle matcht JEDE Nachricht), Index `(tenant_id, created_at, id)`,
-    `CALL enable_tenant_rls('email_rules')`. Up und down lokal gefahren (`260/u`, `260/d`, `260/u`).
-  - `action_target` ist bewusst eine blanke UUID ohne FK: sie zeigt bei `move` auf einen Folder,
-    bei `label` auf ein Label. Eine polymorphe Referenz laesst sich nicht als FK ausdruecken; die
-    Alternative (zwei nullable Spalten + CHECK) haette Integritaet nur fuer die Folder-Haelfte
-    gebracht und eine Shape erzeugt, die der FE nicht nutzt. Stattdessen validiert der Service.
-  - **SICHERHEIT — Move-Ziel wird gegen den Tenant geprueft.** Ohne diese Pruefung koennte eine
-    Regel Nachrichten in den Ordner eines FREMDEN Tenants schieben, und RLS auf `email_messages`
-    faengt das nicht: die Zeile behaelt beim Folder-Wechsel ihre eigene `tenant_id`, die Policy
-    sieht also nichts Verdaechtiges. `FolderBelongsToTenant` laeuft direkt gegen
-    `email_folders.tenant_id` — **Fund beim Bau:** die Spalte ist entgegen der ersten Annahme
-    vorhanden und NOT NULL (Option-B-Retrofit, RLS aktiv), der zuerst gebaute Join ueber
-    `email_accounts` war unnoetig und wurde entfernt.
-  - `email_messages.label_ids UUID[] NOT NULL DEFAULT '{}'` in derselben Migration. **Begruendung,
-    warum das hier und nicht erst in `fe-email-labels` liegt:** `action_type: 'label'` ist die
-    Default-Aktion im FE-Formular (`RulesDialog.tsx:37`), eine Label-Regel haette ohne diese Spalte
-    kein Ziel und `apply` waere fuer den haeufigsten Fall wirkungslos gewesen. Diese Unit legt nur
-    den Speicher an und schreibt ihn; die Label-Stammdaten (`email_labels`) und die READ-Seite
-    (`label_ids` im Proto + in den `message`-SELECTs) bleiben bewusst bei `fe-email-labels` — dort
-    als Vorarbeit-Block in den Backlog-Notes hinterlegt, inklusive des Hinweises, dass die
-    Spaltenliste in `message/postgres_repository.go` an mehreren Stellen steht.
-  - Neues Paket `internal/email/rule/` nach dem Muster von `internal/email/signature/`
-    (errors/repository/postgres_repository/service). Thick service: Validierung, Merge-Semantik
-    des Patches und die gesamte Apply-Logik liegen in `service.go`; das Repository ist reine
-    Persistenz, der gRPC-Handler mappt nur.
-  - PATCH ist echtes Partial-Update (`optional`-Felder im Proto -> `*string` in `RuleInput`).
-    Validiert wird immer die GEMERGTE Regel, nie der Patch allein — sonst koennte man
-    `action_type` auf `move` schalten und die Label-UUID als Ordner-Ziel stehen lassen. Dafuer gibt
-    es einen eigenen Test.
-  - `apply`-Grenze: `applyScanLimit = 2000`, neueste zuerst, Papierkorb ausgenommen, mit
-    `lean:`-Marker und Upgrade-Trigger ("Background-Job mit Cursor, sobald ein Postfach das
-    regelmaessig reisst"). Die Antwort traegt neben `affected` auch `scanned`, damit "nichts
-    gematcht" von "das Limit hat den Lauf abgeschnitten" unterscheidbar bleibt.
-  - Regel-Semantik bewusst identisch zum FE-Mock gehalten (damit die Umstellung vom Mock aufs
-    Backend das sichtbare Verhalten nicht aendert): Regeln in Anlage-Reihenfolge, Labels
-    akkumulieren, ein spaeterer `move` ueberschreibt einen frueheren, `affected` zaehlt GEAENDERTE
-    NACHRICHTEN (nicht Treffer) und ein zweiter Lauf ist damit idempotent. Der `from`-Heuhaufen
-    ist `from_name + " " + from_email`, weil der FE nur ein einziges "Absender"-Feld anbietet.
-  - **WIRE-SHAPE-FALLE (zweimal umschifft, beide Male protojson):**
-    (a) `GET /rules` geht ueber `response.ProtoListWrapped(..., "rules", ...)`, damit eine leere
-        Regelmenge als `{"rules": []}` und nicht als `{}` rausgeht.
-    (b) `POST /rules/apply` baut die Antwort EXPLIZIT als Map. `response.Proto` haette bei
-        `affected == 0` wegen `EmitUnpopulated:false` ein blankes `{}` geliefert, der FE liest
-        aber `res.affected` und haette `undefined` in den ICU-Plural gereicht
-        (`toast.success(t('mails.rules.applied', {count: res.affected}))`).
-- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (`golangci-lint`, **0 issues**) |
-  test ok mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
-  `./internal/email/... ./internal/gateway/ ./internal/server/... ./internal/models/...` alle `ok`;
-  die vier `TestRepository_*`-DB-Tests explizit mit `-v` gegengeprueft, dass sie PASS und nicht
-  SKIP melden. `TestOpenAPIRouteDrift` gruen. `npx @apidevtools/swagger-cli validate` gruen
-  (identisch zum CI-Job `openapi-validate`).
-  gofmt: die vier von mir angefassten Bestandsdateien (`route_email.go`, `email_grpc.go`,
-  `models/email.go`, `cmd/email/main.go`) meldet `gofmt -l` als unformatiert — das ist der lokale
-  CRLF-Zustand (`core.autocrlf=true`), nicht meine Aenderung: voellig unangetastete Nachbardateien
-  (`internal/email/signature/*`, `message/service.go`, `server/crm_grpc.go`) melden dasselbe. Meine
-  vier NEUEN Dateien unter `internal/email/rule/` sind sauber.
-  migration: 000260 up/down/up lokal gruen. rls-smoke auf `email_rules` als `kmuhub_app`: Tenant A
-  sieht 1 Zeile (die eigene), Tenant B sieht 1 Zeile (die eigene) — **keine 0/0-Nullmessung**;
-  Cross-Tenant-INSERT scheitert mit `new row violates row-level security policy`,
-  Cross-Tenant-UPDATE trifft `UPDATE 0`. Testzeilen danach geloescht (`SELECT count(*)` = 0).
-- tests: 11 Service-Unit-Tests (Validierung inkl. 7 Ablehnungsfaelle, Partial-Update-Merge,
-  Fremd-Tenant = NotFound, Apply-Semantik: Label+Move, Idempotenz, Akkumulation, Last-Move-Wins,
-  Scan-Limit), 4 DB-Tests (`postgres_repository_test.go`, eigene frisch geminzte Tenants statt
-  `TenantA`/`TenantB` — die Fixtures laufen in `UNIQUE(user_id)` auf `email_accounts` und
-  `UNIQUE(account_id, imap_name)` auf `email_folders`, geteilte Konstanten kollidieren dort unter
-  `t.Parallel()`), 12 Gateway-Guard-Faelle plus ein Routing-Test, dass `/rules/apply` nicht von der
-  `{id}`-Route verschluckt wird.
+## Iteration 20 — fix-calendar-cancel-booking-actor — done — 2026-08-03 00:20
+
+- commit: 989ff60f
+- gebaut: `g-calendar-resource-bookings` gezogen — Praemisse widerlegt, gleiche Fehlerklasse wie
+  `g-crm-contact-timeline` (Iteration 19): `POST/DELETE /calendar/bookings` existieren seit
+  laengerem vollstaendig (Proto, Service mit Konflikt-Check + Owner-Check, gRPC-gebundener
+  Gateway-Handler, openapi.yaml). Das FE ruft ueber `useResources.ts:123,138` ein zusaetzliches
+  `/resources/`-Segment (`/api/v1/calendar/resources/bookings`), das im Gateway nicht existiert —
+  jeder reale Buchungs-/Stornierungsversuch bekommt 404. Fix liegt in `desktop/`, ausserhalb
+  dieses Loops; Unit auf `blocked` mit vollstaendiger Fundstellen-Liste im `blocked_reason`.
+  Bei der Recherche dazu ein zweiter, unabhaengiger und schwererer Fund: `CalendarGRPCServer.
+  CancelBooking` (calendar_grpc.go:1101) uebergab hartcodiert `uuid.Nil` als Actor an
+  `resource.Service.CancelBooking` ("Gateway handles auth; use uuid.Nil as actorID"), dessen
+  Owner-Check aber `booking.BookedBy != actorID` prueft — mit `uuid.Nil` schlaegt das fuer JEDEN
+  echten Booker fehl. Stornieren war also fuer niemanden moeglich, unabhaengig vom FE-Pfad-Bug.
+  Dieselbe Fehlerklasse ist im Repo bereits einmal aufgetreten und behoben worden
+  (`fix-g-work-task-comment-authz`, `work_grpc.go`/`work_comment_test.go`) — dort wie hier ein
+  hartcodierter `uuid.Nil`-Actor, der einen Owner-Check bricht.
+  Root-Cause-Fix statt Proto-Aenderung: `x-user-id` propagiert bereits automatisch vom
+  HTTP-Gateway-Kontext in den internen gRPC-Kontext (`TenantOutboundUnaryInterceptor` in
+  `internal/gateway/registry.go:112`, `TenantInboundUnaryInterceptor` in `cmd/work/main.go:182`)
+  — verifiziert, nicht angenommen. `CancelBooking` liest jetzt `middleware.GetUserID(ctx)`, exakt
+  das etablierte Muster aus `document_grpc.go:1652`/`dialer_grpc.go:76`. Als eigene Fix-Unit
+  `fix-calendar-cancel-booking-actor` in Block E angelegt und in dieser Iteration sofort
+  abgearbeitet (analog zum Verify-Vorspann-Pattern: Fund -> Fix-Unit -> gleiche Iteration).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/work/resource/...
+  ./internal/gateway/... ./cmd/work/... ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint,
+  0 issues auf internal/server) | test ok — `go test -count=1 ./internal/server/...`, 210 PASS /
+  0 SKIP (`DATABASE_URL` gesetzt; das Paket braucht hier keine echte DB, die drei neuen Tests
+  laufen gegen einen In-Memory-`resource.Repository`-Mock). Keine Migration, kein `.proto`, keine
+  neue/geaenderte Route, kein neuer Guard — `openapi.yaml` und
+  `go test ./internal/gateway/` daher nicht Teil dieses Gates.
+- verify vorgaenger: n.a. — `84292279` (Iteration 19) ist eine reine Diagnose ohne Codeaenderung
+  (nur `JOURNAL.md`/`BACKLOG.yml`), nichts zu verifizieren.
 - offen:
-  - **Der MSW-Mock bleibt aktiv** (`mocks/handlers/email.ts`) — die FE-Umstellung auf das echte
-    Backend ist nicht Teil dieser Backend-Unit. Beim Umschalten faellt auf: die Mock-Seeds nutzen
-    IDs wie `lbl-rechnung`/`rule-1`, das Backend verlangt echte UUIDs fuer `action_target` (400 bei
-    allem anderen). Das ist Absicht, aber der Mock-Datensatz ist so nicht 1:1 uebertragbar.
-  - `label`-Ziele werden NICHT auf Existenz geprueft (`lean:`-Marker in `service.go`), weil es
-    `email_labels` noch nicht gibt. Trigger steht in den Notes von `fe-email-labels`.
-  - Fund im Bestand, ausserhalb dieser Unit: `message.Repository.MoveToFolder(ctx, id, folderID)`
-    und `UpdateFlags`/`Delete` tragen **kein** `tenantID`-Argument — der Schutz haengt dort allein
-    an RLS. Nicht angefasst (Scope), aber ein Kandidat fuer eine eigene Haertungs-Unit; die neuen
-    Rule-Schreibpfade sind bewusst explizit tenant-gescoped gebaut.
-  - Naechste Unit laut Reihenfolge: `fe-email-labels` (Block E, deps: [fe-email-rules], model:
-    sonnet) — die Vorarbeit-Punkte (a)-(c) stehen jetzt in deren Backlog-Notes.
+  - **Fuer Luke/eine FE-Session:** `useResources.ts:123,138` von
+    `/api/v1/calendar/resources/bookings(/…)` auf `/api/v1/calendar/bookings(/…)` korrigieren —
+    sonst bleiben Ressourcen-Buchung und -Stornierung im produktiven FE weiterhin 404, auch nach
+    diesem Fix.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug) bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 37 — fe-messages-bookmark — done — 2026-08-02 (Nachtlauf 3)
-- commit: `41b7c4e1`
-- verify vorgaenger: `50dbc8e3` (fe-email-labels) gegen die acht Fehlerklassen geprueft — **kein
-  Fund**. Migration 000261 `tenant_id NOT NULL` + `CALL enable_tenant_rls('email_labels')`, alle
-  Repo-Methoden (Create/GetByID/List/Update/Delete/LabelIDsBelongToTenant/AssignToMessage)
-  tenant-gescopt gegengelesen. Gateway-Handler gehen ausschliesslich ueber `e.getEmailClient()`
-  (kein Fehlerklasse-1-Fund). Proto `optional string name/color` in `UpdateEmailLabelRequest`
-  passt exakt zur Service-Signatur `Update(..., name, color *string)` — `.pb.go` im selben Commit
-  regeneriert. Guards nutzen ausschliesslich bestehende `email:read/write/delete` (kein neuer Key,
-  kein Seed noetig). `openapi.yaml` traegt alle vier Pfade.
-- gebaut: **Message-Bookmarks** (persoenliche Lesezeichen an Chat-Nachrichten).
-  - SCOPE-KORREKTUR gegen den Backlog-Text (siehe BACKLOG-Notes): kein POST/DELETE-Paar. Der
-    bestehende FE-Hook `useBookmarks.ts` (raw fetch, demo-only, MSW-Mock in
-    `mocks/handlers/chat.ts:141-150`) legt eindeutig einen **Toggle**-Endpoint fest
-    (`POST /api/v1/messages/{id}/bookmark` -> `{bookmarked: boolean}`) plus einen zweiten, im
-    Scope-Text nicht erwaehnten Read-Endpoint (`GET /api/v1/messages/bookmarks` ->
-    `{messages: MessageInfo[]}`). Gegen den FE-Vertrag gebaut, nicht gegen den Scope-Titel.
-  - Migration 000262: `message_bookmarks` (`tenant_id`/`message_id`/`user_id` alle `NOT NULL` +
-    FK, zusammengesetzter PK `(user_id, message_id)`, Index auf `message_id`) — Form bewusst
-    identisch zu `message_reactions` (Migration 000038/000115/000122), aber `tenant_id NOT NULL`
-    von Anfang an, weil es hier kein Retrofit ist. `CALL enable_tenant_rls('message_bookmarks')`.
-  - Neues Package `internal/chat/bookmark/` (Repository + PostgresRepository + Service, Muster von
-    `internal/email/label/` uebernommen): `Service` komponiert **keine eigene SQL-Query fuers
-    Lesen**, sondern ein schlankes `MessageReader`-Interface
-    (`GetByID(ctx, id, tenantID, userID) (*models.MessageWithSender, error)`), das
-    `*message.Service` strukturell erfuellt. Das ist bewusst dieselbe Zusammensetzung wie
-    `label.Service`/`MessageReader` fuer Email, aber mit einem wichtigen Unterschied: die
-    wiederverwendete `message.Service.GetByID` prueft nicht nur Tenant-Zugehoerigkeit, sondern
-    auch **Channel-Mitgliedschaft** (`ErrNotChannelMember`) — genau die Zugriffspruefung, die ein
-    Lesezeichen-Feature ohnehin braucht ("darf dieser User diese Nachricht ueberhaupt sehen").
-    `Toggle` ruft `GetByID` VOR jedem Schreiben, `List` ruft `GetByID` pro Bookmark-Treffer und
-    ueberspringt `ErrMessageNotFound`/`ErrNotChannelMember` still (Kommentar im Code), damit ein
-    Channel-Austritt nach dem Bookmarken nicht die komplette Liste zum 403/404 macht — der
-    Mitgliedschafts-Check ist eine lebende Zugriffskontrolle, keine Momentaufnahme beim Bookmarken.
-  - Zwei neue RPCs `ToggleBookmark`/`ListBookmarks` in `chat.proto`, `.pb.go`/`_grpc.pb.go` im
-    selben Commit regeneriert. `ChatGRPCServer` bekam ein fuenftes Feld `bookmarkService
-    *bookmark.Service` (Konstruktor-Signaturbruch dokumentiert wie beim `reactionService`-Vorbild
-    aus Welle 8), `cmd/chat/main.go` verdrahtet `bookmarkService := bookmark.NewService(bookmarkRepo,
-    messageService)` — derselbe `messageService`, der auch fuer den `MessageInfo`-Chat-Pfad
-    verwendet wird, keine zweite Instanz.
-  - Gateway: `GET /api/v1/messages/bookmarks` (statischer Pfad VOR `/{id}/thread` registriert,
-    gleicher Chi-Ambiguitaets-Grund wie bei `POST /reactions/summary`) und
-    `POST /api/v1/messages/{id}/bookmark`, beide ueber `RequirePermission("messages","read"/
-    "write")` — bestehender Key, kein neuer Guard, kein Seed. Response-Pfad nutzt
-    `response.JSON(w, status, resp)` mit dem rohen Proto-Struct, identisch zu `HandleGetMessages`/
-    `HandleToggleReaction` in derselben Datei (die generierten `.pb.go`-json-Tags sind bereits
-    snake_case, `response.Proto`/protojson also hier nicht noetig).
-  - `openapi.yaml`: zwei neue Pfade (`chat-messages`-Tag) + zwei neue Schemas
-    (`ToggleBookmarkResponse`, `ListBookmarksResponse` mit `$ref` auf das bestehende
-    `MessageInfo`-Schema). Alle real moeglichen Codes dokumentiert: `POST .../bookmark` ->
-    200/400/401/403 (`ErrNotChannelMember`)/404 (`ErrMessageNotFound`) — anders als das
-    Reaction-Vorbild, das nur 200/400/401 dokumentiert, weil Reaktionen Existenz/Mitgliedschaft gar
-    nicht pruefen; hier sind 403/404 echte, ueber `mapChatError` bereits gemappte Ergebnisse.
-- gate: `go build -p 2 ./...` (voller Baum) gruen | vet gruen | `golangci-lint`
-  `internal/chat/... internal/gateway/... internal/server/... cmd/chat/...` **0 issues** |
-  Migration 000262 up/down/up lokal gruen (Kopf `262`, bit-identisch nach Roundtrip) | test ok mit
-  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/chat/bookmark` 9 Faelle **0 Skips**
-  (3 Service-Unit-Tests mit In-Memory-Mocks fuer Toggle, 3 fuer List inkl. des
-  "revoked access wird uebersprungen"-Falls, 3 DB-Tests mit echten Tenant/User/Channel/Message-
-  Fixtures — eigene Tenants pro Testfall, keine geteilten Konstanten), `internal/chat/...`
-  komplett gruen, `internal/server/...` gruen (kein neuer `mapChatError`-Fall noetig — Toggle
-  propagiert die bereits gemappten `message.ErrMessageNotFound`/`ErrNotChannelMember` direkt).
-  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`: PASS, 766 registrierte gegen 768
-  dokumentierte Pfade.
-  **RLS-Smoke** (manuell, `docker exec -i ... psql`, Transaktion mit `ROLLBACK`, keine
-  Datenspuren — Fixtures mit echten `tenants`/`users`/`channels`/`messages`-Zeilen statt der
-  GATE-COMMANDS.md-Fixwerte, die bei `email_labels` schon mal an einer fehlenden FK-Zeile
-  gescheitert waren): eigener Tenant 1, fremder Tenant 0. Verteilung vor dem Rollenwechsel zeigte
-  je 1 Zeile pro Tenant — keine Nullmessung.
-- verify eigen: n.a. (kein Vorgaenger-Commit auf dieser Iteration zu pruefen ausser dem oben
-  behandelten `50dbc8e3`).
+## Iteration 21 — g-admin-billing — blocked — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: - (reine Diagnose, kein Code-Commit — siehe unten)
+- gebaut: nichts. `g-admin-billing` gezogen (`GET /admin/billing`), Praemisse geprueft und doppelt
+  widerlegt. `useBilling.ts` traegt im Datei-Kopf explizit "Kein Backend-Call. Alle Daten aus
+  Mock-Datei oder localStorage." — anders als bei `g-crm-contact-timeline`/
+  `g-calendar-resource-bookings` ruft das FE hier nicht mal einen falschen Pfad, sondern GAR
+  keinen. `/admin/billing` ist nur ein React-Router-Client-Pfad (`App.tsx:297`).
+  Zweiter, wichtigerer Fund: die vermutete fehlende Datenbasis existiert bereits UND hat bereits
+  gebaute, getestete Endpoints — nur nicht unter `/admin/billing`. `GET /api/v1/admin/subscription`
+  (route_settings.go:875) liefert `planType, supportTier, status, billingPeriodEnd, totalSeats` aus
+  `tenants.*` (Migration 000250) — 1:1 die Felder von `MockTenantData`. `GET/PATCH
+  /api/v1/admin/license` (route_settings.go:788/823) bedient `tenant_module_activations`
+  (ebenfalls 000250). `GET /api/v1/tenant/module-grants` (route_settings.go:74-80) bedient
+  `user_module_grants` (Migration 000220) — die Datenbasis fuer `useModuleAssignments()`. Alle drei
+  RLS-geschuetzt, permission-gegated, in openapi.yaml dokumentiert. Was der Mock zusaetzlich zeigt
+  (Invoice-History, Usage-Stats) braucht Infrastruktur, die es nicht gibt: Invoice-History ein
+  echtes Payment-Gateway (neue externe Integration, potenziell ein Deploy-Hazard), Usage-Stats
+  `user_module_grants.last_active_at`, das die eigene Migration 000220 als "reserved for a future
+  activity-tracking pipeline, stays NULL" dokumentiert — bewusst vertagt, kein uebersehener Gap.
+  Volle Herleitung mit Datei:Zeile-Fundstellen im `blocked_reason` der Unit in `BACKLOG.yml`.
+- gate: n.a. — keine Codeaenderung, reine Diagnose (BACKLOG.yml/JOURNAL.md sind die einzigen
+  geaenderten Dateien dieser Iteration, deshalb auch kein separater Commit — die naechste
+  Journal-Record-Iteration des Treibers erfasst den Stand ohnehin).
+- verify vorgaenger: sauber. `989ff60f` (fix-calendar-cancel-booking-actor, Iteration 20) geprueft:
+  `CancelBooking` liest den Actor jetzt ueber `middleware.GetUserID(ctx)` (Muster aus
+  `document_grpc.go`/`dialer_grpc.go` uebernommen, `middleware`-Import war schon vorhanden), kein
+  Proto-, Guard- oder Routen-Aenderung, kein Stub, kein gRPC-Bypass. Test
+  `calendar_grpc_test.go` deckt den Owner-Check mit einem In-Memory-Repo-Mock ab. Nichts zu
+  beanstanden.
 - offen:
-  - Der FE-Hook bleibt bewusst unveraendert (raw fetch, kein OpenAPI-generierter Client) — die
-    Response-Shape wurde exakt gegen das gebaut, was `useBookmarks.ts`/`useToggleBookmark`
-    erwarten, nicht umgekehrt migriert.
-  - `message_bookmarks` haengt an `messages.id`, nicht an `channel_memberships` — verlaesst ein
-    User einen Channel wieder, bleibt die Bookmark-Zeile bestehen (nur unsichtbar in `List`, weil
-    `GetByID` dann `ErrNotChannelMember` wirft). Kein Cleanup-Job dafuer; `lean:`-Marker bewusst
-    NICHT gesetzt, weil das keine Vereinfachung ist, sondern die gewaehlte Semantik ("Zugriff ist
-    live, nicht eingefroren") — sollte das je gewechselt werden (Bookmark-Sichtbarkeit einfrieren
-    zum Zeitpunkt des Bookmarkens), ist das eine bewusste Produktentscheidung, keine Nacharbeit.
-  - Naechste Unit laut Reihenfolge: `fe-notifications-snooze` (Block D, deps: [], model: sonnet).
+  - **Fuer Luke/eine FE-Session:** `useBilling.ts` (`useTenant`, `useModuleAssignments`, ggf. die
+    Modul-Aktivierung im Billing-Hub) auf die drei existierenden Endpoints
+    (`/admin/subscription`, `/admin/license`, `/tenant/module-grants`) umstellen, statt weiter
+    gegen `MOCK_*` zu laufen. Invoice-History/Usage-Stats bleiben bewusst Mock, bis
+    Payment-Gateway bzw. Activity-Tracking-Pipeline existieren (beides ausserhalb dieses Loops).
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug) bleiben unveraendert offen,
+    hier nicht angefasst.
 
-## Iteration 36 — fe-email-labels — done — 2026-08-02 01:35 (Nachtlauf 3)
-- commit: (siehe git log, dieser Lauf)
-- verify vorgaenger: `087e5e0a` (fe-email-rules) gegen die sechs Fehlerklassen geprueft — **kein
-  Fund**. Guards reused `email:read/write/delete` (keine neuen Keys, kein Seed noetig), Handler gehen
-  ausschliesslich ueber `e.getEmailClient()`, `.proto` und `.pb.go`/`.grpc.pb.go` im selben Commit
-  regeneriert, Migration 000260 `tenant_id NOT NULL` + `enable_tenant_rls`, `openapi.yaml` im selben
-  Commit, `TestOpenAPIRouteDrift` laut Journal gruen geprueft, kein `Unimplemented`/`TODO` im neuen
-  Pfad.
-- gebaut:
-  - **E-Mail-Labels**, Migration 000261: `email_labels` (`tenant_id NOT NULL` + FK auf `tenants`,
-    `color` mit Hex-CHECK, `UNIQUE(tenant_id, name)` — **pro Tenant, nicht global**, wie in den
-    Vorarbeit-Notes verlangt), `CALL enable_tenant_rls('email_labels')`. Die Zuordnungsspalte
-    (`email_messages.label_ids`) existiert bereits seit 000260 — keine zweite Zuordnungstabelle.
-  - Neues Package `internal/email/label/` (errors/repository/postgres_repository/service, Muster von
-    `internal/email/rule/` uebernommen): `Create/GetByID/List/Update/Delete` + `AssignToMessage`.
-    `Delete` laeuft in einer Transaktion und entfernt die Label-ID zusaetzlich per
-    `array_remove(label_ids, $1)` aus ALLEN Nachrichten des Tenants — `label_ids` hat bewusst keinen
-    FK (polymorphe Zuordnung, siehe 000260), sonst blieben tote IDs nach einem Delete stehen (Fund:
-    genau das macht der FE-Mock in `email-store.ts:deleteLabel` schon, Backend musste nachziehen).
-  - **READ-SEITE NACHGEZOGEN** (Vorarbeit-Punkt b aus `fe-email-rules`): `label_ids` jetzt in
-    `EmailMessageInfo` (Proto Feld 26) UND in allen SIEBEN SELECT-Stellen von
-    `internal/email/message/postgres_repository.go` (GetByID/GetByFolderUID/ListByFolder/
-    ListByThread/Search/GetByMessageIDHeader/FindBySubjectAndParticipants) plus `scanMessage`/
-    `collectMessages`. Die INSERT-Spaltenliste (`Create`) bewusst NICHT angefasst — die DB-Default
-    `'{}'` deckt neue Nachrichten ab.
-  - **AssignToMessage-Komposition**: `label.Service` bekommt neben dem eigenen Repository ein
-    schlankes `MessageReader`-Interface (`GetByID(ctx, id, tenantID) (*models.EmailMessage, error)`)
-    injiziert — *message.Service erfuellt es strukturell, exakt das Muster, das `send.Service` schon
-    fuer `MessageCreator` nutzt (`cmd/email/main.go`). Schreibt label_ids direkt (wie
-    `rule.ApplyToMessage` es fuer Regeln tut, kein Umweg ueber das message-Package) und liest danach
-    ueber `messageService.GetByID` die frische Nachricht fuer die Response — keine dritte Kopie der
-    ~20-Spalten-Liste noetig.
-  - **Sicherheit — Assign validiert Label-Eigentuemerschaft vorab**: `LabelIDsBelongToTenant` prueft
-    ALLE mitgeschickten IDs gegen `email_labels.tenant_id`, bevor irgendetwas geschrieben wird (Test
-    `TestAssignToMessage_RejectsForeignLabelID` beweist: 0 Writes bei Ablehnung). Ohne diese Pruefung
-    koennte `label_ids` eine fremde oder nichtexistente ID tragen — die Spalte hat keinen FK, der das
-    verhindern wuerde.
-  - **NACHGEZOGEN in `internal/email/rule/`** (der `lean:`-Marker aus `fe-email-rules` mit Trigger
-    "sobald `email_labels` existiert" ist jetzt eingeloest): `LabelBelongsToTenant` im Rule-Repository
-    ergaenzt, `applyInput` prueft jetzt Label-Targets genauso wie Move-Targets (`switch r.ActionType`
-    statt `if move`). Vier Bestandstests mussten dafuer `repo.labels[label] = tenant` vorregistrieren
-    (sonst waeren sie durch die neue Validierung gefallen), ein neuer Test
-    `TestCreate_LabelTargetMustBeOwnLabel` spiegelt `TestCreate_MoveTargetMustBeOwnFolder`. Neuer
-    DB-Test `TestRepository_LabelBelongsToTenant` in `rule/postgres_repository_test.go`.
-  - Gateway: `GET/POST /api/v1/email/labels`, `PATCH/DELETE /api/v1/email/labels/{id}`,
-    `POST /api/v1/email/messages/{id}/labels`. Alle ueber `email:read/write/delete` (kein neuer
-    Guard, kein Seed). Wire-Shapes gegen `email-client.ts:308-333` verifiziert: List gewrappt
-    `{labels:[]}`, `assign()` erwartet `{message: EmailMessageInfo}` exakt (nicht raten — Full-Replace
-    des Label-Sets, kein Add/Remove-Paar, `label_ids` im Body). `update()`/`delete()` sind FE-seitig
-    als `Record<string, never>` getypt (liest nichts aus der Antwort); Backend liefert trotzdem
-    `{label:...}` bzw. `{success:true}` — konsistent zu `UpdateEmailRuleResponse`/
-    `DeleteEmailRuleResponse` aus der Vorgaenger-Unit, harmlos fuer den FE-Client.
-  - `openapi.yaml`: 4 neue Pfade + 6 neue Schemas + `label_ids` an `EmailMessageInfo`,
-    `TestOpenAPIRouteDrift` gruen (764 Routen / 766 Pfade), `swagger-cli validate` gruen.
-- gate: `go build -p 2 ./...` (voller Baum, kein `-p 2`-Timeout diesmal) gruen | vet gruen |
-  `golangci-lint` `internal/email/... internal/gateway/... cmd/email/...` **0 issues** | Migration
-  000261 up lokal gruen (Kopf `261`) | test ok mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`):
-  `internal/email/... internal/gateway/... internal/server/...` alle `ok`, **0 Skips** ueber
-  `internal/email/label`+`rule`+`message` verifiziert (`-v | grep -c SKIP` = 0, 46 PASS).
-  `TestOpenAPIRouteDrift` gruen. gofmt: die beiden neuen Testdateien im `label`-Package hatten eine
-  echte (nicht CRLF-bedingte) Map-Alignment-Abweichung — mit `gofmt -w` behoben, danach `gofmt -l`
-  leer fuer das ganze Package.
-  rls-smoke auf `email_labels` (zwei frisch angelegte temporaere Tenants, danach geloescht): eigener
-  Tenant 1, fremder Tenant 0 — keine 0/0-Nullmessung. **Fund beim ersten Versuch**: die
-  GATE-COMMANDS.md-Fixwerte `...0001`/`...00ff` existieren NICHT in `tenants` (im Gegensatz zu
-  `contacts` hat `email_labels.tenant_id` einen FK auf `tenants`), ein Batch-INSERT mit beiden IDs
-  schlug komplett fehl und beide Zaehlungen waren 0 — mit echten Tenant-Zeilen wiederholt.
-- tests: 11 Service-Unit-Tests (Create/Update-Validierung, Duplicate-Name pro Tenant,
-  Assign-Validierung inkl. "0 Writes vor bestandener Validierung"), 6 DB-Tests (`postgres_repository_
-  test.go`, eigene Tenants+Mailbox-Fixture wie bei `rule`), 10 Gateway-Guard-Faelle
-  (`route_email_labels_test.go`), plus im `rule`-Package: 1 neuer Unit-Test + 1 neuer DB-Test fuer die
-  nachgezogene Label-Target-Validierung.
+## Iteration 22 — g-vendor-access — done — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: `d3b7cb01` — feat(security): build vendor access request lifecycle (RBAC R-5 B)
+- gebaut: `g-vendor-access` gezogen (`/vendor-access`). Praemisse geprueft und widerlegt: KEIN
+  Aussen-Endpoint ohne Login. `desktop/src/renderer/src/api/vendor-access.ts` ruft
+  `authenticatedRequest` wie jede andere Admin-API, Header "RBAC R-5 B"; die Typen beschreiben
+  GDAP-light v3 — Zentria beantragt zeitlich befristeten Support-Zugang zum Tenant, der Kunde
+  (normaler eingeloggter Admin) genehmigt/lehnt ab/schlaegt Alternativtermin vor/entzieht.
+  `security:vendor_access:manage` war schon in Migration 000256 geseedet und dem Preset `admin`
+  zugeteilt — keine neue Permission-Migration noetig, deutlich kleinerer Deploy-Hazard als die
+  urspruengliche Scope-Vermutung.
+  Migration 000277: Tabelle `vendor_access_requests` (`tenant_id NOT NULL` + `enable_tenant_rls()`,
+  `agents` JSONB, `scope` TEXT[], Status-CHECK ueber alle sieben FE-Zustaende). `security.proto` +
+  Regen um 5 RPCs erweitert (List/Approve/Decline/CounterPropose/Revoke), `security_grpc.go` und
+  `cmd/auth/main.go` verdrahtet. Neues Paket `internal/security/vendoraccess/` (Repository +
+  PostgresRepository + Service) nach dem `gdpr`-Paket-Muster: State-Machine
+  (pending/counter_proposed -> active|declined, pending -> counter_proposed, active -> revoked)
+  und Sensitive-Scope-Guardrail (`hr_data`/`salary` -> 422 `sensitive_ack_required`, Liste
+  haendisch gegen `VENDOR_ACCESS_AREAS` im FE gespiegelt, keine gemeinsame Quelle ueber die
+  FE/BE-Grenze — im Code kommentiert). `approved_by`/`revoked_by` werden ueber einen Join auf
+  `users` zu Anzeigenamen aufgeloest (Muster aus `p1b-roles-list`), nicht als UUID ausgeliefert.
+  Gateway-Routen unter einem EIGENEN Top-Level-Prefix `/api/v1/vendor-access` registriert (nicht
+  unter `/api/v1/security/...`), weil das der Pfad ist, den das FE tatsaechlich aufruft — Regel aus
+  dem RICHTUNGSENTSCHEID fuer `fix-*-paths`-Units sinngemaess auch hier angewandt (FE ist kanonisch).
+  Bewusst NICHT gebaut: kein Create-Endpoint (das FE hat keinen Aufruf dafuer). Die
+  Repository-Methode `CreateRequest` existiert fuer Tests/eine kuenftige Zentria-Operator-Anbindung,
+  ist aber an keine Route gebunden. Die 15s-Auto-Bestaetigung nach `counter-propose` im MSW-Mock ist
+  reine FE-Demo-Simulation; im Backend bleibt eine `counter_proposed`-Anfrage in diesem Zustand, bis
+  ein separater Zentria-seitiger Bestaetigungsweg existiert.
+- gate: build ok (`go build -p 2 ./internal/models/... ./internal/security/...
+  ./internal/gateway/... ./internal/server/... ./cmd/auth/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+  ./internal/security/vendoraccess/...` 15 PASS / 0 SKIP (`DATABASE_URL` gesetzt, Rolle
+  `kmuhub_app`), `go test -count=1 ./internal/gateway/` gruen (inkl. TestOpenAPIRouteDrift),
+  `go test -count=1 ./internal/server/...` gruen | migration: `migrate up` / `down 1` / `up` alle
+  sauber (Kopf 277) | RLS-Smoke (Referenz-Template GATE-COMMANDS.md): eigener Tenant -> 1, fremder
+  Tenant -> 0.
+  Zwei Bugs beim ersten Testlauf gefunden, beide im TEST-Code (nicht im Repository) und noch in
+  dieser Iteration gefixt: (1) ein zweiter `CreateRequest`-Aufruf lief unter `context.Background()`
+  ohne Tenant-Kontext und verletzte folgerichtig die WITH-CHECK-Policy (42501) — erwartetes
+  Policy-Verhalten, kein Repo-Bug, gefixt via `testutil.WithTenantCtx`. (2) Tenant-Cleanup schlug
+  fehl, weil `users.tenant_id` KEIN `ON DELETE CASCADE` hat — der geseedete Pruefer-User muss per
+  eigenem `defer` VOR dem Tenant geloescht werden (LIFO beachten; dieselbe Cleanup-Lehre wie
+  Iteration 15/16, hier als FK-Reihenfolge- statt Timing-Falle).
+- verify vorgaenger: sauber. `e86415ce` (Iteration 21) ist eine reine Diagnose ohne Codeaenderung
+  (`g-admin-billing` blocked, nur JOURNAL.md/BACKLOG.yml), nichts zu verifizieren; der letzte
+  echte Code-Commit `989ff60f` (Iteration 20) wurde bereits in Iteration 21 verifiziert.
 - offen:
-  - **Fund im Bestand, ausserhalb dieser Unit (nicht behoben, dokumentiert)**: das Test-Muster
-    `defer pool.Close()` gefolgt von `t.Cleanup(func(){ CleanupRow... })` laesst die Cleanup-Zeile
-    gegen einen bereits geschlossenen Pool laufen — Go fuehrt Funktions-`defer`s beim Return der
-    Testfunktion aus, `t.Cleanup`-Callbacks erst danach. `CleanupRow` loggt den Fehler nur (`t.Logf`),
-    faellt der Test nicht. Ergebnis: liegen gebliebene Zeilen nach jedem gruenen Testlauf — lokal
-    beobachtet in `email_labels` (34 Zeilen) UND vorbestehend in `email_rules` (7 Zeilen, nicht aus
-    diesem Lauf). Manuell bereinigt (`DELETE FROM email_labels`), `email_rules`-Altlast nicht
-    angefasst (ausserhalb Scope). Das Muster stammt aus `internal/email/rule`'s Tests und wurde hier
-    fuer `label` identisch uebernommen — betrifft vermutlich jedes Package, das diesen Test-Stil
-    kopiert hat. Kandidat fuer eine eigene kleine Fix-Unit (`t.Cleanup` fuer den Pool-Close statt
-    `defer`, oder Cleanup-Reihenfolge umkehren).
-  - `label_id`-Filter in `ListMessagesParams` (FE-Typ, `email-types.ts:162`) bleibt unverdrahtet —
-    weder Proto (`ListMessagesRequest`) noch Gateway-Handler kennen ihn. Nicht Teil von `done_when`
-    dieser Unit (nur "CRUD + Zuordnung"); Filterung nach Label ist ein sinnvoller Kandidat fuer eine
-    eigene kleine Folge-Unit, sobald das FE tatsaechlich danach filtert.
-  - `email_labels`-Existenzpruefung fuer Rule-Label-Targets ist jetzt aktiv (siehe oben) — bestehende
-    Regeln mit `action_type='label'` und einer (aus der Zeit vor `email_labels`) nie validierten
-    Ziel-ID werden dadurch bei einem `UpdateEmailRule`-Aufruf erstmals abgelehnt, falls die ID kein
-    echtes Label ist. Reines Anwenden (`ApplyEmailRules`) ist NICHT betroffen (validiert nicht erneut
-    beim Apply, nur bei Create/Update) — kein Verhaltensbruch fuer bestehende Regeln im Ruhezustand.
+  - **Fuer eine spaetere Iteration/Luke:** Zentria-seitiger Bestaetigungsweg fuer
+    `counter_proposed` -> `active` fehlt (im Mock nur als 15s-`setTimeout` simuliert); haengt am
+    ebenfalls fehlenden Create-Kanal (wie legt Zentria ueberhaupt eine Anfrage an?) — vermutlich ein
+    kuenftiges Zentria-Operator-Tool/Platform-API, ausserhalb des Kunden-Vertrags dieser Unit.
+  - `sensitiveAreas`-Liste in `internal/security/vendoraccess/service.go` ist eine Handkopie von
+    `VENDOR_ACCESS_AREAS` (FE) — bei einer FE-Aenderung an den sensitiven Areas muss diese Liste
+    manuell nachgezogen werden, es gibt keine gemeinsame Quelle.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug, `useBilling.ts` auf reale
+    Endpoints umstellen) bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 38 — fe-notifications-snooze — done — 2026-08-02 (Nachtlauf 3)
-- commit: `1f108b00`
-- verify vorgaenger: `41b7c4e1` (fe-messages-bookmark) gegen die acht Fehlerklassen geprueft — **kein
-  Fund**. Gateway-Handler gehen ueber `ch.getChatClient()` (kein Fehlerklasse-1-Fund). Migration
-  000262 `tenant_id NOT NULL` + `CALL enable_tenant_rls('message_bookmarks')`. Proto zwei neue RPCs
-  (`ToggleBookmark`/`ListBookmarks`), `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert. Wire-Shape
-  `{bookmarked: boolean}`/`{messages: MessageInfo[]}` exakt gegen `useBookmarks.ts` verifiziert (Zeile
-  fuer Zeile gelesen, keine Annahme). Guards nutzen ausschliesslich bestehende `messages:read/write`
-  (kein neuer Key, kein Seed noetig). `openapi.yaml` traegt beide Pfade.
-- gebaut: **Notification-Snooze** — `POST /api/v1/notifications/{id}/snooze`.
-  - FE-Vertrag verifiziert in `notification-client.ts:145-158` (`snoozeApi.snooze`, echt aufgerufen aus
-    `NotificationCenter.tsx:199-202,621-633`, kein reiner Mock-Pfad): flacher Response-Shape
-    `{id, snoozed_until}`. **Bestandsfund dabei** (nicht Teil dieser Unit, dokumentiert): Pin/Dismiss
-    liefern serverseitig `{notification}` (Proto-Wrap), obwohl sowohl der MSW-Mock
-    (`mocks/handlers/notifications.ts:481`) als auch der FE-Typ `NotificationActionResponse` denselben
-    flachen Shape wie Snooze erwarten. Bleibt bisher unbemerkt, weil `useToggleNotificationPin`/
-    `useDismissNotification` die Mutation-Response nie lesen (nur `invalidateQueries`). Nicht repariert
-    (ausserhalb Scope dieser Unit) — Kandidat fuer eine eigene kleine Fix-Unit.
-  - Migration 000263: `notifications.snoozed_until TIMESTAMPTZ NULL` + Partial-Index
-    `idx_notifications_snoozed` (Muster wie 000229 fuer is_pinned/is_dismissed). Keine neue RLS-Policy
-    noetig (Tabelle traegt sie bereits seit 000122).
-  - `notification.Service.SnoozeNotification` mirrort das Muster von `PinNotification`/
-    `DismissNotification` (GetByID, Ownership-Check, dann Repo-Write) plus Zukunfts-Validierung
-    (`ErrInvalidSnoozeTime`, woertlich das inbox-Vorbild `message.Service.Snooze`). Repo-`Snooze`
-    setzt `snoozed_until` UND `is_read = true` UND `read_at = COALESCE(read_at, NOW())` — bewusst OHNE
-    Un-Snooze-Worker (anders als `inbox.StartSnoozeWorker`): `List`/`GetUnreadCount` filtern per
-    `(snoozed_until IS NULL OR snoozed_until <= NOW())`, nach Ablauf reicht das reine Filtern, damit
-    der Eintrag wieder auftaucht — bleibt aber "gelesen" (kein Badge-Reset), exakt das MSW-Mock-
-    Verhalten (`notif.is_read = true` in `mocks/handlers/notifications.ts:492`, keine spaetere
-    Rueckstellung). Keine neue Goroutine noetig.
-  - Neuer RPC `SnoozeNotification` in `notification.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
-    regeneriert. Response ist bewusst NICHT `{notification: NotificationInfo}` (anders als Pin/
-    Dismiss/MarkRead), sondern die schlanke `SnoozeNotificationResponse{id, snoozed_until}` — matcht
-    den FE-Vertrag direkt, protojson mit `UseProtoNames: true` liefert automatisch snake_case plus
-    RFC3339-String fuer den Well-Known-Timestamp, kein Hand-Mapping noetig.
-  - **422 fuer Vergangenheit**: `grpcStatusToHTTP` kennt keinen 422-Fall (nur NotFound/AlreadyExists/
-    Unauthenticated/PermissionDenied/InvalidArgument->400/FailedPrecondition->409/...). Statt die
-    gemeinsame Mapping-Funktion fuer einen Einzelfall zu erweitern (Risiko fuer alle anderen RPCs),
-    validiert der Gateway-Handler `until` VOR dem RPC-Call direkt per
-    `response.Error(w, http.StatusUnprocessableEntity, ...)` — Muster aus
-    `internal/middleware/idempotency.go`/`internal/server/file_upload.go` uebernommen (einzige
-    bestehende 422-Praezedenzfaelle im Repo). Service validiert zusaetzlich (`ErrInvalidSnoozeTime`
-    -> `InvalidArgument`) als Defense-in-Depth; bei intaktem Gateway nie erreichbar, schuetzt aber
-    jeden kuenftigen zweiten Aufrufer des RPCs.
-  - Gateway: `POST /api/v1/notifications/{id}/snooze` ueber `RequirePermission("notifications","write")`
-    — bestehender Key (identisch zu Pin/Dismiss), kein neuer Guard, kein Seed.
-  - `openapi.yaml`: neuer Pfad + Schema `SnoozeNotificationResponse` mit Beschreibung, warum es NICHT
-    das gewrappte Notification-Schema ist. 422 dokumentiert wie beim bestehenden
-    `incoming-invoices/{id}`-Precedent (blosse `description`, kein Schema).
-- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet`
-  `internal/notification/... internal/gateway/... internal/server/...` gruen | `golangci-lint`
-  dieselben Pfade **0 issues** | gofmt sauber fuer alle selbst geaenderten Bloecke (CRLF-bereinigt
-  geprueft; zwei Alt-Funde in `internal/models/notification.go` (`NotificationPreference`/
-  `QuietHours`) und `notification_grpc.go` (`toQuietHoursInfo`) sind vorbestehende Misalignments in
-  Code, den ich nicht angefasst habe — nicht repariert, ausserhalb Scope) | Migration 000263
-  up/down/up lokal gruen (Kopf `263`) | swagger-cli validate: `openapi.yaml is valid`. Test ok mit
-  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/notification/...` + `internal/server/...` +
-  `internal/gateway/...` alle `ok`, **0 Skips** (per `-v | grep -c SKIP` in den beiden geaenderten
-  Packages verifiziert). `TestOpenAPIRouteDrift`: PASS, 767 registrierte gegen 769 dokumentierte
-  Pfade (+1 ggue. Iteration 37, konsistent mit der einen neuen Route).
-  **RLS-Smoke** (manuell, `docker exec -i ... psql`, Transaktion mit `ROLLBACK`, keine Datenspuren,
-  echte `tenants`/`users`/`notifications`-Zeilen statt der GATE-COMMANDS.md-Fixwerte): eigener Tenant
-  1, fremder Tenant 0 — keine Nullmessung. Die Policy selbst ist unveraendert (nur Spalte ergaenzt),
-  der Smoke bestaetigt, dass die neue WHERE-Klausel in `List`/`GetUnreadCount` die RLS-Policy nicht
-  unterlaeuft.
-  **Fund + selbst behoben**: das aus Iteration 36 dokumentierte `defer pool.Close()`-vor-`t.Cleanup`-
-  Muster (Pool schliesst vor den Cleanup-Callbacks, `CleanupRow` scheitert still) wurde in der neuen
-  `postgres_repository_test.go` NICHT repliziert — `pool.Close()` haengt stattdessen selbst an
-  `t.Cleanup` (zuerst registriert, laeuft dank LIFO zuletzt). Verifiziert: erster Testlauf mit dem
-  Bug-Muster hinterliess 8 Zeilen in `notifications`/6 in `users`; nach dem Fix und manueller
-  Bereinigung liess ein erneuter Lauf **0** Zeilen zurueck (`SELECT count(*) ... WHERE
-  title='Test notification'` vor/nach verglichen). Der vorbestehende Fund in `email_labels`/
-  `message_bookmarks`/`email_rules` bleibt unangetastet (ausserhalb Scope, weiterhin Kandidat fuer
-  eine eigene Fix-Unit).
-- tests: 4 neue Service-Unit-Tests (Erfolg inkl. is_read=true, Vergangenheit->ErrInvalidSnoozeTime,
-  NotFound, Unauthorized), 3 neue DB-Tests (`postgres_repository_test.go`: Snooze setzt Feld+is_read,
-  unbekannte ID->NotFound, List+GetUnreadCount schliessen aktuell-gesnoozte Eintraege aus und zeigen
-  abgelaufene wieder an) — eigene Tenants+User pro Testfall, kein Parallel-Kollisionsrisiko.
+## Iteration 23 — fix-einkauf-po-total — done — 2026-08-03 (siehe Commit-Zeitstempel)
+
+- commit: `45b5331d` — fix(einkauf): backfill stale zero purchase-order totals
+- gebaut: `fix-einkauf-po-total` gezogen. Praemisse (Kopfbetrag wird nie berechnet) war VERALTET:
+  `e91cdf2a` aus Lauf 3 (2026-07-26) hatte `RecomputePOTotal` bereits gebaut und in
+  `AddPOLine`/`UpdatePOLine`/`DeletePOLine` verdrahtet, inklusive Tests fuer alle drei
+  Zeilen-Operationen (`service_test.go`) und SQL-seitiger Dezimalrechnung (`SUM(quantity*unit_price)`,
+  kein float64). Die Lauf-4-Recherche gegen `backend-gaps.md` hat diesen Fix uebersehen und die Unit
+  erneut angelegt — derselbe Fehlklassen-Typ wie die `blocked`-Diagnosen in Iteration 19/21, hier
+  aber als `todo`-Dublette statt als offensichtlicher Fehltreffer, weil die Praemisse zum
+  urspruenglichen Schreibzeitpunkt (vor dem 26.07.) tatsaechlich richtig war.
+  Einzige echte Luecke war das `done_when`-Kriterium "Backfill-Entscheidung begruendet und
+  umgesetzt": `RecomputePOTotal` wirkt nur bei kuenftigen Zeilen-Mutationen, Bestellungen deren
+  Zeilen vor dem 26.07. angelegt und seither nie wieder angefasst wurden, blieben bei
+  `total_amount=0` stehen. Migration `000278_backfill_po_total_amount` (Vorlage
+  `000133_backfill_finance_line_tables`) recomputet einmalig ALLE Bestellungen mit derselben Formel,
+  idempotent ueber einen `WHERE total_amount <> COALESCE(SUM(...),0)`-Guard. `down.sql` ist bewusst
+  ein No-op (Vorlage `000223_validate_tenant_fks.down.sql`) — die alten Werte waren falsch, es gibt
+  nichts Sinnvolles, wohin man zurueckkehren koennte.
+- gate: build ok (`go build -p 2 ./internal/einkauf/... ./internal/gateway/... ./cmd/einkauf/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint, 0 issues) | test ok — `go test -count=1
+  ./internal/einkauf/...` gruen (Bestandstests aus `e91cdf2a`, unveraendert) | migration:
+  `migrate up` (277->278) / `down 1` (278->277) / `up` (278) alle sauber. Lokal 0 Zeilen in
+  `purchase_orders`/`po_lines` — Backfill nur rechnerisch verifiziert (SQL-Logik + idempotenter
+  Re-Lauf), nicht gegen echte Bestelldaten. Keine Routen-/Proto-Aenderung, deshalb
+  `go test ./internal/gateway/` nicht Teil dieses Gates.
+- verify vorgaenger: sauber. `d3b7cb01` (g-vendor-access, Iteration 22) geprueft: Handler laufen
+  durchgaengig ueber `securityv1.SecurityServiceClient` (kein Gateway-Bypass), Service loest
+  `tenant_id` in jeder Methode ueber `middleware.GetTenantID(ctx)` auf, Repository scopet jede
+  Query zusaetzlich per `WHERE tenant_id = $1` (Defense-in-depth neben RLS), Permission-Seed
+  `security:vendor_access:manage` bestand schon in Migration 000256 und ist dem `admin`-Preset
+  zugeteilt (`RequirePermission("security:vendor_access","manage")` passt exakt), DI-Wiring in
+  `cmd/auth/main.go` korrekt, `codes.OutOfRange` mappt in `gateway/helpers.go` auf HTTP 422 wie im
+  Journal behauptet. Nichts zu beanstanden.
 - offen:
-  - **Fund im Bestand, ausserhalb dieser Unit (nicht behoben, dokumentiert)**: Pin/Dismiss liefern
-    `{notification}` (gewrappt), FE-Client/Mock erwarten `{id, is_pinned, is_dismissed, actor_name}`
-    (flach). Aktuell folgenlos (Mutation-Response wird nie gelesen), waere aber ein echter Bruch,
-    sobald jemand die Response tatsaechlich konsumiert. Kandidat fuer eine eigene Fix-Unit, die beide
-    RPCs auf den flachen Shape umstellt (analog zu Snooze).
-  - Kein Un-Snooze-Worker (bewusst, siehe oben) — ein gesnoozter Eintrag bleibt nach Ablauf dauerhaft
-    "gelesen", der Badge zeigt ihn nicht erneut an. Sollte das Produkt-Team spaeter ein "Reminder
-    poppt wieder als ungelesen auf" verlangen, ist das eine bewusste Erweiterung (Worker + is_read-
-    Reset), keine Nacharbeit an dieser Unit.
-  - Zwei vorbestehende gofmt-Misalignments (`NotificationPreference`/`QuietHours` in
-    `internal/models/notification.go`, `toQuietHoursInfo` in `notification_grpc.go`) unangetastet
-    gelassen — ausserhalb Scope, keine Faelle die ich veraendert habe.
-  - Naechste Unit laut Reihenfolge: `fe-documents-activity` (Block D, deps: [], model: sonnet).
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22 (Plugin-Grpc-Tenant-aus-Body,
+    SetRolePermissions ohne Audit-Event, rbac-format.ts-Katalogluecke, SeedRow/CleanupRow ohne
+    `id`-Spalte, nicht regenerierte `types.ts`, `ErrPluginHasInstallations` faellt auf 500 statt
+    409, `useTimeline.ts`-Pfad+Offset-Bug, `useResources.ts`-Pfad-Bug, `useBilling.ts` auf reale
+    Endpoints umstellen, Zentria-seitiger Bestaetigungsweg fuer `counter_proposed`,
+    `sensitiveAreas`-Handkopie ohne gemeinsame Quelle) bleiben unveraendert offen, hier nicht
+    angefasst.
 
-## Iteration 39 — fe-documents-activity — done — 2026-08-02 (Nachtlauf 3)
-- commit: `6a247186`
-- verify vorgaenger: `1f108b00` (fe-notifications-snooze) gegen die acht Fehlerklassen geprueft —
-  **kein Fund**. `HandleSnooze` geht ueber `n.getNotificationClient()` (kein Fehlerklasse-1-Fund),
-  `SnoozeNotification` im gRPC-Server ist echte Implementierung (ruft `notifService.SnoozeNotification`
-  auf, kein Stub). Migration 000263 ist nur `ALTER TABLE notifications ADD COLUMN` — keine neue Tabelle,
-  Fehlerklasse 5 entfaellt. Kein neuer Guard (bestehender `notifications:write`-Key wiederverwendet,
-  kein Seed noetig, kein Alt-Key verloren). `openapi.yaml` traegt den neuen Pfad + Schema.
-- gebaut: **Datei-Aktivitaetsverlauf** — `GET /api/v1/documents/files/{id}/activity`.
-  - `document_events` (GoBD-Archiv-Kontext) VERWORFEN als Wiederverwendungskandidat: es ist
-    `gobd_document_events`, referenziert `gobd_documents(id)` — eine komplett andere Tabelle fuer den
-    Belegarchiv-Kontext, nicht fuer die allgemeinen `document_files`. Deshalb neue Tabelle gebaut, wie
-    im Scope als Alternative vorgesehen.
-  - Migration 000264: `document_file_activity` — `tenant_id UUID NOT NULL` + FK auf `tenants`,
-    `file_id` FK auf `document_files(id) ON DELETE CASCADE`, `action` per CHECK-Constraint auf die
-    acht FE-Werte (`uploaded/renamed/moved/copied/downloaded/shared/version_created/reverted`),
-    `actor_id` FK auf `users(id)`. `CALL enable_tenant_rls('document_file_activity')` (Standardform,
-    keine NULL-Ausnahme noetig — anders als bei RBAC-Praesets ist hier jede Zeile einem echten Tenant
-    zugeordnet). Append-only per BEFORE-UPDATE-OR-DELETE-Trigger, identisches Muster zu `audit_log`
-    (Migration 000222): `RAISE EXCEPTION` blockt beide Operationen auf DB-Ebene, nicht nur in Go.
-  - **Fund + selbst behoben** (Fehlerklasse-2-angrenzend, nicht im Verify-Vorspann sondern beim Bauen
-    entdeckt): `CopyFile` und `RevertFileVersion` im gRPC-Server uebergaben seit jeher `uuid.Nil` als
-    Akteur an den Service ("Use Nil as userID since gateway handles auth" — der Kommentar war falsch).
-    `middleware.GetUserID(ctx)` ist im Dokument-Service tatsaechlich verfuegbar (`registry.go:112`
-    verdrahtet `TenantOutboundUnaryInterceptor` global fuer JEDE Gateway-Verbindung, nicht nur fuer
-    einzelne Services), wurde aber an diesen beiden Stellen nie gelesen. Neuer Helper
-    `actorIDFromContext(ctx)` in `document_grpc.go`, jetzt auch fuer `UpdateFile`/`MoveFile` genutzt.
-    Ohne den Fix haetten `copied_by`/`created_by` in den neuen Activity-Zeilen dauerhaft auf einen
-    nicht-existenten `uuid.Nil`-User gezeigt (FK-Verletzung bei jedem Copy/Revert) — kein Rand-, sondern
-    ein Kernpfad der neuen Unit, deshalb im selben Commit korrigiert statt als offener Punkt notiert.
-  - `file.Service.Update`/`.Move` bekamen ein neues `actorID`-Parameter (Signaturaenderung, zwei
-    Call-Sites in `document_grpc.go` + zwei Test-Call-Sites angepasst). `Update` loggt `renamed` nur
-    wenn `Filename` gesetzt ist und `moved` nur wenn `FolderID` gesetzt ist — ein reines
-    `IsFavorite`-Toggle erzeugt bewusst KEINEN Eintrag (Praeferenz, kein Audit-relevanter Vorgang;
-    eigener Test `TestUpdate_FavoriteOnly_NoActivity` haelt das fest).
-  - `GetDownloadURL` behielt seine bestehende Signatur unveraendert (wird auch vom WOPI-Adapter in
-    `cmd/document/main.go` ueber `wopi.FileServiceInterface` aufgerufen, dort ohne Akteur — dieser Pfad
-    ruft die Methode aber nachweislich nie real auf, verifiziert per Grep im ganzen `wopi`-Paket). Neue
-    separate Methode `Service.LogDownload(ctx, fileID, tenantID, actorID)`, nur vom Gateway-Handler
-    `GetFileDownloadURL` nach erfolgreichem Presign aufgerufen — kein Signatur-Bruch fuer den
-    unbenutzten WOPI-Pfad.
-  - Neuer RPC `ListFileActivity` in `document.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
-    regeneriert (`make proto-document` manuell nachgebaut, `make` fehlt auf dieser Maschine —
-    `protoc --go_out=... --go-grpc_out=...` direkt mit denselben Flags wie im Makefile-Target).
-    Response `{activities: DocumentFileActivity[]}` per `response.ProtoListWrapped` (protojson,
-    `[]` statt `null` bei leerer Liste, snake_case automatisch) — exakt der FE-Vertrag aus
-    `ListActivityResponse` in `document-types.ts:268`.
-  - Gateway: `GET /api/v1/documents/files/{id}/activity` ueber bestehenden `docRead`-Guard
-    (`RequirePermissionAny({"documents","read"}, {"documents:file","read"})`) — kein neuer Key,
-    kein Seed. Zwei neue Faelle in `route_capability_guard_test.go` (Katalog-Key allowed, edit-Key
-    denied).
-  - `openapi.yaml`: neuer Pfad + Schema `DocumentFileActivity` (protojson-Form, `created_at` als
-    echter RFC3339-String wie bei `DocumentFileVersion`, nicht als ProtoTimestamp).
-  - `.planning/backend-gaps.md` Zeile 215 als erledigt markiert (gleiches Konventions-Praefix `✅ ...
-    CODE ERLEDIGT` wie beim Presign-Endpoint-Gap), Original-Beschreibung des Gaps als Kontext belassen.
-- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet` fuer
-  `internal/document/... internal/gateway/... internal/server/... internal/models/... cmd/document/...
-  cmd/gateway/...` gruen | `golangci-lint run --config .golangci.yml` fuer dieselben Pfade (ausser cmd)
-  **0 issues** | Migration 000264 down/up/up lokal gruen (Kopf `264`) | swagger-cli validate:
-  `openapi.yaml is valid` | Test mit `DATABASE_URL` gesetzt (Rolle `kmuhub_app`):
-  `internal/document/...` (39 Tests, davon 3 neu als echte DB-Tests) + `internal/gateway/...` +
-  `internal/server/...` alle `ok`, **0 Skips**. `TestOpenAPIRouteDrift`: PASS, 768 registrierte gegen
-  770 dokumentierte Pfade (+1 ggue. Iteration 38, konsistent mit der einen neuen Route).
-  **RLS-Smoke** (`docker exec -i ... psql`, echte Zeilen aus den DB-Tests statt synthetischer Werte):
-  eigener Tenant 2, fremder Tenant 0 — keine Nullmessung.
-  **Append-only verifiziert** (nicht nur behauptet): `TestDocumentFileActivity_AppendOnly` versucht
-  echtes UPDATE und DELETE gegen eine geseedete Zeile unter System-Kontext (BYPASSRLS-aequivalent) und
-  erwartet beide Male einen Fehler vom DB-Trigger — beide schlagen wie erwartet fehl, die Zeile bleibt
-  unveraendert (Count-Check danach).
-- tests: 3 neue DB-Tests (`postgres_repository_test.go`: Create+List mit korrekter Sortierung
-  newest-first und Actor-Name-JOIN, Tenant-Isolation liefert 0 unter fremder tenant_id, Append-only
-  blockt UPDATE+DELETE), 3 neue Mock-basierte Service-Tests (`TestMove_Success`/`TestUpdate_Success`
-  pruefen jetzt zusaetzlich den aufgezeichneten Activity-Eintrag, neuer
-  `TestUpdate_FavoriteOnly_NoActivity`) — je eigener Tenant/User/Folder/File pro DB-Testfall, kein
-  Parallel-Kollisionsrisiko.
+## Iteration 24 — g-fuhrpark-license-check — done — 2026-08-03
+
+- commit: `81212e69` — feat(fuhrpark): add driver license compliance check (Fuehrerscheinkontrolle)
+- verify vorgaenger: sauber. `45b5331d` (fix-einkauf-po-total, Iteration 23) gegen die
+  Fehlerklassen geprueft: Migration 000278 recomputet mit exakt derselben Formel wie
+  `RecomputePOTotal` (`postgres_repository.go:390-405`, `SUM(quantity*unit_price)`, kein float64),
+  idempotenter `WHERE total_amount <> COALESCE(...)`-Guard verifiziert, `down.sql` ist ein
+  begruendeter No-op (alte Werte waren falsch). Keine neue Route/kein Proto, `go test
+  ./internal/gateway/` war zu Recht nicht Teil des Vorgaenger-Gates. Nichts zu beanstanden.
+- gebaut: `g-fuhrpark-license-check` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge,
+  `deps: []`). Praemisse gegengeprueft: kein FE-Vertrag fuer eine Fuehrerscheinkontrolle
+  (`desktop/src/renderer/src` kennt nur `license_plate`, keine Person-bezogene Fuehrerschein-Spur)
+  — reine Backend-Unit.
+  Design: `driver_licenses` als Historie (append-only, eine Zeile pro Kontrolle — analog
+  `vehicle_documents`/`vehicle_services`, nicht ein Status-Feld pro Fahrer), `driver_id`
+  referenziert `users(id)`. `CreateDriverLicense` fuegt ueber `INSERT ... SELECT ... FROM users
+  WHERE id=$driver AND tenant_id=$tenant` ein (Vorlage: `AssignUserRole`,
+  `auth/postgres_repository.go:641`) — verhindert, dass ein Tenant einen fremden User als "Fahrer"
+  referenziert, obwohl `driver_licenses` selbst schon `enable_tenant_rls()` traegt. Migration
+  000279 (naechste freie Nummer zur Laufzeit ermittelt: Kopf war 278). Vier neue RPCs
+  (List/Create/Update/Delete) in `fuhrpark.proto` + Regenerierung im selben Commit (`make`-Target
+  fuer Fuhrpark existiert nicht im Makefile, exakter `protoc`-Befehl der Nachbar-Targets manuell
+  nachgebaut). Service/Repository/gRPC-Server/Gateway-Route nach dem `VehicleDocument`-Muster,
+  Route liegt top-level unter `/api/v1/fuhrpark/driver-licenses` (nicht unter `/vehicles/{id}/`,
+  weil ein Fahrer keinem einzelnen Fahrzeug gehoert). Permission `fuhrpark:license:read/write`,
+  Seed + Grant an `admin` — gleiches admin-only-Muster wie `fuhrpark:document` (Migration 000196),
+  bewusst nicht auf manager/member erweitert (kein FE-Zwang, kein Praezedenzfall dafuer).
+  gate: build ok (`go build -p 2 ./internal/fuhrpark/... ./internal/gateway/...
+  ./internal/server/... ./cmd/fuhrpark/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok — `go test -count=1 ./internal/fuhrpark/...` 31 PASS /
+  0 SKIP (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`), `go test ./internal/gateway/` gruen inkl.
+  `TestOpenAPIRouteDrift` (789/791 nach den vier neuen Pfaden), `go test ./internal/server/...`
+  gruen | migration: `up`/`down 1`/`up` sauber (278->279->278->279) | RLS-Smoke: eigener Tenant 1,
+  fremder Tenant 0, Cross-Tenant-Insert-Versuch (Fahrer aus Tenant A, Aufrufer behauptet Tenant B)
+  liefert 0 Zeilen (SQL UND Go-Test) | `TestAllPublicTablesHaveRLSOrAreAllowlisted` bleibt gruen,
+  kein neuer Fund durch die neue Tabelle.
+  Tests: neue Datei `driver_license_test.go` (6 Subtests: Cross-Tenant-Create-Ablehnung, Isolation,
+  List-Filter nach Fahrer, Update, Update/Delete ueber Tenant-Grenze als No-op) +
+  `tenant_write_test.go` um den `driver_licenses`-Fall erweitert (echter Schreibpfad statt
+  `testutil.SeedRow`, Cleanup-Reihenfolge per `defer`-LIFO: License vor User).
 - offen:
-  - Test-Fixtures in `postgres_repository_test.go` raeumen bewusst NICHT auf (siehe Kommentar am
-    `activityFixture`-Typ): sobald ein `document_files`-Testfixture Activity-Kinder traegt, wuerde
-    `testutil.CleanupRow`s DELETE per `ON DELETE CASCADE` den Append-only-Trigger der Kinder ausloesen
-    und scheitern (nur geloggt, kein Testfehler) — Zeilen bleiben in der lokalen/CI-ephemeren DB liegen,
-    exakt der Tradeoff, den die bestehenden `audit_log`-Tests schon eingehen. Keine Produktionsrelevanz.
-  - `downloaded` wird nur beim expliziten Gateway-Download-URL-Aufruf geloggt, nicht bei jedem
-    OnlyOffice/WOPI-Zugriff (dort ist `GetDownloadURL` nachweislich unbenutzt, s.o.) — falls WOPI
-    kuenftig echte Downloads darueber abwickelt, muesste diese Stelle nachgezogen werden.
-  - Naechste Unit laut Reihenfolge: `fe-documents-links` (Block D, deps: [fe-documents-activity],
-    model: sonnet) — jetzt entsperrt.
+  - Bewusst nicht gebaut (steht so in den notes der Unit): keine Ablauf-Erinnerungen/
+    Benachrichtigungen fuer faellige Kontrollen — gehoert dem notification-Modul, als
+    eigenstaendige Folge-Unit vormerken, nicht Teil dieser Unit.
+  - Kein FE-Wiring (Backend-Loop fasst `desktop/` nicht an) — `driver-licenses`-UI im
+    Fuhrpark-Modul existiert noch nicht, waere eine Folge-Session.
+  - Permission bewusst nur an `admin` vergeben, nicht an `manager` — falls Fuhrpark-Manager das
+    im Alltag pflegen sollen, ist das eine Produktentscheidung fuer eine spaetere Migration, kein
+    Uebersehen.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 40 — fe-documents-links — done — 2026-08-02 (Nachtlauf 3)
-- commit: `6a247186` verify vorgaenger, siehe unten
-- verify vorgaenger: `6a247186` (fe-documents-activity) gegen die acht Fehlerklassen geprueft — **kein
-  Fund**. `HandleListFileActivity` geht ueber `client.ListFileActivity(...)` (gRPC-Client, kein
-  Fehlerklasse-1-Fund). Migration 000264 hat `tenant_id NOT NULL` + `CALL enable_tenant_rls(...)` +
-  Append-only-Trigger, Repo-INSERT UND -SELECT beide tenant-gescoped (per Diff verifiziert). Kein
-  neuer `RequirePermission`-Guard (bestehender `docRead` wiederverwendet), keine Fehlerklasse-4/8.
-  `openapi.yaml` traegt den neuen Pfad im selben Commit. Der `actorIDFromContext`-Fix (uuid.Nil ->
-  echter Akteur bei CopyFile/RevertFileVersion) ist ein echter, im selben Commit korrigierter Bugfix,
-  kein Stub — verifiziert gegen `document_grpc.go`-Diff.
-- gebaut: **`DELETE /api/v1/documents/links/{id}`** — Widerruf eines Dokument-Entity-Links per
-  eigener Link-ID.
-  - **Scope-Korrektur gegenueber der Backlog-Beschreibung:** Die Unit-Notes gehen von externen,
-    passwortgeschuetzten "Freigabelinks" aus (Analogie zu `report_share_tokens`). Verifiziert gegen
-    den echten FE-Code (`document-client.ts:479-503`, `useDocuments.ts:444-452`,
-    `mocks/handlers/documents.ts:760`): `/api/v1/documents/links/{id}` ist tatsaechlich
-    `documentLinkApi.unlink(linkId)` — Widerruf eines **CRM/PM-Entity-Links**
-    (`DocumentEntityLink`, Datei <-> Kontakt/Deal/Task/Projekt), nicht ein unauthentifizierter
-    externer Zugang. Die dialoggetriebene "Freigabelink mit Passwort/Ablauf"-UI
-    (`modules/dokumente/ShareLinkDialog.tsx`) ist zu 100% clientseitiger Mock
-    (`generateMockLink`, kein einziger API-Call) — ein separates, unwired FE-Feature, nicht das,
-    was dieser Pfad bedient. Gebaut wurde die echte Luecke, nicht die vermutete.
-  - **Echter Bug gefunden und im selben Commit behoben (Root-Cause, nicht nur die neue Route):**
-    `models.DocumentEntityLink` hatte nie ein `TenantID`-Feld, und
-    `PostgresRepository.CreateEntityLink` insertierte nie eine `tenant_id` — obwohl die Spalte seit
-    Migration 000114 `NOT NULL` ist (RLS seit 000122). Jeder reale
-    `POST /documents/files/{id}/links`-Aufruf haette seit der RLS-Retrofit-Welle mit einer
-    NOT-NULL-Verletzung 500en muessen; das Feature war seit Sprint 4 tot, nur unsichtbar, weil im FE
-    kein einziger Call-Site fuer `useLinkFile`/`useUnlinkFile` existiert (siehe naechster Punkt).
-    Fix: `TenantID` aufs Model, `LinkToEntity` (Service) setzt `link.TenantID = tenantID` (Parameter
-    war schon da, nur ungenutzt), `CreateEntityLink`-INSERT nimmt die Spalte mit.
-  - **Tenant-Scoping nachgezogen, nicht nur fuer die neue Route:** `ListEntityLinks`/`DeleteEntityLink`
-    (Repo+Service) haben jetzt `tenantID`-Parameter mit explizitem `WHERE tenant_id = $N` (Konvention
-    dieser Datei, siehe `GetByID`) statt sich allein auf RLS zu verlassen. Betrifft auch die
-    BESTEHENDEN Handler `UnlinkFileFromEntity`/`ListFileEntityLinks`/`LinkFileToEntity`
-    (`document_grpc.go`): `UnlinkFileFromEntity` hatte bisher **gar keinen**
-    `middleware.GetTenantID(ctx)`-Aufruf und lief nur ueber RLS — jetzt konsistent mit den
-    Nachbar-Handlern. Kein Wire-Shape-Bruch: keiner der drei bestehenden Response-Contracts hat sich
-    geaendert, nur die interne Repo-Signatur.
-  - **FE-Realitaet, im Journal vermerkt statt geraten:** `useLinkFile`/`useUnlinkFile`
-    (`api/hooks/useDocuments.ts:428,444`) haben **keinen einzigen Aufrufer** in einer Komponente —
-    nur `useFileLinks` (Liste, read-only Anzeige in `FileDetailPanel.tsx:113`) wird tatsaechlich
-    gerendert. Die neue Route bedient also aktuell keinen sichtbaren User-Flow, sondern schliesst die
-    Backend-Luecke fuer einen bereits im API-Client committeten, aber UI-seitig noch nicht verdrahteten
-    Pfad — dieselbe Kategorie wie die in `p2c-work-documents-crm-finance`/`-2` dokumentierten
-    "FE-Aufrufer ist reiner Mock"-Faelle, nur umgekehrt (hier ist es der Erzeuger-Hook, nicht der
-    Consumer, der fehlt).
-  - **Kein GET-Pendant erfunden:** Die Backlog-Notes nennen "GET/DELETE". Ein `GET
-    /documents/links/{id}` (Einzel-Link per ID) hat keinen FE-Aufrufer — Lesen laeuft ausschliesslich
-    ueber das bestehende, unveraenderte `GET /documents/files/{id}/links` (Liste pro Datei). Kein
-    Katalog-Key betroffen (Entity-Links sind laut Kommentar in `route_document.go:66` bewusst ohne
-    Catalogue-Subject) — neue Route bekommt denselben coarse-only `RequirePermission("documents",
-    "write")`-Guard wie ihr Geschwister-Endpoint, kein neuer Key, kein Seed.
-  - Neuer RPC `DeleteEntityLink(DeleteEntityLinkRequest{link_id}) returns
-    (DeleteEntityLinkResponse{})` in `document.proto`, `.pb.go`/`_grpc.pb.go` im selben Commit
-    regeneriert (`protoc` direkt, gleiche Flags wie `make proto-document`, `make` fehlt auf dieser
-    Maschine).
-  - `EntityName` bleibt weiterhin immer leer (kein `entity_name`-Spalte in `document_entity_links`
-    seit Migration 000043, nie nachgezogen) — vorbestehende, separate Luecke, NICHT in dieser Unit
-    behoben (kein FE-Aufrufer fuer Create/Update betroffen, keine Migration in diesem Commit noetig;
-    eine echte Loesung braucht Cross-Entity-Namensaufloesung ueber 5 Entity-Typen, das ist ein eigener
-    Zuschnitt).
-- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet` fuer
-  `internal/document/... internal/gateway/... internal/server/...` gruen | `golangci-lint run
-  --config .golangci.yml` fuer dieselben Pfade **0 issues** | swagger-cli validate: `openapi.yaml is
-  valid` | migration: keine (Spalte existierte bereits seit 000114) | Test mit `DATABASE_URL` gesetzt
-  (Rolle `kmuhub_app`): `internal/document/...` + `internal/gateway/...` + `internal/server/...` alle
-  `ok`, **0 Skips** (per grep verifiziert). `TestOpenAPIRouteDrift`: PASS. Zwei neue Faelle in
-  `route_capability_guard_test.go` (`entity link delete by ID`, coarse-only) PASS.
-  **RLS-Smoke** (`docker exec -i ... psql`, echte Fixture-Zeilen unter `kmuhub_app`): eigener Tenant 1,
-  fremder Tenant 0 — Fixture danach wieder geloescht (keine RLS-Erzwingung noetig, normale Zeilen ohne
-  Append-only-Trigger).
-- tests: 3 neue echte DB-Tests (`postgres_repository_entity_link_test.go`: Create+List mit
-  Tenant-Filter, Tenant-Isolation liefert 0 unter fremder tenant_id, Delete verweigert unter fremdem
-  Tenant mit `ErrFileNotFound` UND laesst die Zeile unangetastet, loescht korrekt unter eigenem
-  Tenant), 4 neue Mock-Service-Tests (`TestLinkToEntity_SetsTenantID`,
-  `TestUnlinkFromEntity_Success`, `TestUnlinkFromEntity_WrongTenant_NotFound`,
-  `TestListEntityLinks_TenantIsolation`) — je eigener Tenant/User/Folder/File pro DB-Testfall.
+## Iteration 25 — fix-security-gdpr-paths — done — 2026-08-03
+
+- commit: `a8ac8fc2` — fix(security): align GDPR export routes with the frontend contract
+- verify vorgaenger: sauber. `81212e69` (g-fuhrpark-license-check, Iteration 24) gegen die
+  Fehlerklassen geprueft: Handler gehen durchgaengig ueber `fuhrparkv1.FuhrparkServiceClient`
+  (kein Direct-Svc-Bypass), Migration 000279 traegt `tenant_id NOT NULL` + `enable_tenant_rls()`,
+  `CreateDriverLicense` loest den Fahrer zusaetzlich per `INSERT ... SELECT ... FROM users WHERE
+  id=$driver AND tenant_id=$tenant` auf (Defense-in-Depth ueber die RLS-Policy hinaus, verifiziert
+  in `postgres_repository.go`), Permission-Seed fuer `fuhrpark:license:read/write` steht in
+  derselben Migration. Nichts zu beanstanden.
+- gebaut: `fix-security-gdpr-paths` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge,
+  `deps: []` — alle Units vor Block "fix-*" waren bereits `done`/`blocked`).
+  Vier Client-Pfade aus `security-client.ts` liefen ins Leere:
+  `POST /gdpr/export/request` (BE hatte nur `/gdpr/export`), `POST /gdpr/export/{id}/approve|deny`
+  (BE hatte `/gdpr/exports/{id}/...`, Plural), `GET /gdpr/export/{id}/download` (BE hatte
+  `/gdpr/download/{token}`). Wie in den notes vorgegeben zieht das Gateway auf die FE-Pfade um,
+  nicht umgekehrt.
+  Route-Umbau in `route_security.go`: `/gdpr/export` ist jetzt eine eigene Route-Gruppe mit
+  `POST /request` und `Route("/{id}", ...)` fuer `approve`/`deny`/`download`. `/gdpr/exports`
+  (Liste) unveraendert.
+  Wichtiger Nebenfund beim Bauen: chi erlaubt an derselben Tree-Position keine zwei
+  verschieden benannten Wildcards — empirisch mit einem Wegwerf-Programm verifiziert
+  (`chi.Mux.Route` wirft `panic("attempting to Mount() a handler on an existing path")`, wenn
+  `/{id}/approve` und `/{token}/download` unter demselben Elternknoten registriert werden). Die
+  drei Sub-Routen unter `/export/{id}/...` nutzen deshalb durchgaengig `{id}`, auch fuer den
+  Download — das ist inhaltlich korrekt, weil `HandleGetExportDownload` ohnehin ausschliesslich
+  ueber `DownloadToken` aufloest, nie ueber eine Export-ID (beantwortet die "id vs. token"-Frage
+  aus den notes: es gibt keine Alternative, der Handler kennt nur den Token). Der Golang-Handler
+  liest jetzt `chi.URLParam(r, "id")` und behandelt den Wert als Token, mit erklaerendem Kommentar
+  im Code gegen Verwechslung.
+  Fuenfter FE-Aufruf `PrivacySettingsTab.tsx:139` (`/api/v1/gdpr/exports/${exp.id}/download?token=
+  ...`, roher `<a href>` ohne API-Client, kein `/security`-Praefix) wie in den notes vermutet echt
+  tot — trifft keine der vier neuen Routen, auch keine alte. NICHT gefixt (Frontend-Datei, siehe
+  Grenzen des Loops), bleibt offener FE-Befund unten.
+  `openapi.yaml` an allen vier Stellen mitgezogen (Pfad-Rename, Parametername bei `download` von
+  `token` auf `id` mit Beschreibung "One-time download token (not the export request ID)").
+  Tests: zwei neue Router-Level-Tests (`TestGDPRExportRoutes_MatchFrontendPaths`,
+  `TestGDPRExportRoutes_ApproveDenyRequireAdmin`) bauen den echten Chi-Router ueber
+  `RegisterRoutes` und schicken echte Requests gegen die vier FE-Pfade — bewusst kein reiner
+  Handler-Aufruf, weil ein Handler-Test einen Pfad-Tippfehler nie haette fangen koennen (503 bei
+  leerem Registry beweist Pfad-Treffer, 404 waere der Regressionsfall). Dazu ein Unit-Test fuer den
+  Token-Vertrag (`TestGDPRExportRoutes_DownloadUsesTokenNotID`). Neuer Helper `withRoles()` in
+  `testutil_test.go` fehlte bisher fuer `RequireRole`-Tests (Vorlage `withPermissions` aus
+  `route_capability_guard_test.go`, aber ueber `middleware.UserRolesKey`).
+  gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf
+  `internal/gateway`, 0 issues, nach dem Test-Fix erneut auf dem finalen Stand gelaufen) | test ok
+  — `go test -count=1 ./internal/gateway/...` gruen inkl. `TestOpenAPIRouteDrift` und
+  `TestOpenAPISpecDrift` (Pfadzahl unveraendert: vier Umbenennungen, keine neue Route). Keine
+  Migration, kein `.proto`, kein neuer Permission-Guard (`RequireRole("admin")` bestehend, nur
+  mitverschoben) — DB/RLS-Gate daher nicht einschlaegig.
+  Eigener Fehlversuch dabei: der erste Entwurf von `TestGDPRExportRoutes_DownloadUsesTokenNotID`
+  nutzte `emptyRegistry()` und erwartete 400, bekam aber 503 — `HandleGetExportDownload` prueft den
+  gRPC-Client-Connect VOR dem Token, wie alle anderen Handler in der Datei. Mit
+  `registryWithService("auth")` behoben; im Journal vermerkt, weil derselbe Fallstrick jedem
+  weiteren Test in dieser Datei droht.
 - offen:
-  - `useLinkFile`/`useUnlinkFile` sind FE-seitig ungerendert (s.o.) — sobald ein UI-Flow dafuer gebaut
-    wird, ist das Backend jetzt bereit (inkl. des Tenant-Bugfixes), keine weitere Backend-Arbeit nötig.
-  - `entity_name` bleibt leer (vorbestehende, separate Luecke, s.o.) — eigener Zuschnitt falls die
-    Anzeige des verlinkten Entity-Namens im FE gebraucht wird.
-  - Naechste Unit laut Reihenfolge: `fe-contacts-files` (Block D, deps: [], model: sonnet).
+  - Der praefixlose `PrivacySettingsTab.tsx:139`-Downloadlink (siehe oben) ist ein echter,
+    unabhaengiger FE-Bug — eigene Folge-Unit oder FE-Session, nicht Teil des Backend-Loops.
+  - Alle unveraendert offenen Punkte aus Iteration 17/18/19/20/21/22/24 (siehe deren Aufzaehlung
+    oben) bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 41 — fe-contacts-files — done — 2026-08-02 (Nachtlauf 3)
-- commit: `483ecea7`
-- verify vorgaenger: `0685eb68` (fe-documents-links) gegen die acht Fehlerklassen geprueft — **kein
-  Fund**. `HandleDeleteEntityLink` geht ueber `client.DeleteEntityLink(...)` (gRPC-Client, kein
-  Fehlerklasse-1-Fund). `.proto`+`.pb.go`+`_grpc.pb.go` im selben Commit regeneriert (Fehlerklasse 3
-  entfaellt). Kein neuer `RequirePermission`-Guard (bestehender `documents:write` wiederverwendet,
-  Fehlerklasse 4/8 entfaellt). `CreateEntityLink`-Tenant-Fix + `ListEntityLinks`/`DeleteEntityLink`
-  mit explizitem `tenant_id`-Filter — echte Behebung, kein neuer Tenant-Luecken-Fund. `openapi.yaml`
-  traegt den neuen Pfad im selben Commit, `TestOpenAPIRouteDrift` lief.
-- gebaut: **`GET/POST /api/v1/contacts/{id}/files`** — Dateianhaenge am CRM-Kontakt.
-  - Wie in den Notes gefordert **kein zweiter Dateispeicher**: beide Routen komponieren ausschliesslich
-    bestehende Document-Service-RPCs im Gateway (`ListFolders`, `CreateFolder`, `RegisterUploadedFile`,
-    `LinkFileToEntity`, plus neu `ListFilesByEntity`) statt eine `crm_contact_files`-Tabelle
-    anzulegen — keine neue Migration in diesem Commit.
-  - **Upload-Flow ist presign-then-register**, analog zum bestehenden Task-Files-Muster
-    (`useTaskFiles.ts`): Client holt sich zuerst eine presigned URL ueber das bereits bestehende
-    `POST /api/v1/files/presign-upload` (Scope `kontakte` war in `allowedPresignScopes`
-    [`internal/document/file/presign.go:32`] schon zugelassen — nichts daran aendern muessen), laedt
-    direkt zu MinIO hoch, ruft danach `POST /api/v1/contacts/{id}/files` mit
-    `{filename, mime_type, storage_key, file_size}` auf. Der MSW-Mock
-    (`mocks/handlers/crm.ts:660`) sendet **kein** `file_size` — das reale Backend braucht es aber
-    zwingend (`document_files.file_size BIGINT NOT NULL CHECK (file_size > 0)`,
-    `RegisterUploadedFile` validiert `ErrFileSizeZero`). Vermerkt statt stillschweigend nachgeben: der
-    Mock ist duenner als der reale Contract, wie schon in mehreren `p2c-*`-Funden — die zukuenftige
-    FE-Anbindung muss `file_size` mitschicken.
-  - **`document_files.folder_id` ist `NOT NULL`** (keine Ordner-lose Ablage moeglich) und es gibt
-    keinen Ordner-Picker fuer Kontakt-Anhaenge. Geloest mit einem lazily erzeugten, gemeinsamen
-    System-Ordner **"CRM-Kontaktanhänge"** (`space_type=team`, `space_id=<tenant_id>` — kein
-    Team-Konzept fuer den ganzen Mandanten vorhanden, `space_id` traegt keine FK-Constraint, also
-    unproblematisch wiederverwendet). Race-sicher ohne neue DB-Konstrukte: `CreateFolder`
-    (`folder.Service.Create`) lehnt einen doppelten Namen im selben Parent selbst mit
-    `ErrFolderNameConflict` -> `codes.AlreadyExists` ab; der Verlierer eines Concurrent-First-Calls
-    holt sich den Ordner der Gewinner-Anfrage per erneutem `ListFolders` statt zu scheitern.
-    `lean:`-markiert in `route_crm_contact_files.go:25` mit Upgrade-Trigger ("wenn Kontakte je einen
-    eigenen Anhang-Ordner/Browser brauchen").
-  - **Vorbestehende, bisher tote Luecke gefunden und geschlossen:**
-    `file.Repository.ListFilesByEntity(ctx, entityType, entityID)` — die noetige Rueckwaerts-Abfrage
-    "welche Dateien haengen an Entity X" — existierte bereits vollstaendig (Postgres-Impl + Mock in
-    `service_test.go`), war aber **von KEINER Service-Methode, KEINEM RPC und KEINEM Handler jemals
-    aufgerufen** worden (verifiziert per grep, nur Interface+Impl+Mock referenzierten den Namen) UND
-    filterte **nicht nach `tenant_id`** (reine RLS-Abhaengigkeit, im Widerspruch zur Konvention
-    dieser Datei seit dem Fix in `fe-documents-links`). Behoben statt daneben eine zweite Abfrage zu
-    bauen: `tenant_id`-Parameter durch Repository-Interface, Postgres-Query
-    (`AND del.tenant_id = $3 AND f.tenant_id = $3`) und neue `Service.ListByEntity`
-    (validiert `AllowedEntityTypes`, wie `LinkToEntity`) gezogen. Proto bekam den fehlenden RPC
-    `ListFilesByEntity(ListFilesByEntityRequest{entity_type, entity_id}) returns
-    (ListFilesByEntityResponse{repeated DocumentFile files})`, `document_grpc.go` bekam den
-    `DocumentGRPCServer`-Handler (Muster von `ListFileEntityLinks` abgeschaut, `toProtoFile`
-    wiederverwendet).
-  - **Kontakt-Zugehoerigkeit serverseitig geprueft, nicht nur RLS** (Notes-Pflicht): beide Handler
-    rufen zuerst `crmClient.GetContact(ctx, {Id: contactID})` — `CRMGRPCServer.GetContact`
-    (`crm_grpc.go:458`) scoped intern per `contactService.GetByID(ctx, id, tenantID)`, ein fremder
-    Tenant bekommt `NotFound` -> 404, bevor ueberhaupt ein Document-RPC angefasst wird. Der
-    Verbindungsfehler-Pfad (`getCRMClient()`/`getDocumentClient()` scheitert, leere Registry) ist
-    bewusst vom RPC-Fehler-Pfad getrennt (`verifyContactOwnership` gibt `(connErr, rpcErr)` zurueck) —
-    sonst waere ein Registry-Ausfall via `respondGRPCError` als 500 statt 503 gelandet, im Widerspruch
-    zur Guard-Test-Konvention "allowed = 503 bei leerer Registry".
-  - **Wire-Shape**: `ContactFile{id, contact_id, filename, mime_type, storage_key, created_at}` exakt
-    nach `useContacts.ts:47` (camelCase-Namen im FE-Kommentar sind snake_case im echten Typ), GET
-    liefert `{files: []}` (nie `null`), POST `{file: {...}}` gewrappt mit 201 — passt 1:1 zum
-    bestehenden `mocks/handlers/crm.ts:655-673`.
-  - Kein neuer `RequirePermission`-Guard: `GET` haengt an `contactRead`, `POST` an `contactEdit`
-    (beide bereits additiv in `route_crm.go`, wiederverwendet wie bei den Tags-Routen daneben) — kein
-    Seed noetig.
-- gate: `go build -p 2 ./internal/document/... ./internal/gateway/... ./internal/server/...
-  ./cmd/document/... ./cmd/gateway/... ./cmd/crm/...` gruen | `go vet` fuer dieselben Pfade gruen |
-  `golangci-lint run --config .golangci.yml` fuer `internal/document/...`, `internal/gateway/...`,
-  `internal/server/...` **0 issues** | swagger-cli validate: `openapi.yaml is valid` | migration:
-  keine (Spalten existieren seit 000114/000122) | Test mit `DATABASE_URL` gesetzt (Rolle
-  `kmuhub_app`): `internal/document/...` (inkl. `file`, `folder`, `search`, `share`, `tag`,
-  `virtual`), `internal/gateway/...`, `internal/server/...` alle `ok`, **0 Skips** (per grep
-  verifiziert, 54 PASS allein in `internal/document/file`). `TestOpenAPIRouteDrift`: PASS (772
-  dokumentierte Pfade). Fuenf neue Faelle in `route_capability_guard_test.go`
-  (`contact_files_list_*`, `contact_files_create_*`) einzeln per `-run` verifiziert: alle PASS.
-  **RLS-Smoke** (`docker exec -i ... psql`, echte Fixture-Rows unter `SET ROLE kmuhub_app`, in
-  Transaktion mit `ROLLBACK` danach): eigener Tenant 1 Zeile, fremder Tenant 0 Zeilen, exakt die
-  Query-Form von `ListFilesByEntity`.
-- tests: 5 neue echte DB/Service-Tests fuer `ListByEntity`
-  (`TestPostgresRepository_ListFilesByEntity`, `TestPostgresRepository_ListFilesByEntity_TenantIsolation`
-  gegen echte DB; `TestListByEntity_Success`, `TestListByEntity_TenantIsolation`,
-  `TestListByEntity_InvalidType` gegen den Mock-Service), 5 neue Guard-Testfaelle fuer die beiden
-  neuen Routen.
+## Iteration 26 — fix-hr-document-paths — done — 2026-08-03
+
+- commit: `5359d87b` — fix(hr): move document categories route to the frontend contract
+- verify vorgaenger: sauber. `a8ac8fc2` (fix-security-gdpr-paths, Iteration 25) gegen die
+  Fehlerklassen geprueft: kein Direct-Svc-Bypass (Route-Umbau bleibt auf Handler-Ebene, ruft weiter
+  `HRServiceClient`/`AuthServiceClient` unveraendert), kein Stub, kein `.proto` ohne Regen (keins
+  angefasst), kein neuer `RequirePermission` (bestehender `RequireRole("admin")` nur mitverschoben),
+  keine neue Tabelle/RLS-Luecke, Wire-Shape passt (Pfad-Rename, kein Response-Formatwechsel), Route
+  in openapi.yaml mitgezogen, kein Alt-Key ersetzt. Nichts zu beanstanden.
+- gebaut: `fix-hr-document-paths` gezogen (erste `status: todo`-Unit in Datei-Reihenfolge, `deps: []`).
+  (a) `GET /hr/document-categories` (nie aufgerufen) ersetzt durch
+  `GET /hr/employees/{id}/documents/categories` (FE-Pfad aus `hr-client.ts:937`).
+  Beim Recherchieren: `hr:read` (Migration 000129) ist NUR an die Rolle "admin" vergeben — hr_admin/
+  manager/member haetten weder die neue Route noch die bestehende `/documents`-Route je erreicht.
+  Guard additiv um die produktiv bereits vorgesehene Capability `team:documents:view` erweitert
+  (`RequirePermissionAny`, gleiches Muster wie die `zeitTeamView`-Guards weiter oben in
+  `route_hr.go` — `hr:read` bleibt gueltig, kein Alt-Key ersetzt).
+  Visibility-Filterung nutzt das bereits vorhandene, bislang ungenutzte
+  `middleware.PermissionScope(ctx,"team:documents","view")` (own/team/all) — exakt der Scope, den
+  `PersonnelDocuments.tsx` bereits clientseitig auswertet (`useCapability('team:documents:view').scope`).
+  Migration 000256 belegt scope='all' fuer admin/hr_admin, scope='team' fuer manager, scope='own'
+  fuer member — kein neuer Rollen-Mapping-Mechanismus noetig, nur der erste echte Aufrufer der
+  schon vorhandenen Bausteine. Filterung laeuft in Go im Service (`filterCategoriesByScope`), nicht
+  in SQL (Kategorien sind eine Handvoll Zeilen, ein SQL-Filter waere unnoetige Komplexitaet).
+  Unbekannter/leerer Scope faellt restriktiv auf "nur employee-visibility" zurueck, nicht auf "alles".
+  (b) `personnel-documents` NICHT gebaut, wie in den notes vorgesehen: `PersonnelDocuments.tsx` ist
+  durchgaengig Demo-Zustand — `handleUpload` sendet weder `employeeId` noch ein echtes File (nur
+  Groesse/Name als Text), der GET-Query laedt von `/hr/personnel-documents` ohne jeden
+  Employee-Bezug. Ein Endpoint dafuer waere blind auf den eingeloggten User zurueckgefallen — genau
+  das Datenleck-Risiko, vor dem die notes warnen. Bleibt offener, eigenstaendiger FE-Befund.
+  Proto: `ListDocumentCategoriesReq` um `caller_scope` erweitert, `make proto-hr`-Aequivalent
+  (protoc direkt, `make` ist auf dieser Maschine nicht im PATH) im selben Commit regeneriert.
+  `hr_grpc.pb.go` kam byte-identisch zurueck (nur CRLF/LF-Rauschen) — bewusst NICHT mitcommittet,
+  um keinen Nur-Zeilenenden-Diff zu erzeugen.
+  Tests: 4 neue Unit-Tests in `service_test.go` (Scope all/team/own/leer — leer/unbekannt faellt
+  restriktiv auf employee-only zurueck, nicht auf "alles"), 4 neue Router-Tests in
+  `route_hr_test.go` (Pfad erreichbar mit `team:documents:view` ODER `hr:read` allein, 403 ohne
+  beides, alte Route liefert jetzt 404).
+  gate: build ok (`go build -p 2 ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...
+  ./cmd/gateway/... ./cmd/biz/...`) | vet ok | lint ok (golangci-lint, 0 issues) | test ok —
+  `go test -count=1 ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...` gruen mit
+  `DATABASE_URL` gesetzt auf `kmuhub_app` (u.a. `internal/biz/hr/timetracking` DB-Tests real
+  gelaufen, keine Skips beobachtet), inkl. `TestOpenAPIRouteDrift`/`TestOpenAPISpecDrift`. Keine
+  Migration (keine neue Tabelle/Spalte), daher kein migrate-Schritt und keine RLS-Smoke noetig.
 - offen:
-  - `RegisterUploadedFile`/`file_size`-Pflichtfeld ist im MSW-Mock nicht abgebildet (s.o.) — beim
-    Bau des echten FE-Upload-Hooks (`useCreateContactFile`/Ähnliches, existiert bisher nicht)
-    `file.size` mitschicken, sonst 400.
-  - Der neue System-Ordner "CRM-Kontaktanhänge" taucht nach dem ersten Upload als normaler,
-    nicht-System-Ordner (`is_system=false`, `CreateFolder`-RPC setzt das Feld nicht) im allgemeinen
-    Dokumente-Modul auf (space_type=team) — potenziell verwirrend fuer Nutzer, die dort durch alle
-    Team-Ordner browsen. Kein Backend-Problem, aber FE-seitig evtl. filtern/ausblenden wollen.
-  - Naechste Unit laut Reihenfolge: `fe-caldav-test` (Block D, deps: [], model: sonnet).
+  - FE-Befund: `PersonnelDocuments.tsx` (`handleUpload`/GET-Query) ist komplett demo-/mock-artig
+    ohne Employee-Bezug — eigene Folge-Unit oder FE-Session, kein Backend-Gap.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 42 — fe-caldav-test — done — 2026-08-02 (Nachtlauf 3)
-- commit: 3b481316
-- gebaut:
-  - `POST /api/v1/caldav/test` (`route_caldav.go`, `handleTestConnection`/`probeSelf`) hinter
-    demselben `authMiddleware` wie die Nachbarrouten `/caldav/status|enable|disable` — kein neuer
-    Guard, kein Seed noetig.
-  - SCOPE-KLARSTELLUNG (der Backlog-Text "Verbindungstest fuer eine CalDAV-Konfiguration" war
-    missverstaendlich): dieses Modul ist kein CalDAV-*Client*, der gegen einen externen Server
-    konfiguriert wird — die App IST der CalDAV/CardDAV-Server (Apple Calendar/Thunderbird/etc.
-    verbinden sich gegen `/caldav/`, `/carddav/` per App-Passwort). Es gibt keine externe
-    "Konfiguration" zu testen. Das schon vorhandene, bisher unverdrahtete FE
-    (`caldav-client.ts:testCalDAVConnection`, `CalDAVSettingsTab.tsx` Test-Button, KEIN MSW-Mock
-    dafuer) erwartet stattdessen einen echten End-to-End-Beweis, dass der eigene Server-Pfad
-    funktioniert.
-  - Echter Test statt Lexware-Anti-Pattern (`biz/lexware/service.go:147`, "Feld nicht leer =
-    verbunden"): Handler erzeugt ein frisches App-Passwort (`pwService.Create`), macht zwei
-    echte, auf 5s timeout-bounded `OPTIONS`-Requests gegen `/caldav/` und `/carddav/` — denselben
-    Pfad, den ein echter CalDAV-Client nutzen wuerde — und revoked das Passwort in einem `defer`
-    unabhaengig vom Ausgang. `net/http/httptest`-Tests bestaetigen: das Passwort ist nach dem
-    Request wirklich revoked (aktive Anzahl 0), nicht nur "sollte".
-  - SSRF-Vermeidung als bewusste Designentscheidung (nicht im Backlog gefordert, aber notwendig):
-    das Ziel der Probe ist IMMER `http://127.0.0.1<GatewayHTTPPort>` — aus der eigenen Config
-    (`cfg.GatewayHTTPPort`, per neuem `selfBaseURL`-Parameter durch `setupCalDAV`/`NewCalDAVRoutes`
-    durchgereicht), NIE aus `r.Host`/`X-Forwarded-Host`. Ein authentifizierter Angreifer haette
-    sonst jeden beliebigen internen Host per Header ansprechen koennen — jeder eingeloggte User
-    darf diesen Endpoint aufrufen, ohne dass CalDAV fuer ihn aktiviert sein muss.
-  - Fehlerklassen unterscheidbar: `401` -> "authentication failed", Netzwerkfehler (Verify per
-    `errors.Is`/generischer `Do`-Fehler, kein DNS/Connect) -> "network unreachable", Timeout ->
-    "timeout", alles andere -> "unexpected status N". Response `{success, message, caldav_reachable,
-    carddav_reachable}` — exakt das FE-Interface `CalDAVTestResult` aus `caldav-client.ts:110`.
-  - Keine Zugangsdaten in Logs verifiziert (grep auf alle neuen `slog.*`-Aufrufe: nur `user_id`,
-    `password_id`, `error` — nie Klartext-Passwort).
-  - `openapi.yaml`: neuer Pfad + `CaldavTestResult`-Schema im selben Commit. Fallstrick beim
-    Schreiben: eine `description:` als *plain scalar* mit `"CalDAV: ..."` drin bricht den
-    YAML-Parser an der `: ` (Mapping-Trenner) — musste die ganze Description doppelt quoten.
-    `npx swagger-cli validate` haette das lokal sofort gezeigt (jetzt gruen), stand aber bisher
-    nicht in `GATE-COMMANDS.md` als Pflichtschritt fuer *neue* Schemas — nur als Referenz in einem
-    frueheren Journal-Eintrag.
-- gate: build (`./internal/caldav/... ./internal/gateway/... ./cmd/gateway/...`) ok | vet ok |
-  golangci-lint **0 issues** | `npx swagger-cli validate backend/api/openapi.yaml`: valid |
-  migration: keine (keine neue Tabelle/Policy angefasst) | RLS-Smoke: n.a. (kein Tabellen-/
-  Policy-Zugriff neu, nur bestehender `AppSpecificPassword`-Pfad wiederverwendet) | Test mit
-  `DATABASE_URL` gesetzt (Rolle `kmuhub_app`): `internal/caldav/...` UND `internal/gateway/...`
-  beide `ok`, **0 Skips**. 3 neue Tests (`TestHandleTestConnection_Success/_AuthFailure/
-  _NetworkUnreachable`) gegen einen echten `httptest.Server` (echter TCP-Loopback, echte
-  `basicAuthMiddleware`, In-Memory-Fake fuer `CalDAVPasswordService` statt DB) — decken Erfolg,
-  Auth-Fehler und "Port tot" (via kurzzeitig reserviertem, sofort wieder freigegebenem Port) ab.
-  `TestOpenAPIRouteDrift`: PASS (771 registrierte gegen 773 dokumentierte Pfade).
-- verify vorgaenger: sauber (`483ecea7`, contact file attachments) — gRPC-Client durchgaengig
-  (`getDocumentClient`/`getCRMClient`), kein Stub, Kontakt-Eigentum vor Document-Zugriff echt
-  geprueft (`verifyContactOwnership`), Wire-Shape exakt gegen `useContacts.ts` verifiziert,
-  `openapi.yaml` im selben Commit, kein neuer Guard (bestehende `contactRead`/`contactEdit`
-  wiederverwendet, kein Seed noetig).
+## Iteration 27 — fix-finance-notification-paths — done — 2026-08-03
+
+- commit: `fbecfafd` — fix(gateway): move finance and notification routes to frontend contract
+- verify vorgaenger: sauber. `5359d87b` (fix-hr-document-paths, Iteration 26) gegen die
+  Fehlerklassen geprueft: Handler geht ueber `h.getHRClient()` (kein Direct-Svc-Bypass), kein
+  Stub, `hr.proto` + `hr.pb.go` im selben Commit regeneriert, Guard additiv
+  (`RequirePermissionAny("hr","read" / "team:documents","view")`, kein Ersetzen des Alt-Keys,
+  `team:documents:view` seit Migration 000256 bereits vergeben — kein ungeseedeter Guard), keine
+  neue Tabelle/RLS-Luecke, Wire-Shape unveraendert (weiterhin Liste, nur serverseitig gefiltert).
+  `filterCategoriesByScope` bestaetigt restriktiv: nur `ScopeAll` sieht alles, `ScopeTeam` addiert
+  Manager-Sichtbarkeit, jeder andere/leere Scope faellt auf employee-only zurueck — deckt sich mit
+  der Journal-Behauptung der Vorgaenger-Iteration. Nichts zu beanstanden.
+- gebaut: `fix-finance-notification-paths` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`).
+  (a) `POST /api/v1/finance/invoices/{id}/pay` -> `/{id}/mark-paid` umbenannt
+  (`route_biz.go:116`), Handler `HandleMarkInvoicePaid`/Guard/Service unveraendert — reine
+  Pfad-Umbenennung auf den bereits im FE-Client (`finance-client.ts:229`) verwendeten Namen.
+  Einzige betroffene Testzeile war `route_capability_guard_test.go` ("invoice pay, catalogue
+  edit key maps to it"), auf den neuen Pfad gezogen.
+  (b) `DELETE /api/v1/notifications/mutes` (body-basiert, `{module_id,resource_id}`, kein
+  FE-Aufrufer) ersetzt durch `DELETE /api/v1/notifications/mutes/{muteId}` — der FE-Client
+  (`notification-client.ts:103`) ruft bereits `unmute(muteId)` auf diesen Pfad.
+  Proto `UnmuteResourceRequest` von `module_id`+`resource_id` auf ein einziges `mute_id`
+  umgebaut (einziger Aufrufer war genau dieser Handler, keine Wire-Kompatibilitaet zu wahren),
+  `protoc`-Notification-Block (aus dem generischen `proto:`-Target im Makefile, `make` selbst
+  ist auf dieser Maschine nicht im PATH) im selben Commit regeneriert — nur `notification.pb.go`
+  geaendert, `notification_grpc.pb.go` byte-identisch, weil die RPC-Signatur gleich blieb.
+  Repository/Service/gRPC-Handler durchgaengig auf
+  `DeleteMute(ctx, tenantID, userID, muteID uuid.UUID)` umgestellt, SQL jetzt
+  `WHERE id = $1 AND tenant_id = $2 AND user_id = $3`. `notification_mutes` hat seit Migration
+  000124 bereits RLS (tenant-gescopt) — die zusaetzliche `user_id`-Klausel ist die eigentliche
+  Luecke, die RLS NICHT abdeckt (RLS ist tenant-, nicht user-scoped): ohne sie haette ein Nutzer
+  per erratener/erschnueffelter Mute-ID einen fremden Mute im selben Tenant loeschen koennen.
+  Handler nutzt jetzt `validateUUIDParam(w,r,"muteId")` statt Body-Decode, `unmuteResourceRequest`
+  entfernt.
+  Zwei Mock-Repos implementieren dasselbe `preference.Repository`-Interface
+  (`notification/preference/service_test.go`, `notification/notification/service_test.go`) und
+  mussten beide auf die neue `DeleteMute`-Signatur gezogen werden.
+  Neuer Test `TestUnmuteResourceWrongUserRejected`: gleicher Tenant, fremde UserID ->
+  `ErrMuteNotFound`, Mute bleibt in der Liste — deckt den in den notes geforderten
+  Fremdzugriffsfall auf Service-Ebene ab. Cross-Tenant-Abdeckung laeuft ueber die bestehende
+  RLS + `TestTenantIsolation_Notifications` (tenant_isolation_phase2_test.go), nicht dupliziert.
+  openapi.yaml: Pfad-Rename fuer (a); fuer (b) der alte `delete:`-Block unter
+  `/api/v1/notifications/mutes` entfernt und als eigener Pfad
+  `/api/v1/notifications/mutes/{muteId}` mit Pfad-Parameter (statt requestBody) neu angelegt,
+  inkl. 404-Antwort.
+  gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf
+  `internal/gateway`, `internal/notification/...`, `internal/server`, 0 issues) | test ok —
+  `go test -count=1 ./internal/gateway/... ./internal/notification/... ./internal/server/...`
+  gruen mit `DATABASE_URL` gesetzt auf `kmuhub_app`, inkl. `TestOpenAPIRouteDrift`/
+  `TestOpenAPISpecDrift`. Keine Migration, keine neue Tabelle/Spalte, kein neuer
+  `RequirePermission`-Guard (bestehende `notifications:write`/`finance:invoice:edit` nur
+  mitverschoben) — kein DB/RLS-Gate ueber die bestehende Migration 000124 hinaus noetig.
 - offen:
-  - `GATEWAY_HTTP_PORT` muss in Produktion tatsaechlich der Port sein, auf dem der Gateway-Prozess
-    selbst lauscht (Standard `:8080`, `ListenAndServe`-Addr identisch) — sollte das je auseinander
-    laufen (z.B. durch einen Reverse-Proxy-Port-Remap direkt am Gateway-Container statt an Caddy),
-    liefe der Loopback-Test ins Leere. Aktuell keine Diskrepanz gefunden, nur als Annahme notiert.
-  - `swagger-cli validate` steht noch nicht in `GATE-COMMANDS.md` als Pflichtschritt fuer neue
-    Schemas/Pfade — waere sinnvoll, da der YAML-Parser-Fehler dieser Iteration sonst erst in CI
-    (`TestOpenAPIRouteDrift` haette es vermutlich NICHT gefangen, das ist ein reiner
-    Struktur-Test, kein YAML-Validator) aufgefallen waere.
-  - Kein Full-Stack-Bringup gefahren (Loop-Policy) — der Loopback-Request gegen den echten,
-    laufenden Gateway-Prozess (nicht den Test-Fake) wurde nicht manuell verifiziert; die drei neuen
-    Tests decken die Handler-Logik gegen einen `httptest.Server` ab, aber nicht den realen
-    Produktions-Bringup mit echtem `caldav.Handler`/`carddav.Handler` (go-webdav) und echtem
-    `AppPasswordService` gegen Postgres. Sollte Luke morgens einmal per `curl -u <token>` o.ae.
-    gegen einen laufenden Dev-Gateway pruefen.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 43 — g-lexware-wiring — done — 2026-08-02 (Nachtlauf 3)
-- commit: f2f362f9
-- gebaut:
-  - Alle fuenf oeffentlichen Methoden von `biz/lexware/service.go` rufen jetzt die seit Monaten
-    danebenliegenden Implementierungen auf (Vorbild `bexio/service.go`): Instanzen im Struct, im
-    Konstruktor gebaut, in den Methoden aufgerufen. `SyncContacts` -> `ContactSyncer`,
-    `PushInvoice`/`PushQuote` -> die Pusher, `HandleWebhookEvent` -> `WebhookHandler`.
-    Der doppelte SyncLog-Code in `SyncContacts` ist raus — der Syncer besitzt den Log-Lebenszyklus
-    (running -> completed/partial/failed) und die Last-Sync-Zeit; beides zweimal zu schreiben haette
-    zwei Log-Zeilen pro Lauf erzeugt und den Zeitstempel auch bei Fehlschlag vorgerueckt.
-  - `TestConnection` macht einen echten `GET /v1/profile` (neu: `profile.go`, der billigste
-    authentifizierte Endpoint der Lexware-API). Bisher galt "Key im Vault nicht leer" als
-    verbunden — ein widerrufener oder vertippter Key war gruen und brach erst beim naechsten Sync.
-    Der Client holt den Key selbst aus dem Vault (`lexware_api_key_<tenant>`), also prueft der Test
-    genau das Credential, das die Syncs spaeter benutzen, nicht ein daneben gelesenes.
-  - VIER FUNDE, ohne die "verdrahtet" nur ein No-op mit mehr Ebenen gewesen waere. Der Reihe nach,
-    weil jeder einzelne die Kette in Produktion tot gelassen haette:
-    1. `cmd/biz/main.go:383` uebergab `nil` als ContactService (Kommentar: `nil, // ContactService`).
-       Verdrahtet haette der erste echte Sync auf `cs.contacts.UpdateForSync` gepanict — vorher fiel
-       das nicht auf, weil der Syncer nie lief. Adapter nachgezogen
-       (`cmd/biz/lexware_contact_adapter.go`): duenner Wrapper, der den bestehenden
-       `crmContactAdapter` auf `lexware.ContactService` uebersetzt (die beiden Interfaces sind
-       strukturgleich, nur mit paket-eigenen Typen). ~90 Zeilen Typ-Uebersetzung statt ~200 Zeilen
-       duplizierter gRPC-Logik. Zusaetzlich die nil-Guards, die `bexio/contact_sync.go:161,245`
-       schon hat — ohne CRM_GRPC_ADDRESS wird der Sync uebersprungen statt zu sterben.
-    2. `resolveContactLexwareID` (in beiden Pushern dupliziert) nahm `mappings[0]` — die erstbeste
-       Kontakt-Zuordnung, voellig unabhaengig vom Rechnungsempfaenger. Das ist der gefaehrlichste
-       Fund des Laufs: verdrahtet haette JEDE Rechnung und JEDES Angebot beim falschen
-       Lexware-Kunden gebucht, still und beim Kunden abrechnungsrelevant. Ersetzt durch
-       `contact_resolve.go` nach dem Vorbild `bexio/contact_resolve.go` — exakte Aufloesung ueber
-       `contacts.GetByEmail` + Mapping auf die konkrete Kontakt-UUID; der Fallback ohne
-       ContactService greift nur bei genau EINER vorhandenen Zuordnung und liefert sonst einen
-       Fehler statt eines Rateschlusses. Test `TestPushInvoice_RefusesAmbiguousContact` prueft
-       zusaetzlich, dass in diesem Fall NICHTS an die API geht (`stub.recorded()` leer).
-    3. `HandleWebhookEvent` laeuft pre-JWT (Lexware authentifiziert per HMAC, kein Token) und hatte
-       damit keinen Tenant im Context. Der erste Read auf `integration_configs` (RLS seit 000125)
-       haette 0 Zeilen geliefert -> jeder Webhook waere als "integration not configured"
-       gestorben. `sysctx.With(ctx)` am Eintrittspunkt der Service-Methode, nicht erst in
-       `WebhookHandler.HandleEvent` (das wrappt schon, aber zu spaet — der Config-Read liegt davor).
-    4. Der Gateway (`route_lexware.go`) dekodierte den Webhook-Body als snake_case
-       (`event_type`/`resource_id`), Lexware sendet aber camelCase (`eventType`/`resourceId`, siehe
-       die JSON-Tags an `LexwareWebhookEvent` im selben Repo). Ein echter Lexware-Webhook waere mit
-       leerem event_type an `InvalidArgument` gescheitert — 400 zurueck an Lexware, bevor der
-       Service je erreicht wird. Decode in `parseLexwareWebhookBody` gezogen (testbar ohne
-       gRPC-Registry, weil `getLexwareClient` sonst vorher 503 liefert) und beide Schreibweisen
-       akzeptiert, camelCase gewinnt.
-  - Webhook inhaltlich statt nur delegiert: `contact.created`/`contact.changed` ziehen den
-    geaenderten Datensatz (`GetContact`) und wenden ihn ueber denselben Pro-Datensatz-Pfad an wie ein
-    Bulk-Sync. Dafuer den Schleifenkoerper von `syncInbound` als `upsertInboundContact` extrahiert
-    und `SyncContactByLexwareID` daneben gestellt — Wiederverwendung, keine zweite
-    Create/Update/Skip-Logik. Haette ich nur an `HandleEvent` delegiert, waere der Webhook nach wie
-    vor ein No-op gewesen (die Methode loggte und emittierte nur), nur mit einer Ebene mehr.
-  - `Scheduler.StartAll` nahm `config.CreatedBy` als Tenant-ID. Heute zufaellig identisch (`Connect`
-    setzt `CreatedBy: tenantID`), aber der API-Client baut den Vault-Key aus der Tenant-ID —
-    eine anders angelegte Config haette einen nicht existierenden Key gesucht. Auf
-    `config.TenantID` umgestellt. Relevant erst ab jetzt, weil der Scheduler vorher nichts tat.
-- entscheidung: `invoice.status.changed`/`quotation.status.changed` werden quittiert und geloggt,
-  aber NICHT angewandt. Dem Lexware-Service fehlt ein `InvoiceStatusUpdater` (Bexio hat einen und
-  faehrt darueber sein Payment-Polling); einen einzufuehren haette Interface + Konstruktor-Signatur +
-  Wiring in `cmd/biz` bedeutet und damit die Verdrahtungs-Unit gesprengt. `lean:`-Marker
-  mit Upgrade-Trigger steht in `webhook_handler.go` ("sobald Paid-Status-Rueckmeldung aus Lexware
-  gebraucht wird"), Testfall `TestHandleWebhookEvent_DocumentStatus_IsAcknowledgedOnly` haelt das
-  Verhalten fest, damit es nicht unbemerkt zu einem stillen Fehler wird.
-- gate: build (`./internal/biz/lexware/... ./internal/gateway/... ./internal/server/... ./cmd/biz/...
-  ./cmd/gateway/...`) ok | vet ok | golangci-lint **0 issues** | migration: keine (keine neue
-  Tabelle/Policy) | openapi: kein Eintrag noetig (keine neue Route — der Webhook-Pfad existierte
-  schon, nur sein Decoder war falsch) | Test mit `DATABASE_URL` (Rolle `kmuhub_app`):
-  `internal/biz/lexware` **17 Tests, 0 Skips** (per `-v` gegengeprueft, inkl. der vier
-  DB-Tenant-Isolationstests, die real gegen Postgres liefen), `internal/gateway` ok,
-  `internal/server` ok. 15 neue Tests: 13 in `service_wiring_test.go` (Stub-Lexware-API per
-  `httptest`, jede Operation wird ueber einen ECHTEN HTTP-Request nachgewiesen — ein Rueckgabewert
-  von nil beweist bei dieser Unit gar nichts, genau das war ja der Bestand), 1 Table-Test fuer den
-  Webhook-Decode, 1 fuer den nicht konfigurierten Webhook.
-- verify vorgaenger: sauber (`3b481316`, CalDAV-Testendpoint) — kein Stub, Probe-Ziel aus der
-  eigenen Config statt aus `r.Host` (SSRF dicht), App-Passwort im `defer` mit
-  `context.Background()` revoked (ueberlebt Client-Abbruch), `openapi.yaml` im selben Commit,
-  kein neuer Guard. Ein Detail nachgeprueft: die Route umgeht keinen gRPC-Client — die
-  CalDAV-Nachbarrouten (`/status`, `/enable`, `/disable`) arbeiten alle direkt ueber
-  `pwService`/`userPrefRepo` am Pool, das ist das Bestandsmuster dieses Moduls und kein
-  Direct-Service-Bypass im Gateway-Sinn.
-- offen:
-  - Kein echter Lauf gegen die Lexware-Sandbox (Loop-Policy: kein externer Netzzugriff, kein
-    API-Key). Alle Aussagen ueber die API-Form stuetzen sich auf den bestehenden Client/Parser im
-    Repo (`v1/contacts`, `v1/invoices`, `v1/quotations`, Bearer-Auth, page/size-Paginierung) und auf
-    `v1/profile` als Standard-Ping. Sollte der Profile-Endpoint in der genutzten API-Version anders
-    heissen, faellt genau `TestConnection` auf die Nase — sichtbar und mit klarer Meldung, nicht
-    still. Vor dem ersten Kundeneinsatz einmal gegen echte Credentials fahren.
-  - `LEXWARE_WEBHOOK_SECRET` + `RegisterWebhooks` sind weiterhin nicht automatisch verdrahtet:
-    `Connect` legt die Sync-Config an, registriert aber keine Webhook-Subscriptions bei Lexware
-    (`WebhookHandler.RegisterWebhooks` wird von nirgendwo aufgerufen). Ohne diesen Schritt kommen
-    real gar keine Events an, egal wie gut der Empfangspfad jetzt ist. Kandidat fuer eine Folge-Unit
-    — braucht eine oeffentlich erreichbare Callback-URL aus der Config, also eine Entscheidung
-    ueber deren Herkunft (nicht aus Request-Headern ableiten, siehe Iteration 42).
-  - `TriggerSync` schluckt weiterhin den Fehler von `SyncContacts` (loggt und gibt nil zurueck) —
-    der manuelle "Jetzt synchronisieren"-Knopf meldet damit immer Erfolg. Nicht angefasst, weil es
-    ausserhalb der Verdrahtungs-Unit liegt; als eigener Fund notiert.
+## Iteration 28 — fix-crm-import-company — done — 2026-08-03
 
-## Iteration 44 — g-auth-sessions-wiring — done — 2026-08-02 03:5x
-- commit: 308fd217
-- gebaut: Die Geraeteliste hat jetzt Inhalt. Bisher schrieb kein Pfad je eine
-  `user_sessions`-Zeile — `Service.CreateSession` existierte, wurde aber von niemandem gerufen, also
-  war `GET /auth/sessions` in Produktion eine garantiert leere Liste und `DELETE /auth/sessions/{id}`
-  hatte nie ein Ziel.
-  - **Der Backlog-Text ist zur Haelfte veraltet:** die Routen (`GET /auth/sessions`,
-    `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions`, `GET /auth/sessions/all`) samt
-    gRPC-Handlern und openapi-Eintraegen existierten bereits und gehen sauber ueber
-    `getAuthClient()`. Gefehlt hat nur die Schreibseite — und die Terminate-Route war unsicher
-    (siehe unten). Neue Routen sind deshalb keine dazugekommen.
-  - **Schreibseite an genau einer Stelle:** `createTokenPair` ist der einzige Ort, durch den alle
-    fuenf Token-Pfade laufen (Register, Login, 2FA-Abschluss, Refresh, Einladungsannahme). Dort
-    haengt jetzt `recordSession`. Ein zweiter Parameter `rotatedFrom *uuid.UUID` unterscheidet
-    Neuanmeldung von Rotation: bei Refresh wird die BESTEHENDE Zeile auf den neuen Token
-    umgehaengt, nicht eine zweite angelegt. Ohne das waere die Geraeteliste um einen Eintrag pro
-    Refresh-Intervall (15 min) gewachsen, jeder davon wie ein eigener Login aussehend.
-  - **Transportweg fuer IP/User-Agent ohne Proto-Aenderung:** neues Mini-Paket
-    `internal/clientctx` (analog `sysctx`, aus demselben Grund — `middleware` importiert `auth`,
-    die Keys koennen also nicht in `middleware` liegen). Kette: neue HTTP-Middleware
-    `middleware.ClientInfo(behindProxy)` (nutzt das bestehende `ClientIPTrusted`, also die
-    proxy-sichere Variante) -> Context -> die BESTEHENDEN Interceptoren in `grpc_tenant.go` um zwei
-    Header erweitert (`x-client-ip`, `x-client-user-agent`) -> Service-Context. Alternative waere
-    gewesen, vier Proto-Messages zu erweitern und zu regenerieren; der Interceptor war schon da.
-  - **Aufbewahrung:** `DeleteStaleUserSessions` raeumt beim Anmelden die Zeilen weg, deren
-    Refresh-Token weg/revoked/abgelaufen ist (nicht mehr erreichbar, tragen aber IP + Geraet).
-    `Logout` loescht die Zeile des abgemeldeten Geraets — vorher waere sie als "aktiv" stehen
-    geblieben. `lean:`-Marker mit Upgrade-Trigger auf einen Scheduler steht an `recordSession`.
-- sicherheitsfund im bestand (behoben, war der eigentliche Fund der Unit): `TerminateSession`
-  parste `req.UserId` und **warf ihn weg** — Kommentar im Code: "UserId is available for
-  authorization checks but TerminateSession only needs sessionID". Die Session-ID kommt aus der URL
-  einer authentifizierten Route, die User-ID aus dem JWT. Jeder eingeloggte User konnte damit jede
-  fremde Session beenden, deren ID er kannte oder erriet — inklusive Revoke des fremden
-  Refresh-Tokens, also ein Fremd-Logout per Request. RLS haette nur tenant-uebergreifend gebremst,
-  innerhalb eines Tenants gar nicht. Jetzt prueft der **Service** die Zugehoerigkeit
-  (`TerminateSession(ctx, sessionID, ownerID)`) und meldet `ErrSessionNotFound` statt Forbidden,
-  damit die Existenz einer fremden ID nicht abfragbar ist. Test auf gRPC-Ebene ergaenzt, weil dort
-  der weggeworfene Parameter sass.
-- zweiter fund (behoben, vom DB-Test aufgedeckt): die drei Session-SELECTs lasen
-  `COALESCE(ip_address::text, '')` — INET castet MIT Praefixlaenge, die API haette also
-  `203.0.113.7/32` als IP-Adresse des Geraets ausgeliefert. Auf `host(ip_address)` umgestellt.
-  Waere ohne echten DB-Test nicht aufgefallen: der Mock haelt einen String.
-- dritter fund (praeventiv behoben): `ip_address` ist INET, und der INSERT band den Go-String
-  direkt. Ein leerer String (kein XFF, kein lesbares RemoteAddr) haette den ganzen INSERT mit
-  SQLSTATE 22P02 gekippt — exakt der Fehler aus `security/audit`, Iteration 60 in Lauf 1. Jetzt
-  `NULLIF($7,'')::inet`. Eigener Test dafuer (`LoginWithoutClientInfo`): eine unlesbare
-  Client-Adresse darf niemanden am Anmelden hindern.
-- entscheidung: Session-Schreibfehler werden geloggt, nicht hochgereicht. Die Geraeteliste ist eine
-  Komfortansicht; einen gueltigen Login abzulehnen, weil seine Buchhaltungszeile nicht geschrieben
-  werden konnte, tauscht ein kosmetisches Problem gegen eine Aussperrung. Testfall haelt das fest.
-- gate: build (`./internal/... ./cmd/gateway/... ./cmd/auth/...`, `-p 2` wegen OOM bei vollem
-  `./...`) ok | vet ok | golangci-lint **0 issues** | migration: keine (Tabelle, Spalten und RLS
-  existieren seit 000039/000114/000120) | openapi: kein neuer Pfad; die 404-Antwort von
-  `DELETE /auth/sessions/{id}` deckt jetzt zusaetzlich "gehoert einem anderen User" ab, das steht
-  im selben Commit in der Beschreibung | rls-smoke: die vier Bestands-Tests in
-  `rls_user_sessions_test.go` liefen real mit (siehe Skip-Zahl) | Test mit `DATABASE_URL`
-  (Rolle `kmuhub_app`): `internal/auth` **114 Tests, 0 Skips** (per `-v` gezaehlt),
-  `internal/server` ok, `internal/gateway` ok (TestOpenAPIRouteDrift), `internal/middleware` ok.
-  14 neue Tests: 4 DB-Lifecycle (Login->Refresh->Logout, Login ohne Client-Info, Fremd-Terminate
-  abgelehnt, Terminate macht Refresh-Token ungueltig), 6 Service-Verdrahtung, 1 gRPC-Ownership,
-  4 Transportkette (inkl. Interceptor-Paar-Roundtrip).
-- verify vorgaenger: sauber (`f2f362f9`, Lexware-Verdrahtung) — keine Stubs, kein Proto-Drift, keine
-  neue Route ohne openapi-Eintrag, kein neuer Guard ohne Seed; `sysctx` sitzt am
-  HMAC-authentifizierten Webhook-Eintritt und ist dort begruendet. **Ein Nebenfund, nicht meine
-  Unit:** `Service.HandleWebhookEvent` liest die Config unter `sysctx` per
-  `configRepo.GetByPlatform(ctx, "lexware")` — ohne Tenant-Bedingung. Bei mehreren Tenants mit
-  Lexware-Integration bekommt jeder Webhook die zufaellig erste Zeile und bucht auf den falschen
-  Tenant. Vor der Verdrahtung war es harmlos (0 Zeilen, alles schlug fehl), jetzt schreibt es.
-  Der Webhook traegt eine `organization_id` — darueber waere die Config eindeutig aufloesbar.
-  Heute nicht akut (Daten sind Single-Tenant), aber vor Tenant 2 zu schliessen.
-- offen:
-  - `is_current` bleibt auf allen Zeilen `false`. Die Spalte existiert seit 000039 und das Proto
-    liefert sie aus, aber kein Leseweg kennt die eigene Session-ID: der Client sieht sie nirgends,
-    weil sie weder im JWT noch in einer Login-Antwort steht. Folge: die UI kann "dieses Geraet"
-    nicht markieren, und der Query-Parameter `current_session_id` von
-    `DELETE /auth/sessions` ist von aussen nicht befuellbar — "alle anderen abmelden" meldet damit
-    heute zwangslaeufig auch das eigene Geraet ab. Sauber loesbar nur mit der Session-ID im
-    Token (JWT-Claim oder Login-Response), das ist ein eigener Schnitt.
-  - Kein Gateway-HTTP-Test fuer die Session-Routen (die Route-Tests des Pakets pruefen dort nur
-    503/400 vor dem gRPC-Call). Die Ownership-Pruefung ist auf gRPC- und Service-Ebene getestet,
-    der HTTP-Weg dorthin nicht.
-
-## Iteration 45 — g-rapporte-pdf — done — 2026-08-02
-
-- commit: 7a01590f
-- gebaut: `ExportPDF` liefert jetzt ein echtes A4-PDF statt des Text-Stubs. Neue Datei
-  `internal/rapporte/pdf.go` (`renderReportPDF`) nutzt `maroto/v2` direkt (dieselbe Dependency wie
-  `internal/berichte/export/pdf.go`, keine neue) — Titel, Status (deutsches Label), Projekt,
-  Beschreibung, Arbeitszeit/Pause/Wetter/Temperatur, Mitarbeiterliste (Name/Rolle/Stunden),
-  Positionstabelle (Pos/Beschreibung/Menge/Einheit/Notiz) und eine Unterschriftszeile.
-  `Service.ExportPDF` holt dafuer zusaetzlich `s.repo.ListLines(...)` (vorher ungenutzt fuer den
-  Export). `RapporteGRPCServer.ExportPDF` liefert `ContentType: application/pdf` und
-  `arbeitsbericht_<id>.pdf` statt `.txt`.
-  ENTSCHEIDUNG gegen `internal/biz/pdf.Generator`: dessen `newMaroto()`/`GenerateInvoicePDF` etc.
-  sind an `models.CompanySettings` und `ValidateCompanySettingsForPDF` (§14-UStG-Pflichtfelder)
-  gebunden — fuer einen Arbeitsbericht (kein Rechnungsdokument) nicht einschlaegig, und
-  `internal/rapporte` importierte bisher weder `models` noch `biz/pdf`. Eigene, schlanke
-  `maroto/v2`-Nutzung nach dem Vorbild von `internal/berichte/export/pdf.go` (rohe
-  row/col/text-Primitive), keine neue Abstraktion.
-  Die gespeicherte Kundenunterschrift (`signature_data`, PNG/SVG-Data-URL) wird NICHT als Bild
-  eingebettet — nirgends im Repo existiert bisher eine maroto-Bild-Einbettung, und das war nicht
-  Teil des `done_when`. Stattdessen Textzeile "Unterschrieben von X am Y" bzw. "ausstehend".
-  `lean:`-Marker in `pdf.go` mit Upgrade-Trigger "wenn ein Kunde die Bild-Einbettung im PDF
-  verlangt".
-- gate: build (`./internal/rapporte/... ./internal/server/... ./cmd/rapporte/... ./cmd/gateway/...`,
-  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine (kein Schema-Wechsel) |
-  openapi: kein Eintrag noetig (Content-Type/Filename kommen dynamisch aus der gRPC-Response, die
-  Route existierte bereits) | rls-smoke: n.a. (keine Tabelle/Policy angefasst) | Test mit
-  `DATABASE_URL` (Rolle `kmuhub_app`): `internal/rapporte` **0 Skips** (Report-Lines/Signature/
-  Tenant-Isolation-DB-Tests liefen real mit), `internal/server` ok, `internal/gateway` ok
-  (`TestOpenAPIRouteDrift`, vorsorglich gefahren trotz unveraenderter Routen).
-  Test umbenannt/erweitert: `TestService_ExportPDF_ReturnsPayload` -> `..._ReturnsRealPDF`, prueft
-  jetzt den `%PDF`-Header (vorher nur `NotEmpty`) und laeuft mit Workers + einer Line +
-  Signatur-Feldern durch alle neuen Codepfade.
-- verify vorgaenger: sauber (`308fd217`, Auth-Sessions-Wiring) — `TerminateSession(sessionID,
-  ownerID)`-Ownership-Check korrekt verdrahtet (Mismatch -> `ErrSessionNotFound`, nicht Forbidden),
-  INET-Lesart auf `host(ip_address)` umgestellt (statt `::text` mit Praefixlaenge),
-  `NULLIF($7,'')::inet` gegen den leeren-String-INSERT-Fehler, kein neues Proto, keine neue
-  Tabelle/Migration, keine neue Route (openapi-Diff nur die 404-Beschreibung), kein neuer Guard.
-  Sauber.
-- offen:
-  - Signatur-Bild wird nicht ins PDF eingebettet (siehe oben, `lean:`-Marker in `pdf.go`).
-  - `internal/biz/pdf` bleibt der einzige Ort mit `maroto`-Bild-faehiger Infrastruktur
-    (`EmbedZUGFeRDXML`/pdfcpu-Attachments) — falls Rapporte-Bild-Einbettung spaeter gebraucht wird,
-    dort zuerst nach wiederverwendbaren Bausteinen schauen, nicht neu bauen.
-
-## Iteration 46 — g-vertraege-pdf — done — 2026-08-02
-
-- commit: 2577bc49
-- gebaut: `ExportContract` liefert jetzt ein echtes, mehrseitiges A4-PDF statt des Klartext-Dumps.
-  Neue Datei `internal/vertraege/pdf.go` (`renderContractPDF`) nutzt `maroto/v2` direkt (dieselbe
-  Dependency wie `internal/rapporte/pdf.go`, keine neue) — Titelzeile mit Vertragsnummer, Titel,
-  Status/Art (deutsche Labels), Beginn/Ende (bzw. "unbefristet"), Notizen, Vertragsparteien und eine
-  Unterschriftszeile.
-  Konsequent `text.NewAutoRow` (auto-Hoehe) statt fixer `text.NewRow`-Hoehen fuer alle Inhaltszeilen:
-  maroto v2 berechnet die Zeilenhoehe aus dem umgebrochenen Text und `AddRows` paginiert automatisch,
-  sobald eine Zeile die Restflaeche der Seite sprengt (siehe `maroto.go:addRow`) — mit fixer Hoehe
-  waere langer Text einfach abgeschnitten statt umgebrochen.
-  Lange Notizen werden zusaetzlich an Leerzeilen in Absaetze gesplittet (`notesParagraphs`, eigene
-  Zeile pro Absatz) statt als ein einziger Riesen-Block: maroto splittet eine einzelne Zeile NICHT
-  seitenuebergreifend, nur zwischen Zeilen. Ohne den Split wuerde ein hinreichend langer
-  Notizen-Block als eine Zeile behandelt und koennte die Seite ueberragen, statt sauber umzubrechen.
-  `lean:`-Marker dafuer in `pdf.go` mit Upgrade-Trigger "wenn ein einzelner Absatz eine Seite sprengt".
-  Vertragsparteien: `ContractParty` hat fuer `contact`/`company` nur eine ID, keinen aufgeloesten
-  Namen (anders als bei Rapporte-Workern, die den Namen bereits inline tragen) — PDF zeigt fuer diese
-  Faelle "Kontakt <ID-Praefix>"/"Firma <ID-Praefix>", fuer `external` den echten `ExternalName`. Kein
-  zusaetzlicher Repo-Join eingefuehrt, das war nicht Teil des `done_when`.
-  Unterschriftszeile analog Rapporte: `SignedBy`/`SignedAt` vom Contract, sonst "Unterschrift:
-  ausstehend". Auch hier `lean:`-Marker: Signatur-Bild (`signature_data`) wird nicht eingebettet.
-  `GetContract` liefert `Parties` bereits mit (siehe `postgres_repository.go`), also kein
-  zusaetzlicher Repo-Call wie bei Rapporte's `ListLines` noetig.
-- gate: build (`./internal/vertraege/... ./internal/server/... ./cmd/vertraege/... ./cmd/gateway/...`,
-  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine (kein Schema-Wechsel) |
-  openapi: kein Eintrag noetig (Route existierte bereits, nur der Payload-Inhalt aendert sich) |
-  rls-smoke: n.a. (keine Tabelle/Policy angefasst) | Test mit `DATABASE_URL` (Rolle `kmuhub_app`):
-  `internal/vertraege` **0 Skips** (inkl. `TestTenantIsolation_Vertraege`,
-  `TestVertraegeWrites_LandInCallerTenant`), `internal/server` ok, `internal/gateway` ok
-  (`TestOpenAPIRouteDrift`: 771 Routen gegen 773 dokumentierte Pfade, keine Drift).
-  Test ersetzt/erweitert: `TestService_ExportContract_TextDump` -> `..._ReturnsRealPDF`, prueft jetzt
-  den `%PDF`-Header (vorher nur den Klartext-Inhalt) mit Notizen + einer External-Partei + Signatur.
-  Neuer Test `TestService_ExportContract_LongNotesPaginate`: 200 Notiz-Absaetze, parst den `/Pages`-
-  Objektkopf aus den rohen PDF-Bytes per Regex (`/Type\s*/Pages.*?/Count\s+(\d+)`) und prueft
-  `pageCount > 1`. Verifiziert per Wegwerf-Skript, dass maroto ohne `WithCompression` (Default: aus)
-  die Objektstruktur unkomprimiert im Klartext ablegt, `/Count` also direkt grep-bar ist — kein PDF-
-  Parser als neue Dependency noetig.
-- verify vorgaenger: sauber (`7a01590f`, Rapporte-PDF) — Build der betroffenen Pakete lief hier erneut
-  gruen, Text-Stub sauber durch `renderReportPDF` ersetzt, tenant-gescopt ueber `s.repo.GetReport`/
-  `ListLines`, keine neue Route/Guard, `lean:`-Marker fuer die ausgelassene Signatur-Bild-Einbettung
-  korrekt gesetzt.
-- offen:
-  - Signatur-Bild wird nicht ins PDF eingebettet (wie bei Rapporte, `lean:`-Marker in `pdf.go`).
-  - Sehr lange EINZELNE Notiz-Absaetze (kein Zeilenumbruch im Quelltext ueber eine ganze Seite
-    hinweg) wuerden weiterhin nicht seitenuebergreifend umbrechen (`lean:`-Marker, siehe oben) — kein
-    reales Szenario heute (Contract-Notizen sind Kurztext), aber falls das Feld je fuer lange
-    Fliesstexte genutzt wird, dort ansetzen.
-  - Party-Namen fuer `contact`/`company` zeigen nur ein ID-Praefix statt des echten Namens (kein
-    Contact-/Company-Join in `ExportContract`, siehe oben) — falls das stoert, Repo-Join ergaenzen.
-
-## Iteration 47 — fix-g-vertraege-pdf — done — 2026-08-02
-
-- commit: (siehe unten)
-- verify vorgaenger: **Befund** in Commit `2577bc49` (g-vertraege-pdf, Iteration 46). Der PDF-Renderer
-  wurde eingebaut, aber `VertraegeGRPCServer.ExportContract`
-  (`internal/server/vertraege_grpc.go:235-239`) blieb unveraendert bei
-  `ContentType: "text/plain; charset=utf-8"` und `Filename: "contract.txt"` aus der Text-Dump-Aera —
-  ein Client, der der Content-Type-Angabe vertraut (Browser-Download, MIME-Sniffing), speichert/oeffnet
-  PDF-Bytes als `.txt`. Fehlerklasse 2 (Stub/veraltete Restdaten im neuen Pfad), keine der anderen
-  fuenf Klassen betroffen (kein Proto, keine Migration, kein Guard, keine Route, kein Wire-Shape jenseits
-  dieses einen Feldpaars). Exakt dasselbe Muster war schon im Rapporte-Aequivalent (Iteration 45,
-  `7a01590f`) korrekt gesetzt (`rapporte_grpc.go:527-531`) — dort als Vorlage uebernommen.
-  Fix-Unit `fix-g-vertraege-pdf` ganz vorne in BACKLOG.yml angelegt und sofort als diese Iteration
-  abgearbeitet (Prozess-Schritt 1).
-- gebaut: `ExportContract` liefert jetzt `ContentType: "application/pdf"` und
-  `Filename: "vertrag_<contractID-praefix>.pdf"` (analog `rapporte_grpc.go`'s
-  `arbeitsbericht_<id-praefix>.pdf`). Neuer Import `fmt` in `vertraege_grpc.go`.
-  KEIN neuer Test: es existiert weder fuer `vertraege_grpc.go` noch fuer `rapporte_grpc.go` ein
-  Server-Ebenen-Testfile (kein Mock-Harness fuer `VertraegeGRPCServer`/`RapporteGRPCServer` im Repo) —
-  eins nur fuer diese eine Struct-Literal-Korrektur neu aufzuziehen waere Over-Engineering fuer einen
-  Ein-Zeilen-Fix. Der PDF-Inhalt selbst ist bereits auf Service-Ebene abgedeckt
-  (`TestService_ExportContract_ReturnsRealPDF`, `%PDF`-Header-Check, Iteration 46).
-- gate: build (`./internal/vertraege/... ./internal/server/... ./cmd/vertraege/... ./cmd/gateway/...`,
-  `-p 2`) ok | vet ok | golangci-lint **0 issues** | migration: keine | openapi: kein Eintrag noetig
-  (Route unveraendert, nur Response-Feldwerte) | rls-smoke: n.a. | Test mit `DATABASE_URL` (Rolle
-  `kmuhub_app`): `internal/vertraege` **0 Skips** (alle 36 Tests inkl. Tenant-Isolation liefen real),
-  `internal/server` ok, `internal/gateway` ok (`TestOpenAPIRouteDrift` vorsorglich gefahren, keine
-  Route angefasst).
-- offen:
-  - Aus Iteration 46 uebernommen (unveraendert): Signatur-Bild nicht eingebettet, einzelne Notiz-
-    Absaetze brechen nicht seitenuebergreifend um, Party-Namen fuer contact/company nur ID-Praefix.
-  - Kein Server-Ebenen-Test fuer `ExportContract`/`ExportPDF` (weder vertraege noch rapporte) — falls
-    an dieser Grenzflaeche kuenftig oefter Fehler auftreten, lohnt sich ein gemeinsames Test-Harness
-    fuer `*GRPCServer`-Response-Mapping.
-
-## Iteration 48 — g-vermietung-inspection-upload — blocked — 2026-08-02
-
-- commit: - (keine Code-Aenderung, nur BACKLOG.yml/JOURNAL.md)
-- verify vorgaenger: sauber. `811e24de` (fix-g-vertraege-pdf, Iteration 47) gegen alle acht
-  Fehlerklassen geprueft: reiner Feldwert-Fix (`ContentType`/`Filename`) in
-  `vertraege_grpc.go:235-239`, kein Proto, keine Migration, kein neuer Guard, keine neue Route,
-  kein neues Wire-Shape jenseits dieses einen Feldpaars, kein direkter Service-Zugriff im Gateway.
-  Kein Fund.
-- gebaut: nichts — Unit als `blocked` markiert, siehe `blocked_reason` in BACKLOG.yml.
-- Grund (Kurzfassung, Volltext im Backlog-Eintrag): `UploadInspectionPhoto` (bytes-embed im
-  Request, Platzhalter-URL im Service, kein Gateway-Handler) hat NIRGENDS einen echten Aufrufer —
-  weder FE noch Gateway (Volltextsuche ueber `desktop/src` und `backend/`). Die reale
-  Foto-Upload-Funktion fuer Inspektionen ist bereits vollstaendig verdrahtet, aber ueber einen
-  ANDEREN Pfad: Browser-direct-Upload nach MinIO via `presignUpload('vermietung', file)` (Scope
-  `vermietung` bereits erlaubt in `document/file/presign.go:24-34`, 50-MB-Limit,
-  Content-Type-Pflicht) gefolgt von `CreateInspection.photo_urls`/`UpdateInspection.photo_urls` —
-  verifiziert in `ZustandsprotokollDialog.tsx:142-162` (Kommentar dort: "the backend already
-  persists them end-to-end"). Der zugehoerige FE-Hook `useUploadInspectionPhoto`
-  (`useVermietung.ts:275-284`) delegiert selbst nur an `updateInspection` und hat keinerlei
-  Call-Site — auch er ungenutzt.
-  Die "Gegenstelle bauen" wie urspruenglich gescopt haette eine zweite, parallele
-  Upload-Infrastruktur fuer exakt dieselbe Funktion errichtet (Lean-Code/YAGNI-Verstoss), zudem mit
-  dem architektonisch schwaecheren Muster (Rohbytes im gRPC-Request vs. presign-basierter
-  Browser-Direct-Upload) — vermutlich der Grund, warum die spaetere Implementierung
-  (`ZustandsprotokollDialog`) diesen RPC nie benutzt hat.
-  Zwei ehrliche Wege, keiner spontan zu entscheiden: (A) `UploadInspectionPhoto` als
-  totes/superseded RPC vollstaendig entfernen (Proto, Service, gRPC-Handler, ungenutzter FE-Hook).
-  (B) Den RPC fuer einen bislang nicht existierenden Anwendungsfall bauen — ein externer Mieter ohne
-  CRM-Login laedt direkt hoch; dafuer fehlt aber im gesamten Repo jedes Mieter-Portal/Auth-Modell
-  fuer Nicht-CRM-Nutzer (verifiziert, keine Treffer). Weg B waere kein Upload-Fix, sondern ein neues
-  Feature samt eigener Auth-Entscheidung.
-- gate: n.a. (kein Code geaendert)
-- offen:
-  - **Entscheidung fuer Luke:** siehe `blocked_reason` in BACKLOG.yml — Loeschung des toten RPCs
-    (A) oder Neubau als echtes Mieter-Portal-Feature (B).
-  - Naechste Unit laut Reihenfolge: `g-notification-email-adapter` (deps: [], unabhaengig von
-    dieser blockierten Unit).
-
-## Iteration 49 — g-notification-email-adapter — done — 2026-08-02
-
-- commit: (siehe unten)
-- verify vorgaenger: sauber. Letzter Commit `398583e9` (Iteration 48) war reine Doku
-  (BACKLOG.yml/JOURNAL.md, `g-vermietung-inspection-upload` auf `blocked`), kein Code zu pruefen.
-- gebaut: `cmd/notification/main.go` wired `adapter.EmailAdapter` jetzt gegen einen echten
-  `emailGRPCClient` (Wrapper-Typ im `main`-Package, Muster wie `crmDealUpdater` in
-  `cmd/biz/main.go`): `grpc.NewClient(cfg.EmailGRPCAddress, ..., middleware.
-  TenantOutboundUnaryInterceptor())`, `defer emailConn.Close()`, Dial-Fehler nur geloggt (Notification
-  startet trotzdem). `SendReply`/`ForwardEmail`/`MarkRead` loesen zuerst per `GetEmailAccount(user_id)`
-  die Account-ID auf, dann `ReplyEmail`/`ForwardEmail`/`MarkRead`-RPC. `ListMessages` (fuer das bisher
-  nirgends aufgerufene `FetchNewMessages`) mitgebaut, `lean:`-markiert (Einzelseite, kein
-  Multi-Ordner-Sweep — Upgrade wenn ein Poller den Pfad tatsaechlich nutzt).
-  ROOT-CAUSE-FUND beim Bauen, ohne den `done_when` "Forward und Reply stellen real zu" nicht
-  erfuellbar: `message.Service.Reply`/`.Forward` reichten `msg.ID` (Inbox-Message-eigene ID) statt
-  `msg.SourceID` (ID im Herkunftssystem, hier email_messages.id) an den Adapter durch — ein echter
-  Client haette `ReplyEmail`/`ForwardEmail` deterministisch mit `NotFound` scheitern lassen.
-  Fix in der gemeinsamen Funktion (`internal/inbox/message/service.go`), `ChannelAdapter`-Interface
-  von `messageID uuid.UUID` auf `sourceID string` umgestellt (passt zu `InboxMessage.SourceID string`),
-  alle vier Adapter (Email/Chat/Notification/Guest) + Test-Mock mitgezogen. Chat war vom selben Bug
-  betroffen (`CreateMessage` haette ebenfalls die falsche ID bekommen) und ist mit demselben Diff
-  mitkorrigiert; Notification/Guest ignorieren den Parameter ohnehin (kein Verhaltensunterschied).
-  Neue Tests `TestReply_Success`/`TestReply_NoAdapter` (gab es vorher nicht), `TestForward_Success`
-  um `SourceID`-Assertion erweitert.
-  Kein Test fuer `emailGRPCClient` selbst — Konvention im Repo: kein einziges `cmd/*/main.go`
-  (inkl. der analogen `crmDealUpdater`/`SendEmailAction`-Wrapper) hat je eine `_test.go`-Datei, diese
-  duenne RPC-Mapping-Schicht wird nicht auf Package-Ebene getestet.
-  GEFUNDEN, NICHT BEHOBEN (ausserhalb Scope): `ChatAdapter`/`NotificationAdapter` bleiben in
-  `cmd/notification/main.go` mit `client=nil` registriert — nur Email war gescopt. Kandidat fuer
-  Folge-Unit, Notiz in BACKLOG.yml bei dieser Unit hinterlegt.
-- gate: build (`internal/inbox/... internal/notification/... internal/gateway/... cmd/notification/...
-  cmd/gateway/...`, `-p 2`) ok | vet ok | golangci-lint **0 issues** (inkl. `cmd/notification/...`
-  separat geprueft) | migration: keine | openapi: keine neue Route, kein Eintrag noetig |
-  rls-smoke: n.a. (kein neues Tabellen-Schema) | Tests mit `DATABASE_URL` (Rolle `kmuhub_app`):
-  `internal/inbox/...`, `internal/notification/...`, `internal/gateway/` (inkl.
-  `TestOpenAPIRouteDrift`, 771 Routen/773 Pfade, keine Drift) alle **ok**, keine Skips beobachtet.
-- offen:
-  - Chat-/Notification-Adapter weiterhin `client=nil` (siehe oben) — Folge-Unit-Kandidat
-    `g-notification-chat-adapter`.
-  - `ListMessages`/`FetchNewMessages` bleibt bis auf Weiteres toter Code (kein Poller-Aufrufer im
-    Repo) — falls Luke einen Inbox-Polling-Worker plant, dort die `lean:`-Markierung in
-    `cmd/notification/main.go` als Startpunkt nehmen (Multi-Ordner + echte Pagination fehlen noch).
-
-## Iteration 50 — g-berichte-scheduler — done — 2026-08-02
-
-- commit: `51b2f999` feat(berichte): deliver scheduled reports by email
-- verify vorgaenger: sauber. `37a8c8a5` (Iteration 49, notification/EmailAdapter) gegen die sechs
-  Fehlerklassen geprueft: kein Gateway-Handler beruehrt (also kein Direct-Svc-Bypass), keine
-  Migration, kein Proto, keine neue Route (kein openapi-Bedarf). Die beiden neuen `return nil, nil`
-  in `cmd/notification/main.go:602/620` sind echte Leerfaelle (kein Email-Account des Users, kein
-  Inbox-Ordner), kein Fake-Erfolg. `TenantOutboundUnaryInterceptor` ist am Client gesetzt.
-- ORT DER AUSFUEHRUNG — Entscheidung: **Ticker im berichte-Service, nicht pg_cron.** pg_cron kann
-  nur SQL ausfuehren; ein Bericht braucht den Go-Executor (Downstream-Repos, JSONB-Params,
-  Cache-Lookup), den PDF/XLSX-Renderer (maroto/excelize) und einen SMTP-Versand mit Anhang — nichts
-  davon ist aus einer Datenbank-Session heraus erreichbar. pg_cron haette bestenfalls eine
-  Job-Tabelle markieren koennen, die derselbe Go-Prozess dann doch pollen muesste; das ist der
-  Ticker mit einer zusaetzlichen beweglichen Komponente. Die Idempotenz, wegen der pg_cron
-  ueberhaupt zur Debatte stand, liegt ohnehin in der DB: `ClaimSchedule` ist ein Compare-and-Set auf
-  `last_run_at` (`UPDATE … WHERE id=$2 AND last_run_at [IS NULL | = $3]`), also fuer beliebig viele
-  Replicas gueltig.
-- gebaut: Der Scheduler-Kern existierte bereits vollstaendig (`internal/berichte/scheduler`, inkl.
-  Cron-Parsing, Claim, Statuspflege, Mailtexte) — was fehlte, waren die konkreten Kollaborateure:
-  `cmd/berichte/main.go` uebergab `scheduler.New(repo, svc, nil, nil, …)`, wodurch **jeder** faellige
-  Bericht mit `last_run_status=skipped, "exporter not configured"` endete. Vier neue Bausteine:
-  1. `internal/email/systemmail` — System-SMTP-Sender (Dial-Timeout, Exchange-Deadline, STARTTLS,
-     optionales PLAIN-Auth, MIME ueber den bestehenden `email/send`-Builder). LEAN-ENTSCHEIDUNG:
-     nicht als dritte Kopie in `cmd/berichte/mailer.go` geschrieben, sondern aus `cmd/biz/mailer.go`
-     hochgezogen; `cmd/biz` ist im selben Commit darauf umgestellt (mechanischer Diff, Verhalten
-     identisch inkl. "SMTP nicht konfiguriert -> loggen statt Fehler" fuer Mahnungen).
-     `Send` liefert `ErrNotConfigured` statt eines stillen Erfolgs — der Aufrufer entscheidet.
-  2. `export.Render(result, name, format)` — rendert in Bytes plus ContentType plus Dateiname
-     (`<slug>_<YYYY-MM-DD>.<ext>`, deutsche Umlaute transliteriert, damit "Umsatzuebersicht" nicht
-     zu "umsatzbersicht" wird). Faellt auf `bericht_` zurueck, wenn der Name nichts Druckbares hat.
-  3. `internal/berichte/delivery` — die beiden Adapter (`scheduler.Exporter`/`scheduler.Mailer`).
-     Bewusst ein eigenes Package statt `cmd/berichte`-lokaler Typen: in `package main` waere die
-     Zustellkette nicht testbar gewesen, und "wird zugestellt" waere eine Behauptung geblieben.
-  4. `internal/testutil/fakesmtp` — In-Process-SMTP-Server (Greeting/EHLO/MAIL/RCPT/DATA/QUIT), von
-     systemmail- und delivery-Test gemeinsam genutzt.
-  Wiring in `cmd/berichte/main.go`: Exporter immer, Mailer nur wenn `cfg.SystemSMTPHost` gesetzt ist
-  — sonst `nil` plus `slog.Warn`, damit der Scheduler weiter ehrlich `skipped` schreibt statt eine
-  Zustellung zu behaupten. **Keine neue `config.RequireX`-Assertion**: `RequireSystemSMTP` existiert
-  zwar, wurde aber NICHT an `config.Load` dieses Services gehaengt (waere ein Crash-Loop in der
-  Produktion, sobald SYSTEM_SMTP_* im berichte-Container fehlt). Compose-Passthrough
-  `${SYSTEM_SMTP_*:-}` beim berichte-Service ergaenzt (Muster von biz/auth), prod-Override braucht
-  nichts.
-- verifiziert, nicht angenommen: `RunReport` holt die Definition tenant-gescoped
-  (`GetDefinition(ctx, in.TenantID, …)`) und alle acht Executor-Pfade reichen `def.TenantID` explizit
-  durch — der Scheduler laeuft zwar unter `database.WithSystemContext` (er muss tenant-uebergreifend
-  listen), die Berichtsdaten selbst bleiben trotzdem am Tenant des Schedules. Das war die Stelle, an
-  der ein Leck teuer geworden waere, weil das Ergebnis jetzt real per Mail rausgeht.
-- gate: build (`./cmd/... ./internal/...`, `-p 2`) ok | vet ok | golangci-lint **0 issues**
-  (`internal/berichte/... internal/email/systemmail/... internal/testutil/... cmd/berichte/...
-  cmd/biz/...`) | migration: keine | openapi: keine neue Route | Tests mit `DATABASE_URL`
-  (Rolle `kmuhub_app`): `internal/berichte/...` (inkl. neuem DB-Test), `internal/email/...`,
-  `internal/testutil/...`, `internal/biz/dunning/...` alle **ok**.
-  `-race` lokal NICHT lauffaehig (kein gcc auf dieser Maschine, `cgo: C compiler "gcc" not found`) —
-  CI faehrt es. Die zwei neuen Nebenlaeufigkeiten sind bewusst harmlos: der Claim-Test schreibt in
-  disjunkte Slice-Indizes und synchronisiert per `WaitGroup`, der fakesmtp-Server publiziert seine
-  Session ueber einen Channel.
-- Tests zu den done_when-Punkten:
-  - `delivery_test.go: TestScheduledReport_RenderedAndDelivered` — faelliger Schedule laeuft durch
-    den echten Exporter und den echten Mailer, der Fake-SMTP-Server bekommt beide Empfaenger, der
-    Anhang heisst `umsatzuebersicht-q3_2026-08-02.csv` und enthaelt nach Base64-Dekodierung die
-    Report-Zeile. Gegenstueck `…_UnconfiguredMailerMarksFailed` beweist, dass der Pfad wirklich
-    laeuft und ein fehlender Mailer als `failed` landet, nicht als Erfolg.
-  - `internal/berichte/schedule_claim_test.go` — DB-Test gegen echtes Postgres: zwei gleichzeitige
-    Claims auf denselben Schedule ergeben **genau einen** Gewinner, ein Replay des veralteten Claims
-    verliert, und der Folge-Tick mit aktuellem `last_run_at` kann wieder claimen (sonst wuerde ein
-    Schedule genau einmal feuern und dann feststecken). Der bestehende `scheduler_test.go` deckt nur
-    die Entscheidungslogik gegen ein Fake-Repo ab und konnte ueber die Atomizitaet der SQL nichts
-    aussagen.
-- offen:
-  - `cmd/berichte` verdrahtet in `executor.Deps` nur `KPI`; finance/crm/helpdesk/inventar/datev
-    liefern weiterhin `emptyResult(def, "downstream_not_available")`. Ein Schedule auf so einen Kind
-    wird jetzt real zugestellt — mit leerer Tabelle und Warnhinweis im Mailtext. Folge-Unit-Kandidat
-    `g-berichte-downstream-wiring`; Notiz in BACKLOG.yml bei dieser Unit hinterlegt.
-  - `cmd/auth/mailer.go` bleibt der letzte handgeschriebene System-SMTP-Pfad (eigener MIME-Bau ohne
-    Attachments). Umstellung auf `systemmail` waere der Rest des Duplikat-Abbaus.
-  - Fuer Luke vor dem Merge: die SYSTEM_SMTP_*-Werte der Produktionsumgebung pruefen — ohne Host
-    bleibt die Zustellung aus (sichtbar als `last_run_status=skipped` und einer Warnzeile beim
-    Servicestart), der Service laeuft aber normal weiter.
-
-## Iteration 51 — g-dialer-agent-status-log-tenant — done — 2026-08-02
-
-- commit: `324f7df0` fix(dialer): scope GetAgentStats active-campaign lookup by tenant
-- verify vorgaenger: sauber. `51b2f999` (Iteration 50, berichte-scheduler) gegen die acht
-  Fehlerklassen geprueft: `delivery.go`/`render.go`/`systemmail/sender.go` sind echte
-  Implementierungen (kein Stub, kein Fake-Return), kein Gateway-Handler beruehrt (kein
-  Direct-Svc-Bypass), keine Migration, kein Proto, keine neue Route. `cmd/berichte/main.go` verdrahtet
-  Exporter immer und den Mailer nur bei gesetztem `SYSTEM_SMTP_HOST` — kein stiller Fake-Erfolg.
-- PRAEMISSEN-KORREKTUR (wichtigster Befund dieser Iteration): die Unit ging davon aus,
-  `dialer_agent_status_log` habe **keine** `tenant_id`-Spalte (Befund aus Iteration 54,
-  Lauf 1/2, 2026-07-28). Das stimmt nicht mehr — tatsaechlich stimmte es schon am 28.07. nicht:
-  `tenant_id UUID NOT NULL` + FK auf `tenants` + Index + `FORCE ROW LEVEL SECURITY` mit Policy
-  `tenant_isolation USING (tenant_id = current_tenant_id() OR is_system_context())` existieren
-  bereits seit Migration 000119/000120 (2026-05-10/11, Sprint 4 — zeitlich VOR Iteration 54).
-  Verifiziert per `\d dialer_agent_status_log` gegen die lokale DB (Spalte, FK, Index, Policy alle
-  vorhanden) und per `git log` auf die Migrationsdateien. Iteration 54 hat den Fund offenbar gegen
-  die urspruengliche CREATE-TABLE-Migration 000067 geprueft statt gegen den tatsaechlichen
-  Schema-Stand und den veralteten Befund unveraendert ins Backlog uebernommen — dort stand er seit
-  drei Nachtlaeufen ungeprueft. Auch `LogStatusChange` (INSERT, setzt tenant_id ueber eine Subquery
-  auf `users`) und `GetActiveAgentIDsForTenant` (explizites `WHERE tenant_id = $1`) sind bereits
-  korrekt tenant-gescoped — keine dieser Stellen brauchte einen Fix.
-- echter Rest-Fund: die Aktive-Kampagne-Subquery in `GetAgentStats` (`postgres_repository.go:503`)
-  hatte trotz vorhandener Spalte kein eigenes `tenant_id`-Praedikat und verliess sich allein auf die
-  RLS-GUC. Im normalen Request-Pfad bereits ausreichend geschuetzt (`PrepareConn` setzt
-  `app.tenant_id` pro Connection-Checkout aus dem ctx), aber ohne Verteidigung gegen einen Aufruf mit
-  einem falschen `tenantID`-Funktionsparameter unter System-Kontext (Worker o.ae.) — dort greift
-  `is_system_context()` und die RLS-Policy laesst alles durch.
-- gebaut: `AND l.tenant_id = $2` in der Aktive-Kampagne-Query ergaenzt, `tenantID` (bereits
-  Funktionsparameter von `GetAgentStats`) als zweiten Query-Parameter durchgereicht. Kein
-  Migrations-, Proto- oder Route-Bedarf, weil Spalte/RLS/INSERT/anderer-SELECT bereits vorhanden
-  waren.
-- Test: `TestGetAgentStats_ActiveCampaignTenantScoped` in `tenant_write_test.go` (gleiche Datei/
-  gleiches Muster wie die bestehenden `..._LandInCallerTenant`-Tests). Ruft `GetAgentStats` unter
-  System-Kontext (RLS komplett durchlaessig) einmal mit fremdem `tenantID` — erwartet
-  `ActiveCampaignID == nil` — und einmal mit dem echten `tenantID` — erwartet die echte Kampagne.
-  Falsifiziert: Fix testweise per `git stash` auf die Ausgangsversion zurueckgesetzt, Test wird rot
-  (`foreign tenantID saw the active campaign: <uuid>`) — der Leak ist also real reproduzierbar ohne
-  das Praedikat. Nach `git stash pop` wieder gruen.
-- gate: build (`./internal/dialer/... ./internal/gateway/... ./cmd/dialer/... ./cmd/gateway/...`,
-  `-p 2`) ok | vet ok | golangci-lint `./internal/dialer/... ./internal/gateway/...` **0 issues** |
-  Tests mit `DATABASE_URL` (Rolle `kmuhub_app`): `go test -count=1 -v ./internal/dialer/...` —
-  73 PASS, 0 Skip, 0 Fail. `go test ./internal/gateway/` nicht gefahren (keine Route beruehrt).
-  Migration: keine (bereits vorhanden). RLS-Smoke: n.a. fuer Tabelle/Policy (unveraendert) — der
-  neue DB-Test uebernimmt den Beweis fuer den Read-Pfad-Fix.
-- offen:
-  - Keine offenen Punkte fuer Luke aus dieser Unit selbst.
-  - Hinweis fuers Backlog-Grooming: Befunde aus archivierten Journal-Eintraegen (hier: Iteration 54,
-    Lauf 1/2) sollten vor Uebernahme in eine neue Unit gegen den AKTUELLEN Schema-/Code-Stand
-    gegengeprueft werden, nicht nur zitiert — dieser lag hier ueber drei Nachtlaeufe unverifiziert im
-    Backlog.
-
-## Iteration 52 — g-einvoice-test-hygiene — done — 2026-08-02 05:15
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `324f7df0` (Iteration 51, dialer-agent-status-log-tenant) gepruefte
-  Diffs (`postgres_repository.go`, `tenant_write_test.go`): kein Gateway-Handler beruehrt, kein
-  Stub, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle/Migration, keine
-  Route, kein ersetzter Guard-Key — sauberer Ein-Praedikat-Fix plus Falsifikations-Test wie im
-  Iteration-51-Eintrag beschrieben.
-- PRAEMISSEN-KORREKTUR (Kernbefund dieser Iteration, analog zu Iteration 51): die Unit ging von
-  einem offenen Bug aus (`TestTenantIsolation_IncomingInvoices` nutzt geteilte `TenantA`/`TenantB`,
-  bricht jeden zweiten Lauf). Das stimmte bereits nicht mehr — Commit `d321f482`
-  ("fix(einvoice): isolate the incoming-invoice RLS test with fresh tenants", 2026-08-01) hat genau
-  diesen Kern schon behoben: der Test mint jetzt `tenantA, tenantB := uuid.New(), uuid.New()` statt
-  der geteilten Konstanten. Verifiziert per `git log`/`git show d321f482` und durch zweimaligen
-  echten Lauf gegen dieselbe lokale DB (siehe gate) — beide gruen, 0 Skips. Der ursprüngliche
-  Befund (Iteration 42, Lauf 1/2, 2026-07-28 — archiviert) war zum Zeitpunkt seiner Entstehung
-  korrekt, lag danach aber ungeprueft im Backlog, waehrend eine andere Iteration ihn bereits
-  behoben hat.
-- echter Rest-Fund: `done_when` verlangte zusaetzlich "Cleanup vorhanden" — das fehlte weiterhin.
-  `TestTenantIsolation_IncomingInvoices` schloss den Pool nie (`pool.Close()`) und raeumte die
-  importierte `finance_incoming_invoices`-Zeile nie auf. Durch die frischen Tenant-UUIDs war das
-  keine Korrektheitsluecke mehr (kein Kollisionsrisiko, `UNIQUE(tenant_id, supplier_name,
-  invoice_number)` greift nie doppelt), aber echte Hygiene-Schuld: 23 verwaiste Zeilen aus
-  Vorlauf-Iterationen liegen noch in der lokalen DB (Tenants mit Namen "Tenant A EInvoice").
-  Bewusst NICHT rueckwirkend bereinigt (lokale Dev-DB, keine Repo-Aenderung, kein Correctness-Impact) —
-  fuer Luke unten vermerkt.
-- gebaut: `t.Cleanup(pool.Close)` direkt nach `PoolFromEnv`, `t.Cleanup(func() {
-  testutil.CleanupRow(t, pool, "finance_incoming_invoices", invA.ID) })` direkt nach dem Import.
-  Kein Scope-Creep auf `roundtrip_outbound_test.go` (zweite DB-Datei im Paket): die nutzt bereits
-  frische Tenants + `t.Cleanup(pool.Close)`, raeumt Zeilen nicht auf, aber ohne Kollisionsrisiko
-  (fester Rechnungsname, aber pro Testlauf neuer Tenant) — identisches Muster zum etablierten
-  `testutil.AssertWriteCarriesTenant`-Helper, der ebenfalls keine Tenant-Zeilen aufraeumt. Anfassen
-  haette Konsistenz mit dem Rest des Backlogs gebrochen, ohne einen echten Bug zu schliessen.
-- Falsifikation/Beweis: `go test -count=1 -v ./internal/biz/einvoice/...` zweimal hintereinander
-  gegen dieselbe lokale DB gefahren (identischer `DATABASE_URL`) — beide gruen, `0` Skips
-  (`TestTenantIsolation_IncomingInvoices` UND `TestRoundtrip_*` liefen real). Dritter isolierter
-  Lauf nur dieses Tests bestaetigt zusaetzlich, dass die neue Cleanup-Zeile wirkt: Zeilenzahl in
-  `finance_incoming_invoices` fuer Tenants mit dem Namenspraefix "Tenant A EInvoice" blieb bei 23
-  vor und nach dem Lauf (kein Wachstum mehr).
-- gate: build (`go build -p 2 ./internal/biz/einvoice/... ./internal/gateway/...`) ok | vet ok |
-  golangci-lint `./internal/biz/einvoice/...` 0 issues | Tests mit `DATABASE_URL` (Rolle
-  `kmuhub_app`): zwei volle Laeufe `go test -count=1 -v ./internal/biz/einvoice/...`, je 0 Skip,
-  0 Fail. `go test ./internal/gateway/` nicht gefahren (keine Route beruehrt, reiner Testdatei-Fix).
-  Migration: keine. RLS-Smoke: n.a. (keine Tabelle/Policy geaendert, nur Testcode).
-- offen:
-  - Fuer Luke: 23 verwaiste `finance_incoming_invoices`-Zeilen (Tenants "Tenant A EInvoice*") aus
-    Vorlauf-Testlaeufen liegen noch in der lokalen Dev-DB — kosmetisch, optionales manuelles
-    `DELETE`, kein Blocker.
-  - Backlog-Grooming-Hinweis (wie schon in Iteration 51 notiert): Befunde aus dem archivierten
-    Lauf-1/2-Journal vor Uebernahme in eine neue Unit gegen den AKTUELLEN Code-Stand pruefen statt
-    nur zu zitieren.
-
-## Iteration 53 — g-work-rest-tenant-writes — done — 2026-08-02 06:05
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `fb0bb7b1` (Iteration 52, einvoice-test-hygiene) gepruefter Diff
-  (`tenant_isolation_test.go`): zwei `t.Cleanup`-Zeilen, kein Gateway-Handler, kein Stub, kein
-  `.proto`, keine neue Tabelle/Migration, keine Route — reiner Testdatei-Fix wie im
-  Iteration-52-Eintrag beschrieben.
-- Auftrag: die vier work-Unterpakete calendar, meeting, resource, recording wurden im
-  Tenant-Write-Sweep der Laeufe 1/2 nie geprueft — je eine `tenant_write_test.go` nachziehen, echte
-  Luecken (Write ohne tenant_id, Read ohne Praedikat) fixen und per Falsifikation belegen.
-- Rechercheergebnis vor dem Bauen: alle vier Kern-Repos (calendar, meeting, resource, recording)
-  setzen `tenant_id` beim Insert korrekt und tragen — wo ueberhaupt ein `tenantID`-Parameter existiert
-  — ein explizites `WHERE tenant_id = ...`-Praedikat auf GetByID/List/Update/Delete. `resource`s
-  `ListBookings`/`ListBookingsByEvent` haben zwar kein eigenes Praedikat, werden aber im Service immer
-  erst nach einem tenant-gescopten `GetByID` auf die `resourceID` aufgerufen — kein eigenstaendiger
-  Angriffspfad. `recording`s Repo-Methoden (`GetRecording`, `UpdateRecording`, `DeleteRecording`, ...)
-  nehmen bewusst gar kein `tenantID` entgegen und verlassen sich vollstaendig auf RLS ueber den ctx;
-  der einzige System-Kontext-Aufrufer (`CleanupExpiredRecordings`, taegliches Cron in
-  `cmd/work/main.go`) iteriert ausschliesslich ueber IDs aus seiner eigenen `ListExpiredRecordings`-
-  Abfrage, nie ueber Caller-Input — kein Leseleck.
-- echter Fund (Klasse "stiller Erfolg statt Fehler", nicht Klasse "Datenleck"): `calendar.Update`/
-  `Delete` und `recording.UpdateRecording`/`DeleteRecording` riefen `pool.Exec` auf, warfen den
-  `pgconn.CommandTag` aber weg und gaben nur den SQL-`err` zurueck. Filtert RLS die WHERE-Klausel
-  eines Cross-Tenant-Writes auf 0 Zeilen, ist das fuer Postgres kein Fehler — `err` bleibt `nil`, der
-  Aufrufer haelt den Write faelschlich fuer erfolgreich. Jeder Nachbar-Repo in diesem Sweep
-  (`project`, `resource`, `meeting`, s. `tenant_write_test.go`-Vorlagen) prueft `tag.RowsAffected() ==
-  0` und gibt sein `ErrXNotFound` zurueck — nur `calendar.Update`/`Delete` (die beiden sicherheits-
-  kritischsten Methoden der Kern-Entitaet) und `recording.UpdateRecording`/`DeleteRecording` fehlten
-  in diesem Muster. Im normalen Service-Flow ungefaehrlich (`calendar.Service.Update`/`Delete` und
-  praktisch alle `recording.Service`-Methoden rufen vorher ein tenant-gescoptes `GetByID`/
-  `GetRecording` unter demselben ctx auf, das einen fremden Datensatz schon davor mit `ErrNotFound`
-  abfaengt) — aber genau die Defense-in-Depth-Luecke, die dieser Sweep laut Auftrag schliessen soll:
-  ein direkter Repo-Aufruf unter falscher/veralteter Tenant-Annahme waere ein stiller No-op.
-- gebaut: `tag, err := r.pool.Exec(...)` + `if tag.RowsAffected() == 0 { return ErrCalendarNotFound }`
-  in `calendar/postgres_repository.go` (`Update`, `Delete`); analog `ErrNotFound` in
-  `recording/postgres_repository.go` (`UpdateRecording`, `DeleteRecording`). Vier neue
-  `tenant_write_test.go` (calendar, meeting, resource, recording) nach dem etablierten
-  Create/Update/Delete-Handrolled-Muster (`project`/`timeentry` als Vorlage, nicht der duennere
-  `AssertWriteCarriesTenant`-Helper, weil Update/Delete mitgeprueft werden sollen). meeting und
-  resource: reine Abdeckung, kein Fund (beide hatten das RowsAffected-Muster schon). recording:
-  da die Repo-Signaturen kein `tenantID` fuehren, laeuft der Foreign-Ctx-Nachweis komplett ueber RLS
-  (`WithTenantCtx` + `testutil.AssertRowCount`), nicht ueber einen expliziten Parameter — bewusst so
-  belassen (Scope-Erweiterung auf "recording-Repo bekommt jetzt ueberall tenantID-Parameter" waere
-  eine API-Aenderung ueber alle Aufrufer hinweg gewesen, nicht der Auftrag dieser Unit).
-- Falsifikation: beide Fixes per `git stash` auf den Ausgangsstand zurueckgesetzt, gezielt
-  `TestCalendarWrites_LandInCallerTenant` und `TestRecordingWrites_LandInCallerTenant` gefahren —
-  beide werden rot exakt an der erwarteten Stelle (`Update (foreign ctx): expected an error, got nil`
-  bzw. `UpdateRecording (foreign ctx): expected an error, got nil`). Nach `git stash pop` wieder gruen.
-- gate: `go build -p 2 ./...` (gesamtes Backend) ok | `go vet ./internal/work/...` ok |
-  `golangci-lint run` auf calendar/meeting/resource/recording: 0 issues | Tests mit `DATABASE_URL`
-  (Rolle `kmuhub_app`): `go test -count=1 ./internal/work/...` zweimal hintereinander gegen dieselbe
-  lokale DB — beide Laeufe alle 17 Unterpakete PASS, 0 Skip, 0 Fail. Zusaetzlich
-  `go test -count=1 ./internal/gateway/... ./internal/server/...` als Regressionsschutz (Fehlerpfade
-  von Update/Delete geaendert) — beide PASS. Migration: keine (kein Schema-/RLS-Wechsel). RLS-Smoke:
-  n.a. fuer Policy-Aenderung (unveraendert) — die vier neuen Tests uebernehmen den Beweis fuer den
-  Write-Pfad-Fix.
-- offen:
-  - Kleinere Geschwister-Methoden mit demselben "kein RowsAffected-Check"-Muster bewusst NICHT
-    mitgefixt (Scope-Disziplin): `calendar.UpdateMemberPermission/-Visibility/-ColorOverride`
-    (Nebenfelder auf `calendar_members`, nicht die Kern-Entitaet). Fuer eine kuenftige Unit vormerken,
-    falls dort mal ein echter Cross-Tenant-Pfad noetig wird — aktuell werden sie ausschliesslich nach
-    `GetMember`/Permission-Check aufgerufen.
-  - Kein modules.*-Flag, kein neues RequirePermission, keine Migration, keine Route beruehrt.
-
-## Iteration 54 — g-inbox-openapi-shape-drift — done — 2026-08-02 06:12
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `9b24551b` (Iteration 53, work-tenant-write-sweep) gepruefter Diff
-  (`calendar/postgres_repository.go`, `recording/postgres_repository.go` + vier neue
-  `tenant_write_test.go`): kein `.proto`, keine neue Route, kein neuer `RequirePermission`-Guard,
-  keine neue Tabelle. Der `RowsAffected`-Fix ist konsistent mit dem Schwester-Muster
-  (project/resource/meeting), und alle produktiven Aufrufer holen den Datensatz vorher per
-  tenant-gescoptem `GetByID`/`GetRecording` unter demselben ctx — kein Regressionsrisiko.
-- Auftrag: die neun Single-Message-Mutations-Endpoints der Inbox (`/read`, `/unread`, `/star`,
-  `/status`, `/archive`, `/unarchive`, `/snooze`, `/unsnooze`, `/assign`) antworten real mit
-  `{"message": {...InboxMessageInfo}}` (verifiziert gegen `inboxv1.MarkReadResponse` etc. in
-  `proto/inbox/v1/inbox.proto` — jede der neun Response-Messages traegt exakt ein Feld
-  `InboxMessageInfo message = 1`, und jeder Handler in `route_inbox.go` liefert das per
-  `response.Proto(w, http.StatusOK, resp)` unveraendert durch). `openapi.yaml` dokumentierte fuer
-  alle neun stattdessen ein nacktes `InboxMessage`-Schema — Drift aus Nachtlauf 1, vorbestehend.
-- FE-Gegenpruefung (Notenauftrag): `desktop/src/renderer/src/api/inbox-client.ts` typt
-  `markRead`/`markUnread`/`toggleStar`/`archiveMessage`/`unarchiveMessage`/`snoozeMessage`/
-  `unsnoozeMessage`/`assignMessage` durchgehend als `Promise<void>` — der Response-Body wird von
-  keinem dieser Aufrufer gelesen. Fuer `/status` existiert im FE ueberhaupt kein Aufrufer. Die reale
-  Form widerspricht also keinem FE-Konsumenten; die Spec darf gefahrlos dem Code folgen (Auftrag:
-  "die SPEC folgt dem Code, nicht umgekehrt").
-- gebaut: neues wiederverwendbares Schema `InboxMessageWrapper` (`{message: InboxMessage}`) direkt
-  unter `InboxMessage` in `openapi.yaml` eingefuegt; alle neun `200`-Responses der genannten
-  Endpoints von `$ref: InboxMessage` auf `$ref: InboxMessageWrapper` umgestellt. Namensmuster folgt
-  dem bereits im Spec vorhandenen `InboxCannedResponseWrapper`/`EmailRuleEnvelope`-Konventionspaar,
-  keine neue Konvention erfunden.
-- offen (bewusst NICHT mitgefixt, Scope-Disziplin): `GET /api/v1/inbox/messages/{id}` zeigt exakt
-  denselben Drift (Handler `HandleGetMessage` liefert ebenfalls die `{message: {...}}`-Form,
-  Spec dokumentiert nackt `InboxMessage`) — bestaetigt durch den Kommentar in `inbox-client.ts:104`
-  ("GET /messages/{id} wraps the message"). War nicht Teil der neun in dieser Unit benannten
-  Endpoints; fuer eine Folge-Unit vormerken, falls die Liste unvollstaendig war.
-  `/tags` (add/remove), `/forward`, `/reply` waren ebenfalls nicht in der Neun-Liste und blieben
-  unangetastet (letztere zwei sind ohnehin schon korrekt als eigenes `{success: bool}`-Schema
-  dokumentiert, nicht als `InboxMessage`).
-- gate: build (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) ok | vet ok |
-  golangci-lint `./internal/gateway/...` 0 issues | `go test -count=1 -v ./internal/gateway/
-  -run TestOpenAPIRouteDrift` PASS (771 registrierte Routen gegen 773 dokumentierte Pfade) |
-  `go test -count=1 ./internal/gateway/` voll PASS, 0 Skip (per `-v | grep -c SKIP` gegengeprueft).
-  Migration: keine. RLS-Smoke: n.a. (reine Spec-Datei, keine Tabelle/Policy/Route-Code beruehrt).
-
-## Iteration 55 — g-featureflag-cleanup — done — 2026-08-02 05:41
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `4b2b9c9a` (Iteration 54, inbox-openapi-shape-drift) gepruefter Diff
-  (reine `openapi.yaml`-Aenderung, neun `$ref`-Umstellungen auf `InboxMessageWrapper`): kein Code,
-  keine Route, keine Migration. `go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift`
-  PASS vor Beginn dieser Unit gegengeprueft.
-- Auftrag: zwei Inkonsistenzen in `internal/featureflag/registry.go` aufraeumen —
-  (a) `integrations.bexio` wird registriert, aber nirgends per `IsEnabled` abgefragt,
-  (b) `plugins.wasm` ist ein toter Flag (Gating passiert ueber den Build-Tag `no_wasm`).
-- Befund (a): `grep -rn "integrations.bexio\|COSMI_INTEGRATION_BEXIO_ENABLED"` traf ausser
-  `registry.go`/`registry_test.go`/`route_feature_flags_test.go` nur Doku (`.knowledge/`,
-  `.planning/`), keinen einzigen Aufrufer. `route_bexio.go` registriert seine Routen bedingungslos
-  (kein `flags`-Feld auf `BexioRoutes` — anders als z.B. `BerichteRoutes`), FE-seitig kein
-  Feature-Flag-Gate auf der Bexio-Integrationskarte. `.knowledge/integrationen.md` bestaetigt:
-  Bexio ist Prod-live (`GET /integrations/bexio/status` → 401, Route live). Entscheidung: NICHT
-  scharfschalten. Ein neu enforcter Flag mit `DefaultEnabled: false` haette die live Bexio-Sync
-  beim naechsten Deploy stillgelegt, ausser die zugehoerige Prod-Umgebungsvariable ist dort bereits
-  gesetzt — das kann von hier aus nicht verifiziert werden (kein Prod-Zugriff im Loop) und waere
-  derselbe Deploy-Hazard wie eine neue `config.RequireX`-Assertion, auch wenn es formal kein
-  `modules.*`-Flag ist. Flag stattdessen entfernt (`registry.go`), Test-Erwartungen nachgezogen:
-  `registry_test.go` `expectedKeys`, `route_feature_flags_test.go` `wantCount` 18 → 17 samt
-  Kommentar.
-- Befund (b): `plugins.wasm` wird nirgends per `IsEnabled` abgefragt — bestaetigt per grep. Die
-  eigentliche Absicherung ist `-tags no_wasm` im `make build-prod`-Target
-  (`internal/plugin/wasm/runtime_disabled.go`, Stub mit `NewRuntime` → nil). ABER: der Flag ist
-  nicht komplett bedeutungslos, sondern die zweite Verteidigungslinie fuer genau den Fall, dass
-  jemand die Plugin-HTTP-API testweise einschaltet (`plugins.api=true`, laut Code-Kommentar in
-  `cmd/gateway/main.go:310` explizit fuer Dev vorgesehen) OHNE den `no_wasm`-Tag zu setzen — dann
-  waere `HandleCreateManifest` bislang der einzige Ort, der ein `plugin_type=wasm`-Manifest je zu
-  Gesicht bekommt, und der hat den Flag nie gefragt. Zusatzfund dabei: der komplette WASM-Hook-
-  Ausfuehrungspfad (`hook.NewDispatcher`) ist in KEINEM `cmd/*`-Binary verdrahtet (grep leer) —
-  das ist ein eigener, viel groesserer Architektur-Gap (Plugin-Service kennt den Dispatcher gar
-  nicht), der bewusst NICHT Teil dieser Aufraeum-Unit ist. Entscheidung: Flag am einzigen Ort
-  enforcen, der ihn ueberhaupt lesen kann, ohne neue Cross-Service-Verdrahtung zu bauen — dem
-  Gateway, der den `featureflag.Registry` bereits haelt (`cmd/plugin` & Co. kennen ihn bislang gar
-  nicht, `grep -rl featureflag ./cmd` traf nur `cmd/gateway`). `PluginRoutes` bekommt ein
-  `flags *featureflag.Registry`-Feld (Konstruktor-Signatur wie bei `BerichteRoutes` erweitert),
-  `HandleCreateManifest` lehnt `plugin_type=wasm` mit 400 ab, solange `plugins.wasm=false` ist.
-  Kein Risiko fuer Bestandsdaten: WASM ist projektweit "OFF bis Phase D", es existiert kein
-  legitimer Prod-Anwendungsfall, den das blockieren wuerde.
-- gebaut:
-  - `internal/featureflag/registry.go`: `integrations.bexio`-Registrierung entfernt.
-  - `internal/gateway/route_plugin.go`: `flags *featureflag.Registry` auf `PluginRoutes`,
-    `NewPluginRoutes(registry, flags)`, Gate in `HandleCreateManifest` vor dem gRPC-Call.
-  - `cmd/gateway/main.go`: Call-Site auf `NewPluginRoutes(registry, flagRegistry)` nachgezogen.
-  - `openapi.yaml`: `wasm_binary`-Beschreibung ("inert" war seit diesem Commit falsch) und
-    `plugin_type`-Beschreibung (400 bei `plugins.wasm=false`) aktualisiert.
-  - Tests: neue `internal/gateway/route_plugin_test.go` (3 Faelle: wasm+flag-off → 400 mit
-    "plugins.wasm" im Body, wasm+flag-on → kein 400, config+flag-off → kein 400).
-    `internal/gateway/testutil_test.go`: neuer Helper `noFlags()` fuer Tests, die `PluginRoutes`
-    nur als Dependency brauchen, ohne Flag-Verhalten zu pruefen. Sieben Call-Sites in
-    `tenant_isolation_test.go` und eine in `openapi_drift_test.go` auf die neue Signatur
-    nachgezogen. `registry_test.go`/`route_feature_flags_test.go` Flag-Zahl 18 → 17.
-- Falsifikation: die neue WASM-Gate-Bedingung testweise mit `if false && ...` deaktiviert,
-  `TestHandleCreateManifest_WASM_RejectedWhenFlagOff` gefahren — wird rot exakt an der erwarteten
-  Stelle (503 statt 400, Body ohne "plugins.wasm"). Fix zurueckgesetzt, wieder gruen.
-- gate: `go build -p 2 ./...` ok | `go build -tags no_wasm ./cmd/gateway/...`
-  (Produktions-Build-Tag) ok | `go vet ./internal/gateway/... ./internal/featureflag/...
-  ./cmd/gateway/...` ok | `golangci-lint run` auf denselben Paketen: 0 issues |
-  `go test -count=1 ./internal/gateway/... ./internal/featureflag/...` PASS, 0 Skip/0 Fail
-  (per `-v | grep -c SKIP`/`FAIL` gegengeprueft) | `TestOpenAPIRouteDrift` weiterhin PASS (771
-  registrierte Routen, unveraendert — keine Route hinzugefuegt/entfernt, nur Request-Body-Felder
-  praezisiert). Migration: keine. RLS-Smoke: n.a. (kein Tabellen-/Policy-Wechsel). Kein
-  `modules.*`-Flag scharfgeschaltet, kein `config.RequireX` hinzugefuegt.
-- offen:
-  - `hook.NewDispatcher` (WASM-Hook-Ausfuehrung) ist in keinem `cmd/*`-Binary verdrahtet —
-    eigenstaendiger Architektur-Gap, fuer eine kuenftige Phase-D-Unit vormerken, falls WASM-Plugins
-    tatsaechlich ausgefuehrt werden sollen.
-  - `integrations.bexio` bleibt unenforced entfernt — falls Luke die Bexio-Integration doch
-    hinter einen Flag stellen will, braucht das zuerst eine Pruefung der Prod-Umgebungsvariable
-    (Prod-Zugriff, ausserhalb Loop).
-
-## Iteration 56 — g-admin-branding-s3 — done — 2026-08-02 06:00
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `9a6198d8` (Iteration 55, featureflag-cleanup) `git show --stat`
-  gepruefter Diff deckt sich mit dem Journal-Eintrag (registry.go, route_plugin.go, main.go,
-  openapi.yaml, neue Tests) — keine Business-Logik im Handler, kein direkter Service-Bypass, kein
-  neuer `RequirePermission`-Guard ohne Seed, openapi.yaml im selben Commit. Kein Nacharbeitsbedarf.
-- Auftrag: Workspace-Branding (Name, Logo, Icon, Akzentfarbe) von "nie im Backlog gewesen" auf
-  echte Backend-Persistenz + MinIO-Logo-Upload heben (`.planning/backend-gaps.md` §A-4/admin).
-  FE persistiert bisher nur in `localStorage` (`cosmi:brand:*`,
-  `desktop/.../admin/branding/BrandingAdminHubTab.tsx`) — das FE-Wiring selbst ist NICHT Teil
-  dieses Backend-Loops (kein FE-Code angefasst).
-- Architektur-Entscheidung (Begruendung siehe done_when-Kriterien): **kein neuer `internal/admin`-
-  Service, keine neue Tabelle, keine neue Migration.** Branding-Metadaten laufen ueber die
-  bestehende `tenant_settings`-Infrastruktur (`internal/settings`, Migration 000138, RLS bereits
-  seit 000218 aktiv und durch `TestSettingsWrites_LandInCallerTenant` bewiesen) unter
-  `module_id="branding"` — vier Keys `name`/`logoObjectKey`/`iconObjectKey`/`accentColor`. Zwei
-  neue duenne RPCs `GetBranding`/`PutBranding` im bestehenden `settings.proto`/`settings`-Service
-  (selbes Binary wie auth, Port :50051) kapseln Validierung und Wire-Contract, delegieren die
-  eigentliche Persistenz aber vollstaendig an `s.repo.GetTenantSettings`/`s.PutTenantSettings` —
-  dadurch erbt PutBranding automatisch die bestehende RBAC-Pruefung (admin ODER module-lead fuer
-  "branding"; da niemand je Modul-Leiter fuer ein FE-fremdes Modul wird, ist das de-facto
-  admin-only, deckungsgleich mit dem FE-Capability-Gate `admin:branding:manage`) UND die bereits
-  RLS-bewiesene Tenant-Isolation — kein zusaetzlicher DB-Test noetig, die Schreibpfade sind
-  identisch zu denen, die `tenant_write_test.go` schon gegen echte RLS faehrt. Logo/Icon werden als
-  MinIO-**Objektschluessel** gespeichert, nie als URL (gleiches Muster wie `User.avatar_url`) —
-  Aufloesung zur Downloadable-URL passiert client-seitig ueber den bestehenden
-  `POST /api/v1/files/presign-download`.
-  Upload laeuft ueber die bereits vorhandene generische Presign-Schicht
-  (`internal/document/file/presign.go`) statt eines eigenen Upload-Endpoints: neuer Scope
-  `"branding"` in `allowedPresignScopes`. Objektschluessel-Form `{tenant_id}/branding/{uuid}{ext}`
-  ist damit automatisch tenant-gescoped (Downloadpfad prueft bereits den `{tenant_id}/`-Praefix).
-- Typ-/Groessenbegrenzung + SVG-Entscheidung (done_when-Punkt): SVG **bewusst ausgeschlossen** —
-  kann `<script>`/Event-Handler tragen, es gibt keine Sanitizer-Stufe vor der Auslieferung an
-  andere Tenant-User. `brandingAllowedContentTypes` erlaubt nur `image/png`/`image/jpeg`/
-  `image/webp`, `lean:`-Marker mit Upgrade-Trigger "SVG erlauben, sobald ein Sanitizer vor dem
-  Upload sitzt". Zusaetzlich eigener, engerer Groessendeckel `brandingMaxSizeBytes = 2 MB` (statt
-  des generischen 50-MB-Limits) — Logo/Icon rendert inline im App-Chrome, ist kein Dokument.
-  Server-seitige Validierung in `PutBranding`, nicht nur clientseitig: `accentColor` muss exakt
-  einer der 10 Cosmi-Swatch-Werte sein (`desktop/.../lib/swatch-colors.ts`, Liste per Hand
-  gespiegelt — kein Codegen-Link, Palette ist klein und aendert sich selten), `name` <= 200
-  Zeichen, `logoObjectKey`/`iconObjectKey` (falls gesetzt) muessen mit `{tenant_id}/branding/`
-  praefixiert sein — verhindert, dass ein Client einen fremden oder scope-fremden Objektschluessel
-  unterschiebt (eigener Testfall: `TestPutBranding_RejectsObjectKeyFromDifferentScope` fuer genau
-  diesen Fall, `avatar`-Scope-Key auf `branding` PUT versucht). PUT ist Full-Replace, kein Patch —
-  ausgelassenes Logo/Icon loescht es (Testfall `TestPutBranding_FullReplaceClearsPreviousLogo`).
-- gebaut:
-  - `proto/settings/v1/settings.proto`: `Branding`-Message + `GetBranding`/`PutBranding`-RPCs samt
-    Request/Response-Messages, im selben Commit regeneriert (`protoc` direkt, `make` war im
-    Bash-Tool nicht verfuegbar — Kommando 1:1 aus dem `proto-settings`-Makefile-Target uebernommen).
-  - `internal/settings/branding.go` (neu): `Branding`-Domaintyp, `GetBranding`/`PutBranding` auf
-    `*Service`, Validierung (Akzentfarbpalette, Namenslaenge, Objektschluessel-Praefix), vier neue
-    Fehlerwerte.
-  - `internal/server/settings_grpc.go`: `GetBranding`/`PutBranding`-RPC-Handler +
-    `brandingToProto`-Mapper, Fehler-Mapping (ungueltige Farbe/Objektschluessel/Name -> 400,
-    `ErrNotModuleLead` -> 403).
-  - `internal/gateway/route_settings.go`: `GET`/`PUT /api/v1/admin/branding`, Guard
-    `RequirePermission("settings","read"/"write")` wiederverwendet (kein neuer Permission-Key, also
-    keine Seed-Migration noetig — deckt sich mit den bestehenden `/settings/{module_id}/tenant`-
-    Routen). `response.Proto` (snake_case) wie die Nachbar-Settings-Routen.
-  - `internal/document/file/presign.go`: Scope `"branding"` + `brandingAllowedContentTypes` +
-    `brandingMaxSizeBytes`, Validierung in `GetPresignedUploadURL` verdrahtet.
-  - `backend/api/openapi.yaml`: `/api/v1/admin/branding` (GET+PUT) + `Branding`-Schema, Stil von
-    `/api/v1/admin/subscription` abgeschaut.
-  - Tests: `internal/settings/branding_test.go` (14 Faelle: Default vor erstem Write, Roundtrip,
-    Full-Replace-Clear, Admin/Module-Lead/Non-Lead-RBAC identisch zu `PutTenantSettings` getestet,
-    ungueltige Akzentfarbe/fehlende Akzentfarbe/zu langer Name/fremder Tenant-Objektschluessel/
-    scope-fremder Objektschluessel/leere Objektschluessel erlaubt, Cross-Tenant-Isolation).
-    `internal/document/file/presign_test.go`: 6 neue Faelle (branding erlaubt png/jpeg/webp,
-    lehnt SVG + Nicht-Bild-Typ ab, eigener Groessendeckel bei Max und ueber Max).
-- gate: `go build -p 2 ./...` ok | `go build -tags no_wasm ./cmd/gateway/... ./cmd/auth/...`
-  (Produktions-Build-Tag) ok | `go vet ./...` ok | `golangci-lint run` auf
-  `internal/settings/... internal/server/... internal/gateway/... internal/document/...
-  proto/settings/...`: 0 issues | `gofmt -l` auf allen touched Files: clean (drei Dateien
-  brauchten `gofmt -w`, danach clean) |
-  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub go test -count=1
-  ./internal/settings/... ./internal/document/... ./internal/gateway/... ./internal/server/...`
-  PASS, `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) — inkl. `TestSettingsWrites_LandInCallerTenant`
-  (RLS-Beweis fuer `tenant_settings`, auf dem `Branding` aufsetzt, lief mit echter DB durch, nicht
-  nur mit `fakeRepo`) | `go test -count=1 -v ./internal/gateway/ -run TestOpenAPIRouteDrift` PASS
-  (772 registrierte Routen gegen 774 dokumentierte Pfade, +1/+1 durch den neuen
-  `/api/v1/admin/branding`-Pfad mit zwei Methoden). Migration: keine (bewusst, siehe
-  Architektur-Entscheidung oben). RLS-Smoke: n.a. im engeren Sinn — kein neues Schema, aber die
-  Schreib-/Lesepfade sind identisch zu den bereits RLS-bewiesenen `tenant_settings`-Pfaden und
-  liefen in diesem Lauf gegen echte DB durch. Kein `modules.*`-Flag scharfgeschaltet, kein
-  `config.RequireX` hinzugefuegt, kein neuer `RequirePermission`-Key (also auch kein Seed-Bedarf).
-- offen:
-  - FE-Wiring (echter Upload-Flow ueber `presign-upload`, `useBranding`-Hook, Topbar/Sidebar an
-    das gespeicherte Branding statt an das statische Cosmi-Branding anschliessen) ist bewusst nicht
-    Teil dieser Unit — reine Backend-Iteration, kein `desktop/`-Code angefasst.
-  - Akzentfarbpalette ist von Hand zwischen `desktop/.../lib/swatch-colors.ts` und
-    `internal/settings/branding.go` gespiegelt (kein Codegen-Link wie beim RBAC-Katalog). Faellt
-    aendert sich die Palette, muss `allowedAccentColors` von Hand nachgezogen werden — bei 10
-    Werten bewusst kein Generator gebaut (Lean Code), aber im Auge behalten falls die FE-Palette
-    kuenftig haeufiger wechselt.
-
-## Iteration 57 — g-dokumente-comments — done — 2026-08-02 06:20
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `8e21c84b` (Iteration 56, g-admin-branding-s3) `git show --stat`
-  gepruefter Diff deckt sich mit dem Journal-Eintrag (settings.proto + Regen im selben Commit,
-  `route_settings.go` ruft `sr.getSettingsClient()` statt einer direkten Service-Instanz,
-  `settings_grpc.go` hat echte `GetBranding`/`PutBranding`-Implementierungen statt Unimplemented,
-  keine neue Tabelle/Migration, kein neuer `RequirePermission`-Key also kein Seed-Bedarf,
-  openapi.yaml im selben Commit mit +96 Zeilen). Kein Nacharbeitsbedarf.
-- Auftrag: Kommentare an Dokumenten (`backend-gaps.md` §dokumente, "Datei-Kommentare:
-  Comment-Tabelle + Endpoints"), erste offene Unit ohne Blocker (`g-dokumente-comments`,
+- commit: `6ff1509d` — fix(crm): persist company relation on contact import/export
+- verify vorgaenger: sauber. `fbecfafd` (fix-finance-notification-paths, Iteration 27) gegen die
+  Fehlerklassen geprueft: `HandleUnmuteResource` geht ueber `n.getNotificationClient()` (kein
+  Direct-Svc-Bypass), kein Stub, `notification.proto` + `.pb.go` im selben Commit regeneriert
+  (`.grpc.pb.go` byte-identisch, RPC-Signatur unveraendert), Guard unveraendert
+  (`RequirePermission("notifications","write")` bestand schon vorher — reine Pfad-Aenderung, kein
+  neuer Key, kein Seed noetig), `DeleteMute` ist jetzt zusaetzlich zur RLS-Tenant-Policy explizit
+  auf `user_id` gescopt (die von RLS nicht abgedeckte Luecke), Wire-Shape unveraendert (kein
+  Response-Body-Bruch). openapi.yaml-Diff deckt sich mit dem Code (Pfad-Rename + neuer
+  `{muteId}`-Pfad mit 404). Nichts zu beanstanden.
+- gebaut: `fix-crm-import-company` gezogen (naechste `status: todo`-Unit in Datei-Reihenfolge,
   `deps: []`).
-- Vorbild: `internal/work/comment` (task_comments) fuer Service-/Repo-Schnitt, ABER bewusst NICHT
-  dessen Autorisierungsmuster uebernommen — siehe Nebenfund unten.
-- Design-Entscheidungen:
-  - Autor beim Create kommt aus `actorIDFromContext(ctx)` im grpc-Handler (liest
-    `middleware.GetUserID(ctx)`), nicht aus dem Request-Body — `x-user-id` propagiert ueber den
-    internen gRPC-Hop (`internal/middleware/grpc_tenant.go`), also funktioniert das zuverlaessig.
-  - Loeschrecht (Autor ODER Admin) kann NICHT genauso geloest werden: Rollen (fuer `IsAdmin`)
-    propagieren ueber den internen gRPC-Hop NICHT, nur `x-tenant-id`/`x-user-id`. Deshalb
-    `is_admin` als explizites Proto-Feld auf `DeleteFileCommentRequest`, von der GATEWAY aus
-    `middleware.IsAdmin(r.Context())` befuellt (das ist der einzige Ort, an dem die Rolle bekannt
-    ist) — service-seitiger Check bleibt `AuthorID == actorID || isAdmin`.
-  - Sanitization: kein neuer Sanitizer (kein bluemonday im Modulgraph, Lean-Regel "vorhandene
-    Dependency nutzen"). Trim + 10 000-Zeichen-Limit server-seitig, XSS-Schutz bleibt client-seitig
-    DOMPurify — exakt das Muster, das `internal/work/comment` bereits im Bestand faehrt.
-    `lean:`-Kommentar in `service.go` mit Upgrade-Trigger "non-React-Consumer (E-Mail-Digest,
-    Export) rendert Kommentarinhalt als HTML".
-  - Wire-Shape: alle vier Endpoints serialisieren einheitlich ueber `response.Proto`/
-    `response.ProtoListWrapped` (protojson) statt des alten `response.JSON`-Ad-hoc-Envelopes, den
-    `route_document.go` fuer `DocumentFile`/`DocumentFolder` wegen `file_size int64` noch braucht
-    — `DocumentFileComment` hat kein int64-Feld, also `created_at`/`updated_at` durchgehend als
-    echte RFC3339-Strings (kein `{seconds,nanos}`), gleiches Muster wie das juengste Nachbarfeature
-    `ListFileActivity` (Migration 000264).
-  - Keine neuen Permission-Keys: die Routen haengen an den schon vorhandenen additiven
-    `docRead`/`docEdit`-Guards (`documents`/`documents:file` read/write) aus
-    `route_document.go` — kein Katalog-Key `documents:comment:*` im FE, kein Seed-Bedarf.
-- gebaut:
-  - Migration `000265_document_file_comments` (`.up.sql`/`.down.sql`): Tabelle
-    `document_file_comments` (`tenant_id UUID NOT NULL`, FK auf `document_files`/`users`/`tenants`),
-    zwei Indizes, `CALL enable_tenant_rls('document_file_comments')`.
-  - `internal/models/document.go`: `DocumentFileComment`-Struct.
-  - `internal/document/file/{repository.go,errors.go,postgres_repository.go,service.go}`:
-    5 neue Repository-Methoden (Create/Get/List/Update/Delete), 5 neue Sentinel-Errors,
-    4 neue Service-Methoden (`CreateComment`/`UpdateComment`/`DeleteComment`/`ListComments`) mit
-    Autor-/Admin-Pruefung und Content-Validierung.
-  - `proto/document/v1/document.proto` + Regen (`protoc` direkt, `make` im Bash-Tool nicht
-    verfuegbar — Kommando 1:1 aus dem `proto-document`-Makefile-Target): `DocumentFileComment`-
-    Message, 4 neue RPCs (`ListFileComments`/`CreateFileComment`/`UpdateFileComment`/
-    `DeleteFileComment`) samt Request/Response-Messages.
-  - `internal/server/document_grpc.go`: 4 neue RPC-Handler, `toProtoFileComment`-Mapper,
-    5 neue `mapDocumentError`-Faelle (NotFound/InvalidArgument/PermissionDenied).
-  - `internal/gateway/route_document.go`: `GET/POST /documents/files/{id}/comments`,
-    `PUT/DELETE /documents/comments/{id}` (letztere zwei standalone by ID, analog zum
-    bestehenden `/documents/links/{id}`-Muster) mit `docRead`/`docEdit`.
-  - `backend/api/openapi.yaml`: `DocumentFileComment`-Schema + 4 Pfad-Eintraege (2 Operationen auf
-    `/documents/files/{id}/comments`, 2 auf `/documents/comments/{id}`), Stil von
-    `/documents/files/{id}/activity` abgeschaut.
-  - Tests: `internal/document/file/service_test.go` (11 neue Faelle: Create Success/trim,
-    Content-Required, Content-zu-lang, Cross-Tenant-FileNotFound, Update Autor-darf/Nicht-Autor-
-    gesperrt, Delete Autor-darf/Nicht-Autor-Nicht-Admin-gesperrt/Admin-darf-fremde, List
-    Tenant-Isolation) + neue `MockRepository`-Methoden.
-    `internal/document/file/postgres_repository_comment_test.go` (neu, 4 DB-Tests: Create+List,
-    List-Tenant-Isolation, Update inkl. Fremd-Tenant-Ablehnung, Delete inkl. Fremd-Tenant-Ablehnung)
-    nach Vorbild `postgres_repository_entity_link_test.go`, wiederverwendet `seedActivityFixture`.
-- Nebenfund (nicht in dieser Unit gefixt, eigene Unit `fix-g-work-task-comment-authz` angelegt):
-  `WorkGRPCServer.UpdateTaskComment`/`DeleteTaskComment` (`internal/server/work_grpc.go:1028-1055`)
-  reichen den Actor falsch durch — `UpdateTaskComment` ruft den Service mit `actorID=uuid.Nil` auf,
-  wodurch der Autor-Vergleich (`comment.AuthorID != actorID`) praktisch immer wahr ist und JEDES
-  Update mit `ErrCannotEditOthersComment` fehlschlaegt (Feature de-facto kaputt). `DeleteTaskComment`
-  ruft mit `isAdmin=true` hardcoded auf — das ist ein kompletter Bypass des Autor-Checks: JEDER
-  User mit `work:task_comment:delete` kann JEDEN fremden Kommentar loeschen. Root Cause: Rollen
-  propagieren nicht ueber den internen gRPC-Hop (nur `x-tenant-id`/`x-user-id`), und die Gateway-
-  Handler dort loesen weder Autor noch Admin auf, bevor sie durchreichen. Das in dieser Unit neu
-  gebaute Muster (`actorIDFromContext` fuer den Autor, explizites `is_admin`-Feld von der Gateway
-  fuer den Admin-Override) ist der Fix, 1:1 uebertragbar.
-- gate: `go build -p 2 ./internal/document/... ./internal/gateway/... ./internal/server/...
-  ./proto/document/... ./cmd/document/... ./cmd/gateway/...` ok | `go vet` auf denselben Paketen ok
-  | `golangci-lint run --config .golangci.yml` auf `internal/document/... internal/gateway/...
-  internal/server/...`: 0 issues |
-  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable go test
-  -count=1 ./internal/document/...`: PASS, 4 neue DB-Tests liefen real (verifiziert per `-v -run
-  Comment`, keine Skips), `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) | `go test -count=1
-  ./internal/server/...` PASS | `go test -count=1 ./internal/gateway/` PASS inkl.
-  `TestOpenAPIRouteDrift` (774 Routen gegen 776 dokumentierte Pfade, +2/+2 durch die neuen
-  Comment-Pfade). Migration lokal angewendet (`migrate ... up` → Kopf 265), RLS-Smoke gegen
-  `document_file_comments`: eigener Tenant → 1, fremder Tenant → 0 (bestanden, kein Zwei-Nullen-Fall).
+  Root Cause bestaetigt wie im scope-Text: `importSingleContact`
+  (`internal/email/contact/import_service.go`) persistierte `fields["company"]` nie, und der
+  CSV-Export (`export_service.go`) gab die Spalte "company" hart als Leerstring aus
+  ("Company name is not on the contact model directly, so we leave empty for now"). vCard-Export
+  schrieb `vcard.FieldOrganization` ueberhaupt nicht — dieselbe Luecke, nur ohne eigenen Kommentar,
+  im selben Zug mitgefixt, sonst waere der Round-Trip nur fuer CSV geschlossen gewesen.
+  Firma laeuft ueber die company-Relation (`contacts.company_id` -> `companies`), nicht ueber ein
+  neues Freitextfeld. Neu in `internal/crm/company/`: `Repository.GetByName` (case-insensitiv per
+  `LOWER(name) = LOWER($2)`, `merged_into_id IS NULL`, tenant-gescopt — eine gemergte Firma darf
+  nicht erneut getroffen werden) und `Repository.GetNamesByIDs` (Batch, `id = ANY($1) AND
+  tenant_id = $2`), darauf `Service.FindOrCreateByName` und `Service.GetNamesByIDs`. Namensvergleich
+  bewusst getrimmt+case-insensitiv (Entscheidung wie in den notes gefordert): `company.Create`
+  trimmt den Namen schon vor dem Schreiben, die DB-Seite vergleicht also immer getrimmt gegen
+  getrimmt — Trimmen selbst ist Aufgabe der Service-Schicht, nicht des Repositories (analog zu
+  `GetByID`, das ebenfalls keine Normalisierung macht).
+  `ContactProvider`-Interface (gemeinsam von Import UND Export genutzt) um
+  `FindOrCreateCompany(ctx, name, createdBy) (uuid.UUID, error)` und
+  `GetCompanyNames(ctx, ids) (map[uuid.UUID]string, error)` erweitert. `TenantScopedAdapter`
+  bekommt einen zweiten Konstruktor-Parameter `TenantedCompanyService` — alle vier Aufrufstellen in
+  `internal/server/crm_grpc.go` (Import CSV/VCard, Export CSV/VCard) auf
+  `NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` gezogen, `companyService`
+  war als Feld auf `CRMGRPCServer` schon vorhanden.
+  N+1 beidseitig vermieden: Import cached aufgeloeste Firmennamen in einer lokalen
+  `map[string]uuid.UUID`, angelegt PRO LAUF in `ImportCSV`/`ImportVCard` (nicht am `ImportService`
+  selbst, der ueber mehrere Requests hinweg als Singleton geteilt sein kann) —
+  `TestImportCSV_CompanyDedupedWithinRun` beweist genau 1 `FindOrCreateCompany`-Aufruf fuer 2
+  Zeilen derselben Firma trotz Gross-/Kleinschreibungs- und Leerraum-Unterschied. Export holt alle
+  benoetigten Namen in einem `GetCompanyNames`-Batch-Aufruf statt pro Kontakt.
+  Merge-Pfad (`mergeByEmail=true`) uebernimmt die Firma nachtraeglich nur, wenn der bestehende
+  Kontakt noch keine hat (`existing.CompanyID == nil`) — dieselbe "nur leere Felder auffuellen"-
+  Semantik wie bei Telefon/Position/Notizen im selben Codepfad.
+  Idempotenz (notes-Forderung: zweiter Lauf derselben Datei erzeugt keine Firmen-Dublette) folgt
+  direkt aus `FindOrCreateByName`: der zweite Lauf startet mit leerem Cache, findet die beim ersten
+  Lauf angelegte Firma aber ueber `GetByName` wieder — bewiesen durch
+  `TestService_FindOrCreateByName_FindsCaseInsensitive` (zwei unabhaengige Aufrufe gegen denselben
+  Service/Repository, zweiter liefert dieselbe ID, `repo.companies` waechst nicht).
+  Tests: `TestExportImportRoundTrip_CompanyCSV` und `TestExportVCard_CompanyRoundTrip` exportieren
+  in einen Provider und importieren die Bytes in einen ZWEITEN, frischen Provider (kein geteilter
+  Firmen-Cache zwischen den beiden) — das beweist den Fix ueber den reinen Prozess-Cache hinaus,
+  echter Export-dann-Import-Beweis wie in done_when gefordert. Dazu 4 weitere Import-Tests
+  (Create-Fall, Dedupe-Fall, Merge-Fuellt-Luecke-Fall, Leer-Firma-faellt-nicht-auf) und 8 neue
+  Service-Tests fuer `FindOrCreateByName`/`GetNamesByIDs` (Create-wenn-fehlend, case-insensitiv
+  finden, gemergte Firma ignorieren, Tenant-Isolation, Pflichtfeld-Validierung) plus ein
+  Repository-Test gegen die echte DB (`TestCompanyGetByName_CaseInsensitiveIgnoresMergedAndOtherTenant`,
+  neu in `tenant_write_test.go`, demselben Muster wie `TestCompanyWrites_LandInCallerTenant`
+  folgend: Merge-Konstellation via echtem `merged_into_id`-FK, Tenant-Fremdzugriff liefert
+  `ErrCompanyNotFound` bzw. eine leere Batch-Antwort).
+  NEUER FUND, nicht in dieser Unit behoben (ausserhalb des Scopes, eigene Unit noetig): in
+  `internal/server/email_grpc.go` rufen `ImportContactsCSV`/`ImportContactsVCard`
+  `s.importService.ImportCSV/VCard` DIREKT auf dem in `cmd/email/main.go` mit `nil`-`ContactProvider`
+  konstruierten Singleton auf — anders als der CRM-Pfad baut der Email-gRPC-Server KEINEN
+  Tenant-scoped Adapter pro Request. Jeder Aufruf ueber `POST /api/v1/email/.../import/csv` bzw.
+  `/import/vcard` (`route_email.go:198-199`) waere schon vor dieser Unit bei JEDEM
+  `contactProvider`-Zugriff (`GetByEmail`, `CreateForImport`, ...) mit einer Nil-Pointer-Panik
+  geendet, nicht erst durch die neuen `FindOrCreateCompany`/`GetCompanyNames`-Aufrufe — ein
+  bestehender, durch diese Unit nur sichtbar gewordener Fund. Braucht Tenant-ID-Extraktion +
+  Pro-Request-Adapter analog `crm_grpc.go`, eigene Iteration.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/email/contact`, `internal/crm/company`, `internal/crm/contact`, `internal/server`,
+  0 issues) | test ok — `go test -count=1 ./internal/crm/company/... ./internal/crm/contact/...
+  ./internal/email/contact/... ./internal/server/...` gruen mit `DATABASE_URL` gesetzt auf
+  `kmuhub_app`, 0 Skips in den beruehrten Paketen (verifiziert per `-v | grep -c "^--- SKIP"`).
+  Keine Migration (`companies` hatte RLS schon aus Migration 000120, keine neue Tabelle/Spalte),
+  keine neue Route (kein openapi.yaml-Eintrag noetig), kein neuer `RequirePermission`-Guard.
 - offen:
-  - `fix-g-work-task-comment-authz` (neu angelegt) wartet auf eine kuenftige Iteration.
-  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration, wie im Auftrag der
-    Unit vorgesehen (`backend-gaps.md` listet nur "Comment-Tabelle + Endpoints", keine FE-UI).
+  - NEU: `internal/server/email_grpc.go` `ImportContactsCSV`/`ImportContactsVCard` nutzen den
+    nil-Provider-Singleton direkt statt eines Pro-Request-Adapters — Nil-Pointer-Panik bei jedem
+    echten Aufruf, unabhaengig von dieser Unit vorbestehend. Siehe Fund oben, eigene Unit.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26/27 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 58 — fix-g-work-task-comment-authz — done — 2026-08-02 06:30
+## Iteration 29 — fix-email-import-nil-provider-panic — done — 2026-08-03
 
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `65f5918f` (Iteration 57, g-dokumente-comments) `git show --stat`
-  gepruefter Diff deckt sich mit dem Journal-Eintrag: `route_document.go` geht durchgehend ueber
-  `getDocumentClient()`/`client.<RPC>`, kein direkter Service-Zugriff; `document.proto` +
-  `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert; Migration 000265 hat `tenant_id UUID NOT NULL`
-  + `CALL enable_tenant_rls('document_file_comments')` verifiziert; `document_grpc.go` nutzt fuer
-  Create/Update/Delete durchgehend `actorIDFromContext(ctx)`, nie `uuid.Nil`; `DeleteFileComment`
-  bekommt `IsAdmin` explizit von der Gateway (`middleware.IsAdmin(r.Context())`), kein
-  Autor-Check-Bypass; keine neuen `RequirePermission`-Keys, also kein Seed-Bedarf; kein neuer
-  `/api/v1/*`-Pfad ohne openapi.yaml-Eintrag (`TestOpenAPIRouteDrift` bestand mit +2/+2). Kein
-  Nacharbeitsbedarf.
-- Auftrag: Nebenfund aus `g-dokumente-comments` beheben — `WorkGRPCServer.UpdateTaskComment`/
-  `DeleteTaskComment` (`internal/server/work_grpc.go:1028-1055`) reichten den Actor falsch durch:
-  `UpdateTaskComment` rief den Service mit hartkodiertem `actorID=uuid.Nil` auf (Autor-Vergleich
-  `AuthorID != actorID` also praktisch immer wahr → JEDES Update schlug mit
-  `ErrCannotEditOthersComment` fehl, Feature de-facto kaputt), `DeleteTaskComment` rief mit
-  `isAdmin=true` hardcoded auf (kompletter Bypass des Autor-Checks — jeder User mit
-  `work:task_comment:delete` konnte jeden fremden Kommentar loeschen).
-- gebaut:
-  - `proto/work/v1/work.proto`: `DeleteTaskCommentRequest` bekommt `bool is_admin = 2`, Regen
-    (`protoc` direkt, exaktes Kommando aus dem `proto`-Makefile-Target uebernommen — kein
-    dediziertes `proto-work`-Target vorhanden) im selben Commit.
-  - `internal/server/work_grpc.go`: `UpdateTaskComment`/`DeleteTaskComment` nutzen jetzt
-    `actorIDFromContext(ctx)` (bereits in `document_grpc.go` definiert, selbes Package `server` —
-    keine Dopplung, direkt wiederverwendet) statt `uuid.Nil`; `DeleteTaskComment` reicht
-    `req.IsAdmin` statt hartkodiertem `true` an `commentService.Delete`.
-  - `internal/gateway/route_work_tasks.go`: `HandleDeleteTaskComment` befuellt
-    `IsAdmin: middleware.IsAdmin(r.Context())` — der einzige Ort, an dem die Rolle bekannt ist
-    (Rollen propagieren nicht ueber den internen gRPC-Hop, nur `x-tenant-id`/`x-user-id`, exakt das
-    Muster aus `g-dokumente-comments`). `HandleUpdateTaskComment` unveraendert, braucht kein
-    `is_admin` (nur Autor darf editieren).
-  - `internal/server/work_comment_test.go` (neu): 6 Testfaelle auf gRPC-Handler-Ebene (nicht nur
-    Service, siehe `done_when`) mit `commentAuthzMockRepo` (echtes `GetByID` statt
-    `commentStubRepo`s `ErrNotFound`-Stub) — Autor-darf-editieren, Nicht-Autor-gesperrt (Content
-    bleibt unveraendert geprueft), fehlender Actor-Context → Unauthenticated, Autor-darf-loeschen,
-    Nicht-Autor-Nicht-Admin-gesperrt (Kommentar bleibt bestehen geprueft), Admin-darf-fremde-loeschen.
-    `comment.Service.Update`/`Delete` selbst waren nie das Problem (deren Tests in
-    `work/comment/service_test.go` bestanden schon vorher) — der Bug sass ausschliesslich in der
-    Verdrahtung des gRPC-Handlers, deshalb testet dieser Commit genau diese Schicht.
-- gate: `go build -p 2 ./internal/work/... ./internal/gateway/... ./internal/server/...
-  ./proto/work/... ./cmd/work/... ./cmd/gateway/...` ok | `go vet` auf denselben Paketen ok |
-  `golangci-lint run --config .golangci.yml ./internal/work/... ./internal/gateway/...
-  ./internal/server/...`: 0 issues |
-  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable go test
-  -count=1 ./internal/work/...` PASS (alle Sub-Pakete, keine Skips) | `go test -count=1 -v
-  ./internal/server/... -run TaskComment`: alle 6 neuen Tests PASS | `go test -count=1
-  ./internal/server/...` PASS | `go test -count=1 -v ./internal/gateway/ -run
-  TestOpenAPIRouteDrift`: PASS, 774 Routen gegen 776 dokumentierte Pfade (unveraendert — keine neue
-  Route, nur Handler-Wiring) | `go test -count=1 ./internal/gateway/` PASS. Keine Migration, keine
-  Tabelle, kein RLS-Bezug in dieser Unit — RLS-Smoke n.a.
+- commit: `37f561ad` — fix(email): stop panicking on nil-provider contact import
+- verify vorgaenger: sauber. `6ff1509d` (fix-crm-import-company, Iteration 28) gegen die acht
+  Fehlerklassen geprueft: keine `.proto`-Aenderung (N/A Klasse 3), keine neue Route/kein Guard
+  (Klasse 4/6/7/8 N/A, `crm_grpc.go`-Diff ruehrt keinen Gateway-Handler an), kein Stub (Klasse 2 —
+  `GetByName`/`GetNamesByIDs` vollstaendig implementiert und getestet), kein gRPC-Layer-Bypass
+  (Klasse 1 — `CRMGRPCServer` IST die gRPC-Implementierung, `s.contactService`/`s.companyService`
+  direkt aufzurufen ist hier die korrekte Schicht, kein Gateway-Handler drumherum). Tenant-Luecke
+  (Klasse 5) explizit gegengeprueft: `GetByName` filtert `WHERE tenant_id = $1`, `GetNamesByIDs`
+  filtert `id = ANY($1) AND tenant_id = $2`, `TenantScopedAdapter.FindOrCreateCompany`/
+  `GetCompanyNames` reichen `a.tenantID` durch — keine ungescopte Query. Nichts zu beanstanden.
+- gebaut: `fix-email-import-nil-provider-panic` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`, direkt der von Iteration 28 selbst angelegte Fund).
+  Root Cause bestaetigt wie im scope-Text: `cmd/email/main.go` konstruierte `importService :=
+  emailcontact.NewImportService(nil, slog.Default())` und `EmailGRPCServer.ImportContactsCSV`/
+  `ImportContactsVCard` riefen diesen Singleton direkt auf — jeder echte Aufruf haette im
+  `contactProvider`-Zugriff (`GetByEmail`/`CreateForImport`) eine Nil-Pointer-Panik geworfen, nicht
+  erst seit Iteration 28, aber durch deren `FindOrCreateCompany`/`GetCompanyNames`-Aufrufe zuerst
+  sichtbar geworden.
+  Der Email-Prozess haengt am selben Postgres-Pool wie CRM — kein RPC-Hop noetig.
+  `cmd/email/main.go` konstruiert jetzt `contact.NewService(contact.NewPostgresRepository(pool))`
+  und `company.NewService(company.NewPostgresRepository(pool))` direkt (Alias-Kollision mit dem
+  bereits importierten `emailcontact "internal/email/contact"` durch unqualifizierte Imports fuer
+  `internal/crm/contact`/`internal/crm/company` geloest, `crmcontact`/`crmcompany` als Alias in
+  `email_grpc.go`) und reicht beide in `NewEmailGRPCServer` durch.
+  `ImportContactsCSV`/`ImportContactsVCard` bauen jetzt PRO REQUEST
+  `emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` +
+  `emailcontact.NewImportService(provider, nil)`, exakt das Muster aus
+  `crm_grpc.go:2092-2144`. `tenantID` kommt aus `middleware.GetTenantID(ctx)` (401 bei Fehlen),
+  `ownerID` war wie in den notes vermutet nie ans Auth-Context gekoppelt (`uuid.Nil` mit dem
+  Kommentar "Owner determined by auth context", der nie eingeloest wurde) — jetzt
+  `uuid.Parse(middleware.GetUserID(ctx))`, ebenfalls 401 bei Fehlen statt der alten Panik.
+  Der `importService`-Singleton wurde als Feld/Konstruktor-Param KOMPLETT entfernt statt nur
+  umgangen: das Email-Proto hat kein `PreviewContactsCSV`-RPC, also war der Singleton nach dem Fix
+  toter Code ohne verbleibenden Aufrufer — Entfernen statt Liegenlassen ist hier der schlankere
+  Diff, nicht nur Aufraeumen.
+  NEUER FUND, nicht in dieser Unit behoben (identische Fehlerklasse, aber ausserhalb des
+  scope-Texts dieser Unit — Import war explizit benannt, Export nicht): `ExportContactsCSV`/
+  `ExportContactsVCard` in `email_grpc.go` rufen `s.exportService.ExportCSV`/`ExportVCard` weiterhin
+  direkt auf dem `nil`-Provider-Singleton aus `cmd/email/main.go` auf — derselbe Nil-Pointer-Panik-
+  Bug, spiegelbildlich. Eigene Unit `fix-email-export-nil-provider-panic` direkt nach dieser
+  eingefuegt; sie braucht keine neue Dependency mehr, `contactService`/`companyService` haengen
+  bereits am `EmailGRPCServer`.
+  Test (neu, `internal/server/email_grpc_import_test.go`, DB-backed nach dem Muster von
+  `rbac_audit_events_db_test.go`): `TestEmailImportContactsCSV_DB` und
+  `TestEmailImportContactsVCard_DB` fuehren je einen echten Import End-to-End gegen den echten
+  `contact.Service`/`company.Service` aus (Kontakt UND Firmenzuordnung landen nachweislich in der
+  DB, per Query gegengeprueft — nicht nur ein Mock-Provider wie in den bestehenden
+  `import_service_test.go`-Tests), `TestEmailImportContactsCSV_MissingTenant` beweist 401 statt
+  Panik bei fehlendem Tenant-Context.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/server`, `cmd/email`, 0 issues) | test ok — `go test -count=1 -v ./internal/server/...
+  ./cmd/email/...` gruen mit `DATABASE_URL` gesetzt auf `kmuhub_app`, 0 Skips, 0 Fails (per
+  `grep -c "^--- SKIP"`/`"^--- FAIL"` gegengeprueft). Keine Migration, keine neue Route (kein
+  openapi.yaml-Eintrag noetig, RPC-Signaturen unveraendert), kein neuer `RequirePermission`-Guard —
+  `go test ./internal/gateway/` daher nicht Pflicht, trotzdem kein Routen-Diff im Commit.
 - offen:
-  - Keine. Fix ist vollstaendig: Create war nie betroffen (Autor kam dort schon vorher aus
-    `middleware.GetUserID` in der Gateway, nicht aus dem gRPC-Handler), List braucht keinen
-    Actor-Check.
+  - NEU: `ExportContactsCSV`/`ExportContactsVCard` haben denselben nil-Provider-Panik-Bug wie
+    Import hatte — eigene Unit `fix-email-export-nil-provider-panic` angelegt, direkt bauen mit
+    dem bereits vorhandenen `contactService`/`companyService`.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-28 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
 
-## Iteration 59 — g-dokumente-share-links — done — 2026-08-02
-
-- commit: (folgt direkt auf diesen Eintrag)
-- verify vorgaenger: sauber. `8e7c56d7` (Iteration 58, fix-g-work-task-comment-authz) `git show
-  --stat` gepruefter Diff deckt sich mit dem Journal-Eintrag: `route_work_tasks.go` befuellt
-  `IsAdmin: middleware.IsAdmin(r.Context())` nur fuer Delete, `work_grpc.go` nutzt fuer
-  Update/Delete durchgehend `actorIDFromContext(ctx)` statt `uuid.Nil`; `work.proto` +
-  `.pb.go` im selben Commit regeneriert (kein `_grpc.pb.go`-Diff noetig, da nur ein Feld auf einer
-  bestehenden Request-Message ergaenzt wurde, keine RPC-Signatur geaendert); 6 neue Tests gegen den
-  echten gRPC-Handler (nicht nur den Service); keine Migration, kein RLS-Bezug. Kein
-  Nacharbeitsbedarf.
-- Auftrag: `g-dokumente-share-links` — externe, unauthentifizierte Freigabelinks fuer
-  Dokument-Dateien mit Passwortschutz und Ablaufdatum, serverseitig durchgesetzt, mit Rate-Limit
-  und nicht unterscheidbaren Fehlermeldungen (falsches Passwort vs. abgelaufener Link).
-- SCOPE-KORREKTUR (Fund beim Bau): `fe-documents-links` (Iteration 40) hatte bereits geklaert, dass
-  `/documents/links/{id}` interne CRM/PM-Entity-Links bedient (`DocumentEntityLink`), nicht die hier
-  gemeinten externen Freigabelinks — die vom Backlog vermutete "Freigabelink mit
-  Passwort/Ablauf"-UI (`ShareLinkDialog.tsx`) ist zu 100% clientseitiger Mock (`generateMockLink`,
-  kein API-Call), dokumentiert im Kommentar `route_document.go:63-65` als "documents:share_link:create
-  ... zero backend wiring". Diese Unit baut die echte Luecke, nicht die falsch vermutete.
-- gebaut:
-  - Migration `000266_document_share_links`: neue Tabelle `document_share_links` (id, tenant_id,
-    file_id FK `document_files`, token UNIQUE, password_hash NULL, expires_at NULL, revoked_at NULL,
-    view_count, created_by, created_at), `CALL enable_tenant_rls(...)` (Standardprozedur inkl.
-    `tenant_id IS NULL OR ... OR is_system_context()`-Escape bereits eingebaut — kein manuelles
-    Policy-SQL wie im aelteren `report_share_tokens`/000252-Vorbild noetig). Up/Down lokal
-    durchgetestet (Kopf 266 -> 265 -> 266 sauber).
-  - `internal/models/document.go`: `DocumentShareLink` + `Usable(now)`-Methode (Vorbild:
-    `berichte.ShareToken`).
-  - `internal/document/file/{repository,postgres_repository,service,errors}.go`: neue Methoden
-    direkt auf `file.Repository`/`file.Service` — NICHT als eigenes Sub-Package. Begruendung:
-    Comments und Entity-Links (juengste Faelle im selben Modul) liegen ebenfalls direkt im
-    `file`-Package, nur das etablierte, aeltere interne Sharing (`document_shares`,
-    User-zu-User) hat ein eigenes `share`-Package — externe Freigabelinks sind naeher an
-    Comments/Entity-Links (file-scoped Sub-Feature) als an internem Sharing. `CreateShareLink`
-    (prueft Datei-Eigentuemerschaft ueber `GetByID` vor dem Minten, wie
-    `berichte.CreateShareToken`), `ListShareLinks`, `RevokeShareLink` (Soft-Revoke, zweites Revoke
-    liefert `ErrShareLinkNotFound`, kein stiller No-op), `RedeemShareLink` (die public Kernlogik,
-    s.u.). Token: 32 Byte `crypto/rand`, base64url. Passwort: bcrypt Cost 12, 72-Byte-Cap
-    (`ErrSharePasswordTooLong`), Ablauf: max. 365 Tage (`ErrShareLinkExpiryInvalid`) — beide
-    Konstanten/Grenzen identisch zum `berichte`-Vorbild uebernommen.
-  - `proto/document/v1/document.proto`: 4 neue RPCs `CreateShareLink`/`ListShareLinks`/
-    `RevokeShareLink`/`GetSharedFile` + 6 Messages, `.pb.go`/`_grpc.pb.go` im selben Commit
-    regeneriert (`protoc` direkt via `make proto-document`-Flags — Target existiert diesmal, aber
-    `make` selbst fehlt weiterhin auf dieser Maschine).
-  - `internal/server/document_grpc.go`: 4 neue RPC-Handler + `toProtoShareLink`-Mapper +
-    Fehler-Mapping in `mapDocumentError` (`ErrShareLinkNotFound`/`ErrShareLinkInvalid` -> NotFound,
-    `ErrShareLinkExpiryInvalid`/`ErrSharePasswordTooLong` -> InvalidArgument). `CreateShareLink`/
-    `ListShareLinks`/`RevokeShareLink` ziehen `tenantID` wie ueberall sonst aus
-    `middleware.GetTenantID(ctx)`; `GetSharedFile` zieht **keinen** Tenant aus dem Context — der
-    Token loest ihn intern in `RedeemShareLink` auf, exakt das berichte-Muster.
-  - `internal/gateway/route_document.go`: neuer Guard `docShareLinkCreate` (additiv
-    `documents:write` + `documents:share_link:create`, bereits seit `p1a-migration`/000256
-    vollstaendig geseedet — verifiziert per psql gegen die lokale DB, kein neuer Seed noetig).
-    Authentifiziert: `GET/POST /documents/files/{id}/share-links` (List `docRead`, Create
-    `docShareLinkCreate`), `DELETE /documents/share-links/{id}` (Revoke `docShareManage` — derselbe
-    Key wie ShareEntity/UnshareEntity, weil es fuer Revoke keinen eigenen Katalog-Key gibt;
-    Entscheidung im Kommentar an der Guard-Deklaration begruendet, nicht "sinngemaess" geraten).
-    Unauthentifiziert: neue Methode `DocumentRoutes.RegisterPublicRoutes(r, publicRateLimit)`
-    (Vorbild `route_berichte.go`), registriert `POST /api/v1/public/documents/share/{token}` hinter
-    dem strikten `publicRateLimiter` — in `cmd/gateway/main.go` OUTSIDE der Registrar-Schleife
-    verdrahtet, dieselbe `publicRateLimiter`-Instanz wie booking/berichte-public (kein zweiter
-    Limiter noetig). `documentRoutes` dafuer von einer Inline-Konstruktion in der Registrar-Liste
-    auf eine benannte Variable umgestellt (Vorbild: `berichteRoutes`/`bookingRoutes` sind aus
-    demselben Grund schon benannt).
-  - SICHERHEITS-ENTSCHEIDUNG, staerker als das eigene `berichte`-Vorbild: `RedeemShareLink`
-    liefert fuer unbekannten Token, widerrufenen Link, abgelaufenen Link, fehlendes Passwort UND
-    falsches Passwort **denselben** Fehler `ErrShareLinkInvalid` -> ein einziger
-    `mapDocumentError`-Case -> HTTP 404 mit identischer Nachricht. `berichte.ShareToken`
-    unterscheidet dagegen "not found" (404, `ErrShareNotFound`) von "Passwort fehlt/falsch" (401,
-    `ErrSharePasswordRequired`/`ErrSharePasswordInvalid`) per Status-Code — genau das
-    Enumerations-Leck, das der Auftragstext ("kein Enumerieren ueber unterschiedliche
-    Fehlermeldungen... falsches Passwort und abgelaufener Link antworten gleich") verbietet. Bewusst
-    NICHT das bestehende Vorbild 1:1 kopiert, sondern strenger gefasst — im Code
-    (`RedeemShareLink`-Doc-Kommentar) und hier begruendet, keine stillschweigende Abweichung.
-  - `GetSharedFile`-HTTP-Antwort bleibt bei `response.JSON` mit manueller Map (nicht
-    `response.Proto`/protojson wie bei Comments/ShareLink-CRUD): `file_size` ist `int64`, und
-    protojson serialisiert 64-Bit-Felder laut `response.protoMarshaler`-Doc-Kommentar als
-    JSON-STRING, nicht als Zahl. Shape ist 1:1 identisch zum bestehenden authentifizierten
-    `GET .../download-url` (`download_url`/`filename`/`content_type`/`file_size`), das aus
-    demselben Grund schon `response.JSON` nutzt.
-  - `openapi_drift_test.go` (DB-loses Gegenstueck zu `TestOpenAPIRouteDrift`) baut seinen eigenen
-    Test-Router unabhaengig von `main.go` auf — fehlte dort `documentRoutes.RegisterPublicRoutes`,
-    waere die neue Public-Route dauerhaft unentdeckt als "dokumentiert aber nie registriert"
-    durchgefallen. Im selben Commit nachgezogen (`documentRoutes` dort ebenfalls auf eine benannte
-    Variable umgestellt, analog zu `berichteRoutes`).
-- gate: `go build -p 2 ./...` (voller Baum) gruen | `go vet ./...` gruen | `golangci-lint run
-  --config .golangci.yml` fuer `internal/document/... internal/gateway/... internal/server/...
-  cmd/gateway/... cmd/document/...`: 0 issues | swagger-cli validate: `api/openapi.yaml is valid` |
-  Migration lokal Up/Down/Up sauber (Kopf 266). `DATABASE_URL` gesetzt (Rolle `kmuhub_app`,
-  NOSUPERUSER NOBYPASSRLS): `internal/document/...` PASS (0 Skips, per `-v` verifiziert), darunter
-  8 neue DB-Tests in `postgres_repository_sharelink_test.go` (Create+List, Tenant-Isolation
-  [fremder Tenant 0 Zeilen], `GetShareLinkByToken` OHNE Tenant im Context — die
-  Public-Redemption-Situation, ueber `database.WithSystemContext` aufgeloest —, unbekannter Token,
-  Revoke, Doppel-Revoke `ErrShareLinkNotFound`, Revoke unter fremdem Tenant [Zeile bleibt
-  unangetastet], View-Count-Increment) + 12 neue Mock-Service-Tests in `service_test.go`, darunter
-  `TestRedeemShareLink_IndistinguishableFailures` (5 Unterfaelle: unknown/revoked/expired/
-  missing-password/wrong-password, beweist den kollabierten Fehler per `assert.ErrorIs`). `go test
-  ./internal/server/...` PASS | `go test ./internal/gateway/...` PASS inkl. `TestOpenAPIRouteDrift`
-  (777 Routen gegen 779 dokumentierte Pfade, +3/+3 durch die drei neuen Pfade) und
-  `TestOpenAPISpecDrift` (778 dokumentierte Pfade gegen 777 registrierte Routen — Differenz ist die
-  bereits vorbestehende `/api/v1/files/upload`-Allowlist-Ausnahme, unveraendert). 6 neue Faelle in
-  `route_capability_guard_test.go` (List/Create/Revoke je mit erlaubtem und verweigertem Key) PASS.
-  RLS-Smoke: siehe DB-Tests oben (Tenant-Isolation + System-Context-Escape sind der Beweis, kein
-  separater psql-Handlauf noetig — die Go-Tests pruefen exakt dieselbe Eigenschaft mit Assertions
-  statt Augenschein).
+## Iteration 30 — fix-email-export-nil-provider-panic — done — 2026-08-03
+- commit: 4a02c5e76778ad69956cb39f53c3a4bb71f4bc26
+- verify vorgaenger: sauber. `37f561ad` (fix-email-import-nil-provider-panic, Iteration 29) gegen
+  die acht Fehlerklassen geprueft: kein Proto-Diff (Klasse 3 N/A), keine neue Route/kein Guard
+  (Klasse 4/6/7/8 N/A), kein Stub (Klasse 2 — beide Import-RPCs vollstaendig implementiert und
+  DB-getestet), kein gRPC-Layer-Bypass (Klasse 1 — `EmailGRPCServer` IST die gRPC-Implementierung,
+  `s.contactService`/`s.companyService` direkt aufzurufen ist hier korrekt). Tenant-Luecke (Klasse 5)
+  explizit gegengeprueft: `TenantScopedAdapter` wird pro Request mit `middleware.GetTenantID(ctx)`
+  gebaut, `ownerID` kommt aus `middleware.GetUserID(ctx)`, beide 401 bei Fehlen. Testfalle aus
+  Iteration 15 (`t.Cleanup` nach `defer pool.Close()`) nicht wiederholt — der neue Test nutzt
+  durchgaengig `t.Cleanup` fuer Pool UND Zeilen, korrekte LIFO-Reihenfolge. Nichts zu beanstanden.
+- gebaut: `fix-email-export-nil-provider-panic` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`, der von Iteration 29 selbst angelegte Spiegel-Fund).
+  Root Cause wie im scope-Text: `ExportContactsCSV`/`ExportContactsVCard` in
+  `backend/internal/server/email_grpc.go` riefen `s.exportService.ExportCSV`/`ExportVCard` direkt
+  auf einem Singleton aus `cmd/email/main.go` auf, konstruiert mit
+  `emailcontact.NewExportService(nil, slog.Default())` — jeder echte Aufruf haette im
+  `contactProvider.ListByIDs`-Zugriff (`internal/email/contact/export_service.go`) eine
+  Nil-Pointer-Panik geworfen.
+  Beide RPCs bauen jetzt pro Request `tenantID, err := middleware.GetTenantID(ctx)` (401 bei
+  Fehlen) und `emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` +
+  `emailcontact.NewExportService(provider, nil)`, exakt das Muster aus `crm_grpc.go:2146-2224` und
+  aus den Import-RPCs (Iteration 29). Anders als der CRM-Export-Pfad hat
+  `emailv1.ExportContactsRequest` kein `is_admin`/kein "export ohne IDs"-Feld — `ExportCSV`/
+  `ExportVCard` bleiben deshalb bei `req.ContactIds` wie in den notes vorgesehen, kein
+  `ExportAllCSV`-Zweig.
+  Der `exportService`-Singleton (nil-Provider) wurde komplett entfernt statt nur umgangen: Feld auf
+  `EmailGRPCServer`, Konstruktor-Parameter in `NewEmailGRPCServer` UND die Konstruktion in
+  `cmd/email/main.go` (inkl. des jetzt ungenutzten `emailcontact`-Imports dort) — kein Aufrufer
+  blieb uebrig, Liegenlassen waere totes Konstrukt gewesen.
+  Test (neu, `internal/server/email_grpc_export_test.go`, DB-backed, spiegelt
+  `email_grpc_import_test.go` aus Iteration 29): `TestEmailExportContactsCSV_DB` und
+  `TestEmailExportContactsVCard_DB` seeden je einen Kontakt ueber den bereits bewiesenen
+  Import-Pfad, exportieren ihn ueber den Email-RPC und pruefen E-Mail UND Firmenname im
+  Export-Output (nicht nur Erfolg ohne Panik). `TestEmailExportContactsCSV_MissingTenant` beweist
+  401 statt Panik bei fehlendem Tenant-Context.
+  FUND waehrend des Testens (kein Produktionsbug, reiner Test-Leak): der beim Import via
+  Find-or-Create angelegte Firma-Datensatz ("Acme GmbH") wurde in der ersten Testfassung nie
+  aufgeraeumt und blockierte das User-Cleanup per FK (`companies_created_by_fkey`) —
+  `seedEmailExportContact` liest jetzt `company_id` mit aus und registriert dessen Cleanup VOR dem
+  Cleanup der Kontakt-Zeile im Testkoerper, damit die LIFO-Reihenfolge (Kontakt -> Firma -> User ->
+  Pool) FK-sauber ist. Vor dem Fix lief der Test trotzdem gruen (der Fehler landet nur als geloggte
+  Cleanup-Warnung, nicht als Testfehler) — beim naechsten Mal auf genau solche stillen
+  Cleanup-Zeilen im Testoutput achten, nicht nur auf PASS/FAIL.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/server`, `cmd/email`, 0 issues) | test ok — `go test -count=1 -v ./internal/server/...`
+  mit `DATABASE_URL` auf `kmuhub_app`: 216 PASS, 0 SKIP, 0 FAIL (per `grep -c` gegengeprueft). Keine
+  Migration, keine neue Route, kein neuer Guard — `openapi.yaml`-Diff nicht Pflicht, keiner
+  vorgenommen.
 - offen:
-  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. Der bestehende
-    `ShareLinkDialog.tsx`-Mock (`generateMockLink`) bleibt unwired; sobald ein FE-Task die echte
-    Route verdrahtet, ist das Backend inkl. Sicherheits-Design bereits vollstaendig.
-  - Naechste Unit laut Reihenfolge: `g-helpdesk-contact-link` (Block G, deps: [], model: sonnet).
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-29 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst. Damit ist die Email-Import/Export-Nil-Provider-
+    Fehlerklasse (beide Haelften) vollstaendig geschlossen.
 
-## Iteration 60 — g-helpdesk-contact-link — done — 2026-08-02 07:12
-- commit: (folgt)
-- verify vorgaenger: sauber. `96238d9c` (g-dokumente-share-links) gegen die acht Fehlerklassen
-  geprueft: `route_document.go`-Diff geht durchgehend ueber `getDocumentClient()` (kein
-  RLS-Bypass), kein Stub/TODO im Server-Handler, `.proto`+`.pb.go`/`_grpc.pb.go` im selben Commit
-  regeneriert, `documents:share_link:create` bereits in Migration 000256 geseedet (per grep
-  verifiziert, nicht nur der Journal-Notiz vertraut), Migration 000266 setzt `tenant_id UUID NOT
-  NULL` + `enable_tenant_rls('document_share_links')`. Unabhaengig nachgebaut:
-  `go build -p 2 ./internal/document/... ./internal/gateway/... ./cmd/document/... ./cmd/gateway/...`
-  gruen, `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (777 Routen / 779 Pfade).
-- gebaut: `contact_id`/`org_id` (beide nullable) an `tickets` (Migration 000267,
-  `REFERENCES contacts(id)`/`REFERENCES companies(id) ON DELETE SET NULL`, partial Indizes) —
-  gleiches Cross-Service-FK-Muster wie `dialer`/`vertraege`/`email` (kein neues RLS noetig, Spalten
-  auf bereits RLS-aktiver Tabelle). Proto `Ticket`/`CreateTicketRequest`/`UpdateTicketRequest`/
-  `ListTicketsRequest` um `contact_id`/`org_id` erweitert (Felder 20/21, 9/10, 6/7, 6/7 — naechste
-  freie Nummern, nichts umnummeriert), `make proto-helpdesk`-Aequivalent per protoc direkt
-  (`make` fehlt auf dieser Maschine, Target-Flags aus dem Makefile uebernommen) im selben Commit
-  regeneriert. Service-Layer: neuer Helper `checkContactOrgTenant` in
-  `internal/helpdesk/service.go` prueft `ContactExists`/`CompanyExists` (neue
-  Repository-Methoden, Muster 1:1 aus `internal/crm/advisoryprotocol/postgres_repository.go:220`
-  uebernommen) vor jedem `CreateTicket`/`UpdateTicket` mit gesetztem `contact_id`/`org_id` —
-  gehoert der Kontakt/die Firma nicht dem Tenant der Anfrage, `ErrContactNotFound`/`ErrOrgNotFound`
-  (→ gRPC `InvalidArgument`, HTTP 400). `ListTickets` (Repo + Service + gRPC + Gateway) filtert
-  zusaetzlich per `contact_id`/`org_id`-Query-Param, Gateway-Handler folgen dem bestehenden
-  `sla_policy_id`-Muster (kein extra UUID-Parse im Handler, der gRPC-Layer wirft bei Muell
-  `InvalidArgument`). Gateway-Request-DTOs (`createTicketRequest`/`updateTicketRequest`) um
-  `ContactID`/`OrgID` (`validate:"omitempty,uuid"`) ergaenzt, `openapi.yaml` im selben Commit
-  (Query-Params auf `GET /tickets`, Body-Properties auf `POST`/`PUT /tickets/{id}`) — kein neuer
-  Response-Schema-Eintrag noetig, die Ticket-Antwort ist dort ungetypt (`schema: {type: object}`).
-  Vier neue Tests in `contact_org_link_test.go` (gegen echte Postgres, keine Mocks):
-  `ContactExists`/`CompanyExists` sind tenant-gescoped (RLS-Fall: Aufrufer aus fremdem
-  Tenant-Context sieht den Kontakt nicht, auch mit korrekter `tenantID`-Praedikat-Uebergabe —
-  Muster 1:1 aus `internal/crm/consent/tenant_write_test.go:193`
-  `TestContactExistsAndAnonymize_ScopedToCallerTenant` uebernommen, initial mit
-  `context.Background()` statt `WithTenantCtx` gebaut → RLS blockte alles inkl. eigenen Tenant,
-  eigener erster Entwurf nutzte faelschlich `context.Background()` ohne Tenant-Marker statt
-  `WithTenantCtx`, RLS blockte dadurch auch den eigenen Tenant und der Test schlug fehl — beim
-  Beheben auf das Konsens-Muster umgestellt), `CreateTicket`/`UpdateTicket`
-  lehnen einen fremd-tenant `contact_id`/`org_id` mit `ErrContactNotFound`/`ErrOrgNotFound` ab und
-  lassen bei Ablehnung keinen Teil-State auf dem Ticket zurueck, eigener-Tenant-Verknuepfung landet
-  korrekt auf dem Ticket UND ist per `ListTickets`-Filter wiederfindbar. Bestandstests
-  (`own_scope_list_test.go`, `service_test.go` — 23 `CreateTicket`- und 2 `UpdateTicket`-Aufrufe
-  per `sed` um `nil, nil` erweitert, `mockRepo` bekam `ContactExists`/`CompanyExists` +
-  contact/org-Filter in `ListTickets`) unveraendert im Verhalten, nur Signatur angepasst.
-- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
-  ./cmd/helpdesk/... ./cmd/gateway/...` gruen | `go vet` gruen | `golangci-lint run --config
-  .golangci.yml` fuer dieselben Pakete: 0 issues | swagger-cli validate: `api/openapi.yaml is
-  valid` | Migration lokal up/down/up sauber (Kopf 267). `DATABASE_URL` gesetzt (Rolle
-  `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go test -count=1 -v ./internal/helpdesk/...` PASS, 0
-  Skips (53 Tests, davon 4 neu), `go test ./internal/server/...` PASS, `go test
-  ./internal/gateway/` PASS inkl. `TestOpenAPIRouteDrift` (777/779, unveraendert — keine neue
-  Route, nur Query-Params/Body-Felder). RLS-Smoke: ueber die vier neuen DB-Tests erbracht
-  (Tenant-Isolation von `ContactExists`/`CompanyExists` + Ablehnung/Erfolg beim Setzen), kein
-  separater psql-Handlauf noetig — selbes Vorgehen wie in `g-dokumente-share-links` begruendet.
+## Iteration 31 — fix-berichte-kpi-module-scope — done — 2026-08-03
+- commit: f3c65ad5
+- verify vorgaenger: sauber. `4a02c5e7` (fix-email-export-nil-provider-panic, Iteration 30) gegen
+  die Fehlerklassen geprueft: kein Proto-Diff, keine neue Route, kein neuer Guard, kein Stub.
+  Klasse 1 (gRPC-Bypass) N/A — `EmailGRPCServer` IST die gRPC-Implementierung. Klasse 5
+  (Tenant-Luecke) sauber: beide Export-RPCs holen `middleware.GetTenantID(ctx)` und bauen den
+  `TenantScopedAdapter` daraus, 401 statt Panik bei fehlendem Context. Zusaetzlich gegengeprueft,
+  was der Journal-Eintrag nicht erwaehnte: `NewExportService(provider, nil)` uebergibt einen
+  nil-Logger — `NewExportService` faengt das ab (`export_service.go:25-27`, faellt auf
+  `slog.Default()` zurueck), also keine zweite Nil-Panik an derselben Stelle. Der entfernte
+  Singleton hatte keinen weiteren Aufrufer (grep). Nichts zu beanstanden.
+- gebaut: `fix-berichte-kpi-module-scope` gezogen (naechste `status: todo`-Unit mit `deps: []`).
+  Befund bestaetigt: `HandleGetDashboardKPIs` reichte `?modules=` ungeprueft an den RPC durch,
+  einziger Guard war `berichte:reports:read` ("darf das Berichte-Modul oeffnen"). Die Kacheln
+  tragen aber Umsatz, Pipeline-Volumen und Bestandszahlen fremder Module — ein `member` ohne
+  `finance:module:view` las ueber `?modules=finanzen` den Monatsumsatz.
+  Fix im Gateway (`route_berichte.go`): `kpiModuleVisibility` mappt Modul-ID -> Level-1-Capability
+  und ist die serverseitige Kopie von `REPORT_MODULE_KEY` in
+  `desktop/.../report-module-visibility.ts`. Wichtig und bewusst NICHT abgeleitet: die Berichte-
+  Modul-ID heisst `finanzen`, der RBAC-Key `finance:module:view` — jede String-Ableitung waere beim
+  naechsten Drift ein stilles Loch. `cross` bleibt ohne Modul-Capability (aggregierte Zahlen ohne
+  Modulzuordnung), exakt wie `cross: null` im Frontend; unbekannte IDs fallen fail-closed raus.
+  `visibleKPIModules(r, requested)` schneidet die Anfrage gegen `middleware.GetUserPermissions`.
+  Leere Anfrage heisst jetzt "alle Module, die dieser Nutzer sehen darf" und wird **explizit**
+  expandiert (sortiert — Map-Iteration ist zufaellig, das RPC-Argument darf es nicht sein).
+  Kernfalle dieser Unit: der Executor liest eine leere Modulliste weiterhin als "alle Module"
+  (`executor.go:337-340`). Ein Schnitt, der auf die leere Liste faellt, waere deshalb keine
+  Verschaerfung, sondern eine Oeffnung. Deshalb antwortet der Handler bei leerem Ergebnis selbst mit
+  `DashboardKPIsResponse{GeneratedAt: ...}` (200, keine Kacheln) und schickt nichts an den Service.
+  Der Early-Return sitzt **vor** `getClient()`: eine Autorisierungsentscheidung darf nicht davon
+  abhaengen, ob berichte gerade erreichbar ist.
+  Der Route-Guard `berichte:reports:read` wurde nicht angefasst (nicht getauscht, kein
+  `RequirePermissionAny` noetig) — der Schnitt sitzt hinter dem Guard, also kann kein Nutzer mit
+  gueltigem Alt-Token ausgesperrt werden; er sieht schlimmstenfalls Kacheln weniger.
+  `openapi.yaml`: keine neue Route, aber die Parameter-Beschreibung sagte "empty means all modules"
+  und war damit falsch — auf die neue Semantik korrigiert.
+  Test (neu, `internal/gateway/route_berichte_kpi_scope_test.go`, 7 Faelle, kein DB/gRPC noetig):
+  Kern ist `TestHandleGetDashboardKPIs_MemberAskingForFinanzenGetsNothing` (member-Permissions aus
+  Migration 000256, ohne `finance:module:view`, `?modules=finanzen` -> 200 ohne `kpis`) plus der
+  Kontrast `..._GrantedModuleReachesTheService` (derselbe Request mit `finance:module:view` -> 503
+  aus der leeren Registry, d.h. der Call ging wirklich raus). Ohne dieses Paar waere "200 leer"
+  nicht von "Handler antwortet immer leer" zu unterscheiden. Dazu die Filterfaelle: Drop, Reihenfolge
+  bleibt Request-Reihenfolge, Leer-Expansion ohne `finanzen`, unbekanntes Modul fail-closed,
+  `cross` ohne Capability.
+  FUND beim Testen: der bestehende `TestHandleGetDashboardKPIs_ServiceUnavailable` blieb nur
+  deshalb gruen, weil `cross` immer sichtbar ist — ohne den Eintrag haette ein Request ohne
+  Permissions eine leere Expansion und damit 200 statt 503 ergeben. Wer `cross` spaeter
+  capability-pflichtig macht, muss diesen Test mitziehen.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`./internal/gateway/...`) | lint ok
+  (golangci-lint auf `./internal/gateway/...`, 0 issues) | test ok — `go test -count=1 -v
+  ./internal/gateway/` mit `DATABASE_URL` auf `kmuhub_app`: 618 PASS, 0 FAIL, 0 SKIP (inkl.
+  `TestOpenAPIRouteDrift`); `go test -count=1 ./internal/berichte/...` alle 6 Pakete ok.
+  Keine Migration, keine neue Route, kein neuer Guard, kein neuer Permission-Key.
 - offen:
-  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. Ob das FE ueberhaupt
-    schon einen Kontakt/Org-Picker am Ticket hat, nicht geprueft.
-  - `UpdateTicket`-Signatur kann `contact_id`/`org_id` nur SETZEN, nicht wieder auf NULL loeschen
-    (gleiche Einschraenkung wie das bestehende Muster bei `assignee_id`/`queue_id` — non-nil
-    Pointer heisst "patch", nil heisst "kein Patch", es gibt kein explizites "clear"). Falls das FE
-    eine Ent-Verknuepfung braucht, ist das ein separater Scope (z. B. Sentinel-UUID oder ein
-    zweites Boolean-Feld), nicht in dieser Unit ergaenzt.
-  - Naechste Unit laut Reihenfolge: `g-helpdesk-source-channel` (Block G, deps:
-    [g-helpdesk-contact-link], model: sonnet) — jetzt entsperrt.
+  - Der Executor-Default "leere Modulliste = alle Module" (`internal/berichte/executor/executor.go`)
+    steht unveraendert. Heute unschaedlich, weil das Gateway der einzige HTTP-Eingang ist und nie
+    mehr eine leere Liste schickt (verifiziert per grep: genau ein Aufrufer). Wird der RPC je von
+    einem zweiten Aufrufer genutzt, muss die Semantik dort mit umgestellt werden.
+  - `kpiModuleVisibility` deckt die sechs `validModules` des Backends ab; das Frontend-Mapping kennt
+    zusaetzlich work/kommunikation/hr/zeiterfassung/vertraege/einkauf/fuhrpark/rapporte. Solange
+    `sanitizeModules` diese ohnehin verwirft, ist das deckungsgleich — wer `validModules` erweitert,
+    muss `kpiModuleVisibility` im selben Zug erweitern, sonst faellt das neue Modul still weg.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-30 bleiben offen, hier nicht angefasst.
 
-## Iteration 61 — g-helpdesk-source-channel — done — 2026-08-02 08:05
-- commit: (folgt)
-- verify vorgaenger: sauber. `93cead56` (g-helpdesk-contact-link) gegen die acht Fehlerklassen
-  geprueft: `route_helpdesk.go`-Diff geht durchgehend ueber `client.CreateTicket`/`UpdateTicket`/
-  `ListTickets` (kein RLS-Bypass), kein Stub/TODO, `.proto` (Felder 20/21 auf `Ticket`/
-  `CreateTicketRequest`/`UpdateTicketRequest`/`ListTicketsRequest`) mit `.pb.go` im selben Commit
-  regeneriert (kein `_grpc.pb.go`-Diff, weil keine RPC-Signatur geaendert wurde — erwartet, keine
-  Luecke), Migration 000267 fuegt nullable `contact_id`/`org_id` auf der bereits RLS-aktiven
-  `tickets`-Tabelle hinzu (kein neuer Guard, kein Seed noetig), `ContactExists`/`CompanyExists`
-  filtern explizit `tenant_id = $2` (Defense-in-Depth zusaetzlich zur RLS). Unabhaengig nachgebaut:
-  `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
-  ./cmd/helpdesk/... ./cmd/gateway/...` gruen, `go test ./internal/gateway/ -run
-  TestOpenAPIRouteDrift` gruen (777 Routen / 779 Pfade, unveraendert).
-- gebaut: `source_channel`/`source_message_id` auf `tickets` (Migration 000268, `source_channel
-  VARCHAR(20) CHECK IN ('email','chat','notification')` — deckungsgleich mit der bestehenden
-  `inbox_messages.channel`-CHECK-Constraint; `source_message_id UUID REFERENCES
-  inbox_messages(id) ON DELETE SET NULL`; partieller Unique-Index `idx_tickets_source_message
-  WHERE source_message_id IS NOT NULL` als DB-seitiger Idempotenz-Backstop). Neue RPC
-  `HelpdeskService.CreateTicketFromMessage` (Proto-Felder 22/23 auf `Ticket`, zwei neue Messages,
-  `.pb.go`+`_grpc.pb.go` diesmal BEIDE regeneriert, weil eine neue RPC dazukam). Orchestrierung
-  sitzt im gRPC-Handler (`HelpdeskGRPCServer`, jetzt mit optionalem `inboxClient
-  inboxv1.InboxServiceClient`, nil-safe analog `BizGRPCServer.crmClient`) — 1:1 das Muster von
-  `BizGRPCServer.CreateQuoteFromDeal`: Handler holt die Inbox-Nachricht per
-  `inboxClient.GetMessage` (bestehende RPC, kein Aufwand), mappt `Channel`-Enum ueber das
-  bereits vorhandene package-private `channelToString` (selbes `package server`, in
-  `inbox_grpc.go`) auf den DB-String, delegiert Persistenz+Idempotenz an
-  `Service.CreateTicketFromMessage` (thick service). Idempotenz zweistufig: Pre-Check per neuer
-  Repo-Methode `GetTicketBySourceMessage` VOR dem Insert (haeufiger Fall, kein Round-Trip zum
-  Unique-Index) + Race-Recovery ueber `pgconn.PgError.Code == "23505"` auf
-  `idx_tickets_source_message` (seltener Fall zweier gleichzeitiger Konversionen derselben
-  Nachricht) — beide Pfade liefern denselben, bereits existierenden Ticket mit `created=false`
-  zurueck statt eines Fehlers oder eines zweiten Tickets. `ValidSourceChannels` lehnt
-  `CHANNEL_GUEST`/`CHANNEL_UNSPECIFIED` (die `channelToString` heute auf `""` abbildet, weil sie
-  nie in `inbox_messages.channel` landen) sauber mit `ErrInvalidSourceChannel` (400) ab, statt in
-  die DB-CHECK-Constraint zu laufen (500). Fehlender Nachrichten-Subject bekommt einen
-  deutschsprachigen Fallback (`"Ticket aus E-Mail/Chat/Benachrichtigung"`) statt eines
-  Validierungsfehlers — ein Ticket ohne Betreff waere sonst aus manchen Notification-Nachrichten
-  gar nicht erzeugbar. Requester der neuen Route ist wie bei `HandleCreateTicket` der
-  authentifizierte Aufrufer (Agent), NICHT der externe Absender der Nachricht — deckungsgleiches
-  Verhalten zur bestehenden Ticket-Erstellung, keine Sonderrolle eingefuehrt. Neue Route `POST
-  /api/v1/helpdesk/tickets/from-message` hinter dem bestehenden `hdTicketCreate`-Guard (kein
-  neuer Permission-Key, kein Seed noetig), Response ist der blanke `Ticket` (wire-shape-identisch
-  zu `CreateTicket`/`UpdateTicket`/`GetTicket`), Status 201 bei frischer Konversion, 200 beim
-  idempotenten Treffer — dieselbe Ticket-Response, nur der Code unterscheidet.
-- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./internal/server/...
-  ./cmd/helpdesk/... ./cmd/gateway/...` gruen | `go vet` gruen | `golangci-lint run --config
-  .golangci.yml` fuer dieselben Pakete: 0 issues | swagger-cli validate: `api/openapi.yaml is
-  valid` | Migration lokal up/down/up sauber (Kopf 268). `DATABASE_URL` gesetzt (Rolle
-  `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go test -count=1 -v ./internal/helpdesk/...` PASS, 0
-  Skips (57 Tests, davon 4 neu: Provenienz persistiert+re-read, Idempotenz ueber zwei Aufrufe mit
-  DB-Zaehlung `COUNT(*) WHERE source_message_id=$1 = 1`, Subject-Fallback bei leerer
-  Message-Subject, `ErrInvalidSourceChannel` bei unbekanntem Channel), `go test
-  ./internal/server/...` PASS, `go test ./internal/gateway/...` PASS inkl.
-  `TestOpenAPIRouteDrift` (778/780, +1/+1 durch die neue Route) und `TestOpenAPISpecDrift`
-  (779/778, Differenz weiterhin nur die vorbestehende `/api/v1/files/upload`-Allowlist-Ausnahme).
-  RLS-Smoke: kein neuer Table/keine neue Policy (nur zwei nullable Spalten + ein partieller
-  Unique-Index auf der bereits RLS-aktiven `tickets`-Tabelle) — die bestehenden
-  `TestTenantIsolation_Helpdesk/tickets` und `TestTicketWrites_LandInCallerTenant` (beide
-  unveraendert gruen) sowie die neuen Tests unter `WithTenantCtx` als `kmuhub_app` decken das ab,
-  kein separater psql-Handlauf noetig.
+## Iteration 32 — g-berichte-document-upload — done — 2026-08-03
+- commit: dcf98a3e
+- verify vorgaenger: sauber. `f3c65ad5` (fix-berichte-kpi-module-scope, Iteration 31) gegen die
+  Fehlerklassen geprueft: Klasse 1 (gRPC-Bypass) N/A — Handler ruft weiterhin `client.GetDashboardKPIs`
+  ueber den gRPC-Client, kein direkter Service-Zugriff. Klasse 2/3 N/A (kein Stub, kein .proto-Diff).
+  Klasse 4 N/A — keine neuen `RequirePermission`-Guards, die verwendeten Capability-Keys
+  (`finance:module:view` etc.) sind bereits in Migration 000256 geseedet (gegengeprueft per grep).
+  Klasse 5 N/A (keine neue Tabelle). Klasse 6 sauber — Response bleibt dasselbe Proto, nur die
+  Modulliste wird server-seitig geschnitten. Klasse 7 sauber — kein neuer Pfad, nur eine
+  Parameter-Beschreibung in openapi.yaml korrigiert (keine neue Route noetig). Klasse 8 N/A — der
+  Route-Guard `berichte:reports:read` wurde nicht angefasst. Nichts zu beanstanden.
+- gebaut: `g-berichte-document-upload` gezogen (einzige `status: todo`-Unit mit `deps: []`).
+  Befund bestaetigt: `desktop/.../berichte-client.ts:286` sendet `POST
+  /api/v1/documents/files/upload` (multipart: file, folder_id, tag_id), die Route existierte nicht —
+  "Bericht als PDF in Dokumente ablegen" war tot.
+  Neue RPC `UploadFile` in `document.proto` (Request: folder_id, filename, mime_type, file_size,
+  content bytes, owner_id, tag_id; Response: file) + Regen im selben Commit
+  (`protoc --go_out --go-grpc_out proto/document/v1/document.proto`, da `make` auf dieser Maschine
+  fehlt — Kommando aus dem Makefile-Target `proto-document` 1:1 uebernommen).
+  Server-Implementierung (`document_grpc.go`) loest `folder_id` **vor** jedem Schreiben ueber
+  `folderService.GetByID(ctx, tenantID, folderID)` auf — das ist der tenant-scope Check, der laut
+  Unit-Notes Pflicht war ("ungeprueft waere das ein Weg, in fremde Ordner zu schreiben"); ein Ordner
+  ausserhalb des eigenen Tenants liefert `folder.ErrFolderNotFound` -> 404, bevor `fileService.Upload`
+  ueberhaupt aufgerufen wird. Die Space-Daten des aufgeloesten Ordners (`SpaceType`/`SpaceID`) fuettern
+  den Storage-Key, wie es das bereits vorhandene (bisher komplett aufruferlose!) `file.Service.Upload`
+  ueberall sonst im Modul erwartet — `Upload` selbst existierte fertig getestet, hatte aber schlicht
+  keine RPC, die sie erreicht; diese Unit ist damit primaer Verdrahtung, keine neue Business-Logik.
+  FUND + Root-Cause-Fix ueber die Unit hinaus: `tag_id` ist in `document_tags` genauso eine
+  FK-Referenz wie `folder_id`, aber die FK-Pruefung laeuft ueber einen Trigger mit Owner-Rechten und
+  umgeht damit RLS komplett — `TagFile` haette einen `tag_id` aus einem FREMDEN Tenant klaglos
+  akzeptiert (die einzige Sicherung war RLS's WITH CHECK auf die `tenant_id`-Spalte der neuen
+  `document_file_tags`-Zeile selbst, nicht auf den referenzierten Tag). Statt das nur in der neuen
+  RPC ad-hoc abzufangen, wurde `tag.PostgresRepository.TagFile` (`internal/document/tag/
+  postgres_repository.go`) um einen expliziten `SELECT EXISTS(...tenant_id=$2)`-Check vor dem INSERT
+  erweitert (`ErrTagNotFound` bei Miss) — das schliesst dieselbe Luecke auch fuer die bestehende
+  `HandleTagFile`-Route (`/api/v1/documents/tags/file`) mit, nicht nur fuer den neuen Pfad. Neuer
+  Test `TestTagFile_RejectsTagFromAnotherTenant` (`tenant_write_test.go`) belegt das: eigener
+  Tenant-Context, eigene Datei, aber `tag_id` eines fremden Tenants -> `ErrTagNotFound`, 0 Zeilen in
+  `document_file_tags`. Der bestehende Test `TestDocumentTagWrites_LandInCallerTenant` blieb gruen
+  (die dort gepruefte RLS-Session-Fehlpassung schlaegt weiterhin fehl, nur jetzt eine Zeile frueher
+  ueber den neuen Ownership-Check statt ueber den rohen RLS-Fehler).
+  `tag_id` ist im neuen Endpunkt bewusst optional (leerer String = kein Tag) und nicht hart
+  Pflichtfeld: das FE (`saveReportToDocuments`) sendet aktuell den mock-typischen String-Literal
+  `'t-bericht'` statt einer echten UUID (siehe `mocks/handlers/documents.ts:40`, wo Demo-Tags
+  String-IDs statt UUIDs tragen) — `uuid.Parse` auf diesem Wert liefert einen 400
+  `invalid tag id`, bis entweder das FE eine echte Tag-UUID schickt oder pro Tenant ein "Bericht"-Tag
+  provisioniert wird. Das ist eine offene FE/Produkt-Frage, keine Backend-Luecke, siehe unten.
+  Gateway-Handler (`route_document.go`, `HandleUploadFile`) folgt exakt dem Multipart-Muster aus
+  `route_biz_gobd_archive.go` (55 MiB Formular-Cap = 50 MiB Datei + 5 MiB Felder,
+  `grpc.MaxCallSendMsgSize(60<<20)` fuer den RPC-Call). Content-Type-Allowlist
+  (`allowedDocumentUploadMimeTypes`) und Groessenlimit (`maxDocumentUploadBytes = 50<<20`, deckungsgleich
+  mit dem bestehenden Presign-Limit in `presign.go`) sitzen bewusst im Gateway-Handler, nicht im
+  generischen `file.Service.Upload` (der bleibt unveraendert wiederverwendbar fuer kuenftige Aufrufer
+  mit anderen Anforderungen) — Allowlist ist dieselbe Dokumente/Bilder/Office/Archiv-Menge wie
+  `internal/chat/file`s `allowedMimeTypes`, MINUS `image/svg+xml` (dieselbe XSS-Begruendung wie
+  `brandingAllowedContentTypes` in `presign.go`: Dokumente werden potenziell inline ueber WOPI
+  geoeffnet, ohne Sanitizer davor).
+  Route registriert unter der bestehenden `docUpload`-Guard-Variable (`documents:file:upload` /
+  `documents:write`, additiv, kein neuer Permission-Key noetig, kein Seed noetig).
+  openapi.yaml: neuer Pfad `/api/v1/documents/files/upload` (multipart/form-data, 201/400/401/403/
+  404/413/415) nach dem Vorbild von `/finance/gobd-archive`.
+  gate: build ok (`go build -p 2` auf document/gateway/server/cmd/document/cmd/gateway) | vet ok |
+  lint ok (golangci-lint auf `internal/document/...`, `internal/gateway/...`, `internal/server/...`,
+  0 issues) | migration: keine (kein Schema-Change) | test ok — `go test -count=1 -v
+  ./internal/document/... ./internal/server/...` mit `DATABASE_URL` auf `kmuhub_app`: 368 PASS, 0
+  SKIP, 0 FAIL; `go test -count=1 ./internal/gateway/`: 618 PASS, 0 FAIL, 0 SKIP, inkl.
+  `TestOpenAPIRouteDrift` (791 registrierte gegen 793 dokumentierte `/api/v1/*`-Pfade, gruen).
 - offen:
-  - Kein FE-Wiring (kein `desktop/`-Code angefasst) — reine Backend-Iteration. FE hat aktuell
-    keinen "In Ticket umwandeln"-Button im Posteingang; die Route ist bereit, sobald das kommt.
-  - `CHANNEL_GUEST` (Proto-Enum-Wert 4) ist weiterhin nicht mit der DB verdrahtet
-    (`channelToString`/`stringToChannel` in `inbox_grpc.go` kennen ihn nicht, `inbox_messages.
-    channel`-CHECK-Constraint erlaubt ihn nicht) — vorbestehende Luecke aus dem Inbox-Modul,
-    nicht in dieser Unit angefasst. Falls Gastnachrichten je als eigener Channel gefuehrt werden,
-    muss diese Unit's `ValidSourceChannels`-Map mitziehen.
-  - Naechste Unit laut Reihenfolge: `g-automation-http-action` (Block G, deps: [], model: opus,
-    SSRF-kritisch) — jetzt an der Reihe.
+  - `tag_id` aus dem FE ist aktuell der literale Mock-String `'t-bericht'`, keine echte UUID —
+    der neue Endpunkt liefert dafuer 400 `invalid tag id`, das Speichern des Files selbst (ohne Tag)
+    waere aber unbenommen, wenn das FE `tag_id` wegliesse. Zwei Wege fuer eine spaetere Unit: (a) FE
+    schickt keine `tag_id` mehr, bis es echte Tag-UUIDs kennt, oder (b) ein "Bericht"-Tag wird pro
+    Tenant provisioniert (im `ProvisionTenant`-Hook, `auth/provisioning.go:76`, derselbe Ort wie bei
+    `g-rls-presence-and-dashboard-defaults`) und das FE erhaelt dessen echte UUID. Reine
+    FE/Produkt-Entscheidung, keine Backend-Blockade.
+  - `RegisterUploadedFile` (der bestehende Presign-Register-Pfad, `document_grpc.go:301`) hat
+    denselben ungeprueften `folder_id`-Fund wie die neue `UploadFile`-Route hatte, VOR dem Fix: es
+    validiert nicht, dass `folder_id` dem aufrufenden Tenant gehoert, bevor es die Datei-Metadaten
+    darunter registriert. Bewusst NICHT in diesem Commit mitgezogen (andere Route, ausserhalb des
+    Unit-Scopes, kein Test dafuer vorbereitet) — fuer eine kuenftige Fix-Unit vormerken, Vorlage ist
+    der `folderService.GetByID`-Check aus dieser Iteration.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 33 — g-email-messages-bulk — done — 2026-08-03
+- commit: 06f1447c
+- verify vorgaenger: sauber. `dcf98a3e` (g-berichte-document-upload, Iteration 32) gegen die acht
+  Fehlerklassen geprueft: Klasse 1 N/A — `HandleUploadFile` ruft `client.UploadFile` ueber den
+  gRPC-Client, kein direkter Service-Zugriff. Klasse 2 N/A — `UploadFile` ist eine echte
+  Implementierung (loest `folder_id` ueber `folderService.GetByID` auf, schreibt echte Bytes via
+  `fileService.Upload`), kein Stub. Klasse 3 sauber — `.proto` und `.pb.go`/`.grpc.pb.go` im selben
+  Commit (959 Zeilen Regen). Klasse 4 N/A — Route haengt am bestehenden `docUpload`-Guard
+  (`documents:file:upload`/`documents:write`), kein neuer Permission-Key, kein Seed noetig. Klasse 5
+  N/A — keine neue Tabelle. Klasse 6 sauber — Response `{file: DocumentFile}`, deckungsgleich mit den
+  Nachbarrouten. Klasse 7 sauber — `/api/v1/documents/files/upload` steht in openapi.yaml, alle
+  Status-Codes (400/401/403/404/413/415) dokumentiert. Klasse 8 N/A — kein bestehender Guard ersetzt.
+  Zusatzfund im selben Commit sauber behandelt: `TagFile` bekam einen expliziten Tenant-Ownership-Check
+  fuer `tag_id` (schliesst eine RLS-Bypass-Luecke ueber einen Owner-Trigger, betrifft auch die
+  bestehende `/tags/file`-Route), mit eigenem Regressionstest belegt. Nichts zu beanstanden.
+- gebaut: `g-email-messages-bulk` gezogen (erste `status: todo`-Unit mit erfuellten `deps: []` in
+  Datei-Reihenfolge unter Block G).
+  Verifiziert: `desktop/.../email-client.ts:191` (`bulk(ids, action, target)`) und
+  `useEmail.ts:224` (`useBulkMessageAction`) riefen `POST /api/v1/email/messages/bulk`, das im Gateway
+  nicht existierte — die Mehrfachauswahl-Toolbar in `MailsPage.tsx:706-718` (read/star/archive/spam/
+  delete-Buttons) lief ins Leere.
+  Neue RPC `BulkMessageAction` in `email.proto` (Request: `ids[]`, `action`, `target`; Response:
+  `affected`) + Regen im selben Commit (`protoc --go_out --go-grpc_out proto/email/v1/email.proto`,
+  kein dediziertes `proto-email`-Makefile-Target existierte — Kommando 1:1 aus dem generischen
+  `proto:`-Ziel uebernommen und dokumentiert, dass `email.proto` dort bislang fehlte).
+  Aktionsmenge bewusst NICHT die drei in den Backlog-Notes vorgeschlagenen ("read, unread, star, move,
+  delete") — die stimmten nicht mit der real verdrahteten UI ueberein (dort: read/star/archive/spam/
+  delete, kein move/unread als Button). Stattdessen die volle `BulkAction`-Menge aus der stateful
+  MSW-Referenz `mocks/data/email-store.ts:424` uebernommen: read/unread/star/unstar/archive/spam/move/
+  delete (dieselbe SSOT-Konvention wie bei RBAC Welle 1b gegen `mocks/handlers/rbac.ts`). `label`
+  bewusst ausgelassen (kein FE-Aufrufer, eigene Ownership-Semantik) — jeder unbekannte Wert inkl.
+  `label` liefert 422 (`codes.OutOfRange`, dieselbe Konvention wie der RBAC-Capability-Key-Check).
+  Kein neuer Business-Code fuer die einfachen Aktionen: `BulkAction` im `message.Service` bildet jede
+  Aktion auf bestehende Methoden ab (`MarkRead`/`MarkUnread`/`MoveToFolder`/`Delete`). Neu: `SetStarred`
+  (duenner `UpdateFlags`-Wrapper, noetig weil `ToggleStar` togglet statt setzt — bulk star/unstar
+  braucht einen deterministischen Zielzustand unabhaengig vom Ausgangszustand jeder Nachricht) und
+  `FolderRepository.GetByAccountAndType` (neu, fuer archive/spam-Ordnerauflösung).
+  Tenant-Isolation wie von den Notes gefordert PRO ID: `GetByID(ctx,id,tenantID)` vor jeder Mutation,
+  keine fremde oder nicht-existente ID zaehlt in `affected`, und keine einzelne fremde ID bricht den
+  Rest des Batches ab (Teil-Erfolg). `email_messages`/`email_folders` haben ohnehin aktives RLS
+  (Migration 000122/000124) — die per-ID-Pruefung ist zusaetzlich zur DB-Ebene, nicht ihr Ersatz, und
+  macht `affected` exakt zaehlbar (die bestehenden Single-Op-Repos geben nur `error` zurueck, keine
+  Rows-Affected).
+  `archive`/`spam` loesen den Zielordner PRO NACHRICHT ueber deren eigenen `account_id` auf (eine
+  Unified-Inbox-Auswahl kann mehrere Konten umfassen) und cachen das Ergebnis pro Konto innerhalb eines
+  Aufrufs, um nicht pro Nachricht erneut zu queryen. Hat ein Konto keinen Archiv-/Spam-Ordner (nicht
+  jedes gesyncte Konto hat einen — siehe `sync/worker.go:50-54`), wird NUR diese Nachricht
+  uebersprungen, nicht der ganze Aufruf verworfen.
+  FUND ueber die Unit hinaus: die Route ist mit `email:write` gegated (das Minimum, das jede Aktion
+  braucht), aber `action=delete` haette damit `email:delete` umgangen — die Einzel-Route
+  `DELETE /api/v1/email/messages/{id}` verlangt dieses Recht separat. `HandleBulkMessageAction` prueft
+  bei `action=="delete"` zusaetzlich explizit `email:delete` aus `middleware.GetUserPermissions(ctx)`
+  und liefert 403 ohne — sonst waere Bulk eine breitere Tuer gewesen als das Einzel-Loeschen.
+  Bestandsbeobachtung, NICHT in dieser Iteration behoben (ausserhalb des Scopes): `delete` in bulk ruft
+  die bestehende `Service.Delete` (hartes `DELETE FROM email_messages`), waehrend die MSW-Mock-Referenz
+  ein Soft-Delete in den Papierkorb simuliert. Diese Abweichung existierte schon in der Einzel-DELETE-
+  Route vor dieser Unit — bulk reproduziert nur dasselbe Verhalten, fuehrt keine neue Inkonsistenz ein.
+  `ids`-Obergrenze 500 gateway-seitig (`validate:"required,min=1,max=500,dive,uuid"`), vor jedem
+  gRPC-Call geprueft.
+  gate: build ok (`go build -p 2` auf email/gateway/server/cmd/email/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues) | migration: keine (kein Schema-Change) | test ok —
+  `go test -count=1 -v ./internal/email/... ./internal/gateway/ ./internal/server/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: 1797 PASS, 0 SKIP, 0 FAIL, inkl. `TestOpenAPIRouteDrift` (792
+  registrierte gegen 794 dokumentierte `/api/v1/*`-Pfade, gruen). 8 neue Tests in
+  `internal/email/message/service_test.go` fuer `BulkAction`: unbekannte Aktion, move ohne target,
+  read/star/delete, unread/unstar, Cross-Tenant (fremde/fehlende ID zaehlt nicht, Rest laeuft durch),
+  move mit gueltigem/unbekanntem Ziel, archive-Aufloesung pro Konto inkl. Teil-Skip.
+- offen:
+  - `delete` in bulk ist ein hartes Delete, die MSW-Referenz simuliert Soft-Delete-in-Papierkorb — diese
+    Diskrepanz besteht schon in der Einzel-DELETE-Route und ist keine neue Luecke dieser Unit. Falls das
+    Produktverhalten je auf Soft-Delete umgestellt wird, gehoert das in eine eigene Unit, die BEIDE
+    Routen gleichzeitig aendert (sonst laufen Einzel- und Bulk-Loeschen wieder auseinander).
+  - `label` als Bulk-Aktion ist NICHT gebaut (422). Falls das FE das je an einen Button haengt, braucht
+    es eine eigene Entscheidung: taggen (add) oder ersetzen (replace), plus Tenant-Ownership-Check auf
+    das Label wie bei `AssignMessageLabels`.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 34 — g-admin-users-list — done — 2026-08-03
+- commit: 55f439fe
+- verify vorgaenger: sauber. `06f1447c` (g-email-messages-bulk, Iteration 33) stichprobenartig gegen
+  die Fehlerklassen geprueft (Iteration 33 hatte sich selbst bereits ausfuehrlich gegen Iteration 32
+  geprueft und dokumentiert — hier nur der unabhaengige Gegen-Check dieser Iteration): Klasse 1 sauber
+  — `HandleBulkMessageAction` ruft `client.BulkMessageAction`, kein direkter Service-Zugriff. Klasse 2
+  sauber — `Service.BulkAction` ist eine echte Implementierung (Per-ID-Tenant-Check via `GetByID`,
+  echtes Mapping auf bestehende Methoden, Teil-Erfolg statt Abbruch), kein Stub. Klasse 3 sauber —
+  `email.pb.go`/`email_grpc.pb.go` im selben Commit regeneriert. Klasse 4 N/A — kein neuer Permission-
+  Key, nur eine zusaetzliche Pruefung auf bereits bestehendes `email:delete`. Klasse 5 N/A — keine neue
+  Tabelle. Klasse 7 sauber — `/api/v1/email/messages/bulk` in openapi.yaml. Klasse 8 sauber — der
+  zusaetzliche `email:delete`-Check verschaerft die bestehende Route, ersetzt sie nicht. Nichts zu
+  beanstanden.
+- gebaut: `g-admin-users-list` gezogen (naechste `status: todo`-Unit mit erfuellten `deps: []`).
+  Verifiziert wie in den Notes beschrieben: `useAdminUsers.ts:21` ruft `GET /api/v1/admin/users`, im
+  Gateway existierte dort nur `/{id}/permissions`. Die Substanz war vorhanden (`HandleListUsers` unter
+  `/api/v1/users`, `user_roles`, `invitations`) — diese Unit ist eine reine Zusammenfuehrung, kein
+  neuer Datenbestand, deshalb KEINE Migration in diesem Commit.
+  Neue RPC `ListAdminUsers` in `auth.proto` + Regen im selben Commit. Komposition lebt in
+  `PostgresRepository.ListAdminUsers` (zwei Queries, keine pro Nutzer): (1) `users` LEFT JOIN
+  `user_roles` LEFT JOIN `user_sessions`, `GROUP BY u.id` — Postgres erlaubt dank funktionaler
+  Abhaengigkeit vom Primary Key, `first_name`/`last_name`/`email`/`is_active` im SELECT zu fuehren, ohne
+  sie in GROUP BY aufzunehmen; (2) offene Einladungen (`accepted_at IS NULL AND expires_at > NOW()`)
+  gegen eine einmalige Preset-Name→ID-Lookup (`roles WHERE tenant_id IS NULL`) aufgeloest. `Service.
+  ListAdminUsers` ist reiner Pass-Through wie `ListRoles` — die Komposition sitzt in der Repository-
+  Query, nicht verstreut ueber Service/Handler. Tenant-Scoping laeuft fuer beide Quellen vollstaendig
+  ueber RLS, kein expliziter `tenantID`-Parameter (wie bei `ListUsers`/`ListRoles`) — sicher, weil die
+  Route immer unter authentifiziertem Kontext laeuft, nie unter `sysctx.With()`.
+  DREI Entscheidungen bewusst getroffen und hier dokumentiert (die Notes hatten nur zwei vorausgesehen):
+  (1) `lastLoginAt` = `MAX(user_sessions.created_at)` — `created_at` markiert den Moment der
+  Session-Erzeugung (`Service.CreateSession` laeuft direkt nach erfolgreichem Login), nicht
+  `last_active_at`, das mit jeder Aktivitaet weiterlaeuft und damit vom Wortsinn "letzter Login"
+  wegdriften wuerde. Bekannte Grenze: eine per Logout/Terminate geloeschte Session zaehlt nicht mehr
+  mit — dokumentiert in openapi.yaml, nicht versteckt.
+  (2) `roles` sind Rollen-IDs direkt aus `user_roles.role_id` — kein Join auf `roles` noetig, weil
+  `AdminUser.roles` laut `admin-types.ts` bereits IDs erwartet (Preset- oder Custom-Rollen-IDs), keine
+  Namen.
+  (3) NEU, in den Notes nicht erwaehnt: `jobTitle` hat KEINE Datenquelle im Backend (`users` hat keine
+  Spalte dafuer, das Feld lebt nur in der HR-Employee-Tabelle eines anderen Service mit eigener ID) —
+  liefert bewusst immer `""` statt eines erfundenen Werts, dokumentiert in openapi.yaml. `hasOverrides`
+  bleibt `omitempty` (R-6 Permission-Overrides existieren serverseitig noch nicht, siehe
+  `g-rbac-user-overrides-model`, weiterhin offen).
+  Invited-Zeilen kommen NICHT aus `users` — ein Invite legt laut `Service.CreateInvitation` keine
+  Nutzerzeile an, nur eine `invitations`-Zeile. Deshalb firstName/lastName dort bewusst leer statt aus
+  der E-Mail-Adresse geraten (`nameFromEmail`-Stil waere Erfindung, kein Datum) — derselbe Massstab wie
+  bei lastLoginAt. Abgelaufene Einladungen zaehlen bewusst NICHT als "invited" (`expires_at > NOW()` im
+  Query), sonst haette der Builder eine tote Einladung als aktiven Vorgang angezeigt.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | migration: keine (kein
+  Schema-Change) | lint ok (golangci-lint, 0 Issues auf den geaenderten Packages) | test ok — `go test
+  -count=1 ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit `DATABASE_URL` auf
+  `kmuhub_app`: alle gruen, `TestOpenAPIRouteDrift` 793 gegen 795 dokumentierte Pfade. Zwei neue
+  DB-Tests in `admin_users_db_test.go` (Merge aktiv/deaktiviert/eingeladen inkl. ausgeschlossener
+  abgelaufener Einladung; Tenant-Isolation fuer User UND Invitation, eigene Tenants nicht TenantA/B),
+  ein neuer Gateway-Test `TestHandleListAdminUsers_ServiceUnavailable`.
+- offen:
+  - `jobTitle`/`hasOverrides` bleiben leer/omitted, bis es eine echte Backend-Quelle gibt (HR-Verknuepfung
+    bzw. `g-rbac-user-overrides-model`). Kein Blocker fuer diese Unit, aber relevant fuer `g-admin-users-
+    invite` (naechste Unit): falls die Schreibrouten je Vor-/Nachnamen bei Invite erfassen sollen, braucht
+    `invitations` dafuer neue Spalten.
+  - `lastLoginAt` unterscheidet nicht zwischen "nie eingeloggt" und "eingeloggt, aber jede Session seither
+    geloescht" — beides liefert `null`. Nur relevant, falls das FE das je unterscheiden will.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 35 — g-admin-users-invite — done — 2026-08-03
+- commit: 6c937c7a
+- verify vorgaenger: sauber. `55f439fe` (g-admin-users-list, Iteration 34) gegen die Fehlerklassen
+  geprueft. Klasse 1 sauber — `HandleListAdminUsers` holt sich `a.getAuthClient()` und ruft
+  `client.ListAdminUsers`, keine direkt injizierte Service-Instanz. Klasse 2 sauber —
+  `PostgresRepository.ListAdminUsers` ist eine echte Zwei-Query-Komposition, kein Stub; die drei
+  Datenluecken (jobTitle/hasOverrides/lastLoginAt) sind bewusst leer statt erfunden und im Code sowie
+  in openapi.yaml als solche dokumentiert. Klasse 3 sauber — `auth.pb.go`/`auth_grpc.pb.go` im selben
+  Commit regeneriert. Klasse 4 N/A — kein neuer Permission-Key, `RequireRole("admin")` wie die
+  Nachbarroute. Klasse 5 N/A — keine neue Tabelle. Klasse 7 sauber — Route in openapi.yaml,
+  `TestOpenAPIRouteDrift` gruen. Klasse 8 sauber — die neue `Get("/")` steht neben der bestehenden
+  `/{id}/permissions`, ersetzt nichts. Nichts zu beanstanden.
+- gebaut: `g-admin-users-invite` (naechste `status: todo`-Unit, `deps: [g-admin-users-list]` erfuellt).
+  Drei Routen: `POST /api/v1/admin/users/invite` (201), `PATCH /api/v1/admin/users/{id}`,
+  `POST /api/v1/admin/users/{id}/resend-invite`, alle `RequireRole("admin")` wie die Nachbarroute —
+  kein neuer Permission-Key, also keine Seed-Migration noetig. Antwortform `{user, inviteToken?}`.
+  Migration **000280** (`invitations`: `role_ids UUID[]`, `first_name`, `last_name`; up/down/up gruen).
+  Keine neue Tabelle — `invitations` hat tenant_id + RLS seit 000249, die Spalten erben das.
+  **Die roles-Array-Frage (zentrale Entscheidung der Unit): sauber modelliert, nicht abgeschnitten.**
+  `role_ids` wird autoritativ fuer das, was eine angenommene Einladung gewaehrt; die Legacy-Spalte
+  `role` bleibt NOT NULL, ist aber ab jetzt reine Anzeige (GET /api/v1/invitations liefert sie weiter,
+  ProvisionTenant schreibt sie weiter) und entscheidet nichts mehr. Grund gegen die von den notes
+  ebenfalls erlaubte Variante "erste Rolle nehmen, Rest dokumentieren": ein NAME kann eine
+  Custom-Rolle gar nicht identifizieren — `roles` ist per `(COALESCE(tenant_id,zero), name)` eindeutig,
+  zwei Tenants duerfen dieselbe "Buchhaltung" besitzen. Und das FE schickt ohnehin Rollen-IDs, weil der
+  Roster seit Iteration 34 IDs liefert. Ein Kompromiss haette also nicht weniger Arbeit bedeutet,
+  sondern nur eine Luecke.
+- **Zwei Bestandsdefekte auf demselben Pfad, beide in dieser Iteration geschlossen:**
+  (1) SICHERHEITSRELEVANT: `PostgresRepository.AcceptInvitation` loeste die Rolle mit
+  `INSERT ... SELECT ... WHERE r.name = $2` auf — und der ganze Accept-Pfad laeuft unter
+  `sysctx.With()`, wo RLS aus ist. Sobald irgendein Tenant eine Custom-Rolle namens "admin" besitzt,
+  weist dieses INSERT dem neuen Konto **jede** gleichnamige Zeile zu, fremde Tenants eingeschlossen.
+  Jetzt Aufloesung per ID mit `AND (r.tenant_id IS NULL OR r.tenant_id = <invitation.tenant>)`.
+  Regressionstest `TestAcceptInvitation_DB_ResolvesRolesByID` seedet genau diese Namenskollision ueber
+  zwei Tenants und prueft, dass nur die eigene Rolle ankommt.
+  (2) `ProvisionTenant` hat einen EIGENEN INSERT in `invitations` (nicht ueber `CreateInvitation`) —
+  der haette `role_ids` auf dem Spalten-Default `'{}'` stehen lassen, und der erste Admin-Invite eines
+  frisch provisionierten Tenants waere nicht mehr annehmbar gewesen (`role_not_found`) — der Tenant
+  waere gestrandet. Loest den Preset jetzt inline auf. Der Name muss dabei zweimal als Parameter
+  wandern ($4 Spaltenwert, $9 Vergleich), sonst weigert sich Postgres, den Typ zu deduzieren
+  ("inconsistent types deduced for parameter", varchar(50) vs text). Test
+  `TestProvisionTenant_DB_InvitationCarriesRoleIDs`.
+  Beide fand das Gate, nicht die Planung — (2) haette ohne den vollen `./internal/auth/...`-Lauf
+  niemand bemerkt. Drittes Detail derselben Klasse: ein nil-Go-Slice kommt als SQL NULL an, nicht als
+  Spalten-Default, deshalb `COALESCE($7::uuid[],'{}')` in `CreateInvitation`.
+- **Seat-Limit: existiert bereits, greift automatisch.** Die notes fragten, woher die Platzzahl kommt.
+  Antwort: `tenants.seat_limit` + `Service.assertSeatAvailable` + `repo.CountSeatsInUse` seit
+  Migration 000249, und die Zaehlung schliesst offene, unabgelaufene Einladungen bereits ein. Der neue
+  Invite laeuft ueber dieselbe interne `createInvitation` und erbt die Pruefung; die REAKTIVIERUNG
+  eines deaktivierten Kontos laeuft ebenfalls dagegen, weil ein reaktiviertes Konto einen Platz belegt.
+  Kein erfundener Default noetig.
+- **Guardrails wiederverwendet statt kopiert, mit einer bewussten Abweichung von den notes.** Der
+  Rollen-Vollersatz im PATCH laeuft ueber `AssignUserRole`/`RevokeUserRole` (Revokes zuerst, sonst
+  triggert der Zwischenzustand last_admin), also greifen last_admin, self_lockout und die
+  Escalation-Kappung unveraendert. Die notes forderten zusaetzlich "niemand vergibt per Invite/PATCH
+  eine Rolle, die er selbst nicht haelt" — das waere INKONSISTENT zu `AssignUserRole`, das die
+  Delegation an andere absichtlich erlaubt (hr_admin darf Rollen besetzen, die reicher sind als seine
+  eigene) und nur die Selbstvergabe kappt. Eine strengere Regel nur hier waere ueber
+  `POST /users/{id}/roles` trivial umgehbar gewesen, haette also Sicherheit vorgetaeuscht statt sie zu
+  schaffen. Neu dazugekommen sind drei Regeln, die es vorher nicht gab: `self_deactivation` (409, ein
+  Admin, der sich selbst abschaltet, merkt es erst beim naechsten Login — die laufende Session bleibt
+  gueltig), die Deaktivierungs-Variante von `last_admin`, und `status_not_assignable` (400) fuer
+  "invited". Fuer die Deaktivierungs-Variante braucht es einen neuen Repo-Zaehler
+  `CountActiveRoleAdminsExcludingUser`: der bestehende `CountRoleAdminsExcluding` ignoriert ein
+  user/role-PAAR und beantwortet damit "darf diese Rolle weg", nicht "darf dieses Konto ganz dunkel
+  werden" — ein Admin mit der Faehigkeit ueber zwei Rollen waere von der Paar-Variante mitgezaehlt
+  worden.
+- **`inviteToken` in der Antwort.** Die beiden Invite-Routen liefern den Einmal-Token mit
+  (`{user, inviteToken}`). Grund: **nichts im Backend versendet Einladungsmails** — `auth.Mailer` hat
+  genau eine Methode (`SendPasswordResetEmail`), und `POST /api/v1/invitations` gibt den Token seit
+  jeher in der Antwort zurueck. Ohne dieses Feld waere die neue Route unbenutzbar gewesen (Einladung
+  angelegt, niemand kann sie annehmen). Das FE liest `data.user` und ignoriert das Feld — kein
+  Vertragsbruch, in openapi.yaml dokumentiert.
+- **Nicht-atomar, bewusst:** aendert ein PATCH Rollen UND Status, laufen die Status-Guards vorab, aber
+  ein Fehler beim Status-Write laesst eine bereits geschriebene Rollenaenderung stehen. Der ehrliche
+  Preis dafuer, die geschuetzten Methoden wiederzuverwenden statt user_roles direkt zu schreiben; das
+  FE schickt laut `useAdminUsers.ts` ohnehin eins von beidem. In openapi.yaml benannt, nicht versteckt.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | migration 000280 up/down/up gruen | lint ok
+  (golangci-lint auf auth/gateway/server/models, 0 Issues) | test ok — `go test -count=1
+  ./internal/auth/... ./internal/gateway/... ./internal/server/...` mit `DATABASE_URL` auf
+  `kmuhub_app`: alle gruen, **177 PASS / 0 SKIP** in `internal/auth`, `TestOpenAPIRouteDrift` gruen.
+  8 neue DB-Tests (`admin_users_write_db_test.go`) + 6 neue Gateway-Tests. Der last-admin-Test bekam
+  einen EIGENEN Tenant: "letzter Administrator" ist eine Eigenschaft der Tenant-Population, ein
+  Nachbartest im geteilten Tenant haette ueber sein Ergebnis entschieden (erster Versuch endete
+  genau deshalb in einem Skip — der dann rausgeflogen ist, weil ein Skip nichts beweist).
+  Zur Validator-Konvention: `decodeAndValidate` antwortet mit **400** `validation_failed`, nicht 422 —
+  die openapi-Eintraege dieser Unit sind entsprechend korrigiert worden (erste Fassung dokumentierte
+  faelschlich 422; die Tests haben es aufgedeckt).
+- offen:
+  - **MSW-Mock passt nicht mehr zum echten Backend:** die Invite-Mocks im Desktop arbeiten mit
+    Rollen-NAMEN (`'admin'`), das echte Backend verlangt UUIDs (`dive,uuid` -> 400). Kein
+    Backend-Blocker (der Roster liefert seit Iteration 34 UUIDs, das FE reicht im Echtbetrieb also
+    UUIDs zurueck), aber der Mock maskiert den Unterschied — genau das Muster aus
+    `feedback_nested_proto_flat_type.md`. Gehoert in eine FE-Unit.
+  - **Einladungsmail wird weiterhin nirgends versendet.** `auth.Mailer` kennt nur Passwort-Resets; der
+    Token geht an den Aufrufer. Das ist Bestand, kein Regress, aber A-1 ist erst wirklich fertig, wenn
+    jemand die Zustellung baut (eigene Unit, braucht `SYSTEM_SMTP_*`-Anbindung wie der berichte-Service).
+  - `invitations.role` ist jetzt tote Anzeige-Denormalisierung. Wenn `GET /api/v1/invitations` irgendwann
+    auf `role_ids` umgestellt wird, kann die Spalte weg — nicht in dieser Unit, weil das den
+    Antwortvertrag der Legacy-Route bricht.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 36 — g-hr-change-requests — done — 2026-08-03
+- commit: dbcf2493
+- gebaut: Migration 000281 (`hr_profile_change_requests`, tenant_id + RLS + partieller
+  Unique-Index auf offene Antraege), Package `internal/biz/hr/changerequest` (Service, Repository,
+  Postgres-Impl, Fehler), 5 RPCs auf `HRService` inkl. Regen, 5 Routen unter
+  `/api/v1/hr/change-requests` + openapi-Eintraege, Wiring in `cmd/biz/main.go`.
+- verify vorgaenger (`6c937c7a`, admin-users-write): **sauber**. Handler gehen ueber
+  `client.InviteAdminUser`/`UpdateAdminUser`/`ResendAdminUserInvite`, kein Direct-Svc. Kein Stub
+  (das einzige `return nil, nil` in `admin_users.go:185` heisst "Status unveraendert, nichts zu
+  tun"). `.proto` + beide `.pb.go` im selben Commit. Kein neuer `RequirePermission` — die drei
+  Routen haengen am bestehenden `RequireRole("admin")`, also auch kein Guard-Ersatz (Klasse 8).
+  Keine neue Tabelle; 000280 ergaenzt Spalten auf der bereits RLS-geschuetzten `invitations`,
+  INSERT/UPDATE tragen den Tenant. Die zwei ungescopten Reads (`GetAdminUser`,
+  `GetInvitationAsAdminUser`) laufen NICHT unter sysctx, also filtert RLS — dasselbe Muster, das
+  `ListRoles` dokumentiert. `CountActiveRoleAdminsExcludingUser` holt die Tenant-Grenze ueber den
+  `JOIN users`, wie der bestehende Paar-Zaehler. openapi +236 Zeilen.
+
+- **Der HR-Service liegt nicht, wo der Backlog ihn vermutet.** `sources` nennt `backend/internal/hr/`
+  — das Verzeichnis existiert nicht. HR wohnt in `internal/biz/hr/{leave,employee,timetracking,
+  absence}` und wird auf dem **biz**-gRPC-Server registriert (`HRRoutes.ServiceName()` gibt "biz"
+  zurueck, um die vorhandene Verbindung wiederzuverwenden). Wiring in `cmd/biz/main.go`, nicht in
+  einem eigenen `cmd/hr`.
+- **Feld-Allowlist statt freiem Feldnamen — der Kern der Unit.** Der MSW-Handler schreibt
+  `emp[req.field] = req.newValue`, also einen beliebigen Property-Namen aus dem Request. Serverseitig
+  waere das eine Spalte, und `field` kommt vom Client: das ist eine Injection und ausserdem ein Weg,
+  `salary` oder `manager_user_id` per "Antrag" zu setzen. Deshalb `proposableFields` mit sechs
+  Eintraegen (address_street/city/postal_code/country, emergency_contact_name/phone) — der
+  Spaltenname kommt aus dieser Konstante, nie aus dem Payload.
+  Folge davon, und der einzige echte Vertragsbruch gegen die UI: `SelfServiceView.tsx` bietet
+  **`phone` und `mobile`** an. Beide existieren weder auf `hr_employee_profiles` noch auf `users`
+  (das FE liest sie aus `raw.phone`/`raw.mobile`, die das echte Backend nie fuellt). Ein Antrag
+  darauf ist jetzt 400 `field cannot be proposed`, statt eine Zeile zu speichern, die approve
+  niemals ausfuehren koennte — genau die Fake-Erfolg-Klasse. Wer die Felder will, braucht zuerst die
+  Spalten; das ist eine eigene Unit, keine Zeile hier.
+- **Erster echter Team-Scope-Resolver im Repo.** `middleware.PermissionScope` dokumentiert selbst,
+  dass `ScopeTeam` mangels Resolver wie `ScopeAll` wirkt. Die Unit verlangt aber "ein Manager ohne
+  Scope auf diese Person darf nicht genehmigen". `approveScopeAllows` loest den Scope deshalb gegen
+  `hr_employee_profiles.manager_user_id` auf: `all` = jeder, `team` = eigene Reports (plus man
+  selbst), `own` = nur der eigene Antrag. Fehlt dem Antragsteller das Profil, greift `team` nicht —
+  eine Berichtslinie, die man nicht belegen kann, gibt es nicht.
+  Dieselbe Regel steckt in der LISTE (`Filter.ManagerID`), nicht als Post-Filter, sondern als
+  Praedikat. Sonst zeigt die Inbox Zeilen, die beim Klick 403 antworten.
+- **Sichtbarkeit der Liste ist Handler-Sache, nicht Guard-Sache.** Der Guard laesst Proposer UND
+  Entscheider auf `GET /change-requests` (ein Mitarbeiter muss seine eigenen Antraege sehen). Wer
+  `team:data_personal:edit` NICHT haelt, bekommt `own_only` erzwungen — unabhaengig vom
+  `?scope=`-Parameter. `PermissionScope` kann das nicht beantworten: ein fehlender Key liefert dort
+  absichtlich `all`, ein reiner Proposer haette also volle Reichweite gemeldet. Dafuer gibt es
+  `callerHasPermission` (exakter Key-Treffer). Zwei Gateway-Tests sichern beide Richtungen ab.
+- **422 laeuft ueber `codes.OutOfRange`, nicht ueber den Validator.** Die Unit fordert 422 fuer
+  "reject ohne Grund", die Repo-Konvention `decodeAndValidate` antwortet aber mit **400**
+  (`validation_failed`, siehe Iteration 35). Deshalb ist `reason` im HTTP-Struct `omitempty` und die
+  Pflicht liegt im Service (`ErrReasonRequired`); `grpcStatusToHTTP` mappt `OutOfRange` -> 422.
+- **Approve ist eine Transaktion, kein Zweischritt.** Erst der bedingte UPDATE auf den Antrag
+  (`WHERE status='pending'` ist zugleich der Concurrency-Guard: der zweite Approver trifft null
+  Zeilen), dann der Profil-UPDATE, beides in einer Tx. Kein Profil vorhanden -> Rollback und 404,
+  statt einer Genehmigung, die nichts geaendert hat. Die Alternative (ueber `employee.Service`) waere
+  wiederverwendet gewesen, haette aber genau den halben Zustand erlaubt, den die Offboard-Unit als
+  schlimmsten Ausgang beschreibt.
+- **Der 409 sitzt im partiellen Unique-Index**, nicht nur im Service: `UNIQUE (tenant_id, user_id,
+  field) WHERE status='pending'`. Zwei gleichzeitige POSTs bestehen beide einen vorgeschalteten
+  SELECT. Partiell, damit ein zurueckgezogener oder abgelehnter Antrag denselben Wunsch nicht fuer
+  immer sperrt — dafuer gibt es einen Test.
+- **Kein Permission-Seed noetig, und das ist geprueft, nicht vermutet:** `team:self:propose` und
+  `team:data_personal:edit` stehen seit Migration 000256 im Katalog; `self:propose` haben alle vier
+  Presets, `data_personal:edit` admin + hr_admin (`manager` hat nur `view` — ein Manager entscheidet
+  also erst, wenn ein Tenant ihm per Custom-Rolle `edit` gibt, und dann greift der Team-Scope).
+- **`cancel` schreibt keinen Entscheider.** Ein Rueckzug ist nicht die Entscheidung eines anderen;
+  der MSW-Handler setzt dort ebenfalls weder `decidedAt` noch `decidedByName`. Test sichert es.
+- Wire-Shape gegen `api/hr-change-requests.ts` geprueft, nicht geraten: `{requests,total}` bzw.
+  `{request}`, leere Liste `[]`, und **camelCase** — anders als der Rest von HR. Deshalb ist
+  `changeRequestBody` handgeschrieben statt protojson-marshalled: `cannedResponseMarshaler` setzt
+  `UseProtoNames: true` und haette `user_id` geliefert, wo das FE `userId` liest. Ein Test
+  vergleicht das gerenderte JSON Feld fuer Feld gegen den FE-Typ.
+- gate: build ok (`go build -p 2 ./...`) | vet ok | lint ok (golangci-lint auf biz/hr, gateway,
+  server, models, cmd/biz — 0 Issues) | migration 000281 up/down/up gruen | rls-smoke ok (eigener
+  Tenant 1, fremder 0, als `kmuhub_app`; Testzeile danach entfernt) | test ok — `go test -count=1
+  ./internal/biz/hr/... ./internal/gateway/... ./internal/server/... ./internal/testutil/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: alles gruen. **7 neue DB-Tests, 0 SKIP** (mit `-v` geprueft), 5
+  neue Gateway-Tests, `TestOpenAPIRouteDrift` gruen, der RLS-Regressionstest in `internal/testutil`
+  sieht die neue Tabelle und ist zufrieden. Jeder DB-Test seedet einen EIGENEN Tenant — "wer meldet
+  an wen" und "welche Antraege sind offen" sind Eigenschaften der Tenant-Population, ein geteilter
+  Tenant haette unter `-parallel` ueber fremde Ergebnisse entschieden.
+- offen:
+  - **`phone`/`mobile` sind FE-seitig tot** (siehe oben). Bis die Spalten existieren, laufen zwei
+    der sieben angebotenen Felder in der Self-Service-Ansicht in ein 400. Eigene Unit: entweder
+    Spalten nachziehen (dann auch im Employee-Update lesen/schreiben) oder die beiden Eintraege aus
+    `PROPOSABLE_FIELDS` im FE entfernen.
+  - **MSW-Mock weicht in drei Punkten ab** und maskiert das echte Verhalten: er akzeptiert jeden
+    Feldnamen, erlaubt approve/reject auf bereits entschiedenen Antraegen (Backend: 409) und prueft
+    beim Genehmigen keinen Scope. Gehoert in eine FE-Unit — der Mock ist sonst das, woran die UI
+    entwickelt wird.
+  - Der `drawer` "job" hat noch kein beantragbares Feld. Der Wert bleibt im Schema und im Vertrag,
+    weil das FE ihn kennt; sobald ein Job-Feld beantragbar wird, ist es ein Eintrag in
+    `proposableFields`.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 37 — g-hr-offboard — done — 2026-08-03 04:40
+- commit: 23ceede6
+- gebaut: Migration 000282 (status/last_work_day/exit_date/exit_type/exit_reason auf
+  `hr_employee_profiles`, drei CHECKs, Index auf (tenant_id,status)), RPC `OffboardEmployee` am
+  hr-Proto inkl. Regen, `Service.OffboardEmployee` + `PostgresEmployeeRepo.Offboard` in
+  `internal/biz/hr/employee`, Route `POST /api/v1/hr/employees/{id}/offboard` hinter
+  `RequirePermission("team:employee","offboard")`, OpenAPI-Pfad + zwei Schemas.
+- verify vorgaenger (dbcf2493): sauber. Gateway-Handler gehen alle ueber `h.getHRClient()`, kein
+  Direct-Svc; `.proto` + beide `.pb.go` im selben Commit; jeder SELECT in
+  `changerequest/postgres_repository.go` traegt `tenant_id`; kein neuer Guard ohne Katalog-Eintrag;
+  openapi.yaml mit 185 Zeilen im selben Commit. Kein Fund, keine Fix-Unit.
+
+**Die Architektur-Entscheidung, weil die notes hier eine falsche Praemisse hatten.** Die Unit
+schreibt vor: "Liegt HR-Profil und Auth-Konto in verschiedenen Services, ist eine verteilte
+Transaktion nicht baubar." Das stimmt fuer die Prozessgrenze, aber nicht fuer die Datengrenze:
+`users`, `user_roles` und `hr_employee_profiles` liegen in derselben Postgres-Instanz, und der
+biz-Pool sieht alle drei (er liest `users` heute schon in jedem Employee-SELECT). Die Kaskade
+laeuft deshalb als EINE Transaktion, nicht als geordnete Schrittfolge mit Nachprotokollierung —
+der "Konto kann noch einloggen, Akte sagt ausgeschieden"-Zustand ist damit unerreichbar statt nur
+unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
+- **Warum HR und nicht auth**, obwohl `ErrSelfDeactivation`, `ErrLastAdmin` und `RevokeUserRole`
+  dort schon stehen: der Vertrag ist HR-foermig (`POST /hr/employees/{id}/offboard` -> `{employee}`).
+  Ein auth-RPC muesste `hr.v1.EmployeeProfile` importieren (Proto-Kopplung zweier Services) oder
+  das Gateway zu einem Zweischritt zwingen. Umgekehrt kostet der gewaehlte Weg genau ein Duplikat:
+  die COUNT-Query hinter dem Last-Admin-Guard, kommentiert mit Verweis auf
+  `auth.PostgresRepository.CountActiveRoleAdminsExcludingUser` und `auth.roleAdminKeys` (dort
+  unexportiert). Die Alternative haette die sicherheitskritische Logik dupliziert statt eines
+  COUNTs. Es gibt in diesem Repo **keinen** Service-zu-Service-gRPC-Client (verifiziert:
+  `grpc.NewClient` kommt ausschliesslich in `internal/gateway/` vor) — eine dritte Option war das
+  also nicht.
+- **"Platz freigeben" ist kein eigener Kaskadenschritt.** auth zaehlt Seats als
+  `COUNT(users WHERE is_active)` (`CountSeatsInUse`, postgres_repository.go:1114) — `is_active =
+  false` gibt den Platz von selbst zurueck. Und das Sperren ist vollstaendig: Login (service.go:197)
+  **und** Refresh (service.go:248) pruefen beide `!user.IsActive`. Refresh-Tokens zu loeschen waere
+  wirkungslose Zusatzarbeit gewesen. Was bleibt: ein bereits ausgestelltes Access-Token laeuft bis
+  zum Ablauf weiter — dasselbe Verhalten wie bei `UpdateAdminUser`, kein Sonderfall dieser Route.
+- **Der Zyklus-Schutz ist eine rekursive CTE, kein Skip des Nachfolgers.** Der naheliegende Fix
+  ("Nachfolger von der Umhaenge-Menge ausnehmen") deckt nur den direkten Fall. Sitzt der Nachfolger
+  zwei Ebenen tief — Teamleiter scheidet aus, jemand aus einem Unterteam uebernimmt —, dann wird
+  dessen eigener Vorgesetzter auf ihn umgehaengt und die beiden managen sich gegenseitig. Die CTE
+  laeuft vom Nachfolger nach oben (Tiefenlimit 64) und gibt allen Knoten auf dieser Kette den
+  Vorgesetzten des Ausscheidenden — was eine Befoerderung fachlich ohnehin bedeutet. Beide Faelle
+  haben einen eigenen DB-Test.
+- **Fuenf Exit-Types, nicht die vier aus dem scope-Text.** `OffboardEmployeeDialog.tsx:46-50` bietet
+  zusaetzlich `fixed_term_expired`. Ein Backend, das nur die vier genannten kennt, haette einen
+  Wert, den die UI produziert, an der Grenze abgelehnt. Ein Gateway-Test geht alle fuenf durch.
+- **Der Body ist camelCase**, anders als der Rest der HR-Routen: `hr-client.ts:943` postet die
+  Formularwerte des Dialogs unveraendert. Ein Test schickt bewusst einen snake_case-Body und
+  erwartet 400 — sonst wandert diese Abweichung unbemerkt.
+- **Response gewrappt.** `response.Proto(w, …, resp.Employee)` liefert das Profil nackt; der Client
+  liest `{employee}`. Der Handler schreibt deshalb die ganze Resp-Message. **Fund im Bestand:** die
+  Nachbar-Handler `HandleCreateEmployee`/`HandleUpdateEmployee` liefern nackt, waehrend
+  `hrEmployeeApi.create/update` `raw.employee` liest — dort duerfte `adaptEmployee` heute
+  `undefined` bekommen. Nicht in dieser Unit gefixt (Bestandsvertrag, keine Testabdeckung); als
+  Unit-Kandidat notiert.
+- **Kein Permission-Seed** — geprueft, nicht vermutet: `team:employee:offboard` steht in
+  `permissions` und ist `admin` + `hr_admin` zugewiesen.
+- **422 fuer "Reports ohne Nachfolger"** laeuft ueber `codes.OutOfRange` (der Repo-Weg seit
+  Iteration 36), nicht ueber den Validator — der antwortet mit 400.
+- **Zweiter Fund im Bestand:** `scanEmployeeProfile` liest `emergency_contact_name` und
+  Geschwister in plain `string`; eine Zeile mit NULL dort sprengt jeden Read dieses Profils. Die App
+  schreibt immer `""`, handgeschriebene Zeilen nicht — der erste Testlauf ist genau darueber
+  gefallen. Fixture angeglichen (mit Kommentar), Produktionscode bewusst nicht angefasst.
+- gate: build ok (`go build -p 2` ueber biz/hr, gateway, server, models, cmd/biz, cmd/gateway) |
+  vet ok | lint ok (golangci-lint, 0 issues) | migration 000282 up/down/up gruen | rls-smoke n.a.
+  (keine neue Tabelle; `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen) | test ok — `go test
+  -count=1 ./internal/biz/hr/... ./internal/gateway/ ./internal/server/... ./internal/testutil/...`
+  mit `DATABASE_URL` auf `kmuhub_app`: alles gruen. **9 neue DB-Tests, 0 SKIP** (mit `-v` und
+  `grep -c '^--- SKIP'` = 0 geprueft), 4 neue Gateway-Tests, `TestOpenAPIRouteDrift` gruen. Jeder
+  DB-Test seedet einen EIGENEN Tenant — "wer meldet an wen" und "wer ist der letzte
+  Rollen-Administrator" sind Eigenschaften der Tenant-Population.
+- offen:
+  - **`{employee}`-Wrapping bei create/update** (Fund oben). Eigene Unit: entweder die beiden
+    Handler auf die Resp-Message umstellen oder den FE-Client auf die nackte Antwort. Ein
+    Alleingang auf einer Seite bricht die andere.
+  - **Der MSW-Mock kennt die Guards nicht** (`handlers/team.ts:366`): er offboardet ohne
+    Nachfolger-Pflicht, ohne Last-Admin-Pruefung und ohne Selbst-Schutz, und er haengt Reports
+    unbesehen auf den Nachfolger um — inklusive des Zyklus, den das Backend jetzt verhindert. Der
+    Mock ist das, woran die UI entwickelt wird; gehoert in eine FE-Unit.
+  - **`backfill` wird nur protokolliert**, nicht ausgewertet — es gibt im Backend kein
+    Stellen-/Recruiting-Modell, an das es andocken koennte. Bewusst so, im Proto kommentiert.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 38 — g-hr-salary-statements — blocked — 2026-08-03 04:42
+- commit: -
+- gebaut: nichts — Unit auf `blocked` gesetzt, Begruendung im `blocked_reason:`-Feld der Unit.
+- gate: n.a. (keine Code-Aenderung)
+- verify vorgaenger (23ceede6, g-hr-offboard): sauber. `client.OffboardEmployee` laeuft ueber den
+  gRPC-Client (kein Direct-Svc); `.proto` + `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert;
+  `team:employee:offboard` steht seit Migration 000256 im Katalog und ist admin+hr_admin
+  zugewiesen (kein fehlender Seed); jede neue/geaenderte SELECT-Query traegt `tenant_id`
+  (offboard-Transaktion scoped users/hr_employee_profiles konsistent, user_roles ueber die
+  Subquery auf users); `OffboardEmployeeResp{employee}` matched `response.Proto(w, ..., resp)` —
+  Wire-Shape `{employee}` stimmt mit dem FE-Client ueberein; openapi.yaml dokumentiert alle fuenf
+  Statuscodes (400/401/403/404/409) im selben Commit; kein TODO/Unimplemented/Fake-Return im
+  neuen Pfad (`UnimplementedHRServiceServer`-Treffer ist der erwartete Boilerplate-Embed). Kein
+  Fund, keine Fix-Unit.
+- Der Befund, der `g-hr-salary-statements` blockiert: die notes der Unit gingen von einer
+  fehlenden Dokument-Kategorie aus (`hrcat-payroll` in `hr_document_categories`), aber der reale
+  FE-Vertrag (`SelfServiceView.tsx:60-66`, `downloadStatement()` Zeile 316) verlangt gar keine
+  Dokumente — `SalaryStatement` ist `{id, month, label, gross, net}` ohne `fileId`, der Download
+  wird client-seitig aus den Zahlen als Text-Blob gebaut. Das Backend hat aber keine Quelle fuer
+  echte Monats-Brutto-/Netto-Betraege: `EmployeeProfile` traegt nur ein optionales `HourlyRate`,
+  kein Monats-/Jahresgehalt, keinen Payroll-Lauf, keine persistierten Abrechnungen. Der MSW-Mock
+  erfindet `net` als `gross * 0.675` — eine geratene Steuer-/SV-Naeherung; dasselbe Muster hinter
+  einer echten Route waere Fehlerklasse 2 (hartkodierte Beispieldaten). DATEV im Repo ist reiner
+  Buchungsstapel-Export fuer Finance, keine Lohnquelle. `team:salary:view/edit` stehen im Katalog,
+  sind aber an keiner Backend-Route verdrahtet — diese Route waere die erste. Drei ehrliche Wege
+  (echtes Gehalts-/Netto-System, HR laedt echte Abrechnungs-PDFs hoch, oder Feature vorerst aus
+  dem Scope) sind Produktentscheidungen fuer Luke, keine Loop-Wahl. Volle Herleitung im
+  `blocked_reason:`-Feld der Unit in BACKLOG.yml.
+- offen:
+  - Luke: Entscheidung zwischen den drei Wegen in `blocked_reason:` treffen, dann Unit
+    reaktivieren bzw. neu scopen.
+  - Naechste Iteration zieht die naechste `todo`-Unit mit erfuellten deps
+    (`g-rbac-user-overrides-model`, opus, deps `p1b-audit-events` erfuellt).
+
+## Iteration 39 — g-rbac-user-overrides-model — done — 2026-08-03
+- commit: de6eb85a
+- gebaut: Persistenz + CRUD fuer Per-User-Rechte-Overrides (RBAC R-6). Migration 000283 legt
+  `user_permission_overrides` an (`tenant_id NOT NULL` + `enable_tenant_rls`, unique ueber
+  `(tenant_id, user_id, permission_key)`, `permission_key` als FK auf `permissions(name)` mit
+  ON DELETE CASCADE — ein aus dem Katalog entfernter Key nimmt seine Overrides mit). Service
+  `internal/auth/user_overrides.go`, Repo-Methoden, drei RPCs, drei Routen
+  `GET/PUT/DELETE /api/v1/admin/users/{id}/overrides` hinter
+  `RequirePermission("admin:user_override","manage")`.
+- **Kein neuer Permission-Seed noetig, und das ist verifiziert, nicht angenommen:**
+  `admin:user_override:manage` steht seit Migration 000256 im Katalog (Zeile 116) und in der
+  admin-Grant-Liste (Zeile 402); DB-Query gegen die lokale Instanz bestaetigt: nur `admin` haelt
+  ihn. `hr_admin` haelt ihn bewusst nicht (R6-Briefing §0.3). Ein zusaetzlicher Seed waere ein
+  No-Op gewesen — im Migrationskopf als Kommentar begruendet.
+- **Fund, der einen Test zuerst falsch gruen aussehen liess:** `hr_admin` haelt selbst
+  `admin:role:assign` und ist damit nach `roleAdminKeys` ein Rollen-Administrator. Der erste
+  Last-Admin-Test benutzte einen hr_admin als Caller und erreichte den Guard nie (Count blieb 1).
+  Von den Presets halten **admin, it_admin und hr_admin** `admin:role:assign` — nur `manager` und
+  darunter nicht. Wer den Last-Admin-Guard testen will, braucht einen Caller unterhalb davon; ein
+  deny braucht keinen Reach, deshalb geht das ueberhaupt.
+- Guardrails serverseitig (das FE erzwingt sie nur als UI):
+  - **Selbst-Bearbeitung komplett gesperrt** (PUT und DELETE, `actorID == userID` →
+    `self_lockout`/409). "Eigener Account nicht editierbar" aus dem Briefing woertlich genommen —
+    ein allow auf sich selbst waere der direkte Weg von "darf feinjustieren" zu "hat alles".
+  - **Eskalation** nur auf der allow-Haelfte, ueber das bestehende `assertWithinReach` (nicht
+    kopiert). Ein `deny` auf einen Key, den der Caller selbst nicht haelt, ist erlaubt — es
+    vergroessert niemanden, und ein Admin muss hinter einem Kollegen mit anderer Rolle aufraeumen
+    koennen.
+  - **Last-Admin** feuert nur, wenn die neue Map *beide* `roleAdminKeys` des Ziels denied. Die
+    Zaehlung der Uebrigen ist **override-aware** (`CountEffectiveRoleAdminsExcluding`): sobald
+    Overrides existieren, kann jemand allein per allow Administrator sein, und eine rein
+    rollenbasierte Zaehlung wuerde ein voellig sicheres deny verweigern.
+  - **422** fuer unbekannten Katalog-Key *und* fuer unspellbares mode/scope — dieselbe
+    Entscheidung wie bei `SetRolePermissions` (ein eigenes Sentinel kaeme im FE als "Unbekannter
+    Fehler" an, weil `rbac-format.ts` es nicht kennt). Ein `deny` ohne scope wird auf `all`
+    normalisiert statt abgelehnt: der scope ist dort bedeutungslos.
+- Audit: ein Event pro **tatsaechlich geaendertem** Key (`permission.override_set` /
+  `permission.override_removed`) ueber `logPermissionEvent`, kein zweiter Pfad. Erneutes Speichern
+  derselben Map schreibt nichts — sonst waere der Trail eine Historie von Save-Klicks statt von
+  Entscheidungen. Der Diff kommt aus dem Service (`OverrideChange`), nicht aus einer zweiten
+  Abfrage im gRPC-Server.
+- Wire-Shape gegen `rbac-types.ts` geprueft: `{userId, overrides: {key: {mode, scope}}}`, leere
+  Map als `{}` nicht `null` (zwei Marshal-Tests pinnen es). DELETE antwortet 204 wie der
+  MSW-Handler.
+- gate: build ok (`go build -p 2` ueber auth, server, gateway, cmd/auth, cmd/gateway) | vet ok |
+  lint ok (golangci-lint, 0 issues) | migration 000283 up/down/up gruen (Kopf 282 → 283) |
+  **rls-smoke bestanden: eigener Tenant 1, fremder Tenant 0** (Smoke-Zeile danach entfernt);
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen | test ok — `go test -count=1
+  ./internal/auth/... ./internal/gateway/ ./internal/server/... ./internal/testutil/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: alles gruen. **12 neue DB-Tests + 4 Audit-Subtests, 0 SKIP**
+  (mit `-v` und `grep -c '^--- SKIP'` = 0 geprueft), 5 neue Gateway-Tests,
+  `TestOpenAPIRouteDrift` gruen. Eigene Tenants (`6b0e0000-…`), nie TenantA/B — diese Tests
+  zaehlen die Administratoren *eines Tenants*.
+- openapi.yaml: ein Pfad mit drei Operationen + drei Schemas, alle real gelieferten Codes
+  (400/401/403/404/409/422 bzw. 204). Zusaetzlich drei **veraltete Aussagen** korrigiert, die
+  jetzt gelogen haetten ("per-user overrides do not exist server-side yet" bei `?base=1`, bei
+  `hasOverrides` im Roster-Schema und in der Roster-Beschreibung) — die Speicherung existiert
+  jetzt, die Aufloesung nicht.
+- offen:
+  - `g-rbac-user-overrides-resolver` (naechste Unit, deps jetzt erfuellt): Aufloesung,
+    `hasOverrides`, `deniedByOverride`, `sources: ['override', …]`, `?base=1`. Erst danach
+    aendert ein Override tatsaechlich ein Gate — bis dahin schreibt und liest der Editor Zeilen,
+    die nichts schalten. Das ist Absicht und in der Migration so kommentiert.
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle noch nicht — das FE-Badge
+    "Angepasst" und der Filter "Nur angepasste Benutzer" (Briefing §0.4) haengen daran. Eigene
+    kleine Unit, gehoert nicht in den Resolver.
+  - Der MSW-Mock (`handlers/rbac.ts:257-318`) kennt keine der vier Guardrails: er laesst
+    Selbst-Bearbeitung zu, prueft weder Eskalation noch Last-Admin noch den Katalog. Die UI wird
+    daran entwickelt — gehoert in eine FE-Unit, sonst faellt der Editor erst gegen das echte
+    Backend um.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 40 — g-rbac-user-overrides-resolver — done — 2026-08-03 05:45
+- commit: 18bf5c18
+- gebaut: Die Per-User-Overrides sind in der Rechte-Aufloesung angekommen.
+  `Service.GetEffectivePermissions` = Rollen-Union + `applyOverrides()`, **eine** Naht wie die
+  MSW-Referenz. Der alte Union-Code heisst jetzt `Service.GetRoleUnion` und ist unveraendert.
+  `GET /admin/users/{id}/permissions?base=1` liefert diese Union (neues Proto-Feld `base`), ohne
+  `base` die Overrides. Beide Endpoints tragen `hasOverrides` und `deniedByOverride`.
+- Semantik, exakt nach `applyUserOverrides` (mocks/data/rbac.ts), nicht nach dem scope-Text:
+  - `allow` **setzt** den Scope, es hebt ihn nicht nur. Der Referenzcode tut das (`capabilities[key]
+    = { scope: override.scope, ... }`), und Runterregeln fuer eine Person ohne Rollen-Klon ist die
+    halbe Daseinsberechtigung des Features. Der Backlog-Text sagte "setzt oder hebt".
+  - `deny` entfernt den Key immer, aber `deniedByOverride` bekommt nur einen Eintrag, wenn eine
+    Rolle ihn wirklich gab — die Liste zeigt, was WEGGENOMMEN wurde. Ein deny auf einen nie
+    gehaltenen Key waere sonst als "Recht entzogen" sichtbar, das es nie gab.
+  - Provenance: der Sentinel `override` steht als LETZTER Eintrag in `sources`, hinter den Rollen,
+    die den Key auch geben. `EffectivePermissionsView` filtert ihn heraus und rendert den Rest als
+    Chips — Position egal, Reihenfolge aber lesbar.
+  - Unbekannter `mode` faellt in den deny-Zweig, nicht in den allow-Zweig. Dieselbe Richtung, in
+    die `narrowestScope` irrt: zu viel Recht ist der Fehler, den man nicht machen darf.
+- **Kernentscheidung: `NarrowedScopes` bleibt bewusst auf `GetRoleUnion`.** Der scope-Claim kann
+  kein "denied" ausdruecken — ein fehlender Key liest sich dort als `all` (steht so in der
+  Funktion). Ein deny-Override wuerde den Key aus der Map werfen und damit seine WEITESTE
+  Reichweite freigeben, statt sie zu entziehen. Das Gate, das das auffangen muesste, ist der
+  permissions-Claim, und der wird aus `GetUserPermissions` gebacken, die von Overrides nichts
+  weiss. Solange die eine override-blind ist, muss die andere es auch sein. Zweiter, unabhaengiger
+  Grund: `createTokenPair` laeuft unter `sysctx.With()` (service.go:79 u.a.) — dort filtert RLS
+  nicht, ein Override-Read braeuchte dort einen expliziten Tenant-Filter (Fund aus Iteration
+  14/15). Beides steht als Kommentar an `NarrowedScopes` und als Unit `g-rbac-user-overrides-token`
+  im Backlog. Ein Regressionstest haelt es fest.
+- Wire: beide neuen Felder mit `omitempty`. Fuer `?base=1` und fuer jedes Konto ohne Override
+  faellt beides aus dem JSON — die Antwort ist damit **byte-identisch** zu der vor R-6, was der
+  bestehende `TestToEffectivePermissionsBody_WireShape` unveraendert beweist. Das FE defaultet
+  beide (`deniedByOverride = []`, `hasOverrides = false`, EffectivePermissionsView:35 /
+  permissions.ts:113). `sources` in der Spec ist nicht mehr `format: uuid` — der Sentinel ist
+  keine UUID.
+- `?base=1` wertet nur die exakte "1"; jeder andere Wert liefert die effektive Menge. Wer sich
+  vertippt, bekommt die sicherere der beiden Antworten.
+- gate: build ok (`go build -p 2` ueber auth, server, gateway, cmd/auth, cmd/gateway) | vet ok |
+  lint ok (golangci-lint, 0 issues) | proto regeneriert im selben Commit (`auth.pb.go`;
+  `auth_grpc.pb.go` unveraendert — keine neuen RPCs) | migration n.a. (kein Schema-Change) |
+  rls-smoke n.a. | test ok: `go test -count=1 ./internal/auth/... ./internal/gateway/
+  ./internal/server/...` mit `DATABASE_URL` auf `kmuhub_app` — alles gruen. **7 neue DB-Tests,
+  einzeln mit `-v` als PASS verifiziert, 0 SKIP im ganzen auth-Paket** (`grep -c '^--- SKIP'` = 0),
+  2 neue Gateway-Marshal-Tests, `TestOpenAPIRouteDrift` gruen.
+- verify vorgaenger (`de6eb85a`, g-rbac-user-overrides-model): **sauber**. Handler gehen ueber
+  `client.<RPC>` statt einer Service-Instanz, kein Stub/TODO im neuen Pfad, `.proto` mit `.pb.go`
+  und `.grpc.pb.go` im selben Commit, Tabelle mit `tenant_id NOT NULL` + `enable_tenant_rls`,
+  Wire-Shape gegen `rbac-types.ts` gepinnt. Die Seed-Behauptung des Commits gegen die DB geprueft
+  statt geglaubt: `admin:user_override:manage` existiert im Katalog und haengt am `admin`-Preset
+  (und nur dort) — der Guard sperrt also niemanden aus.
+- **FUND ausserhalb des Vorgaenger-Commits, CI-blockierend:** `backend/api/openapi.yaml` ist seit
+  den beiden HR-Units schema-invalide. `npx @apidevtools/swagger-cli validate` (CI-Job "Validate
+  OpenAPI", ci.yml:387) meldet **75 Fehler** — identisch vor und nach meiner Aenderung, also
+  Bestand, nicht neu. Ursache: Responses im YAML-**Flow-Stil** mit Kommas in der Beschreibung
+  (`"400": { description: Malformed body, unknown exit type, ... }`) — das Komma trennt im
+  Flow-Mapping Schluessel-Paare, also wird `unknown exit type` als weiterer Key gelesen.
+  Betroffen: `POST /hr/employees/{id}/offboard` (400/403/409), `/hr/change-requests` (GET/POST)
+  und `ProfileChangeRequest`. `TestOpenAPIRouteDrift` faengt das nicht — er prueft Pfad-Existenz,
+  nicht Validitaet. Als `fix-openapi-flow-mapping-invalid` **ganz vorne** im Backlog angelegt,
+  Ursache dort notiert, damit die naechste Iteration nicht erneut sucht.
+- offen:
+  - Ein Override aendert weiterhin **kein Gate** — nur die Anzeige. Das ist Absicht und begruendet
+    (siehe Kernentscheidung); `g-rbac-user-overrides-token` schliesst es.
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle immer noch nicht — das FE-Badge
+    "Angepasst" und der Filter haengen daran. Weiterhin eigene kleine Unit, gehoert nicht hierher.
+  - Die OpenAPI-Aussage am Roster ("hasOverrides is omitted") bleibt korrekt und wurde bewusst
+    nicht angefasst.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 41 — fix-openapi-flow-mapping-invalid — done — 2026-08-03
+- commit: 935c07b8
+- verify vorgaenger (`18bf5c18`, g-rbac-user-overrides-resolver): **sauber**. Handler in
+  `route_auth.go` geht ueber `client.GetEffectivePermissions`, kein Stub. `GetUserOverrides`
+  (postgres_repository.go:710) ist RLS-gescopt, nicht `sysctx` — richtig, weil dieser Pfad (anders
+  als `createTokenPair`) nicht unter Systemkontext laeuft. `NarrowedScopes` bewusst auf
+  `GetRoleUnion` belassen, mit Begruendung im Code und Backlog-Unit `g-rbac-user-overrides-token`
+  verlinkt. Proto: `auth.pb.go` regeneriert, `auth_grpc.pb.go` unveraendert (keine neuen RPCs,
+  konsistent mit dem Commit-Text). Eigenstaendig nachgerechnet statt geglaubt: `go build -p 2 ./...`,
+  `go vet ./...`, `golangci-lint run` (0 issues), `go test -count=1 ./internal/auth/...
+  ./internal/gateway/... ./internal/server/...` — alle gruen, 0 SKIP im auth-Paket
+  (`grep -c '^--- SKIP'` = 0, unabhaengig nachgezaehlt). Der CI-blockierende openapi.yaml-Fund aus
+  Iteration 40 bestaetigt: `swagger-cli validate` liefert weiterhin 75 Fehler, identisch vor und
+  nach `18bf5c18` — Bestand, nicht durch diesen Commit verursacht.
+- gebaut: `fix-openapi-flow-mapping-invalid`. Zwei Fund-Orte, nicht nur der aus Iteration 40
+  vermutete: der Offboard-Block (400/403/409/409, Kommas in der Beschreibung, wie erwartet) UND das
+  eigentliche Wurzelproblem fuer die GET/POST-200/201-Fehler auf `/hr/change-requests` — die
+  Fehlermeldungen zeigten dort scheinbar auf die (bereits Block-Stil) Response-Objekte selbst, aber
+  `swagger-cli` mit vollem Fehlerpfad zeigte: der eigentliche Bruch sass in
+  `components/schemas/ProfileChangeRequest`, dessen Feld `reason` im Flow-Stil mit Komma in der
+  Beschreibung geschrieben war (`reason: { type: string, description: Rejection reason, absent
+  otherwise }`). Weil GET/POST per `$ref` auf dieses Schema zeigen, propagierte
+  "must NOT have additional properties" auf `reason` bis in beide Routen hoch. Ohne den vollen
+  Fehlerpfad (`#/paths/.../schema/properties/requests/items/properties/reason`) waere das leicht mit
+  einem echten Route-Bug verwechselt worden.
+  Alle betroffenen Flow-Mappings — Offboard, change-requests GET/POST, approve/reject/cancel, das
+  Schema — in Block-Stil aufgeloest. Jede Aussage woertlich uebernommen, nur die YAML-Form geaendert
+  (per `git diff` gegengeprueft: keine Wortaenderung, nur Einrueckung).
+- gate: `npx @apidevtools/swagger-cli validate backend/api/openapi.yaml` -> "is valid" (vorher 75
+  Fehler) | `go build -p 2 ./...` ok | `go vet ./...` ok | `go test -count=1 ./internal/gateway/`
+  gruen, `TestOpenAPIRouteDrift` + `TestOpenAPIRouteDriftParserSanity` beide PASS (802 registrierte
+  Routen gegen 804 dokumentierte Pfade, unveraendert gegenueber vorher).
+- offen: keins Neues. Die von Iteration 40 offen gelassenen Punkte
+  (`g-rbac-user-overrides-token`, Roster-`hasOverrides`) bleiben unberuehrt — reine Docs-Unit ohne
+  Code-Aenderung in `internal/`.
+- DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 42 — g-rbac-user-overrides-token — done — 2026-08-03
+- commit: a7ae3f56
+- verify vorgaenger (`935c07b8`, fix-openapi-flow-mapping-invalid): **sauber**. Reine YAML-Form,
+  keine Code-Aenderung in `internal/`. Diff eigenstaendig durchgesehen: alle sechs Bloecke
+  (Offboard, change-requests GET/POST, approve/reject/cancel) plus `ProfileChangeRequest.reason`
+  von Flow- auf Block-Stil, kein Wort und kein Status-Code veraendert. Nicht geglaubt, sondern
+  nachgerechnet: `swagger-cli validate` -> "is valid" (vorher 75 Fehler), und danach das ganze
+  File nach verbliebenen Flow-Mappings mit Komma in der Beschreibung durchsucht — genau ein
+  Treffer (`openapi.yaml:24124`, ein Parameter-Objekt, in dem das Komma korrekt `description` von
+  `schema` trennt), also kein Rest. `TestOpenAPIRouteDrift` unveraendert gruen.
+- gebaut: `g-rbac-user-overrides-token`.
+- **Kernfund, der die Unit umgeschrieben hat:** die Praemisse "deny = Key aus dem
+  permissions-Claim entfernen" traegt nicht. Gemessen statt vermutet: 154 der 164
+  `RequirePermissionAny`-Aufrufe im Gateway paaren einen groben Legacy-Key mit dem feinen
+  Katalog-Key, der ihn ersetzen soll (der Doc-Kommentar der Funktion verlangt das ausdruecklich:
+  "extend, never swap"). Faellt bei einem deny nur der feine Key weg, haelt der grobe daneben die
+  Tuer offen — der Override waere in 94 % dieser Gates folgenlos geblieben, und zwar unsichtbar.
+  Deshalb ein dritter Claim `Denied` (`den`, omitempty): ein grober Key zaehlt nicht mehr als
+  Platzhalter, sobald IRGENDEIN feiner Key DESSELBEN Guards explizit denied ist. Zwei feine Keys
+  in einem Guard bleiben dagegen eigenstaendig — `Any(berichte:reports:read, berichte:export:run)`
+  sind zwei verschiedene Rechte an derselben Route, und ein deny auf den Export darf das Lesen
+  nicht mitnehmen. Die Trennlinie grob/fein ist dieselbe, die
+  `PostgresRepository.GetEffectivePermissions` mit `resource LIKE '%:%'` zieht.
+- **Beide Fallen der Unit-notes adressiert:**
+  (1) *Nur zusammen, nie einzeln.* `NarrowedScopes` ist in `Service.ResolveTokenPermissions`
+  (neue Datei `token_permissions.go`) aufgegangen; die drei Claim-Teile entstehen aus einem Read
+  in einer Funktion, was ein Auseinanderlaufen strukturell ausschliesst. Die Signatur von
+  `CreateAccessToken` nimmt jetzt ein `*TokenPermissions` statt drei lose Parameter — dieselbe
+  Absicht, im Typsystem. Ein denied Key wird im scope-Claim auf `own` GESCHRIEBEN, nicht entfernt:
+  Abwesenheit liest sich dort als `all`, ein Entfernen haette also die weiteste Reichweite des
+  gerade entzogenen Rechts ausgeliefert. Verteidigung in der Tiefe fuer den Fall, dass ein
+  Lesepfad den Scope hinter einem grob bewachten Gate abfragt.
+  (2) *sysctx.* Neue Repo-Methode `GetUserOverridesForTenant` mit explizitem
+  `WHERE tenant_id = $1 AND user_id = $2` (nutzt `idx_user_permission_overrides_user`); die
+  RLS-Variante bleibt fuer die Request-Pfade unveraendert. Regressionstest seedet eine
+  Override-Zeile mit FREMDEM `tenant_id` auf denselben User — genau die Form, die ein Read ohne
+  Tenant-Bedingung unter sysctx aufgesammelt haette — und prueft, dass sie den Token nicht
+  erreicht.
+- **Formfrage (die eigentliche Arbeit laut notes):** der Allow-Satz wird aus `GetUserPermissions`
+  (grob UND fein) fortgeschrieben, nie aus dem Union neu gebaut. Ein Neubau aus den feinen
+  Katalog-Keys haette alle 226 `RequirePermission`-Gates mit grobem Key beim ersten Override eines
+  Accounts auf 403 gesetzt. Eigener DB-Test dafuer.
+- entschieden: `RequirePermission` (Einzelkey) liest die Deny-Liste NICHT. Ein denied Key fehlt
+  dort ohnehin im Allow-Satz, und ein Einzelkey-Guard hat keinen zweiten Key, der einspringen
+  koennte — der Check waere reine Redundanz. Als Kommentar an der Funktion begruendet, damit die
+  Asymmetrie zu `RequirePermissionAny` nicht wie ein Versehen aussieht.
+- entschieden: "wirkt erst mit dem naechsten Token" steht in openapi.yaml an PUT und DELETE
+  `/admin/users/{id}/overrides`, nicht als Feld in der Antwort. Die Aussage ist eine Konstante
+  ueber den Mechanismus, kein Datum dieser Anfrage; ein Response-Feld haette in jeder Antwort
+  denselben Wert. Der Text nennt auch den sichtbaren Widerspruch, der daraus folgt:
+  `/auth/me/permissions` loest live auf und zeigt den neuen Stand sofort, der Token nicht.
+- ersetzt: `TestNarrowedScopes_DB_StaysOnTheRoleUnion` hielt bewusst das ALTE Verhalten fest
+  ("der Claim darf sich nicht bewegen, solange der permissions-Claim nichts von Overrides weiss").
+  Diese Bedingung ist mit dieser Iteration erfuellt, der Test daher durch
+  `TestResolveTokenPermissions_DB_DenyNarrowsInsteadOfDropping` ersetzt, der dieselbe Gefahr aus
+  der neuen Richtung pruft (Key bleibt in der Map, aber auf `own`).
+- gate: `go build -p 2 ./...` ok | `go vet ./...` ok | `golangci-lint run` -> 0 issues |
+  `swagger-cli validate backend/api/openapi.yaml` -> "is valid" |
+  `go test -count=1 ./internal/auth/... ./internal/middleware/... ./internal/gateway/
+  ./internal/server/...` alle gruen | `go test -count=1 -v ./internal/auth/`: **207 PASS, 0 SKIP**
+  (unabhaengig gezaehlt, `DATABASE_URL` auf `kmuhub_app` gesetzt — ohne sie waeren die vier neuen
+  DB-Tests still uebersprungen worden und der Lauf haette trotzdem `ok` gemeldet).
+- offen:
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle weiterhin nicht — FE-Badge
+    "Angepasst" und Filter haengen daran. Unveraendert eine eigene kleine Unit, nicht Teil dieser.
+  - Ein Override auf einen GROBEN Legacy-Key ist mechanisch moeglich (der Katalog-Join laesst ihn
+    durch) und funktioniert auch korrekt, aber der Override-Editor im FE bietet nur feine Keys an.
+    Kein Bug, nur eine Asymmetrie, die jemand kennen sollte, der die Tabelle direkt befuellt.
+- DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 43 — g-automation-http-action — done — 2026-08-03
+
+- verify-vorspann auf `a7ae3f56` (Iteration 42, per-user Overrides im Token): 21 Dateien geprueft,
+  keine der sechs Fehlerklassen. Keine Stubs/`Unimplemented`, kein Gateway-Bypass (nur
+  `internal/auth`, `internal/middleware`, `internal/server` — keine Route-Datei), kein Proto
+  angefasst, kein neuer `RequirePermission`-Guard (also kein Seed faellig), Wire-Shape unberuehrt.
+  Der Kern der Aenderung — `RequirePermissionAny` laesst einen groben Key nicht mehr als Platzhalter
+  zaehlen, sobald ein feiner Key desselben Guards denied ist — im Diff nachgelesen und schluessig.
+  `go build -p 2 ./...` gruen.
+- gebaut: `g-automation-http-action`.
+- **Der Schutz sitzt im Dialer, nicht in einer URL-Pruefung.** Das ist die eine Entscheidung, an der
+  diese Unit haengt. Eine Pruefung der konfigurierten URL beantwortet die falsche Frage: sie sieht
+  einen Namen, verbunden wird aber mit einer Adresse, und zwischen beiden liegt eine zweite
+  DNS-Aufloesung, die ein Angreifer kontrolliert (Rebinding). Ausserdem muesste sie bei jedem
+  Redirect wiederholt werden. `net.Dialer.Control` laeuft nach der Aufloesung und vor `connect()`,
+  bekommt das Literal, mit dem der Kernel spricht — und weil jeder Redirect-Hop eine eigene
+  Verbindung aufmacht, ist er ohne Zusatzcode mitgeprueft. Die URL-Pruefung (`safehttp.CheckURL`)
+  bleibt als Komfort fuer eine praezise Fehlermeldung, ist aber ausdruecklich nicht die Grenze —
+  steht so im Doc-Kommentar, damit niemand sie spaeter fuer den Schutz haelt.
+- **Zweiter Fundort, gleiche Luecke, bereits produktiv.** Vor dem Bauen nach vorhandenen ausgehenden
+  Clients gesucht (Lean-Leiter Stufe 2). `internal/formulare/worker.go:56` verschickt
+  Formular-Webhooks an `webhook.URL` — tenant-konfiguriert, aus der DB — mit einem blanken
+  `&http.Client{Timeout: 10s}`, ohne Adressfilter, mit Go-Default-Redirects. Das ist dieselbe
+  SSRF-Falle wie die neue Action, nur seit Monaten scharf. Deshalb wurde der Guard als eigenes Paket
+  gebaut statt in die Action gelegt, und der Worker ist auf eine Zeile umgestellt. Root Cause statt
+  Symptom, und der Diff ist kleiner als zwei getrennte Guards.
+  Wichtig dabei: ALLE bestehenden Erfolgstests des Workers injizieren `server.Client()` und haetten
+  einen Totalausfall der Zustellung durch den Guard nicht bemerkt. Deshalb zwei neue Tests — Sperre
+  greift (`169.254.169.254` -> failed, Grund im `last_error`) und Zustellung laeuft durch den
+  Guard weiterhin. Der bestehende `TestWorker_NetworkError_IncrementsAttempt` faengt jetzt zwar
+  weiterhin, aber aus einem anderen Grund (Adressfilter statt Connection-Refused); inhaltlich
+  unveraendert richtig, hier nur vermerkt, damit es niemanden spaeter verwirrt.
+- **Test-Seam ohne Produktionsrisiko.** Ein `httptest`-Server lebt auf Loopback, also braucht es eine
+  Ausnahme — und eine exportierte Ausnahme ist genau die Zeile, die spaeter in Produktionscode
+  kopiert wird. `safehttp.AllowLoopback()` setzt sein Flag deshalb ueber `testing.Testing()`: unter
+  `go test` wirkt es, im gebauten Binary ist es tot. Kein Env-Var, keine Config, nichts, das im
+  Betrieb umgelegt werden koennte. `TestNew_LoopbackBlockedWithoutOption` haelt fest, dass der
+  Konstruktor ohne Optionen — der, den `cmd/` benutzt — Loopback ablehnt.
+- ueber die notes hinaus gefunden und mitgeschlossen:
+  - Go entfernt beim Redirect auf einen fremden Host nur `Authorization`/`Cookie`. Ein
+    tenant-konfigurierter `X-Api-Key` waere an das Redirect-Ziel weitergereicht worden — der
+    naheliegendste Weg, einem Angreifer den API-Schluessel des Tenants zuzustellen. Beim Hostwechsel
+    fliegen jetzt alle Header ausser einer harmlosen Liste raus (Test fuer beide Richtungen: fremder
+    Host verliert ihn, gleicher Host behaelt ihn).
+  - `Proxy: nil` am Transport. `http.DefaultTransport` liest `HTTP_PROXY` aus der Prozessumgebung;
+    ein Proxy wuerde am Dial-Filter vorbeirouten, weil die Verbindung dann zum Proxy geht und das
+    Ziel im CONNECT steht. Im Repo ist keiner konfiguriert (`deploy/` gegengeprueft).
+  - Header-Werte sind Templates mit Datensatzinhalten. Die CR/LF-Pruefung laeuft deshalb NACH der
+    Aufloesung — sonst schmuggelt ein Kontakt-Notizfeld einen zweiten Header ein. Eigener Test; der
+    abgelehnte Wert wird nicht in die Fehlermeldung zurueckgespiegelt (die landet im Execution-Log).
+  - CONNECT und TRACE verboten. TRACE spiegelt die Request-Header zurueck und ist zusammen mit einem
+    konfigurierten Auth-Header eine Credential-Disclosure gegen den eigenen Endpunkt.
+- entschieden: ein 4xx/5xx ist `Success: false` **ohne** Go-Error, mit Status und Body im Output. Der
+  `on_error`-Zweig der Automation kann nur entscheiden, wenn der Status ehrlich durchgereicht wird;
+  ein verschluckter 403 saehe im Execution-Log aus wie ein Netzproblem.
+- entschieden: Body-Cap zweistufig. 1 MiB am Client (Speicher), zusaetzlich 4096 Zeichen im Output —
+  der Env wandert bei JEDEM Lauf nach `automation_executions`, eine 900-KB-Antwort waere also nicht
+  einmal, sondern pro Ausfuehrung in der DB. Ueberschreitung ist als `body_truncated` sichtbar, nicht
+  still. Der Reader wirft `ErrResponseTooLarge` statt zu kuerzen, damit ein abgeschnittenes JSON
+  nicht als Parse-Fehler weit weg von der Ursache auftaucht — mit einem Byte Kopffreiheit, sonst
+  waere ein Body von exakt Cap-Groesse fehlgeschlagen (eigener Regressionstest fuer beide Faelle).
+- nicht gebaut, bewusst: JSON-Parsing der Antwort in einzelne Output-Keys (`resolveTemplate` kann nur
+  flache Keys — eigene Unit, wenn jemand es braucht) und eine per-Tenant-Allowlist erlaubter
+  Zielhosts (Produktentscheidung, kein Sicherheitsloch: der Filter haelt auch ohne sie).
+- keine neue Route, keine Migration, kein neuer Guard -> `openapi.yaml` unveraendert.
+- gate: `go build -p 2 ./...` ok | `go vet` (safehttp, automation, formulare, cmd/automation) ok |
+  `golangci-lint run` auf denselben -> **0 issues** | `swagger-cli validate backend/api/openapi.yaml`
+  -> "is valid" | `go test -count=1 ./internal/gateway/` gruen (TestOpenAPIRouteDrift) |
+  `go test -count=1 -v ./internal/security/safehttp/ ./internal/automation/action/`:
+  **66 PASS, 0 SKIP** (unabhaengig gezaehlt) | `go test -count=1 -v ./internal/formulare/`: 58 gruen |
+  `./internal/automation/...` vollstaendig gruen.
+- offen fuer die naechste Iteration: `g-automation-webhook-trigger` (haengt an dieser Unit) ist der
+  eingehende Gegenpart. Das dort geforderte konstantzeitige Signatur-Pruefen gibt es im Repo schon
+  in `internal/biz/lexware/webhook_handler.go` und `internal/formulare/worker.go` (HMAC-SHA256,
+  `X-Cosmi-Signature: sha256=…`) — dieselbe Form wiederverwenden statt eine dritte zu erfinden.
+- commit: `cac9f73d` (feat(automation): add an SSRF-guarded http.request action)
+
+## Iteration 44 — g-automation-webhook-trigger — done — 2026-08-03
+
+- verify-vorspann auf `cac9f73d` (Iteration 43, SSRF-guarded http.request action): Diff gelesen
+  (`internal/security/safehttp/`, `internal/automation/action/http_actions.go`,
+  `internal/formulare/worker.go`, Tests). Keine der sechs Fehlerklassen: kein Stub, kein
+  Gateway-Bypass (reines Aktions-/Worker-Paket, keine Route), kein Proto/Migration angefasst, kein
+  neuer Guard. `go build -p 2 ./...` gruen.
+- gebaut: `g-automation-webhook-trigger`.
+- Neuer Trigger `webhook.received` in der Registry, neue Route
+  `POST /api/v1/public/automations/webhooks/{automationId}` (kein Auth, publicRateLimiter wie
+  booking/berichte/document), neue RPC `AutomationService.TriggerWebhook`.
+  **Tenant-Aufloesung ohne JWT** ist die zentrale Entscheidung: neue Repo-Methode
+  `GetByIDUnscoped` (kein `WHERE tenant_id`) hinter `sysctx.With`, Trigger-Type/`is_active` danach
+  im Service geprueft — dieselbe Grenze wie bei `two_factor_policy`/`refresh_tokens`. Signatur
+  HMAC-SHA256, Header `X-Cosmi-Signature: sha256=<hex>` (Vorgabe aus Iteration 43, dieselbe Form wie
+  das ausgehende `internal/formulare/worker.go`), Vergleich konstantzeitig. Secret liegt in
+  `trigger_config.secret`, wird beim Erstellen/Aendern einer `webhook.received`-Automation
+  automatisch generiert (`ensureWebhookSecret`), sonst existiert die Automation nie ohne Secret.
+  Idempotenz wiederverwendet den bestehenden `internal/idempotency`-Store statt einer eigenen
+  Dedup-Tabelle: expliziter `Idempotency-Key`-Header wenn vorhanden, sonst SHA-256 des Bodies als
+  Fallback — ein reiner Resend dedupt also auch ohne Header. Ausfuehrung laeuft asynchron
+  (Goroutine, 30s-Timeout), Muster wie `trigger.TimeTriggerPoller` — schneller 202 fuer den
+  Absender, eine haengende Action haelt die Verbindung nicht offen.
+- **Root-Cause-Fund unterwegs, im selben Commit behoben:** `engine.Execute`s Loop-Prevention
+  verwirft jedes Event mit `ModuleID == "automation"` — genau das setzte `trigger.TimeTriggerPoller`
+  fuer seine eigenen synthetischen Events. `biz.invoice.overdue` und `calendar.event.upcoming` sind
+  dadurch seit ihrem Bau nie wirklich gelaufen (stiller Drop vor jeder Condition-Auswertung, nur ein
+  Debug-Log). Waere ich demselben Muster fuer den neuen Webhook-Trigger gefolgt, waere derselbe
+  Fehler entstanden und "Trigger startet die Automation" schlicht falsch gewesen. Fix: Poller-Event
+  traegt jetzt `ModuleID: "scheduler"`, mein Webhook-Event `event.ModuleIntegration`
+  ("integration" — vorher deklariert, nie genutzt). Zwei neue Regressionstests in `engine_test.go`
+  (`TestExecute_SkipsAutomationModuleEvent`, `TestExecute_SchedulerOriginedEventIsNotSkipped`)
+  belegen beide Seiten.
+- **Gefunden, bewusst nicht angefasst:** `internal/idempotency.PostgresRepository.Reserve`
+  unterscheidet unter der echten Postgres-Implementierung "frisch" und "gleichzeitig in-flight,
+  noch nicht completed" nicht — beide liefern `(nil, nil)`. Der `mockRepository` in
+  `internal/idempotency/repository_test.go` (gegen den `TestReserve_RaceCondition_InFlight` laeuft)
+  tut es korrekt; die echte Postgres-Variante ist gegen dieses Szenario nie getestet. Sehr enges
+  Zeitfenster, betrifft aber Infrastruktur, die Dutzende bereits produktive Endpunkte nutzen —
+  gehoert als eigene Sicherheits-Unit auf den Backlog, nicht in diesen Commit gezogen. Fundstelle:
+  `internal/idempotency/postgres_repository.go`, `Reserve`, `CompletedAt == nil`-Zweig.
+- Neue Repo-Methode `GetByIDUnscoped` DB-getestet (`webhook_db_test.go`, Rolle `kmuhub_app`, je
+  Testlauf ein eigener frischer Tenant statt der geteilten `TenantA`/`TenantB`): unter sysctx ohne
+  jeden Tenant im Context aufloesbar, das normale tenant-gescopte `GetByID` verweigert weiterhin
+  einen fremden Tenant. Zusaetzlicher DB-Test `TestTriggerWebhook_RealRepositories` faehrt den
+  kompletten Pfad gegen die echten Postgres-Repos (nicht Mocks) inkl. Dedup ueber zwei echte Calls.
+- Body-Limit zweistufig: `http.MaxBytesReader` (256 KiB) im Gateway-Handler UND derselbe Cap im
+  Service (Verteidigung in der Tiefe — Service-Tests laufen ohne Gateway und muessen den Cap
+  trotzdem pruefen koennen).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet.
+- gate: `go build -p 2 ./...` ok | `go vet -p 2 ./...` ok | `golangci-lint run` auf
+  `internal/automation/...`, `internal/gateway/...`, `internal/server/...`, `cmd/automation/...`,
+  `cmd/gateway/...` -> **0 issues** | `swagger-cli validate backend/api/openapi.yaml` -> "is valid" |
+  `go test -count=1 ./internal/gateway/...` gruen (`TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift`) |
+  mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 283):
+  `go test -count=1 ./internal/automation/... ./internal/gateway/... ./internal/server/...
+  ./internal/idempotency/...` vollstaendig gruen, die beiden neuen DB-Tests liefen tatsaechlich
+  (nicht uebersprungen). Proto regeneriert im selben Commit (`protoc` direkt, `make` nicht verfuegbar
+  unter Git Bash).
+- offen fuer die naechste Iteration: `g-automation-cron-poller` (haengt an dieser Unit) — der
+  Poller-Bug ist bereits gefixt (siehe oben), nicht erneut suchen. Dort geht es nur noch um die
+  Doppelausfuehrungssperre analog `g-berichte-scheduler`.
+
+## Iteration 45 — g-automation-cron-poller — done — 2026-08-03 06:55
+
+- verify-vorspann auf `45e0dc91` (Iteration 44, webhook.received-Trigger): Diff gelesen
+  (`route_automation.go`, `automation_grpc.go`, `webhook.go`, `poller.go`, proto + Regen,
+  openapi.yaml, Tests). Handler geht ueber `client.TriggerWebhook` (kein Gateway-Bypass), gRPC-Server
+  liest bewusst keinen Tenant aus dem Context (dokumentiert, Tenant kommt aus der Automation-Zeile
+  unter sysctx), `.proto` + `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert, keine neue
+  `RequirePermission` (Route ist bewusst unauthenticated, kein Seed noetig), keine Tenant-Luecke
+  (Webhook-Secret + sysctx-Read + explizite Trigger-Type/Active-Pruefung), Wire-Shape
+  `{duplicate: bool}` passt zum simplen Accepted-Response, Route in openapi.yaml eingetragen
+  (`TestOpenAPIRouteDrift` gruen). Kein Fund. Sauber.
+- gebaut: `g-automation-cron-poller`.
+- **Zweiter, tieferer Bug gefunden, der den in Iteration 44 gefixten ModuleID-Bug wirkungslos
+  gehalten haette:** `ListActiveTimeBased` filterte `WHERE trigger_type = 'time_based'` — dieser
+  String ist in der 14-Eintraege-Trigger-Registry NIRGENDS registriert (die echten Typen heissen
+  `biz.invoice.overdue`, `calendar.event.upcoming` usw.), und `validateAutomation` lehnt beim
+  Anlegen jeden nicht-registrierten `trigger_type` ab — die Query lieferte also strukturell IMMER
+  null Zeilen. Der Poller lief brav alle 5 Minuten, fand aber nie etwas zu tun. Ohne diesen Fix waere
+  "Faellige Automation laeuft" aus dem `done_when` schlicht falsch gewesen, unabhaengig von einer
+  Ausfuehrungssperre.
+- Fix: `Repository.ListActiveTimeBased(ctx, triggerTypes []string)` nimmt jetzt die konkrete
+  Typliste vom Aufrufer entgegen statt selbst zu entscheiden, was "zeitbasiert" heisst.
+  `trigger.TimeTriggerPoller` berechnet sie einmalig bei Konstruktion aus der Registry
+  (`timeBasedTriggerTypes()`, filtert `TriggerDefinition.TimeBased == true`) — bewusst nicht
+  umgekehrt (Registry-Zugriff aus `workflow` heraus), das haette einen Importzyklus erzeugt
+  (`trigger` importiert bereits `workflow`, nicht umgekehrt).
+- **Ausfuehrungssperre** wie von der Unit gefordert, 1:1 gespiegelt von
+  `berichte/scheduler.ClaimSchedule`: neue Methode `ClaimTimeTrigger` macht ein
+  Optimistic-Concurrency-`UPDATE` auf einen Zeitstempel, `RowsAffected()==1` entscheidet claimed
+  ja/nein. Neue Spalte `automations.last_polled_at` (Migration 000284) statt Wiederverwendung von
+  `last_triggered_at` — Letzteres ist FE-sichtbar ("letzte Ausfuehrung",
+  `AutomatisierungPage.tsx`/`automation-types.ts`) und wird nur nach erfolgreicher
+  Actions-Ausfuehrung gesetzt; ein Claim-Versuch ist semantisch etwas anderes (kann gewinnen, obwohl
+  die Condition danach false auswertet) und haette dort einen falschen Zeitstempel gezeigt.
+  Die racy History-Pruefung `wasRecentlyExecuted` (Check-then-Act-Query gegen
+  `automation_executions`) ist komplett entfernt, `execRepo` damit aus dem Poller-Konstruktor raus
+  (war nur dafuer da) — ein Mechanismus statt zwei ueberlappenden, von denen einer racy war.
+- "Verpasste Zeitfenster nicht nachholen-stampeden" war bereits durch das bestehende Design erfuellt
+  (`Start()` feuert einmal sofort, danach fester 5-Minuten-Tick, kein Aufholen mehrerer verpasster
+  Ticks) — keine Aenderung noetig, nur verifiziert.
+- **Gefunden, bewusst nicht angefasst (ausserhalb des Scopes dieser Unit):** die synthetischen
+  Poller-Events tragen kein `Payload` (`evt := models.EventPayload{Type, ModuleID, Timestamp}`),
+  wodurch `engine.buildEnvFromPayload` ein leeres Environment baut. Eine Condition wie
+  "invoice.days_overdue > 3" sieht dieses Feld nie — die Automation feuert bei jedem Tick
+  unconditional statt nur beim tatsaechlichen Erreichen der Schwelle, weil nirgends einzelne
+  ueberfaellige Rechnungen/anstehende Termine aufgeloest und pro Ressource ein Event gebaut wird.
+  Eigenstaendiges, deutlich groesseres Feature (Resource-Level-Polling pro Trigger-Typ), stand nicht
+  in den Notes dieser Unit — Kandidat fuer einen neuen Backlog-Eintrag
+  `g-automation-resource-level-time-triggers`, nicht in diesem Commit geloest (analog zur
+  Idempotency-Reserve-Race aus Iteration 44, die ebenfalls nur im Journal vermerkt und nicht selbst
+  als Unit angelegt wurde).
+- Tests: 2 neue DB-Tests (`workflow/time_trigger_db_test.go`,
+  `TestListActiveTimeBased_FiltersByProvidedTypes` + `TestClaimTimeTrigger_AtomicClaim`, echte
+  Postgres-Rolle `kmuhub_app`, je ein frischer Tenant statt TenantA/B), 5 neue Unit-Tests
+  (`trigger/poller_test.go`: Registry-Flag-Abgleich, Claim-gated-Execute inkl. verlorenem Claim,
+  leere Registry ueberspringt den Repo-Call komplett, Claim-Fehler blockt Ausfuehrung ohne die
+  restliche Schleife abzubrechen).
+- Migration 000284 (`automations.last_polled_at`, nullable, kein Backfill noetig) — up/down/up
+  lokal gruen. RLS auf `automations` nach der Migration weiterhin `relrowsecurity=t` mit
+  unveraenderter Policy `tenant_isolation` (per psql verifiziert, keine Policy angefasst, keine
+  neue Tabelle).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, keine neue
+  Route (openapi.yaml unveraendert, `swagger-cli validate` -> "is valid").
+- gate: `go build -p 2` + `go vet` + `golangci-lint run` auf `internal/automation/...`,
+  `internal/gateway/...`, `internal/models/...`, `cmd/automation/...`, `cmd/gateway/...` ->
+  0 issues. Mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 284):
+  `go test -count=1 -v ./internal/automation/... ./internal/gateway/...` -> 768 PASS, 0 SKIP,
+  0 FAIL, die beiden neuen DB-Tests liefen tatsaechlich (nicht uebersprungen).
+- offen fuer Luke: Triage von `g-automation-resource-level-time-triggers` (siehe oben) als neue
+  Backlog-Unit, falls gewuenscht — nicht in dieser Iteration angelegt.
+
+## Iteration 46 — g-mails-multi-account — done — 2026-08-03
+
+- verify-vorspann auf `d1efda2d` (Iteration 45, Cron-Poller): `git show --stat` gelesen, Diff deckt
+  sich mit der Journal-Beschreibung. Keine Route/kein `.proto`/kein `RequirePermission` angefasst,
+  Migration 000284 nur additiv (nullable Spalte), RLS unveraendert. Kein Fund. Sauber.
+- gebaut: `g-mails-multi-account`. `email_accounts` hatte bereits `tenant_id NOT NULL` + RLS seit
+  Migration 000124 — die einzige Sperre gegen Mehrfachkonten war `UNIQUE(user_id)` aus Migration
+  000041. Migration 000285: Constraint faellt, neue Spalte `is_default BOOLEAN NOT NULL DEFAULT
+  true` (jedes Bestandskonto wird automatisch sein eigenes Default, kein Backfill noetig, da vorher
+  exakt 1 Konto/User existierte), Ausdrucks-Unique-Index
+  `idx_email_accounts_user_default ON email_accounts(user_id) WHERE is_default` erzwingt "genau ein
+  Default pro User" als DB-Invariante.
+- **Kritischer Fund vor dem Bauen:** `cmd/notification/main.go:resolveAccountID` verlaesst sich
+  laut eigenem Kommentar auf "at most one account per (user, tenant)" via
+  `GetEmailAccount`/`GetByUserIDAndTenant`. Ohne Gegenmassnahme haette die Umstellung diesen und
+  jeden aehnlichen Caller lautlos auf eine beliebige DB-Zeile statt "das eine Konto" umgestellt —
+  kein Fehler, kein rotes Gate, einfach das falsche Konto. Fix: `GetByUserIDAndTenant` filtert
+  zusaetzlich `is_default = true`; "das eine Konto" heisst ab jetzt "das Default-Konto", bestehende
+  Caller bleiben unveraendert kompatibel.
+- Zweiter Fund: `Delete` brauchte eine Promotion-Regel. Das Default-Konto bei vorhandenen weiteren
+  Konten zu loeschen, haette sonst den User ohne Default zurueckgelassen und
+  `resolveAccountID` haette 404 geliefert, bis jemand manuell ein neues Default setzt.
+  `Service.Delete` promotet jetzt das aelteste verbleibende Konto (`ListByUserAndTenant`,
+  `ORDER BY created_at ASC`) ueber dieselbe `SetDefault`-Methode, die auch der neue
+  `SetDefaultEmailAccount`-RPC nutzt. Das letzte Konto zu loeschen laesst den User bewusst ohne
+  Default zurueck (kein Konto = kein Default noetig).
+- `Repository.SetDefault` ist EIN atomares `UPDATE ... SET is_default = (id = $1) WHERE
+  tenant_id=$2 AND user_id=$3` statt eines Clear-dann-Set-Zweischritts (das Muster, das
+  `email_signature.Service.SetDefault` verwendet) — vermeidet dessen Race bei einem Doppel-Klick,
+  kein Mehraufwand gegenueber der Vorlage.
+- `ErrAccountExists` entfernt: Create erlaubt jetzt beliebig viele Konten je User, die alte
+  1:1-Pruefung war der einzige Aufrufer. Zugehoerige `mapEmailError`-Klausel mitentfernt.
+- Proto: `ListEmailAccounts`, `SetDefaultEmailAccount` neu, `EmailAccountInfo.is_default` (Feld
+  15), `.pb.go`/`.grpc.pb.go` im selben Commit regeneriert.
+- Gateway: `GET /accounts/list` (User aus `middleware.GetUserID(ctx)`, NICHT aus einem
+  client-gelieferten `?user_id=` wie die Nachbarrouten — das FE ruft `.list()` ohnehin ohne
+  Parameter, also die Chance auf eine IDOR-freie Variante statt das bestehende Muster zu kopieren)
+  und `POST /accounts/{id}/default` (kein Body, User wird serverseitig aus dem Konto aufgeloest).
+  Beide Pfade + Schemas in openapi.yaml, `swagger-cli validate` -> "is valid",
+  `TestOpenAPIRouteDrift` gruen.
+- Wire-Shape gegen den Bestand geprueft, nicht geraten: FE-Client (`email-client.ts:97-99`) und
+  MSW-Mock (`mocks/handlers/email.ts:56-58`) erwarten `GET /api/v1/email/accounts/list` ->
+  `{accounts:[...]}` bereits seit einer frueheren FE-Iteration ("Account-Switcher/Unified-Inbox").
+  Backend zieht jetzt nach — keine Frontend-Aenderung in diesem Commit (Backend-Nachtloop-Scope).
+- RLS: keine neue Policy noetig (Tabelle war schon geschuetzt), aber Tabelle angefasst -> Smoke
+  gelaufen ueber `TestTenantIsolation_Email/email_accounts` (echter `kmuhub_app`-DB-Test, eigener
+  Tenant vs. fremder Tenant), PASS.
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, kein neuer
+  `RequirePermission`-Guard (beide neuen Routen haengen unter dem bestehenden
+  `RequirePermission("email", ...)`-Muster der Nachbarrouten, kein Seed noetig).
+- gate: `go build -p 2` + `go vet` + `golangci-lint run` auf `internal/email/...`,
+  `internal/gateway/...`, `internal/server/...`, `internal/models/...`, `cmd/email/...`,
+  `cmd/gateway/...`, `cmd/notification/...` -> 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`
+  (lokaler Docker-Postgres, Migrationskopf 285): `go test -count=1 -v
+  ./internal/email/account/...` -> 10 Testfunktionen mit Subtests, 0 SKIP (inkl. echtem DB-Test
+  `TestTenantIsolation_Email`); `go test -count=1 ./internal/email/... ./internal/gateway/...
+  ./internal/server/...` komplett gruen. migrate up/down/up lokal gruen (Kopf 285).
+- offen fuer Luke: keine FE-Anbindung an `.list()`/`.default` in diesem Commit (Backend-Scope) —
+  FE-Client/Mocks erwarten die Wire-Shape bereits, ein FE-seitiger Smoke-Test gegen das echte
+  Backend steht noch aus.
+
+## Iteration 47 — g-user-roles-rls — done — 2026-08-03
+
+- verify-vorspann auf `364b5756` (Iteration 46, Mail-Multi-Account): `git show --stat` gelesen,
+  Diff deckt sich mit der Journal-Beschreibung. Migration 000285 additiv, kein neues
+  `RequirePermission`, RLS auf `email_accounts` unveraendert. Kein Fund. Sauber.
+- gebaut: `g-user-roles-rls`, die letzte ungeschuetzte Tabelle des RBAC-Kerns. Migration 000286:
+  `tenant_id` per Backfill aus `users.tenant_id`, NOT NULL, FK auf `tenants`,
+  `CALL enable_tenant_rls('user_roles')` — Einzel-Policy reicht, weil eine Zuweisung immer einem
+  echten Tenant gehoert (anders als bei `roles` gibt es hier keine System-Preset-Zeile, die eine
+  Split-Policy noetig macht).
+- **Kritischer Fund vor dem Bauen, wie in den Notes vermutet und real ausnutzbar:** Welle 1b (jetzt
+  abgeschlossen) erlaubt tenant-eigenen Rollen denselben Namen wie ein Preset (Arbiter-Index liegt
+  auf `COALESCE(tenant_id, sentinel)`, ein echter `tenant_id` kollidiert nie mit dem Sentinel der
+  Presets). `AssignRole(ctx, userID, "member")` — der Pfad, den JEDE Registrierung durchlaeuft
+  (`service.go:107`, unter `sysctx.With()`, RLS also wirkungslos) — matchte per `WHERE r.name = $2`
+  beide Zeilen und haette jeden neuen Registranten, tenant-uebergreifend, zusaetzlich in die
+  gleichnamige Custom-Rolle eines fremden Tenants gehaengt — eine Rechte-Uebertragung ueber die
+  Tenant-Grenze, auslösbar durch nichts weiter als eine Registrierung. Fix sitzt in der Query, nicht
+  in RLS (die unter `sysctx` ohnehin nicht filtert): `AssignRole`/`RemoveRole` loesen jetzt
+  ausschliesslich System-Presets auf (`r.tenant_id IS NULL`); Custom-Rollen laufen ausschliesslich
+  ueber den ID-basierten `AssignUserRole`/`RevokeUserRole`-Pfad aus 1b. Neuer Test
+  `TestAssignRole_DB_PresetOnlyDespiteNameCollision` seedet eine Tenant-Rolle namens "member" und
+  beweist: genau eine Zuweisung entsteht, die des Presets, im Tenant des Opfers — nicht die des
+  Angreifer-Tenants.
+- 13 Bestandsstellen mussten `tenant_id` beim Insert nachziehen (Repository: `AssignRole`,
+  `AssignUserRole`, `AcceptInvitation`; dazu 10 Test-/Seed-Dateien), sonst waere die neue
+  NOT-NULL-Spalte ein harter Bruch gewesen. Alle bereits vorhandenen Kommentare, die "user_roles hat
+  keine RLS" behaupteten (postgres_repository.go, repository.go, roles_admin.go, route_auth.go,
+  hr/employee/postgres_repository.go, mehrere *_db_test.go), auf den neuen Stand korrigiert statt
+  stehen gelassen — die Joins ueber `users`/`roles` bleiben trotzdem drin, weil mehrere Pfade unter
+  `sysctx.With()` laufen, wo RLS nicht greift (Doppelabsicherung, kein Widerspruch).
+- Zwei Nebenbefunde beim Testfixen, beide Test-Artefakte, keine Produktionsluecken:
+  (1) `roles_admin_db_test.go` und `user_roles_db_test.go` liessen denselben festen Akteur ueber
+  ZWEI Tenants hinweg als Aufrufer agieren (nur moeglich, weil `user_roles` vorher RLS-frei war —
+  real waere das nie erreichbar, ein JWT-Tenant stimmt immer mit der eigenen Zeile des Halters
+  ueberein). Sechs betroffene Stellen bekommen jetzt einen tenant-eigenen Akteur
+  (`roleAdminForeignActor`, `userRoleCustomOwner`) statt des geteilten.
+  (2) `TestEffectivePermissions_DB_ForeignCustomRoleStaysInvisible` stand auf einer jetzt
+  UEBERHOLTEN Annahme (Presets bleiben tenant-uebergreifend sichtbar, nur Custom-Rollen nicht) —
+  echte Verschaerfung, keine Regression: `HandleGetUserPermissions` loest das Ziel schon vorher ueber
+  `GetUser` (RLS-geschuetzt) auf, ein fremder User war ueber HTTP nie erreichbar. Erwartung im Test
+  angepasst, der zugehoerige (jetzt falsche) Kommentar an der Route korrigiert.
+  (3) Ein drittes Test-Artefakt in derselben Runde, kein Produktionscode: der eigene
+  `rls_user_roles_test.go`-Test `TestAssignRole_DB_PresetOnlyDespiteNameCollision` mischte
+  `defer pool.Close()` mit `t.Cleanup(...)` fuer Row-Aufraeumung — `t.Cleanup` laeuft NACH dem
+  eigenen `defer` der Funktion, die Aufraeum-Querys liefen also gegen einen bereits geschlossenen
+  Pool und hinterliessen eine Leiche, die den naechsten Testlauf mit einem Unique-Constraint-Fehler
+  kollidieren liess. Auf durchgaengige `defer` umgestellt (mirrors `rls_refresh_tokens_test.go`).
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, keine neue
+  Route (kein `.proto` angefasst, `api/openapi.yaml` unveraendert).
+- gate: `go build -p 2 ./...` + `go vet ./...` + `golangci-lint run ./...` -> 0 issues (voller
+  Repo-Scope, weil die Query-Aenderung ausserhalb von `internal/auth` Bestandscode beruehrt hat:
+  `internal/gateway/route_auth.go`, `internal/biz/hr/employee/postgres_repository.go`). Mit
+  `DATABASE_URL` gegen `kmuhub_app` (lokaler Docker-Postgres, Migrationskopf 286):
+  `go test -count=1 ./internal/auth/... ./internal/server/... ./internal/biz/hr/employee/...
+  ./internal/gateway/...` -> alles PASS, 0 SKIP, inkl. 3 neuer RLS-Tests fuer `user_roles`.
+  migrate up/down/up lokal gruen (Kopf 286).
+
+## Iteration 48 — g-mails-templates — done — 2026-08-03
+
+- verify-vorspann auf `6d6799b2` (Iteration 47, user_roles-RLS): `git show --stat` + Diff der
+  Kern-Dateien (`postgres_repository.go`, `roles_admin.go`, `route_auth.go`) gelesen, deckt sich
+  mit der Journal-Beschreibung. Migration additiv+Backfill, kein neuer Guard, keine neue Route.
+  Kein Fund. Sauber.
+- gebaut: `g-mails-templates`. Neues Package `internal/email/template/` (4-Datei-Muster: repository,
+  postgres_repository, service, errors — mirrored von `signature/`). Migration 000287:
+  `email_templates` mit `tenant_id NOT NULL`, `owner_id UUID REFERENCES users(id)` (NULL = shared),
+  `visibility` CHECK IN ('personal','shared'), `CALL enable_tenant_rls('email_templates')`.
+- Sichtbarkeits-Pattern ist EINE WHERE-Klausel, geteilt von `GetByID`/`ListVisible`:
+  `tenant_id = $t AND (visibility='shared' OR owner_id=$user OR $isAdmin=true)` — mirrored von
+  `crm/contact`s owner_id/visibility-Spalten, nicht neu erfunden (per Recherche als einziger
+  echter Analog im Bestand identifiziert; `signature` ist rein user-scoped und taugte nicht als
+  Vorlage). Eine fremde personal-Vorlage ist damit ueberall (Get/Update/Delete) unauffindbar statt
+  403 — dieselbe "invisible not forbidden"-Konvention wie bei den RBAC-Presets aus Welle 1b.
+  Update/Delete rufen GetByID zuerst; ein Fremdzugriff erreicht `repo.Delete` dadurch nie
+  (testbewiesen: `DeleteFn` wird nicht aufgerufen, wenn GetByID `ErrTemplateNotFound` liefert).
+- Placeholder-Substitution (`Service.Render`) iteriert NUR ueber die feste 6-Key-Liste
+  `AllowedPlaceholders` (contact_first_name/_last_name/_email, company_name, sender_name, today)
+  und schlaegt fuer jeden Key `{{key}}` im Body nach — ein vom Aufrufer gelieferter Key ausserhalb
+  der Liste wird nie gelesen. Kein `text/template`, keine Reflection-basierte Feldaufloesung.
+  Testbeweis: ein `unknown_key`-Wert mit Script-Payload bleibt im Output als literales
+  `{{unknown_key}}` stehen statt ersetzt zu werden — genau die in den Notes verlangte
+  Daten-Abfluss-Vermeidung.
+- Keine neue Permission-Migration: recherchiert, dass JEDES email-Feature (signatures, rules,
+  labels, accounts) dieselben drei `email:read/write/delete` teilt, keine Feature-eigenen Keys
+  existieren. Templates reihen sich dort ein statt eine Ausnahme zu bauen — spart eine
+  Migration und das Seed-Risiko komplett.
+- Gateway: `user_id`/`is_admin` werden serverseitig aus `middleware.GetUserID`/`IsAdmin` aufgeloest,
+  nie aus dem Client-Body uebernommen — dieselbe IDOR-Vermeidung wie `HandleListAccounts` aus
+  Iteration 46. Die DTOs (`createEmailTemplateDTO` etc.) haben deshalb bewusst keine
+  `user_id`/`is_admin`-Felder.
+- Proto: 6 neue RPCs (List/Get/Create/Update/Delete/Render) + `EmailTemplateInfo`,
+  `.pb.go`/`_grpc.pb.go` per direktem `protoc`-Aufruf regeneriert (kein `make proto-email`-Target
+  im Makefile vorhanden, generischer `proto`-Target-Befehl 1:1 uebernommen).
+  `EmailGRPCServer`-Struct/Konstruktor, `cmd/email/main.go`-Wiring und der bestehende
+  `email_grpc_import_test.go` (11. Konstruktor-Argument) an die neue Service-Instanz angepasst.
+- 6 Endpunkte in `route_email.go` unter `/api/v1/email/templates` + `/{id}/render`, alle unter dem
+  bestehenden `email:read/write/delete`-Muster. `api/openapi.yaml`: 3 Pfad-Bloecke + 10 Schemas,
+  `swagger-cli validate` -> "is valid", `TestOpenAPIRouteDrift` gruen (808 Routen / 810 Pfade).
+- Test-Artefakt gefunden und noch vor dem Commit gefixt: die neuen DB-Testfunktionen mischten
+  zunaechst `defer pool.Close()` mit `t.Cleanup(CleanupRow)` — derselbe Fund wie in Iteration 47
+  bei `user_roles`. Cleanup lief gegen einen bereits geschlossenen Pool (nicht fatal, `t.Logf`
+  statt `t.Fatalf`, aber Zeilen blieben in der DB stehen). Auf
+  `t.Cleanup(func(){ pool.Close() })` umgestellt (LIFO: zuerst registriert, zuletzt aufgerufen).
+- migrate up/down/up lokal gruen (Kopf 287). RLS per psql verifiziert: `relrowsecurity=t,
+  relforcerowsecurity=t`, Policy `tenant_isolation`.
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, kein neuer
+  `RequirePermission`-Guard (bestehendes `email`-Trio wiederverwendet, kein Seed noetig).
+- gate: `go build -p 2 ./...`, `go vet -p 2 ./...`, `golangci-lint run` auf
+  `internal/email/template/...`, `internal/gateway/...`, `internal/server/...`,
+  `internal/models/...`, `cmd/email/...` -> 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`
+  (lokaler Docker-Postgres, Migrationskopf 287): `go test -count=1 ./internal/gateway/...
+  ./internal/server/... ./internal/email/... ./internal/models/...` -> alles PASS, 0 SKIP
+  (12 neue Tests in `internal/email/template`, davon 2 echte DB-Tests fuer Tenant-/Visibility-
+  Isolation). Ein einmaliger Flake in `internal/gateway` (FAIL ohne erkennbaren Testnamen im
+  Diff) verschwand beim zweimaligen Wiederholen — reproduzierbar gruen, kein Fund, keine
+  Aenderung noetig.
+- offen fuer Luke: keine FE-Anbindung in diesem Commit (Backend-Nachtloop-Scope) — recherchiert
+  bestaetigt greenfield, kein FE-Client/Mock erwartete vorher eine bestimmte Wire-Shape.
+- commit: `7d381016` (feat(mails): add email templates with placeholder substitution)

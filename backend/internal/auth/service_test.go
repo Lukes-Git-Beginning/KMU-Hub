@@ -27,12 +27,13 @@ type mockRepository struct {
 	userRoles           map[uuid.UUID][]string
 	userPerms           map[uuid.UUID][]string
 	effectiveGrants     map[uuid.UUID][]EffectiveGrantRow
+	userOverrides       map[uuid.UUID][]CapabilityOverride
 	invitations         map[uuid.UUID]*models.Invitation
 	invByToken          map[string]*models.Invitation
 	sessions            []*models.UserSession
 	recoveryCodes       []*models.RecoveryCode
 	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
-	seatLimits          map[uuid.UUID]*int                   // tenant → booked seats, absent = unlimited
+	seatLimits          map[uuid.UUID]*int                    // tenant → booked seats, absent = unlimited
 
 	provisionedTenants map[uuid.UUID]*models.Tenant
 	provisionedModules map[uuid.UUID][]string
@@ -51,6 +52,7 @@ func newMockRepository() *mockRepository {
 		userRoles:           make(map[uuid.UUID][]string),
 		userPerms:           make(map[uuid.UUID][]string),
 		effectiveGrants:     make(map[uuid.UUID][]EffectiveGrantRow),
+		userOverrides:       make(map[uuid.UUID][]CapabilityOverride),
 		invitations:         make(map[uuid.UUID]*models.Invitation),
 		invByToken:          make(map[string]*models.Invitation),
 		sessions:            nil,
@@ -170,6 +172,116 @@ func (m *mockRepository) GetUserPermissions(_ context.Context, userID uuid.UUID)
 
 func (m *mockRepository) GetEffectivePermissions(_ context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
 	return m.effectiveGrants[userID], nil
+}
+
+func (m *mockRepository) ListRoles(_ context.Context) ([]Role, error) {
+	return nil, nil
+}
+
+// Role administration is exercised against the real database
+// (roles_admin_db_test.go); these only satisfy the interface.
+func (m *mockRepository) CountCustomRoles(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) RoleNameExists(_ context.Context, _ string, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *mockRepository) CreateRole(_ context.Context, _ uuid.UUID, _ CreateRoleInput) (*Role, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetRoleByID(_ context.Context, _ uuid.UUID) (*Role, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) UpdateRole(_ context.Context, _ uuid.UUID, _ UpdateRoleInput) (*Role, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) RoleHasMembers(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *mockRepository) DeleteRole(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) GetRolePermissions(_ context.Context, _ uuid.UUID) ([]RoleGrant, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) SetRolePermissions(_ context.Context, _ uuid.UUID, _ []RoleGrant) ([]RoleGrant, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) AssignUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) RevokeUserRole(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetUserOverrides(_ context.Context, userID uuid.UUID) ([]CapabilityOverride, error) {
+	return m.userOverrides[userID], nil
+}
+
+func (m *mockRepository) GetUserOverridesForTenant(_ context.Context, _, userID uuid.UUID) ([]CapabilityOverride, error) {
+	return m.userOverrides[userID], nil
+}
+
+func (m *mockRepository) SetUserOverrides(_ context.Context, _, _, _ uuid.UUID, overrides []CapabilityOverride) ([]CapabilityOverride, error) {
+	return overrides, nil
+}
+
+func (m *mockRepository) ClearUserOverrides(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) CountEffectiveRoleAdminsExcluding(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) ListAdminUsers(_ context.Context) ([]AdminUser, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetAdminUser(_ context.Context, _ uuid.UUID) (*AdminUser, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetInvitationAsAdminUser(_ context.Context, _ uuid.UUID) (*AdminUser, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) CountActiveRoleAdminsExcludingUser(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) GetPresetRoleIDByName(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
+func (m *mockRepository) RefreshInvitationToken(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (*models.Invitation, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) GetUserGrants(_ context.Context, _ uuid.UUID) ([]EffectiveGrantRow, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) CountRoleAdminsExcluding(_ context.Context, _ []string, _, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) CountUnknownPermissionKeys(_ context.Context, _ []string) (int, error) {
+	return 0, nil
 }
 
 func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
@@ -356,11 +468,11 @@ func (m *mockRepository) ReplaceRecoveryCodes(_ context.Context, _ uuid.UUID, _ 
 	return nil
 }
 
-func (m *mockRepository) GetTwoFactorPolicy(_ context.Context, _ string) (*models.TwoFactorPolicy, error) {
+func (m *mockRepository) GetTwoFactorPolicy(_ context.Context, _ uuid.UUID, _ string) (*models.TwoFactorPolicy, error) {
 	return nil, nil
 }
 
-func (m *mockRepository) ListTwoFactorPolicies(_ context.Context) ([]*models.TwoFactorPolicy, error) {
+func (m *mockRepository) ListTwoFactorPolicies(_ context.Context, _ uuid.UUID) ([]*models.TwoFactorPolicy, error) {
 	return nil, nil
 }
 
@@ -738,7 +850,7 @@ func TestService_ValidateToken(t *testing.T) {
 
 	t.Run("valid token", func(t *testing.T) {
 		userID := uuid.New()
-		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, []string{"contacts:read"}, nil)
+		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, &TokenPermissions{Permissions: []string{"contacts:read"}})
 		require.NoError(t, err)
 
 		claims, err := svc.ValidateToken(context.Background(), token)

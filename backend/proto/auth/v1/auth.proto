@@ -21,6 +21,34 @@ service AuthService {
   // Resolves the fine-grained capability keys of a user across all assigned roles.
   rpc GetEffectivePermissions(GetEffectivePermissionsRequest) returns (GetEffectivePermissionsResponse);
 
+  // Role administration — tenant-scoped custom roles on top of the immutable
+  // system presets. Presets are readable by every tenant and writable by none.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+  rpc GetRolePermissions(GetRolePermissionsRequest) returns (GetRolePermissionsResponse);
+  rpc SetRolePermissions(SetRolePermissionsRequest) returns (SetRolePermissionsResponse);
+  rpc AssignUserRole(AssignUserRoleRequest) returns (AssignUserRoleResponse);
+  rpc RevokeUserRole(RevokeUserRoleRequest) returns (RevokeUserRoleResponse);
+
+  // Per-user permission overrides (RBAC R-6) — the deviations one account
+  // carries on top of its roles. Storage and CRUD only; folding them into the
+  // resolved capability set is a separate step.
+  rpc GetUserOverrides(GetUserOverridesRequest) returns (UserOverridesResponse);
+  rpc SetUserOverrides(SetUserOverridesRequest) returns (UserOverridesResponse);
+  rpc ClearUserOverrides(ClearUserOverridesRequest) returns (ClearUserOverridesResponse);
+
+  // Admin account roster (phase 3) — the tenant's login accounts merged with
+  // its still-open invitations into the one list the account admin surface
+  // shows (admin-types.ts, AdminUser).
+  rpc ListAdminUsers(ListAdminUsersRequest) returns (ListAdminUsersResponse);
+  // The three writing counterparts of the roster. Each answers with the single
+  // roster row it produced, so the surface can patch its list without refetching.
+  rpc InviteAdminUser(InviteAdminUserRequest) returns (AdminUserResponse);
+  rpc UpdateAdminUser(UpdateAdminUserRequest) returns (AdminUserResponse);
+  rpc ResendAdminUserInvite(ResendAdminUserInviteRequest) returns (AdminUserResponse);
+
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
@@ -127,6 +155,66 @@ message ListUsersResponse {
   int32 total = 2;
 }
 
+// AdminUserInfo is one row of the account roster: either a real account
+// (status active/deactivated, derived from users.is_active) or a still-open
+// invitation (status invited, no user row exists yet — first_name/last_name
+// are empty because invitations do not collect a name). Dates are RFC3339
+// strings, empty when unset, matching TenantInfo/InvitationInfo.
+message AdminUserInfo {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  repeated string role_ids = 5;
+  string status = 6;
+  string last_login_at = 7;
+  string invited_at = 8;
+}
+
+message ListAdminUsersRequest {}
+
+message ListAdminUsersResponse {
+  repeated AdminUserInfo users = 1;
+}
+
+// AdminUserResponse is the shared answer of the three writing roster routes:
+// the one row the operation produced, in the same shape the list returns.
+//
+// invite_token is set by the two invitation routes and empty otherwise. It is
+// the same one-time token CreateInvitationResponse returns and travels the same
+// way — the caller builds the accept link from it, since nothing in the auth
+// service dispatches invitation mail (Mailer only knows password resets).
+message AdminUserResponse {
+  AdminUserInfo user = 1;
+  string invite_token = 2;
+}
+
+message InviteAdminUserRequest {
+  string email = 1;
+  string first_name = 2;
+  string last_name = 3;
+  // Role ids, not names — a name cannot identify a custom role (roles is
+  // unique per tenant+name, so two tenants may own the same one).
+  repeated string role_ids = 4;
+}
+
+// UpdateAdminUserRequest carries two independent edits. role_ids is a FULL
+// REPLACEMENT when present and untouched when absent, which is why it needs the
+// has_role_ids companion: proto3 cannot tell "clear all roles" from "do not
+// touch roles" on a repeated field.
+message UpdateAdminUserRequest {
+  string user_id = 1;
+  repeated string role_ids = 2;
+  bool has_role_ids = 3;
+  optional string status = 4;
+}
+
+// ResendAdminUserInviteRequest takes the INVITATION id — the id an invited
+// roster row carries, since no user row exists for it yet.
+message ResendAdminUserInviteRequest {
+  string invitation_id = 1;
+}
+
 message UpdateUserRequest {
   string user_id = 1;
   optional string first_name = 2;
@@ -165,6 +253,11 @@ message CheckPermissionResponse {
 // Empty user_id means "the caller", resolved from the request context.
 message GetEffectivePermissionsRequest {
   string user_id = 1;
+  // base asks for the pure role union, before per-user overrides (RBAC R-6)
+  // are folded in. That is the greyed "inherited" baseline the override editor
+  // renders next to the effective set, so it must stay reachable even for an
+  // account whose overrides change half of it.
+  bool base = 2;
 }
 
 // A role assigned to the user. Preset roles carry tenant_id IS NULL and are
@@ -185,10 +278,166 @@ message EffectiveCapability {
   repeated string sources = 3;
 }
 
+// A capability the account's roles grant but a deny override revokes. It is
+// absent from capabilities — this list exists so the effective view can show it
+// struck through instead of silently missing, which is the difference between
+// "you never had it" and "it was taken from you".
+//
+// role_scope is the scope the roles would have granted, kept for that display;
+// sources are the contributing role ids, same currency as EffectiveCapability.
+message DeniedCapability {
+  string key = 1;
+  string role_scope = 2;
+  repeated string sources = 3;
+}
+
 message GetEffectivePermissionsResponse {
   repeated EffectiveRole roles = 1;
   repeated EffectiveCapability capabilities = 2;
+  // Both fields stay empty for a base=true request and for an account without
+  // a single override, so its answer is byte-identical to the one this RPC
+  // gave before overrides existed.
+  bool has_overrides = 3;
+  repeated DeniedCapability denied_by_override = 4;
 }
+
+// Role administration messages.
+//
+// A role as the admin surface sees it. An empty tenant_id means a
+// Zentria-maintained system preset (also reported as is_system); the gateway
+// renders that as JSON null. preset_id names the role a custom role was cloned
+// from and is empty on presets themselves (FE contract: basedOn).
+message Role {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string tenant_id = 4;
+  string preset_id = 5;
+  bool is_system = 6;
+  string color = 7;
+  int32 member_count = 8;
+  int32 capability_count = 9;
+}
+
+// One capability grant of a role. key is the fine-grained
+// "module:subject:action" form, scope is one of own|team|all.
+message RoleGrant {
+  string key = 1;
+  string scope = 2;
+}
+
+message ListRolesRequest {}
+
+// System presets plus the custom roles of the calling tenant.
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+// Creating a role is always a clone: every grant of based_on is copied over,
+// scope included. based_on is usually a preset.
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  string color = 3;
+  string based_on = 4;
+}
+
+message CreateRoleResponse {
+  Role role = 1;
+}
+
+message UpdateRoleRequest {
+  string role_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string color = 4;
+}
+
+message UpdateRoleResponse {
+  Role role = 1;
+}
+
+message DeleteRoleRequest {
+  string role_id = 1;
+}
+
+message DeleteRoleResponse {}
+
+message GetRolePermissionsRequest {
+  string role_id = 1;
+}
+
+message GetRolePermissionsResponse {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+// Full replacement of the grant set: every key missing from grants is revoked.
+message SetRolePermissionsRequest {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+message SetRolePermissionsResponse {
+  string role_id = 1;
+  repeated RoleGrant grants = 2;
+}
+
+message AssignUserRoleRequest {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+// The role ids the account holds after the mutation (FE contract: roles).
+message AssignUserRoleResponse {
+  repeated string role_ids = 1;
+}
+
+message RevokeUserRoleRequest {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+message RevokeUserRoleResponse {
+  repeated string role_ids = 1;
+}
+
+// Per-user permission override messages (RBAC R-6).
+//
+// One deviation from what the account's roles grant. mode is allow|deny,
+// scope one of own|team|all — carried for both modes but only meaningful for
+// allow, matching the frontend type (rbac-types.ts, CapabilityOverride).
+message CapabilityOverride {
+  string key = 1;
+  string mode = 2;
+  string scope = 3;
+}
+
+message GetUserOverridesRequest {
+  string user_id = 1;
+}
+
+// The full override map after the call. A repeated field, not a map: the
+// gateway reshapes it into the frontend's `Record<key, {mode, scope}>`, and a
+// proto map would lose the stable key order the editor renders in.
+message UserOverridesResponse {
+  string user_id = 1;
+  repeated CapabilityOverride overrides = 2;
+}
+
+// Replaces the WHOLE map: a key absent from overrides goes back to following
+// the roles. An empty list therefore clears every override of the account,
+// exactly like ClearUserOverrides.
+message SetUserOverridesRequest {
+  string user_id = 1;
+  repeated CapabilityOverride overrides = 2;
+}
+
+message ClearUserOverridesRequest {
+  string user_id = 1;
+}
+
+message ClearUserOverridesResponse {}
 
 message UserInfo {
   string id = 1;

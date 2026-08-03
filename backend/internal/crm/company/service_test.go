@@ -2,6 +2,7 @@ package company
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +54,28 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, _ uuid.UUID)
 		return nil, ErrCompanyNotFound
 	}
 	return company, nil
+}
+
+func (m *MockRepository) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*models.Company, error) {
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
+	for _, c := range m.companies {
+		if c.TenantID == tenantID && c.MergedIntoID == nil && strings.EqualFold(c.Name, name) {
+			return c, nil
+		}
+	}
+	return nil, ErrCompanyNotFound
+}
+
+func (m *MockRepository) GetNamesByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (map[uuid.UUID]string, error) {
+	names := make(map[uuid.UUID]string, len(ids))
+	for _, id := range ids {
+		if c, ok := m.companies[id]; ok && c.TenantID == tenantID {
+			names[id] = c.Name
+		}
+	}
+	return names, nil
 }
 
 func (m *MockRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Company, int, error) {
@@ -795,4 +818,103 @@ func TestService_CrossTenant_MergeCompanies_NilTenantRejected(t *testing.T) {
 
 	_, err = svc.MergeCompanies(context.Background(), c1.ID, c2.ID, uuid.Nil)
 	assert.ErrorIs(t, err, ErrInvalidTenant)
+}
+
+// ============================================================================
+// FindOrCreateByName / GetNamesByIDs Tests (contact import/export company resolution)
+// ============================================================================
+
+func TestService_FindOrCreateByName_CreatesWhenMissing(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	createdBy := uuid.New()
+
+	company, err := svc.FindOrCreateByName(context.Background(), tenantID, "  Acme GmbH  ", createdBy)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Acme GmbH", company.Name)
+	assert.Equal(t, tenantID, company.TenantID)
+	assert.Equal(t, createdBy, company.CreatedBy)
+	assert.Len(t, repo.companies, 1)
+}
+
+func TestService_FindOrCreateByName_FindsCaseInsensitive(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	created, err := svc.FindOrCreateByName(context.Background(), tenantID, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+
+	found, err := svc.FindOrCreateByName(context.Background(), tenantID, "  acme gmbh  ", uuid.New())
+	require.NoError(t, err)
+
+	assert.Equal(t, created.ID, found.ID)
+	assert.Len(t, repo.companies, 1, "second call must not create a duplicate")
+}
+
+func TestService_FindOrCreateByName_IgnoresMergedCompany(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	merged, err := svc.FindOrCreateByName(context.Background(), tenantID, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+	primaryID := uuid.New()
+	merged.MergedIntoID = &primaryID
+
+	replacement, err := svc.FindOrCreateByName(context.Background(), tenantID, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+
+	assert.NotEqual(t, merged.ID, replacement.ID, "a merged company must not be resolved to again")
+}
+
+func TestService_FindOrCreateByName_IgnoresOtherTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	inA, err := svc.FindOrCreateByName(context.Background(), tenantA, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+
+	inB, err := svc.FindOrCreateByName(context.Background(), tenantB, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+
+	assert.NotEqual(t, inA.ID, inB.ID)
+	assert.Len(t, repo.companies, 2)
+}
+
+func TestService_FindOrCreateByName_NameRequired(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.FindOrCreateByName(context.Background(), uuid.New(), "   ", uuid.New())
+	assert.ErrorIs(t, err, ErrNameRequired)
+}
+
+func TestService_FindOrCreateByName_InvalidTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.FindOrCreateByName(context.Background(), uuid.Nil, "Acme GmbH", uuid.New())
+	assert.ErrorIs(t, err, ErrInvalidTenant)
+}
+
+func TestService_GetNamesByIDs_ScopesToTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	inA, err := svc.FindOrCreateByName(context.Background(), tenantA, "Acme GmbH", uuid.New())
+	require.NoError(t, err)
+	inB, err := svc.FindOrCreateByName(context.Background(), tenantB, "Beta AG", uuid.New())
+	require.NoError(t, err)
+
+	names, err := svc.GetNamesByIDs(context.Background(), []uuid.UUID{inA.ID, inB.ID}, tenantA)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[uuid.UUID]string{inA.ID: "Acme GmbH"}, names)
 }

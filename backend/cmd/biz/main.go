@@ -26,6 +26,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/expense"
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/changerequest"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
@@ -298,7 +299,9 @@ func main() {
 	weekApprovalRepo := timetracking.NewPostgresWeekApprovalRepo(pool)
 	timetrackingSvc.SetExtendedRepos(timeCategoryRepo, timeTemplateRepo, timeProjectRepo, weekApprovalRepo)
 
-	hrGRPC := server.NewHRGRPCServer(leaveSvc, timetrackingSvc, employeeSvc, absenceSvc, hrSettingsRepo)
+	changeRequestSvc := changerequest.NewService(changerequest.NewPostgresRepository(pool))
+
+	hrGRPC := server.NewHRGRPCServer(leaveSvc, timetrackingSvc, employeeSvc, absenceSvc, changeRequestSvc, hrSettingsRepo)
 	hrv1.RegisterHRServiceServer(grpcServer, hrGRPC)
 
 	slog.Info("HR services registered on biz gRPC server")

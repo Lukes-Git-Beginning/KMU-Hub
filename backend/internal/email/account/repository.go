@@ -12,9 +12,14 @@ import (
 type Repository interface {
 	Create(ctx context.Context, account *models.EmailAccount) error
 	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error)
+	// GetByUserIDAndTenant returns the user's default account within a tenant.
 	GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error)
+	// ListByUserAndTenant returns all accounts a user holds within a tenant, oldest first.
+	ListByUserAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAccount, error)
 	Update(ctx context.Context, account *models.EmailAccount) error
 	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
+	// SetDefault atomically makes id the sole default account for userID, clearing any prior default.
+	SetDefault(ctx context.Context, id uuid.UUID, userID uuid.UUID, tenantID uuid.UUID) error
 	// ListActive returns sync-enabled accounts for a specific tenant.
 	ListActive(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailAccount, error)
 	// ListAllActive returns all sync-enabled accounts across all tenants (for sync engine bootstrap).

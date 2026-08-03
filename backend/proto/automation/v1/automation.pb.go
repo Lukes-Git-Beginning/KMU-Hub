@@ -2793,6 +2793,120 @@ func (x *GetAutomationStatsResponse) GetAverageDurationMs() float64 {
 	return 0
 }
 
+type TriggerWebhookRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	AutomationId   string                 `protobuf:"bytes,1,opt,name=automation_id,json=automationId,proto3" json:"automation_id,omitempty"`
+	Body           []byte                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	Signature      string                 `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *TriggerWebhookRequest) Reset() {
+	*x = TriggerWebhookRequest{}
+	mi := &file_proto_automation_v1_automation_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerWebhookRequest) ProtoMessage() {}
+
+func (x *TriggerWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_automation_v1_automation_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerWebhookRequest.ProtoReflect.Descriptor instead.
+func (*TriggerWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_proto_automation_v1_automation_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *TriggerWebhookRequest) GetAutomationId() string {
+	if x != nil {
+		return x.AutomationId
+	}
+	return ""
+}
+
+func (x *TriggerWebhookRequest) GetBody() []byte {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *TriggerWebhookRequest) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
+func (x *TriggerWebhookRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type TriggerWebhookResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// duplicate is true when the delivery (same Idempotency-Key or, absent
+	// one, the same body) was already processed and no second execution ran.
+	Duplicate     bool `protobuf:"varint,1,opt,name=duplicate,proto3" json:"duplicate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerWebhookResponse) Reset() {
+	*x = TriggerWebhookResponse{}
+	mi := &file_proto_automation_v1_automation_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerWebhookResponse) ProtoMessage() {}
+
+func (x *TriggerWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_automation_v1_automation_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerWebhookResponse.ProtoReflect.Descriptor instead.
+func (*TriggerWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_proto_automation_v1_automation_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *TriggerWebhookResponse) GetDuplicate() bool {
+	if x != nil {
+		return x.Duplicate
+	}
+	return false
+}
+
 var File_proto_automation_v1_automation_proto protoreflect.FileDescriptor
 
 const file_proto_automation_v1_automation_proto_rawDesc = "" +
@@ -3053,7 +3167,14 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x15successful_executions\x18\x04 \x01(\x05R\x14successfulExecutions\x12+\n" +
 	"\x11failed_executions\x18\x05 \x01(\x05R\x10failedExecutions\x12-\n" +
 	"\x12skipped_executions\x18\x06 \x01(\x05R\x11skippedExecutions\x12.\n" +
-	"\x13average_duration_ms\x18\a \x01(\x01R\x11averageDurationMs*d\n" +
+	"\x13average_duration_ms\x18\a \x01(\x01R\x11averageDurationMs\"\x97\x01\n" +
+	"\x15TriggerWebhookRequest\x12#\n" +
+	"\rautomation_id\x18\x01 \x01(\tR\fautomationId\x12\x12\n" +
+	"\x04body\x18\x02 \x01(\fR\x04body\x12\x1c\n" +
+	"\tsignature\x18\x03 \x01(\tR\tsignature\x12'\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"6\n" +
+	"\x16TriggerWebhookResponse\x12\x1c\n" +
+	"\tduplicate\x18\x01 \x01(\bR\tduplicate*d\n" +
 	"\x0fAutomationScope\x12\x15\n" +
 	"\x11SCOPE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSCOPE_PERSONAL\x10\x01\x12\x0e\n" +
@@ -3071,7 +3192,7 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x16COMPLEXITY_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11COMPLEXITY_SIMPLE\x10\x01\x12\x15\n" +
 	"\x11COMPLEXITY_MEDIUM\x10\x02\x12\x17\n" +
-	"\x13COMPLEXITY_ADVANCED\x10\x032\xe3\f\n" +
+	"\x13COMPLEXITY_ADVANCED\x10\x032\xc2\r\n" +
 	"\x11AutomationService\x12c\n" +
 	"\x10CreateAutomation\x12&.automation.v1.CreateAutomationRequest\x1a'.automation.v1.CreateAutomationResponse\x12c\n" +
 	"\x10UpdateAutomation\x12&.automation.v1.UpdateAutomationRequest\x1a'.automation.v1.UpdateAutomationResponse\x12c\n" +
@@ -3088,7 +3209,8 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x12CreateFromTemplate\x12(.automation.v1.CreateFromTemplateRequest\x1a).automation.v1.CreateFromTemplateResponse\x12Z\n" +
 	"\rTestCondition\x12#.automation.v1.TestConditionRequest\x1a$.automation.v1.TestConditionResponse\x12c\n" +
 	"\x10DryRunAutomation\x12&.automation.v1.DryRunAutomationRequest\x1a'.automation.v1.DryRunAutomationResponse\x12i\n" +
-	"\x12GetAutomationStats\x12(.automation.v1.GetAutomationStatsRequest\x1a).automation.v1.GetAutomationStatsResponseB;Z9github.com/kmuhub/kmuhub/proto/automation/v1;automationv1b\x06proto3"
+	"\x12GetAutomationStats\x12(.automation.v1.GetAutomationStatsRequest\x1a).automation.v1.GetAutomationStatsResponse\x12]\n" +
+	"\x0eTriggerWebhook\x12$.automation.v1.TriggerWebhookRequest\x1a%.automation.v1.TriggerWebhookResponseB;Z9github.com/kmuhub/kmuhub/proto/automation/v1;automationv1b\x06proto3"
 
 var (
 	file_proto_automation_v1_automation_proto_rawDescOnce sync.Once
@@ -3103,7 +3225,7 @@ func file_proto_automation_v1_automation_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_automation_v1_automation_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_automation_v1_automation_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_proto_automation_v1_automation_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_proto_automation_v1_automation_proto_goTypes = []any{
 	(AutomationScope)(0),                   // 0: automation.v1.AutomationScope
 	(ExecutionStatus)(0),                   // 1: automation.v1.ExecutionStatus
@@ -3148,42 +3270,44 @@ var file_proto_automation_v1_automation_proto_goTypes = []any{
 	(*DryRunAutomationResponse)(nil),       // 40: automation.v1.DryRunAutomationResponse
 	(*GetAutomationStatsRequest)(nil),      // 41: automation.v1.GetAutomationStatsRequest
 	(*GetAutomationStatsResponse)(nil),     // 42: automation.v1.GetAutomationStatsResponse
-	(*structpb.Struct)(nil),                // 43: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),          // 44: google.protobuf.Timestamp
+	(*TriggerWebhookRequest)(nil),          // 43: automation.v1.TriggerWebhookRequest
+	(*TriggerWebhookResponse)(nil),         // 44: automation.v1.TriggerWebhookResponse
+	(*structpb.Struct)(nil),                // 45: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),          // 46: google.protobuf.Timestamp
 }
 var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	0,  // 0: automation.v1.AutomationInfo.scope:type_name -> automation.v1.AutomationScope
-	43, // 1: automation.v1.AutomationInfo.trigger_config:type_name -> google.protobuf.Struct
-	43, // 2: automation.v1.AutomationInfo.conditions:type_name -> google.protobuf.Struct
-	43, // 3: automation.v1.AutomationInfo.actions:type_name -> google.protobuf.Struct
-	44, // 4: automation.v1.AutomationInfo.last_triggered_at:type_name -> google.protobuf.Timestamp
-	44, // 5: automation.v1.AutomationInfo.created_at:type_name -> google.protobuf.Timestamp
-	44, // 6: automation.v1.AutomationInfo.updated_at:type_name -> google.protobuf.Timestamp
-	43, // 7: automation.v1.AutomationExecutionInfo.trigger_event:type_name -> google.protobuf.Struct
+	45, // 1: automation.v1.AutomationInfo.trigger_config:type_name -> google.protobuf.Struct
+	45, // 2: automation.v1.AutomationInfo.conditions:type_name -> google.protobuf.Struct
+	45, // 3: automation.v1.AutomationInfo.actions:type_name -> google.protobuf.Struct
+	46, // 4: automation.v1.AutomationInfo.last_triggered_at:type_name -> google.protobuf.Timestamp
+	46, // 5: automation.v1.AutomationInfo.created_at:type_name -> google.protobuf.Timestamp
+	46, // 6: automation.v1.AutomationInfo.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 7: automation.v1.AutomationExecutionInfo.trigger_event:type_name -> google.protobuf.Struct
 	1,  // 8: automation.v1.AutomationExecutionInfo.status:type_name -> automation.v1.ExecutionStatus
 	5,  // 9: automation.v1.AutomationExecutionInfo.steps:type_name -> automation.v1.ExecutionStepInfo
-	44, // 10: automation.v1.AutomationExecutionInfo.started_at:type_name -> google.protobuf.Timestamp
-	44, // 11: automation.v1.AutomationExecutionInfo.completed_at:type_name -> google.protobuf.Timestamp
-	43, // 12: automation.v1.ExecutionStepInfo.input:type_name -> google.protobuf.Struct
-	43, // 13: automation.v1.ExecutionStepInfo.output:type_name -> google.protobuf.Struct
+	46, // 10: automation.v1.AutomationExecutionInfo.started_at:type_name -> google.protobuf.Timestamp
+	46, // 11: automation.v1.AutomationExecutionInfo.completed_at:type_name -> google.protobuf.Timestamp
+	45, // 12: automation.v1.ExecutionStepInfo.input:type_name -> google.protobuf.Struct
+	45, // 13: automation.v1.ExecutionStepInfo.output:type_name -> google.protobuf.Struct
 	2,  // 14: automation.v1.AutomationTemplateInfo.complexity:type_name -> automation.v1.TemplateComplexity
-	43, // 15: automation.v1.AutomationTemplateInfo.trigger_config:type_name -> google.protobuf.Struct
-	43, // 16: automation.v1.AutomationTemplateInfo.conditions:type_name -> google.protobuf.Struct
-	43, // 17: automation.v1.AutomationTemplateInfo.actions:type_name -> google.protobuf.Struct
-	44, // 18: automation.v1.AutomationTemplateInfo.created_at:type_name -> google.protobuf.Timestamp
+	45, // 15: automation.v1.AutomationTemplateInfo.trigger_config:type_name -> google.protobuf.Struct
+	45, // 16: automation.v1.AutomationTemplateInfo.conditions:type_name -> google.protobuf.Struct
+	45, // 17: automation.v1.AutomationTemplateInfo.actions:type_name -> google.protobuf.Struct
+	46, // 18: automation.v1.AutomationTemplateInfo.created_at:type_name -> google.protobuf.Timestamp
 	8,  // 19: automation.v1.TriggerDefinition.fields:type_name -> automation.v1.FieldDefinition
 	9,  // 20: automation.v1.TriggerDefinition.config_params:type_name -> automation.v1.ConfigParam
 	9,  // 21: automation.v1.ActionDefinition.params:type_name -> automation.v1.ConfigParam
 	8,  // 22: automation.v1.ActionDefinition.output_fields:type_name -> automation.v1.FieldDefinition
 	0,  // 23: automation.v1.CreateAutomationRequest.scope:type_name -> automation.v1.AutomationScope
-	43, // 24: automation.v1.CreateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
-	43, // 25: automation.v1.CreateAutomationRequest.conditions:type_name -> google.protobuf.Struct
-	43, // 26: automation.v1.CreateAutomationRequest.actions:type_name -> google.protobuf.Struct
+	45, // 24: automation.v1.CreateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
+	45, // 25: automation.v1.CreateAutomationRequest.conditions:type_name -> google.protobuf.Struct
+	45, // 26: automation.v1.CreateAutomationRequest.actions:type_name -> google.protobuf.Struct
 	3,  // 27: automation.v1.CreateAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	0,  // 28: automation.v1.UpdateAutomationRequest.scope:type_name -> automation.v1.AutomationScope
-	43, // 29: automation.v1.UpdateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
-	43, // 30: automation.v1.UpdateAutomationRequest.conditions:type_name -> google.protobuf.Struct
-	43, // 31: automation.v1.UpdateAutomationRequest.actions:type_name -> google.protobuf.Struct
+	45, // 29: automation.v1.UpdateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
+	45, // 30: automation.v1.UpdateAutomationRequest.conditions:type_name -> google.protobuf.Struct
+	45, // 31: automation.v1.UpdateAutomationRequest.actions:type_name -> google.protobuf.Struct
 	3,  // 32: automation.v1.UpdateAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	3,  // 33: automation.v1.GetAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	0,  // 34: automation.v1.ListAutomationsRequest.scope:type_name -> automation.v1.AutomationScope
@@ -3191,8 +3315,8 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	3,  // 36: automation.v1.EnableAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	3,  // 37: automation.v1.DisableAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	1,  // 38: automation.v1.ListExecutionsRequest.status:type_name -> automation.v1.ExecutionStatus
-	44, // 39: automation.v1.ListExecutionsRequest.started_after:type_name -> google.protobuf.Timestamp
-	44, // 40: automation.v1.ListExecutionsRequest.started_before:type_name -> google.protobuf.Timestamp
+	46, // 39: automation.v1.ListExecutionsRequest.started_after:type_name -> google.protobuf.Timestamp
+	46, // 40: automation.v1.ListExecutionsRequest.started_before:type_name -> google.protobuf.Timestamp
 	4,  // 41: automation.v1.ListExecutionsResponse.executions:type_name -> automation.v1.AutomationExecutionInfo
 	4,  // 42: automation.v1.GetExecutionResponse.execution:type_name -> automation.v1.AutomationExecutionInfo
 	7,  // 43: automation.v1.ListTriggerDefinitionsResponse.triggers:type_name -> automation.v1.TriggerDefinition
@@ -3200,11 +3324,11 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	6,  // 45: automation.v1.ListTemplatesResponse.templates:type_name -> automation.v1.AutomationTemplateInfo
 	0,  // 46: automation.v1.CreateFromTemplateRequest.scope:type_name -> automation.v1.AutomationScope
 	3,  // 47: automation.v1.CreateFromTemplateResponse.automation:type_name -> automation.v1.AutomationInfo
-	43, // 48: automation.v1.TestConditionRequest.conditions:type_name -> google.protobuf.Struct
-	43, // 49: automation.v1.TestConditionRequest.sample_event:type_name -> google.protobuf.Struct
-	43, // 50: automation.v1.DryRunAutomationRequest.sample_event:type_name -> google.protobuf.Struct
+	45, // 48: automation.v1.TestConditionRequest.conditions:type_name -> google.protobuf.Struct
+	45, // 49: automation.v1.TestConditionRequest.sample_event:type_name -> google.protobuf.Struct
+	45, // 50: automation.v1.DryRunAutomationRequest.sample_event:type_name -> google.protobuf.Struct
 	5,  // 51: automation.v1.DryRunAutomationResponse.simulated_steps:type_name -> automation.v1.ExecutionStepInfo
-	44, // 52: automation.v1.GetAutomationStatsRequest.since:type_name -> google.protobuf.Timestamp
+	46, // 52: automation.v1.GetAutomationStatsRequest.since:type_name -> google.protobuf.Timestamp
 	11, // 53: automation.v1.AutomationService.CreateAutomation:input_type -> automation.v1.CreateAutomationRequest
 	13, // 54: automation.v1.AutomationService.UpdateAutomation:input_type -> automation.v1.UpdateAutomationRequest
 	15, // 55: automation.v1.AutomationService.DeleteAutomation:input_type -> automation.v1.DeleteAutomationRequest
@@ -3221,24 +3345,26 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	37, // 66: automation.v1.AutomationService.TestCondition:input_type -> automation.v1.TestConditionRequest
 	39, // 67: automation.v1.AutomationService.DryRunAutomation:input_type -> automation.v1.DryRunAutomationRequest
 	41, // 68: automation.v1.AutomationService.GetAutomationStats:input_type -> automation.v1.GetAutomationStatsRequest
-	12, // 69: automation.v1.AutomationService.CreateAutomation:output_type -> automation.v1.CreateAutomationResponse
-	14, // 70: automation.v1.AutomationService.UpdateAutomation:output_type -> automation.v1.UpdateAutomationResponse
-	16, // 71: automation.v1.AutomationService.DeleteAutomation:output_type -> automation.v1.DeleteAutomationResponse
-	18, // 72: automation.v1.AutomationService.GetAutomation:output_type -> automation.v1.GetAutomationResponse
-	20, // 73: automation.v1.AutomationService.ListAutomations:output_type -> automation.v1.ListAutomationsResponse
-	22, // 74: automation.v1.AutomationService.EnableAutomation:output_type -> automation.v1.EnableAutomationResponse
-	24, // 75: automation.v1.AutomationService.DisableAutomation:output_type -> automation.v1.DisableAutomationResponse
-	26, // 76: automation.v1.AutomationService.ListExecutions:output_type -> automation.v1.ListExecutionsResponse
-	28, // 77: automation.v1.AutomationService.GetExecution:output_type -> automation.v1.GetExecutionResponse
-	30, // 78: automation.v1.AutomationService.ListTriggerDefinitions:output_type -> automation.v1.ListTriggerDefinitionsResponse
-	32, // 79: automation.v1.AutomationService.ListActionDefinitions:output_type -> automation.v1.ListActionDefinitionsResponse
-	34, // 80: automation.v1.AutomationService.ListTemplates:output_type -> automation.v1.ListTemplatesResponse
-	36, // 81: automation.v1.AutomationService.CreateFromTemplate:output_type -> automation.v1.CreateFromTemplateResponse
-	38, // 82: automation.v1.AutomationService.TestCondition:output_type -> automation.v1.TestConditionResponse
-	40, // 83: automation.v1.AutomationService.DryRunAutomation:output_type -> automation.v1.DryRunAutomationResponse
-	42, // 84: automation.v1.AutomationService.GetAutomationStats:output_type -> automation.v1.GetAutomationStatsResponse
-	69, // [69:85] is the sub-list for method output_type
-	53, // [53:69] is the sub-list for method input_type
+	43, // 69: automation.v1.AutomationService.TriggerWebhook:input_type -> automation.v1.TriggerWebhookRequest
+	12, // 70: automation.v1.AutomationService.CreateAutomation:output_type -> automation.v1.CreateAutomationResponse
+	14, // 71: automation.v1.AutomationService.UpdateAutomation:output_type -> automation.v1.UpdateAutomationResponse
+	16, // 72: automation.v1.AutomationService.DeleteAutomation:output_type -> automation.v1.DeleteAutomationResponse
+	18, // 73: automation.v1.AutomationService.GetAutomation:output_type -> automation.v1.GetAutomationResponse
+	20, // 74: automation.v1.AutomationService.ListAutomations:output_type -> automation.v1.ListAutomationsResponse
+	22, // 75: automation.v1.AutomationService.EnableAutomation:output_type -> automation.v1.EnableAutomationResponse
+	24, // 76: automation.v1.AutomationService.DisableAutomation:output_type -> automation.v1.DisableAutomationResponse
+	26, // 77: automation.v1.AutomationService.ListExecutions:output_type -> automation.v1.ListExecutionsResponse
+	28, // 78: automation.v1.AutomationService.GetExecution:output_type -> automation.v1.GetExecutionResponse
+	30, // 79: automation.v1.AutomationService.ListTriggerDefinitions:output_type -> automation.v1.ListTriggerDefinitionsResponse
+	32, // 80: automation.v1.AutomationService.ListActionDefinitions:output_type -> automation.v1.ListActionDefinitionsResponse
+	34, // 81: automation.v1.AutomationService.ListTemplates:output_type -> automation.v1.ListTemplatesResponse
+	36, // 82: automation.v1.AutomationService.CreateFromTemplate:output_type -> automation.v1.CreateFromTemplateResponse
+	38, // 83: automation.v1.AutomationService.TestCondition:output_type -> automation.v1.TestConditionResponse
+	40, // 84: automation.v1.AutomationService.DryRunAutomation:output_type -> automation.v1.DryRunAutomationResponse
+	42, // 85: automation.v1.AutomationService.GetAutomationStats:output_type -> automation.v1.GetAutomationStatsResponse
+	44, // 86: automation.v1.AutomationService.TriggerWebhook:output_type -> automation.v1.TriggerWebhookResponse
+	70, // [70:87] is the sub-list for method output_type
+	53, // [53:70] is the sub-list for method input_type
 	53, // [53:53] is the sub-list for extension type_name
 	53, // [53:53] is the sub-list for extension extendee
 	0,  // [0:53] is the sub-list for field type_name
@@ -3265,7 +3391,7 @@ func file_proto_automation_v1_automation_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_automation_v1_automation_proto_rawDesc), len(file_proto_automation_v1_automation_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   40,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
