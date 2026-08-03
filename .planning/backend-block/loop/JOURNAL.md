@@ -1868,7 +1868,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     bleiben unveraendert offen, hier nicht angefasst.
 
 ## Iteration 30 — fix-email-export-nil-provider-panic — done — 2026-08-03
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 4a02c5e76778ad69956cb39f53c3a4bb71f4bc26
 - verify vorgaenger: sauber. `37f561ad` (fix-email-import-nil-provider-panic, Iteration 29) gegen
   die acht Fehlerklassen geprueft: kein Proto-Diff (Klasse 3 N/A), keine neue Route/kein Guard
   (Klasse 4/6/7/8 N/A), kein Stub (Klasse 2 — beide Import-RPCs vollstaendig implementiert und
