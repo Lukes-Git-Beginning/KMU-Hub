@@ -2595,8 +2595,8 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
     Backend um.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
 
-## Iteration 40 — g-rbac-user-overrides-resolver — done — 2026-08-03 05:4x
-- commit: <sha folgt>
+## Iteration 40 — g-rbac-user-overrides-resolver — done — 2026-08-03 05:45
+- commit: 18bf5c18
 - gebaut: Die Per-User-Overrides sind in der Rechte-Aufloesung angekommen.
   `Service.GetEffectivePermissions` = Rollen-Union + `applyOverrides()`, **eine** Naht wie die
   MSW-Referenz. Der alte Union-Code heisst jetzt `Service.GetRoleUnion` und ist unveraendert.
