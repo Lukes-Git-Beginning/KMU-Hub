@@ -1984,3 +1984,86 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     `sanitizeModules` diese ohnehin verwirft, ist das deckungsgleich — wer `validModules` erweitert,
     muss `kpiModuleVisibility` im selben Zug erweitern, sonst faellt das neue Modul still weg.
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24-30 bleiben offen, hier nicht angefasst.
+
+## Iteration 32 — g-berichte-document-upload — done — 2026-08-03
+- commit: <wird nach dem Commit unten ergaenzt>
+- verify vorgaenger: sauber. `f3c65ad5` (fix-berichte-kpi-module-scope, Iteration 31) gegen die
+  Fehlerklassen geprueft: Klasse 1 (gRPC-Bypass) N/A — Handler ruft weiterhin `client.GetDashboardKPIs`
+  ueber den gRPC-Client, kein direkter Service-Zugriff. Klasse 2/3 N/A (kein Stub, kein .proto-Diff).
+  Klasse 4 N/A — keine neuen `RequirePermission`-Guards, die verwendeten Capability-Keys
+  (`finance:module:view` etc.) sind bereits in Migration 000256 geseedet (gegengeprueft per grep).
+  Klasse 5 N/A (keine neue Tabelle). Klasse 6 sauber — Response bleibt dasselbe Proto, nur die
+  Modulliste wird server-seitig geschnitten. Klasse 7 sauber — kein neuer Pfad, nur eine
+  Parameter-Beschreibung in openapi.yaml korrigiert (keine neue Route noetig). Klasse 8 N/A — der
+  Route-Guard `berichte:reports:read` wurde nicht angefasst. Nichts zu beanstanden.
+- gebaut: `g-berichte-document-upload` gezogen (einzige `status: todo`-Unit mit `deps: []`).
+  Befund bestaetigt: `desktop/.../berichte-client.ts:286` sendet `POST
+  /api/v1/documents/files/upload` (multipart: file, folder_id, tag_id), die Route existierte nicht —
+  "Bericht als PDF in Dokumente ablegen" war tot.
+  Neue RPC `UploadFile` in `document.proto` (Request: folder_id, filename, mime_type, file_size,
+  content bytes, owner_id, tag_id; Response: file) + Regen im selben Commit
+  (`protoc --go_out --go-grpc_out proto/document/v1/document.proto`, da `make` auf dieser Maschine
+  fehlt — Kommando aus dem Makefile-Target `proto-document` 1:1 uebernommen).
+  Server-Implementierung (`document_grpc.go`) loest `folder_id` **vor** jedem Schreiben ueber
+  `folderService.GetByID(ctx, tenantID, folderID)` auf — das ist der tenant-scope Check, der laut
+  Unit-Notes Pflicht war ("ungeprueft waere das ein Weg, in fremde Ordner zu schreiben"); ein Ordner
+  ausserhalb des eigenen Tenants liefert `folder.ErrFolderNotFound` -> 404, bevor `fileService.Upload`
+  ueberhaupt aufgerufen wird. Die Space-Daten des aufgeloesten Ordners (`SpaceType`/`SpaceID`) fuettern
+  den Storage-Key, wie es das bereits vorhandene (bisher komplett aufruferlose!) `file.Service.Upload`
+  ueberall sonst im Modul erwartet — `Upload` selbst existierte fertig getestet, hatte aber schlicht
+  keine RPC, die sie erreicht; diese Unit ist damit primaer Verdrahtung, keine neue Business-Logik.
+  FUND + Root-Cause-Fix ueber die Unit hinaus: `tag_id` ist in `document_tags` genauso eine
+  FK-Referenz wie `folder_id`, aber die FK-Pruefung laeuft ueber einen Trigger mit Owner-Rechten und
+  umgeht damit RLS komplett — `TagFile` haette einen `tag_id` aus einem FREMDEN Tenant klaglos
+  akzeptiert (die einzige Sicherung war RLS's WITH CHECK auf die `tenant_id`-Spalte der neuen
+  `document_file_tags`-Zeile selbst, nicht auf den referenzierten Tag). Statt das nur in der neuen
+  RPC ad-hoc abzufangen, wurde `tag.PostgresRepository.TagFile` (`internal/document/tag/
+  postgres_repository.go`) um einen expliziten `SELECT EXISTS(...tenant_id=$2)`-Check vor dem INSERT
+  erweitert (`ErrTagNotFound` bei Miss) — das schliesst dieselbe Luecke auch fuer die bestehende
+  `HandleTagFile`-Route (`/api/v1/documents/tags/file`) mit, nicht nur fuer den neuen Pfad. Neuer
+  Test `TestTagFile_RejectsTagFromAnotherTenant` (`tenant_write_test.go`) belegt das: eigener
+  Tenant-Context, eigene Datei, aber `tag_id` eines fremden Tenants -> `ErrTagNotFound`, 0 Zeilen in
+  `document_file_tags`. Der bestehende Test `TestDocumentTagWrites_LandInCallerTenant` blieb gruen
+  (die dort gepruefte RLS-Session-Fehlpassung schlaegt weiterhin fehl, nur jetzt eine Zeile frueher
+  ueber den neuen Ownership-Check statt ueber den rohen RLS-Fehler).
+  `tag_id` ist im neuen Endpunkt bewusst optional (leerer String = kein Tag) und nicht hart
+  Pflichtfeld: das FE (`saveReportToDocuments`) sendet aktuell den mock-typischen String-Literal
+  `'t-bericht'` statt einer echten UUID (siehe `mocks/handlers/documents.ts:40`, wo Demo-Tags
+  String-IDs statt UUIDs tragen) — `uuid.Parse` auf diesem Wert liefert einen 400
+  `invalid tag id`, bis entweder das FE eine echte Tag-UUID schickt oder pro Tenant ein "Bericht"-Tag
+  provisioniert wird. Das ist eine offene FE/Produkt-Frage, keine Backend-Luecke, siehe unten.
+  Gateway-Handler (`route_document.go`, `HandleUploadFile`) folgt exakt dem Multipart-Muster aus
+  `route_biz_gobd_archive.go` (55 MiB Formular-Cap = 50 MiB Datei + 5 MiB Felder,
+  `grpc.MaxCallSendMsgSize(60<<20)` fuer den RPC-Call). Content-Type-Allowlist
+  (`allowedDocumentUploadMimeTypes`) und Groessenlimit (`maxDocumentUploadBytes = 50<<20`, deckungsgleich
+  mit dem bestehenden Presign-Limit in `presign.go`) sitzen bewusst im Gateway-Handler, nicht im
+  generischen `file.Service.Upload` (der bleibt unveraendert wiederverwendbar fuer kuenftige Aufrufer
+  mit anderen Anforderungen) — Allowlist ist dieselbe Dokumente/Bilder/Office/Archiv-Menge wie
+  `internal/chat/file`s `allowedMimeTypes`, MINUS `image/svg+xml` (dieselbe XSS-Begruendung wie
+  `brandingAllowedContentTypes` in `presign.go`: Dokumente werden potenziell inline ueber WOPI
+  geoeffnet, ohne Sanitizer davor).
+  Route registriert unter der bestehenden `docUpload`-Guard-Variable (`documents:file:upload` /
+  `documents:write`, additiv, kein neuer Permission-Key noetig, kein Seed noetig).
+  openapi.yaml: neuer Pfad `/api/v1/documents/files/upload` (multipart/form-data, 201/400/401/403/
+  404/413/415) nach dem Vorbild von `/finance/gobd-archive`.
+  gate: build ok (`go build -p 2` auf document/gateway/server/cmd/document/cmd/gateway) | vet ok |
+  lint ok (golangci-lint auf `internal/document/...`, `internal/gateway/...`, `internal/server/...`,
+  0 issues) | migration: keine (kein Schema-Change) | test ok — `go test -count=1 -v
+  ./internal/document/... ./internal/server/...` mit `DATABASE_URL` auf `kmuhub_app`: 368 PASS, 0
+  SKIP, 0 FAIL; `go test -count=1 ./internal/gateway/`: 618 PASS, 0 FAIL, 0 SKIP, inkl.
+  `TestOpenAPIRouteDrift` (791 registrierte gegen 793 dokumentierte `/api/v1/*`-Pfade, gruen).
+- offen:
+  - `tag_id` aus dem FE ist aktuell der literale Mock-String `'t-bericht'`, keine echte UUID —
+    der neue Endpunkt liefert dafuer 400 `invalid tag id`, das Speichern des Files selbst (ohne Tag)
+    waere aber unbenommen, wenn das FE `tag_id` wegliesse. Zwei Wege fuer eine spaetere Unit: (a) FE
+    schickt keine `tag_id` mehr, bis es echte Tag-UUIDs kennt, oder (b) ein "Bericht"-Tag wird pro
+    Tenant provisioniert (im `ProvisionTenant`-Hook, `auth/provisioning.go:76`, derselbe Ort wie bei
+    `g-rls-presence-and-dashboard-defaults`) und das FE erhaelt dessen echte UUID. Reine
+    FE/Produkt-Entscheidung, keine Backend-Blockade.
+  - `RegisterUploadedFile` (der bestehende Presign-Register-Pfad, `document_grpc.go:301`) hat
+    denselben ungeprueften `folder_id`-Fund wie die neue `UploadFile`-Route hatte, VOR dem Fix: es
+    validiert nicht, dass `folder_id` dem aufrufenden Tenant gehoert, bevor es die Datei-Metadaten
+    darunter registriert. Bewusst NICHT in diesem Commit mitgezogen (andere Route, ausserhalb des
+    Unit-Scopes, kein Test dafuer vorbereitet) — fuer eine kuenftige Fix-Unit vormerken, Vorlage ist
+    der `folderService.GetByID`-Check aus dieser Iteration.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.

@@ -1800,7 +1800,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/documents/files/upload` (multipart) fehlt. Verifiziert am 2026-08-02:
       `desktop/src/renderer/src/api/berichte-client.ts:286` sendet ein FormData mit `file`,

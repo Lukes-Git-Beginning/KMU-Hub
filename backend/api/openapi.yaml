@@ -24269,6 +24269,57 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/v1/documents/files/upload:
+    post:
+      summary: Upload a file directly into the document store
+      description: >-
+        Requires documents:write permission. Unlike POST /api/v1/documents/files
+        (which only registers metadata for bytes already in MinIO via a
+        presigned PUT), this route streams the file itself through the
+        gateway. Intended for small server-generated files (e.g. a report
+        PDF) where a presign round-trip is unnecessary overhead. folder_id
+        and, if given, tag_id must belong to the caller's tenant. Owner is
+        taken from the JWT.
+      tags: [documents]
+      operationId: uploadDocumentFile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, folder_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (max 50 MiB, allowlisted content types only)
+                folder_id:
+                  type: string
+                  format: uuid
+                tag_id:
+                  type: string
+                  format: uuid
+                  description: Optional — tag applied to the file after upload
+      responses:
+        "201":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file: { $ref: "#/components/schemas/DocumentFile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413":
+          description: File exceeds the 50 MiB limit
+        "415":
+          description: Content type not in the document upload allowlist
+
   /api/v1/documents/files/{id}:
     get:
       summary: Get a document file by ID

@@ -32,6 +32,10 @@ service DocumentService {
   // Registers metadata for a file already uploaded to object storage via a
   // presigned PUT URL (browser-direct upload). Does not touch object storage.
   rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (RegisterUploadedFileResponse);
+  // Uploads file bytes directly (gateway multipart -> gRPC), writes them to
+  // object storage itself, and creates the DB record. Unlike
+  // RegisterUploadedFile, the caller never talks to MinIO directly.
+  rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
   rpc ListFileComments(ListFileCommentsRequest) returns (ListFileCommentsResponse);
   rpc CreateFileComment(CreateFileCommentRequest) returns (CreateFileCommentResponse);
   rpc UpdateFileComment(UpdateFileCommentRequest) returns (UpdateFileCommentResponse);
@@ -411,6 +415,20 @@ message RegisterUploadedFileRequest {
 }
 
 message RegisterUploadedFileResponse {
+  DocumentFile file = 1;
+}
+
+message UploadFileRequest {
+  string folder_id = 1;
+  string filename = 2;
+  string mime_type = 3;
+  int64 file_size = 4;
+  bytes content = 5;
+  string owner_id = 6;
+  string tag_id = 7; // optional; empty = no tag applied
+}
+
+message UploadFileResponse {
   DocumentFile file = 1;
 }
 

@@ -3123,6 +3123,142 @@ func (x *RegisterUploadedFileResponse) GetFile() *DocumentFile {
 	return nil
 }
 
+type UploadFileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FolderId      string                 `protobuf:"bytes,1,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
+	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	MimeType      string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	FileSize      int64                  `protobuf:"varint,4,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	Content       []byte                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	OwnerId       string                 `protobuf:"bytes,6,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	TagId         string                 `protobuf:"bytes,7,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"` // optional; empty = no tag applied
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadFileRequest) Reset() {
+	*x = UploadFileRequest{}
+	mi := &file_proto_document_v1_document_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadFileRequest) ProtoMessage() {}
+
+func (x *UploadFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_document_v1_document_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadFileRequest.ProtoReflect.Descriptor instead.
+func (*UploadFileRequest) Descriptor() ([]byte, []int) {
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *UploadFileRequest) GetFolderId() string {
+	if x != nil {
+		return x.FolderId
+	}
+	return ""
+}
+
+func (x *UploadFileRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *UploadFileRequest) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+func (x *UploadFileRequest) GetFileSize() int64 {
+	if x != nil {
+		return x.FileSize
+	}
+	return 0
+}
+
+func (x *UploadFileRequest) GetContent() []byte {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *UploadFileRequest) GetOwnerId() string {
+	if x != nil {
+		return x.OwnerId
+	}
+	return ""
+}
+
+func (x *UploadFileRequest) GetTagId() string {
+	if x != nil {
+		return x.TagId
+	}
+	return ""
+}
+
+type UploadFileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	File          *DocumentFile          `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadFileResponse) Reset() {
+	*x = UploadFileResponse{}
+	mi := &file_proto_document_v1_document_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadFileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadFileResponse) ProtoMessage() {}
+
+func (x *UploadFileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_document_v1_document_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadFileResponse.ProtoReflect.Descriptor instead.
+func (*UploadFileResponse) Descriptor() ([]byte, []int) {
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *UploadFileResponse) GetFile() *DocumentFile {
+	if x != nil {
+		return x.File
+	}
+	return nil
+}
+
 type ListFileVersionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FileId        string                 `protobuf:"bytes,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
@@ -3132,7 +3268,7 @@ type ListFileVersionsRequest struct {
 
 func (x *ListFileVersionsRequest) Reset() {
 	*x = ListFileVersionsRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[45]
+	mi := &file_proto_document_v1_document_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3144,7 +3280,7 @@ func (x *ListFileVersionsRequest) String() string {
 func (*ListFileVersionsRequest) ProtoMessage() {}
 
 func (x *ListFileVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[45]
+	mi := &file_proto_document_v1_document_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3157,7 +3293,7 @@ func (x *ListFileVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListFileVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{45}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListFileVersionsRequest) GetFileId() string {
@@ -3176,7 +3312,7 @@ type ListFileVersionsResponse struct {
 
 func (x *ListFileVersionsResponse) Reset() {
 	*x = ListFileVersionsResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[46]
+	mi := &file_proto_document_v1_document_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3188,7 +3324,7 @@ func (x *ListFileVersionsResponse) String() string {
 func (*ListFileVersionsResponse) ProtoMessage() {}
 
 func (x *ListFileVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[46]
+	mi := &file_proto_document_v1_document_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3201,7 +3337,7 @@ func (x *ListFileVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListFileVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{46}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListFileVersionsResponse) GetVersions() []*DocumentFileVersion {
@@ -3221,7 +3357,7 @@ type RevertFileVersionRequest struct {
 
 func (x *RevertFileVersionRequest) Reset() {
 	*x = RevertFileVersionRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[47]
+	mi := &file_proto_document_v1_document_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3233,7 +3369,7 @@ func (x *RevertFileVersionRequest) String() string {
 func (*RevertFileVersionRequest) ProtoMessage() {}
 
 func (x *RevertFileVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[47]
+	mi := &file_proto_document_v1_document_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3246,7 +3382,7 @@ func (x *RevertFileVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevertFileVersionRequest.ProtoReflect.Descriptor instead.
 func (*RevertFileVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{47}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RevertFileVersionRequest) GetFileId() string {
@@ -3272,7 +3408,7 @@ type RevertFileVersionResponse struct {
 
 func (x *RevertFileVersionResponse) Reset() {
 	*x = RevertFileVersionResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[48]
+	mi := &file_proto_document_v1_document_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3284,7 +3420,7 @@ func (x *RevertFileVersionResponse) String() string {
 func (*RevertFileVersionResponse) ProtoMessage() {}
 
 func (x *RevertFileVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[48]
+	mi := &file_proto_document_v1_document_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3297,7 +3433,7 @@ func (x *RevertFileVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevertFileVersionResponse.ProtoReflect.Descriptor instead.
 func (*RevertFileVersionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{48}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *RevertFileVersionResponse) GetFile() *DocumentFile {
@@ -3316,7 +3452,7 @@ type ListFileActivityRequest struct {
 
 func (x *ListFileActivityRequest) Reset() {
 	*x = ListFileActivityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[49]
+	mi := &file_proto_document_v1_document_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3328,7 +3464,7 @@ func (x *ListFileActivityRequest) String() string {
 func (*ListFileActivityRequest) ProtoMessage() {}
 
 func (x *ListFileActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[49]
+	mi := &file_proto_document_v1_document_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3341,7 +3477,7 @@ func (x *ListFileActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileActivityRequest.ProtoReflect.Descriptor instead.
 func (*ListFileActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{49}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ListFileActivityRequest) GetFileId() string {
@@ -3360,7 +3496,7 @@ type ListFileActivityResponse struct {
 
 func (x *ListFileActivityResponse) Reset() {
 	*x = ListFileActivityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[50]
+	mi := &file_proto_document_v1_document_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3372,7 +3508,7 @@ func (x *ListFileActivityResponse) String() string {
 func (*ListFileActivityResponse) ProtoMessage() {}
 
 func (x *ListFileActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[50]
+	mi := &file_proto_document_v1_document_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3385,7 +3521,7 @@ func (x *ListFileActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileActivityResponse.ProtoReflect.Descriptor instead.
 func (*ListFileActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{50}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ListFileActivityResponse) GetActivities() []*DocumentFileActivity {
@@ -3404,7 +3540,7 @@ type ListFileCommentsRequest struct {
 
 func (x *ListFileCommentsRequest) Reset() {
 	*x = ListFileCommentsRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[51]
+	mi := &file_proto_document_v1_document_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3416,7 +3552,7 @@ func (x *ListFileCommentsRequest) String() string {
 func (*ListFileCommentsRequest) ProtoMessage() {}
 
 func (x *ListFileCommentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[51]
+	mi := &file_proto_document_v1_document_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3429,7 +3565,7 @@ func (x *ListFileCommentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileCommentsRequest.ProtoReflect.Descriptor instead.
 func (*ListFileCommentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{51}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ListFileCommentsRequest) GetFileId() string {
@@ -3448,7 +3584,7 @@ type ListFileCommentsResponse struct {
 
 func (x *ListFileCommentsResponse) Reset() {
 	*x = ListFileCommentsResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[52]
+	mi := &file_proto_document_v1_document_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3460,7 +3596,7 @@ func (x *ListFileCommentsResponse) String() string {
 func (*ListFileCommentsResponse) ProtoMessage() {}
 
 func (x *ListFileCommentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[52]
+	mi := &file_proto_document_v1_document_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3473,7 +3609,7 @@ func (x *ListFileCommentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileCommentsResponse.ProtoReflect.Descriptor instead.
 func (*ListFileCommentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{52}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ListFileCommentsResponse) GetComments() []*DocumentFileComment {
@@ -3493,7 +3629,7 @@ type CreateFileCommentRequest struct {
 
 func (x *CreateFileCommentRequest) Reset() {
 	*x = CreateFileCommentRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[53]
+	mi := &file_proto_document_v1_document_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3505,7 +3641,7 @@ func (x *CreateFileCommentRequest) String() string {
 func (*CreateFileCommentRequest) ProtoMessage() {}
 
 func (x *CreateFileCommentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[53]
+	mi := &file_proto_document_v1_document_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3518,7 +3654,7 @@ func (x *CreateFileCommentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileCommentRequest.ProtoReflect.Descriptor instead.
 func (*CreateFileCommentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{53}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CreateFileCommentRequest) GetFileId() string {
@@ -3544,7 +3680,7 @@ type CreateFileCommentResponse struct {
 
 func (x *CreateFileCommentResponse) Reset() {
 	*x = CreateFileCommentResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[54]
+	mi := &file_proto_document_v1_document_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3556,7 +3692,7 @@ func (x *CreateFileCommentResponse) String() string {
 func (*CreateFileCommentResponse) ProtoMessage() {}
 
 func (x *CreateFileCommentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[54]
+	mi := &file_proto_document_v1_document_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3569,7 +3705,7 @@ func (x *CreateFileCommentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileCommentResponse.ProtoReflect.Descriptor instead.
 func (*CreateFileCommentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{54}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CreateFileCommentResponse) GetComment() *DocumentFileComment {
@@ -3589,7 +3725,7 @@ type UpdateFileCommentRequest struct {
 
 func (x *UpdateFileCommentRequest) Reset() {
 	*x = UpdateFileCommentRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[55]
+	mi := &file_proto_document_v1_document_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3601,7 +3737,7 @@ func (x *UpdateFileCommentRequest) String() string {
 func (*UpdateFileCommentRequest) ProtoMessage() {}
 
 func (x *UpdateFileCommentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[55]
+	mi := &file_proto_document_v1_document_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3614,7 +3750,7 @@ func (x *UpdateFileCommentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFileCommentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateFileCommentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{55}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *UpdateFileCommentRequest) GetId() string {
@@ -3640,7 +3776,7 @@ type UpdateFileCommentResponse struct {
 
 func (x *UpdateFileCommentResponse) Reset() {
 	*x = UpdateFileCommentResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[56]
+	mi := &file_proto_document_v1_document_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3652,7 +3788,7 @@ func (x *UpdateFileCommentResponse) String() string {
 func (*UpdateFileCommentResponse) ProtoMessage() {}
 
 func (x *UpdateFileCommentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[56]
+	mi := &file_proto_document_v1_document_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3665,7 +3801,7 @@ func (x *UpdateFileCommentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFileCommentResponse.ProtoReflect.Descriptor instead.
 func (*UpdateFileCommentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{56}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *UpdateFileCommentResponse) GetComment() *DocumentFileComment {
@@ -3688,7 +3824,7 @@ type DeleteFileCommentRequest struct {
 
 func (x *DeleteFileCommentRequest) Reset() {
 	*x = DeleteFileCommentRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[57]
+	mi := &file_proto_document_v1_document_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3700,7 +3836,7 @@ func (x *DeleteFileCommentRequest) String() string {
 func (*DeleteFileCommentRequest) ProtoMessage() {}
 
 func (x *DeleteFileCommentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[57]
+	mi := &file_proto_document_v1_document_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3713,7 +3849,7 @@ func (x *DeleteFileCommentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFileCommentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFileCommentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{57}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DeleteFileCommentRequest) GetId() string {
@@ -3738,7 +3874,7 @@ type DeleteFileCommentResponse struct {
 
 func (x *DeleteFileCommentResponse) Reset() {
 	*x = DeleteFileCommentResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[58]
+	mi := &file_proto_document_v1_document_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3750,7 +3886,7 @@ func (x *DeleteFileCommentResponse) String() string {
 func (*DeleteFileCommentResponse) ProtoMessage() {}
 
 func (x *DeleteFileCommentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[58]
+	mi := &file_proto_document_v1_document_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3763,7 +3899,7 @@ func (x *DeleteFileCommentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFileCommentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFileCommentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{58}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{60}
 }
 
 type ShareLink struct {
@@ -3783,7 +3919,7 @@ type ShareLink struct {
 
 func (x *ShareLink) Reset() {
 	*x = ShareLink{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[59]
+	mi := &file_proto_document_v1_document_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3795,7 +3931,7 @@ func (x *ShareLink) String() string {
 func (*ShareLink) ProtoMessage() {}
 
 func (x *ShareLink) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[59]
+	mi := &file_proto_document_v1_document_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3808,7 +3944,7 @@ func (x *ShareLink) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareLink.ProtoReflect.Descriptor instead.
 func (*ShareLink) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{59}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ShareLink) GetId() string {
@@ -3872,7 +4008,7 @@ type CreateShareLinkRequest struct {
 
 func (x *CreateShareLinkRequest) Reset() {
 	*x = CreateShareLinkRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[60]
+	mi := &file_proto_document_v1_document_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3884,7 +4020,7 @@ func (x *CreateShareLinkRequest) String() string {
 func (*CreateShareLinkRequest) ProtoMessage() {}
 
 func (x *CreateShareLinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[60]
+	mi := &file_proto_document_v1_document_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3897,7 +4033,7 @@ func (x *CreateShareLinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateShareLinkRequest.ProtoReflect.Descriptor instead.
 func (*CreateShareLinkRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{60}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *CreateShareLinkRequest) GetFileId() string {
@@ -3937,7 +4073,7 @@ type CreateShareLinkResponse struct {
 
 func (x *CreateShareLinkResponse) Reset() {
 	*x = CreateShareLinkResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[61]
+	mi := &file_proto_document_v1_document_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3949,7 +4085,7 @@ func (x *CreateShareLinkResponse) String() string {
 func (*CreateShareLinkResponse) ProtoMessage() {}
 
 func (x *CreateShareLinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[61]
+	mi := &file_proto_document_v1_document_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3962,7 +4098,7 @@ func (x *CreateShareLinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateShareLinkResponse.ProtoReflect.Descriptor instead.
 func (*CreateShareLinkResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{61}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *CreateShareLinkResponse) GetShareLink() *ShareLink {
@@ -3981,7 +4117,7 @@ type ListShareLinksRequest struct {
 
 func (x *ListShareLinksRequest) Reset() {
 	*x = ListShareLinksRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[62]
+	mi := &file_proto_document_v1_document_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3993,7 +4129,7 @@ func (x *ListShareLinksRequest) String() string {
 func (*ListShareLinksRequest) ProtoMessage() {}
 
 func (x *ListShareLinksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[62]
+	mi := &file_proto_document_v1_document_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4006,7 +4142,7 @@ func (x *ListShareLinksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShareLinksRequest.ProtoReflect.Descriptor instead.
 func (*ListShareLinksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{62}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ListShareLinksRequest) GetFileId() string {
@@ -4025,7 +4161,7 @@ type ListShareLinksResponse struct {
 
 func (x *ListShareLinksResponse) Reset() {
 	*x = ListShareLinksResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[63]
+	mi := &file_proto_document_v1_document_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4037,7 +4173,7 @@ func (x *ListShareLinksResponse) String() string {
 func (*ListShareLinksResponse) ProtoMessage() {}
 
 func (x *ListShareLinksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[63]
+	mi := &file_proto_document_v1_document_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4050,7 +4186,7 @@ func (x *ListShareLinksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShareLinksResponse.ProtoReflect.Descriptor instead.
 func (*ListShareLinksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{63}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListShareLinksResponse) GetShareLinks() []*ShareLink {
@@ -4069,7 +4205,7 @@ type RevokeShareLinkRequest struct {
 
 func (x *RevokeShareLinkRequest) Reset() {
 	*x = RevokeShareLinkRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[64]
+	mi := &file_proto_document_v1_document_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4081,7 +4217,7 @@ func (x *RevokeShareLinkRequest) String() string {
 func (*RevokeShareLinkRequest) ProtoMessage() {}
 
 func (x *RevokeShareLinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[64]
+	mi := &file_proto_document_v1_document_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4094,7 +4230,7 @@ func (x *RevokeShareLinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeShareLinkRequest.ProtoReflect.Descriptor instead.
 func (*RevokeShareLinkRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{64}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *RevokeShareLinkRequest) GetId() string {
@@ -4112,7 +4248,7 @@ type RevokeShareLinkResponse struct {
 
 func (x *RevokeShareLinkResponse) Reset() {
 	*x = RevokeShareLinkResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[65]
+	mi := &file_proto_document_v1_document_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4124,7 +4260,7 @@ func (x *RevokeShareLinkResponse) String() string {
 func (*RevokeShareLinkResponse) ProtoMessage() {}
 
 func (x *RevokeShareLinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[65]
+	mi := &file_proto_document_v1_document_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4137,7 +4273,7 @@ func (x *RevokeShareLinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeShareLinkResponse.ProtoReflect.Descriptor instead.
 func (*RevokeShareLinkResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{65}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{67}
 }
 
 type GetSharedFileRequest struct {
@@ -4150,7 +4286,7 @@ type GetSharedFileRequest struct {
 
 func (x *GetSharedFileRequest) Reset() {
 	*x = GetSharedFileRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[66]
+	mi := &file_proto_document_v1_document_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4162,7 +4298,7 @@ func (x *GetSharedFileRequest) String() string {
 func (*GetSharedFileRequest) ProtoMessage() {}
 
 func (x *GetSharedFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[66]
+	mi := &file_proto_document_v1_document_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4175,7 +4311,7 @@ func (x *GetSharedFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSharedFileRequest.ProtoReflect.Descriptor instead.
 func (*GetSharedFileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{66}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *GetSharedFileRequest) GetToken() string {
@@ -4204,7 +4340,7 @@ type GetSharedFileResponse struct {
 
 func (x *GetSharedFileResponse) Reset() {
 	*x = GetSharedFileResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[67]
+	mi := &file_proto_document_v1_document_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4216,7 +4352,7 @@ func (x *GetSharedFileResponse) String() string {
 func (*GetSharedFileResponse) ProtoMessage() {}
 
 func (x *GetSharedFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[67]
+	mi := &file_proto_document_v1_document_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4229,7 +4365,7 @@ func (x *GetSharedFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSharedFileResponse.ProtoReflect.Descriptor instead.
 func (*GetSharedFileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{67}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GetSharedFileResponse) GetDownloadUrl() string {
@@ -4273,7 +4409,7 @@ type ShareEntityRequest struct {
 
 func (x *ShareEntityRequest) Reset() {
 	*x = ShareEntityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[68]
+	mi := &file_proto_document_v1_document_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4285,7 +4421,7 @@ func (x *ShareEntityRequest) String() string {
 func (*ShareEntityRequest) ProtoMessage() {}
 
 func (x *ShareEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[68]
+	mi := &file_proto_document_v1_document_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4298,7 +4434,7 @@ func (x *ShareEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareEntityRequest.ProtoReflect.Descriptor instead.
 func (*ShareEntityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{68}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *ShareEntityRequest) GetEntityType() string {
@@ -4345,7 +4481,7 @@ type ShareEntityResponse struct {
 
 func (x *ShareEntityResponse) Reset() {
 	*x = ShareEntityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[69]
+	mi := &file_proto_document_v1_document_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4357,7 +4493,7 @@ func (x *ShareEntityResponse) String() string {
 func (*ShareEntityResponse) ProtoMessage() {}
 
 func (x *ShareEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[69]
+	mi := &file_proto_document_v1_document_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4370,7 +4506,7 @@ func (x *ShareEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareEntityResponse.ProtoReflect.Descriptor instead.
 func (*ShareEntityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{69}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *ShareEntityResponse) GetShare() *DocumentShare {
@@ -4391,7 +4527,7 @@ type UnshareEntityRequest struct {
 
 func (x *UnshareEntityRequest) Reset() {
 	*x = UnshareEntityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[70]
+	mi := &file_proto_document_v1_document_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4403,7 +4539,7 @@ func (x *UnshareEntityRequest) String() string {
 func (*UnshareEntityRequest) ProtoMessage() {}
 
 func (x *UnshareEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[70]
+	mi := &file_proto_document_v1_document_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4416,7 +4552,7 @@ func (x *UnshareEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnshareEntityRequest.ProtoReflect.Descriptor instead.
 func (*UnshareEntityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{70}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UnshareEntityRequest) GetEntityType() string {
@@ -4448,7 +4584,7 @@ type UnshareEntityResponse struct {
 
 func (x *UnshareEntityResponse) Reset() {
 	*x = UnshareEntityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[71]
+	mi := &file_proto_document_v1_document_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4460,7 +4596,7 @@ func (x *UnshareEntityResponse) String() string {
 func (*UnshareEntityResponse) ProtoMessage() {}
 
 func (x *UnshareEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[71]
+	mi := &file_proto_document_v1_document_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4473,7 +4609,7 @@ func (x *UnshareEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnshareEntityResponse.ProtoReflect.Descriptor instead.
 func (*UnshareEntityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{71}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{73}
 }
 
 type ListSharesRequest struct {
@@ -4486,7 +4622,7 @@ type ListSharesRequest struct {
 
 func (x *ListSharesRequest) Reset() {
 	*x = ListSharesRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[72]
+	mi := &file_proto_document_v1_document_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4498,7 +4634,7 @@ func (x *ListSharesRequest) String() string {
 func (*ListSharesRequest) ProtoMessage() {}
 
 func (x *ListSharesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[72]
+	mi := &file_proto_document_v1_document_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4511,7 +4647,7 @@ func (x *ListSharesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSharesRequest.ProtoReflect.Descriptor instead.
 func (*ListSharesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{72}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ListSharesRequest) GetEntityType() string {
@@ -4537,7 +4673,7 @@ type ListSharesResponse struct {
 
 func (x *ListSharesResponse) Reset() {
 	*x = ListSharesResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[73]
+	mi := &file_proto_document_v1_document_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4549,7 +4685,7 @@ func (x *ListSharesResponse) String() string {
 func (*ListSharesResponse) ProtoMessage() {}
 
 func (x *ListSharesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[73]
+	mi := &file_proto_document_v1_document_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4562,7 +4698,7 @@ func (x *ListSharesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSharesResponse.ProtoReflect.Descriptor instead.
 func (*ListSharesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{73}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ListSharesResponse) GetShares() []*DocumentShare {
@@ -4583,7 +4719,7 @@ type ListSharedWithMeRequest struct {
 
 func (x *ListSharedWithMeRequest) Reset() {
 	*x = ListSharedWithMeRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	mi := &file_proto_document_v1_document_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4595,7 +4731,7 @@ func (x *ListSharedWithMeRequest) String() string {
 func (*ListSharedWithMeRequest) ProtoMessage() {}
 
 func (x *ListSharedWithMeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[74]
+	mi := &file_proto_document_v1_document_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4608,7 +4744,7 @@ func (x *ListSharedWithMeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSharedWithMeRequest.ProtoReflect.Descriptor instead.
 func (*ListSharedWithMeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{74}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ListSharedWithMeRequest) GetUserId() string {
@@ -4643,7 +4779,7 @@ type ListSharedWithMeResponse struct {
 
 func (x *ListSharedWithMeResponse) Reset() {
 	*x = ListSharedWithMeResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	mi := &file_proto_document_v1_document_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4655,7 +4791,7 @@ func (x *ListSharedWithMeResponse) String() string {
 func (*ListSharedWithMeResponse) ProtoMessage() {}
 
 func (x *ListSharedWithMeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[75]
+	mi := &file_proto_document_v1_document_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4668,7 +4804,7 @@ func (x *ListSharedWithMeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSharedWithMeResponse.ProtoReflect.Descriptor instead.
 func (*ListSharedWithMeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{75}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ListSharedWithMeResponse) GetFiles() []*DocumentFile {
@@ -4703,7 +4839,7 @@ type CreateTagRequest struct {
 
 func (x *CreateTagRequest) Reset() {
 	*x = CreateTagRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[76]
+	mi := &file_proto_document_v1_document_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4715,7 +4851,7 @@ func (x *CreateTagRequest) String() string {
 func (*CreateTagRequest) ProtoMessage() {}
 
 func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[76]
+	mi := &file_proto_document_v1_document_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4728,7 +4864,7 @@ func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagRequest.ProtoReflect.Descriptor instead.
 func (*CreateTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{76}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *CreateTagRequest) GetName() string {
@@ -4761,7 +4897,7 @@ type CreateTagResponse struct {
 
 func (x *CreateTagResponse) Reset() {
 	*x = CreateTagResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[77]
+	mi := &file_proto_document_v1_document_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4773,7 +4909,7 @@ func (x *CreateTagResponse) String() string {
 func (*CreateTagResponse) ProtoMessage() {}
 
 func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[77]
+	mi := &file_proto_document_v1_document_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4786,7 +4922,7 @@ func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagResponse.ProtoReflect.Descriptor instead.
 func (*CreateTagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{77}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *CreateTagResponse) GetTag() *DocumentTag {
@@ -4805,7 +4941,7 @@ type ListTagsRequest struct {
 
 func (x *ListTagsRequest) Reset() {
 	*x = ListTagsRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[78]
+	mi := &file_proto_document_v1_document_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4817,7 +4953,7 @@ func (x *ListTagsRequest) String() string {
 func (*ListTagsRequest) ProtoMessage() {}
 
 func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[78]
+	mi := &file_proto_document_v1_document_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4830,7 +4966,7 @@ func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{78}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ListTagsRequest) GetCreatedBy() string {
@@ -4849,7 +4985,7 @@ type ListTagsResponse struct {
 
 func (x *ListTagsResponse) Reset() {
 	*x = ListTagsResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[79]
+	mi := &file_proto_document_v1_document_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4861,7 +4997,7 @@ func (x *ListTagsResponse) String() string {
 func (*ListTagsResponse) ProtoMessage() {}
 
 func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[79]
+	mi := &file_proto_document_v1_document_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4874,7 +5010,7 @@ func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{79}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ListTagsResponse) GetTags() []*DocumentTag {
@@ -4893,7 +5029,7 @@ type DeleteTagRequest struct {
 
 func (x *DeleteTagRequest) Reset() {
 	*x = DeleteTagRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[80]
+	mi := &file_proto_document_v1_document_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4905,7 +5041,7 @@ func (x *DeleteTagRequest) String() string {
 func (*DeleteTagRequest) ProtoMessage() {}
 
 func (x *DeleteTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[80]
+	mi := &file_proto_document_v1_document_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4918,7 +5054,7 @@ func (x *DeleteTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTagRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{80}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *DeleteTagRequest) GetId() string {
@@ -4936,7 +5072,7 @@ type DeleteTagResponse struct {
 
 func (x *DeleteTagResponse) Reset() {
 	*x = DeleteTagResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[81]
+	mi := &file_proto_document_v1_document_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4948,7 +5084,7 @@ func (x *DeleteTagResponse) String() string {
 func (*DeleteTagResponse) ProtoMessage() {}
 
 func (x *DeleteTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[81]
+	mi := &file_proto_document_v1_document_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4961,7 +5097,7 @@ func (x *DeleteTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTagResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{81}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{83}
 }
 
 type TagFileRequest struct {
@@ -4974,7 +5110,7 @@ type TagFileRequest struct {
 
 func (x *TagFileRequest) Reset() {
 	*x = TagFileRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[82]
+	mi := &file_proto_document_v1_document_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4986,7 +5122,7 @@ func (x *TagFileRequest) String() string {
 func (*TagFileRequest) ProtoMessage() {}
 
 func (x *TagFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[82]
+	mi := &file_proto_document_v1_document_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4999,7 +5135,7 @@ func (x *TagFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagFileRequest.ProtoReflect.Descriptor instead.
 func (*TagFileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{82}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *TagFileRequest) GetFileId() string {
@@ -5024,7 +5160,7 @@ type TagFileResponse struct {
 
 func (x *TagFileResponse) Reset() {
 	*x = TagFileResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[83]
+	mi := &file_proto_document_v1_document_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5036,7 +5172,7 @@ func (x *TagFileResponse) String() string {
 func (*TagFileResponse) ProtoMessage() {}
 
 func (x *TagFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[83]
+	mi := &file_proto_document_v1_document_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5049,7 +5185,7 @@ func (x *TagFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagFileResponse.ProtoReflect.Descriptor instead.
 func (*TagFileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{83}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{85}
 }
 
 type UntagFileRequest struct {
@@ -5062,7 +5198,7 @@ type UntagFileRequest struct {
 
 func (x *UntagFileRequest) Reset() {
 	*x = UntagFileRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[84]
+	mi := &file_proto_document_v1_document_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5074,7 +5210,7 @@ func (x *UntagFileRequest) String() string {
 func (*UntagFileRequest) ProtoMessage() {}
 
 func (x *UntagFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[84]
+	mi := &file_proto_document_v1_document_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5087,7 +5223,7 @@ func (x *UntagFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UntagFileRequest.ProtoReflect.Descriptor instead.
 func (*UntagFileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{84}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *UntagFileRequest) GetFileId() string {
@@ -5112,7 +5248,7 @@ type UntagFileResponse struct {
 
 func (x *UntagFileResponse) Reset() {
 	*x = UntagFileResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[85]
+	mi := &file_proto_document_v1_document_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5124,7 +5260,7 @@ func (x *UntagFileResponse) String() string {
 func (*UntagFileResponse) ProtoMessage() {}
 
 func (x *UntagFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[85]
+	mi := &file_proto_document_v1_document_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5137,7 +5273,7 @@ func (x *UntagFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UntagFileResponse.ProtoReflect.Descriptor instead.
 func (*UntagFileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{85}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{87}
 }
 
 type LinkFileToEntityRequest struct {
@@ -5153,7 +5289,7 @@ type LinkFileToEntityRequest struct {
 
 func (x *LinkFileToEntityRequest) Reset() {
 	*x = LinkFileToEntityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[86]
+	mi := &file_proto_document_v1_document_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5165,7 +5301,7 @@ func (x *LinkFileToEntityRequest) String() string {
 func (*LinkFileToEntityRequest) ProtoMessage() {}
 
 func (x *LinkFileToEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[86]
+	mi := &file_proto_document_v1_document_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5178,7 +5314,7 @@ func (x *LinkFileToEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkFileToEntityRequest.ProtoReflect.Descriptor instead.
 func (*LinkFileToEntityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{86}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *LinkFileToEntityRequest) GetFileId() string {
@@ -5225,7 +5361,7 @@ type LinkFileToEntityResponse struct {
 
 func (x *LinkFileToEntityResponse) Reset() {
 	*x = LinkFileToEntityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[87]
+	mi := &file_proto_document_v1_document_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5237,7 +5373,7 @@ func (x *LinkFileToEntityResponse) String() string {
 func (*LinkFileToEntityResponse) ProtoMessage() {}
 
 func (x *LinkFileToEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[87]
+	mi := &file_proto_document_v1_document_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5250,7 +5386,7 @@ func (x *LinkFileToEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkFileToEntityResponse.ProtoReflect.Descriptor instead.
 func (*LinkFileToEntityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{87}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *LinkFileToEntityResponse) GetLink() *DocumentEntityLink {
@@ -5271,7 +5407,7 @@ type UnlinkFileFromEntityRequest struct {
 
 func (x *UnlinkFileFromEntityRequest) Reset() {
 	*x = UnlinkFileFromEntityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[88]
+	mi := &file_proto_document_v1_document_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5283,7 +5419,7 @@ func (x *UnlinkFileFromEntityRequest) String() string {
 func (*UnlinkFileFromEntityRequest) ProtoMessage() {}
 
 func (x *UnlinkFileFromEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[88]
+	mi := &file_proto_document_v1_document_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5296,7 +5432,7 @@ func (x *UnlinkFileFromEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkFileFromEntityRequest.ProtoReflect.Descriptor instead.
 func (*UnlinkFileFromEntityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{88}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *UnlinkFileFromEntityRequest) GetFileId() string {
@@ -5328,7 +5464,7 @@ type UnlinkFileFromEntityResponse struct {
 
 func (x *UnlinkFileFromEntityResponse) Reset() {
 	*x = UnlinkFileFromEntityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[89]
+	mi := &file_proto_document_v1_document_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5340,7 +5476,7 @@ func (x *UnlinkFileFromEntityResponse) String() string {
 func (*UnlinkFileFromEntityResponse) ProtoMessage() {}
 
 func (x *UnlinkFileFromEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[89]
+	mi := &file_proto_document_v1_document_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5353,7 +5489,7 @@ func (x *UnlinkFileFromEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlinkFileFromEntityResponse.ProtoReflect.Descriptor instead.
 func (*UnlinkFileFromEntityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{89}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{91}
 }
 
 type ListFileEntityLinksRequest struct {
@@ -5365,7 +5501,7 @@ type ListFileEntityLinksRequest struct {
 
 func (x *ListFileEntityLinksRequest) Reset() {
 	*x = ListFileEntityLinksRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[90]
+	mi := &file_proto_document_v1_document_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5377,7 +5513,7 @@ func (x *ListFileEntityLinksRequest) String() string {
 func (*ListFileEntityLinksRequest) ProtoMessage() {}
 
 func (x *ListFileEntityLinksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[90]
+	mi := &file_proto_document_v1_document_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5390,7 +5526,7 @@ func (x *ListFileEntityLinksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileEntityLinksRequest.ProtoReflect.Descriptor instead.
 func (*ListFileEntityLinksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{90}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *ListFileEntityLinksRequest) GetFileId() string {
@@ -5409,7 +5545,7 @@ type ListFileEntityLinksResponse struct {
 
 func (x *ListFileEntityLinksResponse) Reset() {
 	*x = ListFileEntityLinksResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[91]
+	mi := &file_proto_document_v1_document_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5421,7 +5557,7 @@ func (x *ListFileEntityLinksResponse) String() string {
 func (*ListFileEntityLinksResponse) ProtoMessage() {}
 
 func (x *ListFileEntityLinksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[91]
+	mi := &file_proto_document_v1_document_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5434,7 +5570,7 @@ func (x *ListFileEntityLinksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFileEntityLinksResponse.ProtoReflect.Descriptor instead.
 func (*ListFileEntityLinksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{91}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ListFileEntityLinksResponse) GetLinks() []*DocumentEntityLink {
@@ -5453,7 +5589,7 @@ type DeleteEntityLinkRequest struct {
 
 func (x *DeleteEntityLinkRequest) Reset() {
 	*x = DeleteEntityLinkRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[92]
+	mi := &file_proto_document_v1_document_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5465,7 +5601,7 @@ func (x *DeleteEntityLinkRequest) String() string {
 func (*DeleteEntityLinkRequest) ProtoMessage() {}
 
 func (x *DeleteEntityLinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[92]
+	mi := &file_proto_document_v1_document_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5478,7 +5614,7 @@ func (x *DeleteEntityLinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEntityLinkRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEntityLinkRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{92}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *DeleteEntityLinkRequest) GetLinkId() string {
@@ -5496,7 +5632,7 @@ type DeleteEntityLinkResponse struct {
 
 func (x *DeleteEntityLinkResponse) Reset() {
 	*x = DeleteEntityLinkResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[93]
+	mi := &file_proto_document_v1_document_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5508,7 +5644,7 @@ func (x *DeleteEntityLinkResponse) String() string {
 func (*DeleteEntityLinkResponse) ProtoMessage() {}
 
 func (x *DeleteEntityLinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[93]
+	mi := &file_proto_document_v1_document_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5521,7 +5657,7 @@ func (x *DeleteEntityLinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEntityLinkResponse.ProtoReflect.Descriptor instead.
 func (*DeleteEntityLinkResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{93}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{95}
 }
 
 type ListFilesByEntityRequest struct {
@@ -5534,7 +5670,7 @@ type ListFilesByEntityRequest struct {
 
 func (x *ListFilesByEntityRequest) Reset() {
 	*x = ListFilesByEntityRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[94]
+	mi := &file_proto_document_v1_document_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5546,7 +5682,7 @@ func (x *ListFilesByEntityRequest) String() string {
 func (*ListFilesByEntityRequest) ProtoMessage() {}
 
 func (x *ListFilesByEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[94]
+	mi := &file_proto_document_v1_document_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5559,7 +5695,7 @@ func (x *ListFilesByEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesByEntityRequest.ProtoReflect.Descriptor instead.
 func (*ListFilesByEntityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{94}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *ListFilesByEntityRequest) GetEntityType() string {
@@ -5585,7 +5721,7 @@ type ListFilesByEntityResponse struct {
 
 func (x *ListFilesByEntityResponse) Reset() {
 	*x = ListFilesByEntityResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[95]
+	mi := &file_proto_document_v1_document_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5597,7 +5733,7 @@ func (x *ListFilesByEntityResponse) String() string {
 func (*ListFilesByEntityResponse) ProtoMessage() {}
 
 func (x *ListFilesByEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[95]
+	mi := &file_proto_document_v1_document_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5610,7 +5746,7 @@ func (x *ListFilesByEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesByEntityResponse.ProtoReflect.Descriptor instead.
 func (*ListFilesByEntityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{95}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *ListFilesByEntityResponse) GetFiles() []*DocumentFile {
@@ -5633,7 +5769,7 @@ type SearchFilesRequest struct {
 
 func (x *SearchFilesRequest) Reset() {
 	*x = SearchFilesRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[96]
+	mi := &file_proto_document_v1_document_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5645,7 +5781,7 @@ func (x *SearchFilesRequest) String() string {
 func (*SearchFilesRequest) ProtoMessage() {}
 
 func (x *SearchFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[96]
+	mi := &file_proto_document_v1_document_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5658,7 +5794,7 @@ func (x *SearchFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchFilesRequest.ProtoReflect.Descriptor instead.
 func (*SearchFilesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{96}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *SearchFilesRequest) GetQuery() string {
@@ -5706,7 +5842,7 @@ type SearchFilesResponse struct {
 
 func (x *SearchFilesResponse) Reset() {
 	*x = SearchFilesResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[97]
+	mi := &file_proto_document_v1_document_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5718,7 +5854,7 @@ func (x *SearchFilesResponse) String() string {
 func (*SearchFilesResponse) ProtoMessage() {}
 
 func (x *SearchFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[97]
+	mi := &file_proto_document_v1_document_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5731,7 +5867,7 @@ func (x *SearchFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchFilesResponse.ProtoReflect.Descriptor instead.
 func (*SearchFilesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{97}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *SearchFilesResponse) GetResults() []*FileSearchResult {
@@ -5759,7 +5895,7 @@ type ListVirtualFilesRequest struct {
 
 func (x *ListVirtualFilesRequest) Reset() {
 	*x = ListVirtualFilesRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[98]
+	mi := &file_proto_document_v1_document_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5771,7 +5907,7 @@ func (x *ListVirtualFilesRequest) String() string {
 func (*ListVirtualFilesRequest) ProtoMessage() {}
 
 func (x *ListVirtualFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[98]
+	mi := &file_proto_document_v1_document_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5784,7 +5920,7 @@ func (x *ListVirtualFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVirtualFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListVirtualFilesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{98}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ListVirtualFilesRequest) GetSourceType() VirtualFileSource {
@@ -5818,7 +5954,7 @@ type ListVirtualFilesResponse struct {
 
 func (x *ListVirtualFilesResponse) Reset() {
 	*x = ListVirtualFilesResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[99]
+	mi := &file_proto_document_v1_document_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5830,7 +5966,7 @@ func (x *ListVirtualFilesResponse) String() string {
 func (*ListVirtualFilesResponse) ProtoMessage() {}
 
 func (x *ListVirtualFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[99]
+	mi := &file_proto_document_v1_document_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5843,7 +5979,7 @@ func (x *ListVirtualFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVirtualFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListVirtualFilesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{99}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *ListVirtualFilesResponse) GetFiles() []*VirtualFile {
@@ -5870,7 +6006,7 @@ type GenerateWOPITokenRequest struct {
 
 func (x *GenerateWOPITokenRequest) Reset() {
 	*x = GenerateWOPITokenRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[100]
+	mi := &file_proto_document_v1_document_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5882,7 +6018,7 @@ func (x *GenerateWOPITokenRequest) String() string {
 func (*GenerateWOPITokenRequest) ProtoMessage() {}
 
 func (x *GenerateWOPITokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[100]
+	mi := &file_proto_document_v1_document_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5895,7 +6031,7 @@ func (x *GenerateWOPITokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateWOPITokenRequest.ProtoReflect.Descriptor instead.
 func (*GenerateWOPITokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{100}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *GenerateWOPITokenRequest) GetFileId() string {
@@ -5922,7 +6058,7 @@ type GenerateWOPITokenResponse struct {
 
 func (x *GenerateWOPITokenResponse) Reset() {
 	*x = GenerateWOPITokenResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[101]
+	mi := &file_proto_document_v1_document_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5934,7 +6070,7 @@ func (x *GenerateWOPITokenResponse) String() string {
 func (*GenerateWOPITokenResponse) ProtoMessage() {}
 
 func (x *GenerateWOPITokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[101]
+	mi := &file_proto_document_v1_document_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5947,7 +6083,7 @@ func (x *GenerateWOPITokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateWOPITokenResponse.ProtoReflect.Descriptor instead.
 func (*GenerateWOPITokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{101}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *GenerateWOPITokenResponse) GetAccessToken() string {
@@ -5972,7 +6108,7 @@ type GetWOPIDiscoveryRequest struct {
 
 func (x *GetWOPIDiscoveryRequest) Reset() {
 	*x = GetWOPIDiscoveryRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[102]
+	mi := &file_proto_document_v1_document_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5984,7 +6120,7 @@ func (x *GetWOPIDiscoveryRequest) String() string {
 func (*GetWOPIDiscoveryRequest) ProtoMessage() {}
 
 func (x *GetWOPIDiscoveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[102]
+	mi := &file_proto_document_v1_document_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5997,7 +6133,7 @@ func (x *GetWOPIDiscoveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWOPIDiscoveryRequest.ProtoReflect.Descriptor instead.
 func (*GetWOPIDiscoveryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{102}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{104}
 }
 
 type GetWOPIDiscoveryResponse struct {
@@ -6010,7 +6146,7 @@ type GetWOPIDiscoveryResponse struct {
 
 func (x *GetWOPIDiscoveryResponse) Reset() {
 	*x = GetWOPIDiscoveryResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[103]
+	mi := &file_proto_document_v1_document_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6022,7 +6158,7 @@ func (x *GetWOPIDiscoveryResponse) String() string {
 func (*GetWOPIDiscoveryResponse) ProtoMessage() {}
 
 func (x *GetWOPIDiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[103]
+	mi := &file_proto_document_v1_document_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6035,7 +6171,7 @@ func (x *GetWOPIDiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWOPIDiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*GetWOPIDiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{103}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *GetWOPIDiscoveryResponse) GetDiscoveryXml() string {
@@ -6064,7 +6200,7 @@ type WOPIAction struct {
 
 func (x *WOPIAction) Reset() {
 	*x = WOPIAction{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[104]
+	mi := &file_proto_document_v1_document_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6076,7 +6212,7 @@ func (x *WOPIAction) String() string {
 func (*WOPIAction) ProtoMessage() {}
 
 func (x *WOPIAction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[104]
+	mi := &file_proto_document_v1_document_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6089,7 +6225,7 @@ func (x *WOPIAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WOPIAction.ProtoReflect.Descriptor instead.
 func (*WOPIAction) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{104}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *WOPIAction) GetApp() string {
@@ -6132,7 +6268,7 @@ type GetPresignedUploadURLRequest struct {
 
 func (x *GetPresignedUploadURLRequest) Reset() {
 	*x = GetPresignedUploadURLRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[105]
+	mi := &file_proto_document_v1_document_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6144,7 +6280,7 @@ func (x *GetPresignedUploadURLRequest) String() string {
 func (*GetPresignedUploadURLRequest) ProtoMessage() {}
 
 func (x *GetPresignedUploadURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[105]
+	mi := &file_proto_document_v1_document_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6157,7 +6293,7 @@ func (x *GetPresignedUploadURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedUploadURLRequest.ProtoReflect.Descriptor instead.
 func (*GetPresignedUploadURLRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{105}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *GetPresignedUploadURLRequest) GetScope() string {
@@ -6199,7 +6335,7 @@ type GetPresignedUploadURLResponse struct {
 
 func (x *GetPresignedUploadURLResponse) Reset() {
 	*x = GetPresignedUploadURLResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[106]
+	mi := &file_proto_document_v1_document_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6211,7 +6347,7 @@ func (x *GetPresignedUploadURLResponse) String() string {
 func (*GetPresignedUploadURLResponse) ProtoMessage() {}
 
 func (x *GetPresignedUploadURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[106]
+	mi := &file_proto_document_v1_document_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6224,7 +6360,7 @@ func (x *GetPresignedUploadURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedUploadURLResponse.ProtoReflect.Descriptor instead.
 func (*GetPresignedUploadURLResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{106}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *GetPresignedUploadURLResponse) GetUploadUrl() string {
@@ -6257,7 +6393,7 @@ type GetPresignedDownloadURLRequest struct {
 
 func (x *GetPresignedDownloadURLRequest) Reset() {
 	*x = GetPresignedDownloadURLRequest{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[107]
+	mi := &file_proto_document_v1_document_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6269,7 +6405,7 @@ func (x *GetPresignedDownloadURLRequest) String() string {
 func (*GetPresignedDownloadURLRequest) ProtoMessage() {}
 
 func (x *GetPresignedDownloadURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[107]
+	mi := &file_proto_document_v1_document_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6282,7 +6418,7 @@ func (x *GetPresignedDownloadURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedDownloadURLRequest.ProtoReflect.Descriptor instead.
 func (*GetPresignedDownloadURLRequest) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{107}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *GetPresignedDownloadURLRequest) GetObjectKey() string {
@@ -6302,7 +6438,7 @@ type GetPresignedDownloadURLResponse struct {
 
 func (x *GetPresignedDownloadURLResponse) Reset() {
 	*x = GetPresignedDownloadURLResponse{}
-	mi := &file_proto_document_v1_document_proto_msgTypes[108]
+	mi := &file_proto_document_v1_document_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6314,7 +6450,7 @@ func (x *GetPresignedDownloadURLResponse) String() string {
 func (*GetPresignedDownloadURLResponse) ProtoMessage() {}
 
 func (x *GetPresignedDownloadURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_document_v1_document_proto_msgTypes[108]
+	mi := &file_proto_document_v1_document_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6327,7 +6463,7 @@ func (x *GetPresignedDownloadURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresignedDownloadURLResponse.ProtoReflect.Descriptor instead.
 func (*GetPresignedDownloadURLResponse) Descriptor() ([]byte, []int) {
-	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{108}
+	return file_proto_document_v1_document_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *GetPresignedDownloadURLResponse) GetDownloadUrl() string {
@@ -6602,6 +6738,16 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"storageKey\x12\x19\n" +
 	"\bowner_id\x18\x06 \x01(\tR\aownerId\"M\n" +
 	"\x1cRegisterUploadedFileResponse\x12-\n" +
+	"\x04file\x18\x01 \x01(\v2\x19.document.v1.DocumentFileR\x04file\"\xd2\x01\n" +
+	"\x11UploadFileRequest\x12\x1b\n" +
+	"\tfolder_id\x18\x01 \x01(\tR\bfolderId\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x1b\n" +
+	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12\x1b\n" +
+	"\tfile_size\x18\x04 \x01(\x03R\bfileSize\x12\x18\n" +
+	"\acontent\x18\x05 \x01(\fR\acontent\x12\x19\n" +
+	"\bowner_id\x18\x06 \x01(\tR\aownerId\x12\x15\n" +
+	"\x06tag_id\x18\a \x01(\tR\x05tagId\"C\n" +
+	"\x12UploadFileResponse\x12-\n" +
 	"\x04file\x18\x01 \x01(\v2\x19.document.v1.DocumentFileR\x04file\"2\n" +
 	"\x17ListFileVersionsRequest\x12\x17\n" +
 	"\afile_id\x18\x01 \x01(\tR\x06fileId\"X\n" +
@@ -6837,7 +6983,7 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\rSortDirection\x12\x1e\n" +
 	"\x1aSORT_DIRECTION_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bSORT_ASC\x10\x01\x12\r\n" +
-	"\tSORT_DESC\x10\x022\x9e\"\n" +
+	"\tSORT_DESC\x10\x022\xed\"\n" +
 	"\x0fDocumentService\x12S\n" +
 	"\fCreateFolder\x12 .document.v1.CreateFolderRequest\x1a!.document.v1.CreateFolderResponse\x12J\n" +
 	"\tGetFolder\x12\x1d.document.v1.GetFolderRequest\x1a\x1e.document.v1.GetFolderResponse\x12P\n" +
@@ -6860,7 +7006,9 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\x10ListFileVersions\x12$.document.v1.ListFileVersionsRequest\x1a%.document.v1.ListFileVersionsResponse\x12b\n" +
 	"\x11RevertFileVersion\x12%.document.v1.RevertFileVersionRequest\x1a&.document.v1.RevertFileVersionResponse\x12_\n" +
 	"\x10ListFileActivity\x12$.document.v1.ListFileActivityRequest\x1a%.document.v1.ListFileActivityResponse\x12k\n" +
-	"\x14RegisterUploadedFile\x12(.document.v1.RegisterUploadedFileRequest\x1a).document.v1.RegisterUploadedFileResponse\x12_\n" +
+	"\x14RegisterUploadedFile\x12(.document.v1.RegisterUploadedFileRequest\x1a).document.v1.RegisterUploadedFileResponse\x12M\n" +
+	"\n" +
+	"UploadFile\x12\x1e.document.v1.UploadFileRequest\x1a\x1f.document.v1.UploadFileResponse\x12_\n" +
 	"\x10ListFileComments\x12$.document.v1.ListFileCommentsRequest\x1a%.document.v1.ListFileCommentsResponse\x12b\n" +
 	"\x11CreateFileComment\x12%.document.v1.CreateFileCommentRequest\x1a&.document.v1.CreateFileCommentResponse\x12b\n" +
 	"\x11UpdateFileComment\x12%.document.v1.UpdateFileCommentRequest\x1a&.document.v1.UpdateFileCommentResponse\x12b\n" +
@@ -6904,7 +7052,7 @@ func file_proto_document_v1_document_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_document_v1_document_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_proto_document_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 109)
+var file_proto_document_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 111)
 var file_proto_document_v1_document_proto_goTypes = []any{
 	(FolderSpaceType)(0),                    // 0: document.v1.FolderSpaceType
 	(SharePermission)(0),                    // 1: document.v1.SharePermission
@@ -6956,89 +7104,91 @@ var file_proto_document_v1_document_proto_goTypes = []any{
 	(*CreateFileVersionResponse)(nil),       // 47: document.v1.CreateFileVersionResponse
 	(*RegisterUploadedFileRequest)(nil),     // 48: document.v1.RegisterUploadedFileRequest
 	(*RegisterUploadedFileResponse)(nil),    // 49: document.v1.RegisterUploadedFileResponse
-	(*ListFileVersionsRequest)(nil),         // 50: document.v1.ListFileVersionsRequest
-	(*ListFileVersionsResponse)(nil),        // 51: document.v1.ListFileVersionsResponse
-	(*RevertFileVersionRequest)(nil),        // 52: document.v1.RevertFileVersionRequest
-	(*RevertFileVersionResponse)(nil),       // 53: document.v1.RevertFileVersionResponse
-	(*ListFileActivityRequest)(nil),         // 54: document.v1.ListFileActivityRequest
-	(*ListFileActivityResponse)(nil),        // 55: document.v1.ListFileActivityResponse
-	(*ListFileCommentsRequest)(nil),         // 56: document.v1.ListFileCommentsRequest
-	(*ListFileCommentsResponse)(nil),        // 57: document.v1.ListFileCommentsResponse
-	(*CreateFileCommentRequest)(nil),        // 58: document.v1.CreateFileCommentRequest
-	(*CreateFileCommentResponse)(nil),       // 59: document.v1.CreateFileCommentResponse
-	(*UpdateFileCommentRequest)(nil),        // 60: document.v1.UpdateFileCommentRequest
-	(*UpdateFileCommentResponse)(nil),       // 61: document.v1.UpdateFileCommentResponse
-	(*DeleteFileCommentRequest)(nil),        // 62: document.v1.DeleteFileCommentRequest
-	(*DeleteFileCommentResponse)(nil),       // 63: document.v1.DeleteFileCommentResponse
-	(*ShareLink)(nil),                       // 64: document.v1.ShareLink
-	(*CreateShareLinkRequest)(nil),          // 65: document.v1.CreateShareLinkRequest
-	(*CreateShareLinkResponse)(nil),         // 66: document.v1.CreateShareLinkResponse
-	(*ListShareLinksRequest)(nil),           // 67: document.v1.ListShareLinksRequest
-	(*ListShareLinksResponse)(nil),          // 68: document.v1.ListShareLinksResponse
-	(*RevokeShareLinkRequest)(nil),          // 69: document.v1.RevokeShareLinkRequest
-	(*RevokeShareLinkResponse)(nil),         // 70: document.v1.RevokeShareLinkResponse
-	(*GetSharedFileRequest)(nil),            // 71: document.v1.GetSharedFileRequest
-	(*GetSharedFileResponse)(nil),           // 72: document.v1.GetSharedFileResponse
-	(*ShareEntityRequest)(nil),              // 73: document.v1.ShareEntityRequest
-	(*ShareEntityResponse)(nil),             // 74: document.v1.ShareEntityResponse
-	(*UnshareEntityRequest)(nil),            // 75: document.v1.UnshareEntityRequest
-	(*UnshareEntityResponse)(nil),           // 76: document.v1.UnshareEntityResponse
-	(*ListSharesRequest)(nil),               // 77: document.v1.ListSharesRequest
-	(*ListSharesResponse)(nil),              // 78: document.v1.ListSharesResponse
-	(*ListSharedWithMeRequest)(nil),         // 79: document.v1.ListSharedWithMeRequest
-	(*ListSharedWithMeResponse)(nil),        // 80: document.v1.ListSharedWithMeResponse
-	(*CreateTagRequest)(nil),                // 81: document.v1.CreateTagRequest
-	(*CreateTagResponse)(nil),               // 82: document.v1.CreateTagResponse
-	(*ListTagsRequest)(nil),                 // 83: document.v1.ListTagsRequest
-	(*ListTagsResponse)(nil),                // 84: document.v1.ListTagsResponse
-	(*DeleteTagRequest)(nil),                // 85: document.v1.DeleteTagRequest
-	(*DeleteTagResponse)(nil),               // 86: document.v1.DeleteTagResponse
-	(*TagFileRequest)(nil),                  // 87: document.v1.TagFileRequest
-	(*TagFileResponse)(nil),                 // 88: document.v1.TagFileResponse
-	(*UntagFileRequest)(nil),                // 89: document.v1.UntagFileRequest
-	(*UntagFileResponse)(nil),               // 90: document.v1.UntagFileResponse
-	(*LinkFileToEntityRequest)(nil),         // 91: document.v1.LinkFileToEntityRequest
-	(*LinkFileToEntityResponse)(nil),        // 92: document.v1.LinkFileToEntityResponse
-	(*UnlinkFileFromEntityRequest)(nil),     // 93: document.v1.UnlinkFileFromEntityRequest
-	(*UnlinkFileFromEntityResponse)(nil),    // 94: document.v1.UnlinkFileFromEntityResponse
-	(*ListFileEntityLinksRequest)(nil),      // 95: document.v1.ListFileEntityLinksRequest
-	(*ListFileEntityLinksResponse)(nil),     // 96: document.v1.ListFileEntityLinksResponse
-	(*DeleteEntityLinkRequest)(nil),         // 97: document.v1.DeleteEntityLinkRequest
-	(*DeleteEntityLinkResponse)(nil),        // 98: document.v1.DeleteEntityLinkResponse
-	(*ListFilesByEntityRequest)(nil),        // 99: document.v1.ListFilesByEntityRequest
-	(*ListFilesByEntityResponse)(nil),       // 100: document.v1.ListFilesByEntityResponse
-	(*SearchFilesRequest)(nil),              // 101: document.v1.SearchFilesRequest
-	(*SearchFilesResponse)(nil),             // 102: document.v1.SearchFilesResponse
-	(*ListVirtualFilesRequest)(nil),         // 103: document.v1.ListVirtualFilesRequest
-	(*ListVirtualFilesResponse)(nil),        // 104: document.v1.ListVirtualFilesResponse
-	(*GenerateWOPITokenRequest)(nil),        // 105: document.v1.GenerateWOPITokenRequest
-	(*GenerateWOPITokenResponse)(nil),       // 106: document.v1.GenerateWOPITokenResponse
-	(*GetWOPIDiscoveryRequest)(nil),         // 107: document.v1.GetWOPIDiscoveryRequest
-	(*GetWOPIDiscoveryResponse)(nil),        // 108: document.v1.GetWOPIDiscoveryResponse
-	(*WOPIAction)(nil),                      // 109: document.v1.WOPIAction
-	(*GetPresignedUploadURLRequest)(nil),    // 110: document.v1.GetPresignedUploadURLRequest
-	(*GetPresignedUploadURLResponse)(nil),   // 111: document.v1.GetPresignedUploadURLResponse
-	(*GetPresignedDownloadURLRequest)(nil),  // 112: document.v1.GetPresignedDownloadURLRequest
-	(*GetPresignedDownloadURLResponse)(nil), // 113: document.v1.GetPresignedDownloadURLResponse
-	(*timestamppb.Timestamp)(nil),           // 114: google.protobuf.Timestamp
+	(*UploadFileRequest)(nil),               // 50: document.v1.UploadFileRequest
+	(*UploadFileResponse)(nil),              // 51: document.v1.UploadFileResponse
+	(*ListFileVersionsRequest)(nil),         // 52: document.v1.ListFileVersionsRequest
+	(*ListFileVersionsResponse)(nil),        // 53: document.v1.ListFileVersionsResponse
+	(*RevertFileVersionRequest)(nil),        // 54: document.v1.RevertFileVersionRequest
+	(*RevertFileVersionResponse)(nil),       // 55: document.v1.RevertFileVersionResponse
+	(*ListFileActivityRequest)(nil),         // 56: document.v1.ListFileActivityRequest
+	(*ListFileActivityResponse)(nil),        // 57: document.v1.ListFileActivityResponse
+	(*ListFileCommentsRequest)(nil),         // 58: document.v1.ListFileCommentsRequest
+	(*ListFileCommentsResponse)(nil),        // 59: document.v1.ListFileCommentsResponse
+	(*CreateFileCommentRequest)(nil),        // 60: document.v1.CreateFileCommentRequest
+	(*CreateFileCommentResponse)(nil),       // 61: document.v1.CreateFileCommentResponse
+	(*UpdateFileCommentRequest)(nil),        // 62: document.v1.UpdateFileCommentRequest
+	(*UpdateFileCommentResponse)(nil),       // 63: document.v1.UpdateFileCommentResponse
+	(*DeleteFileCommentRequest)(nil),        // 64: document.v1.DeleteFileCommentRequest
+	(*DeleteFileCommentResponse)(nil),       // 65: document.v1.DeleteFileCommentResponse
+	(*ShareLink)(nil),                       // 66: document.v1.ShareLink
+	(*CreateShareLinkRequest)(nil),          // 67: document.v1.CreateShareLinkRequest
+	(*CreateShareLinkResponse)(nil),         // 68: document.v1.CreateShareLinkResponse
+	(*ListShareLinksRequest)(nil),           // 69: document.v1.ListShareLinksRequest
+	(*ListShareLinksResponse)(nil),          // 70: document.v1.ListShareLinksResponse
+	(*RevokeShareLinkRequest)(nil),          // 71: document.v1.RevokeShareLinkRequest
+	(*RevokeShareLinkResponse)(nil),         // 72: document.v1.RevokeShareLinkResponse
+	(*GetSharedFileRequest)(nil),            // 73: document.v1.GetSharedFileRequest
+	(*GetSharedFileResponse)(nil),           // 74: document.v1.GetSharedFileResponse
+	(*ShareEntityRequest)(nil),              // 75: document.v1.ShareEntityRequest
+	(*ShareEntityResponse)(nil),             // 76: document.v1.ShareEntityResponse
+	(*UnshareEntityRequest)(nil),            // 77: document.v1.UnshareEntityRequest
+	(*UnshareEntityResponse)(nil),           // 78: document.v1.UnshareEntityResponse
+	(*ListSharesRequest)(nil),               // 79: document.v1.ListSharesRequest
+	(*ListSharesResponse)(nil),              // 80: document.v1.ListSharesResponse
+	(*ListSharedWithMeRequest)(nil),         // 81: document.v1.ListSharedWithMeRequest
+	(*ListSharedWithMeResponse)(nil),        // 82: document.v1.ListSharedWithMeResponse
+	(*CreateTagRequest)(nil),                // 83: document.v1.CreateTagRequest
+	(*CreateTagResponse)(nil),               // 84: document.v1.CreateTagResponse
+	(*ListTagsRequest)(nil),                 // 85: document.v1.ListTagsRequest
+	(*ListTagsResponse)(nil),                // 86: document.v1.ListTagsResponse
+	(*DeleteTagRequest)(nil),                // 87: document.v1.DeleteTagRequest
+	(*DeleteTagResponse)(nil),               // 88: document.v1.DeleteTagResponse
+	(*TagFileRequest)(nil),                  // 89: document.v1.TagFileRequest
+	(*TagFileResponse)(nil),                 // 90: document.v1.TagFileResponse
+	(*UntagFileRequest)(nil),                // 91: document.v1.UntagFileRequest
+	(*UntagFileResponse)(nil),               // 92: document.v1.UntagFileResponse
+	(*LinkFileToEntityRequest)(nil),         // 93: document.v1.LinkFileToEntityRequest
+	(*LinkFileToEntityResponse)(nil),        // 94: document.v1.LinkFileToEntityResponse
+	(*UnlinkFileFromEntityRequest)(nil),     // 95: document.v1.UnlinkFileFromEntityRequest
+	(*UnlinkFileFromEntityResponse)(nil),    // 96: document.v1.UnlinkFileFromEntityResponse
+	(*ListFileEntityLinksRequest)(nil),      // 97: document.v1.ListFileEntityLinksRequest
+	(*ListFileEntityLinksResponse)(nil),     // 98: document.v1.ListFileEntityLinksResponse
+	(*DeleteEntityLinkRequest)(nil),         // 99: document.v1.DeleteEntityLinkRequest
+	(*DeleteEntityLinkResponse)(nil),        // 100: document.v1.DeleteEntityLinkResponse
+	(*ListFilesByEntityRequest)(nil),        // 101: document.v1.ListFilesByEntityRequest
+	(*ListFilesByEntityResponse)(nil),       // 102: document.v1.ListFilesByEntityResponse
+	(*SearchFilesRequest)(nil),              // 103: document.v1.SearchFilesRequest
+	(*SearchFilesResponse)(nil),             // 104: document.v1.SearchFilesResponse
+	(*ListVirtualFilesRequest)(nil),         // 105: document.v1.ListVirtualFilesRequest
+	(*ListVirtualFilesResponse)(nil),        // 106: document.v1.ListVirtualFilesResponse
+	(*GenerateWOPITokenRequest)(nil),        // 107: document.v1.GenerateWOPITokenRequest
+	(*GenerateWOPITokenResponse)(nil),       // 108: document.v1.GenerateWOPITokenResponse
+	(*GetWOPIDiscoveryRequest)(nil),         // 109: document.v1.GetWOPIDiscoveryRequest
+	(*GetWOPIDiscoveryResponse)(nil),        // 110: document.v1.GetWOPIDiscoveryResponse
+	(*WOPIAction)(nil),                      // 111: document.v1.WOPIAction
+	(*GetPresignedUploadURLRequest)(nil),    // 112: document.v1.GetPresignedUploadURLRequest
+	(*GetPresignedUploadURLResponse)(nil),   // 113: document.v1.GetPresignedUploadURLResponse
+	(*GetPresignedDownloadURLRequest)(nil),  // 114: document.v1.GetPresignedDownloadURLRequest
+	(*GetPresignedDownloadURLResponse)(nil), // 115: document.v1.GetPresignedDownloadURLResponse
+	(*timestamppb.Timestamp)(nil),           // 116: google.protobuf.Timestamp
 }
 var file_proto_document_v1_document_proto_depIdxs = []int32{
 	0,   // 0: document.v1.DocumentFolder.space_type:type_name -> document.v1.FolderSpaceType
-	114, // 1: document.v1.DocumentFolder.created_at:type_name -> google.protobuf.Timestamp
-	114, // 2: document.v1.DocumentFolder.updated_at:type_name -> google.protobuf.Timestamp
+	116, // 1: document.v1.DocumentFolder.created_at:type_name -> google.protobuf.Timestamp
+	116, // 2: document.v1.DocumentFolder.updated_at:type_name -> google.protobuf.Timestamp
 	9,   // 3: document.v1.DocumentFile.tags:type_name -> document.v1.DocumentTag
-	114, // 4: document.v1.DocumentFile.created_at:type_name -> google.protobuf.Timestamp
-	114, // 5: document.v1.DocumentFile.updated_at:type_name -> google.protobuf.Timestamp
-	114, // 6: document.v1.DocumentFileVersion.created_at:type_name -> google.protobuf.Timestamp
+	116, // 4: document.v1.DocumentFile.created_at:type_name -> google.protobuf.Timestamp
+	116, // 5: document.v1.DocumentFile.updated_at:type_name -> google.protobuf.Timestamp
+	116, // 6: document.v1.DocumentFileVersion.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 7: document.v1.DocumentShare.permission:type_name -> document.v1.SharePermission
-	114, // 8: document.v1.DocumentShare.created_at:type_name -> google.protobuf.Timestamp
-	114, // 9: document.v1.DocumentTag.created_at:type_name -> google.protobuf.Timestamp
-	114, // 10: document.v1.DocumentEntityLink.created_at:type_name -> google.protobuf.Timestamp
-	114, // 11: document.v1.DocumentFileActivity.created_at:type_name -> google.protobuf.Timestamp
-	114, // 12: document.v1.DocumentFileComment.created_at:type_name -> google.protobuf.Timestamp
-	114, // 13: document.v1.DocumentFileComment.updated_at:type_name -> google.protobuf.Timestamp
+	116, // 8: document.v1.DocumentShare.created_at:type_name -> google.protobuf.Timestamp
+	116, // 9: document.v1.DocumentTag.created_at:type_name -> google.protobuf.Timestamp
+	116, // 10: document.v1.DocumentEntityLink.created_at:type_name -> google.protobuf.Timestamp
+	116, // 11: document.v1.DocumentFileActivity.created_at:type_name -> google.protobuf.Timestamp
+	116, // 12: document.v1.DocumentFileComment.created_at:type_name -> google.protobuf.Timestamp
+	116, // 13: document.v1.DocumentFileComment.updated_at:type_name -> google.protobuf.Timestamp
 	2,   // 14: document.v1.VirtualFile.source_type:type_name -> document.v1.VirtualFileSource
-	114, // 15: document.v1.VirtualFile.created_at:type_name -> google.protobuf.Timestamp
+	116, // 15: document.v1.VirtualFile.created_at:type_name -> google.protobuf.Timestamp
 	6,   // 16: document.v1.FileSearchResult.file:type_name -> document.v1.DocumentFile
 	0,   // 17: document.v1.CreateFolderRequest.space_type:type_name -> document.v1.FolderSpaceType
 	5,   // 18: document.v1.CreateFolderResponse.folder:type_name -> document.v1.DocumentFolder
@@ -7058,133 +7208,136 @@ var file_proto_document_v1_document_proto_depIdxs = []int32{
 	6,   // 32: document.v1.MoveFileResponse.file:type_name -> document.v1.DocumentFile
 	7,   // 33: document.v1.CreateFileVersionResponse.version:type_name -> document.v1.DocumentFileVersion
 	6,   // 34: document.v1.RegisterUploadedFileResponse.file:type_name -> document.v1.DocumentFile
-	7,   // 35: document.v1.ListFileVersionsResponse.versions:type_name -> document.v1.DocumentFileVersion
-	6,   // 36: document.v1.RevertFileVersionResponse.file:type_name -> document.v1.DocumentFile
-	11,  // 37: document.v1.ListFileActivityResponse.activities:type_name -> document.v1.DocumentFileActivity
-	12,  // 38: document.v1.ListFileCommentsResponse.comments:type_name -> document.v1.DocumentFileComment
-	12,  // 39: document.v1.CreateFileCommentResponse.comment:type_name -> document.v1.DocumentFileComment
-	12,  // 40: document.v1.UpdateFileCommentResponse.comment:type_name -> document.v1.DocumentFileComment
-	114, // 41: document.v1.ShareLink.expires_at:type_name -> google.protobuf.Timestamp
-	114, // 42: document.v1.ShareLink.created_at:type_name -> google.protobuf.Timestamp
-	64,  // 43: document.v1.CreateShareLinkResponse.share_link:type_name -> document.v1.ShareLink
-	64,  // 44: document.v1.ListShareLinksResponse.share_links:type_name -> document.v1.ShareLink
-	1,   // 45: document.v1.ShareEntityRequest.permission:type_name -> document.v1.SharePermission
-	8,   // 46: document.v1.ShareEntityResponse.share:type_name -> document.v1.DocumentShare
-	8,   // 47: document.v1.ListSharesResponse.shares:type_name -> document.v1.DocumentShare
-	6,   // 48: document.v1.ListSharedWithMeResponse.files:type_name -> document.v1.DocumentFile
-	5,   // 49: document.v1.ListSharedWithMeResponse.folders:type_name -> document.v1.DocumentFolder
-	9,   // 50: document.v1.CreateTagResponse.tag:type_name -> document.v1.DocumentTag
-	9,   // 51: document.v1.ListTagsResponse.tags:type_name -> document.v1.DocumentTag
-	10,  // 52: document.v1.LinkFileToEntityResponse.link:type_name -> document.v1.DocumentEntityLink
-	10,  // 53: document.v1.ListFileEntityLinksResponse.links:type_name -> document.v1.DocumentEntityLink
-	6,   // 54: document.v1.ListFilesByEntityResponse.files:type_name -> document.v1.DocumentFile
-	15,  // 55: document.v1.SearchFilesResponse.results:type_name -> document.v1.FileSearchResult
-	2,   // 56: document.v1.ListVirtualFilesRequest.source_type:type_name -> document.v1.VirtualFileSource
-	13,  // 57: document.v1.ListVirtualFilesResponse.files:type_name -> document.v1.VirtualFile
-	109, // 58: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
-	114, // 59: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
-	114, // 60: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
-	16,  // 61: document.v1.DocumentService.CreateFolder:input_type -> document.v1.CreateFolderRequest
-	18,  // 62: document.v1.DocumentService.GetFolder:input_type -> document.v1.GetFolderRequest
-	20,  // 63: document.v1.DocumentService.ListFolders:input_type -> document.v1.ListFoldersRequest
-	22,  // 64: document.v1.DocumentService.UpdateFolder:input_type -> document.v1.UpdateFolderRequest
-	24,  // 65: document.v1.DocumentService.DeleteFolder:input_type -> document.v1.DeleteFolderRequest
-	26,  // 66: document.v1.DocumentService.GetFolderPath:input_type -> document.v1.GetFolderPathRequest
-	28,  // 67: document.v1.DocumentService.InitializeUserSpace:input_type -> document.v1.InitializeUserSpaceRequest
-	30,  // 68: document.v1.DocumentService.InitializeTeamSpace:input_type -> document.v1.InitializeTeamSpaceRequest
-	32,  // 69: document.v1.DocumentService.GetFile:input_type -> document.v1.GetFileRequest
-	34,  // 70: document.v1.DocumentService.ListFiles:input_type -> document.v1.ListFilesRequest
-	36,  // 71: document.v1.DocumentService.UpdateFile:input_type -> document.v1.UpdateFileRequest
-	38,  // 72: document.v1.DocumentService.DeleteFile:input_type -> document.v1.DeleteFileRequest
-	40,  // 73: document.v1.DocumentService.CopyFile:input_type -> document.v1.CopyFileRequest
-	42,  // 74: document.v1.DocumentService.MoveFile:input_type -> document.v1.MoveFileRequest
-	44,  // 75: document.v1.DocumentService.GetFileDownloadURL:input_type -> document.v1.GetFileDownloadURLRequest
-	46,  // 76: document.v1.DocumentService.CreateFileVersion:input_type -> document.v1.CreateFileVersionRequest
-	50,  // 77: document.v1.DocumentService.ListFileVersions:input_type -> document.v1.ListFileVersionsRequest
-	52,  // 78: document.v1.DocumentService.RevertFileVersion:input_type -> document.v1.RevertFileVersionRequest
-	54,  // 79: document.v1.DocumentService.ListFileActivity:input_type -> document.v1.ListFileActivityRequest
-	48,  // 80: document.v1.DocumentService.RegisterUploadedFile:input_type -> document.v1.RegisterUploadedFileRequest
-	56,  // 81: document.v1.DocumentService.ListFileComments:input_type -> document.v1.ListFileCommentsRequest
-	58,  // 82: document.v1.DocumentService.CreateFileComment:input_type -> document.v1.CreateFileCommentRequest
-	60,  // 83: document.v1.DocumentService.UpdateFileComment:input_type -> document.v1.UpdateFileCommentRequest
-	62,  // 84: document.v1.DocumentService.DeleteFileComment:input_type -> document.v1.DeleteFileCommentRequest
-	65,  // 85: document.v1.DocumentService.CreateShareLink:input_type -> document.v1.CreateShareLinkRequest
-	67,  // 86: document.v1.DocumentService.ListShareLinks:input_type -> document.v1.ListShareLinksRequest
-	69,  // 87: document.v1.DocumentService.RevokeShareLink:input_type -> document.v1.RevokeShareLinkRequest
-	71,  // 88: document.v1.DocumentService.GetSharedFile:input_type -> document.v1.GetSharedFileRequest
-	73,  // 89: document.v1.DocumentService.ShareEntity:input_type -> document.v1.ShareEntityRequest
-	75,  // 90: document.v1.DocumentService.UnshareEntity:input_type -> document.v1.UnshareEntityRequest
-	77,  // 91: document.v1.DocumentService.ListShares:input_type -> document.v1.ListSharesRequest
-	79,  // 92: document.v1.DocumentService.ListSharedWithMe:input_type -> document.v1.ListSharedWithMeRequest
-	81,  // 93: document.v1.DocumentService.CreateTag:input_type -> document.v1.CreateTagRequest
-	83,  // 94: document.v1.DocumentService.ListTags:input_type -> document.v1.ListTagsRequest
-	85,  // 95: document.v1.DocumentService.DeleteTag:input_type -> document.v1.DeleteTagRequest
-	87,  // 96: document.v1.DocumentService.TagFile:input_type -> document.v1.TagFileRequest
-	89,  // 97: document.v1.DocumentService.UntagFile:input_type -> document.v1.UntagFileRequest
-	91,  // 98: document.v1.DocumentService.LinkFileToEntity:input_type -> document.v1.LinkFileToEntityRequest
-	93,  // 99: document.v1.DocumentService.UnlinkFileFromEntity:input_type -> document.v1.UnlinkFileFromEntityRequest
-	95,  // 100: document.v1.DocumentService.ListFileEntityLinks:input_type -> document.v1.ListFileEntityLinksRequest
-	97,  // 101: document.v1.DocumentService.DeleteEntityLink:input_type -> document.v1.DeleteEntityLinkRequest
-	99,  // 102: document.v1.DocumentService.ListFilesByEntity:input_type -> document.v1.ListFilesByEntityRequest
-	101, // 103: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
-	103, // 104: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
-	105, // 105: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
-	107, // 106: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
-	110, // 107: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
-	112, // 108: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
-	17,  // 109: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
-	19,  // 110: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
-	21,  // 111: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
-	23,  // 112: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
-	25,  // 113: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
-	27,  // 114: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
-	29,  // 115: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
-	31,  // 116: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
-	33,  // 117: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
-	35,  // 118: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
-	37,  // 119: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
-	39,  // 120: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
-	41,  // 121: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
-	43,  // 122: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
-	45,  // 123: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
-	47,  // 124: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
-	51,  // 125: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
-	53,  // 126: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
-	55,  // 127: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
-	49,  // 128: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
-	57,  // 129: document.v1.DocumentService.ListFileComments:output_type -> document.v1.ListFileCommentsResponse
-	59,  // 130: document.v1.DocumentService.CreateFileComment:output_type -> document.v1.CreateFileCommentResponse
-	61,  // 131: document.v1.DocumentService.UpdateFileComment:output_type -> document.v1.UpdateFileCommentResponse
-	63,  // 132: document.v1.DocumentService.DeleteFileComment:output_type -> document.v1.DeleteFileCommentResponse
-	66,  // 133: document.v1.DocumentService.CreateShareLink:output_type -> document.v1.CreateShareLinkResponse
-	68,  // 134: document.v1.DocumentService.ListShareLinks:output_type -> document.v1.ListShareLinksResponse
-	70,  // 135: document.v1.DocumentService.RevokeShareLink:output_type -> document.v1.RevokeShareLinkResponse
-	72,  // 136: document.v1.DocumentService.GetSharedFile:output_type -> document.v1.GetSharedFileResponse
-	74,  // 137: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
-	76,  // 138: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
-	78,  // 139: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
-	80,  // 140: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
-	82,  // 141: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
-	84,  // 142: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
-	86,  // 143: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
-	88,  // 144: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
-	90,  // 145: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
-	92,  // 146: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
-	94,  // 147: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
-	96,  // 148: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
-	98,  // 149: document.v1.DocumentService.DeleteEntityLink:output_type -> document.v1.DeleteEntityLinkResponse
-	100, // 150: document.v1.DocumentService.ListFilesByEntity:output_type -> document.v1.ListFilesByEntityResponse
-	102, // 151: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
-	104, // 152: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
-	106, // 153: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
-	108, // 154: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
-	111, // 155: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
-	113, // 156: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
-	109, // [109:157] is the sub-list for method output_type
-	61,  // [61:109] is the sub-list for method input_type
-	61,  // [61:61] is the sub-list for extension type_name
-	61,  // [61:61] is the sub-list for extension extendee
-	0,   // [0:61] is the sub-list for field type_name
+	6,   // 35: document.v1.UploadFileResponse.file:type_name -> document.v1.DocumentFile
+	7,   // 36: document.v1.ListFileVersionsResponse.versions:type_name -> document.v1.DocumentFileVersion
+	6,   // 37: document.v1.RevertFileVersionResponse.file:type_name -> document.v1.DocumentFile
+	11,  // 38: document.v1.ListFileActivityResponse.activities:type_name -> document.v1.DocumentFileActivity
+	12,  // 39: document.v1.ListFileCommentsResponse.comments:type_name -> document.v1.DocumentFileComment
+	12,  // 40: document.v1.CreateFileCommentResponse.comment:type_name -> document.v1.DocumentFileComment
+	12,  // 41: document.v1.UpdateFileCommentResponse.comment:type_name -> document.v1.DocumentFileComment
+	116, // 42: document.v1.ShareLink.expires_at:type_name -> google.protobuf.Timestamp
+	116, // 43: document.v1.ShareLink.created_at:type_name -> google.protobuf.Timestamp
+	66,  // 44: document.v1.CreateShareLinkResponse.share_link:type_name -> document.v1.ShareLink
+	66,  // 45: document.v1.ListShareLinksResponse.share_links:type_name -> document.v1.ShareLink
+	1,   // 46: document.v1.ShareEntityRequest.permission:type_name -> document.v1.SharePermission
+	8,   // 47: document.v1.ShareEntityResponse.share:type_name -> document.v1.DocumentShare
+	8,   // 48: document.v1.ListSharesResponse.shares:type_name -> document.v1.DocumentShare
+	6,   // 49: document.v1.ListSharedWithMeResponse.files:type_name -> document.v1.DocumentFile
+	5,   // 50: document.v1.ListSharedWithMeResponse.folders:type_name -> document.v1.DocumentFolder
+	9,   // 51: document.v1.CreateTagResponse.tag:type_name -> document.v1.DocumentTag
+	9,   // 52: document.v1.ListTagsResponse.tags:type_name -> document.v1.DocumentTag
+	10,  // 53: document.v1.LinkFileToEntityResponse.link:type_name -> document.v1.DocumentEntityLink
+	10,  // 54: document.v1.ListFileEntityLinksResponse.links:type_name -> document.v1.DocumentEntityLink
+	6,   // 55: document.v1.ListFilesByEntityResponse.files:type_name -> document.v1.DocumentFile
+	15,  // 56: document.v1.SearchFilesResponse.results:type_name -> document.v1.FileSearchResult
+	2,   // 57: document.v1.ListVirtualFilesRequest.source_type:type_name -> document.v1.VirtualFileSource
+	13,  // 58: document.v1.ListVirtualFilesResponse.files:type_name -> document.v1.VirtualFile
+	111, // 59: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
+	116, // 60: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	116, // 61: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	16,  // 62: document.v1.DocumentService.CreateFolder:input_type -> document.v1.CreateFolderRequest
+	18,  // 63: document.v1.DocumentService.GetFolder:input_type -> document.v1.GetFolderRequest
+	20,  // 64: document.v1.DocumentService.ListFolders:input_type -> document.v1.ListFoldersRequest
+	22,  // 65: document.v1.DocumentService.UpdateFolder:input_type -> document.v1.UpdateFolderRequest
+	24,  // 66: document.v1.DocumentService.DeleteFolder:input_type -> document.v1.DeleteFolderRequest
+	26,  // 67: document.v1.DocumentService.GetFolderPath:input_type -> document.v1.GetFolderPathRequest
+	28,  // 68: document.v1.DocumentService.InitializeUserSpace:input_type -> document.v1.InitializeUserSpaceRequest
+	30,  // 69: document.v1.DocumentService.InitializeTeamSpace:input_type -> document.v1.InitializeTeamSpaceRequest
+	32,  // 70: document.v1.DocumentService.GetFile:input_type -> document.v1.GetFileRequest
+	34,  // 71: document.v1.DocumentService.ListFiles:input_type -> document.v1.ListFilesRequest
+	36,  // 72: document.v1.DocumentService.UpdateFile:input_type -> document.v1.UpdateFileRequest
+	38,  // 73: document.v1.DocumentService.DeleteFile:input_type -> document.v1.DeleteFileRequest
+	40,  // 74: document.v1.DocumentService.CopyFile:input_type -> document.v1.CopyFileRequest
+	42,  // 75: document.v1.DocumentService.MoveFile:input_type -> document.v1.MoveFileRequest
+	44,  // 76: document.v1.DocumentService.GetFileDownloadURL:input_type -> document.v1.GetFileDownloadURLRequest
+	46,  // 77: document.v1.DocumentService.CreateFileVersion:input_type -> document.v1.CreateFileVersionRequest
+	52,  // 78: document.v1.DocumentService.ListFileVersions:input_type -> document.v1.ListFileVersionsRequest
+	54,  // 79: document.v1.DocumentService.RevertFileVersion:input_type -> document.v1.RevertFileVersionRequest
+	56,  // 80: document.v1.DocumentService.ListFileActivity:input_type -> document.v1.ListFileActivityRequest
+	48,  // 81: document.v1.DocumentService.RegisterUploadedFile:input_type -> document.v1.RegisterUploadedFileRequest
+	50,  // 82: document.v1.DocumentService.UploadFile:input_type -> document.v1.UploadFileRequest
+	58,  // 83: document.v1.DocumentService.ListFileComments:input_type -> document.v1.ListFileCommentsRequest
+	60,  // 84: document.v1.DocumentService.CreateFileComment:input_type -> document.v1.CreateFileCommentRequest
+	62,  // 85: document.v1.DocumentService.UpdateFileComment:input_type -> document.v1.UpdateFileCommentRequest
+	64,  // 86: document.v1.DocumentService.DeleteFileComment:input_type -> document.v1.DeleteFileCommentRequest
+	67,  // 87: document.v1.DocumentService.CreateShareLink:input_type -> document.v1.CreateShareLinkRequest
+	69,  // 88: document.v1.DocumentService.ListShareLinks:input_type -> document.v1.ListShareLinksRequest
+	71,  // 89: document.v1.DocumentService.RevokeShareLink:input_type -> document.v1.RevokeShareLinkRequest
+	73,  // 90: document.v1.DocumentService.GetSharedFile:input_type -> document.v1.GetSharedFileRequest
+	75,  // 91: document.v1.DocumentService.ShareEntity:input_type -> document.v1.ShareEntityRequest
+	77,  // 92: document.v1.DocumentService.UnshareEntity:input_type -> document.v1.UnshareEntityRequest
+	79,  // 93: document.v1.DocumentService.ListShares:input_type -> document.v1.ListSharesRequest
+	81,  // 94: document.v1.DocumentService.ListSharedWithMe:input_type -> document.v1.ListSharedWithMeRequest
+	83,  // 95: document.v1.DocumentService.CreateTag:input_type -> document.v1.CreateTagRequest
+	85,  // 96: document.v1.DocumentService.ListTags:input_type -> document.v1.ListTagsRequest
+	87,  // 97: document.v1.DocumentService.DeleteTag:input_type -> document.v1.DeleteTagRequest
+	89,  // 98: document.v1.DocumentService.TagFile:input_type -> document.v1.TagFileRequest
+	91,  // 99: document.v1.DocumentService.UntagFile:input_type -> document.v1.UntagFileRequest
+	93,  // 100: document.v1.DocumentService.LinkFileToEntity:input_type -> document.v1.LinkFileToEntityRequest
+	95,  // 101: document.v1.DocumentService.UnlinkFileFromEntity:input_type -> document.v1.UnlinkFileFromEntityRequest
+	97,  // 102: document.v1.DocumentService.ListFileEntityLinks:input_type -> document.v1.ListFileEntityLinksRequest
+	99,  // 103: document.v1.DocumentService.DeleteEntityLink:input_type -> document.v1.DeleteEntityLinkRequest
+	101, // 104: document.v1.DocumentService.ListFilesByEntity:input_type -> document.v1.ListFilesByEntityRequest
+	103, // 105: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
+	105, // 106: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
+	107, // 107: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
+	109, // 108: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
+	112, // 109: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
+	114, // 110: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
+	17,  // 111: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
+	19,  // 112: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
+	21,  // 113: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
+	23,  // 114: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
+	25,  // 115: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
+	27,  // 116: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
+	29,  // 117: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
+	31,  // 118: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
+	33,  // 119: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
+	35,  // 120: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
+	37,  // 121: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
+	39,  // 122: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
+	41,  // 123: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
+	43,  // 124: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
+	45,  // 125: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
+	47,  // 126: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
+	53,  // 127: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
+	55,  // 128: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
+	57,  // 129: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
+	49,  // 130: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
+	51,  // 131: document.v1.DocumentService.UploadFile:output_type -> document.v1.UploadFileResponse
+	59,  // 132: document.v1.DocumentService.ListFileComments:output_type -> document.v1.ListFileCommentsResponse
+	61,  // 133: document.v1.DocumentService.CreateFileComment:output_type -> document.v1.CreateFileCommentResponse
+	63,  // 134: document.v1.DocumentService.UpdateFileComment:output_type -> document.v1.UpdateFileCommentResponse
+	65,  // 135: document.v1.DocumentService.DeleteFileComment:output_type -> document.v1.DeleteFileCommentResponse
+	68,  // 136: document.v1.DocumentService.CreateShareLink:output_type -> document.v1.CreateShareLinkResponse
+	70,  // 137: document.v1.DocumentService.ListShareLinks:output_type -> document.v1.ListShareLinksResponse
+	72,  // 138: document.v1.DocumentService.RevokeShareLink:output_type -> document.v1.RevokeShareLinkResponse
+	74,  // 139: document.v1.DocumentService.GetSharedFile:output_type -> document.v1.GetSharedFileResponse
+	76,  // 140: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
+	78,  // 141: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
+	80,  // 142: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
+	82,  // 143: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
+	84,  // 144: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
+	86,  // 145: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
+	88,  // 146: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
+	90,  // 147: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
+	92,  // 148: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
+	94,  // 149: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
+	96,  // 150: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
+	98,  // 151: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
+	100, // 152: document.v1.DocumentService.DeleteEntityLink:output_type -> document.v1.DeleteEntityLinkResponse
+	102, // 153: document.v1.DocumentService.ListFilesByEntity:output_type -> document.v1.ListFilesByEntityResponse
+	104, // 154: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
+	106, // 155: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
+	108, // 156: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
+	110, // 157: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
+	113, // 158: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
+	115, // 159: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
+	111, // [111:160] is the sub-list for method output_type
+	62,  // [62:111] is the sub-list for method input_type
+	62,  // [62:62] is the sub-list for extension type_name
+	62,  // [62:62] is the sub-list for extension extendee
+	0,   // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_proto_document_v1_document_proto_init() }
@@ -7194,16 +7347,16 @@ func file_proto_document_v1_document_proto_init() {
 	}
 	file_proto_document_v1_document_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_document_v1_document_proto_msgTypes[31].OneofWrappers = []any{}
-	file_proto_document_v1_document_proto_msgTypes[59].OneofWrappers = []any{}
-	file_proto_document_v1_document_proto_msgTypes[60].OneofWrappers = []any{}
-	file_proto_document_v1_document_proto_msgTypes[66].OneofWrappers = []any{}
+	file_proto_document_v1_document_proto_msgTypes[61].OneofWrappers = []any{}
+	file_proto_document_v1_document_proto_msgTypes[62].OneofWrappers = []any{}
+	file_proto_document_v1_document_proto_msgTypes[68].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_document_v1_document_proto_rawDesc), len(file_proto_document_v1_document_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   109,
+			NumMessages:   111,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

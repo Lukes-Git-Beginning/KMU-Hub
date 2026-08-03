@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -102,6 +103,10 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// Register metadata for a file already uploaded to MinIO via a presigned
 		// PUT URL (POST /api/v1/files/presign-upload → PUT to MinIO → register here).
 		r.With(docUpload).Post("/", d.HandleRegisterUploadedFile)
+		// Direct multipart upload (small files, e.g. a generated report PDF) —
+		// the gateway streams the bytes into the gRPC request itself instead of
+		// requiring a presign round-trip first.
+		r.With(docUpload).Post("/upload", d.HandleUploadFile)
 		r.With(docRead).Get("/{id}", d.HandleGetFile)
 		r.With(docEdit).Put("/{id}", d.HandleUpdateFile)
 		r.With(docDelete).Delete("/{id}", d.HandleDeleteFile)
@@ -477,6 +482,107 @@ func (d *DocumentRoutes) HandleRegisterUploadedFile(w http.ResponseWriter, r *ht
 		StorageKey: req.StorageKey,
 		OwnerId:    userID,
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"file": resp.File})
+}
+
+// maxDocumentUploadBytes caps a direct multipart upload into the document
+// store, matching the 50 MiB ceiling the presign path already enforces
+// (internal/document/file/presign.go's maxPresignSizeBytes) so both upload
+// routes into the same store share one limit.
+const maxDocumentUploadBytes = 50 << 20
+
+// allowedDocumentUploadMimeTypes restricts POST .../files/upload to types the
+// desktop client actually renders or previews. Mirrors the office/text/image/
+// archive set internal/chat/file already vets for its own uploads, minus
+// image/svg+xml — an SVG can carry a <script>, and unlike chat attachments a
+// document can be opened inline via the WOPI viewer with no sanitization step
+// in front of it (same reasoning as presign.go's brandingAllowedContentTypes).
+var allowedDocumentUploadMimeTypes = map[string]bool{
+	"application/pdf":    true,
+	"application/msword": true,
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+	"application/vnd.ms-excel": true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         true,
+	"application/vnd.ms-powerpoint":                                             true,
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation": true,
+	"text/plain":      true,
+	"text/csv":        true,
+	"text/markdown":   true,
+	"image/jpeg":      true,
+	"image/png":       true,
+	"image/gif":       true,
+	"image/webp":      true,
+	"application/zip": true,
+}
+
+// HandleUploadFile handles POST /api/v1/documents/files/upload (multipart).
+// Form fields: file (required), folder_id (required), tag_id (optional).
+// Unlike HandleRegisterUploadedFile, the gateway never talks to MinIO here —
+// it forwards the bytes to the document service, which owns the object-store
+// write.
+func (d *DocumentRoutes) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	// 55 MiB total: 50 MiB file + 5 MiB form fields, same margin gobd-archive uses.
+	if err := r.ParseMultipartForm(55 << 20); err != nil {
+		response.Error(w, http.StatusBadRequest, "failed to parse multipart form")
+		return
+	}
+
+	folderID := r.FormValue("folder_id")
+	if folderID == "" {
+		response.Error(w, http.StatusBadRequest, "missing field 'folder_id'")
+		return
+	}
+	tagID := r.FormValue("tag_id")
+
+	f, header, err := r.FormFile("file")
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "missing field 'file'")
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	mimeType := header.Header.Get("Content-Type")
+	if !allowedDocumentUploadMimeTypes[strings.ToLower(mimeType)] {
+		response.Error(w, http.StatusUnsupportedMediaType, "content type not allowed for document upload")
+		return
+	}
+
+	content, err := io.ReadAll(io.LimitReader(f, maxDocumentUploadBytes+1))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read file")
+		return
+	}
+	if len(content) > maxDocumentUploadBytes {
+		response.Error(w, http.StatusRequestEntityTooLarge, "file exceeds 50 MiB limit")
+		return
+	}
+	if len(content) == 0 {
+		response.Error(w, http.StatusBadRequest, "file is empty")
+		return
+	}
+
+	resp, err := client.UploadFile(r.Context(), &documentv1.UploadFileRequest{
+		FolderId: folderID,
+		Filename: header.Filename,
+		MimeType: mimeType,
+		FileSize: int64(len(content)),
+		Content:  content,
+		OwnerId:  userID,
+		TagId:    tagID,
+	}, grpc.MaxCallSendMsgSize(60<<20))
 	if err != nil {
 		respondGRPCError(w, err)
 		return
