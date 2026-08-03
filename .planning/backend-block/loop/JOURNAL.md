@@ -2771,7 +2771,7 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
     Kein Bug, nur eine Asymmetrie, die jemand kennen sollte, der die Tabelle direkt befuellt.
 - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
 
-## Iteration 43 — 2026-08-03
+## Iteration 43 — g-automation-http-action — done — 2026-08-03
 
 - verify-vorspann auf `a7ae3f56` (Iteration 42, per-user Overrides im Token): 21 Dateien geprueft,
   keine der sechs Fehlerklassen. Keine Stubs/`Unimplemented`, kein Gateway-Bypass (nur
@@ -2848,7 +2848,7 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   `X-Cosmi-Signature: sha256=…`) — dieselbe Form wiederverwenden statt eine dritte zu erfinden.
 - commit: `cac9f73d` (feat(automation): add an SSRF-guarded http.request action)
 
-## Iteration 44 — 2026-08-03
+## Iteration 44 — g-automation-webhook-trigger — done — 2026-08-03
 
 - verify-vorspann auf `cac9f73d` (Iteration 43, SSRF-guarded http.request action): Diff gelesen
   (`internal/security/safehttp/`, `internal/automation/action/http_actions.go`,
