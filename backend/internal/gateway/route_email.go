@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -73,6 +74,15 @@ type moveToFolderDTO struct {
 	TargetFolderID string `json:"target_folder_id" validate:"required,uuid"`
 }
 
+// bulkMessageActionDTO backs POST /api/v1/email/messages/bulk. 500 mirrors the
+// largest selection a "select all" in the message list can realistically
+// produce (per_page caps at 100, so 500 already covers several pages).
+type bulkMessageActionDTO struct {
+	IDs    []string `json:"ids" validate:"required,min=1,max=500,dive,uuid"`
+	Action string   `json:"action" validate:"required"`
+	Target string   `json:"target" validate:"omitempty,uuid"`
+}
+
 // EmailRoutes handles HTTP routes for the Email backend service.
 type EmailRoutes struct {
 	registry *ServiceRegistry
@@ -127,6 +137,11 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/move", e.HandleMoveToFolder)
 		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/labels", e.HandleAssignMessageLabels)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteMessage)
+		// "write" is the floor; HandleBulkMessageAction itself requires
+		// "email:delete" additionally when action == "delete", matching the
+		// single-message DELETE route above instead of letting bulk act as a
+		// backdoor around it.
+		r.With(middleware.RequirePermission("email", "write")).Post("/bulk", e.HandleBulkMessageAction)
 	})
 
 	// Send/Compose
@@ -534,6 +549,43 @@ func (e *EmailRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleBulkMessageAction handles POST /api/v1/email/messages/bulk. Unlike the
+// per-message routes above, "delete" here needs an explicit second permission
+// check: the route guard only requires email:write (the floor every action in
+// this handler needs), so without this check a role holding write but not
+// delete could delete messages in bulk that the single DELETE /{id} route
+// would refuse them — bulk would silently become a wider door than the
+// permission model intends.
+func (e *EmailRoutes) HandleBulkMessageAction(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	dto, ok := decodeAndValidate[bulkMessageActionDTO](w, r)
+	if !ok {
+		return
+	}
+
+	if dto.Action == "delete" && !slices.Contains(middleware.GetUserPermissions(r.Context()), "email:delete") {
+		response.Error(w, http.StatusForbidden, "insufficient permissions")
+		return
+	}
+
+	resp, err := client.BulkMessageAction(r.Context(), &emailv1.BulkMessageActionRequest{
+		Ids:    dto.IDs,
+		Action: dto.Action,
+		Target: dto.Target,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{"affected": int(resp.Affected)})
 }
 
 // ============================================================================

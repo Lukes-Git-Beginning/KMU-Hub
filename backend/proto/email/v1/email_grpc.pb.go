@@ -35,6 +35,7 @@ const (
 	EmailService_ToggleStar_FullMethodName               = "/email.v1.EmailService/ToggleStar"
 	EmailService_MoveToFolder_FullMethodName             = "/email.v1.EmailService/MoveToFolder"
 	EmailService_DeleteMessage_FullMethodName            = "/email.v1.EmailService/DeleteMessage"
+	EmailService_BulkMessageAction_FullMethodName        = "/email.v1.EmailService/BulkMessageAction"
 	EmailService_SendEmail_FullMethodName                = "/email.v1.EmailService/SendEmail"
 	EmailService_SaveDraft_FullMethodName                = "/email.v1.EmailService/SaveDraft"
 	EmailService_ReplyEmail_FullMethodName               = "/email.v1.EmailService/ReplyEmail"
@@ -93,6 +94,7 @@ type EmailServiceClient interface {
 	ToggleStar(ctx context.Context, in *ToggleStarRequest, opts ...grpc.CallOption) (*ToggleStarResponse, error)
 	MoveToFolder(ctx context.Context, in *MoveToFolderRequest, opts ...grpc.CallOption) (*MoveToFolderResponse, error)
 	DeleteMessage(ctx context.Context, in *DeleteMessageRequest, opts ...grpc.CallOption) (*DeleteMessageResponse, error)
+	BulkMessageAction(ctx context.Context, in *BulkMessageActionRequest, opts ...grpc.CallOption) (*BulkMessageActionResponse, error)
 	// Send/compose operations
 	SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error)
 	SaveDraft(ctx context.Context, in *SaveDraftRequest, opts ...grpc.CallOption) (*SaveDraftResponse, error)
@@ -298,6 +300,16 @@ func (c *emailServiceClient) DeleteMessage(ctx context.Context, in *DeleteMessag
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteMessageResponse)
 	err := c.cc.Invoke(ctx, EmailService_DeleteMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) BulkMessageAction(ctx context.Context, in *BulkMessageActionRequest, opts ...grpc.CallOption) (*BulkMessageActionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkMessageActionResponse)
+	err := c.cc.Invoke(ctx, EmailService_BulkMessageAction_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -657,6 +669,7 @@ type EmailServiceServer interface {
 	ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error)
 	MoveToFolder(context.Context, *MoveToFolderRequest) (*MoveToFolderResponse, error)
 	DeleteMessage(context.Context, *DeleteMessageRequest) (*DeleteMessageResponse, error)
+	BulkMessageAction(context.Context, *BulkMessageActionRequest) (*BulkMessageActionResponse, error)
 	// Send/compose operations
 	SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error)
 	SaveDraft(context.Context, *SaveDraftRequest) (*SaveDraftResponse, error)
@@ -755,6 +768,9 @@ func (UnimplementedEmailServiceServer) MoveToFolder(context.Context, *MoveToFold
 }
 func (UnimplementedEmailServiceServer) DeleteMessage(context.Context, *DeleteMessageRequest) (*DeleteMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMessage not implemented")
+}
+func (UnimplementedEmailServiceServer) BulkMessageAction(context.Context, *BulkMessageActionRequest) (*BulkMessageActionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkMessageAction not implemented")
 }
 func (UnimplementedEmailServiceServer) SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SendEmail not implemented")
@@ -1160,6 +1176,24 @@ func _EmailService_DeleteMessage_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(EmailServiceServer).DeleteMessage(ctx, req.(*DeleteMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_BulkMessageAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkMessageActionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).BulkMessageAction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_BulkMessageAction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).BulkMessageAction(ctx, req.(*BulkMessageActionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1828,6 +1862,10 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMessage",
 			Handler:    _EmailService_DeleteMessage_Handler,
+		},
+		{
+			MethodName: "BulkMessageAction",
+			Handler:    _EmailService_BulkMessageAction_Handler,
 		},
 		{
 			MethodName: "SendEmail",

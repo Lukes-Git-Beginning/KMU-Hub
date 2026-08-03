@@ -1835,7 +1835,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/email/messages/bulk` fehlt. Verifiziert am 2026-08-02:
       `desktop/src/renderer/src/api/email-client.ts:192` schickt `{ids, action, target}` und
@@ -1862,6 +1862,39 @@ units:
       - unbekannte action -> 422, Obergrenze fuer ids greift
       - Test: fremde Tenant-IDs bleiben unberuehrt und zaehlen nicht in `affected`
       - openapi.yaml + go test -count=1 ./internal/gateway/ ./internal/email/... gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 33). Der Backlog-Notiz-Vorschlag ("read, unread, star, move, delete") deckte
+      sich NICHT mit der real verifizierten UI (`MailsPage.tsx:706-718`: nur read/star/archive/spam/delete
+      sind an Buttons verdrahtet) — stattdessen wurde der volle `BulkAction`-Typ aus der stateful MSW-
+      Referenz (`mocks/data/email-store.ts:424`, dieselbe SSOT-Konvention wie in Welle 1b) implementiert:
+      read/unread/star/unstar/archive/spam/move/delete. `label` bewusst NICHT gebaut (kein FE-Aufrufer,
+      eigene Ownership-Semantik noetig) — 422 bei diesem oder jedem anderen unbekannten Wert.
+      Kein neuer Business-Code: jede Aktion bildet auf bestehende `Service`-Methoden ab
+      (MarkRead/MarkUnread/MoveToFolder/Delete), einzig `SetStarred` ist neu (duenner Wrapper um
+      `UpdateFlags`, gebraucht weil `ToggleStar` nicht deterministisch auf bulk passt) und
+      `FolderRepository.GetByAccountAndType` (neu, fuer archive/spam).
+      Tenant-Isolation NICHT per `WHERE id = ANY($1)`-Bulk-Query, sondern per-ID `GetByID(ctx,id,tenantID)`
+      vor jeder Mutation (wie von den notes gefordert) — ein Treffer aus fremdem Tenant oder eine
+      nichtexistente ID wird uebersprungen, nicht gezaehlt, bricht den Rest des Batches nicht ab.
+      `archive`/`spam` loesen den Zielordner PRO NACHRICHT ueber deren eigenen `account_id` auf (eine
+      Unified-Inbox-Auswahl kann mehrere Konten umfassen, jedes mit eigenem oder fehlendem Archiv-/
+      Spam-Ordner) und cachen das Ergebnis pro Konto innerhalb eines Aufrufs; fehlt der Ordner fuer ein
+      Konto, wird nur diese Nachricht uebersprungen, nicht der ganze Aufruf verworfen.
+      FUND ueber die Unit hinaus: die Route ist mit `email:write` gegated (Minimum aller Aktionen), aber
+      `action=delete` haette damit `email:delete` umgangen (die Einzel-Route `DELETE /{id}` verlangt es
+      separat). Der Handler prueft bei `action=="delete"` zusaetzlich `email:delete` explizit und liefert
+      403 ohne — sonst waere Bulk eine breitere Tuer als das Einzel-Loeschen.
+      `Delete` in bulk ist ein HARTES Delete (ruft die bestehende `Service.Delete`, dieselbe Semantik wie
+      die Einzel-DELETE-Route) — die MSW-Mock-Referenz simuliert stattdessen ein Soft-Delete in den
+      Papierkorb. Das ist ein Bestandsunterschied der SCHON in der Einzel-Route existierte, nicht neu
+      durch diese Unit eingefuehrt; nicht in dieser Iteration behoben (out of scope, ausserhalb des
+      Unit-Scopes).
+      `ids`-Obergrenze 500 (gateway-seitig per Validator `max=500`, vor jedem gRPC-Call).
+      gate: build ok (`go build -p 2` auf email/gateway/server/cmd/email/cmd/gateway) | vet ok | lint ok
+      (golangci-lint, 0 issues) | test ok — `go test -count=1 -v ./internal/email/... ./internal/gateway/
+      ./internal/server/...` mit `DATABASE_URL` auf `kmuhub_app`: 1797 PASS, 0 SKIP, 0 FAIL, inkl.
+      `TestOpenAPIRouteDrift` (792 registrierte gegen 794 dokumentierte `/api/v1/*`-Pfade, gruen).
+      Keine Migration (keine neue Tabelle).
 
   - id: g-admin-users-list
     phase: 3

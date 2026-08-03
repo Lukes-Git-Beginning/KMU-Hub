@@ -2067,3 +2067,80 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     Unit-Scopes, kein Test dafuer vorbereitet) — fuer eine kuenftige Fix-Unit vormerken, Vorlage ist
     der `folderService.GetByID`-Check aus dieser Iteration.
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
+
+## Iteration 33 — g-email-messages-bulk — done — 2026-08-03
+- commit: (wird nach dem Commit ergaenzt)
+- verify vorgaenger: sauber. `dcf98a3e` (g-berichte-document-upload, Iteration 32) gegen die acht
+  Fehlerklassen geprueft: Klasse 1 N/A — `HandleUploadFile` ruft `client.UploadFile` ueber den
+  gRPC-Client, kein direkter Service-Zugriff. Klasse 2 N/A — `UploadFile` ist eine echte
+  Implementierung (loest `folder_id` ueber `folderService.GetByID` auf, schreibt echte Bytes via
+  `fileService.Upload`), kein Stub. Klasse 3 sauber — `.proto` und `.pb.go`/`.grpc.pb.go` im selben
+  Commit (959 Zeilen Regen). Klasse 4 N/A — Route haengt am bestehenden `docUpload`-Guard
+  (`documents:file:upload`/`documents:write`), kein neuer Permission-Key, kein Seed noetig. Klasse 5
+  N/A — keine neue Tabelle. Klasse 6 sauber — Response `{file: DocumentFile}`, deckungsgleich mit den
+  Nachbarrouten. Klasse 7 sauber — `/api/v1/documents/files/upload` steht in openapi.yaml, alle
+  Status-Codes (400/401/403/404/413/415) dokumentiert. Klasse 8 N/A — kein bestehender Guard ersetzt.
+  Zusatzfund im selben Commit sauber behandelt: `TagFile` bekam einen expliziten Tenant-Ownership-Check
+  fuer `tag_id` (schliesst eine RLS-Bypass-Luecke ueber einen Owner-Trigger, betrifft auch die
+  bestehende `/tags/file`-Route), mit eigenem Regressionstest belegt. Nichts zu beanstanden.
+- gebaut: `g-email-messages-bulk` gezogen (erste `status: todo`-Unit mit erfuellten `deps: []` in
+  Datei-Reihenfolge unter Block G).
+  Verifiziert: `desktop/.../email-client.ts:191` (`bulk(ids, action, target)`) und
+  `useEmail.ts:224` (`useBulkMessageAction`) riefen `POST /api/v1/email/messages/bulk`, das im Gateway
+  nicht existierte — die Mehrfachauswahl-Toolbar in `MailsPage.tsx:706-718` (read/star/archive/spam/
+  delete-Buttons) lief ins Leere.
+  Neue RPC `BulkMessageAction` in `email.proto` (Request: `ids[]`, `action`, `target`; Response:
+  `affected`) + Regen im selben Commit (`protoc --go_out --go-grpc_out proto/email/v1/email.proto`,
+  kein dediziertes `proto-email`-Makefile-Target existierte — Kommando 1:1 aus dem generischen
+  `proto:`-Ziel uebernommen und dokumentiert, dass `email.proto` dort bislang fehlte).
+  Aktionsmenge bewusst NICHT die drei in den Backlog-Notes vorgeschlagenen ("read, unread, star, move,
+  delete") — die stimmten nicht mit der real verdrahteten UI ueberein (dort: read/star/archive/spam/
+  delete, kein move/unread als Button). Stattdessen die volle `BulkAction`-Menge aus der stateful
+  MSW-Referenz `mocks/data/email-store.ts:424` uebernommen: read/unread/star/unstar/archive/spam/move/
+  delete (dieselbe SSOT-Konvention wie bei RBAC Welle 1b gegen `mocks/handlers/rbac.ts`). `label`
+  bewusst ausgelassen (kein FE-Aufrufer, eigene Ownership-Semantik) — jeder unbekannte Wert inkl.
+  `label` liefert 422 (`codes.OutOfRange`, dieselbe Konvention wie der RBAC-Capability-Key-Check).
+  Kein neuer Business-Code fuer die einfachen Aktionen: `BulkAction` im `message.Service` bildet jede
+  Aktion auf bestehende Methoden ab (`MarkRead`/`MarkUnread`/`MoveToFolder`/`Delete`). Neu: `SetStarred`
+  (duenner `UpdateFlags`-Wrapper, noetig weil `ToggleStar` togglet statt setzt — bulk star/unstar
+  braucht einen deterministischen Zielzustand unabhaengig vom Ausgangszustand jeder Nachricht) und
+  `FolderRepository.GetByAccountAndType` (neu, fuer archive/spam-Ordnerauflösung).
+  Tenant-Isolation wie von den Notes gefordert PRO ID: `GetByID(ctx,id,tenantID)` vor jeder Mutation,
+  keine fremde oder nicht-existente ID zaehlt in `affected`, und keine einzelne fremde ID bricht den
+  Rest des Batches ab (Teil-Erfolg). `email_messages`/`email_folders` haben ohnehin aktives RLS
+  (Migration 000122/000124) — die per-ID-Pruefung ist zusaetzlich zur DB-Ebene, nicht ihr Ersatz, und
+  macht `affected` exakt zaehlbar (die bestehenden Single-Op-Repos geben nur `error` zurueck, keine
+  Rows-Affected).
+  `archive`/`spam` loesen den Zielordner PRO NACHRICHT ueber deren eigenen `account_id` auf (eine
+  Unified-Inbox-Auswahl kann mehrere Konten umfassen) und cachen das Ergebnis pro Konto innerhalb eines
+  Aufrufs, um nicht pro Nachricht erneut zu queryen. Hat ein Konto keinen Archiv-/Spam-Ordner (nicht
+  jedes gesyncte Konto hat einen — siehe `sync/worker.go:50-54`), wird NUR diese Nachricht
+  uebersprungen, nicht der ganze Aufruf verworfen.
+  FUND ueber die Unit hinaus: die Route ist mit `email:write` gegated (das Minimum, das jede Aktion
+  braucht), aber `action=delete` haette damit `email:delete` umgangen — die Einzel-Route
+  `DELETE /api/v1/email/messages/{id}` verlangt dieses Recht separat. `HandleBulkMessageAction` prueft
+  bei `action=="delete"` zusaetzlich explizit `email:delete` aus `middleware.GetUserPermissions(ctx)`
+  und liefert 403 ohne — sonst waere Bulk eine breitere Tuer gewesen als das Einzel-Loeschen.
+  Bestandsbeobachtung, NICHT in dieser Iteration behoben (ausserhalb des Scopes): `delete` in bulk ruft
+  die bestehende `Service.Delete` (hartes `DELETE FROM email_messages`), waehrend die MSW-Mock-Referenz
+  ein Soft-Delete in den Papierkorb simuliert. Diese Abweichung existierte schon in der Einzel-DELETE-
+  Route vor dieser Unit — bulk reproduziert nur dasselbe Verhalten, fuehrt keine neue Inkonsistenz ein.
+  `ids`-Obergrenze 500 gateway-seitig (`validate:"required,min=1,max=500,dive,uuid"`), vor jedem
+  gRPC-Call geprueft.
+  gate: build ok (`go build -p 2` auf email/gateway/server/cmd/email/cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues) | migration: keine (kein Schema-Change) | test ok —
+  `go test -count=1 -v ./internal/email/... ./internal/gateway/ ./internal/server/...` mit
+  `DATABASE_URL` auf `kmuhub_app`: 1797 PASS, 0 SKIP, 0 FAIL, inkl. `TestOpenAPIRouteDrift` (792
+  registrierte gegen 794 dokumentierte `/api/v1/*`-Pfade, gruen). 8 neue Tests in
+  `internal/email/message/service_test.go` fuer `BulkAction`: unbekannte Aktion, move ohne target,
+  read/star/delete, unread/unstar, Cross-Tenant (fremde/fehlende ID zaehlt nicht, Rest laeuft durch),
+  move mit gueltigem/unbekanntem Ziel, archive-Aufloesung pro Konto inkl. Teil-Skip.
+- offen:
+  - `delete` in bulk ist ein hartes Delete, die MSW-Referenz simuliert Soft-Delete-in-Papierkorb — diese
+    Diskrepanz besteht schon in der Einzel-DELETE-Route und ist keine neue Luecke dieser Unit. Falls das
+    Produktverhalten je auf Soft-Delete umgestellt wird, gehoert das in eine eigene Unit, die BEIDE
+    Routen gleichzeitig aendert (sonst laufen Einzel- und Bulk-Loeschen wieder auseinander).
+  - `label` als Bulk-Aktion ist NICHT gebaut (422). Falls das FE das je an einen Button haengt, braucht
+    es eine eigene Entscheidung: taggen (add) oder ersetzen (replace), plus Tenant-Ownership-Check auf
+    das Label wie bei `AssignMessageLabels`.
+  - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.

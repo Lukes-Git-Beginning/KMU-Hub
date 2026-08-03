@@ -501,6 +501,29 @@ func (s *EmailGRPCServer) DeleteMessage(ctx context.Context, req *emailv1.Delete
 	return &emailv1.DeleteMessageResponse{}, nil
 }
 
+func (s *EmailGRPCServer) BulkMessageAction(ctx context.Context, req *emailv1.BulkMessageActionRequest) (*emailv1.BulkMessageActionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	ids := make([]uuid.UUID, 0, len(req.Ids))
+	for _, raw := range req.Ids {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid message id: "+raw)
+		}
+		ids = append(ids, id)
+	}
+
+	affected, err := s.messageService.BulkAction(ctx, tenantID, ids, req.Action, req.Target)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	return &emailv1.BulkMessageActionResponse{Affected: int32(affected)}, nil
+}
+
 // ============================================================================
 // Send/Compose Operations
 // ============================================================================
@@ -1370,6 +1393,12 @@ func mapEmailError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, message.ErrThreadNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// OutOfRange -> 422: a semantically valid request with an unprocessable
+	// value, same convention as the RBAC capability-key check.
+	case errors.Is(err, message.ErrUnknownBulkAction):
+		return status.Error(codes.OutOfRange, err.Error())
+	case errors.Is(err, message.ErrBulkTargetRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Send errors
 	case errors.Is(err, send.ErrSendFailed):

@@ -11,4 +11,12 @@ var (
 
 	// ErrThreadNotFound is returned when a thread ID has no associated messages.
 	ErrThreadNotFound = errors.New("email thread not found")
+
+	// ErrUnknownBulkAction is returned when BulkAction is called with an action
+	// outside its supported set.
+	ErrUnknownBulkAction = errors.New("unknown bulk action")
+
+	// ErrBulkTargetRequired is returned when the "move" bulk action is called
+	// without a target folder id.
+	ErrBulkTargetRequired = errors.New("target is required for this action")
 )

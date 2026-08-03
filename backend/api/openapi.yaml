@@ -20330,6 +20330,41 @@ paths:
         "404":
           description: Message not found, or one of the label ids does not belong to the tenant
 
+  /api/v1/email/messages/bulk:
+    post:
+      summary: Apply an action to many messages at once
+      description: >-
+        Requires email:write; action=delete additionally requires
+        email:delete, matching the single-message DELETE route. Ids that
+        don't exist or belong to another tenant are silently excluded from
+        the result, not errored. archive/spam resolve the destination folder
+        per message from that message's own account.
+      tags: [mails]
+      operationId: bulkEmailMessageAction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkMessageActionRequest"
+      responses:
+        "200":
+          description: Bulk action applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkMessageActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Unknown action
+
   /api/v1/email/send:
     post:
       summary: Send an email (with optional UWG §7 consent check when contact_id is set)
@@ -39096,6 +39131,32 @@ components:
         target_folder_id:
           type: string
           format: uuid
+
+    BulkMessageActionRequest:
+      type: object
+      required: [ids, action]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+        action:
+          type: string
+          enum: [read, unread, star, unstar, archive, spam, move, delete]
+        target:
+          type: string
+          format: uuid
+          description: Destination folder id. Required for "move"; ignored otherwise.
+
+    BulkMessageActionResponse:
+      type: object
+      properties:
+        affected:
+          type: integer
+          description: Number of messages actually changed. Ids outside the caller's tenant are silently excluded, not errored.
 
     SendEmailRequest:
       type: object

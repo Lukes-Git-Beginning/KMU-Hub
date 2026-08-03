@@ -156,10 +156,16 @@ func (r *mockRepo) FindBySubjectAndParticipants(_ context.Context, _ uuid.UUID, 
 
 // --- Mock Folder Repository ---
 
-type mockFolderRepo struct{}
+type mockFolderRepo struct {
+	folders       map[uuid.UUID]*models.EmailFolder
+	byAccountType map[string]*models.EmailFolder // key: accountID.String()+":"+folderType
+}
 
-func (r *mockFolderRepo) Create(_ context.Context, _ *models.EmailFolder) error              { return nil }
-func (r *mockFolderRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.EmailFolder, error) {
+func (r *mockFolderRepo) Create(_ context.Context, _ *models.EmailFolder) error { return nil }
+func (r *mockFolderRepo) GetByID(_ context.Context, id uuid.UUID) (*models.EmailFolder, error) {
+	if f, ok := r.folders[id]; ok {
+		return f, nil
+	}
 	return nil, ErrFolderNotFound
 }
 func (r *mockFolderRepo) GetByIMAPName(_ context.Context, _ uuid.UUID, _ string) (*models.EmailFolder, error) {
@@ -167,6 +173,12 @@ func (r *mockFolderRepo) GetByIMAPName(_ context.Context, _ uuid.UUID, _ string)
 }
 func (r *mockFolderRepo) ListByAccount(_ context.Context, _ uuid.UUID) ([]*models.EmailFolder, error) {
 	return nil, nil
+}
+func (r *mockFolderRepo) GetByAccountAndType(_ context.Context, accountID uuid.UUID, folderType string) (*models.EmailFolder, error) {
+	if f, ok := r.byAccountType[accountID.String()+":"+folderType]; ok {
+		return f, nil
+	}
+	return nil, ErrFolderNotFound
 }
 func (r *mockFolderRepo) UpdateCounts(_ context.Context, _ uuid.UUID, _, _ int) error { return nil }
 func (r *mockFolderRepo) UpdateUIDValidity(_ context.Context, _ uuid.UUID, _ int64) error {
@@ -470,4 +482,191 @@ func TestEmailCrossTenantIsolation_DBLevel(t *testing.T) {
 		assert.NotEqual(t, tenantB, m.TenantID,
 			"thread listing must not return messages belonging to a different tenant")
 	}
+}
+
+// ============================================================================
+// BulkAction (g-email-messages-bulk)
+// ============================================================================
+
+func TestBulkAction_UnknownAction(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+	tenant := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{msg.ID}, "snooze", "")
+
+	assert.ErrorIs(t, err, ErrUnknownBulkAction)
+	assert.Equal(t, 0, affected)
+}
+
+func TestBulkAction_MoveWithoutTarget(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+	tenant := uuid.New()
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{uuid.New()}, "move", "")
+
+	assert.ErrorIs(t, err, ErrBulkTargetRequired)
+	assert.Equal(t, 0, affected)
+}
+
+func TestBulkAction_ReadStarDelete(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+	tenant := uuid.New()
+
+	readMsg := newTestMessage(uuid.New())
+	readMsg.TenantID = tenant
+	readMsg.IsRead = false
+	require.NoError(t, repo.Create(context.Background(), readMsg))
+
+	starMsg := newTestMessage(uuid.New())
+	starMsg.TenantID = tenant
+	starMsg.IsStarred = false
+	require.NoError(t, repo.Create(context.Background(), starMsg))
+
+	deleteMsg := newTestMessage(uuid.New())
+	deleteMsg.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), deleteMsg))
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{readMsg.ID}, "read", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.True(t, repo.messages[readMsg.ID].IsRead)
+
+	affected, err = svc.BulkAction(context.Background(), tenant, []uuid.UUID{starMsg.ID}, "star", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.True(t, repo.messages[starMsg.ID].IsStarred)
+
+	affected, err = svc.BulkAction(context.Background(), tenant, []uuid.UUID{deleteMsg.ID}, "delete", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	_, stillThere := repo.messages[deleteMsg.ID]
+	assert.False(t, stillThere)
+}
+
+func TestBulkAction_UnreadAndUnstar(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+	tenant := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenant
+	msg.IsRead = true
+	msg.IsStarred = true
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{msg.ID}, "unread", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.False(t, repo.messages[msg.ID].IsRead)
+
+	affected, err = svc.BulkAction(context.Background(), tenant, []uuid.UUID{msg.ID}, "unstar", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.False(t, repo.messages[msg.ID].IsStarred)
+}
+
+// TestBulkAction_CrossTenant verifies that ids belonging to a different
+// tenant (or that don't exist) are silently excluded from affected, and do
+// not abort the rest of the batch — the classic "WHERE id = ANY($1) without
+// a tenant check" mass-foreign-access shape this unit's notes called out.
+func TestBulkAction_CrossTenant(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	ownMsg := newTestMessage(uuid.New())
+	ownMsg.TenantID = tenantA
+	ownMsg.IsRead = false
+	require.NoError(t, repo.Create(context.Background(), ownMsg))
+
+	foreignMsg := newTestMessage(uuid.New())
+	foreignMsg.TenantID = tenantB
+	foreignMsg.IsRead = false
+	require.NoError(t, repo.Create(context.Background(), foreignMsg))
+
+	missingID := uuid.New()
+
+	affected, err := svc.BulkAction(context.Background(), tenantA,
+		[]uuid.UUID{ownMsg.ID, foreignMsg.ID, missingID}, "read", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected, "only the caller's own message counts")
+	assert.True(t, repo.messages[ownMsg.ID].IsRead)
+	assert.False(t, repo.messages[foreignMsg.ID].IsRead, "a foreign-tenant message must not be touched")
+}
+
+func TestBulkAction_Move(t *testing.T) {
+	repo := newMockRepo()
+	targetFolder := &models.EmailFolder{ID: uuid.New(), FolderType: models.FolderTypeCustom}
+	folderRepo := &mockFolderRepo{folders: map[uuid.UUID]*models.EmailFolder{targetFolder.ID: targetFolder}}
+	svc := NewService(repo, folderRepo)
+	tenant := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{msg.ID}, "move", targetFolder.ID.String())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.Equal(t, targetFolder.ID, repo.messages[msg.ID].FolderID)
+}
+
+func TestBulkAction_MoveUnknownTarget(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{}) // empty -- no folder known
+	tenant := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	affected, err := svc.BulkAction(context.Background(), tenant, []uuid.UUID{msg.ID}, "move", uuid.New().String())
+
+	assert.ErrorIs(t, err, ErrFolderNotFound)
+	assert.Equal(t, 0, affected)
+}
+
+// TestBulkAction_ArchiveResolvesPerAccount verifies that archive/spam resolve
+// the destination folder from EACH message's own account, not a single
+// tenant-wide folder -- a bulk selection in the unified inbox can span
+// several accounts, each with its own Archive folder (or none at all).
+func TestBulkAction_ArchiveResolvesPerAccount(t *testing.T) {
+	repo := newMockRepo()
+	accountWithArchive := uuid.New()
+	accountWithoutArchive := uuid.New()
+	archiveFolder := &models.EmailFolder{ID: uuid.New(), AccountID: accountWithArchive, FolderType: models.FolderTypeArchive}
+	folderRepo := &mockFolderRepo{
+		byAccountType: map[string]*models.EmailFolder{
+			accountWithArchive.String() + ":" + models.FolderTypeArchive: archiveFolder,
+		},
+	}
+	svc := NewService(repo, folderRepo)
+	tenant := uuid.New()
+
+	msgWithArchive := newTestMessage(accountWithArchive)
+	msgWithArchive.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), msgWithArchive))
+
+	msgWithoutArchive := newTestMessage(accountWithoutArchive)
+	msgWithoutArchive.TenantID = tenant
+	require.NoError(t, repo.Create(context.Background(), msgWithoutArchive))
+
+	affected, err := svc.BulkAction(context.Background(), tenant,
+		[]uuid.UUID{msgWithArchive.ID, msgWithoutArchive.ID}, "archive", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected, "the message whose account has no archive folder must be skipped, not fail the batch")
+	assert.Equal(t, archiveFolder.ID, repo.messages[msgWithArchive.ID].FolderID)
+	assert.NotEqual(t, archiveFolder.ID, repo.messages[msgWithoutArchive.ID].FolderID)
 }
