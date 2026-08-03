@@ -1920,3 +1920,67 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24-29 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst. Damit ist die Email-Import/Export-Nil-Provider-
     Fehlerklasse (beide Haelften) vollstaendig geschlossen.
+
+## Iteration 31 — fix-berichte-kpi-module-scope — done — 2026-08-03
+- commit: <sha folgt>
+- verify vorgaenger: sauber. `4a02c5e7` (fix-email-export-nil-provider-panic, Iteration 30) gegen
+  die Fehlerklassen geprueft: kein Proto-Diff, keine neue Route, kein neuer Guard, kein Stub.
+  Klasse 1 (gRPC-Bypass) N/A — `EmailGRPCServer` IST die gRPC-Implementierung. Klasse 5
+  (Tenant-Luecke) sauber: beide Export-RPCs holen `middleware.GetTenantID(ctx)` und bauen den
+  `TenantScopedAdapter` daraus, 401 statt Panik bei fehlendem Context. Zusaetzlich gegengeprueft,
+  was der Journal-Eintrag nicht erwaehnte: `NewExportService(provider, nil)` uebergibt einen
+  nil-Logger — `NewExportService` faengt das ab (`export_service.go:25-27`, faellt auf
+  `slog.Default()` zurueck), also keine zweite Nil-Panik an derselben Stelle. Der entfernte
+  Singleton hatte keinen weiteren Aufrufer (grep). Nichts zu beanstanden.
+- gebaut: `fix-berichte-kpi-module-scope` gezogen (naechste `status: todo`-Unit mit `deps: []`).
+  Befund bestaetigt: `HandleGetDashboardKPIs` reichte `?modules=` ungeprueft an den RPC durch,
+  einziger Guard war `berichte:reports:read` ("darf das Berichte-Modul oeffnen"). Die Kacheln
+  tragen aber Umsatz, Pipeline-Volumen und Bestandszahlen fremder Module — ein `member` ohne
+  `finance:module:view` las ueber `?modules=finanzen` den Monatsumsatz.
+  Fix im Gateway (`route_berichte.go`): `kpiModuleVisibility` mappt Modul-ID -> Level-1-Capability
+  und ist die serverseitige Kopie von `REPORT_MODULE_KEY` in
+  `desktop/.../report-module-visibility.ts`. Wichtig und bewusst NICHT abgeleitet: die Berichte-
+  Modul-ID heisst `finanzen`, der RBAC-Key `finance:module:view` — jede String-Ableitung waere beim
+  naechsten Drift ein stilles Loch. `cross` bleibt ohne Modul-Capability (aggregierte Zahlen ohne
+  Modulzuordnung), exakt wie `cross: null` im Frontend; unbekannte IDs fallen fail-closed raus.
+  `visibleKPIModules(r, requested)` schneidet die Anfrage gegen `middleware.GetUserPermissions`.
+  Leere Anfrage heisst jetzt "alle Module, die dieser Nutzer sehen darf" und wird **explizit**
+  expandiert (sortiert — Map-Iteration ist zufaellig, das RPC-Argument darf es nicht sein).
+  Kernfalle dieser Unit: der Executor liest eine leere Modulliste weiterhin als "alle Module"
+  (`executor.go:337-340`). Ein Schnitt, der auf die leere Liste faellt, waere deshalb keine
+  Verschaerfung, sondern eine Oeffnung. Deshalb antwortet der Handler bei leerem Ergebnis selbst mit
+  `DashboardKPIsResponse{GeneratedAt: ...}` (200, keine Kacheln) und schickt nichts an den Service.
+  Der Early-Return sitzt **vor** `getClient()`: eine Autorisierungsentscheidung darf nicht davon
+  abhaengen, ob berichte gerade erreichbar ist.
+  Der Route-Guard `berichte:reports:read` wurde nicht angefasst (nicht getauscht, kein
+  `RequirePermissionAny` noetig) — der Schnitt sitzt hinter dem Guard, also kann kein Nutzer mit
+  gueltigem Alt-Token ausgesperrt werden; er sieht schlimmstenfalls Kacheln weniger.
+  `openapi.yaml`: keine neue Route, aber die Parameter-Beschreibung sagte "empty means all modules"
+  und war damit falsch — auf die neue Semantik korrigiert.
+  Test (neu, `internal/gateway/route_berichte_kpi_scope_test.go`, 7 Faelle, kein DB/gRPC noetig):
+  Kern ist `TestHandleGetDashboardKPIs_MemberAskingForFinanzenGetsNothing` (member-Permissions aus
+  Migration 000256, ohne `finance:module:view`, `?modules=finanzen` -> 200 ohne `kpis`) plus der
+  Kontrast `..._GrantedModuleReachesTheService` (derselbe Request mit `finance:module:view` -> 503
+  aus der leeren Registry, d.h. der Call ging wirklich raus). Ohne dieses Paar waere "200 leer"
+  nicht von "Handler antwortet immer leer" zu unterscheiden. Dazu die Filterfaelle: Drop, Reihenfolge
+  bleibt Request-Reihenfolge, Leer-Expansion ohne `finanzen`, unbekanntes Modul fail-closed,
+  `cross` ohne Capability.
+  FUND beim Testen: der bestehende `TestHandleGetDashboardKPIs_ServiceUnavailable` blieb nur
+  deshalb gruen, weil `cross` immer sichtbar ist — ohne den Eintrag haette ein Request ohne
+  Permissions eine leere Expansion und damit 200 statt 503 ergeben. Wer `cross` spaeter
+  capability-pflichtig macht, muss diesen Test mitziehen.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`./internal/gateway/...`) | lint ok
+  (golangci-lint auf `./internal/gateway/...`, 0 issues) | test ok — `go test -count=1 -v
+  ./internal/gateway/` mit `DATABASE_URL` auf `kmuhub_app`: 618 PASS, 0 FAIL, 0 SKIP (inkl.
+  `TestOpenAPIRouteDrift`); `go test -count=1 ./internal/berichte/...` alle 6 Pakete ok.
+  Keine Migration, keine neue Route, kein neuer Guard, kein neuer Permission-Key.
+- offen:
+  - Der Executor-Default "leere Modulliste = alle Module" (`internal/berichte/executor/executor.go`)
+    steht unveraendert. Heute unschaedlich, weil das Gateway der einzige HTTP-Eingang ist und nie
+    mehr eine leere Liste schickt (verifiziert per grep: genau ein Aufrufer). Wird der RPC je von
+    einem zweiten Aufrufer genutzt, muss die Semantik dort mit umgestellt werden.
+  - `kpiModuleVisibility` deckt die sechs `validModules` des Backends ab; das Frontend-Mapping kennt
+    zusaetzlich work/kommunikation/hr/zeiterfassung/vertraege/einkauf/fuhrpark/rapporte. Solange
+    `sanitizeModules` diese ohnehin verwirft, ist das deckungsgleich — wer `validModules` erweitert,
+    muss `kpiModuleVisibility` im selben Zug erweitern, sonst faellt das neue Modul still weg.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-30 bleiben offen, hier nicht angefasst.

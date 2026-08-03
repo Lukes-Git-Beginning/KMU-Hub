@@ -1762,7 +1762,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Der Dashboard-KPI-Endpoint umgeht die Modul-Sichtbarkeit. Verifiziert am 2026-08-02 in
       `backend/internal/gateway/route_berichte.go:1063-1095`: `HandleGetDashboardKPIs` liest die

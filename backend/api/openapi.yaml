@@ -23905,7 +23905,7 @@ paths:
       parameters:
         - name: modules
           in: query
-          description: "Comma-separated module list (e.g. finanzen,crm,helpdesk); empty means all modules"
+          description: "Comma-separated module list (e.g. finanzen,crm,helpdesk). The list is intersected server-side with the caller's <module>:module:view capabilities; empty means every module the caller may see, and a module they may not see is dropped rather than rejected."
           schema: { type: string }
       responses:
         "200":
