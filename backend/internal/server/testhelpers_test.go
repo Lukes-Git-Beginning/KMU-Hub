@@ -259,6 +259,10 @@ func (m *authMockRepo) GetUserOverrides(_ context.Context, _ uuid.UUID) ([]auth.
 	return nil, nil
 }
 
+func (m *authMockRepo) GetUserOverridesForTenant(_ context.Context, _, _ uuid.UUID) ([]auth.CapabilityOverride, error) {
+	return nil, nil
+}
+
 func (m *authMockRepo) SetUserOverrides(_ context.Context, _, _, _ uuid.UUID, overrides []auth.CapabilityOverride) ([]auth.CapabilityOverride, error) {
 	return overrides, nil
 }

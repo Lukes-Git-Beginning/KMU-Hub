@@ -264,42 +264,6 @@ func (s *Service) GetRoleUnion(ctx context.Context, userID uuid.UUID) (*Effectiv
 	return result, nil
 }
 
-// NarrowedScopes returns only those capability keys whose resolved scope is
-// narrower than "all", ready to travel in the access token.
-//
-// Everything absent from the map reaches "all" — that is what lets the map stay
-// small. A member holds ~159 keys of which 15 are narrowed today; carrying all
-// of them would inflate every request header for no gain, and an admin (454
-// keys, every one of them "all") ends up with no scope claim at all.
-//
-// The same asymmetry makes the map safe to read with an "all" default: a key
-// missing from a token minted here genuinely is unrestricted, and a legacy
-// token minted before this claim existed keeps behaving exactly as it did.
-// Narrowing on absence would instead shrink every list for every user still
-// holding a valid old token.
-// It reads the role union, NOT the override-aware set, and that is deliberate.
-// The claim cannot express "denied": a key missing from the map reads as "all"
-// (see above). Fold a deny override in here and the key drops out of the map,
-// so the very override meant to take a right away would hand out its widest
-// scope instead. The gate that would have to catch that is the permissions
-// claim, and it is minted from GetUserPermissions, which knows nothing of
-// overrides — so until that one is override-aware too, this one must not be.
-// Backlog: g-rbac-user-overrides-token.
-func (s *Service) NarrowedScopes(ctx context.Context, userID uuid.UUID) (map[string]string, error) {
-	eff, err := s.GetRoleUnion(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	var scopes map[string]string
-	for _, c := range eff.Capabilities {
-		if c.Scope == ScopeAll {
-			continue
-		}
-		if scopes == nil {
-			scopes = make(map[string]string)
-		}
-		scopes[c.Key] = c.Scope
-	}
-	return scopes, nil
-}
+// The scopes claim of the access token is built from a role union in
+// narrowScopes (token_permissions.go), together with the permissions claim —
+// the two can only be override-aware at the same time.

@@ -395,17 +395,17 @@ func (s *Service) CheckPermission(ctx context.Context, userID uuid.UUID, resourc
 // entry per refresh interval and every entry would look like a separate login.
 func (s *Service) createTokenPair(ctx context.Context, user *models.User, rotatedFrom *uuid.UUID) (*models.TokenPair, error) {
 	roles, _ := s.repo.GetUserRoles(ctx, user.ID)
-	permissions, _ := s.repo.GetUserPermissions(ctx, user.ID)
 
-	// Unlike roles and permissions above, a failed scope lookup is fatal: an
-	// empty scope map reads as "everything reaches all", so swallowing the
-	// error would hand out a token that shows more rows than it should.
-	scopes, err := s.NarrowedScopes(ctx, user.ID)
+	// Unlike the roles above, a failed permission lookup is fatal. An empty
+	// scope map reads as "everything reaches all" and a missing deny list reads
+	// as "no override takes anything away", so swallowing the error would hand
+	// out a token that reaches further than the account is allowed to.
+	perms, err := s.ResolveTokenPermissions(ctx, user.TenantID, user.ID)
 	if err != nil {
-		return nil, fmt.Errorf("resolve permission scopes: %w", err)
+		return nil, fmt.Errorf("resolve token permissions: %w", err)
 	}
 
-	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions, scopes)
+	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, perms)
 	if err != nil {
 		return nil, err
 	}

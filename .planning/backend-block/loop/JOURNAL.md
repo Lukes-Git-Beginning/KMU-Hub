@@ -2700,3 +2700,73 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   (`g-rbac-user-overrides-token`, Roster-`hasOverrides`) bleiben unberuehrt — reine Docs-Unit ohne
   Code-Aenderung in `internal/`.
 - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 42 — g-rbac-user-overrides-token — done — 2026-08-03
+- commit: <sha>
+- verify vorgaenger (`935c07b8`, fix-openapi-flow-mapping-invalid): **sauber**. Reine YAML-Form,
+  keine Code-Aenderung in `internal/`. Diff eigenstaendig durchgesehen: alle sechs Bloecke
+  (Offboard, change-requests GET/POST, approve/reject/cancel) plus `ProfileChangeRequest.reason`
+  von Flow- auf Block-Stil, kein Wort und kein Status-Code veraendert. Nicht geglaubt, sondern
+  nachgerechnet: `swagger-cli validate` -> "is valid" (vorher 75 Fehler), und danach das ganze
+  File nach verbliebenen Flow-Mappings mit Komma in der Beschreibung durchsucht — genau ein
+  Treffer (`openapi.yaml:24124`, ein Parameter-Objekt, in dem das Komma korrekt `description` von
+  `schema` trennt), also kein Rest. `TestOpenAPIRouteDrift` unveraendert gruen.
+- gebaut: `g-rbac-user-overrides-token`.
+- **Kernfund, der die Unit umgeschrieben hat:** die Praemisse "deny = Key aus dem
+  permissions-Claim entfernen" traegt nicht. Gemessen statt vermutet: 154 der 164
+  `RequirePermissionAny`-Aufrufe im Gateway paaren einen groben Legacy-Key mit dem feinen
+  Katalog-Key, der ihn ersetzen soll (der Doc-Kommentar der Funktion verlangt das ausdruecklich:
+  "extend, never swap"). Faellt bei einem deny nur der feine Key weg, haelt der grobe daneben die
+  Tuer offen — der Override waere in 94 % dieser Gates folgenlos geblieben, und zwar unsichtbar.
+  Deshalb ein dritter Claim `Denied` (`den`, omitempty): ein grober Key zaehlt nicht mehr als
+  Platzhalter, sobald IRGENDEIN feiner Key DESSELBEN Guards explizit denied ist. Zwei feine Keys
+  in einem Guard bleiben dagegen eigenstaendig — `Any(berichte:reports:read, berichte:export:run)`
+  sind zwei verschiedene Rechte an derselben Route, und ein deny auf den Export darf das Lesen
+  nicht mitnehmen. Die Trennlinie grob/fein ist dieselbe, die
+  `PostgresRepository.GetEffectivePermissions` mit `resource LIKE '%:%'` zieht.
+- **Beide Fallen der Unit-notes adressiert:**
+  (1) *Nur zusammen, nie einzeln.* `NarrowedScopes` ist in `Service.ResolveTokenPermissions`
+  (neue Datei `token_permissions.go`) aufgegangen; die drei Claim-Teile entstehen aus einem Read
+  in einer Funktion, was ein Auseinanderlaufen strukturell ausschliesst. Die Signatur von
+  `CreateAccessToken` nimmt jetzt ein `*TokenPermissions` statt drei lose Parameter — dieselbe
+  Absicht, im Typsystem. Ein denied Key wird im scope-Claim auf `own` GESCHRIEBEN, nicht entfernt:
+  Abwesenheit liest sich dort als `all`, ein Entfernen haette also die weiteste Reichweite des
+  gerade entzogenen Rechts ausgeliefert. Verteidigung in der Tiefe fuer den Fall, dass ein
+  Lesepfad den Scope hinter einem grob bewachten Gate abfragt.
+  (2) *sysctx.* Neue Repo-Methode `GetUserOverridesForTenant` mit explizitem
+  `WHERE tenant_id = $1 AND user_id = $2` (nutzt `idx_user_permission_overrides_user`); die
+  RLS-Variante bleibt fuer die Request-Pfade unveraendert. Regressionstest seedet eine
+  Override-Zeile mit FREMDEM `tenant_id` auf denselben User — genau die Form, die ein Read ohne
+  Tenant-Bedingung unter sysctx aufgesammelt haette — und prueft, dass sie den Token nicht
+  erreicht.
+- **Formfrage (die eigentliche Arbeit laut notes):** der Allow-Satz wird aus `GetUserPermissions`
+  (grob UND fein) fortgeschrieben, nie aus dem Union neu gebaut. Ein Neubau aus den feinen
+  Katalog-Keys haette alle 226 `RequirePermission`-Gates mit grobem Key beim ersten Override eines
+  Accounts auf 403 gesetzt. Eigener DB-Test dafuer.
+- entschieden: `RequirePermission` (Einzelkey) liest die Deny-Liste NICHT. Ein denied Key fehlt
+  dort ohnehin im Allow-Satz, und ein Einzelkey-Guard hat keinen zweiten Key, der einspringen
+  koennte — der Check waere reine Redundanz. Als Kommentar an der Funktion begruendet, damit die
+  Asymmetrie zu `RequirePermissionAny` nicht wie ein Versehen aussieht.
+- entschieden: "wirkt erst mit dem naechsten Token" steht in openapi.yaml an PUT und DELETE
+  `/admin/users/{id}/overrides`, nicht als Feld in der Antwort. Die Aussage ist eine Konstante
+  ueber den Mechanismus, kein Datum dieser Anfrage; ein Response-Feld haette in jeder Antwort
+  denselben Wert. Der Text nennt auch den sichtbaren Widerspruch, der daraus folgt:
+  `/auth/me/permissions` loest live auf und zeigt den neuen Stand sofort, der Token nicht.
+- ersetzt: `TestNarrowedScopes_DB_StaysOnTheRoleUnion` hielt bewusst das ALTE Verhalten fest
+  ("der Claim darf sich nicht bewegen, solange der permissions-Claim nichts von Overrides weiss").
+  Diese Bedingung ist mit dieser Iteration erfuellt, der Test daher durch
+  `TestResolveTokenPermissions_DB_DenyNarrowsInsteadOfDropping` ersetzt, der dieselbe Gefahr aus
+  der neuen Richtung pruft (Key bleibt in der Map, aber auf `own`).
+- gate: `go build -p 2 ./...` ok | `go vet ./...` ok | `golangci-lint run` -> 0 issues |
+  `swagger-cli validate backend/api/openapi.yaml` -> "is valid" |
+  `go test -count=1 ./internal/auth/... ./internal/middleware/... ./internal/gateway/
+  ./internal/server/...` alle gruen | `go test -count=1 -v ./internal/auth/`: **207 PASS, 0 SKIP**
+  (unabhaengig gezaehlt, `DATABASE_URL` auf `kmuhub_app` gesetzt — ohne sie waeren die vier neuen
+  DB-Tests still uebersprungen worden und der Lauf haette trotzdem `ok` gemeldet).
+- offen:
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle weiterhin nicht — FE-Badge
+    "Angepasst" und Filter haengen daran. Unveraendert eine eigene kleine Unit, nicht Teil dieser.
+  - Ein Override auf einen GROBEN Legacy-Key ist mechanisch moeglich (der Katalog-Join laesst ihn
+    durch) und funktioniert auch korrekt, aber der Override-Editor im FE bietet nur feine Keys an.
+    Kein Bug, nur eine Asymmetrie, die jemand kennen sollte, der die Tabelle direkt befuellt.
+- DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.

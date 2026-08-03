@@ -27,6 +27,7 @@ type mockRepository struct {
 	userRoles           map[uuid.UUID][]string
 	userPerms           map[uuid.UUID][]string
 	effectiveGrants     map[uuid.UUID][]EffectiveGrantRow
+	userOverrides       map[uuid.UUID][]CapabilityOverride
 	invitations         map[uuid.UUID]*models.Invitation
 	invByToken          map[string]*models.Invitation
 	sessions            []*models.UserSession
@@ -51,6 +52,7 @@ func newMockRepository() *mockRepository {
 		userRoles:           make(map[uuid.UUID][]string),
 		userPerms:           make(map[uuid.UUID][]string),
 		effectiveGrants:     make(map[uuid.UUID][]EffectiveGrantRow),
+		userOverrides:       make(map[uuid.UUID][]CapabilityOverride),
 		invitations:         make(map[uuid.UUID]*models.Invitation),
 		invByToken:          make(map[string]*models.Invitation),
 		sessions:            nil,
@@ -226,8 +228,12 @@ func (m *mockRepository) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]strin
 	return nil, nil
 }
 
-func (m *mockRepository) GetUserOverrides(_ context.Context, _ uuid.UUID) ([]CapabilityOverride, error) {
-	return nil, nil
+func (m *mockRepository) GetUserOverrides(_ context.Context, userID uuid.UUID) ([]CapabilityOverride, error) {
+	return m.userOverrides[userID], nil
+}
+
+func (m *mockRepository) GetUserOverridesForTenant(_ context.Context, _, userID uuid.UUID) ([]CapabilityOverride, error) {
+	return m.userOverrides[userID], nil
 }
 
 func (m *mockRepository) SetUserOverrides(_ context.Context, _, _, _ uuid.UUID, overrides []CapabilityOverride) ([]CapabilityOverride, error) {
@@ -844,7 +850,7 @@ func TestService_ValidateToken(t *testing.T) {
 
 	t.Run("valid token", func(t *testing.T) {
 		userID := uuid.New()
-		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, []string{"contacts:read"}, nil)
+		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, &TokenPermissions{Permissions: []string{"contacts:read"}})
 		require.NoError(t, err)
 
 		claims, err := svc.ValidateToken(context.Background(), token)

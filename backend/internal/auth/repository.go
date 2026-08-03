@@ -129,6 +129,10 @@ type Repository interface {
 	// an RLS policy, so this needs no tenant filter of its own.
 	GetUserOverrides(ctx context.Context, userID uuid.UUID) ([]CapabilityOverride, error)
 
+	// GetUserOverridesForTenant is the same read for callers that run under
+	// sysctx.With(), where RLS does not filter and the tenant has to be named.
+	GetUserOverridesForTenant(ctx context.Context, tenantID, userID uuid.UUID) ([]CapabilityOverride, error)
+
 	// SetUserOverrides replaces the whole override map of an account in one
 	// transaction: everything currently stored is deleted, the given list is
 	// inserted. An empty list therefore clears the account. createdBy is

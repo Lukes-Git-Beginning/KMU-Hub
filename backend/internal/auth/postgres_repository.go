@@ -708,12 +708,27 @@ func (r *PostgresRepository) GetUserRoleIDs(ctx context.Context, userID uuid.UUI
 // user_permission_overrides carries tenant_id and an RLS policy, so the
 // request-scoped connection already sees only its own tenant's rows.
 func (r *PostgresRepository) GetUserOverrides(ctx context.Context, userID uuid.UUID) ([]CapabilityOverride, error) {
-	rows, err := r.pool.Query(ctx,
+	return r.queryUserOverrides(ctx,
 		`SELECT permission_key, mode, scope
 		 FROM user_permission_overrides
 		 WHERE user_id = $1
-		 ORDER BY permission_key`, userID,
-	)
+		 ORDER BY permission_key`, userID)
+}
+
+// GetUserOverridesForTenant reads the same map with the tenant named
+// explicitly. It exists for the login path: createTokenPair runs under
+// sysctx.With(), where RLS does not filter, so a read that relies on the policy
+// would reach across tenants. Matches idx_user_permission_overrides_user.
+func (r *PostgresRepository) GetUserOverridesForTenant(ctx context.Context, tenantID, userID uuid.UUID) ([]CapabilityOverride, error) {
+	return r.queryUserOverrides(ctx,
+		`SELECT permission_key, mode, scope
+		 FROM user_permission_overrides
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY permission_key`, tenantID, userID)
+}
+
+func (r *PostgresRepository) queryUserOverrides(ctx context.Context, query string, args ...any) ([]CapabilityOverride, error) {
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

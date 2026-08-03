@@ -450,19 +450,18 @@ func TestGetRoleUnion_DB_IgnoresOverrides(t *testing.T) {
 	assert.Len(t, effective.Capabilities, len(base.Capabilities)-1, "and the effective set differs from it")
 }
 
-// TestNarrowedScopes_DB_StaysOnTheRoleUnion guards the trap that decided where
-// the override seam sits. The scope claim cannot express "denied": a key
-// missing from the map reads as "all". Fold a deny in here and the very
-// override meant to take a right away would hand out its widest scope instead,
-// because the permissions claim that would refuse the request is minted from
-// GetUserPermissions, which knows nothing about overrides.
-func TestNarrowedScopes_DB_StaysOnTheRoleUnion(t *testing.T) {
+// TestResolveTokenPermissions_DB_DenyNarrowsInsteadOfDropping guards the trap
+// that decided where the override seam sits. The scopes claim cannot express
+// "denied": a key missing from the map reads as "all". So a deny must not
+// simply drop the key out of the map — it writes it in at the narrowest scope,
+// while the permissions claim is what actually refuses the request.
+func TestResolveTokenPermissions_DB_DenyNarrowsInsteadOfDropping(t *testing.T) {
 	pool, svc := effPermSetup(t)
 	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
 	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-scopes@test.local", "member")
 
 	// A key member holds at a narrowed scope — exactly the entry a deny could
-	// wrongly drop out of the claim.
+	// wrongly turn into an unrestricted one.
 	var key string
 	err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
 		`SELECT p.name
@@ -474,14 +473,116 @@ func TestNarrowedScopes_DB_StaysOnTheRoleUnion(t *testing.T) {
 		 ORDER BY p.name LIMIT 1`).Scan(&key)
 	require.NoError(t, err, "member must carry at least one narrowed grant")
 
-	before, err := svc.NarrowedScopes(ctx, userID)
+	before, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
 	require.NoError(t, err)
-	require.Contains(t, before, key)
+	require.Contains(t, before.Scopes, key)
+	require.Contains(t, before.Permissions, key)
+	require.Empty(t, before.Denied)
 
 	effPermSeedOverride(t, pool, userID, key, "deny", "all")
 
-	after, err := svc.NarrowedScopes(ctx, userID)
+	after, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
 	require.NoError(t, err)
-	assert.Equal(t, before, after, "the claim must not move until the permissions claim knows overrides too")
-	assert.Contains(t, after, key, "dropping it here would read as unrestricted, not as denied")
+	assert.NotContains(t, after.Permissions, key, "the allow set is what refuses the request")
+	assert.Contains(t, after.Denied, key, "the deny list is what stops a coarse key standing in")
+	assert.Contains(t, after.Scopes, key, "dropping it here would read as unrestricted, not as denied")
+	assert.Equal(t, auth.ScopeOwn, after.Scopes[key])
+}
+
+// A deny takes one key away and leaves everything else alone — in particular
+// the coarse legacy keys, which are the currency of most RequirePermission
+// gates. Rebuilding the allow set from the fine catalogue alone would 403 every
+// one of them the moment an account gets its first override.
+func TestResolveTokenPermissions_DB_CoarseKeysSurviveAnOverride(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-coarse@test.local", "member")
+
+	before, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
+	require.NoError(t, err)
+
+	coarse := make([]string, 0, len(before.Permissions))
+	for _, p := range before.Permissions {
+		if strings.Count(p, ":") == 1 {
+			coarse = append(coarse, p)
+		}
+	}
+	require.NotEmpty(t, coarse, "member must hold at least one coarse legacy key")
+
+	// Deny a fine key, then check the coarse ones are untouched.
+	var fine string
+	err = pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT p.name
+		 FROM roles r
+		 JOIN role_permissions rp ON rp.role_id = r.id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE r.name = 'member' AND r.tenant_id IS NULL AND p.resource LIKE '%:%'
+		 ORDER BY p.name LIMIT 1`).Scan(&fine)
+	require.NoError(t, err)
+	effPermSeedOverride(t, pool, userID, fine, "deny", "all")
+
+	after, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
+	require.NoError(t, err)
+	for _, key := range coarse {
+		assert.Contains(t, after.Permissions, key, "coarse key %q must survive", key)
+	}
+	assert.NotContains(t, after.Permissions, fine)
+}
+
+// An allow override puts a key into the token the roles do not grant, at the
+// scope the override names rather than at "all".
+func TestResolveTokenPermissions_DB_AllowGrantsAndScopes(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-allow@test.local", "extern")
+
+	before, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
+	require.NoError(t, err)
+
+	// A catalogue key the account demonstrably does not hold.
+	var key string
+	err = pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT p.name FROM permissions p
+		 WHERE p.resource LIKE '%:%' AND p.name <> ALL($1)
+		 ORDER BY p.name LIMIT 1`, before.Permissions).Scan(&key)
+	require.NoError(t, err)
+
+	effPermSeedOverride(t, pool, userID, key, "allow", "team")
+
+	after, err := svc.ResolveTokenPermissions(ctx, effPermTenant, userID)
+	require.NoError(t, err)
+	assert.Contains(t, after.Permissions, key)
+	assert.Equal(t, auth.ScopeTeam, after.Scopes[key], "an allow sets the scope, it does not open it up to all")
+	assert.Empty(t, after.Denied)
+}
+
+// The login path runs under sysctx.With(), where RLS does not filter. The
+// override read therefore has to name its tenant itself — a row belonging to
+// another tenant must not reach this account's token.
+func TestResolveTokenPermissions_DB_ForeignTenantOverrideIsIgnored(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-sysctx@test.local", "member")
+
+	var key string
+	err := pool.QueryRow(sysCtx,
+		`SELECT p.name
+		 FROM roles r
+		 JOIN role_permissions rp ON rp.role_id = r.id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE r.name = 'member' AND r.tenant_id IS NULL AND p.resource LIKE '%:%'
+		 ORDER BY p.name LIMIT 1`).Scan(&key)
+	require.NoError(t, err)
+
+	// The row names the foreign tenant while pointing at this account — the
+	// exact shape a read without a tenant condition would pick up under sysctx.
+	_, err = pool.Exec(sysCtx,
+		`INSERT INTO user_permission_overrides (tenant_id, user_id, permission_key, mode, scope)
+		 VALUES ($1, $2, $3, 'deny', 'all')`, effPermForeignTenant, userID, key)
+	require.NoError(t, err)
+
+	got, err := svc.ResolveTokenPermissions(sysCtx, effPermTenant, userID)
+	require.NoError(t, err)
+	assert.Empty(t, got.Denied, "an override of another tenant must not reach this token")
+	assert.Contains(t, got.Permissions, key)
 }

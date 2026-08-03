@@ -133,7 +133,7 @@ units:
     service: auth
     model: opus
     deps: [g-rbac-user-overrides-resolver]
-    status: todo
+    status: done
     scope: >
       Overrides im **Token** wirksam machen. Nach `g-rbac-user-overrides-resolver` zeigen
       `/auth/me/permissions` und `/admin/users/{id}/permissions` die Overrides an, aber kein Gate
@@ -168,6 +168,36 @@ units:
       - Override-Read im Login-Pfad ist explizit tenant-gescopt (sysctx!)
       - scope-Claim und permissions-Claim in derselben Aenderung
       - go test -count=1 ./internal/auth/... ./internal/gateway/ gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 42). **Ein deny wirkt nur mit einem dritten Claim** — das war der
+      eigentliche Fund. Die Annahme der Unit (Key aus dem permissions-Claim entfernen genuegt) ist
+      nachweislich falsch: 154 der 164 `RequirePermissionAny`-Aufrufe im Gateway paaren einen
+      groben Legacy-Key mit dem feinen Katalog-Key, der ihn abloesen soll ("extend, never swap").
+      Faellt nur der feine Key weg, haelt der grobe die Tuer weiter offen — der Override waere in
+      94 % der Any-Gates wirkungslos geblieben. Deshalb `Claims.Denied` (`den`, omitempty): der
+      Guard laesst einen groben Key nicht mehr als Platzhalter zaehlen, sobald IRGENDEIN feiner Key
+      DESSELBEN Guards explizit denied ist. Zwei feine Keys in einem Guard bleiben eigenstaendig
+      (`Any(berichte:reports:read, berichte:export:run)` sind zwei Rechte, kein Paar) — sonst haette
+      ein deny auf den Export das Lesen mitgenommen.
+      Die drei Claim-Teile entstehen jetzt in EINER Funktion aus EINEM Read
+      (`Service.ResolveTokenPermissions`, token_permissions.go); `NarrowedScopes` ist darin
+      aufgegangen. Grund: sie koennen nur gemeinsam korrekt sein — der scope-Claim allein wuerde bei
+      einem deny die weiteste Reichweite ausliefern, der permissions-Claim allein liesse den Scope
+      eines frisch erlaubten Keys unbegrenzt. Ein denied Key wird im scope-Claim auf `own`
+      geschrieben statt entfernt (Abwesenheit liest sich als `all`) — Verteidigung in der Tiefe fuer
+      Lesepfade, deren Guard einen groben Key traegt.
+      Grobe Keys bleiben unangetastet: der Allow-Satz wird aus `GetUserPermissions` (grob+fein)
+      fortgeschrieben, nicht aus dem Union neu gebaut — sonst haetten alle 226
+      `RequirePermission`-Gates mit grobem Key beim ersten Override 403 geliefert.
+      sysctx: `GetUserOverridesForTenant` mit explizitem `WHERE tenant_id = $1` als zweite
+      Repo-Methode (die RLS-Variante bleibt fuer die Request-Pfade), Regressionstest seedet eine
+      Override-Zeile mit fremdem `tenant_id` auf denselben User und prueft, dass sie den Token nicht
+      erreicht. Ohne Overrides ist der Token byte-identisch zu vorher (Test).
+      Ein Override wirkt erst mit dem naechsten Token — in openapi.yaml an PUT und DELETE
+      dokumentiert (bewusst kein Response-Feld: die Aussage ist eine Konstante, kein Datum).
+      Tests: 4 DB-Tests (auth), 7 Unit-Tests (auth), 4 Guard-Tests (middleware) inkl.
+      End-to-End durch einen echt signierten Token. `go test -count=1 -v ./internal/auth/`:
+      207 PASS, 0 SKIP.
 
   # ==========================================================================
   # BLOCK A — RBAC Phase 1 Welle 1b (seriell verkettet)

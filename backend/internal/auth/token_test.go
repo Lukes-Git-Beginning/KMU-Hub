@@ -16,7 +16,7 @@ func TestTokenMaker_CreateAndValidateAccessToken(t *testing.T) {
 	roles := []string{"admin", "member"}
 	perms := []string{"contacts:read", "contacts:write"}
 
-	token, err := tm.CreateAccessToken(userID, tenantID.String(), roles, perms, nil)
+	token, err := tm.CreateAccessToken(userID, tenantID.String(), roles, &TokenPermissions{Permissions: perms})
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
 
@@ -35,7 +35,7 @@ func TestTokenMaker_TenantID_Roundtrip(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := tm.CreateAccessToken(userID, tenantID.String(), nil, nil, nil)
+	token, err := tm.CreateAccessToken(userID, tenantID.String(), nil, &TokenPermissions{})
 	require.NoError(t, err)
 
 	claims, err := tm.ValidateAccessToken(token)
@@ -49,7 +49,7 @@ func TestTokenMaker_TenantID_EmptyLegacy(t *testing.T) {
 	tm := NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour)
 	userID := uuid.New()
 
-	token, err := tm.CreateAccessToken(userID, "", nil, nil, nil)
+	token, err := tm.CreateAccessToken(userID, "", nil, &TokenPermissions{})
 	require.NoError(t, err)
 
 	claims, err := tm.ValidateAccessToken(token)
@@ -61,7 +61,7 @@ func TestTokenMaker_ExpiredToken(t *testing.T) {
 	tm := NewTokenMaker("test-secret-minimum-32-characters!", -1*time.Minute, 7*24*time.Hour)
 	userID := uuid.New()
 
-	token, err := tm.CreateAccessToken(userID, uuid.New().String(), nil, nil, nil)
+	token, err := tm.CreateAccessToken(userID, uuid.New().String(), nil, &TokenPermissions{})
 	require.NoError(t, err)
 
 	_, err = tm.ValidateAccessToken(token)
@@ -72,7 +72,7 @@ func TestTokenMaker_InvalidSecret(t *testing.T) {
 	tm1 := NewTokenMaker("secret-one-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour)
 	tm2 := NewTokenMaker("secret-two-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour)
 
-	token, err := tm1.CreateAccessToken(uuid.New(), uuid.New().String(), nil, nil, nil)
+	token, err := tm1.CreateAccessToken(uuid.New(), uuid.New().String(), nil, &TokenPermissions{})
 	require.NoError(t, err)
 
 	_, err = tm2.ValidateAccessToken(token)
@@ -82,7 +82,7 @@ func TestTokenMaker_InvalidSecret(t *testing.T) {
 func TestTokenMaker_TamperedToken(t *testing.T) {
 	tm := NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour)
 
-	token, err := tm.CreateAccessToken(uuid.New(), uuid.New().String(), nil, nil, nil)
+	token, err := tm.CreateAccessToken(uuid.New(), uuid.New().String(), nil, &TokenPermissions{})
 	require.NoError(t, err)
 
 	// Tamper with the signature by flipping multiple characters

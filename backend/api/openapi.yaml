@@ -1321,6 +1321,14 @@ paths:
         spellable; either problem aborts the whole write with 422. One audit
         event (permission.override_set / permission.override_removed) is
         written per key that actually changed.
+
+
+        Takes effect for the target account with their NEXT access token: the
+        permission, deny and scope claims are baked in at login and refresh and
+        are never re-read per request. Until then the account keeps the rights
+        its current token carries. GET /auth/me/permissions shows the new state
+        immediately — it resolves live — so the two can disagree for the
+        lifetime of one access token.
       tags: [users]
       operationId: setUserOverrides
       security:
@@ -1380,7 +1388,8 @@ paths:
       description: >
         Puts the account back on the pure role stand. Clearing an account that
         has no overrides is a no-op and still answers 204. Like the PUT, the
-        caller may not do this to their own account.
+        caller may not do this to their own account, and like the PUT it takes
+        effect for the target with their next access token.
       tags: [users]
       operationId: clearUserOverrides
       security:
