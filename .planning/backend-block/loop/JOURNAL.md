@@ -2311,7 +2311,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
 
 ## Iteration 36 — g-hr-change-requests — done — 2026-08-03
-- commit: <wird nach dem Commit nachgetragen>
+- commit: dbcf2493
 - gebaut: Migration 000281 (`hr_profile_change_requests`, tenant_id + RLS + partieller
   Unique-Index auf offene Antraege), Package `internal/biz/hr/changerequest` (Service, Repository,
   Postgres-Impl, Fehler), 5 RPCs auf `HRService` inkl. Regen, 5 Routen unter
