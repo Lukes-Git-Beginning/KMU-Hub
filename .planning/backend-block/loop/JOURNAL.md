@@ -1802,3 +1802,67 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
     echten Aufruf, unabhaengig von dieser Unit vorbestehend. Siehe Fund oben, eigene Unit.
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26/27 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 29 — fix-email-import-nil-provider-panic — done — 2026-08-03
+
+- commit: `37f561ad` — fix(email): stop panicking on nil-provider contact import
+- verify vorgaenger: sauber. `6ff1509d` (fix-crm-import-company, Iteration 28) gegen die acht
+  Fehlerklassen geprueft: keine `.proto`-Aenderung (N/A Klasse 3), keine neue Route/kein Guard
+  (Klasse 4/6/7/8 N/A, `crm_grpc.go`-Diff ruehrt keinen Gateway-Handler an), kein Stub (Klasse 2 —
+  `GetByName`/`GetNamesByIDs` vollstaendig implementiert und getestet), kein gRPC-Layer-Bypass
+  (Klasse 1 — `CRMGRPCServer` IST die gRPC-Implementierung, `s.contactService`/`s.companyService`
+  direkt aufzurufen ist hier die korrekte Schicht, kein Gateway-Handler drumherum). Tenant-Luecke
+  (Klasse 5) explizit gegengeprueft: `GetByName` filtert `WHERE tenant_id = $1`, `GetNamesByIDs`
+  filtert `id = ANY($1) AND tenant_id = $2`, `TenantScopedAdapter.FindOrCreateCompany`/
+  `GetCompanyNames` reichen `a.tenantID` durch — keine ungescopte Query. Nichts zu beanstanden.
+- gebaut: `fix-email-import-nil-provider-panic` gezogen (naechste `status: todo`-Unit in
+  Datei-Reihenfolge, `deps: []`, direkt der von Iteration 28 selbst angelegte Fund).
+  Root Cause bestaetigt wie im scope-Text: `cmd/email/main.go` konstruierte `importService :=
+  emailcontact.NewImportService(nil, slog.Default())` und `EmailGRPCServer.ImportContactsCSV`/
+  `ImportContactsVCard` riefen diesen Singleton direkt auf — jeder echte Aufruf haette im
+  `contactProvider`-Zugriff (`GetByEmail`/`CreateForImport`) eine Nil-Pointer-Panik geworfen, nicht
+  erst seit Iteration 28, aber durch deren `FindOrCreateCompany`/`GetCompanyNames`-Aufrufe zuerst
+  sichtbar geworden.
+  Der Email-Prozess haengt am selben Postgres-Pool wie CRM — kein RPC-Hop noetig.
+  `cmd/email/main.go` konstruiert jetzt `contact.NewService(contact.NewPostgresRepository(pool))`
+  und `company.NewService(company.NewPostgresRepository(pool))` direkt (Alias-Kollision mit dem
+  bereits importierten `emailcontact "internal/email/contact"` durch unqualifizierte Imports fuer
+  `internal/crm/contact`/`internal/crm/company` geloest, `crmcontact`/`crmcompany` als Alias in
+  `email_grpc.go`) und reicht beide in `NewEmailGRPCServer` durch.
+  `ImportContactsCSV`/`ImportContactsVCard` bauen jetzt PRO REQUEST
+  `emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` +
+  `emailcontact.NewImportService(provider, nil)`, exakt das Muster aus
+  `crm_grpc.go:2092-2144`. `tenantID` kommt aus `middleware.GetTenantID(ctx)` (401 bei Fehlen),
+  `ownerID` war wie in den notes vermutet nie ans Auth-Context gekoppelt (`uuid.Nil` mit dem
+  Kommentar "Owner determined by auth context", der nie eingeloest wurde) — jetzt
+  `uuid.Parse(middleware.GetUserID(ctx))`, ebenfalls 401 bei Fehlen statt der alten Panik.
+  Der `importService`-Singleton wurde als Feld/Konstruktor-Param KOMPLETT entfernt statt nur
+  umgangen: das Email-Proto hat kein `PreviewContactsCSV`-RPC, also war der Singleton nach dem Fix
+  toter Code ohne verbleibenden Aufrufer — Entfernen statt Liegenlassen ist hier der schlankere
+  Diff, nicht nur Aufraeumen.
+  NEUER FUND, nicht in dieser Unit behoben (identische Fehlerklasse, aber ausserhalb des
+  scope-Texts dieser Unit — Import war explizit benannt, Export nicht): `ExportContactsCSV`/
+  `ExportContactsVCard` in `email_grpc.go` rufen `s.exportService.ExportCSV`/`ExportVCard` weiterhin
+  direkt auf dem `nil`-Provider-Singleton aus `cmd/email/main.go` auf — derselbe Nil-Pointer-Panik-
+  Bug, spiegelbildlich. Eigene Unit `fix-email-export-nil-provider-panic` direkt nach dieser
+  eingefuegt; sie braucht keine neue Dependency mehr, `contactService`/`companyService` haengen
+  bereits am `EmailGRPCServer`.
+  Test (neu, `internal/server/email_grpc_import_test.go`, DB-backed nach dem Muster von
+  `rbac_audit_events_db_test.go`): `TestEmailImportContactsCSV_DB` und
+  `TestEmailImportContactsVCard_DB` fuehren je einen echten Import End-to-End gegen den echten
+  `contact.Service`/`company.Service` aus (Kontakt UND Firmenzuordnung landen nachweislich in der
+  DB, per Query gegengeprueft — nicht nur ein Mock-Provider wie in den bestehenden
+  `import_service_test.go`-Tests), `TestEmailImportContactsCSV_MissingTenant` beweist 401 statt
+  Panik bei fehlendem Tenant-Context.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/server`, `cmd/email`, 0 issues) | test ok — `go test -count=1 -v ./internal/server/...
+  ./cmd/email/...` gruen mit `DATABASE_URL` gesetzt auf `kmuhub_app`, 0 Skips, 0 Fails (per
+  `grep -c "^--- SKIP"`/`"^--- FAIL"` gegengeprueft). Keine Migration, keine neue Route (kein
+  openapi.yaml-Eintrag noetig, RPC-Signaturen unveraendert), kein neuer `RequirePermission`-Guard —
+  `go test ./internal/gateway/` daher nicht Pflicht, trotzdem kein Routen-Diff im Commit.
+- offen:
+  - NEU: `ExportContactsCSV`/`ExportContactsVCard` haben denselben nil-Provider-Panik-Bug wie
+    Import hatte — eigene Unit `fix-email-export-nil-provider-panic` angelegt, direkt bauen mit
+    dem bereits vorhandenen `contactService`/`companyService`.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24-28 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.
