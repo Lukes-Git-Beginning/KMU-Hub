@@ -13,8 +13,15 @@ updated: 2026-08-03
 ## Migrationen 243–287 — die drei Backend-Nachtlaeufe (2026-07-26 bis 2026-08-03)
 
 Der Abschnitt oben endet bei **242**. Alles danach stammt aus den Nachtlaeufen des Backend-Loops
-(`.planning/backend-block/loop/`, Journal + Archive dort). **Repo-Kopf 287**, Prod folgt mit dem
-Merge von PR #17.
+(`.planning/backend-block/loop/`, Journal + Archive dort). **Repo-Kopf 287 = Prod-Kopf 287**
+(`287|f` verifiziert am 2026-08-03 nach Merge von PR #17, `da1073a4`).
+
+⚠ Der Deploy lief nicht glatt: `deploy.sh` blieb bei `docker compose up -d auth` haengen, fuhr
+einen Auto-Rollback auf `eea4c4b3` und hinterliess **Migration 287 bei Lauf-3-Binaries**. Die
+Migrationen selbst waren zu dem Zeitpunkt bereits sauber durch — der Rollback rollt nur Code
+zurueck, nie die DB. Recovery war forward-only (Code auf `da1073a4`, serieller Rebuild,
+`gateway` neu erstellt), Smoke danach 22/23. Rezept:
+`memory/feedback_deploy_detached_head_rollback.md`.
 
 **Lauf 1 + 3 (243–268)** — Feature-Nachzug quer durch die Module: Bexio-Invoice-Pull (243),
 Inbox-Status (244), Berichte-Persistenz (245, 252), Finance-Ausbau (246 wiederkehrende Rechnungen,
