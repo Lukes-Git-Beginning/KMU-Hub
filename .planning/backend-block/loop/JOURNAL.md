@@ -1720,7 +1720,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 
 ## Iteration 28 — fix-crm-import-company — done — 2026-08-03
 
-- commit: (wird nach dem Commit in Iteration 29 nachgetragen, siehe Ablauf-Schritt 7)
+- commit: `6ff1509d` — fix(crm): persist company relation on contact import/export
 - verify vorgaenger: sauber. `fbecfafd` (fix-finance-notification-paths, Iteration 27) gegen die
   Fehlerklassen geprueft: `HandleUnmuteResource` geht ueber `n.getNotificationClient()` (kein
   Direct-Svc-Bypass), kein Stub, `notification.proto` + `.pb.go` im selben Commit regeneriert
