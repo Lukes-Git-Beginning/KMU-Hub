@@ -3162,3 +3162,4 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   Aenderung noetig.
 - offen fuer Luke: keine FE-Anbindung in diesem Commit (Backend-Nachtloop-Scope) — recherchiert
   bestaetigt greenfield, kein FE-Client/Mock erwartete vorher eine bestimmte Wire-Shape.
+- commit: `7d381016` (feat(mails): add email templates with placeholder substitution)
