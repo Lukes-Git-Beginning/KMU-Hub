@@ -503,6 +503,111 @@ func (s *AuthGRPCServer) RevokeUserRole(ctx context.Context, req *authv1.RevokeU
 	return &authv1.RevokeUserRoleResponse{RoleIds: roleIDs}, nil
 }
 
+// GetUserOverrides returns one account's per-user permission overrides.
+func (s *AuthGRPCServer) GetUserOverrides(ctx context.Context, req *authv1.GetUserOverridesRequest) (*authv1.UserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	overrides, err := s.authService.GetUserOverrides(ctx, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.UserOverridesResponse{UserId: req.UserId, Overrides: toProtoOverrides(overrides)}, nil
+}
+
+// SetUserOverrides replaces an account's override map and writes one audit
+// event per key that actually changed — re-sending an unchanged map produces
+// no events at all, which is what makes the log readable as a history of
+// decisions rather than of save clicks.
+func (s *AuthGRPCServer) SetUserOverrides(ctx context.Context, req *authv1.SetUserOverridesRequest) (*authv1.UserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides := make([]auth.CapabilityOverride, len(req.Overrides))
+	for i, o := range req.Overrides {
+		overrides[i] = auth.CapabilityOverride{Key: o.Key, Mode: o.Mode, Scope: o.Scope}
+	}
+
+	stored, changes, err := s.authService.SetUserOverrides(ctx, actorID, tenantID, userID, overrides)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logOverrideChanges(ctx, tenantID, actorID, userID, changes)
+
+	return &authv1.UserOverridesResponse{UserId: req.UserId, Overrides: toProtoOverrides(stored)}, nil
+}
+
+// ClearUserOverrides puts an account back on the pure role stand.
+func (s *AuthGRPCServer) ClearUserOverrides(ctx context.Context, req *authv1.ClearUserOverridesRequest) (*authv1.ClearUserOverridesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, auth.ErrUserNotFound.Error())
+	}
+
+	tenantID, actorID, err := tenantAndCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	changes, err := s.authService.ClearUserOverrides(ctx, actorID, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	s.logOverrideChanges(ctx, tenantID, actorID, userID, changes)
+
+	return &authv1.ClearUserOverridesResponse{}, nil
+}
+
+// logOverrideChanges appends one audit event per changed key, through the same
+// helper the role events use. A key that gained or changed an override is
+// permission.override_set, one that went back to following the roles is
+// permission.override_removed — the two actions the frontend's audit view
+// already renders (mocks/handlers/rbac.ts).
+func (s *AuthGRPCServer) logOverrideChanges(ctx context.Context, tenantID, actorID, userID uuid.UUID, changes []auth.OverrideChange) {
+	for _, c := range changes {
+		details := map[string]any{"key": c.Key}
+		if c.Before != nil {
+			details["previous_mode"] = c.Before.Mode
+			details["previous_scope"] = c.Before.Scope
+		} else {
+			details["previous_mode"] = "inherited"
+		}
+
+		action := "permission.override_removed"
+		if c.After != nil {
+			action = "permission.override_set"
+			details["mode"] = c.After.Mode
+			details["scope"] = c.After.Scope
+		} else {
+			details["mode"] = "inherited"
+		}
+
+		s.logPermissionEvent(ctx, tenantID, actorID, action, userID.String(), "user", details)
+	}
+}
+
+// toProtoOverrides renders an override map for the wire, never nil — same
+// reasoning as toProtoRoleGrants.
+func toProtoOverrides(overrides []auth.CapabilityOverride) []*authv1.CapabilityOverride {
+	out := make([]*authv1.CapabilityOverride, len(overrides))
+	for i, o := range overrides {
+		out[i] = &authv1.CapabilityOverride{Key: o.Key, Mode: o.Mode, Scope: o.Scope}
+	}
+	return out
+}
+
 // toProtoRoleGrants renders a grant set for the wire, never nil — an empty
 // slice still marshals through the gateway as [], not the JSON null a
 // nil-slice repeated field would leave in the proto response.

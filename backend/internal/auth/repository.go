@@ -124,6 +124,34 @@ type Repository interface {
 	// AssignUserRole.
 	GetUserRoleIDs(ctx context.Context, userID uuid.UUID) ([]string, error)
 
+	// GetUserOverrides returns the per-user permission overrides of an
+	// account, ordered by key. user_permission_overrides carries tenant_id and
+	// an RLS policy, so this needs no tenant filter of its own.
+	GetUserOverrides(ctx context.Context, userID uuid.UUID) ([]CapabilityOverride, error)
+
+	// SetUserOverrides replaces the whole override map of an account in one
+	// transaction: everything currently stored is deleted, the given list is
+	// inserted. An empty list therefore clears the account. createdBy is
+	// recorded per row so the personnel-style question "who gave them this"
+	// survives even after the audit log is rotated.
+	SetUserOverrides(ctx context.Context, tenantID, createdBy, userID uuid.UUID, overrides []CapabilityOverride) ([]CapabilityOverride, error)
+
+	// ClearUserOverrides drops every override of an account. Clearing an
+	// account that has none is a no-op, not an error — same reasoning as
+	// RevokeUserRole.
+	ClearUserOverrides(ctx context.Context, userID uuid.UUID) error
+
+	// CountEffectiveRoleAdminsExcluding counts the active accounts of the
+	// calling tenant, excluding excludeUserID, that hold at least one of keys
+	// AFTER their own overrides are applied — a deny takes the key away, an
+	// allow hands it over even without a role that grants it.
+	//
+	// It is the override-aware sibling of CountRoleAdminsExcluding, which
+	// looks at roles alone. The two stay separate because they answer
+	// different questions: that one asks what a role revoke would leave
+	// behind, this one what an override would.
+	CountEffectiveRoleAdminsExcluding(ctx context.Context, keys []string, excludeUserID uuid.UUID) (int, error)
+
 	// ListAdminUsers returns the tenant's account roster: every real account
 	// (users, RLS-scoped) plus every still-open invitation (invitations,
 	// RLS-scoped), merged into the one list the account admin surface shows.

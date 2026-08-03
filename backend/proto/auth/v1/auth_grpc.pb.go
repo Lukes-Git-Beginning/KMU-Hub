@@ -39,6 +39,9 @@ const (
 	AuthService_SetRolePermissions_FullMethodName      = "/auth.v1.AuthService/SetRolePermissions"
 	AuthService_AssignUserRole_FullMethodName          = "/auth.v1.AuthService/AssignUserRole"
 	AuthService_RevokeUserRole_FullMethodName          = "/auth.v1.AuthService/RevokeUserRole"
+	AuthService_GetUserOverrides_FullMethodName        = "/auth.v1.AuthService/GetUserOverrides"
+	AuthService_SetUserOverrides_FullMethodName        = "/auth.v1.AuthService/SetUserOverrides"
+	AuthService_ClearUserOverrides_FullMethodName      = "/auth.v1.AuthService/ClearUserOverrides"
 	AuthService_ListAdminUsers_FullMethodName          = "/auth.v1.AuthService/ListAdminUsers"
 	AuthService_InviteAdminUser_FullMethodName         = "/auth.v1.AuthService/InviteAdminUser"
 	AuthService_UpdateAdminUser_FullMethodName         = "/auth.v1.AuthService/UpdateAdminUser"
@@ -93,6 +96,12 @@ type AuthServiceClient interface {
 	SetRolePermissions(ctx context.Context, in *SetRolePermissionsRequest, opts ...grpc.CallOption) (*SetRolePermissionsResponse, error)
 	AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*AssignUserRoleResponse, error)
 	RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*RevokeUserRoleResponse, error)
+	// Per-user permission overrides (RBAC R-6) — the deviations one account
+	// carries on top of its roles. Storage and CRUD only; folding them into the
+	// resolved capability set is a separate step.
+	GetUserOverrides(ctx context.Context, in *GetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error)
+	SetUserOverrides(ctx context.Context, in *SetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error)
+	ClearUserOverrides(ctx context.Context, in *ClearUserOverridesRequest, opts ...grpc.CallOption) (*ClearUserOverridesResponse, error)
 	// Admin account roster (phase 3) — the tenant's login accounts merged with
 	// its still-open invitations into the one list the account admin surface
 	// shows (admin-types.ts, AdminUser).
@@ -334,6 +343,36 @@ func (c *authServiceClient) RevokeUserRole(ctx context.Context, in *RevokeUserRo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevokeUserRoleResponse)
 	err := c.cc.Invoke(ctx, AuthService_RevokeUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetUserOverrides(ctx context.Context, in *GetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetUserOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) SetUserOverrides(ctx context.Context, in *SetUserOverridesRequest, opts ...grpc.CallOption) (*UserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_SetUserOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ClearUserOverrides(ctx context.Context, in *ClearUserOverridesRequest, opts ...grpc.CallOption) (*ClearUserOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClearUserOverridesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ClearUserOverrides_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -617,6 +656,12 @@ type AuthServiceServer interface {
 	SetRolePermissions(context.Context, *SetRolePermissionsRequest) (*SetRolePermissionsResponse, error)
 	AssignUserRole(context.Context, *AssignUserRoleRequest) (*AssignUserRoleResponse, error)
 	RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error)
+	// Per-user permission overrides (RBAC R-6) — the deviations one account
+	// carries on top of its roles. Storage and CRUD only; folding them into the
+	// resolved capability set is a separate step.
+	GetUserOverrides(context.Context, *GetUserOverridesRequest) (*UserOverridesResponse, error)
+	SetUserOverrides(context.Context, *SetUserOverridesRequest) (*UserOverridesResponse, error)
+	ClearUserOverrides(context.Context, *ClearUserOverridesRequest) (*ClearUserOverridesResponse, error)
 	// Admin account roster (phase 3) — the tenant's login accounts merged with
 	// its still-open invitations into the one list the account admin surface
 	// shows (admin-types.ts, AdminUser).
@@ -723,6 +768,15 @@ func (UnimplementedAuthServiceServer) AssignUserRole(context.Context, *AssignUse
 }
 func (UnimplementedAuthServiceServer) RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*RevokeUserRoleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeUserRole not implemented")
+}
+func (UnimplementedAuthServiceServer) GetUserOverrides(context.Context, *GetUserOverridesRequest) (*UserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserOverrides not implemented")
+}
+func (UnimplementedAuthServiceServer) SetUserOverrides(context.Context, *SetUserOverridesRequest) (*UserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetUserOverrides not implemented")
+}
+func (UnimplementedAuthServiceServer) ClearUserOverrides(context.Context, *ClearUserOverridesRequest) (*ClearUserOverridesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClearUserOverrides not implemented")
 }
 func (UnimplementedAuthServiceServer) ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAdminUsers not implemented")
@@ -1176,6 +1230,60 @@ func _AuthService_RevokeUserRole_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).RevokeUserRole(ctx, req.(*RevokeUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetUserOverrides(ctx, req.(*GetUserOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_SetUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SetUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SetUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SetUserOverrides(ctx, req.(*SetUserOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ClearUserOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearUserOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ClearUserOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ClearUserOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ClearUserOverrides(ctx, req.(*ClearUserOverridesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1716,6 +1824,18 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeUserRole",
 			Handler:    _AuthService_RevokeUserRole_Handler,
+		},
+		{
+			MethodName: "GetUserOverrides",
+			Handler:    _AuthService_GetUserOverrides_Handler,
+		},
+		{
+			MethodName: "SetUserOverrides",
+			Handler:    _AuthService_SetUserOverrides_Handler,
+		},
+		{
+			MethodName: "ClearUserOverrides",
+			Handler:    _AuthService_ClearUserOverrides_Handler,
 		},
 		{
 			MethodName: "ListAdminUsers",

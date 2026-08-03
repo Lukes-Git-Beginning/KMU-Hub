@@ -2251,7 +2251,7 @@ units:
     service: auth
     model: opus
     deps: [p1b-audit-events]
-    status: todo
+    status: done
     scope: >
       Persistenz und CRUD fuer Per-User-Rechte-Overrides (RBAC R-6, volle Variante allow+deny).
       Verifiziert am 2026-08-02: das FE ruft `GET/PUT/DELETE /api/v1/admin/users/{id}/overrides`

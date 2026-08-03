@@ -704,6 +704,130 @@ func (r *PostgresRepository) GetUserRoleIDs(ctx context.Context, userID uuid.UUI
 	return ids, rows.Err()
 }
 
+// GetUserOverrides reads one account's override map. No tenant filter:
+// user_permission_overrides carries tenant_id and an RLS policy, so the
+// request-scoped connection already sees only its own tenant's rows.
+func (r *PostgresRepository) GetUserOverrides(ctx context.Context, userID uuid.UUID) ([]CapabilityOverride, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT permission_key, mode, scope
+		 FROM user_permission_overrides
+		 WHERE user_id = $1
+		 ORDER BY permission_key`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	overrides := make([]CapabilityOverride, 0)
+	for rows.Next() {
+		var o CapabilityOverride
+		if err := rows.Scan(&o.Key, &o.Mode, &o.Scope); err != nil {
+			return nil, err
+		}
+		overrides = append(overrides, o)
+	}
+	return overrides, rows.Err()
+}
+
+// SetUserOverrides replaces the whole map in one transaction — delete then
+// insert, so a PUT is never observable as a half-applied state.
+//
+// The INSERT resolves permission_key through the permissions catalogue with a
+// JOIN rather than trusting the input, mirroring SetRolePermissions: the
+// service already rejected unknown keys with a clean 422, and the join is the
+// backstop for the race between that check and this write.
+func (r *PostgresRepository) SetUserOverrides(
+	ctx context.Context,
+	tenantID, createdBy, userID uuid.UUID,
+	overrides []CapabilityOverride,
+) ([]CapabilityOverride, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `DELETE FROM user_permission_overrides WHERE user_id = $1`, userID); err != nil {
+		return nil, err
+	}
+
+	if len(overrides) > 0 {
+		keys := make([]string, len(overrides))
+		modes := make([]string, len(overrides))
+		scopes := make([]string, len(overrides))
+		for i, o := range overrides {
+			keys[i] = o.Key
+			modes[i] = o.Mode
+			scopes[i] = o.Scope
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO user_permission_overrides
+			     (tenant_id, user_id, permission_key, mode, scope, created_by)
+			 SELECT $1, $2, p.name, o.mode, o.scope, $6
+			 FROM unnest($3::text[], $4::text[], $5::text[]) AS o(key, mode, scope)
+			 JOIN permissions p ON p.name = o.key`,
+			tenantID, userID, keys, modes, scopes, createdBy,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return r.GetUserOverrides(ctx, userID)
+}
+
+// ClearUserOverrides drops every override of an account. RLS scopes the
+// statement; an account of another tenant matches zero rows, which is the same
+// no-op as an account that simply had none.
+func (r *PostgresRepository) ClearUserOverrides(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM user_permission_overrides WHERE user_id = $1`, userID)
+	return err
+}
+
+// CountEffectiveRoleAdminsExcluding counts the tenant's remaining role
+// administrators with overrides applied.
+//
+// An account counts when, for at least one of keys, either a role grants it
+// and no deny override takes it back, or an allow override hands it over
+// outright. That is the same precedence the resolver uses — override wins per
+// key over the whole role union.
+//
+// The users row is the tenant boundary: user_roles has no RLS of its own, so
+// without that join this would count other tenants' administrators and the
+// last-admin guardrail would never fire. Inactive accounts do not count — a
+// deactivated administrator cannot log in to hand the right back.
+func (r *PostgresRepository) CountEffectiveRoleAdminsExcluding(ctx context.Context, keys []string, excludeUserID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM users u
+		 WHERE u.is_active AND u.id <> $2
+		   AND EXISTS (
+		       SELECT 1 FROM unnest($1::text[]) AS k(key)
+		       WHERE EXISTS (
+		                 SELECT 1 FROM user_permission_overrides o
+		                 WHERE o.user_id = u.id AND o.permission_key = k.key AND o.mode = 'allow'
+		             )
+		          OR (
+		                 EXISTS (
+		                     SELECT 1 FROM user_roles ur
+		                     JOIN role_permissions rp ON rp.role_id = ur.role_id
+		                     JOIN permissions p ON p.id = rp.permission_id
+		                     WHERE ur.user_id = u.id AND p.name = k.key
+		                 )
+		             AND NOT EXISTS (
+		                     SELECT 1 FROM user_permission_overrides o
+		                     WHERE o.user_id = u.id AND o.permission_key = k.key AND o.mode = 'deny'
+		                 )
+		             )
+		   )`,
+		keys, excludeUserID,
+	).Scan(&count)
+	return count, err
+}
+
 func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

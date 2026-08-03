@@ -236,3 +236,77 @@ func TestPermissionAuditEvents_DB_RejectedWriteLeavesNoEvent(t *testing.T) {
 
 	require.Equal(t, before, auditEventCount(t, pool), "a rejected write must not append an audit event")
 }
+
+// TestUserOverrideAuditEvents_DB is the R-6 half of the trail. The override
+// editor writes a whole map at once, so the interesting property is not "one
+// call, one event" but "one event per key that actually changed": re-saving an
+// unchanged map is a legitimate no-op, and filling the log with events that
+// describe nothing would make the trail useless exactly when it matters.
+func TestUserOverrideAuditEvents_DB(t *testing.T) {
+	pool, srv, actor, target := auditEventsSetup(t)
+	ctx := auditActorCtx(actor)
+
+	t.Run("two_new_keys_write_two_events", func(t *testing.T) {
+		before := auditEventCount(t, pool)
+
+		_, err := srv.SetUserOverrides(ctx, &authv1.SetUserOverridesRequest{
+			UserId: target.String(),
+			Overrides: []*authv1.CapabilityOverride{
+				{Key: "work:project:edit", Mode: "allow", Scope: "all"},
+				{Key: "rapporte:report:create", Mode: "deny", Scope: "all"},
+			},
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, before+2, auditEventCount(t, pool), "one event per changed key")
+		action, evTarget, targetType, userID := latestAuditEvent(t, pool)
+		require.Equal(t, "permission.override_set", action)
+		require.Equal(t, target.String(), evTarget)
+		require.Equal(t, "user", targetType)
+		require.Equal(t, actor, userID)
+	})
+
+	t.Run("resaving_the_same_map_writes_nothing", func(t *testing.T) {
+		before := auditEventCount(t, pool)
+
+		_, err := srv.SetUserOverrides(ctx, &authv1.SetUserOverridesRequest{
+			UserId: target.String(),
+			Overrides: []*authv1.CapabilityOverride{
+				{Key: "work:project:edit", Mode: "allow", Scope: "all"},
+				{Key: "rapporte:report:create", Mode: "deny", Scope: "all"},
+			},
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, before, auditEventCount(t, pool), "nothing changed, so nothing is audited")
+	})
+
+	t.Run("clearing_audits_every_dropped_key", func(t *testing.T) {
+		before := auditEventCount(t, pool)
+
+		_, err := srv.ClearUserOverrides(ctx, &authv1.ClearUserOverridesRequest{
+			UserId: target.String(),
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, before+2, auditEventCount(t, pool), "both overrides disappeared, both are audited")
+		action, _, _, _ := latestAuditEvent(t, pool)
+		require.Equal(t, "permission.override_removed", action)
+	})
+
+	t.Run("rejected_write_leaves_no_event", func(t *testing.T) {
+		before := auditEventCount(t, pool)
+
+		// The self-edit block fires inside the service, before the RPC ever
+		// reaches logOverrideChanges.
+		_, err := srv.SetUserOverrides(ctx, &authv1.SetUserOverridesRequest{
+			UserId: actor.String(),
+			Overrides: []*authv1.CapabilityOverride{
+				{Key: "work:project:edit", Mode: "allow", Scope: "all"},
+			},
+		})
+		require.Error(t, err)
+
+		require.Equal(t, before, auditEventCount(t, pool), "a refused write must not append an audit event")
+	})
+}

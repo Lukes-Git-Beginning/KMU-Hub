@@ -326,3 +326,62 @@ func TestToRoleGrantsBody_WireShape(t *testing.T) {
 		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
 	}
 }
+
+// --- HandleGetUserOverrides / HandleSetUserOverrides / HandleClearUserOverrides ---
+
+func TestHandleGetUserOverrides_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetUserOverrides)
+}
+
+func TestHandleSetUserOverrides_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleSetUserOverrides)
+}
+
+func TestHandleClearUserOverrides_ServiceUnavailable(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleClearUserOverrides)
+}
+
+// TestToOverridesBody_EmptyIsContainerNotNull: an account with no deviation is
+// the normal case, and fetchUserOverrides does `resp?.overrides ?? {}` — but
+// Object.entries on a JSON null throws before that fallback ever helps, so the
+// map has to marshal as {}.
+func TestToOverridesBody_EmptyIsContainerNotNull(t *testing.T) {
+	raw, err := json.Marshal(userOverridesResponseBody{
+		UserID:    "22222222-2222-2222-2222-222222222222",
+		Overrides: toOverridesBody(nil),
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"userId":"22222222-2222-2222-2222-222222222222","overrides":{}}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}
+
+// TestToOverridesBody_WireShape pins the shape against UserOverridesResponse
+// in rbac-types.ts: the capability key is the map key, never a field, and both
+// mode and scope travel even for a deny (the frontend type carries them both).
+func TestToOverridesBody_WireShape(t *testing.T) {
+	raw, err := json.Marshal(userOverridesResponseBody{
+		UserID: "22222222-2222-2222-2222-222222222222",
+		Overrides: toOverridesBody([]*authv1.CapabilityOverride{
+			{Key: "rapporte:report:create", Mode: "deny", Scope: "all"},
+			{Key: "work:project:edit", Mode: "allow", Scope: "team"},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"userId":"22222222-2222-2222-2222-222222222222","overrides":{` +
+		`"rapporte:report:create":{"mode":"deny","scope":"all"},` +
+		`"work:project:edit":{"mode":"allow","scope":"team"}}}`
+	if string(raw) != want {
+		t.Errorf("wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}

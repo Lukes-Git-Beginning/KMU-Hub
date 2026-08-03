@@ -226,6 +226,22 @@ func (m *mockRepository) GetUserRoleIDs(_ context.Context, _ uuid.UUID) ([]strin
 	return nil, nil
 }
 
+func (m *mockRepository) GetUserOverrides(_ context.Context, _ uuid.UUID) ([]CapabilityOverride, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) SetUserOverrides(_ context.Context, _, _, _ uuid.UUID, overrides []CapabilityOverride) ([]CapabilityOverride, error) {
+	return overrides, nil
+}
+
+func (m *mockRepository) ClearUserOverrides(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) CountEffectiveRoleAdminsExcluding(_ context.Context, _ []string, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
 func (m *mockRepository) ListAdminUsers(_ context.Context) ([]AdminUser, error) {
 	return nil, nil
 }

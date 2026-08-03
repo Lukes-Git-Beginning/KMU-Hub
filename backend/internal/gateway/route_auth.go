@@ -168,6 +168,16 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.With(middleware.RequireRole("admin")).Patch("/{id}", a.HandleUpdateAdminUser)
 		r.With(middleware.RequireRole("admin")).Post("/{id}/resend-invite", a.HandleResendAdminUserInvite)
 		r.With(middleware.RequireRole("admin")).Get("/{id}/permissions", a.HandleGetUserPermissions)
+		// Per-user overrides (RBAC R-6) guard with their own catalogue key
+		// rather than RequireRole("admin") like their neighbours: fine-tuning
+		// an individual is deliberately NOT part of the hr_admin delegation
+		// that hands out roles (R6 briefing §0.3), and only the admin preset
+		// carries admin:user_override:manage since migration 000256. A key
+		// instead of a role name also lets a tenant that clones the preset
+		// into its own "Geschäftsführung" keep the right.
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Get("/{id}/overrides", a.HandleGetUserOverrides)
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Put("/{id}/overrides", a.HandleSetUserOverrides)
+		r.With(middleware.RequirePermission("admin:user_override", "manage")).Delete("/{id}/overrides", a.HandleClearUserOverrides)
 	})
 
 	// Tenant provisioning. Not RequireRole("admin"): a tenant admin
@@ -1071,6 +1081,128 @@ func (a *AuthRoutes) HandleSetRolePermissions(w http.ResponseWriter, r *http.Req
 		RoleID: resp.RoleId,
 		Grants: toRoleGrantsBody(resp.Grants),
 	})
+}
+
+// overrideBody is one per-user override on the wire. Like roleGrantBody the
+// capability key never travels as a field of its own — UserOverrides in
+// rbac-types.ts is a plain `Record<string, {mode, scope}>`.
+type overrideBody struct {
+	Mode  string `json:"mode"`
+	Scope string `json:"scope"`
+}
+
+// userOverridesResponseBody mirrors UserOverridesResponse in rbac-types.ts.
+// Overrides is built through toOverridesBody so an account without any
+// deviation marshals as `{}`, never `null`.
+type userOverridesResponseBody struct {
+	UserID    string                  `json:"userId"`
+	Overrides map[string]overrideBody `json:"overrides"`
+}
+
+func toOverridesBody(overrides []*authv1.CapabilityOverride) map[string]overrideBody {
+	body := make(map[string]overrideBody, len(overrides))
+	for _, o := range overrides {
+		body[o.Key] = overrideBody{Mode: o.Mode, Scope: o.Scope}
+	}
+	return body
+}
+
+// HandleGetUserOverrides returns the per-user permission overrides of an
+// account — the deviations the editor renders on top of the inherited role
+// stand.
+func (a *AuthRoutes) HandleGetUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetUserOverrides(r.Context(), &authv1.GetUserOverridesRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, userOverridesResponseBody{
+		UserID:    resp.UserId,
+		Overrides: toOverridesBody(resp.Overrides),
+	})
+}
+
+// putUserOverridesRequest mirrors UpdateUserOverridesInput in rbac-types.ts.
+// mode and scope carry no validate tags: the catalogue check that rejects an
+// unknown key needs the database, so all three travel to the service together
+// instead of splitting the validation across two layers — the same call
+// putRolePermissionsRequest makes.
+type putUserOverridesRequest struct {
+	Overrides map[string]overrideBody `json:"overrides"`
+}
+
+// HandleSetUserOverrides replaces the entire override map of an account. An
+// empty map clears every deviation, which is the editor's "back to the role
+// stand". Guardrails (self-edit, escalation, last admin) and the catalogue
+// check live in the service.
+func (a *AuthRoutes) HandleSetUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[putUserOverridesRequest](w, r)
+	if !ok {
+		return
+	}
+
+	overrides := make([]*authv1.CapabilityOverride, 0, len(req.Overrides))
+	for key, o := range req.Overrides {
+		overrides = append(overrides, &authv1.CapabilityOverride{Key: key, Mode: o.Mode, Scope: o.Scope})
+	}
+
+	resp, err := client.SetUserOverrides(r.Context(), &authv1.SetUserOverridesRequest{
+		UserId:    userID,
+		Overrides: overrides,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, userOverridesResponseBody{
+		UserID:    resp.UserId,
+		Overrides: toOverridesBody(resp.Overrides),
+	})
+}
+
+// HandleClearUserOverrides drops every override of an account.
+func (a *AuthRoutes) HandleClearUserOverrides(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.ClearUserOverrides(r.Context(), &authv1.ClearUserOverridesRequest{UserId: userID}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {

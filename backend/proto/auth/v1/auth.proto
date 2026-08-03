@@ -32,6 +32,13 @@ service AuthService {
   rpc AssignUserRole(AssignUserRoleRequest) returns (AssignUserRoleResponse);
   rpc RevokeUserRole(RevokeUserRoleRequest) returns (RevokeUserRoleResponse);
 
+  // Per-user permission overrides (RBAC R-6) — the deviations one account
+  // carries on top of its roles. Storage and CRUD only; folding them into the
+  // resolved capability set is a separate step.
+  rpc GetUserOverrides(GetUserOverridesRequest) returns (UserOverridesResponse);
+  rpc SetUserOverrides(SetUserOverridesRequest) returns (UserOverridesResponse);
+  rpc ClearUserOverrides(ClearUserOverridesRequest) returns (ClearUserOverridesResponse);
+
   // Admin account roster (phase 3) — the tenant's login accounts merged with
   // its still-open invitations into the one list the account admin surface
   // shows (admin-types.ts, AdminUser).
@@ -371,6 +378,43 @@ message RevokeUserRoleRequest {
 message RevokeUserRoleResponse {
   repeated string role_ids = 1;
 }
+
+// Per-user permission override messages (RBAC R-6).
+//
+// One deviation from what the account's roles grant. mode is allow|deny,
+// scope one of own|team|all — carried for both modes but only meaningful for
+// allow, matching the frontend type (rbac-types.ts, CapabilityOverride).
+message CapabilityOverride {
+  string key = 1;
+  string mode = 2;
+  string scope = 3;
+}
+
+message GetUserOverridesRequest {
+  string user_id = 1;
+}
+
+// The full override map after the call. A repeated field, not a map: the
+// gateway reshapes it into the frontend's `Record<key, {mode, scope}>`, and a
+// proto map would lose the stable key order the editor renders in.
+message UserOverridesResponse {
+  string user_id = 1;
+  repeated CapabilityOverride overrides = 2;
+}
+
+// Replaces the WHOLE map: a key absent from overrides goes back to following
+// the roles. An empty list therefore clears every override of the account,
+// exactly like ClearUserOverrides.
+message SetUserOverridesRequest {
+  string user_id = 1;
+  repeated CapabilityOverride overrides = 2;
+}
+
+message ClearUserOverridesRequest {
+  string user_id = 1;
+}
+
+message ClearUserOverridesResponse {}
 
 message UserInfo {
   string id = 1;

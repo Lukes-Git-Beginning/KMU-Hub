@@ -860,7 +860,9 @@ paths:
         still-open invitation (invited, from invitations) merged into one
         list. jobTitle is always "" — the backend has no job-title data on an
         account. hasOverrides is omitted — per-user permission overrides
-        (R-6) do not exist yet. lastLoginAt is derived from the most recent
+        (R-6) are stored and editable under /admin/users/{id}/overrides, but
+        this roster does not yet report whether an account carries any.
+        lastLoginAt is derived from the most recent
         user_sessions row and is therefore only as complete as session
         history: a session removed by logout/termination no longer counts.
         Requires the admin role.
@@ -1075,9 +1077,10 @@ paths:
           in: query
           required: false
           description: >
-            Reserved for the role union without per-user overrides. Per-user
-            overrides do not exist server-side yet, so the parameter is
-            currently accepted and ignored.
+            Reserved for the role union without per-user overrides. Overrides
+            are stored (see /admin/users/{id}/overrides) but are not folded
+            into this response yet, so the parameter is currently accepted and
+            ignored — with or without it the answer is the pure role union.
           schema:
             type: string
             enum: ["1"]
@@ -1264,6 +1267,140 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: role_has_members — the role still has at least one holder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Per-user permission overrides (RBAC R-6). Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/overrides:
+    get:
+      summary: Per-user permission overrides of an account
+      description: >
+        The deviations one account carries on top of its roles: `allow` sets or
+        raises a capability key, `deny` takes it away regardless of how many
+        roles grant it. A key absent from the map keeps following the roles
+        live. An account without deviations answers an empty object, not null.
+        Requires admin:user_override:manage — held by the admin preset alone,
+        deliberately not by hr_admin.
+      tags: [users]
+      operationId: getUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Override map of the account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOverridesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      summary: Replace the override map of an account
+      description: >
+        Full replacement: every key missing from overrides goes back to
+        following the roles, every key present is stored, in one transaction.
+        An empty map clears all overrides — the same effect as DELETE. Each key
+        must exist in the capability catalogue, and mode/scope must be
+        spellable; either problem aborts the whole write with 422. One audit
+        event (permission.override_set / permission.override_removed) is
+        written per key that actually changed.
+      tags: [users]
+      operationId: setUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserOverridesRequest"
+      responses:
+        "200":
+          description: Override map replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOverridesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            privilege_escalation — an allow names a capability the caller does
+            not hold, or widens a scope past their own
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            self_lockout — the caller may not edit their own account; or
+            last_admin — the deny would take the role administration off the
+            last account that still has it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: >
+            unknown_capability_key — a key is not in the permissions catalogue,
+            or mode/scope is outside allow|deny / own|team|all
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Clear all overrides of an account
+      description: >
+        Puts the account back on the pure role stand. Clearing an account that
+        has no overrides is a no-op and still answers 204. Like the PUT, the
+        caller may not do this to their own account.
+      tags: [users]
+      operationId: clearUserOverrides
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204":
+          description: Overrides cleared
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: user not found — no such account visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: self_lockout — the caller may not edit their own account
           content:
             application/json:
               schema:
@@ -32003,7 +32140,10 @@ components:
             one preset id its invitations.role legacy name resolves to.
         hasOverrides:
           type: boolean
-          description: Per-user permission overrides (R-6) do not exist yet — always omitted.
+          description: >
+            Whether the account carries any per-user override. Always omitted:
+            the overrides themselves exist under /admin/users/{id}/overrides,
+            but the roster query does not join them yet.
         status:
           type: string
           enum: [active, invited, deactivated]
@@ -32212,6 +32352,42 @@ components:
           additionalProperties:
             $ref: "#/components/schemas/RoleGrant"
       required: [grants]
+
+    CapabilityOverride:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [allow, deny]
+          description: allow sets or raises the key, deny removes it from the effective set.
+        scope:
+          type: string
+          enum: [own, team, all]
+          description: Target scope of an allow. Stored but meaningless for deny.
+      required: [mode, scope]
+
+    UserOverridesResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        overrides:
+          type: object
+          description: Capability key (resource:action) → override. Missing key = follows the roles.
+          additionalProperties:
+            $ref: "#/components/schemas/CapabilityOverride"
+      required: [userId, overrides]
+
+    UpdateUserOverridesRequest:
+      type: object
+      properties:
+        overrides:
+          type: object
+          description: Full replacement map — keys absent here go back to following the roles.
+          additionalProperties:
+            $ref: "#/components/schemas/CapabilityOverride"
+      required: [overrides]
 
     StatusResponse:
       type: object
