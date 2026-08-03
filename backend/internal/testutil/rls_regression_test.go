@@ -25,11 +25,12 @@ var systemGlobalAllowlist = map[string]bool{
 // backlog unit rather than closed by this guard. Remove an entry the moment
 // its unit ships — this map exists so a genuinely NEW gap fails loudly, not
 // so an old one goes unnoticed forever.
-var knownRLSGaps = map[string]string{
-	"user_roles": "backlog unit g-user-roles-rls (docs/ARCHITECTURE.md, \"Offene Luecke\"): " +
-		"no tenant_id, no policy; every current read path filters by user_id from the JWT, " +
-		"so a direct unfiltered SELECT would be cross-tenant",
-}
+//
+// Empty since migration 000286 closed user_roles, the last entry. An empty map
+// is the desired state: every unprotected table is either justified in ADR-006
+// above or a failure. Add a name here only together with the backlog unit that
+// takes it back out.
+var knownRLSGaps = map[string]string{}
 
 // TestAllPublicTablesHaveRLSOrAreAllowlisted re-runs the scan that found the
 // gaps closed across backlog Block B: every ordinary or partitioned table in
