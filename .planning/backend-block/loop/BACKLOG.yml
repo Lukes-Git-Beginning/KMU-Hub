@@ -1650,7 +1650,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Gefunden in Iteration 28 (`fix-crm-import-company`), nicht dort behoben. In
       `backend/internal/server/email_grpc.go` rufen `ImportContactsCSV` und `ImportContactsVCard`
@@ -1690,6 +1690,71 @@ units:
       - Import-RPCs im Email-Service bauen einen Tenant-scoped Adapter pro Request wie im CRM-Pfad
       - kein Aufruf mehr auf dem nil-Provider-Singleton
       - Test belegt einen erfolgreichen Import ueber den Email-Pfad (nicht nur CRM)
+      - go test -count=1 ./internal/server/... gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 29). Der Email-Prozess haengt am selben Postgres-Pool wie CRM (kein
+      separater RPC-Hop noetig) — `cmd/email/main.go` konstruiert jetzt `contact.Service` +
+      `company.Service` direkt aus `internal/crm/contact`/`internal/crm/company` und reicht sie in
+      `EmailGRPCServer` durch. `ImportContactsCSV`/`ImportContactsVCard` bauen pro Request
+      `emailcontact.NewTenantScopedAdapter(contactService, companyService, tenantID)` +
+      `NewImportService(provider, nil)`, exakt das Muster aus `crm_grpc.go:2092-2144`. `ownerID` kam
+      wie vermutet nie aus dem Request — jetzt `uuid.Parse(middleware.GetUserID(ctx))`, mit
+      Unauthenticated bei fehlendem Tenant/User statt der alten Nil-Pointer-Panik.
+      Der `importService`-Singleton (nil-Provider) wurde komplett entfernt statt nur umgangen — er
+      hatte ausser den beiden jetzt gefixten RPCs keinen Aufrufer (kein `PreviewContactsCSV` im
+      Email-Proto), war also totes Konstrukt. `exportService` bleibt unveraendert (gleicher
+      nil-Provider-Bug in `ExportContactsCSV`/`ExportContactsVCard`, aber ausserhalb des Scopes
+      dieser Unit) — neue Unit `fix-email-export-nil-provider-panic` direkt danach eingefuegt.
+      Test `internal/server/email_grpc_import_test.go` (neu, DB-backed wie
+      `rbac_audit_events_db_test.go`): CSV- und vCard-Import je einmal End-to-End gegen echten
+      `contact.Service`/`company.Service` (Kontakt + Firmenzuordnung landen tatsaechlich in der DB,
+      nicht nur im Provider-Mock), plus ein Fehlerfall (fehlender Tenant-Context -> Unauthenticated
+      statt Panik). `go test -count=1 -v ./internal/server/... ./cmd/email/...` gruen, 0 Skips, 0
+      Fails (mit `DATABASE_URL` auf `kmuhub_app`).
+      gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok
+      (golangci-lint auf `internal/server`, `cmd/email`, 0 issues) | test ok wie oben. Keine
+      Migration, keine neue Route (kein openapi.yaml-Eintrag noetig, RPC-Signaturen unveraendert),
+      kein neuer `RequirePermission`-Guard.
+
+  - id: fix-email-export-nil-provider-panic
+    phase: fix
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Gefunden in Iteration 29 (`fix-email-import-nil-provider-panic`), bewusst nicht mitgefixt
+      (Scope der Unit war nur Import). Derselbe Fehlerklasse, spiegelbildlich: in
+      `backend/internal/server/email_grpc.go` rufen `ExportContactsCSV` und `ExportContactsVCard`
+      `s.exportService.ExportCSV`/`ExportVCard` DIREKT auf. `s.exportService` ist weiterhin der
+      Singleton aus `cmd/email/main.go`, konstruiert mit `emailcontact.NewExportService(nil,
+      slog.Default())` — jeder echte Aufruf ueber `POST /api/v1/email/.../export/csv` bzw.
+      `/export/vcard` trifft im Export-Service auf `s.contactProvider.ListByIDs`
+      (`internal/email/contact/export_service.go`) mit `contactProvider == nil` und paniked.
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/server/crm_grpc.go
+      - backend/cmd/email/main.go
+      - backend/internal/email/contact/adapter.go
+      - backend/internal/email/contact/export_service.go
+    notes: >
+      `cmd/email/main.go` konstruiert seit Iteration 29 bereits `contactService`/`companyService`
+      (`internal/crm/contact`, `internal/crm/company`) und reicht sie in `EmailGRPCServer` durch —
+      diese Unit braucht KEINE neue Dependency, nur denselben
+      `emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` +
+      `emailcontact.NewExportService(provider, nil)` pro Request in `ExportContactsCSV`/
+      `ExportContactsVCard`, exakt wie in `crm_grpc.go:2146-2224` und in `ImportContactsCSV`/
+      `ImportContactsVCard` (Iteration 29) vorgemacht.
+      Der `exportService`-Singleton (nil-Provider) wird danach genau wie `importService` in
+      Iteration 29 komplett ueberfluessig — als Feld/Param entfernen statt nur zu umgehen, sonst
+      bleibt totes Konstrukt liegen.
+      `emailv1.ExportContactsRequest` hat kein `is_admin`/kein "export all ohne IDs"-Feld (anders
+      als der CRM-Pfad) — `ExportCSV(ctx, ids, req.Fields)`/`ExportVCard(ctx, ids)` bleiben also wie
+      sie sind, nur der Provider aendert sich.
+    done_when:
+      - Export-RPCs im Email-Service bauen einen Tenant-scoped Adapter pro Request wie im CRM-Pfad
+      - kein Aufruf mehr auf dem nil-Provider-Singleton
+      - Test belegt einen erfolgreichen Export ueber den Email-Pfad (nicht nur CRM)
       - go test -count=1 ./internal/server/... gruen
 
   - id: fix-berichte-kpi-module-scope

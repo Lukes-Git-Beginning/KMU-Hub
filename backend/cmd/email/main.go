@@ -19,7 +19,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
+	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
@@ -123,8 +125,13 @@ func main() {
 		}
 	}()
 
-	// Contact import/export (shared with CRM service via proto)
-	importService := emailcontact.NewImportService(nil, slog.Default())
+	// Contact import/export (shared with CRM service via proto). Import binds a
+	// tenant-scoped adapter per request (see EmailGRPCServer.ImportContactsCSV), so it
+	// needs the CRM contact/company services directly rather than a shared singleton.
+	contactRepo := contact.NewPostgresRepository(pool)
+	contactService := contact.NewService(contactRepo)
+	companyRepo := company.NewPostgresRepository(pool)
+	companyService := company.NewService(companyRepo)
 	exportService := emailcontact.NewExportService(nil, slog.Default())
 
 	// Metrics
@@ -151,7 +158,8 @@ func main() {
 		attachmentService,
 		syncEngine,
 		linkRepo,
-		importService,
+		contactService,
+		companyService,
 		exportService,
 		ruleService,
 		labelService,

@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	crmcompany "github.com/kmuhub/kmuhub/internal/crm/company"
+	crmcontact "github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
@@ -35,7 +37,8 @@ type EmailGRPCServer struct {
 	attachmentService *attachment.Service
 	syncEngine        *emailsync.Engine
 	linkRepo          EmailContactLinkRepository
-	importService     *emailcontact.ImportService
+	contactService    *crmcontact.Service
+	companyService    *crmcompany.Service
 	exportService     *emailcontact.ExportService
 	ruleService       *rule.Service
 	labelService      *label.Service
@@ -58,7 +61,8 @@ func NewEmailGRPCServer(
 	attachmentService *attachment.Service,
 	syncEngine *emailsync.Engine,
 	linkRepo EmailContactLinkRepository,
-	importService *emailcontact.ImportService,
+	contactService *crmcontact.Service,
+	companyService *crmcompany.Service,
 	exportService *emailcontact.ExportService,
 	ruleService *rule.Service,
 	labelService *label.Service,
@@ -71,7 +75,8 @@ func NewEmailGRPCServer(
 		attachmentService: attachmentService,
 		syncEngine:        syncEngine,
 		linkRepo:          linkRepo,
-		importService:     importService,
+		contactService:    contactService,
+		companyService:    companyService,
 		exportService:     exportService,
 		ruleService:       ruleService,
 		labelService:      labelService,
@@ -1077,13 +1082,28 @@ func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *ema
 // ============================================================================
 
 func (s *EmailGRPCServer) ImportContactsCSV(ctx context.Context, req *emailv1.ImportContactsCSVRequest) (*emailv1.ImportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	userID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	// Tenant-scoped adapter built per request, mirroring CRMGRPCServer.ImportContactsCSV —
+	// the shared importService singleton is wired with a nil ContactProvider because it has
+	// no tenant to bind to outside a request.
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
 	reader := bytes.NewReader(req.FileContent)
-	result, err := s.importService.ImportCSV(
+	result, err := importSvc.ImportCSV(
 		ctx,
 		reader,
 		req.FieldMapping,
 		req.Visibility,
-		uuid.Nil, // Owner determined by auth context
+		userID,
 		req.MergeByEmail,
 	)
 	if err != nil {
@@ -1094,12 +1114,24 @@ func (s *EmailGRPCServer) ImportContactsCSV(ctx context.Context, req *emailv1.Im
 }
 
 func (s *EmailGRPCServer) ImportContactsVCard(ctx context.Context, req *emailv1.ImportContactsVCardRequest) (*emailv1.ImportContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	userID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
 	reader := bytes.NewReader(req.FileContent)
-	result, err := s.importService.ImportVCard(
+	result, err := importSvc.ImportVCard(
 		ctx,
 		reader,
 		req.Visibility,
-		uuid.Nil,
+		userID,
 		req.MergeByEmail,
 	)
 	if err != nil {
