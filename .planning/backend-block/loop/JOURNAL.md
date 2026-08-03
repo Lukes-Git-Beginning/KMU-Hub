@@ -2209,7 +2209,7 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
   - DB-Gate lief lokal vollstaendig (Postgres in Docker erreichbar), kein Nachlauf noetig.
 
 ## Iteration 35 — g-admin-users-invite — done — 2026-08-03
-- commit: (siehe naechste Iteration)
+- commit: 6c937c7a
 - verify vorgaenger: sauber. `55f439fe` (g-admin-users-list, Iteration 34) gegen die Fehlerklassen
   geprueft. Klasse 1 sauber — `HandleListAdminUsers` holt sich `a.getAuthClient()` und ruft
   `client.ListAdminUsers`, keine direkt injizierte Service-Instanz. Klasse 2 sauber —
