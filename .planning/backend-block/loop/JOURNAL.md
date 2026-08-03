@@ -2594,3 +2594,72 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
     daran entwickelt — gehoert in eine FE-Unit, sonst faellt der Editor erst gegen das echte
     Backend um.
   - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.
+
+## Iteration 40 — g-rbac-user-overrides-resolver — done — 2026-08-03 05:4x
+- commit: <sha folgt>
+- gebaut: Die Per-User-Overrides sind in der Rechte-Aufloesung angekommen.
+  `Service.GetEffectivePermissions` = Rollen-Union + `applyOverrides()`, **eine** Naht wie die
+  MSW-Referenz. Der alte Union-Code heisst jetzt `Service.GetRoleUnion` und ist unveraendert.
+  `GET /admin/users/{id}/permissions?base=1` liefert diese Union (neues Proto-Feld `base`), ohne
+  `base` die Overrides. Beide Endpoints tragen `hasOverrides` und `deniedByOverride`.
+- Semantik, exakt nach `applyUserOverrides` (mocks/data/rbac.ts), nicht nach dem scope-Text:
+  - `allow` **setzt** den Scope, es hebt ihn nicht nur. Der Referenzcode tut das (`capabilities[key]
+    = { scope: override.scope, ... }`), und Runterregeln fuer eine Person ohne Rollen-Klon ist die
+    halbe Daseinsberechtigung des Features. Der Backlog-Text sagte "setzt oder hebt".
+  - `deny` entfernt den Key immer, aber `deniedByOverride` bekommt nur einen Eintrag, wenn eine
+    Rolle ihn wirklich gab — die Liste zeigt, was WEGGENOMMEN wurde. Ein deny auf einen nie
+    gehaltenen Key waere sonst als "Recht entzogen" sichtbar, das es nie gab.
+  - Provenance: der Sentinel `override` steht als LETZTER Eintrag in `sources`, hinter den Rollen,
+    die den Key auch geben. `EffectivePermissionsView` filtert ihn heraus und rendert den Rest als
+    Chips — Position egal, Reihenfolge aber lesbar.
+  - Unbekannter `mode` faellt in den deny-Zweig, nicht in den allow-Zweig. Dieselbe Richtung, in
+    die `narrowestScope` irrt: zu viel Recht ist der Fehler, den man nicht machen darf.
+- **Kernentscheidung: `NarrowedScopes` bleibt bewusst auf `GetRoleUnion`.** Der scope-Claim kann
+  kein "denied" ausdruecken — ein fehlender Key liest sich dort als `all` (steht so in der
+  Funktion). Ein deny-Override wuerde den Key aus der Map werfen und damit seine WEITESTE
+  Reichweite freigeben, statt sie zu entziehen. Das Gate, das das auffangen muesste, ist der
+  permissions-Claim, und der wird aus `GetUserPermissions` gebacken, die von Overrides nichts
+  weiss. Solange die eine override-blind ist, muss die andere es auch sein. Zweiter, unabhaengiger
+  Grund: `createTokenPair` laeuft unter `sysctx.With()` (service.go:79 u.a.) — dort filtert RLS
+  nicht, ein Override-Read braeuchte dort einen expliziten Tenant-Filter (Fund aus Iteration
+  14/15). Beides steht als Kommentar an `NarrowedScopes` und als Unit `g-rbac-user-overrides-token`
+  im Backlog. Ein Regressionstest haelt es fest.
+- Wire: beide neuen Felder mit `omitempty`. Fuer `?base=1` und fuer jedes Konto ohne Override
+  faellt beides aus dem JSON — die Antwort ist damit **byte-identisch** zu der vor R-6, was der
+  bestehende `TestToEffectivePermissionsBody_WireShape` unveraendert beweist. Das FE defaultet
+  beide (`deniedByOverride = []`, `hasOverrides = false`, EffectivePermissionsView:35 /
+  permissions.ts:113). `sources` in der Spec ist nicht mehr `format: uuid` — der Sentinel ist
+  keine UUID.
+- `?base=1` wertet nur die exakte "1"; jeder andere Wert liefert die effektive Menge. Wer sich
+  vertippt, bekommt die sicherere der beiden Antworten.
+- gate: build ok (`go build -p 2` ueber auth, server, gateway, cmd/auth, cmd/gateway) | vet ok |
+  lint ok (golangci-lint, 0 issues) | proto regeneriert im selben Commit (`auth.pb.go`;
+  `auth_grpc.pb.go` unveraendert — keine neuen RPCs) | migration n.a. (kein Schema-Change) |
+  rls-smoke n.a. | test ok: `go test -count=1 ./internal/auth/... ./internal/gateway/
+  ./internal/server/...` mit `DATABASE_URL` auf `kmuhub_app` — alles gruen. **7 neue DB-Tests,
+  einzeln mit `-v` als PASS verifiziert, 0 SKIP im ganzen auth-Paket** (`grep -c '^--- SKIP'` = 0),
+  2 neue Gateway-Marshal-Tests, `TestOpenAPIRouteDrift` gruen.
+- verify vorgaenger (`de6eb85a`, g-rbac-user-overrides-model): **sauber**. Handler gehen ueber
+  `client.<RPC>` statt einer Service-Instanz, kein Stub/TODO im neuen Pfad, `.proto` mit `.pb.go`
+  und `.grpc.pb.go` im selben Commit, Tabelle mit `tenant_id NOT NULL` + `enable_tenant_rls`,
+  Wire-Shape gegen `rbac-types.ts` gepinnt. Die Seed-Behauptung des Commits gegen die DB geprueft
+  statt geglaubt: `admin:user_override:manage` existiert im Katalog und haengt am `admin`-Preset
+  (und nur dort) — der Guard sperrt also niemanden aus.
+- **FUND ausserhalb des Vorgaenger-Commits, CI-blockierend:** `backend/api/openapi.yaml` ist seit
+  den beiden HR-Units schema-invalide. `npx @apidevtools/swagger-cli validate` (CI-Job "Validate
+  OpenAPI", ci.yml:387) meldet **75 Fehler** — identisch vor und nach meiner Aenderung, also
+  Bestand, nicht neu. Ursache: Responses im YAML-**Flow-Stil** mit Kommas in der Beschreibung
+  (`"400": { description: Malformed body, unknown exit type, ... }`) — das Komma trennt im
+  Flow-Mapping Schluessel-Paare, also wird `unknown exit type` als weiterer Key gelesen.
+  Betroffen: `POST /hr/employees/{id}/offboard` (400/403/409), `/hr/change-requests` (GET/POST)
+  und `ProfileChangeRequest`. `TestOpenAPIRouteDrift` faengt das nicht — er prueft Pfad-Existenz,
+  nicht Validitaet. Als `fix-openapi-flow-mapping-invalid` **ganz vorne** im Backlog angelegt,
+  Ursache dort notiert, damit die naechste Iteration nicht erneut sucht.
+- offen:
+  - Ein Override aendert weiterhin **kein Gate** — nur die Anzeige. Das ist Absicht und begruendet
+    (siehe Kernentscheidung); `g-rbac-user-overrides-token` schliesst es.
+  - `hasOverrides` im Roster (`/admin/users`) joint die Tabelle immer noch nicht — das FE-Badge
+    "Angepasst" und der Filter haengen daran. Weiterhin eigene kleine Unit, gehoert nicht hierher.
+  - Die OpenAPI-Aussage am Roster ("hasOverrides is omitted") bleibt korrekt und wurde bewusst
+    nicht angefasst.
+  - DB-Gate lief lokal vollstaendig (Docker-Postgres erreichbar), kein Nachlauf noetig.

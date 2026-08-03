@@ -692,6 +692,22 @@ type effectivePermissionsBody struct {
 type effectivePermissions struct {
 	Roles        []effectiveRole                `json:"roles"`
 	Capabilities map[string]effectiveCapability `json:"capabilities"`
+	// Both optional in rbac-types.ts and both omitted whenever they carry
+	// nothing — for ?base=1 and for every account without an override. That is
+	// not a shortcut: it makes the answer for an account without overrides
+	// byte-identical to the one this route gave before R-6 existed, and the
+	// frontend defaults both (`deniedByOverride = []`, `hasOverrides = false`).
+	HasOverrides     bool                   `json:"hasOverrides,omitempty"`
+	DeniedByOverride []deniedCapabilityBody `json:"deniedByOverride,omitempty"`
+}
+
+// deniedCapabilityBody is a key the roles grant and a deny override revokes.
+// roleScope is what the roles would have given — the effective view strikes
+// the row through and still shows it.
+type deniedCapabilityBody struct {
+	Key       string   `json:"key"`
+	RoleScope string   `json:"roleScope"`
+	Sources   []string `json:"sources"`
 }
 
 // effectiveRole spells isSystem in camelCase because the frontend type does
@@ -733,8 +749,26 @@ func toEffectivePermissionsBody(resp *authv1.GetEffectivePermissionsResponse) ef
 		caps[c.Key] = effectiveCapability{Scope: c.Scope, Sources: sources}
 	}
 
+	var denied []deniedCapabilityBody
+	for _, d := range resp.DeniedByOverride {
+		sources := d.Sources
+		if sources == nil {
+			sources = []string{}
+		}
+		denied = append(denied, deniedCapabilityBody{
+			Key:       d.Key,
+			RoleScope: d.RoleScope,
+			Sources:   sources,
+		})
+	}
+
 	return effectivePermissionsBody{
-		Permissions: effectivePermissions{Roles: roles, Capabilities: caps},
+		Permissions: effectivePermissions{
+			Roles:            roles,
+			Capabilities:     caps,
+			HasOverrides:     resp.HasOverrides,
+			DeniedByOverride: denied,
+		},
 	}
 }
 
@@ -786,11 +820,17 @@ func (a *AuthRoutes) HandleGetUserPermissions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// lean: the frontend sends ?base=1 to ask for the role union without
-	// per-user overrides. Overrides do not exist server-side yet (RBAC R-6), so
-	// both answers are identical and the parameter is accepted and ignored.
-	// Branch on it once the override table lands.
-	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{UserId: userID})
+	// ?base=1 asks for the role union without the account's per-user overrides
+	// (RBAC R-6) — the inherited baseline the override editor greys out behind
+	// the deviations. Only the exact "1" switches it: an unknown value means a
+	// caller who did not mean to ask, and the effective set is the safer answer
+	// to hand someone who guessed wrong.
+	base := r.URL.Query().Get("base") == "1"
+
+	resp, err := client.GetEffectivePermissions(r.Context(), &authv1.GetEffectivePermissionsRequest{
+		UserId: userID,
+		Base:   base,
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

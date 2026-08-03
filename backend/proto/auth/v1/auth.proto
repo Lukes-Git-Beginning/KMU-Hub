@@ -253,6 +253,11 @@ message CheckPermissionResponse {
 // Empty user_id means "the caller", resolved from the request context.
 message GetEffectivePermissionsRequest {
   string user_id = 1;
+  // base asks for the pure role union, before per-user overrides (RBAC R-6)
+  // are folded in. That is the greyed "inherited" baseline the override editor
+  // renders next to the effective set, so it must stay reachable even for an
+  // account whose overrides change half of it.
+  bool base = 2;
 }
 
 // A role assigned to the user. Preset roles carry tenant_id IS NULL and are
@@ -273,9 +278,27 @@ message EffectiveCapability {
   repeated string sources = 3;
 }
 
+// A capability the account's roles grant but a deny override revokes. It is
+// absent from capabilities — this list exists so the effective view can show it
+// struck through instead of silently missing, which is the difference between
+// "you never had it" and "it was taken from you".
+//
+// role_scope is the scope the roles would have granted, kept for that display;
+// sources are the contributing role ids, same currency as EffectiveCapability.
+message DeniedCapability {
+  string key = 1;
+  string role_scope = 2;
+  repeated string sources = 3;
+}
+
 message GetEffectivePermissionsResponse {
   repeated EffectiveRole roles = 1;
   repeated EffectiveCapability capabilities = 2;
+  // Both fields stay empty for a base=true request and for an account without
+  // a single override, so its answer is byte-identical to the one this RPC
+  // gave before overrides existed.
+  bool has_overrides = 3;
+  repeated DeniedCapability denied_by_override = 4;
 }
 
 // Role administration messages.

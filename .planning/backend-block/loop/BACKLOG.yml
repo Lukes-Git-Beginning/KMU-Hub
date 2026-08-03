@@ -80,6 +80,85 @@
 units:
 
   # ==========================================================================
+  # FIX-UNITS — aus dem Verify-Vorspann, vor allem anderen
+  # ==========================================================================
+
+  - id: fix-openapi-flow-mapping-invalid
+    phase: sec
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `backend/api/openapi.yaml` ist seit den beiden HR-Units **schema-invalide** — der CI-Job
+      "Validate OpenAPI" (`npx @apidevtools/swagger-cli validate backend/api/openapi.yaml`,
+      ci.yml:387) meldet 75 Fehler und ist damit rot, ohne dass ein Test im Repo es merkt.
+      Betroffen: `POST /api/v1/hr/employees/{id}/offboard` (Responses 400/403/409) und
+      `/api/v1/hr/change-requests` (GET 200, POST 201) samt Schema `ProfileChangeRequest`.
+    sources:
+      - backend/api/openapi.yaml
+      - .github/workflows/ci.yml
+    notes: >
+      URSACHE STEHT FEST, nicht erneut suchen: die Eintraege sind im YAML-**Flow-Stil**
+      geschrieben (`"400": { description: Malformed body, unknown exit type, ... }`) und die
+      Beschreibung enthaelt **Kommas**. Im Flow-Mapping trennt das Komma Schluessel-Paare, also
+      liest der Parser `unknown exit type` als weiteren Key des Response-Objekts — daher
+      "must NOT have additional properties". Fix: Flow-Stil in Block-Stil aufloesen (wie bei allen
+      Nachbar-Routen) oder die Beschreibung quoten. Block-Stil ist konsistenter.
+      `TestOpenAPIRouteDrift` faengt das NICHT: der Test prueft, ob es zu jeder registrierten
+      Route einen Pfad-Eintrag gibt, nicht ob die Spec valide ist. Deshalb blieb es zwei Commits
+      lang unbemerkt (`23ceede6` hr offboarding, `dbcf2493` hr change requests).
+      Beim Aufloesen die Aussagen woertlich uebernehmen — sie beschreiben real gelieferte Codes,
+      es geht ausschliesslich um die YAML-Form.
+      Gegenprobe vor dem Commit ist das CI-Kommando selbst; erwartet ist
+      "backend/api/openapi.yaml is valid".
+    done_when:
+      - swagger-cli validate laeuft ohne Fehler durch
+      - keine Aussage inhaltlich veraendert, nur die YAML-Form
+      - go test -count=1 ./internal/gateway/ gruen (TestOpenAPIRouteDrift bleibt gruen)
+
+  - id: g-rbac-user-overrides-token
+    phase: 3
+    service: auth
+    model: opus
+    deps: [g-rbac-user-overrides-resolver]
+    status: todo
+    scope: >
+      Overrides im **Token** wirksam machen. Nach `g-rbac-user-overrides-resolver` zeigen
+      `/auth/me/permissions` und `/admin/users/{id}/permissions` die Overrides an, aber kein Gate
+      liest sie: `RequirePermission` prueft den permissions-Claim, und der wird in
+      `createTokenPair` (auth/service.go:398) aus `GetUserPermissions` gebacken — reine
+      Rollen-Union. Ein deny im Editor schliesst also noch keine Tuer, ein allow oeffnet keine.
+    sources:
+      - backend/internal/auth/service.go
+      - backend/internal/auth/effective_permissions.go
+      - backend/internal/auth/postgres_repository.go
+    notes: >
+      Zwei Fallen, beide in Iteration 40 verifiziert und der Grund, warum die Resolver-Unit den
+      Token bewusst NICHT angefasst hat:
+      (1) **Nur zusammen, nie einzeln.** `NarrowedScopes` und der permissions-Claim muessen in
+      DERSELBEN Aenderung override-aware werden. Der scope-Claim kann kein "denied" ausdruecken —
+      ein fehlender Key liest sich dort als `all` (Kommentar an `NarrowedScopes`). Wird nur er
+      angefasst, gibt ein deny die weiteste Reichweite frei statt sie zu entziehen.
+      (2) **`createTokenPair` laeuft unter `sysctx.With()`** (service.go:79, 124, 178, 218, 265),
+      dort filtert RLS nicht. Der Override-Read braucht dort einen expliziten
+      `WHERE tenant_id = $1`, sonst zieht er tenant-uebergreifend — derselbe Fund wie bei
+      `two_factor_policy` (Iteration 14) und `presence_config` (Iteration 15).
+      Dazu kommt die Formfrage: `GetUserPermissions` liefert grobe Legacy-Keys UND feine
+      Katalog-Keys, `GetEffectivePermissions` nur die feinen. Die Overrides duerfen die groben
+      also nicht wegfiltern — sonst gibt JEDER Guard mit grobem Key 403. Das ist die eigentliche
+      Arbeit dieser Unit.
+      Nicht vergessen: Claims werden nur bei Login/Refresh gebacken. Ein Override wirkt erst mit
+      dem naechsten Token — das gehoert in die Antwort der Set-Route dokumentiert, damit das FE
+      es dem Admin sagen kann.
+    done_when:
+      - deny schliesst ein Gate nachweislich, allow oeffnet eines (Test gegen den echten Service)
+      - grobe Legacy-Keys bleiben im Claim erhalten
+      - Override-Read im Login-Pfad ist explizit tenant-gescopt (sysctx!)
+      - scope-Claim und permissions-Claim in derselben Aenderung
+      - go test -count=1 ./internal/auth/... ./internal/gateway/ gruen
+
+  # ==========================================================================
   # BLOCK A — RBAC Phase 1 Welle 1b (seriell verkettet)
   # Quelle: .planning/backend-block/PHASE-1-RBAC-PLAN.md §4
   # Ergebnis: Custom-Rollen tenant-scoped verwaltbar, der RBAC-Builder im FE
@@ -2292,7 +2371,7 @@ units:
     service: auth
     model: opus
     deps: [g-rbac-user-overrides-model]
-    status: todo
+    status: done
     scope: >
       Die Overrides in die Rechte-Aufloesung einhaengen. `GET /auth/me/permissions` und
       `GET /admin/users/{id}/permissions` liefern danach die aufgeloesten Capabilities INKLUSIVE
@@ -2326,6 +2405,27 @@ units:
       - Provenance-Sentinel gesetzt
       - Nutzer ohne Overrides: unveraenderte Antwort (Regressionstest)
       - go test -count=1 ./internal/gateway/ ./internal/auth/... gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 40). Die Naht sitzt in `Service.GetEffectivePermissions`: Rollen-Union
+      (jetzt `Service.GetRoleUnion`, unveraenderter Alt-Code) plus `applyOverrides()` — eine
+      Stelle, wie die MSW-Referenz. `allow` SETZT den Scope (nicht "hebt"): der MSW-Code tut das
+      auch, und Runterregeln fuer eine Person ohne Rollen-Klon ist die halbe Daseinsberechtigung
+      des Features. Der scope-Text sagte "setzt oder hebt" — gebaut ist, was der Referenzcode tut.
+      **Kernentscheidung: `NarrowedScopes` bleibt bewusst auf der reinen Rollen-Union.** Der
+      scope-Claim kann kein "denied" ausdruecken — ein fehlender Key liest sich dort als `all`
+      (dokumentiert in der Funktion selbst). Ein deny-Override wuerde den Key also aus dem Claim
+      werfen und damit seine WEITESTE Reichweite freigeben, statt ihn zu entziehen. Das Gate, das
+      das auffangen muesste, ist der permissions-Claim, und der wird aus `GetUserPermissions`
+      gebacken, die von Overrides nichts weiss. Solange die eine override-blind ist, muss die
+      andere es auch sein. Ein Regressionstest haelt das fest.
+      Zweiter Grund fuer dieselbe Entscheidung, unabhaengig vom ersten: `createTokenPair` laeuft
+      unter `sysctx.With()` (service.go:79 u.a.), dort filtert RLS nicht — ein Override-Read im
+      Login-Pfad braeuchte einen expliziten Tenant-Filter (derselbe Fund wie in Iteration 14/15).
+      Folge-Unit `g-rbac-user-overrides-token` dafuer angelegt.
+      Wire: `hasOverrides`/`deniedByOverride` tragen `omitempty` — fuer `?base=1` und fuer jedes
+      Konto ohne Override faellt beides aus dem JSON, die Antwort ist damit **byte-identisch** zu
+      der vor R-6. Das FE defaultet beide Felder (`deniedByOverride = []`, `hasOverrides = false`),
+      der bestehende Wire-Shape-Test pinnt es zusaetzlich.
 
   # ==========================================================================
   # BLOCK F — uebernommen aus Lauf 3 (Scope dort bereits verifiziert)

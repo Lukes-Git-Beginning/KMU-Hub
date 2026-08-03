@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
@@ -95,6 +96,52 @@ func TestToEffectivePermissionsBody_NilSourcesMarshalAsArray(t *testing.T) {
 	want := `{"permissions":{"roles":[],"capabilities":{"work:task:read":{"scope":"own","sources":[]}}}}`
 	if string(raw) != want {
 		t.Errorf("nil sources = %s, want %s", raw, want)
+	}
+}
+
+// TestToEffectivePermissionsBody_OverridesWireShape pins the two R-6 fields
+// against rbac-types.ts. An allow override carries the "override" sentinel as
+// the last entry of sources — it is not a role id and resolves against no
+// role, which is exactly how EffectivePermissionsView tells a hand-granted
+// right from an inherited one. deniedByOverride keeps the scope the roles
+// would have given so the row can be shown struck through.
+func TestToEffectivePermissionsBody_OverridesWireShape(t *testing.T) {
+	raw, err := json.Marshal(toEffectivePermissionsBody(&authv1.GetEffectivePermissionsResponse{
+		Capabilities: []*authv1.EffectiveCapability{
+			{Key: "work:task:edit", Scope: "own", Sources: []string{"11111111-1111-1111-1111-111111111111", "override"}},
+		},
+		HasOverrides: true,
+		DeniedByOverride: []*authv1.DeniedCapability{
+			{Key: "crm:contact:delete", RoleScope: "all", Sources: []string{"11111111-1111-1111-1111-111111111111"}},
+		},
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"permissions":{"roles":[],"capabilities":{"work:task:edit":{"scope":"own","sources":["11111111-1111-1111-1111-111111111111","override"]}},` +
+		`"hasOverrides":true,` +
+		`"deniedByOverride":[{"key":"crm:contact:delete","roleScope":"all","sources":["11111111-1111-1111-1111-111111111111"]}]}}`
+	if string(raw) != want {
+		t.Errorf("override wire shape drifted\n got: %s\nwant: %s", raw, want)
+	}
+}
+
+// TestToEffectivePermissionsBody_OmitsOverrideFieldsWhenThereAreNone is the
+// regression guard for every account that carries no override, and for
+// ?base=1: both fields drop out of the JSON entirely, so the answer stays
+// byte-identical to the one this route gave before R-6 existed. The frontend
+// defaults them (`hasOverrides = false`, `deniedByOverride = []`).
+func TestToEffectivePermissionsBody_OmitsOverrideFieldsWhenThereAreNone(t *testing.T) {
+	raw, err := json.Marshal(toEffectivePermissionsBody(&authv1.GetEffectivePermissionsResponse{
+		Capabilities: []*authv1.EffectiveCapability{{Key: "work:task:read", Scope: "own", Sources: []string{"r"}}},
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	if strings.Contains(string(raw), "hasOverrides") || strings.Contains(string(raw), "deniedByOverride") {
+		t.Errorf("override fields must be omitted when empty, got: %s", raw)
 	}
 }
 

@@ -379,9 +379,11 @@ paths:
       description: >
         Resolved multi-role union of the authenticated account: the roles it
         holds and, per fine-grained capability key, the widest scope any of
-        those roles grants. The account is taken from the JWT, never from the
-        request. No permission guard — every signed-in user may read their own
-        rights.
+        those roles grants, with the account's per-user overrides (R-6) folded
+        in — deny drops a key into deniedByOverride, allow sets its scope and
+        tags the grant with the "override" source. The account is taken from
+        the JWT, never from the request. No permission guard — every signed-in
+        user may read their own rights.
       tags: [auth]
       operationId: getMyEffectivePermissions
       security:
@@ -1077,10 +1079,11 @@ paths:
           in: query
           required: false
           description: >
-            Reserved for the role union without per-user overrides. Overrides
-            are stored (see /admin/users/{id}/overrides) but are not folded
-            into this response yet, so the parameter is currently accepted and
-            ignored — with or without it the answer is the pure role union.
+            "1" returns the pure role union, before the account's per-user
+            overrides (see /admin/users/{id}/overrides) are folded in — the
+            inherited baseline the override editor renders behind the
+            deviations. hasOverrides and deniedByOverride are then omitted.
+            Any other value is ignored and yields the effective set.
           schema:
             type: string
             enum: ["1"]
@@ -32077,11 +32080,36 @@ components:
           description: >
             IDs of every role contributing this grant, including those that lost
             the scope comparison. Resolvable against the roles list of the same
-            response.
+            response. A grant set or raised by an allow override carries the
+            literal sentinel "override" as its last entry, next to the role IDs
+            that also grant the key — it is not a UUID and resolves against no
+            role.
+          items:
+            type: string
+      required: [scope, sources]
+
+    DeniedCapability:
+      type: object
+      description: >
+        A capability the account's roles grant and a deny override takes away.
+        It is absent from capabilities; this entry keeps what the roles would
+        have given so the effective view can show the row struck through
+        instead of silently missing.
+      properties:
+        key:
+          type: string
+          example: crm:contact:delete
+        roleScope:
+          type: string
+          enum: [own, team, all]
+          description: Scope the roles would have granted.
+        sources:
+          type: array
+          description: IDs of the roles that grant the revoked key.
           items:
             type: string
             format: uuid
-      required: [scope, sources]
+      required: [key, roleScope, sources]
 
     EffectivePermissions:
       type: object
@@ -32098,6 +32126,20 @@ components:
             scope. Coarse legacy permission names are filtered out.
           additionalProperties:
             $ref: "#/components/schemas/EffectiveCapability"
+        hasOverrides:
+          type: boolean
+          description: >
+            True when the account carries at least one per-user override.
+            Omitted when it carries none and for a base=1 request, which keeps
+            the answer for an account without overrides identical to the one
+            this route gave before R-6.
+        deniedByOverride:
+          type: array
+          description: >
+            Keys the roles grant and a deny override revokes. Omitted when
+            empty and for a base=1 request.
+          items:
+            $ref: "#/components/schemas/DeniedCapability"
       required: [roles, capabilities]
 
     EffectivePermissionsResponse:

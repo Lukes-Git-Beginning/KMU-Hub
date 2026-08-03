@@ -253,3 +253,235 @@ func effPermRoleNames(roles []auth.EffectiveRole) []string {
 	}
 	return names
 }
+
+// ── Per-user overrides folded into the resolution (RBAC R-6) ───────────────
+//
+// The fixtures below write to user_permission_overrides directly instead of
+// going through SetUserOverrides: that path carries four guardrails of its own,
+// and a resolver test must not depend on being allowed to write what it
+// resolves. The rows disappear with the user (ON DELETE CASCADE).
+//
+// The keys come out of the catalogue rather than being hardcoded — a preset
+// losing a grant should fail this suite honestly instead of leaving it green
+// against a key nobody holds any more.
+
+// effPermGrantedKey returns one fine-grained key the preset grants, with the
+// scope it grants it at.
+func effPermGrantedKey(t *testing.T, pool *pgxpool.Pool, preset string) (string, string) {
+	t.Helper()
+	var key, scope string
+	err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT p.name, rp.scope
+		 FROM roles r
+		 JOIN role_permissions rp ON rp.role_id = r.id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE r.name = $1 AND r.tenant_id IS NULL AND p.resource LIKE '%:%'
+		 ORDER BY p.name LIMIT 1`, preset).Scan(&key, &scope)
+	require.NoErrorf(t, err, "preset %q has no fine-grained grant — migration 000256 not applied?", preset)
+	return key, scope
+}
+
+// effPermUngrantedKey returns a catalogue key the preset does NOT grant — the
+// allow case that has to produce a capability out of nothing.
+func effPermUngrantedKey(t *testing.T, pool *pgxpool.Pool, preset string) string {
+	t.Helper()
+	var key string
+	err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT p.name FROM permissions p
+		 WHERE p.resource LIKE '%:%'
+		   AND NOT EXISTS (
+		       SELECT 1 FROM role_permissions rp
+		       JOIN roles r ON r.id = rp.role_id
+		       WHERE rp.permission_id = p.id AND r.name = $1 AND r.tenant_id IS NULL)
+		 ORDER BY p.name LIMIT 1`, preset).Scan(&key)
+	require.NoErrorf(t, err, "preset %q already grants the whole catalogue", preset)
+	return key
+}
+
+func effPermSeedOverride(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, key, mode, scope string) {
+	t.Helper()
+	_, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
+		`INSERT INTO user_permission_overrides (tenant_id, user_id, permission_key, mode, scope)
+		 VALUES ($1, $2, $3, $4, $5)`, effPermTenant, userID, key, mode, scope)
+	require.NoError(t, err)
+}
+
+// TestEffectivePermissions_DB_AccountWithoutOverridesIsUnchanged is the most
+// important test of the override seam. Overrides are opt-in and rare; an
+// account without any has to come out of the resolver exactly as it did before
+// the resolver knew overrides existed — same keys, same scopes, same
+// provenance, and neither override field set.
+func TestEffectivePermissions_DB_AccountWithoutOverridesIsUnchanged(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-plain@test.local", "member")
+
+	union, err := svc.GetRoleUnion(ctx, userID)
+	require.NoError(t, err)
+	effective, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, effective.Capabilities, "member grants keys — an empty set would prove nothing")
+	assert.Equal(t, union, effective, "without overrides the effective set IS the role union")
+	assert.False(t, effective.HasOverrides)
+	assert.Empty(t, effective.DeniedByOverride)
+}
+
+// TestEffectivePermissions_DB_DenyRemovesTheKey: a deny beats the roles however
+// many of them grant the key — and the key does not vanish quietly. It moves to
+// DeniedByOverride, because "taken from you" and "never had it" are different
+// answers and the effective view shows the first one struck through.
+func TestEffectivePermissions_DB_DenyRemovesTheKey(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-deny@test.local", "member")
+
+	key, roleScope := effPermGrantedKey(t, pool, "member")
+	before, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+	inherited, held := effPermCapMap(before.Capabilities)[key]
+	require.True(t, held, "fixture key must come from the roles")
+
+	effPermSeedOverride(t, pool, userID, key, "deny", "all")
+
+	after, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+
+	assert.NotContains(t, effPermCapMap(after.Capabilities), key, "a denied key leaves the capability set")
+	assert.Len(t, after.Capabilities, len(before.Capabilities)-1, "and exactly one key leaves it")
+	assert.True(t, after.HasOverrides)
+	require.Len(t, after.DeniedByOverride, 1)
+	assert.Equal(t, key, after.DeniedByOverride[0].Key)
+	assert.Equal(t, roleScope, after.DeniedByOverride[0].RoleScope, "the view keeps what the roles would have given")
+	assert.Equal(t, inherited.Sources, after.DeniedByOverride[0].Sources)
+}
+
+// TestEffectivePermissions_DB_DenyOfAnUnheldKeyIsNotReported mirrors
+// applyUserOverrides: DeniedByOverride lists what was TAKEN, so a deny on a key
+// no role granted belongs nowhere — reporting it would show a user a right
+// being revoked that they never had.
+func TestEffectivePermissions_DB_DenyOfAnUnheldKeyIsNotReported(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-deny-unheld@test.local", "member")
+
+	key := effPermUngrantedKey(t, pool, "member")
+	effPermSeedOverride(t, pool, userID, key, "deny", "all")
+
+	got, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+	assert.True(t, got.HasOverrides, "the account still carries an override")
+	assert.Empty(t, got.DeniedByOverride, "but nothing was taken away")
+	assert.NotContains(t, effPermCapMap(got.Capabilities), key)
+}
+
+// TestEffectivePermissions_DB_AllowGrantsAndTagsProvenance covers the allow
+// half: a key no role gives appears, carrying the override sentinel. Without
+// it the effective view would credit a hand-granted right to a role that never
+// granted it.
+func TestEffectivePermissions_DB_AllowGrantsAndTagsProvenance(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-allow@test.local", "member")
+
+	key := effPermUngrantedKey(t, pool, "member")
+	effPermSeedOverride(t, pool, userID, key, "allow", "team")
+
+	got, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+
+	granted, ok := effPermCapMap(got.Capabilities)[key]
+	require.True(t, ok, "an allow has to produce the capability")
+	assert.Equal(t, "team", granted.Scope)
+	assert.Equal(t, []string{auth.OverrideSource}, granted.Sources, "no role contributes, so the sentinel stands alone")
+	assert.True(t, got.HasOverrides)
+	assert.Empty(t, got.DeniedByOverride)
+}
+
+// TestEffectivePermissions_DB_AllowSetsTheScopeAndKeepsRoleProvenance: an allow
+// on a key the roles already grant SETS the scope instead of widening it —
+// narrowing one person without cloning a role is half of what the feature is
+// for. The contributing roles keep their place in Sources, the sentinel goes
+// last.
+func TestEffectivePermissions_DB_AllowSetsTheScopeAndKeepsRoleProvenance(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-narrow@test.local", "admin")
+
+	// admin grants at "all" throughout, which is what makes a narrowing
+	// override provably a narrowing here.
+	key, roleScope := effPermGrantedKey(t, pool, "admin")
+	require.Equal(t, "all", roleScope, "fixture assumes the admin preset grants at all")
+
+	before, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+	inherited := effPermCapMap(before.Capabilities)[key]
+	require.NotEmpty(t, inherited.Sources)
+
+	effPermSeedOverride(t, pool, userID, key, "allow", "own")
+
+	after, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+	narrowed := effPermCapMap(after.Capabilities)[key]
+	assert.Equal(t, "own", narrowed.Scope, "the override sets the scope, it does not lose to the wider role scope")
+	assert.Equal(t, append(slices.Clone(inherited.Sources), auth.OverrideSource), narrowed.Sources,
+		"the roles keep their provenance and the sentinel goes last")
+}
+
+// TestGetRoleUnion_DB_IgnoresOverrides backs ?base=1: the override editor needs
+// the inherited baseline to show what a deviation deviates from, so this path
+// stays blind to the overrides even for an account that has them.
+func TestGetRoleUnion_DB_IgnoresOverrides(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-base@test.local", "member")
+
+	key, _ := effPermGrantedKey(t, pool, "member")
+	effPermSeedOverride(t, pool, userID, key, "deny", "all")
+
+	base, err := svc.GetRoleUnion(ctx, userID)
+	require.NoError(t, err)
+	assert.Contains(t, effPermCapMap(base.Capabilities), key, "the baseline still shows what the roles grant")
+	assert.False(t, base.HasOverrides, "the baseline reports no override state at all")
+	assert.Empty(t, base.DeniedByOverride)
+
+	effective, err := svc.GetEffectivePermissions(ctx, userID)
+	require.NoError(t, err)
+	assert.Len(t, effective.Capabilities, len(base.Capabilities)-1, "and the effective set differs from it")
+}
+
+// TestNarrowedScopes_DB_StaysOnTheRoleUnion guards the trap that decided where
+// the override seam sits. The scope claim cannot express "denied": a key
+// missing from the map reads as "all". Fold a deny in here and the very
+// override meant to take a right away would hand out its widest scope instead,
+// because the permissions claim that would refuse the request is minted from
+// GetUserPermissions, which knows nothing about overrides.
+func TestNarrowedScopes_DB_StaysOnTheRoleUnion(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+	userID := effPermUser(t, pool, effPermTenant, "eff-ovr-scopes@test.local", "member")
+
+	// A key member holds at a narrowed scope — exactly the entry a deny could
+	// wrongly drop out of the claim.
+	var key string
+	err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT p.name
+		 FROM roles r
+		 JOIN role_permissions rp ON rp.role_id = r.id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 WHERE r.name = 'member' AND r.tenant_id IS NULL
+		   AND p.resource LIKE '%:%' AND rp.scope <> 'all'
+		 ORDER BY p.name LIMIT 1`).Scan(&key)
+	require.NoError(t, err, "member must carry at least one narrowed grant")
+
+	before, err := svc.NarrowedScopes(ctx, userID)
+	require.NoError(t, err)
+	require.Contains(t, before, key)
+
+	effPermSeedOverride(t, pool, userID, key, "deny", "all")
+
+	after, err := svc.NarrowedScopes(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "the claim must not move until the permissions claim knows overrides too")
+	assert.Contains(t, after, key, "dropping it here would read as unrestricted, not as denied")
+}

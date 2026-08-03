@@ -258,7 +258,13 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	perms, err := s.authService.GetEffectivePermissions(ctx, userID)
+	// base=true stops before the per-user overrides — the editor needs the
+	// inherited baseline to show what a deviation deviates from.
+	resolve := s.authService.GetEffectivePermissions
+	if req.Base {
+		resolve = s.authService.GetRoleUnion
+	}
+	perms, err := resolve(ctx, userID)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -282,9 +288,20 @@ func (s *AuthGRPCServer) GetEffectivePermissions(ctx context.Context, req *authv
 		}
 	}
 
+	denied := make([]*authv1.DeniedCapability, len(perms.DeniedByOverride))
+	for i, d := range perms.DeniedByOverride {
+		denied[i] = &authv1.DeniedCapability{
+			Key:       d.Key,
+			RoleScope: d.RoleScope,
+			Sources:   d.Sources,
+		}
+	}
+
 	return &authv1.GetEffectivePermissionsResponse{
-		Roles:        roles,
-		Capabilities: capabilities,
+		Roles:            roles,
+		Capabilities:     capabilities,
+		HasOverrides:     perms.HasOverrides,
+		DeniedByOverride: denied,
 	}, nil
 }
 
