@@ -21416,6 +21416,140 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/email/templates:
+    get:
+      summary: List email templates visible to the caller (own personal + shared)
+      tags: [mails]
+      operationId: listEmailTemplates
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Template list, name-ordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEmailTemplatesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create an email template
+      tags: [mails]
+      operationId: createEmailTemplate
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailTemplateRequest"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEmailTemplateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/templates/{id}:
+    get:
+      summary: Get an email template
+      tags: [mails]
+      operationId: getEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetEmailTemplateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update an email template
+      tags: [mails]
+      operationId: updateEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailTemplateRequest"
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateEmailTemplateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an email template
+      tags: [mails]
+      operationId: deleteEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Template deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/templates/{id}/render:
+    post:
+      summary: Render an email template, substituting the fixed set of allowed placeholders
+      tags: [mails]
+      operationId: renderEmailTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenderEmailTemplateRequest"
+      responses:
+        "200":
+          description: Rendered subject and body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderEmailTemplateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/email/labels:
     get:
       summary: List the tenant's email labels
@@ -40501,6 +40635,118 @@ components:
       properties:
         signature:
           $ref: "#/components/schemas/EmailSignatureInfo"
+
+    EmailTemplateInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+          description: Empty when visibility is "shared".
+        visibility:
+          type: string
+          enum: [personal, shared]
+        name:
+          type: string
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListEmailTemplatesResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailTemplateInfo"
+
+    GetEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    CreateEmailTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        visibility:
+          type: string
+          enum: [personal, shared]
+          description: Defaults to "personal" when omitted.
+
+    CreateEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    UpdateEmailTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        body_html:
+          type: string
+          nullable: true
+        body_text:
+          type: string
+          nullable: true
+        visibility:
+          type: string
+          enum: [personal, shared]
+          nullable: true
+
+    UpdateEmailTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/EmailTemplateInfo"
+
+    RenderEmailTemplateRequest:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Only keys from the server-side fixed placeholder allow-list are
+            substituted; unknown keys are ignored.
+
+    RenderEmailTemplateResponse:
+      type: object
+      properties:
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
 
     EmailContactLinkInfo:
       type: object

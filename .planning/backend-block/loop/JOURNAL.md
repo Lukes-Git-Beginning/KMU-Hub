@@ -3100,3 +3100,65 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   `go test -count=1 ./internal/auth/... ./internal/server/... ./internal/biz/hr/employee/...
   ./internal/gateway/...` -> alles PASS, 0 SKIP, inkl. 3 neuer RLS-Tests fuer `user_roles`.
   migrate up/down/up lokal gruen (Kopf 286).
+
+## Iteration 48 — g-mails-templates — done — 2026-08-03
+
+- verify-vorspann auf `6d6799b2` (Iteration 47, user_roles-RLS): `git show --stat` + Diff der
+  Kern-Dateien (`postgres_repository.go`, `roles_admin.go`, `route_auth.go`) gelesen, deckt sich
+  mit der Journal-Beschreibung. Migration additiv+Backfill, kein neuer Guard, keine neue Route.
+  Kein Fund. Sauber.
+- gebaut: `g-mails-templates`. Neues Package `internal/email/template/` (4-Datei-Muster: repository,
+  postgres_repository, service, errors — mirrored von `signature/`). Migration 000287:
+  `email_templates` mit `tenant_id NOT NULL`, `owner_id UUID REFERENCES users(id)` (NULL = shared),
+  `visibility` CHECK IN ('personal','shared'), `CALL enable_tenant_rls('email_templates')`.
+- Sichtbarkeits-Pattern ist EINE WHERE-Klausel, geteilt von `GetByID`/`ListVisible`:
+  `tenant_id = $t AND (visibility='shared' OR owner_id=$user OR $isAdmin=true)` — mirrored von
+  `crm/contact`s owner_id/visibility-Spalten, nicht neu erfunden (per Recherche als einziger
+  echter Analog im Bestand identifiziert; `signature` ist rein user-scoped und taugte nicht als
+  Vorlage). Eine fremde personal-Vorlage ist damit ueberall (Get/Update/Delete) unauffindbar statt
+  403 — dieselbe "invisible not forbidden"-Konvention wie bei den RBAC-Presets aus Welle 1b.
+  Update/Delete rufen GetByID zuerst; ein Fremdzugriff erreicht `repo.Delete` dadurch nie
+  (testbewiesen: `DeleteFn` wird nicht aufgerufen, wenn GetByID `ErrTemplateNotFound` liefert).
+- Placeholder-Substitution (`Service.Render`) iteriert NUR ueber die feste 6-Key-Liste
+  `AllowedPlaceholders` (contact_first_name/_last_name/_email, company_name, sender_name, today)
+  und schlaegt fuer jeden Key `{{key}}` im Body nach — ein vom Aufrufer gelieferter Key ausserhalb
+  der Liste wird nie gelesen. Kein `text/template`, keine Reflection-basierte Feldaufloesung.
+  Testbeweis: ein `unknown_key`-Wert mit Script-Payload bleibt im Output als literales
+  `{{unknown_key}}` stehen statt ersetzt zu werden — genau die in den Notes verlangte
+  Daten-Abfluss-Vermeidung.
+- Keine neue Permission-Migration: recherchiert, dass JEDES email-Feature (signatures, rules,
+  labels, accounts) dieselben drei `email:read/write/delete` teilt, keine Feature-eigenen Keys
+  existieren. Templates reihen sich dort ein statt eine Ausnahme zu bauen — spart eine
+  Migration und das Seed-Risiko komplett.
+- Gateway: `user_id`/`is_admin` werden serverseitig aus `middleware.GetUserID`/`IsAdmin` aufgeloest,
+  nie aus dem Client-Body uebernommen — dieselbe IDOR-Vermeidung wie `HandleListAccounts` aus
+  Iteration 46. Die DTOs (`createEmailTemplateDTO` etc.) haben deshalb bewusst keine
+  `user_id`/`is_admin`-Felder.
+- Proto: 6 neue RPCs (List/Get/Create/Update/Delete/Render) + `EmailTemplateInfo`,
+  `.pb.go`/`_grpc.pb.go` per direktem `protoc`-Aufruf regeneriert (kein `make proto-email`-Target
+  im Makefile vorhanden, generischer `proto`-Target-Befehl 1:1 uebernommen).
+  `EmailGRPCServer`-Struct/Konstruktor, `cmd/email/main.go`-Wiring und der bestehende
+  `email_grpc_import_test.go` (11. Konstruktor-Argument) an die neue Service-Instanz angepasst.
+- 6 Endpunkte in `route_email.go` unter `/api/v1/email/templates` + `/{id}/render`, alle unter dem
+  bestehenden `email:read/write/delete`-Muster. `api/openapi.yaml`: 3 Pfad-Bloecke + 10 Schemas,
+  `swagger-cli validate` -> "is valid", `TestOpenAPIRouteDrift` gruen (808 Routen / 810 Pfade).
+- Test-Artefakt gefunden und noch vor dem Commit gefixt: die neuen DB-Testfunktionen mischten
+  zunaechst `defer pool.Close()` mit `t.Cleanup(CleanupRow)` — derselbe Fund wie in Iteration 47
+  bei `user_roles`. Cleanup lief gegen einen bereits geschlossenen Pool (nicht fatal, `t.Logf`
+  statt `t.Fatalf`, aber Zeilen blieben in der DB stehen). Auf
+  `t.Cleanup(func(){ pool.Close() })` umgestellt (LIFO: zuerst registriert, zuletzt aufgerufen).
+- migrate up/down/up lokal gruen (Kopf 287). RLS per psql verifiziert: `relrowsecurity=t,
+  relforcerowsecurity=t`, Policy `tenant_isolation`.
+- keine neue `config.RequireX`-Assertion, kein neues `modules.*`-Flag scharfgeschaltet, kein neuer
+  `RequirePermission`-Guard (bestehendes `email`-Trio wiederverwendet, kein Seed noetig).
+- gate: `go build -p 2 ./...`, `go vet -p 2 ./...`, `golangci-lint run` auf
+  `internal/email/template/...`, `internal/gateway/...`, `internal/server/...`,
+  `internal/models/...`, `cmd/email/...` -> 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`
+  (lokaler Docker-Postgres, Migrationskopf 287): `go test -count=1 ./internal/gateway/...
+  ./internal/server/... ./internal/email/... ./internal/models/...` -> alles PASS, 0 SKIP
+  (12 neue Tests in `internal/email/template`, davon 2 echte DB-Tests fuer Tenant-/Visibility-
+  Isolation). Ein einmaliger Flake in `internal/gateway` (FAIL ohne erkennbaren Testnamen im
+  Diff) verschwand beim zweimaligen Wiederholen — reproduzierbar gruen, kein Fund, keine
+  Aenderung noetig.
+- offen fuer Luke: keine FE-Anbindung in diesem Commit (Backend-Nachtloop-Scope) — recherchiert
+  bestaetigt greenfield, kein FE-Client/Mock erwartete vorher eine bestimmte Wire-Shape.

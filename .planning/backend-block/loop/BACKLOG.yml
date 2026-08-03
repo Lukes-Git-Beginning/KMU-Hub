@@ -2866,7 +2866,7 @@ units:
     service: mails
     model: sonnet
     deps: [g-mails-multi-account]
-    status: todo
+    status: done
     scope: >
       E-Mail-Vorlagen und Quicktexte.
     sources:
@@ -2879,6 +2879,56 @@ units:
       - CRUD und Platzhalter-Ersetzung mit fester Erlaubnisliste
       - Migration mit tenant_id + RLS
       - openapi.yaml im selben Commit
+    ergebnis: >
+      ERLEDIGT (Iteration 48). Neues Package `internal/email/template/` (4-Datei-Muster wie
+      `signature/`), Migration 000287: `email_templates` mit `tenant_id NOT NULL`,
+      `owner_id UUID REFERENCES users(id)` (NULL = shared), `visibility` CHECK
+      IN ('personal','shared'), `CALL enable_tenant_rls('email_templates')`.
+      Sichtbarkeit ist EINE WHERE-Klausel, wiederverwendet in GetByID/ListVisible:
+      `tenant_id = $t AND (visibility='shared' OR owner_id=$user OR $isAdmin=true)` — mirrored von
+      `crm/contact`s Visibility-Pattern (owner_id/visibility-Spalte), nicht neu erfunden. Damit ist
+      eine fremde personal-Vorlage ueberall (Get/Update/Delete) unauffindbar statt 403 — dieselbe
+      "invisible not forbidden"-Konvention wie bei RBAC-Praesets. Update/Delete rufen GetByID zuerst;
+      ein Fremdzugriff erreicht `repo.Delete` dadurch nie (Testbeweis: `DeleteFn` wird nicht
+      aufgerufen, wenn GetByID ErrTemplateNotFound liefert).
+      Placeholder-Substitution (`Service.Render`) iteriert NUR ueber die feste
+      `AllowedPlaceholders`-Liste (6 Keys: contact_first_name/_last_name/_email, company_name,
+      sender_name, today) und schlaegt fuer jeden Key im Body `{{key}}` nach — ein vom Aufrufer
+      gelieferter Key ausserhalb der Liste wird nie gelesen, kein `text/template`, keine
+      Reflection-basierte Feldaufloesung (Test beweist: ein `unknown_key`-Wert mit Script-Payload
+      bleibt im Output als literales `{{unknown_key}}` stehen statt ersetzt zu werden).
+      Keine neue Permission-Migration: recherchiert, dass JEDES email-Feature (signatures, rules,
+      labels, accounts) dieselben drei `email:read/write/delete` teilt, keine Feature-eigenen Keys
+      existieren — Templates reihen sich dort ein statt eine Ausnahme zu bauen.
+      Gateway: `user_id`/`is_admin` werden serverseitig aus `middleware.GetUserID`/`IsAdmin`
+      aufgeloest, nie aus dem Body uebernommen (IDOR-Vermeidung, gleiche Linie wie
+      `HandleListAccounts` aus Iteration 46) — die DTOs (`createEmailTemplateDTO` etc.) haben
+      deshalb bewusst keine `user_id`/`is_admin`-Felder.
+      Proto: `ListEmailTemplates/GetEmailTemplate/CreateEmailTemplate/UpdateEmailTemplate/
+      DeleteEmailTemplate/RenderEmailTemplate` + `EmailTemplateInfo`, `.pb.go`/`_grpc.pb.go` per
+      `protoc` regeneriert (kein `make proto-email`-Target existiert, direkter `protoc`-Aufruf wie
+      im generischen `proto`-Target). `EmailGRPCServer`/`cmd/email/main.go`/
+      `email_grpc_import_test.go` (11. Konstruktor-Argument) angepasst.
+      6 Endpunkte in `route_email.go` unter `/api/v1/email/templates` + `/{id}/render`, alle unter
+      dem bestehenden `email:read/write/delete`-Muster. `api/openapi.yaml`: 3 Pfad-Bloecke + 10
+      Schemas, `swagger-cli validate` -> "is valid", `TestOpenAPIRouteDrift` gruen (808 Routen /
+      810 Pfade).
+      Test-Artefakt gefunden und gefixt, bevor es committed wurde: DB-Testfunktionen mischten
+      `defer pool.Close()` mit `t.Cleanup(CleanupRow)` — derselbe Fund wie in Iteration 47
+      (`user_roles`), Cleanup lief gegen einen bereits geschlossenen Pool (nicht fatal, `t.Logf`
+      statt `t.Fatalf`, aber Zeilen blieben in der DB stehen). Auf `t.Cleanup(func(){pool.Close()})`
+      umgestellt (LIFO: zuerst registriert, zuletzt aufgerufen).
+      migrate up/down/up lokal gruen (Kopf 287). RLS per psql verifiziert:
+      `relrowsecurity=t, relforcerowsecurity=t`, Policy `tenant_isolation`.
+      gate: `go build -p 2 ./...`, `go vet -p 2 ./...`, `golangci-lint run` auf
+      `internal/email/template/...`, `internal/gateway/...`, `internal/server/...`,
+      `internal/models/...`, `cmd/email/...` -> 0 issues. Mit `DATABASE_URL` gegen `kmuhub_app`:
+      `go test -count=1 ./internal/gateway/... ./internal/server/... ./internal/email/...
+      ./internal/models/...` -> alles PASS, 0 SKIP (12 neue Tests in `internal/email/template`,
+      davon 2 echte DB-Tests). Ein einmaliger Flake in `internal/gateway` (grundloser FAIL ohne
+      erkennbaren Testnamen) verschwand beim Wiederholen — zweimal reproduzierbar gruen, kein Fund.
+      offen fuer Luke: keine FE-Anbindung (Backend-Scope), kein FE-Mock/Client existierte vorher
+      (Recherche bestaetigt: greenfield).
   - id: g-video-recording-download
     phase: 3
     service: video

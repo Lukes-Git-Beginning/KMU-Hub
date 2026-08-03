@@ -83,6 +83,30 @@ type bulkMessageActionDTO struct {
 	Target string   `json:"target" validate:"omitempty,uuid"`
 }
 
+// createEmailTemplateDTO backs POST /api/v1/email/templates. user_id/is_admin
+// are resolved server-side from the auth token, not accepted from the body —
+// the same IDOR-avoidance as the account-switcher routes (route_email.go
+// HandleListAccounts).
+type createEmailTemplateDTO struct {
+	Name       string `json:"name" validate:"required"`
+	Subject    string `json:"subject"`
+	BodyHtml   string `json:"body_html"`
+	BodyText   string `json:"body_text"`
+	Visibility string `json:"visibility" validate:"omitempty,oneof=personal shared"`
+}
+
+type updateEmailTemplateDTO struct {
+	Name       *string `json:"name"`
+	Subject    *string `json:"subject"`
+	BodyHtml   *string `json:"body_html"`
+	BodyText   *string `json:"body_text"`
+	Visibility *string `json:"visibility" validate:"omitempty,oneof=personal shared"`
+}
+
+type renderEmailTemplateDTO struct {
+	Values map[string]string `json:"values"`
+}
+
 // EmailRoutes handles HTTP routes for the Email backend service.
 type EmailRoutes struct {
 	registry *ServiceRegistry
@@ -183,6 +207,17 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailLabel)
 		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailLabel)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailLabel)
+	})
+
+	// Templates (Vorlagen & Quicktexte)
+	r.Route("/api/v1/email/templates", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailTemplates)
+		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetEmailTemplate)
+		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailTemplate)
+		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateEmailTemplate)
+		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailTemplate)
+		r.With(middleware.RequirePermission("email", "read")).Post("/{id}/render", e.HandleRenderEmailTemplate)
 	})
 
 	// CRM Links
@@ -874,6 +909,156 @@ func (e *EmailRoutes) HandleSetDefaultSignature(w http.ResponseWriter, r *http.R
 	resp, err := client.SetDefaultSignature(r.Context(), &emailv1.SetDefaultSignatureRequest{
 		Id:     chi.URLParam(r, "id"),
 		UserId: body.UserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Template Handlers (Vorlagen & Quicktexte)
+// ============================================================================
+
+func (e *EmailRoutes) HandleListEmailTemplates(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	isAdmin := middleware.IsAdmin(r.Context())
+
+	resp, err := client.ListEmailTemplates(r.Context(), &emailv1.ListEmailTemplatesRequest{
+		UserId:  userID,
+		IsAdmin: isAdmin,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleGetEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.GetEmailTemplate(r.Context(), &emailv1.GetEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleCreateEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[createEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateEmailTemplate(r.Context(), &emailv1.CreateEmailTemplateRequest{
+		UserId:     middleware.GetUserID(r.Context()),
+		Name:       body.Name,
+		Subject:    body.Subject,
+		BodyHtml:   body.BodyHtml,
+		BodyText:   body.BodyText,
+		Visibility: body.Visibility,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (e *EmailRoutes) HandleUpdateEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[updateEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateEmailTemplate(r.Context(), &emailv1.UpdateEmailTemplateRequest{
+		Id:         chi.URLParam(r, "id"),
+		UserId:     middleware.GetUserID(r.Context()),
+		IsAdmin:    middleware.IsAdmin(r.Context()),
+		Name:       body.Name,
+		Subject:    body.Subject,
+		BodyHtml:   body.BodyHtml,
+		BodyText:   body.BodyText,
+		Visibility: body.Visibility,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleDeleteEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	resp, err := client.DeleteEmailTemplate(r.Context(), &emailv1.DeleteEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (e *EmailRoutes) HandleRenderEmailTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := e.getEmailClient()
+	if err != nil {
+		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		return
+	}
+
+	body, ok := decodeAndValidate[renderEmailTemplateDTO](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RenderEmailTemplate(r.Context(), &emailv1.RenderEmailTemplateRequest{
+		Id:      chi.URLParam(r, "id"),
+		UserId:  middleware.GetUserID(r.Context()),
+		IsAdmin: middleware.IsAdmin(r.Context()),
+		Values:  body.Values,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

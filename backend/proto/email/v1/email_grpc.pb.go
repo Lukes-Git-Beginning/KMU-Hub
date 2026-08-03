@@ -71,6 +71,12 @@ const (
 	EmailService_UpdateEmailLabel_FullMethodName         = "/email.v1.EmailService/UpdateEmailLabel"
 	EmailService_DeleteEmailLabel_FullMethodName         = "/email.v1.EmailService/DeleteEmailLabel"
 	EmailService_AssignMessageLabels_FullMethodName      = "/email.v1.EmailService/AssignMessageLabels"
+	EmailService_ListEmailTemplates_FullMethodName       = "/email.v1.EmailService/ListEmailTemplates"
+	EmailService_GetEmailTemplate_FullMethodName         = "/email.v1.EmailService/GetEmailTemplate"
+	EmailService_CreateEmailTemplate_FullMethodName      = "/email.v1.EmailService/CreateEmailTemplate"
+	EmailService_UpdateEmailTemplate_FullMethodName      = "/email.v1.EmailService/UpdateEmailTemplate"
+	EmailService_DeleteEmailTemplate_FullMethodName      = "/email.v1.EmailService/DeleteEmailTemplate"
+	EmailService_RenderEmailTemplate_FullMethodName      = "/email.v1.EmailService/RenderEmailTemplate"
 )
 
 // EmailServiceClient is the client API for EmailService service.
@@ -140,6 +146,13 @@ type EmailServiceClient interface {
 	UpdateEmailLabel(ctx context.Context, in *UpdateEmailLabelRequest, opts ...grpc.CallOption) (*UpdateEmailLabelResponse, error)
 	DeleteEmailLabel(ctx context.Context, in *DeleteEmailLabelRequest, opts ...grpc.CallOption) (*DeleteEmailLabelResponse, error)
 	AssignMessageLabels(ctx context.Context, in *AssignMessageLabelsRequest, opts ...grpc.CallOption) (*AssignMessageLabelsResponse, error)
+	// Templates (Vorlagen & Quicktexte)
+	ListEmailTemplates(ctx context.Context, in *ListEmailTemplatesRequest, opts ...grpc.CallOption) (*ListEmailTemplatesResponse, error)
+	GetEmailTemplate(ctx context.Context, in *GetEmailTemplateRequest, opts ...grpc.CallOption) (*GetEmailTemplateResponse, error)
+	CreateEmailTemplate(ctx context.Context, in *CreateEmailTemplateRequest, opts ...grpc.CallOption) (*CreateEmailTemplateResponse, error)
+	UpdateEmailTemplate(ctx context.Context, in *UpdateEmailTemplateRequest, opts ...grpc.CallOption) (*UpdateEmailTemplateResponse, error)
+	DeleteEmailTemplate(ctx context.Context, in *DeleteEmailTemplateRequest, opts ...grpc.CallOption) (*DeleteEmailTemplateResponse, error)
+	RenderEmailTemplate(ctx context.Context, in *RenderEmailTemplateRequest, opts ...grpc.CallOption) (*RenderEmailTemplateResponse, error)
 }
 
 type emailServiceClient struct {
@@ -670,6 +683,66 @@ func (c *emailServiceClient) AssignMessageLabels(ctx context.Context, in *Assign
 	return out, nil
 }
 
+func (c *emailServiceClient) ListEmailTemplates(ctx context.Context, in *ListEmailTemplatesRequest, opts ...grpc.CallOption) (*ListEmailTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmailTemplatesResponse)
+	err := c.cc.Invoke(ctx, EmailService_ListEmailTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) GetEmailTemplate(ctx context.Context, in *GetEmailTemplateRequest, opts ...grpc.CallOption) (*GetEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_GetEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) CreateEmailTemplate(ctx context.Context, in *CreateEmailTemplateRequest, opts ...grpc.CallOption) (*CreateEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_CreateEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) UpdateEmailTemplate(ctx context.Context, in *UpdateEmailTemplateRequest, opts ...grpc.CallOption) (*UpdateEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_UpdateEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) DeleteEmailTemplate(ctx context.Context, in *DeleteEmailTemplateRequest, opts ...grpc.CallOption) (*DeleteEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_DeleteEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *emailServiceClient) RenderEmailTemplate(ctx context.Context, in *RenderEmailTemplateRequest, opts ...grpc.CallOption) (*RenderEmailTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenderEmailTemplateResponse)
+	err := c.cc.Invoke(ctx, EmailService_RenderEmailTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EmailServiceServer is the server API for EmailService service.
 // All implementations must embed UnimplementedEmailServiceServer
 // for forward compatibility.
@@ -737,6 +810,13 @@ type EmailServiceServer interface {
 	UpdateEmailLabel(context.Context, *UpdateEmailLabelRequest) (*UpdateEmailLabelResponse, error)
 	DeleteEmailLabel(context.Context, *DeleteEmailLabelRequest) (*DeleteEmailLabelResponse, error)
 	AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error)
+	// Templates (Vorlagen & Quicktexte)
+	ListEmailTemplates(context.Context, *ListEmailTemplatesRequest) (*ListEmailTemplatesResponse, error)
+	GetEmailTemplate(context.Context, *GetEmailTemplateRequest) (*GetEmailTemplateResponse, error)
+	CreateEmailTemplate(context.Context, *CreateEmailTemplateRequest) (*CreateEmailTemplateResponse, error)
+	UpdateEmailTemplate(context.Context, *UpdateEmailTemplateRequest) (*UpdateEmailTemplateResponse, error)
+	DeleteEmailTemplate(context.Context, *DeleteEmailTemplateRequest) (*DeleteEmailTemplateResponse, error)
+	RenderEmailTemplate(context.Context, *RenderEmailTemplateRequest) (*RenderEmailTemplateResponse, error)
 	mustEmbedUnimplementedEmailServiceServer()
 }
 
@@ -902,6 +982,24 @@ func (UnimplementedEmailServiceServer) DeleteEmailLabel(context.Context, *Delete
 }
 func (UnimplementedEmailServiceServer) AssignMessageLabels(context.Context, *AssignMessageLabelsRequest) (*AssignMessageLabelsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AssignMessageLabels not implemented")
+}
+func (UnimplementedEmailServiceServer) ListEmailTemplates(context.Context, *ListEmailTemplatesRequest) (*ListEmailTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmailTemplates not implemented")
+}
+func (UnimplementedEmailServiceServer) GetEmailTemplate(context.Context, *GetEmailTemplateRequest) (*GetEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) CreateEmailTemplate(context.Context, *CreateEmailTemplateRequest) (*CreateEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) UpdateEmailTemplate(context.Context, *UpdateEmailTemplateRequest) (*UpdateEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) DeleteEmailTemplate(context.Context, *DeleteEmailTemplateRequest) (*DeleteEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmailTemplate not implemented")
+}
+func (UnimplementedEmailServiceServer) RenderEmailTemplate(context.Context, *RenderEmailTemplateRequest) (*RenderEmailTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RenderEmailTemplate not implemented")
 }
 func (UnimplementedEmailServiceServer) mustEmbedUnimplementedEmailServiceServer() {}
 func (UnimplementedEmailServiceServer) testEmbeddedByValue()                      {}
@@ -1860,6 +1958,114 @@ func _EmailService_AssignMessageLabels_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EmailService_ListEmailTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmailTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).ListEmailTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_ListEmailTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).ListEmailTemplates(ctx, req.(*ListEmailTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_GetEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).GetEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_GetEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).GetEmailTemplate(ctx, req.(*GetEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_CreateEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).CreateEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_CreateEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).CreateEmailTemplate(ctx, req.(*CreateEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_UpdateEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).UpdateEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_UpdateEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).UpdateEmailTemplate(ctx, req.(*UpdateEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_DeleteEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).DeleteEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_DeleteEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).DeleteEmailTemplate(ctx, req.(*DeleteEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmailService_RenderEmailTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderEmailTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmailServiceServer).RenderEmailTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmailService_RenderEmailTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmailServiceServer).RenderEmailTemplate(ctx, req.(*RenderEmailTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EmailService_ServiceDesc is the grpc.ServiceDesc for EmailService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2074,6 +2280,30 @@ var EmailService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AssignMessageLabels",
 			Handler:    _EmailService_AssignMessageLabels_Handler,
+		},
+		{
+			MethodName: "ListEmailTemplates",
+			Handler:    _EmailService_ListEmailTemplates_Handler,
+		},
+		{
+			MethodName: "GetEmailTemplate",
+			Handler:    _EmailService_GetEmailTemplate_Handler,
+		},
+		{
+			MethodName: "CreateEmailTemplate",
+			Handler:    _EmailService_CreateEmailTemplate_Handler,
+		},
+		{
+			MethodName: "UpdateEmailTemplate",
+			Handler:    _EmailService_UpdateEmailTemplate_Handler,
+		},
+		{
+			MethodName: "DeleteEmailTemplate",
+			Handler:    _EmailService_DeleteEmailTemplate_Handler,
+		},
+		{
+			MethodName: "RenderEmailTemplate",
+			Handler:    _EmailService_RenderEmailTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
