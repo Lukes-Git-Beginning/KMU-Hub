@@ -1717,3 +1717,88 @@ gesetzt heisst "unveraendert", nicht "auf leer setzen". Muster uebernommen von
 - offen:
   - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26 (siehe deren Aufzaehlung oben)
     bleiben unveraendert offen, hier nicht angefasst.
+
+## Iteration 28 — fix-crm-import-company — done — 2026-08-03
+
+- commit: (wird nach dem Commit in Iteration 29 nachgetragen, siehe Ablauf-Schritt 7)
+- verify vorgaenger: sauber. `fbecfafd` (fix-finance-notification-paths, Iteration 27) gegen die
+  Fehlerklassen geprueft: `HandleUnmuteResource` geht ueber `n.getNotificationClient()` (kein
+  Direct-Svc-Bypass), kein Stub, `notification.proto` + `.pb.go` im selben Commit regeneriert
+  (`.grpc.pb.go` byte-identisch, RPC-Signatur unveraendert), Guard unveraendert
+  (`RequirePermission("notifications","write")` bestand schon vorher — reine Pfad-Aenderung, kein
+  neuer Key, kein Seed noetig), `DeleteMute` ist jetzt zusaetzlich zur RLS-Tenant-Policy explizit
+  auf `user_id` gescopt (die von RLS nicht abgedeckte Luecke), Wire-Shape unveraendert (kein
+  Response-Body-Bruch). openapi.yaml-Diff deckt sich mit dem Code (Pfad-Rename + neuer
+  `{muteId}`-Pfad mit 404). Nichts zu beanstanden.
+- gebaut: `fix-crm-import-company` gezogen (naechste `status: todo`-Unit in Datei-Reihenfolge,
+  `deps: []`).
+  Root Cause bestaetigt wie im scope-Text: `importSingleContact`
+  (`internal/email/contact/import_service.go`) persistierte `fields["company"]` nie, und der
+  CSV-Export (`export_service.go`) gab die Spalte "company" hart als Leerstring aus
+  ("Company name is not on the contact model directly, so we leave empty for now"). vCard-Export
+  schrieb `vcard.FieldOrganization` ueberhaupt nicht — dieselbe Luecke, nur ohne eigenen Kommentar,
+  im selben Zug mitgefixt, sonst waere der Round-Trip nur fuer CSV geschlossen gewesen.
+  Firma laeuft ueber die company-Relation (`contacts.company_id` -> `companies`), nicht ueber ein
+  neues Freitextfeld. Neu in `internal/crm/company/`: `Repository.GetByName` (case-insensitiv per
+  `LOWER(name) = LOWER($2)`, `merged_into_id IS NULL`, tenant-gescopt — eine gemergte Firma darf
+  nicht erneut getroffen werden) und `Repository.GetNamesByIDs` (Batch, `id = ANY($1) AND
+  tenant_id = $2`), darauf `Service.FindOrCreateByName` und `Service.GetNamesByIDs`. Namensvergleich
+  bewusst getrimmt+case-insensitiv (Entscheidung wie in den notes gefordert): `company.Create`
+  trimmt den Namen schon vor dem Schreiben, die DB-Seite vergleicht also immer getrimmt gegen
+  getrimmt — Trimmen selbst ist Aufgabe der Service-Schicht, nicht des Repositories (analog zu
+  `GetByID`, das ebenfalls keine Normalisierung macht).
+  `ContactProvider`-Interface (gemeinsam von Import UND Export genutzt) um
+  `FindOrCreateCompany(ctx, name, createdBy) (uuid.UUID, error)` und
+  `GetCompanyNames(ctx, ids) (map[uuid.UUID]string, error)` erweitert. `TenantScopedAdapter`
+  bekommt einen zweiten Konstruktor-Parameter `TenantedCompanyService` — alle vier Aufrufstellen in
+  `internal/server/crm_grpc.go` (Import CSV/VCard, Export CSV/VCard) auf
+  `NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)` gezogen, `companyService`
+  war als Feld auf `CRMGRPCServer` schon vorhanden.
+  N+1 beidseitig vermieden: Import cached aufgeloeste Firmennamen in einer lokalen
+  `map[string]uuid.UUID`, angelegt PRO LAUF in `ImportCSV`/`ImportVCard` (nicht am `ImportService`
+  selbst, der ueber mehrere Requests hinweg als Singleton geteilt sein kann) —
+  `TestImportCSV_CompanyDedupedWithinRun` beweist genau 1 `FindOrCreateCompany`-Aufruf fuer 2
+  Zeilen derselben Firma trotz Gross-/Kleinschreibungs- und Leerraum-Unterschied. Export holt alle
+  benoetigten Namen in einem `GetCompanyNames`-Batch-Aufruf statt pro Kontakt.
+  Merge-Pfad (`mergeByEmail=true`) uebernimmt die Firma nachtraeglich nur, wenn der bestehende
+  Kontakt noch keine hat (`existing.CompanyID == nil`) — dieselbe "nur leere Felder auffuellen"-
+  Semantik wie bei Telefon/Position/Notizen im selben Codepfad.
+  Idempotenz (notes-Forderung: zweiter Lauf derselben Datei erzeugt keine Firmen-Dublette) folgt
+  direkt aus `FindOrCreateByName`: der zweite Lauf startet mit leerem Cache, findet die beim ersten
+  Lauf angelegte Firma aber ueber `GetByName` wieder — bewiesen durch
+  `TestService_FindOrCreateByName_FindsCaseInsensitive` (zwei unabhaengige Aufrufe gegen denselben
+  Service/Repository, zweiter liefert dieselbe ID, `repo.companies` waechst nicht).
+  Tests: `TestExportImportRoundTrip_CompanyCSV` und `TestExportVCard_CompanyRoundTrip` exportieren
+  in einen Provider und importieren die Bytes in einen ZWEITEN, frischen Provider (kein geteilter
+  Firmen-Cache zwischen den beiden) — das beweist den Fix ueber den reinen Prozess-Cache hinaus,
+  echter Export-dann-Import-Beweis wie in done_when gefordert. Dazu 4 weitere Import-Tests
+  (Create-Fall, Dedupe-Fall, Merge-Fuellt-Luecke-Fall, Leer-Firma-faellt-nicht-auf) und 8 neue
+  Service-Tests fuer `FindOrCreateByName`/`GetNamesByIDs` (Create-wenn-fehlend, case-insensitiv
+  finden, gemergte Firma ignorieren, Tenant-Isolation, Pflichtfeld-Validierung) plus ein
+  Repository-Test gegen die echte DB (`TestCompanyGetByName_CaseInsensitiveIgnoresMergedAndOtherTenant`,
+  neu in `tenant_write_test.go`, demselben Muster wie `TestCompanyWrites_LandInCallerTenant`
+  folgend: Merge-Konstellation via echtem `merged_into_id`-FK, Tenant-Fremdzugriff liefert
+  `ErrCompanyNotFound` bzw. eine leere Batch-Antwort).
+  NEUER FUND, nicht in dieser Unit behoben (ausserhalb des Scopes, eigene Unit noetig): in
+  `internal/server/email_grpc.go` rufen `ImportContactsCSV`/`ImportContactsVCard`
+  `s.importService.ImportCSV/VCard` DIREKT auf dem in `cmd/email/main.go` mit `nil`-`ContactProvider`
+  konstruierten Singleton auf — anders als der CRM-Pfad baut der Email-gRPC-Server KEINEN
+  Tenant-scoped Adapter pro Request. Jeder Aufruf ueber `POST /api/v1/email/.../import/csv` bzw.
+  `/import/vcard` (`route_email.go:198-199`) waere schon vor dieser Unit bei JEDEM
+  `contactProvider`-Zugriff (`GetByEmail`, `CreateForImport`, ...) mit einer Nil-Pointer-Panik
+  geendet, nicht erst durch die neuen `FindOrCreateCompany`/`GetCompanyNames`-Aufrufe — ein
+  bestehender, durch diese Unit nur sichtbar gewordener Fund. Braucht Tenant-ID-Extraktion +
+  Pro-Request-Adapter analog `crm_grpc.go`, eigene Iteration.
+  gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok (golangci-lint auf
+  `internal/email/contact`, `internal/crm/company`, `internal/crm/contact`, `internal/server`,
+  0 issues) | test ok — `go test -count=1 ./internal/crm/company/... ./internal/crm/contact/...
+  ./internal/email/contact/... ./internal/server/...` gruen mit `DATABASE_URL` gesetzt auf
+  `kmuhub_app`, 0 Skips in den beruehrten Paketen (verifiziert per `-v | grep -c "^--- SKIP"`).
+  Keine Migration (`companies` hatte RLS schon aus Migration 000120, keine neue Tabelle/Spalte),
+  keine neue Route (kein openapi.yaml-Eintrag noetig), kein neuer `RequirePermission`-Guard.
+- offen:
+  - NEU: `internal/server/email_grpc.go` `ImportContactsCSV`/`ImportContactsVCard` nutzen den
+    nil-Provider-Singleton direkt statt eines Pro-Request-Adapters — Nil-Pointer-Panik bei jedem
+    echten Aufruf, unabhaengig von dieser Unit vorbestehend. Siehe Fund oben, eigene Unit.
+  - Alle unveraendert offenen Punkte aus Iteration 17-22/24/25/26/27 (siehe deren Aufzaehlung oben)
+    bleiben unveraendert offen, hier nicht angefasst.

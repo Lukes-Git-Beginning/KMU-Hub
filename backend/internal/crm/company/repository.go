@@ -12,6 +12,8 @@ import (
 type Repository interface {
 	Create(ctx context.Context, company *models.Company) error
 	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Company, error)
+	GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*models.Company, error)
+	GetNamesByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (map[uuid.UUID]string, error)
 	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Company, int, error)
 	Update(ctx context.Context, company *models.Company, tenantID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error

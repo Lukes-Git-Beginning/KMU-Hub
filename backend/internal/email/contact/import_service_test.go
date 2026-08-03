@@ -12,15 +12,42 @@ import (
 
 // mockContactProvider implements ContactProvider for testing.
 type mockContactProvider struct {
-	contacts map[string]*models.Contact // email -> contact
-	created  []*models.Contact
-	updated  []*models.Contact
+	contacts     map[string]*models.Contact // email -> contact
+	created      []*models.Contact
+	updated      []*models.Contact
+	companies    map[string]uuid.UUID // normalized name -> id
+	companyNames map[uuid.UUID]string // id -> name
+	companyCalls int                  // FindOrCreateCompany invocations, to assert per-run caching
 }
 
 func newMockProvider() *mockContactProvider {
 	return &mockContactProvider{
-		contacts: make(map[string]*models.Contact),
+		contacts:     make(map[string]*models.Contact),
+		companies:    make(map[string]uuid.UUID),
+		companyNames: make(map[uuid.UUID]string),
 	}
+}
+
+func (m *mockContactProvider) FindOrCreateCompany(_ context.Context, name string, _ uuid.UUID) (uuid.UUID, error) {
+	m.companyCalls++
+	key := strings.ToLower(strings.TrimSpace(name))
+	if id, ok := m.companies[key]; ok {
+		return id, nil
+	}
+	id := uuid.New()
+	m.companies[key] = id
+	m.companyNames[id] = strings.TrimSpace(name)
+	return id, nil
+}
+
+func (m *mockContactProvider) GetCompanyNames(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range ids {
+		if name, ok := m.companyNames[id]; ok {
+			result[id] = name
+		}
+	}
+	return result, nil
 }
 
 func (m *mockContactProvider) GetByEmail(_ context.Context, email string) (*models.Contact, error) {
@@ -299,5 +326,126 @@ func TestImportCSV_EmptyNames(t *testing.T) {
 
 	if result.SkippedCount != 1 {
 		t.Errorf("expected 1 skipped (empty names), got %d", result.SkippedCount)
+	}
+}
+
+func TestImportCSV_CompanyResolvedOnCreate(t *testing.T) {
+	csvData := "Vorname,Nachname,E-Mail,Firma\nMax,Mustermann,max@example.com,Acme GmbH\n"
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+		"Firma":    "company",
+	}
+
+	result, err := svc.ImportCSV(context.Background(), strings.NewReader(csvData), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportCSV failed: %v", err)
+	}
+	if result.ImportedCount != 1 {
+		t.Fatalf("expected 1 imported, got %d", result.ImportedCount)
+	}
+
+	c := provider.created[0]
+	if c.CompanyID == nil {
+		t.Fatal("expected contact to have a company_id")
+	}
+	if provider.companyNames[*c.CompanyID] != "Acme GmbH" {
+		t.Errorf("expected company name Acme GmbH, got %q", provider.companyNames[*c.CompanyID])
+	}
+}
+
+func TestImportCSV_CompanyDedupedWithinRun(t *testing.T) {
+	csvData := "Vorname,Nachname,E-Mail,Firma\n" +
+		"Max,Mustermann,max@example.com,Acme GmbH\n" +
+		"Erika,Muster,erika@example.com, acme gmbh \n"
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+		"Firma":    "company",
+	}
+
+	result, err := svc.ImportCSV(context.Background(), strings.NewReader(csvData), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportCSV failed: %v", err)
+	}
+	if result.ImportedCount != 2 {
+		t.Fatalf("expected 2 imported, got %d", result.ImportedCount)
+	}
+
+	if provider.companyCalls != 1 {
+		t.Errorf("expected exactly 1 FindOrCreateCompany call for 2 rows of the same company (case/whitespace-insensitive), got %d", provider.companyCalls)
+	}
+	if len(provider.created) != 2 || provider.created[0].CompanyID == nil || provider.created[1].CompanyID == nil {
+		t.Fatal("expected both contacts to carry a company_id")
+	}
+	if *provider.created[0].CompanyID != *provider.created[1].CompanyID {
+		t.Error("expected both contacts to resolve to the same company")
+	}
+}
+
+func TestImportCSV_MergeByEmail_FillsMissingCompany(t *testing.T) {
+	provider := newMockProvider()
+	existingEmail := "max@example.com"
+	provider.contacts[existingEmail] = &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Max",
+		LastName:  "Mustermann",
+		Email:     &existingEmail,
+	}
+
+	csvData := "Vorname,Nachname,E-Mail,Firma\nMax,Mustermann,max@example.com,Acme GmbH\n"
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+		"Firma":    "company",
+	}
+
+	result, err := svc.ImportCSV(context.Background(), strings.NewReader(csvData), mapping, VisibilityShared, uuid.New(), true)
+	if err != nil {
+		t.Fatalf("ImportCSV failed: %v", err)
+	}
+	if result.MergedCount != 1 {
+		t.Fatalf("expected 1 merged, got %d", result.MergedCount)
+	}
+	if len(provider.updated) != 1 || provider.updated[0].CompanyID == nil {
+		t.Fatal("expected the merged contact to have picked up the company from the import row")
+	}
+}
+
+func TestImportCSV_EmptyCompanyLeavesContactUnassigned(t *testing.T) {
+	csvData := "Vorname,Nachname,E-Mail,Firma\nMax,Mustermann,max@example.com,\n"
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+		"Firma":    "company",
+	}
+
+	result, err := svc.ImportCSV(context.Background(), strings.NewReader(csvData), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportCSV failed: %v", err)
+	}
+	if result.ImportedCount != 1 {
+		t.Fatalf("expected 1 imported, got %d", result.ImportedCount)
+	}
+	if provider.created[0].CompanyID != nil {
+		t.Error("expected no company_id when the company column is blank")
+	}
+	if provider.companyCalls != 0 {
+		t.Errorf("expected FindOrCreateCompany not to be called for a blank company, got %d calls", provider.companyCalls)
 	}
 }

@@ -1562,7 +1562,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die Firma geht beim Kontakt-Import verloren. Verifiziert am 2026-08-02 in
       `backend/internal/email/contact/import_service.go`: `knownMappings` (Zeile 73) kennt
@@ -1593,6 +1593,104 @@ units:
       - keine Dubletten bei doppeltem Import, kein N+1 bei grossen Dateien
       - tenant_id beim Anlegen aus dem Context
       - Round-Trip-Test gruen, go test -count=1 ./internal/email/... gruen
+    ergebnis: >
+      ERLEDIGT (Iteration 28). Namensvergleich: case-insensitiv + getrimmt (`LOWER(name) =
+      LOWER($2)`), Praemisse ist, dass `company.Service.Create` den Namen bereits trimmt, bevor er
+      in die DB kommt — die Datenbankseite vergleicht also getrimmt gegen getrimmt.
+      Neue Repository-/Service-Methoden in `internal/crm/company/`: `GetByName` (case-insensitiv,
+      `merged_into_id IS NULL`, tenant-gescopt) und `GetNamesByIDs` (Batch, `id = ANY($1) AND
+      tenant_id = $2`) sowie darauf aufbauend `Service.FindOrCreateByName` (find-or-create,
+      idempotent -- zweiter Lauf derselben Datei findet die beim ersten Lauf angelegte Firma wieder
+      und legt keine Dublette an, siehe `TestService_FindOrCreateByName_FindsCaseInsensitive`) und
+      `Service.GetNamesByIDs`.
+      `ContactProvider`-Interface (`internal/email/contact/import_service.go`, genutzt von Import
+      UND Export) um `FindOrCreateCompany(ctx, name, createdBy) (uuid.UUID, error)` und
+      `GetCompanyNames(ctx, ids) (map[uuid.UUID]string, error)` erweitert.
+      `TenantScopedAdapter` bekommt einen zweiten `TenantedCompanyService`-Parameter (Konstruktor-
+      Signatur geaendert), alle vier Aufrufstellen in `internal/server/crm_grpc.go` (Import CSV/
+      VCard, Export CSV/VCard) auf `NewTenantScopedAdapter(s.contactService, s.companyService,
+      tenantID)` gezogen -- `CRMGRPCServer` hatte `companyService` bereits als Feld.
+      N+1 vermieden auf beiden Seiten: Import cached aufgeloeste Firmennamen in einer lokalen
+      `map[string]uuid.UUID` PRO IMPORT-LAUF (in `ImportCSV`/`ImportVCard` angelegt, nicht am
+      Service haengend, da der Service ueber mehrere Requests hinweg geteilt sein kann) --
+      `TestImportCSV_CompanyDedupedWithinRun` beweist genau 1 `FindOrCreateCompany`-Aufruf fuer 2
+      Zeilen derselben Firma (unterschiedliche Gross-/Kleinschreibung und Leerraum). Export holt
+      alle noetigen Firmennamen in einem `GetCompanyNames`-Batch-Call statt pro Kontakt.
+      Merge-Pfad (`mergeByEmail`) uebernimmt die Firma nachtraeglich nur, wenn der bestehende
+      Kontakt noch keine hat (`existing.CompanyID == nil`) -- dieselbe "nur leere Felder auffuellen"-
+      Semantik wie bei Telefon/Position/Notizen.
+      vCard-Export schrieb bisher `vcard.FieldOrganization` GAR NICHT (weder vorher noch durch die
+      Luecke dieser Unit verursacht) -- im selben Zug mitgefixt, sonst waere der Round-Trip nur fuer
+      CSV, nicht fuer vCard geschlossen gewesen.
+      Test: `TestExportImportRoundTrip_CompanyCSV` und `TestExportVCard_CompanyRoundTrip` exportieren
+      in einen Provider, importieren die Bytes in einen ZWEITEN, frischen Provider (kein geteilter
+      Firmen-Cache) und pruefen, dass die Firma ankommt -- beweist den Fix ueber den Prozess-Cache
+      hinaus. Zusaetzlich `TestCompanyGetByName_CaseInsensitiveIgnoresMergedAndOtherTenant` als
+      Repository-Test gegen die echte DB (merged Company wird nicht gefunden, fremder Tenant sieht
+      nichts).
+      NEUER FUND, nicht in dieser Unit behoben: `internal/server/email_grpc.go`
+      `ImportContactsCSV`/`ImportContactsVCard` rufen `s.importService.ImportCSV/VCard` direkt auf
+      dem in `cmd/email/main.go` mit `nil`-Provider konstruierten Singleton auf -- im Gegensatz zum
+      CRM-Pfad baut der Email-gRPC-Server KEINEN Tenant-scoped Adapter pro Request. Jeder Aufruf
+      dieser beiden RPCs (Route `POST /api/v1/email/.../import/csv` bzw. `/import/vcard`,
+      `route_email.go:198-199`) haette schon vor dieser Unit bei JEDEM `contactProvider`-Zugriff
+      (`GetByEmail`, `CreateForImport`, ...) mit einer Nil-Pointer-Panik geendet, nicht erst durch
+      die neuen `FindOrCreateCompany`/`GetCompanyNames`-Aufrufe. Eigene Unit noetig (Tenant-ID aus
+      dem Kontext ziehen + Adapter pro Request bauen, analog `crm_grpc.go`).
+      gate: build ok (`go build -p 2 ./...`) | vet ok (`go vet -p 2 ./...`) | lint ok
+      (golangci-lint auf `internal/email/contact`, `internal/crm/company`, `internal/crm/contact`,
+      `internal/server`, 0 issues) | test ok -- `go test -count=1 ./internal/crm/company/...
+      ./internal/crm/contact/... ./internal/email/contact/... ./internal/server/...` gruen mit
+      `DATABASE_URL` auf `kmuhub_app`, 0 Skips in den beruehrten Paketen. Keine Migration (keine
+      neue Tabelle/Spalte, `companies` hatte bereits RLS aus Migration 000120), keine neue Route
+      (kein openapi.yaml-Eintrag noetig), kein neuer `RequirePermission`-Guard.
+
+  - id: fix-email-import-nil-provider-panic
+    phase: fix
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Gefunden in Iteration 28 (`fix-crm-import-company`), nicht dort behoben. In
+      `backend/internal/server/email_grpc.go` rufen `ImportContactsCSV` und `ImportContactsVCard`
+      (Zeilen 1079-1110) `s.importService.ImportCSV`/`ImportVCard` DIREKT auf. `s.importService`
+      ist der Singleton aus `cmd/email/main.go`, konstruiert mit `emailcontact.NewImportService(nil,
+      slog.Default())` — der `nil`-`ContactProvider` ist per Kommentar in `cmd/crm/main.go` nur
+      dafuer gedacht, "configured"-Checks + `PreviewCSV` zu bedienen; echte Import-RPCs sollen einen
+      Tenant-scoped Adapter PRO REQUEST bauen. Der CRM-Pfad (`crm_grpc.go:2092-2144`) macht das
+      auch so. Der Email-Pfad tut es NICHT — jeder Aufruf ueber `POST
+      /api/v1/email/.../import/csv` bzw. `/import/vcard` (`route_email.go:198-199`) trifft im
+      Import-Service auf `s.contactProvider.GetByEmail`/`CreateForImport` mit `contactProvider ==
+      nil` und paniked mit einer Nil-Pointer-Dereferenzierung.
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/server/crm_grpc.go
+      - backend/cmd/email/main.go
+      - backend/internal/email/contact/adapter.go
+      - backend/internal/gateway/route_email.go
+    notes: >
+      Vorlage ist `CRMGRPCServer.ImportContactsCSV`/`ImportContactsVCard`
+      (`crm_grpc.go:2092-2144`): Tenant-ID per `middleware.GetTenantID(ctx)` ziehen, User-ID
+      parsen, `emailcontact.NewTenantScopedAdapter(contactSvc, companySvc, tenantID)` PRO REQUEST
+      bauen, `emailcontact.NewImportService(provider, nil)` lokal instanzieren und darauf
+      `ImportCSV`/`ImportVCard` aufrufen — NICHT `s.importService` (das Singleton bleibt fuer
+      `PreviewCSV`, falls der Email-Service das ueberhaupt anbietet).
+      `EmailGRPCServer` braucht dafuer Zugriff auf einen `TenantedContactService` UND einen
+      `TenantedCompanyService` (aus RBAC/CRM-Wiring, `internal/crm/contact`, `internal/crm/company`)
+      — pruefen, ob der Email-Service diese Abhaengigkeit ueberhaupt schon injiziert bekommt oder ob
+      das eine neue Verdrahtung in `cmd/email/main.go` braucht (separater Prozess vom CRM-Service,
+      moeglicherweise ohne DB-Pool-Zugriff auf `contacts`/`companies` — das zuerst klaeren, bevor
+      Code geschrieben wird; falls der Email-Prozess strukturell keinen Zugriff auf die CRM-Services
+      hat, ist die ehrlichere Antwort ggf., diese beiden RPCs im Email-Service ganz zu entfernen und
+      auf den CRM-Pfad zu verweisen, statt Zugriff kuenstlich zu verdrahten).
+      `ownerID` kam bisher als `uuid.Nil` mit dem Kommentar "Owner determined by auth context" —
+      pruefen, ob das stimmt oder ob auch hier `middleware.GetUserID(ctx)` fehlt.
+    done_when:
+      - Import-RPCs im Email-Service bauen einen Tenant-scoped Adapter pro Request wie im CRM-Pfad
+      - kein Aufruf mehr auf dem nil-Provider-Singleton
+      - Test belegt einen erfolgreichen Import ueber den Email-Pfad (nicht nur CRM)
+      - go test -count=1 ./internal/server/... gruen
 
   - id: fix-berichte-kpi-module-scope
     phase: fix

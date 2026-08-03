@@ -43,6 +43,45 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 	))
 }
 
+// GetByName finds a non-merged company by case-insensitive exact name match within a tenant.
+// Used by contact import, where a bare company name string is the only signal available.
+func (r *PostgresRepository) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*models.Company, error) {
+	return r.scanCompany(r.pool.QueryRow(ctx,
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, tenant_id, created_by, created_at, updated_at
+		 FROM companies
+		 WHERE tenant_id = $1 AND LOWER(name) = LOWER($2) AND merged_into_id IS NULL
+		 ORDER BY created_at ASC
+		 LIMIT 1`, tenantID, name,
+	))
+}
+
+// GetNamesByIDs returns company names keyed by ID for the given IDs, scoped to a tenant.
+// Used by contact export to resolve company_id -> name in a single query instead of one per contact.
+func (r *PostgresRepository) GetNamesByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (map[uuid.UUID]string, error) {
+	names := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return names, nil
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, name FROM companies WHERE id = ANY($1) AND tenant_id = $2`, ids, tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if scanErr := rows.Scan(&id, &name); scanErr != nil {
+			return nil, scanErr
+		}
+		names[id] = name
+	}
+	return names, rows.Err()
+}
+
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Company, int, error) {
 	// Build WHERE clause
 	var conditions []string

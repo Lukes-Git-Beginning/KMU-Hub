@@ -11,6 +11,7 @@ package company
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -108,4 +109,89 @@ func TestCompanyWrites_LandInCallerTenant(t *testing.T) {
 		t.Fatalf("Delete (own ctx): %v", err)
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "companies", c.ID, 0)
+}
+
+// TestCompanyGetByName_CaseInsensitiveIgnoresMergedAndOtherTenant exercises the SQL
+// behind Service.FindOrCreateByName (contact import): case-insensitive exact match,
+// merged companies excluded, and tenant isolation on a raw repository call.
+func TestCompanyGetByName_CaseInsensitiveIgnoresMergedAndOtherTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "CRM Company GetByName Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "CRM Company GetByName Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("crm-company-getbyname-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	active := &models.Company{
+		ID: uuid.New(), TenantID: tenantOwn, Name: "GetByName Active GmbH",
+		CreatedBy: userID, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	if err := repo.Create(ctxOwn, active); err != nil {
+		t.Fatalf("Create active: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "companies", active.ID)
+
+	// A merged duplicate with the same name must not shadow the active company.
+	// merged_into_id references companies(id), so it points at the active row itself.
+	merged := &models.Company{
+		ID: uuid.New(), TenantID: tenantOwn, Name: "GetByName Merged GmbH",
+		CreatedBy: userID, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	if err := repo.Create(ctxOwn, merged); err != nil {
+		t.Fatalf("Create merged: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "companies", merged.ID)
+	if _, err := pool.Exec(ctxOwn, `UPDATE companies SET merged_into_id = $1 WHERE id = $2`, active.ID, merged.ID); err != nil {
+		t.Fatalf("mark merged: %v", err)
+	}
+
+	// GetByName is case-insensitive but, like GetByID, takes an already-normalized
+	// value — trimming is the Service's job (see FindOrCreateByName / TestService_
+	// FindOrCreateByName_FindsCaseInsensitive for that layer).
+	got, err := repo.GetByName(ctxOwn, tenantOwn, "getbyname active gmbh")
+	if err != nil {
+		t.Fatalf("GetByName (case-insensitive): %v", err)
+	}
+	if got.ID != active.ID {
+		t.Fatalf("expected active company %s, got %s", active.ID, got.ID)
+	}
+
+	if _, err := repo.GetByName(ctxOwn, tenantOwn, "GetByName Merged GmbH"); !errors.Is(err, ErrCompanyNotFound) {
+		t.Fatalf("expected ErrCompanyNotFound for a merged company, got %v", err)
+	}
+
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+	if _, err := repo.GetByName(ctxOther, tenantOther, "GetByName Active GmbH"); !errors.Is(err, ErrCompanyNotFound) {
+		t.Fatalf("expected ErrCompanyNotFound across tenants, got %v", err)
+	}
+
+	names, err := repo.GetNamesByIDs(ctxOwn, []uuid.UUID{active.ID, merged.ID}, tenantOwn)
+	if err != nil {
+		t.Fatalf("GetNamesByIDs: %v", err)
+	}
+	if names[active.ID] != "GetByName Active GmbH" {
+		t.Fatalf("expected active company name in batch result, got %q", names[active.ID])
+	}
+	otherNames, err := repo.GetNamesByIDs(ctxOther, []uuid.UUID{active.ID}, tenantOther)
+	if err != nil {
+		t.Fatalf("GetNamesByIDs (foreign tenant): %v", err)
+	}
+	if _, leaked := otherNames[active.ID]; leaked {
+		t.Fatal("GetNamesByIDs leaked a company across tenants")
+	}
 }

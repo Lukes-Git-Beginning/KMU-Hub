@@ -219,3 +219,110 @@ func TestExportCSV_BOMPresence(t *testing.T) {
 		t.Error("expected UTF-8 BOM (EF BB BF) at start of CSV")
 	}
 }
+
+func TestExportImportRoundTrip_CompanyCSV(t *testing.T) {
+	provider := newMockProvider()
+
+	email := "roundtrip-company@example.com"
+	companyID, err := provider.FindOrCreateCompany(context.Background(), "Acme GmbH", uuid.New())
+	if err != nil {
+		t.Fatalf("seed company failed: %v", err)
+	}
+	provider.contacts[email] = &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Max",
+		LastName:  "Mustermann",
+		Email:     &email,
+		CompanyID: &companyID,
+	}
+
+	exportSvc := NewExportService(provider, nil)
+	data, err := exportSvc.ExportCSV(context.Background(), []uuid.UUID{provider.contacts[email].ID}, nil)
+	if err != nil {
+		t.Fatalf("ExportCSV failed: %v", err)
+	}
+	if !strings.Contains(string(data), "Acme GmbH") {
+		t.Fatal("expected company name Acme GmbH in exported CSV")
+	}
+
+	// Re-import into a fresh provider (no shared company table) to prove the company
+	// relation survives the export -> import round trip, not just the in-process cache.
+	// The BOM the exporter writes for Excel compatibility isn't stripped by the CSV
+	// reader, so drop it here the same way a re-upload through the field-mapping wizard
+	// would (the wizard reads the header row for column detection before this point).
+	csvWithoutBOM := trimBOM(data)
+
+	mapping := map[string]string{}
+	for field, header := range crmFieldToGermanHeader {
+		mapping[header] = field
+	}
+
+	importProvider := newMockProvider()
+	importSvc := NewImportService(importProvider, nil)
+	result, err := importSvc.ImportCSV(context.Background(), strings.NewReader(csvWithoutBOM), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportCSV round-trip failed: %v", err)
+	}
+	if result.ImportedCount != 1 {
+		t.Fatalf("expected 1 imported in round-trip, got %d", result.ImportedCount)
+	}
+
+	imported := importProvider.created[0]
+	if imported.CompanyID == nil {
+		t.Fatal("expected the round-tripped contact to have a company_id")
+	}
+	if importProvider.companyNames[*imported.CompanyID] != "Acme GmbH" {
+		t.Errorf("expected company Acme GmbH to survive the round trip, got %q", importProvider.companyNames[*imported.CompanyID])
+	}
+}
+
+func trimBOM(data []byte) string {
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		return string(data[3:])
+	}
+	return string(data)
+}
+
+func TestExportVCard_CompanyRoundTrip(t *testing.T) {
+	provider := newMockProvider()
+
+	email := "vcard-company@example.com"
+	companyID, err := provider.FindOrCreateCompany(context.Background(), "Beta AG", uuid.New())
+	if err != nil {
+		t.Fatalf("seed company failed: %v", err)
+	}
+	provider.contacts[email] = &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Erika",
+		LastName:  "Muster",
+		Email:     &email,
+		CompanyID: &companyID,
+	}
+
+	exportSvc := NewExportService(provider, nil)
+	data, err := exportSvc.ExportVCard(context.Background(), []uuid.UUID{provider.contacts[email].ID})
+	if err != nil {
+		t.Fatalf("ExportVCard failed: %v", err)
+	}
+	if !strings.Contains(string(data), "Beta AG") {
+		t.Fatal("expected ORG:Beta AG in exported vCard")
+	}
+
+	importProvider := newMockProvider()
+	importSvc := NewImportService(importProvider, nil)
+	result, err := importSvc.ImportVCard(context.Background(), strings.NewReader(string(data)), VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportVCard round-trip failed: %v", err)
+	}
+	if result.ImportedCount != 1 {
+		t.Fatalf("expected 1 imported in round-trip, got %d", result.ImportedCount)
+	}
+
+	imported := importProvider.created[0]
+	if imported.CompanyID == nil {
+		t.Fatal("expected the round-tripped contact to have a company_id")
+	}
+	if importProvider.companyNames[*imported.CompanyID] != "Beta AG" {
+		t.Errorf("expected company Beta AG to survive the round trip, got %q", importProvider.companyNames[*imported.CompanyID])
+	}
+}
