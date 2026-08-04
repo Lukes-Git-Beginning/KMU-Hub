@@ -38,6 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { resolveValueSet } from '@/mocks/data/customization'
 import { useCustomFields } from '@/api/hooks/useCustomFields'
 import type {
   CustomFieldDefinition,
@@ -46,7 +47,7 @@ import type {
   CreateCustomFieldInput,
   UpdateCustomFieldInput,
 } from '@/mocks/data/custom-fields'
-import { FieldEditorModal } from '../FieldEditorModal'
+import { FieldEditorModal, type ValueSetChoice } from '../FieldEditorModal'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
 
@@ -95,7 +96,13 @@ type FieldBadge = 'added' | 'modified' | null
 
 // ── Per-entity editor ───────────────────────────────────────────────────────────
 
-function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.ReactElement {
+function EntityFieldsEditor({
+  entity,
+  valueSetChoices,
+}: {
+  entity: CustomFieldEntity
+  valueSetChoices: ValueSetChoice[]
+}): React.ReactElement {
   const { t } = useTranslation()
   const { customFields, setDraftEntityFields, resetDraftEntityFields } = useDraftConfig()
   const { data: baseline = [], isLoading } = useCustomFields(entity)
@@ -138,6 +145,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
       type: input.type,
       required: input.required ?? false,
       options: input.options ?? [],
+      valueSetId: input.valueSetId,
       validation: input.validation,
       defaultValue: input.defaultValue,
       visible: input.visible ?? true,
@@ -158,6 +166,8 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
               ...(input.type !== undefined && { type: input.type }),
               ...(input.required !== undefined && { required: input.required }),
               ...(input.options !== undefined && { options: input.options }),
+              // Explicit, so unbinding a value list actually clears it.
+              ...('valueSetId' in input && { valueSetId: input.valueSetId }),
               ...(input.validation !== undefined && { validation: input.validation }),
               ...(input.defaultValue !== undefined && { defaultValue: input.defaultValue }),
               ...(input.visible !== undefined && { visible: input.visible }),
@@ -253,10 +263,22 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
                   </p>
                   {/* Type + options → makes clear WHAT the field is (e.g. a
                       dropdown with these options), not just its name. */}
+                  {/* Typ + woher die Auswahl kommt: eigene Optionen im Klartext, oder
+                      der Name der gebundenen Werteliste — sonst sähe ein gebundenes
+                      Feld aus wie eines ganz ohne Optionen. */}
                   <p className="truncate text-[11px] text-muted-foreground">
                     {t(`customization.fields.type.${field.type}`)}
-                    {(field.type === 'select' || field.type === 'multi_select') && field.options.length > 0 && (
-                      <span className="text-muted-foreground/70"> · {field.options.join(', ')}</span>
+                    {field.valueSetId ? (
+                      <span className="text-muted-foreground/70">
+                        {' · '}
+                        {t('customization.fields.boundToSet', {
+                          set: valueSetChoices.find((s) => s.id === field.valueSetId)?.name ?? field.valueSetId,
+                        })}
+                      </span>
+                    ) : (
+                      (field.type === 'select' || field.type === 'multi_select') && field.options.length > 0 && (
+                        <span className="text-muted-foreground/70"> · {field.options.join(', ')}</span>
+                      )
                     )}
                   </p>
                 </div>
@@ -320,6 +342,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
           open={createOpen}
           mode="create"
           entity={entity}
+          valueSetChoices={valueSetChoices}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
         />
@@ -332,6 +355,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
           mode="edit"
           entity={entity}
           field={editTarget}
+          valueSetChoices={valueSetChoices}
           onClose={() => { setEditTarget(null); setDeleteCandidate(null) }}
           onUpdate={(input) => handleUpdate(editTarget.id, input)}
           onDeleteRequest={(field) => requestRemove(field)}
@@ -368,10 +392,32 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
 
 export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
   const { t } = useTranslation()
-  const { customFields } = useDraftConfig()
+  const { customFields, valueSets: draftSets } = useDraftConfig()
   const moduleDef = getEditorModule(moduleKey)
   const entities = moduleDef?.fieldEntities ?? []
   const [activeEntity, setActiveEntity] = useState<CustomFieldEntity>(entities[0] ?? 'crm_contact')
+
+  // Value lists an Auswahl-Feld can bind to: the module's predefined ones plus any
+  // created in the Wertelisten panel this session. Binding is what gives a NEW list
+  // a place in the module — otherwise it has no column and stays invisible
+  // (Darien 2026-08-04). Resolved here so the dialog can preview the options.
+  const valueSetChoices = useMemo<ValueSetChoice[]>(() => {
+    const ids = [
+      ...(moduleDef?.valueSetIds ?? []),
+      ...Object.keys(draftSets).filter((id) => !(moduleDef?.valueSetIds ?? []).includes(id)),
+    ]
+    return ids.flatMap((id) => {
+      const resolved = resolveValueSet(id, false, draftSets)
+      if (!resolved) return []
+      return [{
+        id,
+        name: resolved.name,
+        options: resolved.options
+          .filter((o) => o.active)
+          .map((o) => ({ id: o.id, label: o.label, color: o.color })),
+      }]
+    })
+  }, [moduleDef, draftSets])
 
   if (entities.length === 0) {
     return (
@@ -412,7 +458,7 @@ export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactEl
           </div>
         </div>
       )}
-      <EntityFieldsEditor key={activeEntity} entity={activeEntity} />
+      <EntityFieldsEditor key={activeEntity} entity={activeEntity} valueSetChoices={valueSetChoices} />
     </div>
   )
 }

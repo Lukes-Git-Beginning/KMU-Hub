@@ -45,7 +45,8 @@ const api: ElectronAPI = {
   },
 
   editor: {
-    openWindow: (moduleKey: string) => ipcRenderer.invoke('editor:open-window', moduleKey)
+    openWindow: (moduleKey: string) => ipcRenderer.invoke('editor:open-window', moduleKey),
+    openFormWindow: (formId: string) => ipcRenderer.invoke('editor:open-form-window', formId)
   },
 
   screenshare: {

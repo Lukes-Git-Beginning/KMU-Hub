@@ -12,7 +12,11 @@ import { cn } from '@/lib'
 import { useDraftConfig } from './DraftConfigProvider'
 import { getEditorModule } from './editorModules'
 
-export type EditorSection = 'felder' | 'begriffe' | 'wertelisten' | 'bereiche' | 'statistik' | 'kanäle'
+import type { EditorFocusSection } from '@/components/customization/EditorSurface'
+
+/** The rail's sections. Defined in EditorSurface so modules can react to the
+ *  selected one (useEditorFocusEffect) without importing from the editor. */
+export type EditorSection = EditorFocusSection
 
 interface SectionDef {
   key: EditorSection

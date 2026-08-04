@@ -14,7 +14,7 @@
  * "What is editable" = "what is wrapped in EditableText" — the instrumentation is
  * the whitelist, which scales far better than a central key array.
  */
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -23,6 +23,16 @@ import { resolveValueSet, resolveModuleAreas } from '@/mocks/data/customization'
 import { useCustomFields } from '@/api/hooks/useCustomFields'
 import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
 import type { CustomFieldDefinition, CustomFieldEntity, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
+
+/** The editor's left-rail dimensions. Lives here (not in the editor) so modules
+ *  can react to the selected one without importing from the editor. */
+export type EditorFocusSection =
+  | 'felder'
+  | 'begriffe'
+  | 'wertelisten'
+  | 'bereiche'
+  | 'statistik'
+  | 'kanäle'
 
 export interface EditorSurfaceValue {
   /** True only inside the editor sandbox. */
@@ -39,6 +49,10 @@ export interface EditorSurfaceValue {
   valueSetMigrations: ValueSetMigrations
   /** Draft per-entity custom-field snapshots — previewed live by modules that render custom fields (G2). */
   customFields: DraftCustomFieldMap
+  /** Left-rail section the user just selected — the preview follows it (see useEditorFocusEffect). */
+  focusSection: EditorFocusSection | null
+  /** Bumped on every rail click, so re-selecting the same section re-focuses the preview. */
+  focusNonce: number
 }
 
 const noop = (): void => {}
@@ -50,6 +64,8 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   moduleAreas: {},
   valueSetMigrations: {},
   customFields: {},
+  focusSection: null,
+  focusNonce: 0,
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -247,6 +263,78 @@ export function useValueSetMigration(setId: string): Record<string, string> {
  * actually reach the UI (edit-in-place consistency). Only visible fields are
  * returned, sorted by display order.
  */
+/** One resolved choice of a select field — from a bound value list or a free option. */
+export interface FieldOption {
+  /** Stored value (value-set option id, or the plain option text when unbound). */
+  id: string
+  label: string
+  color?: string
+}
+
+/**
+ * Resolve what a select field offers (Darien 2026-08-04). Two sources:
+ *   - bound to a value list (`valueSetId`) → labels/colours/order come from the
+ *     list, so renaming an option in the Wertelisten panel reaches the record AND
+ *     the statistics at once. This is what gives a NEW value list a place in the
+ *     module — without a field pointing at it, a list has no column to live in.
+ *   - unbound → its own free `options` strings, as before.
+ *
+ * Takes the whole field list and returns key → options, so callers can resolve
+ * many fields without calling a hook per field. Inside the editor sandbox the
+ * staged draft is layered on, so edits preview live.
+ */
+export function useFieldOptions(fields: CustomFieldDefinition[]): Record<string, FieldOption[]> {
+  const { editing, valueSets } = useEditorSurface()
+  const draftOverlay = editing ? valueSets : undefined
+  return useMemo(() => {
+    const out: Record<string, FieldOption[]> = {}
+    for (const f of fields) {
+      if (f.valueSetId) {
+        const resolved = resolveValueSet(f.valueSetId, false, draftOverlay)
+        out[f.key] = (resolved?.options ?? [])
+          .filter((o) => o.active)
+          .map((o) => ({ id: o.id, label: o.label, color: o.color }))
+      } else {
+        out[f.key] = f.options.map((o) => ({ id: o, label: o }))
+      }
+    }
+    return out
+  }, [fields, draftOverlay])
+}
+
+/**
+ * Let the preview follow the editor's left rail (Darien 2026-08-04): clicking
+ * "Statistik" should put the preview ON the statistics tab, clicking "Zusatzfelder"
+ * should open a record detail where those fields live — instead of making the user
+ * navigate the module by hand to find what they are editing.
+ *
+ * A module declares where each dimension is visible; unlisted sections do nothing:
+ *
+ *   useEditorFocusEffect({
+ *     statistik: () => setTab('statistik'),
+ *     felder: () => { setTab('tickets'); openFirstTicket() },
+ *   })
+ *
+ * No-op outside the editor sandbox, so this is safe to leave in a live module.
+ * Rollout note: this is the standard instrumentation for every module the editor
+ * gets pointed at — same shape everywhere.
+ */
+export function useEditorFocusEffect(
+  handlers: Partial<Record<EditorFocusSection, () => void>>,
+): void {
+  const { editing, focusSection, focusNonce } = useEditorSurface()
+  // Handlers close over fresh module state each render; keep the latest in a ref so
+  // the focus effect never re-runs just because a callback identity changed.
+  const latest = useRef(handlers)
+  useEffect(() => {
+    latest.current = handlers
+  })
+  useEffect(() => {
+    if (!editing || !focusSection) return
+    latest.current[focusSection]?.()
+  }, [editing, focusSection, focusNonce])
+}
+
 export function useModuleCustomFields(entity: CustomFieldEntity): CustomFieldDefinition[] {
   const { editing, customFields } = useEditorSurface()
   const { data: live } = useCustomFields(entity)

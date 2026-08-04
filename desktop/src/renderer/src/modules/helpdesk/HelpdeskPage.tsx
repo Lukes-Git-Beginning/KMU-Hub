@@ -70,7 +70,7 @@ import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } f
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions } from '@/components/customization/EditorSurface'
 import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
 import { useFormSchema } from '@/api/hooks/useFormulare'
 import type { FormField } from '@/api/formulare-types'
@@ -245,6 +245,9 @@ export default function HelpdeskPage() {
   // field with a value list gets its own "distribution by <field>" widget, so a
   // new value list added in the editor shows up in the stats automatically.
   const statFieldDefs = useModuleCustomFields('helpdesk_ticket')
+  // Choices per field — bound value lists supply labels AND colours here, so a list
+  // created in the editor shows up as a breakdown with its own palette (Darien 2026-08-04).
+  const statFieldOptions = useFieldOptions(statFieldDefs)
   const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
   const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
   const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
@@ -362,6 +365,20 @@ export default function HelpdeskPage() {
   }, [tickets, ticketRead.allowed, ticketRead.scope, currentUserId])
 
   const openTickets = baseTickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved')
+
+  // Editor: let the preview follow the left rail (Darien 2026-08-04) — selecting a
+  // dimension navigates here to where it is actually visible, instead of making the
+  // user hunt for it. Zusatzfelder/Wertelisten live in a ticket detail, statistics
+  // in their own tab, Kanäle in the origin sub-tabs on the list.
+  useEditorFocusEffect({
+    statistik: () => { setSelectedTicketId(null); setTab('statistik') },
+    felder: () => { setTab('tickets'); setSelectedTicketId(baseTickets[0]?.id ?? null) },
+    // Value sets show densest as chips across the list (status/priority/category/SLA).
+    wertelisten: () => { setSelectedTicketId(null); setTab('tickets') },
+    bereiche: () => { setSelectedTicketId(null); setTab('tickets') },
+    begriffe: () => { setSelectedTicketId(null); setTab('tickets') },
+    'kanäle': () => { setSelectedTicketId(null); setTab('tickets') },
+  })
 
   const filteredTickets = useMemo(() => {
     return baseTickets.filter((t) => {
@@ -885,17 +902,18 @@ export default function HelpdeskPage() {
         // Dynamic breakdowns: every select custom field with options becomes a
         // "distribution by <field>" widget (togglable via stat:field:<key>).
         const fieldBreakdowns = statFieldDefs
-          .filter((f) => f.type === 'select' && f.options.length > 0)
+          .filter((f) => f.type === 'select' && (statFieldOptions[f.key]?.length ?? 0) > 0)
           .map((f) =>
             showStat(`field:${f.key}`)
               ? renderBreakdown(
                   `f-${f.key}`,
                   t('helpdesk.stats.byField', { field: f.label }),
-                  f.options.map((opt) => ({
-                    id: opt,
-                    label: opt,
+                  (statFieldOptions[f.key] ?? []).map((opt) => ({
+                    id: opt.id,
+                    label: opt.label,
+                    color: opt.color,
                     count: tickets.filter(
-                      (tk) => tk.customFields?.[f.key] != null && String(tk.customFields[f.key]) === opt,
+                      (tk) => tk.customFields?.[f.key] != null && String(tk.customFields[f.key]) === opt.id,
                     ).length,
                   })),
                 )
@@ -1077,7 +1095,7 @@ function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
  * select → dropdown of its options · boolean → checkbox · else a typed input.
  */
 function CustomFieldControl({
-  def, value, onChange, onCommit,
+  def, value, onChange, onCommit, options,
 }: {
   def: CustomFieldDefinition
   value: string
@@ -1085,6 +1103,9 @@ function CustomFieldControl({
   /** Persist the value (intake P1b). Discrete controls (select/checkbox) commit
    *  on change; free-text inputs commit on blur so typing isn't interrupted. */
   onCommit?: (v: string) => void
+  /** Resolved choices — from a bound value list or the field's own options
+   *  (useFieldOptions). Falls back to the raw options when not supplied. */
+  options?: { id: string; label: string; color?: string }[]
 }) {
   const { t } = useTranslation()
   const inputCls = 'w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring'
@@ -1096,12 +1117,13 @@ function CustomFieldControl({
       </label>
     )
   }
-  if (def.type === 'select' && def.options.length > 0) {
+  const choices = options ?? def.options.map((o) => ({ id: o, label: o }))
+  if (def.type === 'select' && choices.length > 0) {
     return (
       <div className="relative">
         <select value={value} onChange={(e) => { onChange(e.target.value); onCommit?.(e.target.value) }} className={`${inputCls} appearance-none pr-7 cursor-pointer`}>
           <option value="">{t('helpdesk.newTicket.selectPlaceholder')}</option>
-          {def.options.map((o) => <option key={o} value={o}>{o}</option>)}
+          {choices.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
         <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
       </div>
@@ -1137,6 +1159,9 @@ function TicketDetailPanel({
   // Custom "Zusatzfelder": the tenant-defined helpdesk_ticket fields (draft ⊕ live).
   // Editing/adding one in the Felder panel previews live here (G2).
   const customFieldDefs = useModuleCustomFields('helpdesk_ticket')
+  // A select field may draw its choices from a shared value list — then renaming an
+  // option in the Wertelisten panel reaches this dropdown live.
+  const customFieldOptions = useFieldOptions(customFieldDefs)
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -1346,6 +1371,7 @@ function TicketDetailPanel({
                   </label>
                   <CustomFieldControl
                     def={def}
+                    options={customFieldOptions[def.key]}
                     value={String(ticket.customFields?.[def.key] ?? '')}
                     onChange={(v) => onCustomFieldChange(ticket.id, def.key, v)}
                     onCommit={(v) => onCustomFieldCommit(ticket.id, def.key, v)}

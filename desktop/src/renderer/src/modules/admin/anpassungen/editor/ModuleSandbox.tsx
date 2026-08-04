@@ -26,7 +26,11 @@ import { EyeOff } from 'lucide-react'
 import { STALE_TIME } from '@/lib/constants'
 import { i18n } from '@/i18n/i18n'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
-import { EditorSurfaceProvider, type EditorSurfaceValue } from '@/components/customization/EditorSurface'
+import {
+  EditorSurfaceProvider,
+  type EditorSurfaceValue,
+  type EditorFocusSection,
+} from '@/components/customization/EditorSurface'
 import { useDraftConfig } from './DraftConfigProvider'
 import type { EditorModuleDef } from './editorModules'
 
@@ -43,7 +47,16 @@ class SandboxErrorBoundary extends Component<
   }
 }
 
-export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNode {
+export function ModuleSandbox({
+  module,
+  focusSection = null,
+  focusNonce = 0,
+}: {
+  module: EditorModuleDef
+  /** Left-rail section the user selected — the module navigates itself there. */
+  focusSection?: EditorFocusSection | null
+  focusNonce?: number
+}): ReactNode {
   const { t } = useTranslation()
   const { labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields } = useDraftConfig()
   const [sandboxClient] = useState(
@@ -67,8 +80,10 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
       moduleAreas,
       valueSetMigrations,
       customFields,
+      focusSection,
+      focusNonce,
     }),
-    [labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields],
+    [labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields, focusSection, focusNonce],
   )
 
   const fallback = (

@@ -1,4 +1,4 @@
-{
+﻿{
   "admin.caldav.description": "Paramètres à l'échelle de l'organisation pour la synchronisation des calendriers et des contacts",
   "admin.caldav.email": "E-mail",
   "admin.caldav.enableDescription": "Permet à tous les utilisateurs de synchroniser leurs calendriers et contacts avec des applications externes",
@@ -11721,6 +11721,12 @@
   "customization.fields.advancedOptions": "Plus d’options",
   "customization.fields.options": "Options de sélection",
   "customization.fields.optionsPlaceholder": "Option 1, Option 2, Option 3",
+  "customization.fields.boundToSet": "Valeurs de « {set} »",
+  "customization.fields.optionSource": "Origine des valeurs proposées",
+  "customization.fields.sourceOwn": "Options propres",
+  "customization.fields.sourceValueSet": "Depuis une liste de valeurs",
+  "customization.fields.valueSetNone": "Choisir une liste de valeurs …",
+  "customization.fields.valueSetHint": "Le champ reprend les valeurs, couleurs et l'ordre de la liste. Les modifications s'appliquent partout — dans la fiche et dans les statistiques.",
   "customization.fields.optionsHint": "Valeurs séparées par des virgules. L’ordre est conservé.",
   "customization.fields.validation": "Validation",
   "customization.fields.validationMin": "Min",

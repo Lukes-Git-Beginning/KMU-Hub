@@ -53,13 +53,26 @@ function EditorLayout({
   const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [deployOpen, setDeployOpen] = useState(false)
+  // Bumped on every rail click so re-selecting the same section re-focuses the
+  // preview (the user may have navigated the module away in between).
+  const [focusNonce, setFocusNonce] = useState(0)
+
+  const selectSection = (section: EditorSection): void => {
+    setActiveSection(section)
+    setFocusNonce((n) => n + 1)
+  }
 
   // Editor is for editing, not using: block any in-module action that navigates
   // away (email → /mails, call → /chat, out-linking rows). State-based navigation
   // inside the module (tab switch, detail modal) does not route, so it is
   // unaffected. In Electron the editor closes via window.close (not the router),
   // so this never traps the close.
-  const blocker = useBlocker(true)
+  //
+  // Exception (Darien 2026-08-04): the editor's OWN panels may route on purpose —
+  // "Formular bearbeiten →" in the Kanäle panel is the web fallback for opening a
+  // channel's ticket form. Those carry state.fromEditor and pass through; without
+  // this the click was silently swallowed and the form looked uneditable.
+  const blocker = useBlocker(({ nextLocation }) => nextLocation.state?.fromEditor !== true)
   useEffect(() => {
     if (blocker.state === 'blocked') blocker.reset()
   }, [blocker])
@@ -117,9 +130,11 @@ function EditorLayout({
 
       {/* ── Body: trio-nav · preview · properties ──────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        <EditorTrioNav active={activeSection} onSelect={setActiveSection} />
+        <EditorTrioNav active={activeSection} onSelect={selectSection} />
         <div className="min-w-0 flex-1">
-          <ModuleSandbox module={module} />
+          {/* The preview follows the rail: selecting a dimension navigates the
+              module to where that dimension is actually visible. */}
+          <ModuleSandbox module={module} focusSection={activeSection} focusNonce={focusNonce} />
         </div>
         <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />
       </div>

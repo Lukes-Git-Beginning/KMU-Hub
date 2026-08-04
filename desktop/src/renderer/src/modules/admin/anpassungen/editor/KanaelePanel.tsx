@@ -60,10 +60,17 @@ export function KanaelePanel({ moduleKey }: { moduleKey: string }): React.ReactE
   // each channel can render.
   const ticketForms = (data?.items ?? []).filter((s) => s.intakeTargetId === 'helpdesk_ticket')
 
-  // Open the concrete bound form in the real form editor (deep-link, shared router).
+  // Open the concrete bound form in the real form editor. In Electron that is its
+  // OWN window — routing the editor window away would unmount DraftConfigProvider
+  // and drop every unsaved customization. Web/dev has no second window, so it
+  // routes in place, flagged so the editor's navigation blocker lets it through.
   const editForm = (id: string): void => {
     if (!id) return
-    navigate(`/formulare?edit=${encodeURIComponent(id)}`)
+    if (window.electronAPI?.editor?.openFormWindow) {
+      void window.electronAPI.editor.openFormWindow(id)
+      return
+    }
+    navigate(`/formulare?edit=${encodeURIComponent(id)}`, { state: { fromEditor: true } })
   }
 
   // Create a new ticket form by duplicating the seed intake template, then open it.
@@ -73,7 +80,7 @@ export function KanaelePanel({ moduleKey }: { moduleKey: string }): React.ReactE
         id: SEED_TICKET_FORM,
         title: t('customization.editor.channels.newFormTitle'),
       })
-      if (created?.id) navigate(`/formulare?edit=${encodeURIComponent(created.id)}`)
+      if (created?.id) editForm(created.id)
     } catch {
       toast.error(t('customization.editor.channels.newFormError'))
     }

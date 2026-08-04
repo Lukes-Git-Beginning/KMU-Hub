@@ -120,25 +120,19 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
 
   return (
     <div className="rounded-lg border bg-card">
-      {/* Set header. Predefined sets (module-anchored) show a static title — their
-          module-facing label is renamed by clicking it in the preview (edit-in-
-          place), so a separate name field here would be a dead control. Newly
-          created sets have no module anchor yet, so their name IS editable here. */}
+      {/* Set header — every set renames here, predefined ones included (Darien
+          2026-08-04). The old split (static title + "rename it in the module")
+          conflated two different things: the SET's name is metadata of the list
+          itself, while the module's column heading is a label edited in place.
+          Renaming one never renamed the other, so the hint was misleading. */}
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
-        {predefined ? (
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{editable.name}</p>
-            <p className="truncate text-[10px] text-muted-foreground">{t('customization.editor.wertelisten.renameInModule')}</p>
-          </div>
-        ) : (
-          <input
-            value={editable.name}
-            onChange={(e) => commit({ ...editable, name: e.target.value })}
-            aria-label={t('customization.editor.wertelisten.setNameLabel')}
-            placeholder={t('customization.editor.wertelisten.newSetName')}
-            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm font-medium outline-none focus:border-primary"
-          />
-        )}
+        <input
+          value={editable.name}
+          onChange={(e) => commit({ ...editable, name: e.target.value })}
+          aria-label={t('customization.editor.wertelisten.setNameLabel')}
+          placeholder={t('customization.editor.wertelisten.newSetName')}
+          className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm font-medium outline-none focus:border-primary"
+        />
         {predefined && resolved.provenance !== 'default' && (
           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${PROVENANCE_STYLE[resolved.provenance] ?? ''}`}>
             {t(`customization.labels.provenance.${resolved.provenance}`)}

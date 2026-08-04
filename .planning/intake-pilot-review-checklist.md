@@ -8,6 +8,53 @@
 
 ---
 
+# TEIL 1 — Intake v2 (dein Feedback Punkt 4/5/6, frisch gebaut)
+
+## A · Pro-Kanal-Vorlagen (Punkt 4)
+**Pfad:** Helpdesk → Editor öffnen → Sektion **Kanäle**.
+
+- [ ] Jeder der 3 Kanäle hat einen **eigenen** Vorlagen-Wähler (nicht mehr ein globales Formular für alle)
+- [ ] Man kann 1, 2 oder alle 3 Kanäle mit unterschiedlichen Vorlagen belegen
+- [ ] „Neue Vorlage" legt eine Kopie an, die man sofort zuweisen kann
+- [ ] „Formular bearbeiten →" öffnet **direkt dieses Formular** im Editor (nicht nur die Liste)
+- [ ] Die zugewiesenen Formulare sind **wirklich bearbeitbar** (nicht mehr die read-only Vorlage von vorher)
+- Notiz:
+
+## B · Agent-Dialog aus der Vorlage (Punkt 4)
+**Pfad:** Helpdesk → „Neues Ticket".
+
+- [ ] Der Dialog zeigt die Felder der **gebundenen Agent-Vorlage** (ändert man die Vorlage, ändert sich der Dialog)
+- [ ] Die Profi-Werkzeuge sind **erhalten geblieben**: Sektion „Interne Zuordnung (nur Agent)" mit Kontakt / Priorität / Zuweisung
+- [ ] Absenden erzeugt ein Ticket, in dem sowohl Vorlage-Felder als auch die interne Zuordnung korrekt stehen
+- Notiz:
+
+## C · Feld-Trennung intern vs. Einreicher (Punkt 6)
+**Pfad:** Editor → **Zusatzfelder** · und Helpdesk → „Neues Ticket" + Ticket-Detail.
+
+- [ ] Modul-Zusatzfelder sind **raus** aus dem Neu-Dialog (die sind intern)
+- [ ] Im **Ticket-Detail** sind sie weiterhin da und editierbar
+- [ ] Editor-Panel „Zusatzfelder" erklärt sichtbar: *diese Felder sind intern, nur für Modul-Mitarbeiter*
+- [ ] Was der Einreicher ausfüllt, kommt aus der **Kanal-Vorlage** — die Trennung ist beim Durchklicken verständlich
+- Notiz:
+
+## D · Dynamische Statistik + CSAT-Frage (Punkt 5)
+**Pfad:** Helpdesk → Statistik-Tab · und Moduleinstellungen.
+
+- [ ] Statistik zeigt für **jedes Auswahl-Zusatzfeld** automatisch eine Aufschlüsselung („Nach SLA-Stufe", „Nach Kontaktkanal" …)
+- [ ] Neue Werteliste im Editor anlegen → erscheint **ohne Zutun** als neue Aufschlüsselung
+- [ ] Die Namen in der Aufschlüsselung kommen aus der Werteliste (umbenennen wirkt durch)
+- [ ] Moduleinstellungen → CSAT: **„Umfrage Frage"** ist frei änderbar
+- [ ] Geänderte Frage steht im CSAT-Widget über den Sternen
+- Notiz:
+
+> **Bewusst offen (B2-Rest):** die Feld-Aufschlüsselungen sind aktuell **immer** sichtbar. Sie im
+> Editor-Statistik-Katalog einzeln an-/abschaltbar zu machen braucht noch einen Umbau am Panel-Kontext.
+> Sag Bescheid, ob dir „immer sichtbar" reicht oder ob das nachgezogen werden soll.
+
+---
+
+# TEIL 2 — Pilot-Grundlage (Session #32, falls du nochmal drüber willst)
+
 ## 1 · Herkunfts-Reiter im Helpdesk (P4)
 **Pfad:** Sidebar → Helpdesk → oben die Reiter **Alle / Agent / Selfservice / Extern**
 (erscheinen nur, wenn ≥2 Kanäle aktiv sind).

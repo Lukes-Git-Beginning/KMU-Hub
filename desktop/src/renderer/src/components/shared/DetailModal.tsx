@@ -2,6 +2,7 @@ import { X, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useEditorSurface } from '@/components/customization/EditorSurface'
 import { cn } from '@/lib'
 
 /**
@@ -45,10 +46,17 @@ export function DetailModal({
   onBack,
 }: DetailModalProps) {
   const { t } = useTranslation()
+  // Inside the editor sandbox the detail is a PREVIEW, not a dialog the user is
+  // answering: a modal one makes Radix mark the rest of the window inert, which
+  // locks the editor's own rail and panels behind it (Darien 2026-08-04). Non-modal
+  // keeps the editor operable while the detail stays open next to it.
+  const { editing } = useEditorSurface()
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog open={open} modal={!editing} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
         showCloseButton={false}
+        // Clicking the editor's rail must reach the rail, not just dismiss the preview.
+        onInteractOutside={editing ? (e) => e.preventDefault() : undefined}
         className={cn('flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-2xl p-0', maxWidth, className)}
       >
         {/* a11y: Radix benötigt einen Titel — sichtbar gerendert im Header unten, hier sr-only als Fallback */}

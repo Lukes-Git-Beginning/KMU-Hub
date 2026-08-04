@@ -1,4 +1,4 @@
-{
+﻿{
   "admin.caldav.description": "Organisationsweite Einstellungen für die Kalender- und Kontakt-Synchronisierung",
   "admin.caldav.email": "E-Mail",
   "admin.caldav.enableDescription": "Ermöglicht allen Benutzern, Kalender und Kontakte mit externen Anwendungen zu synchronisieren",
@@ -11756,6 +11756,12 @@
   "customization.fields.options": "Auswahloptionen",
   "customization.fields.optionsPlaceholder": "Option 1, Option 2, Option 3",
   "customization.fields.optionsHint": "Kommagetrennte Werte. Reihenfolge wird beibehalten.",
+  "customization.fields.boundToSet": "Werte aus »{set}«",
+  "customization.fields.optionSource": "Woher die Auswahlwerte kommen",
+  "customization.fields.sourceOwn": "Eigene Optionen",
+  "customization.fields.sourceValueSet": "Aus Werteliste",
+  "customization.fields.valueSetNone": "Werteliste wählen …",
+  "customization.fields.valueSetHint": "Das Feld übernimmt Werte, Farben und Reihenfolge aus der Werteliste. Änderungen dort wirken überall — im Datensatz und in der Statistik.",
   "customization.fields.validation": "Validierung",
   "customization.fields.validationMin": "Min",
   "customization.fields.validationMax": "Max",
