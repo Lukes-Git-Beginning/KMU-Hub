@@ -51,7 +51,16 @@ export interface EditorModuleDef {
    * visible; every custom field additionally offers an opt-in column, derived at
    * runtime rather than listed here. Empty → module has no configurable list.
    */
-  listColumns?: { key: string; labelKey: string }[]
+  listColumns?: {
+    key: string
+    labelKey: string
+    /**
+     * The value list this built-in column already renders. Without it the Spalten
+     * panel would offer that list under "Wertelisten ohne Spalte" even though it
+     * has had a column all along (priority/status).
+     */
+    valueSetId?: string
+  }[]
   /**
    * Ticket-Intake P6 — this module has configurable creation channels (agent /
    * self-service / external) shown in the editor's Kanäle panel. Only modules
@@ -113,8 +122,8 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'ticketNr', labelKey: 'helpdesk.table.ticketNr' },
       { key: 'subject', labelKey: 'helpdesk.table.subject' },
       { key: 'category', labelKey: 'helpdesk.table.category' },
-      { key: 'priority', labelKey: 'helpdesk.table.priority' },
-      { key: 'status', labelKey: 'common.status' },
+      { key: 'priority', labelKey: 'helpdesk.table.priority', valueSetId: 'ticket_priority' },
+      { key: 'status', labelKey: 'common.status', valueSetId: 'ticket_status' },
       { key: 'assignedTo', labelKey: 'helpdesk.table.assignedTo' },
       { key: 'sla', labelKey: 'helpdesk.table.sla' },
       { key: 'createdAt', labelKey: 'helpdesk.table.createdAt' },

@@ -13,7 +13,6 @@
  */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { nanoid } from 'nanoid'
 import {
   Plus,
   RotateCcw,
@@ -39,7 +38,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { resolveValueSet } from '@/mocks/data/customization'
-import { useCustomFields } from '@/api/hooks/useCustomFields'
 import type {
   CustomFieldDefinition,
   CustomFieldEntity,
@@ -50,6 +48,7 @@ import type {
 import { FieldEditorModal, type ValueSetChoice } from '../FieldEditorModal'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
+import { useEntityFieldDraft, fieldSig } from './useEntityFieldDraft'
 
 // ── Type icon ─────────────────────────────────────────────────────────────────
 
@@ -69,28 +68,8 @@ function typeIcon(type: CustomFieldType): typeof Type {
 }
 
 // ── Draft-vs-baseline diffing ──────────────────────────────────────────────────
-
-/** Signature of a field's meaningful props (order/inUse excluded — no reorder UI). */
-function fieldSig(f: CustomFieldDefinition): string {
-  return JSON.stringify({
-    id: f.id,
-    label: f.label,
-    type: f.type,
-    required: f.required,
-    visible: f.visible,
-    options: f.options,
-    validation: f.validation ?? null,
-    defaultValue: f.defaultValue ?? '',
-  })
-}
-
-/** Whole-list signature (order-independent) — drives dirty detection. */
-function listSig(list: CustomFieldDefinition[]): string {
-  return list
-    .map(fieldSig)
-    .sort()
-    .join('|')
-}
+// The staging itself lives in useEntityFieldDraft — the Spalten panel edits the
+// same snapshot, so both must go through one implementation.
 
 type FieldBadge = 'added' | 'modified' | null
 
@@ -104,30 +83,14 @@ function EntityFieldsEditor({
   valueSetChoices: ValueSetChoice[]
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { customFields, setDraftEntityFields, resetDraftEntityFields } = useDraftConfig()
-  const { data: baseline = [], isLoading } = useCustomFields(entity)
+  const { effective, baseline, removed, isLoading, isDraft, stage, create, update, remove, reset } =
+    useEntityFieldDraft(entity)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CustomFieldDefinition | null>(null)
   const [deleteCandidate, setDeleteCandidate] = useState<CustomFieldDefinition | null>(null)
 
-  const baseSorted = useMemo(
-    () => [...baseline].sort((a, b) => a.order - b.order),
-    [baseline],
-  )
-  const draftSnapshot = customFields[entity]
-  const effective = draftSnapshot ?? baseSorted
-  const isDraft = draftSnapshot !== undefined
-
-  const baseById = useMemo(() => new Map(baseSorted.map((f) => [f.id, f])), [baseSorted])
-  const effectiveIds = new Set(effective.map((f) => f.id))
-  const removed = baseSorted.filter((f) => !effectiveIds.has(f.id))
-
-  /** Stage a new full list — or drop the snapshot if it equals the live baseline. */
-  const stage = (next: CustomFieldDefinition[]): void => {
-    if (listSig(next) === listSig(baseSorted)) resetDraftEntityFields(entity)
-    else setDraftEntityFields(entity, next)
-  }
+  const baseById = useMemo(() => new Map(baseline.map((f) => [f.id, f])), [baseline])
 
   const badgeFor = (f: CustomFieldDefinition): FieldBadge => {
     const base = baseById.get(f.id)
@@ -137,44 +100,12 @@ function EntityFieldsEditor({
   }
 
   const handleCreate = (input: CreateCustomFieldInput): void => {
-    const field: CustomFieldDefinition = {
-      id: `draft_${nanoid(8)}`,
-      entity,
-      key: `draft_${nanoid(4)}`,
-      label: input.label,
-      type: input.type,
-      required: input.required ?? false,
-      options: input.options ?? [],
-      valueSetId: input.valueSetId,
-      validation: input.validation,
-      defaultValue: input.defaultValue,
-      visible: input.visible ?? true,
-      order: effective.length,
-      inUse: false,
-    }
-    stage([...effective, field])
+    create(input)
     setCreateOpen(false)
   }
 
   const handleUpdate = (id: string, input: UpdateCustomFieldInput): void => {
-    stage(
-      effective.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              ...(input.label !== undefined && { label: input.label }),
-              ...(input.type !== undefined && { type: input.type }),
-              ...(input.required !== undefined && { required: input.required }),
-              ...(input.options !== undefined && { options: input.options }),
-              // Explicit, so unbinding a value list actually clears it.
-              ...('valueSetId' in input && { valueSetId: input.valueSetId }),
-              ...(input.validation !== undefined && { validation: input.validation }),
-              ...(input.defaultValue !== undefined && { defaultValue: input.defaultValue }),
-              ...(input.visible !== undefined && { visible: input.visible }),
-            }
-          : f,
-      ),
-    )
+    update(id, input)
     setEditTarget(null)
   }
 
@@ -183,7 +114,7 @@ function EntityFieldsEditor({
   }
 
   const removeField = (field: CustomFieldDefinition): void => {
-    stage(effective.filter((f) => f.id !== field.id))
+    remove(field.id)
     setDeleteCandidate(null)
     setEditTarget(null)
   }
@@ -214,7 +145,7 @@ function EntityFieldsEditor({
           {isDraft && (
             <button
               type="button"
-              onClick={() => resetDraftEntityFields(entity)}
+              onClick={reset}
               aria-label={t('customization.editor.begriffe.reset')}
               title={t('customization.editor.begriffe.reset')}
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
