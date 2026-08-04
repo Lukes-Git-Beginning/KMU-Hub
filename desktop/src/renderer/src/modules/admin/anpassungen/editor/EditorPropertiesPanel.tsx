@@ -7,13 +7,14 @@
  * BegriffeTab / ValueSetsTab, module-filtered + draft-wired) below the intro.
  */
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, MousePointer2, Copy, PanelLeft } from 'lucide-react'
+import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, MousePointer2, Copy, PanelLeft, Columns3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
 import { WertelistenPanel } from './WertelistenPanel'
 import { FelderPanel } from './FelderPanel'
 import { BereichePanel } from './BereichePanel'
+import { SpaltenPanel } from './SpaltenPanel'
 import { StatistikPanel } from './StatistikPanel'
 import { KanaelePanel } from './KanaelePanel'
 
@@ -38,6 +39,11 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
     titleKey: 'customization.editor.nav.areas',
     descKey: 'customization.editor.props.areasDesc',
   },
+  spalten: {
+    icon: Columns3,
+    titleKey: 'customization.editor.nav.columns',
+    descKey: 'customization.editor.props.columnsDesc',
+  },
   statistik: {
     icon: BarChart3,
     titleKey: 'customization.editor.nav.statistics',
@@ -53,9 +59,15 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
 export function EditorPropertiesPanel({
   section,
   moduleKey,
+  onEditForm,
+  editingFormId,
 }: {
   section: EditorSection | null
   moduleKey: string
+  /** Open a channel's ticket form on the editor canvas (Darien 2026-08-04). */
+  onEditForm?: (formId: string) => void
+  /** The form currently open on the canvas, so the panel can mark it. */
+  editingFormId?: string | null
 }): React.ReactElement {
   const { t } = useTranslation()
 
@@ -112,10 +124,12 @@ export function EditorPropertiesPanel({
         <FelderPanel moduleKey={moduleKey} />
       ) : section === 'bereiche' ? (
         <BereichePanel moduleKey={moduleKey} />
+      ) : section === 'spalten' ? (
+        <SpaltenPanel moduleKey={moduleKey} />
       ) : section === 'statistik' ? (
         <StatistikPanel moduleKey={moduleKey} />
       ) : section === 'kanäle' ? (
-        <KanaelePanel moduleKey={moduleKey} />
+        <KanaelePanel moduleKey={moduleKey} onEditForm={onEditForm} editingFormId={editingFormId} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

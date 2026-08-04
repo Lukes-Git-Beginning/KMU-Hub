@@ -6,7 +6,7 @@
  * editor content.
  */
 import { useTranslation } from 'react-i18next'
-import { Type, ListChecks, SquareStack, Layers, BarChart3, Inbox } from 'lucide-react'
+import { Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, Columns3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib'
 import { useDraftConfig } from './DraftConfigProvider'
@@ -31,6 +31,12 @@ const SECTIONS: SectionDef[] = [
   { key: 'begriffe', labelKey: 'customization.editor.nav.terms', icon: Type },
   { key: 'wertelisten', labelKey: 'customization.editor.nav.valueSets', icon: ListChecks },
   { key: 'bereiche', labelKey: 'customization.editor.nav.areas', icon: Layers },
+  {
+    key: 'spalten',
+    labelKey: 'customization.editor.nav.columns',
+    icon: Columns3,
+    requires: (moduleKey) => (getEditorModule(moduleKey)?.listColumns?.length ?? 0) > 0,
+  },
   { key: 'statistik', labelKey: 'customization.editor.nav.statistics', icon: BarChart3 },
   {
     key: 'kanäle',
@@ -58,7 +64,8 @@ export function EditorTrioNav({
     felder: Object.keys(customFields).length,
     begriffe: labelCount,
     wertelisten: Object.keys(valueSets).length,
-    bereiche: areaKeys.filter((k) => !k.startsWith('stat:')).length,
+    bereiche: areaKeys.filter((k) => !k.startsWith('stat:') && !k.startsWith('col:')).length,
+    spalten: areaKeys.filter((k) => k.startsWith('col:')).length,
     statistik: areaKeys.filter((k) => k.startsWith('stat:')).length,
     // Channels are a functional tenant toggle (not a draft dimension) → no badge.
     'kanäle': 0,

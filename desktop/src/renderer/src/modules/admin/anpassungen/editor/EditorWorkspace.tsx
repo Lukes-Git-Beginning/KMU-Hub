@@ -25,6 +25,7 @@ import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
 import { ModuleSandbox } from './ModuleSandbox'
+import { EmbeddedFormEditor } from './EmbeddedFormEditor'
 import { DeployDialog } from './DeployDialog'
 import type { EditorModuleDef } from './editorModules'
 
@@ -56,10 +57,17 @@ function EditorLayout({
   // Bumped on every rail click so re-selecting the same section re-focuses the
   // preview (the user may have navigated the module away in between).
   const [focusNonce, setFocusNonce] = useState(0)
+  // Ticket form being edited on the canvas (Darien 2026-08-04): editing a channel's
+  // form is part of configuring the module, so the builder takes over the preview
+  // area instead of navigating out of the editor.
+  const [formEditId, setFormEditId] = useState<string | null>(null)
 
   const selectSection = (section: EditorSection): void => {
     setActiveSection(section)
     setFocusNonce((n) => n + 1)
+    // Leaving the channels section closes the builder — the rail always shows what
+    // the canvas is displaying.
+    if (section !== 'kanäle') setFormEditId(null)
   }
 
   // Editor is for editing, not using: block any in-module action that navigates
@@ -132,11 +140,21 @@ function EditorLayout({
       <div className="flex min-h-0 flex-1">
         <EditorTrioNav active={activeSection} onSelect={selectSection} />
         <div className="min-w-0 flex-1">
-          {/* The preview follows the rail: selecting a dimension navigates the
-              module to where that dimension is actually visible. */}
-          <ModuleSandbox module={module} focusSection={activeSection} focusNonce={focusNonce} />
+          {/* The canvas shows either the module preview — which follows the rail,
+              selecting a dimension navigates to where it is visible — or the ticket
+              form builder when a channel's form is being edited. */}
+          {formEditId ? (
+            <EmbeddedFormEditor formId={formEditId} onBack={() => setFormEditId(null)} />
+          ) : (
+            <ModuleSandbox module={module} focusSection={activeSection} focusNonce={focusNonce} />
+          )}
         </div>
-        <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />
+        <EditorPropertiesPanel
+          section={activeSection}
+          moduleKey={module.key}
+          onEditForm={setFormEditId}
+          editingFormId={formEditId}
+        />
       </div>
 
       {/* ── Commit footer (48px) ───────────────────────────────────────── */}

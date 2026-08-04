@@ -34,7 +34,17 @@ const CHANNELS: { key: ChannelKey; icon: LucideIcon; labelKey: string; descKey: 
 
 const SEED_TICKET_FORM = 'tmpl-ticket-intake'
 
-export function KanaelePanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
+export function KanaelePanel({
+  moduleKey,
+  onEditForm,
+  editingFormId,
+}: {
+  moduleKey: string
+  /** Open the form on the editor canvas — the builder stays inside the module
+   *  editor (Darien 2026-08-04); without this the panel falls back to routing. */
+  onEditForm?: (formId: string) => void
+  editingFormId?: string | null
+}): React.ReactElement {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const channels = useHelpdeskStore((s) => s.intakeChannels)
@@ -60,14 +70,14 @@ export function KanaelePanel({ moduleKey }: { moduleKey: string }): React.ReactE
   // each channel can render.
   const ticketForms = (data?.items ?? []).filter((s) => s.intakeTargetId === 'helpdesk_ticket')
 
-  // Open the concrete bound form in the real form editor. In Electron that is its
-  // OWN window — routing the editor window away would unmount DraftConfigProvider
-  // and drop every unsaved customization. Web/dev has no second window, so it
-  // routes in place, flagged so the editor's navigation blocker lets it through.
+  // Edit the bound form ON THE EDITOR CANVAS (Darien 2026-08-04) — jumping out to
+  // the Formulare module, or into a separate window, took the user out of the thing
+  // they were configuring. The fallback only applies where no canvas is wired
+  // (the panel is also usable standalone).
   const editForm = (id: string): void => {
     if (!id) return
-    if (window.electronAPI?.editor?.openFormWindow) {
-      void window.electronAPI.editor.openFormWindow(id)
+    if (onEditForm) {
+      onEditForm(id)
       return
     }
     navigate(`/formulare?edit=${encodeURIComponent(id)}`, { state: { fromEditor: true } })

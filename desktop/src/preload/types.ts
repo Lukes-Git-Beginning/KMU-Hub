@@ -60,8 +60,6 @@ export interface ElectronAPI {
   /** Module editor: open the customization editor for a module in its own window */
   editor: {
     openWindow: (moduleKey: string) => Promise<void>
-    /** Open a form in the form editor, in its own window (keeps the module editor's draft alive) */
-    openFormWindow: (formId: string) => Promise<void>
   }
 
   /**

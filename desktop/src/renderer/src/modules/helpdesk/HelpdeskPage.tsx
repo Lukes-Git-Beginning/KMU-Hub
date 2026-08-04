@@ -377,6 +377,8 @@ export default function HelpdeskPage() {
     wertelisten: () => { setSelectedTicketId(null); setTab('tickets') },
     bereiche: () => { setSelectedTicketId(null); setTab('tickets') },
     begriffe: () => { setSelectedTicketId(null); setTab('tickets') },
+    // Columns are only judgeable on the list itself.
+    spalten: () => { setSelectedTicketId(null); setTab('tickets') },
     'kanäle': () => { setSelectedTicketId(null); setTab('tickets') },
   })
 
@@ -520,6 +522,58 @@ export default function HelpdeskPage() {
   const handleTicketRowClick = (id: string) => {
     setSelectedTicketId(id); setReplyText(''); setShowInternalNotes(false)
   }
+
+  // ── List columns (Darien 2026-08-04) ────────────────────────────────────────
+  // Priority/status are readable straight from the list without opening a ticket;
+  // a value list added in the editor had no way to get that same treatment, and the
+  // built-in columns had no way to be dropped. Columns are therefore configurable,
+  // riding the moduleAreas machinery under a `col:` prefix (draft/deploy/undo come
+  // for free). Built-ins default to ON, custom-field columns to OFF — otherwise
+  // every new field would silently widen the table.
+  const columnDefs: { key: string; header: React.ReactNode; cell: (tk: DisplayTicket) => React.ReactNode; optIn?: boolean }[] = [
+    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="font-mono text-xs text-muted-foreground">{tk.ticketNr}</span> },
+    {
+      key: 'subject',
+      header: <EditableText as="span" dkey="helpdesk.table.subject" />,
+      cell: (tk) => (
+        <span className="block max-w-[250px] truncate font-medium text-foreground">
+          {tk.autoRouted && <Route className="inline h-3 w-3 text-primary mr-1" />}
+          {tk.subject}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: <EditableText as="span" dkey="helpdesk.table.category" />,
+      cell: (tk) => tk.category ? (
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[tk.category] ?? 'bg-secondary text-muted-foreground'}`}>{tk.category}</span>
+      ) : null,
+    },
+    { key: 'priority', header: <EditableText as="span" dkey="helpdesk.table.priority" />, cell: (tk) => <VsChip label={priorityLabels[tk.priority]} color={priorityColorOf(tk.priority)} fallbackClass={priorityColors[tk.priority]} /> },
+    { key: 'status', header: t('common.status'), cell: (tk) => <VsChip label={statusLabels[tk.status]} color={statusColorOf(tk.status)} fallbackClass={statusColors[tk.status]} /> },
+    { key: 'assignedTo', header: <EditableText as="span" dkey="helpdesk.table.assignedTo" />, cell: (tk) => <span className="text-muted-foreground">{tk.assignedTo}</span> },
+    { key: 'sla', header: <AbbrTooltip term="SLA" />, cell: (tk) => <SLABadge overdue={tk.slaOverdue} days={tk.slaDays} hours={tk.slaHours} dueAt={tk.slaDueAt} compact /> },
+    { key: 'createdAt', header: <EditableText as="span" dkey="helpdesk.table.createdAt" />, cell: (tk) => <span className="text-xs text-muted-foreground">{formatDate(tk.createdAt)}</span> },
+    // One opt-in column per custom field. Select fields bound to a value list render
+    // as the same chip as priority/status — that is what "make my new value list
+    // show in the overview" means in practice.
+    ...statFieldDefs.map((f) => ({
+      key: `field:${f.key}`,
+      optIn: true,
+      header: f.label,
+      cell: (tk: DisplayTicket) => {
+        const raw = tk.customFields?.[f.key]
+        if (raw == null || raw === '') return null
+        const opt = statFieldOptions[f.key]?.find((o) => o.id === String(raw))
+        return opt
+          ? <VsChip label={opt.label} color={opt.color} fallbackClass="bg-secondary text-muted-foreground" />
+          : <span className="text-xs text-muted-foreground">{String(raw)}</span>
+      },
+    })),
+  ]
+  const visibleColumns = columnDefs.filter((c) =>
+    c.optIn ? areaEnabled[`col:${c.key}`] === true : areaEnabled[`col:${c.key}`] !== false,
+  )
 
   // Fill/change a custom-field value on a ticket — instant, flicker-free session
   // buffer (merged over the wire value in the `tickets` memo) so typing feels
@@ -738,14 +792,11 @@ export default function HelpdeskPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.ticketNr" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.subject" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.category" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.priority" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.assignedTo" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><AbbrTooltip term="SLA" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.createdAt" /></th>
+                    {visibleColumns.map((col) => (
+                      <th key={col.key} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                        {col.header}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -766,31 +817,9 @@ export default function HelpdeskPage() {
                         selectedTicketId === ticket.id ? 'bg-secondary/70' : ''
                       }`}
                     >
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{ticket.ticketNr}</td>
-                      <td className="px-4 py-3 text-foreground font-medium max-w-[250px] truncate">
-                        {ticket.autoRouted && <Route className="inline h-3 w-3 text-primary mr-1" />}
-                        {ticket.subject}
-                      </td>
-                      <td className="px-4 py-3">
-                        {ticket.category && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[ticket.category] ?? 'bg-secondary text-muted-foreground'}`}>
-                            {ticket.category}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <VsChip label={priorityLabels[ticket.priority]} color={priorityColorOf(ticket.priority)} fallbackClass={priorityColors[ticket.priority]} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <VsChip label={statusLabels[ticket.status]} color={statusColorOf(ticket.status)} fallbackClass={statusColors[ticket.status]} />
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{ticket.assignedTo}</td>
-                      <td className="px-4 py-3">
-                        <SLABadge overdue={ticket.slaOverdue} days={ticket.slaDays} hours={ticket.slaHours} dueAt={ticket.slaDueAt} compact />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {formatDate(ticket.createdAt)}
-                      </td>
+                      {visibleColumns.map((col) => (
+                        <td key={col.key} className="px-4 py-3">{col.cell(ticket)}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

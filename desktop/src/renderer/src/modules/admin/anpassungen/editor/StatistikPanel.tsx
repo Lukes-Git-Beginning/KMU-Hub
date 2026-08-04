@@ -8,6 +8,7 @@
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Lock, BarChart3 } from 'lucide-react'
 import { resolveModuleAreas } from '@/mocks/data/customization'
+import { useCustomFields } from '@/api/hooks/useCustomFields'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
 
@@ -16,9 +17,23 @@ export const STAT_AREA_PREFIX = 'stat:'
 
 export function StatistikPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
   const { t } = useTranslation()
-  const { moduleAreas: draftAreas, setDraftModuleArea } = useDraftConfig()
+  const { moduleAreas: draftAreas, setDraftModuleArea, customFields: draftFields } = useDraftConfig()
   const module = getEditorModule(moduleKey)
-  const widgets = module?.statWidgets ?? []
+  const entity = module?.fieldEntities?.[0]
+  const { data: liveFields = [] } = useCustomFields(entity ?? 'crm_contact')
+
+  // Breakdown widgets the module derives at runtime — one per select field, so a
+  // value list added in THIS session already has a switch here (Darien 2026-08-04:
+  // "muss auch gehen im Editor wenn's noch nicht übernommen wurde"). Reads the
+  // draft snapshot ⊕ live definitions, so it never waits for a deploy.
+  const derived = (entity ? (draftFields[entity] ?? liveFields) : [])
+    .filter((f) => f.visible && f.type === 'select' && (f.valueSetId || f.options.length > 0))
+    .map((f) => ({ key: `field:${f.key}`, label: t('helpdesk.stats.byField', { field: f.label }), locked: false }))
+
+  const widgets = [
+    ...(module?.statWidgets ?? []).map((w) => ({ key: w.key, label: t(w.labelKey), locked: w.locked })),
+    ...derived,
+  ]
 
   if (widgets.length === 0) {
     return (
@@ -48,7 +63,7 @@ export function StatistikPanel({ moduleKey }: { moduleKey: string }): React.Reac
             <div key={w.key} className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 opacity-80">
               <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-muted-foreground">{t(w.labelKey)}</p>
+                <p className="truncate text-sm text-muted-foreground">{w.label}</p>
                 <p className="truncate text-[11px] text-muted-foreground">{t('customization.editor.statistik.csatLocked')}</p>
               </div>
             </div>
@@ -62,14 +77,14 @@ export function StatistikPanel({ moduleKey }: { moduleKey: string }): React.Reac
             className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${enabled ? 'bg-card' : 'bg-muted/40'}`}
           >
             <span className={`min-w-0 flex-1 truncate text-sm ${enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
-              {t(w.labelKey)}
+              {w.label}
             </span>
             <button
               type="button"
               role="switch"
               aria-checked={enabled}
               onClick={() => setDraftModuleArea(moduleKey, areaKey, !enabled)}
-              aria-label={t(enabled ? 'customization.editor.statistik.hide' : 'customization.editor.statistik.show', { widget: t(w.labelKey) })}
+              aria-label={t(enabled ? 'customization.editor.statistik.hide' : 'customization.editor.statistik.show', { widget: w.label })}
               title={t(enabled ? 'customization.editor.statistik.visible' : 'customization.editor.statistik.hidden')}
               className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors ${
                 enabled

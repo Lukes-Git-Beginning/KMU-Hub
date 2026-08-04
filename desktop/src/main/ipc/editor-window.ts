@@ -36,11 +36,4 @@ export function registerEditorWindowHandlers(): void {
   ipcMain.handle('editor:open-window', (_event, moduleKey: string) => {
     openWindow(`editor-window?module=${encodeURIComponent(String(moduleKey ?? ''))}`, 'Modul-Editor', 1280, 860)
   })
-
-  // Ticket-Intake: the Kanäle panel edits a channel's bound ticket form. That has
-  // to be its OWN window — navigating the editor window away would unmount
-  // DraftConfigProvider and silently drop every unsaved customization.
-  ipcMain.handle('editor:open-form-window', (_event, formId: string) => {
-    openWindow(`formulare?edit=${encodeURIComponent(String(formId ?? ''))}`, 'Formular bearbeiten', 1360, 900)
-  })
 }

@@ -31,6 +31,7 @@ export type EditorFocusSection =
   | 'begriffe'
   | 'wertelisten'
   | 'bereiche'
+  | 'spalten'
   | 'statistik'
   | 'kanäle'
 

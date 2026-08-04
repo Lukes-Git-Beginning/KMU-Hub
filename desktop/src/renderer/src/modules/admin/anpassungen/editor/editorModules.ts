@@ -46,6 +46,13 @@ export interface EditorModuleDef {
    */
   statWidgets?: { key: string; labelKey: string; locked?: boolean }[]
   /**
+   * Built-in columns of this module's list view, toggleable in the Spalten editor
+   * (Darien 2026-08-04) via moduleAreas under a `col:` prefix. These default to
+   * visible; every custom field additionally offers an opt-in column, derived at
+   * runtime rather than listed here. Empty → module has no configurable list.
+   */
+  listColumns?: { key: string; labelKey: string }[]
+  /**
    * Ticket-Intake P6 — this module has configurable creation channels (agent /
    * self-service / external) shown in the editor's Kanäle panel. Only modules
    * with an intake target set this (helpdesk first). Undefined → no Kanäle tab.
@@ -100,6 +107,17 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'csatChart', labelKey: 'customization.editor.statistik.csatChartLabel' },
       { key: 'byStatus', labelKey: 'helpdesk.stats.byStatus' },
       { key: 'byPriority', labelKey: 'helpdesk.stats.byPriority' },
+    ],
+    // Ticket list columns — what is readable without opening a ticket.
+    listColumns: [
+      { key: 'ticketNr', labelKey: 'helpdesk.table.ticketNr' },
+      { key: 'subject', labelKey: 'helpdesk.table.subject' },
+      { key: 'category', labelKey: 'helpdesk.table.category' },
+      { key: 'priority', labelKey: 'helpdesk.table.priority' },
+      { key: 'status', labelKey: 'common.status' },
+      { key: 'assignedTo', labelKey: 'helpdesk.table.assignedTo' },
+      { key: 'sla', labelKey: 'helpdesk.table.sla' },
+      { key: 'createdAt', labelKey: 'helpdesk.table.createdAt' },
     ],
     // Ticket-Intake P6 — helpdesk has the three creation channels (agent /
     // self-service / external), configured in the editor's Kanäle panel.

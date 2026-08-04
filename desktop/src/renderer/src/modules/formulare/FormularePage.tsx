@@ -385,7 +385,7 @@ function RatingInput({
 // Helper: map FormSchema → DraftSchema for the editor
 // ---------------------------------------------------------------------------
 
-function schemaToDraft(schema: FormSchema): DraftSchema {
+export function schemaToDraft(schema: FormSchema): DraftSchema {
   return {
     id: schema.id,
     title: schema.title,
@@ -411,7 +411,7 @@ function schemaToDraft(schema: FormSchema): DraftSchema {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function FormularePage() {
+export default function FormularePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
 
   // -------------------------------------------------------------------------
@@ -1779,15 +1779,19 @@ export default function FormularePage() {
   if (draft) {
     return (
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Editor Header */}
+        {/* Editor Header. Embedded in the module editor the surrounding shell
+            already carries a sticky "Zurück zum Modul" — a second back button
+            right beneath it would just be noise. */}
         <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={closeEditor}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t('formulare.editor.zurueck')}
-          </button>
+          {!embedded && (
+            <button
+              onClick={closeEditor}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('formulare.editor.zurueck')}
+            </button>
+          )}
           <div className="flex-1" />
 
           {/* 10.4 — Öffentlich toggle */}
