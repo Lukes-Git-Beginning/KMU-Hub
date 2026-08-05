@@ -11831,6 +11831,8 @@
   "customization.editor.footer.apply": "Apply",
   "customization.editor.draftName": "{module} — customization",
   "customization.editor.toast.draftSaved": "Saved as draft.",
+  "customization.editor.toast.resumed": "Draft \"{name}\" loaded",
+  "customization.editor.toast.resumeBlocked": "You have unsaved changes — save or discard them first.",
   "customization.editor.toast.applied": "Changes applied.",
   "customization.editor.launch.title": "Module editor",
   "customization.editor.launch.beta": "Beta",

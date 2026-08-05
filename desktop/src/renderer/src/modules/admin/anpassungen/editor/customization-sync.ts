@@ -10,7 +10,7 @@
  * With Luke's real backend this becomes a plain refetch (the DB is the shared
  * source), but the channel is harmless to keep for instant UX.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { CustomizationDraftPayload, CustomizationDraft } from '@/api/customization-types'
 import { applyDraftToTenant, resolveLabelOverrides } from '@/mocks/data/customization'
@@ -38,7 +38,13 @@ interface DraftMirrorMessage {
   draft: CustomizationDraft
 }
 
-type ChannelMessage = DeployMessage | DraftMirrorMessage
+/** Hub → an ALREADY OPEN editor window: load this draft (see stashDraftForEditor). */
+interface ResumeDraftMessage {
+  type: 'resume-draft'
+  draft: CustomizationDraft
+}
+
+type ChannelMessage = DeployMessage | DraftMirrorMessage | ResumeDraftMessage
 
 let channel: BroadcastChannel | null = null
 function getChannel(): BroadcastChannel | null {
@@ -74,13 +80,43 @@ export function publishDraftMirror(draft: CustomizationDraft): void {
 
 const RESUME_KEY = 'cosmi:customization:resume-draft'
 
-/** Hub → editor: hand over the draft to continue. Overwrites any stale handover. */
+/**
+ * Hub → editor: hand over the draft to continue. Two paths on purpose, because
+ * only one editor window exists per module: a window that is about to OPEN reads
+ * the storage handover, a window that is ALREADY open (and just gets focused)
+ * would never read it, so it also gets a message.
+ */
 export function stashDraftForEditor(draft: CustomizationDraft): void {
   try {
     localStorage.setItem(RESUME_KEY, JSON.stringify(draft))
   } catch {
     // Private mode / quota: the editor simply opens empty, as it did before.
   }
+  getChannel()?.postMessage({ type: 'resume-draft', draft } satisfies ResumeDraftMessage)
+}
+
+/**
+ * Editor window: an open editor is asked to continue a draft. Ignores drafts for
+ * other modules; the caller decides what to do with unsaved work.
+ */
+export function useResumeDraftListener(
+  moduleKey: string,
+  onResume: (draft: CustomizationDraft) => void,
+): void {
+  const latest = useRef(onResume)
+  useEffect(() => {
+    latest.current = onResume
+  })
+  useEffect(() => {
+    const ch = getChannel()
+    if (!ch) return
+    const onMessage = (e: MessageEvent<ChannelMessage>): void => {
+      if (e.data?.type !== 'resume-draft' || e.data.draft.moduleKey !== moduleKey) return
+      latest.current(e.data.draft)
+    }
+    ch.addEventListener('message', onMessage)
+    return () => ch.removeEventListener('message', onMessage)
+  }, [moduleKey])
 }
 
 /**

@@ -347,6 +347,9 @@ export default function HelpdeskPage() {
   // Order/width of the list columns — same draft layer, layout half of it.
   const columnLayout = useModuleColumnLayout('helpdesk')
   const ticketTableRef = useRef<HTMLTableElement>(null)
+  // Column being dragged right now — drives the live percentage readout, because
+  // setting a width by eye needs a number to compare against (Darien 2026-08-05).
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null)
   const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
     (key) =>
       (!capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string)) &&
@@ -619,11 +622,13 @@ export default function HelpdeskPage() {
       })
       columnLayout.freezeWidths(frozen, columnKey)
     }
+    setResizingColumn(columnKey)
     const onMove = (moveEvent: PointerEvent): void => {
       const next = (startWidth + moveEvent.clientX - startX) / tableWidth
       columnLayout.setWidth(columnKey, Math.min(0.8, Math.max(0.08, next)))
     }
     const onUp = (): void => {
+      setResizingColumn(null)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
@@ -881,6 +886,14 @@ export default function HelpdeskPage() {
                               className="pointer-events-none absolute h-3 w-3 text-[var(--accent-1)]/50 transition-colors group-hover:text-[var(--accent-1)]"
                               aria-hidden="true"
                             />
+                          </span>
+                        )}
+                        {/* Live readout while dragging: the panel carries the saved
+                            value, but the eye is on the table — without a number
+                            here you are setting a width blind. */}
+                        {resizingColumn === col.key && (
+                          <span className="pointer-events-none absolute -top-1 right-1 z-20 rounded bg-[var(--accent-1)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white shadow-sm">
+                            {Math.round((columnLayout.layout[`col:${col.key}`]?.width ?? 0) * 100)} %
                           </span>
                         )}
                       </th>

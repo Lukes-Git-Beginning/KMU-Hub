@@ -70,6 +70,13 @@ try {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.mouse.down()
   await page.mouse.move(box.x + 90, box.y + box.height / 2, { steps: 8 })
+  // Noch WÄHREND des Ziehens: der Prozentwert muss an der Spalte stehen, sonst
+  // stellt man nach Augenmaß ein und hat keinen Vergleichswert (Darien).
+  await wait(300)
+  await shot('j2a-live-prozent-beim-ziehen.png')
+  const liveBadge = await page.locator('table thead th span.tabular-nums').first().innerText().catch(() => '')
+  check('J2c Beim Ziehen steht der aktuelle Prozentwert an der Spalte',
+    /\d+\s*%/.test(liveBadge), liveBadge || '(kein Wert)')
   await page.mouse.up()
   await wait(1500)
   await shot('j2-breite-mit-zuruecksetzen.png')

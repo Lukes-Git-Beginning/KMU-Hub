@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { saveDraft } from '@/mocks/data/customization-drafts'
 import type { CustomizationDraft } from '@/api/customization-types'
-import { publishDraftMirror, takeStashedDraft } from './customization-sync'
+import { publishDraftMirror, takeStashedDraft, useResumeDraftListener } from './customization-sync'
 import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
@@ -58,7 +58,7 @@ function EditorLayout({
   resumed: CustomizationDraft | null
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo } = useDraftConfig()
+  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo, loadDraft } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [deployOpen, setDeployOpen] = useState(false)
   // Bumped on every rail click so re-selecting the same section re-focuses the
@@ -93,12 +93,27 @@ function EditorLayout({
   }, [blocker])
 
   const moduleName = t(module.titleKey)
-  // A continued draft keeps its own name — renaming it on every save would make
-  // the rollout list read as if a second rollout had appeared.
-  const draftName = resumed?.name ?? t('customization.editor.draftName', { module: moduleName })
   // Which record this session writes to: the continued one, or the one created by
   // the first save. Without it, every save created another entry in the list.
   const [draftId, setDraftId] = useState<string | undefined>(resumed?.id)
+  const [resumedName, setResumedName] = useState<string | undefined>(resumed?.name)
+  // A continued draft keeps its own name — renaming it on every save would make
+  // the rollout list read as if a second rollout had appeared.
+  const draftName = resumedName ?? t('customization.editor.draftName', { module: moduleName })
+
+  // Only one editor window exists per module, so "Weiter bearbeiten" on an
+  // already-open editor arrives as a message instead of a fresh window. Unsaved
+  // work wins: loading over it would throw away what is on screen.
+  useResumeDraftListener(module.key, (incoming) => {
+    if (isDirty) {
+      toast.warning(t('customization.editor.toast.resumeBlocked'))
+      return
+    }
+    loadDraft(incoming.payload)
+    setDraftId(incoming.id)
+    setResumedName(incoming.name)
+    toast.success(t('customization.editor.toast.resumed', { name: incoming.name }))
+  })
 
   const handleSaveDraft = (): void => {
     const d = saveDraft({ id: draftId, moduleKey: module.key, name: draftName, payload: buildPayload() })

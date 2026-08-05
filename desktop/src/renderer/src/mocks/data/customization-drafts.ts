@@ -12,8 +12,9 @@
  * Rollback restores the tenant snapshot captured just before promotion.
  *
  * The real backend (Luke's track 🔒, backend-gaps §Customization) persists this
- * in `tenant_customization_drafts` with a promotion cron; here it is
- * session-scoped and resets on reload.
+ * in `tenant_customization_drafts` with a promotion cron; here the records live
+ * in shared browser storage (see "Persistence" below) so they survive a restart
+ * and are visible from both windows.
  */
 import type {
   CustomizationDraft,
@@ -45,6 +46,70 @@ export interface DeploySnapshot {
   fields: CustomFieldDefinition[]
 }
 const rollbackSnapshots: Record<string, DeploySnapshot> = {}
+
+// ── Persistence (Darien 2026-08-05) ───────────────────────────────────────────
+//
+// "Wenn ich als Entwurf speichern drücke, dann speichert er keinen Entwurf."
+// Two things made that true: the store lived only in the JS heap, so a reload or
+// an app restart wiped every draft — and the editor runs in a SEPARATE window
+// with its own heap, so the hub only ever learned about a draft through a live
+// BroadcastChannel message it had to be listening for at that exact moment.
+//
+// Both go away by keeping the records in storage the windows share: whoever looks
+// at the list reads the current state, no message required, and a draft survives
+// a restart the way a saved thing should. Luke's backend replaces this file with
+// a table; the channel stays for instant cross-window refresh.
+
+const STORAGE_KEY = 'cosmi:customization:drafts'
+
+interface PersistedDrafts {
+  drafts: CustomizationDraft[]
+  snapshots: Record<string, DeploySnapshot>
+  seq: number
+}
+
+function persist(): void {
+  try {
+    const state: PersistedDrafts = { drafts, snapshots: rollbackSnapshots, seq: draftSeq }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // No storage (private mode, quota): fall back to the previous in-memory-only
+    // behaviour rather than breaking the editor.
+  }
+}
+
+/** Pull the shared state into this window — cheap, and the list is small. */
+function syncFromStorage(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as PersistedDrafts
+    drafts.length = 0
+    drafts.push(...(parsed.drafts ?? []))
+    for (const key of Object.keys(rollbackSnapshots)) delete rollbackSnapshots[key]
+    Object.assign(rollbackSnapshots, parsed.snapshots ?? {})
+    draftSeq = Math.max(parsed.seq ?? 0, drafts.length)
+  } catch {
+    // Corrupt entry: keep whatever this window already has.
+  }
+}
+
+let hydrated = false
+/**
+ * First read of the session: restore the records AND make the live ones true
+ * again. Without the re-apply the list would claim "Live" after a restart while
+ * the module had quietly fallen back to stock.
+ */
+function hydrateOnce(): void {
+  if (hydrated) return
+  hydrated = true
+  syncFromStorage()
+  for (const draft of drafts) {
+    if (draft.status !== 'live') continue
+    applyDraftToTenant(draft.payload)
+    applyDraftCustomFields(draft.payload.customFields ?? {})
+  }
+}
 
 function newId(): string {
   draftSeq += 1
@@ -79,6 +144,9 @@ function summarize(payload: CustomizationDraftPayload): {
  * by value, which is what the UI expects.
  */
 export function listDrafts(moduleKey?: string): CustomizationDraft[] {
+  hydrateOnce()
+  // Re-read every time: the other window may have saved since the last look.
+  syncFromStorage()
   const all = [...drafts]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map((d) => ({ ...d }))
@@ -86,6 +154,8 @@ export function listDrafts(moduleKey?: string): CustomizationDraft[] {
 }
 
 export function getDraft(id: string): CustomizationDraft | undefined {
+  hydrateOnce()
+  syncFromStorage()
   return drafts.find((d) => d.id === id)
 }
 
@@ -117,6 +187,7 @@ export function ingestRemoteDraft(draft: CustomizationDraft, snapshot?: DeploySn
       if (d.id !== draft.id && d.moduleKey === draft.moduleKey && d.status === 'live') d.status = 'superseded'
     }
   }
+  persist()
 }
 
 // ── Save (blueprint, affects no user) ───────────────────────────────────────────
@@ -135,6 +206,7 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     // detail, and saving the draft again must not wipe it.
     if (input.announcement !== undefined) existing.announcement = input.announcement || undefined
     existing.updatedAt = now
+    persist()
     return existing
   }
 
@@ -150,6 +222,7 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     ...(input.announcement ? { announcement: input.announcement } : {}),
   }
   drafts.unshift(draft)
+  persist()
   writeAuditEvent({
     action: 'customization.draft_saved',
     target: draft.name,
@@ -164,6 +237,7 @@ export function deleteDraft(id: string): void {
   if (idx < 0) return
   const [removed] = drafts.splice(idx, 1)
   delete rollbackSnapshots[id]
+  persist()
   writeAuditEvent({
     action: 'customization.draft_deleted',
     target: removed.name,
@@ -198,6 +272,7 @@ function promote(draft: CustomizationDraft): void {
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, ...applied, fieldCount },
   })
+  persist()
 }
 
 /** Deploy immediately: persist the draft (if new) and promote it to the tenant layer. */
@@ -232,6 +307,7 @@ export function scheduleDraft(input: DeployDraftInput): CustomizationDraft {
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, scheduledAt: input.scheduledAt, ...summarize(draft.payload) },
   })
+  persist()
   return draft
 }
 
@@ -269,6 +345,7 @@ export function setDraftAnnouncement(id: string, announcement: string): Customiz
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, hasAnnouncement: Boolean(draft.announcement) },
   })
+  persist()
   return draft
 }
 
@@ -285,6 +362,7 @@ export function setDraftSchedule(id: string, scheduledAt: string): Customization
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, scheduledAt },
   })
+  persist()
   return draft
 }
 
@@ -301,6 +379,7 @@ export function clearDraftSchedule(id: string): CustomizationDraft | undefined {
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey },
   })
+  persist()
   return draft
 }
 
@@ -349,6 +428,7 @@ export function rollbackDeploy(id: string): void {
   draft.status = 'superseded'
   draft.updatedAt = new Date().toISOString()
   delete rollbackSnapshots[id]
+  persist()
 
   writeAuditEvent({
     action: 'customization.rolled_back',

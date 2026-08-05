@@ -11797,6 +11797,8 @@
   "customization.editor.footer.apply": "Appliquer",
   "customization.editor.draftName": "{module} — personnalisation",
   "customization.editor.toast.draftSaved": "Enregistré comme brouillon.",
+  "customization.editor.toast.resumed": "Brouillon « {name} » chargé",
+  "customization.editor.toast.resumeBlocked": "Vous avez des modifications non enregistrées — enregistrez-les ou annulez-les d'abord.",
   "customization.editor.toast.applied": "Modifications appliquées.",
   "customization.editor.launch.title": "Éditeur de module",
   "customization.editor.launch.beta": "Bêta",

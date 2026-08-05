@@ -11797,6 +11797,8 @@
   "customization.editor.footer.apply": "Applica",
   "customization.editor.draftName": "{module} — personalizzazione",
   "customization.editor.toast.draftSaved": "Salvato come bozza.",
+  "customization.editor.toast.resumed": "Bozza \"{name}\" caricata",
+  "customization.editor.toast.resumeBlocked": "Hai modifiche non salvate — salvale o annullale prima.",
   "customization.editor.toast.applied": "Modifiche applicate.",
   "customization.editor.launch.title": "Editor del modulo",
   "customization.editor.launch.beta": "Beta",

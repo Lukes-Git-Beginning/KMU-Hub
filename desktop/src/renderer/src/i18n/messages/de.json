@@ -11831,6 +11831,8 @@
   "customization.editor.footer.apply": "Übernehmen",
   "customization.editor.draftName": "{module} — Anpassung",
   "customization.editor.toast.draftSaved": "Als Entwurf gespeichert.",
+  "customization.editor.toast.resumed": "Entwurf „{name}\" geladen",
+  "customization.editor.toast.resumeBlocked": "Du hast ungespeicherte Änderungen — erst speichern oder verwerfen.",
   "customization.editor.toast.applied": "Änderungen übernommen.",
   "customization.editor.launch.title": "Modul-Editor",
   "customization.editor.launch.beta": "Beta",
