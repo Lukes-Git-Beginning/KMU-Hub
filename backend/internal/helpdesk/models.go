@@ -60,6 +60,25 @@ var ValidSourceChannels = map[string]bool{
 }
 
 // ---------------------------------------------------------------------------
+// Ticket intake-channel constants
+// ---------------------------------------------------------------------------
+
+const (
+	TicketChannelAgent       = "agent"
+	TicketChannelSelfService = "selfservice"
+	TicketChannelExternal    = "external"
+)
+
+// ValidTicketChannels lists the intake origins a ticket may carry -- mirrors
+// the tickets.channel CHECK constraint (migrations/000290) and the module's
+// TicketChannel union (desktop/.../api/helpdesk-types.ts).
+var ValidTicketChannels = map[string]bool{
+	TicketChannelAgent:       true,
+	TicketChannelSelfService: true,
+	TicketChannelExternal:    true,
+}
+
+// ---------------------------------------------------------------------------
 // SLA status constants
 // ---------------------------------------------------------------------------
 
@@ -104,8 +123,25 @@ type Ticket struct {
 	// written in the same transaction as the response row. Nil until rated.
 	CsatRating  *int16  `json:"csat_rating,omitempty"`
 	CsatComment *string `json:"csat_comment,omitempty"`
-	// Denormalized via JOIN on users (read side only; not persisted here).
-	AssigneeName  *string   `json:"assignee_name,omitempty"`
+	// Intake origin (000290). Channel is NOT SourceChannel: SourceChannel names
+	// the inbox a message was converted from and is set only for adapter-created
+	// tickets, Channel names how the request reached the helpdesk at all and is
+	// set for every ticket.
+	Channel             string  `json:"channel"`
+	RequesterEmail      *string `json:"requester_email,omitempty"`
+	RequesterIsExternal bool    `json:"requester_is_external"`
+	// Tenant-defined extra fields, a flat map of scalars. Never nil after a
+	// read: an absent map and an empty map mean the same thing to the module,
+	// and returning nil would serialise as JSON null where it expects {}.
+	CustomFields map[string]any `json:"custom_fields"`
+	// Denormalized via JOIN on users on the READ side.
+	AssigneeName *string `json:"assignee_name,omitempty"`
+	// RequesterName is asymmetric, and deliberately so:
+	//   read  -- the resolved display name, users JOIN first, tickets.requester_name
+	//            only as fallback (see the precedence note on ticketSelectColumns).
+	//   write -- the fallback stored in tickets.requester_name. CreateTicket
+	//            persists it only for external requesters; for internal ones the
+	//            name belongs to the user row and a copy would go stale.
 	RequesterName string    `json:"requester_name"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

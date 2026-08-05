@@ -67,8 +67,10 @@ func TestTicketRead_RequesterNamePrecedence(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "tickets", external.ID)
 
-	// CreateTicket does not write the column yet (that is B2); set it directly
-	// so this test exercises the read rule and nothing else.
+	// Set the column directly rather than through CreateTicket's intake: the
+	// internal ticket needs a deliberately wrong value, and CreateTicket now
+	// refuses to write one for an internal requester. This test is about the
+	// read rule and nothing else.
 	if _, err := pool.Exec(ctx,
 		`UPDATE tickets SET requester_name = $2 WHERE id = $1`,
 		internal.ID, "Falscher Name",

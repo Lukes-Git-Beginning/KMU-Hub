@@ -183,7 +183,15 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		orgID = &id
 	}
 
-	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID)
+	intake := helpdesk.TicketIntake{
+		Channel:             req.GetChannel(),
+		RequesterEmail:      req.RequesterEmail,
+		RequesterName:       req.RequesterName,
+		RequesterIsExternal: req.GetRequesterIsExternal(),
+		CustomFields:        req.GetCustomFields().AsMap(),
+	}
+
+	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID, intake)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -1192,6 +1200,18 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	if t.CsatComment != nil {
 		msg.CsatComment = t.CsatComment
 	}
+	msg.Channel = t.Channel
+	msg.RequesterEmail = t.RequesterEmail
+	msg.RequesterIsExternal = t.RequesterIsExternal
+	// A ticket whose custom fields will not convert is still a ticket: drop
+	// the map rather than fail the read. structpb only rejects values the
+	// intake validation already refuses, so this is a belt-and-braces branch.
+	if fields, err := structpb.NewStruct(t.CustomFields); err == nil {
+		msg.CustomFields = fields
+	} else {
+		slog.Warn("helpdesk: ticket custom_fields not representable, omitted from response",
+			"ticket_id", t.ID, "error", err)
+	}
 	return msg
 }
 
@@ -1341,6 +1361,14 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrOrgNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidRequesterEmail):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrRequesterNameTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidCustomFields):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrCsatSurveyNotFound):
 		// Unknown, malformed, expired, revoked and already-redeemed links all

@@ -45,13 +45,30 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		return fmt.Errorf("allocate ticket number: %w", err)
 	}
 
-	_, err := r.pool.Exec(ctx,
+	customFields, err := json.Marshal(orEmptyMap(t.CustomFields))
+	if err != nil {
+		return fmt.Errorf("marshal custom_fields: %w", err)
+	}
+
+	// channel is NOT NULL with a CHECK, so an unset one is a constraint
+	// violation at the far end of a user action. Unknown values are still
+	// rejected -- that happens in TicketIntake.normalize at the trust
+	// boundary; this only covers an internal caller that built a Ticket
+	// without going through it.
+	channel := t.Channel
+	if channel == "" {
+		channel = TicketChannelAgent
+	}
+
+	_, err = r.pool.Exec(ctx,
 		`INSERT INTO tickets
 		    (id, tenant_id, subject, status, priority, assignee_id, requester_id,
 		     queue_id, due_at, merged_into_id, first_response_at, resolved_at,
 		     description, category, ticket_number, contact_id, org_id,
-		     source_channel, source_message_id, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+		     source_channel, source_message_id, created_at, updated_at,
+		     channel, requester_email, requester_name, requester_is_external, custom_fields)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+		         $22,$23,$24,$25,$26)`,
 		t.ID, t.TenantID, t.Subject, t.Status, t.Priority,
 		t.AssigneeID, t.RequesterID, t.QueueID, t.DueAt,
 		t.MergedIntoID, t.FirstResponseAt, t.ResolvedAt,
@@ -59,6 +76,7 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		t.ContactID, t.OrgID,
 		t.SourceChannel, t.SourceMessageID,
 		t.CreatedAt, t.UpdatedAt,
+		channel, t.RequesterEmail, nullIfEmpty(t.RequesterName), t.RequesterIsExternal, customFields,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -124,6 +142,7 @@ const ticketSelectColumns = `
 	COALESCE(t.category, '')    AS category,
 	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
 	t.csat_rating, t.csat_comment,
+	t.channel, t.requester_email, t.requester_is_external, t.custom_fields,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
 	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
 	         NULLIF(t.requester_name, ''), '')                                      AS requester_name
@@ -1231,9 +1250,29 @@ type scannable interface {
 	Scan(dest ...any) error
 }
 
-func scanTicket(row scannable) (*Ticket, error) {
-	var t Ticket
-	err := row.Scan(
+// orEmptyMap keeps a nil map out of the JSONB column, which is NOT NULL.
+func orEmptyMap(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
+// nullIfEmpty writes SQL NULL instead of an empty string, so the NULLIF in
+// ticketSelectColumns' requester_name fallback has nothing to trip over.
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// ticketScanDest returns the scan targets for ticketSelectColumns, in its
+// order. Both ticket scanners go through it so the two lists cannot drift
+// apart -- they used to be copies of each other, and a column added to only
+// one of them shifts every field after it.
+func ticketScanDest(t *Ticket, customFields *[]byte) []any {
+	return []any{
 		&t.ID, &t.TenantID, &t.Subject, &t.Status, &t.Priority,
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
@@ -1241,27 +1280,50 @@ func scanTicket(row scannable) (*Ticket, error) {
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.SourceChannel, &t.SourceMessageID,
 		&t.CsatRating, &t.CsatComment,
+		&t.Channel, &t.RequesterEmail, &t.RequesterIsExternal, customFields,
 		&t.AssigneeName, &t.RequesterName,
+	}
+}
+
+// applyCustomFields decodes the raw custom_fields JSONB onto the ticket. The
+// column is NOT NULL DEFAULT '{}', so raw is empty only for rows read through
+// a query that predates the column; the map stays non-nil either way, because
+// nil would serialise as JSON null where the module expects {}.
+func applyCustomFields(t *Ticket, raw []byte) error {
+	t.CustomFields = map[string]any{}
+	if len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, &t.CustomFields); err != nil {
+		return fmt.Errorf("unmarshal custom_fields: %w", err)
+	}
+	return nil
+}
+
+func scanTicket(row scannable) (*Ticket, error) {
+	var (
+		t          Ticket
+		customJSON []byte
 	)
+	err := row.Scan(ticketScanDest(&t, &customJSON)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTicketNotFound
 	}
-	return &t, err
+	if err != nil {
+		return &t, err
+	}
+	return &t, applyCustomFields(&t, customJSON)
 }
 
 func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
-	var t Ticket
-	err := rows.Scan(
-		&t.ID, &t.TenantID, &t.Subject, &t.Status, &t.Priority,
-		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
-		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
-		&t.CreatedAt, &t.UpdatedAt,
-		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
-		&t.SourceChannel, &t.SourceMessageID,
-		&t.CsatRating, &t.CsatComment,
-		&t.AssigneeName, &t.RequesterName,
+	var (
+		t          Ticket
+		customJSON []byte
 	)
-	return &t, err
+	if err := rows.Scan(ticketScanDest(&t, &customJSON)...); err != nil {
+		return &t, err
+	}
+	return &t, applyCustomFields(&t, customJSON)
 }
 
 func scanMessageFromRows(rows pgx.Rows) (*TicketMessage, error) {

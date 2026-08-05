@@ -134,12 +134,12 @@ func TestCreateTicket_RejectsForeignTenantContactAndOrg(t *testing.T) {
 	svc := NewService(repo, testLogger())
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
-	_, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Ticket with foreign contact", TicketPriorityNormal, nil, nil, "", "", &foreignContactID, nil)
+	_, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Ticket with foreign contact", TicketPriorityNormal, nil, nil, "", "", &foreignContactID, nil, TicketIntake{})
 	if !errors.Is(err, ErrContactNotFound) {
 		t.Fatalf("CreateTicket with foreign contact_id: expected ErrContactNotFound, got %v", err)
 	}
 
-	_, err = svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Ticket with foreign org", TicketPriorityNormal, nil, nil, "", "", nil, &foreignOrgID)
+	_, err = svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Ticket with foreign org", TicketPriorityNormal, nil, nil, "", "", nil, &foreignOrgID, TicketIntake{})
 	if !errors.Is(err, ErrOrgNotFound) {
 		t.Fatalf("CreateTicket with foreign org_id: expected ErrOrgNotFound, got %v", err)
 	}
@@ -181,7 +181,7 @@ func TestCreateAndUpdateTicket_LinksOwnTenantContactAndOrgAndFilters(t *testing.
 	svc := NewService(repo, testLogger())
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
-	linked, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Linked ticket", TicketPriorityNormal, nil, nil, "", "", &contactID, &orgID)
+	linked, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Linked ticket", TicketPriorityNormal, nil, nil, "", "", &contactID, &orgID, TicketIntake{})
 	if err != nil {
 		t.Fatalf("CreateTicket with own-tenant contact/org: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestCreateAndUpdateTicket_LinksOwnTenantContactAndOrgAndFilters(t *testing.
 		t.Fatalf("expected ticket.OrgID = %s, got %v", orgID, linked.OrgID)
 	}
 
-	unlinked, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Unlinked ticket", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	unlinked, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Unlinked ticket", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	if err != nil {
 		t.Fatalf("CreateTicket without contact/org: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestUpdateTicket_RejectsForeignTenantContact(t *testing.T) {
 	svc := NewService(repo, testLogger())
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
-	ticket, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Update target", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, err := svc.CreateTicket(ctxOwn, tenantOwn, uuid.New(), "Update target", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	if err != nil {
 		t.Fatalf("CreateTicket: %v", err)
 	}

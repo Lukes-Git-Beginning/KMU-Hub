@@ -3733,3 +3733,83 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
   - Aus Iteration 48 uebernommen und jetzt entsperrt: `ListDueCsatSurveys` holt die Adresse ueber
     `JOIN users` und uebergeht damit externe Requester. `tickets.requester_email` existiert ab
     jetzt, der JOIN kann auf `COALESCE(t.requester_email, req.email)` — gehoert sinnvoll zu B5.
+
+## Iteration 50 — intake-proto-create (B2)
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): carry intake
+  origin and extra fields through create".
+- verify vorgaenger (ca6b516a, intake-ticket-columns): **sauber**. Reine Migration + ein
+  COALESCE-Zweig in `ticketSelectColumns` + ein DB-Test. Kein `.proto` beruehrt, also auch kein
+  fehlendes Regen; kein `Unimplemented`, kein TODO, kein neuer RequirePermission-Guard, keine
+  `config.RequireX`, kein Direct-Svc-Aufruf. Die dort behauptete Vorrangregel ist im Code und im
+  Test wirklich so verdrahtet, wie das Journal es beschreibt — nachgelesen, nicht geglaubt.
+- gebaut: die fuenf Intake-Felder gehen jetzt durch Proto, Service und Repository und kommen beim
+  Read zurueck. `CreateTicketRequest` +5 Felder (11–15), `Ticket` +4 (26–29; `requester_name`
+  gab es als Feld 16 laengst). `helpdesk.pb.go` im selben Commit regeneriert;
+  `helpdesk_grpc.pb.go` ist unveraendert und das ist korrekt — keine RPC-Signatur hat sich
+  geaendert, protoc erzeugt dieselbe Datei.
+- **custom_fields ist `google.protobuf.Struct`, nicht `map<string,string>`.** Der FE-Typ ist
+  `Record<string, string | number | boolean>` (helpdesk-types.ts:49) — eine String-Map haette
+  jede Zahl und jedes Boolean in seine Textdarstellung gedrueckt, und beim Zurueckschreiben
+  waere aus `4711` das Wort "4711" geworden. `structpb` ist im Repo bereits im Einsatz
+  (automation, inbox, settings, und helpdesk_grpc.go importiert es schon fuer die CSAT-Config),
+  also keine neue Abhaengigkeit. Der Round-Trip-Test prueft ausdruecklich, dass die Zahl als
+  float64 zurueckkommt und nicht als String.
+- **Signatur-Entscheidung:** `Service.CreateTicket` hatte bereits 11 Positionsparameter. Fuenf
+  weitere haetten 16 ergeben — eine Aufruf-Zeile, in der `nil, nil, "", "", nil, nil` steht und
+  niemand mehr sieht, welches nil was ist. Stattdessen ein trailing `TicketIntake`-Wert
+  (`ticket_intake.go`). Die fuenf Felder gehoeren fachlich zusammen (sie beschreiben die
+  Herkunft), und der Diff an den ~28 bestehenden Testaufrufen ist mechanisch `, TicketIntake{})`.
+  Die 11 Altparameter blieben absichtlich unangetastet: ein Params-Struct-Refactor haette
+  denselben Nutzen zu 30 handgeschriebenen Aufrufumbauten gehabt und gehoert nicht in dieselbe
+  Unit wie ein Vertragsbruch-Fix.
+- **Validierung sitzt in `TicketIntake.normalize()`, nicht im Handler** — eine Stelle fuer den
+  gRPC-Handler, den spaeteren Formular-Dispatch (B7) und den oeffentlichen Intake (B8):
+  - channel leer -> "agent", channel unbekannt -> `ErrInvalidChannel`. **Kein stiller Default
+    fuer einen unbekannten Wert** — das haette den Datenverlust nur eine Schicht tiefer gelegt.
+  - requester_email ueber `net/mail.ParseAddress` plus 320-Zeichen-Deckel (Stdlib, keine Regex,
+    keine Dependency).
+  - requester_name wird fuer INTERNE Requester **verworfen statt gespeichert**. Genau das
+    verlangt die Vorrangregel aus B1: der users-JOIN gewinnt beim Lesen, eine persistierte Kopie
+    wuerde beim ersten Rename veralten. Die Regel wird hier durchgesetzt, nicht nur gelesen.
+  - custom_fields: nur Skalare (string | number | bool). Verschachtelte Objekte, Arrays, null und
+    leere Keys -> `ErrInvalidCustomFields`. Deckel bei 100 Keys, 128 Zeichen Key, 4096 Zeichen
+    Wert — die oeffentlichen Intake-Pfade schreiben spaeter durch dieselbe Funktion, und ohne
+    Deckel waere das eine unbegrenzt wachsende Zeile pro Einreichung.
+  Alle vier Sentinels sind in `mapHelpdeskError` auf `InvalidArgument` verdrahtet. Das war fast
+  die Luecke dieser Iteration: ohne den Eintrag faellt ein sauber validierter Tippfehler durch
+  den default-Zweig auf `Internal` und das Modul zeigt "Serverfehler" fuer eine 400.
+  `helpdesk_intake_error_test.go` belegt die Abbildung bare und wrapped.
+- **`scanTicket` und `scanTicketFromRows` waren zwei Kopien derselben Ziel-Liste** und der
+  Kommentar an `ticketSelectColumns` warnte genau davor, dass sie auseinanderlaufen. Sie gehen
+  jetzt beide durch `ticketScanDest()`; eine Spalte kann nicht mehr in nur einer der beiden
+  landen und alle Folgefelder verschieben.
+- **`CreateTicketFromMessage` setzt channel bewusst auf 'agent'**, nicht auf den source_channel.
+  Wie eine Nachricht in die INBOX kam, ist eine andere Frage als wie die Anfrage in den Helpdesk
+  kam — dieselbe Unterscheidung, die schon der 000290-Backfill trifft. `TestCreateTicketFromMessage_SetsAgentChannel`
+  haelt beide Spalten nebeneinander fest, damit sie niemand zusammenlegt.
+- **Repo-Guard:** `channel` ist NOT NULL mit CHECK, ein leerer Wert waere eine 23514 mitten in
+  einer Nutzeraktion. Das Repository setzt daher 'agent', wenn ein interner Aufrufer ohne
+  `normalize()` einen Ticket-Struct baut. Das ist KEIN stilles Defaulten eines Nutzerwerts —
+  unbekannte Werte werden an der Trust-Boundary abgelehnt, hier geht es nur um einen Aufrufer,
+  der das Feld gar nicht kennt.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go build ./...` ok
+  | `go vet ./...` ok | `golangci-lint run` (helpdesk, server, gateway) **0 issues** |
+  `go test -count=1 -v ./internal/helpdesk/ ./internal/server/ ./internal/gateway/ ./internal/testutil/`
+  **958 PASS / 0 FAIL / 0 SKIP** — inklusive `TestAllPublicTablesHaveRLSOrAreAllowlisted` und
+  `TestOpenAPIRouteDrift`. Null Skips heisst: die DB-Tests liefen wirklich.
+- **keine openapi.yaml-Aenderung, geprueft statt angenommen:** diese Unit legt keine Route an,
+  und die Ticket-Antworten sind in der Spec als `schema: { type: object }` beschrieben
+  (openapi.yaml:13894, :13920) — es gibt kein Ticket-Schema, das nachzuziehen waere. Der
+  Request-Body-Block bei `post /api/v1/helpdesk/tickets` (:13905) listet die Felder dagegen
+  einzeln auf; **dort gehoeren die fuenf neuen Felder in B3 hinein**, zusammen mit dem DTO.
+- offen fuer die naechste Iteration:
+  - B3 (intake-route-create) ist jetzt reine Gateway-Arbeit: DTO um die fuenf Felder erweitern,
+    `custom_fields` als `map[string]any` dekodieren und ueber `structpb.NewStruct` in die
+    gRPC-Request heben (Fehler dort -> 400), requester_id weiter aus der Session. Validierung
+    NICHT doppeln, die liegt im Service.
+  - `UpdateTicket` im Repository schreibt die Intake-Spalten nicht mit — fuer B4 heisst das:
+    custom_fields-Merge im Service bauen, nicht die SET-Liste aufblaehen.
+  - Weiter offen aus Iteration 48/49: `ListDueCsatSurveys` holt die Adresse ueber `JOIN users`
+    und uebergeht externe Requester. `tickets.requester_email` ist jetzt nicht nur da, sondern
+    auch befuellt — der JOIN kann auf `COALESCE(t.requester_email, req.email)`. Gehoert zu B5.

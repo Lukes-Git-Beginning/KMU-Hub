@@ -39,6 +39,7 @@ func (s *Service) CreateTicket(
 	category string,
 	contactID *uuid.UUID,
 	orgID *uuid.UUID,
+	intake TicketIntake,
 ) (*Ticket, error) {
 	if subject == "" {
 		return nil, fmt.Errorf("subject must not be empty")
@@ -48,6 +49,10 @@ func (s *Service) CreateTicket(
 	}
 	if !ValidTicketPriorities[priority] {
 		return nil, ErrInvalidPriority
+	}
+	intake, err := intake.normalize()
+	if err != nil {
+		return nil, err
 	}
 	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
 		return nil, err
@@ -69,6 +74,19 @@ func (s *Service) CreateTicket(
 		OrgID:       orgID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
+
+		Channel:             intake.Channel,
+		RequesterEmail:      intake.RequesterEmail,
+		RequesterIsExternal: intake.RequesterIsExternal,
+		CustomFields:        intake.CustomFields,
+	}
+	// Write side of the asymmetric RequesterName field: normalize() has already
+	// dropped it for internal requesters, so whatever survives belongs in the
+	// column. On the way back out the users JOIN overwrites it with the
+	// resolved name, which for an external requester resolves to nothing and
+	// falls back to exactly this value.
+	if intake.RequesterName != nil {
+		t.RequesterName = *intake.RequesterName
 	}
 
 	if err := s.repo.CreateTicket(ctx, t); err != nil {
@@ -136,6 +154,13 @@ func (s *Service) CreateTicketFromMessage(
 		SourceMessageID: &messageID,
 		CreatedAt:       now,
 		UpdatedAt:       now,
+
+		// Intake origin stays "agent": someone working the inbox converted the
+		// message inside the module. That the message itself arrived by email
+		// says how it reached the INBOX, not how the request reached the
+		// helpdesk -- same distinction the 000290 backfill draws.
+		Channel:      TicketChannelAgent,
+		CustomFields: map[string]any{},
 	}
 
 	if err := s.repo.CreateTicket(ctx, t); err != nil {

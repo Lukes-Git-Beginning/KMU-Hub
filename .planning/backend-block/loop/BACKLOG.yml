@@ -379,7 +379,7 @@ units:
     service: helpdesk
     model: opus
     deps: [intake-ticket-columns]
-    status: todo
+    status: done
     scope: >
       `CreateTicketRequest` im Proto und `Service.CreateTicket` um channel, requester_email,
       requester_is_external, requester_name und custom_fields erweitern, Persistenz im Repository.
@@ -421,6 +421,20 @@ units:
       - backend/internal/gateway/route_helpdesk.go
       - desktop/src/renderer/src/modules/helpdesk/intake/helpdesk-ticket-target.ts
     notes: >
+      STAND aus B2 (gebaut): `CreateTicketRequest` hat jetzt `optional string channel = 11`,
+      `optional string requester_email = 12`, `optional string requester_name = 13`,
+      `bool requester_is_external = 14`, `google.protobuf.Struct custom_fields = 15`.
+      `Ticket` hat `channel = 26`, `requester_email = 27`, `requester_is_external = 28`,
+      `custom_fields = 29` — die Read-Seite ist damit fertig, der Handler antwortet ueber
+      `response.Proto`, also liegen die Felder ohne weiteres Zutun auf dem Wire.
+      custom_fields ist `google.protobuf.Struct` (nicht map<string,string>), weil der FE-Typ
+      `Record<string, string | number | boolean>` heterogen ist. Im Gateway-DTO also
+      `map[string]any` und ueber `structpb.NewStruct` in die gRPC-Request — schlaegt das fehl,
+      ist das ein 400, kein 500.
+      Validierung liegt komplett im Service (`ticket_intake.go`, `TicketIntake.normalize`):
+      unbekannter channel -> ErrInvalidChannel, kaputte Mail -> ErrInvalidRequesterEmail,
+      verschachtelte/leere custom_fields -> ErrInvalidCustomFields, alle vier sind in
+      mapHelpdeskError auf InvalidArgument verdrahtet. Der Handler soll das NICHT doppeln.
       requester_id weiterhin serverseitig aus der Session setzen, NIE aus dem Body uebernehmen
       (IDOR), gleiche Linie wie HandleListAccounts aus Iteration 46. requester_email und
       requester_name sind dagegen Body-Felder, weil sie Externe beschreiben, nicht den Aufrufer.
@@ -447,6 +461,12 @@ units:
       - backend/internal/gateway/route_helpdesk.go
       - desktop/src/renderer/src/mocks/handlers/helpdesk.ts
     notes: >
+      STAND aus B2: `UpdateTicketRequest` im Proto ist noch UNVERAENDERT (weder status noch
+      custom_fields) — B2 hat nur den Create-Pfad angefasst. `PostgresRepository.UpdateTicket`
+      schreibt die Intake-Spalten heute NICHT mit (SET-Liste ohne channel/custom_fields/
+      requester_*), ein Read-Modify-Write ueberschreibt sie also aktuell nicht; wer
+      custom_fields dort ergaenzt, muss den Merge im Service machen, nicht im UPDATE.
+      Erlaubte Werte fuer status stehen in `ValidTicketStatuses` (models.go).
       custom_fields mit MERGE-PATCH-Semantik, nicht Ersetzen — der MSW-Handler
       (handlers/helpdesk.ts ~Zeile 552) merged, und das ist der bindende Vertrag: das FE sendet
       immer nur das eine geaenderte Feld. Ein Replace wuerde bei jeder Einzelbearbeitung alle
