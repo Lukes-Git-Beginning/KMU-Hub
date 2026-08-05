@@ -1,4 +1,22 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #34 — EDITOR-REVIEW: 3 Feedback-Runden gebaut, GEPUSHT)
+# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN RUNDE 4: umbenennen + Reihenfolge + Breite)
+
+> **★★★★★ SESSION #35 (2026-08-05) — Dariens zwei offene Spalten-Punkte gebaut, ein Commit `e377644c`, QA 16/16 + Regression 9/9, Bilder angesehen. NICHT gepusht (Hetzner-Gate: grüner Push = Auto-Deploy). Stand: 1 Commit lokal voraus.**
+>
+> **★ Dariens Entscheidungen vorab (per Rückfrage geklärt):** „bearbeiten" = **umbenennen** (Format-Optionen bewusst nicht, Löschen bleibt gesperrt) · Breite = **am Spaltenrand ziehen** (nicht Presets).
+>
+> **★ GEBAUT:**
+>   - **Eingebaute Spalten umbenennbar** — Namensfeld im Panel schreibt denselben Label-Override wie der Klick auf die Überschrift in der Vorschau (eine Quelle). `status` von `common.status` auf **eigenen Key `helpdesk.table.status`** gezogen (sonst hätte ein Umbenennen jedes Status-Label der App mitgezogen); SLA bleibt mit Glossar-Tooltip und wird trotzdem editierbar.
+>   - **⚠ Whitelist-Fund:** Umbenennen **überlebte den Deploy gar nicht** — `LABEL_WHITELIST` ist der Deploy-Filter und die Spalten-Keys fehlten. Acht `helpdesk.table.*` nachgetragen. **Rollout-Regel:** jedes Modul mit Spalten muss seine `listColumns[].labelKey` dort eintragen.
+>   - **Reihenfolge + Breite** auf derselben `col:`-Draft-Ebene: `ModuleAreaSetting = boolean | {visible,order,width}`. `resolveModuleAreas` normalisiert weiter auf boolean (**areas/`stat:` unangetastet**), neu `resolveModuleAreaLayout`. Panel = EINE sortierbare Liste über beide Spaltenarten (dnd-kit, Muster der Formulare-Feldliste). Breite per Zieh-Griff am `<th>`, gespeichert als **Anteil** (nicht Pixel).
+>   - **⚠ Zwei Bugs, die erst die Screenshot-QA zeigte:** (a) Sortieren schaltete die Opt-in-Spalten von selbst ein — ein Layout-Objekt ohne `visible` wurde zu „sichtbar" normalisiert; jetzt bleiben Layout-only-Einträge aus der Sichtbarkeits-Map. (b) `table-layout: fixed` klappte die Tabelle beim ersten Pixel zusammen; der erste Zug **friert die Ist-Breiten ein** (ein Dispatch, ein Undo-Schritt mit dem Zug).
+>   - **Zähler:** Reihenfolge und Breiten = je EINE Änderung im Footer, nicht eine pro Spalte.
+> **★ QA:** `qa-editor-spalten-i.mjs` **16/16** inkl. **Deploy-Durchstich** (Name, Reihenfolge, Breite, ausgeblendete Spalte — alles im echten Modul nach „Übernehmen") · `qa-editor-spalten-h.mjs` 9/9 · Statistik-Suite grün · scoped tsc 0 neue Fehler (Baseline 11 fremde) · `eslint src/` grün · i18n +10 ×4 textuell (BOM).
+> **★ Lehre:** der Sichtbarkeits-Schalter ist `role="switch"` — `getByRole('button')` läuft dort 30 s in den Timeout (kostete zwei QA-Runden).
+> **★★ NÄCHSTER SCHRITT:** (1) Darien reviewt lokal/auf Hetzner → **Push-Entscheidung offen** (cd.yml scharf). (2) Danach steht weiter die **Editor-Dokumentation** als Rollout-Vorlage an (seit #32 offen) — die Spalten-Dimension gehört mit hinein: `useModuleColumnLayout`/`orderColumns`/`columnWidthStyle`, `useEditorFocusEffect`, `useEntityFieldDraft`, plus die Whitelist- und `common.*`-Regel von oben. Arbeitspaket mit Abschluss-Block: `.planning/editor-spalten-naechste-runde.md`.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #34 — EDITOR-REVIEW: 3 Feedback-Runden gebaut, GEPUSHT)
 
 > **★★★★★ SESSION #34 (2026-08-04/05) — Darien hat den Modul-Editor live reviewt, 3 Feedback-Runden abgearbeitet (3 Commits, 3 QA-Suiten grün, Bilder angesehen). Erst `git pull --rebase` über Lukes 201-Commit-Welle (Nacht-Loop, reines Backend, nur `.planning/backend-gaps.md` überlappte — konfliktfrei). Dann alle 45 Commits GEPUSHT (Darien-Anweisung am Session-Ende) → cd.yml scharf, Auto-Deploy auf Hetzner läuft an.**
 >
