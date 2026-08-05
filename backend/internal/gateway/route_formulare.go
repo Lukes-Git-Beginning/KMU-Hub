@@ -1,10 +1,13 @@
 package gateway
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -423,7 +426,63 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
+
+	// The submission is stored; only now do we try to create the record the
+	// form is bound to. Order matters: a failing target must never cost the
+	// submitter their answers, so the dispatch error is logged and the
+	// response stays 201 (see runIntakeDispatch).
+	fr.dispatchIntake(r.Context(), client, tenantID, schemaID, resp.GetSubmission().GetId(), req.Answers, intakeOrigin{
+		Channel:     intakeChannelSelfService,
+		RequesterID: userID,
+	})
+
 	response.Proto(w, http.StatusCreated, resp)
+}
+
+// dispatchIntake creates the module record bound to the submitted schema, if
+// the schema declares one. Errors never reach the caller: the submission is
+// already safe, and an unreachable Helpdesk is not a reason to tell the
+// submitter their form failed. It is logged loudly instead -- a form whose
+// intake silently stops producing tickets is exactly the failure this run is
+// closing elsewhere, so it must be visible in the log.
+func (fr *FormulareRoutes) dispatchIntake(
+	ctx context.Context,
+	client formularev1.FormulareServiceClient,
+	tenantID uuid.UUID,
+	schemaID, submissionID string,
+	answers []byte,
+	origin intakeOrigin,
+) {
+	lookup := func(ctx context.Context) (string, []byte, error) {
+		schemaResp, err := client.GetFormSchema(ctx, &formularev1.GetFormSchemaRequest{
+			TenantId: tenantID.String(),
+			SchemaId: schemaID,
+		})
+		if err != nil {
+			return "", nil, err
+		}
+		schema := schemaResp.GetSchema()
+		return schema.GetIntakeTargetId(), schema.GetFields(), nil
+	}
+
+	recordID, err := runIntakeDispatch(ctx, fr.registry, lookup, tenantID, answers, origin)
+	if err != nil {
+		slog.Error("formulare intake dispatch failed",
+			"submission_id", submissionID,
+			"form_schema_id", schemaID,
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		return
+	}
+	if recordID != "" {
+		slog.Info("formulare intake dispatched",
+			"submission_id", submissionID,
+			"form_schema_id", schemaID,
+			"tenant_id", tenantID,
+			"record_id", recordID,
+		)
+	}
 }
 
 func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.Request) {
