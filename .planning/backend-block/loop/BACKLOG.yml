@@ -243,7 +243,7 @@ units:
     service: helpdesk
     model: opus
     deps: [csat-schema, csat-tenant-config]
-    status: todo
+    status: done
     scope: >
       Beim Schliessen eines Tickets wird, falls CSAT fuer den Tenant aktiv ist, ein
       Umfrage-Token erzeugt und mit Ablaufdatum an der CSAT-Zeile hinterlegt. Grundlage

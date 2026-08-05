@@ -32,6 +32,17 @@ type mockRepo struct {
 	// csatCalls counts SubmitCsatTx invocations so tests can assert that an
 	// invalid rating never reaches persistence.
 	csatCalls int
+
+	// csatTokens holds the pending survey tokens written by
+	// IssueCsatSurveyTokenTx, keyed by ticket.
+	csatTokens map[uuid.UUID]csatTokenRow
+}
+
+// csatTokenRow is the mock's stand-in for the token columns on
+// ticket_csat_responses.
+type csatTokenRow struct {
+	token     string
+	expiresAt time.Time
 }
 
 func newMockRepo() *mockRepo {
@@ -43,6 +54,7 @@ func newMockRepo() *mockRepo {
 		slaPolicies:     make(map[uuid.UUID]*SLAPolicy),
 		contactTenants:  make(map[uuid.UUID]uuid.UUID),
 		companyTenants:  make(map[uuid.UUID]uuid.UUID),
+		csatTokens:      make(map[uuid.UUID]csatTokenRow),
 	}
 }
 
@@ -151,6 +163,25 @@ func (r *mockRepo) SubmitCsatTx(
 	t.CsatComment = comment
 	t.UpdatedAt = submittedAt
 	return nil
+}
+
+// IssueCsatSurveyTokenTx mirrors the SQL: unknown/foreign ticket and an
+// already-rated ticket both yield false without an error.
+func (r *mockRepo) IssueCsatSurveyTokenTx(
+	_ context.Context,
+	tenantID, ticketID uuid.UUID,
+	token string,
+	expiresAt, _ time.Time,
+) (bool, error) {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return false, nil
+	}
+	if t.CsatRating != nil {
+		return false, nil
+	}
+	r.csatTokens[ticketID] = csatTokenRow{token: token, expiresAt: expiresAt}
+	return true, nil
 }
 
 func (r *mockRepo) CreateQueue(_ context.Context, q *TicketQueue) error {

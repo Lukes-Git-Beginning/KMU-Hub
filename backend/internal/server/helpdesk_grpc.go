@@ -332,7 +332,28 @@ func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.Cl
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
+	s.issueCsatSurvey(ctx, tenantID, t)
 	return ticketToProto(t), nil
+}
+
+// issueCsatSurvey mints a CSAT survey link for a ticket that was just closed,
+// if the tenant has surveys enabled.
+//
+// Every failure in here is logged and swallowed: closing the ticket is what the
+// caller asked for and has already succeeded at this point, the survey is the
+// side errand. Returning an error would roll a successful close back into a
+// failed RPC for the agent who clicked "close".
+func (s *HelpdeskGRPCServer) issueCsatSurvey(ctx context.Context, tenantID uuid.UUID, t *helpdesk.Ticket) {
+	cfg, err := s.GetCsatConfig(ctx, tenantID)
+	if err != nil {
+		slog.WarnContext(ctx, "helpdesk: csat config unavailable, no survey token issued",
+			"ticket_id", t.ID, "error", err)
+		return
+	}
+	if _, err := s.svc.IssueCsatSurveyToken(ctx, t, cfg); err != nil {
+		slog.WarnContext(ctx, "helpdesk: csat survey token not issued",
+			"ticket_id", t.ID, "error", err)
+	}
 }
 
 func (s *HelpdeskGRPCServer) SubmitCsat(ctx context.Context, req *helpdeskv1.SubmitCsatRequest) (*helpdeskv1.Ticket, error) {

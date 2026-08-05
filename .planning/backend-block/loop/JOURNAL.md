@@ -3445,3 +3445,77 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - kein FE-Teil in diesem Commit (Backend-Loop-Scope).
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add tenant CSAT
   survey configuration".
+
+## Iteration 54 — csat-survey-token — done — 2026-08-05 23:46 (lokale Uhr; die
+Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
+- verify vorgaenger (913d540f, csat-tenant-config): sauber. Keine neue Route (also kein
+  openapi-Drift moeglich), keine Migration, kein .proto, kein RequirePermission, keine neue
+  Tabelle. Der Settings-Zugriff laeuft ueber `settingsv1.SettingsServiceClient`, also ueber den
+  gRPC-Client und nicht an einer direkt injizierten Service-Instanz vorbei — keine
+  Layer-Umgehung. Ein Doc-Detail stimmt nicht ganz: der Kommentar an `GetCsatConfig` sagt
+  "defaults when the settings service is unreachable", der Code gibt bei einem RPC-Fehler
+  aber den Fehler zurueck (nur `settingsClient == nil` faellt auf Default). Kein Fehlverhalten
+  (der Aufrufer entscheidet), deshalb keine Fix-Unit — in dieser Iteration ist der Aufrufer
+  gebaut und faengt den Fehler ab.
+- gebaut (Code):
+  - `internal/helpdesk/csat_survey.go` (neu): `CsatSurvey{TicketID, Token, ExpiresAt}`,
+    `newCsatSurveyToken()` = 32 Byte `crypto/rand` + `base64.RawURLEncoding` (43 Zeichen,
+    1:1 das Muster von `berichte.newShareSecret`, service.go:1132 — kein math/rand, keine UUID,
+    nicht die Ticket-ID), `CsatSurveyTokenTTL = 30 Tage` und
+    `Service.IssueCsatSurveyToken(ctx, *Ticket, CsatConfig) (*CsatSurvey, error)`.
+    Ablauf = `now + cfg.SurveyDelayMinutes + TTL`: der Link soll erst nach dem geplanten
+    Versand (A7) ablaufen, deshalb liegt die Verzoegerung VOR der Gueltigkeitsdauer. Ablauf
+    steckt in `token_expires_at`, nicht im Link kodiert.
+    Rueckgabe `(nil, nil)` fuer jeden legitimen Grund, nicht zu befragen: Tenant hat CSAT aus,
+    oder das Ticket traegt schon eine Bewertung (close -> reopen -> close fragt nicht erneut).
+    Kein Fehler, weil der Aufrufer daraus keine Konsequenz zieht.
+  - `internal/helpdesk/repository.go` + `postgres_repository.go`: neue Interface-Methode
+    `IssueCsatSurveyTokenTx(ctx, tenantID, ticketID, token, expiresAt, now) (bool, error)`.
+    Das INSERT nimmt `tenant_id` NICHT vom Aufrufer, sondern `SELECT t.tenant_id FROM tickets t
+    WHERE t.id = $2 AND t.tenant_id = $1` — ein fremdes Ticket liefert null Zeilen statt einer
+    CSAT-Zeile unter dem falschen Tenant (gleiche Ueberlegung wie der Ticket-UPDATE-Guard in
+    `SubmitCsatTx`, FK auf ticket_id beweist den Tenant nicht). Der Conflict-Zweig ist mit
+    `WHERE ticket_csat_responses.submitted_at IS NULL` bewacht: das ist die autoritative
+    "schon bewertet"-Pruefung, der Service-Check davor spart nur den Write im Normalfall und
+    kann mit einer zwischenzeitlichen Abgabe rennen. `RowsAffected()==1` = ausgestellt.
+    Ein bestehender *pending* Token wird bewusst ersetzt (neuer Close = neue Verzoegerung,
+    der alte Link liefe auf einem veralteten Zeitplan) — der aeltere Link wird damit ungueltig.
+  - `internal/server/helpdesk_grpc.go`: `CloseTicket` ruft nach erfolgreichem Close
+    `issueCsatSurvey(ctx, tenantID, t)`. Diese Hilfsmethode holt die Tenant-Config ueber den
+    Settings-Client (`GetCsatConfig`, aus der Vor-Iteration) und ruft `IssueCsatSurveyToken`.
+    JEDER Fehler darin wird geloggt (`slog.WarnContext`) und verschluckt — der Close ist zu
+    diesem Zeitpunkt bereits persistiert, ein Fehler wuerde einen erfolgreichen Close in eine
+    fehlgeschlagene RPC verwandeln. Kein neuer RPC, keine neue Route: der Token wird nirgends
+    ausgeliefert, er wartet auf A7 (Dispatch) und A8 (oeffentliche Einloesung).
+  - KEINE Migration noetig (`token`, `token_expires_at` und der globale Partial-Unique-Index
+    kamen mit 000288 aus A1) und keine angelegt.
+- gebaut (Tests):
+  - `internal/helpdesk/csat_survey_test.go` (Mock, rein): Token dekodiert zu genau 32 Byte
+    base64url; Ablauf >= now+Delay+TTL; persistierter Token == zurueckgegebener; 16 Ausstellungen
+    ergeben 16 verschiedene Tokens (Entropie, kein Determinismus); Tenant hat CSAT aus -> kein
+    Token, kein Write, kein Fehler; Ticket schon bewertet -> dito; fremdes Ticket -> kein Token;
+    Delay ausserhalb der Grenzen -> Fehler UND kein Write.
+  - `internal/helpdesk/csat_survey_db_test.go` (echte DB als `kmuhub_app`, NOSUPERUSER
+    NOBYPASSRLS, eigene frisch geseedete Tenants): Aufruf aus fremdem Ctx mit dem ECHTEN
+    tenantID der Zeile stellt nichts aus (nur RLS kann das stoppen, nicht die WHERE-Klausel);
+    eigener Ctx stellt aus; Cross-Tenant-Read auf `ticket_csat_responses` liefert 0 Zeilen
+    (RLS-Smoke); zweiter Close ersetzt den pending Token; nach `SubmitCsatTx` stellt ein
+    weiterer Aufruf NICHTS mehr aus und der vorhandene Token bleibt unveraendert.
+  - `service_test.go`: `mockRepo` um `IssueCsatSurveyTokenTx` + `csatTokens`-Map erweitert
+    (spiegelt das SQL-Verhalten: fremd/unbekannt und bereits bewertet -> false ohne Fehler).
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`):
+  `go build -p 2 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` ok | `go vet` (helpdesk, server, cmd/helpdesk) ok |
+  `golangci-lint run` ueber dieselben Pakete -> 0 issues | `go test -count=1 ./internal/helpdesk/...`
+  PASS, **73 PASS / 0 SKIP** (der neue DB-Test lief real, 0.06s, nicht uebersprungen) |
+  `go test -count=1 ./internal/server/...` PASS | `go test -count=1 ./internal/gateway/` PASS
+  (keine Route angefasst, TestOpenAPIRouteDrift trotzdem mitgelaufen).
+  RLS-Smoke im DB-Test enthalten (siehe oben), keine neue Tabelle/Policy.
+- offen fuer die naechste Iteration: A7 `csat-survey-dispatch` entscheidet die Dispatch-Spalten
+  (Versandzeitpunkt + Claim) — die gibt es noch nicht, der Poller braucht eine eigene Migration.
+  Beim Entwurf beachten: der hier gesetzte Ablauf ist bereits `Versandzeitpunkt + 30 Tage`, der
+  Poller muss also nach `token IS NOT NULL AND submitted_at IS NULL AND <faellig>` filtern und
+  nicht nach `token_expires_at`. A8 loest den Token oeffentlich ein und muss ihn dabei entwerten.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): issue CSAT survey
+  token when a ticket closes".

@@ -318,6 +318,43 @@ func (r *PostgresRepository) SubmitCsatTx(
 	return nil
 }
 
+// IssueCsatSurveyTokenTx parks a pending survey token on the ticket's CSAT row.
+//
+// The INSERT selects from tickets instead of taking tenant_id from the caller:
+// that makes the tenant the ticket's own, so a ticket belonging to a different
+// tenant produces zero rows rather than a CSAT row filed under the wrong
+// tenant. The conflict branch is guarded by `submitted_at IS NULL`, so a ticket
+// that already has a rating keeps it and gets no new link -- the authoritative
+// "already rated" check, since the service's own check races with a rating
+// submitted in between.
+//
+// A pending token from an earlier close is overwritten on purpose: the new
+// close restarts the delay, and the previous link would run on a stale one.
+func (r *PostgresRepository) IssueCsatSurveyTokenTx(
+	ctx context.Context,
+	tenantID, ticketID uuid.UUID,
+	token string,
+	expiresAt, now time.Time,
+) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`INSERT INTO ticket_csat_responses
+		     (id, tenant_id, ticket_id, token, token_expires_at, created_at, updated_at)
+		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $5
+		   FROM tickets t
+		  WHERE t.id = $2 AND t.tenant_id = $1
+		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
+		 SET token            = EXCLUDED.token,
+		     token_expires_at = EXCLUDED.token_expires_at,
+		     updated_at       = EXCLUDED.updated_at
+		 WHERE ticket_csat_responses.submitted_at IS NULL`,
+		tenantID, ticketID, token, expiresAt, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("issue csat survey token: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // ---------------------------------------------------------------------------
 // Ticket messages
 // ---------------------------------------------------------------------------

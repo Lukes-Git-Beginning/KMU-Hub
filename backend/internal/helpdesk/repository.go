@@ -52,6 +52,13 @@ type Repository interface {
 	// Returns ErrTicketNotFound if the ticket does not belong to tenantID.
 	SubmitCsatTx(ctx context.Context, tenantID, ticketID uuid.UUID, rating int16, comment *string, submittedAt time.Time) error
 
+	// IssueCsatSurveyTokenTx stores a pending survey token on the ticket's CSAT
+	// response row, creating that row if the ticket has none yet. It reports
+	// false (without error) when no token was stored, which happens for a
+	// ticket of another tenant and for a ticket that already carries a rating --
+	// both are ordinary outcomes, not failures.
+	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, expiresAt, now time.Time) (bool, error)
+
 	// -----------------------------------------------------------------------
 	// Ticket messages
 	// -----------------------------------------------------------------------
