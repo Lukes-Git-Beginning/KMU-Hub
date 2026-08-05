@@ -15,7 +15,10 @@ import type {
   ConfigLayer,
   ConfigProvenance,
   LocaleLabelMap,
+  ModuleAreaLayout,
   ModuleAreaMap,
+  ModuleAreaSetting,
+  ModuleAreaSettingMap,
   ModuleAreasOverlay,
   ResolvedLabel,
   ResolvedLabelMap,
@@ -72,6 +75,18 @@ export const LABEL_WHITELIST: string[] = [
   'kontakte.category.employee',
   'kontakte.category.customers',
   'kontakte.category.partner',
+  // List-column headings (Darien 2026-08-05). Renaming a column previewed fine but
+  // was dropped on deploy, because this whitelist is the deploy filter — the rename
+  // only ever lived in the sandbox bundle. Every key here is an `EditorModuleDef.
+  // listColumns[].labelKey`; keep the two lists in step when a module gains columns.
+  'helpdesk.table.ticketNr',
+  'helpdesk.table.subject',
+  'helpdesk.table.category',
+  'helpdesk.table.priority',
+  'helpdesk.table.status',
+  'helpdesk.table.assignedTo',
+  'helpdesk.table.sla',
+  'helpdesk.table.createdAt',
 ]
 
 // LocaleLabelMap (locale → key → value) is defined in customization-types.ts.
@@ -485,9 +500,38 @@ const vendorModuleAreas: ModuleAreasOverlay = {}
 const tenantModuleAreas: ModuleAreasOverlay = {}
 
 /**
+ * Merge two area settings for the SAME key across layers. Objects merge field by
+ * field so a draft that only moves a column does not wipe the width the tenant
+ * layer already stored; a boolean coming from a higher layer means "just the
+ * switch", so it folds into `visible` instead of replacing the layout.
+ */
+function mergeAreaSetting(base: ModuleAreaSetting | undefined, over: ModuleAreaSetting): ModuleAreaSetting {
+  if (base === undefined) return over
+  if (typeof base === 'boolean' && typeof over === 'boolean') return over
+  const baseObj: ModuleAreaLayout = typeof base === 'boolean' ? { visible: base } : base
+  const overObj: ModuleAreaLayout = typeof over === 'boolean' ? { visible: over } : over
+  return { ...baseObj, ...overObj }
+}
+
+/** Layer-merge the raw settings of one module (vendor ⊕ tenant ⊕ draft). */
+function mergeAreaLayers(moduleKey: string, draftOverlay?: ModuleAreasOverlay): ModuleAreaSettingMap {
+  const out: ModuleAreaSettingMap = {}
+  for (const layer of [vendorModuleAreas, tenantModuleAreas, draftOverlay ?? {}]) {
+    for (const [key, setting] of Object.entries(layer[moduleKey] ?? {})) {
+      out[key] = mergeAreaSetting(out[key], setting)
+    }
+  }
+  return out
+}
+
+/**
  * Resolve which sub-areas of a module are enabled. Merged default(all-on) ⊕ vendor
  * ⊕ tenant ⊕ draft. Returns only the EXPLICIT settings — a consumer treats a
  * missing areaKey as enabled: `resolveModuleAreas(m)[area] !== false`.
+ *
+ * Always normalises to booleans, including the column-layout objects. That is what
+ * keeps areas and statistics untouched by the layout extension: every existing
+ * consumer keeps asking `!== false` and keeps getting the right answer.
  */
 export function resolveModuleAreas(
   moduleKey: string,
@@ -495,11 +539,39 @@ export function resolveModuleAreas(
   draftOverlay?: ModuleAreasOverlay,
 ): ModuleAreaMap {
   if (base) return {}
-  return {
-    ...(vendorModuleAreas[moduleKey] ?? {}),
-    ...(tenantModuleAreas[moduleKey] ?? {}),
-    ...(draftOverlay?.[moduleKey] ?? {}),
+  const merged = mergeAreaLayers(moduleKey, draftOverlay)
+  const out: ModuleAreaMap = {}
+  for (const [key, setting] of Object.entries(merged)) {
+    if (typeof setting === 'boolean') {
+      out[key] = setting
+      continue
+    }
+    // A layout-only entry (order/width, no `visible`) says NOTHING about
+    // visibility, so it must not appear here at all: opt-in columns ask `=== true`
+    // and would otherwise switch themselves on the moment the list is reordered.
+    if (setting.visible !== undefined) out[key] = setting.visible
   }
+  return out
+}
+
+/**
+ * Resolve the LAYOUT half of the same settings (order/width per column) — the part
+ * `resolveModuleAreas` flattens away. Only keys that actually carry order or width
+ * appear, so a module can treat an empty result as "nothing configured".
+ */
+export function resolveModuleAreaLayout(
+  moduleKey: string,
+  base = false,
+  draftOverlay?: ModuleAreasOverlay,
+): Record<string, ModuleAreaLayout> {
+  if (base) return {}
+  const out: Record<string, ModuleAreaLayout> = {}
+  for (const [key, setting] of Object.entries(mergeAreaLayers(moduleKey, draftOverlay))) {
+    if (typeof setting === 'boolean') continue
+    if (setting.order === undefined && setting.width === undefined) continue
+    out[key] = setting
+  }
+  return out
 }
 
 // ── Aggregate helpers ─────────────────────────────────────────────────────────
@@ -586,7 +658,13 @@ export function applyDraftToTenant(payload: {
 
   let areaCount = 0
   for (const [moduleKey, areaMap] of Object.entries(payload.moduleAreas ?? {})) {
-    tenantModuleAreas[moduleKey] = { ...(tenantModuleAreas[moduleKey] ?? {}), ...areaMap }
+    const target: ModuleAreaSettingMap = { ...(tenantModuleAreas[moduleKey] ?? {}) }
+    // Per key, not per map: a draft that only sets a width must not drop the
+    // visibility the tenant already carries (and vice versa).
+    for (const [areaKey, setting] of Object.entries(areaMap)) {
+      target[areaKey] = mergeAreaSetting(target[areaKey], setting)
+    }
+    tenantModuleAreas[moduleKey] = target
     areaCount += Object.keys(areaMap).length
   }
 

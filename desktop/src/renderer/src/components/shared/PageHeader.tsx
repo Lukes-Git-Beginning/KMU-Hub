@@ -1,5 +1,6 @@
 import { cn } from '@/lib'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
+import { RolloutAnnouncement } from '@/components/customization/RolloutAnnouncement'
 import { ChevronRight } from 'lucide-react'
 
 interface PageHeaderProps {
@@ -33,6 +34,10 @@ export function PageHeader({
 
   return (
     <div className={cn('animate-fade-up', className)}>
+      {/* A rollout's message for THIS module, if one is live and unread. Silent
+          otherwise — and silent in the editor sandbox. One place, every module. */}
+      {moduleId && <RolloutAnnouncement moduleId={moduleId} />}
+
       {/* Breadcrumb */}
       {breadcrumb && breadcrumb.length > 0 && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">

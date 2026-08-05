@@ -58,7 +58,16 @@ export function ModuleSandbox({
   focusNonce?: number
 }): ReactNode {
   const { t } = useTranslation()
-  const { labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields } = useDraftConfig()
+  const {
+    labels,
+    setDraftLabel,
+    valueSets,
+    moduleAreas,
+    patchDraftModuleArea,
+    patchDraftModuleAreas,
+    valueSetMigrations,
+    customFields,
+  } = useDraftConfig()
   const [sandboxClient] = useState(
     () =>
       new QueryClient({
@@ -78,12 +87,28 @@ export function ModuleSandbox({
       isDraft: (key) => Boolean(labels[i18n.language]?.[key]),
       valueSets,
       moduleAreas,
+      // Column widths are dragged inside the preview, so the write path has to
+      // reach the draft from the module — same idea as setLabel for rename.
+      setAreaLayout: (areaKey, patch) => patchDraftModuleArea(module.key, areaKey, patch),
+      setAreaLayouts: (patches, focusKey) => patchDraftModuleAreas(module.key, patches, focusKey),
       valueSetMigrations,
       customFields,
       focusSection,
       focusNonce,
     }),
-    [labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields, focusSection, focusNonce],
+    [
+      labels,
+      setDraftLabel,
+      valueSets,
+      moduleAreas,
+      patchDraftModuleArea,
+      patchDraftModuleAreas,
+      module.key,
+      valueSetMigrations,
+      customFields,
+      focusSection,
+      focusNonce,
+    ],
   )
 
   const fallback = (

@@ -1,4 +1,10 @@
-# Spalten-Panel — nächste Runde (Darien, 2026-08-05)
+# Spalten-Panel — nächste Runde (Darien, 2026-08-05) — ✅ GEBAUT (`e377644c`)
+
+> **Status 2026-08-05, Session #35:** beide Punkte gebaut, QA 16/16 + Regression 9/9.
+> S1 als Variante **(a) Umbenennen** umgesetzt (Darien-Entscheid), S2 mit **Ziehen am
+> Spaltenrand** (Darien-Entscheid) statt Presets. Details unten, Abweichungen und
+> Funde stehen im Abschluss-Block am Dateiende.
+
 
 > Dariens Wortlaut am Session-Ende: *„einmal die vorhandenen Spalten kann ich nicht
 > bearbeiten sondern nur die neuen und zweitens muss man noch die Reihenfolge der
@@ -59,6 +65,46 @@ geteilt: echte Bereiche (`areas`), Statistik-Widgets (`stat:`) und jetzt Spalten
 
 **QA-Erweiterung:** `qa-editor-spalten-h.mjs` um zwei Fälle ergänzen —
 (1) Reihenfolge ändern → `thead`-Reihenfolge folgt, (2) Breite setzen → `<th>` trägt sie.
+
+---
+
+---
+
+## Abschluss (Session #35, Commit `e377644c`)
+
+**Gebaut wie geplant:** `ModuleAreaSetting = boolean | {visible,order,width}`,
+`resolveModuleAreas` normalisiert weiter auf boolean (areas/`stat:` unberührt), neu
+`resolveModuleAreaLayout`; `patchDraftModuleArea` + `setDraftModuleAreaOrder`;
+Panel-Liste sortierbar über dnd-kit (dasselbe Muster wie die Formulare-Feldliste).
+
+**Drei Funde, die im Plan nicht standen:**
+
+1. **Umbenennen überlebte den Deploy nicht.** `LABEL_WHITELIST` ist der Deploy-Filter,
+   und `helpdesk.table.*` stand nicht drin — der Name lebte nur im Sandbox-Bundle.
+   Die acht Spalten-Keys sind jetzt eingetragen. **Merkposten für den Rollout:** jedes
+   Modul, das Spalten bekommt, muss seine `listColumns[].labelKey` dort nachtragen.
+2. **`status` hing an `common.status`.** Umbenennen hätte jedes Status-Label der App
+   mitgezogen → eigener Key `helpdesk.table.status`. Gleiche Prüfung bei jedem Modul:
+   eine Spaltenüberschrift darf keinen geteilten `common.*`-Key benutzen.
+3. **Layout-Einträge durften nicht als „sichtbar" gelten.** Das Sortieren schreibt für
+   JEDE Spalte ein Objekt; ein Objekt ohne `visible` wurde zu `true` normalisiert und
+   hat die Opt-in-Spalten (die `=== true` fragen) von selbst eingeschaltet — im ersten
+   QA-Lauf sofort sichtbar (8 → 11 Spalten). Jetzt bleiben Layout-only-Einträge aus der
+   Sichtbarkeits-Map heraus.
+
+**Zwei UX-Entscheidungen beim Bauen:**
+
+- **Breiten einfrieren beim ersten Zug.** `table-layout: fixed` verteilt alle Spalten
+  ohne Breite gleichmäßig — die Liste wäre beim ersten Pixel zusammengeklappt. Der
+  erste Zug misst deshalb die Ist-Breiten und schreibt sie mit (ein Dispatch, ein
+  Undo-Schritt zusammen mit dem Zug).
+- **Zähler.** Reihenfolge und Breiten zählen als je EINE Änderung, nicht als eine pro
+  Spalte — ein Zug stand sonst als „11 Änderungen" im Footer.
+
+**QA:** `qa-editor-spalten-i.mjs` 16/16 inkl. Deploy-Durchstich (Name, Reihenfolge,
+Breite und die ausgeblendete Spalte im echten Modul), `qa-editor-spalten-h.mjs` 9/9,
+Statistik-Suite grün. **Lehre fürs nächste QA-Skript:** der Sichtbarkeits-Schalter ist
+`role="switch"`, nicht `button` — `getByRole('button')` läuft dort in den Timeout.
 
 ---
 

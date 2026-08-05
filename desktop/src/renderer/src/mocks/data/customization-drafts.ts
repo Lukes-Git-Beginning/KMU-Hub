@@ -12,8 +12,9 @@
  * Rollback restores the tenant snapshot captured just before promotion.
  *
  * The real backend (Luke's track 🔒, backend-gaps §Customization) persists this
- * in `tenant_customization_drafts` with a promotion cron; here it is
- * session-scoped and resets on reload.
+ * in `tenant_customization_drafts` with a promotion cron; here the records live
+ * in shared browser storage (see "Persistence" below) so they survive a restart
+ * and are visible from both windows.
  */
 import type {
   CustomizationDraft,
@@ -46,6 +47,70 @@ export interface DeploySnapshot {
 }
 const rollbackSnapshots: Record<string, DeploySnapshot> = {}
 
+// ── Persistence (Darien 2026-08-05) ───────────────────────────────────────────
+//
+// "Wenn ich als Entwurf speichern drücke, dann speichert er keinen Entwurf."
+// Two things made that true: the store lived only in the JS heap, so a reload or
+// an app restart wiped every draft — and the editor runs in a SEPARATE window
+// with its own heap, so the hub only ever learned about a draft through a live
+// BroadcastChannel message it had to be listening for at that exact moment.
+//
+// Both go away by keeping the records in storage the windows share: whoever looks
+// at the list reads the current state, no message required, and a draft survives
+// a restart the way a saved thing should. Luke's backend replaces this file with
+// a table; the channel stays for instant cross-window refresh.
+
+const STORAGE_KEY = 'cosmi:customization:drafts'
+
+interface PersistedDrafts {
+  drafts: CustomizationDraft[]
+  snapshots: Record<string, DeploySnapshot>
+  seq: number
+}
+
+function persist(): void {
+  try {
+    const state: PersistedDrafts = { drafts, snapshots: rollbackSnapshots, seq: draftSeq }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // No storage (private mode, quota): fall back to the previous in-memory-only
+    // behaviour rather than breaking the editor.
+  }
+}
+
+/** Pull the shared state into this window — cheap, and the list is small. */
+function syncFromStorage(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as PersistedDrafts
+    drafts.length = 0
+    drafts.push(...(parsed.drafts ?? []))
+    for (const key of Object.keys(rollbackSnapshots)) delete rollbackSnapshots[key]
+    Object.assign(rollbackSnapshots, parsed.snapshots ?? {})
+    draftSeq = Math.max(parsed.seq ?? 0, drafts.length)
+  } catch {
+    // Corrupt entry: keep whatever this window already has.
+  }
+}
+
+let hydrated = false
+/**
+ * First read of the session: restore the records AND make the live ones true
+ * again. Without the re-apply the list would claim "Live" after a restart while
+ * the module had quietly fallen back to stock.
+ */
+function hydrateOnce(): void {
+  if (hydrated) return
+  hydrated = true
+  syncFromStorage()
+  for (const draft of drafts) {
+    if (draft.status !== 'live') continue
+    applyDraftToTenant(draft.payload)
+    applyDraftCustomFields(draft.payload.customFields ?? {})
+  }
+}
+
 function newId(): string {
   draftSeq += 1
   return `draft-${String(draftSeq).padStart(3, '0')}`
@@ -69,13 +134,28 @@ function summarize(payload: CustomizationDraftPayload): {
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
 
-/** All drafts, newest first. Optionally filtered by module. */
+/**
+ * All drafts, newest first. Optionally filtered by module.
+ *
+ * Returns COPIES on purpose: this store mutates records in place (status, dates,
+ * announcement), and React Query's structural sharing keeps the previous object
+ * when the refetched one is reference-identical — so a scheduled rollout kept
+ * rendering as "Entwurf" until the page was left. Copies make each refetch compare
+ * by value, which is what the UI expects.
+ */
 export function listDrafts(moduleKey?: string): CustomizationDraft[] {
-  const all = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  hydrateOnce()
+  // Re-read every time: the other window may have saved since the last look.
+  syncFromStorage()
+  const all = [...drafts]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((d) => ({ ...d }))
   return moduleKey ? all.filter((d) => d.moduleKey === moduleKey) : all
 }
 
 export function getDraft(id: string): CustomizationDraft | undefined {
+  hydrateOnce()
+  syncFromStorage()
   return drafts.find((d) => d.id === id)
 }
 
@@ -107,6 +187,7 @@ export function ingestRemoteDraft(draft: CustomizationDraft, snapshot?: DeploySn
       if (d.id !== draft.id && d.moduleKey === draft.moduleKey && d.status === 'live') d.status = 'superseded'
     }
   }
+  persist()
 }
 
 // ── Save (blueprint, affects no user) ───────────────────────────────────────────
@@ -121,7 +202,11 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     existing.payload = input.payload
     existing.status = 'draft'
     existing.scheduledAt = undefined
+    // undefined = "not touched here": the announcement is edited in the rollout
+    // detail, and saving the draft again must not wipe it.
+    if (input.announcement !== undefined) existing.announcement = input.announcement || undefined
     existing.updatedAt = now
+    persist()
     return existing
   }
 
@@ -134,8 +219,10 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     createdAt: now,
     updatedAt: now,
     createdBy: getDemoSessionUserId(),
+    ...(input.announcement ? { announcement: input.announcement } : {}),
   }
   drafts.unshift(draft)
+  persist()
   writeAuditEvent({
     action: 'customization.draft_saved',
     target: draft.name,
@@ -150,6 +237,7 @@ export function deleteDraft(id: string): void {
   if (idx < 0) return
   const [removed] = drafts.splice(idx, 1)
   delete rollbackSnapshots[id]
+  persist()
   writeAuditEvent({
     action: 'customization.draft_deleted',
     target: removed.name,
@@ -184,11 +272,18 @@ function promote(draft: CustomizationDraft): void {
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, ...applied, fieldCount },
   })
+  persist()
 }
 
 /** Deploy immediately: persist the draft (if new) and promote it to the tenant layer. */
 export function commitDraftNow(input: DeployDraftInput): CustomizationDraft {
-  const draft = saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+  const draft = saveDraft({
+    id: input.id,
+    moduleKey: input.moduleKey,
+    name: input.name,
+    payload: input.payload,
+    announcement: input.announcement,
+  })
   promote(draft)
   return draft
 }
@@ -196,7 +291,13 @@ export function commitDraftNow(input: DeployDraftInput): CustomizationDraft {
 /** Schedule a tenant-wide rollout at `scheduledAt`; promoted by the mock scheduler. */
 export function scheduleDraft(input: DeployDraftInput): CustomizationDraft {
   if (!input.scheduledAt) throw new Error('scheduleDraft requires scheduledAt')
-  const draft = saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+  const draft = saveDraft({
+    id: input.id,
+    moduleKey: input.moduleKey,
+    name: input.name,
+    payload: input.payload,
+    announcement: input.announcement,
+  })
   draft.status = 'scheduled'
   draft.scheduledAt = input.scheduledAt
   draft.updatedAt = new Date().toISOString()
@@ -206,6 +307,7 @@ export function scheduleDraft(input: DeployDraftInput): CustomizationDraft {
     targetType: 'customization_draft',
     newValue: { moduleKey: draft.moduleKey, scheduledAt: input.scheduledAt, ...summarize(draft.payload) },
   })
+  persist()
   return draft
 }
 
@@ -217,8 +319,76 @@ export function deployDraft(input: DeployDraftInput): CustomizationDraft {
     case 'scheduled':
       return scheduleDraft(input)
     case 'draft':
-      return saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+      return saveDraft({
+        id: input.id,
+        moduleKey: input.moduleKey,
+        name: input.name,
+        payload: input.payload,
+        announcement: input.announcement,
+      })
   }
+}
+
+// ── Rollout detail actions (Darien 2026-08-05) ─────────────────────────────────
+// Everything the rollout list can do to an existing record without reopening the
+// editor: move a scheduled date, take it off the calendar, edit the announcement.
+
+/** Rewrite the announcement of an existing draft/rollout. Empty string clears it. */
+export function setDraftAnnouncement(id: string, announcement: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft) return undefined
+  draft.announcement = announcement.trim() || undefined
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.announcement_changed',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey, hasAnnouncement: Boolean(draft.announcement) },
+  })
+  persist()
+  return draft
+}
+
+/** Put a saved draft on the calendar, or move an existing appointment. */
+export function setDraftSchedule(id: string, scheduledAt: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status === 'live' || draft.status === 'superseded') return undefined
+  draft.status = 'scheduled'
+  draft.scheduledAt = scheduledAt
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.deploy_scheduled',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey, scheduledAt },
+  })
+  persist()
+  return draft
+}
+
+/** Take a scheduled rollout off the calendar — it stays a draft, nothing is lost. */
+export function clearDraftSchedule(id: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status !== 'scheduled') return undefined
+  draft.status = 'draft'
+  draft.scheduledAt = undefined
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.deploy_unscheduled',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey },
+  })
+  persist()
+  return draft
+}
+
+/** Promote an existing draft/scheduled rollout right now (from the rollout list). */
+export function promoteDraftById(id: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status === 'live') return undefined
+  promote(draft)
+  return draft
 }
 
 // ── Scheduler mock ──────────────────────────────────────────────────────────
@@ -258,6 +428,7 @@ export function rollbackDeploy(id: string): void {
   draft.status = 'superseded'
   draft.updatedAt = new Date().toISOString()
   delete rollbackSnapshots[id]
+  persist()
 
   writeAuditEvent({
     action: 'customization.rolled_back',

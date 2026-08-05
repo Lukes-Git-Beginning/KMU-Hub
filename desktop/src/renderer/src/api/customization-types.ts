@@ -143,8 +143,32 @@ export interface ResolvedValueSet {
  */
 export type ModuleAreaMap = Record<string, boolean>
 
-/** Module-area overlay across modules: moduleKey → (areaKey → enabled). */
-export type ModuleAreasOverlay = Record<string, ModuleAreaMap>
+/**
+ * What a LIST COLUMN carries beyond on/off (Darien 2026-08-05): where it sits and
+ * how wide it is. Only `col:` keys ever take this object form — real areas and
+ * statistics stay plain booleans, which is why this is a union rather than a
+ * rewrite: every existing producer keeps writing `true`/`false` and stays valid.
+ */
+export interface ModuleAreaLayout {
+  /** Absent = enabled, same rule as the boolean form. */
+  visible?: boolean
+  /** Position in the list, lowest first. Absent → the module's own column order. */
+  order?: number
+  /**
+   * Share of the table width, 0–1. Stored as a fraction, not pixels, so a column
+   * sized in a wide editor window does not blow up the list on a narrow screen.
+   */
+  width?: number
+}
+
+/** One area's stored setting: the plain switch, or the column layout object. */
+export type ModuleAreaSetting = boolean | ModuleAreaLayout
+
+/** Raw (unresolved) area settings of one module: areaKey → setting. */
+export type ModuleAreaSettingMap = Record<string, ModuleAreaSetting>
+
+/** Module-area overlay across modules: moduleKey → (areaKey → setting). */
+export type ModuleAreasOverlay = Record<string, ModuleAreaSettingMap>
 
 /**
  * Value-set option removals that need existing records migrated (R4b). When an
@@ -243,6 +267,13 @@ export interface CustomizationDraft {
   updatedAt: string
   /** Actor id who created the draft. */
   createdBy: string
+  /**
+   * In-app announcement shown to affected users when this rollout goes live.
+   * Lives on the RECORD, not just in the commit dialog (Darien 2026-08-05: "man
+   * hat ja gar keine Ahnung wie wo was diese Nachricht deployed wird") — so it can
+   * be read, written and explained in the rollout detail, and delivered on deploy.
+   */
+  announcement?: string
 }
 
 /** How the editor commit dialog resolves the current draft. */
@@ -255,10 +286,15 @@ export interface SaveDraftInput {
   moduleKey: string
   name: string
   payload: CustomizationDraftPayload
+  /** Announcement to keep on the record (undefined leaves an existing one alone). */
+  announcement?: string
 }
 
 /** Body for POST /customization/drafts/deploy — apply now, schedule, or keep as draft. */
 export interface DeployDraftInput {
+  /** Present when deploying an EXISTING draft (continued in the editor, or
+   *  launched from the rollout list) — without it every deploy forks a new record. */
+  id?: string
   moduleKey: string
   name: string
   payload: CustomizationDraftPayload

@@ -8,8 +8,23 @@ import { join } from 'path'
  * The target module is passed as a hash query param.
  */
 
+/**
+ * One editor window per module (Darien 2026-08-05: "ich kann auch 5 oder 10
+ * Editor-Fenster öffnen"). Several windows on the same module would each hold
+ * their own draft of it — the last one to save would silently win. Clicking the
+ * module again therefore raises the window that is already open.
+ */
+const openWindows = new Map<string, BrowserWindow>()
+
 /** Shared shell for the editor-family windows (same chrome, different route). */
-function openWindow(hash: string, title: string, width: number, height: number): void {
+function openWindow(hash: string, title: string, width: number, height: number, key: string): void {
+  const existing = openWindows.get(key)
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore()
+    existing.focus()
+    return
+  }
+
   const win = new BrowserWindow({
     width,
     height,
@@ -25,6 +40,12 @@ function openWindow(hash: string, title: string, width: number, height: number):
     },
   })
 
+  openWindows.set(key, win)
+  win.on('closed', () => {
+    // Only drop the entry if it is still ours — a reopen may have replaced it.
+    if (openWindows.get(key) === win) openWindows.delete(key)
+  })
+
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}#/${hash}`)
   } else {
@@ -34,6 +55,7 @@ function openWindow(hash: string, title: string, width: number, height: number):
 
 export function registerEditorWindowHandlers(): void {
   ipcMain.handle('editor:open-window', (_event, moduleKey: string) => {
-    openWindow(`editor-window?module=${encodeURIComponent(String(moduleKey ?? ''))}`, 'Modul-Editor', 1280, 860)
+    const key = String(moduleKey ?? '')
+    openWindow(`editor-window?module=${encodeURIComponent(key)}`, 'Modul-Editor', 1280, 860, `editor:${key}`)
   })
 }

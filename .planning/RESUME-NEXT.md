@@ -1,4 +1,68 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #34 — EDITOR-REVIEW: 3 Feedback-Runden gebaut, GEPUSHT)
+# RESUME — nächster Einstieg (Stand 2026-08-06, Session #35 abgeschlossen + GEPUSHT)
+
+> **★★★★★ MORGEN ZUERST (Dariens Ansage am Session-Ende):**
+>   1. **Wertelisten „gehen noch nicht zu 100 %"** — Symptome sind bewusst grob genannt, also **zuerst bei Darien einsammeln**, welche Stellen hakten. Prüfliste W1–W11 (anlegen, umbenennen, Farbe, Option hinzufügen/deaktivieren/löschen-mit-Umzug, binden, Reihenfolge, Übernehmen, Zurückrollen) + Verdachtsmomente liegen fertig in **`.planning/wertelisten-und-fokus-naechste-runde.md`**.
+>   2. **Fokus-Kopplung ist einseitig** — Klick auf den Statistik-Reiter IM Modul lässt Leiste und rechtes Panel stehen. `useEditorFocusEffect` koppelt nur Leiste → Vorschau; die Gegenrichtung fehlt. Lösungsweg (inkl. Schleifen-Guard) steht im selben Paket unter F.
+>
+> **★ Stand:** Session #35 komplett gepusht (Spalten R4 + drei Review-Runden R5/R6/R7). Auto-Deploy auf Hetzner läuft damit an (cd.yml scharf).
+> **★ Offene Kleinigkeit aus R7:** eine auf 40 % gezogene Spalte lässt im schmalen Editor-Fenster wenig für den Rest — Darien fragen, ob eine Untergrenze gewünscht ist.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5/R6/R7)
+
+> **★★★★★ R7 (Dariens dritter Durchgang) — GEBAUT, Commit `ec67e562`. Neue Electron-QA 11/11.**
+>
+> - **„Entwurf speichert nicht" — die Ursache war der ÖFFNEN-Weg, nicht das Speichern.** Nur der Stift in der Rollout-Liste hat den Entwurf übergeben; die **Modul-Kachel** startete immer leer. Jetzt setzt das Öffnen eines Moduls dessen offenen Entwurf fort (ein gespeicherter Entwurf IST der Stand des Moduls, bis er übernommen oder verworfen wird), der Editor benennt im Banner den geladenen Entwurf und bietet **„Neu anfangen"**.
+> - **⚠⚠ QA-Lücke geschlossen: `qa-editor-electron-l.mjs` fährt die ECHTE Electron-App** (`_electron.launch`, eigenes `--user-data-dir`) — zweites BrowserWindow über IPC, eigener Renderer-Prozess, echte Fensterlebensdauer. Alle bisherigen Editor-Suiten liefen im Browser und konnten den Übergabeweg gar nicht prüfen. **Regel ab jetzt: alles Fenster-/IPC-Nahe dort testen.**
+> - **Kachel-Zahlen echt** (Darien: „die Daten sind nur Mocks"): vorher Array-Längen der Definition — Helpdesk sagte „0 Begriffe", obwohl acht Überschriften umbenennbar sind, und „1 Feld-Typ" war die Zahl der **Entitäten**. Jetzt echte Begriffe/Wertelisten (inkl. der von Modul-Feldern gebundenen)/Felder.
+> - **Live-Prozentwert beim Ziehen** + **ein Editor-Fenster pro Modul** (siehe R6).
+> **★ Diagnose-Lehre:** ein Provider-Fehler im Editor war NICHT im Code, sondern ein zerschossener Dev-Server-Zustand (9 parallele Electron-Instanzen aus Testläufen + `page reload` mitten im Test). Vor jeder Fehlersuche: Server sauber neu starten, Instanzen zählen.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5 + R6)
+
+> **★★★★★ R6 (Dariens zweiter Review-Durchgang) — GEBAUT, Commit `1fad3f88`, QA 20/20 + neue Zwei-Fenster-Suite 6/6. 5 Commits lokal, weiterhin nicht gepusht.**
+>
+> - **⚠⚠ „Als Entwurf speichern speichert keinen Entwurf" — bestätigt und behoben.** Der Draft-Store lag nur im JS-Heap: **jeder Reload/Neustart löschte alle Entwürfe**, und das Editor-**Fenster** (eigener Heap) erreichte den Hub nur über eine BroadcastChannel-Nachricht, die im Flug gefangen werden musste. Jetzt liegen die Records im **geteilten Browser-Speicher** (`cosmi:customization:drafts`); `listDrafts` liest bei jedem Blick frisch, live-Rollouts werden beim ersten Lesen **wieder angewandt** (sonst behauptet die Liste „Live", während das Modul auf Standard zurückgefallen ist). **Lehre:** die bisherige QA lief in EINER Page und hat den Electron-Zwei-Fenster-Fall nie abgebildet → neue Suite **`qa-editor-twowindow-k.mjs`** (zwei Pages, getrennte Heaps, ein Origin) reproduziert den Fehler und deckt ihn ab. Für alles Fenster-übergreifende ab jetzt dort testen.
+> - **Live-Prozentwert beim Ziehen** (Darien: „einstellen macht man nach Augenmaß, Vergleichswert fehlt") — Badge am Spaltenrand während des Zugs.
+> - **Ein Editor-Fenster pro Modul** (`openWindows`-Map im Main-Prozess) — mehrere Fenster hielten je einen eigenen Entwurf desselben Moduls, das letzte Speichern gewann stillschweigend. Folge: „Weiter bearbeiten" bei bereits offenem Editor kommt als **Nachricht** an (`useResumeDraftListener`) und lädt den Entwurf — **außer es liegen ungespeicherte Änderungen vor**, die werden nie überschrieben.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Dariens Review-Runde R5)
+
+> **★★★★★ R5 (Dariens Live-Review der Spalten-Runde, 4 Punkte) — GEBAUT, Commit `a459e1de`, QA 19/19 + Regression 16/16 & 9/9. Weiterhin NICHT gepusht (3 Commits lokal).**
+>
+> 1. **Verstellpunkt war unsichtbar** („alles weiß"). Spalten zeigen jetzt Trennlinie + Griff — **nur im Editor und nur solange der Spalten-Bereich offen ist** (`useModuleColumnLayout().showDividers` = `editing && focusSection === 'spalten'`). Im echten Modul unverändert.
+> 2. **Breitenangabe war rätselhaft** („da stehen nur Zahlen, die verschwinden"). Zahl ist wieder reine Anzeige, daneben ein beschriftetes „Zurücksetzen".
+> 3. **⚠ Entwurf war eine Hülle.** Der Stift in der Rollout-Liste öffnete einen **leeren** Editor (kein Draft-Id-Parameter), jedes Speichern legte einen NEUEN Eintrag an, und die „optionale Nachricht" wurde nirgends gespeichert. Jetzt: Übergabe an das Editor-Fenster über geteilten Storage (`stashDraftForEditor`/`takeStashedDraft` — eigener JS-Heap, ein Channel-Post käme zu früh), Session schreibt auf **dieselbe** ID weiter, `DeployDraftInput.id` + `CustomizationDraft.announcement` neu.
+> 4. **Rollout/Entwurf ist jetzt anklickbar** (ganze Zeile → `RolloutDetailModal`, Cosmi-Konvention): zeigt **was der Rollout ändert** (Begriffe/Wertelisten/Felder/Bereiche/**Spalten**/Statistik, nach `col:`/`stat:` getrennt), **terminieren / Termin ändern / Termin entfernen** direkt am Eintrag, und die **Nachricht mit der Antwort auf „wer sieht das wann"**. Zustellung gebaut: `RolloutAnnouncement` im `PageHeader` zeigt sie **einmal pro Nutzer oben im betroffenen Modul** (wegklickbar, im Editor unterdrückt) — ein Ort für alle Module.
+> **⚠ Mock-Store-Fund:** `listDrafts` gibt jetzt **Kopien** zurück — der Store mutiert in-place, React Querys structural sharing behielt das alte Objekt, und ein terminierter Rollout blieb sichtbar „Entwurf".
+> **★ Offen bei Darien:** ob die Panel-Zeile mit „Eingebaut / Breite X % / Zurücksetzen" (3 Zeilen) zu hoch wirkt.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN RUNDE 4: umbenennen + Reihenfolge + Breite)
+
+> **★★★★★ SESSION #35 (2026-08-05) — Dariens zwei offene Spalten-Punkte gebaut, ein Commit `e377644c`, QA 16/16 + Regression 9/9, Bilder angesehen. NICHT gepusht (Hetzner-Gate: grüner Push = Auto-Deploy). Stand: 1 Commit lokal voraus.**
+>
+> **★ Dariens Entscheidungen vorab (per Rückfrage geklärt):** „bearbeiten" = **umbenennen** (Format-Optionen bewusst nicht, Löschen bleibt gesperrt) · Breite = **am Spaltenrand ziehen** (nicht Presets).
+>
+> **★ GEBAUT:**
+>   - **Eingebaute Spalten umbenennbar** — Namensfeld im Panel schreibt denselben Label-Override wie der Klick auf die Überschrift in der Vorschau (eine Quelle). `status` von `common.status` auf **eigenen Key `helpdesk.table.status`** gezogen (sonst hätte ein Umbenennen jedes Status-Label der App mitgezogen); SLA bleibt mit Glossar-Tooltip und wird trotzdem editierbar.
+>   - **⚠ Whitelist-Fund:** Umbenennen **überlebte den Deploy gar nicht** — `LABEL_WHITELIST` ist der Deploy-Filter und die Spalten-Keys fehlten. Acht `helpdesk.table.*` nachgetragen. **Rollout-Regel:** jedes Modul mit Spalten muss seine `listColumns[].labelKey` dort eintragen.
+>   - **Reihenfolge + Breite** auf derselben `col:`-Draft-Ebene: `ModuleAreaSetting = boolean | {visible,order,width}`. `resolveModuleAreas` normalisiert weiter auf boolean (**areas/`stat:` unangetastet**), neu `resolveModuleAreaLayout`. Panel = EINE sortierbare Liste über beide Spaltenarten (dnd-kit, Muster der Formulare-Feldliste). Breite per Zieh-Griff am `<th>`, gespeichert als **Anteil** (nicht Pixel).
+>   - **⚠ Zwei Bugs, die erst die Screenshot-QA zeigte:** (a) Sortieren schaltete die Opt-in-Spalten von selbst ein — ein Layout-Objekt ohne `visible` wurde zu „sichtbar" normalisiert; jetzt bleiben Layout-only-Einträge aus der Sichtbarkeits-Map. (b) `table-layout: fixed` klappte die Tabelle beim ersten Pixel zusammen; der erste Zug **friert die Ist-Breiten ein** (ein Dispatch, ein Undo-Schritt mit dem Zug).
+>   - **Zähler:** Reihenfolge und Breiten = je EINE Änderung im Footer, nicht eine pro Spalte.
+> **★ QA:** `qa-editor-spalten-i.mjs` **16/16** inkl. **Deploy-Durchstich** (Name, Reihenfolge, Breite, ausgeblendete Spalte — alles im echten Modul nach „Übernehmen") · `qa-editor-spalten-h.mjs` 9/9 · Statistik-Suite grün · scoped tsc 0 neue Fehler (Baseline 11 fremde) · `eslint src/` grün · i18n +10 ×4 textuell (BOM).
+> **★ Lehre:** der Sichtbarkeits-Schalter ist `role="switch"` — `getByRole('button')` läuft dort 30 s in den Timeout (kostete zwei QA-Runden).
+> **★★ NÄCHSTER SCHRITT:** (1) Darien reviewt lokal/auf Hetzner → **Push-Entscheidung offen** (cd.yml scharf). (2) Danach steht weiter die **Editor-Dokumentation** als Rollout-Vorlage an (seit #32 offen) — die Spalten-Dimension gehört mit hinein: `useModuleColumnLayout`/`orderColumns`/`columnWidthStyle`, `useEditorFocusEffect`, `useEntityFieldDraft`, plus die Whitelist- und `common.*`-Regel von oben. Arbeitspaket mit Abschluss-Block: `.planning/editor-spalten-naechste-runde.md`.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #34 — EDITOR-REVIEW: 3 Feedback-Runden gebaut, GEPUSHT)
 
 > **★★★★★ SESSION #34 (2026-08-04/05) — Darien hat den Modul-Editor live reviewt, 3 Feedback-Runden abgearbeitet (3 Commits, 3 QA-Suiten grün, Bilder angesehen). Erst `git pull --rebase` über Lukes 201-Commit-Welle (Nacht-Loop, reines Backend, nur `.planning/backend-gaps.md` überlappte — konfliktfrei). Dann alle 45 Commits GEPUSHT (Darien-Anweisung am Session-Ende) → cd.yml scharf, Auto-Deploy auf Hetzner läuft an.**
 >
