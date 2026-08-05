@@ -1,4 +1,17 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN RUNDE 4: umbenennen + Reihenfolge + Breite)
+# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Dariens Review-Runde R5)
+
+> **★★★★★ R5 (Dariens Live-Review der Spalten-Runde, 4 Punkte) — GEBAUT, Commit `a459e1de`, QA 19/19 + Regression 16/16 & 9/9. Weiterhin NICHT gepusht (3 Commits lokal).**
+>
+> 1. **Verstellpunkt war unsichtbar** („alles weiß"). Spalten zeigen jetzt Trennlinie + Griff — **nur im Editor und nur solange der Spalten-Bereich offen ist** (`useModuleColumnLayout().showDividers` = `editing && focusSection === 'spalten'`). Im echten Modul unverändert.
+> 2. **Breitenangabe war rätselhaft** („da stehen nur Zahlen, die verschwinden"). Zahl ist wieder reine Anzeige, daneben ein beschriftetes „Zurücksetzen".
+> 3. **⚠ Entwurf war eine Hülle.** Der Stift in der Rollout-Liste öffnete einen **leeren** Editor (kein Draft-Id-Parameter), jedes Speichern legte einen NEUEN Eintrag an, und die „optionale Nachricht" wurde nirgends gespeichert. Jetzt: Übergabe an das Editor-Fenster über geteilten Storage (`stashDraftForEditor`/`takeStashedDraft` — eigener JS-Heap, ein Channel-Post käme zu früh), Session schreibt auf **dieselbe** ID weiter, `DeployDraftInput.id` + `CustomizationDraft.announcement` neu.
+> 4. **Rollout/Entwurf ist jetzt anklickbar** (ganze Zeile → `RolloutDetailModal`, Cosmi-Konvention): zeigt **was der Rollout ändert** (Begriffe/Wertelisten/Felder/Bereiche/**Spalten**/Statistik, nach `col:`/`stat:` getrennt), **terminieren / Termin ändern / Termin entfernen** direkt am Eintrag, und die **Nachricht mit der Antwort auf „wer sieht das wann"**. Zustellung gebaut: `RolloutAnnouncement` im `PageHeader` zeigt sie **einmal pro Nutzer oben im betroffenen Modul** (wegklickbar, im Editor unterdrückt) — ein Ort für alle Module.
+> **⚠ Mock-Store-Fund:** `listDrafts` gibt jetzt **Kopien** zurück — der Store mutiert in-place, React Querys structural sharing behielt das alte Objekt, und ein terminierter Rollout blieb sichtbar „Entwurf".
+> **★ Offen bei Darien:** ob die Panel-Zeile mit „Eingebaut / Breite X % / Zurücksetzen" (3 Zeilen) zu hoch wirkt.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN RUNDE 4: umbenennen + Reihenfolge + Breite)
 
 > **★★★★★ SESSION #35 (2026-08-05) — Dariens zwei offene Spalten-Punkte gebaut, ein Commit `e377644c`, QA 16/16 + Regression 9/9, Bilder angesehen. NICHT gepusht (Hetzner-Gate: grüner Push = Auto-Deploy). Stand: 1 Commit lokal voraus.**
 >
