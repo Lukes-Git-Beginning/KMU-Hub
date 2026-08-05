@@ -9,6 +9,7 @@ import type {
   CannedResponse as WireCannedResponse,
   TicketStatus,
   TicketPriority,
+  TicketChannel,
 } from './helpdesk-types'
 import { displayUserName } from '@/mocks/data/shared-ids'
 
@@ -29,6 +30,10 @@ export type DisplayTicket = {
    *  resolved names above. Legacy seeds may carry free-text names here. */
   assigneeId: string | null
   requesterId: string
+  /** Reply address for external requesters (empty for internal tickets). */
+  requesterEmail?: string
+  /** True when the requester is not a tenant user (external intake). */
+  requesterIsExternal?: boolean
   queueId?: string
   slaDueAt: string
   slaOverdue: boolean
@@ -37,6 +42,8 @@ export type DisplayTicket = {
   createdAt: string
   updatedAt: string
   category?: string
+  /** Origin channel the ticket came in through (Herkunft tabs). */
+  channel?: TicketChannel
   autoRouted?: boolean
   csatRating?: number
   csatComment?: string
@@ -129,13 +136,17 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
     id: t.id,
     ticketNr,
     subject: t.subject,
-    description: '',
+    description: t.description ?? '',
     status: wireStatusToDisplay(t.status),
     priority: wirePriorityToDisplay(t.priority),
     assignedTo: displayUserName(t.assignee_id),
-    contactName: displayUserName(t.requester_id),
+    // External requesters have no user account → carry their entered name;
+    // internal tickets resolve the display name from the requester UUID.
+    contactName: t.requester_name ?? displayUserName(t.requester_id),
     assigneeId: t.assignee_id,
     requesterId: t.requester_id,
+    requesterEmail: t.requester_email,
+    requesterIsExternal: t.requester_is_external ?? false,
     queueId: t.queue_id ?? undefined,
     slaDueAt: t.due_at ?? new Date(Date.now() + 8 * 3600000).toISOString(),
     slaOverdue,
@@ -143,10 +154,12 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
     slaHours,
     createdAt: t.created_at,
     updatedAt: t.updated_at,
-    category: undefined,
+    category: t.category,
+    channel: t.channel ?? 'agent',
     autoRouted: false,
-    csatRating: undefined,
-    csatComment: undefined,
+    csatRating: t.csat_rating,
+    csatComment: t.csat_comment,
+    customFields: t.custom_fields,
   }
 }
 

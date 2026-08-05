@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Star, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTickets, useSaveCsat } from '@/api/hooks/useHelpdesk'
 import { useHelpdeskStore } from '@/stores/helpdesk'
 
 function StarRating({ value, onChange, size = 'md', readOnly }: {
@@ -37,24 +38,34 @@ function StarRating({ value, onChange, size = 'md', readOnly }: {
 interface CSATWidgetProps {
   ticketId: string
   ticketStatus: string
+  /** Existing rating from the wire ticket (via the adapter). */
+  csatRating?: number
+  csatComment?: string
 }
 
-export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
+export function CSATWidget({ ticketId, ticketStatus, csatRating, csatComment }: CSATWidgetProps) {
   const { t } = useTranslation()
-  const ticket = useHelpdeskStore((s) => s.tickets.find((x) => x.id === ticketId))
-  const saveCsat = useHelpdeskStore((s) => s.saveCsat)
-  const hasRating = typeof ticket?.csatRating === 'number'
-  const [rating, setRating] = useState(ticket?.csatRating ?? 0)
-  const [comment, setComment] = useState(ticket?.csatComment ?? '')
+  const saveCsat = useSaveCsat()
+  const csatQuestion = useHelpdeskStore((s) => s.csatQuestion)
+  const hasRating = typeof csatRating === 'number'
+  const [rating, setRating] = useState(csatRating ?? 0)
+  const [comment, setComment] = useState(csatComment ?? '')
   const [submitted, setSubmitted] = useState(hasRating)
 
   if (ticketStatus !== 'resolved' && ticketStatus !== 'closed') return null
 
   const handleSubmit = () => {
     if (rating === 0) { toast.error(t('helpdesk.csat.selectRating')); return }
-    saveCsat(ticketId, rating, comment.trim() || undefined)
-    setSubmitted(true)
-    toast.success(t('helpdesk.csat.saved'))
+    saveCsat.mutate(
+      { ticketId, rating, comment: comment.trim() || undefined },
+      {
+        onSuccess: () => {
+          setSubmitted(true)
+          toast.success(t('helpdesk.csat.saved'))
+        },
+        onError: () => toast.error(t('helpdesk.csat.saveError')),
+      },
+    )
   }
 
   return (
@@ -78,6 +89,7 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
         </div>
       ) : (
         <div className="space-y-3">
+          {csatQuestion.trim() && <p className="text-sm text-foreground">{csatQuestion}</p>}
           <StarRating value={rating} onChange={setRating} />
           <textarea
             value={comment}
@@ -86,7 +98,7 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
             rows={2}
             className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
           />
-          <button onClick={handleSubmit} className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+          <button onClick={handleSubmit} disabled={saveCsat.isPending} className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50">
             {t('helpdesk.csat.submit')}
           </button>
         </div>
@@ -97,10 +109,13 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
 
 export function CSATAggregate() {
   const { t } = useTranslation()
-  const tickets = useHelpdeskStore((s) => s.tickets)
+  const { data } = useTickets()
   const ratings = useMemo(
-    () => tickets.filter((x) => typeof x.csatRating === 'number').map((x) => x.csatRating as number),
-    [tickets],
+    () =>
+      (data?.tickets ?? [])
+        .filter((x) => typeof x.csat_rating === 'number')
+        .map((x) => x.csat_rating as number),
+    [data],
   )
   if (ratings.length === 0) return null
   const avg = ratings.reduce((s, r) => s + r, 0) / ratings.length

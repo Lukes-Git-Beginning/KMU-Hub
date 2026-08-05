@@ -74,6 +74,14 @@ export interface FormField {
   ratingScale?: number // rating only (FT-2b): 5 = stars, 10 = NPS scale
   pageTitle?: string // page-break only (FT-2b): title of the following page
   page?: number
+  /**
+   * Intake role (P2): when the form is bound to an intake target
+   * (`FormSchema.intakeTargetId`), this marks the field as a first-class target
+   * property (subject/description/priority/…). Unmarked/absent → the answer
+   * flows into the record's custom fields. Role keys are defined per target in
+   * the shared intake engine (`components/shared/intake`).
+   */
+  role?: string
 }
 
 /**
@@ -105,6 +113,12 @@ export interface FormSchema {
   thankYouMessage?: string
   /** FT-2b — redirect URL applied after submit on the public page. */
   redirectUrl?: string
+  /**
+   * P2 — intake target this form feeds. When set (e.g. `helpdesk_ticket`), a
+   * submission is turned into that module's record via the shared intake engine;
+   * field roles map answers onto record properties. Unset = a plain form.
+   */
+  intakeTargetId?: string
   submissionCount: number
   createdBy: string | null
   createdAt: string
@@ -205,6 +219,7 @@ export interface CreateFormSchemaInput {
   thankYouMessage?: string
   redirectUrl?: string
   notifications?: FormNotificationConfig
+  intakeTargetId?: string
 }
 
 export interface UpdateFormSchemaInput {
@@ -219,6 +234,7 @@ export interface UpdateFormSchemaInput {
   thankYouMessage?: string
   redirectUrl?: string
   notifications?: FormNotificationConfig
+  intakeTargetId?: string
 }
 
 export interface DuplicateFormSchemaInput {

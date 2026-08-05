@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -18,7 +19,6 @@ import {
   Lock,
   Zap,
   Route,
-  Settings2,
   Pencil,
   Tag,
   Bot,
@@ -28,8 +28,9 @@ import { toast } from 'sonner'
 import {
   slaLabel,
   MOCK_CATEGORIES,
-  MOCK_CUSTOM_FIELD_DEFS,
+  useHelpdeskStore,
 } from '@/stores/helpdesk'
+import type { CustomFieldDefinition } from '@/mocks/data/custom-fields'
 import {
   useTickets,
   useTicketMessages,
@@ -41,10 +42,11 @@ import {
   useMergeTickets,
   useAddMessage,
   useKBArticles,
+  useCreateKBArticle,
   useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
-import type { KBArticle } from '@/api/helpdesk-types'
+import type { KBArticle, TicketChannel, CreateTicketInput } from '@/api/helpdesk-types'
 import {
   wireTicketToDisplay,
   displayStatusToWire,
@@ -63,16 +65,20 @@ import {
 import { CSATWidget, CSATAggregate } from './CSATWidget'
 import { CannedResponsesPanel } from './CannedResponsesPanel'
 import { CannedResponsePicker } from './CannedResponsePicker'
-import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
+import { DocumentBlockEditor, DocumentReader, isDocEmpty, type DocRow } from '@/components/shared/document'
+import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } from './kb-blocks'
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions } from '@/components/customization/EditorSurface'
+import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
+import { useFormSchema } from '@/api/hooks/useFormulare'
+import type { FormField } from '@/api/formulare-types'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
-import { sanitizeHtml } from '@/lib/sanitize'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | DisplayTicket['status']
@@ -134,6 +140,26 @@ const categoryColors: Record<string, string> = {
   Sonstiges: 'bg-secondary text-muted-foreground',
 }
 
+/**
+ * A status/priority chip coloured from the customizable value-set. When the
+ * value-set option carries a colour we tint the pill with it (so recolouring in
+ * the Wertelisten editor shows live); otherwise we fall back to the semantic
+ * Tailwind class. Keeps one look whether or not a tenant has customised colours.
+ */
+function VsChip({ label, color, fallbackClass, className = '' }: {
+  label: string; color?: string; fallbackClass?: string; className?: string
+}) {
+  const base = 'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium'
+  if (color) {
+    return (
+      <span className={`${base} ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>
+        {label}
+      </span>
+    )
+  }
+  return <span className={`${base} ${fallbackClass ?? ''} ${className}`}>{label}</span>
+}
+
 // ---------------------------------------------------------------------------
 // KB Article bodies
 // ---------------------------------------------------------------------------
@@ -152,12 +178,40 @@ const KB_BODIES: Record<string, string> = {
 
 export default function HelpdeskPage() {
   const { t } = useTranslation()
+  // Editor sandbox: mutating/out-navigating actions become no-ops (R-1).
+  const guard = useEditorGuard()
 
   // API hooks — Tickets (core data)
   const { data: ticketsResponse, isLoading: ticketsLoading, error: ticketsError } = useTickets()
-  const tickets: DisplayTicket[] = useMemo(
+  // Editor draft may delete a status/priority and reassign its records; remap the
+  // display values through that migration so the preview is honest (empty in the
+  // live app — the real record migration runs on deploy in the backend).
+  const statusMigration = useValueSetMigration('ticket_status')
+  const priorityMigration = useValueSetMigration('ticket_priority')
+  // Custom-field values for tickets created this session (keyed by ticket id) —
+  // display-layer overlay merged in the `tickets` memo (wire has no custom fields).
+  const [createdCustomFields, setCreatedCustomFields] = useState<Record<string, Record<string, string>>>({})
+  // CSAT feature gate = the tenant Helpdesk setting (intake P3, auto-after-close).
+  const csatEnabled = useHelpdeskStore((s) => s.csatEnabled)
+  const rawTickets: DisplayTicket[] = useMemo(
     () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
     [ticketsResponse],
+  )
+  const tickets: DisplayTicket[] = useMemo(
+    () =>
+      rawTickets.map((tk) => ({
+        ...tk,
+        status: (statusMigration[tk.status] ?? tk.status) as DisplayTicket['status'],
+        priority: (priorityMigration[tk.priority] ?? tk.priority) as DisplayTicket['priority'],
+        // Custom-field values come from the wire ticket (intake P1b). Unsaved /
+        // just-saved in-session edits layer on top for instant, flicker-free
+        // typing; the commit (onBlur for text, on-change for select/checkbox)
+        // persists them to the wire via PUT.
+        customFields: createdCustomFields[tk.id]
+          ? { ...tk.customFields, ...createdCustomFields[tk.id] }
+          : tk.customFields,
+      })),
+    [rawTickets, statusMigration, priorityMigration, createdCustomFields],
   )
 
   // Ticket mutations
@@ -181,14 +235,37 @@ export default function HelpdeskPage() {
     weekly_breakdown: [],
   }
 
+  // Priority AND status labels + colours come from the customizable value-sets
+  // (ticket_priority / ticket_status) so the Wertelisten editor drives label,
+  // colour, order and add/remove; fall back to the i18n enum + Tailwind class
+  // when an option is missing. The editor sandbox layers the draft on top → live.
+  const priorityValueSet = useModuleValueSet('ticket_priority')
+  const statusValueSet = useModuleValueSet('ticket_status')
+  // Custom-field defs drive the dynamic statistics breakdowns (B1): every select
+  // field with a value list gets its own "distribution by <field>" widget, so a
+  // new value list added in the editor shows up in the stats automatically.
+  const statFieldDefs = useModuleCustomFields('helpdesk_ticket')
+  // Choices per field — bound value lists supply labels AND colours here, so a list
+  // created in the editor shows up as a breakdown with its own palette (Darien 2026-08-04).
+  const statFieldOptions = useFieldOptions(statFieldDefs)
+  const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
+  const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
+  const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
+  const statusColorOf = (id: string): string | undefined => statusBy.get(id)?.color
+  const activePriorityOptions = (priorityValueSet?.options ?? []).filter((o) => o.active)
+  const activeStatusOptions = (statusValueSet?.options ?? []).filter((o) => o.active)
   const priorityLabels: Record<string, string> = {
-    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
-    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+    low: prioBy.get('low')?.label ?? t('helpdesk.priority.low'),
+    medium: prioBy.get('medium')?.label ?? t('helpdesk.priority.medium'),
+    high: prioBy.get('high')?.label ?? t('helpdesk.priority.high'),
+    critical: prioBy.get('critical')?.label ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
-    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
-    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
-    closed: t('helpdesk.status.closed'),
+    open: statusBy.get('open')?.label ?? t('helpdesk.status.open'),
+    in_progress: statusBy.get('in_progress')?.label ?? t('helpdesk.status.inProgress'),
+    waiting: statusBy.get('waiting')?.label ?? t('helpdesk.status.waiting'),
+    resolved: statusBy.get('resolved')?.label ?? t('helpdesk.status.resolved'),
+    closed: statusBy.get('closed')?.label ?? t('helpdesk.status.closed'),
   }
 
   // RBAC R-3 capability checks (default hidden per gating convention)
@@ -209,22 +286,50 @@ export default function HelpdeskPage() {
   const [sortField, setSortField] = useState<string>('createdAt')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
 
+  // Ticket-Intake P6/§7 — origin (Herkunft) sub-tabs: when several creation
+  // channels are active, tickets split by where they came in through, with a
+  // "zusammenführen" toggle to collapse back to one list.
+  const intakeChannels = useHelpdeskStore((s) => s.intakeChannels)
+  const [sourceTab, setSourceTab] = useState<'all' | TicketChannel>('all')
+  const [mergeSources, setMergeSources] = useState(false)
+  const activeChannels = (['agent', 'selfservice', 'external'] as const).filter(
+    (c) => intakeChannels[c],
+  )
+  const showSourceTabs = !mergeSources && activeChannels.length >= 2
+
   // Detail panel
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [showInternalNotes, setShowInternalNotes] = useState(false)
 
-  // New ticket dialog
+  // New ticket dialog (agent channel). The bound agent form (intakeForms.agent)
+  // drives the submitter-facing fields (subject/description/category + extras);
+  // the professional tools below (priority/assignee/contact) stay fixed — agents
+  // keep contact search, priority and assignment that a plain form can't express.
   const [newTicketOpen, setNewTicketOpen] = useState(false)
-  const [ntSubject, setNtSubject] = useState('')
-  const [ntDescription, setNtDescription] = useState('')
   const [ntPriority, setNtPriority] = useState<DisplayTicket['priority']>('medium')
   const [ntAssignee, setNtAssignee] = useState('Marco Hartmann')
   const [ntContact, setNtContact] = useState('')
-  const [ntCategory, setNtCategory] = useState<string>('Sonstiges')
+  // Agent-form answers keyed by form field id (fed through the intake engine on save).
+  const [ntFormValues, setNtFormValues] = useState<Record<string, unknown>>({})
+  const [ntErrors, setNtErrors] = useState<Record<string, string>>({})
+  const agentFormId = useHelpdeskStore((s) => s.intakeForms.agent)
+  const { data: agentForm } = useFormSchema(agentFormId)
+  // Fields the agent fills: drop page breaks and requester roles (the agent notes
+  // the contact via the pro tool, not as a form field).
+  const agentFields = useMemo(() => {
+    const fields = (agentForm?.fields ?? []) as FormField[]
+    return fields.filter(
+      (f) => f.label !== '__page_break__' && f.role !== 'requester_name' && f.role !== 'requester_email',
+    )
+  }, [agentForm])
 
   // KB article detail
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null)
+  // Track a just-created article so it opens straight in the block editor.
+  const [newArticleEditId, setNewArticleEditId] = useState<string | null>(null)
+  const createKBArticle = useCreateKBArticle()
+  const canManageKb = useHasCapability('helpdesk:kb:manage')
 
   // Dialogs (5.6) — business hours + routing now live in the settings panel (H-6)
   const [cannedResponsesOpen, setCannedResponsesOpen] = useState(false)
@@ -235,8 +340,13 @@ export default function HelpdeskPage() {
     wissensdatenbank: null,
     statistik: 'helpdesk:stats:view',
   }
+  // R4: tenant can hide whole tabs via the editor (moduleAreas). A tab shows only
+  // when RBAC-visible AND its area is enabled.
+  const areaEnabled = useModuleAreas('helpdesk')
   const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
-    (key) => !capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string),
+    (key) =>
+      (!capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string)) &&
+      areaEnabled[key] !== false,
   )
   useEffect(() => {
     if (!capReady) return
@@ -256,8 +366,27 @@ export default function HelpdeskPage() {
 
   const openTickets = baseTickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved')
 
+  // Editor: let the preview follow the left rail (Darien 2026-08-04) — selecting a
+  // dimension navigates here to where it is actually visible, instead of making the
+  // user hunt for it. Zusatzfelder/Wertelisten live in a ticket detail, statistics
+  // in their own tab, Kanäle in the origin sub-tabs on the list.
+  useEditorFocusEffect({
+    statistik: () => { setSelectedTicketId(null); setTab('statistik') },
+    felder: () => { setTab('tickets'); setSelectedTicketId(baseTickets[0]?.id ?? null) },
+    // Value sets show densest as chips across the list (status/priority/category/SLA).
+    wertelisten: () => { setSelectedTicketId(null); setTab('tickets') },
+    bereiche: () => { setSelectedTicketId(null); setTab('tickets') },
+    begriffe: () => { setSelectedTicketId(null); setTab('tickets') },
+    // Columns are only judgeable on the list itself.
+    spalten: () => { setSelectedTicketId(null); setTab('tickets') },
+    'kanäle': () => { setSelectedTicketId(null); setTab('tickets') },
+  })
+
   const filteredTickets = useMemo(() => {
     return baseTickets.filter((t) => {
+      // Origin sub-tab (Herkunft) — only narrows when the tabs are actually shown.
+      if (showSourceTabs && sourceTab !== 'all' && (t.channel ?? 'agent') !== sourceTab)
+        return false
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
       if (categoryFilter !== 'all' && t.category !== categoryFilter) return false
@@ -272,7 +401,7 @@ export default function HelpdeskPage() {
       }
       return true
     })
-  }, [baseTickets, statusFilter, priorityFilter, categoryFilter, search])
+  }, [baseTickets, statusFilter, priorityFilter, categoryFilter, search, showSourceTabs, sourceTab])
 
   const sortedTickets = useMemo(() => {
     const arr = [...filteredTickets]
@@ -296,23 +425,55 @@ export default function HelpdeskPage() {
 
   // Handlers
   const handleOpenNewTicket = () => {
-    setNtSubject(''); setNtDescription(''); setNtPriority('medium')
-    setNtAssignee('Marco Hartmann'); setNtContact(''); setNtCategory('Sonstiges')
+    setNtFormValues({}); setNtErrors({})
+    setNtPriority('medium'); setNtAssignee('Marco Hartmann'); setNtContact('')
     setNewTicketOpen(true)
   }
 
   const handleSaveNewTicket = () => {
-    if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
+    // Validate required agent-form fields (the bound template drives them).
+    const errs: Record<string, string> = {}
+    for (const f of agentFields) {
+      const raw = ntFormValues[f.id]
+      const missing =
+        f.type === 'consent' || f.type === 'checkbox' ? raw !== true : String(raw ?? '').trim() === ''
+      if (f.required && missing) errs[f.id] = t('intake.fill.required')
+    }
+    setNtErrors(errs)
+    if (Object.keys(errs).length > 0) return
+
+    // Map the agent-form answers onto a ticket via the shared intake engine, then
+    // layer the professional tools (priority/assignee/contact) on top.
+    let record: CreateTicketInput
+    try {
+      record = mapSubmissionToRecord<CreateTicketInput>(
+        'helpdesk_ticket',
+        (agentForm?.fields ?? []) as FormField[],
+        ntFormValues,
+        { channel: 'agent' },
+      ).record
+    } catch {
+      toast.error(t('helpdesk.newTicket.createError'))
+      return
+    }
+    if (!record.subject?.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
+
     createTicketMut.mutate(
       {
-        subject: ntSubject.trim(),
+        ...record,
         priority: displayPriorityToWire(ntPriority),
         assignee_id: ntAssignee || undefined,
+        // The agent notes the contact manually; keep it internal (not external) so
+        // the new ticket stays visible to the creator (scope=own).
+        requester_name: ntContact.trim() || record.requester_name,
+        requester_is_external: false,
       },
       {
         onSuccess: () => {
-          toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
+          toast.success(t('helpdesk.newTicket.created', { subject: record.subject }))
           setNewTicketOpen(false)
+          setNtFormValues({})
+          setNtErrors({})
         },
         onError: () => toast.error(t('helpdesk.newTicket.createError')),
       },
@@ -362,6 +523,83 @@ export default function HelpdeskPage() {
     setSelectedTicketId(id); setReplyText(''); setShowInternalNotes(false)
   }
 
+  // ── List columns (Darien 2026-08-04) ────────────────────────────────────────
+  // Priority/status are readable straight from the list without opening a ticket;
+  // a value list added in the editor had no way to get that same treatment, and the
+  // built-in columns had no way to be dropped. Columns are therefore configurable,
+  // riding the moduleAreas machinery under a `col:` prefix (draft/deploy/undo come
+  // for free). Built-ins default to ON, custom-field columns to OFF — otherwise
+  // every new field would silently widen the table.
+  const columnDefs: { key: string; header: React.ReactNode; cell: (tk: DisplayTicket) => React.ReactNode; optIn?: boolean }[] = [
+    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="font-mono text-xs text-muted-foreground">{tk.ticketNr}</span> },
+    {
+      key: 'subject',
+      header: <EditableText as="span" dkey="helpdesk.table.subject" />,
+      cell: (tk) => (
+        <span className="block max-w-[250px] truncate font-medium text-foreground">
+          {tk.autoRouted && <Route className="inline h-3 w-3 text-primary mr-1" />}
+          {tk.subject}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: <EditableText as="span" dkey="helpdesk.table.category" />,
+      cell: (tk) => tk.category ? (
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[tk.category] ?? 'bg-secondary text-muted-foreground'}`}>{tk.category}</span>
+      ) : null,
+    },
+    { key: 'priority', header: <EditableText as="span" dkey="helpdesk.table.priority" />, cell: (tk) => <VsChip label={priorityLabels[tk.priority]} color={priorityColorOf(tk.priority)} fallbackClass={priorityColors[tk.priority]} /> },
+    { key: 'status', header: t('common.status'), cell: (tk) => <VsChip label={statusLabels[tk.status]} color={statusColorOf(tk.status)} fallbackClass={statusColors[tk.status]} /> },
+    { key: 'assignedTo', header: <EditableText as="span" dkey="helpdesk.table.assignedTo" />, cell: (tk) => <span className="text-muted-foreground">{tk.assignedTo}</span> },
+    { key: 'sla', header: <AbbrTooltip term="SLA" />, cell: (tk) => <SLABadge overdue={tk.slaOverdue} days={tk.slaDays} hours={tk.slaHours} dueAt={tk.slaDueAt} compact /> },
+    { key: 'createdAt', header: <EditableText as="span" dkey="helpdesk.table.createdAt" />, cell: (tk) => <span className="text-xs text-muted-foreground">{formatDate(tk.createdAt)}</span> },
+    // One opt-in column per custom field. Select fields bound to a value list render
+    // as the same chip as priority/status — that is what "make my new value list
+    // show in the overview" means in practice.
+    ...statFieldDefs.map((f) => ({
+      key: `field:${f.key}`,
+      optIn: true,
+      header: f.label,
+      cell: (tk: DisplayTicket) => {
+        const raw = tk.customFields?.[f.key]
+        if (raw == null || raw === '') return null
+        const opt = statFieldOptions[f.key]?.find((o) => o.id === String(raw))
+        return opt
+          ? <VsChip label={opt.label} color={opt.color} fallbackClass="bg-secondary text-muted-foreground" />
+          : <span className="text-xs text-muted-foreground">{String(raw)}</span>
+      },
+    })),
+  ]
+  const visibleColumns = columnDefs.filter((c) =>
+    c.optIn ? areaEnabled[`col:${c.key}`] === true : areaEnabled[`col:${c.key}`] !== false,
+  )
+
+  // Fill/change a custom-field value on a ticket — instant, flicker-free session
+  // buffer (merged over the wire value in the `tickets` memo) so typing feels
+  // responsive without a request per keystroke.
+  const handleCustomFieldChange = (ticketId: string, key: string, value: string) => {
+    setCreatedCustomFields((m) => ({ ...m, [ticketId]: { ...(m[ticketId] ?? {}), [key]: value } }))
+  }
+  // Persist a custom-field value to the wire ticket (intake P1b). Fired on blur
+  // for text/number inputs and immediately for select/checkbox — the commit
+  // never runs mid-keystroke, so the input keeps focus through the refetch.
+  const handleCustomFieldCommit = (ticketId: string, key: string, value: string) => {
+    updateTicketMut.mutate({ id: ticketId, custom_fields: { [key]: value } })
+  }
+
+  const handleCreateKBArticle = () => {
+    createKBArticle.mutate(
+      { title: t('helpdesk.kb.newArticleTitle'), category: 'Allgemein', content: '', status: 'draft' },
+      {
+        onSuccess: (created) => {
+          if (created?.id) { setNewArticleEditId(created.id); setSelectedArticleId(created.id) }
+        },
+        onError: () => toast.error(t('common.errorGeneric')),
+      },
+    )
+  }
+
   const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all'
 
   // ---------------------------------------------------------------------------
@@ -390,7 +628,7 @@ export default function HelpdeskPage() {
             )}
             {canCreateTicket && (
               <button
-                onClick={handleOpenNewTicket}
+                onClick={guard(handleOpenNewTicket)}
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-4 w-4" />
@@ -402,21 +640,24 @@ export default function HelpdeskPage() {
         className="mb-6"
       />
 
-      {/* Tabs */}
+      {/* Tabs — labels are edit-in-place (interactive: single click switches the tab,
+          double click renames it). The Tickets counter renders separately so the
+          noun stays renamable. */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
-        {([
-          { key: 'tickets' as const, label: t('helpdesk.tabs.tickets', { count: openTickets.length }) },
-          { key: 'wissensdatenbank' as const, label: t('helpdesk.tabs.knowledgeBase') },
-          { key: 'statistik' as const, label: t('helpdesk.tabs.statistics') },
-        ]).filter((item) => !capReady || visibleTabs.includes(item.key)).map((t) => (
+        {(([
+          { key: 'tickets', dkey: 'helpdesk.tabs.ticketsLabel', count: openTickets.length },
+          { key: 'wissensdatenbank', dkey: 'helpdesk.tabs.knowledgeBase' },
+          { key: 'statistik', dkey: 'helpdesk.tabs.statistics' },
+        ] as { key: TabKey; dkey: string; count?: number }[]).filter((item) => !capReady || visibleTabs.includes(item.key))).map((item) => (
           <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
+            key={item.key}
+            onClick={() => { setTab(item.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === item.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label}
+            <EditableText as="span" dkey={item.dkey} interactive />
+            {item.count !== undefined && <span className="ml-1">({item.count})</span>}
           </button>
         ))}
       </div>
@@ -426,6 +667,60 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {tab === 'tickets' && (
         <div className="animate-fade-up">
+          {/* Herkunfts-Reiter (§7): split tickets by origin channel when several
+              creation channels are active, with a "zusammenführen" toggle. */}
+          {activeChannels.length >= 2 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              {showSourceTabs ? (
+                <div className="flex items-center gap-1 rounded-lg bg-secondary/60 p-0.5">
+                  {(['all', ...activeChannels] as const).map((src) => {
+                    const count =
+                      src === 'all'
+                        ? baseTickets.length
+                        : baseTickets.filter((t) => (t.channel ?? 'agent') === src).length
+                    const isActive = sourceTab === src
+                    return (
+                      <button
+                        key={src}
+                        onClick={() => setSourceTab(src)}
+                        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {t(`helpdesk.source.${src}`)}
+                        <span className="rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('helpdesk.source.mergedHint')}</span>
+              )}
+              <button
+                onClick={() => setMergeSources((m) => !m)}
+                role="switch"
+                aria-checked={mergeSources}
+                className="flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                    mergeSources ? 'bg-primary' : 'bg-secondary'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      mergeSources ? 'translate-x-3.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+                {t('helpdesk.source.merge')}
+              </button>
+            </div>
+          )}
           {ticketsLoading && (
             <SkeletonTable rows={8} cols={6} className="mb-4" />
           )}
@@ -449,11 +744,7 @@ export default function HelpdeskPage() {
             <div className="relative">
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                 <option value="all">{t('helpdesk.filter.allStatuses')}</option>
-                <option value="open">{t('helpdesk.status.open')}</option>
-                <option value="in_progress">{t('helpdesk.status.inProgress')}</option>
-                <option value="waiting">{t('helpdesk.status.waiting')}</option>
-                <option value="resolved">{t('helpdesk.status.resolved')}</option>
-                <option value="closed">{t('helpdesk.status.closed')}</option>
+                {activeStatusOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -462,10 +753,7 @@ export default function HelpdeskPage() {
             <div className="relative">
               <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                 <option value="all">{t('helpdesk.filter.allPriorities')}</option>
-                <option value="critical">{t('helpdesk.priority.critical')}</option>
-                <option value="high">{t('helpdesk.priority.high')}</option>
-                <option value="medium">{t('helpdesk.priority.medium')}</option>
-                <option value="low">{t('helpdesk.priority.low')}</option>
+                {activePriorityOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -504,14 +792,11 @@ export default function HelpdeskPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.ticketNr')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.subject')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.category')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.priority')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.assignedTo')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><AbbrTooltip term="SLA" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.createdAt')}</th>
+                    {visibleColumns.map((col) => (
+                      <th key={col.key} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                        {col.header}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -532,35 +817,9 @@ export default function HelpdeskPage() {
                         selectedTicketId === ticket.id ? 'bg-secondary/70' : ''
                       }`}
                     >
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{ticket.ticketNr}</td>
-                      <td className="px-4 py-3 text-foreground font-medium max-w-[250px] truncate">
-                        {ticket.autoRouted && <Route className="inline h-3 w-3 text-primary mr-1" />}
-                        {ticket.subject}
-                      </td>
-                      <td className="px-4 py-3">
-                        {ticket.category && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[ticket.category] ?? 'bg-secondary text-muted-foreground'}`}>
-                            {ticket.category}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>
-                          {priorityLabels[ticket.priority]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>
-                          {statusLabels[ticket.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{ticket.assignedTo}</td>
-                      <td className="px-4 py-3">
-                        <SLABadge overdue={ticket.slaOverdue} days={ticket.slaDays} hours={ticket.slaHours} dueAt={ticket.slaDueAt} compact />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {formatDate(ticket.createdAt)}
-                      </td>
+                      {visibleColumns.map((col) => (
+                        <td key={col.key} className="px-4 py-3">{col.cell(ticket)}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -571,7 +830,7 @@ export default function HelpdeskPage() {
                 illustration={<EmptyHelpdesk />}
                 title={t('helpdesk.empty.noTickets')}
                 description={hasActiveFilters || search ? t('helpdesk.empty.adjustFilters') : t('helpdesk.empty.createTicket')}
-                action={!hasActiveFilters && !search && canCreateTicket ? { label: t('helpdesk.empty.createFirstTicket'), onClick: handleOpenNewTicket } : undefined}
+                action={!hasActiveFilters && !search && canCreateTicket ? { label: t('helpdesk.empty.createFirstTicket'), onClick: guard(handleOpenNewTicket) } : undefined}
               />
             )}
           </div>
@@ -584,14 +843,28 @@ export default function HelpdeskPage() {
       {tab === 'wissensdatenbank' && (
         <div className="animate-fade-up">
           {selectedArticle ? (
-            <KBArticleDetail key={selectedArticle.id} article={selectedArticle} onBack={() => setSelectedArticleId(null)} />
+            <KBArticleDetail
+              key={selectedArticle.id}
+              article={selectedArticle}
+              startEditing={selectedArticle.id === newArticleEditId}
+              onBack={() => { setSelectedArticleId(null); setNewArticleEditId(null) }}
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <>
+              {canManageKb && kbArticles.length > 0 && (
+                <div className="mb-4 flex justify-end">
+                  <button onClick={guard(handleCreateKBArticle)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+                    <Plus className="h-4 w-4" />{t('helpdesk.kb.newArticle')}
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {kbArticles.length === 0 ? (
                 <div className="col-span-full">
                   <EmptyState
                     illustration={<EmptyHelpdesk />}
                     title={t('helpdesk.kb.noArticles')}
+                    action={canManageKb ? { label: t('helpdesk.kb.newArticle'), onClick: guard(handleCreateKBArticle) } : undefined}
                   />
                 </div>
               ) : (
@@ -606,14 +879,15 @@ export default function HelpdeskPage() {
                       )}
                     </div>
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mb-2 ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
-                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.content}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{kbContentPreview(article.content || KB_BODIES[article.id] || '')}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{formatDate(article.updated_at)}</span>
                     </div>
                   </button>
                 ))
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -621,19 +895,69 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {/* STATISTIK TAB                                                       */}
       {/* ================================================================== */}
-      {tab === 'statistik' && (
-        <div className="animate-fade-up">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={AlertCircle} label={t('helpdesk.stats.openTickets')} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />
-            <StatCard icon={Clock} label={t('helpdesk.stats.avgResponseTime')} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />
-            <StatCard icon={CheckCircle2} label={t('helpdesk.stats.resolvedThisWeek')} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />
-            <StatCard icon={BarChart3} label={t('helpdesk.stats.customerSatisfaction')} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
+      {tab === 'statistik' && (() => {
+        // Stats widgets are toggleable via the editor (moduleAreas, `stat:` prefix).
+        // A missing key means visible. CSAT now reads real ratings off the wire
+        // (intake P0/P3), so the card + chart are enabled; the tenant on/off + delay
+        // survey setting lands with the Helpdesk settings step.
+        const showStat = (key: string): boolean => areaEnabled[`stat:${key}`] !== false
+        const CSAT_FEATURE_ENABLED = csatEnabled
+        // Generic value-list breakdown (B1): one row per option, label + colour
+        // pulled from the value set, so renaming/adding options in the editor is
+        // reflected here live. Used by status/priority AND every select custom field.
+        const renderBreakdown = (
+          keyId: string,
+          heading: React.ReactNode,
+          rows: { id: string; label: string; color?: string; fallbackClass?: string; count: number }[],
+        ) => (
+          <div key={keyId} className="rounded-lg border border-border bg-card p-4">
+            <h3 className="text-sm font-medium text-foreground mb-3">{heading}</h3>
+            <div className="space-y-2">
+              {rows.map((r) => {
+                const pct = tickets.length > 0 ? Math.round((r.count / tickets.length) * 100) : 0
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <VsChip label={r.label} color={r.color} fallbackClass={r.fallbackClass} className="w-28 text-center" />
+                    <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground w-10 text-right">{r.count}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Bar Chart */}
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium text-foreground mb-4">{t('helpdesk.stats.ticketsPerDay')}</h3>
+        )
+        // Dynamic breakdowns: every select custom field with options becomes a
+        // "distribution by <field>" widget (togglable via stat:field:<key>).
+        const fieldBreakdowns = statFieldDefs
+          .filter((f) => f.type === 'select' && (statFieldOptions[f.key]?.length ?? 0) > 0)
+          .map((f) =>
+            showStat(`field:${f.key}`)
+              ? renderBreakdown(
+                  `f-${f.key}`,
+                  t('helpdesk.stats.byField', { field: f.label }),
+                  (statFieldOptions[f.key] ?? []).map((opt) => ({
+                    id: opt.id,
+                    label: opt.label,
+                    color: opt.color,
+                    count: tickets.filter(
+                      (tk) => tk.customFields?.[f.key] != null && String(tk.customFields[f.key]) === opt.id,
+                    ).length,
+                  })),
+                )
+              : false,
+          )
+        const statCards = [
+          showStat('openTickets') && <StatCard key="ot" icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />,
+          showStat('avgResponseTime') && <StatCard key="art" icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />,
+          showStat('resolvedThisWeek') && <StatCard key="rtw" icon={CheckCircle2} label={<EditableText dkey="helpdesk.stats.resolvedThisWeek" />} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />,
+          CSAT_FEATURE_ENABLED && showStat('csat') && <StatCard key="csat" icon={BarChart3} label={<EditableText dkey="helpdesk.stats.customerSatisfaction" />} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />,
+        ].filter(Boolean)
+        const charts = [
+          showStat('ticketsPerDay') && (
+            <div key="tpd" className="rounded-lg border border-border bg-card p-6">
+              <h3 className="text-sm font-medium text-foreground mb-4"><EditableText as="span" dkey="helpdesk.stats.ticketsPerDay" /></h3>
               <div className="flex items-end gap-3 h-40">
                 {stats.weekly_breakdown.map((day) => {
                   const maxCount = Math.max(...stats.weekly_breakdown.map((d) => d.count), 1)
@@ -647,51 +971,43 @@ export default function HelpdeskPage() {
                 })}
               </div>
             </div>
-
-            {/* CSAT Aggregate (5.12) */}
-            <CSATAggregate />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byStatus')}</h3>
-              <div className="space-y-2">
-                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => {
-                  const count = tickets.filter((t) => t.status === s).length
-                  const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
-                  return (
-                    <div key={s} className="flex items-center gap-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium w-28 text-center ${statusColors[s]}`}>{statusLabels[s]}</span>
-                      <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{count}</span>
-                    </div>
-                  )
-                })}
+          ),
+          CSAT_FEATURE_ENABLED && showStat('csatChart') && <CSATAggregate key="csat-agg" />,
+          showStat('byStatus') && renderBreakdown(
+            'bs',
+            <EditableText as="span" dkey="helpdesk.stats.byStatus" />,
+            activeStatusOptions.map((o) => ({
+              id: o.id, label: o.label, color: o.color, fallbackClass: statusColors[o.id],
+              count: tickets.filter((tk) => tk.status === o.id).length,
+            })),
+          ),
+          showStat('byPriority') && renderBreakdown(
+            'bp',
+            <EditableText as="span" dkey="helpdesk.stats.byPriority" />,
+            activePriorityOptions.map((o) => ({
+              id: o.id, label: o.label, color: o.color, fallbackClass: priorityColors[o.id],
+              count: tickets.filter((tk) => tk.priority === o.id).length,
+            })),
+          ),
+          ...fieldBreakdowns,
+        ].filter(Boolean)
+        return (
+          <div className="animate-fade-up">
+            {statCards.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">{statCards}</div>
+            )}
+            {charts.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{charts}</div>
+            )}
+            {statCards.length === 0 && charts.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+                <BarChart3 className="h-8 w-8" aria-hidden="true" />
+                <p className="text-sm">{t('helpdesk.stats.allHidden')}</p>
               </div>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byPriority')}</h3>
-              <div className="space-y-2">
-                {(['critical', 'high', 'medium', 'low'] as DisplayTicket['priority'][]).map((p) => {
-                  const count = tickets.filter((t) => t.priority === p).length
-                  const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
-                  return (
-                    <div key={p} className="flex items-center gap-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium w-28 text-center ${priorityColors[p]}`}>{priorityLabels[p]}</span>
-                      <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ================================================================== */}
       {/* TICKET DETAIL PANEL                                                 */}
@@ -704,9 +1020,11 @@ export default function HelpdeskPage() {
           onReplyChange={setReplyText}
           showInternalNotes={showInternalNotes}
           onToggleInternal={setShowInternalNotes}
-          onSendReply={handleSendReply}
-          onStatusChange={handleStatusChange}
+          onSendReply={guard(handleSendReply)}
+          onStatusChange={guard(handleStatusChange)}
           onClose={() => setSelectedTicketId(null)}
+          onCustomFieldChange={handleCustomFieldChange}
+          onCustomFieldCommit={handleCustomFieldCommit}
           assignTicketMut={assignTicketMut}
           updateTicketMut={updateTicketMut}
           mergeTicketsMut={mergeTicketsMut}
@@ -722,53 +1040,54 @@ export default function HelpdeskPage() {
             <DialogTitle>{t('helpdesk.newTicket.title')}</DialogTitle>
           </DialogHeader>
             <div className="space-y-4 px-6 py-5">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.subject')}</label>
-                <input type="text" value={ntSubject} onChange={(e) => setNtSubject(e.target.value)} placeholder={t('helpdesk.newTicket.subjectPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.description')}</label>
-                <textarea value={ntDescription} onChange={(e) => setNtDescription(e.target.value)} placeholder={t('helpdesk.newTicket.descriptionPlaceholder')} rows={4} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
-              </div>
-              {/* Category (5.10) */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.category')}</label>
-                <div className="relative">
-                  <select value={ntCategory} onChange={(e) => setNtCategory(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                    {MOCK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              {/* Submitter-facing fields from the bound agent form (intakeForms.agent). */}
+              {agentFields.length > 0 ? (
+                <IntakeFieldInputs
+                  fields={agentFields}
+                  values={ntFormValues}
+                  errors={ntErrors}
+                  onChange={(id, v) => setNtFormValues((m) => ({ ...m, [id]: v }))}
+                />
+              ) : (
+                <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  {t('helpdesk.newTicket.noAgentForm')}
+                </p>
+              )}
+
+              {/* Internal tools — agents keep contact search, priority and assignment.
+                  These are not part of the form and never shown to self-service. */}
+              <div className="space-y-4 border-t border-border pt-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('helpdesk.newTicket.internalSection')}</p>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
+                  <div className="flex gap-2">
+                    {(['low', 'medium', 'high', 'critical'] as DisplayTicket['priority'][]).map((p) => (
+                      <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
+                        <input type="radio" name="priority" value={p} checked={ntPriority === p} onChange={() => setNtPriority(p)} className="sr-only" />
+                        {priorityLabels[p]}
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
-                <div className="flex gap-2">
-                  {(['low', 'medium', 'high', 'critical'] as DisplayTicket['priority'][]).map((p) => (
-                    <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
-                      <input type="radio" name="priority" value={p} checked={ntPriority === p} onChange={() => setNtPriority(p)} className="sr-only" />
-                      {priorityLabels[p]}
-                    </label>
-                  ))}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
+                  <div className="relative">
+                    <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
+                      <option value="Marco Hartmann">Marco Hartmann</option>
+                      <option value="Sandra Buerki">Sandra Buerki</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
-                <div className="relative">
-                  <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                    <option value="Marco Hartmann">Marco Hartmann</option>
-                    <option value="Sandra Buerki">Sandra Buerki</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
+                  <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
                 </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
-                <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
             </div>
             <DialogFooter className="px-6 py-4 border-t border-border">
               <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-              <button onClick={handleSaveNewTicket} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('helpdesk.newTicket.createButton')}</button>
+              <button onClick={guard(handleSaveNewTicket)} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('helpdesk.newTicket.createButton')}</button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -784,7 +1103,7 @@ export default function HelpdeskPage() {
 // ============================================================
 
 function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
-  icon: typeof AlertCircle; label: string; value: string | number; iconColor: string; iconBg: string
+  icon: typeof AlertCircle; label: ReactNode; value: string | number; iconColor: string; iconBg: string
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
@@ -799,9 +1118,53 @@ function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
   )
 }
 
+/**
+ * A single custom ("Zusatzfeld") value control, rendered by its definition type.
+ * Shared by the ticket detail (fill values in place) and the new-ticket dialog.
+ * select → dropdown of its options · boolean → checkbox · else a typed input.
+ */
+function CustomFieldControl({
+  def, value, onChange, onCommit, options,
+}: {
+  def: CustomFieldDefinition
+  value: string
+  onChange: (v: string) => void
+  /** Persist the value (intake P1b). Discrete controls (select/checkbox) commit
+   *  on change; free-text inputs commit on blur so typing isn't interrupted. */
+  onCommit?: (v: string) => void
+  /** Resolved choices — from a bound value list or the field's own options
+   *  (useFieldOptions). Falls back to the raw options when not supplied. */
+  options?: { id: string; label: string; color?: string }[]
+}) {
+  const { t } = useTranslation()
+  const inputCls = 'w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring'
+  if (def.type === 'boolean') {
+    return (
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input type="checkbox" checked={value === 'true'} onChange={(e) => { const v = e.target.checked ? 'true' : 'false'; onChange(v); onCommit?.(v) }} className="h-4 w-4 rounded border-border" />
+        {value === 'true' ? t('common.yes') : t('common.no')}
+      </label>
+    )
+  }
+  const choices = options ?? def.options.map((o) => ({ id: o, label: o }))
+  if (def.type === 'select' && choices.length > 0) {
+    return (
+      <div className="relative">
+        <select value={value} onChange={(e) => { onChange(e.target.value); onCommit?.(e.target.value) }} className={`${inputCls} appearance-none pr-7 cursor-pointer`}>
+          <option value="">{t('helpdesk.newTicket.selectPlaceholder')}</option>
+          {choices.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    )
+  }
+  const inputType = def.type === 'number' ? 'number' : def.type === 'email' ? 'email' : def.type === 'url' ? 'url' : def.type === 'date' ? 'date' : 'text'
+  return <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)} onBlur={(e) => onCommit?.(e.target.value)} placeholder={t('helpdesk.ticket.customFieldPlaceholder')} className={inputCls} />
+}
+
 function TicketDetailPanel({
   ticket, allTickets, replyText, onReplyChange, showInternalNotes, onToggleInternal,
-  onSendReply, onStatusChange, onClose, assignTicketMut, updateTicketMut, mergeTicketsMut,
+  onSendReply, onStatusChange, onClose, onCustomFieldChange, onCustomFieldCommit, assignTicketMut, updateTicketMut, mergeTicketsMut,
 }: {
   ticket: DisplayTicket
   allTickets: DisplayTicket[]
@@ -812,11 +1175,22 @@ function TicketDetailPanel({
   onSendReply: () => void
   onStatusChange: (s: DisplayTicket['status']) => void
   onClose: () => void
+  onCustomFieldChange: (ticketId: string, key: string, value: string) => void
+  onCustomFieldCommit: (ticketId: string, key: string, value: string) => void
   assignTicketMut: ReturnType<typeof useAssignTicket>
   updateTicketMut: ReturnType<typeof useUpdateTicket>
   mergeTicketsMut: ReturnType<typeof useMergeTickets>
 }) {
   const { t } = useTranslation()
+  const guard = useEditorGuard()
+  const priorityValueSet = useModuleValueSet('ticket_priority')
+  const statusValueSet = useModuleValueSet('ticket_status')
+  // Custom "Zusatzfelder": the tenant-defined helpdesk_ticket fields (draft ⊕ live).
+  // Editing/adding one in the Felder panel previews live here (G2).
+  const customFieldDefs = useModuleCustomFields('helpdesk_ticket')
+  // A select field may draw its choices from a shared value list — then renaming an
+  // option in the Wertelisten panel reaches this dropdown live.
+  const customFieldOptions = useFieldOptions(customFieldDefs)
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -827,14 +1201,23 @@ function TicketDetailPanel({
   const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
   const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
 
+  const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
+  const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
+  const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
+  const statusColorOf = (id: string): string | undefined => statusBy.get(id)?.color
+  const activeStatusOptions = (statusValueSet?.options ?? []).filter((o) => o.active)
   const priorityLabels: Record<string, string> = {
-    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
-    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+    low: prioBy.get('low')?.label ?? t('helpdesk.priority.low'),
+    medium: prioBy.get('medium')?.label ?? t('helpdesk.priority.medium'),
+    high: prioBy.get('high')?.label ?? t('helpdesk.priority.high'),
+    critical: prioBy.get('critical')?.label ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
-    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
-    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
-    closed: t('helpdesk.status.closed'),
+    open: statusBy.get('open')?.label ?? t('helpdesk.status.open'),
+    in_progress: statusBy.get('in_progress')?.label ?? t('helpdesk.status.inProgress'),
+    waiting: statusBy.get('waiting')?.label ?? t('helpdesk.status.waiting'),
+    resolved: statusBy.get('resolved')?.label ?? t('helpdesk.status.resolved'),
+    closed: statusBy.get('closed')?.label ?? t('helpdesk.status.closed'),
   }
 
   const handleAISuggestion = () => {
@@ -900,8 +1283,8 @@ function TicketDetailPanel({
 
   const headerBadge = (
     <div className="flex items-center gap-1.5">
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>{priorityLabels[ticket.priority]}</span>
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>{statusLabels[ticket.status]}</span>
+      <VsChip label={priorityLabels[ticket.priority]} color={priorityColorOf(ticket.priority)} fallbackClass={priorityColors[ticket.priority]} />
+      <VsChip label={statusLabels[ticket.status]} color={statusColorOf(ticket.status)} fallbackClass={statusColors[ticket.status]} />
     </div>
   )
 
@@ -925,7 +1308,7 @@ function TicketDetailPanel({
         <div className="flex-1" />
         {aiHelpdeskEnabled && (
           <button
-            onClick={handleAISuggestion}
+            onClick={guard(handleAISuggestion)}
             disabled={aiSuggestionLoading}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
           >
@@ -995,30 +1378,35 @@ function TicketDetailPanel({
         </div>
 
         {/* Description */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">{t('helpdesk.ticket.description')}</h4>
-          <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
-        </div>
-
-        {/* Custom Fields (5.13) */}
-        {ticket.customFields && Object.keys(ticket.customFields).length > 0 && (
+        {ticket.description && (
           <div>
-            <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-              <Settings2 className="h-3 w-3" /> {t('helpdesk.ticket.customFields')}
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {MOCK_CUSTOM_FIELD_DEFS.map((def) => {
-                const val = ticket.customFields?.[def.name]
-                if (val === undefined) return null
-                return (
-                  <div key={def.id} className="rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5">
-                    <p className="text-[10px] text-muted-foreground">{def.name}</p>
-                    <p className="text-xs font-medium text-foreground">
-                      {def.type === 'checkbox' ? (val ? t('common.yes') : t('common.no')) : String(val)}
-                    </p>
-                  </div>
-                )
-              })}
+            <h4 className="text-xs font-medium text-muted-foreground mb-1"><EditableText as="span" dkey="helpdesk.ticket.description" /></h4>
+            <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
+          </div>
+        )}
+
+        {/* Zusatzfelder — tenant-defined custom fields (customization layer),
+            editable in place: pick a value from the dropdown, type a note, etc.
+            Renaming/adding a field in the editor's Felder panel is visible here
+            in context (G2). Values persist in the session overlay (backend-gaps). */}
+        {customFieldDefs.length > 0 && (
+          <div>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2"><EditableText as="span" dkey="helpdesk.ticket.customFields" /></h4>
+            <div className="grid grid-cols-2 gap-3">
+              {customFieldDefs.map((def) => (
+                <div key={def.id} className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">
+                    {def.label}{def.required && <span className="text-destructive"> *</span>}
+                  </label>
+                  <CustomFieldControl
+                    def={def}
+                    options={customFieldOptions[def.key]}
+                    value={String(ticket.customFields?.[def.key] ?? '')}
+                    onChange={(v) => onCustomFieldChange(ticket.id, def.key, v)}
+                    onCommit={(v) => onCustomFieldCommit(ticket.id, def.key, v)}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1026,19 +1414,19 @@ function TicketDetailPanel({
         {/* Meta info */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.contact')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.contact" /></p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.contactName}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.assignedTo')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.assignedTo" /></p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.assignedTo}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.created')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.created" /></p>
             <p className="text-sm text-foreground">{new Date(ticket.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.updated')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.updated" /></p>
             <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
@@ -1047,14 +1435,14 @@ function TicketDetailPanel({
         {canEditTicket && (
           <>
             <div className="rounded-lg border border-border bg-secondary/20 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.ticket.actions')}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2"><EditableText as="span" dkey="helpdesk.ticket.actions" /></p>
               <div className="flex flex-wrap items-center gap-2">
                 {/* Assign */}
                 <div className="relative">
                   <select
                     aria-label={t('helpdesk.ticket.assign')}
                     value={ticket.assignedTo}
-                    onChange={(e) => handleAssign(e.target.value)}
+                    onChange={(e) => guard(handleAssign)(e.target.value)}
                     className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
                   >
                     {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
@@ -1068,7 +1456,7 @@ function TicketDetailPanel({
 
                 {/* Escalate */}
                 <button
-                  onClick={handleEscalate}
+                  onClick={guard(handleEscalate)}
                   disabled={ticket.priority === 'critical'}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -1081,7 +1469,7 @@ function TicketDetailPanel({
                     aria-label={t('helpdesk.ticket.mergeInto')}
                     value=""
                     disabled={mergeTargets.length === 0}
-                    onChange={(e) => { if (e.target.value) handleMerge(e.target.value) }}
+                    onChange={(e) => { if (e.target.value) guard(handleMerge)(e.target.value) }}
                     className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="">{mergeTargets.length === 0 ? t('helpdesk.ticket.mergeNoTarget') : t('helpdesk.ticket.mergeInto')}</option>
@@ -1095,20 +1483,20 @@ function TicketDetailPanel({
 
             {/* Status change */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('helpdesk.ticket.changeStatus')}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5"><EditableText as="span" dkey="helpdesk.ticket.changeStatus" /></p>
               <div className="relative">
                 <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                   <span className="flex items-center gap-2">
-                    <span className={`inline-block h-2 w-2 rounded-full ${statusColors[ticket.status].split(' ')[0]}`} />
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: statusColorOf(ticket.status) }} />
                     {statusLabels[ticket.status]}
                   </span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {statusDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
-                    {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => (
-                      <button key={s} onClick={() => { onStatusChange(s); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === s ? 'text-primary font-medium' : 'text-foreground'}`}>
-                        <span className={`inline-block h-2 w-2 rounded-full ${statusColors[s].split(' ')[0]}`} />{statusLabels[s]}
+                    {activeStatusOptions.map((o) => (
+                      <button key={o.id} onClick={() => { onStatusChange(o.id as DisplayTicket['status']); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === o.id ? 'text-primary font-medium' : 'text-foreground'}`}>
+                        <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: o.color }} />{o.label}
                       </button>
                     ))}
                   </div>
@@ -1121,7 +1509,7 @@ function TicketDetailPanel({
         <div className="border-t border-border" />
 
         {/* CSAT Widget (5.12) */}
-        <CSATWidget key={ticket.id} ticketId={ticket.id} ticketStatus={ticket.status} />
+        <CSATWidget key={ticket.id} ticketId={ticket.id} ticketStatus={ticket.status} csatRating={ticket.csatRating} csatComment={ticket.csatComment} />
 
         {/* Message thread */}
         <div>
@@ -1161,21 +1549,28 @@ function TicketDetailPanel({
   )
 }
 
-function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
+function KBArticleDetail({ article, onBack, startEditing = false }: { article: KBArticle; onBack: () => void; startEditing?: boolean }) {
   const { t } = useTranslation()
+  const guard = useEditorGuard()
   const canManageKbArticle = useHasCapability('helpdesk:kb:manage')
   const updateKBArticle = useUpdateKBArticle()
-  const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
-  // Saved rich-text body (HTML from the editor); fallback covers seed articles.
-  const savedBody = article.content
-  const [editing, setEditing] = useState(false)
-  const [editContent, setEditContent] = useState(
-    () => fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
+  // KB articles are authored/read on the shared block-document engine (G3). Legacy
+  // HTML/plain-text seeds are wrapped into a single text block by the adapter, so
+  // they open cleanly and can be enriched with structural blocks.
+  const [editing, setEditing] = useState(startEditing)
+  const [title, setTitle] = useState(article.title)
+  const [rows, setRows] = useState<DocRow[]>(() =>
+    kbContentToRows(article.content || KB_BODIES[article.id] || ''),
   )
+  const viewRows = useMemo(
+    () => kbContentToRows(article.content || KB_BODIES[article.id] || ''),
+    [article.content, article.id],
+  )
+  const viewEmpty = isDocEmpty(viewRows)
 
   const handleSaveBody = () => {
     updateKBArticle.mutate(
-      { id: article.id, content: editContent },
+      { id: article.id, title: title.trim() || article.title, content: kbRowsToContent(rows) },
       {
         onSuccess: () => {
           setEditing(false)
@@ -1196,27 +1591,37 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
       <div className="rounded-lg border border-border bg-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground mb-2">{article.title}</h2>
+          <div className="min-w-0 flex-1">
+            {editing ? (
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('helpdesk.kb.titlePlaceholder')}
+                aria-label={t('helpdesk.kb.titlePlaceholder')}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-lg font-semibold text-foreground mb-2 focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            ) : (
+              <h2 className="text-lg font-semibold text-foreground mb-2">{article.title}</h2>
+            )}
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
               {article.status === 'published' ? (
-                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.published')}</span>
+                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium"><EditableText as="span" dkey="helpdesk.kb.published" /></span>
               ) : (
-                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.draft')}</span>
+                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium"><EditableText as="span" dkey="helpdesk.kb.draft" /></span>
               )}
             </div>
           </div>
           {canManageKbArticle && (
             <div className="flex items-center gap-2">
               {!editing ? (
-                <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                <button onClick={guard(() => setEditing(true))} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
                   <Pencil className="h-3 w-3" />{t('common.edit')}
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-                  <button onClick={handleSaveBody} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
+                  <button onClick={() => { setEditing(false); setTitle(article.title); setRows(kbContentToRows(article.content || KB_BODIES[article.id] || '')) }} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+                  <button onClick={guard(handleSaveBody)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
                 </div>
               )}
             </div>
@@ -1225,33 +1630,21 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mb-4" />
 
-        {/* Body — TipTap in edit mode (5.14) */}
+        {/* Body — shared block-document engine (G3): edit via DocumentBlockEditor,
+            read via DocumentReader. */}
         {editing ? (
-          <RichTextEditor
-            content={editContent}
-            onChange={setEditContent}
-            placeholder={t('helpdesk.kb.articleContentPlaceholder')}
-            showToolbar
-            minHeight="200px"
-          />
-        ) : savedBody ? (
-          <div
-            className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(savedBody) }}
-          />
+          <DocumentBlockEditor rows={rows} onChange={setRows} registry={kbBlockRegistry} widthClass="max-w-none" />
+        ) : viewEmpty ? (
+          <p className="text-sm text-muted-foreground">{t('helpdesk.kb.noContent')}</p>
         ) : (
-          <div className="prose prose-sm max-w-none">
-            {fallback.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm text-foreground leading-relaxed mb-3">{paragraph}</p>
-            ))}
-          </div>
+          <DocumentReader rows={viewRows} registry={kbBlockRegistry} />
         )}
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
             {t('helpdesk.kb.lastUpdated')}: {formatDate(article.updated_at, { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
-          <button onClick={() => toast.info(t('helpdesk.kb.feedbackSent'))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
+          <button onClick={guard(() => toast.info(t('helpdesk.kb.feedbackSent')))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             {t('helpdesk.kb.wasHelpful')}
           </button>
         </div>

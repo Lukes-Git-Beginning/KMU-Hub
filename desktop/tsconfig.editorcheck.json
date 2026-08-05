@@ -1,0 +1,28 @@
+﻿{
+    "extends":  "./tsconfig.web.json",
+    "include":  [
+                    "src/renderer/src/global.d.ts",
+                    "src/renderer/src/vite-env.d.ts",
+                    "src/renderer/src/i18n/i18next.d.ts",
+                    "src/renderer/src/i18n/i18n.ts",
+                    "src/renderer/src/api/customization-types.ts",
+                    "src/renderer/src/mocks/data/customization.ts",
+                    "src/renderer/src/mocks/data/custom-fields.ts",
+                    "src/renderer/src/components/customization/EditorSurface.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/FieldEditorModal.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/EditorWorkspace.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/EditorTrioNav.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/ModuleSandbox.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/WertelistenPanel.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/FelderPanel.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/StatistikPanel.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/KanaelePanel.tsx",
+                    "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/SpaltenPanel.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/EmbeddedFormEditor.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/EditorPropertiesPanel.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/editorModules.ts",
+                    "src/renderer/src/components/shared/DetailModal.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/editor/useEntityFieldDraft.ts"
+                ]
+}

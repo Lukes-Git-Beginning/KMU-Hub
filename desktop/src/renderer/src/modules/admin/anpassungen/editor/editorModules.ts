@@ -31,6 +31,42 @@ export interface EditorModuleDef {
   valueSetIds: string[]
   /** Custom-field entities this module exposes in the Felder editor (E-3c). */
   fieldEntities: CustomFieldEntity[]
+  /**
+   * Toggleable sub-areas (tabs/sections) this module exposes in the Bereiche
+   * editor (R4). `key` matches the module's own area/tab key; `labelKey` is an
+   * i18n key for the display name. Empty → module has no on/off areas.
+   */
+  areas: { key: string; labelKey: string }[]
+  /**
+   * Statistics widgets this module's stats view exposes in the Statistik editor.
+   * Each toggles visibility via moduleAreas under a `stat:` prefix (so it reuses
+   * the areas draft/resolve/deploy machinery). `locked` widgets need a feature
+   * that isn't built yet (e.g. CSAT) → shown greyed in the catalog, hidden in the
+   * module until the feature ships.
+   */
+  statWidgets?: { key: string; labelKey: string; locked?: boolean }[]
+  /**
+   * Built-in columns of this module's list view, toggleable in the Spalten editor
+   * (Darien 2026-08-04) via moduleAreas under a `col:` prefix. These default to
+   * visible; every custom field additionally offers an opt-in column, derived at
+   * runtime rather than listed here. Empty → module has no configurable list.
+   */
+  listColumns?: {
+    key: string
+    labelKey: string
+    /**
+     * The value list this built-in column already renders. Without it the Spalten
+     * panel would offer that list under "Wertelisten ohne Spalte" even though it
+     * has had a column all along (priority/status).
+     */
+    valueSetId?: string
+  }[]
+  /**
+   * Ticket-Intake P6 — this module has configurable creation channels (agent /
+   * self-service / external) shown in the editor's Kanäle panel. Only modules
+   * with an intake target set this (helpdesk first). Undefined → no Kanäle tab.
+   */
+  intake?: boolean
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -48,6 +84,9 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     ],
     valueSetIds: ['deal_stages'],
     fieldEntities: ['crm_contact', 'crm_company', 'crm_deal', 'crm_activity'],
+    // CRM sub-tabs are router-based (blocked in the editor) → area toggles deferred
+    // until the router-sandbox path is built (see MODUL-AUDIT).
+    areas: [],
     Component: lazy(() => import('@/modules/kontakte/KontaktePage')) as EditorModuleDef['Component'],
   },
   {
@@ -58,8 +97,40 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     // No customizable CONTENT heading whitelisted for helpdesk yet — its editor
     // value in v1 is Wertelisten (priorities) + Felder. Module name stays fixed.
     labelKeys: [],
-    valueSetIds: ['ticket_priority'],
+    valueSetIds: ['ticket_priority', 'ticket_status'],
     fieldEntities: ['helpdesk_ticket'],
+    // State-based tabs → toggleable in the editor (R4).
+    areas: [
+      { key: 'tickets', labelKey: 'helpdesk.tabs.ticketsLabel' },
+      { key: 'wissensdatenbank', labelKey: 'helpdesk.tabs.knowledgeBase' },
+      { key: 'statistik', labelKey: 'helpdesk.tabs.statistics' },
+    ],
+    // Stats-view widgets, toggleable in the Statistik editor. CSAT (kachel + chart)
+    // reads real ratings off the wire (intake P3) → no longer locked.
+    statWidgets: [
+      { key: 'openTickets', labelKey: 'helpdesk.stats.openTickets' },
+      { key: 'avgResponseTime', labelKey: 'helpdesk.stats.avgResponseTime' },
+      { key: 'resolvedThisWeek', labelKey: 'helpdesk.stats.resolvedThisWeek' },
+      { key: 'csat', labelKey: 'helpdesk.stats.customerSatisfaction' },
+      { key: 'ticketsPerDay', labelKey: 'helpdesk.stats.ticketsPerDay' },
+      { key: 'csatChart', labelKey: 'customization.editor.statistik.csatChartLabel' },
+      { key: 'byStatus', labelKey: 'helpdesk.stats.byStatus' },
+      { key: 'byPriority', labelKey: 'helpdesk.stats.byPriority' },
+    ],
+    // Ticket list columns — what is readable without opening a ticket.
+    listColumns: [
+      { key: 'ticketNr', labelKey: 'helpdesk.table.ticketNr' },
+      { key: 'subject', labelKey: 'helpdesk.table.subject' },
+      { key: 'category', labelKey: 'helpdesk.table.category' },
+      { key: 'priority', labelKey: 'helpdesk.table.priority', valueSetId: 'ticket_priority' },
+      { key: 'status', labelKey: 'common.status', valueSetId: 'ticket_status' },
+      { key: 'assignedTo', labelKey: 'helpdesk.table.assignedTo' },
+      { key: 'sla', labelKey: 'helpdesk.table.sla' },
+      { key: 'createdAt', labelKey: 'helpdesk.table.createdAt' },
+    ],
+    // Ticket-Intake P6 — helpdesk has the three creation channels (agent /
+    // self-service / external), configured in the editor's Kanäle panel.
+    intake: true,
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
 ]

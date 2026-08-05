@@ -15,6 +15,8 @@ import type {
   ConfigLayer,
   ConfigProvenance,
   LocaleLabelMap,
+  ModuleAreaMap,
+  ModuleAreasOverlay,
   ResolvedLabel,
   ResolvedLabelMap,
   ResolvedValueSet,
@@ -268,6 +270,17 @@ const DEFAULT_VALUE_SETS: Record<string, Omit<ValueSet, 'layer'>> = {
       { id: 'critical', label: 'Kritisch', color: 'hsl(0 72% 51%)', order: 3, active: true },
     ],
   },
+  ticket_status: {
+    id: 'ticket_status',
+    name: 'Ticket-Status',
+    options: [
+      { id: 'open', label: 'Offen', color: 'hsl(38 92% 50%)', order: 0, active: true },
+      { id: 'in_progress', label: 'In Bearbeitung', color: 'hsl(217 91% 60%)', order: 1, active: true },
+      { id: 'waiting', label: 'Wartend', color: 'hsl(215 16% 47%)', order: 2, active: true },
+      { id: 'resolved', label: 'Gelöst', color: 'hsl(142 71% 45%)', order: 3, active: true },
+      { id: 'closed', label: 'Geschlossen', color: 'hsl(215 16% 47%)', order: 4, active: true },
+    ],
+  },
   project_status: {
     id: 'project_status',
     name: 'Projekt-Status',
@@ -337,9 +350,17 @@ export function resolveValueSet(
   draftOverlay?: Record<string, Omit<ValueSet, 'layer'>>,
 ): ResolvedValueSet | null {
   const def = DEFAULT_VALUE_SETS[id]
-  if (!def) return null
+  const vendorSet = vendorValueSets[id]
+  const tenantSet = tenantValueSets[id]
+  const draftSet = draftOverlay?.[id]
+
+  // A set may have no code default and still exist — a tenant-created list, or a
+  // brand-new draft-only list authored in the editor. Only bail if no layer has it.
+  if (!def && !vendorSet && !tenantSet && !draftSet) return null
 
   if (base) {
+    // base = the code default only; a set without one has no baseline.
+    if (!def) return null
     return {
       id: def.id,
       name: def.name,
@@ -351,18 +372,18 @@ export function resolveValueSet(
   // Build a merged option map: default → vendor → tenant → draft
   const merged: Record<string, ResolvedValueSetOption> = {}
 
-  for (const opt of def.options) {
-    merged[opt.id] = { ...opt, provenance: 'default' }
+  if (def) {
+    for (const opt of def.options) {
+      merged[opt.id] = { ...opt, provenance: 'default' }
+    }
   }
 
-  const vendorSet = vendorValueSets[id]
   if (vendorSet) {
     for (const opt of vendorSet.options) {
       merged[opt.id] = { ...opt, provenance: 'vendor' }
     }
   }
 
-  const tenantSet = tenantValueSets[id]
   if (tenantSet) {
     for (const opt of tenantSet.options) {
       merged[opt.id] = { ...opt, provenance: 'tenant' }
@@ -370,7 +391,6 @@ export function resolveValueSet(
   }
 
   // draft wins per option (4th layer, only supplied inside the editor sandbox).
-  const draftSet = draftOverlay?.[id]
   if (draftSet) {
     for (const opt of draftSet.options) {
       merged[opt.id] = { ...opt, provenance: 'draft' }
@@ -381,7 +401,7 @@ export function resolveValueSet(
   const draftName = draftSet?.name
   const tenantName = tenantSet?.name
   const vendorName = vendorSet?.name
-  const effectiveName = draftName ?? tenantName ?? vendorName ?? def.name
+  const effectiveName = draftName ?? tenantName ?? vendorName ?? def?.name ?? id
   const nameProvenance: ConfigProvenance = draftName
     ? 'draft'
     : tenantName
@@ -458,16 +478,42 @@ export function upsertValueSetOption(
   })
 }
 
+// ── R4 · Module-area visibility (tab/section on-off per tenant) ────────────────
+
+// Sparse overlays: only areas explicitly turned OFF are stored. Empty = all on.
+const vendorModuleAreas: ModuleAreasOverlay = {}
+const tenantModuleAreas: ModuleAreasOverlay = {}
+
+/**
+ * Resolve which sub-areas of a module are enabled. Merged default(all-on) ⊕ vendor
+ * ⊕ tenant ⊕ draft. Returns only the EXPLICIT settings — a consumer treats a
+ * missing areaKey as enabled: `resolveModuleAreas(m)[area] !== false`.
+ */
+export function resolveModuleAreas(
+  moduleKey: string,
+  base = false,
+  draftOverlay?: ModuleAreasOverlay,
+): ModuleAreaMap {
+  if (base) return {}
+  return {
+    ...(vendorModuleAreas[moduleKey] ?? {}),
+    ...(tenantModuleAreas[moduleKey] ?? {}),
+    ...(draftOverlay?.[moduleKey] ?? {}),
+  }
+}
+
 // ── Aggregate helpers ─────────────────────────────────────────────────────────
 
-/** Whether any customization (labels or value-sets) exists for this tenant. */
+/** Whether any customization (labels, value-sets or hidden areas) exists. */
 export function hasCustomization(): boolean {
   const anyLabels =
     Object.values(vendorLabels).some((m) => Object.keys(m).length > 0) ||
     Object.values(tenantLabels).some((m) => Object.keys(m).length > 0)
   const anyValueSets =
     Object.keys(vendorValueSets).length > 0 || Object.keys(tenantValueSets).length > 0
-  return anyLabels || anyValueSets
+  const anyAreas =
+    Object.keys(vendorModuleAreas).length > 0 || Object.keys(tenantModuleAreas).length > 0
+  return anyLabels || anyValueSets || anyAreas
 }
 
 /** Reset all customization data for a layer (rollback / "zurücksetzen"). */
@@ -475,9 +521,11 @@ export function clearAllCustomization(layer: ConfigLayer): void {
   if (layer === 'vendor') {
     for (const k of Object.keys(vendorLabels)) delete vendorLabels[k]
     for (const k of Object.keys(vendorValueSets)) delete vendorValueSets[k]
+    for (const k of Object.keys(vendorModuleAreas)) delete vendorModuleAreas[k]
   } else {
     for (const k of Object.keys(tenantLabels)) delete tenantLabels[k]
     for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
+    for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
   }
 }
 
@@ -487,6 +535,7 @@ export function clearAllCustomization(layer: ConfigLayer): void {
 export interface TenantSnapshot {
   labels: LocaleLabelMap
   valueSets: Record<string, ValueSet>
+  moduleAreas: ModuleAreasOverlay
 }
 
 /** Snapshot the current tenant layer (call BEFORE promoting a draft, for rollback). */
@@ -494,6 +543,7 @@ export function snapshotTenant(): TenantSnapshot {
   return {
     labels: structuredClone(tenantLabels),
     valueSets: structuredClone(tenantValueSets),
+    moduleAreas: structuredClone(tenantModuleAreas),
   }
 }
 
@@ -503,6 +553,8 @@ export function restoreTenant(snap: TenantSnapshot): void {
   Object.assign(tenantLabels, structuredClone(snap.labels))
   for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
   Object.assign(tenantValueSets, structuredClone(snap.valueSets))
+  for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
+  Object.assign(tenantModuleAreas, structuredClone(snap.moduleAreas ?? {}))
 }
 
 /**
@@ -514,7 +566,8 @@ export function restoreTenant(snap: TenantSnapshot): void {
 export function applyDraftToTenant(payload: {
   labels: LocaleLabelMap
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
-}): { labelCount: number; valueSetCount: number } {
+  moduleAreas?: ModuleAreasOverlay
+}): { labelCount: number; valueSetCount: number; areaCount: number } {
   let labelCount = 0
   for (const [locale, map] of Object.entries(payload.labels)) {
     tenantLabels[locale] ??= {}
@@ -531,5 +584,11 @@ export function applyDraftToTenant(payload: {
     valueSetCount += 1
   }
 
-  return { labelCount, valueSetCount }
+  let areaCount = 0
+  for (const [moduleKey, areaMap] of Object.entries(payload.moduleAreas ?? {})) {
+    tenantModuleAreas[moduleKey] = { ...(tenantModuleAreas[moduleKey] ?? {}), ...areaMap }
+    areaCount += Object.keys(areaMap).length
+  }
+
+  return { labelCount, valueSetCount, areaCount }
 }

@@ -65,27 +65,41 @@ const OPTION_TYPES: CustomFieldType[] = ['select', 'multi_select']
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
-type FieldEditorModalProps =
-  | {
-      open: boolean
-      mode: 'create'
-      entity: CustomFieldEntity
-      onClose: () => void
-      onCreate: (input: CreateCustomFieldInput) => void
-      field?: undefined
-      onUpdate?: undefined
-      onDeleteRequest?: undefined
-    }
-  | {
-      open: boolean
-      mode: 'edit'
-      entity: CustomFieldEntity
-      field: CustomFieldDefinition
-      onClose: () => void
-      onCreate?: undefined
-      onUpdate: (input: UpdateCustomFieldInput) => void
-      onDeleteRequest: (field: CustomFieldDefinition) => void
-    }
+/** Eine bindbare Werteliste inkl. aufgelöster Optionen (für die Vorschau im Dialog). */
+export interface ValueSetChoice {
+  id: string
+  name: string
+  options: { id: string; label: string; color?: string }[]
+}
+
+/** Wertelisten, an die ein Auswahl-Feld gebunden werden kann. Liefert der Aufrufer
+ *  (der Modul-Editor kennt die Listen des Moduls); ohne sie bleibt die Quellen-Wahl
+ *  ausgeblendet und das Feld verhält sich wie vorher (nur eigene Optionen). */
+type ValueSetProp = { valueSetChoices?: ValueSetChoice[] }
+
+type FieldEditorModalProps = ValueSetProp &
+  (
+    | {
+        open: boolean
+        mode: 'create'
+        entity: CustomFieldEntity
+        onClose: () => void
+        onCreate: (input: CreateCustomFieldInput) => void
+        field?: undefined
+        onUpdate?: undefined
+        onDeleteRequest?: undefined
+      }
+    | {
+        open: boolean
+        mode: 'edit'
+        entity: CustomFieldEntity
+        field: CustomFieldDefinition
+        onClose: () => void
+        onCreate?: undefined
+        onUpdate: (input: UpdateCustomFieldInput) => void
+        onDeleteRequest: (field: CustomFieldDefinition) => void
+      }
+  )
 
 // ── Komponente ────────────────────────────────────────────────────────────────
 
@@ -99,13 +113,24 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
   const [type, setType] = useState<CustomFieldType>(props.field?.type ?? 'text')
   const [required, setRequired] = useState(props.field?.required ?? false)
 
-  // Fortgeschritten — aufgeklappt/zugeklappt
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  // Fortgeschritten — aufgeklappt/zugeklappt. Bei Auswahl-Feldern sofort offen:
+  // ohne Optionen ist so ein Feld nutzlos, das ist kein „fortgeschritten".
+  const [advancedOpen, setAdvancedOpen] = useState(
+    OPTION_TYPES.includes(props.field?.type ?? 'text'),
+  )
 
   // Optionen für select/multi_select (kommagetrennt im Input, intern Array)
   const [optionsRaw, setOptionsRaw] = useState(
     props.field?.options?.join(', ') ?? '',
   )
+
+  // Optionen-Quelle: eigene Liste tippen oder eine geteilte Werteliste binden.
+  const [optionSource, setOptionSource] = useState<'own' | 'set'>(
+    props.field?.valueSetId ? 'set' : 'own',
+  )
+  const [valueSetId, setValueSetId] = useState(props.field?.valueSetId ?? '')
+  const valueSetChoices = props.valueSetChoices ?? []
+  const boundOptions = valueSetChoices.find((s) => s.id === valueSetId)?.options ?? []
 
   // Validierung
   const [valMin, setValMin] = useState<string>(
@@ -123,7 +148,13 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
   // ── Type-Wechsel: Optionen-Feld zurücksetzen wenn kein Select ────────────
   const handleTypeChange = (t: CustomFieldType) => {
     setType(t)
-    if (!OPTION_TYPES.includes(t)) setOptionsRaw('')
+    if (!OPTION_TYPES.includes(t)) {
+      setOptionsRaw('')
+      setValueSetId('')
+    } else {
+      // Auswahl gewählt → Optionen direkt zeigen, statt sie zu verstecken.
+      setAdvancedOpen(true)
+    }
   }
 
   // ── Validation-Objekt bauen ───────────────────────────────────────────────
@@ -141,7 +172,9 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
   const handleSubmit = () => {
     if (!canSubmit) return
 
-    const options = OPTION_TYPES.includes(type)
+    // Gebundene Werteliste schlägt eigene Optionen; ungebunden bleibt es beim Text.
+    const boundSet = OPTION_TYPES.includes(type) && optionSource === 'set' ? valueSetId : ''
+    const options = OPTION_TYPES.includes(type) && !boundSet
       ? optionsRaw.split(',').map((o) => o.trim()).filter(Boolean)
       : []
 
@@ -152,6 +185,7 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
         type,
         required,
         options,
+        valueSetId: boundSet || undefined,
         validation: buildValidation(),
         defaultValue: defaultValue.trim() || undefined,
         visible,
@@ -162,6 +196,7 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
         type,
         required,
         options,
+        valueSetId: boundSet || undefined,
         validation: buildValidation(),
         defaultValue: defaultValue.trim() || undefined,
         visible,
@@ -277,21 +312,81 @@ export function FieldEditorModal(props: FieldEditorModalProps) {
             {advancedOpen && (
               <div className="border-t border-border px-4 pb-4 pt-3 space-y-4">
 
-                {/* Optionen (nur bei select / multi_select) */}
+                {/* Optionen (nur bei select / multi_select). Zwei Quellen: eigene
+                    Optionen tippen ODER eine geteilte Werteliste binden — Letzteres
+                    gibt der Werteliste erst ihren Platz im Modul (Darien 2026-08-04). */}
                 {OPTION_TYPES.includes(type) && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground">
                       {t('customization.fields.options')}
                     </label>
-                    <input
-                      value={optionsRaw}
-                      onChange={(e) => setOptionsRaw(e.target.value)}
-                      placeholder={t('customization.fields.optionsPlaceholder')}
-                      className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      {t('customization.fields.optionsHint')}
-                    </p>
+
+                    {valueSetChoices.length > 0 && (
+                      <div role="radiogroup" aria-label={t('customization.fields.optionSource')} className="flex gap-1">
+                        {([
+                          { v: 'own' as const, labelKey: 'customization.fields.sourceOwn' },
+                          { v: 'set' as const, labelKey: 'customization.fields.sourceValueSet' },
+                        ]).map(({ v, labelKey }) => (
+                          <button
+                            key={v}
+                            type="button"
+                            role="radio"
+                            aria-checked={optionSource === v}
+                            onClick={() => setOptionSource(v)}
+                            className={cn(
+                              'flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                              optionSource === v
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-secondary text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            {t(labelKey)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {optionSource === 'set' && valueSetChoices.length > 0 ? (
+                      <>
+                        <select
+                          value={valueSetId}
+                          onChange={(e) => setValueSetId(e.target.value)}
+                          aria-label={t('customization.fields.sourceValueSet')}
+                          className="h-9 w-full rounded-md border border-border bg-transparent px-2.5 text-sm outline-none focus:border-primary"
+                        >
+                          <option value="">{t('customization.fields.valueSetNone')}</option>
+                          {valueSetChoices.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        {/* Vorschau: was das Feld dann anbietet */}
+                        {boundOptions.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {boundOptions.map((o) => (
+                              <span key={o.id} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]">
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: o.color ?? 'transparent' }} aria-hidden="true" />
+                                {o.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          {t('customization.fields.valueSetHint')}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          value={optionsRaw}
+                          onChange={(e) => setOptionsRaw(e.target.value)}
+                          placeholder={t('customization.fields.optionsPlaceholder')}
+                          className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          {t('customization.fields.optionsHint')}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
 

@@ -26,7 +26,11 @@ import { EyeOff } from 'lucide-react'
 import { STALE_TIME } from '@/lib/constants'
 import { i18n } from '@/i18n/i18n'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
-import { EditorSurfaceProvider, type EditorSurfaceValue } from '@/components/customization/EditorSurface'
+import {
+  EditorSurfaceProvider,
+  type EditorSurfaceValue,
+  type EditorFocusSection,
+} from '@/components/customization/EditorSurface'
 import { useDraftConfig } from './DraftConfigProvider'
 import type { EditorModuleDef } from './editorModules'
 
@@ -43,9 +47,18 @@ class SandboxErrorBoundary extends Component<
   }
 }
 
-export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNode {
+export function ModuleSandbox({
+  module,
+  focusSection = null,
+  focusNonce = 0,
+}: {
+  module: EditorModuleDef
+  /** Left-rail section the user selected — the module navigates itself there. */
+  focusSection?: EditorFocusSection | null
+  focusNonce?: number
+}): ReactNode {
   const { t } = useTranslation()
-  const { labels, setDraftLabel } = useDraftConfig()
+  const { labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields } = useDraftConfig()
   const [sandboxClient] = useState(
     () =>
       new QueryClient({
@@ -63,8 +76,14 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
       editing: true,
       setLabel: (key, value) => setDraftLabel(i18n.language, key, value),
       isDraft: (key) => Boolean(labels[i18n.language]?.[key]),
+      valueSets,
+      moduleAreas,
+      valueSetMigrations,
+      customFields,
+      focusSection,
+      focusNonce,
     }),
-    [labels, setDraftLabel],
+    [labels, setDraftLabel, valueSets, moduleAreas, valueSetMigrations, customFields, focusSection, focusNonce],
   )
 
   const fallback = (
@@ -76,12 +95,8 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
 
   return (
     <div className="relative h-full w-full overflow-auto bg-muted/20">
-      {/* Sandbox preview label — communicates this is a live view, not the real app. */}
-      <div className="pointer-events-none sticky top-0 z-10 flex justify-center py-2">
-        <span className="rounded-full border bg-background/90 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
-          {t('customization.editor.previewLabel')}
-        </span>
-      </div>
+      {/* The window chrome (title "Sandbox-Vorschau · nicht live" + amber banner)
+          already frames this as a preview, so no in-canvas label is needed. */}
       <div className="min-h-full">
         {/* Navigable preview: you walk the real module (state-based tabs + detail
             modals work) and edit EditableText elements in place. */}

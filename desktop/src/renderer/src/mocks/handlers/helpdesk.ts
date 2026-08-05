@@ -13,15 +13,25 @@ const BASE = `${API}/api/v1/helpdesk`
 
 type WireTicketStatus = 'open' | 'pending' | 'solved' | 'closed' | 'merged'
 type WireTicketPriority = 'low' | 'normal' | 'high' | 'urgent'
+type WireTicketChannel = 'agent' | 'selfservice' | 'external'
 
 interface WireTicket {
   id: string
   tenant_id: string
   subject: string
+  description?: string
   status: WireTicketStatus
   priority: WireTicketPriority
   assignee_id: string | null
   requester_id: string
+  requester_name?: string
+  requester_email?: string
+  requester_is_external?: boolean
+  channel?: WireTicketChannel
+  category?: string
+  custom_fields?: Record<string, string | number | boolean>
+  csat_rating?: number
+  csat_comment?: string
   queue_id: string | null
   due_at: string | null
   merged_into_id: string | null
@@ -196,10 +206,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-001',
     tenant_id: 'tenant-001',
     subject: 'Drucker im 2. OG druckt nicht',
+    description: 'Der Drucker im 2. OG zeigt seit heute Morgen "Offline" an. Mehrere Kollegen sind betroffen und können nicht drucken.',
     status: 'pending',
     priority: 'high',
     assignee_id: IDS.users.thomas,
     requester_id: 'Brigitte Schärer',
+    requester_name: 'Brigitte Schärer',
+    requester_email: 'brigitte.schaerer@kunde.example',
+    requester_is_external: true,
+    channel: 'external',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-001'] * H).toISOString(),
     merged_into_id: null,
@@ -212,10 +228,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-002',
     tenant_id: 'tenant-001',
     subject: 'VPN-Verbindung bricht ab',
+    description: 'Die VPN-Verbindung trennt sich alle 10 Minuten. Konzentriertes Arbeiten im Home-Office ist so kaum möglich.',
     status: 'pending',
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'Stefan Wenger',
+    requester_name: 'Stefan Wenger',
+    requester_email: 'stefan.wenger@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-002'] * H).toISOString(),
     merged_into_id: null,
@@ -232,6 +254,8 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Onboarding',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-003'] * H).toISOString(),
     merged_into_id: null,
@@ -244,10 +268,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-004',
     tenant_id: 'tenant-001',
     subject: 'Outlook synchronisiert Kalender nicht',
+    description: 'Outlook synchronisiert den Kalender seit dem letzten Update nicht mehr. Termine fehlen auf dem Smartphone.',
     status: 'pending',
     priority: 'normal',
     assignee_id: IDS.users.thomas,
     requester_id: 'Andreas Müller',
+    requester_name: 'Andreas Müller',
+    requester_email: 'andreas.mueller@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'E-Mail',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-004'] * H).toISOString(),
     merged_into_id: null,
@@ -264,6 +294,8 @@ const tickets: WireTicket[] = [
     priority: 'low',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-005'] * H).toISOString(),
     merged_into_id: null,
@@ -276,10 +308,18 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-006',
     tenant_id: 'tenant-001',
     subject: 'ERP-System Fehlermeldung bei Rechnungserstellung',
+    description: 'Beim Erstellen einer Rechnung erscheint die Fehlermeldung "Buchungskreis nicht zugeordnet". Der Rechnungslauf ist dadurch blockiert.',
     status: 'solved',
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'Thomas Kunz',
+    requester_name: 'Thomas Kunz',
+    requester_email: 'thomas.kunz@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Sonstiges',
+    csat_rating: 5,
+    csat_comment: 'Sehr schnelle Hilfe, der Rechnungslauf lief nach kurzer Zeit wieder. Top!',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-006'] * H).toISOString(),
     merged_into_id: null,
@@ -292,10 +332,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-007',
     tenant_id: 'tenant-001',
     subject: 'WLAN im Sitzungszimmer zu schwach',
+    description: 'Das WLAN im grossen Sitzungszimmer ist zu schwach für Videocalls, die Verbindung bricht regelmässig ab.',
     status: 'pending',
     priority: 'normal',
     assignee_id: IDS.users.markus,
     requester_id: 'Daniel Roth',
+    requester_name: 'Daniel Roth',
+    requester_email: 'daniel.roth@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-007'] * H).toISOString(),
     merged_into_id: null,
@@ -308,10 +354,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-008',
     tenant_id: 'tenant-001',
     subject: 'Software-Lizenz Adobe CC abgelaufen',
+    description: 'Die Adobe-Creative-Cloud-Lizenz ist abgelaufen. InDesign und Photoshop lassen sich nicht mehr starten.',
     status: 'pending',
     priority: 'high',
     assignee_id: IDS.users.julia,
     requester_id: 'Nicole Berger',
+    requester_name: 'Nicole Berger',
+    requester_email: 'nicole.berger@kunde.example',
+    requester_is_external: true,
+    channel: 'external',
+    category: 'Software',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-008'] * H).toISOString(),
     merged_into_id: null,
@@ -324,10 +376,15 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-009',
     tenant_id: 'tenant-001',
     subject: 'Backup-Fehler Fileserver',
+    description: 'Das nächtliche Backup des Fileservers schlägt seit drei Tagen mit einem Schreibfehler fehl.',
     status: 'solved',
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'System Alert',
+    requester_name: 'System Alert',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-009'] * H).toISOString(),
     merged_into_id: null,
@@ -340,10 +397,13 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-010',
     tenant_id: 'tenant-001',
     subject: 'Zutrittskarte funktioniert nicht',
+    description: 'Die Zutrittskarte wird am Haupteingang nicht mehr erkannt. Der Zugang ist aktuell nur über den Empfang möglich.',
     status: 'open',
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Zutritt',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-010'] * H).toISOString(),
     merged_into_id: null,
@@ -356,10 +416,18 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-011',
     tenant_id: 'tenant-001',
     subject: 'Telefon-Anlage: Weiterleitung einrichten',
+    description: 'Für die neue Empfangsnummer soll eine Weiterleitung auf die Zentrale eingerichtet werden.',
     status: 'closed',
     priority: 'low',
     assignee_id: IDS.users.thomas,
     requester_id: 'Ruth Eberle',
+    requester_name: 'Ruth Eberle',
+    requester_email: 'ruth.eberle@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Telefonie',
+    csat_rating: 4,
+    csat_comment: 'Die Weiterleitung wurde zuverlässig eingerichtet, danke.',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-011'] * H).toISOString(),
     merged_into_id: null,
@@ -372,10 +440,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-012',
     tenant_id: 'tenant-001',
     subject: 'Laptop für Aussendienst bestellen',
+    description: 'Für den neuen Aussendienst-Mitarbeiter wird ein Laptop mit Docking-Station benötigt. Das Budget ist bereits freigegeben.',
     status: 'open',
     priority: 'low',
     assignee_id: IDS.users.julia,
     requester_id: 'Beat Kuhn',
+    requester_name: 'Beat Kuhn',
+    requester_email: 'beat.kuhn@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-012'] * H).toISOString(),
     merged_into_id: null,
@@ -388,10 +462,18 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-013',
     tenant_id: 'tenant-001',
     subject: 'Sharepoint-Berechtigung für Projekt X',
+    description: 'Das Projektteam X braucht Lese- und Schreibrechte auf die Sharepoint-Ablage "Projekt X".',
     status: 'solved',
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: 'Patricia Hofer',
+    requester_name: 'Patricia Hofer',
+    requester_email: 'patricia.hofer@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Zugriffsrechte',
+    csat_rating: 3,
+    csat_comment: 'Hat etwas länger gedauert als erhofft, am Ende aber gelöst.',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-013'] * H).toISOString(),
     merged_into_id: null,
@@ -404,10 +486,15 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-014',
     tenant_id: 'tenant-001',
     subject: 'Virenwarnung auf Arbeitsplatz C-03',
+    description: 'Der Virenscanner meldet auf Arbeitsplatz C-03 eine Bedrohung. Das Gerät wurde vorsorglich vom Netz getrennt.',
     status: 'pending',
     priority: 'high',
     assignee_id: IDS.users.thomas,
     requester_id: 'System Alert',
+    requester_name: 'System Alert',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Sicherheit',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-014'] * H).toISOString(),
     merged_into_id: null,
@@ -420,10 +507,16 @@ const tickets: WireTicket[] = [
     id: 'hd-tk-015',
     tenant_id: 'tenant-001',
     subject: 'Teams-Raum "Säntis" Kamera defekt',
+    description: 'Die Deckenkamera im Teams-Raum "Säntis" zeigt kein Bild mehr. Nächste Woche stehen wichtige Kundencalls an.',
     status: 'open',
     priority: 'normal',
     assignee_id: IDS.users.markus,
     requester_id: 'Yvonne Stocker',
+    requester_name: 'Yvonne Stocker',
+    requester_email: 'yvonne.stocker@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-015'] * H).toISOString(),
     merged_into_id: null,
@@ -433,6 +526,31 @@ const tickets: WireTicket[] = [
     updated_at: new Date(NOW - 44 * H).toISOString(),
   },
 ]
+
+// Per-ticket custom-field values seeded onto the wire (helpdesk_ticket custom
+// fields). Applied to the tickets above so the module reads them from the wire
+// (intake P1b: replaces the former display-layer DEMO overlay in the store).
+const SEED_CUSTOM_FIELDS: Record<string, Record<string, string>> = {
+  'hd-tk-001': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-002': { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter VPN-Ausfall im Aussendienst', contact_channel: 'E-Mail' },
+  'hd-tk-003': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-004': { sla_tier: 'Standard', contact_channel: 'Chat' },
+  'hd-tk-005': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
+  'hd-tk-006': { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert – Monatsabschluss gefährdet', contact_channel: 'Vor Ort' },
+  'hd-tk-007': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-008': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-009': { sla_tier: 'Kritisch', escalation_reason: 'Backup-Job schlägt seit 3 Tagen fehl', contact_channel: 'E-Mail' },
+  'hd-tk-010': { sla_tier: 'Priorität', escalation_reason: 'Mitarbeiter kommt nicht ins Büro', contact_channel: 'Vor Ort' },
+  'hd-tk-011': { sla_tier: 'Standard', contact_channel: 'Telefon' },
+  'hd-tk-012': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-013': { sla_tier: 'Priorität', contact_channel: 'Chat' },
+  'hd-tk-014': { sla_tier: 'Kritisch', escalation_reason: 'Möglicher Malware-Befall – Arbeitsplatz isoliert', contact_channel: 'Telefon' },
+  'hd-tk-015': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
+}
+for (const seededTicket of tickets) {
+  const cf = SEED_CUSTOM_FIELDS[seededTicket.id]
+  if (cf) seededTicket.custom_fields = { ...cf }
+}
 
 // Ticket messages — full conversations for tk-001 and tk-002, single opening for others
 const ticketMessages: Record<string, WireTicketMessage[]> = {
@@ -557,21 +675,41 @@ export const helpdeskHandlers = [
   http.post(`${BASE}/tickets`, async ({ request }) => {
     const body = (await request.json()) as {
       subject?: string
+      description?: string
+      category?: string
       priority?: WireTicketPriority
       assignee_id?: string
       queue_id?: string
+      requester_id?: string
+      requester_name?: string
+      requester_email?: string
+      requester_is_external?: boolean
+      channel?: WireTicketChannel
+      custom_fields?: Record<string, string | number | boolean>
     }
     const now = new Date().toISOString()
+    const isExternal = body.requester_is_external ?? false
     const newTicket: WireTicket = {
       id: `hd-tk-${Date.now()}`,
       tenant_id: 'tenant-001',
       subject: body.subject ?? 'Neues Ticket',
+      description: body.description || undefined,
       status: 'open',
       priority: body.priority ?? 'normal',
       assignee_id: body.assignee_id ?? null,
-      // Requester = the active demo session (RBAC scope=own: creators must
-      // see their own tickets, so never hardcode a fixed user here).
-      requester_id: getDemoSessionUserId(),
+      // Requester = explicit body value (external intake carries a name/email),
+      // else the active demo session (RBAC scope=own: creators must see their
+      // own tickets, so never hardcode a fixed user here).
+      requester_id: body.requester_id ?? (isExternal ? `ext-${Date.now()}` : getDemoSessionUserId()),
+      requester_name: body.requester_name || undefined,
+      requester_email: body.requester_email || undefined,
+      requester_is_external: isExternal || undefined,
+      channel: body.channel ?? 'agent',
+      category: body.category || undefined,
+      custom_fields:
+        body.custom_fields && Object.keys(body.custom_fields).length > 0
+          ? body.custom_fields
+          : undefined,
       queue_id: body.queue_id ?? null,
       due_at: hoursFromNow(8),
       merged_into_id: null,
@@ -585,6 +723,20 @@ export const helpdeskHandlers = [
     return HttpResponse.json(newTicket, { status: 201 })
   }),
 
+  // --- Tickets: submit CSAT rating ---
+  // Customer satisfaction (1–5 + optional comment). Written onto the wire ticket
+  // so the active React-Query path renders it (replaces the legacy Zustand store).
+
+  http.post(`${BASE}/tickets/:id/csat`, async ({ params, request }) => {
+    const ticket = tickets.find((t) => t.id === params.id)
+    if (!ticket) return HttpResponse.json({ error: 'ticket not found' }, { status: 404 })
+    const body = (await request.json()) as { rating: number; comment?: string }
+    ticket.csat_rating = body.rating
+    ticket.csat_comment = body.comment || undefined
+    ticket.updated_at = new Date().toISOString()
+    return HttpResponse.json(ticket)
+  }),
+
   // --- Tickets: update ---
 
   http.put(`${BASE}/tickets/:id`, async ({ params, request }) => {
@@ -596,6 +748,12 @@ export const helpdeskHandlers = [
     if (body.priority != null) ticket.priority = body.priority
     if (body.assignee_id !== undefined) ticket.assignee_id = body.assignee_id
     if (body.queue_id !== undefined) ticket.queue_id = body.queue_id
+    if (body.category !== undefined) ticket.category = body.category || undefined
+    // custom_fields is a partial patch — merge into the existing map so a single
+    // field edit persists without clobbering the others.
+    if (body.custom_fields) {
+      ticket.custom_fields = { ...(ticket.custom_fields ?? {}), ...body.custom_fields }
+    }
     ticket.updated_at = new Date().toISOString()
     return HttpResponse.json(ticket)
   }),
@@ -1029,11 +1187,17 @@ export const helpdeskHandlers = [
   // --- Stats ---
 
   http.get(`${BASE}/stats`, () => {
+    // Customer satisfaction is the live average of the CSAT ratings on the wire
+    // tickets (intake P3) — replaces the former hardcoded value.
+    const rated = tickets.filter((t) => typeof t.csat_rating === 'number')
+    const csatAvg = rated.length
+      ? (rated.reduce((sum, t) => sum + (t.csat_rating as number), 0) / rated.length).toFixed(1)
+      : null
     const stats: WireHelpdeskStats = {
       open_tickets: 8,
       avg_response_time: '1.4 h',
       resolved_this_week: 23,
-      customer_satisfaction: '4.6/5',
+      customer_satisfaction: csatAvg ? `${csatAvg}/5` : '–',
       weekly_breakdown: [
         { label: 'Mo', count: 5 },
         { label: 'Di', count: 8 },

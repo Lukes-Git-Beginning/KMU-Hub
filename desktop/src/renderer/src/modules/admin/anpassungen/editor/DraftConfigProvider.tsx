@@ -19,7 +19,9 @@ import type { ReactElement, ReactNode } from 'react'
 import type {
   CustomizationDraftPayload,
   LocaleLabelMap,
+  ModuleAreasOverlay,
   ValueSet,
+  ValueSetMigrations,
 } from '@/api/customization-types'
 import type { CustomFieldDefinition, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 import { i18n } from '@/i18n/i18n'
@@ -32,6 +34,8 @@ interface DraftState {
   labels: LocaleLabelMap
   valueSets: DraftValueSets
   customFields: DraftCustomFieldMap
+  moduleAreas: ModuleAreasOverlay
+  valueSetMigrations: ValueSetMigrations
 }
 
 type DraftAction =
@@ -41,6 +45,9 @@ type DraftAction =
   | { type: 'resetValueSet'; id: string }
   | { type: 'setEntityFields'; entity: string; fields: CustomFieldDefinition[] }
   | { type: 'resetEntityFields'; entity: string }
+  | { type: 'setModuleArea'; moduleKey: string; areaKey: string; enabled: boolean }
+  | { type: 'setValueSetMigration'; setId: string; fromId: string; toId: string }
+  | { type: 'clearValueSetMigration'; setId: string; fromId: string }
   | { type: 'reset' }
   | { type: 'load'; payload: CustomizationDraftPayload }
 
@@ -60,7 +67,9 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
     case 'resetValueSet': {
       const next = { ...state.valueSets }
       delete next[action.id]
-      return { ...state, valueSets: next }
+      const nextMig = { ...state.valueSetMigrations }
+      delete nextMig[action.id]
+      return { ...state, valueSets: next, valueSetMigrations: nextMig }
     }
     case 'setEntityFields':
       return { ...state, customFields: { ...state.customFields, [action.entity]: action.fields } }
@@ -69,19 +78,108 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
       delete next[action.entity]
       return { ...state, customFields: next }
     }
+    case 'setModuleArea': {
+      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}), [action.areaKey]: action.enabled }
+      return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
+    }
+    case 'setValueSetMigration': {
+      const setMap = { ...(state.valueSetMigrations[action.setId] ?? {}), [action.fromId]: action.toId }
+      return { ...state, valueSetMigrations: { ...state.valueSetMigrations, [action.setId]: setMap } }
+    }
+    case 'clearValueSetMigration': {
+      const setMap = { ...(state.valueSetMigrations[action.setId] ?? {}) }
+      delete setMap[action.fromId]
+      const nextMig = { ...state.valueSetMigrations }
+      if (Object.keys(setMap).length > 0) nextMig[action.setId] = setMap
+      else delete nextMig[action.setId]
+      return { ...state, valueSetMigrations: nextMig }
+    }
     case 'reset':
-      return { labels: {}, valueSets: {}, customFields: {} }
+      return { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {}, valueSetMigrations: {} }
     case 'load':
       return {
         labels: structuredClone(action.payload.labels),
         valueSets: structuredClone(action.payload.valueSets),
         customFields: structuredClone(action.payload.customFields ?? {}),
+        moduleAreas: structuredClone(action.payload.moduleAreas ?? {}),
+        valueSetMigrations: structuredClone(action.payload.valueSetMigrations ?? {}),
       }
   }
 }
 
+// ── Undo/redo history ──────────────────────────────────────────────────────
+// Wraps the draft reducer in a past/present/future stack so the toolbar arrows
+// step through changes. Consecutive edits to the SAME target (typing one label,
+// tweaking one value-set) coalesce into a single undo step via a coalesce key;
+// distinct targets and one-shot actions (reset, area toggle) each get their own.
+interface HistoryState {
+  past: DraftState[]
+  present: DraftState
+  future: DraftState[]
+  lastCoalesceKey: string | null
+}
+
+type HistoryAction = DraftAction | { type: 'undo' } | { type: 'redo' }
+
+function coalesceKeyOf(action: DraftAction): string | null {
+  switch (action.type) {
+    case 'setLabel':
+    case 'resetLabel':
+      return `label:${action.locale}:${action.key}`
+    case 'setValueSet':
+    case 'resetValueSet':
+      return `vs:${action.id}`
+    case 'setEntityFields':
+    case 'resetEntityFields':
+      return `fields:${action.entity}`
+    case 'setValueSetMigration':
+    case 'clearValueSetMigration':
+      return `mig:${action.setId}`
+    default:
+      return null
+  }
+}
+
+function undoableReducer(state: HistoryState, action: HistoryAction): HistoryState {
+  if (action.type === 'undo') {
+    if (state.past.length === 0) return state
+    const previous = state.past[state.past.length - 1]
+    return {
+      past: state.past.slice(0, -1),
+      present: previous,
+      future: [state.present, ...state.future],
+      lastCoalesceKey: null,
+    }
+  }
+  if (action.type === 'redo') {
+    if (state.future.length === 0) return state
+    const next = state.future[0]
+    return {
+      past: [...state.past, state.present],
+      present: next,
+      future: state.future.slice(1),
+      lastCoalesceKey: null,
+    }
+  }
+  if (action.type === 'load') {
+    // Loading a saved blueprint is a fresh baseline — history starts empty.
+    return { past: [], present: reducer(state.present, action), future: [], lastCoalesceKey: null }
+  }
+  const nextPresent = reducer(state.present, action)
+  if (nextPresent === state.present) return state
+  const key = coalesceKeyOf(action)
+  if (key !== null && key === state.lastCoalesceKey) {
+    return { ...state, present: nextPresent, future: [], lastCoalesceKey: key }
+  }
+  return { past: [...state.past, state.present], present: nextPresent, future: [], lastCoalesceKey: key }
+}
+
 function countLabels(labels: LocaleLabelMap): number {
   return Object.values(labels).reduce((acc, map) => acc + Object.keys(map).length, 0)
+}
+
+function countAreas(moduleAreas: ModuleAreasOverlay): number {
+  return Object.values(moduleAreas).reduce((acc, map) => acc + Object.keys(map).length, 0)
 }
 
 export interface DraftConfigContextValue {
@@ -90,10 +188,20 @@ export interface DraftConfigContextValue {
   valueSets: DraftValueSets
   /** Per-entity desired field lists staged in the draft (E-3c). */
   customFields: DraftCustomFieldMap
+  /** Module-area visibility overrides staged in the draft (R4). */
+  moduleAreas: ModuleAreasOverlay
+  /** Staged record migrations for deleted value-set options (R4b). */
+  valueSetMigrations: ValueSetMigrations
   /** Whether the draft has any change vs. the live tenant layer. */
   isDirty: boolean
   /** Total touched entries (labels + value-sets + field entities) for the footer counter. */
   changeCount: number
+  /** Whether an undo / redo step is available (drives the toolbar arrows). */
+  canUndo: boolean
+  canRedo: boolean
+  /** Step the draft back / forward through the change history. */
+  undo: () => void
+  redo: () => void
   setDraftLabel: (locale: string, key: string, value: string) => void
   resetDraftLabel: (locale: string, key: string) => void
   setDraftValueSet: (id: string, set: Omit<ValueSet, 'layer'>) => void
@@ -102,6 +210,12 @@ export interface DraftConfigContextValue {
   setDraftEntityFields: (entity: string, fields: CustomFieldDefinition[]) => void
   /** Drop the staged field snapshot for an entity (back to the live baseline). */
   resetDraftEntityFields: (entity: string) => void
+  /** Toggle one module sub-area (tab/section) on or off in the draft (R4). */
+  setDraftModuleArea: (moduleKey: string, areaKey: string, enabled: boolean) => void
+  /** Record that a deleted option's records move to another option (R4b). */
+  setDraftValueSetMigration: (setId: string, fromId: string, toId: string) => void
+  /** Undo a staged option deletion/migration (restore). */
+  clearDraftValueSetMigration: (setId: string, fromId: string) => void
   resetAll: () => void
   /** Build the sparse payload for save/deploy. */
   buildPayload: () => CustomizationDraftPayload
@@ -127,16 +241,20 @@ export function DraftConfigProvider({
   children,
 }: DraftConfigProviderProps): ReactElement {
   const locale = previewLocale ?? i18n.language
-  const [state, dispatch] = useReducer(
-    reducer,
+  const [history, dispatch] = useReducer(
+    undoableReducer,
     initialPayload
       ? {
           labels: structuredClone(initialPayload.labels),
           valueSets: structuredClone(initialPayload.valueSets),
           customFields: structuredClone(initialPayload.customFields ?? {}),
+          moduleAreas: structuredClone(initialPayload.moduleAreas ?? {}),
+          valueSetMigrations: structuredClone(initialPayload.valueSetMigrations ?? {}),
         }
-      : { labels: {}, valueSets: {}, customFields: {} },
+      : { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {}, valueSetMigrations: {} },
+    (initial): HistoryState => ({ past: [], present: initial, future: [], lastCoalesceKey: null }),
   )
+  const state = history.present
 
   // Every i18n key we ever wrote to the global bundle — scrubbed on unmount so a
   // draft that is discarded leaves no residue in the live app (R-1 mitigation).
@@ -182,20 +300,33 @@ export function DraftConfigProvider({
     const changeCount =
       countLabels(state.labels) +
       Object.keys(state.valueSets).length +
-      Object.keys(state.customFields).length
+      Object.keys(state.customFields).length +
+      countAreas(state.moduleAreas)
     return {
       moduleKey,
       labels: state.labels,
       valueSets: state.valueSets,
       customFields: state.customFields,
+      moduleAreas: state.moduleAreas,
+      valueSetMigrations: state.valueSetMigrations,
       isDirty: changeCount > 0,
       changeCount,
+      canUndo: history.past.length > 0,
+      canRedo: history.future.length > 0,
+      undo: () => dispatch({ type: 'undo' }),
+      redo: () => dispatch({ type: 'redo' }),
       setDraftLabel: (l, key, val) => dispatch({ type: 'setLabel', locale: l, key, value: val }),
       resetDraftLabel: (l, key) => dispatch({ type: 'resetLabel', locale: l, key }),
       setDraftValueSet: (id, set) => dispatch({ type: 'setValueSet', id, set }),
       resetDraftValueSet: (id) => dispatch({ type: 'resetValueSet', id }),
       setDraftEntityFields: (entity, fields) => dispatch({ type: 'setEntityFields', entity, fields }),
       resetDraftEntityFields: (entity) => dispatch({ type: 'resetEntityFields', entity }),
+      setDraftModuleArea: (mk, areaKey, enabled) =>
+        dispatch({ type: 'setModuleArea', moduleKey: mk, areaKey, enabled }),
+      setDraftValueSetMigration: (setId, fromId, toId) =>
+        dispatch({ type: 'setValueSetMigration', setId, fromId, toId }),
+      clearDraftValueSetMigration: (setId, fromId) =>
+        dispatch({ type: 'clearValueSetMigration', setId, fromId }),
       resetAll: () => dispatch({ type: 'reset' }),
       buildPayload: () => ({
         labels: structuredClone(state.labels),
@@ -203,10 +334,16 @@ export function DraftConfigProvider({
         ...(Object.keys(state.customFields).length > 0 && {
           customFields: structuredClone(state.customFields),
         }),
+        ...(countAreas(state.moduleAreas) > 0 && {
+          moduleAreas: structuredClone(state.moduleAreas),
+        }),
+        ...(Object.keys(state.valueSetMigrations).length > 0 && {
+          valueSetMigrations: structuredClone(state.valueSetMigrations),
+        }),
       }),
       loadDraft: (payload) => dispatch({ type: 'load', payload }),
     }
-  }, [moduleKey, state])
+  }, [moduleKey, history, state])
 
   return <DraftConfigContext.Provider value={value}>{children}</DraftConfigContext.Provider>
 }

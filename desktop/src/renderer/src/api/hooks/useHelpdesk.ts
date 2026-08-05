@@ -15,6 +15,7 @@ import {
   reopenTicket,
   assignTicket,
   mergeTickets,
+  submitCsat,
   listMessages,
   addMessage,
   listQueues,
@@ -204,6 +205,18 @@ export function useAssignTicket() {
   return useMutation({
     mutationFn: ({ ticketId, assigneeId }: { ticketId: string; assigneeId: string }) =>
       assignTicket(ticketId, assigneeId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: helpdeskKeys.ticket(variables.ticketId) })
+      qc.invalidateQueries({ queryKey: ['helpdesk', 'tickets'] })
+    },
+  })
+}
+
+export function useSaveCsat() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ticketId, rating, comment }: { ticketId: string; rating: number; comment?: string }) =>
+      submitCsat(ticketId, rating, comment),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: helpdeskKeys.ticket(variables.ticketId) })
       qc.invalidateQueries({ queryKey: ['helpdesk', 'tickets'] })

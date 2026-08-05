@@ -6,23 +6,44 @@
  * editor content.
  */
 import { useTranslation } from 'react-i18next'
-import { Type, ListChecks, SquareStack } from 'lucide-react'
+import { Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, Columns3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib'
 import { useDraftConfig } from './DraftConfigProvider'
+import { getEditorModule } from './editorModules'
 
-export type EditorSection = 'felder' | 'begriffe' | 'wertelisten'
+import type { EditorFocusSection } from '@/components/customization/EditorSurface'
+
+/** The rail's sections. Defined in EditorSurface so modules can react to the
+ *  selected one (useEditorFocusEffect) without importing from the editor. */
+export type EditorSection = EditorFocusSection
 
 interface SectionDef {
   key: EditorSection
   labelKey: string
   icon: LucideIcon
+  /** When set, the section only shows for modules where this capability is true. */
+  requires?: (moduleKey: string) => boolean
 }
 
 const SECTIONS: SectionDef[] = [
   { key: 'felder', labelKey: 'customization.editor.nav.fields', icon: SquareStack },
   { key: 'begriffe', labelKey: 'customization.editor.nav.terms', icon: Type },
   { key: 'wertelisten', labelKey: 'customization.editor.nav.valueSets', icon: ListChecks },
+  { key: 'bereiche', labelKey: 'customization.editor.nav.areas', icon: Layers },
+  {
+    key: 'spalten',
+    labelKey: 'customization.editor.nav.columns',
+    icon: Columns3,
+    requires: (moduleKey) => (getEditorModule(moduleKey)?.listColumns?.length ?? 0) > 0,
+  },
+  { key: 'statistik', labelKey: 'customization.editor.nav.statistics', icon: BarChart3 },
+  {
+    key: 'kanäle',
+    labelKey: 'customization.editor.nav.channels',
+    icon: Inbox,
+    requires: (moduleKey) => !!getEditorModule(moduleKey)?.intake,
+  },
 ]
 
 export function EditorTrioNav({
@@ -33,14 +54,24 @@ export function EditorTrioNav({
   onSelect: (section: EditorSection) => void
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { labels, valueSets, customFields } = useDraftConfig()
+  const { labels, valueSets, customFields, moduleAreas, moduleKey } = useDraftConfig()
 
   const labelCount = Object.values(labels).reduce((acc, m) => acc + Object.keys(m).length, 0)
+  // Stat-widget toggles live in moduleAreas under a `stat:` prefix — split them
+  // out so the Bereiche and Statistik badges each count only their own keys.
+  const areaKeys = Object.keys(moduleAreas[moduleKey] ?? {})
   const counts: Record<EditorSection, number> = {
     felder: Object.keys(customFields).length,
     begriffe: labelCount,
     wertelisten: Object.keys(valueSets).length,
+    bereiche: areaKeys.filter((k) => !k.startsWith('stat:') && !k.startsWith('col:')).length,
+    spalten: areaKeys.filter((k) => k.startsWith('col:')).length,
+    statistik: areaKeys.filter((k) => k.startsWith('stat:')).length,
+    // Channels are a functional tenant toggle (not a draft dimension) → no badge.
+    'kanäle': 0,
   }
+
+  const sections = SECTIONS.filter((s) => !s.requires || s.requires(moduleKey))
 
   return (
     <nav
@@ -50,7 +81,7 @@ export function EditorTrioNav({
       <p className="px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {t('customization.editor.nav.label')}
       </p>
-      {SECTIONS.map(({ key, labelKey, icon: Icon }) => {
+      {sections.map(({ key, labelKey, icon: Icon }) => {
         const isActive = active === key
         const count = counts[key]
         return (

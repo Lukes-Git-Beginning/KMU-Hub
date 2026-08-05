@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
 import {
   DndContext,
@@ -117,6 +118,12 @@ import {
   type ActionItem,
   type SortDirection,
 } from '@/components/shared'
+import {
+  listIntakeTargets,
+  getIntakeTarget,
+  getIntakeRoles,
+  useIntakeSubmit,
+} from '@/components/shared/intake'
 import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import {
@@ -378,7 +385,7 @@ function RatingInput({
 // Helper: map FormSchema → DraftSchema for the editor
 // ---------------------------------------------------------------------------
 
-function schemaToDraft(schema: FormSchema): DraftSchema {
+export function schemaToDraft(schema: FormSchema): DraftSchema {
   return {
     id: schema.id,
     title: schema.title,
@@ -396,6 +403,7 @@ function schemaToDraft(schema: FormSchema): DraftSchema {
         }
       : { recipients: [], confirmToSubmitter: false },
     actions: [],
+    intakeTargetId: schema.intakeTargetId,
   }
 }
 
@@ -403,7 +411,7 @@ function schemaToDraft(schema: FormSchema): DraftSchema {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function FormularePage() {
+export default function FormularePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
 
   // -------------------------------------------------------------------------
@@ -451,6 +459,10 @@ export default function FormularePage() {
   )
   // Stable reference for rendering
   const schemas = schemasItems
+
+  // P2 — dispatch a form submission to its bound intake target (e.g. create a
+  // Helpdesk ticket). Used by the interactive preview to prove the vertical slice.
+  const dispatchIntake = useIntakeSubmit()
 
   // Mutations
   const createSchema = useCreateFormSchema()
@@ -620,6 +632,8 @@ export default function FormularePage() {
   const [configPatternType, setConfigPatternType] = useState<FieldPatternType>('free')
   // FT-2b — rating scale (5 = stars, 10 = NPS)
   const [configRatingScale, setConfigRatingScale] = useState(5)
+  // P2 — intake field role (subject/priority/… or '' = extra/custom field)
+  const [configRole, setConfigRole] = useState('')
 
   // 10.1 — Conditional logic state
   const [configConditionalEnabled, setConfigConditionalEnabled] =
@@ -756,6 +770,24 @@ export default function FormularePage() {
     setShowAddFieldMenu(false)
   }
 
+  // Ticket-Intake A4 — deep-link target: the editor's Kanäle panel navigates to
+  // /formulare?edit=<id> so the concrete bound form opens directly (both windows
+  // share the app's hash router). Clear the param once handled so a refresh/back
+  // doesn't reopen it.
+  const [editParams, setEditParams] = useSearchParams()
+  useEffect(() => {
+    const editId = editParams.get('edit')
+    if (!editId || schemasLoading) return
+    const schema = schemasItems.find((s) => s.id === editId)
+    if (!schema) return
+    openEditor(schema)
+    const next = new URLSearchParams(editParams)
+    next.delete('edit')
+    setEditParams(next, { replace: true })
+    // openEditor is stable in effect (guarded by the param delete above)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParams, schemasLoading, schemasItems, setEditParams])
+
   // FT-1 — open the form detail modal on its Details tab.
   const openFormDetail = (schema: FormSchema) => {
     setFormDetailTab('details')
@@ -780,6 +812,7 @@ export default function FormularePage() {
         thankYouMessage: draft.thankYouMessage?.trim() || undefined,
         redirectUrl: draft.redirectUrl?.trim() || undefined,
         notifications: draft.notifications,
+        intakeTargetId: draft.intakeTargetId,
       })
       toast.success(t('formulare.toast.gespeichert'))
       closeDraft()
@@ -1239,6 +1272,7 @@ export default function FormularePage() {
     setConfigMax(field.validation?.max?.toString() ?? '')
     setConfigPatternType(field.validation?.patternType ?? 'free')
     setConfigRatingScale(field.ratingScale ?? 5)
+    setConfigRole(field.role ?? '')
     setConfigConditionalEnabled(!!field.conditionalLogic)
     setConfigConditionalFieldId(field.conditionalLogic?.fieldId ?? '')
     setConfigConditionalOperator(field.conditionalLogic?.operator ?? 'equals')
@@ -1291,6 +1325,7 @@ export default function FormularePage() {
               .filter(Boolean)
           : field.options,
       ratingScale: field.type === 'rating' ? configRatingScale : field.ratingScale,
+      role: configRole || undefined,
       conditionalLogic:
         configConditionalEnabled && configConditionalFieldId
           ? {
@@ -1744,15 +1779,19 @@ export default function FormularePage() {
   if (draft) {
     return (
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Editor Header */}
+        {/* Editor Header. Embedded in the module editor the surrounding shell
+            already carries a sticky "Zurück zum Modul" — a second back button
+            right beneath it would just be noise. */}
         <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={closeEditor}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t('formulare.editor.zurueck')}
-          </button>
+          {!embedded && (
+            <button
+              onClick={closeEditor}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('formulare.editor.zurueck')}
+            </button>
+          )}
           <div className="flex-1" />
 
           {/* 10.4 — Öffentlich toggle */}
@@ -2044,6 +2083,70 @@ export default function FormularePage() {
           </div>
         </div>
 
+        {/* P2 — intake binding: which module record a submission of this form
+            creates. Field roles map answers onto that record's properties. */}
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">
+              {t('formulare.intake.title')}
+            </h3>
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {t('formulare.intake.subtitle')}
+          </p>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              {t('formulare.intake.targetLabel')}
+            </label>
+            <select
+              value={draft.intakeTargetId ?? ''}
+              onChange={(e) =>
+                updateDraftMeta({ intakeTargetId: e.target.value || undefined })
+              }
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            >
+              <option value="">{t('formulare.intake.targetNone')}</option>
+              {listIntakeTargets().map((target) => (
+                <option key={target.id} value={target.id}>
+                  {t(target.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {draft.intakeTargetId && (
+            <div className="mt-4 rounded-lg bg-info-light px-3 py-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-info">
+                <Info className="h-3.5 w-3.5" />
+                {t('formulare.intake.coverageTitle')}
+              </div>
+              <ul className="mt-2 space-y-1">
+                {getIntakeRoles(draft.intakeTargetId).map((role) => {
+                  const field = draft.fields.find((f) => f.role === role.role)
+                  return (
+                    <li key={role.role} className="flex items-center gap-1.5 text-xs">
+                      {field ? (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-success" />
+                      ) : (
+                        <Circle className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      )}
+                      <span
+                        className={field ? 'text-foreground' : 'text-muted-foreground'}
+                      >
+                        {t(role.labelKey)}
+                        {field ? ` — ${field.label}` : ''}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                {t('formulare.intake.coverageHint')}
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* FT-2b — "After submit": thank-you message + optional redirect */}
         <div className="mt-6 rounded-xl border border-border bg-card p-5">
           <div className="mb-1 flex items-center gap-2">
@@ -2210,6 +2313,31 @@ export default function FormularePage() {
               thankYouMessage={draft.thankYouMessage}
               redirectUrl={draft.redirectUrl}
               notifications={draft.notifications}
+              intakeTargetId={draft.intakeTargetId}
+              intakeTargetLabel={
+                draft.intakeTargetId
+                  ? t(getIntakeTarget(draft.intakeTargetId)?.labelKey ?? '')
+                  : undefined
+              }
+              onIntakeSubmit={
+                draft.intakeTargetId
+                  ? async (answers) => {
+                      const targetId = draft.intakeTargetId as string
+                      const res = await dispatchIntake({
+                        targetId,
+                        fields: draft.fields,
+                        answers,
+                        context: { channel: 'external' },
+                      })
+                      toast.success(
+                        t('formulare.preview.intakeToast', {
+                          target: t(getIntakeTarget(targetId)?.labelKey ?? ''),
+                        }),
+                      )
+                      return { id: res.id }
+                    }
+                  : undefined
+              }
               t={t}
             />
           </DialogContent>
@@ -2252,6 +2380,37 @@ export default function FormularePage() {
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
+
+              {/* P2 — intake field role: only when the form feeds a target. Marks
+                  this field as a first-class record property; unmarked = extra. */}
+              {draft?.intakeTargetId && showFieldConfigDialog && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    {t('formulare.fieldConfig.roleLabel')}
+                  </label>
+                  <select
+                    value={configRole}
+                    onChange={(e) => setConfigRole(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                  >
+                    <option value="">{t('formulare.fieldConfig.roleExtra')}</option>
+                    {getIntakeRoles(draft.intakeTargetId)
+                      .filter(
+                        (r) =>
+                          !r.fieldTypes ||
+                          r.fieldTypes.includes(showFieldConfigDialog.field.type),
+                      )
+                      .map((r) => (
+                        <option key={r.role} value={r.role}>
+                          {t(r.labelKey)}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('formulare.fieldConfig.roleHint')}
+                  </p>
+                </div>
+              )}
 
               {showFieldConfigDialog?.field.type !== 'consent' && (
                 <div className="flex items-center justify-between">
@@ -4404,6 +4563,16 @@ interface PreviewFillFormProps {
   redirectUrl?: string
   /** FO-4 — config used to show the (mocked) dispatch summary after submit. */
   notifications?: { recipients: string[]; confirmToSubmitter: boolean }
+  /** P2 — intake target id this form feeds (undefined = plain form). */
+  intakeTargetId?: string
+  /** P2 — already-translated target name for the success message. */
+  intakeTargetLabel?: string
+  /**
+   * P2 — dispatch the answers to the bound intake target (create the record).
+   * Called on a successful submit when `intakeTargetId` is set; resolves with the
+   * created record's id.
+   */
+  onIntakeSubmit?: (answers: Record<string, unknown>) => Promise<{ id: string }>
   t: (key: string, opts?: Record<string, unknown>) => string
 }
 
@@ -4414,6 +4583,9 @@ function PreviewFillForm({
   thankYouMessage,
   redirectUrl,
   notifications,
+  intakeTargetId,
+  intakeTargetLabel,
+  onIntakeSubmit,
   t,
 }: PreviewFillFormProps) {
   const dataFields = useMemo(
@@ -4436,6 +4608,10 @@ function PreviewFillForm({
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  // P2 — intake dispatch state (create the bound record on submit).
+  const [creating, setCreating] = useState(false)
+  const [createdId, setCreatedId] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const setVal = (id: string, v: unknown) => {
     setValues((prev) => ({ ...prev, [id]: v }))
@@ -4447,7 +4623,7 @@ function PreviewFillForm({
     })
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const next: Record<string, string> = {}
     for (const field of dataFields) {
       // FO-6 — skip validation for fields hidden by their conditional rule.
@@ -4468,13 +4644,32 @@ function PreviewFillForm({
       if (err) next[field.id] = t(err.key, err.params)
     }
     setErrors(next)
-    if (Object.keys(next).length === 0) setSubmitted(true)
+    if (Object.keys(next).length > 0) return
+
+    // P2 — when the form feeds an intake target, create the record now.
+    if (intakeTargetId && onIntakeSubmit) {
+      setSubmitError(null)
+      setCreating(true)
+      try {
+        const created = await onIntakeSubmit(values)
+        setCreatedId(created.id)
+        setSubmitted(true)
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setCreating(false)
+      }
+      return
+    }
+    setSubmitted(true)
   }
 
   const reset = () => {
     setValues({})
     setErrors({})
     setSubmitted(false)
+    setCreatedId(null)
+    setSubmitError(null)
   }
 
   if (submitted) {
@@ -4505,6 +4700,17 @@ function PreviewFillForm({
               <ExternalLink className="h-3.5 w-3.5" />
               {t('formulare.preview.redirectHint', { url: redirectUrl.trim() })}
             </p>
+          )}
+          {createdId && intakeTargetLabel && (
+            <div className="mt-2 w-full max-w-sm rounded-lg border border-green-200 bg-white px-4 py-3 text-left">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <Zap className="h-3.5 w-3.5 text-green-600" />
+                {t('formulare.preview.intakeCreated', { target: intakeTargetLabel })}
+              </div>
+              <p className="mt-1 text-xs text-gray-600">
+                {t('formulare.preview.intakeCreatedRef', { id: createdId })}
+              </p>
+            </div>
           )}
           {hasDispatch && (
             <div className="mt-2 w-full max-w-sm rounded-lg border border-green-200 bg-white px-4 py-3 text-left">
@@ -4691,12 +4897,18 @@ function PreviewFillForm({
         ))}
       </div>
 
+      {submitError && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {t('formulare.preview.intakeError', { message: submitError })}
+        </div>
+      )}
       {dataFields.length > 0 && (
         <button
           onClick={handleSubmit}
-          className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          disabled={creating}
+          className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {t('formulare.editor.absenden')}
+          {creating ? t('formulare.preview.intakeCreating') : t('formulare.editor.absenden')}
         </button>
       )}
     </div>

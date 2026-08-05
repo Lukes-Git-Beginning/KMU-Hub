@@ -3,6 +3,67 @@
 > SSOT-Konzept: `KONZEPT.md`. Recherche: `IST-A/B/C.md` + `MARKT-A/B/C.md`.
 > Stand: 2026-07-21 (Session #25).
 
+## Editor-Pivot — Rollout (ab Session #28, 2026-07-25)
+
+> Spec = `EDITOR-PIVOT-SPEC.md`, Modul-Audit = `MODUL-AUDIT.md`. **Pilot = Helpdesk** (Darien 2026-07-25, weil state-basiert → sofort begehbar; Kontakte ist router-blockiert → Sonderweg später).
+> Kern-Befund Audit: nur `kontakte` + `dialer` sind router-basiert; ~14 lohnende Module state-basiert → R2 dort geschenkt.
+
+| Phase | Inhalt | Status | Commit |
+|---|---|---|---|
+| **Motor: R1-Nav** | `useBlocker(true)` in EditorWorkspace | ✅ (Session #27b) | `6511254b` |
+| **P1** | Motor: EditableText `interactive`-Modus (Doppelklick-Rename für Reiter) + `useEditorGuard` (Mutationen no-op). Helpdesk instrumentiert: Reiter, Tabellen-Header, Statistik-Labels/Überschriften, Detail-Sektionen/Meta, KB-Badges. | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
+| **P2** | Wertelisten-Konsum: Helpdesk liest `ticket_priority` via `useModuleValueSet` (Motor: Draft-Wertelisten über EditorSurface in die Sandbox) → Wertelisten-Panel wirkt LIVE im Modul. _(Custom-Fields-Labels-in-place vertagt — Felder-Panel deckt Feld-CRUD; „Label im Detail klicken→editieren" = späterer Polish.)_ | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
+| **P3** | R4 Tab-Sichtbarkeit: neue Dimension `moduleAreas` (Typen→Resolver→Draft→Deploy→Rollback), Helpdesk liest sie (`useModuleAreas`), Editor-„Bereiche"-Panel mit Ein/Aus-Schaltern | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
+| **P4** | Chrome: leerer Properties-Zustand → selbsterklärender Kontext-Inspektor „So passt du an" (Klick→umbenennen · Doppelklick→Reiter · links Felder/Wertelisten/Bereiche) | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
+| **Rollout** | ~14 Module instrumentieren (Rich zuerst: finanzen/inventar/einkauf/vertraege/produktion/vermietung/formulare/work), ab Pilot per Sub-Agents parallelisierbar | ⏳ offen | — |
+
+### P1 — Verifikations-Nachweis
+- **Dateien:** `components/customization/EditorSurface.tsx` (+`interactive`-Prop, +`useEditorGuard`), `modules/helpdesk/HelpdeskPage.tsx` (Instrumentierung + Guards), `scripts/i18n-editor-pivot-p1.mjs` (+2 Keys ×4: `helpdesk.tabs.ticketsLabel`, `customization.editor.actionBlocked`), `tsconfig.customcheck.json` (+HelpdeskPage).
+- **Gates:** scoped tsc **0 Fehler in EditorSurface + HelpdeskPage** (Rest = Alt-Baseline in mocks/handlers + sanitize, transitiv) · `eslint` beide Dateien clean · i18n +2 ×4 (echte fr/it, Du-Form) · **QA `qa-editor-helpdesk-p1.mjs` 6/6 PASS, 0 pageerrors, Bilder angesehen**: Reiter begehbar (Einfach-Klick) ✓ Tabellen-Header „Betreff"→„Anliegen" live + amber Ring + Zähler ✓ Reiter „Statistik"→„Auswertung" per Doppelklick ✓ „Neues Ticket" → Guard-Toast „Im Editor deaktiviert", Dialog bleibt zu ✓ keine rohen Keys ✓.
+- **Muster für Rollout:** statische Labels → `<EditableText dkey=… />` (Einfach-Klick-Rename); Labels in Controls (Reiter/Karten) → `interactive` (Einfach-Klick navigiert, Doppelklick benennt um); Mutationen/rausführende Aktionen → `guard(handler)`; State-Navigation (Reiter/Detail öffnen) bleibt ungeguarded (begehbar).
+
+### P2 — Verifikations-Nachweis
+- **Motor:** `EditorSurfaceValue.valueSets` (Draft-Wertelisten) + Hook `useModuleValueSet(id)` (`resolveValueSet(id, false, draftOverlay)` — live Layer default⊕vendor⊕tenant, im Editor + Draft). `ModuleSandbox` reicht `valueSets` aus `useDraftConfig` in die Surface. WertelistenPanel-Doc aktualisiert (Module konsumieren jetzt).
+- **Konsum:** `HelpdeskPage` baut `priorityLabels` aus `useModuleValueSet('ticket_priority')` (Fallback i18n) — Tabellen-Chips, Detail-Badge, Stats-Balken, Filter-Optionen, Neu-Ticket-Radio. **Erstes Modul überhaupt, das die Customization-Schicht liest** (schließt den „Konsum-Gap" für Priorität).
+- **Gates:** scoped tsc 0 Fehler (EditorSurface/ModuleSandbox/HelpdeskPage/WertelistenPanel) · eslint clean · **QA `qa-editor-helpdesk-p2.mjs` 4/4 + Bild angesehen**: Panel zeigt Tenant „Rückfrage" ✓ Option „Mittel"→„Standard" → Tabellen-Chips LIVE „Standard" ✓ 0 pageerrors ✓.
+- **Nebeneffekt (gewollt):** Live-Helpdesk zeigt jetzt die Tenant-Werteliste (low = „Rückfrage", Seed-Demodaten) statt der i18n-Enums — Beweis dass der Konsum end-to-end greift. Falls Standard gewünscht: Tenant-Seed in `customization.ts` entfernen.
+
+### P3 — Verifikations-Nachweis
+- **Neue Dimension `moduleAreas`** (moduleKey → areaKey → enabled, sparse, absent = an): Typen (`ModuleAreaMap`/`ModuleAreasOverlay` + Payload) · Resolver `resolveModuleAreas(moduleKey, base?, draftOverlay?)` (default-all-on ⊕ vendor ⊕ tenant ⊕ draft) · Draft-State + `setDraftModuleArea` + changeCount + buildPayload · **Deploy + Rollback** (applyDraftToTenant/snapshotTenant/restoreTenant erweitert → fährt dieselben Schienen wie Labels/Wertelisten/Felder) · `hasCustomization`/`clearAllCustomization`.
+- **Motor + Konsum:** `EditorSurfaceValue.moduleAreas` + Hook `useModuleAreas(moduleKey)`; `ModuleSandbox` reicht Draft durch. `EditorModuleDef.areas` (Helpdesk = 3 Reiter; Kontakte = [] router-blockiert). Helpdesk filtert `visibleTabs` zusätzlich per `areaEnabled[key] !== false` (RBAC ∧ Bereich).
+- **Editor-UI:** 4. Trio-Sektion „Bereiche" (`EditorTrioNav` + `EditorPropertiesPanel`) + neues `BereichePanel.tsx` (Ein/Aus-Schalter pro Reiter, Sichtbar/Ausgeblendet, Empty-State für Module ohne Areas).
+- **Gates:** scoped tsc 0 Fehler (alle 10 P3-Dateien) · eslint clean · vitest 12/12 (Draft-Store) · i18n +8 ×4 · **QA `qa-editor-helpdesk-p3.mjs` 4/4 + Bild angesehen**: Bereiche-Panel 3 Schalter ✓ „Statistik" ausblenden → Reiter live weg aus der Modul-Leiste ✓ 0 pageerrors ✓.
+
+### P4 — Verifikations-Nachweis
+- **Kontext-Inspektor:** Der leere Properties-Zustand (Default, wenn keine Trio-Sektion gewählt) ist jetzt ein selbsterklärender Guide „So passt du an" (3 nummerierte Schritte mit Accent-Icons + Entwurf-Subtitle) statt „wähle links…" — passt zur Edit-in-place-Primärinteraktion. `customization.editor.props.empty` dadurch tot (belassen). Selektions-reaktiver Per-Element-Inspektor = späterer Ausbau.
+- **Gates:** scoped tsc 0 Fehler (EditorPropertiesPanel) · eslint clean · i18n +5 ×4 · **QA `qa-editor-helpdesk-p4.mjs` 2/2 + Bild angesehen**: „So passt du an" + 3 Schritte ✓ keine rohen Keys, 0 pageerrors ✓.
+
+**★ HELPDESK-PILOT KOMPLETT (P1–P4).** Muster steht für den Rollout über die Rich-Module (finanzen, inventar, einkauf, vertraege, produktion, vermietung, formulare, work), ab hier per Sub-Agents parallelisierbar.
+
+### Feedback-Runde (Darien lokal-Review, 2026-07-25) — F1 + F2
+
+| # | Feedback | Lösung | Status |
+|---|---|---|---|
+| **F1** | Farbe einer Werteliste-Option (z.B. „Kritisch" auf orange) wirkte NICHT im Modul (nur Label kam durch, Farbe hartkodiert) | Modul rendert Chips via neue `VsChip` mit Inline-Farbe aus der Werteliste (`color-mix` Tint), Fallback Tailwind → Umfärben wirkt live | ✅ |
+| **F2** | Status (Offen/In Bearbeitung/…) nirgends bearbeitbar — nur Priorität war Werteliste | `ticket_status`-Value-Set (5 Status + Farben) + in helpdesk `valueSetIds` registriert; Modul konsumiert Label+Farbe (Tabelle/Detail/Statistik/Filter/Status-Dropdown, Picker iterieren aktive Optionen); **„+ Neue Option" im Wertelisten-Panel** (add für Priorität+Status) | ✅ |
+
+- **Markt-Recherche (Darien-Wunsch):** Custom-Status ist Standard (Zendesk/Freshservice/Desk365) — anlegen/umbenennen/umfärben/ordnen/deaktivieren; neue Status mappen intern auf System-Kategorie (offen/gelöst/geschlossen) für SLA-Logik. **Entscheidung: gehört in die Editor-Wertelisten** (ein Tool, konsistent), nicht separate Settings. Neue Status default = „offen-artig" (sichere Semantik); feinere Kategorie-Zuordnung + getrennte Agent/Kunde-Labels = späterer Ausbau.
+- **Gates:** scoped tsc 0 Fehler · eslint clean · i18n +2 ×4 · **QA `qa-editor-helpdesk-f1f2.mjs` 6/6 + Bilder angesehen**: 2 Wertelisten je „Neue Option" ✓ Chip trägt Inline-Farbe aus Set ✓ Status „Offen"→„Neu" live (5 Chips) ✓ „Kritisch" auf grün umgefärbt → Chip live grün ✓ 0 pageerrors ✓.
+- **Rollout-Konsequenz:** dasselbe Muster (Status+jede Status-artige Liste als Value-Set, Chips via `VsChip`, Picker iterieren aktive Optionen) gilt für ALLE Module — `VsChip` beim Rollout nach `shared/` heben.
+
+### Feedback-Runde 2 (Darien lokal-Review, 2026-07-25) — G1 (G2/G3 offen)
+
+| # | Feedback | Lösung | Status |
+|---|---|---|---|
+| **G1** | Optionen konnte man nur hinzufügen/deaktivieren, nicht löschen; und Löschen einer in-Benutzung-Option muss Bestand migrieren | Neue Dimension `valueSetMigrations` (setId→removedId→targetId, Typen/Draft/Surface/Payload). Trash-Button pro Option: Basis-Option → Reassignment-Karte („Einträge ändern auf: …") → `active:false` (Overlay behält Code-Default, kann nicht hart droppen) + Migration; Draft-neue Option → hart löschbar. „Entfernt"-Sektion (→ Ziel, Wiederherstellen). **Modul remappt Datensätze live** über die Migration (ehrliche Vorschau); echte Record-UPDATEs = Deploy/Backend. | ✅ |
+| **G2** | „Felder" im Editor unklar — man sieht nicht, was man anpasst (Felder erscheinen nicht in der Vorschau) | **Variante A (Darien: prominent).** Neuer Konsum-Hook `useModuleCustomFields(entity)` (Draft ⊕ live, wie `useModuleValueSet`) — `EditorSurface`/`ModuleSandbox` tragen jetzt `customFields`. Ticket-Detail rendert eine feste **„Zusatzfelder"-Sektion** mit ALLEN definierten `helpdesk_ticket`-Feldern (leere mit „—"), statt des alten toten `MOCK_CUSTOM_FIELD_DEFS`-Blocks. Neu-Ticket-Dialog zeigt die Felder als **Eingaben** (select/checkbox/text nach Typ; Werte landen in Session-Overlay `createdCustomFields`). Demo-Werte auf 3 Seed-Tickets (`DEMO_TICKET_CUSTOM_FIELDS`, keyed auf field.key). **Klarheit:** Nav „Felder"→„Zusatzfelder" + Sektionsheading „Zusatzfelder" (Modul+Nav konsistent) + Intro-Zeile im Panel. **Edit-in-place bewiesen:** Feld im Panel umbenennen → Ticket-Detail zeigt neuen Namen live. | ✅ |
+| **G3** | KB-Einträge (Wissensdatenbank) sollen die Block-Dokument-Engine nutzen (wie Wiki/Berichte) | **Nur KB (Darien-Entscheid).** Neue `helpdesk/kb-blocks.ts` = eigene KB-Registry aus den **shared** Core+Special-Blocks (toggle/code/simpletable/quote) — bewusst NICHT die Wiki-Overrides (die koppeln an den Wiki-Store `[[link]]`/`@mention`). KB-Detail: Editor → `DocumentBlockEditor`, Viewer → `DocumentReader`. Content-Adapter `kbContentToRows`/`kbRowsToContent`: neue Artikel = Block-Doc-JSON, **Legacy-HTML/Text-Seeds werden in einen Text-Block gewrappt** (kein Datenverlust, öffnen sauber). Karten-Preview via `kbContentPreview` (Text statt rohem JSON). **Titel im Detail editierbar** + **„Neuer Artikel"** (blanker Entwurf → öffnet direkt im Block-Editor). `RichTextEditor`/`sanitizeHtml` aus dem KB entfernt. | ✅ |
+
+- **G1-Gates:** scoped tsc 0 Fehler · eslint clean · vitest 12/12 · i18n +5 ×4 · **QA `qa-editor-helpdesk-g1.mjs` 5/5 + Bilder**: Trash→Reassignment-Karte ✓ „In Bearbeitung"→„Offen" migriert live (6 Tickets, Chips weg, aus Hauptliste raus) ✓ neue Option direkt löschbar ✓ 0 pageerrors ✓. **backend-gaps: Record-Migration bei Deploy (UPDATE … SET status=target WHERE status=removed).**
+- **G2-Gates:** scoped tsc 0 Fehler (customcheck; Fremd-Datei-Baseline unberührt) · eslint clean · i18n +2 ×4 + 2 Overrides (`nav.fields`, `ticket.customFields` → „Zusatzfelder") · **QA `qa-editor-helpdesk-g2.mjs` 6/6 + Bilder angesehen**: Live-Detail Zusatzfelder mit Werten (Kritisch/E-Mail) ✓ Neu-Dialog mit Zusatzfelder-Inputs ✓ Panel Intro+Liste ✓ Sandbox-Detail rendert Felder ✓ **Panel-Rename SLA-Stufe→„Service-Level" erscheint live im Detail** ✓ 0 pageerrors ✓. **backend-gaps: Ticket-`custom_fields` (Wire/DB) — create/update müssen die Werte tragen (aktuell Display-Overlay).**
+- **G2b Feedback (Darien lokal-Review, 2026-07-25):** „man checkt nicht wofür die Felder da sind, keine Daten, kann nichts auswählen/eintippen". **Fix:** (1) Felder im Ticket-Detail sind jetzt **echte editierbare Controls** (`CustomFieldControl`: select→Dropdown, boolean→Checkbox, sonst Input) — SLA-Stufe auswählen, Eskalationsgrund tippen; Werte persistieren in der Session (`createdCustomFields`-Overlay, DEMO ⊕ Edits). (2) **Alle 15 Seed-Tickets** mit sinnvollen Demo-Werten (kein leeres „—" mehr). (3) **Panel** zeigt pro Feld **Typ + Optionen** („Auswahl · Standard, Priorität, Kritisch") statt nur Name. `CustomFieldControl` auch im Neu-Dialog (DRY). Gates: scoped tsc 0 · eslint clean · i18n +1 ×4 · **QA `qa-editor-helpdesk-g2b.mjs` 5/5 + Bilder**: Detail editierbar+vorbefüllt ✓ SLA→„Kritisch" umstellbar ✓ Eskalationsgrund tippbar ✓ Panel Typ+Optionen ✓ 0 pageerrors ✓.
+- **G3-Gates:** scoped tsc 0 Fehler (customcheck) · eslint clean · i18n +2 ×4 · **QA `qa-editor-helpdesk-g3.mjs` 5/5 + Bilder angesehen**: KB-Liste mit „Neuer Artikel" + Karten (kein JSON) ✓ Seed-Artikel via DocumentReader gerendert ✓ **Block-Editor + editierbarer Titel** (Legacy-Text sauber gewrappt, „+ Block einfügen") ✓ Neuer Artikel öffnet im Block-Editor → Titel → Karte in Liste ✓ 0 pageerrors ✓. **backend-gaps: KB-`content` ist jetzt Block-Doc-JSON (war HTML) — BE opak behandeln, Legacy-HTML bleibt via Adapter lesbar.**
+
 ## v1 — Fundament-Trio (Overlay-basiert)
 
 | Stufe | Inhalt | Status | Commit |

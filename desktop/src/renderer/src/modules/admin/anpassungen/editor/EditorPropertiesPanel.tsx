@@ -7,12 +7,16 @@
  * BegriffeTab / ValueSetsTab, module-filtered + draft-wired) below the intro.
  */
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, Type, ListChecks, SquareStack } from 'lucide-react'
+import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, MousePointer2, Copy, PanelLeft, Columns3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
 import { WertelistenPanel } from './WertelistenPanel'
 import { FelderPanel } from './FelderPanel'
+import { BereichePanel } from './BereichePanel'
+import { SpaltenPanel } from './SpaltenPanel'
+import { StatistikPanel } from './StatistikPanel'
+import { KanaelePanel } from './KanaelePanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -30,26 +34,72 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
     titleKey: 'customization.editor.nav.valueSets',
     descKey: 'customization.editor.props.valueSetsDesc',
   },
+  bereiche: {
+    icon: Layers,
+    titleKey: 'customization.editor.nav.areas',
+    descKey: 'customization.editor.props.areasDesc',
+  },
+  spalten: {
+    icon: Columns3,
+    titleKey: 'customization.editor.nav.columns',
+    descKey: 'customization.editor.props.columnsDesc',
+  },
+  statistik: {
+    icon: BarChart3,
+    titleKey: 'customization.editor.nav.statistics',
+    descKey: 'customization.editor.props.statisticsDesc',
+  },
+  'kanäle': {
+    icon: Inbox,
+    titleKey: 'customization.editor.nav.channels',
+    descKey: 'customization.editor.props.channelsDesc',
+  },
 }
 
 export function EditorPropertiesPanel({
   section,
   moduleKey,
+  onEditForm,
+  editingFormId,
 }: {
   section: EditorSection | null
   moduleKey: string
+  /** Open a channel's ticket form on the editor canvas (Darien 2026-08-04). */
+  onEditForm?: (formId: string) => void
+  /** The form currently open on the canvas, so the panel can mark it. */
+  editingFormId?: string | null
 }): React.ReactElement {
   const { t } = useTranslation()
 
   if (!section) {
+    // Context inspector: edit-in-place is the primary interaction now, so the
+    // default panel state teaches HOW to edit directly in the preview and points
+    // to the left rail for the tools that aren't in-place (fields / value-sets /
+    // areas). Selecting a section replaces this with that section's editor.
+    const steps: { icon: LucideIcon; text: string }[] = [
+      { icon: MousePointer2, text: t('customization.editor.inspector.step1') },
+      { icon: Copy, text: t('customization.editor.inspector.step2') },
+      { icon: PanelLeft, text: t('customization.editor.inspector.step3') },
+    ]
     return (
       <aside className="flex w-[320px] shrink-0 flex-col border-l bg-background">
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <MousePointerClick className="h-5 w-5" aria-hidden="true" />
+        <div className="border-b px-4 py-3.5">
+          <div className="flex items-center gap-2">
+            <MousePointerClick className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-foreground">{t('customization.editor.inspector.title')}</h3>
           </div>
-          <p className="text-sm text-muted-foreground">{t('customization.editor.props.empty')}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('customization.editor.inspector.subtitle')}</p>
         </div>
+        <ol className="flex flex-col gap-3 px-4 py-4">
+          {steps.map(({ icon: Icon, text }, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-1)]/10 text-[var(--accent-1)]">
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+              <p className="pt-0.5 text-sm leading-relaxed text-muted-foreground">{text}</p>
+            </li>
+          ))}
+        </ol>
       </aside>
     )
   }
@@ -72,6 +122,14 @@ export function EditorPropertiesPanel({
         <WertelistenPanel moduleKey={moduleKey} />
       ) : section === 'felder' ? (
         <FelderPanel moduleKey={moduleKey} />
+      ) : section === 'bereiche' ? (
+        <BereichePanel moduleKey={moduleKey} />
+      ) : section === 'spalten' ? (
+        <SpaltenPanel moduleKey={moduleKey} />
+      ) : section === 'statistik' ? (
+        <StatistikPanel moduleKey={moduleKey} />
+      ) : section === 'kanäle' ? (
+        <KanaelePanel moduleKey={moduleKey} onEditForm={onEditForm} editingFormId={editingFormId} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

@@ -16,7 +16,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
-import { X, Undo2, Redo2, Eye, EyeOff, Wand2, ChevronDown } from 'lucide-react'
+import { X, Undo2, Redo2, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { saveDraft } from '@/mocks/data/customization-drafts'
@@ -25,6 +25,7 @@ import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
 import { ModuleSandbox } from './ModuleSandbox'
+import { EmbeddedFormEditor } from './EmbeddedFormEditor'
 import { DeployDialog } from './DeployDialog'
 import type { EditorModuleDef } from './editorModules'
 
@@ -50,17 +51,36 @@ function EditorLayout({
   onClose: () => void
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { isDirty, changeCount, buildPayload } = useDraftConfig()
+  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
-  const [previewOnly, setPreviewOnly] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
+  // Bumped on every rail click so re-selecting the same section re-focuses the
+  // preview (the user may have navigated the module away in between).
+  const [focusNonce, setFocusNonce] = useState(0)
+  // Ticket form being edited on the canvas (Darien 2026-08-04): editing a channel's
+  // form is part of configuring the module, so the builder takes over the preview
+  // area instead of navigating out of the editor.
+  const [formEditId, setFormEditId] = useState<string | null>(null)
+
+  const selectSection = (section: EditorSection): void => {
+    setActiveSection(section)
+    setFocusNonce((n) => n + 1)
+    // Leaving the channels section closes the builder — the rail always shows what
+    // the canvas is displaying.
+    if (section !== 'kanäle') setFormEditId(null)
+  }
 
   // Editor is for editing, not using: block any in-module action that navigates
   // away (email → /mails, call → /chat, out-linking rows). State-based navigation
   // inside the module (tab switch, detail modal) does not route, so it is
   // unaffected. In Electron the editor closes via window.close (not the router),
   // so this never traps the close.
-  const blocker = useBlocker(true)
+  //
+  // Exception (Darien 2026-08-04): the editor's OWN panels may route on purpose —
+  // "Formular bearbeiten →" in the Kanäle panel is the web fallback for opening a
+  // channel's ticket form. Those carry state.fromEditor and pass through; without
+  // this the click was silently swallowed and the form looked uneditable.
+  const blocker = useBlocker(({ nextLocation }) => nextLocation.state?.fromEditor !== true)
   useEffect(() => {
     if (blocker.state === 'blocked') blocker.reset()
   }, [blocker])
@@ -99,22 +119,11 @@ function EditorLayout({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label={t('customization.editor.undo')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canUndo} onClick={undo} aria-label={t('customization.editor.undo')}>
             <Undo2 className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label={t('customization.editor.redo')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canRedo} onClick={redo} aria-label={t('customization.editor.redo')}>
             <Redo2 className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={() => setPreviewOnly((v) => !v)}
-            aria-pressed={previewOnly}
-          >
-            {previewOnly ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
-            <span className="text-xs">{t('customization.editor.preview')}</span>
           </Button>
         </div>
       </div>
@@ -129,11 +138,23 @@ function EditorLayout({
 
       {/* ── Body: trio-nav · preview · properties ──────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        {!previewOnly && <EditorTrioNav active={activeSection} onSelect={setActiveSection} />}
+        <EditorTrioNav active={activeSection} onSelect={selectSection} />
         <div className="min-w-0 flex-1">
-          <ModuleSandbox module={module} />
+          {/* The canvas shows either the module preview — which follows the rail,
+              selecting a dimension navigates to where it is visible — or the ticket
+              form builder when a channel's form is being edited. */}
+          {formEditId ? (
+            <EmbeddedFormEditor formId={formEditId} onBack={() => setFormEditId(null)} />
+          ) : (
+            <ModuleSandbox module={module} focusSection={activeSection} focusNonce={focusNonce} />
+          )}
         </div>
-        {!previewOnly && <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />}
+        <EditorPropertiesPanel
+          section={activeSection}
+          moduleKey={module.key}
+          onEditForm={setFormEditId}
+          editingFormId={formEditId}
+        />
       </div>
 
       {/* ── Commit footer (48px) ───────────────────────────────────────── */}

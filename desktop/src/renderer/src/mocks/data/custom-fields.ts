@@ -77,6 +77,14 @@ export interface CustomFieldDefinition {
   required: boolean
   /** Options for select/multi_select types (ignored for other types). */
   options: string[]
+  /**
+   * Bind this field's choices to a shared value list instead of the free `options`
+   * above (select/multi_select only). This is what gives a value list a place in
+   * the module: without a field pointing at it, a list has no column to live in and
+   * shows up neither in the record nor in the statistics (Darien 2026-08-04).
+   * When set, `options` is ignored and the list drives labels, colours and order.
+   */
+  valueSetId?: string
   /** Progressive-disclosure tier: validation constraints. */
   validation?: CustomFieldValidation
   /** Progressive-disclosure tier: default value. */
@@ -100,6 +108,8 @@ export interface CreateCustomFieldInput {
   type: CustomFieldType
   required?: boolean
   options?: string[]
+  /** Bind the choices to a shared value list instead of `options` (see the definition). */
+  valueSetId?: string
   validation?: CustomFieldValidation
   defaultValue?: string
   visible?: boolean
@@ -364,6 +374,7 @@ export function createCustomField(input: CreateCustomFieldInput): CustomFieldDef
     type: input.type,
     required: input.required ?? false,
     options: input.options ?? [],
+    valueSetId: input.valueSetId,
     validation: input.validation,
     defaultValue: input.defaultValue,
     visible: input.visible ?? true,
@@ -398,6 +409,8 @@ export function updateCustomField(
     ...(input.type !== undefined && { type: input.type }),
     ...(input.required !== undefined && { required: input.required }),
     ...(input.options !== undefined && { options: input.options }),
+    // Explicitly assign (not conditionally) so unbinding a value list sticks.
+    ...('valueSetId' in input && { valueSetId: input.valueSetId }),
     ...(input.validation !== undefined && { validation: input.validation }),
     ...(input.defaultValue !== undefined && { defaultValue: input.defaultValue }),
     ...(input.visible !== undefined && { visible: input.visible }),

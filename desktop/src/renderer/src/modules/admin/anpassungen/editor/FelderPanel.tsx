@@ -13,7 +13,6 @@
  */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { nanoid } from 'nanoid'
 import {
   Plus,
   RotateCcw,
@@ -38,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useCustomFields } from '@/api/hooks/useCustomFields'
+import { resolveValueSet } from '@/mocks/data/customization'
 import type {
   CustomFieldDefinition,
   CustomFieldEntity,
@@ -46,9 +45,10 @@ import type {
   CreateCustomFieldInput,
   UpdateCustomFieldInput,
 } from '@/mocks/data/custom-fields'
-import { FieldEditorModal } from '../FieldEditorModal'
+import { FieldEditorModal, type ValueSetChoice } from '../FieldEditorModal'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
+import { useEntityFieldDraft, fieldSig } from './useEntityFieldDraft'
 
 // ── Type icon ─────────────────────────────────────────────────────────────────
 
@@ -68,59 +68,29 @@ function typeIcon(type: CustomFieldType): typeof Type {
 }
 
 // ── Draft-vs-baseline diffing ──────────────────────────────────────────────────
-
-/** Signature of a field's meaningful props (order/inUse excluded — no reorder UI). */
-function fieldSig(f: CustomFieldDefinition): string {
-  return JSON.stringify({
-    id: f.id,
-    label: f.label,
-    type: f.type,
-    required: f.required,
-    visible: f.visible,
-    options: f.options,
-    validation: f.validation ?? null,
-    defaultValue: f.defaultValue ?? '',
-  })
-}
-
-/** Whole-list signature (order-independent) — drives dirty detection. */
-function listSig(list: CustomFieldDefinition[]): string {
-  return list
-    .map(fieldSig)
-    .sort()
-    .join('|')
-}
+// The staging itself lives in useEntityFieldDraft — the Spalten panel edits the
+// same snapshot, so both must go through one implementation.
 
 type FieldBadge = 'added' | 'modified' | null
 
 // ── Per-entity editor ───────────────────────────────────────────────────────────
 
-function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.ReactElement {
+function EntityFieldsEditor({
+  entity,
+  valueSetChoices,
+}: {
+  entity: CustomFieldEntity
+  valueSetChoices: ValueSetChoice[]
+}): React.ReactElement {
   const { t } = useTranslation()
-  const { customFields, setDraftEntityFields, resetDraftEntityFields } = useDraftConfig()
-  const { data: baseline = [], isLoading } = useCustomFields(entity)
+  const { effective, baseline, removed, isLoading, isDraft, stage, create, update, remove, reset } =
+    useEntityFieldDraft(entity)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CustomFieldDefinition | null>(null)
   const [deleteCandidate, setDeleteCandidate] = useState<CustomFieldDefinition | null>(null)
 
-  const baseSorted = useMemo(
-    () => [...baseline].sort((a, b) => a.order - b.order),
-    [baseline],
-  )
-  const draftSnapshot = customFields[entity]
-  const effective = draftSnapshot ?? baseSorted
-  const isDraft = draftSnapshot !== undefined
-
-  const baseById = useMemo(() => new Map(baseSorted.map((f) => [f.id, f])), [baseSorted])
-  const effectiveIds = new Set(effective.map((f) => f.id))
-  const removed = baseSorted.filter((f) => !effectiveIds.has(f.id))
-
-  /** Stage a new full list — or drop the snapshot if it equals the live baseline. */
-  const stage = (next: CustomFieldDefinition[]): void => {
-    if (listSig(next) === listSig(baseSorted)) resetDraftEntityFields(entity)
-    else setDraftEntityFields(entity, next)
-  }
+  const baseById = useMemo(() => new Map(baseline.map((f) => [f.id, f])), [baseline])
 
   const badgeFor = (f: CustomFieldDefinition): FieldBadge => {
     const base = baseById.get(f.id)
@@ -130,41 +100,12 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
   }
 
   const handleCreate = (input: CreateCustomFieldInput): void => {
-    const field: CustomFieldDefinition = {
-      id: `draft_${nanoid(8)}`,
-      entity,
-      key: `draft_${nanoid(4)}`,
-      label: input.label,
-      type: input.type,
-      required: input.required ?? false,
-      options: input.options ?? [],
-      validation: input.validation,
-      defaultValue: input.defaultValue,
-      visible: input.visible ?? true,
-      order: effective.length,
-      inUse: false,
-    }
-    stage([...effective, field])
+    create(input)
     setCreateOpen(false)
   }
 
   const handleUpdate = (id: string, input: UpdateCustomFieldInput): void => {
-    stage(
-      effective.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              ...(input.label !== undefined && { label: input.label }),
-              ...(input.type !== undefined && { type: input.type }),
-              ...(input.required !== undefined && { required: input.required }),
-              ...(input.options !== undefined && { options: input.options }),
-              ...(input.validation !== undefined && { validation: input.validation }),
-              ...(input.defaultValue !== undefined && { defaultValue: input.defaultValue }),
-              ...(input.visible !== undefined && { visible: input.visible }),
-            }
-          : f,
-      ),
-    )
+    update(id, input)
     setEditTarget(null)
   }
 
@@ -173,7 +114,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
   }
 
   const removeField = (field: CustomFieldDefinition): void => {
-    stage(effective.filter((f) => f.id !== field.id))
+    remove(field.id)
     setDeleteCandidate(null)
     setEditTarget(null)
   }
@@ -190,6 +131,11 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+      {/* Intro: explain what custom fields are and where they surface (G2). */}
+      <p className="rounded-lg bg-secondary/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        {t('customization.editor.felder.intro')}
+      </p>
+
       {/* Header: count + create + reset */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-foreground">
@@ -199,7 +145,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
           {isDraft && (
             <button
               type="button"
-              onClick={() => resetDraftEntityFields(entity)}
+              onClick={reset}
               aria-label={t('customization.editor.begriffe.reset')}
               title={t('customization.editor.begriffe.reset')}
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -242,11 +188,31 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
                 className="group flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 transition-colors hover:border-primary/40 hover:bg-accent/40"
               >
                 <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${field.visible ? 'text-foreground' : 'text-muted-foreground line-through'}`}
-                >
-                  {field.label}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-sm ${field.visible ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
+                    {field.label}
+                  </p>
+                  {/* Type + options → makes clear WHAT the field is (e.g. a
+                      dropdown with these options), not just its name. */}
+                  {/* Typ + woher die Auswahl kommt: eigene Optionen im Klartext, oder
+                      der Name der gebundenen Werteliste — sonst sähe ein gebundenes
+                      Feld aus wie eines ganz ohne Optionen. */}
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {t(`customization.fields.type.${field.type}`)}
+                    {field.valueSetId ? (
+                      <span className="text-muted-foreground/70">
+                        {' · '}
+                        {t('customization.fields.boundToSet', {
+                          set: valueSetChoices.find((s) => s.id === field.valueSetId)?.name ?? field.valueSetId,
+                        })}
+                      </span>
+                    ) : (
+                      (field.type === 'select' || field.type === 'multi_select') && field.options.length > 0 && (
+                        <span className="text-muted-foreground/70"> · {field.options.join(', ')}</span>
+                      )
+                    )}
+                  </p>
+                </div>
 
                 {field.required && (
                   <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary">
@@ -307,6 +273,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
           open={createOpen}
           mode="create"
           entity={entity}
+          valueSetChoices={valueSetChoices}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
         />
@@ -319,6 +286,7 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
           mode="edit"
           entity={entity}
           field={editTarget}
+          valueSetChoices={valueSetChoices}
           onClose={() => { setEditTarget(null); setDeleteCandidate(null) }}
           onUpdate={(input) => handleUpdate(editTarget.id, input)}
           onDeleteRequest={(field) => requestRemove(field)}
@@ -355,9 +323,32 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
 
 export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
   const { t } = useTranslation()
-  const { customFields } = useDraftConfig()
-  const entities = getEditorModule(moduleKey)?.fieldEntities ?? []
+  const { customFields, valueSets: draftSets } = useDraftConfig()
+  const moduleDef = getEditorModule(moduleKey)
+  const entities = moduleDef?.fieldEntities ?? []
   const [activeEntity, setActiveEntity] = useState<CustomFieldEntity>(entities[0] ?? 'crm_contact')
+
+  // Value lists an Auswahl-Feld can bind to: the module's predefined ones plus any
+  // created in the Wertelisten panel this session. Binding is what gives a NEW list
+  // a place in the module — otherwise it has no column and stays invisible
+  // (Darien 2026-08-04). Resolved here so the dialog can preview the options.
+  const valueSetChoices = useMemo<ValueSetChoice[]>(() => {
+    const ids = [
+      ...(moduleDef?.valueSetIds ?? []),
+      ...Object.keys(draftSets).filter((id) => !(moduleDef?.valueSetIds ?? []).includes(id)),
+    ]
+    return ids.flatMap((id) => {
+      const resolved = resolveValueSet(id, false, draftSets)
+      if (!resolved) return []
+      return [{
+        id,
+        name: resolved.name,
+        options: resolved.options
+          .filter((o) => o.active)
+          .map((o) => ({ id: o.id, label: o.label, color: o.color })),
+      }]
+    })
+  }, [moduleDef, draftSets])
 
   if (entities.length === 0) {
     return (
@@ -369,6 +360,11 @@ export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactEl
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {moduleDef?.intake && (
+        <p className="border-b bg-muted/30 px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          {t('customization.fields.internalHint')}
+        </p>
+      )}
       {entities.length > 1 && (
         <div className="border-b px-4 py-2.5">
           <div role="radiogroup" aria-label={t('customization.fields.entityLabel')} className="flex flex-wrap gap-1">
@@ -393,7 +389,7 @@ export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactEl
           </div>
         </div>
       )}
-      <EntityFieldsEditor key={activeEntity} entity={activeEntity} />
+      <EntityFieldsEditor key={activeEntity} entity={activeEntity} valueSetChoices={valueSetChoices} />
     </div>
   )
 }
