@@ -24,6 +24,7 @@ import { useCapabilitySet } from '@/hooks/useCapability'
 import { i18n } from '@/i18n/i18n'
 import { applyLabelOverlay } from '@/i18n/useLabelOverlay'
 import { resolveLabelOverrides } from '@/mocks/data/customization'
+import { listCustomFields } from '@/mocks/data/custom-fields'
 import {
   listDrafts,
   rollbackDeploy,
@@ -86,6 +87,19 @@ export default function AnpassungenTab() {
     } else {
       navigate(`/editor-window?module=${encodeURIComponent(key)}`)
     }
+  }
+
+  /**
+   * Opening a module that already has an unfinished draft continues it (Darien
+   * 2026-08-05: "wenn man den Entwurf öffnet, ist es wieder das aktuelle
+   * Layout"). Saving something and then finding a blank editor reads as data
+   * loss — a saved draft is the state of that module until it is deployed or
+   * discarded. The editor says which draft it loaded and offers a fresh start.
+   */
+  const openModule = (key: string): void => {
+    const pending = drafts.find((d) => d.moduleKey === key && d.status === 'draft')
+    if (pending) stashDraftForEditor(pending)
+    openEditor(key)
   }
 
   const handleRollback = (draft: CustomizationDraft): void => {
@@ -179,7 +193,7 @@ export default function AnpassungenTab() {
             key={mod.key}
             mod={mod}
             drafts={drafts.filter((d) => d.moduleKey === mod.key)}
-            onOpen={() => openEditor(mod.key)}
+            onOpen={() => openModule(mod.key)}
           />
         ))}
       </div>
@@ -297,6 +311,28 @@ export default function AnpassungenTab() {
 
 // ── Module gallery card (E-4) ───────────────────────────────────────────────────
 
+/**
+ * What this module actually has right now (Darien 2026-08-05: "die Daten hier
+ * sind nur Mocks und ziehen sich das nicht wie es wirklich ist"). The chips used
+ * to render the definition's array lengths — so Helpdesk claimed "0 Begriffe"
+ * while eight of its headings are renamable, and "1 Feld-Typ" was the number of
+ * ENTITIES, not of fields.
+ */
+function moduleStats(mod: EditorModuleDef): { terms: number; valueSets: number; fields: number } {
+  const labels = resolveLabelOverrides(i18n.language)
+  const prefix = `${mod.key}.`
+  const terms = Object.keys(labels).filter((k) => k.startsWith(prefix) || mod.labelKeys.includes(k))
+  const fields = mod.fieldEntities.flatMap((entity) => listCustomFields(entity))
+  // A value list a module field points at belongs to that module too, even when
+  // it was created later in the editor.
+  const bound = fields.map((f) => f.valueSetId).filter((id): id is string => Boolean(id))
+  return {
+    terms: terms.length,
+    valueSets: new Set([...mod.valueSetIds, ...bound]).size,
+    fields: fields.length,
+  }
+}
+
 function ModuleCard({
   mod,
   drafts,
@@ -308,6 +344,14 @@ function ModuleCard({
 }): React.ReactElement {
   const { t } = useTranslation()
   const Icon = MODULE_ICON[mod.icon]
+  // Through the query cache so a deploy (which invalidates 'customization')
+  // refreshes the numbers instead of leaving stale ones on screen.
+  const { data: stats = { terms: 0, valueSets: 0, fields: 0 } } = useQuery({
+    queryKey: ['customization', 'module-stats', mod.key],
+    queryFn: () => moduleStats(mod),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
 
   // Live status: scheduled rollout > active (live) customization > standard.
   const scheduled = drafts.some((d) => d.status === 'scheduled')
@@ -340,9 +384,9 @@ function ModuleCard({
       </div>
       {/* What is customizable in this module (the manifest, at a glance). */}
       <div className="flex flex-wrap gap-1.5">
-        <DimensionChip label={t('customization.editor.gallery.terms', { count: mod.labelKeys.length })} />
-        <DimensionChip label={t('customization.editor.gallery.valueSets', { count: mod.valueSetIds.length })} />
-        <DimensionChip label={t('customization.editor.gallery.fields', { count: mod.fieldEntities.length })} />
+        <DimensionChip label={t('customization.editor.gallery.terms', { count: stats.terms })} />
+        <DimensionChip label={t('customization.editor.gallery.valueSets', { count: stats.valueSets })} />
+        <DimensionChip label={t('customization.editor.gallery.fields', { count: stats.fields })} />
       </div>
     </button>
   )

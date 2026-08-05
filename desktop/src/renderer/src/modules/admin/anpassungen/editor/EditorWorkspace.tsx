@@ -58,7 +58,7 @@ function EditorLayout({
   resumed: CustomizationDraft | null
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo, loadDraft } = useDraftConfig()
+  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo, loadDraft, resetAll } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [deployOpen, setDeployOpen] = useState(false)
   // Bumped on every rail click so re-selecting the same section re-focuses the
@@ -115,6 +115,14 @@ function EditorLayout({
     toast.success(t('customization.editor.toast.resumed', { name: incoming.name }))
   })
 
+  /** Drop the continued draft and start from the live state. */
+  const startFresh = (): void => {
+    resetAll()
+    setDraftId(undefined)
+    setResumedName(undefined)
+    toast.success(t('customization.editor.toast.freshStart'))
+  }
+
   const handleSaveDraft = (): void => {
     const d = saveDraft({ id: draftId, moduleKey: module.key, name: draftName, payload: buildPayload() })
     setDraftId(d.id)
@@ -162,6 +170,21 @@ function EditorLayout({
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
           {t('customization.editor.sandboxBanner')}
         </p>
+        {/* Which draft is on screen. Without this the editor silently continued
+            something and looked like it had forgotten the last session — the
+            same confusion from the other side. */}
+        {resumedName && (
+          <p className="flex shrink-0 items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+            {t('customization.editor.resumedBanner', { name: resumedName })}
+            <button
+              type="button"
+              onClick={startFresh}
+              className="rounded px-1.5 py-0.5 font-medium underline decoration-dotted underline-offset-2 transition-colors hover:bg-amber-500/20"
+            >
+              {t('customization.editor.freshStart')}
+            </button>
+          </p>
+        )}
       </div>
 
       {/* ── Body: trio-nav · preview · properties ──────────────────────── */}
