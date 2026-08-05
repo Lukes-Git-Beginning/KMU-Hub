@@ -31,7 +31,7 @@ func NewService(repo Repository, log *slog.Logger) *Service {
 func (s *Service) CreateTicket(
 	ctx context.Context,
 	tenantID uuid.UUID,
-	requesterID uuid.UUID,
+	requesterID *uuid.UUID,
 	subject string,
 	priority string,
 	assigneeID *uuid.UUID,
@@ -54,6 +54,12 @@ func (s *Service) CreateTicket(
 	intake, err := intake.normalize()
 	if err != nil {
 		return nil, err
+	}
+	// Requester identity, service-side mirror of chk_tickets_requester_identity
+	// (000291). Caught here rather than left to the DB so the caller gets an
+	// InvalidArgument instead of a 23514 wrapped as an internal error.
+	if requesterID == nil && (!intake.RequesterIsExternal || intake.RequesterEmail == nil) {
+		return nil, ErrMissingRequester
 	}
 	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
 		return nil, err
@@ -149,7 +155,7 @@ func (s *Service) CreateTicketFromMessage(
 		Subject:         subject,
 		Status:          TicketStatusOpen,
 		Priority:        TicketPriorityNormal,
-		RequesterID:     requesterID,
+		RequesterID:     &requesterID,
 		Description:     preview,
 		SourceChannel:   &channel,
 		SourceMessageID: &messageID,

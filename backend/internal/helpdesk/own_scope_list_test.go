@@ -40,7 +40,7 @@ func TestListTickets_OwnScopeNarrowsRowsAndTotal(t *testing.T) {
 		ticket := &Ticket{
 			ID: uuid.New(), TenantID: tenant, Subject: subject,
 			Status: status, Priority: TicketPriorityNormal,
-			RequesterID: requester, AssigneeID: assignee,
+			RequesterID: &requester, AssigneeID: assignee,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		if err := repo.CreateTicket(ctx, ticket); err != nil {

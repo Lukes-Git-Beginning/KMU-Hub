@@ -40,7 +40,7 @@ func TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant(t *testing.T) {
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "CSAT Redeem Ticket",
 		Status: TicketStatusClosed, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, ticket); err != nil {
 		t.Fatalf("CreateTicket: %v", err)
@@ -138,7 +138,7 @@ func TestSubmitCsatByToken_RefusesDeadLinks(t *testing.T) {
 		tk := &Ticket{
 			ID: uuid.New(), TenantID: tenantID, Subject: subject,
 			Status: TicketStatusClosed, Priority: TicketPriorityNormal,
-			RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+			RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 		}
 		if err := repo.CreateTicket(ctx, tk); err != nil {
 			t.Fatalf("CreateTicket(%s): %v", subject, err)

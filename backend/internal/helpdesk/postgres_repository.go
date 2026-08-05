@@ -171,6 +171,14 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	}
 	// The "own" data scope. Assignment counts as ownership too: an agent who
 	// cannot see the ticket routed to them cannot work it.
+	//
+	// External requesters (requester_id IS NULL, 000291) never match here, and
+	// that is the decided behaviour, not an oversight: scope=own is an RBAC
+	// data scope for logged-in staff, and the only other identity an external
+	// ticket carries is requester_email -- a self-declared, unverified value
+	// straight out of the intake body. Matching on it would let anyone place a
+	// ticket inside a colleague's own-scope by typing their address. External
+	// tickets reach an agent through assignment or through a wider scope.
 	if participantID != nil {
 		whereExtra += fmt.Sprintf(" AND (t.requester_id = $%d OR t.assignee_id = $%d)", len(args)+1, len(args)+1)
 		args = append(args, *participantID)
@@ -496,11 +504,11 @@ func (r *PostgresRepository) RedeemCsatSurveyTx(
 // first. It runs from the dispatcher, which holds a system context: the query
 // is deliberately cross-tenant and carries each row's tenant with it.
 //
-// The join on users is what supplies the recipient address, and it is also why
-// a ticket without a user requester yields nothing here. Until the intake
-// contract lands a requester_email column on tickets (backlog B1), an external
-// requester simply gets no survey -- silently dropping a mail is better than
-// guessing an address.
+// The recipient address comes from tickets.requester_email first and from the
+// requester's user row second: since 000291 a ticket can have no requester_id
+// at all, so the users join is a LEFT JOIN and external requesters -- who are
+// exactly the people an intake survey is for -- are reached through the address
+// they submitted. A row with neither address is skipped rather than guessed at.
 func (r *PostgresRepository) ListDueCsatSurveys(
 	ctx context.Context,
 	now time.Time,
@@ -510,11 +518,12 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 	rows, err := r.pool.Query(ctx,
 		`SELECT r.id, r.tenant_id, r.ticket_id, r.token,
 		        t.ticket_number, t.subject,
-		        req.email,
-		        COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email)
+		        COALESCE(NULLIF(t.requester_email, ''), req.email),
+		        COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
+		                 NULLIF(t.requester_name, ''), '')
 		   FROM ticket_csat_responses r
-		   JOIN tickets t   ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id
-		   JOIN users   req ON req.id = t.requester_id
+		   JOIN tickets t        ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id
+		   LEFT JOIN users   req ON req.id = t.requester_id
 		  WHERE r.token IS NOT NULL
 		    AND r.submitted_at IS NULL
 		    AND r.survey_sent_at IS NULL
@@ -522,7 +531,7 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 		    AND r.survey_send_after <= $1
 		    AND r.token_expires_at > $1
 		    AND r.survey_dispatch_attempts < $2
-		    AND req.email <> ''
+		    AND COALESCE(NULLIF(t.requester_email, ''), req.email, '') <> ''
 		  ORDER BY r.survey_send_after
 		  LIMIT $3`,
 		now, maxAttempts, limit,

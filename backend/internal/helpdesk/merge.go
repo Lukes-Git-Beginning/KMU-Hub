@@ -18,8 +18,15 @@ func DetectDuplicates(ctx context.Context, repo Repository, tenantID uuid.UUID, 
 	if prefix == "" {
 		return nil, nil
 	}
+	// External requesters have no requester_id to group by (000291). Matching
+	// them on requester_email instead would treat a self-declared, unverified
+	// address as an identity, so external tickets are simply not deduplicated
+	// against each other -- an agent merges them by hand.
+	if ticket.RequesterID == nil {
+		return nil, nil
+	}
 
-	candidates, err := repo.FindOpenTicketsByRequester(ctx, tenantID, ticket.RequesterID, prefix)
+	candidates, err := repo.FindOpenTicketsByRequester(ctx, tenantID, *ticket.RequesterID, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("detect duplicates – query: %w", err)
 	}

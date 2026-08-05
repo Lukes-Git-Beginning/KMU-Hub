@@ -126,7 +126,7 @@ func TestSubmitCsatTx_UpsertsAndStaysInTenant(t *testing.T) {
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "CSAT Test Ticket",
 		Status: TicketStatusClosed, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, ticket); err != nil {
 		t.Fatalf("CreateTicket: %v", err)

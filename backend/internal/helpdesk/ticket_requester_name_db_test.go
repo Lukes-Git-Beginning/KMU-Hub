@@ -46,7 +46,7 @@ func TestTicketRead_RequesterNamePrecedence(t *testing.T) {
 	internal := &Ticket{
 		ID: uuid.New(), TenantID: tenantID, Subject: "Interne Anfrage",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: userID, CreatedAt: now, UpdatedAt: now,
+		RequesterID: &userID, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctx, internal); err != nil {
 		t.Fatalf("CreateTicket internal: %v", err)
@@ -60,7 +60,7 @@ func TestTicketRead_RequesterNamePrecedence(t *testing.T) {
 	external := &Ticket{
 		ID: uuid.New(), TenantID: tenantID, Subject: "Externe Anfrage",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctx, external); err != nil {
 		t.Fatalf("CreateTicket external: %v", err)
@@ -123,7 +123,7 @@ func TestTicketRead_IntakeColumnDefaults(t *testing.T) {
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantID, Subject: "Default-Ticket",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctx, ticket); err != nil {
 		t.Fatalf("CreateTicket: %v", err)

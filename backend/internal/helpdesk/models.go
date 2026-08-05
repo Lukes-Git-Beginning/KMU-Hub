@@ -102,8 +102,12 @@ type Ticket struct {
 	Subject         string     `json:"subject"`
 	Status          string     `json:"status"`
 	Priority        string     `json:"priority"`
-	AssigneeID      *uuid.UUID `json:"assignee_id,omitempty"`
-	RequesterID     uuid.UUID  `json:"requester_id"`
+	AssigneeID *uuid.UUID `json:"assignee_id,omitempty"`
+	// RequesterID is nil for external requesters, who have no user account
+	// (000291). Their identity is RequesterEmail plus RequesterName; the CHECK
+	// chk_tickets_requester_identity guarantees that one of the two forms is
+	// always complete, so a nil RequesterID always implies a reply address.
+	RequesterID     *uuid.UUID `json:"requester_id,omitempty"`
 	QueueID         *uuid.UUID `json:"queue_id,omitempty"`
 	DueAt           *time.Time `json:"due_at,omitempty"`
 	MergedIntoID    *uuid.UUID `json:"merged_into_id,omitempty"`

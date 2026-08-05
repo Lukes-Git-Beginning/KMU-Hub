@@ -20,6 +20,10 @@ var (
 	ErrInvalidRequesterEmail  = errors.New("invalid requester email")
 	ErrRequesterNameTooLong   = errors.New("requester name must be at most 200 characters")
 	ErrInvalidCustomFields    = errors.New("custom fields must be a flat map of string, number or boolean values")
+	// ErrMissingRequester is the service-side mirror of the DB CHECK
+	// chk_tickets_requester_identity: a ticket names either a tenant user or an
+	// external requester reachable by mail, never neither.
+	ErrMissingRequester = errors.New("ticket needs either a requester_id or an external requester with an email")
 	ErrMessageAlreadyLinked   = errors.New("inbox message already linked to a ticket")
 	ErrInvalidCsatRating      = errors.New("csat rating must be between 1 and 5")
 	ErrInvalidCsatDelay       = errors.New("csat survey delay must be between 0 and 20160 minutes")

@@ -23,7 +23,7 @@ func strPtr(s string) *string { return &s }
 func TestCreateTicket_RejectsUnknownChannel(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(),
+	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()),
 		"Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil,
 		TicketIntake{Channel: "carrier-pigeon"})
 
@@ -35,7 +35,7 @@ func TestCreateTicket_RejectsUnknownChannel(t *testing.T) {
 func TestCreateTicket_EmptyChannelDefaultsToAgent(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(),
+	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()),
 		"Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	if err != nil {
 		t.Fatalf("CreateTicket: %v", err)
@@ -51,7 +51,7 @@ func TestCreateTicket_EmptyChannelDefaultsToAgent(t *testing.T) {
 func TestCreateTicket_RejectsMalformedRequesterEmail(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(),
+	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()),
 		"Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil,
 		TicketIntake{RequesterEmail: strPtr("not-an-address")})
 
@@ -71,7 +71,7 @@ func TestCreateTicket_RejectsNonScalarCustomFields(t *testing.T) {
 	for name, fields := range cases {
 		t.Run(name, func(t *testing.T) {
 			h := newTestHarness()
-			_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(),
+			_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()),
 				"Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil,
 				TicketIntake{CustomFields: fields})
 			if !errors.Is(err, ErrInvalidCustomFields) {
@@ -88,7 +88,7 @@ func TestCreateTicket_RejectsNonScalarCustomFields(t *testing.T) {
 func TestCreateTicket_DropsRequesterNameForInternalRequester(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(),
+	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()),
 		"Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil,
 		TicketIntake{RequesterName: strPtr("Ines Intern")})
 	if err != nil {
@@ -115,7 +115,7 @@ func TestCreateTicket_IntakeFieldsRoundTrip(t *testing.T) {
 	svc := NewService(repo, testLogger())
 	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
 
-	created, err := svc.CreateTicket(ctx, tenantID, uuid.New(),
+	created, err := svc.CreateTicket(ctx, tenantID, uuidPtr(uuid.New()),
 		"Drucker streikt", TicketPriorityHigh, nil, nil, "Papierstau", "hardware", nil, nil,
 		TicketIntake{
 			Channel:             TicketChannelExternal,

@@ -142,9 +142,17 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
 	}
 
-	requesterID, err := uuid.Parse(req.GetRequesterId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+	// An empty requester_id is the external requester (000291): the public and
+	// form intake paths have no session user to name. It stays a hard parse
+	// error when a value is present but malformed, and the service rejects the
+	// combination "no requester_id and no external reply address".
+	var requesterID *uuid.UUID
+	if raw := req.GetRequesterId(); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+		}
+		requesterID = &id
 	}
 
 	var assigneeID *uuid.UUID
@@ -1139,14 +1147,26 @@ func (s *HelpdeskGRPCServer) GetHelpdeskStats(ctx context.Context, req *helpdesk
 // Proto ↔ Domain conversion helpers
 // ============================================================================
 
+// requesterIDToProto renders a nullable requester id onto the wire. External
+// requesters (000291) have none.
+func requesterIDToProto(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
 func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	msg := &helpdeskv1.Ticket{
 		Id:          t.ID.String(),
 		TenantId:    t.TenantID.String(),
 		Subject:     t.Subject,
 		Status:      t.Status,
-		Priority:    t.Priority,
-		RequesterId: t.RequesterID.String(),
+		Priority: t.Priority,
+		// Empty string for an external requester, who has no user id. The
+		// module types requester_id as a plain string and renders the display
+		// name from requester_name, so an absent id reads as "" there too.
+		RequesterId: requesterIDToProto(t.RequesterID),
 		CreatedAt:   timestamppb.New(t.CreatedAt),
 		UpdatedAt:   timestamppb.New(t.UpdatedAt),
 	}
@@ -1369,6 +1389,8 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrRequesterNameTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidCustomFields):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrMissingRequester):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrCsatSurveyNotFound):
 		// Unknown, malformed, expired, revoked and already-redeemed links all

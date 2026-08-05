@@ -38,7 +38,7 @@ func seedDueSurvey(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, label s
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantID, Subject: "Drucker <klemmt>",
 		Status: TicketStatusClosed, Priority: TicketPriorityNormal,
-		RequesterID: userID, CreatedAt: now, UpdatedAt: now,
+		RequesterID: &userID, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctx, ticket); err != nil {
 		t.Fatalf("CreateTicket: %v", err)
@@ -108,6 +108,52 @@ func TestListDueCsatSurveys_FindsDueRowsAndSkipsTheRest(t *testing.T) {
 	}
 	if visible != 0 {
 		t.Fatalf("foreign tenant sees %d csat row(s), expected 0", visible)
+	}
+}
+
+// An external requester (000291) has no user row, so the dispatch query used to
+// drop their survey on the inner JOIN -- and they are precisely the audience the
+// intake survey exists for. The address now comes from tickets.requester_email.
+func TestListDueCsatSurveys_ReachesExternalRequester(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Helpdesk CSAT External Tenant")
+
+	now := time.Now().UTC()
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	ticket := externalTicket(tenantID, "Extern geschlossen", "extern@example.org", "Erika Extern")
+	ticket.Status = TicketStatusClosed
+	if err := repo.CreateTicket(ctx, ticket); err != nil {
+		t.Fatalf("CreateTicket external: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "tickets", ticket.ID) })
+
+	sendAfter := now.Add(-time.Hour)
+	issued, err := repo.IssueCsatSurveyTokenTx(
+		ctx, tenantID, ticket.ID, "tok-"+uuid.New().String(),
+		sendAfter, sendAfter.Add(CsatSurveyTokenTTL), now,
+	)
+	if err != nil || !issued {
+		t.Fatalf("IssueCsatSurveyTokenTx: issued=%v err=%v", issued, err)
+	}
+
+	due, err := repo.ListDueCsatSurveys(testutil.WithSystemCtx(context.Background()), now, csatSurveyMaxDispatchAttempts, 100)
+	if err != nil {
+		t.Fatalf("ListDueCsatSurveys: %v", err)
+	}
+	found := mustSurveyFor(t, due, ticket.ID)
+	if found.RecipientEmail != "extern@example.org" {
+		t.Fatalf("recipient address is %q, expected the submitted one", found.RecipientEmail)
+	}
+	if found.RecipientName != "Erika Extern" {
+		t.Fatalf("recipient name is %q, expected the persisted column value", found.RecipientName)
 	}
 }
 

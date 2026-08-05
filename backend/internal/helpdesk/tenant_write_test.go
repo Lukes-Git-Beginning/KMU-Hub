@@ -40,7 +40,7 @@ func TestTicketWrites_LandInCallerTenant(t *testing.T) {
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "Write Test Ticket",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, ticket); err != nil {
 		t.Fatalf("CreateTicket: %v", err)
@@ -76,7 +76,7 @@ func TestTicketWrites_LandInCallerTenant(t *testing.T) {
 	other := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "Reassign Target",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, other); err != nil {
 		t.Fatalf("CreateTicket (target): %v", err)
@@ -85,7 +85,7 @@ func TestTicketWrites_LandInCallerTenant(t *testing.T) {
 
 	msg := &TicketMessage{
 		ID: uuid.New(), TenantID: tenantOwn, TicketID: ticket.ID,
-		AuthorID: ticket.RequesterID, Body: "hello", Attachments: []string{},
+		AuthorID: *ticket.RequesterID, Body: "hello", Attachments: []string{},
 		CreatedAt: now,
 	}
 	if err := repo.CreateMessage(ctxOwn, msg); err != nil {
@@ -149,7 +149,7 @@ func TestMergeTicketTx_RespectsTenant(t *testing.T) {
 	source := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "Merge Source",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, source); err != nil {
 		t.Fatalf("CreateTicket (source): %v", err)
@@ -159,7 +159,7 @@ func TestMergeTicketTx_RespectsTenant(t *testing.T) {
 	target := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "Merge Target",
 		Status: TicketStatusOpen, Priority: TicketPriorityNormal,
-		RequesterID: uuid.New(), CreatedAt: now, UpdatedAt: now,
+		RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
 	}
 	if err := repo.CreateTicket(ctxOwn, target); err != nil {
 		t.Fatalf("CreateTicket (target): %v", err)
