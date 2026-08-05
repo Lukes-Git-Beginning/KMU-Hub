@@ -30,6 +30,8 @@ function defaultSchedule(): string {
 interface DeployDialogProps {
   open: boolean
   onClose: () => void
+  /** Set when the editor continues a saved draft — deploy updates THAT record. */
+  draftId?: string
   moduleKey: string
   draftName: string
   changeCount: number
@@ -41,6 +43,7 @@ interface DeployDialogProps {
 export function DeployDialog({
   open,
   onClose,
+  draftId,
   moduleKey,
   draftName,
   changeCount,
@@ -56,11 +59,11 @@ export function DeployDialog({
     const payload = buildPayload()
     if (mode === 'scheduled') {
       const iso = new Date(scheduledAt).toISOString()
-      const d = deployDraft({ moduleKey, name: draftName, payload, mode: 'scheduled', scheduledAt: iso, announcement: announcement || undefined })
+      const d = deployDraft({ id: draftId, moduleKey, name: draftName, payload, mode: 'scheduled', scheduledAt: iso, announcement: announcement || undefined })
       publishDraftMirror(d)
       toast.success(t('customization.editor.deploy.toastScheduled'))
     } else {
-      const d = deployDraft({ moduleKey, name: draftName, payload, mode: 'now', announcement: announcement || undefined })
+      const d = deployDraft({ id: draftId, moduleKey, name: draftName, payload, mode: 'now', announcement: announcement || undefined })
       publishCustomizationDeploy(payload, d, getDeploySnapshot(d.id))
       toast.success(t('customization.editor.toast.applied'))
     }
@@ -68,7 +71,7 @@ export function DeployDialog({
   }
 
   const saveDraft = (): void => {
-    const d = deployDraft({ moduleKey, name: draftName, payload: buildPayload(), mode: 'draft' })
+    const d = deployDraft({ id: draftId, moduleKey, name: draftName, payload: buildPayload(), mode: 'draft' })
     publishDraftMirror(d)
     toast.success(t('customization.editor.toast.draftSaved'))
     onDeployed()

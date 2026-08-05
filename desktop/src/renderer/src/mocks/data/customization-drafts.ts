@@ -69,9 +69,19 @@ function summarize(payload: CustomizationDraftPayload): {
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
 
-/** All drafts, newest first. Optionally filtered by module. */
+/**
+ * All drafts, newest first. Optionally filtered by module.
+ *
+ * Returns COPIES on purpose: this store mutates records in place (status, dates,
+ * announcement), and React Query's structural sharing keeps the previous object
+ * when the refetched one is reference-identical — so a scheduled rollout kept
+ * rendering as "Entwurf" until the page was left. Copies make each refetch compare
+ * by value, which is what the UI expects.
+ */
 export function listDrafts(moduleKey?: string): CustomizationDraft[] {
-  const all = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const all = [...drafts]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((d) => ({ ...d }))
   return moduleKey ? all.filter((d) => d.moduleKey === moduleKey) : all
 }
 
@@ -121,6 +131,9 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     existing.payload = input.payload
     existing.status = 'draft'
     existing.scheduledAt = undefined
+    // undefined = "not touched here": the announcement is edited in the rollout
+    // detail, and saving the draft again must not wipe it.
+    if (input.announcement !== undefined) existing.announcement = input.announcement || undefined
     existing.updatedAt = now
     return existing
   }
@@ -134,6 +147,7 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
     createdAt: now,
     updatedAt: now,
     createdBy: getDemoSessionUserId(),
+    ...(input.announcement ? { announcement: input.announcement } : {}),
   }
   drafts.unshift(draft)
   writeAuditEvent({
@@ -188,7 +202,13 @@ function promote(draft: CustomizationDraft): void {
 
 /** Deploy immediately: persist the draft (if new) and promote it to the tenant layer. */
 export function commitDraftNow(input: DeployDraftInput): CustomizationDraft {
-  const draft = saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+  const draft = saveDraft({
+    id: input.id,
+    moduleKey: input.moduleKey,
+    name: input.name,
+    payload: input.payload,
+    announcement: input.announcement,
+  })
   promote(draft)
   return draft
 }
@@ -196,7 +216,13 @@ export function commitDraftNow(input: DeployDraftInput): CustomizationDraft {
 /** Schedule a tenant-wide rollout at `scheduledAt`; promoted by the mock scheduler. */
 export function scheduleDraft(input: DeployDraftInput): CustomizationDraft {
   if (!input.scheduledAt) throw new Error('scheduleDraft requires scheduledAt')
-  const draft = saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+  const draft = saveDraft({
+    id: input.id,
+    moduleKey: input.moduleKey,
+    name: input.name,
+    payload: input.payload,
+    announcement: input.announcement,
+  })
   draft.status = 'scheduled'
   draft.scheduledAt = input.scheduledAt
   draft.updatedAt = new Date().toISOString()
@@ -217,8 +243,73 @@ export function deployDraft(input: DeployDraftInput): CustomizationDraft {
     case 'scheduled':
       return scheduleDraft(input)
     case 'draft':
-      return saveDraft({ moduleKey: input.moduleKey, name: input.name, payload: input.payload })
+      return saveDraft({
+        id: input.id,
+        moduleKey: input.moduleKey,
+        name: input.name,
+        payload: input.payload,
+        announcement: input.announcement,
+      })
   }
+}
+
+// ── Rollout detail actions (Darien 2026-08-05) ─────────────────────────────────
+// Everything the rollout list can do to an existing record without reopening the
+// editor: move a scheduled date, take it off the calendar, edit the announcement.
+
+/** Rewrite the announcement of an existing draft/rollout. Empty string clears it. */
+export function setDraftAnnouncement(id: string, announcement: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft) return undefined
+  draft.announcement = announcement.trim() || undefined
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.announcement_changed',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey, hasAnnouncement: Boolean(draft.announcement) },
+  })
+  return draft
+}
+
+/** Put a saved draft on the calendar, or move an existing appointment. */
+export function setDraftSchedule(id: string, scheduledAt: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status === 'live' || draft.status === 'superseded') return undefined
+  draft.status = 'scheduled'
+  draft.scheduledAt = scheduledAt
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.deploy_scheduled',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey, scheduledAt },
+  })
+  return draft
+}
+
+/** Take a scheduled rollout off the calendar — it stays a draft, nothing is lost. */
+export function clearDraftSchedule(id: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status !== 'scheduled') return undefined
+  draft.status = 'draft'
+  draft.scheduledAt = undefined
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.deploy_unscheduled',
+    target: draft.name,
+    targetType: 'customization_draft',
+    newValue: { moduleKey: draft.moduleKey },
+  })
+  return draft
+}
+
+/** Promote an existing draft/scheduled rollout right now (from the rollout list). */
+export function promoteDraftById(id: string): CustomizationDraft | undefined {
+  const draft = drafts.find((d) => d.id === id)
+  if (!draft || draft.status === 'live') return undefined
+  promote(draft)
+  return draft
 }
 
 // ── Scheduler mock ──────────────────────────────────────────────────────────

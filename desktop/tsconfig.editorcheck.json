@@ -23,6 +23,13 @@
                     "src/renderer/src/modules/admin/anpassungen/editor/EditorPropertiesPanel.tsx",
                     "src/renderer/src/modules/admin/anpassungen/editor/editorModules.ts",
                     "src/renderer/src/components/shared/DetailModal.tsx",
-                    "src/renderer/src/modules/admin/anpassungen/editor/useEntityFieldDraft.ts"
+                    "src/renderer/src/modules/admin/anpassungen/editor/useEntityFieldDraft.ts",
+                    "src/renderer/src/modules/admin/anpassungen/AnpassungenHubPage.tsx",
+                    "src/renderer/src/modules/admin/anpassungen/RolloutDetailModal.tsx",
+                    "src/renderer/src/components/customization/RolloutAnnouncement.tsx",
+                    "src/renderer/src/components/shared/PageHeader.tsx",
+                    "src/renderer/src/mocks/data/customization-drafts.ts",
+                    "src/renderer/src/modules/admin/anpassungen/editor/customization-sync.ts",
+                    "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx"
                 ]
 }

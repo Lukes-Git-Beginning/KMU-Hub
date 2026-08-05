@@ -23,6 +23,7 @@ import {
   Tag,
   Bot,
   LifeBuoy,
+  GripVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -855,11 +856,15 @@ export default function HelpdeskPage() {
                       <th
                         key={col.key}
                         style={columnWidthStyle(columnLayout.layout, col.key)}
-                        className="relative px-4 py-3 text-left text-xs font-medium text-muted-foreground"
+                        className={`relative px-4 py-3 text-left text-xs font-medium text-muted-foreground${
+                          columnLayout.showDividers ? ' bg-[var(--accent-1)]/[0.04]' : ''
+                        }`}
                       >
                         <span className={hasColumnWidths ? 'block truncate' : undefined}>{col.header}</span>
                         {/* Resize grip — editor sandbox only: in the live app the
-                            list is operated, not configured. */}
+                            list is operated, not configured. It only becomes VISIBLE
+                            while the Spalten section is open, because on a white
+                            header you cannot tell where the edge is (Darien). */}
                         {columnLayout.editing && (
                           <span
                             role="separator"
@@ -867,8 +872,16 @@ export default function HelpdeskPage() {
                             aria-label={t('customization.editor.spalten.resize', { column: col.key })}
                             data-column-resize={col.key}
                             onPointerDown={(e) => startColumnResize(col.key, e)}
-                            className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize border-r-2 border-transparent transition-colors hover:border-[var(--accent-1)]"
-                          />
+                            className={`group absolute inset-y-1 right-0 z-10 flex w-3 cursor-col-resize items-center justify-center ${
+                              columnLayout.showDividers ? '' : 'opacity-0'
+                            }`}
+                          >
+                            <span className="h-full w-px bg-[var(--accent-1)]/25 transition-colors group-hover:w-0.5 group-hover:bg-[var(--accent-1)]" />
+                            <GripVertical
+                              className="pointer-events-none absolute h-3 w-3 text-[var(--accent-1)]/50 transition-colors group-hover:text-[var(--accent-1)]"
+                              aria-hidden="true"
+                            />
+                          </span>
                         )}
                       </th>
                     ))}

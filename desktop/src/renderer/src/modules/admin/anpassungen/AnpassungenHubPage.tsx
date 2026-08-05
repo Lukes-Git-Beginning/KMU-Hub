@@ -13,6 +13,7 @@
  *
  * Gated on `admin:customization:manage` (admin + it_admin) via AdminHubPage.
  */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -28,9 +29,20 @@ import {
   rollbackDeploy,
   canRollback,
   deleteDraft,
+  promoteDraftById,
+  setDraftSchedule,
+  clearDraftSchedule,
+  setDraftAnnouncement,
+  getDeploySnapshot,
 } from '@/mocks/data/customization-drafts'
 import type { CustomizationDraft, DraftStatus } from '@/api/customization-types'
 import { EDITOR_MODULES, type EditorModuleDef } from './editor/editorModules'
+import {
+  stashDraftForEditor,
+  publishDraftMirror,
+  publishCustomizationDeploy,
+} from './editor/customization-sync'
+import { RolloutDetailModal } from './RolloutDetailModal'
 
 /** Lucide icon per editor-module (matches EditorModuleDef.icon). */
 const MODULE_ICON = { contact: Contact, lifeBuoy: LifeBuoy } as const
@@ -47,6 +59,9 @@ export default function AnpassungenTab() {
   const { ready } = useCapabilitySet()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // Rollout opened in the detail modal (Cosmi convention: row click → modal).
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const { data: drafts = [] } = useQuery({
     queryKey: ['customization', 'drafts'],
@@ -83,9 +98,58 @@ export default function AnpassungenTab() {
 
   const handleDelete = (draft: CustomizationDraft): void => {
     deleteDraft(draft.id)
+    setDetailId(null)
     refresh()
     toast.success(t('customization.editor.rollouts.deleted'))
   }
+
+  /**
+   * Continue a saved draft. The pencil used to open a BLANK editor — the record
+   * existed, its changes did not travel. The editor window has its own JS heap, so
+   * the draft is handed over through storage both windows share.
+   */
+  const continueDraft = (draft: CustomizationDraft): void => {
+    stashDraftForEditor(draft)
+    setDetailId(null)
+    openEditor(draft.moduleKey)
+  }
+
+  const handleDeployNow = (draft: CustomizationDraft): void => {
+    const promoted = promoteDraftById(draft.id)
+    if (!promoted) return
+    // This window IS the one that promoted it, so apply the live label overlay here
+    // and mirror the record + rollback snapshot to any other window.
+    applyLabelOverlay(i18n.language, resolveLabelOverrides(i18n.language))
+    publishCustomizationDeploy(promoted.payload, promoted, getDeploySnapshot(promoted.id))
+    setDetailId(null)
+    refresh()
+    toast.success(t('customization.editor.toast.applied'))
+  }
+
+  const handleSchedule = (draft: CustomizationDraft, scheduledAt: string): void => {
+    const updated = setDraftSchedule(draft.id, scheduledAt)
+    if (!updated) return
+    publishDraftMirror(updated)
+    refresh()
+    toast.success(t('customization.editor.deploy.toastScheduled'))
+  }
+
+  const handleUnschedule = (draft: CustomizationDraft): void => {
+    const updated = clearDraftSchedule(draft.id)
+    if (!updated) return
+    publishDraftMirror(updated)
+    refresh()
+    toast.success(t('customization.rollout.unscheduled'))
+  }
+
+  const handleAnnouncement = (draft: CustomizationDraft, text: string): void => {
+    const updated = setDraftAnnouncement(draft.id, text)
+    if (!updated) return
+    publishDraftMirror(updated)
+    refresh()
+  }
+
+  const detail = detailId ? drafts.find((d) => d.id === detailId) : undefined
 
   const fmtDate = (iso?: string): string =>
     iso ? new Date(iso).toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }) : ''
@@ -133,9 +197,20 @@ export default function AnpassungenTab() {
             {drafts.map((d) => {
               const mod = EDITOR_MODULES.find((m) => m.key === d.moduleKey)
               return (
+                // Whole row opens the detail (Cosmi convention) — the icons on the
+                // right stay as shortcuts and stop the click from bubbling.
                 <div
                   key={d.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailId(d.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setDetailId(d.id)
+                    }
+                  }}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 transition-colors hover:border-[var(--accent-1)]/40 hover:bg-accent/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
                   <CircleDot className={`h-3.5 w-3.5 shrink-0 ${STATUS_STYLE[d.status].split(' ').find((c) => c.startsWith('text-')) ?? ''}`} aria-hidden="true" />
                   <div className="min-w-0 flex-1">
@@ -153,7 +228,7 @@ export default function AnpassungenTab() {
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     {d.status === 'live' && canRollback(d.id) && (
                       <button
                         type="button"
@@ -167,7 +242,7 @@ export default function AnpassungenTab() {
                     {d.status === 'draft' && (
                       <button
                         type="button"
-                        onClick={() => openEditor(d.moduleKey)}
+                        onClick={() => continueDraft(d)}
                         aria-label={t('customization.editor.rollouts.reopen')}
                         title={t('customization.editor.rollouts.reopen')}
                         className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -193,6 +268,29 @@ export default function AnpassungenTab() {
           </div>
         )}
       </div>
+
+      {detail && (
+        <RolloutDetailModal
+          draft={detail}
+          moduleName={
+            EDITOR_MODULES.find((m) => m.key === detail.moduleKey)
+              ? t(EDITOR_MODULES.find((m) => m.key === detail.moduleKey)!.titleKey)
+              : detail.moduleKey
+          }
+          canRollback={detail.status === 'live' && canRollback(detail.id)}
+          onClose={() => setDetailId(null)}
+          onContinue={() => continueDraft(detail)}
+          onDeployNow={() => handleDeployNow(detail)}
+          onSchedule={(at) => handleSchedule(detail, at)}
+          onUnschedule={() => handleUnschedule(detail)}
+          onAnnouncementChange={(text) => handleAnnouncement(detail, text)}
+          onRollback={() => {
+            handleRollback(detail)
+            setDetailId(null)
+          }}
+          onDelete={() => handleDelete(detail)}
+        />
+      )}
     </div>
   )
 }

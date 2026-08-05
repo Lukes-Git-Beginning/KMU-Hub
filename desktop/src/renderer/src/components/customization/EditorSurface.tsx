@@ -261,6 +261,13 @@ export interface ModuleColumnLayout {
   layout: Record<string, ModuleAreaLayout>
   /** True only inside the editor sandbox — gates the resize handles. */
   editing: boolean
+  /**
+   * Whether to SHOW the column dividers (Darien 2026-08-05: "man sieht nicht wo
+   * der verstellpunkt ist, da das alles weiß ist"). Only true in the editor while
+   * the Spalten section is selected — the live module keeps its plain header, and
+   * the other editor sections are not about column widths.
+   */
+  showDividers: boolean
   /** Persist a dragged width as a share of the table (0–1). */
   setWidth: (columnKey: string, width: number) => void
   /**
@@ -283,8 +290,9 @@ export interface ModuleColumnLayout {
  * headers. Nothing module-specific in here.
  */
 export function useModuleColumnLayout(moduleKey: string): ModuleColumnLayout {
-  const { editing, moduleAreas, setAreaLayout, setAreaLayouts } = useEditorSurface()
+  const { editing, focusSection, moduleAreas, setAreaLayout, setAreaLayouts } = useEditorSurface()
   const draftOverlay = editing ? moduleAreas : undefined
+  const showDividers = editing && focusSection === 'spalten'
   const layout = useMemo(
     () => resolveModuleAreaLayout(moduleKey, false, draftOverlay),
     [moduleKey, editing, draftOverlay],
@@ -293,6 +301,7 @@ export function useModuleColumnLayout(moduleKey: string): ModuleColumnLayout {
     () => ({
       layout,
       editing,
+      showDividers,
       setWidth: (columnKey: string, width: number) =>
         setAreaLayout(`${COLUMN_AREA_PREFIX}${columnKey}`, { width }),
       freezeWidths: (widths: Record<string, number>, draggedKey: string) =>
@@ -303,7 +312,7 @@ export function useModuleColumnLayout(moduleKey: string): ModuleColumnLayout {
           `${COLUMN_AREA_PREFIX}${draggedKey}`,
         ),
     }),
-    [layout, editing, setAreaLayout, setAreaLayouts],
+    [layout, editing, showDividers, setAreaLayout, setAreaLayouts],
   )
 }
 

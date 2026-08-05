@@ -20,7 +20,8 @@ import { X, Undo2, Redo2, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { saveDraft } from '@/mocks/data/customization-drafts'
-import { publishDraftMirror } from './customization-sync'
+import type { CustomizationDraft } from '@/api/customization-types'
+import { publishDraftMirror, takeStashedDraft } from './customization-sync'
 import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
@@ -36,9 +37,12 @@ export function EditorWorkspace({
   module: EditorModuleDef
   onClose: () => void
 }): React.ReactElement {
+  // Continuing a saved draft: the hub handed it over on open (see customization-
+  // sync). Read once — a later plain open must start from a clean sheet.
+  const [resumed] = useState(() => takeStashedDraft(module.key))
   return (
-    <DraftConfigProvider moduleKey={module.key}>
-      <EditorLayout module={module} onClose={onClose} />
+    <DraftConfigProvider moduleKey={module.key} initialPayload={resumed?.payload}>
+      <EditorLayout module={module} onClose={onClose} resumed={resumed} />
     </DraftConfigProvider>
   )
 }
@@ -46,9 +50,12 @@ export function EditorWorkspace({
 function EditorLayout({
   module,
   onClose,
+  resumed,
 }: {
   module: EditorModuleDef
   onClose: () => void
+  /** The draft this session continues — kept so saving updates it instead of forking. */
+  resumed: CustomizationDraft | null
 }): React.ReactElement {
   const { t } = useTranslation()
   const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo } = useDraftConfig()
@@ -86,10 +93,16 @@ function EditorLayout({
   }, [blocker])
 
   const moduleName = t(module.titleKey)
-  const draftName = t('customization.editor.draftName', { module: moduleName })
+  // A continued draft keeps its own name — renaming it on every save would make
+  // the rollout list read as if a second rollout had appeared.
+  const draftName = resumed?.name ?? t('customization.editor.draftName', { module: moduleName })
+  // Which record this session writes to: the continued one, or the one created by
+  // the first save. Without it, every save created another entry in the list.
+  const [draftId, setDraftId] = useState<string | undefined>(resumed?.id)
 
   const handleSaveDraft = (): void => {
-    const d = saveDraft({ moduleKey: module.key, name: draftName, payload: buildPayload() })
+    const d = saveDraft({ id: draftId, moduleKey: module.key, name: draftName, payload: buildPayload() })
+    setDraftId(d.id)
     publishDraftMirror(d)
     toast.success(t('customization.editor.toast.draftSaved'))
   }
@@ -176,6 +189,7 @@ function EditorLayout({
       <DeployDialog
         open={deployOpen}
         onClose={() => setDeployOpen(false)}
+        draftId={draftId}
         moduleKey={module.key}
         draftName={draftName}
         changeCount={changeCount}

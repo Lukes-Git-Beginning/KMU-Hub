@@ -452,17 +452,21 @@ function SortableColumnRow({
             <>
               {/* Own line, no separator: origin + width never fit side by side in
                   the panel's width, and a dangling "·" at a wrap looks like debris.
-                  The width itself is the reset control — a separate icon button
-                  pushed the meta block into a third row and made the list ragged. */}
+                  The number is a READING (Darien: "da stehen nur zahlen … man checkt
+                  das nicht"), the reset is its own labelled control next to it. */}
               <span className="w-full" aria-hidden="true" />
+              <span className="shrink-0">
+                {t('customization.editor.spalten.width', { percent: Math.round(row.width * 100) })}
+              </span>
               <button
                 type="button"
                 onClick={onResetWidth}
                 aria-label={t('customization.editor.spalten.widthReset', { column: row.label })}
                 title={t('customization.editor.spalten.widthReset', { column: row.label })}
-                className="-mx-1 shrink-0 rounded px-1 underline decoration-dotted underline-offset-2 transition-colors hover:bg-secondary hover:text-foreground"
+                className="flex shrink-0 items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-secondary hover:text-foreground"
               >
-                {t('customization.editor.spalten.width', { percent: Math.round(row.width * 100) })}
+                <RotateCcw className="h-2.5 w-2.5" aria-hidden="true" />
+                {t('customization.editor.spalten.widthResetShort')}
               </button>
             </>
           )}

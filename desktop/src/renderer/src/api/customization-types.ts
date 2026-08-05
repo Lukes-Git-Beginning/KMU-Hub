@@ -267,6 +267,13 @@ export interface CustomizationDraft {
   updatedAt: string
   /** Actor id who created the draft. */
   createdBy: string
+  /**
+   * In-app announcement shown to affected users when this rollout goes live.
+   * Lives on the RECORD, not just in the commit dialog (Darien 2026-08-05: "man
+   * hat ja gar keine Ahnung wie wo was diese Nachricht deployed wird") — so it can
+   * be read, written and explained in the rollout detail, and delivered on deploy.
+   */
+  announcement?: string
 }
 
 /** How the editor commit dialog resolves the current draft. */
@@ -279,10 +286,15 @@ export interface SaveDraftInput {
   moduleKey: string
   name: string
   payload: CustomizationDraftPayload
+  /** Announcement to keep on the record (undefined leaves an existing one alone). */
+  announcement?: string
 }
 
 /** Body for POST /customization/drafts/deploy — apply now, schedule, or keep as draft. */
 export interface DeployDraftInput {
+  /** Present when deploying an EXISTING draft (continued in the editor, or
+   *  launched from the rollout list) — without it every deploy forks a new record. */
+  id?: string
   moduleKey: string
   name: string
   payload: CustomizationDraftPayload

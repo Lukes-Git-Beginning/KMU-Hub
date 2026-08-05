@@ -63,6 +63,42 @@ export function publishDraftMirror(draft: CustomizationDraft): void {
   getChannel()?.postMessage(msg)
 }
 
+// ── Continue a saved draft (Darien 2026-08-05) ────────────────────────────────
+//
+// The pencil in the rollout list used to open a BLANK editor: the record was
+// there, its changes were not. The editor window does not exist yet at that
+// moment, so a channel message would have nobody to receive it — the draft is
+// therefore handed over through localStorage, which both windows share (same
+// origin) and which survives the window launch. Luke's backend turns this into
+// "open the editor with ?draft=<id>" and a plain GET.
+
+const RESUME_KEY = 'cosmi:customization:resume-draft'
+
+/** Hub → editor: hand over the draft to continue. Overwrites any stale handover. */
+export function stashDraftForEditor(draft: CustomizationDraft): void {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify(draft))
+  } catch {
+    // Private mode / quota: the editor simply opens empty, as it did before.
+  }
+}
+
+/**
+ * Editor → read and CONSUME the handover (one-shot, so a later plain open starts
+ * clean). Returns null when nothing was handed over for this module.
+ */
+export function takeStashedDraft(moduleKey: string): CustomizationDraft | null {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY)
+    if (!raw) return null
+    localStorage.removeItem(RESUME_KEY)
+    const draft = JSON.parse(raw) as CustomizationDraft
+    return draft?.moduleKey === moduleKey ? draft : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Main-window listener: converge the local mock tenant layer with a deploy that
  * happened in another window and refresh the live label overlay + queries.
