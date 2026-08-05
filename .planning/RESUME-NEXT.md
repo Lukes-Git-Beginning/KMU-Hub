@@ -1,4 +1,16 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5 + R6)
+# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5/R6/R7)
+
+> **★★★★★ R7 (Dariens dritter Durchgang) — GEBAUT, Commit `ec67e562`. Neue Electron-QA 11/11.**
+>
+> - **„Entwurf speichert nicht" — die Ursache war der ÖFFNEN-Weg, nicht das Speichern.** Nur der Stift in der Rollout-Liste hat den Entwurf übergeben; die **Modul-Kachel** startete immer leer. Jetzt setzt das Öffnen eines Moduls dessen offenen Entwurf fort (ein gespeicherter Entwurf IST der Stand des Moduls, bis er übernommen oder verworfen wird), der Editor benennt im Banner den geladenen Entwurf und bietet **„Neu anfangen"**.
+> - **⚠⚠ QA-Lücke geschlossen: `qa-editor-electron-l.mjs` fährt die ECHTE Electron-App** (`_electron.launch`, eigenes `--user-data-dir`) — zweites BrowserWindow über IPC, eigener Renderer-Prozess, echte Fensterlebensdauer. Alle bisherigen Editor-Suiten liefen im Browser und konnten den Übergabeweg gar nicht prüfen. **Regel ab jetzt: alles Fenster-/IPC-Nahe dort testen.**
+> - **Kachel-Zahlen echt** (Darien: „die Daten sind nur Mocks"): vorher Array-Längen der Definition — Helpdesk sagte „0 Begriffe", obwohl acht Überschriften umbenennbar sind, und „1 Feld-Typ" war die Zahl der **Entitäten**. Jetzt echte Begriffe/Wertelisten (inkl. der von Modul-Feldern gebundenen)/Felder.
+> - **Live-Prozentwert beim Ziehen** + **ein Editor-Fenster pro Modul** (siehe R6).
+> **★ Diagnose-Lehre:** ein Provider-Fehler im Editor war NICHT im Code, sondern ein zerschossener Dev-Server-Zustand (9 parallele Electron-Instanzen aus Testläufen + `page reload` mitten im Test). Vor jeder Fehlersuche: Server sauber neu starten, Instanzen zählen.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5 + R6)
 
 > **★★★★★ R6 (Dariens zweiter Review-Durchgang) — GEBAUT, Commit `1fad3f88`, QA 20/20 + neue Zwei-Fenster-Suite 6/6. 5 Commits lokal, weiterhin nicht gepusht.**
 >
