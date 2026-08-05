@@ -220,17 +220,22 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 }
 
 func (r *PostgresRepository) UpdateTicket(ctx context.Context, t *Ticket) error {
+	customFields, err := json.Marshal(orEmptyMap(t.CustomFields))
+	if err != nil {
+		return fmt.Errorf("marshal custom_fields: %w", err)
+	}
+
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE tickets
 		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
 		     queue_id = $5, due_at = $6, merged_into_id = $7,
 		     first_response_at = $8, resolved_at = $9, updated_at = $10,
-		     contact_id = $11, org_id = $12
-		 WHERE id = $13 AND tenant_id = $14`,
+		     contact_id = $11, org_id = $12, custom_fields = $13
+		 WHERE id = $14 AND tenant_id = $15`,
 		t.Subject, t.Status, t.Priority, t.AssigneeID,
 		t.QueueID, t.DueAt, t.MergedIntoID,
 		t.FirstResponseAt, t.ResolvedAt, t.UpdatedAt,
-		t.ContactID, t.OrgID,
+		t.ContactID, t.OrgID, customFields,
 		t.ID, t.TenantID,
 	)
 	if err != nil {

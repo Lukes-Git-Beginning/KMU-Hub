@@ -1038,14 +1038,22 @@ func (x *ListTicketsResponse) GetTotal() int32 {
 }
 
 type UpdateTicketRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
-	Subject       *string                `protobuf:"bytes,2,opt,name=subject,proto3,oneof" json:"subject,omitempty"`
-	Priority      *string                `protobuf:"bytes,3,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
-	AssigneeId    *string                `protobuf:"bytes,4,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
-	QueueId       *string                `protobuf:"bytes,5,opt,name=queue_id,json=queueId,proto3,oneof" json:"queue_id,omitempty"`
-	ContactId     *string                `protobuf:"bytes,6,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
-	OrgId         *string                `protobuf:"bytes,7,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TicketId   string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	Subject    *string                `protobuf:"bytes,2,opt,name=subject,proto3,oneof" json:"subject,omitempty"`
+	Priority   *string                `protobuf:"bytes,3,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
+	AssigneeId *string                `protobuf:"bytes,4,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
+	QueueId    *string                `protobuf:"bytes,5,opt,name=queue_id,json=queueId,proto3,oneof" json:"queue_id,omitempty"`
+	ContactId  *string                `protobuf:"bytes,6,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	OrgId      *string                `protobuf:"bytes,7,opt,name=org_id,json=orgId,proto3,oneof" json:"org_id,omitempty"`
+	// status covers the transitions close/reopen do not: pending, solved, and
+	// any move back to open that isn't a reopen-from-closed. Validated against
+	// ValidTicketStatuses server-side, not trusted from the caller.
+	Status *string `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// custom_fields is a MERGE patch, not a replace: the module sends only the
+	// one field it changed, and a replace here would delete every other one on
+	// the next unrelated edit.
+	CustomFields  *structpb.Struct `protobuf:"bytes,9,opt,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1127,6 +1135,20 @@ func (x *UpdateTicketRequest) GetOrgId() string {
 		return *x.OrgId
 	}
 	return ""
+}
+
+func (x *UpdateTicketRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *UpdateTicketRequest) GetCustomFields() *structpb.Struct {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
 }
 
 type CloseTicketRequest struct {
@@ -4049,7 +4071,7 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\a_org_id\"Z\n" +
 	"\x13ListTicketsResponse\x12-\n" +
 	"\atickets\x18\x01 \x03(\v2\x13.helpdesk.v1.TicketR\atickets\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xc8\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xae\x03\n" +
 	"\x13UpdateTicketRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x1d\n" +
 	"\asubject\x18\x02 \x01(\tH\x00R\asubject\x88\x01\x01\x12\x1f\n" +
@@ -4059,14 +4081,17 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\bqueue_id\x18\x05 \x01(\tH\x03R\aqueueId\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"contact_id\x18\x06 \x01(\tH\x04R\tcontactId\x88\x01\x01\x12\x1a\n" +
-	"\x06org_id\x18\a \x01(\tH\x05R\x05orgId\x88\x01\x01B\n" +
+	"\x06org_id\x18\a \x01(\tH\x05R\x05orgId\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\b \x01(\tH\x06R\x06status\x88\x01\x01\x12<\n" +
+	"\rcustom_fields\x18\t \x01(\v2\x17.google.protobuf.StructR\fcustomFieldsB\n" +
 	"\n" +
 	"\b_subjectB\v\n" +
 	"\t_priorityB\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_queue_idB\r\n" +
 	"\v_contact_idB\t\n" +
-	"\a_org_id\"1\n" +
+	"\a_org_idB\t\n" +
+	"\a_status\"1\n" +
 	"\x12CloseTicketRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\"2\n" +
 	"\x13ReopenTicketRequest\x12\x1b\n" +
@@ -4423,100 +4448,101 @@ var file_proto_helpdesk_v1_helpdesk_proto_depIdxs = []int32{
 	58, // 12: helpdesk.v1.SLAPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	59, // 13: helpdesk.v1.CreateTicketRequest.custom_fields:type_name -> google.protobuf.Struct
 	0,  // 14: helpdesk.v1.ListTicketsResponse.tickets:type_name -> helpdesk.v1.Ticket
-	0,  // 15: helpdesk.v1.CreateTicketFromMessageResponse.ticket:type_name -> helpdesk.v1.Ticket
-	1,  // 16: helpdesk.v1.ListMessagesResponse.messages:type_name -> helpdesk.v1.TicketMessage
-	2,  // 17: helpdesk.v1.ListQueuesResponse.queues:type_name -> helpdesk.v1.TicketQueue
-	3,  // 18: helpdesk.v1.ListCannedResponsesResponse.canned_responses:type_name -> helpdesk.v1.CannedResponse
-	4,  // 19: helpdesk.v1.ListSLAPoliciesResponse.policies:type_name -> helpdesk.v1.SLAPolicy
-	58, // 20: helpdesk.v1.KBArticle.created_at:type_name -> google.protobuf.Timestamp
-	58, // 21: helpdesk.v1.KBArticle.updated_at:type_name -> google.protobuf.Timestamp
-	40, // 22: helpdesk.v1.ListKBArticleResponse.articles:type_name -> helpdesk.v1.KBArticle
-	58, // 23: helpdesk.v1.RoutingRule.created_at:type_name -> google.protobuf.Timestamp
-	58, // 24: helpdesk.v1.RoutingRule.updated_at:type_name -> google.protobuf.Timestamp
-	46, // 25: helpdesk.v1.ListRoutingRuleResponse.rules:type_name -> helpdesk.v1.RoutingRule
-	58, // 26: helpdesk.v1.BusinessHoursResponse.updated_at:type_name -> google.protobuf.Timestamp
-	55, // 27: helpdesk.v1.HelpdeskStats.weekly_breakdown:type_name -> helpdesk.v1.WeeklyDayCount
-	5,  // 28: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
-	6,  // 29: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
-	7,  // 30: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
-	9,  // 31: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
-	10, // 32: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
-	11, // 33: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
-	15, // 34: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
-	16, // 35: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
-	17, // 36: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:input_type -> helpdesk.v1.CreateTicketFromMessageRequest
-	12, // 37: helpdesk.v1.HelpdeskService.SubmitCsat:input_type -> helpdesk.v1.SubmitCsatRequest
-	13, // 38: helpdesk.v1.HelpdeskService.SubmitCsatByToken:input_type -> helpdesk.v1.SubmitCsatByTokenRequest
-	53, // 39: helpdesk.v1.HelpdeskService.GetBusinessHours:input_type -> helpdesk.v1.GetBusinessHoursRequest
-	54, // 40: helpdesk.v1.HelpdeskService.UpdateBusinessHours:input_type -> helpdesk.v1.UpdateBusinessHoursRequest
-	19, // 41: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
-	20, // 42: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
-	22, // 43: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
-	23, // 44: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
-	24, // 45: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
-	26, // 46: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
-	27, // 47: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
-	28, // 48: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
-	29, // 49: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
-	30, // 50: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
-	32, // 51: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
-	33, // 52: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
-	34, // 53: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
-	39, // 54: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:input_type -> helpdesk.v1.DeleteSLAPolicyRequest
-	36, // 55: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
-	37, // 56: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
-	41, // 57: helpdesk.v1.HelpdeskService.ListKBArticle:input_type -> helpdesk.v1.ListKBArticleRequest
-	43, // 58: helpdesk.v1.HelpdeskService.CreateKBArticle:input_type -> helpdesk.v1.CreateKBArticleRequest
-	44, // 59: helpdesk.v1.HelpdeskService.UpdateKBArticle:input_type -> helpdesk.v1.UpdateKBArticleRequest
-	45, // 60: helpdesk.v1.HelpdeskService.DeleteKBArticle:input_type -> helpdesk.v1.DeleteKBArticleRequest
-	47, // 61: helpdesk.v1.HelpdeskService.ListRoutingRule:input_type -> helpdesk.v1.ListRoutingRuleRequest
-	49, // 62: helpdesk.v1.HelpdeskService.CreateRoutingRule:input_type -> helpdesk.v1.CreateRoutingRuleRequest
-	50, // 63: helpdesk.v1.HelpdeskService.UpdateRoutingRule:input_type -> helpdesk.v1.UpdateRoutingRuleRequest
-	51, // 64: helpdesk.v1.HelpdeskService.DeleteRoutingRule:input_type -> helpdesk.v1.DeleteRoutingRuleRequest
-	57, // 65: helpdesk.v1.HelpdeskService.GetHelpdeskStats:input_type -> helpdesk.v1.GetHelpdeskStatsRequest
-	0,  // 66: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 67: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
-	8,  // 68: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
-	0,  // 69: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 70: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 71: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 72: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
-	60, // 73: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
-	18, // 74: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:output_type -> helpdesk.v1.CreateTicketFromMessageResponse
-	0,  // 75: helpdesk.v1.HelpdeskService.SubmitCsat:output_type -> helpdesk.v1.Ticket
-	14, // 76: helpdesk.v1.HelpdeskService.SubmitCsatByToken:output_type -> helpdesk.v1.SubmitCsatByTokenResponse
-	52, // 77: helpdesk.v1.HelpdeskService.GetBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
-	52, // 78: helpdesk.v1.HelpdeskService.UpdateBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
-	1,  // 79: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
-	21, // 80: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
-	2,  // 81: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
-	2,  // 82: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
-	25, // 83: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
-	60, // 84: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
-	3,  // 85: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	3,  // 86: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	60, // 87: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
-	31, // 88: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
-	4,  // 89: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	4,  // 90: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	35, // 91: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
-	60, // 92: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:output_type -> google.protobuf.Empty
-	0,  // 93: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
-	38, // 94: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
-	42, // 95: helpdesk.v1.HelpdeskService.ListKBArticle:output_type -> helpdesk.v1.ListKBArticleResponse
-	40, // 96: helpdesk.v1.HelpdeskService.CreateKBArticle:output_type -> helpdesk.v1.KBArticle
-	40, // 97: helpdesk.v1.HelpdeskService.UpdateKBArticle:output_type -> helpdesk.v1.KBArticle
-	60, // 98: helpdesk.v1.HelpdeskService.DeleteKBArticle:output_type -> google.protobuf.Empty
-	48, // 99: helpdesk.v1.HelpdeskService.ListRoutingRule:output_type -> helpdesk.v1.ListRoutingRuleResponse
-	46, // 100: helpdesk.v1.HelpdeskService.CreateRoutingRule:output_type -> helpdesk.v1.RoutingRule
-	46, // 101: helpdesk.v1.HelpdeskService.UpdateRoutingRule:output_type -> helpdesk.v1.RoutingRule
-	60, // 102: helpdesk.v1.HelpdeskService.DeleteRoutingRule:output_type -> google.protobuf.Empty
-	56, // 103: helpdesk.v1.HelpdeskService.GetHelpdeskStats:output_type -> helpdesk.v1.HelpdeskStats
-	66, // [66:104] is the sub-list for method output_type
-	28, // [28:66] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	59, // 15: helpdesk.v1.UpdateTicketRequest.custom_fields:type_name -> google.protobuf.Struct
+	0,  // 16: helpdesk.v1.CreateTicketFromMessageResponse.ticket:type_name -> helpdesk.v1.Ticket
+	1,  // 17: helpdesk.v1.ListMessagesResponse.messages:type_name -> helpdesk.v1.TicketMessage
+	2,  // 18: helpdesk.v1.ListQueuesResponse.queues:type_name -> helpdesk.v1.TicketQueue
+	3,  // 19: helpdesk.v1.ListCannedResponsesResponse.canned_responses:type_name -> helpdesk.v1.CannedResponse
+	4,  // 20: helpdesk.v1.ListSLAPoliciesResponse.policies:type_name -> helpdesk.v1.SLAPolicy
+	58, // 21: helpdesk.v1.KBArticle.created_at:type_name -> google.protobuf.Timestamp
+	58, // 22: helpdesk.v1.KBArticle.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 23: helpdesk.v1.ListKBArticleResponse.articles:type_name -> helpdesk.v1.KBArticle
+	58, // 24: helpdesk.v1.RoutingRule.created_at:type_name -> google.protobuf.Timestamp
+	58, // 25: helpdesk.v1.RoutingRule.updated_at:type_name -> google.protobuf.Timestamp
+	46, // 26: helpdesk.v1.ListRoutingRuleResponse.rules:type_name -> helpdesk.v1.RoutingRule
+	58, // 27: helpdesk.v1.BusinessHoursResponse.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 28: helpdesk.v1.HelpdeskStats.weekly_breakdown:type_name -> helpdesk.v1.WeeklyDayCount
+	5,  // 29: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
+	6,  // 30: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
+	7,  // 31: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
+	9,  // 32: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
+	10, // 33: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
+	11, // 34: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
+	15, // 35: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
+	16, // 36: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
+	17, // 37: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:input_type -> helpdesk.v1.CreateTicketFromMessageRequest
+	12, // 38: helpdesk.v1.HelpdeskService.SubmitCsat:input_type -> helpdesk.v1.SubmitCsatRequest
+	13, // 39: helpdesk.v1.HelpdeskService.SubmitCsatByToken:input_type -> helpdesk.v1.SubmitCsatByTokenRequest
+	53, // 40: helpdesk.v1.HelpdeskService.GetBusinessHours:input_type -> helpdesk.v1.GetBusinessHoursRequest
+	54, // 41: helpdesk.v1.HelpdeskService.UpdateBusinessHours:input_type -> helpdesk.v1.UpdateBusinessHoursRequest
+	19, // 42: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
+	20, // 43: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
+	22, // 44: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
+	23, // 45: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
+	24, // 46: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
+	26, // 47: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
+	27, // 48: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
+	28, // 49: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
+	29, // 50: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
+	30, // 51: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
+	32, // 52: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
+	33, // 53: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
+	34, // 54: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
+	39, // 55: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:input_type -> helpdesk.v1.DeleteSLAPolicyRequest
+	36, // 56: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
+	37, // 57: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
+	41, // 58: helpdesk.v1.HelpdeskService.ListKBArticle:input_type -> helpdesk.v1.ListKBArticleRequest
+	43, // 59: helpdesk.v1.HelpdeskService.CreateKBArticle:input_type -> helpdesk.v1.CreateKBArticleRequest
+	44, // 60: helpdesk.v1.HelpdeskService.UpdateKBArticle:input_type -> helpdesk.v1.UpdateKBArticleRequest
+	45, // 61: helpdesk.v1.HelpdeskService.DeleteKBArticle:input_type -> helpdesk.v1.DeleteKBArticleRequest
+	47, // 62: helpdesk.v1.HelpdeskService.ListRoutingRule:input_type -> helpdesk.v1.ListRoutingRuleRequest
+	49, // 63: helpdesk.v1.HelpdeskService.CreateRoutingRule:input_type -> helpdesk.v1.CreateRoutingRuleRequest
+	50, // 64: helpdesk.v1.HelpdeskService.UpdateRoutingRule:input_type -> helpdesk.v1.UpdateRoutingRuleRequest
+	51, // 65: helpdesk.v1.HelpdeskService.DeleteRoutingRule:input_type -> helpdesk.v1.DeleteRoutingRuleRequest
+	57, // 66: helpdesk.v1.HelpdeskService.GetHelpdeskStats:input_type -> helpdesk.v1.GetHelpdeskStatsRequest
+	0,  // 67: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 68: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
+	8,  // 69: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
+	0,  // 70: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 71: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 72: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 73: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
+	60, // 74: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
+	18, // 75: helpdesk.v1.HelpdeskService.CreateTicketFromMessage:output_type -> helpdesk.v1.CreateTicketFromMessageResponse
+	0,  // 76: helpdesk.v1.HelpdeskService.SubmitCsat:output_type -> helpdesk.v1.Ticket
+	14, // 77: helpdesk.v1.HelpdeskService.SubmitCsatByToken:output_type -> helpdesk.v1.SubmitCsatByTokenResponse
+	52, // 78: helpdesk.v1.HelpdeskService.GetBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
+	52, // 79: helpdesk.v1.HelpdeskService.UpdateBusinessHours:output_type -> helpdesk.v1.BusinessHoursResponse
+	1,  // 80: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
+	21, // 81: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
+	2,  // 82: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
+	2,  // 83: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
+	25, // 84: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
+	60, // 85: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
+	3,  // 86: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	3,  // 87: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	60, // 88: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
+	31, // 89: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
+	4,  // 90: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	4,  // 91: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	35, // 92: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
+	60, // 93: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:output_type -> google.protobuf.Empty
+	0,  // 94: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
+	38, // 95: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
+	42, // 96: helpdesk.v1.HelpdeskService.ListKBArticle:output_type -> helpdesk.v1.ListKBArticleResponse
+	40, // 97: helpdesk.v1.HelpdeskService.CreateKBArticle:output_type -> helpdesk.v1.KBArticle
+	40, // 98: helpdesk.v1.HelpdeskService.UpdateKBArticle:output_type -> helpdesk.v1.KBArticle
+	60, // 99: helpdesk.v1.HelpdeskService.DeleteKBArticle:output_type -> google.protobuf.Empty
+	48, // 100: helpdesk.v1.HelpdeskService.ListRoutingRule:output_type -> helpdesk.v1.ListRoutingRuleResponse
+	46, // 101: helpdesk.v1.HelpdeskService.CreateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	46, // 102: helpdesk.v1.HelpdeskService.UpdateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	60, // 103: helpdesk.v1.HelpdeskService.DeleteRoutingRule:output_type -> google.protobuf.Empty
+	56, // 104: helpdesk.v1.HelpdeskService.GetHelpdeskStats:output_type -> helpdesk.v1.HelpdeskStats
+	67, // [67:105] is the sub-list for method output_type
+	29, // [29:67] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_proto_helpdesk_v1_helpdesk_proto_init() }

@@ -177,6 +177,12 @@ type updateTicketRequest struct {
 	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
 	ContactID  *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
 	OrgID      *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+	// Status is validated service-side against ValidTicketStatuses, not here --
+	// close/reopen stay the dedicated endpoints for those two transitions, this
+	// covers the rest (e.g. open -> pending, pending -> solved).
+	Status *string `json:"status,omitempty"`
+	// CustomFields is a merge patch, not a replace (see Service.UpdateTicket).
+	CustomFields map[string]any `json:"custom_fields,omitempty"`
 }
 
 type assignTicketRequest struct {
@@ -459,11 +465,20 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 	grpcReq := &helpdeskv1.UpdateTicketRequest{
 		TicketId:   ticketID,
 		Subject:    req.Subject,
+		Status:     req.Status,
 		Priority:   req.Priority,
 		AssigneeId: req.AssigneeID,
 		QueueId:    req.QueueID,
 		ContactId:  req.ContactID,
 		OrgId:      req.OrgID,
+	}
+	if req.CustomFields != nil {
+		cf, cfErr := structpb.NewStruct(req.CustomFields)
+		if cfErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid custom_fields")
+			return
+		}
+		grpcReq.CustomFields = cf
 	}
 
 	resp, err := client.UpdateTicket(r.Context(), grpcReq)

@@ -320,7 +320,7 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		orgID = &oid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID, contactID, orgID)
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Status, req.Priority, assigneeID, queueID, contactID, orgID, req.GetCustomFields().AsMap())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}

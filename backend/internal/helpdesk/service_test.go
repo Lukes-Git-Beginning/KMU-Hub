@@ -844,7 +844,7 @@ func TestUpdateTicket_PriorityChange(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	newPriority := TicketPriorityUrgent
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newPriority, nil, nil, nil, nil)
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &newPriority, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -859,9 +859,100 @@ func TestUpdateTicket_InvalidPriority(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	bad := "supercritical"
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil, nil, nil)
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &bad, nil, nil, nil, nil, nil)
 	if !errors.Is(err, ErrInvalidPriority) {
 		t.Errorf("expected ErrInvalidPriority, got %v", err)
+	}
+}
+
+func TestUpdateTicket_StatusChange(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	newStatus := TicketStatusPending
+
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newStatus, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Status != TicketStatusPending {
+		t.Errorf("expected status pending, got %s", updated.Status)
+	}
+}
+
+// TestUpdateTicket_RejectsClosedAndMergedStatus proves the generic update
+// path cannot be used to sneak a ticket into "closed" or "merged" -- both
+// have dedicated endpoints (/close, /merge) with side effects (resolved_at +
+// CSAT token issuance; message reassignment) that setting status here would
+// silently skip.
+func TestUpdateTicket_RejectsClosedAndMergedStatus(t *testing.T) {
+	h := newTestHarness()
+
+	for _, blocked := range []string{TicketStatusClosed, TicketStatusMerged} {
+		ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+		status := blocked
+
+		_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &status, nil, nil, nil, nil, nil, nil)
+		if !errors.Is(err, ErrInvalidStatus) {
+			t.Errorf("status=%s: expected ErrInvalidStatus, got %v", blocked, err)
+		}
+	}
+}
+
+func TestUpdateTicket_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	bad := "vaporized"
+
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil, nil, nil, nil, nil)
+	if !errors.Is(err, ErrInvalidStatus) {
+		t.Errorf("expected ErrInvalidStatus, got %v", err)
+	}
+}
+
+// TestUpdateTicket_CustomFieldsMergeAcrossUpdates proves the patch semantics
+// HelpdeskPage.tsx relies on: handleCustomFieldCommit sends one changed key
+// per call, and a second call must not erase the first one's key.
+func TestUpdateTicket_CustomFieldsMergeAcrossUpdates(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"standort": "Bern"})
+	if err != nil {
+		t.Fatalf("first update: %v", err)
+	}
+	if updated.CustomFields["standort"] != "Bern" {
+		t.Fatalf("custom_fields[standort] = %v, want Bern", updated.CustomFields["standort"])
+	}
+
+	updated, err = h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"garantie": true})
+	if err != nil {
+		t.Fatalf("second update: %v", err)
+	}
+	if len(updated.CustomFields) != 2 {
+		t.Fatalf("custom_fields = %v, want 2 entries after merge", updated.CustomFields)
+	}
+	if updated.CustomFields["standort"] != "Bern" {
+		t.Errorf("custom_fields[standort] = %v, want Bern (must survive the second update)", updated.CustomFields["standort"])
+	}
+	if updated.CustomFields["garantie"] != true {
+		t.Errorf("custom_fields[garantie] = %v, want true", updated.CustomFields["garantie"])
+	}
+}
+
+func TestUpdateTicket_CustomFieldsRejectsNested(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"nested": map[string]any{"a": 1}})
+	if !errors.Is(err, ErrInvalidCustomFields) {
+		t.Errorf("expected ErrInvalidCustomFields, got %v", err)
 	}
 }
 

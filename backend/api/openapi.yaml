@@ -13993,11 +13993,18 @@ paths:
               type: object
               properties:
                 subject: { type: string, maxLength: 200 }
+                status:
+                  type: string
+                  enum: [open, pending, solved]
+                  description: closed and merged go through /close and /merge instead, which carry side effects this field does not apply.
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
                 contact_id: { type: string, format: uuid }
                 org_id: { type: string, format: uuid }
+                custom_fields:
+                  type: object
+                  description: Merge patch — sent keys overwrite, absent keys are left untouched.
       responses:
         "200":
           description: Ticket updated

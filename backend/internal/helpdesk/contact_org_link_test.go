@@ -217,7 +217,7 @@ func TestCreateAndUpdateTicket_LinksOwnTenantContactAndOrgAndFilters(t *testing.
 	}
 
 	// UpdateTicket with a fresh own-tenant contact links a previously unlinked ticket.
-	updated, err := svc.UpdateTicket(ctxOwn, unlinked.ID, tenantOwn, nil, nil, nil, nil, &contactID, nil)
+	updated, err := svc.UpdateTicket(ctxOwn, unlinked.ID, tenantOwn, nil, nil, nil, nil, nil, &contactID, nil, nil)
 	if err != nil {
 		t.Fatalf("UpdateTicket with own-tenant contact: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestUpdateTicket_RejectsForeignTenantContact(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "tickets", ticket.ID)
 
-	_, err = svc.UpdateTicket(ctxOwn, ticket.ID, tenantOwn, nil, nil, nil, nil, &foreignContactID, nil)
+	_, err = svc.UpdateTicket(ctxOwn, ticket.ID, tenantOwn, nil, nil, nil, nil, nil, &foreignContactID, nil, nil)
 	if !errors.Is(err, ErrContactNotFound) {
 		t.Fatalf("UpdateTicket with foreign contact_id: expected ErrContactNotFound, got %v", err)
 	}

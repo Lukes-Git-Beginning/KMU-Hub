@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -244,16 +245,22 @@ func (s *Service) checkContactOrgTenant(ctx context.Context, tenantID uuid.UUID,
 	return nil
 }
 
-// UpdateTicket applies field-level patches to a ticket.
+// UpdateTicket applies field-level patches to a ticket. customFields is a
+// MERGE patch onto the ticket's existing map, not a replacement -- callers
+// send only the one field they changed (see handleCustomFieldCommit in
+// HelpdeskPage.tsx), and overwriting the whole map would delete every other
+// custom field on the next unrelated edit.
 func (s *Service) UpdateTicket(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
 	subject *string,
+	statusVal *string,
 	priority *string,
 	assigneeID *uuid.UUID,
 	queueID *uuid.UUID,
 	contactID *uuid.UUID,
 	orgID *uuid.UUID,
+	customFields map[string]any,
 ) (*Ticket, error) {
 	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
@@ -268,6 +275,20 @@ func (s *Service) UpdateTicket(
 			return nil, fmt.Errorf("subject must not be empty")
 		}
 		t.Subject = *subject
+	}
+	if statusVal != nil {
+		if !ValidTicketStatuses[*statusVal] {
+			return nil, ErrInvalidStatus
+		}
+		// closed and merged keep their own endpoints (CloseTicket issues the
+		// CSAT survey token and stamps resolved_at; MergeTickets reassigns
+		// messages) -- taking either transition through this generic field
+		// would apply the status without those side effects and desync the
+		// ticket exactly the way this backlog block exists to prevent.
+		if *statusVal == TicketStatusClosed || *statusVal == TicketStatusMerged {
+			return nil, ErrInvalidStatus
+		}
+		t.Status = *statusVal
 	}
 	if priority != nil {
 		if !ValidTicketPriorities[*priority] {
@@ -286,6 +307,15 @@ func (s *Service) UpdateTicket(
 	}
 	if orgID != nil {
 		t.OrgID = orgID
+	}
+	if len(customFields) > 0 {
+		patch, err := normalizeCustomFields(customFields)
+		if err != nil {
+			return nil, err
+		}
+		merged := orEmptyMap(t.CustomFields)
+		maps.Copy(merged, patch)
+		t.CustomFields = merged
 	}
 	t.UpdatedAt = time.Now().UTC()
 

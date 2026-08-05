@@ -140,6 +140,47 @@ func TestHandleCreateTicket_CustomFieldsNotObject(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
+// --- HandleUpdateTicket ---
+
+// TestHandleUpdateTicket_IntakeFieldsPassValidation sends status and
+// custom_fields, the two fields updateTicketRequest silently dropped before
+// this unit (BACKLOG B4). Neither carries a `validate` tag -- status is
+// checked against ValidTicketStatuses and custom_fields against
+// ErrInvalidCustomFields on the service side -- so the handler must decode
+// and forward them without 400ing on its own. The dummy registry address
+// means the RPC itself fails with Unavailable, which is exactly what proves
+// decode+validate got past the new fields: a 400 here would mean the handler
+// rejected them before ever reaching the client.
+func TestHandleUpdateTicket_IntakeFieldsPassValidation(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{
+		"status": "pending",
+		"custom_fields": map[string]interface{}{
+			"standort": "Bern",
+		},
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateTicket(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleUpdateTicket_CustomFieldsNotObject mirrors
+// TestHandleCreateTicket_CustomFieldsNotObject: custom_fields as a JSON array
+// fails json.Decode into map[string]any at the type level, a 400 before the
+// handler ever builds a structpb.Struct.
+func TestHandleUpdateTicket_CustomFieldsNotObject(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", strings.NewReader(
+		`{"custom_fields":["not","an","object"]}`,
+	))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateTicket(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
 // --- HandleAssignTicket ---
 
 func TestHandleAssignTicket_ServiceUnavailable(t *testing.T) {

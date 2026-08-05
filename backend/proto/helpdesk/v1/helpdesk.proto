@@ -239,6 +239,14 @@ message UpdateTicketRequest {
   optional string queue_id = 5;
   optional string contact_id = 6;
   optional string org_id = 7;
+  // status covers the transitions close/reopen do not: pending, solved, and
+  // any move back to open that isn't a reopen-from-closed. Validated against
+  // ValidTicketStatuses server-side, not trusted from the caller.
+  optional string status = 8;
+  // custom_fields is a MERGE patch, not a replace: the module sends only the
+  // one field it changed, and a replace here would delete every other one on
+  // the next unrelated edit.
+  google.protobuf.Struct custom_fields = 9;
 }
 
 message CloseTicketRequest {
