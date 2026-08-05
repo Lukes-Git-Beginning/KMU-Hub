@@ -18,10 +18,23 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **Keine neue `config.RequireX`-Assertion** und **kein Scharfschalten neuer `modules.*`-Flags**.
   Beides ist ein Deploy-Hazard (`COSMI_ENV=production` ist live, CD deployt automatisch). Brauchst du eins,
   markier die Unit `blocked` mit Grund.
-- **RBAC Phase 1 Welle 1a UND 1b sind fuer diesen Lauf freigegeben** (Datenmodell, Seed, Resolver,
-  `/auth/me/permissions` — und neu: Rollen-CRUD `/admin/roles`, Rollen-Zuweisung, Guardrails,
-  Audit-Events). Luke hat 1b am 2026-08-02 freigegeben; Block A des Backlogs besteht daraus.
-  **Eine 1b-Unit ist also NICHT mehr zu blocken.**
+- **RBAC Phase 1 (Welle 1a und 1b) ist ABGESCHLOSSEN** — Datenmodell, Seed, Resolver,
+  `/auth/me/permissions`, Rollen-CRUD, Guardrails, Audit-Events, Per-User-Overrides und
+  Vendor-Access sind in Lauf 4 gebaut. In diesem Lauf ist kein RBAC-Nachbau vorgesehen.
+- **Freigegeben in diesem Lauf** (Lauf 5, Stand 2026-08-05): Helpdesk-CSAT von Grund auf,
+  der Helpdesk-Intake-Contract, Formular-Intake inklusive oeffentlicher Einreichung,
+  `hr/personnel-documents`, der Wiki-Token-Einloeseendpunkt, das Entfernen des toten
+  Vermietung-RPCs, Wertelisten (Value-Sets) und die Dependency-Bumps aus Block D.
+- **Oeffentliche Routen sind in diesem Lauf ein Schwerpunkt** (drei Stueck: CSAT-Antwort,
+  Formular-Einreichung, Wiki-Einloesung). Die Referenz ist
+  `POST /api/v1/public/berichte/reports/{token}` aus Lauf 4 — das Muster steht ausfuehrlich im
+  Kopf von `BACKLOG.yml` und ist zu **uebernehmen, nicht neu zu entwerfen**. Die beiden Fallen,
+  an denen man sich dort verbaut: den System-Kontext ueber den Token-Lookup hinaus mitschleifen
+  (= Tenant-Bypass statt Ausnahme fuer eine Zeile), und unterscheidbare Fehlermeldungen liefern
+  (abgelaufen, widerrufen, unbekannt und missgebildet muessen **alle** dieselbe 404 ergeben).
+- **Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz sind GESPERRT.** Ihr
+  FE-Vertrag wechselt gerade (Spalten-Panel: `boolean` wird zu `{visible, order, width}`).
+  Freigegeben ist aus dieser Flaeche nur, was in Block E steht.
 - **Phase 4 heisst: kein Neubau ganzer Branchen-Module.** Verifizierte Einzelluecken und Bugfixes
   in bereits bestehenden Branchen-Modulen (fuhrpark, inventar, vermietung, einkauf, produktion,
   schichten, rapporte) sind erlaubt und stehen als Units im Backlog — die arbeitest du normal ab.
