@@ -518,7 +518,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `form_schemas.intake_target_id` als Spalte und `role` je Feld im bestehenden
       `fields`-JSONB. Damit weiss ein Formular serverseitig, welchen Datensatz es erzeugt und

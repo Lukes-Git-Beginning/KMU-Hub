@@ -4014,3 +4014,62 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
     dahin ist die Lockerung Fundament, kein aktiver Pfad.
   - `category` beim Ticket-Update bleibt der bekannte, unberuehrte Datenverlust (siehe
     Iteration 52).
+
+## Iteration 54 — intake-form-target — done — 2026-08-06 01:3x
+- commit: 75e1fef6
+- gebaut: Migration 000292 fuegt `form_schemas.intake_target_id TEXT NULL` hinzu (Text-Kennung
+  ins Intake-Registry, bewusst keine FK). `FormField.Role string` (neuer optionaler JSONB-Key
+  im bestehenden `fields`-Array, keine Migration noetig dafuer) und `FormSchema.IntakeTargetID
+  *string` in models.go. `validateFields` prueft jetzt zusaetzlich `f.Role` gegen
+  `validIntakeRoles` (subject, description, priority, category, requester_name,
+  requester_email — 1:1 aus `helpdesk-ticket-target.ts`), unbekannte Rolle -> ErrInvalidFields
+  wie bei unbekanntem field.Type. `CreateSchemaInput`/`UpdateSchemaInput` tragen
+  `IntakeTargetID *string` mit dem gleichen nil-heisst-keine-Aenderung-Muster wie Title/
+  Description; ein Pointer auf "" loescht die Bindung (`normalizeIntakeTargetID` trimmt und
+  faltet Leerstring auf nil). Repository (INSERT/SELECT/UPDATE/List/Duplicate), Proto
+  (`FormSchema.intake_target_id=15`, `CreateFormSchemaRequest.intake_target_id=10`,
+  `UpdateFormSchemaRequest.intake_target_id=11`, `make proto-formulare` im selben Commit
+  regeneriert), gRPC-Server-Konvertierung und Gateway-DTOs (`createFormSchemaRequest`/
+  `updateFormSchemaRequest`) durchgezogen, openapi.yaml FormSchema-Schema + beide
+  Request-Bodies nachgezogen (keine neue Route, daher fuer TestOpenAPIRouteDrift nicht
+  Pflicht, aber Wire-Shape-Konsistenz).
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./...` ok | `go vet`
+  (formulare, gateway, server) ok | `golangci-lint run` (formulare, gateway, server)
+  **0 issues** | `go test -count=1 -v ./internal/formulare/...` **64 PASS / 0 FAIL / 0 SKIP**
+  (10 davon neu: Rollen-Validierung Create+Update, Rollen-Whitelist mit allen sechs Werten,
+  intake_target_id setzen/leeren/blank-normalisieren, Duplicate uebernimmt die Bindung) |
+  `go test -count=1 ./internal/gateway/...` ok inkl. `TestOpenAPIRouteDrift` (810/812) und
+  `TestOpenAPISpecDrift` gruen | `go test -count=1 ./internal/server/...` ok. Migration lokal
+  up, down, up gefahren — sauber reversibel (Spalte ist rein additiv, kein Backfill noetig).
+- verify vorgaenger (aa815b47): sauber. Migration + CHECK korrekt, `.down.sql` loescht
+  external-only Zeilen vor `SET NOT NULL` mit begruendetem Kommentar, gRPC-Server routet ueber
+  den Client, scope=own-Entscheidung wie im Journal dokumentiert nachvollzogen.
+- **Wichtiger Fund, NICHT in dieser Unit geloest:** `createFormSchema`/`updateFormSchema` haben
+  bereits vor dieser Iteration einen FE/BE-Shape-Mismatch, der jetzt auch `intake_target_id`
+  betrifft. `CreateFormSchemaInput`/`UpdateFormSchemaInput` (`formulare-types.ts`) sind
+  camelCase (`isTemplate`, `isPublic`, `pageCount`, jetzt `intakeTargetId`) und `fields` ist
+  dort ein strukturiertes `FormField[]`-Array; `formulare-client.ts` sendet den Body ueber
+  `JSON.stringify` **ohne** Casing-Transform (kein Pendant zu `api/casing.ts`, das andere
+  Module fuer genau dieses Problem nutzen). Die Gateway-DTOs (`route_formulare.go`) sind
+  snake_case (`is_template`, `page_count`, jetzt `intake_target_id`) und `fields` ist dort
+  `[]byte` (Go marshalt/unmarshalt das als Base64-String). Ergebnis: ein Schema-Create/Update
+  aus der echten FE-Oberflaeche wuerde `title` korrekt uebertragen, aber `is_template`,
+  `is_public`, `page_count`, `fields` und jetzt auch `intake_target_id` NICHT — entweder
+  stille Verwerfung (unbekannter JSON-Key) oder ein 400 (Array wo Base64-String erwartet
+  wird), abhaengig vom genauen Feld. Das ist ein Vorbestand (betraf `is_template`/`is_public`/
+  `page_count`/`fields` schon vor dieser Iteration unveraendert) und keine Regression dieser
+  Unit — aber es bedeutet, `intake_target_id` ist mit dieser Iteration im Backend fertig UND
+  end-to-end ueber die echte FE-Oberflaeche noch nicht erreichbar, bevor dieser Shape-Mismatch
+  behoben ist (Adapter analog `hr-client.ts` `adaptEmployee()` oder ein `casing.ts`-Einsatz
+  hier). Deutlich ausserhalb des B6-Scopes (`done_when` verlangt nur Spalte + Rollen-
+  Validierung, keine Route-Reise) und ein Fund mit Blast-Radius ueber das ganze
+  Formulare-Schema-CRUD hinaus — eigene Unit oder eigener Audit noetig, nicht Beifang hier.
+  MSW-Demo ist unberuehrt (Mocks sind selbst camelCase, spiegeln also den kaputten Vertrag).
+- offen fuer die naechste Iteration:
+  - `intake-form-dispatch` (B7) ist laut deps als naechstes dran; braucht `intake-route-create`
+    (fertig seit Iteration 51) UND `intake-form-target` (diese Iteration) — beide deps erfuellt.
+  - Der oben dokumentierte FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update ist kein
+    Blocker fuer B7 (Dispatch liest `fields`/`intake_target_id` serverseitig aus der bereits
+    gespeicherten Zeile, nicht aus einem frischen FE-Request), aber er verhindert, dass ein
+    Formular-Autor die Rolle/Ziel-Bindung ueberhaupt aus der echten UI heraus speichern kann.
+    Gehoert vor Block E/Formulare-Launch behoben, nicht in dieser Iteration.
