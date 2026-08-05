@@ -3873,3 +3873,77 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
     Unit — falls er wieder auftaucht und stoert, waere ein deterministischer Test (festes
     manipuliertes Byte statt "X" an fixer Position, oder pruefen, ob sich das Zeichen tatsaechlich
     geaendert hat) der saubere Fix, aber das ist ausserhalb von Helpdesk/Intake.
+
+## Iteration 52 — intake-route-update (B4)
+
+- commit: 4ada610d, "feat(helpdesk): persist status and custom_fields on ticket update".
+- verify vorgaenger: f4a6cd31/intake-route-create (Iteration 51) selbst geprueft nach dem Bauen,
+  kein neuer Vorgaenger-Fund. Kein Commit lag zwischen Iteration 51 und dieser Iteration.
+- gebaut: `UpdateTicketRequest` im Proto um `optional string status = 8` und
+  `google.protobuf.Struct custom_fields = 9` erweitert, `make proto-helpdesk`-Aequivalent
+  (protoc direkt, `make` fehlt in der bash) im selben Commit regeneriert. `Service.UpdateTicket`
+  nimmt jetzt `statusVal *string` und `customFields map[string]any` zusaetzlich zu den
+  bestehenden Parametern. `PostgresRepository.UpdateTicket` schreibt `custom_fields` jetzt mit
+  (vorher fehlte die Spalte komplett in der SET-Liste — ein Read-Modify-Write ueber den Service
+  haette sie also schon vorher nie persistiert, unabhaengig vom Gateway-Fix). Gateway-DTO um
+  `Status *string` und `CustomFields map[string]any` erweitert, `custom_fields` ueber
+  `structpb.NewStruct` in die gRPC-Request gehoben — schlaegt das fehl, 400 "invalid
+  custom_fields", exakt das Muster aus B3 (Iteration 51). `openapi.yaml` im selben Commit.
+- **custom_fields ist ein MERGE-Patch, kein Replace** — Vorgabe aus den B4-Notes, Vorlage ist
+  der MSW-Handler (`handlers/helpdesk.ts:754`): `ticket.custom_fields = { ...alt, ...patch }`.
+  `Service.UpdateTicket` laedt das bestehende `t.CustomFields` (kommt aus `GetTicketByID` ->
+  `applyCustomFields`, nie nil), validiert den eingehenden Patch ueber das bestehende
+  `normalizeCustomFields` (dieselbe Funktion wie beim Create-Intake, B2) und mergt mit
+  `maps.Copy` in eine Kopie. Zwei aufeinanderfolgende Updates mit je einem Key loeschen sich
+  nicht gegenseitig (Test `TestUpdateTicket_CustomFieldsMergeAcrossUpdates`).
+- **status: geprueft, aber NICHT alle fuenf Werte durchgelassen.** Die Notes verlangten
+  "erlaubte Werte UND Uebergaenge serverseitig pruefen" und hielten fest, dass close/reopen
+  ihre eigenen Endpunkte bleiben und dieses Feld "die uebrigen Uebergaenge" abdeckt. Entscheidung:
+  `status=closed` und `status=merged` werden ueber den generischen Pfad mit `ErrInvalidStatus`
+  abgelehnt (400), weil `CloseTicket` zusaetzlich `resolved_at` setzt und die CSAT-Umfrage
+  ausloest (`issueCsatSurvey`), und `MergeTickets` Nachrichten umhaengt — ein direktes
+  `status=closed` ueber PUT haette den Ticket-Status ohne diese Nebenwirkungen umgestellt und
+  genau die Art von stillem Datendrift erzeugt, die dieser ganze Block beheben soll. `open`,
+  `pending`, `solved` bleiben ueber das Feld erreichbar, unabhaengig vom aktuellen Ist-Status
+  (kein State-Machine-Umbau, das FE routet `closed` und `closed/resolved -> open` ohnehin nicht
+  hierher, siehe HelpdeskPage.tsx:497-514). `openapi.yaml`-Enum entsprechend auf
+  `[open, pending, solved]` verengt statt aller fuenf Werte, mit Begruendung im
+  `description`-Feld. Test `TestUpdateTicket_RejectsClosedAndMergedStatus` deckt beide
+  Ablehnungen ab.
+- **DisallowUnknownFields NICHT eingefuehrt.** `decodeAndValidate[T]` ist ein einziger generischer
+  Helper fuer JEDES DTO im gesamten Gateway-Package (Grep bestaetigt: keine Pro-Typ-Overrides).
+  Eine Option waere gewesen, es global anzuschalten, um den naechsten stillen Feldverlust laut zu
+  machen — aber das ist eine Verhaltensaenderung fuer saemtliche bestehenden Routen auf einmal,
+  nicht etwas das man nebenbei in einer einzelnen Helpdesk-Unit entscheidet. Bleibt aus, wie in
+  den Notes als Option vorgesehen ("falls es bestehende Clients brechen wuerde, ebenfalls
+  begruenden und lassen") — hier ist die Sorge nicht Client-Bruch, sondern Blast-Radius weit
+  ausserhalb des Scopes. Falls das noch gewuenscht ist: eigene Unit mit eigenem Audit ueber alle
+  DTOs, nicht Beifang hier.
+- **`category` bleibt ein bekannter, unberuehrter Datenverlust.** `UpdateTicketInput.category`
+  existiert im FE-Typ (`helpdesk-types.ts:136`), aber weder `updateTicketRequest` im Gateway noch
+  `UpdateTicketRequest` im Proto noch `Service.UpdateTicket` kennen das Feld — derselbe Fehler-
+  Typ wie status/custom_fields vor dieser Unit, aber ausserhalb des B4-Scopes (`done_when` nennt
+  nur status und custom_fields) und nicht in dieser Iteration angefasst. Naechste passende
+  Backlog-Unit oder Ergaenzung von B4, falls gewuenscht.
+- vier bestehende Aufrufer von `Service.UpdateTicket` (zwei in `contact_org_link_test.go`, zwei in
+  `service_test.go`) an die neue Signatur angepasst (zwei neue Parameter, `nil` an den passenden
+  Stellen) — reine Positionsanpassung, keine Verhaltensaenderung an diesen Tests.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./internal/helpdesk/...
+  ./internal/gateway/... ./internal/server/...` ok | `go vet` ok | `golangci-lint run` (helpdesk,
+  gateway, server) **0 issues** | `go test -count=1 -v ./internal/helpdesk/...
+  ./internal/gateway/... ./internal/server/... ./internal/testutil/...` **970 PASS / 0 FAIL / 0
+  SKIP** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`) — der Bexio-Flake aus Iteration 51
+  (`TestDecodeBexioState_ManipulatedSignature`) trat in diesem Lauf nicht auf, unberuehrt von
+  dieser Unit. `go build -p 2 ./...` zusaetzlich fuer den Gesamt-Build geprueft, gruen.
+- offen fuer die naechste Iteration:
+  - `intake-external-requester` (B5) ist laut deps-Kette als naechstes dran: `requester_id`
+    NULLable machen, CHECK fuer intern-oder-extern-mit-Mail, `scope=own`-Verhalten fuer Externe
+    entscheiden und dokumentieren. Aus Iteration 50 weiterhin gueltig: `ListDueCsatSurveys` holt
+    die Adresse ueber `JOIN users` und uebergeht externe Requester — mit befuelltem
+    `tickets.requester_email` (seit B1) kann der JOIN auf
+    `COALESCE(t.requester_email, req.email)` wechseln, das gehoert in B5 mit hinein wenn dort der
+    externe Requester ohnehin angefasst wird.
+  - `category` beim Ticket-Update (siehe oben) ist kein Backlog-Eintrag, aber derselbe
+    Fehler-Typ wie B4 vor dieser Iteration — Kandidat fuer eine kleine Folge-Unit oder eine
+    Erweiterung, falls das Team das priorisiert.

@@ -451,7 +451,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [intake-proto-create]
-    status: todo
+    status: done
     scope: >
       `updateTicketRequest` um `status` und `custom_fields` erweitern. Beides sendet das FE
       heute und beides geht heute verloren, HelpdeskPage.tsx:515 (Statuswechsel im Detail)
