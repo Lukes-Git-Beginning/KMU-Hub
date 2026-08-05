@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
@@ -93,6 +94,50 @@ func TestHandleCreateTicket_InvalidAssigneeID(t *testing.T) {
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertValidationError(t, rec, "assignee_id")
+}
+
+// TestHandleCreateTicket_IntakeFieldsPassValidation sends all five intake
+// fields (channel, requester_email, requester_name, requester_is_external,
+// custom_fields) alongside subject. None of them carry a `validate` tag --
+// that check lives in TicketIntake.normalize on the service side (B2) -- so
+// the handler must decode and forward them without 400ing on its own. The
+// dummy registry address means the RPC itself fails with Unavailable, which
+// is exactly what proves decode+validate got past the new fields: a 400
+// here would mean the handler rejected them before ever reaching the client.
+func TestHandleCreateTicket_IntakeFieldsPassValidation(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets", jsonBody(t, map[string]interface{}{
+		"subject":               "Test ticket",
+		"channel":               "external",
+		"requester_email":       "kunde@example.com",
+		"requester_name":        "Externe Kundin",
+		"requester_is_external": true,
+		"custom_fields": map[string]interface{}{
+			"order_id": float64(4711),
+			"vip":      true,
+		},
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTicket(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleCreateTicket_CustomFieldsNotObject sends custom_fields as a JSON
+// array instead of an object. json.Decode into map[string]any fails at the
+// type level, so this is a 400 "invalid request body" before the handler
+// ever builds a structpb.Struct -- distinct from the service-side
+// ErrInvalidCustomFields path (nested/empty keys), which needs a live RPC.
+func TestHandleCreateTicket_CustomFieldsNotObject(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets", strings.NewReader(
+		`{"subject":"Test ticket","custom_fields":["not","an","object"]}`,
+	))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTicket(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
 }
 
 // --- HandleAssignTicket ---

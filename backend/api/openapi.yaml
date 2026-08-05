@@ -13912,6 +13912,11 @@ paths:
                 queue_id: { type: string, format: uuid }
                 contact_id: { type: string, format: uuid }
                 org_id: { type: string, format: uuid }
+                channel: { type: string, enum: [agent, selfservice, external] }
+                requester_email: { type: string, format: email }
+                requester_name: { type: string }
+                requester_is_external: { type: boolean }
+                custom_fields: { type: object }
       responses:
         "201":
           description: Ticket created

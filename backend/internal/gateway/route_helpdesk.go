@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -156,6 +158,12 @@ type createTicketRequest struct {
 	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	ContactID   *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
 	OrgID       *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+	// Origin fields; validated service-side (TicketIntake.normalize), not here.
+	Channel             *string        `json:"channel,omitempty"`
+	RequesterEmail      *string        `json:"requester_email,omitempty"`
+	RequesterName       *string        `json:"requester_name,omitempty"`
+	RequesterIsExternal bool           `json:"requester_is_external,omitempty"`
+	CustomFields        map[string]any `json:"custom_fields,omitempty"`
 }
 
 type createTicketFromMessageRequest struct {
@@ -291,16 +299,28 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	grpcReq := &helpdeskv1.CreateTicketRequest{
-		TenantId:    tenantID.String(),
-		RequesterId: userID,
-		Subject:     req.Subject,
-		Priority:    req.Priority,
-		AssigneeId:  req.AssigneeID,
-		QueueId:     req.QueueID,
-		Description: req.Description,
-		Category:    req.Category,
-		ContactId:   req.ContactID,
-		OrgId:       req.OrgID,
+		TenantId:            tenantID.String(),
+		RequesterId:         userID,
+		Subject:             req.Subject,
+		Priority:            req.Priority,
+		AssigneeId:          req.AssigneeID,
+		QueueId:             req.QueueID,
+		Description:         req.Description,
+		Category:            req.Category,
+		ContactId:           req.ContactID,
+		OrgId:               req.OrgID,
+		Channel:             req.Channel,
+		RequesterEmail:      req.RequesterEmail,
+		RequesterName:       req.RequesterName,
+		RequesterIsExternal: req.RequesterIsExternal,
+	}
+	if req.CustomFields != nil {
+		cf, cfErr := structpb.NewStruct(req.CustomFields)
+		if cfErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid custom_fields")
+			return
+		}
+		grpcReq.CustomFields = cf
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)
