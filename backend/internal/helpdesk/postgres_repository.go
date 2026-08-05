@@ -841,8 +841,23 @@ func (r *PostgresRepository) GetHelpdeskStats(ctx context.Context, tenantID uuid
 		stats.AvgResponseTime = fmt.Sprintf("%.1f h", *avgMinutes/60)
 	}
 
-	// Customer satisfaction placeholder (requires CSAT table, not yet in schema)
-	stats.CustomerSatisfaction = "–"
+	// Customer satisfaction: average of submitted CSAT ratings. Pending-survey rows
+	// (rating IS NULL) are excluded by the submitted_at filter, not by rating IS NOT
+	// NULL — the two columns move together (chk_ticket_csat_rating_submitted), but
+	// submitted_at is the documented "has been rated" marker.
+	var csatAvg *float64
+	if err := r.pool.QueryRow(ctx,
+		`SELECT AVG(rating) FROM ticket_csat_responses
+		 WHERE tenant_id = $1 AND submitted_at IS NOT NULL`,
+		tenantID,
+	).Scan(&csatAvg); err != nil {
+		return nil, fmt.Errorf("stats csat avg: %w", err)
+	}
+	if csatAvg == nil {
+		stats.CustomerSatisfaction = "–"
+	} else {
+		stats.CustomerSatisfaction = fmt.Sprintf("%.1f/5", *csatAvg)
+	}
 
 	// Weekly breakdown: tickets created per day of current week
 	rows, err := r.pool.Query(ctx,

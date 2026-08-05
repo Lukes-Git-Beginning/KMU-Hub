@@ -3327,3 +3327,50 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   bleibt false — das ist eine FE-seitige Entscheidung, die Route ist jetzt real erreichbar.
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add ticket
   CSAT submission route".
+
+## Iteration 52 — csat-stats-aggregation — done — 2026-08-06 00:15
+- verify vorgaenger: `28efdc9e` (Iteration 51, csat-route) geprueft (`git show --stat` +
+  vollstaendiger Diff route_helpdesk.go + openapi.yaml). `HandleSubmitCsat` geht ueber
+  `client.SubmitCsat` (kein direkt injizierter Service), kein neuer Permission-Key
+  (wiederverwendet `hdTicketEdit`), openapi.yaml dokumentiert 200/400/401/404 — alle vier
+  sind die real gelieferten Codes. Sauber, kein Fund.
+- gebaut: `GetHelpdeskStats` (postgres_repository.go) ersetzt das Literal
+  `stats.CustomerSatisfaction = "–"` durch eine echte Aggregation ueber
+  `ticket_csat_responses`: `AVG(rating) WHERE tenant_id = $1 AND submitted_at IS NOT NULL`,
+  Format `"%.1f/5"` bzw. `"–"` bei NULL (keine Bewertungen). Pending-Survey-Zeilen
+  (rating NULL, token gesetzt) werden ueber den `submitted_at`-Filter ausgeschlossen,
+  nicht ueber `rating IS NOT NULL` — deckt sich mit der A2-Konvention.
+- ABWEICHUNG vom Backlog-`done_when`: der bindende Wire-Vertrag (`WireHelpdeskStats` in
+  `mocks/handlers/helpdesk.ts:115` UND `HelpdeskStats` in `helpdesk-types.ts:264`, konsumiert
+  einzig in `HelpdeskPage.tsx:955` als ein StatCard-String) hat KEIN Verteilungs- oder
+  Antwortzahl-Feld — nur `customer_satisfaction: string`. Die im Backlog-Scope beschriebene
+  "Sterne-Verteilung (1..5 mit Anzahl)" existiert weder im MSW-Mock noch im FE-Typ noch in
+  irgendeinem Konsumenten. Der Scope-Kopf sagt explizit "Dagegen pruefen, nicht raten" —
+  also nur den echten Durchschnitt gebaut, keine spekulative Verteilungsstruktur ohne
+  Abnehmer (Lean/YAGNI). Falls das FE spaeter eine Verteilung braucht, ist das eine neue
+  Unit mit eigenem FE-Vertrag, kein Nachbau hier.
+- gebaut (Test): `stats_test.go`, DB-Test `TestGetHelpdeskStats_CsatAverage` — drei
+  Bewertungen (5,3,4) ergeben exakt 4.0/5 (rundungsfrei gewaehlt), eine Pending-Survey-Zeile
+  (Token gesetzt, kein Rating) verfaelscht den Schnitt nicht, eine Bewertung in einem
+  fremden Tenant leakt nicht in den eigenen Schnitt, ein Tenant ohne Bewertungen liefert
+  definiert "–" statt NULL/Fehler.
+- Fallstrick beim Bauen: `t.Cleanup` in einer Helper-Closure lief NACH dem `defer pool.Close()`
+  der Testfunktion (t.Cleanup feuert nach allen Defers) — Rows blieben stehen, sichtbar an
+  "cleanup ... closed pool"-Logzeilen. Auf einen einzigen `defer` am Ende der Testfunktion
+  umgestellt (registriert nach `defer pool.Close()`, laeuft also per LIFO davor), wie in
+  `csat_test.go` bereits vorgemacht. 5 verwaiste Test-Ticket-Zeilen aus dem fehlgeschlagenen
+  ersten Versuch manuell in der lokalen DB bereinigt (`DELETE FROM tickets WHERE subject =
+  'CSAT Stats Ticket'`), betrifft nur die lokale Dev-DB, keine Migration noetig.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./cmd/gateway/...` ok |
+  `go vet` ok | `golangci-lint run` -> 0 issues | mit
+  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub` (kmuhub_app, nicht kmuhub):
+  `go test -count=1 ./internal/helpdesk/... ./internal/gateway/...` -> beide PASS, 0 SKIP.
+  Keine neue Tabelle/Policy in dieser Unit, RLS-Cross-Tenant-Isolation ist Teil des neuen
+  Tests selbst (fremder Tenant liefert 0 Beitrag zum Schnitt) statt eines separaten Smoke.
+- offen fuer naechste Iterationen: A5 (csat-tenant-config) und A6 (csat-survey-token) haengen
+  weiterhin an csat-schema/-proto-service, beide `todo`. Falls spaeter eine Sterne-Verteilung
+  im FE gebraucht wird, ist der Ansatzpunkt hier dokumentiert (SQL waere eine zweite Abfrage
+  `GROUP BY rating` mit denselben Filtern), aber bewusst nicht vorgebaut.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): aggregate real
+  CSAT average into helpdesk stats".

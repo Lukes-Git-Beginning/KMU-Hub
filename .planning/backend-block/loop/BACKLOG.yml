@@ -191,7 +191,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [csat-proto-service]
-    status: todo
+    status: done
     scope: >
       `GET /helpdesk/stats` liefert echte CSAT-Werte statt des hartkodierten Platzhalters:
       Durchschnitt, Sterne-Verteilung (1..5 mit Anzahl) und Antwortzahl, tenant-gescopt.
