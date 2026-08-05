@@ -14037,6 +14037,34 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/helpdesk/tickets/{id}/csat:
+    post:
+      summary: Submit a customer-satisfaction rating for a ticket
+      tags: [helpdesk-tickets]
+      operationId: submitHelpdeskTicketCsat
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+      responses:
+        "200":
+          description: Rating recorded, updated ticket returned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/helpdesk/tickets/{id}/assign:
     post:
       summary: Assign a helpdesk ticket to an agent

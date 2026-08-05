@@ -73,6 +73,7 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(hdTicketEdit).Put("/tickets/{id}", h.HandleUpdateTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/close", h.HandleCloseTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/csat", h.HandleSubmitCsat)
 		r.With(hdTicketEdit).Post("/tickets/{id}/assign", h.HandleAssignTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/merge", h.HandleMergeTickets)
 
@@ -151,6 +152,11 @@ type updateTicketRequest struct {
 
 type assignTicketRequest struct {
 	AssigneeID string `json:"assignee_id" validate:"required,uuid"`
+}
+
+type submitCsatRequest struct {
+	Rating  int32   `json:"rating" validate:"required,min=1,max=5"`
+	Comment *string `json:"comment,omitempty"`
 }
 
 type mergeTicketsRequest struct {
@@ -462,6 +468,38 @@ func (h *HelpdeskRoutes) HandleReopenTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := client.ReopenTicket(r.Context(), &helpdeskv1.ReopenTicketRequest{TicketId: ticketID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleSubmitCsat(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	ticketID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[submitCsatRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &helpdeskv1.SubmitCsatRequest{
+		TicketId: ticketID,
+		Rating:   req.Rating,
+		Comment:  req.Comment,
+	}
+
+	resp, err := client.SubmitCsat(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

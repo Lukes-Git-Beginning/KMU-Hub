@@ -3288,3 +3288,42 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   false, bis A3 die Route liefert.
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): submit and read
   customer satisfaction ratings".
+
+## Iteration 51 — csat-route — done — 2026-08-05 23:58
+- verify vorgaenger: `7bf12c18` (Iteration 50, csat-proto-service) gegen `git show --stat`
+  und den vollen Diff geprueft (helpdesk_grpc.go, service.go, postgres_repository.go).
+  Tenant-Guard-Reihenfolge (Ticket-UPDATE zuerst, FK beweist nur Existenz nicht Tenant) ist
+  wie im Journal beschrieben im Code, `DO UPDATE` laesst token/token_expires_at unangetastet,
+  Rating-Bereichspruefung existiert doppelt (gRPC-Server gegen int32->int16-Ueberlauf, Service
+  fachlich). `go build ./...` lief zusaetzlich durch — gruen, kein Fund.
+- gebaut: `POST /api/v1/helpdesk/tickets/{id}/csat` im Gateway.
+  - `submitCsatRequest{rating int32 validate:"required,min=1,max=5", comment *string}` —
+    Body-Form deckt sich mit `helpdesk-client.ts:134` (`{rating, comment}`).
+  - `HandleSubmitCsat` folgt exakt dem Close/Reopen-Muster: `validateUUIDParam`,
+    `decodeAndValidate`, Aufruf ueber `helpdeskClient.SubmitCsat` (kein direkt injizierter
+    Service), `response.Proto` auf 200. Kein neuer Permission-Key: Route haengt an
+    `hdTicketEdit` (bestehender additiver Guard `helpdesk:write` ODER `helpdesk:ticket:edit`) —
+    Bewertung-Erfassung ist im Desktop-Client eine Ticket-Bearbeitung durch den Agenten, kein
+    neuer fachlicher Bereich.
+  - `openapi.yaml`: Pfad `/api/v1/helpdesk/tickets/{id}/csat` direkt vor `/assign` eingefuegt,
+    Request-Schema (rating 1..5 required, comment optional), Responses 200/400/401/404 — alle
+    vier sind die real gelieferten Codes (400 aus decodeAndValidate ODER dem gRPC-InvalidArgument-
+    Mapping von A2, 404 aus dem gRPC-NotFound-Mapping bei fremdem/unbekanntem Ticket).
+- gate: `go build ./...` ok | `go vet ./internal/helpdesk/... ./internal/gateway/...` ok |
+  `golangci-lint run ./internal/gateway/...` -> 0 issues | mit
+  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub` (kmuhub_app, nicht kmuhub):
+  `go test -count=1 ./internal/helpdesk/... ./internal/gateway/...` -> beide PASS, inklusive
+  `TestOpenAPIRouteDrift` (809 Routen gegen 811 dokumentierte Pfade) und
+  `TestOpenAPISpecDrift` (810 dokumentierte Pfade gegen 809 registrierte — die eine bekannte
+  Allowlist-Luecke `/api/v1/files/upload` bleibt unveraendert, kein neuer Drift).
+- kein neuer Test in dieser Unit: die Rating-Grenzfaelle (0/-1/6/127) und der Fremd-Tenant-Fall
+  sind bereits in `csat_test.go` (Iteration 50) auf Service-/Repository-Ebene abgedeckt: der
+  Handler fuegt nur Parse/Validate/Dispatch hinzu und aendert daran nichts. `decodeAndValidate`
+  selbst ist generisch und an anderer Stelle getestet.
+- offen fuer die naechsten Iterationen: A4 (csat-stats-aggregation) haengt weiterhin am
+  Literal in `postgres_repository.go:789`; die Route hier liest/schreibt nur `csat_rating`/
+  `csat_comment` am Ticket, nicht die Stats-Aggregation.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope). Das FE-Flag `CSAT_FEATURE_ENABLED`
+  bleibt false — das ist eine FE-seitige Entscheidung, die Route ist jetzt real erreichbar.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add ticket
+  CSAT submission route".

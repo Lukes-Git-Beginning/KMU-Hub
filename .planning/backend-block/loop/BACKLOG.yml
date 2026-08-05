@@ -160,7 +160,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [csat-proto-service]
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/helpdesk/tickets/{id}/csat` im Gateway. Body {rating, comment?}.
       Das FE ruft diesen Pfad heute schon (`helpdesk-client.ts:134`, `submitCsat`).
