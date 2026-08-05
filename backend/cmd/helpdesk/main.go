@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
 func main() {
@@ -77,6 +78,32 @@ func main() {
 		slog.Info("notification gRPC address not configured, CreateTicketFromMessage disabled")
 	}
 
+	// =========================================================================
+	// Settings gRPC Client (for CSAT tenant config). SettingsService is
+	// co-hosted in the auth binary. Optional: nil falls back to
+	// helpdesk.DefaultCsatConfig() rather than failing helpdesk startup.
+	// =========================================================================
+	var settingsServiceClient settingsv1.SettingsServiceClient
+	if cfg.AuthGRPCAddress != "" {
+		settingsConn, settingsErr := grpc.NewClient(
+			cfg.AuthGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+		)
+		if settingsErr != nil {
+			slog.Warn("failed to connect to settings service, CSAT config falls back to defaults",
+				"address", cfg.AuthGRPCAddress,
+				"error", settingsErr,
+			)
+		} else {
+			defer settingsConn.Close()
+			settingsServiceClient = settingsv1.NewSettingsServiceClient(settingsConn)
+			slog.Info("settings client enabled (csat config)", "address", cfg.AuthGRPCAddress)
+		}
+	} else {
+		slog.Info("auth gRPC address not configured, CSAT config falls back to defaults")
+	}
+
 	metricsRegistry := metrics.NewRegistry()
 
 	grpcServer := grpc.NewServer(
@@ -91,7 +118,7 @@ func main() {
 		),
 	)
 
-	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService, inboxServiceClient)
+	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService, inboxServiceClient, settingsServiceClient)
 	helpdeskv1.RegisterHelpdeskServiceServer(grpcServer, helpdeskGRPC)
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)

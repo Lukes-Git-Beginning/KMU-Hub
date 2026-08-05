@@ -220,7 +220,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [csat-schema]
-    status: todo
+    status: done
     scope: >
       Tenant-Einstellungen fuer CSAT, an/aus, Verzoegerung bis zum Versand, Umfragetext.
       Gelesen und geschrieben ueber die generische `tenant_settings`-Ablage, KEINE neue Tabelle.

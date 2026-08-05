@@ -3374,3 +3374,74 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - kein FE-Teil in diesem Commit (Backend-Loop-Scope).
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): aggregate real
   CSAT average into helpdesk stats".
+
+## Iteration 53 — csat-tenant-config — done — 2026-08-06 00:40
+- verify vorgaenger: `edbc1cdf` (Iteration 52, csat-stats-aggregation) geprueft (`git show`
+  + vollstaendiger Diff postgres_repository.go). Aggregation tenant-gescopt (`WHERE tenant_id
+  = $1 AND submitted_at IS NOT NULL`), kein neuer Guard, kein neuer RPC/Route, kein
+  gRPC-Layer-Umgehung. Sauber, kein Fund.
+- gebaut: CSAT-Tenant-Konfiguration (an/aus, Verzoegerung in Minuten, Umfragetext) ueber die
+  generische `tenant_settings`-Ablage, KEINE neue Tabelle — Muster wie `internal/settings.Branding`
+  (module_id, ein JSON-Objekt als einzelner Entry), Zugriff ueber den bestehenden generischen
+  `GetTenantSettings`/`PutTenantSettings`-RPC, kein neues dediziertes RPC-Paar.
+  - `internal/helpdesk/csat_config.go` (neu): `CsatConfig{Enabled, SurveyDelayMinutes,
+    SurveyQuestion}`, `DefaultCsatConfig()` (Enabled=true, 24h, deutscher Default-Fragetext —
+    gespiegelt von `stores/helpdesk.ts` Initialzustand, damit der Server-Default zum
+    FE-Store-Default passt, sobald das Panel spaeter verdrahtet wird), `ValidateCsatConfig`
+    (Delay 0..20160 Minuten [14 Tage Deckel], Frage <=500 Zeichen). Reine Domain-Logik, kein
+    gRPC-Client im Paket — folgt exakt der bestehenden Konvention aus `CreateTicketFromMessage`
+    ("this method holds no cross-service client"; channel/subject/preview werden vom Aufrufer
+    uebergeben). Zwei neue Sentinel-Errors in `errors.go`: `ErrInvalidCsatDelay`,
+    `ErrCsatQuestionTooLong`.
+  - `internal/server/helpdesk_grpc.go`: `HelpdeskGRPCServer` bekommt ein optionales
+    `settingsClient settingsv1.SettingsServiceClient` (nil-sicher, exakt das gleiche Muster wie
+    `inboxClient`). `GetCsatConfig`/`SetCsatConfig` als Go-Methoden (KEIN neues Proto-RPC — es
+    gibt noch keinen FE-Vertrag, der eine Route bindet; die Konsumenten sind vorerst
+    `csat-survey-token` (naechste Unit, Ticket-Close-Pfad) und spaeter ein Settings-Panel-Endpoint,
+    falls das FE-Store `stores/helpdesk.ts` je an den Server gebunden wird). Get faellt bei
+    fehlendem/unerreichbarem Settings-Client oder fehlender Zeile auf `DefaultCsatConfig()`
+    zurueck (CSAT-Konfiguration ist ein Nebenaspekt, darf Ticket-Flows nie brechen). Set validiert
+    zuerst (client-unabhaengig), dann schreibt es einen einzelnen Entry unter
+    `helpdesk.CsatConfigEntryKey` als volles JSON-Objekt-Replace (kein Sparse-Merge — es gibt
+    genau eine CSAT-Konfiguration pro Tenant, nicht eine Zeile pro Locale wie bei den
+    Label-Overrides). RBAC (admin oder module-lead fuer "helpdesk_csat") wird bereits von
+    `PutTenantSettings` im Settings-Service erzwungen, hier nicht dupliziert.
+  - `cmd/helpdesk/main.go`: optionale `settingsv1.SettingsServiceClient`-Verbindung gegen
+    `cfg.AuthGRPCAddress` (Settings ist bei auth co-located), 1:1 das gleiche
+    Verbindungs-/Fallback-Muster wie der bestehende `inboxServiceClient` (verbindungsfehler ->
+    Warn-Log, `NewHelpdeskGRPCServer` bekommt nil, Helpdesk startet trotzdem).
+- ABWEICHUNG von der woertlichen Scope-Beschreibung: es gibt bewusst KEINE neue
+  `/api/v1/helpdesk/csat-config`-Route und keinen openapi.yaml-Eintrag in dieser Unit. Das
+  FE (`HelpdeskSettingsPanel.tsx`, `stores/helpdesk.ts`) haelt Enabled/Delay/Frage heute
+  ausschliesslich in einem lokalen Zustand-Store, `helpdesk-client.ts` hat keinen einzigen
+  Aufruf fuer diese Werte — es gibt keinen bindenden Wire-Vertrag, an dem sich eine Route
+  ausrichten koennte (Lean/YAGNI: keine spekulative Route ohne Abnehmer). Der `done_when`-Text
+  im Backlog verlangt explizit nur "Config liegt in tenant_settings" + "Defaults" + "Validierung",
+  keine Route — anders als A3/A4/A8, deren `done_when` ausdruecklich `openapi.yaml` nennt.
+  Falls/wenn das Panel ans Backend gebunden wird, ist das eine eigene Unit mit eigenem
+  FE-Vertrag zum Pruefen, kein Nachbau hier.
+- gebaut (Tests, alle rein, keine DB/kein gRPC noetig):
+  - `internal/helpdesk/csat_config_test.go`: Default ist valide; Delay-Grenzen (0 und 20160
+    valide, -1 und 20161 `ErrInvalidCsatDelay`); Frage bei 500 Zeichen valide, bei 501
+    `ErrCsatQuestionTooLong`.
+  - `internal/server/helpdesk_csat_config_test.go`: leere Entries -> Default; fremder Key wird
+    ignoriert -> Default; voller Roundtrip `csatConfigToValue` -> `csatConfigFromEntries` liefert
+    exakt den Ausgangswert zurueck; fehlerhafte Feldtypen (z. B. `enabled` als String statt Bool,
+    `delay_minutes` fehlt) fallen einzeln auf den Default zurueck statt Nullwert oder Fehler,
+    ein korrektes Feld (`question`) bleibt dabei erhalten.
+- gate (alle mit gesetztem `DATABASE_URL` gegen `kmuhub_app`):
+  `go build -p 2 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` ok | `go vet ./internal/helpdesk/... ./internal/server/...
+  ./cmd/helpdesk/...` ok | `golangci-lint run ./internal/helpdesk/... ./internal/server/...
+  ./cmd/helpdesk/...` -> 0 issues | `go test -count=1 ./internal/helpdesk/...` -> PASS, 66
+  PASS, 0 SKIP | `go test -count=1 ./internal/server/...` -> PASS | `go test -count=1
+  ./internal/gateway/...` -> PASS (keine Route angefasst in dieser Unit, trotzdem mitgelaufen).
+  Kein RLS-Smoke noetig: keine neue Tabelle, keine neue Policy — `tenant_settings` traegt
+  bereits RLS, unveraendert.
+- offen fuer die naechste Iteration: `csat-survey-token` (deps: csat-schema, csat-tenant-config
+  — beide jetzt done) ist die naechste Unit im Block. Sie ruft `HelpdeskGRPCServer.GetCsatConfig`
+  im Ticket-Close-Pfad auf, um zu entscheiden ob ein Umfrage-Token erzeugt wird; das ist der
+  erste echte Aufrufer der hier gebauten Get/Set-Methoden.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add tenant CSAT
+  survey configuration".

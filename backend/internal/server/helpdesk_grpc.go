@@ -11,12 +11,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
 // HelpdeskGRPCServer implements the HelpdeskService gRPC server.
@@ -27,13 +29,107 @@ type HelpdeskGRPCServer struct {
 	// unreachable. Only CreateTicketFromMessage needs it -- every other RPC
 	// degrades gracefully without it.
 	inboxClient inboxv1.InboxServiceClient
+	// settingsClient is optional; nil if the settings service (co-located
+	// with auth) is unreachable. GetCsatConfig/SetCsatConfig degrade
+	// gracefully without it (Get returns defaults, Set is Unavailable).
+	settingsClient settingsv1.SettingsServiceClient
 }
 
-// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient may be
-// nil, which disables CreateTicketFromMessage (Unavailable) but leaves every
-// other RPC unaffected.
-func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient) *HelpdeskGRPCServer {
-	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient}
+// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient and
+// settingsClient may be nil, which disables CreateTicketFromMessage
+// (Unavailable) resp. degrades CSAT config access, but leaves every other RPC
+// unaffected.
+func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient, settingsClient settingsv1.SettingsServiceClient) *HelpdeskGRPCServer {
+	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient, settingsClient: settingsClient}
+}
+
+// ============================================================================
+// CSAT tenant configuration (no dedicated RPC yet -- Go-level only, for
+// csat-survey-token (BACKLOG.yml) to call once ticket-close needs to decide
+// whether to mint a survey token. No FE contract binds a route to this yet,
+// so none is added here (see JOURNAL.md, csat-tenant-config).
+// ============================================================================
+
+// GetCsatConfig returns the tenant's CSAT survey configuration, defaulting to
+// helpdesk.DefaultCsatConfig() when the tenant has never written one or the
+// settings service is unreachable -- CSAT config is a secondary concern that
+// must not break ticket flows.
+func (s *HelpdeskGRPCServer) GetCsatConfig(ctx context.Context, tenantID uuid.UUID) (helpdesk.CsatConfig, error) {
+	if s.settingsClient == nil {
+		return helpdesk.DefaultCsatConfig(), nil
+	}
+	resp, err := s.settingsClient.GetTenantSettings(ctx, &settingsv1.GetTenantSettingsRequest{
+		TenantId: tenantID.String(),
+		ModuleId: helpdesk.CsatConfigModuleID,
+	})
+	if err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	return csatConfigFromEntries(resp.GetEntries()), nil
+}
+
+// SetCsatConfig validates and writes the tenant's CSAT survey configuration.
+// RBAC (admin or module-lead for "helpdesk_csat") is enforced by the settings
+// service's PutTenantSettings, not here.
+func (s *HelpdeskGRPCServer) SetCsatConfig(ctx context.Context, tenantID, callerID uuid.UUID, cfg helpdesk.CsatConfig) (helpdesk.CsatConfig, error) {
+	if err := helpdesk.ValidateCsatConfig(cfg); err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	if s.settingsClient == nil {
+		return helpdesk.CsatConfig{}, status.Error(codes.Unavailable, "settings service not available")
+	}
+	value, err := csatConfigToValue(cfg)
+	if err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	if _, err := s.settingsClient.PutTenantSettings(ctx, &settingsv1.PutTenantSettingsRequest{
+		TenantId:  tenantID.String(),
+		ModuleId:  helpdesk.CsatConfigModuleID,
+		UpdatedBy: callerID.String(),
+		Entries: []*settingsv1.SettingEntry{
+			{Key: helpdesk.CsatConfigEntryKey, Value: value},
+		},
+	}); err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	return cfg, nil
+}
+
+// csatConfigToValue encodes a CsatConfig as the single JSON object stored
+// under helpdesk.CsatConfigEntryKey (a full replace, not a sparse patch --
+// there is exactly one CSAT config per tenant).
+func csatConfigToValue(cfg helpdesk.CsatConfig) (*structpb.Value, error) {
+	return structpb.NewValue(map[string]any{
+		"enabled":       cfg.Enabled,
+		"delay_minutes": float64(cfg.SurveyDelayMinutes),
+		"question":      cfg.SurveyQuestion,
+	})
+}
+
+// csatConfigFromEntries decodes the CsatConfigEntryKey entry, defaulting any
+// field that is absent or the wrong JSON type -- including every field, when
+// the tenant has no row yet (entries is empty).
+func csatConfigFromEntries(entries []*settingsv1.SettingEntry) helpdesk.CsatConfig {
+	cfg := helpdesk.DefaultCsatConfig()
+	for _, e := range entries {
+		if e.GetKey() != helpdesk.CsatConfigEntryKey {
+			continue
+		}
+		raw, ok := e.GetValue().AsInterface().(map[string]any)
+		if !ok {
+			continue
+		}
+		if v, ok := raw["enabled"].(bool); ok {
+			cfg.Enabled = v
+		}
+		if v, ok := raw["delay_minutes"].(float64); ok {
+			cfg.SurveyDelayMinutes = int32(v)
+		}
+		if v, ok := raw["question"].(string); ok {
+			cfg.SurveyQuestion = v
+		}
+	}
+	return cfg
 }
 
 // ============================================================================

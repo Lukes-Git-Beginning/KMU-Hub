@@ -18,4 +18,6 @@ var (
 	ErrInvalidSourceChannel   = errors.New("invalid ticket source channel")
 	ErrMessageAlreadyLinked   = errors.New("inbox message already linked to a ticket")
 	ErrInvalidCsatRating      = errors.New("csat rating must be between 1 and 5")
+	ErrInvalidCsatDelay       = errors.New("csat survey delay must be between 0 and 20160 minutes")
+	ErrCsatQuestionTooLong    = errors.New("csat survey question must be at most 500 characters")
 )
