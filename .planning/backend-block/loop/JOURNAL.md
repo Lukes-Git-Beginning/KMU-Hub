@@ -3947,3 +3947,70 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
   - `category` beim Ticket-Update (siehe oben) ist kein Backlog-Eintrag, aber derselbe
     Fehler-Typ wie B4 vor dieser Iteration — Kandidat fuer eine kleine Folge-Unit oder eine
     Erweiterung, falls das Team das priorisiert.
+
+## Iteration 53 — intake-external-requester — done — 2026-08-06 01:2x
+- commit: aa815b47
+- gebaut: Migration 000291 macht `tickets.requester_id` NULLable und setzt
+  `chk_tickets_requester_identity` darueber (`requester_id IS NOT NULL` ODER
+  `requester_is_external AND requester_email <> ''`), dazu ein Partial-Index auf
+  `(tenant_id, requester_email)`. `Ticket.RequesterID` ist jetzt `*uuid.UUID` durch Model,
+  Service, Repository, gRPC-Server und Tests; `Service.CreateTicket` nimmt einen Pointer und
+  spiegelt den CHECK vorab als `ErrMissingRequester` (→ InvalidArgument), der gRPC-Server
+  akzeptiert ein LEERES `requester_id` als "externer Requester" und faellt bei einem
+  vorhandenen, aber kaputten Wert weiterhin hart auf InvalidArgument.
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./...` ok | `go vet` ok |
+  `golangci-lint run` (helpdesk, gateway, server) **0 issues** | `go test -count=1 -v
+  ./internal/helpdesk/... ./internal/gateway/... ./internal/server/... ./internal/testutil/...`
+  **1795 PASS / 0 FAIL / 0 SKIP** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`). Migration lokal up **und** down **und** wieder
+  up gefahren (Kopf 291) — die down-Richtung loescht bewusst Zeilen ohne requester_id, weil
+  `SET NOT NULL` sonst nicht laufen kann; das steht als Kommentar in der `.down.sql`.
+- verify vorgaenger (4ada610d): sauber. Handler geht ueber `helpdeskClient.UpdateTicket`,
+  `.proto` und `.pb.go` liegen im selben Commit, `openapi.yaml` ebenfalls, keine neue Tabelle
+  und kein neuer Permission-Guard. Zusaetzlich geprueft, was der neue `custom_fields = $13`
+  im UPDATE fuer die uebrigen Schreiber bedeutet: alle sechs `repo.UpdateTicket`-Aufrufer in
+  `service.go` laden das Ticket vorher ueber `GetTicketByID`, schreiben den Wert also
+  unveraendert zurueck — kein stiller Wipe.
+- **scope=own fuer Externe: entschieden, unsichtbar zu lassen** (done_when verlangt die
+  Entscheidung samt Begruendung). `scope=own` ist ein RBAC-Datenscope fuer eingeloggte
+  Mitarbeiter und vergleicht gegen die User-UUID; ein externes Ticket hat keine. Die
+  naheliegende Alternative — ueber `requester_email` matchen — waere ein Identitaets-Match auf
+  einem Wert, der ungeprueft aus dem Intake-Body kommt: wer die Adresse eines Kollegen
+  eintippt, schoebe sein Ticket in dessen own-Scope (und mit dem oeffentlichen Submit aus B8
+  koennte das jeder von aussen). Externe Tickets erreichen einen Agenten also ueber die
+  Zuweisung (`assignee_id` matcht weiterhin) oder ueber einen weiteren Scope. Begruendung steht
+  als Kommentar am Filter in `ListTickets`, gepinnt von
+  `TestExternalRequester_InvisibleToOwnScope` (zugewiesen sichtbar, unzugewiesen nicht).
+- **Read-Pfade:** `ticketSelectColumns` nutzte bereits `LEFT JOIN users req`, die Read-Seite
+  verliert also nichts — `TestExternalRequester_ReadableThroughEveryTicketRead` belegt das fuer
+  `GetTicketByID` UND `ListTickets` (zwei verschiedene Queries auf derselben Spaltenliste), inkl.
+  `requester_name` aus der Spalte statt aus dem JOIN.
+- **`ListDueCsatSurveys` mitgenommen** (Hinweis aus Iteration 50/52): der `JOIN users` war
+  ein INNER JOIN und liess genau die externen Requester fallen, fuer die die Umfrage gedacht
+  ist. Jetzt `LEFT JOIN` + `COALESCE(NULLIF(t.requester_email,''), req.email)` fuer die Adresse
+  und dieselbe Vorrangregel wie beim Ticket-Read fuer den Namen; das WHERE filtert auf die
+  kombinierte Adresse statt auf `req.email <> ''`. Test
+  `TestListDueCsatSurveys_ReachesExternalRequester`.
+- **Duplikat-Erkennung fuer Externe abgeschaltet, nicht umgebaut:** `DetectDuplicates` gruppiert
+  ueber `requester_id`; mit NULL waere die SQL-Bedingung strukturell immer leer (NULL = NULL),
+  also ein stiller Nulltreffer statt eines sichtbaren Verhaltens. Jetzt frueher Return mit
+  Begruendung im Code — ueber die unverifizierte Mailadresse zu gruppieren waere derselbe
+  Identitaetsfehler wie beim own-Scope.
+- **Proto NICHT angefasst.** `requester_id` bleibt `string`; ein externer Requester liefert "".
+  Der FE-Typ (`helpdesk-types.ts:36`) deklariert `requester_id: string` nicht-optional und
+  rendert den Anzeigenamen ohnehin aus `requester_name` (der MSW-Mock legt dort teilweise sogar
+  Klartextnamen ab), ein weggelassenes Feld waere also die groessere Abweichung. Kein Regen,
+  kein `optional`-Umbau — bewusst, damit B7/B8 nicht auf einem Proto-Wechsel sitzen.
+- Testfixtures: `Ticket.RequesterID` ist jetzt ein Pointer, dadurch mechanische Anpassung von
+  16 Struct-Literalen und ~30 `CreateTicket`-Aufrufen (`uuidPtr`-Helper in
+  `external_requester_db_test.go`). Keine Verhaltensaenderung an diesen Tests; der Fake-Repo-
+  Own-Scope-Filter in `service_test.go:75` spiegelt jetzt zusaetzlich die NULL-Semantik der
+  SQL-Variante.
+- offen fuer die naechste Iteration:
+  - `intake-form-target` (B6) ist als naechstes dran (deps leer).
+  - Das Gateway setzt `RequesterId` weiterhin hart aus der Session (`route_helpdesk.go:309`) —
+    richtig fuer den authentifizierten Pfad. Der NULL-Fall ist damit heute nur ueber gRPC
+    erreichbar und wird erst von B7/B8 (Formular-Dispatch, oeffentlicher Submit) benutzt; bis
+    dahin ist die Lockerung Fundament, kein aktiver Pfad.
+  - `category` beim Ticket-Update bleibt der bekannte, unberuehrte Datenverlust (siehe
+    Iteration 52).

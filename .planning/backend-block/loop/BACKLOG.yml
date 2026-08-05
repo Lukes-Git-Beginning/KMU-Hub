@@ -487,7 +487,7 @@ units:
     service: helpdesk
     model: opus
     deps: [intake-route-create]
-    status: todo
+    status: done
     scope: >
       Externe Requester ohne User-Konto ermoeglichen. `requester_id` darf NULL sein, wenn
       `requester_is_external` gesetzt ist; dann tragen requester_name und requester_email die
