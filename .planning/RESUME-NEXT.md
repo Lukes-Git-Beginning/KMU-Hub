@@ -1,4 +1,14 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Dariens Review-Runde R5)
+# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5 + R6)
+
+> **★★★★★ R6 (Dariens zweiter Review-Durchgang) — GEBAUT, Commit `1fad3f88`, QA 20/20 + neue Zwei-Fenster-Suite 6/6. 5 Commits lokal, weiterhin nicht gepusht.**
+>
+> - **⚠⚠ „Als Entwurf speichern speichert keinen Entwurf" — bestätigt und behoben.** Der Draft-Store lag nur im JS-Heap: **jeder Reload/Neustart löschte alle Entwürfe**, und das Editor-**Fenster** (eigener Heap) erreichte den Hub nur über eine BroadcastChannel-Nachricht, die im Flug gefangen werden musste. Jetzt liegen die Records im **geteilten Browser-Speicher** (`cosmi:customization:drafts`); `listDrafts` liest bei jedem Blick frisch, live-Rollouts werden beim ersten Lesen **wieder angewandt** (sonst behauptet die Liste „Live", während das Modul auf Standard zurückgefallen ist). **Lehre:** die bisherige QA lief in EINER Page und hat den Electron-Zwei-Fenster-Fall nie abgebildet → neue Suite **`qa-editor-twowindow-k.mjs`** (zwei Pages, getrennte Heaps, ein Origin) reproduziert den Fehler und deckt ihn ab. Für alles Fenster-übergreifende ab jetzt dort testen.
+> - **Live-Prozentwert beim Ziehen** (Darien: „einstellen macht man nach Augenmaß, Vergleichswert fehlt") — Badge am Spaltenrand während des Zugs.
+> - **Ein Editor-Fenster pro Modul** (`openWindows`-Map im Main-Prozess) — mehrere Fenster hielten je einen eigenen Entwurf desselben Moduls, das letzte Speichern gewann stillschweigend. Folge: „Weiter bearbeiten" bei bereits offenem Editor kommt als **Nachricht** an (`useResumeDraftListener`) und lädt den Entwurf — **außer es liegen ungespeicherte Änderungen vor**, die werden nie überschrieben.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Dariens Review-Runde R5)
 
 > **★★★★★ R5 (Dariens Live-Review der Spalten-Runde, 4 Punkte) — GEBAUT, Commit `a459e1de`, QA 19/19 + Regression 16/16 & 9/9. Weiterhin NICHT gepusht (3 Commits lokal).**
 >
