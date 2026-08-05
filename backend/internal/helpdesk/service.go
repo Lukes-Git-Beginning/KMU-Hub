@@ -292,6 +292,40 @@ func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Tic
 	return t, nil
 }
 
+// SubmitCsat records a customer-satisfaction rating for a ticket. Rating is
+// validated here rather than trusted from the caller; the repository writes the
+// response row and the denormalised ticket mirror in one transaction.
+//
+// Rating a ticket twice updates the existing response instead of failing --
+// the unique index per ticket would otherwise turn a mind change into a 500.
+func (s *Service) SubmitCsat(
+	ctx context.Context,
+	id, tenantID uuid.UUID,
+	rating int16,
+	comment *string,
+) (*Ticket, error) {
+	if rating < 1 || rating > 5 {
+		return nil, ErrInvalidCsatRating
+	}
+
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("submit csat – load: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.SubmitCsatTx(ctx, tenantID, id, rating, comment, now); err != nil {
+		return nil, fmt.Errorf("submit csat: %w", err)
+	}
+
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = now
+
+	s.log.InfoContext(ctx, "helpdesk: csat submitted", "ticket_id", id, "rating", rating)
+	return t, nil
+}
+
 // ReopenTicket transitions a closed or solved ticket back to open.
 func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
 	t, err := s.repo.GetTicketByID(ctx, id, tenantID)

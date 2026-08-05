@@ -28,6 +28,10 @@ type mockRepo struct {
 	// contactTenants/companyTenants back ContactExists/CompanyExists: id -> owning tenant.
 	contactTenants map[uuid.UUID]uuid.UUID
 	companyTenants map[uuid.UUID]uuid.UUID
+
+	// csatCalls counts SubmitCsatTx invocations so tests can assert that an
+	// invalid rating never reaches persistence.
+	csatCalls int
 }
 
 func newMockRepo() *mockRepo {
@@ -128,6 +132,24 @@ func (r *mockRepo) MergeTicketTx(_ context.Context, source *Ticket, targetID uui
 
 	// Update source ticket.
 	r.tickets[source.ID] = source
+	return nil
+}
+
+func (r *mockRepo) SubmitCsatTx(
+	_ context.Context,
+	tenantID, ticketID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) error {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return ErrTicketNotFound
+	}
+	r.csatCalls++
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = submittedAt
 	return nil
 }
 

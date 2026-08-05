@@ -2,6 +2,7 @@ package helpdesk
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -43,6 +44,13 @@ type Repository interface {
 	// Note: Partition/retention DDL (DROP TABLE) is unaffected and operates
 	// outside of row-level transactions.
 	MergeTicketTx(ctx context.Context, source *Ticket, targetID uuid.UUID) error
+
+	// SubmitCsatTx upserts the CSAT response row for a ticket and mirrors
+	// rating/comment onto the ticket itself in a single transaction, so the
+	// denormalised ticket columns can never drift from the response row.
+	// A pending survey token on an existing row is left untouched.
+	// Returns ErrTicketNotFound if the ticket does not belong to tenantID.
+	SubmitCsatTx(ctx context.Context, tenantID, ticketID uuid.UUID, rating int16, comment *string, submittedAt time.Time) error
 
 	// -----------------------------------------------------------------------
 	// Ticket messages

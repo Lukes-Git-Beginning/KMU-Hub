@@ -100,6 +100,10 @@ type Ticket struct {
 	// reference to it (not a copy of its content).
 	SourceChannel   *string    `json:"source_channel,omitempty"`
 	SourceMessageID *uuid.UUID `json:"source_message_id,omitempty"`
+	// Denormalized mirror of the submitted CSAT response (ticket_csat_responses),
+	// written in the same transaction as the response row. Nil until rated.
+	CsatRating  *int16  `json:"csat_rating,omitempty"`
+	CsatComment *string `json:"csat_comment,omitempty"`
 	// Denormalized via JOIN on users (read side only; not persisted here).
 	AssigneeName  *string   `json:"assignee_name,omitempty"`
 	RequesterName string    `json:"requester_name"`

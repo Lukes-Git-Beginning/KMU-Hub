@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -113,6 +114,7 @@ const ticketSelectColumns = `
 	COALESCE(t.description, '') AS description,
 	COALESCE(t.category, '')    AS category,
 	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
+	t.csat_rating, t.csat_comment,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
 	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
 FROM tickets t
@@ -260,6 +262,60 @@ func (r *PostgresRepository) FindOpenTicketsByRequester(ctx context.Context, ten
 		tickets = append(tickets, t)
 	}
 	return tickets, rows.Err()
+}
+
+// SubmitCsatTx writes the rating both to ticket_csat_responses and to the
+// denormalised tickets columns inside one transaction.
+//
+// The ticket UPDATE runs first and doubles as the tenant guard: the FK on
+// ticket_id only proves the ticket exists, not that it belongs to this tenant,
+// so a zero-row UPDATE is what actually rejects a foreign ticket.
+func (r *PostgresRepository) SubmitCsatTx(
+	ctx context.Context,
+	tenantID, ticketID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("submit csat tx begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE tickets
+		 SET csat_rating = $1, csat_comment = $2, updated_at = $3
+		 WHERE id = $4 AND tenant_id = $5`,
+		rating, comment, submittedAt, ticketID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("submit csat tx mirror on ticket: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
+	}
+
+	// DO UPDATE deliberately leaves token/token_expires_at alone: a survey link
+	// handed out on ticket close stays valid for its own redemption flow.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ticket_csat_responses
+		     (id, tenant_id, ticket_id, rating, comment, submitted_at, created_at, updated_at)
+		 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $5, $5)
+		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
+		 SET rating       = EXCLUDED.rating,
+		     comment      = EXCLUDED.comment,
+		     submitted_at = EXCLUDED.submitted_at,
+		     updated_at   = EXCLUDED.updated_at`,
+		tenantID, ticketID, rating, comment, submittedAt,
+	); err != nil {
+		return fmt.Errorf("submit csat tx upsert response: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("submit csat tx commit: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -893,6 +949,7 @@ func scanTicket(row scannable) (*Ticket, error) {
 		&t.CreatedAt, &t.UpdatedAt,
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.SourceChannel, &t.SourceMessageID,
+		&t.CsatRating, &t.CsatComment,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -910,6 +967,7 @@ func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
 		&t.CreatedAt, &t.UpdatedAt,
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.SourceChannel, &t.SourceMessageID,
+		&t.CsatRating, &t.CsatComment,
 		&t.AssigneeName, &t.RequesterName,
 	)
 	return &t, err

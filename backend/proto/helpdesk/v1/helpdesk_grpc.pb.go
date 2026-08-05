@@ -29,6 +29,7 @@ const (
 	HelpdeskService_AssignTicket_FullMethodName            = "/helpdesk.v1.HelpdeskService/AssignTicket"
 	HelpdeskService_MergeTickets_FullMethodName            = "/helpdesk.v1.HelpdeskService/MergeTickets"
 	HelpdeskService_CreateTicketFromMessage_FullMethodName = "/helpdesk.v1.HelpdeskService/CreateTicketFromMessage"
+	HelpdeskService_SubmitCsat_FullMethodName              = "/helpdesk.v1.HelpdeskService/SubmitCsat"
 	HelpdeskService_GetBusinessHours_FullMethodName        = "/helpdesk.v1.HelpdeskService/GetBusinessHours"
 	HelpdeskService_UpdateBusinessHours_FullMethodName     = "/helpdesk.v1.HelpdeskService/UpdateBusinessHours"
 	HelpdeskService_AddMessage_FullMethodName              = "/helpdesk.v1.HelpdeskService/AddMessage"
@@ -76,6 +77,11 @@ type HelpdeskServiceClient interface {
 	// content a second time). Converting the same message twice returns the
 	// existing ticket with created=false rather than creating a duplicate.
 	CreateTicketFromMessage(ctx context.Context, in *CreateTicketFromMessageRequest, opts ...grpc.CallOption) (*CreateTicketFromMessageResponse, error)
+	// SubmitCsat records a customer-satisfaction rating (1..5) plus an optional
+	// comment for a ticket and mirrors it onto the ticket row. Submitting twice
+	// updates the existing rating instead of failing -- the requester is allowed
+	// to change their mind.
+	SubmitCsat(ctx context.Context, in *SubmitCsatRequest, opts ...grpc.CallOption) (*Ticket, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(ctx context.Context, in *GetBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(ctx context.Context, in *UpdateBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
@@ -205,6 +211,16 @@ func (c *helpdeskServiceClient) CreateTicketFromMessage(ctx context.Context, in 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateTicketFromMessageResponse)
 	err := c.cc.Invoke(ctx, HelpdeskService_CreateTicketFromMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) SubmitCsat(ctx context.Context, in *SubmitCsatRequest, opts ...grpc.CallOption) (*Ticket, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Ticket)
+	err := c.cc.Invoke(ctx, HelpdeskService_SubmitCsat_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -499,6 +515,11 @@ type HelpdeskServiceServer interface {
 	// content a second time). Converting the same message twice returns the
 	// existing ticket with created=false rather than creating a duplicate.
 	CreateTicketFromMessage(context.Context, *CreateTicketFromMessageRequest) (*CreateTicketFromMessageResponse, error)
+	// SubmitCsat records a customer-satisfaction rating (1..5) plus an optional
+	// comment for a ticket and mirrors it onto the ticket row. Submitting twice
+	// updates the existing rating instead of failing -- the requester is allowed
+	// to change their mind.
+	SubmitCsat(context.Context, *SubmitCsatRequest) (*Ticket, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(context.Context, *UpdateBusinessHoursRequest) (*BusinessHoursResponse, error)
@@ -570,6 +591,9 @@ func (UnimplementedHelpdeskServiceServer) MergeTickets(context.Context, *MergeTi
 }
 func (UnimplementedHelpdeskServiceServer) CreateTicketFromMessage(context.Context, *CreateTicketFromMessageRequest) (*CreateTicketFromMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateTicketFromMessage not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) SubmitCsat(context.Context, *SubmitCsatRequest) (*Ticket, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitCsat not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBusinessHours not implemented")
@@ -831,6 +855,24 @@ func _HelpdeskService_CreateTicketFromMessage_Handler(srv interface{}, ctx conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HelpdeskServiceServer).CreateTicketFromMessage(ctx, req.(*CreateTicketFromMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_SubmitCsat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitCsatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).SubmitCsat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_SubmitCsat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).SubmitCsat(ctx, req.(*SubmitCsatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1363,6 +1405,10 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateTicketFromMessage",
 			Handler:    _HelpdeskService_CreateTicketFromMessage_Handler,
+		},
+		{
+			MethodName: "SubmitCsat",
+			Handler:    _HelpdeskService_SubmitCsat_Handler,
 		},
 		{
 			MethodName: "GetBusinessHours",

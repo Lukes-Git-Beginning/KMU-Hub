@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -232,6 +233,37 @@ func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.Cl
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
 	t, err := s.svc.CloseTicket(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return ticketToProto(t), nil
+}
+
+func (s *HelpdeskGRPCServer) SubmitCsat(ctx context.Context, req *helpdeskv1.SubmitCsatRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	id, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
+	}
+	// Range check stays in the service; here we only guard the int32 -> int16
+	// narrowing so an out-of-range wire value cannot wrap into a valid rating.
+	rating := req.GetRating()
+	if rating < 1 || rating > 5 {
+		return nil, status.Error(codes.InvalidArgument, helpdesk.ErrInvalidCsatRating.Error())
+	}
+
+	var comment *string
+	if req.Comment != nil {
+		c := strings.TrimSpace(req.GetComment())
+		if c != "" {
+			comment = &c
+		}
+	}
+
+	t, err := s.svc.SubmitCsat(ctx, id, tenantID, int16(rating), comment)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -1002,6 +1034,13 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 		s := t.SourceMessageID.String()
 		msg.SourceMessageId = &s
 	}
+	if t.CsatRating != nil {
+		v := int32(*t.CsatRating)
+		msg.CsatRating = &v
+	}
+	if t.CsatComment != nil {
+		msg.CsatComment = t.CsatComment
+	}
 	return msg
 }
 
@@ -1151,6 +1190,8 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrOrgNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidCsatRating):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrMessageAlreadyLinked):
 		// Only reachable if the post-conflict re-fetch in

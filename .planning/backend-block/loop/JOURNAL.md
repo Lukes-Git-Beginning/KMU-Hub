@@ -3219,3 +3219,72 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
   schema with survey token columns". SHA hier bewusst nicht eingetragen: die Zeile steht IN
   diesem Commit, jede Nachtragung per amend erzeugt eine neue SHA. `git log --oneline -1`
   bzw. Suche nach dem Subject findet ihn.
+
+## Iteration 50 — csat-proto-service — done — 2026-08-05 23:40
+- verify vorgaenger: `54305b08` (Iteration 49, CSAT-Schema) geprueft — `git show --stat` plus
+  beide Migrations-Dateien vollstaendig gelesen. Tabelle hat `tenant_id UUID NOT NULL` +
+  `CALL enable_tenant_rls`, `.down.sql` droppt Tabelle UND beide tickets-Spalten, kein Go-Code
+  im Diff (also kein Proto-/Handler-Risiko). Die im Journal beschriebene NULLable-`rating`-
+  Entscheidung samt `chk_ticket_csat_rating_submitted` steht so in der Datei. Kein Fund.
+- gebaut: Proto + Service-Schicht fuer die Bewertung.
+  - `.proto`: RPC `SubmitCsat(SubmitCsatRequest) returns (Ticket)`, Message
+    `SubmitCsatRequest{ticket_id=1, rating=2 int32, optional comment=3}` — Tenant bewusst NICHT
+    im Body, er kommt wie bei CloseTicket aus `middleware.GetTenantID(ctx)`. `Ticket` bekommt
+    `optional int32 csat_rating = 24` und `optional string csat_comment = 25`. Beide
+    generierten Dateien (`helpdesk.pb.go`, `helpdesk_grpc.pb.go`) im SELBEN Commit regeneriert
+    (protoc direkt, `make` existiert auf dieser Maschine nicht — Kommando aus dem Makefile-
+    Target `proto-helpdesk` uebernommen).
+  - `Repository.SubmitCsatTx(ctx, tenantID, ticketID, rating int16, comment *string, submittedAt)`
+    plus Postgres-Implementierung. EINE Transaktion: erst `UPDATE tickets SET csat_rating,
+    csat_comment, updated_at WHERE id AND tenant_id`, dann Upsert in `ticket_csat_responses`
+    mit `ON CONFLICT (tenant_id, ticket_id) DO UPDATE`.
+  - `Service.SubmitCsat` validiert 1..5 serverseitig, laedt das Ticket (Tenant-Scope + 404) und
+    ruft die Transaktion.
+  - `ticketSelectColumns` um `t.csat_rating, t.csat_comment` erweitert — dadurch liefern
+    GetTicketByID, ListTickets UND FindOpenTicketsByRequester die Werte, ohne dass drei Queries
+    einzeln angefasst werden mussten. Beide Scan-Funktionen entsprechend erweitert.
+- ENTSCHEIDUNG Reihenfolge in der Transaktion (Ticket-UPDATE VOR Response-Upsert): der
+  Fremdschluessel `ticket_id -> tickets(id)` beweist nur, dass das Ticket existiert, NICHT dass
+  es dem uebergebenen Tenant gehoert. Ein Insert mit fremdem `ticket_id` und eigenem `tenant_id`
+  wuerde den FK passieren. Der zeilenlose `UPDATE tickets ... AND tenant_id` ist damit die
+  eigentliche Tenant-Wache und muss zuerst laufen -> `ErrTicketNotFound`, nichts geschrieben.
+  Gegen die echte DB verifiziert (Test unten, Fremd-Tenant-Fall).
+- ENTSCHEIDUNG `DO UPDATE` setzt bewusst NUR rating/comment/submitted_at/updated_at und laesst
+  `token`/`token_expires_at` in Ruhe: ein beim Ticket-Close ausgegebener Umfrage-Link (A6/A8)
+  darf durch eine Agenten-seitige Bewertung nicht entwertet werden.
+- ENTSCHEIDUNG `int16` statt `int` im Model (`Ticket.CsatRating *int16`): die Spalte ist
+  SMALLINT, pgx scannt int2 verlustfrei in *int16. Die Verengung int32 -> int16 passiert im
+  gRPC-Server und ist dort durch eine eigene Bereichspruefung abgesichert, damit ein
+  Wire-Wert wie 65540 nicht in eine gueltige Bewertung wrappen kann. Die fachliche Pruefung
+  bleibt zusaetzlich im Service (Handler duerfen nicht die einzige Wache sein).
+- Kommentar wird im gRPC-Server getrimmt, ein leerer Kommentar wird zu NULL statt zu "" —
+  sonst haette `csat_comment` zwei Bedeutungen fuer "kein Kommentar".
+- `ErrInvalidCsatRating` neu + Mapping auf `codes.InvalidArgument` in `mapHelpdeskError`.
+  Kein neuer Permission-Key, kein neues Flag, keine `config.RequireX`.
+- gate (alle mit gesetztem `DATABASE_URL` gegen `kmuhub_app`):
+  `go build ./...` ok | `go vet ./internal/helpdesk/... ./internal/server/...` ok |
+  `golangci-lint run ./internal/helpdesk/... ./internal/server/...` -> **0 issues** |
+  `go test -count=1 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./internal/testutil/...` -> PASS. Helpdesk verbose: **61 PASS, 0 SKIP, 0 FAIL**.
+- Tests neu in `internal/helpdesk/csat_test.go`: vier Service-Tests gegen den Mock
+  (Erfolg inkl. Nachweis, dass die Persistenz wirklich gerufen wurde; Rating 0/-1/6/127 ->
+  `ErrInvalidCsatRating` UND null Repository-Aufrufe; zweite Bewertung gewinnt statt zu
+  scheitern; fremder Tenant -> `ErrTicketNotFound` ohne Schreibversuch) und ein
+  Repository-Test gegen die echte Datenbank (`TestSubmitCsatTx_UpsertsAndStaysInTenant`,
+  0.07s, nicht geskippt): Fremd-Tenant-Kontext mit dem ECHTEN tenantID als Parameter wird von
+  RLS gestoppt; eigener Kontext schreibt; `GetTicketByID` liefert Rating und Kommentar zurueck
+  (das ist der Nachweis, dass der Read-Pfad die neuen Spalten wirklich mitbringt); zweite
+  Bewertung erzeugt genau EINE Zeile mit dem neuen Wert; `submitted_at` ist gesetzt (der
+  CHECK aus A1 haette einen halben Zustand sonst abgelehnt); fremder Tenant sieht 0 Zeilen.
+  Eigene Tenants geseedet, nicht die geteilten TenantA/B.
+- offen fuer die naechsten Iterationen (auch im BACKLOG bei A3/A4 notiert):
+  - A3 (Route): 400 und 404 sind die real gelieferten Codes; die Ticket-JSON-Serialisierung
+    des Gateways braucht `csat_rating`/`csat_comment`, sonst sieht das FE die eigene
+    Bewertung nach dem POST nicht.
+  - A4 (Stats): ueber `ticket_csat_responses` mit `WHERE submitted_at IS NOT NULL` aggregieren,
+    nicht ueber `tickets.csat_rating` (nur Spiegel) — offene Umfrage-Zeilen haben
+    `rating IS NULL` und duerfen weder zaehlen noch den Schnitt verfaelschen.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope). Das FE-Flag `CSAT_FEATURE_ENABLED` bleibt
+  false, bis A3 die Route liefert.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): submit and read
+  customer satisfaction ratings".

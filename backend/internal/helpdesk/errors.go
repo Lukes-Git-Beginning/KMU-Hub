@@ -17,4 +17,5 @@ var (
 	ErrOrgNotFound            = errors.New("organization not found in tenant")
 	ErrInvalidSourceChannel   = errors.New("invalid ticket source channel")
 	ErrMessageAlreadyLinked   = errors.New("inbox message already linked to a ticket")
+	ErrInvalidCsatRating      = errors.New("csat rating must be between 1 and 5")
 )

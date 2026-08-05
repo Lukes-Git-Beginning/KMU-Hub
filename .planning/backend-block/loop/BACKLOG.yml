@@ -126,7 +126,7 @@ units:
     service: helpdesk
     model: opus
     deps: [csat-schema]
-    status: todo
+    status: done
     scope: >
       Proto und Service-Schicht fuer die Bewertung. `SubmitCsat(ticket_id, rating, comment)`
       als RPC, Persistenz in `ticket_csat_responses` und Spiegelung nach `tickets.csat_rating`
@@ -174,6 +174,13 @@ units:
       Commit, alle real gelieferten Status-Codes dokumentieren (auch 400 und 404).
       Permission: die bestehenden helpdesk-Keys wiederverwenden, keinen neuen
       RequirePermission-Guard einfuehren — ein neuer Guard ohne Seed sperrt ALLE aus, auch Admin.
+      STAND aus A2 (gebaut): RPC ist `SubmitCsat(SubmitCsatRequest{ticket_id, rating int32,
+      optional comment}) returns (Ticket)`, Tenant kommt aus dem Call-Kontext, NICHT aus dem
+      Body. Rating ausserhalb 1..5 -> InvalidArgument (im gRPC-Server UND im Service geprueft),
+      unbekanntes/fremdes Ticket -> NotFound. Der Handler muss also 400 und 404 dokumentieren.
+      `Ticket` traegt jetzt `csat_rating` (optional int32) und `csat_comment` (optional string) —
+      die Ticket-JSON-Serialisierung des Gateways braucht beide Felder, sonst sieht das FE die
+      Bewertung nach dem eigenen POST nicht.
     done_when:
       - Route registriert, Handler ueber den gRPC-Client
       - openapi.yaml-Pfad im selben Commit, go test ./internal/gateway/ gruen
@@ -198,6 +205,10 @@ units:
       Null Bewertungen darf keinen NULL-Durchschnitt und keine Division durch Null erzeugen —
       definiertes Leerverhalten (0 bzw. leere Verteilung mit Antwortzahl 0), und die Verteilung
       muss alle fuenf Stufen enthalten, auch die mit Anzahl 0, sonst bricht das Chart im FE.
+      STAND aus A2: die Aggregation MUSS ueber `ticket_csat_responses` laufen und dabei
+      `WHERE submitted_at IS NOT NULL` filtern — Zeilen mit offenem Umfrage-Token haben
+      `rating IS NULL` und wuerden den Durchschnitt sonst verfaelschen bzw. als Antwort zaehlen.
+      NICHT ueber `tickets.csat_rating` aggregieren: das ist nur der Read-Spiegel.
     done_when:
       - customer_satisfaction stammt aus echter SQL-Aggregation, kein Literal mehr im Code
       - Verteilung enthaelt alle 5 Stufen, auch leere

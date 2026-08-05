@@ -22,6 +22,11 @@ service HelpdeskService {
   // content a second time). Converting the same message twice returns the
   // existing ticket with created=false rather than creating a duplicate.
   rpc CreateTicketFromMessage(CreateTicketFromMessageRequest) returns (CreateTicketFromMessageResponse);
+  // SubmitCsat records a customer-satisfaction rating (1..5) plus an optional
+  // comment for a ticket and mirrors it onto the ticket row. Submitting twice
+  // updates the existing rating instead of failing -- the requester is allowed
+  // to change their mind.
+  rpc SubmitCsat(SubmitCsatRequest) returns (Ticket);
 
   // Business hours (tenant-level config)
   rpc GetBusinessHours(GetBusinessHoursRequest) returns (BusinessHoursResponse);
@@ -103,6 +108,10 @@ message Ticket {
   // message's channel ("email" | "chat" | "notification").
   optional string source_channel = 22;
   optional string source_message_id = 23;
+  // Customer satisfaction, denormalised from ticket_csat_responses. Unset
+  // until the ticket has actually been rated.
+  optional int32 csat_rating = 24;
+  optional string csat_comment = 25;
 }
 
 message TicketMessage {
@@ -203,6 +212,14 @@ message CloseTicketRequest {
 
 message ReopenTicketRequest {
   string ticket_id = 1;
+}
+
+// Tenant is taken from the call context, never from the request body.
+message SubmitCsatRequest {
+  string ticket_id = 1;
+  // 1..5, validated server-side.
+  int32 rating = 2;
+  optional string comment = 3;
 }
 
 message AssignTicketRequest {
