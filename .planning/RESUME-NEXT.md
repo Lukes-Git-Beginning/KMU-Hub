@@ -1,4 +1,15 @@
-# RESUME — nächster Einstieg (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5/R6/R7)
+# RESUME — nächster Einstieg (Stand 2026-08-06, Session #35 abgeschlossen + GEPUSHT)
+
+> **★★★★★ MORGEN ZUERST (Dariens Ansage am Session-Ende):**
+>   1. **Wertelisten „gehen noch nicht zu 100 %"** — Symptome sind bewusst grob genannt, also **zuerst bei Darien einsammeln**, welche Stellen hakten. Prüfliste W1–W11 (anlegen, umbenennen, Farbe, Option hinzufügen/deaktivieren/löschen-mit-Umzug, binden, Reihenfolge, Übernehmen, Zurückrollen) + Verdachtsmomente liegen fertig in **`.planning/wertelisten-und-fokus-naechste-runde.md`**.
+>   2. **Fokus-Kopplung ist einseitig** — Klick auf den Statistik-Reiter IM Modul lässt Leiste und rechtes Panel stehen. `useEditorFocusEffect` koppelt nur Leiste → Vorschau; die Gegenrichtung fehlt. Lösungsweg (inkl. Schleifen-Guard) steht im selben Paket unter F.
+>
+> **★ Stand:** Session #35 komplett gepusht (Spalten R4 + drei Review-Runden R5/R6/R7). Auto-Deploy auf Hetzner läuft damit an (cd.yml scharf).
+> **★ Offene Kleinigkeit aus R7:** eine auf 40 % gezogene Spalte lässt im schmalen Editor-Fenster wenig für den Rest — Darien fragen, ob eine Untergrenze gewünscht ist.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-05, Session #35 — SPALTEN R4 + Review R5/R6/R7)
 
 > **★★★★★ R7 (Dariens dritter Durchgang) — GEBAUT, Commit `ec67e562`. Neue Electron-QA 11/11.**
 >
