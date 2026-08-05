@@ -57,7 +57,12 @@ type Repository interface {
 	// false (without error) when no token was stored, which happens for a
 	// ticket of another tenant and for a ticket that already carries a rating --
 	// both are ordinary outcomes, not failures.
-	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, expiresAt, now time.Time) (bool, error)
+	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, sendAfter, expiresAt, now time.Time) (bool, error)
+
+	// The survey dispatch surface (list due / claim / release / cancel) is
+	// deliberately NOT part of this interface: only the background dispatcher
+	// uses it, and it declares its own narrow CsatDispatchRepository
+	// (csat_dispatch.go) -- same split as berichte's ScheduleRepository.
 
 	// -----------------------------------------------------------------------
 	// Ticket messages

@@ -16,6 +16,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/email/systemmail"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
 	"github.com/kmuhub/kmuhub/internal/metrics"
@@ -104,6 +105,39 @@ func main() {
 		slog.Info("auth gRPC address not configured, CSAT config falls back to defaults")
 	}
 
+	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService, inboxServiceClient, settingsServiceClient)
+
+	// =========================================================================
+	// CSAT survey dispatcher: mails out the invitations CloseTicket parked on
+	// ticket_csat_responses, once their configured delay has passed.
+	//
+	// Deliberately os.Getenv-level config, never config.RequireSystemSMTP: a
+	// deployment without a system SMTP account keeps the helpdesk running and
+	// simply never starts the dispatcher -- surveys stay pending instead of
+	// being claimed and marked sent by a transport that cannot deliver.
+	// helpdeskGRPC doubles as the CsatConfigLoader; it already resolves the
+	// tenant config over the settings client.
+	// =========================================================================
+	systemSender := systemmail.New(systemmail.Config{
+		Host:     cfg.SystemSMTPHost,
+		Port:     cfg.SystemSMTPPort,
+		Username: cfg.SystemSMTPUser,
+		Password: cfg.SystemSMTPPassword,
+		From:     cfg.SystemSMTPFrom,
+	})
+	if systemSender.Configured() {
+		dispatcher := helpdesk.NewCsatSurveyDispatcher(
+			repo,
+			helpdesk.NewSystemMailCsatMailer(systemSender),
+			helpdeskGRPC,
+			helpdesk.CsatDispatcherConfig{BaseURL: cfg.CsatSurveyBaseURL, Logger: logger},
+		)
+		go dispatcher.Run(ctx)
+	} else {
+		slog.Warn("system SMTP not configured — CSAT survey invitations are issued but not sent",
+			"env_var", "SYSTEM_SMTP_HOST")
+	}
+
 	metricsRegistry := metrics.NewRegistry()
 
 	grpcServer := grpc.NewServer(
@@ -118,7 +152,6 @@ func main() {
 		),
 	)
 
-	helpdeskGRPC := server.NewHelpdeskGRPCServer(helpdeskService, inboxServiceClient, settingsServiceClient)
 	helpdeskv1.RegisterHelpdeskServiceServer(grpcServer, helpdeskGRPC)
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)

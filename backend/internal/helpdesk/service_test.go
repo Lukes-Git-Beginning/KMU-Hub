@@ -42,6 +42,7 @@ type mockRepo struct {
 // ticket_csat_responses.
 type csatTokenRow struct {
 	token     string
+	sendAfter time.Time
 	expiresAt time.Time
 }
 
@@ -171,7 +172,7 @@ func (r *mockRepo) IssueCsatSurveyTokenTx(
 	_ context.Context,
 	tenantID, ticketID uuid.UUID,
 	token string,
-	expiresAt, _ time.Time,
+	sendAfter, expiresAt, _ time.Time,
 ) (bool, error) {
 	t, ok := r.tickets[ticketID]
 	if !ok || t.TenantID != tenantID {
@@ -180,7 +181,7 @@ func (r *mockRepo) IssueCsatSurveyTokenTx(
 	if t.CsatRating != nil {
 		return false, nil
 	}
-	r.csatTokens[ticketID] = csatTokenRow{token: token, expiresAt: expiresAt}
+	r.csatTokens[ticketID] = csatTokenRow{token: token, sendAfter: sendAfter, expiresAt: expiresAt}
 	return true, nil
 }
 

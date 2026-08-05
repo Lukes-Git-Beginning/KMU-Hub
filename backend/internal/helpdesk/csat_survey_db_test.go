@@ -32,7 +32,8 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
 	sysCtx := testutil.WithSystemCtx(context.Background())
 	now := time.Now().UTC()
-	expiresAt := now.Add(CsatSurveyTokenTTL)
+	sendAfter := now.Add(24 * time.Hour)
+	expiresAt := sendAfter.Add(CsatSurveyTokenTTL)
 
 	ticket := &Ticket{
 		ID: uuid.New(), TenantID: tenantOwn, Subject: "CSAT Survey Ticket",
@@ -47,7 +48,7 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 
 	// A foreign tenant cannot mint a token even while passing the ticket's real
 	// tenant id -- so only RLS, not the WHERE clause, can be what stops it.
-	issued, err := repo.IssueCsatSurveyTokenTx(ctxOther, tenantOwn, ticket.ID, "foreign-token", expiresAt, now)
+	issued, err := repo.IssueCsatSurveyTokenTx(ctxOther, tenantOwn, ticket.ID, "foreign-token", sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (foreign ctx): %v", err)
 	}
@@ -55,7 +56,7 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 		t.Fatal("a foreign-tenant caller minted a survey token")
 	}
 
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-one", expiresAt, now)
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-one", sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (own ctx): %v", err)
 	}
@@ -78,7 +79,7 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 	}
 
 	// Closing again replaces a pending link rather than piling up rows.
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-two", expiresAt, now)
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-two", sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (second close): %v", err)
 	}
@@ -93,7 +94,7 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 	if err := repo.SubmitCsatTx(ctxOwn, tenantOwn, ticket.ID, 5, nil, now); err != nil {
 		t.Fatalf("SubmitCsatTx: %v", err)
 	}
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-three", expiresAt, now)
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-three", sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (after rating): %v", err)
 	}

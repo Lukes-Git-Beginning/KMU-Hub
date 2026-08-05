@@ -330,29 +330,162 @@ func (r *PostgresRepository) SubmitCsatTx(
 //
 // A pending token from an earlier close is overwritten on purpose: the new
 // close restarts the delay, and the previous link would run on a stale one.
+// That restart also resets the dispatch bookkeeping (survey_sent_at,
+// survey_dispatch_attempts): the new link has not been mailed out yet, and a
+// row still marked sent would never reach the poller.
 func (r *PostgresRepository) IssueCsatSurveyTokenTx(
 	ctx context.Context,
 	tenantID, ticketID uuid.UUID,
 	token string,
-	expiresAt, now time.Time,
+	sendAfter, expiresAt, now time.Time,
 ) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO ticket_csat_responses
-		     (id, tenant_id, ticket_id, token, token_expires_at, created_at, updated_at)
-		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $5
+		     (id, tenant_id, ticket_id, token, token_expires_at, survey_send_after,
+		      created_at, updated_at)
+		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $6, $6
 		   FROM tickets t
 		  WHERE t.id = $2 AND t.tenant_id = $1
 		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
-		 SET token            = EXCLUDED.token,
-		     token_expires_at = EXCLUDED.token_expires_at,
-		     updated_at       = EXCLUDED.updated_at
+		 SET token                    = EXCLUDED.token,
+		     token_expires_at         = EXCLUDED.token_expires_at,
+		     survey_send_after        = EXCLUDED.survey_send_after,
+		     survey_sent_at           = NULL,
+		     survey_dispatch_attempts = 0,
+		     updated_at               = EXCLUDED.updated_at
 		 WHERE ticket_csat_responses.submitted_at IS NULL`,
-		tenantID, ticketID, token, expiresAt, now,
+		tenantID, ticketID, token, expiresAt, sendAfter, now,
 	)
 	if err != nil {
 		return false, fmt.Errorf("issue csat survey token: %w", err)
 	}
 	return tag.RowsAffected() == 1, nil
+}
+
+// ListDueCsatSurveys returns pending surveys whose send time has come, oldest
+// first. It runs from the dispatcher, which holds a system context: the query
+// is deliberately cross-tenant and carries each row's tenant with it.
+//
+// The join on users is what supplies the recipient address, and it is also why
+// a ticket without a user requester yields nothing here. Until the intake
+// contract lands a requester_email column on tickets (backlog B1), an external
+// requester simply gets no survey -- silently dropping a mail is better than
+// guessing an address.
+func (r *PostgresRepository) ListDueCsatSurveys(
+	ctx context.Context,
+	now time.Time,
+	maxAttempts int16,
+	limit int,
+) ([]*DueCsatSurvey, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.tenant_id, r.ticket_id, r.token,
+		        t.ticket_number, t.subject,
+		        req.email,
+		        COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email)
+		   FROM ticket_csat_responses r
+		   JOIN tickets t   ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id
+		   JOIN users   req ON req.id = t.requester_id
+		  WHERE r.token IS NOT NULL
+		    AND r.submitted_at IS NULL
+		    AND r.survey_sent_at IS NULL
+		    AND r.survey_send_after IS NOT NULL
+		    AND r.survey_send_after <= $1
+		    AND r.token_expires_at > $1
+		    AND r.survey_dispatch_attempts < $2
+		    AND req.email <> ''
+		  ORDER BY r.survey_send_after
+		  LIMIT $3`,
+		now, maxAttempts, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list due csat surveys: %w", err)
+	}
+	defer rows.Close()
+
+	due := make([]*DueCsatSurvey, 0)
+	for rows.Next() {
+		var d DueCsatSurvey
+		if err := rows.Scan(
+			&d.ResponseID, &d.TenantID, &d.TicketID, &d.Token,
+			&d.TicketNumber, &d.Subject, &d.RecipientEmail, &d.RecipientName,
+		); err != nil {
+			return nil, fmt.Errorf("scan due csat survey: %w", err)
+		}
+		due = append(due, &d)
+	}
+	return due, rows.Err()
+}
+
+// ClaimCsatSurveyDispatch takes exclusive ownership of one due survey by
+// stamping survey_sent_at. Two overlapping ticks race on this UPDATE and
+// exactly one sees RowsAffected()==1; the loser skips the row instead of
+// mailing the same survey twice (same recipe as ClaimSchedule and
+// ClaimTimeTrigger). The attempt counter advances with the claim, so a row
+// that is claimed and then never released still stops retrying eventually.
+func (r *PostgresRepository) ClaimCsatSurveyDispatch(
+	ctx context.Context,
+	responseID uuid.UUID,
+	now time.Time,
+) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET survey_sent_at           = $2,
+		        survey_dispatch_attempts = survey_dispatch_attempts + 1,
+		        updated_at               = $2
+		  WHERE id = $1
+		    AND survey_sent_at IS NULL
+		    AND submitted_at IS NULL
+		    AND token IS NOT NULL`,
+		responseID, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("claim csat survey dispatch: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// ReleaseCsatSurveyDispatch undoes a claim whose mail could not be delivered,
+// so a later tick may retry. The claimedAt guard makes it release only this
+// process's own claim. The attempt counter stays where it is -- that is what
+// bounds the retries.
+func (r *PostgresRepository) ReleaseCsatSurveyDispatch(
+	ctx context.Context,
+	responseID uuid.UUID,
+	claimedAt time.Time,
+) error {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET survey_sent_at = NULL,
+		        updated_at     = $2
+		  WHERE id = $1 AND survey_sent_at = $2`,
+		responseID, claimedAt,
+	); err != nil {
+		return fmt.Errorf("release csat survey dispatch: %w", err)
+	}
+	return nil
+}
+
+// CancelCsatSurvey revokes a pending survey link: the tenant switched surveys
+// off between the ticket close and the delayed send, so the mail must not go
+// out and the link must not stay redeemable. An already rated row is left
+// alone -- its rating is real data, only the invitation is being withdrawn.
+func (r *PostgresRepository) CancelCsatSurvey(
+	ctx context.Context,
+	responseID uuid.UUID,
+	now time.Time,
+) error {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET token             = NULL,
+		        token_expires_at  = NULL,
+		        survey_send_after = NULL,
+		        updated_at        = $2
+		  WHERE id = $1 AND submitted_at IS NULL`,
+		responseID, now,
+	); err != nil {
+		return fmt.Errorf("cancel csat survey: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

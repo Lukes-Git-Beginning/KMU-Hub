@@ -3519,3 +3519,89 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
 - kein FE-Teil in diesem Commit (Backend-Loop-Scope).
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): issue CSAT survey
   token when a ticket closes".
+
+## Iteration 55 — csat-survey-dispatch — done — 2026-08-06 01:10
+- verify vorgaenger (606e94fb, csat-survey-token): **sauber**. Kein `.proto` im Diff (also kein
+  Regen faellig), keine neue Route (kein openapi-Drift), keine neue Tabelle, kein
+  `RequirePermission`, kein Stub/`Unimplemented`. Der einzige gRPC-nahe Punkt ist
+  `internal/server/helpdesk_grpc.go` — das ist die gRPC-Server-Seite selbst, keine
+  Layer-Umgehung im Gateway. Das INSERT in `IssueCsatSurveyTokenTx` nimmt `tenant_id` aus der
+  Ticket-Zeile statt vom Aufrufer, Read-Seite unveraendert. Nichts anzulegen.
+- gebaut (Schema): Migration **000289_helpdesk_csat_survey_dispatch** — drei Spalten an
+  `ticket_csat_responses`: `survey_send_after` (Faelligkeit = Close + Tenant-Delay),
+  `survey_sent_at` (ist GLEICHZEITIG der Claim) und `survey_dispatch_attempts SMALLINT NOT NULL
+  DEFAULT 0` (Retry-Deckel 3). Partial-Index `idx_ticket_csat_responses_due` deckt exakt die
+  Faelligkeits-Query. Backfill: Bestandszeilen mit Token bekommen `survey_send_after = created_at`
+  (sofort faellig statt nie). down droppt Index + Spalten. Keine RLS-Arbeit noetig, die Policy
+  kam mit 000288 — `TestAllPublicTablesHaveRLSOrAreAllowlisted` bleibt gruen (keine neue Tabelle).
+  ENTSCHEIDUNG Faelligkeit: `survey_send_after` wird explizit gespeichert, NICHT aus
+  `token_expires_at - TTL` zurueckgerechnet. Die Ableitung waere still falsch, sobald die TTL
+  sich aendert.
+- gebaut (Repo): `IssueCsatSurveyTokenTx` bekommt `sendAfter` und setzt beim Ersetzen eines
+  pending Tokens `survey_sent_at = NULL, survey_dispatch_attempts = 0` zurueck (neuer Close =
+  neuer Zeitplan; ohne das Reset waere ein zweiter Close nie zustellbar). Neu:
+  `ListDueCsatSurveys` (JOIN tickets + users, liefert Empfaenger und Ticketnummer mit),
+  `ClaimCsatSurveyDispatch` (Optimistic-UPDATE, `RowsAffected()==1` gewinnt),
+  `ReleaseCsatSurveyDispatch` (gibt NUR den eigenen Claim zurueck, `WHERE survey_sent_at =
+  claimedAt`), `CancelCsatSurvey` (entwertet Token, laesst ein vorhandenes Rating stehen).
+  Diese vier haengen bewusst NICHT am fetten `Repository`-Interface, sondern an der neuen engen
+  `CsatDispatchRepository` (csat_dispatch.go) — gleiche Trennung wie
+  `berichte/scheduler.ScheduleRepository`, dadurch braucht `mockRepo` sie nicht.
+- gebaut (Dispatcher): `internal/helpdesk/csat_dispatch.go`, `CsatSurveyDispatcher`.
+  `Run` laeuft unter `database.WithSystemContext` (kein eingeloggter User, Query ist
+  tenant-uebergreifend), Tick 5 min, Batch 100, erster Tick sofort. `ProcessTick`: listen →
+  je Zeile Config → claim → mailen → bei Fehler Claim freigeben.
+  **Die Falle, die hier fast zugeschnappt waere:** `GetCsatConfig` liest `tenant_settings` im
+  Settings-Service unter RLS mit dem Tenant aus dem **Call-Kontext**, nicht mit der `tenant_id`
+  im Request-Body. Aus dem tenantlosen System-Kontext des Pollers gerufen haette es 0 Zeilen
+  gefunden und still `DefaultCsatConfig()` geliefert — die Tenant-Einstellung waere wirkungslos
+  gewesen und niemand haette es gemerkt. Deshalb geht genau dieser eine Call ueber
+  `withTenant(ctx, s.TenantID)` (1:1 `berichte.WithTenant`); alles andere bleibt System-Kontext.
+  Tenant hat CSAT zwischenzeitlich abgeschaltet → `CancelCsatSurvey` statt Ueberspringen, sonst
+  taucht die Zeile 30 Tage lang in jedem Tick wieder auf und der Link bliebe einloesbar.
+  Config-Fehler → Zeile bleibt unangetastet und unclaimed (verbraucht keinen Versuch).
+  Config-Lookup memoisiert pro Tenant pro Tick.
+- gebaut (Mail): `csat_mailer.go`, `SystemMailCsatMailer` ueber `email/systemmail` (dieselbe
+  Transaktions-SMTP-Strecke wie die geplanten Berichte). Neue Config `CSAT_SURVEY_BASE_URL`
+  (default `https://app.zentria.tech/csat`) — **defaulted, keine `config.RequireX`-Assertion**,
+  also keine Startgefahr fuer den laufenden Betrieb. Verdrahtung in `cmd/helpdesk/main.go` exakt
+  nach dem Muster von `cmd/berichte`: ohne konfiguriertes System-SMTP wird der Dispatcher gar
+  nicht erst gestartet (statt Umfragen zu claimen, die kein Transport zustellen kann) + Warn-Log.
+  ABWEICHUNG vom Backlog-Text: Rendering laeuft NICHT ueber `email/template.Service.Render`.
+  Das ist ein CRUD-Store fuer tenant-eigene Templates, `Render` schlaegt eine Template-Zeile per
+  ID mit Sichtbarkeitsregeln nach — fuer eine System-Mail gibt es keine solche Zeile, und eine
+  pro Tenant zu seeden waere eine eigene Baustelle. Stattdessen feste Body-Bauform mit der
+  Tenant-Frage aus `CsatConfig`, 1:1 wie `berichte/scheduler.buildTextBody`. Kein text/template,
+  keine freie Platzhalter-Aufloesung. HTML-Escaping via `html.EscapeString` (Stdlib).
+- gebaut (Tests): `csat_dispatch_db_test.go` (echte DB als `kmuhub_app`) — die Faelligkeits-Query
+  liefert fuer geseedete Daten **wirklich eine Zeile** (das ist der Punkt, nicht "laeuft
+  fehlerfrei"; Lehre aus Iteration 45), eine noch nicht faellige Umfrage kommt nicht mit,
+  Empfaenger/Name/Ticketnummer sind gefuellt, Cross-Tenant-Read der CSAT-Zeile = 0 Zeilen,
+  zweiter Claim scheitert, Release macht faellig und verbraucht genau einen Versuch,
+  erschoepfte Versuche fallen dauerhaft raus, Cancel entwertet den Token und laesst ein Rating
+  stehen. `csat_dispatch_test.go` (Fakes) — zwei Ticks = eine Mail, nicht faellig = keine Mail,
+  Sendefehler gibt den Claim frei und der naechste Tick stellt zu, abgeschalteter Tenant wird
+  entwertet statt gemailt, Config-Ausfall verbraucht keinen Versuch, ein Config-Lookup pro
+  Tenant pro Tick, Link/Frage/Subject im Body und Subject im HTML escaped.
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `migrate up` bis 289 ok | `go build -p 2` (helpdesk, server, gateway, cmd/helpdesk, cmd/gateway)
+  ok | `go vet` (helpdesk, cmd/helpdesk) ok | `golangci-lint run` (helpdesk, cmd/helpdesk, config)
+  → **0 issues** | `go test -count=1 ./internal/helpdesk/` **82 PASS / 0 SKIP / 0 FAIL** (die vier
+  neuen DB-Tests liefen real) | `./internal/server/` ok | `./internal/gateway/` ok
+  (TestOpenAPIRouteDrift mitgelaufen; keine Route angefasst, openapi.yaml unveraendert) |
+  `./internal/testutil/` ok (RLS-Standing-Guard).
+- offen fuer die naechste Iteration / fuer Luke:
+  - **Externe Requester bekommen heute keine Umfrage.** `ListDueCsatSurveys` holt die Adresse
+    ueber `JOIN users ON users.id = tickets.requester_id`; ohne User-Konto gibt es keine Zeile.
+    Sobald B1 (`intake-ticket-columns`) `requester_email` an `tickets` bringt, muss der JOIN auf
+    `COALESCE(t.requester_email, req.email)` erweitert werden — sonst bleibt genau die
+    Kundengruppe stumm, fuer die CSAT gedacht ist.
+  - A8 (`csat-public-response`) loest den Token oeffentlich ein und muss ihn dabei entwerten
+    (`token = NULL`), sonst ist der Link mehrfach einloesbar. `CancelCsatSurvey` ist dafuer schon
+    die passende Formulierung.
+  - Ohne `SYSTEM_SMTP_HOST` laeuft der Dispatcher gar nicht — Umfragen sammeln sich als pending
+    Tokens an und gehen raus, sobald SMTP konfiguriert ist (Nachhol-Effekt beim ersten Start
+    bedenken). `CSAT_SURVEY_BASE_URL` muss auf die FE-Route zeigen, die A8 bedient.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): mail out CSAT
+  surveys after their configured delay".

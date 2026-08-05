@@ -276,7 +276,7 @@ units:
     service: helpdesk
     model: opus
     deps: [csat-survey-token]
-    status: todo
+    status: done
     scope: >
       Verzoegerter Versand der Umfrage-Mail ueber einen Poller: faellige Tokens einsammeln,
       exklusiv beanspruchen, Mail mit dem Bewertungslink verschicken, Versandzeitpunkt vermerken.

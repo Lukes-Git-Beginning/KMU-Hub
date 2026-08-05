@@ -15,8 +15,11 @@ import (
 // through the public redeem endpoint, and lands on the same
 // ticket_csat_responses row.
 type CsatSurvey struct {
-	TicketID  uuid.UUID
-	Token     string
+	TicketID uuid.UUID
+	Token    string
+	// SendAfter is when the invitation mail becomes due: close time plus the
+	// tenant's configured delay. The dispatcher polls against it.
+	SendAfter time.Time
 	ExpiresAt time.Time
 }
 
@@ -71,14 +74,13 @@ func (s *Service) IssueCsatSurveyToken(ctx context.Context, t *Ticket, cfg CsatC
 	}
 
 	now := time.Now().UTC()
-	expiresAt := now.
-		Add(time.Duration(cfg.SurveyDelayMinutes) * time.Minute).
-		Add(CsatSurveyTokenTTL)
+	sendAfter := now.Add(time.Duration(cfg.SurveyDelayMinutes) * time.Minute)
+	expiresAt := sendAfter.Add(CsatSurveyTokenTTL)
 
 	// The repository re-checks "not yet rated" in the same statement; the check
 	// above only saves the write in the common case. A rating submitted between
 	// the two is the reason the authoritative check has to sit in SQL.
-	issued, err := s.repo.IssueCsatSurveyTokenTx(ctx, t.TenantID, t.ID, token, expiresAt, now)
+	issued, err := s.repo.IssueCsatSurveyTokenTx(ctx, t.TenantID, t.ID, token, sendAfter, expiresAt, now)
 	if err != nil {
 		return nil, fmt.Errorf("issue csat survey token: %w", err)
 	}
@@ -91,5 +93,5 @@ func (s *Service) IssueCsatSurveyToken(ctx context.Context, t *Ticket, cfg CsatC
 		"expires_at", expiresAt,
 		"delay_minutes", cfg.SurveyDelayMinutes,
 	)
-	return &CsatSurvey{TicketID: t.ID, Token: token, ExpiresAt: expiresAt}, nil
+	return &CsatSurvey{TicketID: t.ID, Token: token, SendAfter: sendAfter, ExpiresAt: expiresAt}, nil
 }
