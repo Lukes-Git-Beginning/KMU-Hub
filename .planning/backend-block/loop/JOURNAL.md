@@ -3813,3 +3813,63 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
   - Weiter offen aus Iteration 48/49: `ListDueCsatSurveys` holt die Adresse ueber `JOIN users`
     und uebergeht externe Requester. `tickets.requester_email` ist jetzt nicht nur da, sondern
     auch befuellt — der JOIN kann auf `COALESCE(t.requester_email, req.email)`. Gehoert zu B5.
+
+## Iteration 51 — intake-route-create (B3)
+
+- commit: f4a6cd31, "feat(helpdesk): carry intake origin through the create route".
+- verify vorgaenger (f4a6cd31 selbst geprueft nach dem Bauen, siehe unten; das davor liegende
+  eac91ac9/intake-proto-create war schon in Iteration 50 verifiziert). Kein neuer Vorgaenger-Fund.
+- gebaut: `createTicketRequest` im Gateway um `channel`, `requester_email`, `requester_name`,
+  `requester_is_external`, `custom_fields` erweitert und in `grpcReq` durchgereicht.
+  `custom_fields` kommt als `map[string]any` aus `decodeAndValidate`, wird ueber
+  `structpb.NewStruct` in ein `*structpb.Struct` gehoben — schlaegt das fehl, 400
+  "invalid custom_fields", kein 500 (Vorgabe aus den Notes, nicht wie
+  `route_automation.go`/`route_inbox.go`, die den Fehler heute still schlucken; hier bewusst
+  NICHT diesem Muster gefolgt, weil die Notes explizit 400 statt 500 verlangen).
+  `openapi.yaml` im selben Commit: die fuenf Felder unter `post /api/v1/helpdesk/tickets`
+  ergaenzt (Zeile ~13910). `description`/`category` fehlten dort schon vorher im Request-Body-
+  Schema — vorbestehende Luecke, nicht in dieser Unit angefasst (out of scope).
+- **Keine Validierung im Handler dupliziert** — kein `validate`-Tag auf den vier neuen
+  String-/Struct-Feldern, die Regeln (unbekannter channel, kaputte Mail, verschachtelte
+  custom_fields) laufen wie vorgeschrieben ausschliesslich durch `TicketIntake.normalize` im
+  Service (B2). `requester_is_external` hat kein `omitempty`-Validate noetig, ist ein Plain-Bool.
+- **requester_id bleibt serverseitig aus der Session** (`middleware.GetUserID`), nicht aus dem
+  Body — im DTO gibt es dafuer gar kein Feld, IDOR-Linie aus Iteration 46 unveraendert weiter
+  gezogen.
+- **FE-Vertrag abgeglichen, nicht geraten:** `helpdesk-types.ts` (`CreateTicketInput`) und
+  `helpdesk-ticket-target.ts` (der Intake-Engine-Zielpunkt, der `createTicket()` schon mit
+  `channel`/`requester_id`/`requester_name`/`requester_email`/`requester_is_external`/
+  `custom_fields` aufruft) nutzen exakt diese fuenf Feldnamen und `TicketChannel =
+  'agent'|'selfservice'|'external'`, `custom_fields?: Record<string, string|number|boolean>` —
+  passt 1:1 auf `map[string]any` + `structpb.NewStruct`.
+- **"Round-Trip-Test" im Gateway-Package ist strukturell nicht als Live-Call moeglich:** dieses
+  Package hat keine bufconn/echten-Server-Testinfrastruktur (grep bestaetigt: kein `bufconn` im
+  ganzen Repo), `registryWithService()` verbindet immer auf eine Dummy-Adresse
+  (`localhost:0`), jeder echte RPC-Call schlaegt mit `Unavailable` fehl → 503. Der tatsaechliche
+  Proto→Service→Repository→Read-Round-Trip ist bereits in B2 (Iteration 50, `internal/helpdesk`)
+  getestet. Fuer B3 stattdessen zwei Tests, die die Gateway-eigene Verantwortung pruefen:
+  `TestHandleCreateTicket_IntakeFieldsPassValidation` (alle fuenf Felder gesetzt, Subject dazu →
+  503 statt 400 beweist, dass decode+validate die neuen Felder NICHT ablehnt, bevor sie den
+  RPC-Call erreichen) und `TestHandleCreateTicket_CustomFieldsNotObject` (custom_fields als
+  JSON-Array → 400 "invalid request body", weil `json.Decode` in `map[string]any` beim Typ
+  scheitert, bevor `structpb.NewStruct` ueberhaupt aufgerufen wird).
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`): `go build ./...` ok | `go vet ./...` ok |
+  `golangci-lint run ./internal/gateway/...` **0 issues** |
+  `go test -count=1 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/... ./internal/testutil/...`
+  **grün** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`). Ein Lauf zuvor zeigte 1 FAIL
+  (`TestDecodeBexioState_ManipulatedSignature`, `internal/gateway/bexio_state_test.go` — flippt
+  einen Base64-Zeichen der Signatur und erwartet einen Fehler; ~1/64 Chance, dass das getroffene
+  Zeichen zufaellig gleich bleibt). 20 isolierte Wiederholungen liefen sauber durch, ein zweiter
+  Voll-Lauf war gruen — bestaetigt als vorbestehender Flake in einem Bexio-Test, unberuehrt von
+  dieser Unit, nicht behoben (auesserhalb des Scopes B3).
+- offen fuer die naechste Iteration:
+  - B4 (intake-route-update) ist die naechste in der deps-Kette: `updateTicketRequest` um
+    `status` und `custom_fields` erweitern (HelpdeskPage.tsx:515 sendet beides, beides geht
+    heute verloren). `UpdateTicket` im Repository schreibt die Intake-Spalten noch nicht mit —
+    custom_fields-Merge im Service bauen, nicht die SET-Liste aufblaehen (Hinweis aus B2/B3-Notes
+    unveraendert gueltig).
+  - Der vorbestehende Bexio-Flake (`TestDecodeBexioState_ManipulatedSignature`) ist keine Backlog-
+    Unit — falls er wieder auftaucht und stoert, waere ein deterministischer Test (festes
+    manipuliertes Byte statt "X" an fixer Position, oder pruefen, ob sich das Zeichen tatsaechlich
+    geaendert hat) der saubere Fix, aber das ist ausserhalb von Helpdesk/Intake.

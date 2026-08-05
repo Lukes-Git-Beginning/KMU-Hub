@@ -413,7 +413,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [intake-proto-create]
-    status: todo
+    status: done
     scope: >
       `createTicketRequest` im Gateway um die fuenf Felder erweitern, an den gRPC-Client
       durchreichen, openapi.yaml nachziehen.
