@@ -4073,3 +4073,87 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
     gespeicherten Zeile, nicht aus einem frischen FE-Request), aber er verhindert, dass ein
     Formular-Autor die Rolle/Ziel-Bindung ueberhaupt aus der echten UI heraus speichern kann.
     Gehoert vor Block E/Formulare-Launch behoben, nicht in dieser Iteration.
+
+## Iteration 55 — intake-form-dispatch — done — 2026-08-06 02:0x
+- commit: 41f771dc
+- gebaut: serverseitiger Intake-Dispatch. Drei neue Dateien im Gateway, keine Migration, kein
+  Proto-Touch (B3/B4/B6 hatten alles noetige schon gelegt: `CreateTicketRequest` traegt
+  channel/requester_*/custom_fields, `FormSchema.intake_target_id` und `FormField.role` sind da).
+  - `internal/gateway/intake.go` — die modul-agnostische Engine: `intakeField`/`intakeOrigin`/
+    `intakeSubmission`/`intakeTarget`, die Registry `intakeTargets` (explizites Map-Literal,
+    kein `init()`), `mapIntakeAnswers` (Rollen -> mapped, alles andere -> extras),
+    `slugifyIntakeKey` als 1:1-Port von `slugifyKey` aus `shared/intake/engine.ts` inkl.
+    ae/oe/ue/ss-Faltung und Fallback auf die Feld-ID, `runIntakeDispatch` als testbarer
+    Einstieg mit injizierbarem `intakeSchemaLookup`.
+  - `internal/gateway/intake_helpdesk.go` — das einzige Target. Rollen-Set identisch zu
+    `formulare.validIntakeRoles` (Write-Seite) und zur FE-Dropdown-Liste; `coerceIntakePriority`
+    mit derselben Tabelle wie `coercePriority` im FE (deutsche Labels inklusive), Subject-
+    Fallback "Anfrage über Formular" wie im FE. Geht ueber `reg.GetConnection("helpdesk")` +
+    `helpdeskv1.NewHelpdeskServiceClient(...).CreateTicket`, also den Client, nie eine direkte
+    Service-Instanz.
+  - `route_formulare.go` — `HandleCreateSubmission` ruft nach erfolgreichem `CreateSubmission`
+    die neue Methode `dispatchIntake`; die laedt das Schema per `GetFormSchema` (Ziel +
+    fields), dispatcht und **schluckt jeden Fehler nach einem `slog.Error`**. Antwort bleibt
+    201, Origin ist `{Channel: "selfservice", RequesterID: userID}` (der authentifizierte
+    Pfad ist Self-Service; `isExternal()` faellt damit auf false, exakt die FE-Regel
+    `context.requester?.isExternal ?? channel !== 'selfservice'`).
+- warum im Gateway und nicht im Formulare-Service: geprueft, es gibt im ganzen Repo **keinen**
+  Service, der einen Client eines anderen Service haelt (`grep` ueber alle
+  `internal/*/service.go`). Die gRPC-Verbindungen leben ausschliesslich in der
+  `ServiceRegistry` des Gateways. Ein Helpdesk-Client in `internal/formulare` waere eine neue
+  Abhaengigkeitsrichtung gewesen — bewusst nicht eroeffnet. Kommentarblock am Kopf von
+  intake.go haelt die Begruendung fest.
+- Autorisierung (bewusste Entscheidung, im Code kommentiert): der Einreicher hat
+  `formulare:submissions:write`, NICHT `helpdesk:ticket:create`. Der gRPC-Call laeuft an den
+  HTTP-Guards vorbei — das ist der Sinn eines Intake-Formulars (wer eine Stoerung meldet, hat
+  kein Helpdesk-Schreibrecht). Begrenzt wird es dadurch, dass die Satzform vom gebundenen
+  Schema kommt und der `TenantOutboundUnaryInterceptor` den Tenant mitfuehrt (verifiziert in
+  `registry.go:110` — die Gateway-Connections haengen den Tenant an jeden ausgehenden Call).
+  Kein Tenant-Uebertritt moeglich.
+- Datenverlust-Schutz: Reihenfolge ist Submission-Speichern -> Dispatch, und der Dispatcher hat
+  keinerlei Zugriff auf die Submission-Zeile. Test
+  `TestRunIntakeDispatch_TargetFailureIsReportedNotSwallowed` belegt, dass ein
+  fehlschlagendes Target den Fehler an den Aufrufer zurueckgibt (statt zu paniken oder still
+  zu sein), `TestRunIntakeDispatch_LookupFailureStopsBeforeCreate`, dass ohne lesbares Schema
+  gar nichts erzeugt wird.
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build ./...` ok | `go vet
+  ./internal/gateway/...` ok | `golangci-lint run ./internal/gateway/...` **0 issues** |
+  `go test -count=1 ./internal/gateway/... ./internal/formulare/... ./internal/helpdesk/...`
+  alle ok | `go test -v ./internal/gateway/` **659 PASS / 0 FAIL / 0 SKIP** (16 davon neu),
+  darin `TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift` gruen. Keine neue Route, daher keine
+  openapi.yaml-Aenderung noetig (Statuscodes von POST .../submissions unveraendert).
+- verify vorgaenger (75e1fef6): sauber. Migration 000292 rein additiv mit gefuelltem down,
+  Rollen-Whitelist im Service statt in der DB (richtig — die Liste ist ein Code-Vertrag),
+  `normalizeIntakeTargetID` faltet Leerstring auf nil, Gateway-DTOs und Proto konsistent
+  snake_case. Kein Fund.
+- **kein Doppel-Dispatch** (geprueft, war die Hauptsorge): der FE-Pfad, der `useIntakeSubmit`
+  aufruft, ist die **interaktive Builder-Vorschau** (`FormularePage.tsx:2322`) — die erzeugt
+  ein Ticket, speichert aber **keine** Submission. Der echte
+  `POST /formulare/schemas/{id}/submissions`-Pfad hat bisher gar nicht dispatcht. Die beiden
+  Pfade ueberschneiden sich heute also nicht. **Achtung fuer spaeter:** sobald die Vorschau
+  (oder eine FE-Ausfuellseite) zusaetzlich `createSubmission` aufruft, entstehen zwei Tickets.
+  Der FE-seitige `dispatchIntake`-Aufruf gehoert dann raus, nicht dieser hier.
+- offen / bewusst nicht gemacht:
+  - **Die erzeugte Record-ID steht in keiner Antwort.** `CreateSubmissionResponse` traegt kein
+    Feld dafuer, und ein Proto-Umbau war fuer `done_when` nicht noetig. Das FE erfaehrt aus der
+    201 also nicht, ob und welches Ticket entstanden ist. Wenn eine FE-Ausfuellseite spaeter
+    "Ihr Ticket #123" anzeigen soll, braucht es ein optionales Feld
+    (`created_record_id` + `created_target_id`) — eigene kleine Unit.
+  - **Bekanntes Refinement aus backend-gaps.md, weiterhin offen** (Backlog verlangt
+    ausdruecklich, es hier nicht als erledigt gelten zu lassen): freie Felder landen als
+    custom_fields keyed auf `Slug(label)`, nicht auf den definierten Feld-Keys. Das ist hier
+    bewusst so nachgebaut, weil FE und BE identische Keys erzeugen muessen — die Korrektur
+    gehoert an beiden Enden gleichzeitig gemacht, nicht einseitig.
+  - Der FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update (camelCase-Body ohne
+    Casing-Transform, `fields` als Array vs. `[]byte`) aus Iteration 54 ist **unveraendert
+    offen**. Er blockiert diese Unit nicht (der Dispatch liest die gespeicherte Zeile), aber
+    er verhindert weiterhin, dass ein Autor `intake_target_id` und Feld-Rollen aus der echten
+    Oberflaeche heraus ueberhaupt speichern kann. Damit ist die Kette Schema-Bindung ->
+    Dispatch backend-seitig komplett, end-to-end aus der UI aber noch nicht erreichbar.
+  - `intake-public-submit` (B8) ist als naechstes dran und baut direkt auf `runIntakeDispatch`
+    auf: dort einfach ein `intakeOrigin{Channel: "external"}` ohne RequesterID uebergeben.
+    Achtung: `helpdesk.Service.CreateTicket` verlangt bei fehlender RequesterID zwingend
+    `RequesterIsExternal` **und** eine `RequesterEmail` (service.go:61, ErrMissingRequester) —
+    ein oeffentliches Formular ohne `requester_email`-Rolle erzeugt also kein Ticket. Das
+    gehoert in B8 sauber abgefangen (Formular-Validierung oder verstaendlicher Log-Eintrag),
+    sonst wirkt es wie ein stiller Ausfall.

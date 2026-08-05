@@ -546,7 +546,7 @@ units:
     service: formulare
     model: opus
     deps: [intake-form-target, intake-route-create]
-    status: todo
+    status: done
     scope: >
       Wird ein Formular mit gebundenem `intake_target_id` eingereicht, erzeugt der Server den
       Zieldatensatz. Erste und einzige Instanz ist das Helpdesk-Ticket. Feld-Rollen fuellen die
