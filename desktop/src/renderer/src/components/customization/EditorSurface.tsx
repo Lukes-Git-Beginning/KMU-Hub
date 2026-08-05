@@ -19,9 +19,9 @@ import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
-import { resolveValueSet, resolveModuleAreas } from '@/mocks/data/customization'
+import { resolveValueSet, resolveModuleAreas, resolveModuleAreaLayout } from '@/mocks/data/customization'
 import { useCustomFields } from '@/api/hooks/useCustomFields'
-import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
+import type { ModuleAreaLayout, ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
 import type { CustomFieldDefinition, CustomFieldEntity, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 
 /** The editor's left-rail dimensions. Lives here (not in the editor) so modules
@@ -46,6 +46,14 @@ export interface EditorSurfaceValue {
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
   /** Draft module-area visibility overrides — previewed live (tabs/sections on-off). */
   moduleAreas: ModuleAreasOverlay
+  /**
+   * Write a column's layout (order/width) into the draft. Separate from `setLabel`
+   * because it is triggered from the module itself — dragging a column edge in the
+   * preview — not from a panel. No-op outside the sandbox.
+   */
+  setAreaLayout: (areaKey: string, patch: ModuleAreaLayout) => void
+  /** Same for several areas in one undo step (`focusKey` = the column being dragged). */
+  setAreaLayouts: (patches: Record<string, ModuleAreaLayout>, focusKey: string) => void
   /** Draft record migrations for deleted value-set options — previewed live (R4b). */
   valueSetMigrations: ValueSetMigrations
   /** Draft per-entity custom-field snapshots — previewed live by modules that render custom fields (G2). */
@@ -63,6 +71,8 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   isDraft: () => false,
   valueSets: {},
   moduleAreas: {},
+  setAreaLayout: noop,
+  setAreaLayouts: noop,
   valueSetMigrations: {},
   customFields: {},
   focusSection: null,
@@ -241,6 +251,87 @@ export function useModuleAreas(moduleKey: string): ModuleAreaMap {
     () => resolveModuleAreas(moduleKey, false, draftOverlay),
     [moduleKey, editing, draftOverlay],
   )
+}
+
+/** Prefix that separates list-column settings from real areas inside moduleAreas. */
+export const COLUMN_AREA_PREFIX = 'col:'
+
+export interface ModuleColumnLayout {
+  /** areaKey (incl. `col:` prefix) → configured order/width. Empty = nothing set. */
+  layout: Record<string, ModuleAreaLayout>
+  /** True only inside the editor sandbox — gates the resize handles. */
+  editing: boolean
+  /** Persist a dragged width as a share of the table (0–1). */
+  setWidth: (columnKey: string, width: number) => void
+  /**
+   * Freeze the columns' current widths in one step. Needed before the first drag:
+   * the moment a table switches to `table-layout: fixed`, every column without an
+   * explicit width gets an equal share — which would reshuffle the whole list on
+   * the first pixel of the first drag. Sharing the dragged column's undo key keeps
+   * freeze + drag a single step.
+   */
+  freezeWidths: (widths: Record<string, number>, draggedKey: string) => void
+}
+
+/**
+ * Resolve how a module's list columns are laid out — order and width (Darien
+ * 2026-08-05). Same layer model as everything else: live tenant/vendor settings,
+ * with the editor draft on top so a drag previews immediately.
+ *
+ * Rollout note: a module needs exactly three things to become column-configurable —
+ * this hook, `orderColumns` on its column array, and `columnWidthStyle` on its
+ * headers. Nothing module-specific in here.
+ */
+export function useModuleColumnLayout(moduleKey: string): ModuleColumnLayout {
+  const { editing, moduleAreas, setAreaLayout, setAreaLayouts } = useEditorSurface()
+  const draftOverlay = editing ? moduleAreas : undefined
+  const layout = useMemo(
+    () => resolveModuleAreaLayout(moduleKey, false, draftOverlay),
+    [moduleKey, editing, draftOverlay],
+  )
+  return useMemo(
+    () => ({
+      layout,
+      editing,
+      setWidth: (columnKey: string, width: number) =>
+        setAreaLayout(`${COLUMN_AREA_PREFIX}${columnKey}`, { width }),
+      freezeWidths: (widths: Record<string, number>, draggedKey: string) =>
+        setAreaLayouts(
+          Object.fromEntries(
+            Object.entries(widths).map(([key, width]) => [`${COLUMN_AREA_PREFIX}${key}`, { width }]),
+          ),
+          `${COLUMN_AREA_PREFIX}${draggedKey}`,
+        ),
+    }),
+    [layout, editing, setAreaLayout, setAreaLayouts],
+  )
+}
+
+/**
+ * Sort a module's columns by the configured order. Columns without one keep their
+ * code position, so a half-configured list never scrambles — and once the user
+ * drags anything, every column carries an order anyway.
+ */
+export function orderColumns<T extends { key: string }>(
+  columns: T[],
+  layout: Record<string, ModuleAreaLayout>,
+): T[] {
+  return columns
+    .map((column, index) => ({ column, index, order: layout[`${COLUMN_AREA_PREFIX}${column.key}`]?.order }))
+    .sort((a, b) => (a.order ?? a.index) - (b.order ?? b.index) || a.index - b.index)
+    .map((entry) => entry.column)
+}
+
+/**
+ * The `<th>` style for a configured column. Widths are stored as a share of the
+ * table, so they hold up when the window is narrower than the one they were set in.
+ */
+export function columnWidthStyle(
+  layout: Record<string, ModuleAreaLayout>,
+  columnKey: string,
+): { width?: string } {
+  const width = layout[`${COLUMN_AREA_PREFIX}${columnKey}`]?.width
+  return width === undefined ? {} : { width: `${(width * 100).toFixed(2)}%` }
 }
 
 /**

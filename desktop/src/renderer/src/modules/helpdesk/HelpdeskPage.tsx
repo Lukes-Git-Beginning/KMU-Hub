@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -70,7 +70,7 @@ import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } f
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
 import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
 import { useFormSchema } from '@/api/hooks/useFormulare'
 import type { FormField } from '@/api/formulare-types'
@@ -343,6 +343,9 @@ export default function HelpdeskPage() {
   // R4: tenant can hide whole tabs via the editor (moduleAreas). A tab shows only
   // when RBAC-visible AND its area is enabled.
   const areaEnabled = useModuleAreas('helpdesk')
+  // Order/width of the list columns — same draft layer, layout half of it.
+  const columnLayout = useModuleColumnLayout('helpdesk')
+  const ticketTableRef = useRef<HTMLTableElement>(null)
   const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
     (key) =>
       (!capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string)) &&
@@ -550,9 +553,13 @@ export default function HelpdeskPage() {
       ) : null,
     },
     { key: 'priority', header: <EditableText as="span" dkey="helpdesk.table.priority" />, cell: (tk) => <VsChip label={priorityLabels[tk.priority]} color={priorityColorOf(tk.priority)} fallbackClass={priorityColors[tk.priority]} /> },
-    { key: 'status', header: t('common.status'), cell: (tk) => <VsChip label={statusLabels[tk.status]} color={statusColorOf(tk.status)} fallbackClass={statusColors[tk.status]} /> },
+    // Own key instead of the shared common.status — renaming this column must not
+    // retitle every status label in the app.
+    { key: 'status', header: <EditableText as="span" dkey="helpdesk.table.status" />, cell: (tk) => <VsChip label={statusLabels[tk.status]} color={statusColorOf(tk.status)} fallbackClass={statusColors[tk.status]} /> },
     { key: 'assignedTo', header: <EditableText as="span" dkey="helpdesk.table.assignedTo" />, cell: (tk) => <span className="text-muted-foreground">{tk.assignedTo}</span> },
-    { key: 'sla', header: <AbbrTooltip term="SLA" />, cell: (tk) => <SLABadge overdue={tk.slaOverdue} days={tk.slaDays} hours={tk.slaHours} dueAt={tk.slaDueAt} compact /> },
+    // Renamable AND still explained: the abbreviation tooltip wraps the editable
+    // label rather than replacing it.
+    { key: 'sla', header: <AbbrTooltip term="SLA"><EditableText as="span" dkey="helpdesk.table.sla" /></AbbrTooltip>, cell: (tk) => <SLABadge overdue={tk.slaOverdue} days={tk.slaDays} hours={tk.slaHours} dueAt={tk.slaDueAt} compact /> },
     { key: 'createdAt', header: <EditableText as="span" dkey="helpdesk.table.createdAt" />, cell: (tk) => <span className="text-xs text-muted-foreground">{formatDate(tk.createdAt)}</span> },
     // One opt-in column per custom field. Select fields bound to a value list render
     // as the same chip as priority/status — that is what "make my new value list
@@ -571,9 +578,57 @@ export default function HelpdeskPage() {
       },
     })),
   ]
-  const visibleColumns = columnDefs.filter((c) =>
-    c.optIn ? areaEnabled[`col:${c.key}`] === true : areaEnabled[`col:${c.key}`] !== false,
+  // Order and width live in the same `col:` draft layer as visibility (Darien
+  // 2026-08-05). Unconfigured columns keep their code position, so the list only
+  // rearranges once someone actually drags something.
+  const visibleColumns = orderColumns(
+    columnDefs.filter((c) =>
+      c.optIn ? areaEnabled[`col:${c.key}`] === true : areaEnabled[`col:${c.key}`] !== false,
+    ),
+    columnLayout.layout,
   )
+  // `fixed` only once a width exists: with `auto` the browser overrides the width
+  // as soon as a cell holds long text, which is exactly what dragging must beat.
+  const hasColumnWidths = visibleColumns.some((c) => columnWidthStyle(columnLayout.layout, c.key).width)
+
+  /**
+   * Drag a column edge to resize it (editor sandbox only). Stored as a share of
+   * the table so the result survives a narrower window; 8% floor keeps a column
+   * from being dragged into nothing.
+   */
+  const startColumnResize = (columnKey: string, event: React.PointerEvent<HTMLElement>): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    const header = event.currentTarget.closest('th')
+    const table = ticketTableRef.current
+    if (!header || !table) return
+    const startX = event.clientX
+    const startWidth = header.getBoundingClientRect().width
+    const tableWidth = table.getBoundingClientRect().width
+    if (tableWidth === 0) return
+    // First drag: keep the table exactly as it looks right now. Switching to
+    // `table-layout: fixed` gives every unsized column an equal share, so without
+    // this the whole list would jump on the first pixel of the first drag.
+    if (!hasColumnWidths) {
+      const cells = Array.from(table.querySelectorAll('thead th'))
+      const frozen: Record<string, number> = {}
+      cells.forEach((cell, index) => {
+        const column = visibleColumns[index]
+        if (column) frozen[column.key] = cell.getBoundingClientRect().width / tableWidth
+      })
+      columnLayout.freezeWidths(frozen, columnKey)
+    }
+    const onMove = (moveEvent: PointerEvent): void => {
+      const next = (startWidth + moveEvent.clientX - startX) / tableWidth
+      columnLayout.setWidth(columnKey, Math.min(0.8, Math.max(0.08, next)))
+    }
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // Fill/change a custom-field value on a ticket — instant, flicker-free session
   // buffer (merged over the wire value in the `tickets` memo) so typing feels
@@ -789,12 +844,32 @@ export default function HelpdeskPage() {
           {/* Ticket table */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table
+                ref={ticketTableRef}
+                className="w-full text-sm"
+                style={hasColumnWidths ? { tableLayout: 'fixed' } : undefined}
+              >
                 <thead>
                   <tr className="border-b border-border">
                     {visibleColumns.map((col) => (
-                      <th key={col.key} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                        {col.header}
+                      <th
+                        key={col.key}
+                        style={columnWidthStyle(columnLayout.layout, col.key)}
+                        className="relative px-4 py-3 text-left text-xs font-medium text-muted-foreground"
+                      >
+                        <span className={hasColumnWidths ? 'block truncate' : undefined}>{col.header}</span>
+                        {/* Resize grip — editor sandbox only: in the live app the
+                            list is operated, not configured. */}
+                        {columnLayout.editing && (
+                          <span
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label={t('customization.editor.spalten.resize', { column: col.key })}
+                            data-column-resize={col.key}
+                            onPointerDown={(e) => startColumnResize(col.key, e)}
+                            className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize border-r-2 border-transparent transition-colors hover:border-[var(--accent-1)]"
+                          />
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -818,7 +893,11 @@ export default function HelpdeskPage() {
                       }`}
                     >
                       {visibleColumns.map((col) => (
-                        <td key={col.key} className="px-4 py-3">{col.cell(ticket)}</td>
+                        // Once widths are fixed, a long value must clip instead of
+                        // pushing the column back open.
+                        <td key={col.key} className={`px-4 py-3${hasColumnWidths ? ' truncate' : ''}`}>
+                          {col.cell(ticket)}
+                        </td>
                       ))}
                     </tr>
                   ))}

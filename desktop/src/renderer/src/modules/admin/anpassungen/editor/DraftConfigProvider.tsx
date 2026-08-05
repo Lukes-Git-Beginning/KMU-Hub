@@ -19,6 +19,8 @@ import type { ReactElement, ReactNode } from 'react'
 import type {
   CustomizationDraftPayload,
   LocaleLabelMap,
+  ModuleAreaLayout,
+  ModuleAreaSetting,
   ModuleAreasOverlay,
   ValueSet,
   ValueSetMigrations,
@@ -46,6 +48,15 @@ type DraftAction =
   | { type: 'setEntityFields'; entity: string; fields: CustomFieldDefinition[] }
   | { type: 'resetEntityFields'; entity: string }
   | { type: 'setModuleArea'; moduleKey: string; areaKey: string; enabled: boolean }
+  | { type: 'patchModuleArea'; moduleKey: string; areaKey: string; patch: ModuleAreaLayout }
+  | {
+      type: 'patchModuleAreas'
+      moduleKey: string
+      patches: Record<string, ModuleAreaLayout>
+      /** Column the user is acting on — keeps the batch in that column's undo step. */
+      focusKey: string
+    }
+  | { type: 'setModuleAreaOrder'; moduleKey: string; orderedKeys: string[] }
   | { type: 'setValueSetMigration'; setId: string; fromId: string; toId: string }
   | { type: 'clearValueSetMigration'; setId: string; fromId: string }
   | { type: 'reset' }
@@ -79,7 +90,45 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
       return { ...state, customFields: next }
     }
     case 'setModuleArea': {
-      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}), [action.areaKey]: action.enabled }
+      // A column may already carry order/width — toggling it off must not throw
+      // that away, so the object form keeps its shape and only `visible` moves.
+      const prev = state.moduleAreas[action.moduleKey]?.[action.areaKey]
+      const next: ModuleAreaSetting =
+        typeof prev === 'object' ? { ...prev, visible: action.enabled } : action.enabled
+      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}), [action.areaKey]: next }
+      return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
+    }
+    case 'patchModuleArea': {
+      // Partial layout write (width drag, single reposition): merges into whatever
+      // is stored, promoting a plain boolean to the object form on the way.
+      const prev = state.moduleAreas[action.moduleKey]?.[action.areaKey]
+      const base: ModuleAreaLayout = typeof prev === 'object' ? prev : prev === undefined ? {} : { visible: prev }
+      const moduleMap = {
+        ...(state.moduleAreas[action.moduleKey] ?? {}),
+        [action.areaKey]: { ...base, ...action.patch },
+      }
+      return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
+    }
+    case 'patchModuleAreas': {
+      // Several columns in one step — used to freeze the current widths when the
+      // first drag starts, which must not become one undo step per column.
+      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}) }
+      for (const [areaKey, patch] of Object.entries(action.patches)) {
+        const prev = moduleMap[areaKey]
+        const base: ModuleAreaLayout = typeof prev === 'object' ? prev : prev === undefined ? {} : { visible: prev }
+        moduleMap[areaKey] = { ...base, ...patch }
+      }
+      return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
+    }
+    case 'setModuleAreaOrder': {
+      // One dispatch for the whole list — a drag renumbers every column, and doing
+      // that key by key would leave one undo step per column instead of per drop.
+      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}) }
+      action.orderedKeys.forEach((areaKey, index) => {
+        const prev = moduleMap[areaKey]
+        const base: ModuleAreaLayout = typeof prev === 'object' ? prev : prev === undefined ? {} : { visible: prev }
+        moduleMap[areaKey] = { ...base, order: index }
+      })
       return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
     }
     case 'setValueSetMigration': {
@@ -135,6 +184,14 @@ function coalesceKeyOf(action: DraftAction): string | null {
     case 'setValueSetMigration':
     case 'clearValueSetMigration':
       return `mig:${action.setId}`
+    // Dragging a column edge fires a patch per pointer move — coalesced per column
+    // so one drag is one undo step. The plain on/off toggle stays uncoalesced.
+    case 'patchModuleArea':
+      return `area:${action.moduleKey}:${action.areaKey}`
+    // Same key as the drag it precedes: freezing the widths and the drag itself
+    // are one action to the user, so they undo as one.
+    case 'patchModuleAreas':
+      return `area:${action.moduleKey}:${action.focusKey}`
     default:
       return null
   }
@@ -179,7 +236,26 @@ function countLabels(labels: LocaleLabelMap): number {
 }
 
 function countAreas(moduleAreas: ModuleAreasOverlay): number {
-  return Object.values(moduleAreas).reduce((acc, map) => acc + Object.keys(map).length, 0)
+  let count = 0
+  for (const map of Object.values(moduleAreas)) {
+    let anyOrder = false
+    let anyWidth = false
+    for (const setting of Object.values(map)) {
+      if (typeof setting === 'boolean') {
+        count += 1
+        continue
+      }
+      if (setting.visible !== undefined) count += 1
+      if (setting.width !== undefined) anyWidth = true
+      if (setting.order !== undefined) anyOrder = true
+    }
+    // Order and widths each touch every column at once (a reorder renumbers all of
+    // them, the first drag freezes all widths). That is ONE change to the user —
+    // counting per column made a single drag read as "11 Änderungen".
+    if (anyOrder) count += 1
+    if (anyWidth) count += 1
+  }
+  return count
 }
 
 export interface DraftConfigContextValue {
@@ -212,6 +288,20 @@ export interface DraftConfigContextValue {
   resetDraftEntityFields: (entity: string) => void
   /** Toggle one module sub-area (tab/section) on or off in the draft (R4). */
   setDraftModuleArea: (moduleKey: string, areaKey: string, enabled: boolean) => void
+  /**
+   * Write part of a column's layout (width, single reposition) without touching its
+   * visibility — the two are edited from different places (panel switch vs. dragging
+   * the column edge in the preview) and must not overwrite each other.
+   */
+  patchDraftModuleArea: (moduleKey: string, areaKey: string, patch: ModuleAreaLayout) => void
+  /** Same, for several areas at once (freezing all column widths on first drag). */
+  patchDraftModuleAreas: (
+    moduleKey: string,
+    patches: Record<string, ModuleAreaLayout>,
+    focusKey: string,
+  ) => void
+  /** Renumber a whole column list in one step (drag & drop in the Spalten panel). */
+  setDraftModuleAreaOrder: (moduleKey: string, orderedKeys: string[]) => void
   /** Record that a deleted option's records move to another option (R4b). */
   setDraftValueSetMigration: (setId: string, fromId: string, toId: string) => void
   /** Undo a staged option deletion/migration (restore). */
@@ -323,6 +413,12 @@ export function DraftConfigProvider({
       resetDraftEntityFields: (entity) => dispatch({ type: 'resetEntityFields', entity }),
       setDraftModuleArea: (mk, areaKey, enabled) =>
         dispatch({ type: 'setModuleArea', moduleKey: mk, areaKey, enabled }),
+      patchDraftModuleArea: (mk, areaKey, patch) =>
+        dispatch({ type: 'patchModuleArea', moduleKey: mk, areaKey, patch }),
+      patchDraftModuleAreas: (mk, patches, focusKey) =>
+        dispatch({ type: 'patchModuleAreas', moduleKey: mk, patches, focusKey }),
+      setDraftModuleAreaOrder: (mk, orderedKeys) =>
+        dispatch({ type: 'setModuleAreaOrder', moduleKey: mk, orderedKeys }),
       setDraftValueSetMigration: (setId, fromId, toId) =>
         dispatch({ type: 'setValueSetMigration', setId, fromId, toId }),
       clearDraftValueSetMigration: (setId, fromId) =>

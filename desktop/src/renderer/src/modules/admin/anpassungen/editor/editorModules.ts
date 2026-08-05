@@ -123,7 +123,9 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'subject', labelKey: 'helpdesk.table.subject' },
       { key: 'category', labelKey: 'helpdesk.table.category' },
       { key: 'priority', labelKey: 'helpdesk.table.priority', valueSetId: 'ticket_priority' },
-      { key: 'status', labelKey: 'common.status', valueSetId: 'ticket_status' },
+      // Own key, not the shared `common.status`: renaming the column must stay in
+      // the helpdesk instead of retitling every status label in the app.
+      { key: 'status', labelKey: 'helpdesk.table.status', valueSetId: 'ticket_status' },
       { key: 'assignedTo', labelKey: 'helpdesk.table.assignedTo' },
       { key: 'sla', labelKey: 'helpdesk.table.sla' },
       { key: 'createdAt', labelKey: 'helpdesk.table.createdAt' },
