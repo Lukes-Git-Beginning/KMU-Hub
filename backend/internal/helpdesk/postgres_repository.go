@@ -109,6 +109,13 @@ func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID, tenan
 // assignee/requester display names via LEFT JOINs on users (falling back to email,
 // then empty) and COALESCEs nullable text columns. Every query feeding scanTicket /
 // scanTicketFromRows MUST use this column list so the scan order stays aligned.
+//
+// requester_name precedence (000290): the users JOIN wins wherever it resolves,
+// and the tickets.requester_name column is only the fallback. An internal
+// requester is identified by requester_id, so their current name belongs to
+// their user row -- a persisted copy would go stale the first time they are
+// renamed. The column exists for external requesters, who have no user row to
+// join against, and for them the JOIN yields NULL and the column carries.
 const ticketSelectColumns = `
 	t.id, t.tenant_id, t.subject, t.status, t.priority, t.assignee_id, t.requester_id,
 	t.queue_id, t.due_at, t.merged_into_id, t.first_response_at, t.resolved_at,
@@ -118,7 +125,8 @@ const ticketSelectColumns = `
 	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
 	t.csat_rating, t.csat_comment,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
-	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
+	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
+	         NULLIF(t.requester_name, ''), '')                                      AS requester_name
 FROM tickets t
 LEFT JOIN users a   ON t.assignee_id  = a.id
 LEFT JOIN users req ON t.requester_id = req.id`

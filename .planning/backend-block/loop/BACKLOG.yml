@@ -347,7 +347,7 @@ units:
     service: helpdesk
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Migration fuer die Intake-Felder am Ticket. `channel` TEXT CHECK IN
       ('agent','selfservice','external') DEFAULT 'agent', `requester_email` TEXT NULL,
@@ -388,6 +388,15 @@ units:
       - backend/internal/helpdesk/service.go
       - backend/internal/helpdesk/postgres_repository.go
     notes: >
+      SCHEMA-STAND aus B1 (Migration 000290, gebaut): `channel TEXT NOT NULL DEFAULT 'agent'`
+      mit CHECK auf ('agent','selfservice','external') — `source_channel` (000268) blieb
+      unangetastet, es sind zwei verschiedene Fragen. `requester_email TEXT NULL`,
+      `requester_name TEXT NULL`, `requester_is_external BOOLEAN NOT NULL DEFAULT false`,
+      `custom_fields JSONB NOT NULL DEFAULT '{}'`. VORRANGREGEL requester_name ist gebaut UND
+      getestet (TestTicketRead_RequesterNamePrecedence): der users-JOIN schlaegt die Spalte,
+      die Spalte ist nur Fallback fuer Requester ohne User-Zeile. `CreateTicket` darf
+      requester_name fuer INTERNE Requester also gar nicht erst schreiben — eine Kopie des
+      User-Namens veraltet beim ersten Rename.
       Regen im selben Commit (make proto-helpdesk). custom_fields als map<string,string> oder
       JSON-String, am FE-Typ ausrichten (helpdesk-types.ts CreateTicketInput), nicht raten.
       `channel` serverseitig gegen die drei erlaubten Werte validieren; ein unbekannter Wert

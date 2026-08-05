@@ -3670,3 +3670,66 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
   - Weiterhin offen aus Iteration 47: externe Requester bekommen keine Umfrage, weil
     `ListDueCsatSurveys` die Adresse ueber `JOIN users` holt. B1 bringt `requester_email` an
     `tickets`, dann muss der JOIN auf `COALESCE(t.requester_email, req.email)`.
+
+## Iteration 49 — intake-ticket-columns — done — 2026-08-06 02:05
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): give tickets
+  their intake origin and extra fields".
+- verify vorgaenger (18e58bf7, csat-public-response): **sauber**. `.proto` und beide `.pb.go`
+  im selben Commit; openapi.yaml und `openapi_drift_test.go` mitgezogen; der Handler geht ueber
+  `helpdeskClient.SubmitCsatByToken`, keine direkt injizierte Service-Instanz. Der System-Kontext
+  ist auf **eine** Query eingesperrt (`postgres_repository.go:381`, Equality auf die eindeutige
+  token-Spalte) und wird nirgends weitergereicht — `csat_survey.go:194` setzt unmittelbar danach
+  `withTenant`. Kein `Unimplemented`, kein TODO, kein neuer RequirePermission-Guard, keine
+  `config.RequireX`.
+- gebaut (Migration 000290, `helpdesk_ticket_intake_fields`): fuenf Spalten an `tickets` —
+  `channel TEXT NOT NULL DEFAULT 'agent'` mit eigenem CHECK auf ('agent','selfservice','external'),
+  `requester_email TEXT NULL`, `requester_name TEXT NULL`,
+  `requester_is_external BOOLEAN NOT NULL DEFAULT false`, `custom_fields JSONB NOT NULL DEFAULT '{}'`.
+  Keine neue Tabelle, also keine RLS-Arbeit: `tickets` hat `tenant_id NOT NULL` und die
+  `tenant_isolation`-Policy laengst.
+- `source_channel` (000268) **nicht angefasst**, weder Spalte noch CHECK. In der DB verifiziert:
+  `tickets_channel_check` und `tickets_source_channel_check` stehen als zwei getrennte
+  Constraints nebeneinander. Die beiden beantworten verschiedene Fragen — source_channel sagt,
+  aus welcher Inbox eine Nachricht konvertiert wurde (nur fuer Adapter-Tickets gesetzt),
+  `channel` sagt, wie die Anfrage ueberhaupt in den Helpdesk kam (fuer jedes Ticket gesetzt).
+- **Backfill-Entscheidung, bewusst konservativ:** Bestandszeilen nehmen die Spalten-Defaults
+  ('agent', false, '{}'). `source_channel` wird NICHT auf `channel` gemappt. Ein aus einer Mail
+  konvertiertes Ticket ist damit nicht als extern eingereicht belegt — ein Agent kann es genauso
+  gut aus der Inbox geoeffnet haben. 'agent' heisst "im Modul angelegt" und ist fuer alle
+  Altzeilen wahr; eine Ableitung aus source_channel wuerde Herkunft erfinden. Begruendung steht
+  als Kommentar in der Migration.
+- **VORRANGREGEL requester_name (die Entscheidung, die B1 verlangt):** der `users`-JOIN schlaegt
+  die neue Spalte, die Spalte ist nur Fallback. `ticketSelectColumns` liest jetzt
+  `COALESCE(JOIN-Name, req.email, NULLIF(t.requester_name,''), '')`. Grund: ein interner
+  Requester ist ueber `requester_id` identifiziert, seine aktuelle Anzeige gehoert zur
+  User-Zeile — eine persistierte Kopie veraltet beim ersten Rename und niemand merkt es. Die
+  Spalte traegt genau die Requester, die keine User-Zeile zum Joinen haben. Das deckt sich mit
+  dem FE-Typ, der es woertlich so beschreibt (`helpdesk-types.ts:37-39`). Regel steht als
+  Doc-Kommentar an `ticketSelectColumns`, als Kommentar an der Spalte in der Migration, und —
+  wichtiger — als Test.
+- getestet (`ticket_requester_name_db_test.go`, real gegen die DB als `kmuhub_app`):
+  `TestTicketRead_RequesterNamePrecedence` legt beide Faelle nebeneinander und gibt dem internen
+  Ticket **absichtlich** einen widersprechenden Spaltenwert ("Falscher Name") — der Test kann
+  also nur gruen werden, wenn der JOIN wirklich gewinnt. Der externe Fall (requester_id ohne
+  User-Zeile, LEFT JOIN liefert NULL) faellt ohne den neuen COALESCE-Zweig auf `""` zurueck und
+  waere rot. `TestTicketRead_IntakeColumnDefaults` haelt fest, dass ein ohne Intake-Felder
+  angelegtes Ticket mit 'agent'/false/'{}' aus der DB kommt statt mit NULLs.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `migrate up` 289 -> 290 ok, `down 1` -> 289 ok, `up` -> 290 ok (Roundtrip, down ist wirklich
+  gefuellt) | `go build -p 2 ./...` ok | `go vet` ok | `golangci-lint run` (helpdesk, gateway)
+  **0 issues** | `go test -count=1 -v ./internal/helpdesk/ ./internal/testutil/ ./internal/gateway/`
+  **732 PASS / 0 FAIL / 0 SKIP** — inklusive `TestAllPublicTablesHaveRLSOrAreAllowlisted` und
+  `TestOpenAPIRouteDrift`. Null Skips heisst: die DB-Tests liefen wirklich.
+- **keine openapi.yaml-Aenderung, und das ist Absicht:** diese Unit legt Spalten an, sie bringt
+  noch kein Feld auf den Wire. Die Ticket-Response aendert sich erst mit B2/B3, dann gehoert der
+  Schema-Nachtrag in denselben Commit.
+- offen fuer die naechste Iteration:
+  - B2 muss `requester_name` fuer **interne** Requester gar nicht erst schreiben (sonst baut man
+    die veraltende Kopie, die die Vorrangregel gerade vermeidet). Schreiben nur, wenn
+    `requester_is_external`.
+  - Die fuenf Spalten sind noch in keinem SELECT ausser `requester_name` — `ticketSelectColumns`
+    und `scanTicket` muessen in B2 gemeinsam wachsen, sonst laeuft die Scan-Reihenfolge auseinander.
+  - Aus Iteration 48 uebernommen und jetzt entsperrt: `ListDueCsatSurveys` holt die Adresse ueber
+    `JOIN users` und uebergeht damit externe Requester. `tickets.requester_email` existiert ab
+    jetzt, der JOIN kann auf `COALESCE(t.requester_email, req.email)` — gehoert sinnvoll zu B5.
