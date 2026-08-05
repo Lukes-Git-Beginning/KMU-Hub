@@ -95,7 +95,7 @@ units:
     service: helpdesk
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Datenmodell fuer Kundenzufriedenheit. Neue Tabelle `ticket_csat_responses`
       (ticket_id -> tickets, rating SMALLINT CHECK 1..5, comment TEXT NULL, submitted_at,
@@ -139,6 +139,13 @@ units:
       `.proto` geaendert heisst `make proto-helpdesk` im SELBEN Commit — ein Diff mit .proto
       aber ohne passende .pb.go ist eine der sechs Fehlerklassen aus ITERATION.md und wird
       im Verify-Vorspann der naechsten Iteration gefunden.
+      SCHEMA-STAND aus A1 (Migration 000288, gebaut): `rating` ist NULLable — eine Zeile ohne
+      Rating ist eine offene Umfrage (Token gesetzt, noch nicht eingeloest), kein kaputter
+      Datensatz. Der CHECK `chk_ticket_csat_rating_submitted` erzwingt
+      `(rating IS NULL) = (submitted_at IS NULL)`: wer `rating` schreibt, MUSS `submitted_at`
+      mitschreiben (und umgekehrt), sonst 23514. `submitted_at IS NOT NULL` ist damit die
+      autoritative "wurde bewertet"-Abfrage. Upsert-Ziel ist der Unique-Index
+      `uq_ticket_csat_responses (tenant_id, ticket_id)`.
       Rating serverseitig validieren (1..5), nicht dem Aufrufer glauben. Zweite Bewertung
       desselben Tickets: Upsert auf den bestehenden Eintrag, nicht Fehler — der Nutzer darf
       seine Meinung aendern, und der Unique-Index aus A1 wuerde sonst einen 500 erzeugen.
@@ -235,6 +242,12 @@ units:
       - backend/internal/berichte/service.go
       - backend/internal/helpdesk/service.go
     notes: >
+      SPALTEN EXISTIEREN SCHON (Migration 000288 aus A1): `token TEXT NULL` mit global
+      eindeutigem Partial-Index `uq_ticket_csat_responses_token WHERE token IS NOT NULL`
+      (global, nicht tenant-gescopt — der oeffentliche Endpunkt loest den Tenant AUS dem
+      Token auf) und `token_expires_at TIMESTAMPTZ NULL`. Fuer A6 ist KEINE neue Migration
+      noetig. Dispatch-Spalten (Versandzeitpunkt, Claim) gibt es bewusst noch nicht — die
+      gehoeren zu A7 und deren Form entscheidet A7.
       Token-Erzeugung 1:1 vom Berichte-Muster uebernehmen (`newShareSecret`, service.go:1132),
       32 Byte crypto/rand, base64.RawURLEncoding. NICHT math/rand, NICHT UUID, NICHT die
       Ticket-ID. Ablauf hart serverseitig durchsetzen, nicht nur im Link kodieren.

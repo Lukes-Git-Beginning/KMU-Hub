@@ -3163,3 +3163,59 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - offen fuer Luke: keine FE-Anbindung in diesem Commit (Backend-Nachtloop-Scope) — recherchiert
   bestaetigt greenfield, kein FE-Client/Mock erwartete vorher eine bestimmte Wire-Shape.
 - commit: `7d381016` (feat(mails): add email templates with placeholder substitution)
+
+## Iteration 49 — csat-schema — done — 2026-08-05 23:10
+- verify vorgaenger: `7d381016` (Iteration 48, email templates) geprueft — `git show --stat` plus
+  gezielt `route_email.go` (Template-Handler), `000287_email_templates.up/down.sql`. Handler gehen
+  ueber `e.getEmailClient()` -> `client.ListEmailTemplates/RenderEmailTemplate`, kein direkter
+  Service-Zugriff; `user_id`/`is_admin` aus `middleware.GetUserID`/`IsAdmin`, nicht aus dem Body.
+  Guards nutzen ausschliesslich das bestehende `email:read/write/delete`-Trio (kein neuer Key,
+  kein Seed noetig). Tabelle hat `tenant_id UUID NOT NULL` + `CALL enable_tenant_rls`, down
+  gefuellt. `.proto` und beide generierten Dateien im selben Commit. Kein Fund. Sauber.
+- gebaut: Migration `000288_helpdesk_csat` (up+down). Tabelle `ticket_csat_responses`
+  (id, tenant_id -> tenants ON DELETE CASCADE, ticket_id -> tickets ON DELETE CASCADE, rating,
+  comment, submitted_at, token, token_expires_at, created_at, updated_at) plus die zwei
+  denormalisierten Spalten `tickets.csat_rating` (SMALLINT, CHECK 1..5) und `tickets.csat_comment`.
+  Reine Migration, kein Go-Code — Proto/Service ist A2, Route ist A3.
+- ENTSCHEIDUNG rating NULLable (weicht vom Backlog-Wortlaut "rating SMALLINT CHECK 1..5" ab,
+  begruendet): A6 legt die Zeile beim Ticket-Close mit Token an, BEVOR eine Bewertung existiert.
+  Mit `rating NOT NULL` haette A6 entweder eine zweite Tabelle oder eine Pseudo-Bewertung
+  gebraucht. Stattdessen `rating SMALLINT NULL CHECK (rating IS NULL OR rating BETWEEN 1 AND 5)`
+  und der Kopplungs-CHECK `chk_ticket_csat_rating_submitted`:
+  `(rating IS NULL) = (submitted_at IS NULL)`. Damit ist eine Zeile ohne Rating eindeutig eine
+  offene Umfrage, `submitted_at IS NOT NULL` ist die autoritative "wurde bewertet"-Abfrage, und
+  halb-gesetzte Zwischenzustaende laesst die DB gar nicht erst zu (per psql verifiziert: 23514).
+- Zwei Unique-Indizes mit unterschiedlicher Reichweite, das ist Absicht:
+  `uq_ticket_csat_responses_ticket (tenant_id, ticket_id)` ist tenant-gescopt (ein Ticket, eine
+  Bewertung, Upsert-Ziel fuer A2); `uq_ticket_csat_responses_token (token) WHERE token IS NOT NULL`
+  ist GLOBAL, weil der oeffentliche Endpunkt aus A8 keinen Tenant-Kontext hat und den Tenant erst
+  AUS der Token-Zeile aufloest. Ein tenant-gescopter Token-Index waere dort nutzlos.
+- Token-Spalten (`token`, `token_expires_at`) bewusst schon hier, damit A6 ohne zweite Migration
+  auf dieselbe Tabelle auskommt (so im Backlog verlangt). Klartext, gleiche Begruendung wie
+  `report_share_tokens` (000252) — der Token IST das Credential und wird nur per Gleichheit
+  gesucht. Dispatch-Spalten (Versandzeitpunkt, Claim-Stempel) NICHT vorweggenommen: deren Form
+  entscheidet A7, ein geratener Spaltenname waere teurer als eine Migration. Beide Punkte als
+  Notiz an A2 und A6 im BACKLOG hinterlegt.
+- migrate up (287 -> 288), down 1 (-> 287), up (-> 288) lokal gruen. RLS per psql:
+  `relrowsecurity=true relforcerowsecurity=true`, Policy `tenant_isolation`.
+- RLS-Smoke als `kmuhub_app` mit je einer geseedeten Zeile in zwei Tenants: eigener Tenant -> 1,
+  fremder Tenant -> 0. Seed-Zeilen danach wieder geloescht.
+- Constraint-Smoke per psql, alle vier Faelle wie erwartet: rating=6 -> CHECK-Verletzung;
+  rating ohne submitted_at -> `chk_ticket_csat_rating_submitted`; zweite Zeile zum selben Ticket
+  -> `uq_ticket_csat_responses_ticket`; Zeile mit Token und ohne Rating -> INSERT erfolgreich
+  (das ist der A6-Fall); zweiter identischer Token in einem ANDEREN Tenant ->
+  `uq_ticket_csat_responses_token`, also global eindeutig wie beabsichtigt.
+- gate: build/vet/lint n.a. (kein Go-Code geaendert) | migration ok | rls-smoke ok |
+  `go test -count=1 ./internal/testutil/... ./internal/helpdesk/...` mit gesetztem `DATABASE_URL`
+  gegen `kmuhub_app` -> PASS, **0 SKIP, 66 gelaufene Tests**, darunter der Standing-Guard
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` (gruen mit der neuen Tabelle, keine
+  Allowlist-Ausnahme noetig).
+- offen: Docker Desktop lief zu Iterationsbeginn nicht und wurde von dieser Iteration gestartet;
+  lokaler Migrationskopf steht jetzt auf 288 (Prod-Kopf bleibt 287, kein Deploy aus dem Loop).
+  Der Read-Pfad liefert `csat_rating`/`csat_comment` noch NICHT — die Spalten existieren, aber
+  `postgres_repository.go` selektiert sie nicht und `postgres_repository.go:789` setzt
+  `customer_satisfaction` weiterhin hart auf "–". Das ist A2 bzw. A4, kein Versaeumnis hier.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add CSAT
+  schema with survey token columns". SHA hier bewusst nicht eingetragen: die Zeile steht IN
+  diesem Commit, jede Nachtragung per amend erzeugt eine neue SHA. `git log --oneline -1`
+  bzw. Suche nach dem Subject findet ihn.
