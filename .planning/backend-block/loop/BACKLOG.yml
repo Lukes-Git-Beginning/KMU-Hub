@@ -576,7 +576,7 @@ units:
     service: formulare
     model: opus
     deps: [intake-form-dispatch]
-    status: todo
+    status: done
     scope: >
       Oeffentliche, unauthentifizierte Formular-Einreichung ueber Token. Heute unmoeglich,
       `form_schemas.is_public` wird gespeichert aber NIRGENDS als Auth-Gate ausgewertet, und

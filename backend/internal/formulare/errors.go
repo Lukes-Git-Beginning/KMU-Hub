@@ -13,4 +13,13 @@ var (
 	ErrWebhookInactive      = errors.New("formulare webhook is inactive")
 	ErrInvalidExportFormat  = errors.New("formulare export format is invalid")
 	ErrInvalidURL           = errors.New("formulare webhook URL is invalid")
+
+	// Share links (B8). ErrShareLinkNotFound is deliberately the single answer
+	// to unknown, malformed, revoked, expired, used-up and schema-closed
+	// links: the public route must not be an oracle for which tokens exist.
+	ErrShareLinkNotFound             = errors.New("formulare share link not found")
+	ErrInvalidShareLink              = errors.New("formulare share link parameters are invalid")
+	ErrSchemaNotPublic               = errors.New("formulare schema is not public")
+	ErrAnswersTooLarge               = errors.New("formulare submission answers are too large")
+	ErrShareLinkFileFieldUnsupported = errors.New("formulare public submission does not support file fields")
 )

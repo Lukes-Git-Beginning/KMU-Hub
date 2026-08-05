@@ -37,6 +37,10 @@ const (
 	FormulareService_ListWebhooks_FullMethodName           = "/formulare.v1.FormulareService/ListWebhooks"
 	FormulareService_ListWebhookDeliveries_FullMethodName  = "/formulare.v1.FormulareService/ListWebhookDeliveries"
 	FormulareService_GetFormStats_FullMethodName           = "/formulare.v1.FormulareService/GetFormStats"
+	FormulareService_CreateFormShareLink_FullMethodName    = "/formulare.v1.FormulareService/CreateFormShareLink"
+	FormulareService_ListFormShareLinks_FullMethodName     = "/formulare.v1.FormulareService/ListFormShareLinks"
+	FormulareService_RevokeFormShareLink_FullMethodName    = "/formulare.v1.FormulareService/RevokeFormShareLink"
+	FormulareService_SubmitFormByShareToken_FullMethodName = "/formulare.v1.FormulareService/SubmitFormByShareToken"
 )
 
 // FormulareServiceClient is the client API for FormulareService service.
@@ -66,6 +70,15 @@ type FormulareServiceClient interface {
 	ListWebhookDeliveries(ctx context.Context, in *ListWebhookDeliveriesRequest, opts ...grpc.CallOption) (*ListWebhookDeliveriesResponse, error)
 	// Stats
 	GetFormStats(ctx context.Context, in *GetFormStatsRequest, opts ...grpc.CallOption) (*GetFormStatsResponse, error)
+	// Share links: the authenticated management of public fill-out links.
+	CreateFormShareLink(ctx context.Context, in *CreateFormShareLinkRequest, opts ...grpc.CallOption) (*CreateFormShareLinkResponse, error)
+	ListFormShareLinks(ctx context.Context, in *ListFormShareLinksRequest, opts ...grpc.CallOption) (*ListFormShareLinksResponse, error)
+	RevokeFormShareLink(ctx context.Context, in *RevokeFormShareLinkRequest, opts ...grpc.CallOption) (*RevokeFormShareLinkResponse, error)
+	// Public intake. The ONE RPC in this service that begins without a tenant:
+	// the token resolves it. Everything downstream is ordinary tenant-scoped
+	// work -- see Service.SubmitByShareToken for why the order is the security
+	// property.
+	SubmitFormByShareToken(ctx context.Context, in *SubmitFormByShareTokenRequest, opts ...grpc.CallOption) (*SubmitFormByShareTokenResponse, error)
 }
 
 type formulareServiceClient struct {
@@ -256,6 +269,46 @@ func (c *formulareServiceClient) GetFormStats(ctx context.Context, in *GetFormSt
 	return out, nil
 }
 
+func (c *formulareServiceClient) CreateFormShareLink(ctx context.Context, in *CreateFormShareLinkRequest, opts ...grpc.CallOption) (*CreateFormShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFormShareLinkResponse)
+	err := c.cc.Invoke(ctx, FormulareService_CreateFormShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *formulareServiceClient) ListFormShareLinks(ctx context.Context, in *ListFormShareLinksRequest, opts ...grpc.CallOption) (*ListFormShareLinksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFormShareLinksResponse)
+	err := c.cc.Invoke(ctx, FormulareService_ListFormShareLinks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *formulareServiceClient) RevokeFormShareLink(ctx context.Context, in *RevokeFormShareLinkRequest, opts ...grpc.CallOption) (*RevokeFormShareLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeFormShareLinkResponse)
+	err := c.cc.Invoke(ctx, FormulareService_RevokeFormShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *formulareServiceClient) SubmitFormByShareToken(ctx context.Context, in *SubmitFormByShareTokenRequest, opts ...grpc.CallOption) (*SubmitFormByShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitFormByShareTokenResponse)
+	err := c.cc.Invoke(ctx, FormulareService_SubmitFormByShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FormulareServiceServer is the server API for FormulareService service.
 // All implementations must embed UnimplementedFormulareServiceServer
 // for forward compatibility.
@@ -283,6 +336,15 @@ type FormulareServiceServer interface {
 	ListWebhookDeliveries(context.Context, *ListWebhookDeliveriesRequest) (*ListWebhookDeliveriesResponse, error)
 	// Stats
 	GetFormStats(context.Context, *GetFormStatsRequest) (*GetFormStatsResponse, error)
+	// Share links: the authenticated management of public fill-out links.
+	CreateFormShareLink(context.Context, *CreateFormShareLinkRequest) (*CreateFormShareLinkResponse, error)
+	ListFormShareLinks(context.Context, *ListFormShareLinksRequest) (*ListFormShareLinksResponse, error)
+	RevokeFormShareLink(context.Context, *RevokeFormShareLinkRequest) (*RevokeFormShareLinkResponse, error)
+	// Public intake. The ONE RPC in this service that begins without a tenant:
+	// the token resolves it. Everything downstream is ordinary tenant-scoped
+	// work -- see Service.SubmitByShareToken for why the order is the security
+	// property.
+	SubmitFormByShareToken(context.Context, *SubmitFormByShareTokenRequest) (*SubmitFormByShareTokenResponse, error)
 	mustEmbedUnimplementedFormulareServiceServer()
 }
 
@@ -346,6 +408,18 @@ func (UnimplementedFormulareServiceServer) ListWebhookDeliveries(context.Context
 }
 func (UnimplementedFormulareServiceServer) GetFormStats(context.Context, *GetFormStatsRequest) (*GetFormStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFormStats not implemented")
+}
+func (UnimplementedFormulareServiceServer) CreateFormShareLink(context.Context, *CreateFormShareLinkRequest) (*CreateFormShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFormShareLink not implemented")
+}
+func (UnimplementedFormulareServiceServer) ListFormShareLinks(context.Context, *ListFormShareLinksRequest) (*ListFormShareLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFormShareLinks not implemented")
+}
+func (UnimplementedFormulareServiceServer) RevokeFormShareLink(context.Context, *RevokeFormShareLinkRequest) (*RevokeFormShareLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeFormShareLink not implemented")
+}
+func (UnimplementedFormulareServiceServer) SubmitFormByShareToken(context.Context, *SubmitFormByShareTokenRequest) (*SubmitFormByShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitFormByShareToken not implemented")
 }
 func (UnimplementedFormulareServiceServer) mustEmbedUnimplementedFormulareServiceServer() {}
 func (UnimplementedFormulareServiceServer) testEmbeddedByValue()                          {}
@@ -692,6 +766,78 @@ func _FormulareService_GetFormStats_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FormulareService_CreateFormShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFormShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FormulareServiceServer).CreateFormShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FormulareService_CreateFormShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FormulareServiceServer).CreateFormShareLink(ctx, req.(*CreateFormShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FormulareService_ListFormShareLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFormShareLinksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FormulareServiceServer).ListFormShareLinks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FormulareService_ListFormShareLinks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FormulareServiceServer).ListFormShareLinks(ctx, req.(*ListFormShareLinksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FormulareService_RevokeFormShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeFormShareLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FormulareServiceServer).RevokeFormShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FormulareService_RevokeFormShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FormulareServiceServer).RevokeFormShareLink(ctx, req.(*RevokeFormShareLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FormulareService_SubmitFormByShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitFormByShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FormulareServiceServer).SubmitFormByShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FormulareService_SubmitFormByShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FormulareServiceServer).SubmitFormByShareToken(ctx, req.(*SubmitFormByShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FormulareService_ServiceDesc is the grpc.ServiceDesc for FormulareService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -770,6 +916,22 @@ var FormulareService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFormStats",
 			Handler:    _FormulareService_GetFormStats_Handler,
+		},
+		{
+			MethodName: "CreateFormShareLink",
+			Handler:    _FormulareService_CreateFormShareLink_Handler,
+		},
+		{
+			MethodName: "ListFormShareLinks",
+			Handler:    _FormulareService_ListFormShareLinks_Handler,
+		},
+		{
+			MethodName: "RevokeFormShareLink",
+			Handler:    _FormulareService_RevokeFormShareLink_Handler,
+		},
+		{
+			MethodName: "SubmitFormByShareToken",
+			Handler:    _FormulareService_SubmitFormByShareToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

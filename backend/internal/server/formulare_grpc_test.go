@@ -23,6 +23,7 @@ type stubFormulareRepo struct {
 	submissions map[uuid.UUID]*formulare.FormSubmission
 	webhooks    map[uuid.UUID]*formulare.FormWebhook
 	deliveries  map[uuid.UUID]*formulare.WebhookDelivery
+	shareLinks  map[uuid.UUID]*formulare.FormShareLink
 
 	// Error injection
 	getSchemaErr    error
@@ -1270,4 +1271,83 @@ func TestStatusRoundTrip_Delivery(t *testing.T) {
 			t.Errorf("fromProto(%v) = %v, want %v", tc.proto, d, tc.domain)
 		}
 	}
+}
+
+// --- Share links (B8) ---
+
+func (r *stubFormulareRepo) CreateShareLink(_ context.Context, link *formulare.FormShareLink) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.shareLinks == nil {
+		r.shareLinks = map[uuid.UUID]*formulare.FormShareLink{}
+	}
+	cp := *link
+	r.shareLinks[link.ID] = &cp
+	return nil
+}
+
+func (r *stubFormulareRepo) ListShareLinks(_ context.Context, formSchemaID, tenantID uuid.UUID) ([]*formulare.FormShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*formulare.FormShareLink, 0)
+	for _, l := range r.shareLinks {
+		if l.FormSchemaID == formSchemaID && l.TenantID == tenantID {
+			cp := *l
+			out = append(out, &cp)
+		}
+	}
+	return out, nil
+}
+
+func (r *stubFormulareRepo) RevokeShareLink(_ context.Context, id, tenantID uuid.UUID, now time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.shareLinks[id]
+	if !ok || l.TenantID != tenantID {
+		return formulare.ErrShareLinkNotFound
+	}
+	if l.RevokedAt == nil {
+		l.RevokedAt = &now
+	}
+	return nil
+}
+
+func (r *stubFormulareRepo) GetShareLinkByToken(_ context.Context, token string) (*formulare.FormShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, l := range r.shareLinks {
+		if l.Token == token {
+			cp := *l
+			return &cp, nil
+		}
+	}
+	return nil, formulare.ErrShareLinkNotFound
+}
+
+func (r *stubFormulareRepo) RedeemShareLinkTx(
+	_ context.Context,
+	linkID, tenantID uuid.UUID,
+	submission *formulare.FormSubmission,
+	_ []uuid.UUID,
+	now time.Time,
+) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.shareLinks[linkID]
+	if !ok || l.TenantID != tenantID {
+		return false, nil
+	}
+	if l.RevokedAt != nil {
+		return false, nil
+	}
+	if l.ExpiresAt != nil && !now.Before(*l.ExpiresAt) {
+		return false, nil
+	}
+	if l.MaxSubmissions != nil && l.SubmissionCount >= *l.MaxSubmissions {
+		return false, nil
+	}
+	l.SubmissionCount++
+	cp := *submission
+	r.submissions[submission.ID] = &cp
+	return true, nil
 }

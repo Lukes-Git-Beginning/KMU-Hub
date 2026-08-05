@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,7 @@ type stubRepo struct {
 	submissions map[uuid.UUID]*FormSubmission
 	webhooks    map[uuid.UUID]*FormWebhook
 	deliveries  map[uuid.UUID]*WebhookDelivery
+	shareLinks  map[uuid.UUID]*FormShareLink
 
 	// Error injection
 	createSchemaErr    error
@@ -41,6 +43,8 @@ type stubRepo struct {
 	getWebhookErr      error
 	updateWebhookErr   error
 	deleteWebhookErr   error
+	createShareLinkErr error
+	redeemShareLinkErr error
 
 	// Track what was passed to CreateSubmission
 	lastWebhookIDs []uuid.UUID
@@ -426,6 +430,98 @@ func (r *stubRepo) GetFormStats(_ context.Context, formSchemaID, tenantID uuid.U
 		Last7dCount:  last7d,
 		Last30dCount: last30d,
 	}, nil
+}
+
+// --- Share links ---
+
+func (r *stubRepo) ensureShareLinks() {
+	if r.shareLinks == nil {
+		r.shareLinks = map[uuid.UUID]*FormShareLink{}
+	}
+}
+
+func (r *stubRepo) CreateShareLink(_ context.Context, link *FormShareLink) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.createShareLinkErr != nil {
+		return r.createShareLinkErr
+	}
+	r.ensureShareLinks()
+	cp := *link
+	r.shareLinks[link.ID] = &cp
+	return nil
+}
+
+func (r *stubRepo) ListShareLinks(_ context.Context, formSchemaID, tenantID uuid.UUID) ([]*FormShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*FormShareLink, 0)
+	for _, l := range r.shareLinks {
+		if l.FormSchemaID == formSchemaID && l.TenantID == tenantID {
+			cp := *l
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
+func (r *stubRepo) RevokeShareLink(_ context.Context, id, tenantID uuid.UUID, now time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.shareLinks[id]
+	if !ok || l.TenantID != tenantID {
+		return ErrShareLinkNotFound
+	}
+	if l.RevokedAt == nil {
+		l.RevokedAt = &now
+	}
+	return nil
+}
+
+func (r *stubRepo) GetShareLinkByToken(_ context.Context, token string) (*FormShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, l := range r.shareLinks {
+		if l.Token == token {
+			cp := *l
+			return &cp, nil
+		}
+	}
+	return nil, ErrShareLinkNotFound
+}
+
+func (r *stubRepo) RedeemShareLinkTx(
+	_ context.Context,
+	linkID, tenantID uuid.UUID,
+	submission *FormSubmission,
+	webhookIDs []uuid.UUID,
+	now time.Time,
+) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.redeemShareLinkErr != nil {
+		return false, r.redeemShareLinkErr
+	}
+	l, ok := r.shareLinks[linkID]
+	if !ok || l.TenantID != tenantID {
+		return false, nil
+	}
+	// Mirrors the SQL guard: live, unexpired, under quota.
+	if l.RevokedAt != nil {
+		return false, nil
+	}
+	if l.ExpiresAt != nil && !now.Before(*l.ExpiresAt) {
+		return false, nil
+	}
+	if l.MaxSubmissions != nil && l.SubmissionCount >= *l.MaxSubmissions {
+		return false, nil
+	}
+	l.SubmissionCount++
+	cp := *submission
+	r.submissions[submission.ID] = &cp
+	r.lastWebhookIDs = webhookIDs
+	return true, nil
 }
 
 // compile-time interface check

@@ -5,9 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -54,12 +56,11 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		// fine keys FormularePage.tsx actually gates on). Reads/submission
 		// writes already match their fine key 1:1 ("formulare:submissions:read"
 		// / "formulare:submissions:write") and stay plain RequirePermission.
-		// formulare:share:manage has NO backend route at all: the FE calls
-		// {BASE}/schemas/{id}/share-links and {BASE}/share-links/{id}
-		// (useFormulare.ts), neither of which exists here -- that is a missing
-		// feature, not a wiring gap, so nothing to additively guard. Webhooks
-		// stay legacy-only too: the catalog note says the webhook UI is an
-		// unmounted stub with no key issued yet.
+		// formulare:share:manage got its routes in B8 (see shareManage below):
+		// {BASE}/schemas/{id}/share-links and {BASE}/share-links/{id}, the two
+		// paths useFormulare.ts was already calling. Webhooks stay legacy-only:
+		// the catalog note says the webhook UI is an unmounted stub with no key
+		// issued yet.
 		schemasCreate := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "create"})
 		// PATCH carries both content edits and the draft/active/closed/archived
 		// lifecycle toggle (FormularePage.tsx canSchemasPublish gates the same
@@ -67,6 +68,11 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		schemasUpdate := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "edit"}, [2]string{"formulare:schemas", "publish"})
 		schemasDelete := middleware.RequirePermissionAny([2]string{"formulare:schemas", "write"}, [2]string{"formulare:schemas", "delete"})
 		exportRun := middleware.RequirePermissionAny([2]string{"formulare:submissions", "read"}, [2]string{"formulare:export", "run"})
+		// formulare:share:manage now HAS backend routes (B8): minting, listing
+		// and cutting the public fill-out links the note above said were
+		// missing. Plain RequirePermission -- the fine key is the only key
+		// there ever was for this, no legacy token to keep valid.
+		shareManage := middleware.RequirePermission("formulare:share", "manage")
 
 		// Schemas
 		r.Route("/schemas", func(r chi.Router) {
@@ -89,6 +95,14 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 					r.With(exportRun).Get("/export", fr.HandleExportSubmissions)
 				})
 
+				// Share links nested under schema (B8). formulare:share:manage
+				// is already seeded (000256) for admin and manager; it had no
+				// backend route until now.
+				r.Route("/share-links", func(r chi.Router) {
+					r.With(shareManage).Get("/", fr.HandleListShareLinks)
+					r.With(shareManage).Post("/", fr.HandleCreateShareLink)
+				})
+
 				// Webhooks nested under schema
 				r.Route("/webhooks", func(r chi.Router) {
 					r.With(middleware.RequirePermission("formulare:webhooks", "read")).Get("/", fr.HandleListWebhooks)
@@ -103,6 +117,10 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 			r.With(middleware.RequirePermission("formulare:submissions", "write")).Patch("/", fr.HandleUpdateSubmissionStatus)
 		})
 
+		// Share links flat routes (B8). DELETE is a soft revoke, see
+		// formulare.Service.RevokeShareLink.
+		r.With(shareManage).Delete("/share-links/{id}", fr.HandleRevokeShareLink)
+
 		// Webhooks flat routes
 		r.Route("/webhooks/{id}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("formulare:webhooks", "read")).Get("/", fr.HandleGetWebhook)
@@ -114,6 +132,27 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 
 		// Global delivery observability
 		r.With(middleware.RequirePermission("formulare:webhooks", "read")).Get("/deliveries", fr.HandleListWebhookDeliveries)
+	})
+}
+
+// RegisterPublicRoutes mounts the unauthenticated fill-out of a shared form.
+// Called from cmd/gateway/main.go on the root router, OUTSIDE the registrars
+// loop and therefore outside any authMiddleware group -- the token is the
+// whole credential, and a skip-list inside the auth middleware would be a far
+// easier thing to widen by accident.
+//
+// publicRateLimit must be the stricter public limiter, not the global one:
+// this is the only formulare path that answers without a JWT, and it WRITES.
+// Per-IP throttling is what stands between a scraper and both an unbounded run
+// of token guesses and an unbounded pile of junk submissions.
+func (fr *FormulareRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	if !fr.flags.IsEnabled("modules.formulare") {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/formulare/submit/{token}", fr.HandleSubmitByShareToken)
 	})
 }
 
@@ -935,4 +974,210 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Share Links (B8)
+// ============================================================================
+
+// maxPublicSubmitBody caps the public fill-out request body. A form's answers
+// are JSON text, and 256 KiB is far past any hand-typed form; the service
+// enforces the same ceiling on the decoded answers, so the limit holds even
+// for a caller that reaches the RPC another way.
+const maxPublicSubmitBody = 256 << 10
+
+type createFormShareLinkRequest struct {
+	// ExpiresAt is RFC 3339; nil = never expires.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// MaxSubmissions nil or 0 = unlimited.
+	MaxSubmissions *int32 `json:"max_submissions,omitempty" validate:"omitempty,min=1"`
+}
+
+type publicSubmitRequest struct {
+	Answers []byte `json:"answers" validate:"required"`
+}
+
+func (fr *FormulareRoutes) HandleListShareLinks(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+
+	schemaID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListFormShareLinks(r.Context(), &formularev1.ListFormShareLinksRequest{
+		TenantId:     tenantID.String(),
+		FormSchemaId: schemaID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+
+	schemaID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[createFormShareLinkRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &formularev1.CreateFormShareLinkRequest{
+		TenantId:     tenantID.String(),
+		FormSchemaId: schemaID,
+	}
+	if req.ExpiresAt != nil {
+		grpcReq.ExpiresAt = timestamppb.New(*req.ExpiresAt)
+	}
+	if req.MaxSubmissions != nil {
+		grpcReq.MaxSubmissions = *req.MaxSubmissions
+	}
+	if userID := middleware.GetUserID(r.Context()); userID != "" {
+		grpcReq.CreatedBy = &userID
+	}
+
+	resp, err := client.CreateFormShareLink(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (fr *FormulareRoutes) HandleRevokeShareLink(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+
+	linkID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.RevokeFormShareLink(r.Context(), &formularev1.RevokeFormShareLinkRequest{
+		TenantId:    tenantID.String(),
+		ShareLinkId: linkID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "share link revoked"})
+}
+
+// HandleSubmitByShareToken serves the unauthenticated fill-out of a form
+// through a share link.
+//
+// POST, not GET, for the same reasons the shared-report read and the CSAT
+// redemption are: the token must not land in access logs, browser history or
+// Referer headers, and this writes -- no prefetch may be free to trigger it.
+//
+// Every rejection that concerns the token itself -- missing, over-long,
+// unknown, expired, revoked, used up, or belonging to a form that is no longer
+// public -- comes back as the same 404, so the route cannot be used to find
+// out which tokens exist. A malformed or oversized body is the caller's own
+// error and stays 400: it says nothing about the token.
+func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *http.Request) {
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		response.Error(w, http.StatusNotFound, "share link not found")
+		return
+	}
+
+	// Body cap before the decode, not after: an unauthenticated writer must
+	// not be able to make the gateway buffer a megabyte to find out it is
+	// invalid.
+	r.Body = http.MaxBytesReader(w, r.Body, maxPublicSubmitBody)
+
+	req, ok := decodeAndValidate[publicSubmitRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SubmitFormByShareToken(r.Context(), &formularev1.SubmitFormByShareTokenRequest{
+		Token:   token,
+		Answers: req.Answers,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// The submission is stored; only now the intake dispatch, exactly as on
+	// the authenticated route. The tenant comes from the response, i.e. from
+	// the token the service resolved -- the gateway never guesses one, and the
+	// dispatch stays tenant-scoped from here on.
+	tenantID, parseErr := uuid.Parse(resp.GetTenantId())
+	if parseErr != nil {
+		slog.Error("formulare public submission returned an unusable tenant",
+			"submission_id", resp.GetSubmissionId(),
+			"error", parseErr,
+		)
+	} else {
+		external := true
+		fr.dispatchIntake(
+			withGatewayTenant(r.Context(), tenantID),
+			client, tenantID, resp.GetFormSchemaId(), resp.GetSubmissionId(), req.Answers,
+			intakeOrigin{
+				Channel: intakeChannelExternal,
+				// No RequesterID: nobody is logged in. The requester's identity
+				// can only come from the form's own requester_email /
+				// requester_name field roles -- if the author bound an intake
+				// target without them, the target refuses the record and the
+				// dispatch failure is logged. The submission is safe either way.
+				RequesterIsExternal: &external,
+			},
+		)
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+// withGatewayTenant attaches the tenant a share token resolved to, so the
+// outbound gRPC interceptor carries it on the dispatch calls. This is the one
+// place in the gateway a tenant comes from anywhere but the authenticated
+// request context, and it is only ever the tenant the service itself reported.
+func withGatewayTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
 }

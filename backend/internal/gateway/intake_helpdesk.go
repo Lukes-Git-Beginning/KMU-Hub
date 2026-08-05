@@ -40,6 +40,12 @@ const (
 // mirrors helpdesk.TicketChannelSelfService.
 const intakeChannelSelfService = "selfservice"
 
+// intakeChannelExternal is the channel a submission arriving without any login
+// carries -- the public share-link route. Both values are members of
+// helpdesk.ValidTicketChannels; a channel outside that set is refused by
+// TicketIntake.normalize, which is where the list is authoritative.
+const intakeChannelExternal = "external"
+
 // intakeDefaultTicketSubject is used when the form has no subject role or the
 // submitter left it blank -- a ticket without a subject is rejected by the
 // service, and losing the submission over an empty field would be absurd.

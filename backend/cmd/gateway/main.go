@@ -254,6 +254,9 @@ func main() {
 	// Helpdesk: authenticated routes via the registrar loop, the public
 	// redemption of a CSAT survey link outside it — same split as berichte.
 	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
+	// Formulare: authenticated CRUD via the registrar loop, the public
+	// share-link fill-out outside it -- same split as berichte/helpdesk.
+	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
@@ -288,7 +291,7 @@ func main() {
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		helpdeskRoutes,
 		berichteRoutes,
-		gateway.NewFormulareRoutes(registry, flagRegistry),
+		formulareRoutes,
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
 		gateway.NewProduktionRoutes(registry, flagRegistry),
@@ -375,6 +378,13 @@ func main() {
 	// writes, so an unthrottled guessing run would also be a rating-spam run.
 	helpdeskRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "helpdesk-public")
+
+	// Public fill-out of a shared form (no auth middleware). Same strict
+	// per-IP limiter: the share token is the whole credential, and this one
+	// writes, so an unthrottled guessing run would also be a submission-spam
+	// run.
+	formulareRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "formulare-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

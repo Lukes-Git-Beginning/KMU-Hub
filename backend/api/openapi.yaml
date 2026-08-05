@@ -20066,6 +20066,191 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/formulare/schemas/{id}/share-links:
+    get:
+      summary: List the public fill-out links of a form schema
+      description: >
+        Returns every link ever minted for this schema, newest first, including
+        revoked and expired ones — an author looking at an external write path
+        needs to see what was cut, not only what is live. `status` is derived
+        on read from revocation, expiry and the submission quota.
+
+
+        `token` is returned in clear text on purpose: it is the copyable link
+        the author hands out, and a one-way hash would make that impossible.
+        It grants the ability to append one submission to this one schema and
+        reads nothing.
+      tags: [formulare]
+      operationId: listFormShareLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Share links of the schema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_links:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormShareLink" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      summary: Mint a public fill-out link for a form schema
+      description: >
+        Requires `formulare:share:manage`. The schema must be public
+        (`is_public`) — that flag is the precondition for opening a form up,
+        while the token is what a visitor actually presents. A schema that is
+        not public answers 409.
+
+
+        The link may carry an expiry and a submission quota; both are enforced
+        server-side on every redemption, and both are optional (omitted =
+        never expires / unlimited).
+      tags: [formulare]
+      operationId: createFormShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_at: { type: string, format: date-time, nullable: true }
+                max_submissions: { type: integer, minimum: 1, nullable: true }
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_link: { $ref: "#/components/schemas/FormShareLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The schema is not public, so no link may be minted for it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/formulare/share-links/{id}:
+    delete:
+      summary: Revoke a public fill-out link
+      description: >
+        Requires `formulare:share:manage`. Soft revoke: the row and its
+        submission count survive, because that count is the only record of how
+        often the link was used before it was cut. Re-revoking is a no-op.
+      tags: [formulare]
+      operationId: revokeFormShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Share link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/public/formulare/submit/{token}:
+    post:
+      summary: Submit a form through a public share link (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the call can
+        only ever append one submission to the one schema the link names.
+
+
+        It is a POST rather than a GET so the token does not travel where
+        access logs, browser history and Referer headers keep it, and because
+        it writes: a prefetching GET must not be able to submit a form.
+
+
+        Unknown, malformed, revoked, expired and used-up links, and links whose
+        form is no longer public, archived or deleted, all answer 404 —
+        deliberately indistinguishable, so the route is not an oracle for which
+        tokens exist. A malformed or oversized body answers 400, which says
+        nothing about the token. This route is behind the strict per-IP public
+        rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one, and the
+        body is capped at 256 KiB.
+
+
+        Forms declaring a file-upload field are rejected with 409: a public
+        submission carries JSON answers only, and there is no upload path on
+        this route, so accepting one would store a reference pointing at
+        nothing.
+
+
+        If the schema is bound to an intake target, the module record (today: a
+        Helpdesk ticket) is created after the submission is stored. A target
+        that refuses the record costs the ticket, never the submitter's
+        answers — the response stays 201 either way.
+      tags: [formulare]
+      operationId: submitPublicFormByShareToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, maxLength: 128 }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: object
+                  description: JSON object of field answers, keyed by field id.
+      responses:
+        "201":
+          description: Submission stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission_id: { type: string, format: uuid }
+                  tenant_id: { type: string, format: uuid }
+                  form_schema_id: { type: string, format: uuid }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404":
+          description: No such link, or it expired, was revoked, is used up, or its form is no longer public
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: The form declares a file-upload field, which public submission does not support
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/formulare/schemas/{id}/webhooks:
     get:
       summary: List webhooks for a form schema
@@ -39697,6 +39882,34 @@ components:
         intake_target_id:
           type: string
           description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\") this form feeds. Absent = a plain form."
+
+    FormShareLink:
+      type: object
+      description: >
+        A public fill-out link for one form schema. `token` is the credential
+        itself and is returned in clear text on purpose — it is the link the
+        author copies out.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        form_schema_id: { type: string, format: uuid }
+        token:
+          type: string
+          description: 43-char base64url secret (32 bytes of crypto/rand).
+        expires_at: { type: string, format: date-time, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        max_submissions:
+          type: integer
+          description: 0 = unlimited.
+        submission_count: { type: integer }
+        created_by: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [active, expired, disabled]
+          description: >
+            Derived on read. `disabled` when revoked by hand, `expired` when
+            past its expiry or out of submission quota.
 
     FormSubmission:
       type: object

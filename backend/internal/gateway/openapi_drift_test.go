@@ -88,6 +88,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// Helpdesk: authenticated routes via the registrar loop, the public CSAT
 	// survey redemption outside it — same split as main.go.
 	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
+	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -115,7 +116,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		helpdeskRoutes,
 		berichteRoutes,
-		gateway.NewFormulareRoutes(registry, flagRegistry),
+		formulareRoutes,
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
 		gateway.NewProduktionRoutes(registry, flagRegistry),
@@ -169,6 +170,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	documentRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	automationRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	helpdeskRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	formulareRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }
