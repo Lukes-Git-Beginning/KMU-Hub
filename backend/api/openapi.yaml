@@ -19867,6 +19867,7 @@ paths:
                 is_template: { type: boolean }
                 is_public: { type: boolean }
                 page_count: { type: integer, format: int32 }
+                intake_target_id: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\")" }
       responses:
         "201":
           description: Form schema created
@@ -19918,6 +19919,7 @@ paths:
                 is_template: { type: boolean }
                 is_public: { type: boolean }
                 page_count: { type: integer, format: int32 }
+                intake_target_id: { type: string, description: "Key into the shared intake registry; empty string clears the binding" }
       responses:
         "200":
           description: Form schema updated
@@ -39692,6 +39694,9 @@ components:
           $ref: "#/components/schemas/ProtoTimestamp"
         deleted_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+        intake_target_id:
+          type: string
+          description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\") this form feeds. Absent = a plain form."
 
     FormSubmission:
       type: object

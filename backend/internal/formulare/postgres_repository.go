@@ -31,11 +31,12 @@ func (r *PostgresRepository) CreateSchema(ctx context.Context, schema *FormSchem
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO form_schemas
 		    (id, tenant_id, title, description, fields, status, is_template,
-		     is_public, page_count, submission_count, created_by, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		     is_public, page_count, submission_count, created_by, intake_target_id,
+		     created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		schema.ID, schema.TenantID, schema.Title, schema.Description,
 		schema.Fields, string(schema.Status), schema.IsTemplate, schema.IsPublic,
-		schema.PageCount, schema.SubmissionCount, schema.CreatedBy,
+		schema.PageCount, schema.SubmissionCount, schema.CreatedBy, schema.IntakeTargetID,
 		schema.CreatedAt, schema.UpdatedAt,
 	)
 	if err != nil {
@@ -47,8 +48,8 @@ func (r *PostgresRepository) CreateSchema(ctx context.Context, schema *FormSchem
 func (r *PostgresRepository) GetSchema(ctx context.Context, id, tenantID uuid.UUID) (*FormSchema, error) {
 	return r.scanSchema(r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, fields, status, is_template,
-		        is_public, page_count, submission_count, created_by, created_at,
-		        updated_at, deleted_at
+		        is_public, page_count, submission_count, created_by, intake_target_id,
+		        created_at, updated_at, deleted_at
 		 FROM form_schemas
 		 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
 		id, tenantID,
@@ -59,11 +60,12 @@ func (r *PostgresRepository) UpdateSchema(ctx context.Context, schema *FormSchem
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE form_schemas
 		 SET title = $1, description = $2, fields = $3, status = $4,
-		     is_template = $5, is_public = $6, page_count = $7, updated_at = $8
-		 WHERE id = $9 AND tenant_id = $10 AND deleted_at IS NULL`,
+		     is_template = $5, is_public = $6, page_count = $7, intake_target_id = $8,
+		     updated_at = $9
+		 WHERE id = $10 AND tenant_id = $11 AND deleted_at IS NULL`,
 		schema.Title, schema.Description, schema.Fields, string(schema.Status),
-		schema.IsTemplate, schema.IsPublic, schema.PageCount, schema.UpdatedAt,
-		schema.ID, schema.TenantID,
+		schema.IsTemplate, schema.IsPublic, schema.PageCount, schema.IntakeTargetID,
+		schema.UpdatedAt, schema.ID, schema.TenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("update form schema: %w", err)
@@ -128,8 +130,8 @@ func (r *PostgresRepository) ListSchemas(ctx context.Context, tenantID uuid.UUID
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, title, description, fields, status, is_template,
-		       is_public, page_count, submission_count, created_by, created_at,
-		       updated_at, deleted_at
+		       is_public, page_count, submission_count, created_by, intake_target_id,
+		       created_at, updated_at, deleted_at
 		FROM form_schemas %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -167,18 +169,19 @@ func (r *PostgresRepository) DuplicateSchema(ctx context.Context, id, tenantID u
 	}
 
 	newSchema := &FormSchema{
-		ID:          newID,
-		TenantID:    tenantID,
-		Title:       title,
-		Description: original.Description,
-		Fields:      append([]byte(nil), original.Fields...),
-		Status:      FormSchemaStatusDraft,
-		IsTemplate:  original.IsTemplate,
-		IsPublic:    false,
-		PageCount:   original.PageCount,
-		CreatedBy:   original.CreatedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             newID,
+		TenantID:       tenantID,
+		Title:          title,
+		Description:    original.Description,
+		Fields:         append([]byte(nil), original.Fields...),
+		Status:         FormSchemaStatusDraft,
+		IsTemplate:     original.IsTemplate,
+		IsPublic:       false,
+		PageCount:      original.PageCount,
+		CreatedBy:      original.CreatedBy,
+		IntakeTargetID: original.IntakeTargetID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	if err := r.CreateSchema(ctx, newSchema); err != nil {
@@ -628,7 +631,7 @@ func (r *PostgresRepository) scanSchema(row pgx.Row) (*FormSchema, error) {
 	err := row.Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description, &s.Fields,
 		&status, &s.IsTemplate, &s.IsPublic, &s.PageCount, &s.SubmissionCount,
-		&s.CreatedBy, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
+		&s.CreatedBy, &s.IntakeTargetID, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSchemaNotFound
@@ -646,7 +649,7 @@ func (r *PostgresRepository) scanSchemaFromRows(rows pgx.Rows) (*FormSchema, err
 	err := rows.Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description, &s.Fields,
 		&status, &s.IsTemplate, &s.IsPublic, &s.PageCount, &s.SubmissionCount,
-		&s.CreatedBy, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
+		&s.CreatedBy, &s.IntakeTargetID, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan form schema row: %w", err)

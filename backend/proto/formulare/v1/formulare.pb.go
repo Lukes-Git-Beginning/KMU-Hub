@@ -246,8 +246,11 @@ type FormSchema struct {
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	DeletedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Key into the shared intake registry (e.g. "helpdesk_ticket") this form
+	// feeds. Unset = a plain form with no intake binding.
+	IntakeTargetId *string `protobuf:"bytes,15,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *FormSchema) Reset() {
@@ -376,6 +379,13 @@ func (x *FormSchema) GetDeletedAt() *timestamppb.Timestamp {
 		return x.DeletedAt
 	}
 	return nil
+}
+
+func (x *FormSchema) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
+	}
+	return ""
 }
 
 type FormSubmission struct {
@@ -743,18 +753,19 @@ func (x *WebhookDelivery) GetDeliveredAt() *timestamppb.Timestamp {
 }
 
 type CreateFormSchemaRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Fields        []byte                 `protobuf:"bytes,4,opt,name=fields,proto3" json:"fields,omitempty"`
-	Status        FormSchemaStatus       `protobuf:"varint,5,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus" json:"status,omitempty"`
-	IsTemplate    bool                   `protobuf:"varint,6,opt,name=is_template,json=isTemplate,proto3" json:"is_template,omitempty"`
-	IsPublic      bool                   `protobuf:"varint,7,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
-	PageCount     int32                  `protobuf:"varint,8,opt,name=page_count,json=pageCount,proto3" json:"page_count,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Fields         []byte                 `protobuf:"bytes,4,opt,name=fields,proto3" json:"fields,omitempty"`
+	Status         FormSchemaStatus       `protobuf:"varint,5,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus" json:"status,omitempty"`
+	IsTemplate     bool                   `protobuf:"varint,6,opt,name=is_template,json=isTemplate,proto3" json:"is_template,omitempty"`
+	IsPublic       bool                   `protobuf:"varint,7,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	PageCount      int32                  `protobuf:"varint,8,opt,name=page_count,json=pageCount,proto3" json:"page_count,omitempty"`
+	CreatedBy      string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	IntakeTargetId *string                `protobuf:"bytes,10,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateFormSchemaRequest) Reset() {
@@ -846,6 +857,13 @@ func (x *CreateFormSchemaRequest) GetPageCount() int32 {
 func (x *CreateFormSchemaRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateFormSchemaRequest) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
 	}
 	return ""
 }
@@ -991,19 +1009,20 @@ func (x *GetFormSchemaResponse) GetSchema() *FormSchema {
 }
 
 type UpdateFormSchemaRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SchemaId      string                 `protobuf:"bytes,2,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
-	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Fields        []byte                 `protobuf:"bytes,5,opt,name=fields,proto3" json:"fields,omitempty"` // empty = no fields change
-	Status        *FormSchemaStatus      `protobuf:"varint,6,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus,oneof" json:"status,omitempty"`
-	IsTemplate    *bool                  `protobuf:"varint,7,opt,name=is_template,json=isTemplate,proto3,oneof" json:"is_template,omitempty"`
-	IsPublic      *bool                  `protobuf:"varint,8,opt,name=is_public,json=isPublic,proto3,oneof" json:"is_public,omitempty"`
-	PageCount     *int32                 `protobuf:"varint,9,opt,name=page_count,json=pageCount,proto3,oneof" json:"page_count,omitempty"`
-	EditorId      string                 `protobuf:"bytes,10,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SchemaId       string                 `protobuf:"bytes,2,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
+	Title          *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description    *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Fields         []byte                 `protobuf:"bytes,5,opt,name=fields,proto3" json:"fields,omitempty"` // empty = no fields change
+	Status         *FormSchemaStatus      `protobuf:"varint,6,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus,oneof" json:"status,omitempty"`
+	IsTemplate     *bool                  `protobuf:"varint,7,opt,name=is_template,json=isTemplate,proto3,oneof" json:"is_template,omitempty"`
+	IsPublic       *bool                  `protobuf:"varint,8,opt,name=is_public,json=isPublic,proto3,oneof" json:"is_public,omitempty"`
+	PageCount      *int32                 `protobuf:"varint,9,opt,name=page_count,json=pageCount,proto3,oneof" json:"page_count,omitempty"`
+	EditorId       string                 `protobuf:"bytes,10,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	IntakeTargetId *string                `protobuf:"bytes,11,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"` // unset = no change, "" clears
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateFormSchemaRequest) Reset() {
@@ -1102,6 +1121,13 @@ func (x *UpdateFormSchemaRequest) GetPageCount() int32 {
 func (x *UpdateFormSchemaRequest) GetEditorId() string {
 	if x != nil {
 		return x.EditorId
+	}
+	return ""
+}
+
+func (x *UpdateFormSchemaRequest) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
 	}
 	return ""
 }
@@ -2926,7 +2952,7 @@ var File_proto_formulare_v1_formulare_proto protoreflect.FileDescriptor
 
 const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
-	"\"proto/formulare/v1/formulare.proto\x12\fformulare.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x04\n" +
+	"\"proto/formulare/v1/formulare.proto\x12\fformulare.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf1\x04\n" +
 	"\n" +
 	"FormSchema\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2949,8 +2975,10 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12>\n" +
 	"\n" +
-	"deleted_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tdeletedAt\x88\x01\x01B\r\n" +
-	"\v_deleted_at\"\xba\x02\n" +
+	"deleted_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tdeletedAt\x88\x01\x01\x12-\n" +
+	"\x10intake_target_id\x18\x0f \x01(\tH\x01R\x0eintakeTargetId\x88\x01\x01B\r\n" +
+	"\v_deleted_atB\x13\n" +
+	"\x11_intake_target_id\"\xba\x02\n" +
 	"\x0eFormSubmission\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\x0eform_schema_id\x18\x02 \x01(\tR\fformSchemaId\x12\x1b\n" +
@@ -2997,7 +3025,7 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12B\n" +
 	"\fdelivered_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x01R\vdeliveredAt\x88\x01\x01B\x12\n" +
 	"\x10_next_attempt_atB\x0f\n" +
-	"\r_delivered_at\"\xba\x02\n" +
+	"\r_delivered_at\"\xfe\x02\n" +
 	"\x17CreateFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3010,14 +3038,17 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"page_count\x18\b \x01(\x05R\tpageCount\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\t \x01(\tR\tcreatedBy\"L\n" +
+	"created_by\x18\t \x01(\tR\tcreatedBy\x12-\n" +
+	"\x10intake_target_id\x18\n" +
+	" \x01(\tH\x00R\x0eintakeTargetId\x88\x01\x01B\x13\n" +
+	"\x11_intake_target_id\"L\n" +
 	"\x18CreateFormSchemaResponse\x120\n" +
 	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"P\n" +
 	"\x14GetFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\tschema_id\x18\x02 \x01(\tR\bschemaId\"I\n" +
 	"\x15GetFormSchemaResponse\x120\n" +
-	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"\xc5\x03\n" +
+	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"\x89\x04\n" +
 	"\x17UpdateFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\tschema_id\x18\x02 \x01(\tR\bschemaId\x12\x19\n" +
@@ -3031,14 +3062,16 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"page_count\x18\t \x01(\x05H\x05R\tpageCount\x88\x01\x01\x12\x1b\n" +
 	"\teditor_id\x18\n" +
-	" \x01(\tR\beditorIdB\b\n" +
+	" \x01(\tR\beditorId\x12-\n" +
+	"\x10intake_target_id\x18\v \x01(\tH\x06R\x0eintakeTargetId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_statusB\x0e\n" +
 	"\f_is_templateB\f\n" +
 	"\n" +
 	"_is_publicB\r\n" +
-	"\v_page_count\"L\n" +
+	"\v_page_countB\x13\n" +
+	"\x11_intake_target_id\"L\n" +
 	"\x18UpdateFormSchemaResponse\x120\n" +
 	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"S\n" +
 	"\x17DeleteFormSchemaRequest\x12\x1b\n" +
@@ -3381,6 +3414,7 @@ func file_proto_formulare_v1_formulare_proto_init() {
 	file_proto_formulare_v1_formulare_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[3].OneofWrappers = []any{}
+	file_proto_formulare_v1_formulare_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[8].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[14].OneofWrappers = []any{}

@@ -564,6 +564,71 @@ func TestCreateFormSchema_MissingFieldID_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestCreateFormSchema_UnknownRole_ReturnsError(t *testing.T) {
+	svc, _ := newSvc()
+	_, err := svc.CreateFormSchema(context.Background(), CreateSchemaInput{
+		TenantID: testTenant,
+		Title:    "Form",
+		Fields:   []byte(`[{"id":"f1","type":"text","label":"Name","role":"assignee"}]`),
+	})
+	if !errors.Is(err, ErrInvalidFields) {
+		t.Errorf("expected ErrInvalidFields for unknown role, got %v", err)
+	}
+}
+
+func TestCreateFormSchema_ValidRoles_AllSixAccepted(t *testing.T) {
+	svc, _ := newSvc()
+	fields := []byte(`[
+		{"id":"f1","type":"text","label":"Subject","role":"subject"},
+		{"id":"f2","type":"textarea","label":"Description","role":"description"},
+		{"id":"f3","type":"select","label":"Priority","role":"priority"},
+		{"id":"f4","type":"text","label":"Category","role":"category"},
+		{"id":"f5","type":"text","label":"Name","role":"requester_name"},
+		{"id":"f6","type":"email","label":"Email","role":"requester_email"},
+		{"id":"f7","type":"text","label":"Unmarked"}
+	]`)
+	_, err := svc.CreateFormSchema(context.Background(), CreateSchemaInput{
+		TenantID: testTenant,
+		Title:    "Intake Form",
+		Fields:   fields,
+	})
+	if err != nil {
+		t.Fatalf("all six roles plus an unmarked field should be valid, got: %v", err)
+	}
+}
+
+func TestCreateFormSchema_IntakeTargetID_Persisted(t *testing.T) {
+	svc, _ := newSvc()
+	targetID := "helpdesk_ticket"
+	schema, err := svc.CreateFormSchema(context.Background(), CreateSchemaInput{
+		TenantID:       testTenant,
+		Title:          "Intake Form",
+		IntakeTargetID: &targetID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if schema.IntakeTargetID == nil || *schema.IntakeTargetID != "helpdesk_ticket" {
+		t.Errorf("expected intake_target_id %q, got %v", targetID, schema.IntakeTargetID)
+	}
+}
+
+func TestCreateFormSchema_BlankIntakeTargetID_StoredAsNil(t *testing.T) {
+	svc, _ := newSvc()
+	blank := "   "
+	schema, err := svc.CreateFormSchema(context.Background(), CreateSchemaInput{
+		TenantID:       testTenant,
+		Title:          "Plain Form",
+		IntakeTargetID: &blank,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if schema.IntakeTargetID != nil {
+		t.Errorf("expected nil intake_target_id for blank input, got %q", *schema.IntakeTargetID)
+	}
+}
+
 // ============================================================================
 // Tests: UpdateFormSchema
 // ============================================================================
@@ -601,6 +666,51 @@ func TestUpdateFormSchema_InvalidFieldType_ReturnsError(t *testing.T) {
 	})
 	if !errors.Is(err, ErrInvalidFields) {
 		t.Errorf("expected ErrInvalidFields for invalid type in update, got %v", err)
+	}
+}
+
+func TestUpdateFormSchema_UnknownRole_ReturnsError(t *testing.T) {
+	svc, _ := newSvc()
+	schema := mustCreateSchema(t, svc)
+
+	_, err := svc.UpdateFormSchema(context.Background(), UpdateSchemaInput{
+		ID:       schema.ID,
+		TenantID: testTenant,
+		Fields:   []byte(`[{"id":"f1","type":"text","label":"Name","role":"owner"}]`),
+	})
+	if !errors.Is(err, ErrInvalidFields) {
+		t.Errorf("expected ErrInvalidFields for unknown role in update, got %v", err)
+	}
+}
+
+func TestUpdateFormSchema_IntakeTargetID_SetThenCleared(t *testing.T) {
+	svc, _ := newSvc()
+	schema := mustCreateSchema(t, svc)
+
+	targetID := "helpdesk_ticket"
+	bound, err := svc.UpdateFormSchema(context.Background(), UpdateSchemaInput{
+		ID:             schema.ID,
+		TenantID:       testTenant,
+		IntakeTargetID: &targetID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error binding target: %v", err)
+	}
+	if bound.IntakeTargetID == nil || *bound.IntakeTargetID != "helpdesk_ticket" {
+		t.Fatalf("expected intake_target_id set, got %v", bound.IntakeTargetID)
+	}
+
+	cleared := ""
+	unbound, err := svc.UpdateFormSchema(context.Background(), UpdateSchemaInput{
+		ID:             schema.ID,
+		TenantID:       testTenant,
+		IntakeTargetID: &cleared,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error clearing target: %v", err)
+	}
+	if unbound.IntakeTargetID != nil {
+		t.Errorf("expected intake_target_id cleared to nil, got %q", *unbound.IntakeTargetID)
 	}
 }
 
@@ -697,12 +807,14 @@ func TestDuplicateFormSchema_CopiesFieldsResetsStatus(t *testing.T) {
 	svc, _ := newSvc()
 	original := mustCreateSchema(t, svc)
 
-	// Set the original to active.
+	// Set the original to active and bind an intake target.
 	active := FormSchemaStatusActive
+	targetID := "helpdesk_ticket"
 	_, _ = svc.UpdateFormSchema(context.Background(), UpdateSchemaInput{
-		ID:       original.ID,
-		TenantID: testTenant,
-		Status:   &active,
+		ID:             original.ID,
+		TenantID:       testTenant,
+		Status:         &active,
+		IntakeTargetID: &targetID,
 	})
 
 	dup, err := svc.DuplicateFormSchema(context.Background(), original.ID, testTenant, "Copy of Contact")
@@ -717,6 +829,9 @@ func TestDuplicateFormSchema_CopiesFieldsResetsStatus(t *testing.T) {
 	}
 	if dup.Title != "Copy of Contact" {
 		t.Errorf("expected custom title, got %q", dup.Title)
+	}
+	if dup.IntakeTargetID == nil || *dup.IntakeTargetID != "helpdesk_ticket" {
+		t.Errorf("expected intake_target_id carried over to duplicate, got %v", dup.IntakeTargetID)
 	}
 }
 

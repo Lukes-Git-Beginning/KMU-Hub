@@ -49,15 +49,16 @@ func (s *FormulareGRPCServer) CreateFormSchema(ctx context.Context, req *formula
 	}
 
 	input := formulare.CreateSchemaInput{
-		TenantID:    tenantID,
-		Title:       req.GetTitle(),
-		Description: req.GetDescription(),
-		Fields:      req.GetFields(),
-		Status:      fromProtoFormSchemaStatus(req.GetStatus()),
-		IsTemplate:  req.GetIsTemplate(),
-		IsPublic:    req.GetIsPublic(),
-		PageCount:   int(req.GetPageCount()),
-		CreatedBy:   createdBy,
+		TenantID:       tenantID,
+		Title:          req.GetTitle(),
+		Description:    req.GetDescription(),
+		Fields:         req.GetFields(),
+		Status:         fromProtoFormSchemaStatus(req.GetStatus()),
+		IsTemplate:     req.GetIsTemplate(),
+		IsPublic:       req.GetIsPublic(),
+		PageCount:      int(req.GetPageCount()),
+		CreatedBy:      createdBy,
+		IntakeTargetID: req.IntakeTargetId,
 	}
 
 	schema, err := s.svc.CreateFormSchema(ctx, input)
@@ -118,6 +119,9 @@ func (s *FormulareGRPCServer) UpdateFormSchema(ctx context.Context, req *formula
 	if req.PageCount != nil {
 		pc := int(*req.PageCount)
 		input.PageCount = &pc
+	}
+	if req.IntakeTargetId != nil {
+		input.IntakeTargetID = req.IntakeTargetId
 	}
 
 	schema, err := s.svc.UpdateFormSchema(ctx, input)
@@ -573,6 +577,7 @@ func toProtoFormSchema(s *formulare.FormSchema) *formularev1.FormSchema {
 	if s.DeletedAt != nil && !s.DeletedAt.IsZero() {
 		p.DeletedAt = timestamppb.New(*s.DeletedAt)
 	}
+	p.IntakeTargetId = s.IntakeTargetID
 	return p
 }
 

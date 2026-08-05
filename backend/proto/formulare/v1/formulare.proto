@@ -87,6 +87,9 @@ message FormSchema {
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
   optional google.protobuf.Timestamp deleted_at = 14;
+  // Key into the shared intake registry (e.g. "helpdesk_ticket") this form
+  // feeds. Unset = a plain form with no intake binding.
+  optional string intake_target_id = 15;
 }
 
 message FormSubmission {
@@ -144,6 +147,7 @@ message CreateFormSchemaRequest {
   bool is_public = 7;
   int32 page_count = 8;
   string created_by = 9;
+  optional string intake_target_id = 10;
 }
 
 message CreateFormSchemaResponse {
@@ -170,6 +174,7 @@ message UpdateFormSchemaRequest {
   optional bool is_public = 8;
   optional int32 page_count = 9;
   string editor_id = 10;
+  optional string intake_target_id = 11;         // unset = no change, "" clears
 }
 
 message UpdateFormSchemaResponse {

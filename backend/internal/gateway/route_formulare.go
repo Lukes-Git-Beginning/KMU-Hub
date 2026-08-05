@@ -119,21 +119,23 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 // ============================================================================
 
 type createFormSchemaRequest struct {
-	Title       string `json:"title"                validate:"required"`
-	Description string `json:"description,omitempty"`
-	Fields      []byte `json:"fields,omitempty"`
-	IsTemplate  bool   `json:"is_template,omitempty"`
-	IsPublic    bool   `json:"is_public,omitempty"`
-	PageCount   int32  `json:"page_count,omitempty"`
+	Title          string  `json:"title"                validate:"required"`
+	Description    string  `json:"description,omitempty"`
+	Fields         []byte  `json:"fields,omitempty"`
+	IsTemplate     bool    `json:"is_template,omitempty"`
+	IsPublic       bool    `json:"is_public,omitempty"`
+	PageCount      int32   `json:"page_count,omitempty"`
+	IntakeTargetID *string `json:"intake_target_id,omitempty"`
 }
 
 type updateFormSchemaRequest struct {
-	Title       *string `json:"title,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Fields      []byte  `json:"fields,omitempty"`
-	IsTemplate  *bool   `json:"is_template,omitempty"`
-	IsPublic    *bool   `json:"is_public,omitempty"`
-	PageCount   *int32  `json:"page_count,omitempty"`
+	Title          *string `json:"title,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	Fields         []byte  `json:"fields,omitempty"`
+	IsTemplate     *bool   `json:"is_template,omitempty"`
+	IsPublic       *bool   `json:"is_public,omitempty"`
+	PageCount      *int32  `json:"page_count,omitempty"`
+	IntakeTargetID *string `json:"intake_target_id,omitempty"`
 }
 
 type duplicateFormSchemaRequest struct {
@@ -220,14 +222,15 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 	}
 
 	grpcReq := &formularev1.CreateFormSchemaRequest{
-		TenantId:    tenantID.String(),
-		Title:       req.Title,
-		Description: req.Description,
-		Fields:      req.Fields,
-		IsTemplate:  req.IsTemplate,
-		IsPublic:    req.IsPublic,
-		PageCount:   req.PageCount,
-		CreatedBy:   userID,
+		TenantId:       tenantID.String(),
+		Title:          req.Title,
+		Description:    req.Description,
+		Fields:         req.Fields,
+		IsTemplate:     req.IsTemplate,
+		IsPublic:       req.IsPublic,
+		PageCount:      req.PageCount,
+		CreatedBy:      userID,
+		IntakeTargetId: req.IntakeTargetID,
 	}
 
 	resp, err := client.CreateFormSchema(r.Context(), grpcReq)
@@ -291,15 +294,16 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 	}
 
 	grpcReq := &formularev1.UpdateFormSchemaRequest{
-		TenantId:    tenantID.String(),
-		SchemaId:    id,
-		Title:       req.Title,
-		Description: req.Description,
-		Fields:      req.Fields,
-		IsTemplate:  req.IsTemplate,
-		IsPublic:    req.IsPublic,
-		PageCount:   req.PageCount,
-		EditorId:    userID,
+		TenantId:       tenantID.String(),
+		SchemaId:       id,
+		Title:          req.Title,
+		Description:    req.Description,
+		Fields:         req.Fields,
+		IsTemplate:     req.IsTemplate,
+		IsPublic:       req.IsPublic,
+		PageCount:      req.PageCount,
+		EditorId:       userID,
+		IntakeTargetId: req.IntakeTargetID,
 	}
 
 	resp, err := client.UpdateFormSchema(r.Context(), grpcReq)
