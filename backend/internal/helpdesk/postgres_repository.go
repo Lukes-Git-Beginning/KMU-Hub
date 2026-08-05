@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository backed by a pgxpool.Pool.
@@ -360,6 +362,102 @@ func (r *PostgresRepository) IssueCsatSurveyTokenTx(
 		return false, fmt.Errorf("issue csat survey token: %w", err)
 	}
 	return tag.RowsAffected() == 1, nil
+}
+
+// GetCsatSurveyByToken resolves a survey link for the public redeem endpoint.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. It is therefore
+// pinned to an equality match on the unique token column and is never a
+// listing. The usable/expired verdict stays with the service so a dead link
+// still resolves far enough to be logged -- same split as
+// berichte.GetShareTokenBySecret.
+func (r *PostgresRepository) GetCsatSurveyByToken(ctx context.Context, token string) (*CsatSurveyToken, error) {
+	if token == "" {
+		return nil, ErrCsatSurveyNotFound
+	}
+	var t CsatSurveyToken
+	err := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT id, tenant_id, ticket_id, token_expires_at, submitted_at
+		   FROM ticket_csat_responses
+		  WHERE token = $1`,
+		token,
+	).Scan(&t.ResponseID, &t.TenantID, &t.TicketID, &t.ExpiresAt, &t.SubmittedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCsatSurveyNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get csat survey by token: %w", err)
+	}
+	return &t, nil
+}
+
+// RedeemCsatSurveyTx writes the rating from a survey link and consumes the
+// token in the same transaction.
+//
+// Both statements are tenant-scoped on the tenant the token itself resolved
+// to; the system context ends at the lookup and never reaches this write. The
+// response UPDATE runs first and carries the single-use guard: `token IS NOT
+// NULL AND submitted_at IS NULL` means a second redemption -- or one racing
+// the first -- affects zero rows and comes back as ErrCsatSurveyNotFound
+// rather than overwriting a rating that is already in.
+func (r *PostgresRepository) RedeemCsatSurveyTx(
+	ctx context.Context,
+	tenantID, ticketID, responseID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) (int, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET rating            = $1,
+		        comment           = $2,
+		        submitted_at      = $3,
+		        token             = NULL,
+		        token_expires_at  = NULL,
+		        survey_send_after = NULL,
+		        updated_at        = $3
+		  WHERE id = $4
+		    AND tenant_id = $5
+		    AND token IS NOT NULL
+		    AND submitted_at IS NULL`,
+		rating, comment, submittedAt, responseID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return 0, ErrCsatSurveyNotFound
+	}
+
+	// The mirror keeps the ticket read join-free. A ticket that vanished
+	// between the two statements would leave the rating without a ticket, so
+	// the missing row fails the whole redemption rather than half of it.
+	var ticketNumber int
+	if err := tx.QueryRow(ctx,
+		`UPDATE tickets
+		    SET csat_rating = $1, csat_comment = $2, updated_at = $3
+		  WHERE id = $4 AND tenant_id = $5
+		 RETURNING ticket_number`,
+		rating, comment, submittedAt, ticketID, tenantID,
+	).Scan(&ticketNumber); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrCsatSurveyNotFound
+		}
+		return 0, fmt.Errorf("redeem csat survey tx mirror on ticket: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx commit: %w", err)
+	}
+	return ticketNumber, nil
 }
 
 // ListDueCsatSurveys returns pending surveys whose send time has come, oldest

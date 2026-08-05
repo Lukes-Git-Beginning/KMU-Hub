@@ -3605,3 +3605,68 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
 - kein FE-Teil in diesem Commit (Backend-Loop-Scope).
 - commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): mail out CSAT
   surveys after their configured delay".
+
+## Iteration 48 — csat-public-response — done — 2026-08-06 00:50
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): redeem CSAT
+  survey links without a login".
+- verify vorgaenger (66253a22, csat-survey-dispatch): **sauber**. Keine Route, kein Proto,
+  keine neue Tabelle (nur drei Spalten an `ticket_csat_responses`, RLS kam mit 000288);
+  neue Config `CSAT_SURVEY_BASE_URL` ist **defaulted**, keine `config.RequireX`-Assertion,
+  also kein Deploy-Hazard; kein `Unimplemented`/TODO/Fake im neuen Pfad; kein
+  RequirePermission-Guard, kein Gateway-Handler, damit keine gRPC-Umgehung moeglich.
+- gebaut (Proto): `SubmitCsatByToken(token, rating, optional comment) -> {ticket_number, rating}`.
+  Antwort bewusst **kein** `Ticket`: der Aufrufer ist ein nicht angemeldeter Kunde und bekommt
+  nur die Ticketnummer zurueck, die in seiner Einladungsmail ohnehin stand — kein Betreff,
+  kein Bearbeiter, kein interner Zustand. `.pb.go` + `_grpc.pb.go` im selben Commit (protoc
+  direkt aufgerufen, `make` gibt es in dieser Shell nicht).
+- gebaut (Service): `Service.SubmitCsatByToken` in `csat_survey.go`, Schrittfolge 1:1 nach
+  `berichte.Service.GetSharedDocument`: Token-Lookup unter `database.WithSystemContext` (die
+  eine Zeile, die RLS verlassen MUSS, weil sie erst beantwortet, welcher Tenant gemeint ist) →
+  Usable-Pruefung → `withTenant(ctx, survey.TenantID)` → ab da alles normal tenant-gescopt.
+  Der System-Kontext wird nirgends weitergereicht.
+  **Reihenfolge ist Absicht:** Rating-Range und Kommentarlaenge werden VOR dem Lookup geprueft.
+  Ein ungueltiges Rating ist der Fehler des Aufrufers und darf nichts ueber den Token verraten;
+  ein Test (`RejectsRatingBeforeTouchingToken`) haelt das fest, indem er zaehlt, dass der
+  Lookup bei ungueltiger Eingabe **null Mal** laeuft.
+- gebaut (Repo): `GetCsatSurveyByToken` (Equality auf die global eindeutige token-Spalte, nie
+  eine Liste, nie ein Filter) und `RedeemCsatSurveyTx`. Die Transaktion setzt
+  rating/comment/submitted_at, **entwertet den Token** (`token = NULL`, expires/send_after
+  NULL) und spiegelt auf `tickets`. Der Guard `token IS NOT NULL AND submitted_at IS NULL`
+  im UPDATE ist die autoritative Einmal-Pruefung — die Service-Pruefung davor ist gegen eine
+  zeitgleiche zweite Einloesung rennbar, das SQL nicht. Null Zeilen → ErrCsatSurveyNotFound.
+- gebaut (Gateway): `HelpdeskRoutes.RegisterPublicRoutes` →
+  `POST /api/v1/public/helpdesk/csat/{token}`, registriert in `cmd/gateway/main.go` am
+  **Root-Router ausserhalb der Registrar-Schleife**, einziges Middleware der strenge
+  `publicRateLimiter` (`ratelimit:public`). Body-Deckel 8 KiB per `http.MaxBytesReader` **vor**
+  dem Decode. Handler geht ueber `helpdeskClient.SubmitCsatByToken`, nicht ueber eine
+  Service-Instanz. `openapi_drift_test.go` registriert die Route jetzt ebenfalls (sonst
+  faellt sie durch die Drift-Pruefung).
+- ein Verdikt fuer alle toten Links: unbekannt, missgebildet, ueberlang, leer, abgelaufen,
+  entwertet und bereits eingeloest → **alle** `ErrCsatSurveyNotFound` → 404. Nie 403, nie eine
+  unterscheidbare Meldung. 400 gibt es nur fuer Rating/Body, die nichts ueber den Token sagen.
+- openapi.yaml: Pfad im selben Commit, dokumentiert 200/400/404/429/503.
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `go build -p 2` (helpdesk, server, gateway, cmd/gateway, cmd/helpdesk) ok | `go vet` ok |
+  `golangci-lint run` (helpdesk, gateway, server) → **0 issues** |
+  `go test -count=1 -v ./internal/helpdesk/` **85 PASS / 0 SKIP** (die drei neuen liefen real
+  gegen die DB) | `./internal/gateway/` ok inkl. **TestOpenAPIRouteDrift PASS** |
+  `./internal/server/` ok | `./internal/testutil/` ok (RLS-Standing-Guard).
+  Keine Migration in dieser Unit — Spalten und Policy stammen aus 000288/000289.
+- Testfalle, die hier zuschnappte und fuer kuenftige DB-Tests gilt: `t.Cleanup` laeuft **nach**
+  dem `defer pool.Close()` der Testfunktion und findet dann einen geschlossenen Pool; die
+  Zeilen bleiben liegen, und der global eindeutige Token-Index laesst den naechsten Lauf
+  auflaufen. Aufraeumen per `defer`, und Test-Tokens mit einer Lauf-ID praefixen statt fester
+  Literale.
+- offen fuer die naechste Iteration / fuer Luke:
+  - **Kein FE-Teil** (Loop-Scope). `CSAT_SURVEY_BASE_URL` (Default zeigt auf die
+    `/csat`-Route der App) muss auf eine FE-Seite zeigen, die den Token aus dem Pfad nimmt
+    und **POST**et — ein GET loest nichts ein. Die Seite bekommt `{ticket_number, rating}`
+    zurueck und sollte 404 als "Link abgelaufen oder bereits genutzt" formulieren, ohne die
+    Faelle zu unterscheiden.
+  - Der Kommentar-Deckel (2000 Zeichen, `csatCommentMaxLength`) gilt vorerst nur auf dem
+    oeffentlichen Weg; `submitCsatRequest` (Agenten-Route) hat weiterhin keinen. Bewusst nicht
+    mitgeaendert, um den bestehenden Vertrag nicht nachts zu verengen.
+  - Weiterhin offen aus Iteration 47: externe Requester bekommen keine Umfrage, weil
+    `ListDueCsatSurveys` die Adresse ueber `JOIN users` holt. B1 bringt `requester_email` an
+    `tickets`, dann muss der JOIN auf `COALESCE(t.requester_email, req.email)`.

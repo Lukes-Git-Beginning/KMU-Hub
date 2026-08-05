@@ -122,6 +122,27 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	})
 }
 
+// RegisterPublicRoutes mounts the unauthenticated redemption of a CSAT survey
+// link. Called from cmd/gateway/main.go on the root router, OUTSIDE the
+// registrars loop and therefore outside any authMiddleware group -- the token
+// is the whole credential, and a skip-list inside the auth middleware would be
+// a far easier thing to widen by accident.
+//
+// publicRateLimit must be the stricter public limiter, not the global one:
+// this is the only helpdesk path that answers without a JWT, so per-IP
+// throttling is all that stands between a scraper and an unbounded run of
+// token guesses.
+func (h *HelpdeskRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	if !h.flags.IsEnabled("modules.helpdesk") {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/helpdesk/csat/{token}", h.HandleSubmitCsatByToken)
+	})
+}
+
 // ============================================================================
 // Request types
 // ============================================================================
@@ -500,6 +521,67 @@ func (h *HelpdeskRoutes) HandleSubmitCsat(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.SubmitCsat(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// maxCsatRedeemBody caps the public redemption's request body. Rating plus a
+// bounded comment fit comfortably; anything larger is not a survey answer.
+const maxCsatRedeemBody = 8 << 10
+
+// submitCsatByTokenRequest is the public redemption body. Deliberately not
+// reusing submitCsatRequest: that one is validated for an agent-facing route,
+// and the two must be free to diverge without silently loosening this one.
+type submitCsatByTokenRequest struct {
+	Rating  int32   `json:"rating"            validate:"required,min=1,max=5"`
+	Comment *string `json:"comment,omitempty" validate:"omitempty,max=2000"`
+}
+
+// HandleSubmitCsatByToken serves the unauthenticated redemption of a survey
+// link mailed out after ticket close.
+//
+// POST, not GET, for the same reason the shared-report read is: the token must
+// not land in access logs, browser history or Referer headers, and a rating is
+// a write no prefetch should be free to trigger.
+//
+// Every rejection that concerns the token itself -- missing, over-long,
+// unknown, expired, revoked, already redeemed -- comes back as the same 404,
+// so the route cannot be used to find out which tokens exist. A malformed body
+// or an out-of-range rating is the caller's own error and stays a 400: it says
+// nothing about the token.
+func (h *HelpdeskRoutes) HandleSubmitCsatByToken(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		response.Error(w, http.StatusNotFound, "survey link not found")
+		return
+	}
+
+	// Body cap before the decode, not after: an unauthenticated writer must not
+	// be able to make the gateway buffer a megabyte to find out it is invalid.
+	r.Body = http.MaxBytesReader(w, r.Body, maxCsatRedeemBody)
+
+	body, ok := decodeAndValidate[submitCsatByTokenRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &helpdeskv1.SubmitCsatByTokenRequest{
+		Token:   token,
+		Rating:  body.Rating,
+		Comment: body.Comment,
+	}
+
+	resp, err := client.SubmitCsatByToken(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

@@ -59,6 +59,22 @@ type Repository interface {
 	// both are ordinary outcomes, not failures.
 	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, sendAfter, expiresAt, now time.Time) (bool, error)
 
+	// GetCsatSurveyByToken resolves a survey link. It runs in the system
+	// context -- the caller is an unauthenticated customer and has no tenant
+	// yet, so RLS would filter away the one row that says which tenant they
+	// may touch. It is pinned to an equality match on the unique token column,
+	// is never a listing and takes no filter. Returns ErrCsatSurveyNotFound
+	// for an unknown token; the expired/already-rated verdict belongs to the
+	// service, so a dead link still resolves far enough to be logged.
+	GetCsatSurveyByToken(ctx context.Context, token string) (*CsatSurveyToken, error)
+
+	// RedeemCsatSurveyTx writes the rating from a survey link and consumes the
+	// token in one transaction, returning the ticket number for the customer's
+	// acknowledgement. Returns ErrCsatSurveyNotFound when the row is no longer
+	// pending -- that is the authoritative single-use check, since the
+	// service's own is racy against a concurrent redemption.
+	RedeemCsatSurveyTx(ctx context.Context, tenantID, ticketID, responseID uuid.UUID, rating int16, comment *string, submittedAt time.Time) (int, error)
+
 	// The survey dispatch surface (list due / claim / release / cancel) is
 	// deliberately NOT part of this interface: only the background dispatcher
 	// uses it, and it declares its own narrow CsatDispatchRepository

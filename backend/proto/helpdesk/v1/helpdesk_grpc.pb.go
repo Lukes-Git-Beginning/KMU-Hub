@@ -30,6 +30,7 @@ const (
 	HelpdeskService_MergeTickets_FullMethodName            = "/helpdesk.v1.HelpdeskService/MergeTickets"
 	HelpdeskService_CreateTicketFromMessage_FullMethodName = "/helpdesk.v1.HelpdeskService/CreateTicketFromMessage"
 	HelpdeskService_SubmitCsat_FullMethodName              = "/helpdesk.v1.HelpdeskService/SubmitCsat"
+	HelpdeskService_SubmitCsatByToken_FullMethodName       = "/helpdesk.v1.HelpdeskService/SubmitCsatByToken"
 	HelpdeskService_GetBusinessHours_FullMethodName        = "/helpdesk.v1.HelpdeskService/GetBusinessHours"
 	HelpdeskService_UpdateBusinessHours_FullMethodName     = "/helpdesk.v1.HelpdeskService/UpdateBusinessHours"
 	HelpdeskService_AddMessage_FullMethodName              = "/helpdesk.v1.HelpdeskService/AddMessage"
@@ -82,6 +83,14 @@ type HelpdeskServiceClient interface {
 	// updates the existing rating instead of failing -- the requester is allowed
 	// to change their mind.
 	SubmitCsat(ctx context.Context, in *SubmitCsatRequest, opts ...grpc.CallOption) (*Ticket, error)
+	// SubmitCsatByToken redeems a survey link mailed out after ticket close. It
+	// is the only RPC in this service that takes no tenant: the token resolves
+	// the tenant itself, which is exactly why the lookup has to escape RLS for
+	// that one row. The response is deliberately not a Ticket -- the caller is
+	// an unauthenticated customer and gets back only what confirms their own
+	// submission. Redemption consumes the token, so a second attempt is a plain
+	// NotFound, indistinguishable from an expired, revoked or invented one.
+	SubmitCsatByToken(ctx context.Context, in *SubmitCsatByTokenRequest, opts ...grpc.CallOption) (*SubmitCsatByTokenResponse, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(ctx context.Context, in *GetBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(ctx context.Context, in *UpdateBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
@@ -221,6 +230,16 @@ func (c *helpdeskServiceClient) SubmitCsat(ctx context.Context, in *SubmitCsatRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Ticket)
 	err := c.cc.Invoke(ctx, HelpdeskService_SubmitCsat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) SubmitCsatByToken(ctx context.Context, in *SubmitCsatByTokenRequest, opts ...grpc.CallOption) (*SubmitCsatByTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitCsatByTokenResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_SubmitCsatByToken_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -520,6 +539,14 @@ type HelpdeskServiceServer interface {
 	// updates the existing rating instead of failing -- the requester is allowed
 	// to change their mind.
 	SubmitCsat(context.Context, *SubmitCsatRequest) (*Ticket, error)
+	// SubmitCsatByToken redeems a survey link mailed out after ticket close. It
+	// is the only RPC in this service that takes no tenant: the token resolves
+	// the tenant itself, which is exactly why the lookup has to escape RLS for
+	// that one row. The response is deliberately not a Ticket -- the caller is
+	// an unauthenticated customer and gets back only what confirms their own
+	// submission. Redemption consumes the token, so a second attempt is a plain
+	// NotFound, indistinguishable from an expired, revoked or invented one.
+	SubmitCsatByToken(context.Context, *SubmitCsatByTokenRequest) (*SubmitCsatByTokenResponse, error)
 	// Business hours (tenant-level config)
 	GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error)
 	UpdateBusinessHours(context.Context, *UpdateBusinessHoursRequest) (*BusinessHoursResponse, error)
@@ -594,6 +621,9 @@ func (UnimplementedHelpdeskServiceServer) CreateTicketFromMessage(context.Contex
 }
 func (UnimplementedHelpdeskServiceServer) SubmitCsat(context.Context, *SubmitCsatRequest) (*Ticket, error) {
 	return nil, status.Error(codes.Unimplemented, "method SubmitCsat not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) SubmitCsatByToken(context.Context, *SubmitCsatByTokenRequest) (*SubmitCsatByTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitCsatByToken not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBusinessHours not implemented")
@@ -873,6 +903,24 @@ func _HelpdeskService_SubmitCsat_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HelpdeskServiceServer).SubmitCsat(ctx, req.(*SubmitCsatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_SubmitCsatByToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitCsatByTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).SubmitCsatByToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_SubmitCsatByToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).SubmitCsatByToken(ctx, req.(*SubmitCsatByTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1409,6 +1457,10 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SubmitCsat",
 			Handler:    _HelpdeskService_SubmitCsat_Handler,
+		},
+		{
+			MethodName: "SubmitCsatByToken",
+			Handler:    _HelpdeskService_SubmitCsatByToken_Handler,
 		},
 		{
 			MethodName: "GetBusinessHours",

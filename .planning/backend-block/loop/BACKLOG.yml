@@ -306,7 +306,7 @@ units:
     service: helpdesk
     model: opus
     deps: [csat-survey-token, csat-proto-service]
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/public/helpdesk/csat/{token}`, unauthentifizierte Abgabe der Bewertung
       ueber den Link aus der Umfrage-Mail. Body {rating, comment?}. Loest genau ein Ticket

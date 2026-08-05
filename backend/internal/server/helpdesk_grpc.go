@@ -387,6 +387,40 @@ func (s *HelpdeskGRPCServer) SubmitCsat(ctx context.Context, req *helpdeskv1.Sub
 	return ticketToProto(t), nil
 }
 
+// SubmitCsatByToken redeems a survey link. Unlike every other RPC here it does
+// NOT read a tenant from the context: the public caller has none, and the
+// token resolves the tenant itself inside the service. Nothing about the
+// ticket goes back over the wire beyond the number the customer already has
+// from the invitation mail.
+func (s *HelpdeskGRPCServer) SubmitCsatByToken(
+	ctx context.Context,
+	req *helpdeskv1.SubmitCsatByTokenRequest,
+) (*helpdeskv1.SubmitCsatByTokenResponse, error) {
+	// Guards the int32 -> int16 narrowing so an out-of-range wire value cannot
+	// wrap into a valid rating; the range check itself lives in the service.
+	rating := req.GetRating()
+	if rating < 1 || rating > 5 {
+		return nil, status.Error(codes.InvalidArgument, helpdesk.ErrInvalidCsatRating.Error())
+	}
+
+	var comment *string
+	if req.Comment != nil {
+		c := strings.TrimSpace(req.GetComment())
+		if c != "" {
+			comment = &c
+		}
+	}
+
+	res, err := s.svc.SubmitCsatByToken(ctx, req.GetToken(), int16(rating), comment)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return &helpdeskv1.SubmitCsatByTokenResponse{
+		TicketNumber: int32(res.TicketNumber), //nolint:gosec // per-tenant counter, far below int32
+		Rating:       int32(res.Rating),
+	}, nil
+}
+
 func (s *HelpdeskGRPCServer) ReopenTicket(ctx context.Context, req *helpdeskv1.ReopenTicketRequest) (*helpdeskv1.Ticket, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -1307,6 +1341,12 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrOrgNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrCsatSurveyNotFound):
+		// Unknown, malformed, expired, revoked and already-redeemed links all
+		// land here on purpose: one verdict, no existence oracle.
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrCsatCommentTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidCsatRating):
 		return status.Error(codes.InvalidArgument, err.Error())

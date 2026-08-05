@@ -251,6 +251,9 @@ func main() {
 	// Automation: authenticated CRUD via the registrar loop, the public
 	// inbound webhook trigger outside it — same split as document/berichte.
 	automationRoutes := gateway.NewAutomationRoutes(registry)
+	// Helpdesk: authenticated routes via the registrar loop, the public
+	// redemption of a CSAT survey link outside it — same split as berichte.
+	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
@@ -283,7 +286,7 @@ func main() {
 		automationRoutes,
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
-		gateway.NewHelpdeskRoutes(registry, flagRegistry),
+		helpdeskRoutes,
 		berichteRoutes,
 		gateway.NewFormulareRoutes(registry, flagRegistry),
 		gateway.NewInventarRoutes(registry, flagRegistry),
@@ -366,6 +369,12 @@ func main() {
 	// gate, but per-IP throttling still bounds signature-guessing attempts.
 	automationRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "automation-public")
+
+	// Public redemption of a CSAT survey link (no auth middleware). Same strict
+	// per-IP limiter: the survey token is the whole credential, and this one
+	// writes, so an unthrottled guessing run would also be a rating-spam run.
+	helpdeskRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "helpdesk-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

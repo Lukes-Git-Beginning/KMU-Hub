@@ -20,4 +20,10 @@ var (
 	ErrInvalidCsatRating      = errors.New("csat rating must be between 1 and 5")
 	ErrInvalidCsatDelay       = errors.New("csat survey delay must be between 0 and 20160 minutes")
 	ErrCsatQuestionTooLong    = errors.New("csat survey question must be at most 500 characters")
+	ErrCsatCommentTooLong     = errors.New("csat comment must be at most 2000 characters")
+	// ErrCsatSurveyNotFound is the single verdict the public redeem path gives
+	// for an unknown, malformed, expired, revoked or already-redeemed survey
+	// link. Splitting it into finer errors would turn the endpoint into an
+	// oracle for which tokens exist.
+	ErrCsatSurveyNotFound = errors.New("csat survey link not found")
 )

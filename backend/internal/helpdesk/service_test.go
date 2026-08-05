@@ -185,6 +185,56 @@ func (r *mockRepo) IssueCsatSurveyTokenTx(
 	return true, nil
 }
 
+// GetCsatSurveyByToken mirrors the SQL: an equality match on the token column,
+// nothing else, and a pending row resolves regardless of the caller's tenant.
+func (r *mockRepo) GetCsatSurveyByToken(_ context.Context, token string) (*CsatSurveyToken, error) {
+	for ticketID, row := range r.csatTokens {
+		if row.token != token || token == "" {
+			continue
+		}
+		t := r.tickets[ticketID]
+		if t == nil {
+			continue
+		}
+		expires := row.expiresAt
+		s := &CsatSurveyToken{
+			ResponseID: ticketID, TenantID: t.TenantID, TicketID: ticketID,
+			ExpiresAt: &expires,
+		}
+		if t.CsatRating != nil {
+			submitted := t.UpdatedAt
+			s.SubmittedAt = &submitted
+		}
+		return s, nil
+	}
+	return nil, ErrCsatSurveyNotFound
+}
+
+// RedeemCsatSurveyTx mirrors the SQL guard: only a still-pending, still-tokened
+// row may be redeemed, and redemption consumes the token.
+func (r *mockRepo) RedeemCsatSurveyTx(
+	_ context.Context,
+	tenantID, ticketID, _ uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) (int, error) {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return 0, ErrCsatSurveyNotFound
+	}
+	row, ok := r.csatTokens[ticketID]
+	if !ok || row.token == "" || t.CsatRating != nil {
+		return 0, ErrCsatSurveyNotFound
+	}
+	delete(r.csatTokens, ticketID)
+	r.csatCalls++
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = submittedAt
+	return t.TicketNumber, nil
+}
+
 func (r *mockRepo) CreateQueue(_ context.Context, q *TicketQueue) error {
 	r.queues[q.ID] = q
 	return nil

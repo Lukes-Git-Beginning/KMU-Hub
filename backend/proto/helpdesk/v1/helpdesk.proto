@@ -27,6 +27,14 @@ service HelpdeskService {
   // updates the existing rating instead of failing -- the requester is allowed
   // to change their mind.
   rpc SubmitCsat(SubmitCsatRequest) returns (Ticket);
+  // SubmitCsatByToken redeems a survey link mailed out after ticket close. It
+  // is the only RPC in this service that takes no tenant: the token resolves
+  // the tenant itself, which is exactly why the lookup has to escape RLS for
+  // that one row. The response is deliberately not a Ticket -- the caller is
+  // an unauthenticated customer and gets back only what confirms their own
+  // submission. Redemption consumes the token, so a second attempt is a plain
+  // NotFound, indistinguishable from an expired, revoked or invented one.
+  rpc SubmitCsatByToken(SubmitCsatByTokenRequest) returns (SubmitCsatByTokenResponse);
 
   // Business hours (tenant-level config)
   rpc GetBusinessHours(GetBusinessHoursRequest) returns (BusinessHoursResponse);
@@ -220,6 +228,23 @@ message SubmitCsatRequest {
   // 1..5, validated server-side.
   int32 rating = 2;
   optional string comment = 3;
+}
+
+// The survey token is the whole credential; there is no tenant and no user
+// context on this request.
+message SubmitCsatByTokenRequest {
+  string token = 1;
+  // 1..5, validated server-side.
+  int32 rating = 2;
+  optional string comment = 3;
+}
+
+// Only what the customer needs to see their own submission acknowledged --
+// no ticket body, no assignee, no internal state.
+message SubmitCsatByTokenResponse {
+  // Per-tenant running number, same value the invitation mail quoted.
+  int32 ticket_number = 1;
+  int32 rating = 2;
 }
 
 message AssignTicketRequest {
