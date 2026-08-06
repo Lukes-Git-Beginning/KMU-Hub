@@ -4703,3 +4703,66 @@ Dependency.
   * Die System-Registry in valueset.go ist eine Handkopie von DEFAULT_VALUE_SETS im FE-Mock.
     Aendert eine FE-Session die vier Listen, muss die Go-Seite mit — steht als Kommentar an der
     Registry.
+
+## Iteration 67 — customization-value-sets-routes — done — 2026-08-06 04:15
+- commit: dieser Commit, Titel "feat(customization): expose value-sets over gRPC and the gateway"
+- gebaut: drei Proto-RPCs (`ListValueSets`, `GetValueSet`, `UpsertValueSet`) samt Messages
+  `ValueSet`/`ValueSetOption` in `proto/settings/v1/settings.proto`, im selben Commit mit
+  `protoc --go_out --go-grpc_out` regeneriert (Makefile-Target `proto-settings` existiert, aber
+  `make` ist in dieser Bash-Umgebung nicht installiert — die zwei protoc-Aufrufe aus dem Target
+  direkt gefahren, identisches Ergebnis). Server-Implementierung in
+  `internal/server/settings_grpc.go` (drei Handler + `resolvedValueSetToProto`/`protoToValueSet`).
+  Gateway: `GET /api/v1/customization/value-sets`, `GET .../value-sets/{id}`,
+  `PUT .../value-sets/{id}` in `route_customization.go`, alle drei ueber den bestehenden
+  Settings-gRPC-Client (`getSettingsClient`), kein Direct-Service-Call.
+- entscheidungen:
+  * Wire-Shape exakt am MSW-Mock statt an der Hausregel: `{valueSets:[...]}` /
+    `{valueSet:{...}}`, camelCase, Optionsfeld `id` statt `key`/`option_key` — steht so in den
+    notes der Unit und im FE-Typ (customization-types.ts), nicht neu ausgehandelt.
+  * `is_system` liegt zwar in der Domain (`ResolvedValueSet.IsSystem`) und im Proto, geht aber
+    NICHT in die JSON-Antwort — der FE-Typ `ResolvedValueSet` kennt das Feld nicht. Gegen den Typ
+    geprueft statt geraten.
+  * KEIN `DeleteValueSet`-RPC/-Route. `Service.DeleteValueSet` existiert seit E1, aber der Mock
+    hat dafuer keine Route und kein FE-Aufrufer braucht sie — laut Unit-Notiz bewusst so lassen.
+    Bleibt weiterhin ungenutzter Service-Code, jetzt zum zweiten Mal vermerkt.
+  * PUT-Handler validiert `layer == "vendor"` explizit ab (400), identisch zur Label-Route --
+    der Vendor-Layer hat serverseitig keinen Schreiber (R-5 nicht verdrahtet).
+  * Fehlender `name` im PUT-Body faellt auf die URL-`id` zurueck (`name := req.Name; if name == "" 
+    { name = key }`), spiegelt `input.name ?? id` im Mock. Der Service selbst lehnt einen leeren
+    Namen weiterhin ab (ErrInvalidValueSet), das ist nur der Default fuer den haeufigen Fall.
+  * Permission-Guard wiederverwendet: `admin:customization:manage` (derselbe Key wie bei den
+    Label-Overrides), kein neuer Guard, kein Seed noetig. GET-Routen ohne Guard (jeder
+    authentifizierte User), analog zu den Labels.
+  * Migration: keine neue. Migrationskopf blieb bei 295 (aus der Vorgaenger-Unit), lokal per
+    `migrate ... version` bestaetigt.
+- gate: `go build -p 2 ./internal/settings/... ./internal/server/... ./internal/gateway/...
+  ./cmd/auth/... ./cmd/gateway/...` ok | `gofmt -l` sauber nach `-w` auf beide handgeschriebenen
+  Dateien | `go vet ./internal/settings/... ./internal/server/... ./internal/gateway/...` ok |
+  `golangci-lint run --config .golangci.yml` auf denselben drei Paketen: 0 issues |
+  `go test -count=1 -v ./internal/settings/...` 42 PASS, 0 SKIP (DATABASE_URL gesetzt, Rolle
+  kmuhub_app) | `go test -count=1 -v ./internal/server/...` ok, 0 SKIP | `go test -count=1 -v
+  ./internal/gateway/...` 664 PASS, 0 SKIP, darunter `TestOpenAPIRouteDrift` (819 Routen gegen
+  819 dokumentierte Pfade nach dem openapi.yaml-Update) -- der erste Testlauf vor dem
+  openapi-Eintrag ist wie erwartet mit genau den zwei neuen Pfaden rot gelaufen, das ist der
+  Beleg dass der Test die Aenderung wirklich prueft und nicht nur durchwinkt.
+  RLS-Smoke/Migration: entfaellt, diese Unit fasst keine Tabelle/Policy an (reine Proto-/Route-
+  Schicht auf E1). Cross-Tenant-Abdeckung: kein neuer Gateway-Test, weil die Route den
+  `tenant_id` ausschliesslich aus `middleware.GetTenantID(ctx)` liest (nie aus Body/URL) und die
+  DB-seitige Isolation bereits `TestValueSetOverrides_TenantIsolation` (aus E1, als kmuhub_app,
+  0 Skip) beweist -- ein zweiter Test auf Gateway-Ebene wuerde denselben Pfad nur ohne neue
+  Aussage wiederholen. Die separate cross-tenant-Nummer weiter unten im Backlog
+  (`csat-cross-tenant-tests`/`intake-cross-tenant-tests`) betrifft andere Flaechen, nicht diese.
+- verify vorgaenger: sauber. Commit c3c85832 (customization-value-sets-schema) geprueft:
+  Migration 000295 tenant_id NOT NULL + `enable_tenant_rls` auf beiden Tabellen, Composite-FK
+  verhindert Cross-Tenant-Verknuepfung selbst bei ungescoptem Parent-Lookup, Repository liest
+  und schreibt durchgehend tenant-gescopt (keine ungefilterten SELECTs gefunden). Kein Proto,
+  keine Route, kein RequirePermission-Guard in diesem Commit -- Journal deckt sich mit
+  `git show --stat`. Keine der acht Fehlerklassen einschlaegig.
+- offen:
+  * `customization-fields-route` (naechste Unit im selben Block E) braucht laut ihrer eigenen
+    Notiz zuerst einen Spaltenvergleich `custom_field_definitions` vs.
+    `work_custom_field_definitions`, bevor irgendwas gebaut wird -- nicht mit dieser Unit
+    verwechseln.
+  * Sollte eine spaetere FE-Session `DeleteValueSet` doch brauchen (Reset-auf-Werkszustand-Button
+    im Editor), ist der Service fertig, es fehlt nur RPC + Route -- kleine Folge-Nummer, kein
+    Neubau.

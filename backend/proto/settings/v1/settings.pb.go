@@ -2200,6 +2200,394 @@ func (x *TenantSubscription) GetTotalSeats() int32 {
 	return 0
 }
 
+// One option within a named value-set (a deal pipeline stage, a ticket
+// priority). provenance is resolved-read-only ("default" | "tenant"); the
+// write path (UpsertValueSetRequest) ignores it.
+type ValueSetOption struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Color         string                 `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Order         int32                  `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`
+	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	Provenance    string                 `protobuf:"bytes,6,opt,name=provenance,proto3" json:"provenance,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValueSetOption) Reset() {
+	*x = ValueSetOption{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValueSetOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValueSetOption) ProtoMessage() {}
+
+func (x *ValueSetOption) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValueSetOption.ProtoReflect.Descriptor instead.
+func (*ValueSetOption) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ValueSetOption) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *ValueSetOption) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ValueSetOption) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+func (x *ValueSetOption) GetOrder() int32 {
+	if x != nil {
+		return x.Order
+	}
+	return 0
+}
+
+func (x *ValueSetOption) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *ValueSetOption) GetProvenance() string {
+	if x != nil {
+		return x.Provenance
+	}
+	return ""
+}
+
+// A value-set resolved for one tenant: the shipped baseline (internal/
+// settings/valueset.go) overlaid with the tenant's stored override, per
+// option key. provenance and is_system are resolved-read-only; the write
+// path ignores both -- system-ness is derived from the shipped registry,
+// never stored (migration 000295 head comment).
+type ValueSet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Options       []*ValueSetOption      `protobuf:"bytes,3,rep,name=options,proto3" json:"options,omitempty"`
+	Provenance    string                 `protobuf:"bytes,4,opt,name=provenance,proto3" json:"provenance,omitempty"`
+	IsSystem      bool                   `protobuf:"varint,5,opt,name=is_system,json=isSystem,proto3" json:"is_system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValueSet) Reset() {
+	*x = ValueSet{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValueSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValueSet) ProtoMessage() {}
+
+func (x *ValueSet) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValueSet.ProtoReflect.Descriptor instead.
+func (*ValueSet) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ValueSet) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *ValueSet) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ValueSet) GetOptions() []*ValueSetOption {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *ValueSet) GetProvenance() string {
+	if x != nil {
+		return x.Provenance
+	}
+	return ""
+}
+
+func (x *ValueSet) GetIsSystem() bool {
+	if x != nil {
+		return x.IsSystem
+	}
+	return false
+}
+
+type ListValueSetsRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// true returns only the shipped baselines (editor's "reset to" view);
+	// tenant-only lists have no baseline and are omitted.
+	Base          bool `protobuf:"varint,2,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListValueSetsRequest) Reset() {
+	*x = ListValueSetsRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListValueSetsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListValueSetsRequest) ProtoMessage() {}
+
+func (x *ListValueSetsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListValueSetsRequest.ProtoReflect.Descriptor instead.
+func (*ListValueSetsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ListValueSetsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListValueSetsRequest) GetBase() bool {
+	if x != nil {
+		return x.Base
+	}
+	return false
+}
+
+type ListValueSetsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ValueSets     []*ValueSet            `protobuf:"bytes,1,rep,name=value_sets,json=valueSets,proto3" json:"value_sets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListValueSetsResponse) Reset() {
+	*x = ListValueSetsResponse{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListValueSetsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListValueSetsResponse) ProtoMessage() {}
+
+func (x *ListValueSetsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListValueSetsResponse.ProtoReflect.Descriptor instead.
+func (*ListValueSetsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *ListValueSetsResponse) GetValueSets() []*ValueSet {
+	if x != nil {
+		return x.ValueSets
+	}
+	return nil
+}
+
+type GetValueSetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Base          bool                   `protobuf:"varint,3,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValueSetRequest) Reset() {
+	*x = GetValueSetRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValueSetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValueSetRequest) ProtoMessage() {}
+
+func (x *GetValueSetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValueSetRequest.ProtoReflect.Descriptor instead.
+func (*GetValueSetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *GetValueSetRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetValueSetRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *GetValueSetRequest) GetBase() bool {
+	if x != nil {
+		return x.Base
+	}
+	return false
+}
+
+type UpsertValueSetRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Empty when the caller could not be resolved (should not happen on an
+	// authenticated route; mirrors PutBrandingRequest.updated_by).
+	UpdatedBy     string    `protobuf:"bytes,2,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	ValueSet      *ValueSet `protobuf:"bytes,3,opt,name=value_set,json=valueSet,proto3" json:"value_set,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertValueSetRequest) Reset() {
+	*x = UpsertValueSetRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertValueSetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertValueSetRequest) ProtoMessage() {}
+
+func (x *UpsertValueSetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertValueSetRequest.ProtoReflect.Descriptor instead.
+func (*UpsertValueSetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *UpsertValueSetRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpsertValueSetRequest) GetUpdatedBy() string {
+	if x != nil {
+		return x.UpdatedBy
+	}
+	return ""
+}
+
+func (x *UpsertValueSetRequest) GetValueSet() *ValueSet {
+	if x != nil {
+		return x.ValueSet
+	}
+	return nil
+}
+
 var File_proto_settings_v1_settings_proto protoreflect.FileDescriptor
 
 const file_proto_settings_v1_settings_proto_rawDesc = "" +
@@ -2359,7 +2747,39 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\vtotal_seats\x18\x05 \x01(\x05H\x01R\n" +
 	"totalSeats\x88\x01\x01B\x15\n" +
 	"\x13_billing_period_endB\x0e\n" +
-	"\f_total_seats2\xce\r\n" +
+	"\f_total_seats\"\x9c\x01\n" +
+	"\x0eValueSetOption\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
+	"\x05color\x18\x03 \x01(\tR\x05color\x12\x14\n" +
+	"\x05order\x18\x04 \x01(\x05R\x05order\x12\x16\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\x12\x1e\n" +
+	"\n" +
+	"provenance\x18\x06 \x01(\tR\n" +
+	"provenance\"\xa4\x01\n" +
+	"\bValueSet\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x125\n" +
+	"\aoptions\x18\x03 \x03(\v2\x1b.settings.v1.ValueSetOptionR\aoptions\x12\x1e\n" +
+	"\n" +
+	"provenance\x18\x04 \x01(\tR\n" +
+	"provenance\x12\x1b\n" +
+	"\tis_system\x18\x05 \x01(\bR\bisSystem\"G\n" +
+	"\x14ListValueSetsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04base\x18\x02 \x01(\bR\x04base\"M\n" +
+	"\x15ListValueSetsResponse\x124\n" +
+	"\n" +
+	"value_sets\x18\x01 \x03(\v2\x15.settings.v1.ValueSetR\tvalueSets\"W\n" +
+	"\x12GetValueSetRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x12\n" +
+	"\x04base\x18\x03 \x01(\bR\x04base\"\x87\x01\n" +
+	"\x15UpsertValueSetRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"updated_by\x18\x02 \x01(\tR\tupdatedBy\x122\n" +
+	"\tvalue_set\x18\x03 \x01(\v2\x15.settings.v1.ValueSetR\bvalueSet2\xba\x0f\n" +
 	"\x0fSettingsService\x12\\\n" +
 	"\x0fListModuleLeads\x12#.settings.v1.ListModuleLeadsRequest\x1a$.settings.v1.ListModuleLeadsResponse\x12O\n" +
 	"\x0fGrantModuleLead\x12#.settings.v1.GrantModuleLeadRequest\x1a\x17.settings.v1.ModuleLead\x12_\n" +
@@ -2378,7 +2798,10 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\vPutBranding\x12\x1f.settings.v1.PutBrandingRequest\x1a .settings.v1.PutBrandingResponse\x12_\n" +
 	"\x10GetTenantLicense\x12$.settings.v1.GetTenantLicenseRequest\x1a%.settings.v1.GetTenantLicenseResponse\x12]\n" +
 	"\x15SetTenantModuleActive\x12).settings.v1.SetTenantModuleActiveRequest\x1a\x19.settings.v1.TenantModule\x12c\n" +
-	"\x15GetTenantSubscription\x12).settings.v1.GetTenantSubscriptionRequest\x1a\x1f.settings.v1.TenantSubscriptionB7Z5github.com/kmuhub/kmuhub/proto/settings/v1;settingsv1b\x06proto3"
+	"\x15GetTenantSubscription\x12).settings.v1.GetTenantSubscriptionRequest\x1a\x1f.settings.v1.TenantSubscription\x12V\n" +
+	"\rListValueSets\x12!.settings.v1.ListValueSetsRequest\x1a\".settings.v1.ListValueSetsResponse\x12E\n" +
+	"\vGetValueSet\x12\x1f.settings.v1.GetValueSetRequest\x1a\x15.settings.v1.ValueSet\x12K\n" +
+	"\x0eUpsertValueSet\x12\".settings.v1.UpsertValueSetRequest\x1a\x15.settings.v1.ValueSetB7Z5github.com/kmuhub/kmuhub/proto/settings/v1;settingsv1b\x06proto3"
 
 var (
 	file_proto_settings_v1_settings_proto_rawDescOnce sync.Once
@@ -2392,7 +2815,7 @@ func file_proto_settings_v1_settings_proto_rawDescGZIP() []byte {
 	return file_proto_settings_v1_settings_proto_rawDescData
 }
 
-var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*ModuleLead)(nil),                     // 0: settings.v1.ModuleLead
 	(*SettingEntry)(nil),                   // 1: settings.v1.SettingEntry
@@ -2433,15 +2856,21 @@ var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*SetTenantModuleActiveRequest)(nil),   // 36: settings.v1.SetTenantModuleActiveRequest
 	(*GetTenantSubscriptionRequest)(nil),   // 37: settings.v1.GetTenantSubscriptionRequest
 	(*TenantSubscription)(nil),             // 38: settings.v1.TenantSubscription
-	(*timestamppb.Timestamp)(nil),          // 39: google.protobuf.Timestamp
-	(*structpb.Value)(nil),                 // 40: google.protobuf.Value
+	(*ValueSetOption)(nil),                 // 39: settings.v1.ValueSetOption
+	(*ValueSet)(nil),                       // 40: settings.v1.ValueSet
+	(*ListValueSetsRequest)(nil),           // 41: settings.v1.ListValueSetsRequest
+	(*ListValueSetsResponse)(nil),          // 42: settings.v1.ListValueSetsResponse
+	(*GetValueSetRequest)(nil),             // 43: settings.v1.GetValueSetRequest
+	(*UpsertValueSetRequest)(nil),          // 44: settings.v1.UpsertValueSetRequest
+	(*timestamppb.Timestamp)(nil),          // 45: google.protobuf.Timestamp
+	(*structpb.Value)(nil),                 // 46: google.protobuf.Value
 }
 var file_proto_settings_v1_settings_proto_depIdxs = []int32{
-	39, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
-	40, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
+	45, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
+	46, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
 	0,  // 2: settings.v1.ListModuleLeadsResponse.leads:type_name -> settings.v1.ModuleLead
-	39, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
-	39, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
+	45, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
+	45, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
 	9,  // 5: settings.v1.ListModuleGrantsResponse.grants:type_name -> settings.v1.UserModuleGrant
 	15, // 6: settings.v1.BulkRevokeModuleAccessRequest.refs:type_name -> settings.v1.ModuleGrantRef
 	1,  // 7: settings.v1.GetResolvedSettingsResponse.entries:type_name -> settings.v1.SettingEntry
@@ -2455,47 +2884,56 @@ var file_proto_settings_v1_settings_proto_depIdxs = []int32{
 	28, // 15: settings.v1.PutBrandingRequest.branding:type_name -> settings.v1.Branding
 	28, // 16: settings.v1.PutBrandingResponse.branding:type_name -> settings.v1.Branding
 	33, // 17: settings.v1.GetTenantLicenseResponse.modules:type_name -> settings.v1.TenantModule
-	2,  // 18: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
-	4,  // 19: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
-	5,  // 20: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
-	7,  // 21: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
-	10, // 22: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
-	12, // 23: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
-	13, // 24: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
-	16, // 25: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
-	18, // 26: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
-	20, // 27: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
-	22, // 28: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
-	24, // 29: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
-	26, // 30: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
-	29, // 31: settings.v1.SettingsService.GetBranding:input_type -> settings.v1.GetBrandingRequest
-	31, // 32: settings.v1.SettingsService.PutBranding:input_type -> settings.v1.PutBrandingRequest
-	34, // 33: settings.v1.SettingsService.GetTenantLicense:input_type -> settings.v1.GetTenantLicenseRequest
-	36, // 34: settings.v1.SettingsService.SetTenantModuleActive:input_type -> settings.v1.SetTenantModuleActiveRequest
-	37, // 35: settings.v1.SettingsService.GetTenantSubscription:input_type -> settings.v1.GetTenantSubscriptionRequest
-	3,  // 36: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
-	0,  // 37: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
-	6,  // 38: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
-	8,  // 39: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
-	11, // 40: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
-	9,  // 41: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
-	14, // 42: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
-	17, // 43: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
-	19, // 44: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
-	21, // 45: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
-	23, // 46: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
-	25, // 47: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
-	27, // 48: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
-	30, // 49: settings.v1.SettingsService.GetBranding:output_type -> settings.v1.GetBrandingResponse
-	32, // 50: settings.v1.SettingsService.PutBranding:output_type -> settings.v1.PutBrandingResponse
-	35, // 51: settings.v1.SettingsService.GetTenantLicense:output_type -> settings.v1.GetTenantLicenseResponse
-	33, // 52: settings.v1.SettingsService.SetTenantModuleActive:output_type -> settings.v1.TenantModule
-	38, // 53: settings.v1.SettingsService.GetTenantSubscription:output_type -> settings.v1.TenantSubscription
-	36, // [36:54] is the sub-list for method output_type
-	18, // [18:36] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	39, // 18: settings.v1.ValueSet.options:type_name -> settings.v1.ValueSetOption
+	40, // 19: settings.v1.ListValueSetsResponse.value_sets:type_name -> settings.v1.ValueSet
+	40, // 20: settings.v1.UpsertValueSetRequest.value_set:type_name -> settings.v1.ValueSet
+	2,  // 21: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
+	4,  // 22: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
+	5,  // 23: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
+	7,  // 24: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
+	10, // 25: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
+	12, // 26: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
+	13, // 27: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
+	16, // 28: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
+	18, // 29: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
+	20, // 30: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
+	22, // 31: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
+	24, // 32: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
+	26, // 33: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
+	29, // 34: settings.v1.SettingsService.GetBranding:input_type -> settings.v1.GetBrandingRequest
+	31, // 35: settings.v1.SettingsService.PutBranding:input_type -> settings.v1.PutBrandingRequest
+	34, // 36: settings.v1.SettingsService.GetTenantLicense:input_type -> settings.v1.GetTenantLicenseRequest
+	36, // 37: settings.v1.SettingsService.SetTenantModuleActive:input_type -> settings.v1.SetTenantModuleActiveRequest
+	37, // 38: settings.v1.SettingsService.GetTenantSubscription:input_type -> settings.v1.GetTenantSubscriptionRequest
+	41, // 39: settings.v1.SettingsService.ListValueSets:input_type -> settings.v1.ListValueSetsRequest
+	43, // 40: settings.v1.SettingsService.GetValueSet:input_type -> settings.v1.GetValueSetRequest
+	44, // 41: settings.v1.SettingsService.UpsertValueSet:input_type -> settings.v1.UpsertValueSetRequest
+	3,  // 42: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
+	0,  // 43: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
+	6,  // 44: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
+	8,  // 45: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
+	11, // 46: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
+	9,  // 47: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
+	14, // 48: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
+	17, // 49: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
+	19, // 50: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
+	21, // 51: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
+	23, // 52: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
+	25, // 53: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
+	27, // 54: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
+	30, // 55: settings.v1.SettingsService.GetBranding:output_type -> settings.v1.GetBrandingResponse
+	32, // 56: settings.v1.SettingsService.PutBranding:output_type -> settings.v1.PutBrandingResponse
+	35, // 57: settings.v1.SettingsService.GetTenantLicense:output_type -> settings.v1.GetTenantLicenseResponse
+	33, // 58: settings.v1.SettingsService.SetTenantModuleActive:output_type -> settings.v1.TenantModule
+	38, // 59: settings.v1.SettingsService.GetTenantSubscription:output_type -> settings.v1.TenantSubscription
+	42, // 60: settings.v1.SettingsService.ListValueSets:output_type -> settings.v1.ListValueSetsResponse
+	40, // 61: settings.v1.SettingsService.GetValueSet:output_type -> settings.v1.ValueSet
+	40, // 62: settings.v1.SettingsService.UpsertValueSet:output_type -> settings.v1.ValueSet
+	42, // [42:63] is the sub-list for method output_type
+	21, // [21:42] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_proto_settings_v1_settings_proto_init() }
@@ -2513,7 +2951,7 @@ func file_proto_settings_v1_settings_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_settings_v1_settings_proto_rawDesc), len(file_proto_settings_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

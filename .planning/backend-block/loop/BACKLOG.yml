@@ -892,7 +892,7 @@ units:
     service: customization
     model: sonnet
     deps: [customization-value-sets-schema]
-    status: todo
+    status: done
     scope: >
       `GET /api/v1/customization/value-sets`, `GET .../value-sets/{id}` und
       `PUT .../value-sets/{id}`. Der MSW-Handler (handlers/customization.ts:98,109,123) ist

@@ -13263,6 +13263,89 @@ paths:
         "403":
           description: Forbidden — caller lacks admin:customization:manage
 
+  /api/v1/customization/value-sets:
+    get:
+      summary: List all value-sets resolved for the caller's tenant
+      description: >
+        Each value-set merges the shipped baseline (deal stages, ticket priority, ...)
+        with the tenant's stored override, per option key. Available to any
+        authenticated user — value-sets drive pickers and status dots for everyone,
+        not just editors.
+      operationId: listCustomizationValueSets
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns only the shipped baselines (the editor's "reset to" view). Tenant-only lists have no baseline and are omitted.
+      responses:
+        "200":
+          description: Resolved value-sets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/customization/value-sets/{id}:
+    get:
+      summary: Get one value-set resolved for the caller's tenant
+      operationId: getCustomizationValueSet
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: The value-set key (e.g. "ticket_priority", or a tenant-owned key).
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns the shipped baseline instead of the tenant-resolved value.
+      responses:
+        "200":
+          description: Resolved value-set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Upsert the tenant's override for one value-set
+      description: >
+        A system key (e.g. "ticket_priority") is overridden; an unknown key creates a
+        tenant-owned list. The full option list is replaced — the editor always submits
+        the complete list it is showing.
+      operationId: putCustomizationValueSet
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpsertValueSetRequest" }
+      responses:
+        "200":
+          description: Updated, freshly resolved value-set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
   /api/v1/finance/gobd-archive:
     get:
       summary: List GoBD archived documents
@@ -39029,6 +39112,101 @@ components:
         locale: de
         overrides:
           crm.deals.title: "Aufträge"
+
+    ResolvedValueSetOption:
+      type: object
+      description: >
+        Field names are camelCase and use `id` (not `key`) on purpose — this shape
+        mirrors the frontend's MSW mock contract 1:1 rather than the snake_case house
+        rule (customization-types.ts ResolvedValueSetOption).
+      properties:
+        id:
+          type: string
+          description: Stable option key, referenced by live records (e.g. a deal's stage).
+        label:
+          type: string
+        color:
+          type: string
+          description: Optional HSL/hex color token for status dots.
+        order:
+          type: integer
+        active:
+          type: boolean
+          description: false = soft-deleted, hidden from pickers but kept for existing records.
+        provenance:
+          type: string
+          enum: [default, tenant]
+      required: [id, label, order, active, provenance]
+
+    ResolvedValueSet:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stable set key (e.g. "deal_stages", "ticket_priority", or a tenant-owned key).
+        name:
+          type: string
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/ResolvedValueSetOption" }
+        provenance:
+          type: string
+          enum: [default, tenant]
+          description: Provenance of the set's name/definition, not of individual options.
+      required: [id, name, options, provenance]
+
+    ValueSetsResponse:
+      type: object
+      properties:
+        valueSets:
+          type: array
+          items: { $ref: "#/components/schemas/ResolvedValueSet" }
+      required: [valueSets]
+
+    ValueSetResponse:
+      type: object
+      properties:
+        valueSet:
+          $ref: "#/components/schemas/ResolvedValueSet"
+      required: [valueSet]
+
+    UpsertValueSetOption:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        color:
+          type: string
+        order:
+          type: integer
+        active:
+          type: boolean
+      required: [id, label]
+
+    UpsertValueSetRequest:
+      type: object
+      description: >
+        Replaces the tenant's override for one value-set wholesale — the full option
+        list is expected, not a patch.
+      properties:
+        layer:
+          type: string
+          enum: [tenant, vendor]
+          description: Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+        name:
+          type: string
+          description: Defaults to the value-set id (the URL path segment) when omitted.
+        options:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/UpsertValueSetOption" }
+      required: [options]
+      example:
+        options:
+          - { id: low, label: "Niedrig", color: "hsl(142 71% 45%)", order: 0, active: true }
+          - { id: medium, label: "Mittel", color: "hsl(38 92% 50%)", order: 1, active: true }
 
     GobdDocument:
       type: object
