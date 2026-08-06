@@ -401,23 +401,19 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 		return statusErr
 	}
 
-	if moveErr := s.repo.MoveTask(ctx, tenantID, taskID, newStatusID, newSortOrder); moveErr != nil {
-		return moveErr
+	// completed_at tracks the closed-status transition; unaffected transitions keep the
+	// existing value so it's folded into the same write as the status/sort_order move
+	// instead of a second, separately-failable Update call.
+	newCompletedAt := existing.CompletedAt
+	if isClosed && existing.CompletedAt == nil {
+		now := time.Now()
+		newCompletedAt = &now
+	} else if !isClosed && existing.CompletedAt != nil {
+		newCompletedAt = nil
 	}
 
-	// Handle completed_at based on closed status
-	task := &existing.Task
-	if isClosed && task.CompletedAt == nil {
-		now := time.Now()
-		task.CompletedAt = &now
-		task.StatusID = &newStatusID
-		task.UpdatedAt = time.Now()
-		_ = s.repo.Update(ctx, task)
-	} else if !isClosed && task.CompletedAt != nil {
-		task.CompletedAt = nil
-		task.StatusID = &newStatusID
-		task.UpdatedAt = time.Now()
-		_ = s.repo.Update(ctx, task)
+	if moveErr := s.repo.MoveTask(ctx, tenantID, taskID, newStatusID, newSortOrder, newCompletedAt); moveErr != nil {
+		return moveErr
 	}
 
 	// Log activity

@@ -266,10 +266,10 @@ func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
+func (r *PostgresRepository) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, completedAt *time.Time) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3 WHERE id = $4 AND tenant_id = $5`,
-		newStatusID, newSortOrder, time.Now(), taskID, tenantID,
+		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3, completed_at = $4 WHERE id = $5 AND tenant_id = $6`,
+		newStatusID, newSortOrder, time.Now(), completedAt, taskID, tenantID,
 	)
 	return err
 }

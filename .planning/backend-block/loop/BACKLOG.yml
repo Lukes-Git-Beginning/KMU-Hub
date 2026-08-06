@@ -641,7 +641,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `work/task/service.go:415` und `:420`. Nach dem Kanban-Statuswechsel wird `completed_at`
       per zweitem Write gesetzt bzw. geleert, dessen Fehler mit `_ = s.repo.Update(ctx, task)`

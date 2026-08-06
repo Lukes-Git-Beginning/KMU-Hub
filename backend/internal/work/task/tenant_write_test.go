@@ -190,7 +190,7 @@ func TestMoveTask_TenantScoped(t *testing.T) {
 
 	// Wrong tenantID passed to the repo call must not move the task, even
 	// though the calling ctx (RLS session) is the row's real owner.
-	if err := repo.MoveTask(ctxOwn, tenantOther, taskID, statusID, 42.0); err != nil {
+	if err := repo.MoveTask(ctxOwn, tenantOther, taskID, statusID, 42.0, nil); err != nil {
 		t.Fatalf("MoveTask (foreign tenantID): unexpected error %v", err)
 	}
 	got, err := repo.GetByID(ctxOwn, taskID, tenantOwn)
@@ -204,7 +204,7 @@ func TestMoveTask_TenantScoped(t *testing.T) {
 		t.Fatalf("MoveTask with a foreign tenantID changed sort_order anyway")
 	}
 
-	if err := repo.MoveTask(ctxOwn, tenantOwn, taskID, statusID, 42.0); err != nil {
+	if err := repo.MoveTask(ctxOwn, tenantOwn, taskID, statusID, 42.0, nil); err != nil {
 		t.Fatalf("MoveTask (own tenantID): %v", err)
 	}
 	got, err = repo.GetByID(ctxOwn, taskID, tenantOwn)

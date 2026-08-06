@@ -4286,3 +4286,49 @@ Commit `80d8a036`. Keine Migration, keine Proto-Aenderung, kein neuer Guard.
   (kein DATABASE_URL, DB-Tests dieses Pakets liefen als Skip, s.o.).
 - **offen / bewusst nicht gemacht:** keins. Die Unit ist mit dem best-effort-Muster (Log statt
   Abbruch) minimal und in sich geschlossen.
+
+## Iteration 58 — fix-task-completed-at (Phase 3)
+
+Commit folgt. Keine Migration, keine Proto-Aenderung, kein neuer Guard, keine neue Route.
+
+- **Verify Vorgaenger (80d8a036, fix-booking-calendar-event-id):** sauber. Neue Repository-
+  Methode `UpdatePublicBookingCalendarEventID` ist tenant-gescopt im WHERE (`id = $2 AND
+  tenant_id = $3`), der synchrone Aufruf ersetzt die vorherige Fire-and-forget-Goroutine mit
+  verworfenem Read, `slog.Warn` statt Abbruch bei Fehler — kein Handler/Table/Route/Guard
+  betroffen. Kein Fund.
+- **Der Bug:** `TaskService.MoveTask` (work/task/service.go:404-421 alt) schrieb den
+  Kanban-Move in zwei getrennten Repo-Aufrufen: erst `repo.MoveTask` (status_id, sort_order),
+  dann bei Bedarf ein zweiter `repo.Update(ctx, task)` nur fuer `completed_at` — dessen Fehler
+  mit `_ = s.repo.Update(...)` ohne Log verworfen wurde. Ein fehlgeschlagener zweiter Write
+  liess `completed_at` und Status auseinanderlaufen, die API meldete trotzdem 200 (POST
+  `/{id}/move`, der Drag-and-Drop-Pfad im Kanban).
+- **Fix — Zusammenfuehren statt Loggen:** wie in den Notes vorgeschlagen zusammengelegt, nicht
+  nur den zweiten Fehler geloggt. `Repository.MoveTask` bekommt einen fuenften Parameter
+  `completedAt *time.Time`; das SQL setzt jetzt `status_id, sort_order, updated_at,
+  completed_at` in einem einzigen `UPDATE ... WHERE id = $x AND tenant_id = $y`. Der Service
+  berechnet `newCompletedAt` (unveraendert per Default, `now` beim Schliessen, `nil` beim
+  Wiedereroeffnen) und ruft `repo.MoveTask` genau einmal auf; der zweite `repo.Update`-Aufruf
+  und die separate `task := &existing.Task`-Zwischenvariable sind komplett weg. Es gibt keinen
+  verschluckbaren zweiten Fehler mehr, weil es keinen zweiten Write mehr gibt — der einzige
+  Fehler propagiert regulaer per `return moveErr`.
+- **Mitgezogene Mocks:** drei weitere Implementierungen von `task.Repository.MoveTask`
+  (`work/task/service_test.go:mockRepo`, `work/comment/service_test.go:mockTaskRepo`,
+  `server/work_label_test.go:workTaskMockRepo`, letzterer auch von `work_comment_test.go`
+  mitbenutzt) auf die neue Signatur gebracht; `mockRepo` setzt `CompletedAt` jetzt direkt aus
+  dem uebergebenen Wert statt es zu ignorieren, sonst haetten die bestehenden
+  "move to closed status sets completed_at" / "clears completed_at"-Subtests nur zufaellig
+  weiterhin gegruent (sie pruefen den Mock-State, nicht mehr einen zweiten Update-Call).
+  `tenant_write_test.go` (Postgres-Repo-Test, `DATABASE_URL`-gated) auf den fuenften
+  `nil`-Parameter angepasst.
+- **Neuer Test:** `TestService_MoveTask/repo_write_failure_is_not_swallowed` — `mockRepo`
+  bekommt ein `moveTaskErr`-Feld, `MoveTask` liefert damit gezielt einen Fehler; der Test
+  prueft, dass `Service.MoveTask` diesen Fehler nach oben durchreicht UND dass `completed_at`
+  im Mock-Zustand unveraendert bleibt (kein Teil-Write bei Fehlschlag, weil nur noch ein
+  einziger atomarer Write existiert).
+- gate: `go build ./...` ok | `go vet ./internal/work/... ./internal/server/...` ok |
+  `golangci-lint run ./internal/work/task/... ./internal/work/comment/... ./internal/server/...`
+  0 issues | `go test -count=1 ./internal/work/... ./internal/server/...` alle ok (kein
+  `DATABASE_URL` in dieser Iteration, `TestMoveTask_TenantScoped` lief als Skip).
+- **offen / bewusst nicht gemacht:** keins. `TestMoveTask_TenantScoped` ist nur per
+  `DATABASE_URL` (Rolle `kmuhub_app`) beweiskraeftig — vor dem Merge einmal live nachziehen,
+  wie schon fuer Migration 000293 in Iteration 56 notiert.

@@ -99,7 +99,7 @@ func (m *mockTaskRepo) List(_ context.Context, _ uuid.UUID, _ task.TaskFilters) 
 }
 func (m *mockTaskRepo) Update(_ context.Context, _ *models.Task) error          { return nil }
 func (m *mockTaskRepo) Delete(_ context.Context, _, _ uuid.UUID) error          { return nil }
-func (m *mockTaskRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ float64) error {
+func (m *mockTaskRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ float64, _ *time.Time) error {
 	return nil
 }
 func (m *mockTaskRepo) GetNextTaskNumber(_ context.Context, _, _ uuid.UUID) (int, error) {

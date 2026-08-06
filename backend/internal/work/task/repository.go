@@ -20,7 +20,7 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error)
 	Update(ctx context.Context, task *models.Task) error
 	Delete(ctx context.Context, id, tenantID uuid.UUID) error
-	MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error
+	MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, completedAt *time.Time) error
 
 	// Task number
 	GetNextTaskNumber(ctx context.Context, tenantID, projectID uuid.UUID) (int, error)

@@ -277,7 +277,7 @@ func (r *workTaskMockRepo) List(_ context.Context, _ uuid.UUID, filters task.Tas
 }
 func (r *workTaskMockRepo) Update(_ context.Context, _ *models.Task) error { return nil }
 func (r *workTaskMockRepo) Delete(_ context.Context, _, _ uuid.UUID) error { return nil }
-func (r *workTaskMockRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ float64) error {
+func (r *workTaskMockRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ float64, _ *time.Time) error {
 	return nil
 }
 func (r *workTaskMockRepo) GetNextTaskNumber(_ context.Context, _, _ uuid.UUID) (int, error) {
