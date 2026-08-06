@@ -11612,7 +11612,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeDocument"
-        "400": { description: Invalid body, unknown expires_at format, or missing employee_id }
+        "400": { description: "Invalid body, unknown expires_at format, or missing employee_id" }
         "401": { description: Missing or invalid tenant }
         "403": { description: Missing hr:write / team:documents:edit }
         "404": { description: Unknown category slug for this tenant }
