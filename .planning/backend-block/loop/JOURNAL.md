@@ -5130,3 +5130,34 @@ Dependency.
   Doku-Fund, kein Bug. Verbleibender Block: `docs-security-interceptor-korrektur` (todo, keine
   Deps offen) -- danach ist der Backlog nach aktuellem Stand leer (naechste Iteration muss
   BACKLOG.yml selbst pruefen, ob zwischenzeitlich neue Units von Luke ergaenzt wurden).
+
+## Iteration 74 — docs-security-interceptor-korrektur — done — 2026-08-06
+
+- commit: dieser Commit, Titel "docs(security): correct TenantInboundUnaryInterceptor coverage claim"
+- verify vorgaenger: sauber. Commit 9e86befc (helpdesk-ticket-number-wire) geprueft: zwei
+  `ticket_number`-Property-Ergaenzungen an bestehenden `{type: object}`-Response-Schemas in
+  openapi.yaml, kein Code, kein Proto, keine Migration, kein Guard -- keine der acht
+  Fehlerklassen einschlaegig.
+- befund: `.knowledge/security.md:20` behauptete "R3-P0-3 (offen): 13 Binaries fehlen noch
+  (wiki, helpdesk, berichte, inventar, einkauf, produktion, schichten, vermietung, fuhrpark,
+  rapporte, vertraege, automation, plugin)". Selbst nachgezaehlt, nicht die Notiz abgeschrieben:
+  `grep -l TenantInboundUnaryInterceptor backend/cmd/*/main.go` liefert 23 Treffer, `ls -d
+  backend/cmd/*/` liefert 24 Verzeichnisse (23 Services + `cmd/gateway`, der als Aufrufer keinen
+  Inbound-Interceptor braucht). Gezielte Schleife ueber alle 23 Nicht-Gateway-Namen
+  (inkl. der 13 genannten) findet keinen einzigen ohne den Interceptor. `git log -1 777b27ad`
+  bestaetigt den Commit: "fix(services): wire TenantInboundUnaryInterceptor in 13 remaining
+  binaries (R3-P0-3)", 2026-06-20 -- exakt die 13 aus der Backlog-Notiz. Zaehlung ist 23/23,
+  keine Abweichung von den erwarteten 13, also kein neuer Fund, nur eine veraltete Doku-Zeile.
+- gebaut: kein Code. `.knowledge/security.md:20` korrigiert -- statt "10 Binaries + 13 offen"
+  jetzt "R3-P0-3 erledigt seit 777b27ad, alle 23 gRPC-cmd-Binaries verdrahtet" mit der
+  Verifikationsmethode (grep gegen ls) und dem Datum im Text, damit die naechste Session nicht
+  erneut nachzaehlen muss, sondern nachvollziehen kann warum es korrekt ist.
+- gate: keine Build-/Test-Gates einschlaegig (reine Markdown-Aenderung, kein Code, keine
+  Migration, kein Proto). `git diff --stat` zeigt ausschliesslich `.knowledge/security.md` und
+  `BACKLOG.yml` (Status-Flag) veraendert.
+- done_when-Abgleich: "Zaehlung selbst durchgefuehrt und im Journal belegt" erfuellt (grep/ls-Beleg
+  oben). "security.md-Zeile entspricht dem Code" erfuellt. "kein Code angefasst" erfuellt.
+- offen: keine neue Luecke. Mit dieser Unit ist BACKLOG.yml nach aktuellem Stand durch --
+  alle uebrigen Units sind `done` oder `blocked` (g-hr-salary-statements, g-admin-billing,
+  fe-projects-guest-overview warten auf eine Produktentscheidung von Luke, nicht auf den Loop).
+  Naechste Iteration muss BACKLOG.yml selbst pruefen, ob Luke tagsueber neue Units ergaenzt hat.

@@ -1107,7 +1107,7 @@ units:
     service: docs
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `.knowledge/security.md` behauptet, 13 Service-Binaries (wiki, helpdesk, berichte,
       inventar, einkauf, produktion, schichten, vermietung, fuhrpark, rapporte, vertraege,
