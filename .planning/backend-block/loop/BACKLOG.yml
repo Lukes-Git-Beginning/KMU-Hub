@@ -1177,3 +1177,85 @@ units:
       Gast-Projektuebersicht mit Meilensteinen und Status-Updates.
     notes: >
       Bleibt blockiert.
+
+# ==========================================================================================
+# NACHGETRAGEN 2026-08-06, nach Merge und Deploy von Lauf 5 (PR #18 -> 9950f339, Prod 297).
+# Alle vier sind bewusst `blocked`: sie brauchen eine Entscheidung oder gehoeren in eine
+# Frontend-Session — der Loop soll sie nicht ziehen.
+# ==========================================================================================
+
+  - id: g-csat-public-surface
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      CSAT ist auf Produktion funktionsunfaehig, und zwar doppelt. (1) `SYSTEM_SMTP_*` steht
+      in `.env.production`, wird in `deploy/docker/docker-compose.yml` aber nur an `auth`,
+      `biz` und `berichte` durchgereicht — NICHT an `helpdesk`. Der Container loggt beim
+      Start `system SMTP not configured` und startet den Dispatcher nie. (2) Der Mail-Link
+      besteht aus `CSAT_SURVEY_BASE_URL` + Token, Default `https://app.zentria.tech/csat`.
+      Dort liegt nichts: der Caddyfile proxyt die Domain vollstaendig auf `gateway:8080`,
+      eine oeffentliche Weboberflaeche existiert nicht. Der Passthrough allein wuerde also
+      Umfragen mit totem Link verschicken — an `ticket.requester_email` oder ersatzweise die
+      Adresse des anfragenden Users, also auch an Mitarbeiter.
+    scope: >
+      CSAT vom Token bis zur abgegebenen Bewertung nutzbar machen: oeffentliche Seite hinter
+      CSAT_SURVEY_BASE_URL, SMTP-Passthrough fuer helpdesk, `DefaultCsatConfig().Enabled`
+      erst danach wieder auf true erwaegen.
+    notes: >
+      Der Default steht seit `f855272f` bewusst auf false (Opt-in) und ist per Test
+      festgenagelt (`TestDefaultCsatConfig_IsOptIn`). Ebenfalls offen und Teil derselben
+      Entscheidung: es gibt keine Gateway-Route fuer Get/UpdateCsatConfig — die RPCs
+      existieren, sind aber nicht exponiert, und der Desktop-Toggle in
+      `HelpdeskSettingsPanel.tsx` ist reiner lokaler Store-State ohne Backend-Call. Ein
+      Tenant kann CSAT heute also weder ein- noch ausschalten.
+
+  - id: g-public-token-landing-pages
+    phase: 3
+    service: gateway
+    model: opus
+    deps: [g-csat-public-surface]
+    status: blocked
+    blocked_reason: >
+      Sieben Public-Token-Routen sind gebaut (Berichte, Dokument, Formular-Submit,
+      Wiki-Redeem, CSAT u.a.), aber es gibt keine Oberflaeche, in der ein Empfaenger sie
+      einloesen koennte — Cosmi ist eine Electron-App. Das ist ein eigenes Projekt
+      (Hosting, Design, i18n, Consent), keine Nachtlauf-Unit.
+    scope: >
+      Oeffentliche Weboberflaeche fuer die Public-Token-Routen.
+    notes: >
+      Bis dahin sind die Routen serverseitig korrekt und nutzlos. Sicherheitsseitig sind sie
+      dicht: eigener schmaler Wire-Typ, Rate-Limit, einheitliches 404 fuer jede Ablehnung.
+
+  - id: fe-helpdesk-ticket-number
+    phase: 3
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Reiner Frontend-Fix, gehoert in eine Frontend-Session.
+    scope: >
+      `ticket_number` aus der Backend-Response uebernehmen.
+    notes: >
+      Das Backend liefert das Feld auf jeder Ticket-Response. `helpdesk-types.ts` kennt es
+      nicht, und `helpdesk-adapters.ts:124-137` baut stattdessen eine Hash-Pseudonummer — der
+      Nutzer sieht also eine andere Nummer als die, die in der CSAT-Mail und im Backend steht.
+
+  - id: g-decode-disallow-unknown-fields
+    phase: 3
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Repo-weite Entscheidung mit Breaking-Potenzial fuer jeden Client, der Zusatzfelder
+      sendet. Braucht eine bewusste Freigabe, keine Nachtlauf-Iteration.
+    scope: >
+      `decodeAndValidate` auf `DisallowUnknownFields` umstellen.
+    notes: >
+      Lauf 5 hat den konkreten Schaden dieser Nachsicht behoben (Intake-Contract), aber die
+      Klasse bleibt: ein Feld, das der Decoder nicht kennt, faellt still weg und die API
+      antwortet 200. Vor der Umstellung alle FE-Aufrufer durchgehen.

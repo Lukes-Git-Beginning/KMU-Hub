@@ -1,5 +1,24 @@
 # Übergabe — offene Punkte nach Nachtlauf 5 (Stand 2026-08-06)
 
+> **ERLEDIGT am 2026-08-06.** A, B, C und D sind abgearbeitet, PR #18 ist gemergt
+> (`9950f339`), Produktion steht auf Migrationskopf **297**. Was hier als offen steht, ist
+> Historie — die verbliebenen Punkte sind als `blocked`-Units in `loop/BACKLOG.yml`
+> nachgetragen. Zwei Befunde weichen vom Text unten ab:
+>
+> - **B stimmte in der Prämisse nicht.** Wiki-Share-Tokens *waren* bereits widerrufbar:
+>   `DELETE /api/v1/wiki/share/{tokenId}` (`route_wiki.go:112`), samt RPC, Service und
+>   OpenAPI-Eintrag, seit dem 01.08. Es war ein Hard DELETE. Umgesetzt wurde daher nur der
+>   echte Delta: Soft-Revoke (`revoked_at`) plus `created_by`, Migration 000297.
+> - **A war anders gelagert als beschrieben.** SMTP ist in `.env.production` gesetzt, wird im
+>   Compose aber nicht an `helpdesk` durchgereicht — der Dispatcher startet also gar nicht,
+>   CSAT ist auf Produktion funktionsunfähig. Der Opt-in-Default kam trotzdem, als Absicherung
+>   für den Moment, in dem der Passthrough ergänzt wird. Siehe Unit `g-csat-public-surface`.
+>
+> Der Deploy selbst riss Produktion 31 Minuten in 503 — Ursache war ein veralteter
+> API-Contract im Smoke-Skript (`role_name` statt `roleId`), dessen Fehlschlag den
+> Auto-Rollback zog, der den Code zurücksetzte und das Schema auf 297 stehen liess. Beides
+> ist gefixt (`f3c53e7d`, `e445a1fc`).
+
 Kopiervorlage für die nächste Session. Alles unten ist verifiziert, nicht vermutet.
 
 ---
