@@ -1078,7 +1078,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Sicherstellen dass `ticket_number` sauber auf dem Wire liegt und dokumentiert ist.
       Das Backend vergibt seit Migration 000236 eine echte fortlaufende Nummer pro Tenant

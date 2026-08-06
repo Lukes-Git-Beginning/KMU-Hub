@@ -5068,3 +5068,65 @@ Dependency.
   erfuellt implizit -- keine Schema- oder Read-Pfad-Aenderung, nur eine Schreib-Grenze.
 - offen: keine neue Luecke. Verbleibende Bloecke: helpdesk-ticket-number-wire,
   docs-security-interceptor-korrektur (beide todo, keine Deps offen).
+
+## Iteration 73 — helpdesk-ticket-number-wire — done — 2026-08-06
+
+- commit: dieser Commit, Titel "docs(helpdesk): document ticket_number in the wire response"
+- verify vorgaenger: sauber. Commit adf21cd5 (helpdesk-kb-content-opaque) geprueft: nur ein neuer
+  `validate:"omitempty,max=500000"`-Tag an zwei bestehenden Request-DTOs plus ein Doc-Kommentar an
+  KBArticle.Content -- keine neue Route, kein neues Proto, keine neue Tabelle, kein neuer Guard,
+  keine der acht Fehlerklassen einschlaegig. openapi.yaml-Aenderung (maxLength) passt zur
+  Code-Aenderung.
+- befund (Backend-Seite bereits korrekt, kein Code-Bug): `ticket_number` ist durchgaengig im
+  Read-Pfad. Beleg: `ticketSelectColumns` (postgres_repository.go:137-150) selektiert `t.ticket_number`
+  einmal zentral und wird von GetTicketByID UND ListTickets genutzt -- kein separater, driftender
+  Query-Pfad. `ticketToProto` (server/helpdesk_grpc.go:1159-1196, EINE Funktion) setzt
+  `msg.TicketNumber = int32(t.TicketNumber)` und wird von allen zehn Call-Sites verwendet (get,
+  list, create, createFromMessage, update, close, reopen, assign, merge, csat submit) --
+  ticket_number kann also auf keinem Lesepfad fehlen. Der Gateway antwortet ueber
+  `response.Proto`/`response.ProtoList` (server/response/response.go:37-40), protojson mit
+  `UseProtoNames: true` -> das Feld liegt als `ticket_number` (snake_case) auf dem Wire, exakt der
+  Name den ein FE-Typ erwarten wuerde. Bereits bestehende Tests belegen den Repository-Roundtrip:
+  csat_dispatch_db_test.go:95 (`found.TicketNumber == 0` als Fehlerbedingung) und
+  csat_redeem_db_test.go:66-68 (Read nach Schreiben, TicketNumber gleich). Keine neue Testarbeit
+  noetig, das ist bereits abgedeckt -- Arbeit hier erfinden waere gegen die Backlog-Notiz gewesen.
+  FE-Seite (nur zur Diagnose gelesen, nicht angefasst -- desktop/ ist ausserhalb dieses Loops):
+  `helpdesk-types.ts` hat kein `ticket_number` auf `WireTicket`, `helpdesk-adapters.ts:124-137`
+  baut stattdessen `ticketNr` als `HD-<Jahr>-<vierstellig>` aus einem Hash der ersten vier Hex-Zeichen
+  der Ticket-UUID -- eine Pseudo-Nummer, keine Bestandsnummer. Das ist exakt der in der Backlog-Notiz
+  vermutete Grund: das Backend liefert das Feld, der FE-Typ kennt es nur nicht.
+- gebaut: kein Code, nur Dokumentation. `ticket_number: { type: integer, description: ... }`
+  als Property zu den bislang voellig opaken (`{type: object}`) Response-Schemas von
+  `GET /api/v1/helpdesk/tickets/{id}` und `POST /api/v1/helpdesk/tickets` ergaenzt (openapi.yaml).
+  Bewusst NICHT die komplette Ticket-Entity dokumentiert -- im ganzen File gibt es keine
+  components.schemas.Ticket, jede Ticket-Response ist ueberall `{type: object}` (list, update,
+  close, reopen, assign, merge eingeschlossen), das ist eine vorbestehende, flaechendeckende
+  Doku-Luecke fuer die gesamte Entity und keine die diese enge Unit loesen sollte -- eine
+  Vollschema-Ergaenzung waere Arbeit-Erfinden weit ueber den Scope hinaus und ein Risiko (muesste ab
+  jetzt synchron zum Proto gepflegt werden, ohne dass irgendein Test das erzwingt). Die beiden
+  ergaenzten Properties bleiben additiv (`type: object` ohne `additionalProperties: false`), brechen
+  also nichts.
+- gate: `go build -p 2 ./internal/gateway/... ./cmd/gateway/...` ok | `go vet ./internal/gateway/...`
+  ok | `golangci-lint run --config .golangci.yml ./internal/gateway/...` 0 issues |
+  `go test -count=1 ./internal/gateway/...` PASS, DATABASE_URL gesetzt (kmuhub_app); gezielt
+  `-run TestOpenAPIRouteDrift -v`: "checked 819 registered /api/v1/* routes against 821 documented
+  paths", PASS -- die YAML-Aenderung parst sauber und die Routendeckung bleibt unveraendert. Keine
+  Migration, kein Proto, keine neue Tabelle -- migrate/RLS-Smoke n.a. Kein helpdesk-Code geaendert,
+  daher kein separater helpdesk-Testlauf noetig; die zitierten Tests (csat_dispatch_db_test.go,
+  csat_redeem_db_test.go) liefen bereits in frueheren Iterationen gruen und wurden nur als
+  Beleg gelesen, nicht neu ausgefuehrt.
+- done_when-Abgleich: "ticket_number nachweislich im Ticket-Read enthalten" erfuellt (Code- und
+  Test-Beleg oben). "in openapi.yaml dokumentiert" erfuellt (zwei Response-Schemas). "Handreichung
+  fuer die FE-Umstellung im Journal" siehe naechster Absatz.
+- HANDREICHUNG FUER DIE NAECHSTE FRONTEND-SESSION: `Ticket.ticket_number` ist ein `integer`
+  (int32, immer > 0, pro Tenant fortlaufend via `helpdesk_ticket_counters`) und liegt auf JEDER
+  Ticket-Response als `ticket_number` (snake_case) vor -- get, list, create, update, close, reopen,
+  assign, merge, createFromMessage. Fix ist rein clientseitig: `ticket_number` als Pflichtfeld auf
+  `WireTicket` in `desktop/src/renderer/src/api/helpdesk-types.ts` ergaenzen, dann in
+  `helpdesk-adapters.ts:124-137` die Hash-basierte `ticketNr`-Berechnung durch
+  `` `HD-${new Date(t.created_at).getFullYear()}-${String(t.ticket_number).padStart(4, '0')}` ``
+  (oder eine Formatierung nach FE-Geschmack) ersetzen. Kein Backend-Change noetig.
+- offen: keine neue Luecke. `helpdesk-ticket-number-wire` war ein reiner Verifikations- und
+  Doku-Fund, kein Bug. Verbleibender Block: `docs-security-interceptor-korrektur` (todo, keine
+  Deps offen) -- danach ist der Backlog nach aktuellem Stand leer (naechste Iteration muss
+  BACKLOG.yml selbst pruefen, ob zwischenzeitlich neue Units von Luke ergaenzt wurden).

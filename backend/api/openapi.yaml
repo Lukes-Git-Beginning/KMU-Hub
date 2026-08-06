@@ -14201,7 +14201,12 @@ paths:
           description: Ticket created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  ticket_number:
+                    type: integer
+                    description: Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id.
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -14254,7 +14259,12 @@ paths:
           description: Ticket
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  ticket_number:
+                    type: integer
+                    description: Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id.
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
