@@ -173,6 +173,7 @@ message TaskProto {
   optional string project_key = 22;  // Denormalized for display like "ACME-42"
   map<string, string> custom_fields = 23;
   repeated string label_ids = 24;
+  optional google.protobuf.Timestamp start_date = 25;
 }
 
 message TaskDependencyProto {
@@ -441,6 +442,7 @@ message CreateTaskRequest {
   string created_by = 9;
   repeated CustomFieldValueInput custom_fields = 10;
   repeated string label_ids = 12;
+  optional google.protobuf.Timestamp start_date = 13;
 }
 
 message CreateTaskResponse {
@@ -489,6 +491,7 @@ message UpdateTaskRequest {
   string updated_by = 8;
   repeated CustomFieldValueInput custom_fields = 9;
   repeated string label_ids = 10;
+  optional google.protobuf.Timestamp start_date = 11;
 }
 
 message UpdateTaskResponse {

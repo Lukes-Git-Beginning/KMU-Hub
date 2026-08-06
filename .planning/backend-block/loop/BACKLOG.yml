@@ -973,7 +973,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     scope: >
       `start_date` an Tasks. Spalte, Proto-Feld, Validierung (start_date kleiner gleich
       due_date) und Bereichsfilter `due_from`/`due_to` im listTasks-Query. Uebernommen aus

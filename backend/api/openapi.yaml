@@ -5371,6 +5371,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: due_from
+          in: query
+          description: Only tasks whose due_date is on or after this timestamp.
+          schema:
+            type: string
+            format: date-time
+        - name: due_to
+          in: query
+          description: Only tasks whose due_date is on or before this timestamp.
+          schema:
+            type: string
+            format: date-time
         - name: search
           in: query
           schema:
@@ -35267,6 +35279,9 @@ components:
         parent_task_id:
           type: string
           format: uuid
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time
@@ -35303,6 +35318,9 @@ components:
         assignee_id:
           type: string
           format: uuid
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time
@@ -35356,6 +35374,9 @@ components:
         sort_order:
           type: number
           format: double
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time

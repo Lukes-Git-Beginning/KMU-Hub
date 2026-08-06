@@ -89,6 +89,7 @@ type Task struct {
 	ParentTaskID *uuid.UUID `json:"parent_task_id,omitempty"`
 	Depth        int        `json:"depth"`
 	SortOrder    float64    `json:"sort_order"`
+	StartDate    *time.Time `json:"start_date,omitempty"`
 	DueDate      *time.Time `json:"due_date,omitempty"`
 	CreatedBy    uuid.UUID  `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at"`

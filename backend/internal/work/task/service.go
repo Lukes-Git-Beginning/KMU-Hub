@@ -57,6 +57,7 @@ type CreateInput struct {
 	AssigneeID   *uuid.UUID
 	ParentTaskID *uuid.UUID
 	SortOrder    float64
+	StartDate    *time.Time
 	DueDate      *time.Time
 	CreatedBy    uuid.UUID
 }
@@ -79,6 +80,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	}
 	if !models.ValidTaskPriorities[priority] {
 		return nil, ErrInvalidPriority
+	}
+
+	if input.StartDate != nil && input.DueDate != nil && input.StartDate.After(*input.DueDate) {
+		return nil, ErrInvalidDateRange
 	}
 
 	// Check project membership if project_id is set
@@ -142,6 +147,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 		ParentTaskID: input.ParentTaskID,
 		Depth:        depth,
 		SortOrder:    input.SortOrder,
+		StartDate:    input.StartDate,
 		DueDate:      input.DueDate,
 		CreatedBy:    input.CreatedBy,
 		CreatedAt:    now,
@@ -194,6 +200,7 @@ type UpdateInput struct {
 	StatusID    *uuid.UUID
 	Priority    *string
 	AssigneeID  *uuid.UUID // uuid.Nil to clear
+	StartDate   *time.Time
 	DueDate     *time.Time
 	SortOrder   *float64
 }
@@ -308,6 +315,14 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		}
 		_ = s.logFieldChange(ctx, taskID, actorID, models.TaskActionDueDateChanged, "due_date", old, input.DueDate.Format(time.DateOnly))
 		task.DueDate = input.DueDate
+	}
+
+	if input.StartDate != nil {
+		task.StartDate = input.StartDate
+	}
+
+	if task.StartDate != nil && task.DueDate != nil && task.StartDate.After(*task.DueDate) {
+		return nil, ErrInvalidDateRange
 	}
 
 	if input.SortOrder != nil {

@@ -22,6 +22,7 @@ type createTaskRequest struct {
 	Priority     string                    `json:"priority" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	ParentTaskID *string                   `json:"parent_task_id,omitempty" validate:"omitempty,uuid"`
+	StartDate    *string                   `json:"start_date,omitempty"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
@@ -69,6 +70,14 @@ func (w *WorkRoutes) HandleCreateTask(wr http.ResponseWriter, r *http.Request) {
 	}
 	if req.ParentTaskID != nil {
 		grpcReq.ParentTaskId = req.ParentTaskID
+	}
+	if req.StartDate != nil {
+		t, parseErr := parseTimestamp(*req.StartDate)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid start_date format")
+			return
+		}
+		grpcReq.StartDate = t
 	}
 	if req.DueDate != nil {
 		t, parseErr := parseTimestamp(*req.DueDate)
@@ -155,6 +164,22 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	if ptid := q.Get("parent_task_id"); ptid != "" {
 		grpcReq.ParentTaskId = &ptid
 	}
+	if dueFrom := q.Get("due_from"); dueFrom != "" {
+		t, parseErr := parseTimestamp(dueFrom)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid due_from format")
+			return
+		}
+		grpcReq.DueDateFrom = t
+	}
+	if dueTo := q.Get("due_to"); dueTo != "" {
+		t, parseErr := parseTimestamp(dueTo)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid due_to format")
+			return
+		}
+		grpcReq.DueDateTo = t
+	}
 	if labelIDs := labelIDsFromQuery(r, "label_ids"); len(labelIDs) > 0 {
 		grpcReq.FilterLabelIds = labelIDs
 	}
@@ -174,6 +199,7 @@ type updateTaskRequest struct {
 	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
 	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	StartDate    *string                   `json:"start_date,omitempty"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
@@ -214,6 +240,14 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 	}
 	if req.AssigneeID != nil {
 		grpcReq.AssigneeId = req.AssigneeID
+	}
+	if req.StartDate != nil {
+		t, parseErr := parseTimestamp(*req.StartDate)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid start_date format")
+			return
+		}
+		grpcReq.StartDate = t
 	}
 	if req.DueDate != nil {
 		t, parseErr := parseTimestamp(*req.DueDate)

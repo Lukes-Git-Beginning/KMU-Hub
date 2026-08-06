@@ -4842,3 +4842,55 @@ Dependency.
     Delete-Versuch selbst) real gespeist haben will.
   * helpdesk_ticket-Custom-Fields bleiben unangetastet -- steht in der Unit-Notiz schon so, hier
     nur bestaetigt, nicht gebaut.
+
+## Iteration 69 — g-work-start-date — done — 2026-08-06 04:12
+- commit: dieser Commit, Titel "feat(work): add task start_date with due_date range filter"
+- gebaut: `start_date TIMESTAMPTZ NULL` an `tasks` (Migration 000296) mit CHECK
+  `chk_tasks_start_before_due` (start_date IS NULL OR due_date IS NULL OR start_date <= due_date)
+  als Verteidigung in der Tiefe -- der Service prueft dasselbe Invariant schon vorher
+  (`task.ErrInvalidDateRange`, InvalidArgument ueber mapWorkError). Spalte durch die komplette
+  Kette gezogen: `models.Task.StartDate`, alle neun SQL-Stellen in postgres_repository.go, die
+  `due_date` fuehren (Create/GetByID/List/Update/GetSubtasks/GetParentChain/ListTasksForEntity/
+  SearchTasks/ListByProject -- Konsistenzentscheidung: lieber ueberall mitziehen als eine der
+  neun Stellen die Spalte still verschlucken zu lassen), `TaskProto`/`CreateTaskRequest`/
+  `UpdateTaskRequest` im Proto (Felder 25/13/11, naechste freie Nummer je Message), Gateway-DTOs
+  in route_work_tasks.go (create+update) inkl. Validierung ueber parseTimestamp.
+- zweiter Teil der Unit-Vorgabe: `due_from`/`due_to` als Query-Parameter in
+  `GET /api/v1/tasks` verdrahtet (HandleListTasks). Ueberraschung beim Recherchieren: die
+  komplette Kette dahinter (Proto ListTasksRequest.due_date_from/to, TaskFilters.DueDateFrom/To,
+  die SQL-Bedingungen in postgres_repository.go List()) existierte bereits vollstaendig und
+  ungenutzt -- nur die Gateway-Query-Param-Parsung fehlte. Kein Proto-Regen fuer diesen Teil
+  noetig, nur route_work_tasks.go.
+- validierung: `input.StartDate.After(*input.DueDate)` in Service.Create (vor jedem DB-Zugriff)
+  und in Service.Update (nach Anwenden beider moeglichen Teil-Updates, damit auch "nur start_date
+  geaendert, due_date bleibt bestehen" bzw. umgekehrt geprueft wird -- nicht nur der Fall, dass
+  beide im selben Request kommen). Kein Activity-Log-Eintrag fuer start_date-Aenderungen
+  (anders als bei due_date/status/etc.) -- war nicht Teil der done_when-Kriterien, bewusst nicht
+  mitgebaut (Lean, keine Scope-Erweiterung ohne Anlass).
+- gate: `go build -p 2 ./internal/work/... ./internal/gateway/... ./internal/server/...
+  ./cmd/work/... ./cmd/gateway/...` ok | `go vet` ok | `golangci-lint run --config .golangci.yml`
+  0 issues | Migration 000296 lokal angewendet (Kopf jetzt 296) | `go test -count=1
+  ./internal/work/...` alle 17 Pakete PASS inkl. `internal/work/task` (DATABASE_URL gesetzt,
+  Rolle kmuhub_app) | `go test -count=1 ./internal/gateway/` PASS, `TestOpenAPIRouteDrift`
+  819->821 dokumentierte Pfade. RLS-Smoke: n.a. explizit, keine neue Policy angefasst (nur
+  Spalte auf bestehend RLS-aktivierter `tasks`-Tabelle) -- stattdessen die vier
+  Bestands-RLS-Tests (TestRLS_Tasks_*) unveraendert gruen mitgelaufen, plus der neue
+  DB-Test unten laeuft explizit unter Tenant-Kontext.
+- neue Tests: `TestService_Create_StartDateAfterDueDateRejected` und
+  `TestService_Update_StartDateAfterDueDateRejected` (mock-basiert, deckt done_when-Punkt
+  "start_date groesser due_date wird abgelehnt") plus `TestListTasks_DueDateRangeFilter`
+  (DB-backed, seedet drei Tasks -- fruehes Datum ohne start_date, mittleres Datum mit
+  start_date, komplett unscheduled -- und prueft zwei Bereichsfenster: NULL-start_date scannt
+  sauber ohne Fehler, gesetzte start_date kommt korrekt zurueck, der unscheduled Task
+  erscheint in keinem Fenster).
+- verify vorgaenger: sauber. Commit e4662b78 (customization-fields-route) geprueft: Handler
+  gehen ueber crmClient/workClient (kein Direct-Service-Call), wiederverwendeter
+  admin:customization:manage-Guard ohne neuen Seed-Bedarf, openapi.yaml-Eintraege fuer
+  /customization/fields und /customization/fields/{id} vorhanden. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen:
+  * Kein Activity-Log fuer start_date-Aenderungen (siehe oben) -- falls das FE spaeter eine
+    Timeline-Ansicht mit Terminverschiebungen will, ist das eine kleine Folge-Nummer analog
+    TaskActionDueDateChanged.
+  * FE-Anbindung (Gantt-View, Task-Formular-Feld fuer start_date) ist nicht Teil dieses Loops --
+    Backend liefert und validiert, das Feld liegt bereit auf dem Wire.

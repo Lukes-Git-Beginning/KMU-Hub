@@ -17,4 +17,5 @@ var (
 	ErrCannotMoveToProject   = errors.New("cannot move task to project")
 	ErrTaskNumberConflict    = errors.New("task number conflict")
 	ErrParentInDiffProject   = errors.New("parent task must be in the same project")
+	ErrInvalidDateRange      = errors.New("start_date must not be after due_date")
 )
