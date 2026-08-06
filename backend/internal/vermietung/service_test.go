@@ -682,27 +682,6 @@ func TestService_CreateInspection_InvalidKind(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }
 
-func TestService_UploadInspectionPhoto_AppendsURL(t *testing.T) {
-	repo := newMockRepository()
-	svc := NewService(repo)
-
-	tenantID := uuid.New()
-	obj := addObject(repo, tenantID, "Fahrzeug")
-	rental := addRental(repo, tenantID, obj.ID, may(2026, 1), may(2026, 5), RentalStatusActive)
-
-	ins, _ := svc.CreateInspection(context.Background(), CreateInspectionInput{
-		TenantID: tenantID,
-		RentalID: rental.ID,
-		Kind:     InspectionKindHandover,
-	})
-
-	updated, err := svc.UploadInspectionPhoto(context.Background(), tenantID, ins.ID, "https://example.com/new-photo.jpg")
-
-	require.NoError(t, err)
-	assert.Len(t, updated.PhotoURLs, 1)
-	assert.Equal(t, "https://example.com/new-photo.jpg", updated.PhotoURLs[0])
-}
-
 // ============================================================================
 // ListRentals / Pagination Tests
 // ============================================================================

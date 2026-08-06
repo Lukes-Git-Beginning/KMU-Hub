@@ -726,7 +726,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Das tote `UploadInspectionPhoto`-RPC entfernen. `server/vermietung_grpc.go:496-515` gibt
       eine Fake-URL `pending://...` zurueck und hat keinen Aufrufer. Das Gateway registriert

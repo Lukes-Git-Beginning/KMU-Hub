@@ -4496,3 +4496,29 @@ Dependency.
      andere; ein Token mit z. B. `comment` ist damit heute wertlos statt halb gueltig. Wenn
      Kommentieren ueber Links kommen soll, gehoert das Feld auf eine Enum — nicht auf eine
      zweite Route.
+
+## Iteration 61 — vermietung-drop-dead-rpc — done — 2026-08-06 02:58
+- commit: folgt
+- gebaut: `UploadInspectionPhoto`-RPC entfernt (Proto, .pb.go/_grpc.pb.go regeneriert, gRPC-Server-Methode,
+  Service-Methode `Service.UploadInspectionPhoto`, ihr Unit-Test). Kein Aufrufer verifiziert: kein Treffer
+  in `route_vermietung.go` (keine Gateway-Route hat je existiert), und der FE-Hook
+  `useVermietung.ts:275 useUploadInspectionPhoto` ruft nachweislich `updateInspection({photo_urls})`, nie
+  das RPC — grep ueber `**/*.go`, `**/*.ts`, `**/*.tsx`, `**/*.proto` bestaetigt, einzige verbliebenen
+  Treffer vor dem Fix waren die generierten `.pb.go`-Dateien, der Service-Test und die Backlog-/Doku-Notizen
+  selbst. Kommentar bei `UpdateInspectionRequest.photo_urls` (vermietung.proto) haelt fest, dass der echte
+  Foto-Upload ueber das Presign-Muster laeuft und warum das alte RPC weg ist statt ausgebaut, damit es in
+  sechs Monaten niemand wieder aufleben laesst.
+- verify vorgaenger: sauber (85ed3153, wiki-share-redeem) — Handler geht ueber `client.RedeemShareToken`,
+  System-Kontext exakt auf die Token-Zeile begrenzt (`withTenant` unmittelbar danach), alle Ablehnungen
+  (abgelaufen/widerrufen/unbekannt/missgebildet/ungelesen/Artikel-weg/unveroeffentlicht) liefern dieselbe
+  404, Proto im selben Commit regeneriert, kein neuer Permission-Guard, openapi.yaml im selben Commit,
+  `TenantInboundUnaryInterceptor` failt bei fehlendem Tenant nicht hart (Kommentar im Interceptor bestaetigt
+  das als Absicht fuer System-Kontext-Pfade). Kein Fund.
+- gate: `go build -p 2 ./internal/vermietung/... ./internal/server/... ./internal/gateway/...
+  ./cmd/vermietung/... ./cmd/gateway/...` ok | `go vet` ok | `golangci-lint run
+  ./internal/vermietung/... ./internal/server/... ./internal/gateway/...` 0 issues | `go test -count=1
+  ./internal/vermietung/...` ok | `go test -count=1 ./internal/server/...` ok | `go test -count=1
+  ./internal/gateway/...` ok (TestOpenAPIRouteDrift unberuehrt, da nie eine Route existierte). Keine
+  Migration, keine Tabelle, kein RLS-Smoke noetig — reiner Proto-/Code-Abbau.
+- offen: keins. FE nicht angefasst (Loop fasst desktop/ nicht an) — `useUploadInspectionPhoto` bleibt
+  unveraendert, weil es intern schon immer `updateInspection` war, nur der Name ist historisch irrefuehrend.

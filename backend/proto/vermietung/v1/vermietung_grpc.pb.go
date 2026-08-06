@@ -19,27 +19,26 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VermietungService_CreateObject_FullMethodName          = "/vermietung.v1.VermietungService/CreateObject"
-	VermietungService_UpdateObject_FullMethodName          = "/vermietung.v1.VermietungService/UpdateObject"
-	VermietungService_DeleteObject_FullMethodName          = "/vermietung.v1.VermietungService/DeleteObject"
-	VermietungService_GetObject_FullMethodName             = "/vermietung.v1.VermietungService/GetObject"
-	VermietungService_ListObjects_FullMethodName           = "/vermietung.v1.VermietungService/ListObjects"
-	VermietungService_CheckAvailability_FullMethodName     = "/vermietung.v1.VermietungService/CheckAvailability"
-	VermietungService_CreateRental_FullMethodName          = "/vermietung.v1.VermietungService/CreateRental"
-	VermietungService_UpdateRental_FullMethodName          = "/vermietung.v1.VermietungService/UpdateRental"
-	VermietungService_DeleteRental_FullMethodName          = "/vermietung.v1.VermietungService/DeleteRental"
-	VermietungService_GetRental_FullMethodName             = "/vermietung.v1.VermietungService/GetRental"
-	VermietungService_ListRentals_FullMethodName           = "/vermietung.v1.VermietungService/ListRentals"
-	VermietungService_StartRental_FullMethodName           = "/vermietung.v1.VermietungService/StartRental"
-	VermietungService_EndRental_FullMethodName             = "/vermietung.v1.VermietungService/EndRental"
-	VermietungService_CreateInspection_FullMethodName      = "/vermietung.v1.VermietungService/CreateInspection"
-	VermietungService_UpdateInspection_FullMethodName      = "/vermietung.v1.VermietungService/UpdateInspection"
-	VermietungService_GetInspection_FullMethodName         = "/vermietung.v1.VermietungService/GetInspection"
-	VermietungService_ListInspections_FullMethodName       = "/vermietung.v1.VermietungService/ListInspections"
-	VermietungService_UploadInspectionPhoto_FullMethodName = "/vermietung.v1.VermietungService/UploadInspectionPhoto"
-	VermietungService_GetRentalCalendar_FullMethodName     = "/vermietung.v1.VermietungService/GetRentalCalendar"
-	VermietungService_ExportRentalReport_FullMethodName    = "/vermietung.v1.VermietungService/ExportRentalReport"
-	VermietungService_SaveSignature_FullMethodName         = "/vermietung.v1.VermietungService/SaveSignature"
+	VermietungService_CreateObject_FullMethodName       = "/vermietung.v1.VermietungService/CreateObject"
+	VermietungService_UpdateObject_FullMethodName       = "/vermietung.v1.VermietungService/UpdateObject"
+	VermietungService_DeleteObject_FullMethodName       = "/vermietung.v1.VermietungService/DeleteObject"
+	VermietungService_GetObject_FullMethodName          = "/vermietung.v1.VermietungService/GetObject"
+	VermietungService_ListObjects_FullMethodName        = "/vermietung.v1.VermietungService/ListObjects"
+	VermietungService_CheckAvailability_FullMethodName  = "/vermietung.v1.VermietungService/CheckAvailability"
+	VermietungService_CreateRental_FullMethodName       = "/vermietung.v1.VermietungService/CreateRental"
+	VermietungService_UpdateRental_FullMethodName       = "/vermietung.v1.VermietungService/UpdateRental"
+	VermietungService_DeleteRental_FullMethodName       = "/vermietung.v1.VermietungService/DeleteRental"
+	VermietungService_GetRental_FullMethodName          = "/vermietung.v1.VermietungService/GetRental"
+	VermietungService_ListRentals_FullMethodName        = "/vermietung.v1.VermietungService/ListRentals"
+	VermietungService_StartRental_FullMethodName        = "/vermietung.v1.VermietungService/StartRental"
+	VermietungService_EndRental_FullMethodName          = "/vermietung.v1.VermietungService/EndRental"
+	VermietungService_CreateInspection_FullMethodName   = "/vermietung.v1.VermietungService/CreateInspection"
+	VermietungService_UpdateInspection_FullMethodName   = "/vermietung.v1.VermietungService/UpdateInspection"
+	VermietungService_GetInspection_FullMethodName      = "/vermietung.v1.VermietungService/GetInspection"
+	VermietungService_ListInspections_FullMethodName    = "/vermietung.v1.VermietungService/ListInspections"
+	VermietungService_GetRentalCalendar_FullMethodName  = "/vermietung.v1.VermietungService/GetRentalCalendar"
+	VermietungService_ExportRentalReport_FullMethodName = "/vermietung.v1.VermietungService/ExportRentalReport"
+	VermietungService_SaveSignature_FullMethodName      = "/vermietung.v1.VermietungService/SaveSignature"
 )
 
 // VermietungServiceClient is the client API for VermietungService service.
@@ -67,7 +66,6 @@ type VermietungServiceClient interface {
 	UpdateInspection(ctx context.Context, in *UpdateInspectionRequest, opts ...grpc.CallOption) (*InspectionResponse, error)
 	GetInspection(ctx context.Context, in *GetInspectionRequest, opts ...grpc.CallOption) (*InspectionResponse, error)
 	ListInspections(ctx context.Context, in *ListInspectionsRequest, opts ...grpc.CallOption) (*ListInspectionsResponse, error)
-	UploadInspectionPhoto(ctx context.Context, in *UploadInspectionPhotoRequest, opts ...grpc.CallOption) (*UploadInspectionPhotoResponse, error)
 	// Calendar & Reports
 	GetRentalCalendar(ctx context.Context, in *GetRentalCalendarRequest, opts ...grpc.CallOption) (*GetRentalCalendarResponse, error)
 	ExportRentalReport(ctx context.Context, in *ExportRentalReportRequest, opts ...grpc.CallOption) (*ExportRentalReportResponse, error)
@@ -253,16 +251,6 @@ func (c *vermietungServiceClient) ListInspections(ctx context.Context, in *ListI
 	return out, nil
 }
 
-func (c *vermietungServiceClient) UploadInspectionPhoto(ctx context.Context, in *UploadInspectionPhotoRequest, opts ...grpc.CallOption) (*UploadInspectionPhotoResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UploadInspectionPhotoResponse)
-	err := c.cc.Invoke(ctx, VermietungService_UploadInspectionPhoto_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *vermietungServiceClient) GetRentalCalendar(ctx context.Context, in *GetRentalCalendarRequest, opts ...grpc.CallOption) (*GetRentalCalendarResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetRentalCalendarResponse)
@@ -318,7 +306,6 @@ type VermietungServiceServer interface {
 	UpdateInspection(context.Context, *UpdateInspectionRequest) (*InspectionResponse, error)
 	GetInspection(context.Context, *GetInspectionRequest) (*InspectionResponse, error)
 	ListInspections(context.Context, *ListInspectionsRequest) (*ListInspectionsResponse, error)
-	UploadInspectionPhoto(context.Context, *UploadInspectionPhotoRequest) (*UploadInspectionPhotoResponse, error)
 	// Calendar & Reports
 	GetRentalCalendar(context.Context, *GetRentalCalendarRequest) (*GetRentalCalendarResponse, error)
 	ExportRentalReport(context.Context, *ExportRentalReportRequest) (*ExportRentalReportResponse, error)
@@ -384,9 +371,6 @@ func (UnimplementedVermietungServiceServer) GetInspection(context.Context, *GetI
 }
 func (UnimplementedVermietungServiceServer) ListInspections(context.Context, *ListInspectionsRequest) (*ListInspectionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListInspections not implemented")
-}
-func (UnimplementedVermietungServiceServer) UploadInspectionPhoto(context.Context, *UploadInspectionPhotoRequest) (*UploadInspectionPhotoResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UploadInspectionPhoto not implemented")
 }
 func (UnimplementedVermietungServiceServer) GetRentalCalendar(context.Context, *GetRentalCalendarRequest) (*GetRentalCalendarResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRentalCalendar not implemented")
@@ -724,24 +708,6 @@ func _VermietungService_ListInspections_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _VermietungService_UploadInspectionPhoto_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UploadInspectionPhotoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(VermietungServiceServer).UploadInspectionPhoto(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: VermietungService_UploadInspectionPhoto_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VermietungServiceServer).UploadInspectionPhoto(ctx, req.(*UploadInspectionPhotoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _VermietungService_GetRentalCalendar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRentalCalendarRequest)
 	if err := dec(in); err != nil {
@@ -870,10 +836,6 @@ var VermietungService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListInspections",
 			Handler:    _VermietungService_ListInspections_Handler,
-		},
-		{
-			MethodName: "UploadInspectionPhoto",
-			Handler:    _VermietungService_UploadInspectionPhoto_Handler,
 		},
 		{
 			MethodName: "GetRentalCalendar",
