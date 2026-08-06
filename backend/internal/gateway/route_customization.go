@@ -91,6 +91,11 @@ var localePattern = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
 //	GET /api/v1/customization/value-sets[?base=1]     — all resolved value-sets (any authenticated user)
 //	GET /api/v1/customization/value-sets/{id}[?base=1] — one resolved value-set (any authenticated user)
 //	PUT /api/v1/customization/value-sets/{id}          — upsert tenant override (admin:customization:manage)
+//	GET /api/v1/customization/fields[?entity=]         — unified custom fields (any authenticated user)
+//	GET /api/v1/customization/fields/{id}              — one custom field (any authenticated user)
+//	POST /api/v1/customization/fields                  — create (admin:customization:manage)
+//	PUT /api/v1/customization/fields/{id}               — merge-patch update (admin:customization:manage)
+//	DELETE /api/v1/customization/fields/{id}            — delete (admin:customization:manage)
 func (cr *CustomizationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/customization/labels", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -107,6 +112,18 @@ func (cr *CustomizationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(
 		r.Get("/", cr.HandleListValueSets)
 		r.Get("/{id}", cr.HandleGetValueSet)
 		r.With(middleware.RequirePermission("admin:customization", "manage")).Put("/{id}", cr.HandlePutValueSet)
+	})
+
+	// Unified custom fields (route_customization_fields.go) — a dispatch
+	// layer over the existing CRM and Work custom-field services, not a new
+	// table. Same read/write split as labels and value-sets.
+	r.Route("/api/v1/customization/fields", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/", cr.HandleListCustomFields)
+		r.Get("/{id}", cr.HandleGetCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Post("/", cr.HandleCreateCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Put("/{id}", cr.HandleUpdateCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Delete("/{id}", cr.HandleDeleteCustomField)
 	})
 }
 

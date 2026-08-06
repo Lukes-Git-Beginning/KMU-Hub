@@ -13346,6 +13346,120 @@ paths:
         "403":
           description: Forbidden — caller lacks admin:customization:manage
 
+  /api/v1/customization/fields:
+    get:
+      summary: List unified custom fields
+      description: >
+        Dispatch layer over custom_field_definitions (crm_* entities) and
+        work_custom_field_definitions (work_task) — see
+        route_customization_fields.go. helpdesk_ticket has no backend table
+        and is always omitted from the result.
+      operationId: listCustomizationFields
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+      responses:
+        "200":
+          description: Custom field definitions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a custom field
+      operationId: createCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCustomizationFieldRequest" }
+      responses:
+        "201":
+          description: Custom field created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
+  /api/v1/customization/fields/{id}:
+    get:
+      summary: Get one custom field by ID
+      description: Resolved by trying the CRM-backed table first, then work_custom_field_definitions.
+      operationId: getCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Merge-patch update a custom field
+      operationId: updateCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCustomizationFieldRequest" }
+      responses:
+        "200":
+          description: Custom field updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a custom field
+      description: >
+        409 when the CRM-backed field still has data on a record
+        (ErrFieldInUse) — work_custom_field_definitions has no such guard.
+      operationId: deleteCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /api/v1/finance/gobd-archive:
     get:
       summary: List GoBD archived documents
@@ -39207,6 +39321,119 @@ components:
         options:
           - { id: low, label: "Niedrig", color: "hsl(142 71% 45%)", order: 0, active: true }
           - { id: medium, label: "Mittel", color: "hsl(38 92% 50%)", order: 1, active: true }
+
+    CustomizationField:
+      type: object
+      description: >
+        Mirrors CustomFieldDefinition in mocks/data/custom-fields.ts. A thin
+        dispatch layer over two existing tables (custom_field_definitions for
+        crm_* entities, work_custom_field_definitions for work_task) — see the
+        route_customization_fields.go file header for the full mapping.
+        valueSetId, validation and inUse are never returned: neither backing
+        table has a column for the first two (a write that sets them is
+        rejected with 400, not silently dropped), and inUse is not computed.
+      properties:
+        id:
+          type: string
+        entity:
+          type: string
+          enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+        key:
+          type: string
+          description: Stable for crm_* entities; derived from the label for work_task (no separate key column there).
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+          description: url/email/phone are only valid for work_task — CRM's backing table predates them.
+        required:
+          type: boolean
+        options:
+          type: array
+          items: { type: string }
+        defaultValue:
+          type: string
+        visible:
+          type: boolean
+          description: Always true — no persisted column on either backing table yet.
+        order:
+          type: integer
+        inUse:
+          type: boolean
+          description: Always false — not computed yet, see route_customization_fields.go.
+      required: [id, entity, key, label, type, required, options, visible, order, inUse]
+
+    CustomizationFieldsResponse:
+      type: object
+      properties:
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/CustomizationField" }
+      required: [fields]
+
+    CustomizationFieldResponse:
+      type: object
+      properties:
+        field:
+          $ref: "#/components/schemas/CustomizationField"
+      required: [field]
+
+    CreateCustomizationFieldRequest:
+      type: object
+      properties:
+        entity:
+          type: string
+          enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+          description: helpdesk_ticket is rejected with 400 — no backend table yet.
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+        required:
+          type: boolean
+          description: Rejected with 400 when true for entity=work_task (no backend column).
+        options:
+          type: array
+          items: { type: string }
+        valueSetId:
+          type: string
+          description: Rejected with 400 if present — no backend column yet.
+        validation:
+          type: object
+          description: Rejected with 400 if present — no backend column yet.
+        defaultValue:
+          type: string
+          description: Rejected with 400 for entity=work_task (no backend column).
+        visible:
+          type: boolean
+          description: Rejected with 400 if set to false — no backend column yet, fields are always visible.
+      required: [entity, label, type]
+
+    UpdateCustomizationFieldRequest:
+      type: object
+      description: Merge-patch — only fields present in the body change.
+      properties:
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+          description: Rejected with 400 for CRM-backed entities — type is immutable there once created.
+        required:
+          type: boolean
+        options:
+          type: array
+          items: { type: string }
+        valueSetId:
+          type: string
+        validation:
+          type: object
+        defaultValue:
+          type: string
+        visible:
+          type: boolean
 
     GobdDocument:
       type: object

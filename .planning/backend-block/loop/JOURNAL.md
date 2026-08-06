@@ -4766,3 +4766,79 @@ Dependency.
   * Sollte eine spaetere FE-Session `DeleteValueSet` doch brauchen (Reset-auf-Werkszustand-Button
     im Editor), ist der Service fertig, es fehlt nur RPC + Route -- kleine Folge-Nummer, kein
     Neubau.
+
+## Iteration 68 — customization-fields-route — done — 2026-08-06 04:35
+- commit: dieser Commit, Titel "feat(customization): dispatch unified custom fields to CRM/Work"
+- gebaut: `GET/POST /api/v1/customization/fields` und `GET/PUT/DELETE .../fields/{id}` in einer
+  neuen Datei `route_customization_fields.go` (Methoden auf `*CustomizationRoutes`, registriert
+  in route_customization.go). KEINE dritte Tabelle: reiner Dispatch-Layer vor den zwei
+  bestehenden, laengst vollstaendigen CRUD-Flaechen `custom_field_definitions` (CRM, entity_type
+  contact/company/deal/activity, ueber CRMServiceClient) und `work_custom_field_definitions`
+  (Work, nur task, ueber WorkServiceClient).
+- spaltenvergleich (Entscheidung Wiederverwendung vs. Neubau, siehe done_when):
+  * CRM `custom_field_definitions`: tenant_id NOT NULL + RLS seit Migration 000106/000122 (nicht
+    beim Anlegen 000005 vergessen, wie es beim ersten Blick aussah). Felder: field_name,
+    field_label, field_type (6 Werte: text/number/date/boolean/select/multiselect — KEIN
+    multi_select mit Unterstrich, KEIN url/email/phone), options, default_value, is_required,
+    sort_order. Volle REST-CRUD schon vorhanden unter /api/v1/custom-fields.
+  * Work `work_custom_field_definitions`: tenant_id NOT NULL + RLS seit Anlage (Migration
+    000146). Felder: nur name (KEIN separates label — name ist beides), field_type (9 Werte,
+    deckt sich exakt mit dem FE-Typ inkl. multi_select/url/email/phone), options, position.
+    KEIN required, KEIN default_value. Volle REST-CRUD schon vorhanden unter
+    /api/v1/work/custom-fields.
+  * Damit ist die Frage aus der Unit-Notiz beantwortet: die beiden Tabellen sind fuer eine
+    entity-parametrisierte SICHT (Route, kein Datenmodell) ausreichend — aber nicht 1:1
+    kompatibel. Statt eine der beiden zu erweitern (Schema-Umbau, ausserhalb des Scopes einer
+    Routen-Unit) werden die Luecken am Dispatch-Layer explizit VERWEIGERT statt verschwiegen:
+    `valueSetId`/`validation`: kein Feld in keiner der beiden Tabellen -> 400 wenn gesetzt.
+    `visible`: kein Feld in keiner der beiden -> immer true gelesen, 400 bei explizitem false.
+    `required`/`defaultValue` fuer entity=work_task: kein Feld dort -> 400 wenn required=true
+    bzw. defaultValue nicht leer. `type` aendern bei einem CRM-Feld -> 400 (UpdateCustomFieldRequest
+    im CRM-Proto hat gar kein field_type). url/email/phone fuer eine crm_*-Entity -> 400.
+    Das ist bewusst die Gegenposition zu "stillem Verlust wie bei Block B dieses Laufs" -- lieber
+    ein ehrlicher 400 als eine Antwort, die suggeriert, das Feld sei gespeichert.
+- dispatch-mechanik: `entity` ist im Create-Body bekannt -> direktes Routing. Bei Get/Put/Delete
+  (kein entity im Pfad oder Body, nur die id) wird zuerst CRM.GetCustomField versucht, bei
+  NotFound Work.GetCustomFieldDefinition -- beide Fehlerpfade sind ueber mapCRMError/mapWorkError
+  auf codes.NotFound geprueft (Code gelesen, nicht geraten). Jeder andere gRPC-Fehler wird sofort
+  durchgereicht, nie als "also der andere Layer" maskiert. PUT ist Merge-Patch (FE-Typ ist
+  Partial<...>): fuer CRM traegt UpdateCustomFieldRequest das schon selbst; Work ersetzt die ganze
+  Zeile, deshalb wird das aktuelle Definition zuerst gelesen und nur die im Body vorhandenen
+  Felder ueberschrieben, bevor die volle Update-Message rausgeht.
+  `order` beim Create wird server-seitig als maxOrder(bestehende Felder der Entity)+1 vergeben
+  (beide Backends nehmen sonst den rohen Client-Wert, meist 0) -- sonst kollidieren neue Felder
+  immer bei Order 0.
+  `key` fuer work_task ist NICHT gespeichert, sondern aus `name` abgeleitet (toKey()-Aequivalent
+  `slugifyFieldKey`) -- work_custom_field_definitions hat keine eigene Key-Spalte. Ein Rename
+  aendert also auch den Key. Dokumentiert im Code, nicht behoben (Schema-Aenderung, ausserhalb
+  Scope).
+- helpdesk_ticket: keine Backend-Tabelle (laut custom-fields.ts-Kommentar bewusst additiv nur im
+  FE-Mock, "nothing to migrate now"). GET liefert es implizit leer (kein Backend-Call), POST wird
+  mit 400 abgelehnt statt geraten oder stumm ignoriert.
+  CRM setzt `ErrFieldInUse` (409) beim Loeschen eines Feldes mit Daten durch, Work hat keinen
+  solchen Schutz -- echte, vorbestehende Asymmetrie, hier nicht angeglichen.
+- gate: `go build -p 2 ./internal/gateway/... ./cmd/gateway/...` ok | `gofmt -w` sauber
+  (Struct-Tags neu ausgerichtet) | `go vet ./internal/gateway/...` ok | `golangci-lint run
+  --config .golangci.yml ./internal/gateway/...` 0 issues | `go test -count=1 -v
+  ./internal/gateway/...` 677 PASS, 0 FAIL, 0 SKIP (DATABASE_URL gesetzt, Rolle kmuhub_app;
+  13 neue Tests in route_customization_fields_test.go, u.a. fuer jede der oben genannten
+  400-Ablehnungen, die Wire-Shape-Konversion CRM->JSON und die multiselect/multi_select-Typ-
+  Uebersetzung), darunter `TestOpenAPIRouteDrift` 819->821 dokumentierte Pfade, erster Lauf vor
+  dem openapi.yaml-Update ist wie erwartet mit genau den zwei neuen Pfaden rot gelaufen.
+  Migration/RLS-Smoke: entfaellt, keine Tabelle angefasst.
+- verify vorgaenger: sauber. Commit e4029f3b (customization-value-sets-routes) geprueft: Handler
+  gehen ueber getSettingsClient (kein Direct-Service-Call), Wire-Shape bewusst am MSW-Mock statt
+  Hausregel ausgerichtet und im Code/Journal begruendet, kein neuer RequirePermission-Guard
+  (admin:customization:manage wiederverwendet), openapi.yaml im selben Commit mit den drei neuen
+  Pfaden. Keine der acht Fehlerklassen einschlaegig.
+- offen:
+  * Work-seitige Luecken (kein required, kein default_value, kein separates Key-Feld) sind ein
+    echtes Produkt-Delta gegenueber dem FE-Mock, keine Route-Bugs. Falls das FE diese drei
+    Faelle tatsaechlich braucht, ist die naechste Nummer eine Migration auf
+    work_custom_field_definitions (ADD COLUMN required/default_value/key), keine Route-Aenderung.
+  * `inUse` wird nie berechnet (immer false) -- FE nutzt es fuer den Loeschen-Bestaetigungsdialog;
+    serverseitig fehlt jede Nutzungspruefung ausser CRMs eigenem ErrFieldInUse-Schutz beim
+    tatsaechlichen Delete-Versuch. Folge-Nummer, falls Luke die FE-Vorschau (nicht nur den
+    Delete-Versuch selbst) real gespeist haben will.
+  * helpdesk_ticket-Custom-Fields bleiben unangetastet -- steht in der Unit-Notiz schon so, hier
+    nur bestaetigt, nicht gebaut.

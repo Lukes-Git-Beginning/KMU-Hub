@@ -938,7 +938,7 @@ units:
     service: customization
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `/api/v1/customization/fields`. Das FE ruft diesen Pfad heute (`useCustomFields.ts`),
       im Backend existiert er nicht. Erst pruefen ob er auf die BESTEHENDEN Tabellen
