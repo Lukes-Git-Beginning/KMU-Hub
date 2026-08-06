@@ -1,8 +1,36 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-06-12
+updated: 2026-08-06
 ---
 # Milestones
+
+## 2026-07-26 bis 2026-08-06 — Backend-Nachtlaeufe 1–5 (Migr. 243–297)
+
+Fuenf Naechte externer `claude -p`-Ralph-Loop (`.planning/backend-block/loop/`), der rein lokal auf
+`backend-loop` committet — ein Guard blockt Push und PR, die Abnahme passiert morgens von Hand. Rund
+15 Minuten pro Iteration. Der Branch wird vor jedem Lauf auf `origin/main` **gemergt, nicht rebast**,
+weil der Loop gegen die FE-Vertraege baut.
+
+| Lauf | Datum | Ergebnis |
+|---|---|---|
+| 1 + 3 | 07-27 / 08-01 | Feature-Nachzug quer durch die Module, Migr. 243–268 |
+| 4 | 08-03 | RLS-Welle (20 Tabellen + Standing-Guard, `knownRLSGaps` seit Migr. 286 leer), RBAC Phase 1b, per-User-Overrides, 42 neue Routen. PR #17 → `da1073a4`, Prod-Kopf 287. 48 Iterationen, 94 Commits, CI gruen |
+| 5 | 08-05/06 | Rest-Backlog, Migr. 288–297. PR #18 → `9950f339`, Prod-Kopf **297** |
+
+**Vor dem Lauf-5-Merge geschlossen:** CSAT-Default auf Opt-in gedreht (`DefaultCsatConfig().Enabled=false`
+— der Umfrage-Link zeigte auf `app.zentria.tech/csat`, wo nichts liegt, und es gab keine exponierte
+Route zum Abschalten) · Wiki-Share-Tokens auf Soft-Revoke plus `created_by` (Migr. 297; die Uebergabe
+irrte, die Revoke-Route existierte laengst als Hard-DELETE) · `callerRole`-Attrappe aus
+`ListEmployeeDocuments` entfernt (RLS `hr_document_access` deckt die Tiers ohnehin).
+
+**Der Lauf-5-Deploy riss Produktion 31 Minuten in 503** — veralteter API-Contract im Smoke-Skript zog
+den Auto-Rollback, der den Code zuruecksetzte und das Schema auf 297 stehen liess. Beides gefixt
+(`f3c53e7d`, `e445a1fc`), Detail in [[deployment]].
+
+**Zwei Lehren:** `blocked`-Units des Loops sind fast immer Rechercheergebnisse, keine Ausfaelle — in
+Lauf 4 war bei 4 von 6 die Praemisse der Unit schlicht widerlegt. Und der Aufraeum-Durchgang am 08-06
+zeigte, dass Status-Dokumente dem Code stark hinterherhinken: `status-overview.md` behauptete noch
+Migrationskopf 213 und „Sprint 4 laeuft", real waren es 297 und August.
 
 ## 2026-06-11 (Nacht) — FE-Lane in main gemergt + Branch-Hygiene + Welle-B-Follow-ups
 

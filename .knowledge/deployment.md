@@ -1,10 +1,14 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-07-02
+updated: 2026-08-06
 ---
 # Deployment & Infrastruktur
 
-> **Prod-Stand (live gemessen 2026-06-18):** `app.zentria.tech`, Production-Migrationskopf **209** (Repo-Kopf **000213** — CD-Lag von 4 Migr. zum Mess-Zeitpunkt), **`COSMI_ENV=production` SCHARF**, Container healthy. Seit 2026-06-06 brachten die FE↔Backend-Wiring-Wellen Migr. 148–213. **Vorgeschichte (2026-06-06 frueh, nach LiveKit/COSMI_ENV-Cluster):** `564f238b`, Migration-Head **131**, alle Container healthy, **`COSMI_ENV=production` SCHARF** (Prod-Secrets-Assertion aktiv), Smoke **24/24**, **Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Alle Compose-Secrets laufen jetzt ueber `${VAR:-dev-default}`-Interpolation aus `.env.production` (vorher: Dev-Secrets in Prod, Incident-Doku `docs/livekit-env-production-followups.md`). Davor (2026-06-05 nach E2E-Modernisierung): `91a3014c`, Head 129, erster automatischer CD-Deploy. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt automatisch.**
+> **Prod-Stand (live gemessen 2026-08-06):** `app.zentria.tech`, Production-Migrationskopf **297 clean** (`297|f`, = Repo-Kopf, kein CD-Lag), **`COSMI_ENV=production` SCHARF**, **30 von 35 Containern healthy**. Die Backend-Nachtlaeufe 1–5 brachten Migr. 243–297.
+>
+> ⚠ **Auto-Rollback: dritter Vorfall am 2026-08-06 (31 min 503).** Muster jedes Mal gleich: Der Smoke-Test schlaegt fehl → `rollback()` macht `git checkout <sha>` → **detached HEAD** → der naechste `git pull` zieht nicht nach → migrate-Loop/503. Am 06.08. kam erschwerend dazu, dass der Rollback den Code zuruecksetzte, das Schema aber auf 297 stehen liess (Migrationen waren bereits angewendet) — der klassische Code-vs-Schema-Drift. **Zwei Fixes sind seither drin:** `f3c53e7d` korrigiert den veralteten API-Contract im Smoke-Skript (`role_name` → `roleId`, der eigentliche Ausloeser), `e445a1fc` laesst `deploy.sh` den Code **nicht mehr zurueckrollen, sobald in diesem Deploy Migrationen angewendet wurden** (`halt_without_rollback`). Recovery bei detached HEAD bleibt: `git checkout main && git merge --ff-only`. Detail: [feedback_deploy_detached_head_rollback.md] im Memory.
+>
+> **Vorgeschichte (2026-06-06 frueh, nach LiveKit/COSMI_ENV-Cluster):** `564f238b`, Migration-Head **131**, alle Container healthy, **`COSMI_ENV=production` SCHARF** (Prod-Secrets-Assertion aktiv), Smoke **24/24**, **Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Alle Compose-Secrets laufen jetzt ueber `${VAR:-dev-default}`-Interpolation aus `.env.production` (vorher: Dev-Secrets in Prod, Incident-Doku `docs/livekit-env-production-followups.md`). Davor (2026-06-05 nach E2E-Modernisierung): `91a3014c`, Head 129, erster automatischer CD-Deploy. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt automatisch.**
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >

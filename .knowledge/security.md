@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # Security & Compliance
 
@@ -12,6 +12,31 @@ updated: 2026-08-03
 4. **PostgreSQL RLS** (Welle 1+, Aktivierung in Welle 2+) — Foundation seit Migration 118 in [[datenbank]]. Defense-in-Depth: selbst wenn Layer 3 vergessen wird, filtert die DB.
 
 **RLS-Helpers** (Migration 118): `current_tenant_id()`, `current_user_id()`, `current_app_role()`, `is_system_context()`. Standard-Policy-Generator: `enable_tenant_rls(table_name)` setzt `USING (tenant_id = current_tenant_id() OR is_system_context()) WITH CHECK (...)`. Pool-Layer setzt die GUCs via `database.BeginRLSTx(ctx, pool)` LOCAL pro Tx; `WithSystemContext(ctx)` markiert Worker für Bypass.
+
+## Oeffentliche Routen: schmaler Wire-Typ statt rohem Proto (Nachtlauf 5, 2026-08-06)
+
+Alles unter `/api/v1/public/**` wird **ohne Auth und ohne Tenant-Kontext** ausgeliefert. Die Regel
+dort lautet: **niemals das Proto direkt serialisieren.** Ein Proto traegt `tenant_id`, interne IDs und
+Audit-Felder — serialisiert man es roh, leaken die an anonyme Besucher. Stattdessen pro Public-Route
+ein eigener, handgeschriebener Wire-Typ mit exakt den Feldern, die der Besucher sehen darf.
+
+Muster: `publicSharedArticleWire` (Wiki-Share). Nach demselben Schnitt gebaut wurde 2026-08-06 die
+oeffentliche Formular-Antwort — dort leakte vorher `tenant_id`.
+
+Zweiter Fallstrick derselben Klasse: **jedes Request-Feld gegenpruefen, ob der Gateway es ueberhaupt
+fuellt.** Bei der Formular-Submit-Route war `ip_address` im Proto deklariert, wurde vom Gateway aber
+nie gesetzt — der Wert war dauerhaft leer, ohne dass irgendein Test angeschlagen haette.
+
+**Share-Token-Muster (einheitlich seit Migr. 297):** alle vier Share-Tabellen nutzen Soft-Revoke ueber
+`revoked_at` statt Hard-DELETE, plus `created_by` fuer die Nachvollziehbarkeit —
+`report_share_tokens` (252), `document_share_links` (266), `form_share_tokens` (293),
+`wiki_share_tokens` (297). Siehe [[datenbank]].
+
+⚠ **CSAT-Umfragen sind bewusst Opt-in** (`DefaultCsatConfig().Enabled = false`, Nachtlauf 5). Grund:
+Der generierte Umfrage-Link zeigt auf `app.zentria.tech/csat`, wo nichts liegt — Caddy proxyt die
+Domain vollstaendig auf den Gateway, ein statisches Frontend gibt es nicht (Cosmi ist eine
+Electron-App). Ein zugestellter Link liefe auf einen blanken API-404. Vor dem Scharfschalten braucht
+es eine echte oeffentliche CSAT-Seite **und** den SMTP-Passthrough an `helpdesk` im Compose.
 
 ## gRPC-Tenant-Trust (Welle 0.6 + Welle 1d)
 

@@ -1,14 +1,48 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # Test-Strategie
 
 ## Backend (Go)
 - Framework: Go stdlib `testing` + testify (assert/require/mock)
-- 61 `*_test.go` Dateien, 240+ Tests allein im CRM, 193+ Gateway-Handler-Tests
+- **503 `*_test.go`-Dateien** bei 1.495 Go-Dateien insgesamt (gemessen 2026-08-06)
 - Race Detector: `-race` Flag in CI aktiviert
 - Coverage: Report generiert, als Artifact hochgeladen (30 Tage)
+
+### Coverage-Stand (CI-Lauf vom 2026-08-06, gruen)
+
+**Gesamt 30,2 %** (generierte Proto-Stubs ausgeschlossen), CI-Gate = 15 % (`ci.yml:125`).
+Die CI laeuft mit `DATABASE_URL=postgres://kmuhub_app@…` (`ci.yml:107`) — die DB-Tests werden also
+**nicht** still von `SkipIfNoDB` uebersprungen, und die Rolle ist `kmuhub_app` (NOBYPASSRLS), d. h.
+die RLS-Tests beweisen etwas. Ohne beides waere die Zahl wertlos.
+
+Pro Domaene (Mittel ueber Funktionen, nicht statement-gewichtet — Naeherung):
+
+| Bereich | Cov | |
+|---|---|---|
+| featureflag, modules | 100 % | |
+| circuitbreaker | 98 % | |
+| dachfmt | 96 % | |
+| cache | 89 % | |
+| berichte | 78 % | |
+| **auth** | **71 %** | ✅ ueber dem 60-%-Ziel fuer kritische Pfade |
+| **security** | **67 %** | ✅ |
+| helpdesk / settings / wiki | 61–62 % | |
+| formulare | 54 % | |
+| **crm** | **51 %** | ⚠ unter Ziel (Data) |
+| **biz** | **48 %** | ⚠ unter Ziel (Payments/Finance), 911 Funktionen |
+| document / rapporte / chat / work / vertraege | 46–48 % | |
+| automation / email / dialer / schichten | 41–43 % | |
+| einkauf / inbox / notification / inventar / plugin / fuhrpark | 30–37 % | |
+| **gateway** | **27 %** | 1.538 Funktionen |
+| produktion / caldav | 13–20 % | |
+| **server** | **8 %** | 1.687 Funktionen, gRPC-Wrapper |
+| sysctx, models, metrics, idempotency, health, clientctx | 0 % | Infrastruktur-Glue |
+
+`server` + `gateway` sind zusammen 3.225 Funktionen bei 8–27 % und ziehen den Schnitt am staerksten.
+Per Architekturregel „thin handlers" liegt dort wenig Logik — 8 % bleibt trotzdem der groesste Hebel,
+wenn das 60-%-Ziel fuer kritische Pfade ernst gemeint ist.
 
 ### Mock-Pattern
 ```go

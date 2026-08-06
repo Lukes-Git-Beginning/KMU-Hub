@@ -1,11 +1,12 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # API-Referenz
 
 ## OpenAPI Spec
-- Datei: `backend/api/openapi.yaml` (~38.400 Zeilen, OpenAPI 3.0.3, **711 Pfade / 895 Operationen**)
+- Datei: `backend/api/openapi.yaml` (46.529 Zeilen, OpenAPI 3.0.3, **821 Pfade / 1.171 Operationen** — gemessen 2026-08-06; die Nachtlaeufe 1–5 brachten +110 Pfade)
+- Dahinter im Code: 127 `route_*.go`-Dateien, 1.134 gRPC-RPCs ueber 32 `.proto`-Dateien
 - TypeScript-Generierung: `npm run api:generate` → `desktop/src/renderer/src/api/types.ts`
 - Gateway: HTTP REST auf Port 8080, leitet intern an gRPC-Services weiter
 - **OpenAPI-Drift geschlossen (2026-07-02):** alle registrierten `/api/v1`-Routen sind jetzt im Spec. Nachdokumentiert wurden 11 zuvor fehlende/teilweise Gruppen (~185 + 48 Ops): documents, plugins, integrations (generic + bexio + lexware + DATEV-Upload), caldav, guest, feature-flags, global-search, produktion-ext, berichte, crm-ext-GDPR, biz-finance-Lücken, tenant/module-grants, files-presign, meeting-parity-extras (breakout/cohosts/moderation/recordings), hr/time/*, inventar-attachments, 2fa/validate, contact import/export, helpdesk business-hours, inbox canned-responses/thread.

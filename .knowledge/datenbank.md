@@ -1,6 +1,6 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # Datenbank
 
@@ -13,8 +13,18 @@ updated: 2026-08-03
 ## Migrationen 243–287 — die drei Backend-Nachtlaeufe (2026-07-26 bis 2026-08-03)
 
 Der Abschnitt oben endet bei **242**. Alles danach stammt aus den Nachtlaeufen des Backend-Loops
-(`.planning/backend-block/loop/`, Journal + Archive dort). **Repo-Kopf 287 = Prod-Kopf 287**
-(`287|f` verifiziert am 2026-08-03 nach Merge von PR #17, `da1073a4`).
+(`.planning/backend-block/loop/`, Journal + Archive dort). **Repo-Kopf 297 = Prod-Kopf 297**
+(`297|f` live verifiziert am 2026-08-06 nach Merge von PR #18, `9950f339`; davor 287 nach PR #17).
+Lauf 5 brachte 288–297, darunter **297** `wiki_share_token_revocation` (Soft-Revoke via `revoked_at`
+plus `created_by` — die Revoke-Route existierte laengst als Hard-DELETE, nur das Soft-Delete fehlte)
+und **293** `form_share_tokens`. Damit haben alle vier Share-Token-Tabellen dasselbe Muster:
+`report_share_tokens` (252), `document_share_links` (266), `form_share_tokens` (293),
+`wiki_share_tokens` (297).
+
+⚠ **Deploy-Vorfall 2026-08-06:** Der Lauf-5-Deploy riss Produktion 31 Minuten in 503. Ausloeser war
+ein veralteter API-Contract im Smoke-Skript (`role_name` statt `roleId`), dessen Fehlschlag den
+Auto-Rollback zog — der setzte den Code zurueck, liess das Schema aber auf 297 stehen. Seit
+`e445a1fc` rollt `deploy.sh` nach angewandten Migrationen nicht mehr zurueck. Detail: [[deployment]].
 
 ⚠ Der Deploy lief nicht glatt: `deploy.sh` blieb bei `docker compose up -d auth` haengen, fuhr
 einen Auto-Rollback auf `eea4c4b3` und hinterliess **Migration 287 bei Lauf-3-Binaries**. Die

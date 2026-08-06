@@ -1,21 +1,44 @@
 ---
 tags: [index]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-08-03)
+## Projektstand (2026-08-06) — live gemessen
 
-**Backend-Nachtlaeufe 1–4 durch.** Der Backend-Loop (`.planning/backend-block/loop/`) hat in vier
-Naechten die Migrationen **243–287** geliefert: Feature-Nachzug quer durch die Module (Laeufe 1+3,
-243–268), dann in Lauf 4 die RLS-Welle (20 Tabellen nachgezogen, dazu ein Standing-Guard, der die
-naechste Luecke selbst findet), **RBAC Phase 1** (tenant-eigene Rollen + per-User-Overrides) und 42
-neue Routen. **Repo-Kopf 287**, Prod folgt mit PR #17. Lauf 4 lief fehlerfrei durch (48 Iterationen,
-94 Commits, CI gruen). Der Backlog ist damit praktisch leer — ein Lauf 5 braucht zuerst
-`.planning/backend-block/PROMPT-BACKLOG-NACHLEGEN.md`.
+**Backend-Nachtlaeufe 1–5 durch, alle gemergt und deployt.** Der Backend-Loop
+(`.planning/backend-block/loop/`) hat in fuenf Naechten die Migrationen **243–297** geliefert:
+Feature-Nachzug quer durch die Module (Laeufe 1+3, 243–268), in Lauf 4 die RLS-Welle (20 Tabellen +
+Standing-Guard, der die naechste Luecke selbst findet), **RBAC Phase 1** (tenant-eigene Rollen +
+per-User-Overrides) und 42 neue Routen, in Lauf 5 den Rest inkl. Wiki-Share-Soft-Revoke (297).
+**Repo-Kopf = Prod-Kopf 297 clean.** Loop-Backlog: 34 done · 7 blocked · 2 todo — `blocked` heisst
+hier meist „Praemisse widerlegt", nicht „nicht geschafft".
+
+**Gemessene Kennzahlen (2026-08-06):**
+
+| | |
+|---|---|
+| Services | 24 (23 µSvc + Gateway) |
+| gRPC-RPCs | 1.134 ueber 32 `.proto` |
+| REST | 821 OpenAPI-Pfade / 1.171 Operationen |
+| Migrationen | Kopf **297**, 266 `.up.sql` (Luecken durch Reverts/Renumber) |
+| Test-Coverage | **30,2 %** gesamt (CI-Gate 15 %) — auth 71 %, security 67 %, ⚠ biz 48 % und crm 51 % unter dem 60-%-Ziel fuer kritische Pfade |
+| RLS | `knownRLSGaps` **leer** (`internal/testutil/rls_regression_test.go:33`) |
+| Feature-Flags | 17 (14 `modules.*` + 3 `plugins.*`), alle Modul-Flags default OFF |
+| Frontend | 34 Module (32 im Router), 81 API-Hooks, 1.231 TS/TSX-Dateien |
+| i18n | 12.044 Keys, de/en vollstaendig, ⚠ fr/it je 34 Keys hinterher |
+| Prod | 30 von 35 Containern healthy, `COSMI_ENV=production` scharf |
+
+**Offene Posten:** ⚠ CSAT auf Prod funktionsunfaehig (`SYSTEM_SMTP_*` nicht an `helpdesk`
+durchgereicht) · ⚠ `scans.yml` rot (npm-audit → react-router, Frontend) · ⚠ MinIO-Backup schlaegt
+beim Deploy fehl · ⚠ drei Stores mit ungegatetem Mock-Seed (`helpdesk`, `vertraege`,
+`timetracking` — die ersten beiden hinter Feature-Flags, `timetracking` nicht) · Legal (AVV/DPA)
+an die UG-Gruendung gekoppelt.
 
 Details: [[datenbank]] (Migrationen + RLS-Muster) · [[security]] (RBAC Phase 1, `sysctx`-Merksatz) ·
-[[api]] (neue Routen) · [[testing]] (RLS-Guard, Test-Fallstricke) · [[architektur]] (Automation-Trigger).
+[[api]] (neue Routen) · [[testing]] (RLS-Guard, Coverage, Test-Fallstricke) · [[architektur]]
+(Automation-Trigger) · [[deployment]] (Detached-HEAD-Rollback). Live-Reifegrad pro Modul:
+`.planning/status-overview.md`.
 
 ## Projektstand (2026-06-18, historisch)
 
@@ -54,13 +77,14 @@ Details: [[datenbank]] (Migrationen + RLS-Muster) · [[security]] (RBAC Phase 1,
 | S1 | 2026-04-28–05-10 | 7 Module + R2-P0 Batch A (TURN, LiveKit, Recording, Egress, Lexware) |
 | S2 | 2026-05-11–05-24 | 7 weitere Module + R2-P0 Batch B + Option-B Phase 1 (Top-20 Tabellen + RLS) |
 | S3 | 2026-05-25–06-07 | Option-B Phase 2 (Rest ~30 Tabellen) + Ansible + CI-Security-Scans |
-| S4 | 2026-06-08–06-21 | `finance_invoices.line_items`-Normalisierung + R1-P1 + R2-P1 |
-| S5 | bis 2026-08-31 | End-to-End, Peer-Review, Rigorosum Runde 3, Launch-Freigabe (Gate S5) |
+| S4 | 2026-06-08–06-21 | ✅ `finance_invoices.line_items`-Normalisierung + R1-P1 + R2-P1 |
+| S5 | bis 2026-08-31 | **laeuft** — End-to-End, Peer-Review, Rigorosum Runde 3, Launch-Freigabe (Gate S5). Parallel: Backend-Nachtlaeufe 1–5 (Migr. 243–297) |
 
-### Aktive Blocker (Stand 2026-06-18)
-1. **Legal (AVV/DPA):** an UG-Gruendung gekoppelt (geplant 2026-06-01; Repo nennt weiterhin „Zentria UG i.G.")
-2. ~~**9 R2-P0-Blocker**~~: ✅ alle 16 P0 dicht (2026-06-05). Launch-kritisch offen nur R2-P1.10 (Partitionierung — kein `pg_cron` im pgvector-Image)
-3. ~~**~50 Tabellen Option-B-Retrofit**~~: ✅ abgeschlossen (Sprint 2+3), RLS produktiv seit 2026-06-05
+### Aktive Blocker (Stand 2026-08-06)
+1. **Legal (AVV/DPA):** an UG-Gruendung gekoppelt (Repo nennt weiterhin „Zentria UG i.G.") — einziger echter Launch-Blocker
+2. **CSAT auf Prod funktionsunfaehig:** `SYSTEM_SMTP_*` im Compose nicht an `helpdesk` durchgereicht → Dispatcher startet nie; zusaetzlich fehlt eine oeffentliche CSAT-Seite
+3. **Coverage kritischer Pfade:** `biz` 48 % / `crm` 51 % gegen das 60-%-Ziel; `server` (8 %) und `gateway` (27 %) sind die groessten Hebel
+4. ~~**16 P0-Blocker**~~ ✅ dicht (2026-06-05) · ~~**~50 Tabellen Option-B-Retrofit**~~ ✅ (Sprint 2+3), RLS produktiv · ~~**Partitionierung**~~ ✅ (Migr. 242, 2026-07-02)
 
 ## Notes
 

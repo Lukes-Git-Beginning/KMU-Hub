@@ -1,8 +1,40 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 # Troubleshooting & Bekannte Probleme
+
+## Mock-Exit: der Store-Import-Zaehler luegt (gemessen 2026-08-06)
+
+**Falsche Messung.** „223 Dateien unter `modules/` importieren einen Store" klingt nach massivem
+Mock-Restbestand — die Zahl ist als Reifegrad-Signal wertlos. Von den 96 Stores sind 47
+`*Prefs`/`*Tenant`/`*Settings`, also legitimer UI-State. Und selbst bei den Daten-Stores sagt der
+Import nichts: entscheidend ist, **was** importiert wird.
+
+Zwei Beispiele, die auf den ersten Blick nach Mock aussahen und keiner sind:
+
+- **`finanzen`** hat 16 value-Importe aus `stores/finance` — ausnahmslos `formatEUR`, `formatMoney`,
+  `calcInvoiceTotal` und `useFinanceUIStore` (Tab, Filter, Zeitraum). Der Store sagt es im Kopf
+  selbst: *„All server data is managed by TanStack Query hooks in `api/hooks/useFinance.ts`."*
+- **`meetings`** seedet nur unter Flag: `meetings: DEMO_MODE ? mockMeetings : []`
+  (`stores/meetings.ts:467`). Ohne `RENDERER_VITE_DEMO_MODE=true` leer, die Handler werden
+  dead-code-eliminiert.
+
+**Die drei echten Faelle** — ungegateter Mock-Seed im Produktionspfad, alle mit `persist`, die
+Fake-Daten landen also im localStorage des Nutzers:
+
+| Store | Seed | Stelle | Gate |
+|---|---|---|---|
+| `helpdesk` | `tickets: MOCK_TICKETS` + threads/kbArticles/stats/cannedResponses/routingRules/businessHours/holidays | `stores/helpdesk.ts:479-487` | `modules.helpdesk` OFF |
+| `vertraege` | `contracts: MOCK_CONTRACTS`, `contractTemplates: MOCK_TEMPLATES` | `stores/vertraege.ts:505-506` | `modules.vertraege` OFF |
+| `timetracking` | `entries: INITIAL_ENTRIES` (+ `INITIAL_CATEGORIES`, `MOCK_LOCATIONS`) | `stores/timetracking.ts:290` | **kein Flag** |
+
+helpdesk und vertraege sind per Feature-Flag unsichtbar. **`timetracking` nicht** — es haengt an
+`team`/`zeiterfassung` und ist damit der einzige der drei, der einen Nutzer wirklich erreichen kann.
+
+**Messrezept fuer das naechste Mal:** pro Store pruefen, ob der Initial-State `MOCK_`/`INITIAL_`-
+Konstanten enthaelt (`grep -nE "^\s*\w+:\s*(MOCK_|INITIAL_)"`), und die Modul-Importe nach
+`import type` vs. value trennen. Alles andere zaehlt Rauschen.
 
 ## LiveKit-Webhook-Delivery: Prod sandte keine Webhooks (✅ BEHOBEN Wave 0, 2026-06-23)
 

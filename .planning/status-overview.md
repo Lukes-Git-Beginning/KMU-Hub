@@ -1,70 +1,94 @@
-# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-06-18)
+# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-06)
 
-> Deskriptiver Ist-Stand-Snapshot. **Keine** Empfehlungen, keine Priorisierung — reine Lagebeschreibung.
-> Bei Konflikt zwischen kuratierter Doku (Stand Mai 2026) und gemessenen Live-Repo-Signalen ist das
-> **Live-Signal maßgeblich**; abweichende Doku-Stände sind als „(Doku-Stand …)" mitnotiert.
-> Nicht belegbare Werte sind explizit „(geschätzt)" markiert.
+> Deskriptiver Ist-Stand. **Keine** Empfehlungen, keine Priorisierung — reine Lagebeschreibung.
+> Jede Zahl hier ist am 2026-08-06 selbst gemessen, nicht aus Doku übernommen. Wo eine Zahl eine
+> Näherung ist, steht es dabei. Die vorherige Fassung (2026-06-18) behauptete Migrationskopf 213
+> und „Sprint 4 läuft aktiv" — beides war zum Lesezeitpunkt sieben Wochen alt. Wer diese Datei
+> künftig liest: **erst das Datum prüfen, dann glauben.**
 
 ## Executive Summary
 
-Cosmi (Software) der **Zentria UG i.G.** ist ein All-in-One-CRM für DACH-KMUs mit EU-Datensouveränität und
-befindet sich in der **Pre-Launch-Phase**: **Sprint 4 läuft aktiv** (2026-06-08 – 2026-06-21), Sprint 5
-(Pre-Launch-Audit) beginnt in 4 Tagen. Die nächsten Fixpunkte sind **UG-Gründung 2026-06-01** und der
-**Launch (ZFA-Pilot-0 + volle P0-Feature-Parität) 2026-09-01**. Die kombinierte
-Launch-Reife liegt bei **Note 3.7** (Rigorosum Runde 1 „wild-wren" 3.3 + Runde 2 „functional-seahorse" 4.1);
-Rigorosum Runde 3 steht in Sprint 5 aus. **Alle 16 P0-Launch-Blocker (7 aus R1 + 9 aus R2) sind geschlossen**,
-zuletzt R2-P0.4 (Recording-Consent-Modal) am 2026-06-05; offen sind noch 2 von 20 P1. Zuletzt live gingen die
-**FE↔Backend-Wiring-Wellen** (helpdesk, schichten, hr/zeiterfassung, wiki, rapporte, inventar), die
-**Finance-Normalisierung nach ADR-0007**, die **Bexio-Härtung** und **erstmals end-to-end funktionsfähiges
-Video**; der Live-Stand des Repos heute: **Migrationskopf 000213**, **24 `backend/cmd/*`-Services** (23 µSvc +
-Gateway), **17 Feature-Flags** (alle 14 Modul-Flags default OFF) und `COSMI_ENV=production` seit 2026-06-05
-scharf geschaltet.
+Cosmi (Software) der **Zentria UG i.G.** ist ein All-in-One-CRM für DACH-KMUs mit
+EU-Datensouveränität. Der Launch steht auf **2026-09-01**, das sind noch **26 Tage**. Sprint 5
+(Pre-Launch-Audit + Rigorosum R3) läuft bis 08-31.
+
+Der Backend-Stand ist seit Juni deutlich weiter: fünf **Backend-Nachtläufe** (externer
+`claude -p`-Ralph-Loop, 07-26 bis 08-06) haben die Migrationen **243–297** geliefert — Feature-Nachzug
+quer durch die Module, die RLS-Welle (`knownRLSGaps` ist seither **leer**), RBAC Phase 1 mit
+tenant-eigenen Rollen und per-User-Overrides, dazu rund 110 neue REST-Pfade. Alle fünf Läufe sind
+gemergt und deployt; **Prod-Kopf = Repo-Kopf 297 clean**, 30 von 35 Containern healthy.
+
+Der Engpass hat sich verschoben. Er liegt nicht mehr im FE↔Backend-Wiring — das ist im Wesentlichen
+durch —, sondern in **Test-Coverage auf den kritischen Pfaden** (`biz` 48 %, `crm` 51 % gegen ein
+Ziel von 60 %) und in einer Handvoll konkreter Restposten, die unten stehen. Der einzige echte
+Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG-Gründung.
 
 ---
 
-## 1 · Modul-Reifegrad-Matrix
+## 1 · Gemessene Kennzahlen
 
-**Legende:** ✅ voll · 🟡 teilweise · ⬜ Stub/offen · Live-Flag = Registry-Default (alle Modul-Flags stehen
-default **OFF**, d. h. per Feature-Gate deaktiviert; crm/dialer sind ungaterte Kern-Domänen).
+| Bereich | Wert | Messung |
+|---|---|---|
+| Services | **24** (23 µSvc + Gateway) | `ls backend/cmd/` |
+| Go-Dateien | 1.495, davon **503 Test-Dateien** | `find backend -name "*.go"` |
+| gRPC-RPCs | **1.134** über 32 `.proto` | `grep -cE "^\s*rpc\s+"` |
+| REST | **821 OpenAPI-Pfade** / 1.171 Operationen | awk über `paths:` in `openapi.yaml` |
+| Route-Dateien | 127 `route_*.go` | |
+| Migrationen | Kopf **297**, 266 `.up.sql` | Lücken durch Reverts/Renumber |
+| **Prod-Migrationskopf** | **297, `dirty=false`** | `psql -U kmuhub -d kmuhub` über SSH |
+| Prod-Container | 35 laufend, **30 healthy** | `docker ps` |
+| Test-Coverage | **30,2 %** gesamt (Gate 15 %) | CI-Lauf 31087657967 |
+| Feature-Flags | **17** (14 `modules.*` + 3 `plugins.*`) | Registry |
+| RLS-Lücken | **0** (`knownRLSGaps` leer) | `testutil/rls_regression_test.go:33` |
+| Frontend | **34 Module** (32 im Router), 81 API-Hooks, 1.231 TS/TSX | |
+| i18n | **12.044 Keys**, de/en voll, fr/it je 34 offen | node-Diff, BOM-safe |
+| Loop-Backlog | 34 done · 7 blocked · 2 todo | `backend-block/loop/BACKLOG.yml` |
 
-| Modul | Sprint | Backend-RPCs | FE-Wiring (Stand heute) | Live-Flag (Default) | Pilot-Prio |
+---
+
+## 2 · Modul-Reifegrad-Matrix
+
+**Legende:** ✅ voll · 🟡 teilweise · ⬜ Stub/offen. „Live-Flag" = Registry-Default; alle 14
+Modul-Flags stehen default **OFF**, crm/dialer sind ungegatete Kern-Domänen.
+
+**FE-Wiring ist diesmal echt gemessen**, nicht geschätzt: pro Modul wurde getrennt, ob ein Store als
+`import type` (harmlos) oder als Wert importiert wird, und ob dessen Initial-State `MOCK_`/`INITIAL_`-
+Konstanten trägt. Der oft zitierte Rohzähler „223 Dateien importieren einen Store" ist als Signal
+wertlos — 47 der 96 Stores sind `*Prefs`/`*Tenant`/`*Settings`, also legitimer UI-State.
+
+| Modul | Sprint | Backend-RPCs | FE-Wiring | Live-Flag | Pilot-Prio |
 |---|---|:---:|:---:|---|---|
-| crm | Kern | ✅ | ✅ | Kern (ungated) | Cross |
-| dialer | Kern | ✅ (Cov 31,8 %) | ✅ | Kern (ungated) | Cross |
-| wiki | S1 | ✅ ~14 | ✅ (Welle 1) | `modules.wiki` OFF | Dienstleister |
-| berichte | S1 | ✅ ~10 | 🟡 | `modules.berichte` OFF | Dienstleister |
-| formulare | S1 | ✅ ~16 | 🟡 | `modules.formulare` OFF | Cross |
-| helpdesk | S1 | ✅ ~22 | ✅ (Welle 1: KB/Routing/Stats) | `modules.helpdesk` OFF | Dienstleister |
-| vertraege | S1 | ✅ ~14 | 🟡 (Reminder via pg_notify live) | `modules.vertraege` OFF | Dienstleister |
-| buchhaltung/finanzen | S1+S4 | ✅ Completion + ADR-0007 normalisiert | 🟡 (Modal-Tiefe Batch A) | `modules.buchhaltung` OFF | Cross |
-| video | S1 | ✅ Completion (e2e funktional) | 🟡 | `modules.video` OFF | Cross |
-| rapporte | S2 | ✅ ~18 | ✅ (Welle 2, QA grün) | `modules.rapporte` OFF | Handwerk |
-| schichten | S2 | ✅ ~16 | ✅ (Welle 1: Wochengitter, SwapRequests) | `modules.schichten` OFF | Handwerk |
-| fuhrpark | S2 | ✅ ~18 | 🟡 (Welle 3 offen) | `modules.fuhrpark` OFF | Handwerk |
-| vermietung | S2 | ✅ ~20 | ✅ (Welle 1) | `modules.vermietung` OFF | Handwerk |
-| inventar | S2 | ✅ ~16 | 🟡 (inline neu gebaut, Push-Gate offen) | `modules.inventar` OFF | Cross |
-| einkauf | S2 | ✅ ~18 | 🟡 (Welle 3 offen) | `modules.einkauf` OFF | Cross |
-| produktion | S2 | ✅ ~16 | 🟡 (Welle 3 offen) | `modules.produktion` OFF | Handwerk |
-| hr/zeiterfassung | — | 🟡 (RPCs gebaut) | ⬜ (zeiterfassung-Stub revertiert, Rebuild deferred) | — | Cross |
-
-> Hinweis zur Modul-Zählung: `docs/MODULES_SCOPE_MATRIX.md` zählt **14 *neue* Module** (wiki … produktion).
-> Diese Matrix zeigt zusätzlich die Kern-Domänen **crm/dialer** und **hr/zeiterfassung**, weil der Snapshot
-> die operativen Module abbildet. RPC-Zahlen mit „~" sind geplante Werte aus der Scope-Matrix (geschätzt).
+| crm | Kern | ✅ 79 | ✅ | Kern (ungated) | Cross |
+| dialer | Kern | ✅ 27 | ✅ | Kern (ungated) | Cross |
+| wiki | S1 | ✅ 20 | ✅ | `modules.wiki` OFF | Dienstleister |
+| berichte | S1 | ✅ 26 | ✅ | `modules.berichte` OFF | Dienstleister |
+| formulare | S1 | ✅ 22 | ✅ | `modules.formulare` OFF | Cross |
+| helpdesk | S1 | ✅ 38 | 🟡 **Mock-Seed** | `modules.helpdesk` OFF | Dienstleister |
+| vertraege | S1 | ✅ 15 | 🟡 **Mock-Seed** | `modules.vertraege` OFF | Dienstleister |
+| buchhaltung/finanzen | S1+S4 | ✅ 121 (`biz`) | ✅ | `modules.buchhaltung` OFF | Cross |
+| video / meetings | S1 | ✅ 53 | ✅ (`DEMO_MODE`-gated) | `modules.video` OFF | Cross |
+| rapporte | S2 | ✅ 34 | ✅ | `modules.rapporte` OFF | Handwerk |
+| schichten | S2 | ✅ 20 | ✅ | `modules.schichten` OFF | Handwerk |
+| fuhrpark | S2 | ✅ 36 | ✅ | `modules.fuhrpark` OFF | Handwerk |
+| vermietung | S2 | ✅ 20 | ✅ | `modules.vermietung` OFF | Handwerk |
+| inventar | S2 | ✅ 31 | ✅ | `modules.inventar` OFF | Cross |
+| einkauf | S2 | ✅ 36 | ✅ | `modules.einkauf` OFF | Cross |
+| produktion | S2 | ✅ 33 | ✅ | `modules.produktion` OFF | Handwerk |
+| hr / zeiterfassung | — | ✅ 56 | 🟡 **Mock-Seed** (`timetracking`) | — | Cross |
 
 ```mermaid
-pie title FE-Wiring-Status der operativen Module n=17
-    "Voll gewired" : 7
-    "Teilweise" : 9
-    "Stub/offen" : 1
+pie title FE-Wiring der 17 operativen Module
+    "Voll gewired" : 14
+    "Mock-Seed im Produktionspfad" : 3
 ```
 
-*Caption: Die Backend-RPCs sind über alle 14 Fachmodule in den Sprints 1+2 gebaut (durchgängig ✅); der
-aktuelle Reife-Engpass liegt im **FE↔Backend-Wiring** (store→API), das in drei Wellen läuft — 7 Module voll
-gewired, 9 teilweise, hr/zeiterfassung als einziger reiner Stub (Rebuild zurückgestellt).*
+*Caption: Gegenüber dem Juni-Snapshot (7 voll / 9 teilweise / 1 Stub) hat sich das Bild gedreht — die
+Wiring-Wellen und die Nachtläufe haben 14 der 17 Module vollständig verdrahtet. Übrig bleiben drei
+Stores mit hartkodiertem Seed, siehe §4.*
 
 ---
 
-## 2 · Roadmap — 6 Sprints bis Launch
+## 3 · Roadmap
 
 ```mermaid
 gantt
@@ -72,34 +96,72 @@ gantt
     dateFormat YYYY-MM-DD
     axisFormat %d.%m
     section Sprints
-    S0 R1-Blocker + Flag-Registry      :done,   s0, 2026-04-21, 2026-04-27
-    S1 7 Module + R2-P0 Batch A         :done,   s1, 2026-04-28, 2026-05-10
-    S2 7 Module + Option-B Phase 1      :done,   s2, 2026-05-11, 2026-05-24
-    S3 Option-B Phase 2 + Ansible       :done,   s3, 2026-05-25, 2026-06-07
-    S4 Finance-Normalisierung + P1      :active, s4, 2026-06-08, 2026-06-21
-    S5 Pre-Launch-Audit + Rigorosum R3  :        s5, 2026-06-22, 2026-08-31
+    S0 R1-Blocker + Flag-Registry     :done,   s0, 2026-04-21, 2026-04-27
+    S1 7 Module + R2-P0 Batch A       :done,   s1, 2026-04-28, 2026-05-10
+    S2 7 Module + Option-B Phase 1    :done,   s2, 2026-05-11, 2026-05-24
+    S3 Option-B Phase 2 + Ansible     :done,   s3, 2026-05-25, 2026-06-07
+    S4 Finance-Normalisierung + P1    :done,   s4, 2026-06-08, 2026-06-21
+    S5 Pre-Launch-Audit + Rigorosum R3 :active, s5, 2026-06-22, 2026-08-31
+    section Backend-Nachtlaeufe
+    Laeufe 1-3 (Migr. 243-268)        :done,   n1, 2026-07-26, 2026-08-01
+    Lauf 4 RLS+RBAC (269-287)         :done,   n4, 2026-08-03, 1d
+    Lauf 5 Rest (288-297)             :done,   n5, 2026-08-05, 2026-08-06
     section Meilensteine
-    UG-Gruendung           :milestone, m1, 2026-06-01, 0d
-    Launch ZFA + volle P0  :milestone, m2, 2026-09-01, 0d
+    UG-Gruendung          :milestone, m1, 2026-06-01, 0d
+    Launch ZFA + volle P0 :milestone, m2, 2026-09-01, 0d
 ```
 
-*Caption: Sprint 0–3 sind abgeschlossen, **Sprint 4 ist aktiv** (heute 2026-06-18, Tag 11/14), Sprint 5
-folgt direkt. Der Launch wurde von 01.07 auf **2026-09-01** verschoben; Pilot-0 (ZFA) und volle
-P0-Feature-Parität (E-Rechnung/GoBD/DATEV/Bexio) fallen damit auf einen Launch-Termin zusammen.*
+*Caption: Sprint 0–4 abgeschlossen, **Sprint 5 läuft** (heute 2026-08-06, noch 26 Tage bis Launch).
+Die fünf Backend-Nachtläufe liefen parallel zu S5 und sind alle gemergt und deployt.*
 
 ---
 
-## 3 · Architektur-Überblick
+## 4 · Offene Posten
+
+Sortiert nach Nähe zum Nutzer, nicht nach Aufwand.
+
+1. **CSAT ist auf Produktion funktionsunfähig.** `SYSTEM_SMTP_*` steht in `.env.production`, wird im
+   Compose aber nur an `auth`/`biz`/`berichte` durchgereicht — **nicht an `helpdesk`**. Der
+   CSAT-Dispatcher startet damit nie. Zweitens zeigt der Umfrage-Link auf `app.zentria.tech/csat`,
+   wo nichts liegt: Caddy proxyt die Domain vollständig auf den Gateway, ein statisches Frontend
+   existiert nicht. Der Default steht seit Lauf 5 bewusst auf **Opt-in**. Zum Scharfschalten fehlen
+   beide Teile: Passthrough **und** öffentliche Seite.
+2. **Drei Stores mit ungegatetem Mock-Seed**, alle mit `persist` — die Fake-Daten landen also im
+   localStorage des Nutzers:
+   - `stores/helpdesk.ts:479-487` — `MOCK_TICKETS`, threads, kbArticles, stats, cannedResponses,
+     routingRules, businessHours, holidays (Flag `modules.helpdesk` OFF)
+   - `stores/vertraege.ts:505-506` — `MOCK_CONTRACTS`, `MOCK_TEMPLATES` (Flag `modules.vertraege` OFF)
+   - `stores/timetracking.ts:290` — `INITIAL_ENTRIES` (+ Kategorien, Locations) — **kein Flag**,
+     hängt an `team`/`zeiterfassung` und ist damit der einzige, den ein Nutzer wirklich erreicht
+3. **Coverage kritischer Pfade unter Ziel.** `biz` (Payments/Finance) 48 %, `crm` (Data) 51 % gegen
+   das 60-%-Ziel. `auth` (71 %) und `security` (67 %) erfüllen es. Größter Hebel sind `server` (8 %,
+   1.687 Funktionen) und `gateway` (27 %, 1.538 Funktionen) — per „thin handlers" liegt dort wenig
+   Logik, aber 8 % ist auch für dünne Wrapper wenig.
+4. **`scans.yml` auf main rot.** Rot macht ihn `npm-audit` ohne `continue-on-error`; der Fund ist
+   **react-router**, also Frontend. Die Go-CVEs laufen unter `trivy` mit `continue-on-error` —
+   Go-Bumps machen den Workflow deshalb **nicht** grün.
+5. **MinIO-Backup schlägt beim Deploy fehl** (als `non-critical` geführt, der DB-Dump läuft). Die
+   Datei-Ablage hat damit faktisch kein Backup.
+6. **i18n:** fr und it fehlen je 34 Keys (Dashboard-Modulkacheln). Alle vier JSON-Dateien tragen ein
+   UTF-8-BOM — Signatur von PowerShell `Set-Content`; jedes Skript, das sie direkt parst, muss es
+   abfangen.
+7. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt. Einziger echter Launch-Blocker.
+8. **Loop-Backlog:** 7 `blocked`, 2 `todo`. „Blocked" heißt hier meist, dass die Prämisse der Unit
+   widerlegt wurde (die Route existierte schon), nicht dass der Loop gescheitert wäre.
+
+---
+
+## 5 · Architektur-Überblick
 
 ```mermaid
 graph LR
-    D["Desktop - Electron + React 19 + TS 5.7"] --> GW
+    D["Desktop - Electron + React 19 + TS"] --> GW
     P["PWA - Phase E, Desktop-Basis"] --> GW
-    GW["API-Gateway - Go / chi/v5"] --> FF["Feature-Flag-Layer - 17 Flags"]
+    GW["API-Gateway - Go / chi/v5 - 821 Pfade"] --> FF["Feature-Flag-Layer - 17 Flags"]
     GW --> CON["Consent-Layer - AssertConsent"]
     FF --> SVC
     CON --> SVC
-    SVC["gRPC-Service-Cluster - 23 Services + Gateway"] --> PG[("PostgreSQL 16 + pgvector")]
+    SVC["gRPC-Cluster - 23 Services - 1.134 RPCs"] --> PG[("PostgreSQL 16 + pgvector - Migr. 297")]
     SVC --> RD[("Redis 7.4 - Cache/PubSub")]
     SVC --> MIN[("MinIO - S3-kompatibel")]
     SVC --> LK["LiveKit + Egress + coturn"]
@@ -107,171 +169,32 @@ graph LR
     SVC -.-> WASM["WASM-Plugins = OFF, Build-Tag no_wasm"]
 ```
 
-*Caption: Thin-Client (Electron/React, PWA) → zentraler Go-API-Gateway (chi/v5) mit vorgelagertem
-Feature-Flag- und Consent-Layer → 23 gRPC-Microservices → PostgreSQL 16 als einzige Source-of-Truth
-(Redis nur Cache, kein Dual-Write). Video/Audio läuft über self-hosted LiveKit + coturn (EU); das
-**WASM-Plugin-System ist deaktiviert** (Flag `plugins.wasm` OFF + Build-Tag `no_wasm`) — gestrichelte Kante.*
+*Caption: Thin-Client → Go-API-Gateway mit vorgelagertem Feature-Flag- und Consent-Layer → 23
+gRPC-Microservices → PostgreSQL 16 als einzige Source-of-Truth (Redis nur Cache, kein Dual-Write).
+Video/Audio über self-hosted LiveKit + coturn (EU). Das WASM-Plugin-System ist deaktiviert
+(`plugins.wasm` OFF + Build-Tag `no_wasm`) — gestrichelte Kante.*
 
 ---
 
-## 4 · Launch-Reife & Blocker-Burndown
+## 6 · Deployment-Lage
 
-**Kombinierte Launch-Reife: Note 3.7** — aus Rigorosum Runde 1 („wild-wren", 3.3) und Runde 2
-(„functional-seahorse", 4.1). Schlechteste Einzelzone: Realtime-Kern 4.5 (R2). Rigorosum Runde 3
-(Ziel-Note ≥ 2,3) ist für Sprint 5 geplant.
+Produktion läuft auf Hetzner CPX42 (8 vCPU, 16 GB, Nürnberg), `app.zentria.tech`, CD über einen
+self-hosted Runner (0 GitHub-Minuten pro Deploy).
 
-| Prio | R1 | R2 | Gesamt | Erledigt | Offen |
-|---|:---:|:---:|:---:|:---:|---|
-| P0 | 7 | 9 | 16 | **16** | 0 |
-| P1 | 8 | 12 | 20 | **18** | 2 (R2-P1.10 Partitionierung, R2-P1.12 Finance*) |
-| P2 | 7 | 15 | 22 | teils | Rest in Follow-up-Docs getrackt (geschätzt) |
-| P3 | 9 | 6 | 15 | teils | Rest deferred (geschätzt) |
-
-> *R2-P1.12 (Finance-Normalisierung) ist laut ADR-0007-Implementierungsnotiz (Migr. 000132/133) **erledigt**,
-> in der ROADMAP-P1-Tabelle aber noch als „Pending" gelistet — **Doku-Widerspruch**, Tabelle nicht
-> nachgezogen. R2-P1.10 (Partitionierung) ist offen, weil das pgvector-Image kein `pg_cron` mitbringt.
-
-```mermaid
-pie title Launch-kritische Blocker P0+P1 R1+R2 - erledigt vs. offen
-    "Erledigt" : 34
-    "Offen" : 2
-```
-
-*Caption: Die 16 P0- und 20 P1-Befunde aus beiden Rigorosum-Runden sind zu 34/36 abgearbeitet; offen sind
-nur zwei P1. P2/P3 sind teils erledigt, teils bewusst in Follow-up-Dokumenten zurückgestellt (exakte
-Erledigt-Quote für P2/P3 nicht durchgängig getrackt — geschätzt).*
+⚠ **Der Lauf-5-Deploy am 06.08. riss Produktion 31 Minuten in 503** — der dritte Vorfall desselben
+Musters. Auslöser war ein veralteter API-Contract im Smoke-Skript (`role_name` statt `roleId`);
+dessen Fehlschlag zog den Auto-Rollback, der per `git checkout <sha>` in einen **detached HEAD**
+läuft und diesmal zusätzlich den Code zurücksetzte, während das Schema auf 297 stehen blieb. Zwei
+Fixes sind seither drin: `f3c53e7d` (Smoke-Contract) und `e445a1fc` (`deploy.sh` rollt nicht mehr
+zurück, sobald Migrationen angewendet wurden). Recovery bei detached HEAD bleibt
+`git checkout main && git merge --ff-only`.
 
 ---
 
-## 5 · Multi-Tenancy / RLS-Retrofit (Option-B-Full)
+## Verwandte Dokumente
 
-Modell: Single-Tenant-Code, aber **alle Tabellen erhalten `tenant_id UUID NOT NULL`** + Row-Level-Security
-(Architektur-Regel 11). Retrofit lief in Sprint 2+3 (Migrations 000104–000115) über ~50 Tabellen; die
-RLS-Foundation ist seit Migration 119 live. Drei Tabellen bleiben **bewusst ohne RLS** (`schema_migrations`,
-`caldav_settings`, `industry_templates`, ADR-006). Production-DB nutzt seit Migr. 121 zwei Rollen:
-`kmuhub` (Superuser, nur DDL) + `kmuhub_app` (NOSUPERUSER NOBYPASSRLS, App-Services).
-
-```mermaid
-pie title Option-B - Tabellen-Tenant-Retrofit Anteile geschaetzt
-    "tenant_id + RLS retrofittet (~50)" : 50
-    "bewusst ohne RLS (3)" : 3
-```
-
-*Caption: Der Tenant-Retrofit über ~50 Tabellen ist abgeschlossen; `COSMI_ENV=production` ist **seit
-2026-06-05 scharf** (RLS produktiv erzwungen). Aktueller **Migrationskopf live: 000213** (182 `.up.sql`-
-Dateien insgesamt; Nummern-Lücken wie 150–159 sind reservierte Wellen-Blöcke). Die „~50" ist eine
-Größenangabe aus der Doku (geschätzt).*
-
----
-
-## 6 · Qualität & CI/CD
-
-**CI-Pipeline-Split** (seit 2026-06-09): per-push schlank, schwere Jobs in Schedule-Workflows ausgelagert.
-Coverage-Gate **15 %** CI-enforced (real ~20 % nach Proto-Code-Filter — geschätzt aus Code-Kommentar).
-Letzter belegter Prod-Stand: **Smoke 24/24 grün** (seit 2026-06-05), `COSMI_ENV=production` scharf, Video
-erstmals e2e funktional.
-
-| Workflow | Trigger | Jobs |
-|---|---|---|
-| `ci.yml` | push/PR auf `backend/**` | lint (golangci-lint v2.8) · test (`-race` + 15 %-Gate) · e2e (7 Svc) · openapi-validate |
-| `ci-desktop.yml` | Desktop-Änderungen | Lint / Typecheck (separater Workflow — eigene grün/rot-Prüfung) |
-| `nightly.yml` | täglich 03:00 UTC + dispatch | smoke (6 Svc) · integration (Finance, testcontainers) |
-| `scans.yml` | mo 04:00 UTC + dep-change + dispatch | gosec · trivy (HIGH/CRIT-Gate) · npm-audit |
-| `cd.yml` | push main | Auto-Deploy Hetzner |
-| `claude-pr.yml`, `security-review.yml` | PR/dispatch | Review-Automation |
-
-```mermaid
-graph TD
-    PUSH["Push / PR auf backend"] --> CI["ci.yml"]
-    CI --> L["lint - golangci-lint v2.8"]
-    CI --> T["test - go test -race, Gate 15 Prozent"]
-    CI --> E["e2e - 7 Services"]
-    CI --> O["openapi-validate"]
-    SCH1["Schedule taeglich 03:00 UTC"] --> NIGHT["nightly.yml"]
-    NIGHT --> SM["smoke - 6 Services, 24/24 gruen"]
-    NIGHT --> INT["integration - Finance/testcontainers"]
-    SCH2["Schedule mo 04:00 + dep-change"] --> SCAN["scans.yml"]
-    SCAN --> GS["gosec"]
-    SCAN --> TR["trivy - HIGH/CRIT-Gate"]
-    SCAN --> NA["npm-audit"]
-    PUSHM["Push main"] --> CD["cd.yml - Auto-Deploy Hetzner"]
-```
-
-*Caption: Per-Push laufen nur die schnellen Gates (lint/test/e2e/openapi); Smoke und Integration nightly,
-die Security-Scans wöchentlich bzw. bei Dependency-Änderungen. Desktop-CI ist ein eigener Workflow und
-muss separat auf grün geprüft werden.*
-
----
-
-## 7 · Integrationen-Landkarte (Extra)
-
-```mermaid
-graph LR
-    COSMI["Cosmi-Backend"] --> BX["Bexio - G1/G2/G3/G5/G10 geschlossen, G12 offen"]
-    COSMI --> LX["Lexware - HMAC-Webhooks"]
-    COSMI --> DV["DATEV - Export"]
-    COSMI --> LK["LiveKit / coturn - Video e2e funktional"]
-    COSMI --> OO["OnlyOffice - WOPI / JWT"]
-    COSMI -.-> WASM["Plugin-WASM = OFF"]
-```
-
-*Caption: Buchhaltungs-Anbindungen (Bexio/Lexware/DATEV) und Kollaboration (LiveKit, OnlyOffice) sind
-verdrahtet; bei Bexio sind fünf Gaps (G1/G2/G3/G5/G10) geschlossen, **G12** (bidirektionaler Invoice-Pull) ist
-eine offene Produkt-Entscheidung. Die WASM-Plugin-Schnittstelle bleibt deaktiviert (gestrichelt).*
-
----
-
-## 8 · Pilot-Timeline (Extra)
-
-```mermaid
-gantt
-    title Pilot-Timeline 2026
-    dateFormat YYYY-MM-DD
-    axisFormat %b
-    section Dienstleister
-    Launch ZFA + volle P0       :milestone, p0, 2026-09-01, 0d
-    Pilot 1-3 Dienstleister     :p13, 2026-09-01, 2026-12-31
-    section Handwerk
-    Handwerk-Piloten            :hw, 2026-12-01, 2027-02-28
-```
-
-*Caption: Der Rollout startet mit dem ZFA-Pilot-0 am 2026-09-01 (gleichzeitig volle P0-Parität / Finance-Wellen),
-gefolgt von Dienstleister-Piloten bis Dezember; Handwerk-Piloten beginnen ab Dezember/Januar.*
-
----
-
-## Datenbasis & Annahmen
-
-**Gelesene Quellen (Reihenfolge der Vorgabe):**
-`README.md` · `docs/ROADMAP.md` (Single Source of Truth, Stand 2026-06-11) ·
-`docs/MODULES_SCOPE_MATRIX.md` (Stand 2026-05-10) · `docs/ARCHITECTURE.md` (ADR-001…006) +
-`docs/adr/0007-finance-line-items-normalization.md` · `.knowledge/_index.md` (Stand 2026-05-10) ·
-`.knowledge/milestones.md` (Stand 2026-06-12) · `CLAUDE.md` · Auto-Memory-Index `MEMORY.md`.
-
-**Live gemessene Repo-Signale (2026-06-18):**
-- Migrationskopf **000213** (`000213_hr_company_settings_work_hours.up.sql`), **182** `.up.sql`-Dateien.
-- **24** Verzeichnisse unter `backend/cmd/*` (23 Microservices + `gateway`).
-- **17** Feature-Flags in `backend/internal/featureflag/registry.go` (14× `modules.*` OFF, `plugins.config` ON,
-  `plugins.wasm` OFF, `plugins.api` OFF).
-- Coverage-Gate **15 %** in `.github/workflows/ci.yml`.
-- Letzte Commits: API-Doku, i18n-Mojibake-Fix, FE↔Backend-Wiring (helpdesk/schichten/hr/wiki).
-
-**Als „(geschätzt)" markierte Werte:**
-- RPC-Zahlen je Modul (`~14`, `~22`, …) — geplante Werte aus der Scope-Matrix, keine Code-Zählung.
-- Reale Test-Coverage „~20 %" — aus einem Code-Kommentar, nicht frisch gemessen.
-- P2/P3-Erledigt-Quoten — nicht durchgängig getrackt.
-- „~50 retrofittete Tabellen" — Größenangabe aus der Doku.
-
-**Benannte Doku-vs-Live-Diskrepanzen:**
-1. **Migrationskopf:** Live **000213** vs. Doku 115 (README) / 116 (Matrix) / 131 (milestones) / 133 (ADR) —
-   die kuratierten Docs sind veraltet, der gemessene Live-Wert ist maßgeblich.
-2. **Service-Zahl:** Live **24** `cmd`-Dirs (23 + Gateway) vs. „25 App-Services" (README, zählt zusätzliche
-   Compose-Dienste) vs. „24 gRPC-Microservices" (CLAUDE.md).
-3. **Feature-Flags:** Live **17** vs. Doku „16" — `plugins.api` ist neu hinzugekommen.
-4. **R2-P1.12 (Finance):** ADR sagt erledigt, ROADMAP-Tabelle sagt „Pending" — Tabelle nicht nachgezogen.
-5. **`.knowledge/_index.md`** (Stand 2026-05-10) ist ggü. `milestones.md` (2026-06-12) ~5 Wochen veraltet;
-   Sprint-4-Ereignisse (alle P0 dicht, `COSMI_ENV=production` scharf, Finance-Normalisierung) fehlen dort.
-6. **ADR-0007** liegt nicht in `docs/ARCHITECTURE.md` (nur ADR-001…006), sondern separat unter `docs/adr/`.
-
-*Snapshot erstellt 2026-06-18 · Modell-Stand: Daten aus Phase-1-Exploration (Explore-Subagenten) +
-direkter Repo-Messung; deskriptiv, ohne Bewertung oder Empfehlung.*
+- `docs/ROADMAP.md` — Single Source of Truth für die Planung
+- `docs/MODULES_SCOPE_MATRIX.md` — geplanter Scope je Modul (Tabellen/RPCs/Flags)
+- `.knowledge/_index.md` — technischer Wissens-Vault (Architektur, DB, Security, Testing)
+- `.planning/MASTER-PLAN.md` — operative Abarbeitung (löst `MASTER-TRACKER.md` ab)
+- `.planning/backend-block/loop/` — Nachtloop: Backlog, Journal, Gate-Kommandos

@@ -1,6 +1,11 @@
 # Cosmi — Kern-Roadmap
 
-> **Status (2026-04-26):** Sprint 1 abgeschlossen + Sprint 2 Welle 0+1 done. Heute 4 commits auf main: 2245ecb (Welle-0 FK-Fixes), 9438ba0 (4 Module backend), e4b98b9 (3 Sprint-1-Carry-Items), ad04191 (20-Blocker-Bugfix-Sweep aus Welle-0+1-Review). Auf Kurs fuer Launch 01.09.
+> **Status (2026-08-06):** **Sprint 0–4 abgeschlossen, Sprint 5 laeuft** (Pre-Launch-Audit + Rigorosum R3, bis 08-31). Noch **26 Tage bis Launch**. Parallel zu S5 liefen fuenf **Backend-Nachtlaeufe** (07-26 bis 08-06, Migrationen **243–297**): Feature-Nachzug quer durch die Module, RLS-Welle (`knownRLSGaps` seither leer), RBAC Phase 1 mit tenant-eigenen Rollen + per-User-Overrides, ~110 neue REST-Pfade. Alle gemergt und deployt — **Prod-Kopf = Repo-Kopf 297 clean**, 30/35 Container healthy. Der Engpass liegt nicht mehr im FE↔Backend-Wiring (14 von 17 operativen Modulen voll verdrahtet), sondern in der **Test-Coverage kritischer Pfade** (`biz` 48 %, `crm` 51 % gegen 60 % Ziel). Einziger echter Launch-Blocker bleibt **Legal (AVV/DPA)**. Gemessener Ist-Stand mit allen Zahlen: [`.planning/status-overview.md`](../.planning/status-overview.md).
+>
+> <details><summary>Frueherer Status (2026-04-26)</summary>
+>
+> Sprint 1 abgeschlossen + Sprint 2 Welle 0+1 done. 4 commits auf main: 2245ecb (Welle-0 FK-Fixes), 9438ba0 (4 Module backend), e4b98b9 (3 Sprint-1-Carry-Items), ad04191 (20-Blocker-Bugfix-Sweep aus Welle-0+1-Review). Auf Kurs fuer Launch 01.09.
+> </details>
 > **Ein-Launch-Modell** (Stand 2026-06-28, Playbook: `docs/BACKEND-LAUNCH-PLAN.md`): Pilot-0 und volle P0-Feature-Parität fallen auf **2026-09-01** zusammen — das frühere Zwei-Deadline-Modell (Pilot-0 01.07 / volle P0 01.09) ist aufgelöst.
 > - **Launch: 2026-09-01** — ZFA-Pilot-tauglicher Kern (Kalender-Booking, Dialer-Consent, Passwort-Reset, korrekte Demo-Daten) **plus** voller P0-Scope: E-Rechnung/GoBD/DATEV/Bexio + Finance-Block-Wellen 4–7.
 > **UG-Gruendung:** 2026-06-01 bleibt, Pilot-Tag separat
@@ -46,9 +51,34 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 ---
 
-## 2. Aktueller Stand (Post-Rigorosum 18.04.)
+## 2. Aktueller Stand
 
-### Was fertig ist
+### Gemessen am 2026-08-06
+
+Alle Zahlen selbst erhoben, nicht aus Doku uebernommen. Vollstaendige Fassung mit Messkommandos:
+[`.planning/status-overview.md`](../.planning/status-overview.md).
+
+| Bereich | Stand |
+|---|---|
+| Backend | 24 Services (23 µSvc + Gateway), **1.134 gRPC-RPCs**, **821 OpenAPI-Pfade** / 1.171 Operationen |
+| Datenbank | Migrationskopf **297**, Prod identisch und clean; RLS produktiv, **`knownRLSGaps` leer** |
+| Tests | 503 Test-Dateien, **Coverage 30,2 %** (CI-Gate 15 %). auth 71 % ✅ · security 67 % ✅ · ⚠ crm 51 % · ⚠ biz 48 % (Ziel 60 % fuer kritische Pfade) |
+| Frontend | **34 Module** (32 im Router), 81 API-Hooks, 1.231 TS/TSX-Dateien; **14 von 17 operativen Modulen voll gewired** |
+| i18n | **12.044 Keys**, de/en vollstaendig, fr/it je 34 offen |
+| Feature-Flags | 17 (14 `modules.*` + 3 `plugins.*`), alle Modul-Flags default OFF |
+| Produktion | Hetzner CPX42, `app.zentria.tech`, 30 von 35 Containern healthy, `COSMI_ENV=production` scharf |
+
+**Was seit dem Juni-Stand dazukam:** fuenf Backend-Nachtlaeufe (Migr. 243–297) mit RLS-Welle,
+RBAC Phase 1, Partitionierung (242) und rund 110 neuen REST-Pfaden; die FE↔Backend-Wiring-Wellen
+sind im Wesentlichen durch.
+
+**Was offen ist** (Details in `.planning/status-overview.md` §4): CSAT auf Prod funktionsunfaehig
+(SMTP nicht an `helpdesk` durchgereicht + keine oeffentliche Seite) · drei Stores mit ungegatetem
+Mock-Seed (`helpdesk`, `vertraege`, `timetracking` — nur letzterer ohne Feature-Flag) · Coverage der
+kritischen Pfade · `scans.yml` rot (react-router, Frontend) · MinIO-Backup ohne Absicherung ·
+**Legal (AVV/DPA)** als einziger echter Launch-Blocker.
+
+### Was fertig ist (Stand Rigorosum 18.04., historisch)
 
 | Bereich | Status |
 |---|---|
