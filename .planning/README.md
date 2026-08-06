@@ -3,31 +3,59 @@
 Scratch-Space für Session-Planung, Tracker und Handoffs. **Nicht** die Single Source of Truth —
 verbindliches Wissen liegt in [`docs/`](../docs/) und [`.knowledge/`](../.knowledge/).
 
-## Aktiv (laufend gepflegt)
+> **Aufgeräumt am 2026-08-06:** Der Root war auf 80 Einträge gewachsen, überwiegend tote
+> RESUME-/batch-/VISION-Dateien aus Mai/Juni. 53 davon liegen jetzt in `archiv/`. Was hier steht,
+> beschreibt offene Arbeit — wenn eine Datei das nicht mehr tut, gehört sie ins Archiv.
+
+## Aktiv
+
+### Steuerung
 
 | Datei | Zweck |
 |---|---|
-| `MASTER-PLAN.md` | **DER Master-Plan (Cosmi 1.0, Frontend).** Single Source zum Abarbeiten — Phasen, Batch-Queue, Review-Pipeline. Stand verifiziert 23.06. |
-| `BACKEND-PLAN.md` | **Backend-Plan (Luke-Track), parallel zu MASTER-PLAN.** Backend-Lücken nach Priorität + FE↔BE-Warte-Mapping (was wartet worauf). |
-| `SESSION-RUNBOOK.md` | **Wiederholbarer Bau-Zyklus.** Trigger „mach an den Phasen weiter" → laden→planen→recherchieren→fragen→bauen→QA→speichern. 2-Terminal-Modell. |
-| `MASTER-TRACKER.md` | ⛔ Abgelöst (Historie) — siehe `MASTER-PLAN.md` |
-| `status-overview.md` · `status-overview.prompt.md` | Live-Status-Snapshot (Modul-Reifegrad, Blocker-Burndown) + Generator-Prompt |
-| `RESUME-NEXT-SESSION.md` | Resume-Pointer für die nächste Session |
-| `fe-wiring-welle-NEXT-SESSION.md` | FE↔Backend-Wiring **Welle 3** (offen: fuhrpark/einkauf/produktion) |
-| `aufraeum-welle-5-NEXT.md` | Aufräum-Welle-5 — nächste Schritte |
-| `backend-gaps.md` | Backend-Gap-Tracker |
-| `work-tiefe-pass.md` | Work-Modul Tiefen-Pass |
-| `bexio-scope-check.md` | Bexio-Integrations-Scope (G12 = bidirektionaler Invoice-Pull noch offen) |
-| `doku-konsolidierung.prompt.md` | Prompt der Doku-/Knowledge-Konsolidierungs-Session (2026-06-18) |
-| `nico-block/` | **Build-+-Verify-Workflow-Standard** (von `CLAUDE.md` + `CONTRIBUTING.md` referenziert) |
+| `MASTER-PLAN.md` | **DER Master-Plan (Cosmi 1.0, Frontend).** Phasen, Batch-Queue, Review-Pipeline. Löst `MASTER-TRACKER.md` ab. |
+| `RESUME-NEXT.md` | **Einstiegspunkt der nächsten Session** (Frontend-Track, Darien) |
+| `SESSION-RUNBOOK.md` | Wiederholbarer Bau-Zyklus: laden → planen → recherchieren → fragen → bauen → QA → speichern |
+| `AUTONOMOUS-RUN.md` | Protokoll für „mach autonom weiter" |
+| `status-overview.md` | **Live-Status-Snapshot** — gemessene Kennzahlen, Modul-Reifegrad, offene Posten. Stand 2026-08-06 |
+| `status-overview.prompt.md` | Generator-Prompt, mit dem der Snapshot neu erzeugt wird |
+
+### Offene Arbeitspakete
+
+| Datei | Zweck |
+|---|---|
+| `backend-gaps.md` | Backend-Gap-Tracker (was das Frontend zum Andocken braucht) |
+| `wertelisten-und-fokus-naechste-runde.md` | Wertelisten + Fokus-Verhalten, nächste Runde |
+| `editor-spalten-naechste-runde.md` | Editor-Spalten, nächste Runde |
+| `intake-pilot-feedback.md` · `intake-pilot-review-checklist.md` | Helpdesk-Intake-Pilot: Feedback + Review-Checkliste |
+| `security-echtschaltung-luke.md` | security/DSGVO-Echtschaltung — FE-Teil ✅, **Backend-Teil offen (Luke)** |
+| `bexio-review-paket.md` | Bexio-Invoice-Pull, Review-Paket für Darien |
+| `hetzner-review-checklist.md` | Team-Review-Agenda auf der laufenden Cosmi-exe (Darien + Luke + Nico) |
+
+### Blöcke (Verzeichnisse)
+
+| Verzeichnis | Zustand |
+|---|---|
+| `backend-block/` | **aktiv** — Nachtloop (`loop/`: Backlog, Journal, Gate-Kommandos), Übergaben, Wellen-Briefing |
+| `customization-block/` | **aktiv** (08-06) |
+| `helpdesk-intake-block/` | **aktiv** (08-06) |
+| `rbac-block/` | **aktiv** (07-26) — RBAC-Phasen-Briefings |
+| `nico-block/` | **Build-+-Verify-Workflow-Standard**, von `CLAUDE.md` referenziert |
+| `branchen-block/` · `coworking-block/` | Konzepte, ruhend (07-21) |
+| `legal/` · `meeting-parity/` · `parallel-batch/` · `reviews/` | ruhend (Juni), noch nicht archiviert |
 
 ## Archiv
 
-`archiv/` enthält abgeschlossene Sprint-/Wellen-Pläne, Handoffs, alte RESUME-Snapshots und
-Delegations-Blöcke (Jun 2026). Inhalte bleiben über Git-History und im Knowledge-Vault/Memory
-nachvollziehbar — hier nur aus dem aktiven Arbeitsset herausgenommen.
+`archiv/` (80 Einträge) enthält abgeschlossene Sprint-/Wellen-Pläne, Handoffs, alte
+RESUME-Snapshots, VISION-Dokumente und Delegations-Blöcke. Nichts davon ist gelöscht — die Dateien
+sind per `git mv` verschoben und über die Git-History nachvollziehbar.
+
+Darunter auch `MASTER-TRACKER.md` (Stand 19.06., von `MASTER-PLAN.md` abgelöst) und
+`BACKEND-PLAN.md` (vom Nachtloop in `backend-block/` abgelöst).
 
 ## Hygiene
 
-Build-Artefakte (`pdf-build/`, `*.pdf`) und QA-Output (`desktop/scripts/screenshots/`) sind
-`.gitignore`d und regenerierbar (`node desktop/scripts/build-status-pdf.mjs`).
+- Build-Artefakte (`pdf-build/`, `*.pdf`) und QA-Output (`desktop/scripts/screenshots/`) sind
+  `.gitignore`d und regenerierbar (`node desktop/scripts/build-status-pdf.mjs`).
+- Eine Datei mit `RESUME-`, `-DONE` oder abgeschlossenem `VISION`-Inhalt gehört nach dem Abschluss
+  direkt nach `archiv/` — nicht liegen lassen.
