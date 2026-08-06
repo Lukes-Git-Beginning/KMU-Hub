@@ -919,6 +919,29 @@ func (s *HRGRPCServer) ListEmployeeDocuments(ctx context.Context, req *hrv1.List
 	}, nil
 }
 
+// ListPersonnelDocuments returns every personnel document of the caller's
+// tenant that RLS policy hr_document_access lets them see. The tenant comes
+// from the context, never from the request — a request-supplied tenant_id
+// would be a cross-tenant read waiting to happen.
+func (s *HRGRPCServer) ListPersonnelDocuments(ctx context.Context, _ *hrv1.ListPersonnelDocumentsReq) (*hrv1.ListPersonnelDocumentsResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	docs, err := s.employeeService.ListPersonnelDocuments(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoDocs := make([]*hrv1.EmployeeDocument, 0, len(docs))
+	for _, d := range docs {
+		protoDocs = append(protoDocs, toProtoEmployeeDocument(d))
+	}
+
+	return &hrv1.ListPersonnelDocumentsResp{Documents: protoDocs}, nil
+}
+
 func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.UploadEmployeeDocumentReq) (*hrv1.UploadEmployeeDocumentResp, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -930,14 +953,36 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
 	}
 
-	categoryID, err := uuid.Parse(req.GetCategoryId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid category_id")
+	// Either the category id or its slug identifies the category; the
+	// Personalakte UI only knows slugs.
+	var categoryID uuid.UUID
+	if raw := req.GetCategoryId(); raw != "" {
+		categoryID, err = uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid category_id")
+		}
+	} else if req.GetCategoryKey() == "" {
+		return nil, status.Error(codes.InvalidArgument, "category_id or category_key is required")
 	}
 
-	fileID, err := uuid.Parse(req.GetFileId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	// file_id is optional: the Personalakte writes the document metadata before
+	// a file exists, so an empty value means "no file linked yet".
+	var fileID *uuid.UUID
+	if raw := req.GetFileId(); raw != "" {
+		parsed, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+		}
+		fileID = &parsed
+	}
+
+	var expiresAt *time.Time
+	if raw := req.GetExpiresAt(); raw != "" {
+		parsed, parseErr := time.Parse("2006-01-02", raw)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid expires_at, expected YYYY-MM-DD")
+		}
+		expiresAt = &parsed
 	}
 
 	uploadedBy, err := uuid.Parse(req.GetUploadedBy())
@@ -946,11 +991,16 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 	}
 
 	input := employee.UploadDocumentInput{
-		EmployeeID: employeeID,
-		CategoryID: categoryID,
-		FileID:     fileID,
-		UploadedBy: uploadedBy,
-		Notes:      req.GetNotes(),
+		EmployeeID:  employeeID,
+		CategoryID:  categoryID,
+		CategoryKey: req.GetCategoryKey(),
+		FileID:      fileID,
+		UploadedBy:  uploadedBy,
+		Notes:       req.GetNotes(),
+		Title:       req.GetTitle(),
+		FileName:    req.GetFileName(),
+		FileSize:    req.GetFileSize(),
+		ExpiresAt:   expiresAt,
 	}
 
 	doc, err := s.employeeService.UploadEmployeeDocument(ctx, tenantID, input)
@@ -1746,19 +1796,33 @@ func toProtoEmployeeDocument(d *models.EmployeeDocument) *hrv1.EmployeeDocument 
 	if d == nil {
 		return nil
 	}
+	fileID := ""
+	if d.FileID != nil {
+		fileID = d.FileID.String()
+	}
+	expiresAt := ""
+	if d.ExpiresAt != nil {
+		expiresAt = d.ExpiresAt.Format("2006-01-02")
+	}
 	return &hrv1.EmployeeDocument{
-		Id:             d.ID.String(),
-		TenantId:       d.TenantID.String(),
-		EmployeeId:     d.EmployeeID.String(),
-		CategoryId:     d.CategoryID.String(),
-		FileId:         d.FileID.String(),
-		UploadedBy:     d.UploadedBy.String(),
-		Notes:          d.Notes,
-		CreatedAt:      timestamppb.New(d.CreatedAt),
-		CategoryName:   d.CategoryName,
-		FileName:       d.FileName,
-		FileSize:       d.FileSize,
-		UploadedByName: d.UploadedByName,
+		Id:                d.ID.String(),
+		TenantId:          d.TenantID.String(),
+		EmployeeId:        d.EmployeeID.String(),
+		CategoryId:        d.CategoryID.String(),
+		FileId:            fileID,
+		UploadedBy:        d.UploadedBy.String(),
+		Notes:             d.Notes,
+		CreatedAt:         timestamppb.New(d.CreatedAt),
+		CategoryName:      d.CategoryName,
+		FileName:          d.FileName,
+		FileSize:          d.FileSize,
+		UploadedByName:    d.UploadedByName,
+		Title:             d.Title,
+		ExpiresAt:         expiresAt,
+		CategoryKey:       d.CategoryKey,
+		Visibility:        d.Visibility,
+		EmployeeName:      d.EmployeeName,
+		EmployeeProfileId: d.EmployeeProfileID,
 	}
 }
 
@@ -2074,6 +2138,13 @@ func mapHRError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrDocumentCategoryNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// A guessed id, a foreign tenant's document and a tier the caller may not
+	// see all end up here — RLS filters them out identically, so they must map
+	// to the same 404 and not become a probe for what exists.
+	case errors.Is(err, employee.ErrDocumentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, employee.ErrEmployeeRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, employee.ErrSelfOffboard):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrLastRoleAdmin),

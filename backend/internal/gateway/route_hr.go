@@ -174,6 +174,20 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(hrDocumentCategoriesGuard).Get("/{id}/documents/categories", h.HandleListEmployeeDocumentCategories)
 	})
 
+	// Personalakte — the tenant-wide document view the Personalakte tab reads.
+	// Guards are the team:documents keys from migration 000256 (no new key, so
+	// no seed migration); which rows a holder actually sees is decided by RLS
+	// policy hr_document_access, not by the guard.
+	r.Route("/api/v1/hr/personnel-documents", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"hr", "read"}, [2]string{"team:documents", "view"},
+		)).Get("/", h.HandleListPersonnelDocuments)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"hr", "write"}, [2]string{"team:documents", "edit"},
+		)).Post("/", h.HandleCreatePersonnelDocument)
+	})
+
 	// Profile change requests. The list is readable by anyone who may propose
 	// OR decide; what each of them actually sees is narrowed in the handler,
 	// not by the guard (a proposer sees only their own rows).
@@ -1230,6 +1244,87 @@ func (h *HRRoutes) HandleListEmployeeDocumentCategories(w http.ResponseWriter, r
 	}
 
 	response.ProtoListWrapped(w, http.StatusOK, "categories", resp.Categories, nil)
+}
+
+// HandleListPersonnelDocuments serves the Personalakte tab: every document of
+// the tenant the caller may see, across employees. The visibility tiers
+// (hr_only / manager / employee) are applied by RLS policy hr_document_access
+// against the caller's roles, so this handler adds no filter of its own — and
+// must not, or the two would drift apart.
+func (h *HRRoutes) HandleListPersonnelDocuments(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	resp, err := client.ListPersonnelDocuments(r.Context(), &hrv1.ListPersonnelDocumentsReq{
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "documents", resp.Documents, nil)
+}
+
+type createPersonnelDocumentHTTPReq struct {
+	EmployeeID  string `json:"employee_id"  validate:"required,uuid"`
+	Title       string `json:"title"        validate:"required,max=255"`
+	CategoryKey string `json:"category"     validate:"required,max=50"`
+	FileName    string `json:"file_name"    validate:"required,max=255"`
+	FileSize    string `json:"file_size"    validate:"omitempty,max=50"`
+	FileID      string `json:"file_id"      validate:"omitempty,uuid"`
+	ExpiresAt   string `json:"expires_at"   validate:"omitempty,datetime=2006-01-02"`
+	Notes       string `json:"notes"        validate:"omitempty,max=2000"`
+}
+
+// HandleCreatePersonnelDocument records a document in an employee's Akte.
+// employee_id is required rather than defaulting to anyone: a document filed
+// into the wrong personnel record is worse than a rejected request.
+func (h *HRRoutes) HandleCreatePersonnelDocument(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	req, ok := decodeAndValidate[createPersonnelDocumentHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UploadEmployeeDocument(r.Context(), &hrv1.UploadEmployeeDocumentReq{
+		TenantId:    tenantID,
+		EmployeeId:  req.EmployeeID,
+		CategoryKey: req.CategoryKey,
+		FileId:      req.FileID,
+		UploadedBy:  middleware.GetUserID(r.Context()),
+		Title:       req.Title,
+		FileName:    req.FileName,
+		FileSize:    req.FileSize,
+		ExpiresAt:   req.ExpiresAt,
+		Notes:       req.Notes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp.Document)
 }
 
 type uploadDocumentHTTPReq struct {

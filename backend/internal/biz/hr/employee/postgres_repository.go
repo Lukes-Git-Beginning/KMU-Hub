@@ -406,6 +406,32 @@ func (r *PostgresDocCategoryRepo) GetByID(ctx context.Context, tenantID, id uuid
 	return &cat, nil
 }
 
+// GetByKey resolves a category by its slug. The Personalakte UI knows slugs
+// (vertrag, zeugnis, …), not ids; the tenant's own row wins over the system
+// seed carrying the same key.
+func (r *PostgresDocCategoryRepo) GetByKey(ctx context.Context, tenantID uuid.UUID, key string) (*models.HRDocumentCategory, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, name, key, visibility, is_system, sort_order, created_at
+		FROM hr_document_categories
+		WHERE key = $1 AND tenant_id IN ($2, $3)
+		ORDER BY (tenant_id = $2) DESC
+		LIMIT 1`,
+		key, tenantID, systemSeedTenantID,
+	)
+	var cat models.HRDocumentCategory
+	err := row.Scan(
+		&cat.ID, &cat.TenantID, &cat.Name, &cat.Key,
+		&cat.Visibility, &cat.IsSystem, &cat.SortOrder, &cat.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrDocumentCategoryNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &cat, nil
+}
+
 // ============================================================================
 // Employee Document Repository
 // ============================================================================
@@ -422,11 +448,105 @@ func NewPostgresEmployeeDocRepo(pool *pgxpool.Pool) *PostgresEmployeeDocRepo {
 
 func (r *PostgresEmployeeDocRepo) Create(ctx context.Context, doc *models.EmployeeDocument) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO hr_employee_documents (id, tenant_id, employee_id, category_id, file_id, uploaded_by, notes, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO hr_employee_documents
+			(id, tenant_id, employee_id, category_id, file_id, uploaded_by, notes, created_at,
+			 title, file_name, file_size, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		doc.ID, doc.TenantID, doc.EmployeeID, doc.CategoryID, doc.FileID, doc.UploadedBy, doc.Notes, doc.CreatedAt,
+		doc.Title, doc.FileName, doc.FileSize, doc.ExpiresAt,
 	)
 	return err
+}
+
+// personnelDocColumns is the projection shared by the per-employee and the
+// tenant-wide read. file_name/file_size prefer the row's own metadata and fall
+// back to the linked document_files row for documents created through the
+// older file-link path.
+const personnelDocColumns = `
+		d.id, d.tenant_id, d.employee_id, d.category_id, d.file_id, d.uploaded_by, d.notes, d.created_at,
+		d.title, d.expires_at,
+		COALESCE(dc.name, '') AS category_name,
+		COALESCE(dc.key, '') AS category_key,
+		COALESCE(dc.visibility, '') AS visibility,
+		COALESCE(NULLIF(d.file_name, ''), f.filename, '') AS file_name,
+		COALESCE(NULLIF(d.file_size, ''), f.file_size::text, '') AS file_size,
+		COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS uploaded_by_name,
+		COALESCE(NULLIF(CONCAT_WS(' ', e.first_name, e.last_name), ''), e.email, '') AS employee_name,
+		COALESCE(p.id::text, '') AS employee_profile_id`
+
+const personnelDocJoins = `
+		FROM hr_employee_documents d
+		LEFT JOIN hr_document_categories dc ON d.category_id = dc.id
+		LEFT JOIN document_files f ON d.file_id = f.id
+		LEFT JOIN users u ON d.uploaded_by = u.id
+		LEFT JOIN users e ON d.employee_id = e.id
+		LEFT JOIN hr_employee_profiles p ON p.user_id = d.employee_id AND p.tenant_id = d.tenant_id`
+
+func scanPersonnelDoc(rows pgx.Rows) (*models.EmployeeDocument, error) {
+	doc := &models.EmployeeDocument{}
+	if err := rows.Scan(
+		&doc.ID, &doc.TenantID, &doc.EmployeeID, &doc.CategoryID,
+		&doc.FileID, &doc.UploadedBy, &doc.Notes, &doc.CreatedAt,
+		&doc.Title, &doc.ExpiresAt,
+		&doc.CategoryName, &doc.CategoryKey, &doc.Visibility,
+		&doc.FileName, &doc.FileSize, &doc.UploadedByName,
+		&doc.EmployeeName, &doc.EmployeeProfileID,
+	); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// ListByTenant returns every personnel document of the tenant. There is
+// deliberately no visibility filter in the WHERE clause: RLS policy
+// hr_document_access (migration 000127) already restricts the rows to the
+// tiers the caller's roles permit, and it does so for a caller who guesses an
+// id just as well as for this list. Adding a second, hand-rolled filter here
+// would only be a copy that can drift from the policy.
+func (r *PostgresEmployeeDocRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+personnelDocColumns+personnelDocJoins+`
+		WHERE d.tenant_id = $1
+		ORDER BY d.created_at DESC`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]*models.EmployeeDocument, 0)
+	for rows.Next() {
+		doc, scanErr := scanPersonnelDoc(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		results = append(results, doc)
+	}
+	return results, rows.Err()
+}
+
+// GetByID reads a single document. Tenant scoping is explicit and RLS applies
+// on top, so a guessed id from another tenant — or a tier the caller may not
+// see — resolves to ErrDocumentNotFound rather than leaking the row.
+func (r *PostgresEmployeeDocRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.EmployeeDocument, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+personnelDocColumns+personnelDocJoins+`
+		WHERE d.id = $1 AND d.tenant_id = $2`,
+		id, tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+		return nil, ErrDocumentNotFound
+	}
+	return scanPersonnelDoc(rows)
 }
 
 func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
@@ -444,15 +564,7 @@ func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID
 		visibilityFilter = "AND dc.visibility = 'employee'"
 	}
 
-	query := fmt.Sprintf(`
-		SELECT d.id, d.tenant_id, d.employee_id, d.category_id, d.file_id, d.uploaded_by, d.notes, d.created_at,
-			COALESCE(dc.name, '') AS category_name,
-			'' AS file_name,
-			'' AS file_size,
-			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS uploaded_by_name
-		FROM hr_employee_documents d
-		LEFT JOIN hr_document_categories dc ON d.category_id = dc.id
-		LEFT JOIN users u ON d.uploaded_by = u.id
+	query := fmt.Sprintf(`SELECT `+personnelDocColumns+personnelDocJoins+`
 		WHERE d.employee_id = $1 %s
 		ORDER BY d.created_at DESC
 	`, visibilityFilter)
@@ -463,14 +575,10 @@ func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID
 	}
 	defer rows.Close()
 
-	var results []*models.EmployeeDocument
+	results := make([]*models.EmployeeDocument, 0)
 	for rows.Next() {
-		doc := &models.EmployeeDocument{}
-		if scanErr := rows.Scan(
-			&doc.ID, &doc.TenantID, &doc.EmployeeID, &doc.CategoryID,
-			&doc.FileID, &doc.UploadedBy, &doc.Notes, &doc.CreatedAt,
-			&doc.CategoryName, &doc.FileName, &doc.FileSize, &doc.UploadedByName,
-		); scanErr != nil {
+		doc, scanErr := scanPersonnelDoc(rows)
+		if scanErr != nil {
 			return nil, scanErr
 		}
 		results = append(results, doc)

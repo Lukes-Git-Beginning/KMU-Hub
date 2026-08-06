@@ -64,6 +64,7 @@ const (
 	HRService_OffboardEmployee_FullMethodName            = "/hr.v1.HRService/OffboardEmployee"
 	HRService_UpdateSelfProfile_FullMethodName           = "/hr.v1.HRService/UpdateSelfProfile"
 	HRService_ListEmployeeDocuments_FullMethodName       = "/hr.v1.HRService/ListEmployeeDocuments"
+	HRService_ListPersonnelDocuments_FullMethodName      = "/hr.v1.HRService/ListPersonnelDocuments"
 	HRService_UploadEmployeeDocument_FullMethodName      = "/hr.v1.HRService/UploadEmployeeDocument"
 	HRService_ListDocumentCategories_FullMethodName      = "/hr.v1.HRService/ListDocumentCategories"
 	HRService_CreateEmployee_FullMethodName              = "/hr.v1.HRService/CreateEmployee"
@@ -134,6 +135,7 @@ type HRServiceClient interface {
 	OffboardEmployee(ctx context.Context, in *OffboardEmployeeReq, opts ...grpc.CallOption) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(ctx context.Context, in *ListEmployeeDocumentsReq, opts ...grpc.CallOption) (*ListEmployeeDocumentsResp, error)
+	ListPersonnelDocuments(ctx context.Context, in *ListPersonnelDocumentsReq, opts ...grpc.CallOption) (*ListPersonnelDocumentsResp, error)
 	UploadEmployeeDocument(ctx context.Context, in *UploadEmployeeDocumentReq, opts ...grpc.CallOption) (*UploadEmployeeDocumentResp, error)
 	ListDocumentCategories(ctx context.Context, in *ListDocumentCategoriesReq, opts ...grpc.CallOption) (*ListDocumentCategoriesResp, error)
 	CreateEmployee(ctx context.Context, in *CreateEmployeeReq, opts ...grpc.CallOption) (*CreateEmployeeResp, error)
@@ -606,6 +608,16 @@ func (c *hRServiceClient) ListEmployeeDocuments(ctx context.Context, in *ListEmp
 	return out, nil
 }
 
+func (c *hRServiceClient) ListPersonnelDocuments(ctx context.Context, in *ListPersonnelDocumentsReq, opts ...grpc.CallOption) (*ListPersonnelDocumentsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPersonnelDocumentsResp)
+	err := c.cc.Invoke(ctx, HRService_ListPersonnelDocuments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) UploadEmployeeDocument(ctx context.Context, in *UploadEmployeeDocumentReq, opts ...grpc.CallOption) (*UploadEmployeeDocumentResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UploadEmployeeDocumentResp)
@@ -764,6 +776,7 @@ type HRServiceServer interface {
 	OffboardEmployee(context.Context, *OffboardEmployeeReq) (*OffboardEmployeeResp, error)
 	UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(context.Context, *ListEmployeeDocumentsReq) (*ListEmployeeDocumentsResp, error)
+	ListPersonnelDocuments(context.Context, *ListPersonnelDocumentsReq) (*ListPersonnelDocumentsResp, error)
 	UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error)
 	ListDocumentCategories(context.Context, *ListDocumentCategoriesReq) (*ListDocumentCategoriesResp, error)
 	CreateEmployee(context.Context, *CreateEmployeeReq) (*CreateEmployeeResp, error)
@@ -920,6 +933,9 @@ func (UnimplementedHRServiceServer) UpdateSelfProfile(context.Context, *UpdateSe
 }
 func (UnimplementedHRServiceServer) ListEmployeeDocuments(context.Context, *ListEmployeeDocumentsReq) (*ListEmployeeDocumentsResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEmployeeDocuments not implemented")
+}
+func (UnimplementedHRServiceServer) ListPersonnelDocuments(context.Context, *ListPersonnelDocumentsReq) (*ListPersonnelDocumentsResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPersonnelDocuments not implemented")
 }
 func (UnimplementedHRServiceServer) UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UploadEmployeeDocument not implemented")
@@ -1782,6 +1798,24 @@ func _HRService_ListEmployeeDocuments_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_ListPersonnelDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPersonnelDocumentsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ListPersonnelDocuments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ListPersonnelDocuments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ListPersonnelDocuments(ctx, req.(*ListPersonnelDocumentsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_UploadEmployeeDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UploadEmployeeDocumentReq)
 	if err := dec(in); err != nil {
@@ -2148,6 +2182,10 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEmployeeDocuments",
 			Handler:    _HRService_ListEmployeeDocuments_Handler,
+		},
+		{
+			MethodName: "ListPersonnelDocuments",
+			Handler:    _HRService_ListPersonnelDocuments_Handler,
 		},
 		{
 			MethodName: "UploadEmployeeDocument",

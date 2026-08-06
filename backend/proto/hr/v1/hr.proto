@@ -64,6 +64,7 @@ service HRService {
   rpc OffboardEmployee(OffboardEmployeeReq) returns (OffboardEmployeeResp);
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
+  rpc ListPersonnelDocuments(ListPersonnelDocumentsReq) returns (ListPersonnelDocumentsResp);
   rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
   rpc ListDocumentCategories(ListDocumentCategoriesReq) returns (ListDocumentCategoriesResp);
   rpc CreateEmployee(CreateEmployeeReq) returns (CreateEmployeeResp);
@@ -270,6 +271,13 @@ message EmployeeDocument {
   string file_name = 10;
   string file_size = 11;
   string uploaded_by_name = 12;
+  // Personalakte fields (migration 000294)
+  string title = 13;
+  string expires_at = 14;               // YYYY-MM-DD, empty when the document never expires
+  string category_key = 15;             // hr_document_categories.key
+  string visibility = 16;               // hr_only | manager | employee, from the category
+  string employee_name = 17;
+  string employee_profile_id = 18;      // hr_employee_profiles.id, the id the UI selects by
 }
 
 message HRSettings {
@@ -682,6 +690,25 @@ message UploadEmployeeDocumentReq {
   string file_id = 4;                  // Reference to document_files.id from Phase 11
   string uploaded_by = 5;
   string notes = 6;
+  // Personalakte fields (migration 000294). category_key is an alternative to
+  // category_id — the Personalakte UI knows slugs, not ids; exactly one of the
+  // two must be set.
+  string category_key = 7;
+  string title = 8;
+  string file_name = 9;
+  string file_size = 10;
+  string expires_at = 11;              // YYYY-MM-DD, optional
+}
+
+// Personnel documents = every document of the tenant the caller may see,
+// across employees. RLS policy hr_document_access does the visibility
+// filtering; this RPC adds no scope of its own.
+message ListPersonnelDocumentsReq {
+  string tenant_id = 1;
+}
+
+message ListPersonnelDocumentsResp {
+  repeated EmployeeDocument documents = 1;
 }
 
 message UploadEmployeeDocumentResp {

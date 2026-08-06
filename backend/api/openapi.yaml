@@ -11537,6 +11537,76 @@ paths:
                 $ref: "#/components/schemas/EmployeeDocument"
 
   # ===========================================================================
+  # HR: Personalakte (tenant-wide personnel documents)
+  # ===========================================================================
+  /api/v1/hr/personnel-documents:
+    get:
+      summary: List personnel documents across employees
+      description: >
+        Returns every personnel document of the tenant the caller may see. The
+        visibility tiers (hr_only/manager/employee) are enforced by RLS policy
+        hr_document_access (migration 000127) against the caller's roles, not by
+        a filter in the handler — a caller who may only see employee-tier
+        documents receives exactly those, for every employee, in one list.
+        Requires hr:read or team:documents:view.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeDocument"
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:read / team:documents:view }
+        "503": { description: HR service unavailable }
+    post:
+      summary: Record a document in an employee's Akte
+      description: >
+        employee_id is required: a document filed into the wrong personnel
+        record is worse than a rejected request, so there is no caller default.
+        category is the category slug (hr_document_categories.key), which
+        decides the visibility tier the document inherits. file_id is optional —
+        metadata may be recorded before a file is linked. Requires hr:write or
+        team:documents:edit.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employee_id, title, category, file_name]
+              properties:
+                employee_id: { type: string, format: uuid, description: "users.id of the employee" }
+                title: { type: string, maxLength: 255 }
+                category: { type: string, maxLength: 50, description: "hr_document_categories.key" }
+                file_name: { type: string, maxLength: 255 }
+                file_size: { type: string, maxLength: 50 }
+                file_id: { type: string, format: uuid }
+                expires_at: { type: string, format: date }
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        "201":
+          description: Document recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDocument"
+        "400": { description: Invalid body, unknown expires_at format, or missing employee_id }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:write / team:documents:edit }
+        "404": { description: Unknown category slug for this tenant }
+        "503": { description: HR service unavailable }
+
+  # ===========================================================================
   # HR: Document categories (tenant master data)
   # ===========================================================================
   /api/v1/hr/employees/{id}/documents/categories:
@@ -38399,9 +38469,15 @@ components:
         uploaded_by: { type: string, format: uuid }
         notes: { type: string }
         category_name: { type: string }
+        category_key: { type: string, description: "hr_document_categories.key slug" }
+        visibility: { type: string, enum: [hr_only, manager, employee] }
         file_name: { type: string }
-        file_size: { type: integer }
+        file_size: { type: string, description: "Human-readable size, e.g. \"120 KB\"" }
         uploaded_by_name: { type: string }
+        title: { type: string }
+        expires_at: { type: string, format: date, description: "Empty when the document never expires" }
+        employee_name: { type: string }
+        employee_profile_id: { type: string, format: uuid, description: "hr_employee_profiles.id" }
         created_at: { type: string, format: date-time }
 
     HRDocumentCategory:

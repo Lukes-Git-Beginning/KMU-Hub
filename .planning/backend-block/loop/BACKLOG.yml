@@ -665,7 +665,7 @@ units:
     service: hr
     model: opus
     deps: []
-    status: in_progress
+    status: done
     scope: >
       `GET` und `POST /api/v1/hr/personnel-documents` bauen. Das FE ruft beide heute per
       direktem fetch (PersonnelDocuments.tsx:161 und :248), im Backend existiert die Route

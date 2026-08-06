@@ -4332,3 +4332,88 @@ Commit folgt. Keine Migration, keine Proto-Aenderung, kein neuer Guard, keine ne
 - **offen / bewusst nicht gemacht:** keins. `TestMoveTask_TenantScoped` ist nur per
   `DATABASE_URL` (Rolle `kmuhub_app`) beweiskraeftig — vor dem Merge einmal live nachziehen,
   wie schon fuer Migration 000293 in Iteration 56 notiert.
+
+## Iteration 59 — hr-personnel-documents (Phase 3)
+
+Commit folgt. Migration 000294, Proto erweitert + regeneriert, zwei neue Routen, kein neuer
+Permission-Key (also kein Seed noetig), kein neues Feature-Flag, keine neue Dependency.
+
+- **Verify Vorgaenger (8f2ccf79, fix-task-completed-at):** sauber. Das `UPDATE` bleibt
+  `WHERE id = $5 AND tenant_id = $6`, die Signaturaenderung ist in allen vier Mocks
+  (`work/task`, `work/comment`, `server/work_label_test`, `tenant_write_test`) nachgezogen,
+  kein Handler/Route/Guard/Table beruehrt. Ein Nebeneffekt ist bewusst in Kauf genommen und
+  hier notiert: `MoveTask` schreibt `completed_at` jetzt immer mit (Default = der gelesene
+  Wert), wo es die Spalte vorher gar nicht anfasste — ein gleichzeitiger Fremd-Write auf
+  `completed_at` zwischen Read und Move wuerde ueberschrieben. Fuer den Kanban-Drag-Pfad
+  akzeptabel, kein Fund.
+- **Der Befund vor dem Bauen:** die Unit klang nach „Personalakte von Null", war es aber
+  nicht. `hr_employee_documents` + `hr_document_categories` (Migr. 000046), RLS-Policy
+  `hr_document_access` (000127/000128), Service, Repo und die RPCs
+  `ListEmployeeDocuments`/`UploadEmployeeDocument`/`ListDocumentCategories` existieren alle
+  seit Langem — nur die tenant-weite Sicht `/api/v1/hr/personnel-documents`, die der
+  Personalakte-Tab liest, fehlte. Also **erweitert statt neu gebaut**: keine neue Tabelle,
+  keine zweite Dokumenten-Domaene.
+- **Migration 000294:** `title`, `file_name`, `file_size`, `expires_at` auf
+  `hr_employee_documents`, `file_id` wird nullable (das FE legt Metadaten an, bevor eine
+  Datei existiert), Index auf `(tenant_id, created_at DESC)`. Dazu vier fehlende
+  System-Kategorien (`vertrag`, `zeugnis`, `zertifikat`, `ausweis`) — die UI kennt diese
+  Slugs, der 000046-Seed hatte `arbeitsvertrag`/`zeugnisse`/`abmahnungen`/`sonstiges`.
+  RLS bleibt unberuehrt: die Policy haengt an `tenant_id` + der Category-Visibility, nicht
+  an den neuen Spalten. `uq_hr_doc_file` bleibt gueltig, weil Postgres NULLs als distinct
+  behandelt.
+- **Kein Presign-Endpunkt gebaut.** Die Notes erlauben Upload „ueber das bestehende
+  Presign-Muster"; im realen Flow gibt es aber keinen Aufrufer — das FE postet reine
+  Metadaten und der Download ist heute ein lokal erzeugter Demo-Blob. Ein Presign-Pfad ohne
+  Aufrufer waere YAGNI gewesen, deshalb ist `file_id` optional und der Presign-Weg bleibt
+  offen statt spekulativ gebaut.
+- **Zugriff — RLS statt zweitem Filter.** `ListByTenant` hat bewusst **keine**
+  Visibility-Klausel im WHERE: die Tiers erzwingt `hr_document_access` ueber die
+  `app.user_roles`-GUC, und ein handgeschriebener zweiter Filter waere nur eine Kopie, die
+  von der Policy wegdriften kann. Genau deshalb ist der neue DB-Test
+  `personnel_documents_read_test.go` die eigentliche Absicherung: er faehrt **die
+  Repo-Methoden, die der Handler ruft** (nicht rohes SQL) und prueft, dass ein Kollege ohne
+  HR-Rolle in der tenant-weiten Liste **nichts** von einer fremden Akte sieht, dass der
+  Mitarbeiter selbst nur die `employee`-Stufe sieht, dass ein fremder Tenant auch mit
+  `hr_admin` leer ausgeht — und dass `GetByID` keine Hintertuer per geratener ID ist.
+  Eigene Tenants statt der geteilten TenantA/B, damit Parallel-Tests die Counts nicht
+  verfaelschen.
+- **`employee_id` ist Pflicht, kein Default.** Das FE sendete es bisher gar nicht, der
+  MSW-Mock defaultete auf `usr-e1` — ein Dokument in der falschen Personalakte bei
+  200-Antwort. Der Handler verlangt es jetzt (`validate:"required,uuid"`), der Service
+  wirft zusaetzlich `ErrEmployeeRequired`, und der Mock antwortet ohne das Feld mit 400
+  statt still zu defaulten. Der Aufrufer ist mitgezogen: `PersonnelDocuments.tsx` sendet
+  `targetUserId` und wertet `res.ok` aus (vorher wurde jede Fehlerantwort verschluckt).
+- **Wire-Shape gegen den FE-Typ geprueft, nicht geraten.** `protoMarshaler` steht auf
+  `UseProtoNames: true` → snake_case; der FE-Typ und der MSW-Mock waren camelCase. Statt
+  einen Sondermarshaler zu bauen, ist die Hausregel geblieben und die FE-Seite angeglichen:
+  `WirePersonnelDocument` + `fromWire()` am `queryFn` (das Muster aus
+  `feedback_nested_proto_flat_type`), Mock-Fixture und POST-Handler auf dieselbe
+  snake_case-Form. `status` wird clientseitig aus `expires_at` abgeleitet
+  (`deriveStatus`, 30-Tage-Warnfenster) statt als redundantes Feld ueber die Leitung zu
+  gehen.
+- **Guards ohne neue Keys:** `hr:read` ODER `team:documents:view` fuer GET, `hr:write` ODER
+  `team:documents:edit` fuer POST — beide `team:documents:*`-Keys stehen seit Migration
+  000256 im Katalog und liegen bei admin+hr_admin, also **keine Seed-Migration noetig**
+  (Diff Code-vs-000256 geprueft). Das additive Muster ist von den Nachbar-Guards
+  (`hrDocumentCategoriesGuard`) uebernommen, weil `hr:read` allein admin-only ist.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/biz/hr/...
+  ./internal/server/... ./internal/gateway/... ./internal/models/...` 0 issues |
+  `go test -count=1 ./internal/...` alle ok | `TestOpenAPIRouteDrift` ok |
+  `npx tsc -p tsconfig.web.json` keine Fehler in den geaenderten Dateien |
+  `npx eslint` auf beiden FE-Dateien 0 Findings. Kein `DATABASE_URL` in dieser Iteration,
+  die neuen RLS-Tests liefen als Skip.
+- **offen / bewusst nicht gemacht:**
+  1. `personnel_documents_read_test.go` ist erst mit `DATABASE_URL` (Rolle `kmuhub_app`,
+     nicht `kmuhub` — BYPASSRLS) beweiskraeftig. **Vor dem Merge einmal live nachziehen**,
+     zusammen mit den schon offenen Nachzuegen aus Iteration 56 und 58.
+  2. **Bestandsfund, nicht in dieser Unit gefixt:**
+     `HRGRPCServer.ListEmployeeDocuments` ruft den Service mit hartkodiertem
+     `callerRole = "admin"` (`hr_grpc.go`, Kommentar „gateway will enforce actual user
+     role" — das Gateway tut es nicht). Der applikationsseitige Tier-Filter auf
+     `/hr/employees/{id}/documents` ist damit wirkungslos; dass dort trotzdem nichts leakt,
+     haengt allein an RLS. Der neue Pfad umgeht das Problem (kein Rollen-Parameter), der
+     alte bleibt bestehen — eigene Unit wert.
+  3. Key-Dublette `vertrag`/`arbeitsvertrag` und `zeugnis`/`zeugnisse` in den
+     System-Kategorien. Bewusst in Kauf genommen statt die alten Keys umzubenennen
+     (`/hr/employees/{id}/documents` benutzt sie), aufzuraeumen wenn Kategorien pro Tenant
+     schreibbar werden.

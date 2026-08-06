@@ -126,26 +126,27 @@ function surname(full: string): string {
   return parts[parts.length - 1] || full
 }
 
+// Wire shape of GET /api/v1/hr/personnel-documents: protojson emits snake_case,
+// and status is derived client-side from expires_at rather than sent.
 const personnelDocuments: Array<Record<string, unknown>> = hrEmployees.slice(0, 9).flatMap((emp, i) => {
   const ln = surname(emp.userName)
   const docs: Array<Record<string, unknown>> = [
     {
-      id: `pdoc-${emp.id}-av`, employeeId: emp.id, employeeName: emp.userName,
-      title: 'Arbeitsvertrag', category: 'vertrag',
-      fileName: `AV_${ln}.pdf`, fileSize: `${230 + i * 4} KB`,
-      uploadedAt: daysAgo(420 + i * 12), uploadedBy: 'Laura Weber', status: 'aktuell',
+      id: `pdoc-${emp.id}-av`, employee_id: emp.id, employee_profile_id: emp.id, employee_name: emp.userName,
+      title: 'Arbeitsvertrag', category_key: 'vertrag', visibility: 'hr_only',
+      file_name: `AV_${ln}.pdf`, file_size: `${230 + i * 4} KB`,
+      created_at: `${daysAgo(420 + i * 12)}T09:00:00Z`, uploaded_by_name: 'Laura Weber',
     },
   ]
   if (i % 3 === 0) {
     const expired = i === 3
     const soon = i === 0
     docs.push({
-      id: `pdoc-${emp.id}-cert`, employeeId: emp.id, employeeName: emp.userName,
-      title: 'Zertifikat', category: 'zertifikat',
-      fileName: `Cert_${ln}.pdf`, fileSize: `${95 + i * 3} KB`,
-      uploadedAt: daysAgo(300), uploadedBy: emp.userName,
-      expiresAt: expired ? daysAgo(40) : soon ? daysFromNow(25) : daysFromNow(700),
-      status: expired ? 'abgelaufen' : soon ? 'bald_ablaufend' : 'aktuell',
+      id: `pdoc-${emp.id}-cert`, employee_id: emp.id, employee_profile_id: emp.id, employee_name: emp.userName,
+      title: 'Zertifikat', category_key: 'zertifikat', visibility: 'employee',
+      file_name: `Cert_${ln}.pdf`, file_size: `${95 + i * 3} KB`,
+      created_at: `${daysAgo(300)}T09:00:00Z`, uploaded_by_name: emp.userName,
+      expires_at: expired ? daysAgo(40) : soon ? daysFromNow(25) : daysFromNow(700),
       notes: expired ? 'Zertifikat abgelaufen — Erneuerung nötig!' : soon ? 'Erneuerung bald fällig' : undefined,
     })
   }
@@ -337,23 +338,33 @@ export const teamHandlers = [
   }),
 
   // Upload a personnel document — pushes into the same list the GET reads.
+  // employee_id is required here exactly as the backend requires it; without it
+  // a mock default would hide a misfiled document until production.
   http.post(`${API}/api/v1/hr/personnel-documents`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
+    if (!body.employee_id) {
+      return HttpResponse.json({ error: 'employee_id is required' }, { status: 400 })
+    }
+    // The UI posts the user id; the list keys off the profile id, so resolve it
+    // here the way the backend's join does.
+    const employeeUserId = String(body.employee_id)
+    const emp = hrEmployees.find((e) => e.userId === employeeUserId || e.id === employeeUserId)
     const doc = {
       id: `pdoc-${Date.now()}`,
-      employeeId: String(body.employeeId ?? 'usr-e1'),
-      employeeName: String(body.employeeName ?? 'Stefan Vogel'),
+      employee_id: employeeUserId,
+      employee_profile_id: emp?.id ?? employeeUserId,
+      employee_name: emp?.userName ?? 'Stefan Vogel',
       title: String(body.title ?? 'Neues Dokument'),
-      category: String(body.category ?? 'sonstiges'),
-      fileName: String(body.fileName ?? 'dokument.pdf'),
-      fileSize: String(body.fileSize ?? '120 KB'),
-      uploadedAt: new Date().toISOString().slice(0, 10),
-      uploadedBy: 'Stefan Vogel',
-      expiresAt: body.expiresAt ? String(body.expiresAt) : undefined,
-      status: 'aktuell',
+      category_key: String(body.category ?? 'sonstiges'),
+      visibility: 'employee',
+      file_name: String(body.file_name ?? 'dokument.pdf'),
+      file_size: String(body.file_size ?? '120 KB'),
+      created_at: new Date().toISOString(),
+      uploaded_by_name: 'Stefan Vogel',
+      expires_at: body.expires_at ? String(body.expires_at) : undefined,
     }
     personnelDocuments.unshift(doc)
-    return HttpResponse.json({ document: doc }, { status: 201 })
+    return HttpResponse.json(doc, { status: 201 })
   }),
 
   // ---------------------------------------------------------------------------

@@ -267,20 +267,28 @@ type HRDocumentCategory struct {
 
 // EmployeeDocument links a file from the document service to an HR context.
 type EmployeeDocument struct {
-	ID          uuid.UUID `json:"id"`
-	TenantID    uuid.UUID `json:"tenant_id"`
-	EmployeeID  uuid.UUID `json:"employee_id"`
-	CategoryID  uuid.UUID `json:"category_id"`
-	FileID      uuid.UUID `json:"file_id"`
-	UploadedBy  uuid.UUID `json:"uploaded_by"`
-	Notes       string    `json:"notes"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	EmployeeID uuid.UUID  `json:"employee_id"`
+	CategoryID uuid.UUID  `json:"category_id"`
+	FileID     *uuid.UUID `json:"file_id,omitempty"`
+	UploadedBy uuid.UUID  `json:"uploaded_by"`
+	Notes      string     `json:"notes"`
+	CreatedAt  time.Time  `json:"created_at"`
+
+	// Personalakte fields (migration 000294)
+	Title     string     `json:"title"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
 	// Denormalized fields
-	CategoryName   string `json:"category_name,omitempty"`
-	FileName       string `json:"file_name,omitempty"`
-	FileSize       string `json:"file_size,omitempty"`
-	UploadedByName string `json:"uploaded_by_name,omitempty"`
+	CategoryName      string `json:"category_name,omitempty"`
+	CategoryKey       string `json:"category_key,omitempty"`
+	Visibility        string `json:"visibility,omitempty"`
+	FileName          string `json:"file_name,omitempty"`
+	FileSize          string `json:"file_size,omitempty"`
+	UploadedByName    string `json:"uploaded_by_name,omitempty"`
+	EmployeeName      string `json:"employee_name,omitempty"`
+	EmployeeProfileID string `json:"employee_profile_id,omitempty"`
 }
 
 // HRTimeCategory represents a classification for work time entries.
