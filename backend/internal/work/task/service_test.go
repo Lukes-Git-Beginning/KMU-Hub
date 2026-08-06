@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ type mockRepo struct {
 	projectTasks    []models.Task
 	projectDeps     []models.TaskDependency
 	userDisplayName string
+	moveTaskErr     error
 }
 
 func newMockRepo() *mockRepo {
@@ -80,13 +82,22 @@ func (m *mockRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
 	return nil
 }
 
-func (m *mockRepo) MoveTask(_ context.Context, _ uuid.UUID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
+func (m *mockRepo) MoveTask(_ context.Context, _ uuid.UUID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, completedAt *time.Time) error {
+	if m.moveTaskErr != nil {
+		return m.moveTaskErr
+	}
 	tw, ok := m.tasks[taskID]
 	if !ok {
 		return ErrNotFound
 	}
 	tw.StatusID = &newStatusID
 	tw.SortOrder = newSortOrder
+	tw.CompletedAt = completedAt
+	if raw, ok := m.rawTasks[taskID]; ok {
+		raw.StatusID = &newStatusID
+		raw.SortOrder = newSortOrder
+		raw.CompletedAt = completedAt
+	}
 	return nil
 }
 
@@ -740,6 +751,26 @@ func TestService_MoveTask(t *testing.T) {
 		updated := repo.tasks[task1.ID]
 		if updated.CompletedAt != nil {
 			t.Error("expected completed_at to be cleared when moving to open status")
+		}
+	})
+
+	t.Run("repo write failure is not swallowed", func(t *testing.T) {
+		repo.statusName = "Done"
+		repo.statusClosed = true
+		repo.moveTaskErr = errors.New("db unavailable")
+		defer func() { repo.moveTaskErr = nil }()
+
+		beforeCompletedAt := repo.tasks[task1.ID].CompletedAt
+
+		closedStatusID := uuid.New()
+		err := svc.MoveTask(ctx, uuid.Nil, task1.ID, closedStatusID, 4.0, userID)
+		if err == nil {
+			t.Fatal("expected MoveTask to propagate the repo write error, got nil")
+		}
+
+		updated := repo.tasks[task1.ID]
+		if updated.CompletedAt != beforeCompletedAt {
+			t.Error("completed_at must not change when the write itself failed")
 		}
 	})
 }

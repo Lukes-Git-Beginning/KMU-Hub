@@ -33,6 +33,11 @@ service WikiService {
   rpc CreateShareToken(CreateShareTokenRequest) returns (ShareTokenResponse);
   rpc RevokeShareToken(RevokeShareTokenRequest) returns (RevokeShareTokenResponse);
   rpc ListShareTokens(ListShareTokensRequest) returns (ListShareTokensResponse);
+
+  // RedeemShareToken is the only RPC in this service that takes no tenant_id:
+  // which tenant the caller may see is exactly what the token answers.
+  // See wiki.Service.RedeemShareToken.
+  rpc RedeemShareToken(RedeemShareTokenRequest) returns (RedeemShareTokenResponse);
 }
 
 // ============================================================================
@@ -256,6 +261,12 @@ message ShareToken {
   optional string expires_at = 4;
   repeated string permissions = 5;
   google.protobuf.Timestamp created_at = 6;
+  // Set once the link was cut. Revoked tokens stay in the listing so their
+  // author can see that they were cut -- see migration 000297.
+  optional google.protobuf.Timestamp revoked_at = 7;
+  // Who minted the link. Unset for tokens created before 000297 and for one
+  // whose author has since been deleted.
+  optional string created_by = 8;
 }
 
 message CreateShareTokenRequest {
@@ -263,6 +274,9 @@ message CreateShareTokenRequest {
   string article_id = 2;
   optional string expires_at = 3;
   repeated string permissions = 4;
+  // The authenticated caller, filled by the gateway. Unset is recorded as
+  // "unknown author" rather than refused.
+  optional string created_by = 5;
 }
 
 message ShareTokenResponse {
@@ -283,4 +297,23 @@ message ListShareTokensRequest {
 
 message ListShareTokensResponse {
   repeated ShareToken tokens = 1;
+}
+
+message RedeemShareTokenRequest {
+  // The link secret itself. No tenant_id, no article_id: a caller who could
+  // name the article would not need the token.
+  string token = 1;
+}
+
+// SharedArticle is the anonymous view of one shared page. Deliberately narrower
+// than Article: a visitor holding a link has no business learning the tenant,
+// the author or the category the page sits in.
+message SharedArticle {
+  string title = 1;
+  bytes content = 2; // raw JSONB (TipTap JSON)
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message RedeemShareTokenResponse {
+  SharedArticle article = 1;
 }

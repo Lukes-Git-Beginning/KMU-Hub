@@ -13,17 +13,19 @@ import (
 	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
-// CustomizationRoutes handles the tenant label-override slice of the
+// CustomizationRoutes handles the label-override and value-set slices of the
 // Customization v1.0 fundament (desktop/src/renderer/src/api/customization-types.ts).
 //
-// It deliberately reuses the generic tenant_settings storage (module_id
+// Labels deliberately reuse the generic tenant_settings storage (module_id
 // "customization", one row per locale holding a sparse key→value JSON
 // object) via the existing Settings gRPC client — no new table, no new
-// proto RPC. Value-sets, drafts/scheduling and the vendor overlay layer
-// are NOT part of this: see BACKLOG.yml unit fe-customization-labels.
-// The vendor layer stays unwritable server-side until R-5 (GDAP vendor
-// access) is wired — the FE mock's activeConfigLayer() also always
-// returns "tenant" for the same reason.
+// proto RPC. Value-sets have their own tables (migration 000295) and proto
+// RPCs (ListValueSets/GetValueSet/UpsertValueSet) behind the same client.
+// Drafts/scheduling and module-area visibility are NOT part of this: their
+// FE contract is still in flux (BACKLOG.yml, block E head comment).
+// The vendor overlay layer stays unwritable server-side until R-5 (GDAP
+// vendor access) is wired — the FE mock's activeConfigLayer() also always
+// returns "tenant" for the same reason, for both labels and value-sets.
 type CustomizationRoutes struct {
 	registry *ServiceRegistry
 }
@@ -79,12 +81,21 @@ var labelWhitelistSet = func() map[string]bool {
 // small set of locales the app ships today.
 var localePattern = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
 
-// RegisterRoutes registers the customization label-override HTTP routes.
+// RegisterRoutes registers the customization label-override and value-set
+// HTTP routes.
 //
 // Routes summary:
 //
-//	GET /api/v1/customization/labels?locale=de   — resolved labels (any authenticated user)
-//	PUT /api/v1/customization/labels              — upsert tenant overrides (admin:customization:manage)
+//	GET /api/v1/customization/labels?locale=de       — resolved labels (any authenticated user)
+//	PUT /api/v1/customization/labels                  — upsert tenant overrides (admin:customization:manage)
+//	GET /api/v1/customization/value-sets[?base=1]     — all resolved value-sets (any authenticated user)
+//	GET /api/v1/customization/value-sets/{id}[?base=1] — one resolved value-set (any authenticated user)
+//	PUT /api/v1/customization/value-sets/{id}          — upsert tenant override (admin:customization:manage)
+//	GET /api/v1/customization/fields[?entity=]         — unified custom fields (any authenticated user)
+//	GET /api/v1/customization/fields/{id}              — one custom field (any authenticated user)
+//	POST /api/v1/customization/fields                  — create (admin:customization:manage)
+//	PUT /api/v1/customization/fields/{id}               — merge-patch update (admin:customization:manage)
+//	DELETE /api/v1/customization/fields/{id}            — delete (admin:customization:manage)
 func (cr *CustomizationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/customization/labels", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -92,6 +103,27 @@ func (cr *CustomizationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(
 		// may edit them — no RequirePermission guard on the read side.
 		r.Get("/", cr.HandleGetLabels)
 		r.With(middleware.RequirePermission("admin:customization", "manage")).Put("/", cr.HandlePutLabels)
+	})
+
+	r.Route("/api/v1/customization/value-sets", func(r chi.Router) {
+		r.Use(authMiddleware)
+		// Same read/write split as labels: resolved value-sets drive pickers
+		// and status dots for every user, only the write is permission-gated.
+		r.Get("/", cr.HandleListValueSets)
+		r.Get("/{id}", cr.HandleGetValueSet)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Put("/{id}", cr.HandlePutValueSet)
+	})
+
+	// Unified custom fields (route_customization_fields.go) — a dispatch
+	// layer over the existing CRM and Work custom-field services, not a new
+	// table. Same read/write split as labels and value-sets.
+	r.Route("/api/v1/customization/fields", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/", cr.HandleListCustomFields)
+		r.Get("/{id}", cr.HandleGetCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Post("/", cr.HandleCreateCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Put("/{id}", cr.HandleUpdateCustomField)
+		r.With(middleware.RequirePermission("admin:customization", "manage")).Delete("/{id}", cr.HandleDeleteCustomField)
 	})
 }
 
@@ -306,4 +338,203 @@ func (cr *CustomizationRoutes) HandlePutLabels(w http.ResponseWriter, r *http.Re
 		Locale: req.Locale,
 		Labels: resolveLabels(merged),
 	})
+}
+
+// ============================================================================
+// Value-sets (migration 000295, settingsv1.ListValueSets/GetValueSet/UpsertValueSet)
+// ============================================================================
+
+// valueSetOptionJSON mirrors ResolvedValueSetOption in customization-types.ts.
+// Field names are camelCase and `id` (not `key`/`option_key`) on purpose: the
+// MSW mock is the binding wire contract for this slice and it deviates from
+// the snake_case/{items,total} house rule (BACKLOG.yml customization-value-sets-routes).
+type valueSetOptionJSON struct {
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	Color      string `json:"color,omitempty"`
+	Order      int32  `json:"order"`
+	Active     bool   `json:"active"`
+	Provenance string `json:"provenance"`
+}
+
+// valueSetJSON mirrors ResolvedValueSet in customization-types.ts.
+type valueSetJSON struct {
+	ID         string               `json:"id"`
+	Name       string               `json:"name"`
+	Options    []valueSetOptionJSON `json:"options"`
+	Provenance string               `json:"provenance"`
+}
+
+// valueSetsResponseJSON mirrors ValueSetsResponse (GET .../value-sets).
+type valueSetsResponseJSON struct {
+	ValueSets []valueSetJSON `json:"valueSets"`
+}
+
+// valueSetResponseJSON mirrors ValueSetResponse (GET/PUT .../value-sets/{id}).
+type valueSetResponseJSON struct {
+	ValueSet valueSetJSON `json:"valueSet"`
+}
+
+// valueSetToJSON converts the resolved proto message to the FE wire shape.
+// Options is always a non-nil slice so an empty list serialises as `[]`.
+func valueSetToJSON(vs *settingsv1.ValueSet) valueSetJSON {
+	options := make([]valueSetOptionJSON, 0, len(vs.GetOptions()))
+	for _, o := range vs.GetOptions() {
+		options = append(options, valueSetOptionJSON{
+			ID:         o.GetKey(),
+			Label:      o.GetLabel(),
+			Color:      o.GetColor(),
+			Order:      o.GetOrder(),
+			Active:     o.GetActive(),
+			Provenance: o.GetProvenance(),
+		})
+	}
+	return valueSetJSON{
+		ID:         vs.GetKey(),
+		Name:       vs.GetName(),
+		Options:    options,
+		Provenance: vs.GetProvenance(),
+	}
+}
+
+// HandleListValueSets returns every value-set resolved for the caller's
+// tenant. ?base=1 returns only the shipped baselines (the editor's "reset
+// to" view) — tenant-only lists have no baseline and are omitted from that
+// view, which is expected, not a bug.
+func (cr *CustomizationRoutes) HandleListValueSets(w http.ResponseWriter, r *http.Request) {
+	client, err := cr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, cr.ServiceName())
+		return
+	}
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	resp, err := client.ListValueSets(r.Context(), &settingsv1.ListValueSetsRequest{
+		TenantId: tenantID.String(),
+		Base:     r.URL.Query().Get("base") == "1",
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	valueSets := make([]valueSetJSON, 0, len(resp.GetValueSets()))
+	for _, vs := range resp.GetValueSets() {
+		valueSets = append(valueSets, valueSetToJSON(vs))
+	}
+	response.JSON(w, http.StatusOK, valueSetsResponseJSON{ValueSets: valueSets})
+}
+
+// HandleGetValueSet returns one resolved value-set by key. 404 when neither
+// the shipped registry nor the tenant knows the key.
+func (cr *CustomizationRoutes) HandleGetValueSet(w http.ResponseWriter, r *http.Request) {
+	client, err := cr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, cr.ServiceName())
+		return
+	}
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	vs, err := client.GetValueSet(r.Context(), &settingsv1.GetValueSetRequest{
+		TenantId: tenantID.String(),
+		Key:      chi.URLParam(r, "id"),
+		Base:     r.URL.Query().Get("base") == "1",
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, valueSetResponseJSON{ValueSet: valueSetToJSON(vs)})
+}
+
+// upsertValueSetOptionRequest is one option in the PUT body. Mirrors
+// ValueSetOption in customization-types.ts — `id`, not `key`.
+type upsertValueSetOptionRequest struct {
+	ID     string `json:"id" validate:"required"`
+	Label  string `json:"label" validate:"required"`
+	Color  string `json:"color"`
+	Order  int32  `json:"order"`
+	Active bool   `json:"active"`
+}
+
+// upsertValueSetRequest is the HTTP body for PUT /customization/value-sets/{id}.
+// Mirrors UpsertValueSetInput in customization-types.ts.
+type upsertValueSetRequest struct {
+	Layer   string                        `json:"layer" validate:"omitempty,oneof=tenant vendor"`
+	Name    string                        `json:"name"`
+	Options []upsertValueSetOptionRequest `json:"options" validate:"required,min=1,dive"`
+}
+
+// HandlePutValueSet replaces the tenant's override for one value-set: system
+// keys (e.g. "ticket_priority") are overridden, unknown keys create a
+// tenant-owned list — both are the same write server-side (Service.UpsertValueSet).
+func (cr *CustomizationRoutes) HandlePutValueSet(w http.ResponseWriter, r *http.Request) {
+	client, err := cr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, cr.ServiceName())
+		return
+	}
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	req, ok := decodeAndValidate[upsertValueSetRequest](w, r)
+	if !ok {
+		return
+	}
+	// The vendor overlay layer has no writer yet (R-5 GDAP vendor access is
+	// not wired) — same rule as the label overrides PUT.
+	if req.Layer == "vendor" {
+		response.Error(w, http.StatusBadRequest, "layer 'vendor' is not writable yet")
+		return
+	}
+
+	// The mock defaults an omitted name to the set id (resolveValueSet in
+	// mocks/data/customization.ts); the service rejects an empty name outright.
+	name := req.Name
+	key := chi.URLParam(r, "id")
+	if name == "" {
+		name = key
+	}
+
+	options := make([]*settingsv1.ValueSetOption, 0, len(req.Options))
+	for _, o := range req.Options {
+		options = append(options, &settingsv1.ValueSetOption{
+			Key:    o.ID,
+			Label:  o.Label,
+			Color:  o.Color,
+			Order:  o.Order,
+			Active: o.Active,
+		})
+	}
+
+	vs, err := client.UpsertValueSet(r.Context(), &settingsv1.UpsertValueSetRequest{
+		TenantId:  tenantID.String(),
+		UpdatedBy: callerID,
+		ValueSet: &settingsv1.ValueSet{
+			Key:     key,
+			Name:    name,
+			Options: options,
+		},
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, valueSetResponseJSON{ValueSet: valueSetToJSON(vs)})
 }

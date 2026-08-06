@@ -28,6 +28,22 @@ type mockRepo struct {
 	// contactTenants/companyTenants back ContactExists/CompanyExists: id -> owning tenant.
 	contactTenants map[uuid.UUID]uuid.UUID
 	companyTenants map[uuid.UUID]uuid.UUID
+
+	// csatCalls counts SubmitCsatTx invocations so tests can assert that an
+	// invalid rating never reaches persistence.
+	csatCalls int
+
+	// csatTokens holds the pending survey tokens written by
+	// IssueCsatSurveyTokenTx, keyed by ticket.
+	csatTokens map[uuid.UUID]csatTokenRow
+}
+
+// csatTokenRow is the mock's stand-in for the token columns on
+// ticket_csat_responses.
+type csatTokenRow struct {
+	token     string
+	sendAfter time.Time
+	expiresAt time.Time
 }
 
 func newMockRepo() *mockRepo {
@@ -39,6 +55,7 @@ func newMockRepo() *mockRepo {
 		slaPolicies:     make(map[uuid.UUID]*SLAPolicy),
 		contactTenants:  make(map[uuid.UUID]uuid.UUID),
 		companyTenants:  make(map[uuid.UUID]uuid.UUID),
+		csatTokens:      make(map[uuid.UUID]csatTokenRow),
 	}
 }
 
@@ -55,7 +72,11 @@ func (r *mockRepo) GetTicketByID(_ context.Context, id, _ uuid.UUID) (*Ticket, e
 func (r *mockRepo) ListTickets(_ context.Context, _ uuid.UUID, _ *string, participantID, contactID, orgID *uuid.UUID, _, _ int) ([]*Ticket, int, error) {
 	var list []*Ticket
 	for _, t := range r.tickets {
-		if participantID != nil && t.RequesterID != *participantID && (t.AssigneeID == nil || *t.AssigneeID != *participantID) {
+		// Mirrors the SQL own-scope filter, including its treatment of external
+		// requesters: a nil RequesterID matches nobody (see ListTickets).
+		if participantID != nil &&
+			(t.RequesterID == nil || *t.RequesterID != *participantID) &&
+			(t.AssigneeID == nil || *t.AssigneeID != *participantID) {
 			continue
 		}
 		if contactID != nil && (t.ContactID == nil || *t.ContactID != *contactID) {
@@ -129,6 +150,93 @@ func (r *mockRepo) MergeTicketTx(_ context.Context, source *Ticket, targetID uui
 	// Update source ticket.
 	r.tickets[source.ID] = source
 	return nil
+}
+
+func (r *mockRepo) SubmitCsatTx(
+	_ context.Context,
+	tenantID, ticketID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) error {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return ErrTicketNotFound
+	}
+	r.csatCalls++
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = submittedAt
+	return nil
+}
+
+// IssueCsatSurveyTokenTx mirrors the SQL: unknown/foreign ticket and an
+// already-rated ticket both yield false without an error.
+func (r *mockRepo) IssueCsatSurveyTokenTx(
+	_ context.Context,
+	tenantID, ticketID uuid.UUID,
+	token string,
+	sendAfter, expiresAt, _ time.Time,
+) (bool, error) {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return false, nil
+	}
+	if t.CsatRating != nil {
+		return false, nil
+	}
+	r.csatTokens[ticketID] = csatTokenRow{token: token, sendAfter: sendAfter, expiresAt: expiresAt}
+	return true, nil
+}
+
+// GetCsatSurveyByToken mirrors the SQL: an equality match on the token column,
+// nothing else, and a pending row resolves regardless of the caller's tenant.
+func (r *mockRepo) GetCsatSurveyByToken(_ context.Context, token string) (*CsatSurveyToken, error) {
+	for ticketID, row := range r.csatTokens {
+		if row.token != token || token == "" {
+			continue
+		}
+		t := r.tickets[ticketID]
+		if t == nil {
+			continue
+		}
+		expires := row.expiresAt
+		s := &CsatSurveyToken{
+			ResponseID: ticketID, TenantID: t.TenantID, TicketID: ticketID,
+			ExpiresAt: &expires,
+		}
+		if t.CsatRating != nil {
+			submitted := t.UpdatedAt
+			s.SubmittedAt = &submitted
+		}
+		return s, nil
+	}
+	return nil, ErrCsatSurveyNotFound
+}
+
+// RedeemCsatSurveyTx mirrors the SQL guard: only a still-pending, still-tokened
+// row may be redeemed, and redemption consumes the token.
+func (r *mockRepo) RedeemCsatSurveyTx(
+	_ context.Context,
+	tenantID, ticketID, _ uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) (int, error) {
+	t, ok := r.tickets[ticketID]
+	if !ok || t.TenantID != tenantID {
+		return 0, ErrCsatSurveyNotFound
+	}
+	row, ok := r.csatTokens[ticketID]
+	if !ok || row.token == "" || t.CsatRating != nil {
+		return 0, ErrCsatSurveyNotFound
+	}
+	delete(r.csatTokens, ticketID)
+	r.csatCalls++
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = submittedAt
+	return t.TicketNumber, nil
 }
 
 func (r *mockRepo) CreateQueue(_ context.Context, q *TicketQueue) error {
@@ -291,7 +399,7 @@ func TestCreateTicket_Success(t *testing.T) {
 	tenantID := uuid.New()
 	requesterID := uuid.New()
 
-	ticket, err := h.svc.CreateTicket(context.Background(), tenantID, requesterID, "Login broken", TicketPriorityHigh, nil, nil, "", "", nil, nil)
+	ticket, err := h.svc.CreateTicket(context.Background(), tenantID, &requesterID, "Login broken", TicketPriorityHigh, nil, nil, "", "", nil, nil, TicketIntake{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -312,7 +420,7 @@ func TestCreateTicket_Success(t *testing.T) {
 func TestCreateTicket_DefaultPriority(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Help me", "", nil, nil, "", "", nil, nil)
+	ticket, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Help me", "", nil, nil, "", "", nil, nil, TicketIntake{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -324,7 +432,7 @@ func TestCreateTicket_DefaultPriority(t *testing.T) {
 func TestCreateTicket_EmptySubject(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	if err == nil {
 		t.Error("expected error for empty subject")
 	}
@@ -333,7 +441,7 @@ func TestCreateTicket_EmptySubject(t *testing.T) {
 func TestCreateTicket_InvalidPriority(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Subject", "supercritical", nil, nil, "", "", nil, nil)
+	_, err := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Subject", "supercritical", nil, nil, "", "", nil, nil, TicketIntake{})
 	if !errors.Is(err, ErrInvalidPriority) {
 		t.Errorf("expected ErrInvalidPriority, got %v", err)
 	}
@@ -346,7 +454,7 @@ func TestCreateTicket_InvalidPriority(t *testing.T) {
 func TestCloseTicket_SetsResolvedAt(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Billing issue", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Billing issue", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	closed, err := h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
 	if err != nil {
@@ -363,7 +471,7 @@ func TestCloseTicket_SetsResolvedAt(t *testing.T) {
 func TestReopenTicket_FromClosed(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Feature request", TicketPriorityLow, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Feature request", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
 
 	reopened, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
@@ -381,7 +489,7 @@ func TestReopenTicket_FromClosed(t *testing.T) {
 func TestReopenTicket_FromOpenFails(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Still open", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Still open", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	_, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
 	if err == nil {
@@ -396,7 +504,7 @@ func TestReopenTicket_FromOpenFails(t *testing.T) {
 func TestAddMessage_Success(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Can't login", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Can't login", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	authorID := uuid.New()
 
 	msg, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, authorID, "Have you tried turning it off and on?", false, nil)
@@ -414,7 +522,7 @@ func TestAddMessage_Success(t *testing.T) {
 func TestAddMessage_SetsFirstResponseAt(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Password reset", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Password reset", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	if ticket.FirstResponseAt != nil {
 		t.Fatal("ticket should have no first_response_at initially")
 	}
@@ -430,7 +538,7 @@ func TestAddMessage_SetsFirstResponseAt(t *testing.T) {
 func TestAddMessage_InternalDoesNotSetFirstResponseAt(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Internal note test", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Internal note test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Internal note only.", true, nil)
 
@@ -443,7 +551,7 @@ func TestAddMessage_InternalDoesNotSetFirstResponseAt(t *testing.T) {
 func TestAddMessage_EmptyBodyFails(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	_, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "", false, nil)
 	if err == nil {
@@ -460,7 +568,7 @@ func TestApplySLAPolicy_SetsDueAt(t *testing.T) {
 	tenantID := uuid.New()
 
 	// Create ticket and SLA policy.
-	ticket, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Slow system", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Slow system", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	policy, _ := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Standard", 60, 480, nil)
 
 	updated, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, tenantID, policy.ID)
@@ -483,7 +591,7 @@ func TestApplySLAPolicy_UsesResolutionMinsAfterFirstResponse(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Crash on export", TicketPriorityHigh, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Crash on export", TicketPriorityHigh, nil, nil, "", "", nil, nil, TicketIntake{})
 	policy, _ := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Premium", 30, 240, nil)
 
 	// Simulate first response already set.
@@ -510,7 +618,7 @@ func TestApplySLAPolicy_UsesResolutionMinsAfterFirstResponse(t *testing.T) {
 func TestApplySLAPolicy_PolicyNotFound(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Test", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	_, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, ticket.TenantID, uuid.New())
 	if !errors.Is(err, ErrSLAPolicyNotFound) {
@@ -526,8 +634,8 @@ func TestMergeTickets_Success(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
 
-	source, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Duplicate issue", TicketPriorityNormal, nil, nil, "", "", nil, nil)
-	target, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Original issue", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	source, _ := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Duplicate issue", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	target, _ := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Original issue", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	// Add a message to source.
 	h.svc.AddMessage(context.Background(), source.ID, tenantID, uuid.New(), "From source ticket.", false, nil)
@@ -555,7 +663,7 @@ func TestMergeTickets_Success(t *testing.T) {
 func TestMergeTickets_CannotMergeSelf(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Self merge", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Self merge", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	err := h.svc.MergeTickets(context.Background(), ticket.TenantID, ticket.ID, ticket.ID)
 	if !errors.Is(err, ErrCannotMergeSelf) {
@@ -614,8 +722,8 @@ func TestMergeTickets_AtomicTx(t *testing.T) {
 func TestMergeTickets_AlreadyMerged(t *testing.T) {
 	h := newTestHarness()
 
-	source, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Already merged", TicketPriorityNormal, nil, nil, "", "", nil, nil)
-	target, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Target", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	source, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Already merged", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	target, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Target", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	// Pre-mark source as merged.
 	source.Status = TicketStatusMerged
@@ -713,7 +821,7 @@ func TestCreateCannedResponse_Success(t *testing.T) {
 func TestAssignTicket_Success(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Assign me", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Assign me", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	agentID := uuid.New()
 
 	updated, err := h.svc.AssignTicket(context.Background(), ticket.ID, ticket.TenantID, agentID)
@@ -737,10 +845,10 @@ func TestAssignTicket_TicketNotFound(t *testing.T) {
 func TestUpdateTicket_PriorityChange(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	newPriority := TicketPriorityUrgent
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newPriority, nil, nil, nil, nil)
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &newPriority, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -752,19 +860,110 @@ func TestUpdateTicket_PriorityChange(t *testing.T) {
 func TestUpdateTicket_InvalidPriority(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	bad := "supercritical"
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil, nil, nil)
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &bad, nil, nil, nil, nil, nil)
 	if !errors.Is(err, ErrInvalidPriority) {
 		t.Errorf("expected ErrInvalidPriority, got %v", err)
+	}
+}
+
+func TestUpdateTicket_StatusChange(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	newStatus := TicketStatusPending
+
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newStatus, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Status != TicketStatusPending {
+		t.Errorf("expected status pending, got %s", updated.Status)
+	}
+}
+
+// TestUpdateTicket_RejectsClosedAndMergedStatus proves the generic update
+// path cannot be used to sneak a ticket into "closed" or "merged" -- both
+// have dedicated endpoints (/close, /merge) with side effects (resolved_at +
+// CSAT token issuance; message reassignment) that setting status here would
+// silently skip.
+func TestUpdateTicket_RejectsClosedAndMergedStatus(t *testing.T) {
+	h := newTestHarness()
+
+	for _, blocked := range []string{TicketStatusClosed, TicketStatusMerged} {
+		ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+		status := blocked
+
+		_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &status, nil, nil, nil, nil, nil, nil)
+		if !errors.Is(err, ErrInvalidStatus) {
+			t.Errorf("status=%s: expected ErrInvalidStatus, got %v", blocked, err)
+		}
+	}
+}
+
+func TestUpdateTicket_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	bad := "vaporized"
+
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil, nil, nil, nil, nil)
+	if !errors.Is(err, ErrInvalidStatus) {
+		t.Errorf("expected ErrInvalidStatus, got %v", err)
+	}
+}
+
+// TestUpdateTicket_CustomFieldsMergeAcrossUpdates proves the patch semantics
+// HelpdeskPage.tsx relies on: handleCustomFieldCommit sends one changed key
+// per call, and a second call must not erase the first one's key.
+func TestUpdateTicket_CustomFieldsMergeAcrossUpdates(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"standort": "Bern"})
+	if err != nil {
+		t.Fatalf("first update: %v", err)
+	}
+	if updated.CustomFields["standort"] != "Bern" {
+		t.Fatalf("custom_fields[standort] = %v, want Bern", updated.CustomFields["standort"])
+	}
+
+	updated, err = h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"garantie": true})
+	if err != nil {
+		t.Fatalf("second update: %v", err)
+	}
+	if len(updated.CustomFields) != 2 {
+		t.Fatalf("custom_fields = %v, want 2 entries after merge", updated.CustomFields)
+	}
+	if updated.CustomFields["standort"] != "Bern" {
+		t.Errorf("custom_fields[standort] = %v, want Bern (must survive the second update)", updated.CustomFields["standort"])
+	}
+	if updated.CustomFields["garantie"] != true {
+		t.Errorf("custom_fields[garantie] = %v, want true", updated.CustomFields["garantie"])
+	}
+}
+
+func TestUpdateTicket_CustomFieldsRejectsNested(t *testing.T) {
+	h := newTestHarness()
+
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+		map[string]any{"nested": map[string]any{"a": 1}})
+	if !errors.Is(err, ErrInvalidCustomFields) {
+		t.Errorf("expected ErrInvalidCustomFields, got %v", err)
 	}
 }
 
 func TestListMessages_AfterAdd(t *testing.T) {
 	h := newTestHarness()
 
-	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "List msgs", TicketPriorityNormal, nil, nil, "", "", nil, nil)
+	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "List msgs", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "First message", false, nil)
 	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Second message (internal)", true, nil)
 
@@ -890,7 +1089,7 @@ func TestDetectDuplicates_ExcludesSelf(t *testing.T) {
 	self := &Ticket{
 		ID:          uuid.New(),
 		TenantID:    tenantID,
-		RequesterID: requesterID,
+		RequesterID: &requesterID,
 		Subject:     "Login button not working on mobile",
 		Status:      TicketStatusOpen,
 	}
@@ -898,7 +1097,7 @@ func TestDetectDuplicates_ExcludesSelf(t *testing.T) {
 	other := &Ticket{
 		ID:          uuid.New(),
 		TenantID:    tenantID,
-		RequesterID: requesterID,
+		RequesterID: &requesterID,
 		Subject:     "Login button not working on desktop",
 		Status:      TicketStatusOpen,
 	}

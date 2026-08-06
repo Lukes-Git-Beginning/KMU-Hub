@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository backed by a pgxpool.Pool.
@@ -42,13 +45,30 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		return fmt.Errorf("allocate ticket number: %w", err)
 	}
 
-	_, err := r.pool.Exec(ctx,
+	customFields, err := json.Marshal(orEmptyMap(t.CustomFields))
+	if err != nil {
+		return fmt.Errorf("marshal custom_fields: %w", err)
+	}
+
+	// channel is NOT NULL with a CHECK, so an unset one is a constraint
+	// violation at the far end of a user action. Unknown values are still
+	// rejected -- that happens in TicketIntake.normalize at the trust
+	// boundary; this only covers an internal caller that built a Ticket
+	// without going through it.
+	channel := t.Channel
+	if channel == "" {
+		channel = TicketChannelAgent
+	}
+
+	_, err = r.pool.Exec(ctx,
 		`INSERT INTO tickets
 		    (id, tenant_id, subject, status, priority, assignee_id, requester_id,
 		     queue_id, due_at, merged_into_id, first_response_at, resolved_at,
 		     description, category, ticket_number, contact_id, org_id,
-		     source_channel, source_message_id, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+		     source_channel, source_message_id, created_at, updated_at,
+		     channel, requester_email, requester_name, requester_is_external, custom_fields)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+		         $22,$23,$24,$25,$26)`,
 		t.ID, t.TenantID, t.Subject, t.Status, t.Priority,
 		t.AssigneeID, t.RequesterID, t.QueueID, t.DueAt,
 		t.MergedIntoID, t.FirstResponseAt, t.ResolvedAt,
@@ -56,6 +76,7 @@ func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error 
 		t.ContactID, t.OrgID,
 		t.SourceChannel, t.SourceMessageID,
 		t.CreatedAt, t.UpdatedAt,
+		channel, t.RequesterEmail, nullIfEmpty(t.RequesterName), t.RequesterIsExternal, customFields,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -106,6 +127,13 @@ func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID, tenan
 // assignee/requester display names via LEFT JOINs on users (falling back to email,
 // then empty) and COALESCEs nullable text columns. Every query feeding scanTicket /
 // scanTicketFromRows MUST use this column list so the scan order stays aligned.
+//
+// requester_name precedence (000290): the users JOIN wins wherever it resolves,
+// and the tickets.requester_name column is only the fallback. An internal
+// requester is identified by requester_id, so their current name belongs to
+// their user row -- a persisted copy would go stale the first time they are
+// renamed. The column exists for external requesters, who have no user row to
+// join against, and for them the JOIN yields NULL and the column carries.
 const ticketSelectColumns = `
 	t.id, t.tenant_id, t.subject, t.status, t.priority, t.assignee_id, t.requester_id,
 	t.queue_id, t.due_at, t.merged_into_id, t.first_response_at, t.resolved_at,
@@ -113,8 +141,11 @@ const ticketSelectColumns = `
 	COALESCE(t.description, '') AS description,
 	COALESCE(t.category, '')    AS category,
 	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
+	t.csat_rating, t.csat_comment,
+	t.channel, t.requester_email, t.requester_is_external, t.custom_fields,
 	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
-	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
+	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
+	         NULLIF(t.requester_name, ''), '')                                      AS requester_name
 FROM tickets t
 LEFT JOIN users a   ON t.assignee_id  = a.id
 LEFT JOIN users req ON t.requester_id = req.id`
@@ -140,6 +171,14 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	}
 	// The "own" data scope. Assignment counts as ownership too: an agent who
 	// cannot see the ticket routed to them cannot work it.
+	//
+	// External requesters (requester_id IS NULL, 000291) never match here, and
+	// that is the decided behaviour, not an oversight: scope=own is an RBAC
+	// data scope for logged-in staff, and the only other identity an external
+	// ticket carries is requester_email -- a self-declared, unverified value
+	// straight out of the intake body. Matching on it would let anyone place a
+	// ticket inside a colleague's own-scope by typing their address. External
+	// tickets reach an agent through assignment or through a wider scope.
 	if participantID != nil {
 		whereExtra += fmt.Sprintf(" AND (t.requester_id = $%d OR t.assignee_id = $%d)", len(args)+1, len(args)+1)
 		args = append(args, *participantID)
@@ -189,17 +228,22 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 }
 
 func (r *PostgresRepository) UpdateTicket(ctx context.Context, t *Ticket) error {
+	customFields, err := json.Marshal(orEmptyMap(t.CustomFields))
+	if err != nil {
+		return fmt.Errorf("marshal custom_fields: %w", err)
+	}
+
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE tickets
 		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
 		     queue_id = $5, due_at = $6, merged_into_id = $7,
 		     first_response_at = $8, resolved_at = $9, updated_at = $10,
-		     contact_id = $11, org_id = $12
-		 WHERE id = $13 AND tenant_id = $14`,
+		     contact_id = $11, org_id = $12, custom_fields = $13
+		 WHERE id = $14 AND tenant_id = $15`,
 		t.Subject, t.Status, t.Priority, t.AssigneeID,
 		t.QueueID, t.DueAt, t.MergedIntoID,
 		t.FirstResponseAt, t.ResolvedAt, t.UpdatedAt,
-		t.ContactID, t.OrgID,
+		t.ContactID, t.OrgID, customFields,
 		t.ID, t.TenantID,
 	)
 	if err != nil {
@@ -260,6 +304,327 @@ func (r *PostgresRepository) FindOpenTicketsByRequester(ctx context.Context, ten
 		tickets = append(tickets, t)
 	}
 	return tickets, rows.Err()
+}
+
+// SubmitCsatTx writes the rating both to ticket_csat_responses and to the
+// denormalised tickets columns inside one transaction.
+//
+// The ticket UPDATE runs first and doubles as the tenant guard: the FK on
+// ticket_id only proves the ticket exists, not that it belongs to this tenant,
+// so a zero-row UPDATE is what actually rejects a foreign ticket.
+func (r *PostgresRepository) SubmitCsatTx(
+	ctx context.Context,
+	tenantID, ticketID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("submit csat tx begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE tickets
+		 SET csat_rating = $1, csat_comment = $2, updated_at = $3
+		 WHERE id = $4 AND tenant_id = $5`,
+		rating, comment, submittedAt, ticketID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("submit csat tx mirror on ticket: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
+	}
+
+	// DO UPDATE deliberately leaves token/token_expires_at alone: a survey link
+	// handed out on ticket close stays valid for its own redemption flow.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ticket_csat_responses
+		     (id, tenant_id, ticket_id, rating, comment, submitted_at, created_at, updated_at)
+		 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $5, $5)
+		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
+		 SET rating       = EXCLUDED.rating,
+		     comment      = EXCLUDED.comment,
+		     submitted_at = EXCLUDED.submitted_at,
+		     updated_at   = EXCLUDED.updated_at`,
+		tenantID, ticketID, rating, comment, submittedAt,
+	); err != nil {
+		return fmt.Errorf("submit csat tx upsert response: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("submit csat tx commit: %w", err)
+	}
+	return nil
+}
+
+// IssueCsatSurveyTokenTx parks a pending survey token on the ticket's CSAT row.
+//
+// The INSERT selects from tickets instead of taking tenant_id from the caller:
+// that makes the tenant the ticket's own, so a ticket belonging to a different
+// tenant produces zero rows rather than a CSAT row filed under the wrong
+// tenant. The conflict branch is guarded by `submitted_at IS NULL`, so a ticket
+// that already has a rating keeps it and gets no new link -- the authoritative
+// "already rated" check, since the service's own check races with a rating
+// submitted in between.
+//
+// A pending token from an earlier close is overwritten on purpose: the new
+// close restarts the delay, and the previous link would run on a stale one.
+// That restart also resets the dispatch bookkeeping (survey_sent_at,
+// survey_dispatch_attempts): the new link has not been mailed out yet, and a
+// row still marked sent would never reach the poller.
+func (r *PostgresRepository) IssueCsatSurveyTokenTx(
+	ctx context.Context,
+	tenantID, ticketID uuid.UUID,
+	token string,
+	sendAfter, expiresAt, now time.Time,
+) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`INSERT INTO ticket_csat_responses
+		     (id, tenant_id, ticket_id, token, token_expires_at, survey_send_after,
+		      created_at, updated_at)
+		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $6, $6
+		   FROM tickets t
+		  WHERE t.id = $2 AND t.tenant_id = $1
+		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
+		 SET token                    = EXCLUDED.token,
+		     token_expires_at         = EXCLUDED.token_expires_at,
+		     survey_send_after        = EXCLUDED.survey_send_after,
+		     survey_sent_at           = NULL,
+		     survey_dispatch_attempts = 0,
+		     updated_at               = EXCLUDED.updated_at
+		 WHERE ticket_csat_responses.submitted_at IS NULL`,
+		tenantID, ticketID, token, expiresAt, sendAfter, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("issue csat survey token: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// GetCsatSurveyByToken resolves a survey link for the public redeem endpoint.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. It is therefore
+// pinned to an equality match on the unique token column and is never a
+// listing. The usable/expired verdict stays with the service so a dead link
+// still resolves far enough to be logged -- same split as
+// berichte.GetShareTokenBySecret.
+func (r *PostgresRepository) GetCsatSurveyByToken(ctx context.Context, token string) (*CsatSurveyToken, error) {
+	if token == "" {
+		return nil, ErrCsatSurveyNotFound
+	}
+	var t CsatSurveyToken
+	err := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT id, tenant_id, ticket_id, token_expires_at, submitted_at
+		   FROM ticket_csat_responses
+		  WHERE token = $1`,
+		token,
+	).Scan(&t.ResponseID, &t.TenantID, &t.TicketID, &t.ExpiresAt, &t.SubmittedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCsatSurveyNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get csat survey by token: %w", err)
+	}
+	return &t, nil
+}
+
+// RedeemCsatSurveyTx writes the rating from a survey link and consumes the
+// token in the same transaction.
+//
+// Both statements are tenant-scoped on the tenant the token itself resolved
+// to; the system context ends at the lookup and never reaches this write. The
+// response UPDATE runs first and carries the single-use guard: `token IS NOT
+// NULL AND submitted_at IS NULL` means a second redemption -- or one racing
+// the first -- affects zero rows and comes back as ErrCsatSurveyNotFound
+// rather than overwriting a rating that is already in.
+func (r *PostgresRepository) RedeemCsatSurveyTx(
+	ctx context.Context,
+	tenantID, ticketID, responseID uuid.UUID,
+	rating int16,
+	comment *string,
+	submittedAt time.Time,
+) (int, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET rating            = $1,
+		        comment           = $2,
+		        submitted_at      = $3,
+		        token             = NULL,
+		        token_expires_at  = NULL,
+		        survey_send_after = NULL,
+		        updated_at        = $3
+		  WHERE id = $4
+		    AND tenant_id = $5
+		    AND token IS NOT NULL
+		    AND submitted_at IS NULL`,
+		rating, comment, submittedAt, responseID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return 0, ErrCsatSurveyNotFound
+	}
+
+	// The mirror keeps the ticket read join-free. A ticket that vanished
+	// between the two statements would leave the rating without a ticket, so
+	// the missing row fails the whole redemption rather than half of it.
+	var ticketNumber int
+	if err := tx.QueryRow(ctx,
+		`UPDATE tickets
+		    SET csat_rating = $1, csat_comment = $2, updated_at = $3
+		  WHERE id = $4 AND tenant_id = $5
+		 RETURNING ticket_number`,
+		rating, comment, submittedAt, ticketID, tenantID,
+	).Scan(&ticketNumber); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrCsatSurveyNotFound
+		}
+		return 0, fmt.Errorf("redeem csat survey tx mirror on ticket: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("redeem csat survey tx commit: %w", err)
+	}
+	return ticketNumber, nil
+}
+
+// ListDueCsatSurveys returns pending surveys whose send time has come, oldest
+// first. It runs from the dispatcher, which holds a system context: the query
+// is deliberately cross-tenant and carries each row's tenant with it.
+//
+// The recipient address comes from tickets.requester_email first and from the
+// requester's user row second: since 000291 a ticket can have no requester_id
+// at all, so the users join is a LEFT JOIN and external requesters -- who are
+// exactly the people an intake survey is for -- are reached through the address
+// they submitted. A row with neither address is skipped rather than guessed at.
+func (r *PostgresRepository) ListDueCsatSurveys(
+	ctx context.Context,
+	now time.Time,
+	maxAttempts int16,
+	limit int,
+) ([]*DueCsatSurvey, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.tenant_id, r.ticket_id, r.token,
+		        t.ticket_number, t.subject,
+		        COALESCE(NULLIF(t.requester_email, ''), req.email),
+		        COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
+		                 NULLIF(t.requester_name, ''), '')
+		   FROM ticket_csat_responses r
+		   JOIN tickets t        ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id
+		   LEFT JOIN users   req ON req.id = t.requester_id
+		  WHERE r.token IS NOT NULL
+		    AND r.submitted_at IS NULL
+		    AND r.survey_sent_at IS NULL
+		    AND r.survey_send_after IS NOT NULL
+		    AND r.survey_send_after <= $1
+		    AND r.token_expires_at > $1
+		    AND r.survey_dispatch_attempts < $2
+		    AND COALESCE(NULLIF(t.requester_email, ''), req.email, '') <> ''
+		  ORDER BY r.survey_send_after
+		  LIMIT $3`,
+		now, maxAttempts, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list due csat surveys: %w", err)
+	}
+	defer rows.Close()
+
+	due := make([]*DueCsatSurvey, 0)
+	for rows.Next() {
+		var d DueCsatSurvey
+		if err := rows.Scan(
+			&d.ResponseID, &d.TenantID, &d.TicketID, &d.Token,
+			&d.TicketNumber, &d.Subject, &d.RecipientEmail, &d.RecipientName,
+		); err != nil {
+			return nil, fmt.Errorf("scan due csat survey: %w", err)
+		}
+		due = append(due, &d)
+	}
+	return due, rows.Err()
+}
+
+// ClaimCsatSurveyDispatch takes exclusive ownership of one due survey by
+// stamping survey_sent_at. Two overlapping ticks race on this UPDATE and
+// exactly one sees RowsAffected()==1; the loser skips the row instead of
+// mailing the same survey twice (same recipe as ClaimSchedule and
+// ClaimTimeTrigger). The attempt counter advances with the claim, so a row
+// that is claimed and then never released still stops retrying eventually.
+func (r *PostgresRepository) ClaimCsatSurveyDispatch(
+	ctx context.Context,
+	responseID uuid.UUID,
+	now time.Time,
+) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET survey_sent_at           = $2,
+		        survey_dispatch_attempts = survey_dispatch_attempts + 1,
+		        updated_at               = $2
+		  WHERE id = $1
+		    AND survey_sent_at IS NULL
+		    AND submitted_at IS NULL
+		    AND token IS NOT NULL`,
+		responseID, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("claim csat survey dispatch: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// ReleaseCsatSurveyDispatch undoes a claim whose mail could not be delivered,
+// so a later tick may retry. The claimedAt guard makes it release only this
+// process's own claim. The attempt counter stays where it is -- that is what
+// bounds the retries.
+func (r *PostgresRepository) ReleaseCsatSurveyDispatch(
+	ctx context.Context,
+	responseID uuid.UUID,
+	claimedAt time.Time,
+) error {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET survey_sent_at = NULL,
+		        updated_at     = $2
+		  WHERE id = $1 AND survey_sent_at = $2`,
+		responseID, claimedAt,
+	); err != nil {
+		return fmt.Errorf("release csat survey dispatch: %w", err)
+	}
+	return nil
+}
+
+// CancelCsatSurvey revokes a pending survey link: the tenant switched surveys
+// off between the ticket close and the delayed send, so the mail must not go
+// out and the link must not stay redeemable. An already rated row is left
+// alone -- its rating is real data, only the invitation is being withdrawn.
+func (r *PostgresRepository) CancelCsatSurvey(
+	ctx context.Context,
+	responseID uuid.UUID,
+	now time.Time,
+) error {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE ticket_csat_responses
+		    SET token             = NULL,
+		        token_expires_at  = NULL,
+		        survey_send_after = NULL,
+		        updated_at        = $2
+		  WHERE id = $1 AND submitted_at IS NULL`,
+		responseID, now,
+	); err != nil {
+		return fmt.Errorf("cancel csat survey: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -785,8 +1150,23 @@ func (r *PostgresRepository) GetHelpdeskStats(ctx context.Context, tenantID uuid
 		stats.AvgResponseTime = fmt.Sprintf("%.1f h", *avgMinutes/60)
 	}
 
-	// Customer satisfaction placeholder (requires CSAT table, not yet in schema)
-	stats.CustomerSatisfaction = "–"
+	// Customer satisfaction: average of submitted CSAT ratings. Pending-survey rows
+	// (rating IS NULL) are excluded by the submitted_at filter, not by rating IS NOT
+	// NULL — the two columns move together (chk_ticket_csat_rating_submitted), but
+	// submitted_at is the documented "has been rated" marker.
+	var csatAvg *float64
+	if err := r.pool.QueryRow(ctx,
+		`SELECT AVG(rating) FROM ticket_csat_responses
+		 WHERE tenant_id = $1 AND submitted_at IS NOT NULL`,
+		tenantID,
+	).Scan(&csatAvg); err != nil {
+		return nil, fmt.Errorf("stats csat avg: %w", err)
+	}
+	if csatAvg == nil {
+		stats.CustomerSatisfaction = "–"
+	} else {
+		stats.CustomerSatisfaction = fmt.Sprintf("%.1f/5", *csatAvg)
+	}
 
 	// Weekly breakdown: tickets created per day of current week
 	rows, err := r.pool.Query(ctx,
@@ -884,35 +1264,80 @@ type scannable interface {
 	Scan(dest ...any) error
 }
 
-func scanTicket(row scannable) (*Ticket, error) {
-	var t Ticket
-	err := row.Scan(
+// orEmptyMap keeps a nil map out of the JSONB column, which is NOT NULL.
+func orEmptyMap(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
+// nullIfEmpty writes SQL NULL instead of an empty string, so the NULLIF in
+// ticketSelectColumns' requester_name fallback has nothing to trip over.
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// ticketScanDest returns the scan targets for ticketSelectColumns, in its
+// order. Both ticket scanners go through it so the two lists cannot drift
+// apart -- they used to be copies of each other, and a column added to only
+// one of them shifts every field after it.
+func ticketScanDest(t *Ticket, customFields *[]byte) []any {
+	return []any{
 		&t.ID, &t.TenantID, &t.Subject, &t.Status, &t.Priority,
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
 		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
 		&t.SourceChannel, &t.SourceMessageID,
+		&t.CsatRating, &t.CsatComment,
+		&t.Channel, &t.RequesterEmail, &t.RequesterIsExternal, customFields,
 		&t.AssigneeName, &t.RequesterName,
+	}
+}
+
+// applyCustomFields decodes the raw custom_fields JSONB onto the ticket. The
+// column is NOT NULL DEFAULT '{}', so raw is empty only for rows read through
+// a query that predates the column; the map stays non-nil either way, because
+// nil would serialise as JSON null where the module expects {}.
+func applyCustomFields(t *Ticket, raw []byte) error {
+	t.CustomFields = map[string]any{}
+	if len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, &t.CustomFields); err != nil {
+		return fmt.Errorf("unmarshal custom_fields: %w", err)
+	}
+	return nil
+}
+
+func scanTicket(row scannable) (*Ticket, error) {
+	var (
+		t          Ticket
+		customJSON []byte
 	)
+	err := row.Scan(ticketScanDest(&t, &customJSON)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTicketNotFound
 	}
-	return &t, err
+	if err != nil {
+		return &t, err
+	}
+	return &t, applyCustomFields(&t, customJSON)
 }
 
 func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
-	var t Ticket
-	err := rows.Scan(
-		&t.ID, &t.TenantID, &t.Subject, &t.Status, &t.Priority,
-		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
-		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
-		&t.CreatedAt, &t.UpdatedAt,
-		&t.Description, &t.Category, &t.TicketNumber, &t.ContactID, &t.OrgID,
-		&t.SourceChannel, &t.SourceMessageID,
-		&t.AssigneeName, &t.RequesterName,
+	var (
+		t          Ticket
+		customJSON []byte
 	)
-	return &t, err
+	if err := rows.Scan(ticketScanDest(&t, &customJSON)...); err != nil {
+		return &t, err
+	}
+	return &t, applyCustomFields(&t, customJSON)
 }
 
 func scanMessageFromRows(rows pgx.Rows) (*TicketMessage, error) {

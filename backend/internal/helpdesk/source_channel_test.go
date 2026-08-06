@@ -63,7 +63,7 @@ func TestCreateTicketFromMessage_CreatesAndPersistsProvenance(t *testing.T) {
 	if ticket.Status != TicketStatusOpen {
 		t.Fatalf("expected status=open, got %s", ticket.Status)
 	}
-	if ticket.RequesterID != requesterID {
+	if ticket.RequesterID == nil || *ticket.RequesterID != requesterID {
 		t.Fatalf("expected requester_id=%s, got %s", requesterID, ticket.RequesterID)
 	}
 	if ticket.SourceChannel == nil || *ticket.SourceChannel != "email" {

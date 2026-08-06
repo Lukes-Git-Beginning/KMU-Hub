@@ -202,6 +202,11 @@ type Config struct {
 	SystemSMTPFrom     string `env:"SYSTEM_SMTP_FROM,default=noreply@zentria.tech"`
 	// PasswordResetBaseURL is the frontend origin for reset links.
 	PasswordResetBaseURL string `env:"PASSWORD_RESET_BASE_URL,default=https://app.zentria.tech/reset-password"`
+	// CsatSurveyBaseURL is the frontend origin for helpdesk CSAT survey links;
+	// the survey token is appended as the last path segment. Defaulted, never
+	// asserted: a wrong origin makes a link unclickable, it must not stop the
+	// helpdesk service from starting.
+	CsatSurveyBaseURL string `env:"CSAT_SURVEY_BASE_URL,default=https://app.zentria.tech/csat"`
 
 	// Env controls production secret validation ("production" enables hard checks)
 	Env string `env:"COSMI_ENV,default=development"`

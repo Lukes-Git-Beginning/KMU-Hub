@@ -30,6 +30,13 @@ type Repository interface {
 	GetUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) ([]*SettingEntry, error)
 	PutUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error)
 
+	// Value-set overrides (migration 000295). These hold ONLY what a tenant
+	// changed; the shipped baseline lives in the Go registry (valueset.go).
+	ListValueSetOverrides(ctx context.Context, tenantID uuid.UUID) ([]*ValueSet, error)
+	GetValueSetOverride(ctx context.Context, tenantID uuid.UUID, setKey string) (*ValueSet, error)
+	UpsertValueSetOverride(ctx context.Context, tenantID uuid.UUID, createdBy *uuid.UUID, set *ValueSet) (*ValueSet, error)
+	DeleteValueSetOverride(ctx context.Context, tenantID uuid.UUID, setKey string) error
+
 	// Licensing
 	ListModuleActivations(ctx context.Context, tenantID uuid.UUID) (map[string]bool, error)
 	SetModuleActivation(ctx context.Context, tenantID uuid.UUID, moduleID string, active bool, updatedBy *uuid.UUID) error

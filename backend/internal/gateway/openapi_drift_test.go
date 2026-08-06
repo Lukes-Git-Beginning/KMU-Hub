@@ -85,6 +85,11 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// Automation: authenticated routes via the registrar loop, the public
 	// inbound webhook trigger outside it — same split as document/berichte.
 	automationRoutes := gateway.NewAutomationRoutes(registry)
+	// Helpdesk: authenticated routes via the registrar loop, the public CSAT
+	// survey redemption outside it — same split as main.go.
+	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
+	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
+	wikiRoutes := gateway.NewWikiRoutes(registry, flagRegistry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -109,10 +114,10 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewInboxRoutes(registry),
 		automationRoutes,
 		gateway.NewDialerRoutes(registry),
-		gateway.NewWikiRoutes(registry, flagRegistry),
-		gateway.NewHelpdeskRoutes(registry, flagRegistry),
+		wikiRoutes,
+		helpdeskRoutes,
 		berichteRoutes,
-		gateway.NewFormulareRoutes(registry, flagRegistry),
+		formulareRoutes,
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
 		gateway.NewProduktionRoutes(registry, flagRegistry),
@@ -165,6 +170,9 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	berichteRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	documentRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	automationRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	helpdeskRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	formulareRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	wikiRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }

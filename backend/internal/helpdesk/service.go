@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ func NewService(repo Repository, log *slog.Logger) *Service {
 func (s *Service) CreateTicket(
 	ctx context.Context,
 	tenantID uuid.UUID,
-	requesterID uuid.UUID,
+	requesterID *uuid.UUID,
 	subject string,
 	priority string,
 	assigneeID *uuid.UUID,
@@ -39,6 +40,7 @@ func (s *Service) CreateTicket(
 	category string,
 	contactID *uuid.UUID,
 	orgID *uuid.UUID,
+	intake TicketIntake,
 ) (*Ticket, error) {
 	if subject == "" {
 		return nil, fmt.Errorf("subject must not be empty")
@@ -48,6 +50,16 @@ func (s *Service) CreateTicket(
 	}
 	if !ValidTicketPriorities[priority] {
 		return nil, ErrInvalidPriority
+	}
+	intake, err := intake.normalize()
+	if err != nil {
+		return nil, err
+	}
+	// Requester identity, service-side mirror of chk_tickets_requester_identity
+	// (000291). Caught here rather than left to the DB so the caller gets an
+	// InvalidArgument instead of a 23514 wrapped as an internal error.
+	if requesterID == nil && (!intake.RequesterIsExternal || intake.RequesterEmail == nil) {
+		return nil, ErrMissingRequester
 	}
 	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
 		return nil, err
@@ -69,6 +81,19 @@ func (s *Service) CreateTicket(
 		OrgID:       orgID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
+
+		Channel:             intake.Channel,
+		RequesterEmail:      intake.RequesterEmail,
+		RequesterIsExternal: intake.RequesterIsExternal,
+		CustomFields:        intake.CustomFields,
+	}
+	// Write side of the asymmetric RequesterName field: normalize() has already
+	// dropped it for internal requesters, so whatever survives belongs in the
+	// column. On the way back out the users JOIN overwrites it with the
+	// resolved name, which for an external requester resolves to nothing and
+	// falls back to exactly this value.
+	if intake.RequesterName != nil {
+		t.RequesterName = *intake.RequesterName
 	}
 
 	if err := s.repo.CreateTicket(ctx, t); err != nil {
@@ -130,12 +155,19 @@ func (s *Service) CreateTicketFromMessage(
 		Subject:         subject,
 		Status:          TicketStatusOpen,
 		Priority:        TicketPriorityNormal,
-		RequesterID:     requesterID,
+		RequesterID:     &requesterID,
 		Description:     preview,
 		SourceChannel:   &channel,
 		SourceMessageID: &messageID,
 		CreatedAt:       now,
 		UpdatedAt:       now,
+
+		// Intake origin stays "agent": someone working the inbox converted the
+		// message inside the module. That the message itself arrived by email
+		// says how it reached the INBOX, not how the request reached the
+		// helpdesk -- same distinction the 000290 backfill draws.
+		Channel:      TicketChannelAgent,
+		CustomFields: map[string]any{},
 	}
 
 	if err := s.repo.CreateTicket(ctx, t); err != nil {
@@ -219,16 +251,22 @@ func (s *Service) checkContactOrgTenant(ctx context.Context, tenantID uuid.UUID,
 	return nil
 }
 
-// UpdateTicket applies field-level patches to a ticket.
+// UpdateTicket applies field-level patches to a ticket. customFields is a
+// MERGE patch onto the ticket's existing map, not a replacement -- callers
+// send only the one field they changed (see handleCustomFieldCommit in
+// HelpdeskPage.tsx), and overwriting the whole map would delete every other
+// custom field on the next unrelated edit.
 func (s *Service) UpdateTicket(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
 	subject *string,
+	statusVal *string,
 	priority *string,
 	assigneeID *uuid.UUID,
 	queueID *uuid.UUID,
 	contactID *uuid.UUID,
 	orgID *uuid.UUID,
+	customFields map[string]any,
 ) (*Ticket, error) {
 	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
@@ -243,6 +281,20 @@ func (s *Service) UpdateTicket(
 			return nil, fmt.Errorf("subject must not be empty")
 		}
 		t.Subject = *subject
+	}
+	if statusVal != nil {
+		if !ValidTicketStatuses[*statusVal] {
+			return nil, ErrInvalidStatus
+		}
+		// closed and merged keep their own endpoints (CloseTicket issues the
+		// CSAT survey token and stamps resolved_at; MergeTickets reassigns
+		// messages) -- taking either transition through this generic field
+		// would apply the status without those side effects and desync the
+		// ticket exactly the way this backlog block exists to prevent.
+		if *statusVal == TicketStatusClosed || *statusVal == TicketStatusMerged {
+			return nil, ErrInvalidStatus
+		}
+		t.Status = *statusVal
 	}
 	if priority != nil {
 		if !ValidTicketPriorities[*priority] {
@@ -261,6 +313,15 @@ func (s *Service) UpdateTicket(
 	}
 	if orgID != nil {
 		t.OrgID = orgID
+	}
+	if len(customFields) > 0 {
+		patch, err := normalizeCustomFields(customFields)
+		if err != nil {
+			return nil, err
+		}
+		merged := orEmptyMap(t.CustomFields)
+		maps.Copy(merged, patch)
+		t.CustomFields = merged
 	}
 	t.UpdatedAt = time.Now().UTC()
 
@@ -289,6 +350,40 @@ func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Tic
 	}
 
 	s.log.InfoContext(ctx, "helpdesk: ticket closed", "ticket_id", id)
+	return t, nil
+}
+
+// SubmitCsat records a customer-satisfaction rating for a ticket. Rating is
+// validated here rather than trusted from the caller; the repository writes the
+// response row and the denormalised ticket mirror in one transaction.
+//
+// Rating a ticket twice updates the existing response instead of failing --
+// the unique index per ticket would otherwise turn a mind change into a 500.
+func (s *Service) SubmitCsat(
+	ctx context.Context,
+	id, tenantID uuid.UUID,
+	rating int16,
+	comment *string,
+) (*Ticket, error) {
+	if rating < 1 || rating > 5 {
+		return nil, ErrInvalidCsatRating
+	}
+
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("submit csat – load: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.SubmitCsatTx(ctx, tenantID, id, rating, comment, now); err != nil {
+		return nil, fmt.Errorf("submit csat: %w", err)
+	}
+
+	t.CsatRating = &rating
+	t.CsatComment = comment
+	t.UpdatedAt = now
+
+	s.log.InfoContext(ctx, "helpdesk: csat submitted", "ticket_id", id, "rating", rating)
 	return t, nil
 }
 

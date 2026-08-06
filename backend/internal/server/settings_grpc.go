@@ -621,3 +621,118 @@ func tenantModuleToProto(m *settings.TenantModule) *settingsv1.TenantModule {
 		FlagKey:       m.FlagKey,
 	}
 }
+
+// ============================================================================
+// Value-Set RPCs
+// ============================================================================
+
+func (s *SettingsGRPCServer) ListValueSets(ctx context.Context, req *settingsv1.ListValueSetsRequest) (*settingsv1.ListValueSetsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	sets, err := s.svc.ListValueSets(ctx, tenantID, req.GetBase())
+	if err != nil {
+		slog.Error("ListValueSets failed", "error", err, "tenant_id", tenantID)
+		return nil, status.Error(codes.Internal, "failed to list value sets")
+	}
+
+	resp := &settingsv1.ListValueSetsResponse{ValueSets: make([]*settingsv1.ValueSet, 0, len(sets))}
+	for _, set := range sets {
+		resp.ValueSets = append(resp.ValueSets, resolvedValueSetToProto(set))
+	}
+	return resp, nil
+}
+
+func (s *SettingsGRPCServer) GetValueSet(ctx context.Context, req *settingsv1.GetValueSetRequest) (*settingsv1.ValueSet, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	set, err := s.svc.GetValueSet(ctx, tenantID, req.GetKey(), req.GetBase())
+	if err != nil {
+		switch {
+		case errors.Is(err, settings.ErrNotFound):
+			return nil, status.Error(codes.NotFound, "value set not found")
+		case errors.Is(err, settings.ErrInvalidValueSetKey):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		default:
+			slog.Error("GetValueSet failed", "error", err, "tenant_id", tenantID, "key", req.GetKey())
+			return nil, status.Error(codes.Internal, "failed to get value set")
+		}
+	}
+	return resolvedValueSetToProto(set), nil
+}
+
+func (s *SettingsGRPCServer) UpsertValueSet(ctx context.Context, req *settingsv1.UpsertValueSetRequest) (*settingsv1.ValueSet, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	var callerID *uuid.UUID
+	if req.GetUpdatedBy() != "" {
+		uid, parseErr := uuid.Parse(req.GetUpdatedBy())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid updated_by: %v", parseErr)
+		}
+		callerID = &uid
+	}
+
+	resolved, err := s.svc.UpsertValueSet(ctx, tenantID, callerID, protoToValueSet(req.GetValueSet()))
+	if err != nil {
+		switch {
+		case errors.Is(err, settings.ErrInvalidValueSetKey),
+			errors.Is(err, settings.ErrInvalidValueSet),
+			errors.Is(err, settings.ErrInvalidValueSetOption):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		default:
+			slog.Error("UpsertValueSet failed", "error", err, "tenant_id", tenantID)
+			return nil, status.Error(codes.Internal, "failed to upsert value set")
+		}
+	}
+	return resolvedValueSetToProto(resolved), nil
+}
+
+func resolvedValueSetToProto(rvs *settings.ResolvedValueSet) *settingsv1.ValueSet {
+	options := make([]*settingsv1.ValueSetOption, 0, len(rvs.Options))
+	for _, o := range rvs.Options {
+		options = append(options, &settingsv1.ValueSetOption{
+			Key:        o.Key,
+			Label:      o.Label,
+			Color:      o.Color,
+			Order:      o.Order,
+			Active:     o.Active,
+			Provenance: o.Provenance,
+		})
+	}
+	return &settingsv1.ValueSet{
+		Key:        rvs.Key,
+		Name:       rvs.Name,
+		Options:    options,
+		Provenance: rvs.Provenance,
+		IsSystem:   rvs.IsSystem,
+	}
+}
+
+// protoToValueSet converts the write-side input. provenance and is_system on
+// the wire message are resolved-read-only and ignored here -- the service
+// derives both from the shipped registry, never from caller input.
+func protoToValueSet(pv *settingsv1.ValueSet) *settings.ValueSet {
+	options := make([]settings.ValueSetOption, 0, len(pv.GetOptions()))
+	for _, o := range pv.GetOptions() {
+		options = append(options, settings.ValueSetOption{
+			Key:    o.GetKey(),
+			Label:  o.GetLabel(),
+			Color:  o.GetColor(),
+			Order:  o.GetOrder(),
+			Active: o.GetActive(),
+		})
+	}
+	return &settings.ValueSet{
+		Key:     pv.GetKey(),
+		Name:    pv.GetName(),
+		Options: options,
+	}
+}

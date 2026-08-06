@@ -381,6 +381,7 @@ type TaskProto struct {
 	ProjectKey     *string                `protobuf:"bytes,22,opt,name=project_key,json=projectKey,proto3,oneof" json:"project_key,omitempty"` // Denormalized for display like "ACME-42"
 	CustomFields   map[string]string      `protobuf:"bytes,23,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	LabelIds       []string               `protobuf:"bytes,24,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	StartDate      *timestamppb.Timestamp `protobuf:"bytes,25,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -579,6 +580,13 @@ func (x *TaskProto) GetCustomFields() map[string]string {
 func (x *TaskProto) GetLabelIds() []string {
 	if x != nil {
 		return x.LabelIds
+	}
+	return nil
+}
+
+func (x *TaskProto) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
 	}
 	return nil
 }
@@ -2977,6 +2985,7 @@ type CreateTaskRequest struct {
 	CreatedBy     string                   `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,10,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
 	LabelIds      []string                 `protobuf:"bytes,12,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	StartDate     *timestamppb.Timestamp   `protobuf:"bytes,13,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3091,6 +3100,13 @@ func (x *CreateTaskRequest) GetCustomFields() []*CustomFieldValueInput {
 func (x *CreateTaskRequest) GetLabelIds() []string {
 	if x != nil {
 		return x.LabelIds
+	}
+	return nil
+}
+
+func (x *CreateTaskRequest) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
 	}
 	return nil
 }
@@ -3447,6 +3463,7 @@ type UpdateTaskRequest struct {
 	UpdatedBy     string                   `protobuf:"bytes,8,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
 	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
 	LabelIds      []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	StartDate     *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3547,6 +3564,13 @@ func (x *UpdateTaskRequest) GetCustomFields() []*CustomFieldValueInput {
 func (x *UpdateTaskRequest) GetLabelIds() []string {
 	if x != nil {
 		return x.LabelIds
+	}
+	return nil
+}
+
+func (x *UpdateTaskRequest) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
 	}
 	return nil
 }
@@ -8816,7 +8840,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tis_closed\x18\a \x01(\bR\bisClosed\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\b\n" +
-	"\x06_color\"\xbd\t\n" +
+	"\x06_color\"\x8c\n" +
+	"\n" +
 	"\tTaskProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
 	"\n" +
@@ -8852,7 +8877,9 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"R\n" +
 	"projectKey\x88\x01\x01\x12I\n" +
 	"\rcustom_fields\x18\x17 \x03(\v2$.work.v1.TaskProto.CustomFieldsEntryR\fcustomFields\x12\x1b\n" +
-	"\tlabel_ids\x18\x18 \x03(\tR\blabelIds\x1a?\n" +
+	"\tlabel_ids\x18\x18 \x03(\tR\blabelIds\x12>\n" +
+	"\n" +
+	"start_date\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampH\vR\tstartDate\x88\x01\x01\x1a?\n" +
 	"\x11CustomFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\r\n" +
@@ -8867,7 +8894,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_idB\v\n" +
 	"\t_due_dateB\x0f\n" +
 	"\r_completed_atB\x0e\n" +
-	"\f_project_key\"\xf4\x01\n" +
+	"\f_project_keyB\r\n" +
+	"\v_start_date\"\xf4\x01\n" +
 	"\x13TaskDependencyProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\x0esource_task_id\x18\x02 \x01(\tR\fsourceTaskId\x12$\n" +
@@ -9076,7 +9104,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\"V\n" +
 	"\x1bListProjectStatusesResponse\x127\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x1b.work.v1.ProjectStatusProtoR\bstatuses\"\xa6\x04\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x1b.work.v1.ProjectStatusProtoR\bstatuses\"\xf5\x04\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\ttenant_id\x18\v \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -9093,13 +9121,16 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"created_by\x18\t \x01(\tR\tcreatedBy\x12C\n" +
 	"\rcustom_fields\x18\n" +
 	" \x03(\v2\x1e.work.v1.CustomFieldValueInputR\fcustomFields\x12\x1b\n" +
-	"\tlabel_ids\x18\f \x03(\tR\blabelIdsB\x0e\n" +
+	"\tlabel_ids\x18\f \x03(\tR\blabelIds\x12>\n" +
+	"\n" +
+	"start_date\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x05R\tstartDate\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +
 	"_status_idB\x0e\n" +
 	"\f_assignee_idB\x11\n" +
 	"\x0f_parent_task_idB\v\n" +
-	"\t_due_date\"<\n" +
+	"\t_due_dateB\r\n" +
+	"\v_start_date\"<\n" +
 	"\x12CreateTaskResponse\x12&\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\" \n" +
 	"\x0eGetTaskRequest\x12\x0e\n" +
@@ -9135,7 +9166,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_id\"S\n" +
 	"\x11ListTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xdd\x03\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xac\x04\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
@@ -9149,14 +9180,17 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"updated_by\x18\b \x01(\tR\tupdatedBy\x12C\n" +
 	"\rcustom_fields\x18\t \x03(\v2\x1e.work.v1.CustomFieldValueInputR\fcustomFields\x12\x1b\n" +
 	"\tlabel_ids\x18\n" +
-	" \x03(\tR\blabelIdsB\b\n" +
+	" \x03(\tR\blabelIds\x12>\n" +
+	"\n" +
+	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +
 	"_status_idB\v\n" +
 	"\t_priorityB\x0e\n" +
 	"\f_assignee_idB\v\n" +
-	"\t_due_date\"<\n" +
+	"\t_due_dateB\r\n" +
+	"\v_start_date\"<\n" +
 	"\x12UpdateTaskResponse\x12&\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"#\n" +
 	"\x11DeleteTaskRequest\x12\x0e\n" +
@@ -9782,222 +9816,225 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	155, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
 	155, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
 	152, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
-	155, // 10: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 11: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 12: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 13: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 14: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 15: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
-	0,   // 16: work.v1.CreateProjectResponse.project:type_name -> work.v1.ProjectProto
-	0,   // 17: work.v1.GetProjectResponse.project:type_name -> work.v1.ProjectProto
-	0,   // 18: work.v1.ListProjectsResponse.projects:type_name -> work.v1.ProjectProto
-	0,   // 19: work.v1.UpdateProjectResponse.project:type_name -> work.v1.ProjectProto
-	0,   // 20: work.v1.ArchiveProjectResponse.project:type_name -> work.v1.ProjectProto
-	1,   // 21: work.v1.AddProjectMemberResponse.member:type_name -> work.v1.ProjectMemberProto
-	1,   // 22: work.v1.ListProjectMembersResponse.members:type_name -> work.v1.ProjectMemberProto
-	1,   // 23: work.v1.UpdateProjectMemberRoleResponse.member:type_name -> work.v1.ProjectMemberProto
-	0,   // 24: work.v1.SaveProjectAsTemplateResponse.template:type_name -> work.v1.ProjectProto
-	0,   // 25: work.v1.CreateProjectFromTemplateResponse.project:type_name -> work.v1.ProjectProto
-	2,   // 26: work.v1.CreateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
-	2,   // 27: work.v1.UpdateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
-	2,   // 28: work.v1.ReorderProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
-	2,   // 29: work.v1.ListProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
-	155, // 30: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
-	10,  // 31: work.v1.CreateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
-	3,   // 32: work.v1.CreateTaskResponse.task:type_name -> work.v1.TaskProto
-	3,   // 33: work.v1.GetTaskResponse.task:type_name -> work.v1.TaskProto
-	155, // 34: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	155, // 35: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
-	3,   // 36: work.v1.ListTasksResponse.tasks:type_name -> work.v1.TaskProto
-	155, // 37: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
-	10,  // 38: work.v1.UpdateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
-	3,   // 39: work.v1.UpdateTaskResponse.task:type_name -> work.v1.TaskProto
-	3,   // 40: work.v1.MoveTaskResponse.task:type_name -> work.v1.TaskProto
-	3,   // 41: work.v1.ListSubtasksResponse.tasks:type_name -> work.v1.TaskProto
-	4,   // 42: work.v1.CreateTaskDependencyResponse.dependency:type_name -> work.v1.TaskDependencyProto
-	4,   // 43: work.v1.ListTaskDependenciesResponse.dependencies:type_name -> work.v1.TaskDependencyProto
-	5,   // 44: work.v1.CreateTaskCommentResponse.comment:type_name -> work.v1.TaskCommentProto
-	5,   // 45: work.v1.UpdateTaskCommentResponse.comment:type_name -> work.v1.TaskCommentProto
-	5,   // 46: work.v1.ListTaskCommentsResponse.comments:type_name -> work.v1.TaskCommentProto
-	6,   // 47: work.v1.LinkEntityToTaskResponse.link:type_name -> work.v1.TaskEntityLinkProto
-	6,   // 48: work.v1.ListTaskEntityLinksResponse.links:type_name -> work.v1.TaskEntityLinkProto
-	3,   // 49: work.v1.ListEntityTasksResponse.tasks:type_name -> work.v1.TaskProto
-	7,   // 50: work.v1.ListTaskActivitiesResponse.activities:type_name -> work.v1.TaskActivityProto
-	8,   // 51: work.v1.AttachFileToTaskResponse.file:type_name -> work.v1.TaskFileProto
-	8,   // 52: work.v1.ListTaskFilesResponse.files:type_name -> work.v1.TaskFileProto
-	10,  // 53: work.v1.SetTaskCustomFieldValuesRequest.values:type_name -> work.v1.CustomFieldValueInput
-	153, // 54: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	154, // 55: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	9,   // 56: work.v1.GetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
-	9,   // 57: work.v1.SetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
-	155, // 58: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	155, // 59: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
-	3,   // 60: work.v1.SearchTasksResponse.tasks:type_name -> work.v1.TaskProto
-	155, // 61: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
-	155, // 62: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
-	155, // 63: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 64: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 65: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 66: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
-	99,  // 67: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
-	99,  // 68: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
-	100, // 69: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
-	155, // 70: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 71: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
-	155, // 72: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 73: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
-	99,  // 74: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
-	116, // 75: work.v1.ListBillableTimeEntriesResponse.entries:type_name -> work.v1.BillableTimeEntryProto
-	119, // 76: work.v1.ListProjectTimeEntriesResponse.entries:type_name -> work.v1.ProjectTimeEntryProto
-	122, // 77: work.v1.ProjectMemberUtilizationProto.weekly_data:type_name -> work.v1.UtilizationPointProto
-	122, // 78: work.v1.ProjectMemberUtilizationProto.monthly_data:type_name -> work.v1.UtilizationPointProto
-	123, // 79: work.v1.ListProjectTeamUtilizationResponse.team:type_name -> work.v1.ProjectMemberUtilizationProto
-	101, // 80: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
-	128, // 81: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
-	128, // 82: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
-	128, // 83: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
-	128, // 84: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
-	141, // 85: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 86: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 87: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 88: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	11,  // 89: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
-	13,  // 90: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
-	15,  // 91: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
-	17,  // 92: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
-	19,  // 93: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
-	21,  // 94: work.v1.WorkService.DeleteProject:input_type -> work.v1.DeleteProjectRequest
-	23,  // 95: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
-	25,  // 96: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
-	27,  // 97: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
-	29,  // 98: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
-	31,  // 99: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
-	33,  // 100: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
-	35,  // 101: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
-	37,  // 102: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
-	39,  // 103: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
-	41,  // 104: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
-	43,  // 105: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
-	45,  // 106: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
-	47,  // 107: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
-	49,  // 108: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
-	51,  // 109: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
-	53,  // 110: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
-	55,  // 111: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
-	57,  // 112: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
-	59,  // 113: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
-	61,  // 114: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
-	63,  // 115: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
-	65,  // 116: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
-	67,  // 117: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
-	69,  // 118: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
-	71,  // 119: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
-	73,  // 120: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
-	75,  // 121: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
-	77,  // 122: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
-	79,  // 123: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
-	81,  // 124: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
-	83,  // 125: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
-	85,  // 126: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
-	87,  // 127: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
-	89,  // 128: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
-	91,  // 129: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
-	93,  // 130: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
-	95,  // 131: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
-	97,  // 132: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
-	102, // 133: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
-	104, // 134: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
-	106, // 135: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
-	108, // 136: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
-	110, // 137: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
-	112, // 138: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
-	114, // 139: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
-	126, // 140: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
-	117, // 141: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
-	120, // 142: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
-	124, // 143: work.v1.WorkService.ListProjectTeamUtilization:input_type -> work.v1.ListProjectTeamUtilizationRequest
-	129, // 144: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
-	131, // 145: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
-	133, // 146: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
-	135, // 147: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
-	137, // 148: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
-	139, // 149: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
-	142, // 150: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
-	144, // 151: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
-	146, // 152: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
-	148, // 153: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
-	150, // 154: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
-	12,  // 155: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
-	14,  // 156: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
-	16,  // 157: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
-	18,  // 158: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
-	20,  // 159: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
-	22,  // 160: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
-	24,  // 161: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
-	26,  // 162: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
-	28,  // 163: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
-	30,  // 164: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
-	32,  // 165: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
-	34,  // 166: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
-	36,  // 167: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
-	38,  // 168: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
-	40,  // 169: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
-	42,  // 170: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
-	44,  // 171: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
-	46,  // 172: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
-	48,  // 173: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
-	50,  // 174: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
-	52,  // 175: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
-	54,  // 176: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
-	56,  // 177: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
-	58,  // 178: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
-	60,  // 179: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
-	62,  // 180: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
-	64,  // 181: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
-	66,  // 182: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
-	68,  // 183: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
-	70,  // 184: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
-	72,  // 185: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
-	74,  // 186: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
-	76,  // 187: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
-	78,  // 188: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
-	80,  // 189: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
-	82,  // 190: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
-	84,  // 191: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
-	86,  // 192: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
-	88,  // 193: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
-	90,  // 194: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
-	92,  // 195: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
-	94,  // 196: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
-	96,  // 197: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
-	98,  // 198: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
-	103, // 199: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
-	105, // 200: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
-	107, // 201: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
-	109, // 202: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
-	111, // 203: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
-	113, // 204: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
-	115, // 205: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
-	127, // 206: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
-	118, // 207: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
-	121, // 208: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
-	125, // 209: work.v1.WorkService.ListProjectTeamUtilization:output_type -> work.v1.ListProjectTeamUtilizationResponse
-	130, // 210: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
-	132, // 211: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
-	134, // 212: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
-	136, // 213: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
-	138, // 214: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
-	140, // 215: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
-	143, // 216: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
-	145, // 217: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
-	147, // 218: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
-	149, // 219: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
-	151, // 220: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
-	155, // [155:221] is the sub-list for method output_type
-	89,  // [89:155] is the sub-list for method input_type
-	89,  // [89:89] is the sub-list for extension type_name
-	89,  // [89:89] is the sub-list for extension extendee
-	0,   // [0:89] is the sub-list for field type_name
+	155, // 10: work.v1.TaskProto.start_date:type_name -> google.protobuf.Timestamp
+	155, // 11: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 12: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 13: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 14: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 15: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 16: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
+	0,   // 17: work.v1.CreateProjectResponse.project:type_name -> work.v1.ProjectProto
+	0,   // 18: work.v1.GetProjectResponse.project:type_name -> work.v1.ProjectProto
+	0,   // 19: work.v1.ListProjectsResponse.projects:type_name -> work.v1.ProjectProto
+	0,   // 20: work.v1.UpdateProjectResponse.project:type_name -> work.v1.ProjectProto
+	0,   // 21: work.v1.ArchiveProjectResponse.project:type_name -> work.v1.ProjectProto
+	1,   // 22: work.v1.AddProjectMemberResponse.member:type_name -> work.v1.ProjectMemberProto
+	1,   // 23: work.v1.ListProjectMembersResponse.members:type_name -> work.v1.ProjectMemberProto
+	1,   // 24: work.v1.UpdateProjectMemberRoleResponse.member:type_name -> work.v1.ProjectMemberProto
+	0,   // 25: work.v1.SaveProjectAsTemplateResponse.template:type_name -> work.v1.ProjectProto
+	0,   // 26: work.v1.CreateProjectFromTemplateResponse.project:type_name -> work.v1.ProjectProto
+	2,   // 27: work.v1.CreateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
+	2,   // 28: work.v1.UpdateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
+	2,   // 29: work.v1.ReorderProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
+	2,   // 30: work.v1.ListProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
+	155, // 31: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	10,  // 32: work.v1.CreateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
+	155, // 33: work.v1.CreateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
+	3,   // 34: work.v1.CreateTaskResponse.task:type_name -> work.v1.TaskProto
+	3,   // 35: work.v1.GetTaskResponse.task:type_name -> work.v1.TaskProto
+	155, // 36: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	155, // 37: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	3,   // 38: work.v1.ListTasksResponse.tasks:type_name -> work.v1.TaskProto
+	155, // 39: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	10,  // 40: work.v1.UpdateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
+	155, // 41: work.v1.UpdateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
+	3,   // 42: work.v1.UpdateTaskResponse.task:type_name -> work.v1.TaskProto
+	3,   // 43: work.v1.MoveTaskResponse.task:type_name -> work.v1.TaskProto
+	3,   // 44: work.v1.ListSubtasksResponse.tasks:type_name -> work.v1.TaskProto
+	4,   // 45: work.v1.CreateTaskDependencyResponse.dependency:type_name -> work.v1.TaskDependencyProto
+	4,   // 46: work.v1.ListTaskDependenciesResponse.dependencies:type_name -> work.v1.TaskDependencyProto
+	5,   // 47: work.v1.CreateTaskCommentResponse.comment:type_name -> work.v1.TaskCommentProto
+	5,   // 48: work.v1.UpdateTaskCommentResponse.comment:type_name -> work.v1.TaskCommentProto
+	5,   // 49: work.v1.ListTaskCommentsResponse.comments:type_name -> work.v1.TaskCommentProto
+	6,   // 50: work.v1.LinkEntityToTaskResponse.link:type_name -> work.v1.TaskEntityLinkProto
+	6,   // 51: work.v1.ListTaskEntityLinksResponse.links:type_name -> work.v1.TaskEntityLinkProto
+	3,   // 52: work.v1.ListEntityTasksResponse.tasks:type_name -> work.v1.TaskProto
+	7,   // 53: work.v1.ListTaskActivitiesResponse.activities:type_name -> work.v1.TaskActivityProto
+	8,   // 54: work.v1.AttachFileToTaskResponse.file:type_name -> work.v1.TaskFileProto
+	8,   // 55: work.v1.ListTaskFilesResponse.files:type_name -> work.v1.TaskFileProto
+	10,  // 56: work.v1.SetTaskCustomFieldValuesRequest.values:type_name -> work.v1.CustomFieldValueInput
+	153, // 57: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	154, // 58: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	9,   // 59: work.v1.GetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
+	9,   // 60: work.v1.SetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
+	155, // 61: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	155, // 62: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	3,   // 63: work.v1.SearchTasksResponse.tasks:type_name -> work.v1.TaskProto
+	155, // 64: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
+	155, // 65: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
+	155, // 66: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
+	155, // 67: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
+	155, // 68: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
+	99,  // 69: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	99,  // 70: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
+	99,  // 71: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	100, // 72: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
+	155, // 73: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	99,  // 74: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	155, // 75: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	99,  // 76: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	99,  // 77: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
+	116, // 78: work.v1.ListBillableTimeEntriesResponse.entries:type_name -> work.v1.BillableTimeEntryProto
+	119, // 79: work.v1.ListProjectTimeEntriesResponse.entries:type_name -> work.v1.ProjectTimeEntryProto
+	122, // 80: work.v1.ProjectMemberUtilizationProto.weekly_data:type_name -> work.v1.UtilizationPointProto
+	122, // 81: work.v1.ProjectMemberUtilizationProto.monthly_data:type_name -> work.v1.UtilizationPointProto
+	123, // 82: work.v1.ListProjectTeamUtilizationResponse.team:type_name -> work.v1.ProjectMemberUtilizationProto
+	101, // 83: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
+	128, // 84: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
+	128, // 85: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
+	128, // 86: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
+	128, // 87: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
+	141, // 88: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 89: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 90: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
+	141, // 91: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	11,  // 92: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
+	13,  // 93: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
+	15,  // 94: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
+	17,  // 95: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
+	19,  // 96: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
+	21,  // 97: work.v1.WorkService.DeleteProject:input_type -> work.v1.DeleteProjectRequest
+	23,  // 98: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
+	25,  // 99: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
+	27,  // 100: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
+	29,  // 101: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
+	31,  // 102: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
+	33,  // 103: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
+	35,  // 104: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
+	37,  // 105: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
+	39,  // 106: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
+	41,  // 107: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
+	43,  // 108: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
+	45,  // 109: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
+	47,  // 110: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
+	49,  // 111: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
+	51,  // 112: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
+	53,  // 113: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
+	55,  // 114: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
+	57,  // 115: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
+	59,  // 116: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
+	61,  // 117: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
+	63,  // 118: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
+	65,  // 119: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
+	67,  // 120: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
+	69,  // 121: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
+	71,  // 122: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
+	73,  // 123: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
+	75,  // 124: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
+	77,  // 125: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
+	79,  // 126: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
+	81,  // 127: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
+	83,  // 128: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
+	85,  // 129: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
+	87,  // 130: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
+	89,  // 131: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
+	91,  // 132: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
+	93,  // 133: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
+	95,  // 134: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
+	97,  // 135: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
+	102, // 136: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
+	104, // 137: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
+	106, // 138: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
+	108, // 139: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
+	110, // 140: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
+	112, // 141: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
+	114, // 142: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
+	126, // 143: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
+	117, // 144: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
+	120, // 145: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
+	124, // 146: work.v1.WorkService.ListProjectTeamUtilization:input_type -> work.v1.ListProjectTeamUtilizationRequest
+	129, // 147: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
+	131, // 148: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
+	133, // 149: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
+	135, // 150: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
+	137, // 151: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
+	139, // 152: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
+	142, // 153: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
+	144, // 154: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
+	146, // 155: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
+	148, // 156: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
+	150, // 157: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
+	12,  // 158: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
+	14,  // 159: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
+	16,  // 160: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
+	18,  // 161: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
+	20,  // 162: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
+	22,  // 163: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
+	24,  // 164: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
+	26,  // 165: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
+	28,  // 166: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
+	30,  // 167: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
+	32,  // 168: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
+	34,  // 169: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
+	36,  // 170: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
+	38,  // 171: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
+	40,  // 172: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
+	42,  // 173: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
+	44,  // 174: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
+	46,  // 175: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
+	48,  // 176: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
+	50,  // 177: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
+	52,  // 178: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
+	54,  // 179: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
+	56,  // 180: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
+	58,  // 181: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
+	60,  // 182: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
+	62,  // 183: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
+	64,  // 184: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
+	66,  // 185: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
+	68,  // 186: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
+	70,  // 187: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
+	72,  // 188: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
+	74,  // 189: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
+	76,  // 190: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
+	78,  // 191: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
+	80,  // 192: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
+	82,  // 193: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
+	84,  // 194: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
+	86,  // 195: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
+	88,  // 196: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
+	90,  // 197: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
+	92,  // 198: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
+	94,  // 199: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
+	96,  // 200: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
+	98,  // 201: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
+	103, // 202: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
+	105, // 203: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
+	107, // 204: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
+	109, // 205: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
+	111, // 206: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
+	113, // 207: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
+	115, // 208: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
+	127, // 209: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
+	118, // 210: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
+	121, // 211: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
+	125, // 212: work.v1.WorkService.ListProjectTeamUtilization:output_type -> work.v1.ListProjectTeamUtilizationResponse
+	130, // 213: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
+	132, // 214: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
+	134, // 215: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
+	136, // 216: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
+	138, // 217: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
+	140, // 218: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
+	143, // 219: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
+	145, // 220: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
+	147, // 221: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
+	149, // 222: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
+	151, // 223: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
+	158, // [158:224] is the sub-list for method output_type
+	92,  // [92:158] is the sub-list for method input_type
+	92,  // [92:92] is the sub-list for extension type_name
+	92,  // [92:92] is the sub-list for extension extendee
+	0,   // [0:92] is the sub-list for field type_name
 }
 
 func init() { file_proto_work_v1_work_proto_init() }

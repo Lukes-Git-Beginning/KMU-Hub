@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository using PostgreSQL (pgx v5).
@@ -31,11 +33,12 @@ func (r *PostgresRepository) CreateSchema(ctx context.Context, schema *FormSchem
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO form_schemas
 		    (id, tenant_id, title, description, fields, status, is_template,
-		     is_public, page_count, submission_count, created_by, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		     is_public, page_count, submission_count, created_by, intake_target_id,
+		     created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		schema.ID, schema.TenantID, schema.Title, schema.Description,
 		schema.Fields, string(schema.Status), schema.IsTemplate, schema.IsPublic,
-		schema.PageCount, schema.SubmissionCount, schema.CreatedBy,
+		schema.PageCount, schema.SubmissionCount, schema.CreatedBy, schema.IntakeTargetID,
 		schema.CreatedAt, schema.UpdatedAt,
 	)
 	if err != nil {
@@ -47,8 +50,8 @@ func (r *PostgresRepository) CreateSchema(ctx context.Context, schema *FormSchem
 func (r *PostgresRepository) GetSchema(ctx context.Context, id, tenantID uuid.UUID) (*FormSchema, error) {
 	return r.scanSchema(r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, fields, status, is_template,
-		        is_public, page_count, submission_count, created_by, created_at,
-		        updated_at, deleted_at
+		        is_public, page_count, submission_count, created_by, intake_target_id,
+		        created_at, updated_at, deleted_at
 		 FROM form_schemas
 		 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
 		id, tenantID,
@@ -59,11 +62,12 @@ func (r *PostgresRepository) UpdateSchema(ctx context.Context, schema *FormSchem
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE form_schemas
 		 SET title = $1, description = $2, fields = $3, status = $4,
-		     is_template = $5, is_public = $6, page_count = $7, updated_at = $8
-		 WHERE id = $9 AND tenant_id = $10 AND deleted_at IS NULL`,
+		     is_template = $5, is_public = $6, page_count = $7, intake_target_id = $8,
+		     updated_at = $9
+		 WHERE id = $10 AND tenant_id = $11 AND deleted_at IS NULL`,
 		schema.Title, schema.Description, schema.Fields, string(schema.Status),
-		schema.IsTemplate, schema.IsPublic, schema.PageCount, schema.UpdatedAt,
-		schema.ID, schema.TenantID,
+		schema.IsTemplate, schema.IsPublic, schema.PageCount, schema.IntakeTargetID,
+		schema.UpdatedAt, schema.ID, schema.TenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("update form schema: %w", err)
@@ -128,8 +132,8 @@ func (r *PostgresRepository) ListSchemas(ctx context.Context, tenantID uuid.UUID
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, title, description, fields, status, is_template,
-		       is_public, page_count, submission_count, created_by, created_at,
-		       updated_at, deleted_at
+		       is_public, page_count, submission_count, created_by, intake_target_id,
+		       created_at, updated_at, deleted_at
 		FROM form_schemas %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -167,18 +171,19 @@ func (r *PostgresRepository) DuplicateSchema(ctx context.Context, id, tenantID u
 	}
 
 	newSchema := &FormSchema{
-		ID:          newID,
-		TenantID:    tenantID,
-		Title:       title,
-		Description: original.Description,
-		Fields:      append([]byte(nil), original.Fields...),
-		Status:      FormSchemaStatusDraft,
-		IsTemplate:  original.IsTemplate,
-		IsPublic:    false,
-		PageCount:   original.PageCount,
-		CreatedBy:   original.CreatedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             newID,
+		TenantID:       tenantID,
+		Title:          title,
+		Description:    original.Description,
+		Fields:         append([]byte(nil), original.Fields...),
+		Status:         FormSchemaStatusDraft,
+		IsTemplate:     original.IsTemplate,
+		IsPublic:       false,
+		PageCount:      original.PageCount,
+		CreatedBy:      original.CreatedBy,
+		IntakeTargetID: original.IntakeTargetID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	if err := r.CreateSchema(ctx, newSchema); err != nil {
@@ -198,7 +203,20 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, submission *F
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx,
+	if err := insertSubmissionTx(ctx, tx, submission, webhookIDs); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// insertSubmissionTx writes one submission plus its webhook delivery rows
+// inside an open transaction. Shared by the authenticated CreateSubmission and
+// the public RedeemShareLinkTx so both produce the same rows -- a public
+// submission that silently skipped the webhook fan-out would be a second,
+// invisible behaviour of the same feature.
+func insertSubmissionTx(ctx context.Context, tx pgx.Tx, submission *FormSubmission, webhookIDs []uuid.UUID) error {
+	_, err := tx.Exec(ctx,
 		`INSERT INTO form_submissions
 		    (id, form_schema_id, tenant_id, answers, status, submitted_by, ip_address, submitted_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -213,9 +231,9 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, submission *F
 	// Enqueue one delivery row per active webhook.
 	for _, wID := range webhookIDs {
 		payload, marshalErr := json.Marshal(map[string]any{
-			"submission_id":   submission.ID,
-			"form_schema_id":  submission.FormSchemaID,
-			"answers":         json.RawMessage(submission.Answers),
+			"submission_id":  submission.ID,
+			"form_schema_id": submission.FormSchemaID,
+			"answers":        json.RawMessage(submission.Answers),
 		})
 		if marshalErr != nil {
 			return fmt.Errorf("marshal delivery payload: %w", marshalErr)
@@ -232,8 +250,7 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, submission *F
 			return fmt.Errorf("enqueue webhook delivery: %w", err)
 		}
 	}
-
-	return tx.Commit(ctx)
+	return nil
 }
 
 func (r *PostgresRepository) GetSubmission(ctx context.Context, id, tenantID uuid.UUID) (*FormSubmission, error) {
@@ -628,7 +645,7 @@ func (r *PostgresRepository) scanSchema(row pgx.Row) (*FormSchema, error) {
 	err := row.Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description, &s.Fields,
 		&status, &s.IsTemplate, &s.IsPublic, &s.PageCount, &s.SubmissionCount,
-		&s.CreatedBy, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
+		&s.CreatedBy, &s.IntakeTargetID, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSchemaNotFound
@@ -646,7 +663,7 @@ func (r *PostgresRepository) scanSchemaFromRows(rows pgx.Rows) (*FormSchema, err
 	err := rows.Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description, &s.Fields,
 		&status, &s.IsTemplate, &s.IsPublic, &s.PageCount, &s.SubmissionCount,
-		&s.CreatedBy, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
+		&s.CreatedBy, &s.IntakeTargetID, &s.CreatedAt, &s.UpdatedAt, &s.DeletedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan form schema row: %w", err)
@@ -786,6 +803,154 @@ func (r *PostgresRepository) GetFormStats(ctx context.Context, formSchemaID, ten
 		Last7dCount:  last7d,
 		Last30dCount: last30d,
 	}, nil
+}
+
+// ============================================================================
+// Share links (B8)
+// ============================================================================
+
+const shareLinkColumns = `id, tenant_id, form_schema_id, token, expires_at,
+	revoked_at, max_submissions, submission_count, created_by, created_at`
+
+func (r *PostgresRepository) CreateShareLink(ctx context.Context, link *FormShareLink) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO form_share_tokens
+		    (id, tenant_id, form_schema_id, token, expires_at, max_submissions,
+		     submission_count, created_by, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		link.ID, link.TenantID, link.FormSchemaID, link.Token, link.ExpiresAt,
+		link.MaxSubmissions, link.SubmissionCount, link.CreatedBy, link.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert form share token: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListShareLinks(ctx context.Context, formSchemaID, tenantID uuid.UUID) ([]*FormShareLink, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+shareLinkColumns+`
+		   FROM form_share_tokens
+		  WHERE tenant_id = $1 AND form_schema_id = $2
+		  ORDER BY created_at DESC`,
+		tenantID, formSchemaID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list form share tokens: %w", err)
+	}
+	defer rows.Close()
+
+	links := make([]*FormShareLink, 0)
+	for rows.Next() {
+		link, scanErr := scanShareLink(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		links = append(links, link)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate form share tokens: %w", err)
+	}
+	return links, nil
+}
+
+func (r *PostgresRepository) RevokeShareLink(ctx context.Context, id, tenantID uuid.UUID, now time.Time) error {
+	// COALESCE keeps the first revocation timestamp: re-cutting a cut link is
+	// a no-op, not a way to rewrite when it happened.
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE form_share_tokens
+		    SET revoked_at = COALESCE(revoked_at, $3)
+		  WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID, now,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke form share token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrShareLinkNotFound
+	}
+	return nil
+}
+
+// GetShareLinkByToken resolves a token to its row. This is the one read in
+// this repository that escapes RLS via the system context, because the request
+// carries no tenant yet and which tenant it may write to is exactly what the
+// token answers. The caller re-enters tenant scope immediately afterwards
+// (Service.SubmitByShareToken) -- the system context never reaches the data.
+func (r *PostgresRepository) GetShareLinkByToken(ctx context.Context, token string) (*FormShareLink, error) {
+	link, err := scanShareLink(r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareLinkColumns+`
+		   FROM form_share_tokens
+		  WHERE token = $1`,
+		token,
+	))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareLinkNotFound
+	}
+	return link, err
+}
+
+// RedeemShareLinkTx consumes one submission slot and stores the submission in
+// the same transaction.
+//
+// The WHERE clause repeats every condition Usable() already checked, because
+// that check is a read and this is the write: two visitors redeeming the last
+// slot of a capped link at the same moment both pass the read, and only one
+// may pass here. Zero rows updated means the link was no longer redeemable,
+// and the submission is never written.
+func (r *PostgresRepository) RedeemShareLinkTx(
+	ctx context.Context,
+	linkID, tenantID uuid.UUID,
+	submission *FormSubmission,
+	webhookIDs []uuid.UUID,
+	now time.Time,
+) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE form_share_tokens
+		    SET submission_count = submission_count + 1
+		  WHERE id = $1
+		    AND tenant_id = $2
+		    AND revoked_at IS NULL
+		    AND (expires_at IS NULL OR expires_at > $3)
+		    AND (max_submissions IS NULL OR submission_count < max_submissions)`,
+		linkID, tenantID, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("consume form share token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+
+	if err := insertSubmissionTx(ctx, tx, submission, webhookIDs); err != nil {
+		return false, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit share token redemption: %w", err)
+	}
+	return true, nil
+}
+
+func scanShareLink(row pgx.Row) (*FormShareLink, error) {
+	var l FormShareLink
+	err := row.Scan(
+		&l.ID, &l.TenantID, &l.FormSchemaID, &l.Token, &l.ExpiresAt,
+		&l.RevokedAt, &l.MaxSubmissions, &l.SubmissionCount, &l.CreatedBy, &l.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, pgx.ErrNoRows
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan form share token: %w", err)
+	}
+	return &l, nil
 }
 
 // compile-time interface check

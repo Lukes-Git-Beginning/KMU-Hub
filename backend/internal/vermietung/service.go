@@ -580,29 +580,6 @@ func (s *Service) ListInspections(ctx context.Context, input ListInspectionsInpu
 	return s.repo.ListInspections(ctx, input.TenantID, input.RentalID, offset, input.PageSize)
 }
 
-// UploadInspectionPhoto appends a photo URL to an existing inspection.
-// The actual MinIO upload is handled at the gateway level; here we only
-// persist the URL after it has been uploaded.
-func (s *Service) UploadInspectionPhoto(ctx context.Context, tenantID, inspectionID uuid.UUID, photoURL string) (*RentalInspection, error) {
-	ins, err := s.repo.GetInspection(ctx, tenantID, inspectionID)
-	if err != nil {
-		return nil, err
-	}
-
-	ins.PhotoURLs = append(ins.PhotoURLs, photoURL)
-	ins.UpdatedAt = time.Now()
-
-	if err := s.repo.UpdateInspection(ctx, ins); err != nil {
-		return nil, fmt.Errorf("append inspection photo: %w", err)
-	}
-
-	slog.Info("inspection photo appended",
-		"inspection_id", ins.ID,
-		"photo_url", photoURL,
-	)
-	return ins, nil
-}
-
 // ============================================================================
 // Signature
 // ============================================================================

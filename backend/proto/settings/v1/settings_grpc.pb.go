@@ -37,6 +37,9 @@ const (
 	SettingsService_GetTenantLicense_FullMethodName       = "/settings.v1.SettingsService/GetTenantLicense"
 	SettingsService_SetTenantModuleActive_FullMethodName  = "/settings.v1.SettingsService/SetTenantModuleActive"
 	SettingsService_GetTenantSubscription_FullMethodName  = "/settings.v1.SettingsService/GetTenantSubscription"
+	SettingsService_ListValueSets_FullMethodName          = "/settings.v1.SettingsService/ListValueSets"
+	SettingsService_GetValueSet_FullMethodName            = "/settings.v1.SettingsService/GetValueSet"
+	SettingsService_UpsertValueSet_FullMethodName         = "/settings.v1.SettingsService/UpsertValueSet"
 )
 
 // SettingsServiceClient is the client API for SettingsService service.
@@ -83,6 +86,14 @@ type SettingsServiceClient interface {
 	GetTenantLicense(ctx context.Context, in *GetTenantLicenseRequest, opts ...grpc.CallOption) (*GetTenantLicenseResponse, error)
 	SetTenantModuleActive(ctx context.Context, in *SetTenantModuleActiveRequest, opts ...grpc.CallOption) (*TenantModule, error)
 	GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscription, error)
+	// Value-sets (customization_value_sets / _options, migration 000295): named
+	// option lists (deal stages, ticket priority, ...) resolved from the shipped
+	// registry (internal/settings/valueset.go) overlaid with the tenant's stored
+	// override. Delete is deliberately not exposed here yet -- no caller needs it
+	// (see BACKLOG.yml customization-value-sets-routes).
+	ListValueSets(ctx context.Context, in *ListValueSetsRequest, opts ...grpc.CallOption) (*ListValueSetsResponse, error)
+	GetValueSet(ctx context.Context, in *GetValueSetRequest, opts ...grpc.CallOption) (*ValueSet, error)
+	UpsertValueSet(ctx context.Context, in *UpsertValueSetRequest, opts ...grpc.CallOption) (*ValueSet, error)
 }
 
 type settingsServiceClient struct {
@@ -273,6 +284,36 @@ func (c *settingsServiceClient) GetTenantSubscription(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *settingsServiceClient) ListValueSets(ctx context.Context, in *ListValueSetsRequest, opts ...grpc.CallOption) (*ListValueSetsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListValueSetsResponse)
+	err := c.cc.Invoke(ctx, SettingsService_ListValueSets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) GetValueSet(ctx context.Context, in *GetValueSetRequest, opts ...grpc.CallOption) (*ValueSet, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValueSet)
+	err := c.cc.Invoke(ctx, SettingsService_GetValueSet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) UpsertValueSet(ctx context.Context, in *UpsertValueSetRequest, opts ...grpc.CallOption) (*ValueSet, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValueSet)
+	err := c.cc.Invoke(ctx, SettingsService_UpsertValueSet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SettingsServiceServer is the server API for SettingsService service.
 // All implementations must embed UnimplementedSettingsServiceServer
 // for forward compatibility.
@@ -317,6 +358,14 @@ type SettingsServiceServer interface {
 	GetTenantLicense(context.Context, *GetTenantLicenseRequest) (*GetTenantLicenseResponse, error)
 	SetTenantModuleActive(context.Context, *SetTenantModuleActiveRequest) (*TenantModule, error)
 	GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscription, error)
+	// Value-sets (customization_value_sets / _options, migration 000295): named
+	// option lists (deal stages, ticket priority, ...) resolved from the shipped
+	// registry (internal/settings/valueset.go) overlaid with the tenant's stored
+	// override. Delete is deliberately not exposed here yet -- no caller needs it
+	// (see BACKLOG.yml customization-value-sets-routes).
+	ListValueSets(context.Context, *ListValueSetsRequest) (*ListValueSetsResponse, error)
+	GetValueSet(context.Context, *GetValueSetRequest) (*ValueSet, error)
+	UpsertValueSet(context.Context, *UpsertValueSetRequest) (*ValueSet, error)
 	mustEmbedUnimplementedSettingsServiceServer()
 }
 
@@ -380,6 +429,15 @@ func (UnimplementedSettingsServiceServer) SetTenantModuleActive(context.Context,
 }
 func (UnimplementedSettingsServiceServer) GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscription, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTenantSubscription not implemented")
+}
+func (UnimplementedSettingsServiceServer) ListValueSets(context.Context, *ListValueSetsRequest) (*ListValueSetsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListValueSets not implemented")
+}
+func (UnimplementedSettingsServiceServer) GetValueSet(context.Context, *GetValueSetRequest) (*ValueSet, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetValueSet not implemented")
+}
+func (UnimplementedSettingsServiceServer) UpsertValueSet(context.Context, *UpsertValueSetRequest) (*ValueSet, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertValueSet not implemented")
 }
 func (UnimplementedSettingsServiceServer) mustEmbedUnimplementedSettingsServiceServer() {}
 func (UnimplementedSettingsServiceServer) testEmbeddedByValue()                         {}
@@ -726,6 +784,60 @@ func _SettingsService_GetTenantSubscription_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SettingsService_ListValueSets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListValueSetsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).ListValueSets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_ListValueSets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).ListValueSets(ctx, req.(*ListValueSetsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_GetValueSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).GetValueSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_GetValueSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).GetValueSet(ctx, req.(*GetValueSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_UpsertValueSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertValueSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).UpsertValueSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_UpsertValueSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).UpsertValueSet(ctx, req.(*UpsertValueSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SettingsService_ServiceDesc is the grpc.ServiceDesc for SettingsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -804,6 +916,18 @@ var SettingsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTenantSubscription",
 			Handler:    _SettingsService_GetTenantSubscription_Handler,
+		},
+		{
+			MethodName: "ListValueSets",
+			Handler:    _SettingsService_ListValueSets_Handler,
+		},
+		{
+			MethodName: "GetValueSet",
+			Handler:    _SettingsService_GetValueSet_Handler,
+		},
+		{
+			MethodName: "UpsertValueSet",
+			Handler:    _SettingsService_UpsertValueSet_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

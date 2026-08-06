@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -389,17 +392,23 @@ func (r *PostgresRepository) UpdateCategory(ctx context.Context, category *Categ
 
 func (r *PostgresRepository) CreateShareToken(ctx context.Context, token *ShareToken) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token, expires_at, permissions, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token, expires_at, permissions, created_at, created_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		token.ID, token.TenantID, token.ArticleID, token.Token,
-		token.ExpiresAt, token.Permissions, token.CreatedAt,
+		token.ExpiresAt, token.Permissions, token.CreatedAt, token.CreatedBy,
 	)
 	return err
 }
 
-func (r *PostgresRepository) DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
+func (r *PostgresRepository) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, now time.Time) error {
+	// COALESCE keeps the first revocation timestamp: re-cutting a cut link is
+	// a no-op, not a way to rewrite when it happened (same as
+	// formulare.PostgresRepository.RevokeShareLink).
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM wiki_share_tokens WHERE id = $1 AND tenant_id = $2`, tokenID, tenantID)
+		`UPDATE wiki_share_tokens
+		    SET revoked_at = COALESCE(revoked_at, $3)
+		  WHERE id = $1 AND tenant_id = $2`,
+		tokenID, tenantID, now)
 	if err != nil {
 		return err
 	}
@@ -410,8 +419,11 @@ func (r *PostgresRepository) DeleteShareToken(ctx context.Context, tenantID, tok
 }
 
 func (r *PostgresRepository) ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error) {
+	// Revoked tokens are listed too, carrying their revoked_at: the author has
+	// to be able to see that a link was cut, which is the whole point of the
+	// soft revocation (000297).
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, article_id, token, expires_at, permissions, created_at
+		`SELECT `+shareTokenColumns+`
 		 FROM wiki_share_tokens WHERE article_id = $1 AND tenant_id = $2
 		 ORDER BY created_at DESC`,
 		articleID, tenantID,
@@ -491,9 +503,45 @@ func (r *PostgresRepository) scanCategory(rows pgx.Rows) (*Category, error) {
 	return &c, nil
 }
 
+// GetShareTokenByToken resolves a share token — and with it its tenant — from
+// the secret alone.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. The query is
+// therefore pinned to an exact match on the unique token column and returns
+// everything the service needs to decide; it is never a listing and never
+// takes a filter. Whether the token is still usable is the service's verdict,
+// not this query's, so a refused token still resolves far enough to be logged.
+// shareTokenColumns is the read shape of a share token, in the order
+// scanShareToken expects. revoked_at rides along on every read: the public
+// redemption needs it to refuse a cut link, the listing to show it as cut.
+const shareTokenColumns = `id, tenant_id, article_id, token, expires_at, permissions, created_at, revoked_at, created_by`
+
+func (r *PostgresRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
+	if token == "" {
+		return nil, ErrShareTokenNotFound
+	}
+	var t ShareToken
+	err := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareTokenColumns+`
+		 FROM wiki_share_tokens WHERE token = $1`,
+		token,
+	).Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions,
+		&t.CreatedAt, &t.RevokedAt, &t.CreatedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareTokenNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get share token by token: %w", err)
+	}
+	return &t, nil
+}
+
 func (r *PostgresRepository) scanShareToken(rows pgx.Rows) (*ShareToken, error) {
 	var t ShareToken
-	err := rows.Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions, &t.CreatedAt)
+	err := rows.Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions,
+		&t.CreatedAt, &t.RevokedAt, &t.CreatedBy)
 	if err != nil {
 		return nil, fmt.Errorf("scan share token row: %w", err)
 	}

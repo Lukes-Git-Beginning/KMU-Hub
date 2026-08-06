@@ -22,6 +22,7 @@ type BookingRepository interface {
 	// Public Bookings
 	CreatePublicBooking(ctx context.Context, booking *models.PublicBooking) error
 	GetBookedSlotsForPage(ctx context.Context, bookingPageID uuid.UUID, from, to time.Time) ([]models.PublicBooking, error)
+	UpdatePublicBookingCalendarEventID(ctx context.Context, bookingID, tenantID, eventID uuid.UUID) error
 
 	// Calendar Events overlap check (re-uses calendar event rows for staff availability)
 	GetCalendarEventsInRange(ctx context.Context, calendarID uuid.UUID, from, to time.Time) ([]eventSlot, error)

@@ -52,6 +52,15 @@ service SettingsService {
   rpc GetTenantLicense(GetTenantLicenseRequest)           returns (GetTenantLicenseResponse);
   rpc SetTenantModuleActive(SetTenantModuleActiveRequest) returns (TenantModule);
   rpc GetTenantSubscription(GetTenantSubscriptionRequest) returns (TenantSubscription);
+
+  // Value-sets (customization_value_sets / _options, migration 000295): named
+  // option lists (deal stages, ticket priority, ...) resolved from the shipped
+  // registry (internal/settings/valueset.go) overlaid with the tenant's stored
+  // override. Delete is deliberately not exposed here yet -- no caller needs it
+  // (see BACKLOG.yml customization-value-sets-routes).
+  rpc ListValueSets(ListValueSetsRequest)   returns (ListValueSetsResponse);
+  rpc GetValueSet(GetValueSetRequest)       returns (ValueSet);
+  rpc UpsertValueSet(UpsertValueSetRequest) returns (ValueSet);
 }
 
 // ============================================================================
@@ -313,4 +322,58 @@ message TenantSubscription {
   optional string billing_period_end = 4;
   // Booked seats; absent means unlimited.
   optional int32  total_seats        = 5;
+}
+
+// ============================================================================
+// Value-Set Requests / Responses
+// ============================================================================
+
+// One option within a named value-set (a deal pipeline stage, a ticket
+// priority). provenance is resolved-read-only ("default" | "tenant"); the
+// write path (UpsertValueSetRequest) ignores it.
+message ValueSetOption {
+  string key        = 1;
+  string label      = 2;
+  string color      = 3;
+  int32  order      = 4;
+  bool   active     = 5;
+  string provenance = 6;
+}
+
+// A value-set resolved for one tenant: the shipped baseline (internal/
+// settings/valueset.go) overlaid with the tenant's stored override, per
+// option key. provenance and is_system are resolved-read-only; the write
+// path ignores both -- system-ness is derived from the shipped registry,
+// never stored (migration 000295 head comment).
+message ValueSet {
+  string key                      = 1;
+  string name                     = 2;
+  repeated ValueSetOption options = 3;
+  string provenance               = 4;
+  bool   is_system                = 5;
+}
+
+message ListValueSetsRequest {
+  string tenant_id = 1;
+  // true returns only the shipped baselines (editor's "reset to" view);
+  // tenant-only lists have no baseline and are omitted.
+  bool   base       = 2;
+}
+
+message ListValueSetsResponse {
+  repeated ValueSet value_sets = 1;
+}
+
+message GetValueSetRequest {
+  string tenant_id = 1;
+  string key       = 2;
+  bool   base       = 3;
+}
+
+message UpsertValueSetRequest {
+  string tenant_id   = 1;
+  // Empty when the caller could not be resolved (should not happen on an
+  // authenticated route; mirrors PutBrandingRequest.updated_by).
+  string updated_by  = 2;
+  ValueSet value_set = 3;
 }

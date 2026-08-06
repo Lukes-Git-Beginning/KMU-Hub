@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/formulare"
@@ -49,15 +51,16 @@ func (s *FormulareGRPCServer) CreateFormSchema(ctx context.Context, req *formula
 	}
 
 	input := formulare.CreateSchemaInput{
-		TenantID:    tenantID,
-		Title:       req.GetTitle(),
-		Description: req.GetDescription(),
-		Fields:      req.GetFields(),
-		Status:      fromProtoFormSchemaStatus(req.GetStatus()),
-		IsTemplate:  req.GetIsTemplate(),
-		IsPublic:    req.GetIsPublic(),
-		PageCount:   int(req.GetPageCount()),
-		CreatedBy:   createdBy,
+		TenantID:       tenantID,
+		Title:          req.GetTitle(),
+		Description:    req.GetDescription(),
+		Fields:         req.GetFields(),
+		Status:         fromProtoFormSchemaStatus(req.GetStatus()),
+		IsTemplate:     req.GetIsTemplate(),
+		IsPublic:       req.GetIsPublic(),
+		PageCount:      int(req.GetPageCount()),
+		CreatedBy:      createdBy,
+		IntakeTargetID: req.IntakeTargetId,
 	}
 
 	schema, err := s.svc.CreateFormSchema(ctx, input)
@@ -118,6 +121,9 @@ func (s *FormulareGRPCServer) UpdateFormSchema(ctx context.Context, req *formula
 	if req.PageCount != nil {
 		pc := int(*req.PageCount)
 		input.PageCount = &pc
+	}
+	if req.IntakeTargetId != nil {
+		input.IntakeTargetID = req.IntakeTargetId
 	}
 
 	schema, err := s.svc.UpdateFormSchema(ctx, input)
@@ -573,6 +579,7 @@ func toProtoFormSchema(s *formulare.FormSchema) *formularev1.FormSchema {
 	if s.DeletedAt != nil && !s.DeletedAt.IsZero() {
 		p.DeletedAt = timestamppb.New(*s.DeletedAt)
 	}
+	p.IntakeTargetId = s.IntakeTargetID
 	return p
 }
 
@@ -767,8 +774,141 @@ func mapFormulareError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, formulare.ErrWebhookInactive):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Share links: every token verdict is one NotFound. The gateway turns it
+	// into the single 404 the public route answers with, so unknown, revoked,
+	// expired, used up and schema-closed stay indistinguishable.
+	case errors.Is(err, formulare.ErrShareLinkNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, formulare.ErrInvalidShareLink):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, formulare.ErrAnswersTooLarge):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, formulare.ErrSchemaNotPublic):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, formulare.ErrShareLinkFileFieldUnsupported):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled formulare service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// ============================================================================
+// Share Link RPCs (B8)
+// ============================================================================
+
+func (s *FormulareGRPCServer) CreateFormShareLink(ctx context.Context, req *formularev1.CreateFormShareLinkRequest) (*formularev1.CreateFormShareLinkResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	schemaID, err := uuid.Parse(req.GetFormSchemaId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid form_schema_id: %v", err)
+	}
+
+	in := formulare.CreateShareLinkInput{TenantID: tenantID, FormSchemaID: schemaID}
+	if req.ExpiresAt != nil {
+		t := req.GetExpiresAt().AsTime()
+		in.ExpiresAt = &t
+	}
+	// 0 on the wire means "unlimited"; proto3 cannot tell an unset int32 from a
+	// zero, and zero submissions is not a link anyone would mint.
+	if m := int(req.GetMaxSubmissions()); m > 0 {
+		in.MaxSubmissions = &m
+	}
+	if req.CreatedBy != nil {
+		createdBy, parseErr := uuid.Parse(req.GetCreatedBy())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		in.CreatedBy = &createdBy
+	}
+
+	link, err := s.svc.CreateShareLink(ctx, in)
+	if err != nil {
+		return nil, mapFormulareError(err)
+	}
+	return &formularev1.CreateFormShareLinkResponse{ShareLink: toProtoFormShareLink(link)}, nil
+}
+
+func (s *FormulareGRPCServer) ListFormShareLinks(ctx context.Context, req *formularev1.ListFormShareLinksRequest) (*formularev1.ListFormShareLinksResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	schemaID, err := uuid.Parse(req.GetFormSchemaId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid form_schema_id: %v", err)
+	}
+
+	links, err := s.svc.ListShareLinks(ctx, schemaID, tenantID)
+	if err != nil {
+		return nil, mapFormulareError(err)
+	}
+
+	out := make([]*formularev1.FormShareLink, 0, len(links))
+	for _, l := range links {
+		out = append(out, toProtoFormShareLink(l))
+	}
+	return &formularev1.ListFormShareLinksResponse{ShareLinks: out, Total: int32(len(out))}, nil
+}
+
+func (s *FormulareGRPCServer) RevokeFormShareLink(ctx context.Context, req *formularev1.RevokeFormShareLinkRequest) (*formularev1.RevokeFormShareLinkResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	linkID, err := uuid.Parse(req.GetShareLinkId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid share_link_id: %v", err)
+	}
+
+	if err := s.svc.RevokeShareLink(ctx, linkID, tenantID); err != nil {
+		return nil, mapFormulareError(err)
+	}
+	return &formularev1.RevokeFormShareLinkResponse{}, nil
+}
+
+// SubmitFormByShareToken is the only RPC here that takes no tenant_id: the
+// token resolves it. Nothing is parsed out of the token itself -- it is looked
+// up, and every failure to look it up is the same NotFound.
+func (s *FormulareGRPCServer) SubmitFormByShareToken(ctx context.Context, req *formularev1.SubmitFormByShareTokenRequest) (*formularev1.SubmitFormByShareTokenResponse, error) {
+	result, err := s.svc.SubmitByShareToken(ctx, req.GetToken(), req.GetAnswers(), req.GetIpAddress())
+	if err != nil {
+		return nil, mapFormulareError(err)
+	}
+	return &formularev1.SubmitFormByShareTokenResponse{
+		SubmissionId: result.SubmissionID.String(),
+		TenantId:     result.TenantID.String(),
+		FormSchemaId: result.FormSchemaID.String(),
+	}, nil
+}
+
+func toProtoFormShareLink(l *formulare.FormShareLink) *formularev1.FormShareLink {
+	if l == nil {
+		return nil
+	}
+	p := &formularev1.FormShareLink{
+		Id:              l.ID.String(),
+		TenantId:        l.TenantID.String(),
+		FormSchemaId:    l.FormSchemaID.String(),
+		Token:           l.Token,
+		SubmissionCount: int32(l.SubmissionCount),
+		CreatedAt:       timestamppb.New(l.CreatedAt),
+		Status:          l.Status(time.Now().UTC()),
+	}
+	if l.ExpiresAt != nil {
+		p.ExpiresAt = timestamppb.New(*l.ExpiresAt)
+	}
+	if l.RevokedAt != nil {
+		p.RevokedAt = timestamppb.New(*l.RevokedAt)
+	}
+	if l.MaxSubmissions != nil {
+		p.MaxSubmissions = int32(*l.MaxSubmissions)
+	}
+	if l.CreatedBy != nil {
+		p.CreatedBy = proto.String(l.CreatedBy.String())
+	}
+	return p
 }

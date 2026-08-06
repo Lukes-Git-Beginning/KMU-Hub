@@ -82,4 +82,17 @@ type Repository interface {
 
 	// Stats
 	GetFormStats(ctx context.Context, formSchemaID, tenantID uuid.UUID) (*FormStats, error)
+
+	// Share links (B8)
+	CreateShareLink(ctx context.Context, link *FormShareLink) error
+	ListShareLinks(ctx context.Context, formSchemaID, tenantID uuid.UUID) ([]*FormShareLink, error)
+	RevokeShareLink(ctx context.Context, id, tenantID uuid.UUID, now time.Time) error
+	// GetShareLinkByToken is the ONE read in this repository that runs in the
+	// system context: the request carries no tenant yet, and which tenant it
+	// may touch is precisely what the token answers. Nothing after it does.
+	GetShareLinkByToken(ctx context.Context, token string) (*FormShareLink, error)
+	// RedeemShareLinkTx consumes one submission slot and stores the submission
+	// in the same transaction, re-checking "live and under quota" in SQL.
+	// Reports false when the link was no longer redeemable.
+	RedeemShareLinkTx(ctx context.Context, linkID, tenantID uuid.UUID, submission *FormSubmission, webhookIDs []uuid.UUID, now time.Time) (bool, error)
 }

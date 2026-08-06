@@ -3163,3 +3163,2001 @@ unwahrscheinlich. Kein Fallback-Pfad noetig, keine Kompensationslogik.
 - offen fuer Luke: keine FE-Anbindung in diesem Commit (Backend-Nachtloop-Scope) — recherchiert
   bestaetigt greenfield, kein FE-Client/Mock erwartete vorher eine bestimmte Wire-Shape.
 - commit: `7d381016` (feat(mails): add email templates with placeholder substitution)
+
+## Iteration 49 — csat-schema — done — 2026-08-05 23:10
+- verify vorgaenger: `7d381016` (Iteration 48, email templates) geprueft — `git show --stat` plus
+  gezielt `route_email.go` (Template-Handler), `000287_email_templates.up/down.sql`. Handler gehen
+  ueber `e.getEmailClient()` -> `client.ListEmailTemplates/RenderEmailTemplate`, kein direkter
+  Service-Zugriff; `user_id`/`is_admin` aus `middleware.GetUserID`/`IsAdmin`, nicht aus dem Body.
+  Guards nutzen ausschliesslich das bestehende `email:read/write/delete`-Trio (kein neuer Key,
+  kein Seed noetig). Tabelle hat `tenant_id UUID NOT NULL` + `CALL enable_tenant_rls`, down
+  gefuellt. `.proto` und beide generierten Dateien im selben Commit. Kein Fund. Sauber.
+- gebaut: Migration `000288_helpdesk_csat` (up+down). Tabelle `ticket_csat_responses`
+  (id, tenant_id -> tenants ON DELETE CASCADE, ticket_id -> tickets ON DELETE CASCADE, rating,
+  comment, submitted_at, token, token_expires_at, created_at, updated_at) plus die zwei
+  denormalisierten Spalten `tickets.csat_rating` (SMALLINT, CHECK 1..5) und `tickets.csat_comment`.
+  Reine Migration, kein Go-Code — Proto/Service ist A2, Route ist A3.
+- ENTSCHEIDUNG rating NULLable (weicht vom Backlog-Wortlaut "rating SMALLINT CHECK 1..5" ab,
+  begruendet): A6 legt die Zeile beim Ticket-Close mit Token an, BEVOR eine Bewertung existiert.
+  Mit `rating NOT NULL` haette A6 entweder eine zweite Tabelle oder eine Pseudo-Bewertung
+  gebraucht. Stattdessen `rating SMALLINT NULL CHECK (rating IS NULL OR rating BETWEEN 1 AND 5)`
+  und der Kopplungs-CHECK `chk_ticket_csat_rating_submitted`:
+  `(rating IS NULL) = (submitted_at IS NULL)`. Damit ist eine Zeile ohne Rating eindeutig eine
+  offene Umfrage, `submitted_at IS NOT NULL` ist die autoritative "wurde bewertet"-Abfrage, und
+  halb-gesetzte Zwischenzustaende laesst die DB gar nicht erst zu (per psql verifiziert: 23514).
+- Zwei Unique-Indizes mit unterschiedlicher Reichweite, das ist Absicht:
+  `uq_ticket_csat_responses_ticket (tenant_id, ticket_id)` ist tenant-gescopt (ein Ticket, eine
+  Bewertung, Upsert-Ziel fuer A2); `uq_ticket_csat_responses_token (token) WHERE token IS NOT NULL`
+  ist GLOBAL, weil der oeffentliche Endpunkt aus A8 keinen Tenant-Kontext hat und den Tenant erst
+  AUS der Token-Zeile aufloest. Ein tenant-gescopter Token-Index waere dort nutzlos.
+- Token-Spalten (`token`, `token_expires_at`) bewusst schon hier, damit A6 ohne zweite Migration
+  auf dieselbe Tabelle auskommt (so im Backlog verlangt). Klartext, gleiche Begruendung wie
+  `report_share_tokens` (000252) — der Token IST das Credential und wird nur per Gleichheit
+  gesucht. Dispatch-Spalten (Versandzeitpunkt, Claim-Stempel) NICHT vorweggenommen: deren Form
+  entscheidet A7, ein geratener Spaltenname waere teurer als eine Migration. Beide Punkte als
+  Notiz an A2 und A6 im BACKLOG hinterlegt.
+- migrate up (287 -> 288), down 1 (-> 287), up (-> 288) lokal gruen. RLS per psql:
+  `relrowsecurity=true relforcerowsecurity=true`, Policy `tenant_isolation`.
+- RLS-Smoke als `kmuhub_app` mit je einer geseedeten Zeile in zwei Tenants: eigener Tenant -> 1,
+  fremder Tenant -> 0. Seed-Zeilen danach wieder geloescht.
+- Constraint-Smoke per psql, alle vier Faelle wie erwartet: rating=6 -> CHECK-Verletzung;
+  rating ohne submitted_at -> `chk_ticket_csat_rating_submitted`; zweite Zeile zum selben Ticket
+  -> `uq_ticket_csat_responses_ticket`; Zeile mit Token und ohne Rating -> INSERT erfolgreich
+  (das ist der A6-Fall); zweiter identischer Token in einem ANDEREN Tenant ->
+  `uq_ticket_csat_responses_token`, also global eindeutig wie beabsichtigt.
+- gate: build/vet/lint n.a. (kein Go-Code geaendert) | migration ok | rls-smoke ok |
+  `go test -count=1 ./internal/testutil/... ./internal/helpdesk/...` mit gesetztem `DATABASE_URL`
+  gegen `kmuhub_app` -> PASS, **0 SKIP, 66 gelaufene Tests**, darunter der Standing-Guard
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` (gruen mit der neuen Tabelle, keine
+  Allowlist-Ausnahme noetig).
+- offen: Docker Desktop lief zu Iterationsbeginn nicht und wurde von dieser Iteration gestartet;
+  lokaler Migrationskopf steht jetzt auf 288 (Prod-Kopf bleibt 287, kein Deploy aus dem Loop).
+  Der Read-Pfad liefert `csat_rating`/`csat_comment` noch NICHT — die Spalten existieren, aber
+  `postgres_repository.go` selektiert sie nicht und `postgres_repository.go:789` setzt
+  `customer_satisfaction` weiterhin hart auf "–". Das ist A2 bzw. A4, kein Versaeumnis hier.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add CSAT
+  schema with survey token columns". SHA hier bewusst nicht eingetragen: die Zeile steht IN
+  diesem Commit, jede Nachtragung per amend erzeugt eine neue SHA. `git log --oneline -1`
+  bzw. Suche nach dem Subject findet ihn.
+
+## Iteration 50 — csat-proto-service — done — 2026-08-05 23:40
+- verify vorgaenger: `54305b08` (Iteration 49, CSAT-Schema) geprueft — `git show --stat` plus
+  beide Migrations-Dateien vollstaendig gelesen. Tabelle hat `tenant_id UUID NOT NULL` +
+  `CALL enable_tenant_rls`, `.down.sql` droppt Tabelle UND beide tickets-Spalten, kein Go-Code
+  im Diff (also kein Proto-/Handler-Risiko). Die im Journal beschriebene NULLable-`rating`-
+  Entscheidung samt `chk_ticket_csat_rating_submitted` steht so in der Datei. Kein Fund.
+- gebaut: Proto + Service-Schicht fuer die Bewertung.
+  - `.proto`: RPC `SubmitCsat(SubmitCsatRequest) returns (Ticket)`, Message
+    `SubmitCsatRequest{ticket_id=1, rating=2 int32, optional comment=3}` — Tenant bewusst NICHT
+    im Body, er kommt wie bei CloseTicket aus `middleware.GetTenantID(ctx)`. `Ticket` bekommt
+    `optional int32 csat_rating = 24` und `optional string csat_comment = 25`. Beide
+    generierten Dateien (`helpdesk.pb.go`, `helpdesk_grpc.pb.go`) im SELBEN Commit regeneriert
+    (protoc direkt, `make` existiert auf dieser Maschine nicht — Kommando aus dem Makefile-
+    Target `proto-helpdesk` uebernommen).
+  - `Repository.SubmitCsatTx(ctx, tenantID, ticketID, rating int16, comment *string, submittedAt)`
+    plus Postgres-Implementierung. EINE Transaktion: erst `UPDATE tickets SET csat_rating,
+    csat_comment, updated_at WHERE id AND tenant_id`, dann Upsert in `ticket_csat_responses`
+    mit `ON CONFLICT (tenant_id, ticket_id) DO UPDATE`.
+  - `Service.SubmitCsat` validiert 1..5 serverseitig, laedt das Ticket (Tenant-Scope + 404) und
+    ruft die Transaktion.
+  - `ticketSelectColumns` um `t.csat_rating, t.csat_comment` erweitert — dadurch liefern
+    GetTicketByID, ListTickets UND FindOpenTicketsByRequester die Werte, ohne dass drei Queries
+    einzeln angefasst werden mussten. Beide Scan-Funktionen entsprechend erweitert.
+- ENTSCHEIDUNG Reihenfolge in der Transaktion (Ticket-UPDATE VOR Response-Upsert): der
+  Fremdschluessel `ticket_id -> tickets(id)` beweist nur, dass das Ticket existiert, NICHT dass
+  es dem uebergebenen Tenant gehoert. Ein Insert mit fremdem `ticket_id` und eigenem `tenant_id`
+  wuerde den FK passieren. Der zeilenlose `UPDATE tickets ... AND tenant_id` ist damit die
+  eigentliche Tenant-Wache und muss zuerst laufen -> `ErrTicketNotFound`, nichts geschrieben.
+  Gegen die echte DB verifiziert (Test unten, Fremd-Tenant-Fall).
+- ENTSCHEIDUNG `DO UPDATE` setzt bewusst NUR rating/comment/submitted_at/updated_at und laesst
+  `token`/`token_expires_at` in Ruhe: ein beim Ticket-Close ausgegebener Umfrage-Link (A6/A8)
+  darf durch eine Agenten-seitige Bewertung nicht entwertet werden.
+- ENTSCHEIDUNG `int16` statt `int` im Model (`Ticket.CsatRating *int16`): die Spalte ist
+  SMALLINT, pgx scannt int2 verlustfrei in *int16. Die Verengung int32 -> int16 passiert im
+  gRPC-Server und ist dort durch eine eigene Bereichspruefung abgesichert, damit ein
+  Wire-Wert wie 65540 nicht in eine gueltige Bewertung wrappen kann. Die fachliche Pruefung
+  bleibt zusaetzlich im Service (Handler duerfen nicht die einzige Wache sein).
+- Kommentar wird im gRPC-Server getrimmt, ein leerer Kommentar wird zu NULL statt zu "" —
+  sonst haette `csat_comment` zwei Bedeutungen fuer "kein Kommentar".
+- `ErrInvalidCsatRating` neu + Mapping auf `codes.InvalidArgument` in `mapHelpdeskError`.
+  Kein neuer Permission-Key, kein neues Flag, keine `config.RequireX`.
+- gate (alle mit gesetztem `DATABASE_URL` gegen `kmuhub_app`):
+  `go build ./...` ok | `go vet ./internal/helpdesk/... ./internal/server/...` ok |
+  `golangci-lint run ./internal/helpdesk/... ./internal/server/...` -> **0 issues** |
+  `go test -count=1 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./internal/testutil/...` -> PASS. Helpdesk verbose: **61 PASS, 0 SKIP, 0 FAIL**.
+- Tests neu in `internal/helpdesk/csat_test.go`: vier Service-Tests gegen den Mock
+  (Erfolg inkl. Nachweis, dass die Persistenz wirklich gerufen wurde; Rating 0/-1/6/127 ->
+  `ErrInvalidCsatRating` UND null Repository-Aufrufe; zweite Bewertung gewinnt statt zu
+  scheitern; fremder Tenant -> `ErrTicketNotFound` ohne Schreibversuch) und ein
+  Repository-Test gegen die echte Datenbank (`TestSubmitCsatTx_UpsertsAndStaysInTenant`,
+  0.07s, nicht geskippt): Fremd-Tenant-Kontext mit dem ECHTEN tenantID als Parameter wird von
+  RLS gestoppt; eigener Kontext schreibt; `GetTicketByID` liefert Rating und Kommentar zurueck
+  (das ist der Nachweis, dass der Read-Pfad die neuen Spalten wirklich mitbringt); zweite
+  Bewertung erzeugt genau EINE Zeile mit dem neuen Wert; `submitted_at` ist gesetzt (der
+  CHECK aus A1 haette einen halben Zustand sonst abgelehnt); fremder Tenant sieht 0 Zeilen.
+  Eigene Tenants geseedet, nicht die geteilten TenantA/B.
+- offen fuer die naechsten Iterationen (auch im BACKLOG bei A3/A4 notiert):
+  - A3 (Route): 400 und 404 sind die real gelieferten Codes; die Ticket-JSON-Serialisierung
+    des Gateways braucht `csat_rating`/`csat_comment`, sonst sieht das FE die eigene
+    Bewertung nach dem POST nicht.
+  - A4 (Stats): ueber `ticket_csat_responses` mit `WHERE submitted_at IS NOT NULL` aggregieren,
+    nicht ueber `tickets.csat_rating` (nur Spiegel) — offene Umfrage-Zeilen haben
+    `rating IS NULL` und duerfen weder zaehlen noch den Schnitt verfaelschen.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope). Das FE-Flag `CSAT_FEATURE_ENABLED` bleibt
+  false, bis A3 die Route liefert.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): submit and read
+  customer satisfaction ratings".
+
+## Iteration 51 — csat-route — done — 2026-08-05 23:58
+- verify vorgaenger: `7bf12c18` (Iteration 50, csat-proto-service) gegen `git show --stat`
+  und den vollen Diff geprueft (helpdesk_grpc.go, service.go, postgres_repository.go).
+  Tenant-Guard-Reihenfolge (Ticket-UPDATE zuerst, FK beweist nur Existenz nicht Tenant) ist
+  wie im Journal beschrieben im Code, `DO UPDATE` laesst token/token_expires_at unangetastet,
+  Rating-Bereichspruefung existiert doppelt (gRPC-Server gegen int32->int16-Ueberlauf, Service
+  fachlich). `go build ./...` lief zusaetzlich durch — gruen, kein Fund.
+- gebaut: `POST /api/v1/helpdesk/tickets/{id}/csat` im Gateway.
+  - `submitCsatRequest{rating int32 validate:"required,min=1,max=5", comment *string}` —
+    Body-Form deckt sich mit `helpdesk-client.ts:134` (`{rating, comment}`).
+  - `HandleSubmitCsat` folgt exakt dem Close/Reopen-Muster: `validateUUIDParam`,
+    `decodeAndValidate`, Aufruf ueber `helpdeskClient.SubmitCsat` (kein direkt injizierter
+    Service), `response.Proto` auf 200. Kein neuer Permission-Key: Route haengt an
+    `hdTicketEdit` (bestehender additiver Guard `helpdesk:write` ODER `helpdesk:ticket:edit`) —
+    Bewertung-Erfassung ist im Desktop-Client eine Ticket-Bearbeitung durch den Agenten, kein
+    neuer fachlicher Bereich.
+  - `openapi.yaml`: Pfad `/api/v1/helpdesk/tickets/{id}/csat` direkt vor `/assign` eingefuegt,
+    Request-Schema (rating 1..5 required, comment optional), Responses 200/400/401/404 — alle
+    vier sind die real gelieferten Codes (400 aus decodeAndValidate ODER dem gRPC-InvalidArgument-
+    Mapping von A2, 404 aus dem gRPC-NotFound-Mapping bei fremdem/unbekanntem Ticket).
+- gate: `go build ./...` ok | `go vet ./internal/helpdesk/... ./internal/gateway/...` ok |
+  `golangci-lint run ./internal/gateway/...` -> 0 issues | mit
+  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub` (kmuhub_app, nicht kmuhub):
+  `go test -count=1 ./internal/helpdesk/... ./internal/gateway/...` -> beide PASS, inklusive
+  `TestOpenAPIRouteDrift` (809 Routen gegen 811 dokumentierte Pfade) und
+  `TestOpenAPISpecDrift` (810 dokumentierte Pfade gegen 809 registrierte — die eine bekannte
+  Allowlist-Luecke `/api/v1/files/upload` bleibt unveraendert, kein neuer Drift).
+- kein neuer Test in dieser Unit: die Rating-Grenzfaelle (0/-1/6/127) und der Fremd-Tenant-Fall
+  sind bereits in `csat_test.go` (Iteration 50) auf Service-/Repository-Ebene abgedeckt: der
+  Handler fuegt nur Parse/Validate/Dispatch hinzu und aendert daran nichts. `decodeAndValidate`
+  selbst ist generisch und an anderer Stelle getestet.
+- offen fuer die naechsten Iterationen: A4 (csat-stats-aggregation) haengt weiterhin am
+  Literal in `postgres_repository.go:789`; die Route hier liest/schreibt nur `csat_rating`/
+  `csat_comment` am Ticket, nicht die Stats-Aggregation.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope). Das FE-Flag `CSAT_FEATURE_ENABLED`
+  bleibt false — das ist eine FE-seitige Entscheidung, die Route ist jetzt real erreichbar.
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add ticket
+  CSAT submission route".
+
+## Iteration 52 — csat-stats-aggregation — done — 2026-08-06 00:15
+- verify vorgaenger: `28efdc9e` (Iteration 51, csat-route) geprueft (`git show --stat` +
+  vollstaendiger Diff route_helpdesk.go + openapi.yaml). `HandleSubmitCsat` geht ueber
+  `client.SubmitCsat` (kein direkt injizierter Service), kein neuer Permission-Key
+  (wiederverwendet `hdTicketEdit`), openapi.yaml dokumentiert 200/400/401/404 — alle vier
+  sind die real gelieferten Codes. Sauber, kein Fund.
+- gebaut: `GetHelpdeskStats` (postgres_repository.go) ersetzt das Literal
+  `stats.CustomerSatisfaction = "–"` durch eine echte Aggregation ueber
+  `ticket_csat_responses`: `AVG(rating) WHERE tenant_id = $1 AND submitted_at IS NOT NULL`,
+  Format `"%.1f/5"` bzw. `"–"` bei NULL (keine Bewertungen). Pending-Survey-Zeilen
+  (rating NULL, token gesetzt) werden ueber den `submitted_at`-Filter ausgeschlossen,
+  nicht ueber `rating IS NOT NULL` — deckt sich mit der A2-Konvention.
+- ABWEICHUNG vom Backlog-`done_when`: der bindende Wire-Vertrag (`WireHelpdeskStats` in
+  `mocks/handlers/helpdesk.ts:115` UND `HelpdeskStats` in `helpdesk-types.ts:264`, konsumiert
+  einzig in `HelpdeskPage.tsx:955` als ein StatCard-String) hat KEIN Verteilungs- oder
+  Antwortzahl-Feld — nur `customer_satisfaction: string`. Die im Backlog-Scope beschriebene
+  "Sterne-Verteilung (1..5 mit Anzahl)" existiert weder im MSW-Mock noch im FE-Typ noch in
+  irgendeinem Konsumenten. Der Scope-Kopf sagt explizit "Dagegen pruefen, nicht raten" —
+  also nur den echten Durchschnitt gebaut, keine spekulative Verteilungsstruktur ohne
+  Abnehmer (Lean/YAGNI). Falls das FE spaeter eine Verteilung braucht, ist das eine neue
+  Unit mit eigenem FE-Vertrag, kein Nachbau hier.
+- gebaut (Test): `stats_test.go`, DB-Test `TestGetHelpdeskStats_CsatAverage` — drei
+  Bewertungen (5,3,4) ergeben exakt 4.0/5 (rundungsfrei gewaehlt), eine Pending-Survey-Zeile
+  (Token gesetzt, kein Rating) verfaelscht den Schnitt nicht, eine Bewertung in einem
+  fremden Tenant leakt nicht in den eigenen Schnitt, ein Tenant ohne Bewertungen liefert
+  definiert "–" statt NULL/Fehler.
+- Fallstrick beim Bauen: `t.Cleanup` in einer Helper-Closure lief NACH dem `defer pool.Close()`
+  der Testfunktion (t.Cleanup feuert nach allen Defers) — Rows blieben stehen, sichtbar an
+  "cleanup ... closed pool"-Logzeilen. Auf einen einzigen `defer` am Ende der Testfunktion
+  umgestellt (registriert nach `defer pool.Close()`, laeuft also per LIFO davor), wie in
+  `csat_test.go` bereits vorgemacht. 5 verwaiste Test-Ticket-Zeilen aus dem fehlgeschlagenen
+  ersten Versuch manuell in der lokalen DB bereinigt (`DELETE FROM tickets WHERE subject =
+  'CSAT Stats Ticket'`), betrifft nur die lokale Dev-DB, keine Migration noetig.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./cmd/gateway/...` ok |
+  `go vet` ok | `golangci-lint run` -> 0 issues | mit
+  `DATABASE_URL=postgres://kmuhub_app:...@localhost:5432/kmuhub` (kmuhub_app, nicht kmuhub):
+  `go test -count=1 ./internal/helpdesk/... ./internal/gateway/...` -> beide PASS, 0 SKIP.
+  Keine neue Tabelle/Policy in dieser Unit, RLS-Cross-Tenant-Isolation ist Teil des neuen
+  Tests selbst (fremder Tenant liefert 0 Beitrag zum Schnitt) statt eines separaten Smoke.
+- offen fuer naechste Iterationen: A5 (csat-tenant-config) und A6 (csat-survey-token) haengen
+  weiterhin an csat-schema/-proto-service, beide `todo`. Falls spaeter eine Sterne-Verteilung
+  im FE gebraucht wird, ist der Ansatzpunkt hier dokumentiert (SQL waere eine zweite Abfrage
+  `GROUP BY rating` mit denselben Filtern), aber bewusst nicht vorgebaut.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): aggregate real
+  CSAT average into helpdesk stats".
+
+## Iteration 53 — csat-tenant-config — done — 2026-08-06 00:40
+- verify vorgaenger: `edbc1cdf` (Iteration 52, csat-stats-aggregation) geprueft (`git show`
+  + vollstaendiger Diff postgres_repository.go). Aggregation tenant-gescopt (`WHERE tenant_id
+  = $1 AND submitted_at IS NOT NULL`), kein neuer Guard, kein neuer RPC/Route, kein
+  gRPC-Layer-Umgehung. Sauber, kein Fund.
+- gebaut: CSAT-Tenant-Konfiguration (an/aus, Verzoegerung in Minuten, Umfragetext) ueber die
+  generische `tenant_settings`-Ablage, KEINE neue Tabelle — Muster wie `internal/settings.Branding`
+  (module_id, ein JSON-Objekt als einzelner Entry), Zugriff ueber den bestehenden generischen
+  `GetTenantSettings`/`PutTenantSettings`-RPC, kein neues dediziertes RPC-Paar.
+  - `internal/helpdesk/csat_config.go` (neu): `CsatConfig{Enabled, SurveyDelayMinutes,
+    SurveyQuestion}`, `DefaultCsatConfig()` (Enabled=true, 24h, deutscher Default-Fragetext —
+    gespiegelt von `stores/helpdesk.ts` Initialzustand, damit der Server-Default zum
+    FE-Store-Default passt, sobald das Panel spaeter verdrahtet wird), `ValidateCsatConfig`
+    (Delay 0..20160 Minuten [14 Tage Deckel], Frage <=500 Zeichen). Reine Domain-Logik, kein
+    gRPC-Client im Paket — folgt exakt der bestehenden Konvention aus `CreateTicketFromMessage`
+    ("this method holds no cross-service client"; channel/subject/preview werden vom Aufrufer
+    uebergeben). Zwei neue Sentinel-Errors in `errors.go`: `ErrInvalidCsatDelay`,
+    `ErrCsatQuestionTooLong`.
+  - `internal/server/helpdesk_grpc.go`: `HelpdeskGRPCServer` bekommt ein optionales
+    `settingsClient settingsv1.SettingsServiceClient` (nil-sicher, exakt das gleiche Muster wie
+    `inboxClient`). `GetCsatConfig`/`SetCsatConfig` als Go-Methoden (KEIN neues Proto-RPC — es
+    gibt noch keinen FE-Vertrag, der eine Route bindet; die Konsumenten sind vorerst
+    `csat-survey-token` (naechste Unit, Ticket-Close-Pfad) und spaeter ein Settings-Panel-Endpoint,
+    falls das FE-Store `stores/helpdesk.ts` je an den Server gebunden wird). Get faellt bei
+    fehlendem/unerreichbarem Settings-Client oder fehlender Zeile auf `DefaultCsatConfig()`
+    zurueck (CSAT-Konfiguration ist ein Nebenaspekt, darf Ticket-Flows nie brechen). Set validiert
+    zuerst (client-unabhaengig), dann schreibt es einen einzelnen Entry unter
+    `helpdesk.CsatConfigEntryKey` als volles JSON-Objekt-Replace (kein Sparse-Merge — es gibt
+    genau eine CSAT-Konfiguration pro Tenant, nicht eine Zeile pro Locale wie bei den
+    Label-Overrides). RBAC (admin oder module-lead fuer "helpdesk_csat") wird bereits von
+    `PutTenantSettings` im Settings-Service erzwungen, hier nicht dupliziert.
+  - `cmd/helpdesk/main.go`: optionale `settingsv1.SettingsServiceClient`-Verbindung gegen
+    `cfg.AuthGRPCAddress` (Settings ist bei auth co-located), 1:1 das gleiche
+    Verbindungs-/Fallback-Muster wie der bestehende `inboxServiceClient` (verbindungsfehler ->
+    Warn-Log, `NewHelpdeskGRPCServer` bekommt nil, Helpdesk startet trotzdem).
+- ABWEICHUNG von der woertlichen Scope-Beschreibung: es gibt bewusst KEINE neue
+  `/api/v1/helpdesk/csat-config`-Route und keinen openapi.yaml-Eintrag in dieser Unit. Das
+  FE (`HelpdeskSettingsPanel.tsx`, `stores/helpdesk.ts`) haelt Enabled/Delay/Frage heute
+  ausschliesslich in einem lokalen Zustand-Store, `helpdesk-client.ts` hat keinen einzigen
+  Aufruf fuer diese Werte — es gibt keinen bindenden Wire-Vertrag, an dem sich eine Route
+  ausrichten koennte (Lean/YAGNI: keine spekulative Route ohne Abnehmer). Der `done_when`-Text
+  im Backlog verlangt explizit nur "Config liegt in tenant_settings" + "Defaults" + "Validierung",
+  keine Route — anders als A3/A4/A8, deren `done_when` ausdruecklich `openapi.yaml` nennt.
+  Falls/wenn das Panel ans Backend gebunden wird, ist das eine eigene Unit mit eigenem
+  FE-Vertrag zum Pruefen, kein Nachbau hier.
+- gebaut (Tests, alle rein, keine DB/kein gRPC noetig):
+  - `internal/helpdesk/csat_config_test.go`: Default ist valide; Delay-Grenzen (0 und 20160
+    valide, -1 und 20161 `ErrInvalidCsatDelay`); Frage bei 500 Zeichen valide, bei 501
+    `ErrCsatQuestionTooLong`.
+  - `internal/server/helpdesk_csat_config_test.go`: leere Entries -> Default; fremder Key wird
+    ignoriert -> Default; voller Roundtrip `csatConfigToValue` -> `csatConfigFromEntries` liefert
+    exakt den Ausgangswert zurueck; fehlerhafte Feldtypen (z. B. `enabled` als String statt Bool,
+    `delay_minutes` fehlt) fallen einzeln auf den Default zurueck statt Nullwert oder Fehler,
+    ein korrektes Feld (`question`) bleibt dabei erhalten.
+- gate (alle mit gesetztem `DATABASE_URL` gegen `kmuhub_app`):
+  `go build -p 2 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` ok | `go vet ./internal/helpdesk/... ./internal/server/...
+  ./cmd/helpdesk/...` ok | `golangci-lint run ./internal/helpdesk/... ./internal/server/...
+  ./cmd/helpdesk/...` -> 0 issues | `go test -count=1 ./internal/helpdesk/...` -> PASS, 66
+  PASS, 0 SKIP | `go test -count=1 ./internal/server/...` -> PASS | `go test -count=1
+  ./internal/gateway/...` -> PASS (keine Route angefasst in dieser Unit, trotzdem mitgelaufen).
+  Kein RLS-Smoke noetig: keine neue Tabelle, keine neue Policy — `tenant_settings` traegt
+  bereits RLS, unveraendert.
+- offen fuer die naechste Iteration: `csat-survey-token` (deps: csat-schema, csat-tenant-config
+  — beide jetzt done) ist die naechste Unit im Block. Sie ruft `HelpdeskGRPCServer.GetCsatConfig`
+  im Ticket-Close-Pfad auf, um zu entscheiden ob ein Umfrage-Token erzeugt wird; das ist der
+  erste echte Aufrufer der hier gebauten Get/Set-Methoden.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): add tenant CSAT
+  survey configuration".
+
+## Iteration 54 — csat-survey-token — done — 2026-08-05 23:46 (lokale Uhr; die
+Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
+- verify vorgaenger (913d540f, csat-tenant-config): sauber. Keine neue Route (also kein
+  openapi-Drift moeglich), keine Migration, kein .proto, kein RequirePermission, keine neue
+  Tabelle. Der Settings-Zugriff laeuft ueber `settingsv1.SettingsServiceClient`, also ueber den
+  gRPC-Client und nicht an einer direkt injizierten Service-Instanz vorbei — keine
+  Layer-Umgehung. Ein Doc-Detail stimmt nicht ganz: der Kommentar an `GetCsatConfig` sagt
+  "defaults when the settings service is unreachable", der Code gibt bei einem RPC-Fehler
+  aber den Fehler zurueck (nur `settingsClient == nil` faellt auf Default). Kein Fehlverhalten
+  (der Aufrufer entscheidet), deshalb keine Fix-Unit — in dieser Iteration ist der Aufrufer
+  gebaut und faengt den Fehler ab.
+- gebaut (Code):
+  - `internal/helpdesk/csat_survey.go` (neu): `CsatSurvey{TicketID, Token, ExpiresAt}`,
+    `newCsatSurveyToken()` = 32 Byte `crypto/rand` + `base64.RawURLEncoding` (43 Zeichen,
+    1:1 das Muster von `berichte.newShareSecret`, service.go:1132 — kein math/rand, keine UUID,
+    nicht die Ticket-ID), `CsatSurveyTokenTTL = 30 Tage` und
+    `Service.IssueCsatSurveyToken(ctx, *Ticket, CsatConfig) (*CsatSurvey, error)`.
+    Ablauf = `now + cfg.SurveyDelayMinutes + TTL`: der Link soll erst nach dem geplanten
+    Versand (A7) ablaufen, deshalb liegt die Verzoegerung VOR der Gueltigkeitsdauer. Ablauf
+    steckt in `token_expires_at`, nicht im Link kodiert.
+    Rueckgabe `(nil, nil)` fuer jeden legitimen Grund, nicht zu befragen: Tenant hat CSAT aus,
+    oder das Ticket traegt schon eine Bewertung (close -> reopen -> close fragt nicht erneut).
+    Kein Fehler, weil der Aufrufer daraus keine Konsequenz zieht.
+  - `internal/helpdesk/repository.go` + `postgres_repository.go`: neue Interface-Methode
+    `IssueCsatSurveyTokenTx(ctx, tenantID, ticketID, token, expiresAt, now) (bool, error)`.
+    Das INSERT nimmt `tenant_id` NICHT vom Aufrufer, sondern `SELECT t.tenant_id FROM tickets t
+    WHERE t.id = $2 AND t.tenant_id = $1` — ein fremdes Ticket liefert null Zeilen statt einer
+    CSAT-Zeile unter dem falschen Tenant (gleiche Ueberlegung wie der Ticket-UPDATE-Guard in
+    `SubmitCsatTx`, FK auf ticket_id beweist den Tenant nicht). Der Conflict-Zweig ist mit
+    `WHERE ticket_csat_responses.submitted_at IS NULL` bewacht: das ist die autoritative
+    "schon bewertet"-Pruefung, der Service-Check davor spart nur den Write im Normalfall und
+    kann mit einer zwischenzeitlichen Abgabe rennen. `RowsAffected()==1` = ausgestellt.
+    Ein bestehender *pending* Token wird bewusst ersetzt (neuer Close = neue Verzoegerung,
+    der alte Link liefe auf einem veralteten Zeitplan) — der aeltere Link wird damit ungueltig.
+  - `internal/server/helpdesk_grpc.go`: `CloseTicket` ruft nach erfolgreichem Close
+    `issueCsatSurvey(ctx, tenantID, t)`. Diese Hilfsmethode holt die Tenant-Config ueber den
+    Settings-Client (`GetCsatConfig`, aus der Vor-Iteration) und ruft `IssueCsatSurveyToken`.
+    JEDER Fehler darin wird geloggt (`slog.WarnContext`) und verschluckt — der Close ist zu
+    diesem Zeitpunkt bereits persistiert, ein Fehler wuerde einen erfolgreichen Close in eine
+    fehlgeschlagene RPC verwandeln. Kein neuer RPC, keine neue Route: der Token wird nirgends
+    ausgeliefert, er wartet auf A7 (Dispatch) und A8 (oeffentliche Einloesung).
+  - KEINE Migration noetig (`token`, `token_expires_at` und der globale Partial-Unique-Index
+    kamen mit 000288 aus A1) und keine angelegt.
+- gebaut (Tests):
+  - `internal/helpdesk/csat_survey_test.go` (Mock, rein): Token dekodiert zu genau 32 Byte
+    base64url; Ablauf >= now+Delay+TTL; persistierter Token == zurueckgegebener; 16 Ausstellungen
+    ergeben 16 verschiedene Tokens (Entropie, kein Determinismus); Tenant hat CSAT aus -> kein
+    Token, kein Write, kein Fehler; Ticket schon bewertet -> dito; fremdes Ticket -> kein Token;
+    Delay ausserhalb der Grenzen -> Fehler UND kein Write.
+  - `internal/helpdesk/csat_survey_db_test.go` (echte DB als `kmuhub_app`, NOSUPERUSER
+    NOBYPASSRLS, eigene frisch geseedete Tenants): Aufruf aus fremdem Ctx mit dem ECHTEN
+    tenantID der Zeile stellt nichts aus (nur RLS kann das stoppen, nicht die WHERE-Klausel);
+    eigener Ctx stellt aus; Cross-Tenant-Read auf `ticket_csat_responses` liefert 0 Zeilen
+    (RLS-Smoke); zweiter Close ersetzt den pending Token; nach `SubmitCsatTx` stellt ein
+    weiterer Aufruf NICHTS mehr aus und der vorhandene Token bleibt unveraendert.
+  - `service_test.go`: `mockRepo` um `IssueCsatSurveyTokenTx` + `csatTokens`-Map erweitert
+    (spiegelt das SQL-Verhalten: fremd/unbekannt und bereits bewertet -> false ohne Fehler).
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`):
+  `go build -p 2 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/...
+  ./cmd/helpdesk/... ./cmd/gateway/...` ok | `go vet` (helpdesk, server, cmd/helpdesk) ok |
+  `golangci-lint run` ueber dieselben Pakete -> 0 issues | `go test -count=1 ./internal/helpdesk/...`
+  PASS, **73 PASS / 0 SKIP** (der neue DB-Test lief real, 0.06s, nicht uebersprungen) |
+  `go test -count=1 ./internal/server/...` PASS | `go test -count=1 ./internal/gateway/` PASS
+  (keine Route angefasst, TestOpenAPIRouteDrift trotzdem mitgelaufen).
+  RLS-Smoke im DB-Test enthalten (siehe oben), keine neue Tabelle/Policy.
+- offen fuer die naechste Iteration: A7 `csat-survey-dispatch` entscheidet die Dispatch-Spalten
+  (Versandzeitpunkt + Claim) — die gibt es noch nicht, der Poller braucht eine eigene Migration.
+  Beim Entwurf beachten: der hier gesetzte Ablauf ist bereits `Versandzeitpunkt + 30 Tage`, der
+  Poller muss also nach `token IS NOT NULL AND submitted_at IS NULL AND <faellig>` filtern und
+  nicht nach `token_expires_at`. A8 loest den Token oeffentlich ein und muss ihn dabei entwerten.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): issue CSAT survey
+  token when a ticket closes".
+
+## Iteration 55 — csat-survey-dispatch — done — 2026-08-06 01:10
+- verify vorgaenger (606e94fb, csat-survey-token): **sauber**. Kein `.proto` im Diff (also kein
+  Regen faellig), keine neue Route (kein openapi-Drift), keine neue Tabelle, kein
+  `RequirePermission`, kein Stub/`Unimplemented`. Der einzige gRPC-nahe Punkt ist
+  `internal/server/helpdesk_grpc.go` — das ist die gRPC-Server-Seite selbst, keine
+  Layer-Umgehung im Gateway. Das INSERT in `IssueCsatSurveyTokenTx` nimmt `tenant_id` aus der
+  Ticket-Zeile statt vom Aufrufer, Read-Seite unveraendert. Nichts anzulegen.
+- gebaut (Schema): Migration **000289_helpdesk_csat_survey_dispatch** — drei Spalten an
+  `ticket_csat_responses`: `survey_send_after` (Faelligkeit = Close + Tenant-Delay),
+  `survey_sent_at` (ist GLEICHZEITIG der Claim) und `survey_dispatch_attempts SMALLINT NOT NULL
+  DEFAULT 0` (Retry-Deckel 3). Partial-Index `idx_ticket_csat_responses_due` deckt exakt die
+  Faelligkeits-Query. Backfill: Bestandszeilen mit Token bekommen `survey_send_after = created_at`
+  (sofort faellig statt nie). down droppt Index + Spalten. Keine RLS-Arbeit noetig, die Policy
+  kam mit 000288 — `TestAllPublicTablesHaveRLSOrAreAllowlisted` bleibt gruen (keine neue Tabelle).
+  ENTSCHEIDUNG Faelligkeit: `survey_send_after` wird explizit gespeichert, NICHT aus
+  `token_expires_at - TTL` zurueckgerechnet. Die Ableitung waere still falsch, sobald die TTL
+  sich aendert.
+- gebaut (Repo): `IssueCsatSurveyTokenTx` bekommt `sendAfter` und setzt beim Ersetzen eines
+  pending Tokens `survey_sent_at = NULL, survey_dispatch_attempts = 0` zurueck (neuer Close =
+  neuer Zeitplan; ohne das Reset waere ein zweiter Close nie zustellbar). Neu:
+  `ListDueCsatSurveys` (JOIN tickets + users, liefert Empfaenger und Ticketnummer mit),
+  `ClaimCsatSurveyDispatch` (Optimistic-UPDATE, `RowsAffected()==1` gewinnt),
+  `ReleaseCsatSurveyDispatch` (gibt NUR den eigenen Claim zurueck, `WHERE survey_sent_at =
+  claimedAt`), `CancelCsatSurvey` (entwertet Token, laesst ein vorhandenes Rating stehen).
+  Diese vier haengen bewusst NICHT am fetten `Repository`-Interface, sondern an der neuen engen
+  `CsatDispatchRepository` (csat_dispatch.go) — gleiche Trennung wie
+  `berichte/scheduler.ScheduleRepository`, dadurch braucht `mockRepo` sie nicht.
+- gebaut (Dispatcher): `internal/helpdesk/csat_dispatch.go`, `CsatSurveyDispatcher`.
+  `Run` laeuft unter `database.WithSystemContext` (kein eingeloggter User, Query ist
+  tenant-uebergreifend), Tick 5 min, Batch 100, erster Tick sofort. `ProcessTick`: listen →
+  je Zeile Config → claim → mailen → bei Fehler Claim freigeben.
+  **Die Falle, die hier fast zugeschnappt waere:** `GetCsatConfig` liest `tenant_settings` im
+  Settings-Service unter RLS mit dem Tenant aus dem **Call-Kontext**, nicht mit der `tenant_id`
+  im Request-Body. Aus dem tenantlosen System-Kontext des Pollers gerufen haette es 0 Zeilen
+  gefunden und still `DefaultCsatConfig()` geliefert — die Tenant-Einstellung waere wirkungslos
+  gewesen und niemand haette es gemerkt. Deshalb geht genau dieser eine Call ueber
+  `withTenant(ctx, s.TenantID)` (1:1 `berichte.WithTenant`); alles andere bleibt System-Kontext.
+  Tenant hat CSAT zwischenzeitlich abgeschaltet → `CancelCsatSurvey` statt Ueberspringen, sonst
+  taucht die Zeile 30 Tage lang in jedem Tick wieder auf und der Link bliebe einloesbar.
+  Config-Fehler → Zeile bleibt unangetastet und unclaimed (verbraucht keinen Versuch).
+  Config-Lookup memoisiert pro Tenant pro Tick.
+- gebaut (Mail): `csat_mailer.go`, `SystemMailCsatMailer` ueber `email/systemmail` (dieselbe
+  Transaktions-SMTP-Strecke wie die geplanten Berichte). Neue Config `CSAT_SURVEY_BASE_URL`
+  (default `https://app.zentria.tech/csat`) — **defaulted, keine `config.RequireX`-Assertion**,
+  also keine Startgefahr fuer den laufenden Betrieb. Verdrahtung in `cmd/helpdesk/main.go` exakt
+  nach dem Muster von `cmd/berichte`: ohne konfiguriertes System-SMTP wird der Dispatcher gar
+  nicht erst gestartet (statt Umfragen zu claimen, die kein Transport zustellen kann) + Warn-Log.
+  ABWEICHUNG vom Backlog-Text: Rendering laeuft NICHT ueber `email/template.Service.Render`.
+  Das ist ein CRUD-Store fuer tenant-eigene Templates, `Render` schlaegt eine Template-Zeile per
+  ID mit Sichtbarkeitsregeln nach — fuer eine System-Mail gibt es keine solche Zeile, und eine
+  pro Tenant zu seeden waere eine eigene Baustelle. Stattdessen feste Body-Bauform mit der
+  Tenant-Frage aus `CsatConfig`, 1:1 wie `berichte/scheduler.buildTextBody`. Kein text/template,
+  keine freie Platzhalter-Aufloesung. HTML-Escaping via `html.EscapeString` (Stdlib).
+- gebaut (Tests): `csat_dispatch_db_test.go` (echte DB als `kmuhub_app`) — die Faelligkeits-Query
+  liefert fuer geseedete Daten **wirklich eine Zeile** (das ist der Punkt, nicht "laeuft
+  fehlerfrei"; Lehre aus Iteration 45), eine noch nicht faellige Umfrage kommt nicht mit,
+  Empfaenger/Name/Ticketnummer sind gefuellt, Cross-Tenant-Read der CSAT-Zeile = 0 Zeilen,
+  zweiter Claim scheitert, Release macht faellig und verbraucht genau einen Versuch,
+  erschoepfte Versuche fallen dauerhaft raus, Cancel entwertet den Token und laesst ein Rating
+  stehen. `csat_dispatch_test.go` (Fakes) — zwei Ticks = eine Mail, nicht faellig = keine Mail,
+  Sendefehler gibt den Claim frei und der naechste Tick stellt zu, abgeschalteter Tenant wird
+  entwertet statt gemailt, Config-Ausfall verbraucht keinen Versuch, ein Config-Lookup pro
+  Tenant pro Tick, Link/Frage/Subject im Body und Subject im HTML escaped.
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `migrate up` bis 289 ok | `go build -p 2` (helpdesk, server, gateway, cmd/helpdesk, cmd/gateway)
+  ok | `go vet` (helpdesk, cmd/helpdesk) ok | `golangci-lint run` (helpdesk, cmd/helpdesk, config)
+  → **0 issues** | `go test -count=1 ./internal/helpdesk/` **82 PASS / 0 SKIP / 0 FAIL** (die vier
+  neuen DB-Tests liefen real) | `./internal/server/` ok | `./internal/gateway/` ok
+  (TestOpenAPIRouteDrift mitgelaufen; keine Route angefasst, openapi.yaml unveraendert) |
+  `./internal/testutil/` ok (RLS-Standing-Guard).
+- offen fuer die naechste Iteration / fuer Luke:
+  - **Externe Requester bekommen heute keine Umfrage.** `ListDueCsatSurveys` holt die Adresse
+    ueber `JOIN users ON users.id = tickets.requester_id`; ohne User-Konto gibt es keine Zeile.
+    Sobald B1 (`intake-ticket-columns`) `requester_email` an `tickets` bringt, muss der JOIN auf
+    `COALESCE(t.requester_email, req.email)` erweitert werden — sonst bleibt genau die
+    Kundengruppe stumm, fuer die CSAT gedacht ist.
+  - A8 (`csat-public-response`) loest den Token oeffentlich ein und muss ihn dabei entwerten
+    (`token = NULL`), sonst ist der Link mehrfach einloesbar. `CancelCsatSurvey` ist dafuer schon
+    die passende Formulierung.
+  - Ohne `SYSTEM_SMTP_HOST` laeuft der Dispatcher gar nicht — Umfragen sammeln sich als pending
+    Tokens an und gehen raus, sobald SMTP konfiguriert ist (Nachhol-Effekt beim ersten Start
+    bedenken). `CSAT_SURVEY_BASE_URL` muss auf die FE-Route zeigen, die A8 bedient.
+- kein FE-Teil in diesem Commit (Backend-Loop-Scope).
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): mail out CSAT
+  surveys after their configured delay".
+
+## Iteration 48 — csat-public-response — done — 2026-08-06 00:50
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): redeem CSAT
+  survey links without a login".
+- verify vorgaenger (66253a22, csat-survey-dispatch): **sauber**. Keine Route, kein Proto,
+  keine neue Tabelle (nur drei Spalten an `ticket_csat_responses`, RLS kam mit 000288);
+  neue Config `CSAT_SURVEY_BASE_URL` ist **defaulted**, keine `config.RequireX`-Assertion,
+  also kein Deploy-Hazard; kein `Unimplemented`/TODO/Fake im neuen Pfad; kein
+  RequirePermission-Guard, kein Gateway-Handler, damit keine gRPC-Umgehung moeglich.
+- gebaut (Proto): `SubmitCsatByToken(token, rating, optional comment) -> {ticket_number, rating}`.
+  Antwort bewusst **kein** `Ticket`: der Aufrufer ist ein nicht angemeldeter Kunde und bekommt
+  nur die Ticketnummer zurueck, die in seiner Einladungsmail ohnehin stand — kein Betreff,
+  kein Bearbeiter, kein interner Zustand. `.pb.go` + `_grpc.pb.go` im selben Commit (protoc
+  direkt aufgerufen, `make` gibt es in dieser Shell nicht).
+- gebaut (Service): `Service.SubmitCsatByToken` in `csat_survey.go`, Schrittfolge 1:1 nach
+  `berichte.Service.GetSharedDocument`: Token-Lookup unter `database.WithSystemContext` (die
+  eine Zeile, die RLS verlassen MUSS, weil sie erst beantwortet, welcher Tenant gemeint ist) →
+  Usable-Pruefung → `withTenant(ctx, survey.TenantID)` → ab da alles normal tenant-gescopt.
+  Der System-Kontext wird nirgends weitergereicht.
+  **Reihenfolge ist Absicht:** Rating-Range und Kommentarlaenge werden VOR dem Lookup geprueft.
+  Ein ungueltiges Rating ist der Fehler des Aufrufers und darf nichts ueber den Token verraten;
+  ein Test (`RejectsRatingBeforeTouchingToken`) haelt das fest, indem er zaehlt, dass der
+  Lookup bei ungueltiger Eingabe **null Mal** laeuft.
+- gebaut (Repo): `GetCsatSurveyByToken` (Equality auf die global eindeutige token-Spalte, nie
+  eine Liste, nie ein Filter) und `RedeemCsatSurveyTx`. Die Transaktion setzt
+  rating/comment/submitted_at, **entwertet den Token** (`token = NULL`, expires/send_after
+  NULL) und spiegelt auf `tickets`. Der Guard `token IS NOT NULL AND submitted_at IS NULL`
+  im UPDATE ist die autoritative Einmal-Pruefung — die Service-Pruefung davor ist gegen eine
+  zeitgleiche zweite Einloesung rennbar, das SQL nicht. Null Zeilen → ErrCsatSurveyNotFound.
+- gebaut (Gateway): `HelpdeskRoutes.RegisterPublicRoutes` →
+  `POST /api/v1/public/helpdesk/csat/{token}`, registriert in `cmd/gateway/main.go` am
+  **Root-Router ausserhalb der Registrar-Schleife**, einziges Middleware der strenge
+  `publicRateLimiter` (`ratelimit:public`). Body-Deckel 8 KiB per `http.MaxBytesReader` **vor**
+  dem Decode. Handler geht ueber `helpdeskClient.SubmitCsatByToken`, nicht ueber eine
+  Service-Instanz. `openapi_drift_test.go` registriert die Route jetzt ebenfalls (sonst
+  faellt sie durch die Drift-Pruefung).
+- ein Verdikt fuer alle toten Links: unbekannt, missgebildet, ueberlang, leer, abgelaufen,
+  entwertet und bereits eingeloest → **alle** `ErrCsatSurveyNotFound` → 404. Nie 403, nie eine
+  unterscheidbare Meldung. 400 gibt es nur fuer Rating/Body, die nichts ueber den Token sagen.
+- openapi.yaml: Pfad im selben Commit, dokumentiert 200/400/404/429/503.
+- gate (alle mit `DATABASE_URL` gegen `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `go build -p 2` (helpdesk, server, gateway, cmd/gateway, cmd/helpdesk) ok | `go vet` ok |
+  `golangci-lint run` (helpdesk, gateway, server) → **0 issues** |
+  `go test -count=1 -v ./internal/helpdesk/` **85 PASS / 0 SKIP** (die drei neuen liefen real
+  gegen die DB) | `./internal/gateway/` ok inkl. **TestOpenAPIRouteDrift PASS** |
+  `./internal/server/` ok | `./internal/testutil/` ok (RLS-Standing-Guard).
+  Keine Migration in dieser Unit — Spalten und Policy stammen aus 000288/000289.
+- Testfalle, die hier zuschnappte und fuer kuenftige DB-Tests gilt: `t.Cleanup` laeuft **nach**
+  dem `defer pool.Close()` der Testfunktion und findet dann einen geschlossenen Pool; die
+  Zeilen bleiben liegen, und der global eindeutige Token-Index laesst den naechsten Lauf
+  auflaufen. Aufraeumen per `defer`, und Test-Tokens mit einer Lauf-ID praefixen statt fester
+  Literale.
+- offen fuer die naechste Iteration / fuer Luke:
+  - **Kein FE-Teil** (Loop-Scope). `CSAT_SURVEY_BASE_URL` (Default zeigt auf die
+    `/csat`-Route der App) muss auf eine FE-Seite zeigen, die den Token aus dem Pfad nimmt
+    und **POST**et — ein GET loest nichts ein. Die Seite bekommt `{ticket_number, rating}`
+    zurueck und sollte 404 als "Link abgelaufen oder bereits genutzt" formulieren, ohne die
+    Faelle zu unterscheiden.
+  - Der Kommentar-Deckel (2000 Zeichen, `csatCommentMaxLength`) gilt vorerst nur auf dem
+    oeffentlichen Weg; `submitCsatRequest` (Agenten-Route) hat weiterhin keinen. Bewusst nicht
+    mitgeaendert, um den bestehenden Vertrag nicht nachts zu verengen.
+  - Weiterhin offen aus Iteration 47: externe Requester bekommen keine Umfrage, weil
+    `ListDueCsatSurveys` die Adresse ueber `JOIN users` holt. B1 bringt `requester_email` an
+    `tickets`, dann muss der JOIN auf `COALESCE(t.requester_email, req.email)`.
+
+## Iteration 49 — intake-ticket-columns — done — 2026-08-06 02:05
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): give tickets
+  their intake origin and extra fields".
+- verify vorgaenger (18e58bf7, csat-public-response): **sauber**. `.proto` und beide `.pb.go`
+  im selben Commit; openapi.yaml und `openapi_drift_test.go` mitgezogen; der Handler geht ueber
+  `helpdeskClient.SubmitCsatByToken`, keine direkt injizierte Service-Instanz. Der System-Kontext
+  ist auf **eine** Query eingesperrt (`postgres_repository.go:381`, Equality auf die eindeutige
+  token-Spalte) und wird nirgends weitergereicht — `csat_survey.go:194` setzt unmittelbar danach
+  `withTenant`. Kein `Unimplemented`, kein TODO, kein neuer RequirePermission-Guard, keine
+  `config.RequireX`.
+- gebaut (Migration 000290, `helpdesk_ticket_intake_fields`): fuenf Spalten an `tickets` —
+  `channel TEXT NOT NULL DEFAULT 'agent'` mit eigenem CHECK auf ('agent','selfservice','external'),
+  `requester_email TEXT NULL`, `requester_name TEXT NULL`,
+  `requester_is_external BOOLEAN NOT NULL DEFAULT false`, `custom_fields JSONB NOT NULL DEFAULT '{}'`.
+  Keine neue Tabelle, also keine RLS-Arbeit: `tickets` hat `tenant_id NOT NULL` und die
+  `tenant_isolation`-Policy laengst.
+- `source_channel` (000268) **nicht angefasst**, weder Spalte noch CHECK. In der DB verifiziert:
+  `tickets_channel_check` und `tickets_source_channel_check` stehen als zwei getrennte
+  Constraints nebeneinander. Die beiden beantworten verschiedene Fragen — source_channel sagt,
+  aus welcher Inbox eine Nachricht konvertiert wurde (nur fuer Adapter-Tickets gesetzt),
+  `channel` sagt, wie die Anfrage ueberhaupt in den Helpdesk kam (fuer jedes Ticket gesetzt).
+- **Backfill-Entscheidung, bewusst konservativ:** Bestandszeilen nehmen die Spalten-Defaults
+  ('agent', false, '{}'). `source_channel` wird NICHT auf `channel` gemappt. Ein aus einer Mail
+  konvertiertes Ticket ist damit nicht als extern eingereicht belegt — ein Agent kann es genauso
+  gut aus der Inbox geoeffnet haben. 'agent' heisst "im Modul angelegt" und ist fuer alle
+  Altzeilen wahr; eine Ableitung aus source_channel wuerde Herkunft erfinden. Begruendung steht
+  als Kommentar in der Migration.
+- **VORRANGREGEL requester_name (die Entscheidung, die B1 verlangt):** der `users`-JOIN schlaegt
+  die neue Spalte, die Spalte ist nur Fallback. `ticketSelectColumns` liest jetzt
+  `COALESCE(JOIN-Name, req.email, NULLIF(t.requester_name,''), '')`. Grund: ein interner
+  Requester ist ueber `requester_id` identifiziert, seine aktuelle Anzeige gehoert zur
+  User-Zeile — eine persistierte Kopie veraltet beim ersten Rename und niemand merkt es. Die
+  Spalte traegt genau die Requester, die keine User-Zeile zum Joinen haben. Das deckt sich mit
+  dem FE-Typ, der es woertlich so beschreibt (`helpdesk-types.ts:37-39`). Regel steht als
+  Doc-Kommentar an `ticketSelectColumns`, als Kommentar an der Spalte in der Migration, und —
+  wichtiger — als Test.
+- getestet (`ticket_requester_name_db_test.go`, real gegen die DB als `kmuhub_app`):
+  `TestTicketRead_RequesterNamePrecedence` legt beide Faelle nebeneinander und gibt dem internen
+  Ticket **absichtlich** einen widersprechenden Spaltenwert ("Falscher Name") — der Test kann
+  also nur gruen werden, wenn der JOIN wirklich gewinnt. Der externe Fall (requester_id ohne
+  User-Zeile, LEFT JOIN liefert NULL) faellt ohne den neuen COALESCE-Zweig auf `""` zurueck und
+  waere rot. `TestTicketRead_IntakeColumnDefaults` haelt fest, dass ein ohne Intake-Felder
+  angelegtes Ticket mit 'agent'/false/'{}' aus der DB kommt statt mit NULLs.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS):
+  `migrate up` 289 -> 290 ok, `down 1` -> 289 ok, `up` -> 290 ok (Roundtrip, down ist wirklich
+  gefuellt) | `go build -p 2 ./...` ok | `go vet` ok | `golangci-lint run` (helpdesk, gateway)
+  **0 issues** | `go test -count=1 -v ./internal/helpdesk/ ./internal/testutil/ ./internal/gateway/`
+  **732 PASS / 0 FAIL / 0 SKIP** — inklusive `TestAllPublicTablesHaveRLSOrAreAllowlisted` und
+  `TestOpenAPIRouteDrift`. Null Skips heisst: die DB-Tests liefen wirklich.
+- **keine openapi.yaml-Aenderung, und das ist Absicht:** diese Unit legt Spalten an, sie bringt
+  noch kein Feld auf den Wire. Die Ticket-Response aendert sich erst mit B2/B3, dann gehoert der
+  Schema-Nachtrag in denselben Commit.
+- offen fuer die naechste Iteration:
+  - B2 muss `requester_name` fuer **interne** Requester gar nicht erst schreiben (sonst baut man
+    die veraltende Kopie, die die Vorrangregel gerade vermeidet). Schreiben nur, wenn
+    `requester_is_external`.
+  - Die fuenf Spalten sind noch in keinem SELECT ausser `requester_name` — `ticketSelectColumns`
+    und `scanTicket` muessen in B2 gemeinsam wachsen, sonst laeuft die Scan-Reihenfolge auseinander.
+  - Aus Iteration 48 uebernommen und jetzt entsperrt: `ListDueCsatSurveys` holt die Adresse ueber
+    `JOIN users` und uebergeht damit externe Requester. `tickets.requester_email` existiert ab
+    jetzt, der JOIN kann auf `COALESCE(t.requester_email, req.email)` — gehoert sinnvoll zu B5.
+
+## Iteration 50 — intake-proto-create (B2)
+
+- commit: HEAD von backend-loop nach dieser Iteration, Subject "feat(helpdesk): carry intake
+  origin and extra fields through create".
+- verify vorgaenger (ca6b516a, intake-ticket-columns): **sauber**. Reine Migration + ein
+  COALESCE-Zweig in `ticketSelectColumns` + ein DB-Test. Kein `.proto` beruehrt, also auch kein
+  fehlendes Regen; kein `Unimplemented`, kein TODO, kein neuer RequirePermission-Guard, keine
+  `config.RequireX`, kein Direct-Svc-Aufruf. Die dort behauptete Vorrangregel ist im Code und im
+  Test wirklich so verdrahtet, wie das Journal es beschreibt — nachgelesen, nicht geglaubt.
+- gebaut: die fuenf Intake-Felder gehen jetzt durch Proto, Service und Repository und kommen beim
+  Read zurueck. `CreateTicketRequest` +5 Felder (11–15), `Ticket` +4 (26–29; `requester_name`
+  gab es als Feld 16 laengst). `helpdesk.pb.go` im selben Commit regeneriert;
+  `helpdesk_grpc.pb.go` ist unveraendert und das ist korrekt — keine RPC-Signatur hat sich
+  geaendert, protoc erzeugt dieselbe Datei.
+- **custom_fields ist `google.protobuf.Struct`, nicht `map<string,string>`.** Der FE-Typ ist
+  `Record<string, string | number | boolean>` (helpdesk-types.ts:49) — eine String-Map haette
+  jede Zahl und jedes Boolean in seine Textdarstellung gedrueckt, und beim Zurueckschreiben
+  waere aus `4711` das Wort "4711" geworden. `structpb` ist im Repo bereits im Einsatz
+  (automation, inbox, settings, und helpdesk_grpc.go importiert es schon fuer die CSAT-Config),
+  also keine neue Abhaengigkeit. Der Round-Trip-Test prueft ausdruecklich, dass die Zahl als
+  float64 zurueckkommt und nicht als String.
+- **Signatur-Entscheidung:** `Service.CreateTicket` hatte bereits 11 Positionsparameter. Fuenf
+  weitere haetten 16 ergeben — eine Aufruf-Zeile, in der `nil, nil, "", "", nil, nil` steht und
+  niemand mehr sieht, welches nil was ist. Stattdessen ein trailing `TicketIntake`-Wert
+  (`ticket_intake.go`). Die fuenf Felder gehoeren fachlich zusammen (sie beschreiben die
+  Herkunft), und der Diff an den ~28 bestehenden Testaufrufen ist mechanisch `, TicketIntake{})`.
+  Die 11 Altparameter blieben absichtlich unangetastet: ein Params-Struct-Refactor haette
+  denselben Nutzen zu 30 handgeschriebenen Aufrufumbauten gehabt und gehoert nicht in dieselbe
+  Unit wie ein Vertragsbruch-Fix.
+- **Validierung sitzt in `TicketIntake.normalize()`, nicht im Handler** — eine Stelle fuer den
+  gRPC-Handler, den spaeteren Formular-Dispatch (B7) und den oeffentlichen Intake (B8):
+  - channel leer -> "agent", channel unbekannt -> `ErrInvalidChannel`. **Kein stiller Default
+    fuer einen unbekannten Wert** — das haette den Datenverlust nur eine Schicht tiefer gelegt.
+  - requester_email ueber `net/mail.ParseAddress` plus 320-Zeichen-Deckel (Stdlib, keine Regex,
+    keine Dependency).
+  - requester_name wird fuer INTERNE Requester **verworfen statt gespeichert**. Genau das
+    verlangt die Vorrangregel aus B1: der users-JOIN gewinnt beim Lesen, eine persistierte Kopie
+    wuerde beim ersten Rename veralten. Die Regel wird hier durchgesetzt, nicht nur gelesen.
+  - custom_fields: nur Skalare (string | number | bool). Verschachtelte Objekte, Arrays, null und
+    leere Keys -> `ErrInvalidCustomFields`. Deckel bei 100 Keys, 128 Zeichen Key, 4096 Zeichen
+    Wert — die oeffentlichen Intake-Pfade schreiben spaeter durch dieselbe Funktion, und ohne
+    Deckel waere das eine unbegrenzt wachsende Zeile pro Einreichung.
+  Alle vier Sentinels sind in `mapHelpdeskError` auf `InvalidArgument` verdrahtet. Das war fast
+  die Luecke dieser Iteration: ohne den Eintrag faellt ein sauber validierter Tippfehler durch
+  den default-Zweig auf `Internal` und das Modul zeigt "Serverfehler" fuer eine 400.
+  `helpdesk_intake_error_test.go` belegt die Abbildung bare und wrapped.
+- **`scanTicket` und `scanTicketFromRows` waren zwei Kopien derselben Ziel-Liste** und der
+  Kommentar an `ticketSelectColumns` warnte genau davor, dass sie auseinanderlaufen. Sie gehen
+  jetzt beide durch `ticketScanDest()`; eine Spalte kann nicht mehr in nur einer der beiden
+  landen und alle Folgefelder verschieben.
+- **`CreateTicketFromMessage` setzt channel bewusst auf 'agent'**, nicht auf den source_channel.
+  Wie eine Nachricht in die INBOX kam, ist eine andere Frage als wie die Anfrage in den Helpdesk
+  kam — dieselbe Unterscheidung, die schon der 000290-Backfill trifft. `TestCreateTicketFromMessage_SetsAgentChannel`
+  haelt beide Spalten nebeneinander fest, damit sie niemand zusammenlegt.
+- **Repo-Guard:** `channel` ist NOT NULL mit CHECK, ein leerer Wert waere eine 23514 mitten in
+  einer Nutzeraktion. Das Repository setzt daher 'agent', wenn ein interner Aufrufer ohne
+  `normalize()` einen Ticket-Struct baut. Das ist KEIN stilles Defaulten eines Nutzerwerts —
+  unbekannte Werte werden an der Trust-Boundary abgelehnt, hier geht es nur um einen Aufrufer,
+  der das Feld gar nicht kennt.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `go build ./...` ok
+  | `go vet ./...` ok | `golangci-lint run` (helpdesk, server, gateway) **0 issues** |
+  `go test -count=1 -v ./internal/helpdesk/ ./internal/server/ ./internal/gateway/ ./internal/testutil/`
+  **958 PASS / 0 FAIL / 0 SKIP** — inklusive `TestAllPublicTablesHaveRLSOrAreAllowlisted` und
+  `TestOpenAPIRouteDrift`. Null Skips heisst: die DB-Tests liefen wirklich.
+- **keine openapi.yaml-Aenderung, geprueft statt angenommen:** diese Unit legt keine Route an,
+  und die Ticket-Antworten sind in der Spec als `schema: { type: object }` beschrieben
+  (openapi.yaml:13894, :13920) — es gibt kein Ticket-Schema, das nachzuziehen waere. Der
+  Request-Body-Block bei `post /api/v1/helpdesk/tickets` (:13905) listet die Felder dagegen
+  einzeln auf; **dort gehoeren die fuenf neuen Felder in B3 hinein**, zusammen mit dem DTO.
+- offen fuer die naechste Iteration:
+  - B3 (intake-route-create) ist jetzt reine Gateway-Arbeit: DTO um die fuenf Felder erweitern,
+    `custom_fields` als `map[string]any` dekodieren und ueber `structpb.NewStruct` in die
+    gRPC-Request heben (Fehler dort -> 400), requester_id weiter aus der Session. Validierung
+    NICHT doppeln, die liegt im Service.
+  - `UpdateTicket` im Repository schreibt die Intake-Spalten nicht mit — fuer B4 heisst das:
+    custom_fields-Merge im Service bauen, nicht die SET-Liste aufblaehen.
+  - Weiter offen aus Iteration 48/49: `ListDueCsatSurveys` holt die Adresse ueber `JOIN users`
+    und uebergeht externe Requester. `tickets.requester_email` ist jetzt nicht nur da, sondern
+    auch befuellt — der JOIN kann auf `COALESCE(t.requester_email, req.email)`. Gehoert zu B5.
+
+## Iteration 51 — intake-route-create (B3)
+
+- commit: f4a6cd31, "feat(helpdesk): carry intake origin through the create route".
+- verify vorgaenger (f4a6cd31 selbst geprueft nach dem Bauen, siehe unten; das davor liegende
+  eac91ac9/intake-proto-create war schon in Iteration 50 verifiziert). Kein neuer Vorgaenger-Fund.
+- gebaut: `createTicketRequest` im Gateway um `channel`, `requester_email`, `requester_name`,
+  `requester_is_external`, `custom_fields` erweitert und in `grpcReq` durchgereicht.
+  `custom_fields` kommt als `map[string]any` aus `decodeAndValidate`, wird ueber
+  `structpb.NewStruct` in ein `*structpb.Struct` gehoben — schlaegt das fehl, 400
+  "invalid custom_fields", kein 500 (Vorgabe aus den Notes, nicht wie
+  `route_automation.go`/`route_inbox.go`, die den Fehler heute still schlucken; hier bewusst
+  NICHT diesem Muster gefolgt, weil die Notes explizit 400 statt 500 verlangen).
+  `openapi.yaml` im selben Commit: die fuenf Felder unter `post /api/v1/helpdesk/tickets`
+  ergaenzt (Zeile ~13910). `description`/`category` fehlten dort schon vorher im Request-Body-
+  Schema — vorbestehende Luecke, nicht in dieser Unit angefasst (out of scope).
+- **Keine Validierung im Handler dupliziert** — kein `validate`-Tag auf den vier neuen
+  String-/Struct-Feldern, die Regeln (unbekannter channel, kaputte Mail, verschachtelte
+  custom_fields) laufen wie vorgeschrieben ausschliesslich durch `TicketIntake.normalize` im
+  Service (B2). `requester_is_external` hat kein `omitempty`-Validate noetig, ist ein Plain-Bool.
+- **requester_id bleibt serverseitig aus der Session** (`middleware.GetUserID`), nicht aus dem
+  Body — im DTO gibt es dafuer gar kein Feld, IDOR-Linie aus Iteration 46 unveraendert weiter
+  gezogen.
+- **FE-Vertrag abgeglichen, nicht geraten:** `helpdesk-types.ts` (`CreateTicketInput`) und
+  `helpdesk-ticket-target.ts` (der Intake-Engine-Zielpunkt, der `createTicket()` schon mit
+  `channel`/`requester_id`/`requester_name`/`requester_email`/`requester_is_external`/
+  `custom_fields` aufruft) nutzen exakt diese fuenf Feldnamen und `TicketChannel =
+  'agent'|'selfservice'|'external'`, `custom_fields?: Record<string, string|number|boolean>` —
+  passt 1:1 auf `map[string]any` + `structpb.NewStruct`.
+- **"Round-Trip-Test" im Gateway-Package ist strukturell nicht als Live-Call moeglich:** dieses
+  Package hat keine bufconn/echten-Server-Testinfrastruktur (grep bestaetigt: kein `bufconn` im
+  ganzen Repo), `registryWithService()` verbindet immer auf eine Dummy-Adresse
+  (`localhost:0`), jeder echte RPC-Call schlaegt mit `Unavailable` fehl → 503. Der tatsaechliche
+  Proto→Service→Repository→Read-Round-Trip ist bereits in B2 (Iteration 50, `internal/helpdesk`)
+  getestet. Fuer B3 stattdessen zwei Tests, die die Gateway-eigene Verantwortung pruefen:
+  `TestHandleCreateTicket_IntakeFieldsPassValidation` (alle fuenf Felder gesetzt, Subject dazu →
+  503 statt 400 beweist, dass decode+validate die neuen Felder NICHT ablehnt, bevor sie den
+  RPC-Call erreichen) und `TestHandleCreateTicket_CustomFieldsNotObject` (custom_fields als
+  JSON-Array → 400 "invalid request body", weil `json.Decode` in `map[string]any` beim Typ
+  scheitert, bevor `structpb.NewStruct` ueberhaupt aufgerufen wird).
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`): `go build ./...` ok | `go vet ./...` ok |
+  `golangci-lint run ./internal/gateway/...` **0 issues** |
+  `go test -count=1 ./internal/helpdesk/... ./internal/server/... ./internal/gateway/... ./internal/testutil/...`
+  **grün** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`). Ein Lauf zuvor zeigte 1 FAIL
+  (`TestDecodeBexioState_ManipulatedSignature`, `internal/gateway/bexio_state_test.go` — flippt
+  einen Base64-Zeichen der Signatur und erwartet einen Fehler; ~1/64 Chance, dass das getroffene
+  Zeichen zufaellig gleich bleibt). 20 isolierte Wiederholungen liefen sauber durch, ein zweiter
+  Voll-Lauf war gruen — bestaetigt als vorbestehender Flake in einem Bexio-Test, unberuehrt von
+  dieser Unit, nicht behoben (auesserhalb des Scopes B3).
+- offen fuer die naechste Iteration:
+  - B4 (intake-route-update) ist die naechste in der deps-Kette: `updateTicketRequest` um
+    `status` und `custom_fields` erweitern (HelpdeskPage.tsx:515 sendet beides, beides geht
+    heute verloren). `UpdateTicket` im Repository schreibt die Intake-Spalten noch nicht mit —
+    custom_fields-Merge im Service bauen, nicht die SET-Liste aufblaehen (Hinweis aus B2/B3-Notes
+    unveraendert gueltig).
+  - Der vorbestehende Bexio-Flake (`TestDecodeBexioState_ManipulatedSignature`) ist keine Backlog-
+    Unit — falls er wieder auftaucht und stoert, waere ein deterministischer Test (festes
+    manipuliertes Byte statt "X" an fixer Position, oder pruefen, ob sich das Zeichen tatsaechlich
+    geaendert hat) der saubere Fix, aber das ist ausserhalb von Helpdesk/Intake.
+
+## Iteration 52 — intake-route-update (B4)
+
+- commit: 4ada610d, "feat(helpdesk): persist status and custom_fields on ticket update".
+- verify vorgaenger: f4a6cd31/intake-route-create (Iteration 51) selbst geprueft nach dem Bauen,
+  kein neuer Vorgaenger-Fund. Kein Commit lag zwischen Iteration 51 und dieser Iteration.
+- gebaut: `UpdateTicketRequest` im Proto um `optional string status = 8` und
+  `google.protobuf.Struct custom_fields = 9` erweitert, `make proto-helpdesk`-Aequivalent
+  (protoc direkt, `make` fehlt in der bash) im selben Commit regeneriert. `Service.UpdateTicket`
+  nimmt jetzt `statusVal *string` und `customFields map[string]any` zusaetzlich zu den
+  bestehenden Parametern. `PostgresRepository.UpdateTicket` schreibt `custom_fields` jetzt mit
+  (vorher fehlte die Spalte komplett in der SET-Liste — ein Read-Modify-Write ueber den Service
+  haette sie also schon vorher nie persistiert, unabhaengig vom Gateway-Fix). Gateway-DTO um
+  `Status *string` und `CustomFields map[string]any` erweitert, `custom_fields` ueber
+  `structpb.NewStruct` in die gRPC-Request gehoben — schlaegt das fehl, 400 "invalid
+  custom_fields", exakt das Muster aus B3 (Iteration 51). `openapi.yaml` im selben Commit.
+- **custom_fields ist ein MERGE-Patch, kein Replace** — Vorgabe aus den B4-Notes, Vorlage ist
+  der MSW-Handler (`handlers/helpdesk.ts:754`): `ticket.custom_fields = { ...alt, ...patch }`.
+  `Service.UpdateTicket` laedt das bestehende `t.CustomFields` (kommt aus `GetTicketByID` ->
+  `applyCustomFields`, nie nil), validiert den eingehenden Patch ueber das bestehende
+  `normalizeCustomFields` (dieselbe Funktion wie beim Create-Intake, B2) und mergt mit
+  `maps.Copy` in eine Kopie. Zwei aufeinanderfolgende Updates mit je einem Key loeschen sich
+  nicht gegenseitig (Test `TestUpdateTicket_CustomFieldsMergeAcrossUpdates`).
+- **status: geprueft, aber NICHT alle fuenf Werte durchgelassen.** Die Notes verlangten
+  "erlaubte Werte UND Uebergaenge serverseitig pruefen" und hielten fest, dass close/reopen
+  ihre eigenen Endpunkte bleiben und dieses Feld "die uebrigen Uebergaenge" abdeckt. Entscheidung:
+  `status=closed` und `status=merged` werden ueber den generischen Pfad mit `ErrInvalidStatus`
+  abgelehnt (400), weil `CloseTicket` zusaetzlich `resolved_at` setzt und die CSAT-Umfrage
+  ausloest (`issueCsatSurvey`), und `MergeTickets` Nachrichten umhaengt — ein direktes
+  `status=closed` ueber PUT haette den Ticket-Status ohne diese Nebenwirkungen umgestellt und
+  genau die Art von stillem Datendrift erzeugt, die dieser ganze Block beheben soll. `open`,
+  `pending`, `solved` bleiben ueber das Feld erreichbar, unabhaengig vom aktuellen Ist-Status
+  (kein State-Machine-Umbau, das FE routet `closed` und `closed/resolved -> open` ohnehin nicht
+  hierher, siehe HelpdeskPage.tsx:497-514). `openapi.yaml`-Enum entsprechend auf
+  `[open, pending, solved]` verengt statt aller fuenf Werte, mit Begruendung im
+  `description`-Feld. Test `TestUpdateTicket_RejectsClosedAndMergedStatus` deckt beide
+  Ablehnungen ab.
+- **DisallowUnknownFields NICHT eingefuehrt.** `decodeAndValidate[T]` ist ein einziger generischer
+  Helper fuer JEDES DTO im gesamten Gateway-Package (Grep bestaetigt: keine Pro-Typ-Overrides).
+  Eine Option waere gewesen, es global anzuschalten, um den naechsten stillen Feldverlust laut zu
+  machen — aber das ist eine Verhaltensaenderung fuer saemtliche bestehenden Routen auf einmal,
+  nicht etwas das man nebenbei in einer einzelnen Helpdesk-Unit entscheidet. Bleibt aus, wie in
+  den Notes als Option vorgesehen ("falls es bestehende Clients brechen wuerde, ebenfalls
+  begruenden und lassen") — hier ist die Sorge nicht Client-Bruch, sondern Blast-Radius weit
+  ausserhalb des Scopes. Falls das noch gewuenscht ist: eigene Unit mit eigenem Audit ueber alle
+  DTOs, nicht Beifang hier.
+- **`category` bleibt ein bekannter, unberuehrter Datenverlust.** `UpdateTicketInput.category`
+  existiert im FE-Typ (`helpdesk-types.ts:136`), aber weder `updateTicketRequest` im Gateway noch
+  `UpdateTicketRequest` im Proto noch `Service.UpdateTicket` kennen das Feld — derselbe Fehler-
+  Typ wie status/custom_fields vor dieser Unit, aber ausserhalb des B4-Scopes (`done_when` nennt
+  nur status und custom_fields) und nicht in dieser Iteration angefasst. Naechste passende
+  Backlog-Unit oder Ergaenzung von B4, falls gewuenscht.
+- vier bestehende Aufrufer von `Service.UpdateTicket` (zwei in `contact_org_link_test.go`, zwei in
+  `service_test.go`) an die neue Signatur angepasst (zwei neue Parameter, `nil` an den passenden
+  Stellen) — reine Positionsanpassung, keine Verhaltensaenderung an diesen Tests.
+- gate (`DATABASE_URL` gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./internal/helpdesk/...
+  ./internal/gateway/... ./internal/server/...` ok | `go vet` ok | `golangci-lint run` (helpdesk,
+  gateway, server) **0 issues** | `go test -count=1 -v ./internal/helpdesk/...
+  ./internal/gateway/... ./internal/server/... ./internal/testutil/...` **970 PASS / 0 FAIL / 0
+  SKIP** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`) — der Bexio-Flake aus Iteration 51
+  (`TestDecodeBexioState_ManipulatedSignature`) trat in diesem Lauf nicht auf, unberuehrt von
+  dieser Unit. `go build -p 2 ./...` zusaetzlich fuer den Gesamt-Build geprueft, gruen.
+- offen fuer die naechste Iteration:
+  - `intake-external-requester` (B5) ist laut deps-Kette als naechstes dran: `requester_id`
+    NULLable machen, CHECK fuer intern-oder-extern-mit-Mail, `scope=own`-Verhalten fuer Externe
+    entscheiden und dokumentieren. Aus Iteration 50 weiterhin gueltig: `ListDueCsatSurveys` holt
+    die Adresse ueber `JOIN users` und uebergeht externe Requester — mit befuelltem
+    `tickets.requester_email` (seit B1) kann der JOIN auf
+    `COALESCE(t.requester_email, req.email)` wechseln, das gehoert in B5 mit hinein wenn dort der
+    externe Requester ohnehin angefasst wird.
+  - `category` beim Ticket-Update (siehe oben) ist kein Backlog-Eintrag, aber derselbe
+    Fehler-Typ wie B4 vor dieser Iteration — Kandidat fuer eine kleine Folge-Unit oder eine
+    Erweiterung, falls das Team das priorisiert.
+
+## Iteration 53 — intake-external-requester — done — 2026-08-06 01:2x
+- commit: aa815b47
+- gebaut: Migration 000291 macht `tickets.requester_id` NULLable und setzt
+  `chk_tickets_requester_identity` darueber (`requester_id IS NOT NULL` ODER
+  `requester_is_external AND requester_email <> ''`), dazu ein Partial-Index auf
+  `(tenant_id, requester_email)`. `Ticket.RequesterID` ist jetzt `*uuid.UUID` durch Model,
+  Service, Repository, gRPC-Server und Tests; `Service.CreateTicket` nimmt einen Pointer und
+  spiegelt den CHECK vorab als `ErrMissingRequester` (→ InvalidArgument), der gRPC-Server
+  akzeptiert ein LEERES `requester_id` als "externer Requester" und faellt bei einem
+  vorhandenen, aber kaputten Wert weiterhin hart auf InvalidArgument.
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./...` ok | `go vet` ok |
+  `golangci-lint run` (helpdesk, gateway, server) **0 issues** | `go test -count=1 -v
+  ./internal/helpdesk/... ./internal/gateway/... ./internal/server/... ./internal/testutil/...`
+  **1795 PASS / 0 FAIL / 0 SKIP** (inkl. `TestOpenAPIRouteDrift`, `TestOpenAPISpecDrift`,
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`). Migration lokal up **und** down **und** wieder
+  up gefahren (Kopf 291) — die down-Richtung loescht bewusst Zeilen ohne requester_id, weil
+  `SET NOT NULL` sonst nicht laufen kann; das steht als Kommentar in der `.down.sql`.
+- verify vorgaenger (4ada610d): sauber. Handler geht ueber `helpdeskClient.UpdateTicket`,
+  `.proto` und `.pb.go` liegen im selben Commit, `openapi.yaml` ebenfalls, keine neue Tabelle
+  und kein neuer Permission-Guard. Zusaetzlich geprueft, was der neue `custom_fields = $13`
+  im UPDATE fuer die uebrigen Schreiber bedeutet: alle sechs `repo.UpdateTicket`-Aufrufer in
+  `service.go` laden das Ticket vorher ueber `GetTicketByID`, schreiben den Wert also
+  unveraendert zurueck — kein stiller Wipe.
+- **scope=own fuer Externe: entschieden, unsichtbar zu lassen** (done_when verlangt die
+  Entscheidung samt Begruendung). `scope=own` ist ein RBAC-Datenscope fuer eingeloggte
+  Mitarbeiter und vergleicht gegen die User-UUID; ein externes Ticket hat keine. Die
+  naheliegende Alternative — ueber `requester_email` matchen — waere ein Identitaets-Match auf
+  einem Wert, der ungeprueft aus dem Intake-Body kommt: wer die Adresse eines Kollegen
+  eintippt, schoebe sein Ticket in dessen own-Scope (und mit dem oeffentlichen Submit aus B8
+  koennte das jeder von aussen). Externe Tickets erreichen einen Agenten also ueber die
+  Zuweisung (`assignee_id` matcht weiterhin) oder ueber einen weiteren Scope. Begruendung steht
+  als Kommentar am Filter in `ListTickets`, gepinnt von
+  `TestExternalRequester_InvisibleToOwnScope` (zugewiesen sichtbar, unzugewiesen nicht).
+- **Read-Pfade:** `ticketSelectColumns` nutzte bereits `LEFT JOIN users req`, die Read-Seite
+  verliert also nichts — `TestExternalRequester_ReadableThroughEveryTicketRead` belegt das fuer
+  `GetTicketByID` UND `ListTickets` (zwei verschiedene Queries auf derselben Spaltenliste), inkl.
+  `requester_name` aus der Spalte statt aus dem JOIN.
+- **`ListDueCsatSurveys` mitgenommen** (Hinweis aus Iteration 50/52): der `JOIN users` war
+  ein INNER JOIN und liess genau die externen Requester fallen, fuer die die Umfrage gedacht
+  ist. Jetzt `LEFT JOIN` + `COALESCE(NULLIF(t.requester_email,''), req.email)` fuer die Adresse
+  und dieselbe Vorrangregel wie beim Ticket-Read fuer den Namen; das WHERE filtert auf die
+  kombinierte Adresse statt auf `req.email <> ''`. Test
+  `TestListDueCsatSurveys_ReachesExternalRequester`.
+- **Duplikat-Erkennung fuer Externe abgeschaltet, nicht umgebaut:** `DetectDuplicates` gruppiert
+  ueber `requester_id`; mit NULL waere die SQL-Bedingung strukturell immer leer (NULL = NULL),
+  also ein stiller Nulltreffer statt eines sichtbaren Verhaltens. Jetzt frueher Return mit
+  Begruendung im Code — ueber die unverifizierte Mailadresse zu gruppieren waere derselbe
+  Identitaetsfehler wie beim own-Scope.
+- **Proto NICHT angefasst.** `requester_id` bleibt `string`; ein externer Requester liefert "".
+  Der FE-Typ (`helpdesk-types.ts:36`) deklariert `requester_id: string` nicht-optional und
+  rendert den Anzeigenamen ohnehin aus `requester_name` (der MSW-Mock legt dort teilweise sogar
+  Klartextnamen ab), ein weggelassenes Feld waere also die groessere Abweichung. Kein Regen,
+  kein `optional`-Umbau — bewusst, damit B7/B8 nicht auf einem Proto-Wechsel sitzen.
+- Testfixtures: `Ticket.RequesterID` ist jetzt ein Pointer, dadurch mechanische Anpassung von
+  16 Struct-Literalen und ~30 `CreateTicket`-Aufrufen (`uuidPtr`-Helper in
+  `external_requester_db_test.go`). Keine Verhaltensaenderung an diesen Tests; der Fake-Repo-
+  Own-Scope-Filter in `service_test.go:75` spiegelt jetzt zusaetzlich die NULL-Semantik der
+  SQL-Variante.
+- offen fuer die naechste Iteration:
+  - `intake-form-target` (B6) ist als naechstes dran (deps leer).
+  - Das Gateway setzt `RequesterId` weiterhin hart aus der Session (`route_helpdesk.go:309`) —
+    richtig fuer den authentifizierten Pfad. Der NULL-Fall ist damit heute nur ueber gRPC
+    erreichbar und wird erst von B7/B8 (Formular-Dispatch, oeffentlicher Submit) benutzt; bis
+    dahin ist die Lockerung Fundament, kein aktiver Pfad.
+  - `category` beim Ticket-Update bleibt der bekannte, unberuehrte Datenverlust (siehe
+    Iteration 52).
+
+## Iteration 54 — intake-form-target — done — 2026-08-06 01:3x
+- commit: 75e1fef6
+- gebaut: Migration 000292 fuegt `form_schemas.intake_target_id TEXT NULL` hinzu (Text-Kennung
+  ins Intake-Registry, bewusst keine FK). `FormField.Role string` (neuer optionaler JSONB-Key
+  im bestehenden `fields`-Array, keine Migration noetig dafuer) und `FormSchema.IntakeTargetID
+  *string` in models.go. `validateFields` prueft jetzt zusaetzlich `f.Role` gegen
+  `validIntakeRoles` (subject, description, priority, category, requester_name,
+  requester_email — 1:1 aus `helpdesk-ticket-target.ts`), unbekannte Rolle -> ErrInvalidFields
+  wie bei unbekanntem field.Type. `CreateSchemaInput`/`UpdateSchemaInput` tragen
+  `IntakeTargetID *string` mit dem gleichen nil-heisst-keine-Aenderung-Muster wie Title/
+  Description; ein Pointer auf "" loescht die Bindung (`normalizeIntakeTargetID` trimmt und
+  faltet Leerstring auf nil). Repository (INSERT/SELECT/UPDATE/List/Duplicate), Proto
+  (`FormSchema.intake_target_id=15`, `CreateFormSchemaRequest.intake_target_id=10`,
+  `UpdateFormSchemaRequest.intake_target_id=11`, `make proto-formulare` im selben Commit
+  regeneriert), gRPC-Server-Konvertierung und Gateway-DTOs (`createFormSchemaRequest`/
+  `updateFormSchemaRequest`) durchgezogen, openapi.yaml FormSchema-Schema + beide
+  Request-Bodies nachgezogen (keine neue Route, daher fuer TestOpenAPIRouteDrift nicht
+  Pflicht, aber Wire-Shape-Konsistenz).
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build -p 2 ./...` ok | `go vet`
+  (formulare, gateway, server) ok | `golangci-lint run` (formulare, gateway, server)
+  **0 issues** | `go test -count=1 -v ./internal/formulare/...` **64 PASS / 0 FAIL / 0 SKIP**
+  (10 davon neu: Rollen-Validierung Create+Update, Rollen-Whitelist mit allen sechs Werten,
+  intake_target_id setzen/leeren/blank-normalisieren, Duplicate uebernimmt die Bindung) |
+  `go test -count=1 ./internal/gateway/...` ok inkl. `TestOpenAPIRouteDrift` (810/812) und
+  `TestOpenAPISpecDrift` gruen | `go test -count=1 ./internal/server/...` ok. Migration lokal
+  up, down, up gefahren — sauber reversibel (Spalte ist rein additiv, kein Backfill noetig).
+- verify vorgaenger (aa815b47): sauber. Migration + CHECK korrekt, `.down.sql` loescht
+  external-only Zeilen vor `SET NOT NULL` mit begruendetem Kommentar, gRPC-Server routet ueber
+  den Client, scope=own-Entscheidung wie im Journal dokumentiert nachvollzogen.
+- **Wichtiger Fund, NICHT in dieser Unit geloest:** `createFormSchema`/`updateFormSchema` haben
+  bereits vor dieser Iteration einen FE/BE-Shape-Mismatch, der jetzt auch `intake_target_id`
+  betrifft. `CreateFormSchemaInput`/`UpdateFormSchemaInput` (`formulare-types.ts`) sind
+  camelCase (`isTemplate`, `isPublic`, `pageCount`, jetzt `intakeTargetId`) und `fields` ist
+  dort ein strukturiertes `FormField[]`-Array; `formulare-client.ts` sendet den Body ueber
+  `JSON.stringify` **ohne** Casing-Transform (kein Pendant zu `api/casing.ts`, das andere
+  Module fuer genau dieses Problem nutzen). Die Gateway-DTOs (`route_formulare.go`) sind
+  snake_case (`is_template`, `page_count`, jetzt `intake_target_id`) und `fields` ist dort
+  `[]byte` (Go marshalt/unmarshalt das als Base64-String). Ergebnis: ein Schema-Create/Update
+  aus der echten FE-Oberflaeche wuerde `title` korrekt uebertragen, aber `is_template`,
+  `is_public`, `page_count`, `fields` und jetzt auch `intake_target_id` NICHT — entweder
+  stille Verwerfung (unbekannter JSON-Key) oder ein 400 (Array wo Base64-String erwartet
+  wird), abhaengig vom genauen Feld. Das ist ein Vorbestand (betraf `is_template`/`is_public`/
+  `page_count`/`fields` schon vor dieser Iteration unveraendert) und keine Regression dieser
+  Unit — aber es bedeutet, `intake_target_id` ist mit dieser Iteration im Backend fertig UND
+  end-to-end ueber die echte FE-Oberflaeche noch nicht erreichbar, bevor dieser Shape-Mismatch
+  behoben ist (Adapter analog `hr-client.ts` `adaptEmployee()` oder ein `casing.ts`-Einsatz
+  hier). Deutlich ausserhalb des B6-Scopes (`done_when` verlangt nur Spalte + Rollen-
+  Validierung, keine Route-Reise) und ein Fund mit Blast-Radius ueber das ganze
+  Formulare-Schema-CRUD hinaus — eigene Unit oder eigener Audit noetig, nicht Beifang hier.
+  MSW-Demo ist unberuehrt (Mocks sind selbst camelCase, spiegeln also den kaputten Vertrag).
+- offen fuer die naechste Iteration:
+  - `intake-form-dispatch` (B7) ist laut deps als naechstes dran; braucht `intake-route-create`
+    (fertig seit Iteration 51) UND `intake-form-target` (diese Iteration) — beide deps erfuellt.
+  - Der oben dokumentierte FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update ist kein
+    Blocker fuer B7 (Dispatch liest `fields`/`intake_target_id` serverseitig aus der bereits
+    gespeicherten Zeile, nicht aus einem frischen FE-Request), aber er verhindert, dass ein
+    Formular-Autor die Rolle/Ziel-Bindung ueberhaupt aus der echten UI heraus speichern kann.
+    Gehoert vor Block E/Formulare-Launch behoben, nicht in dieser Iteration.
+
+## Iteration 55 — intake-form-dispatch — done — 2026-08-06 02:0x
+- commit: 41f771dc
+- gebaut: serverseitiger Intake-Dispatch. Drei neue Dateien im Gateway, keine Migration, kein
+  Proto-Touch (B3/B4/B6 hatten alles noetige schon gelegt: `CreateTicketRequest` traegt
+  channel/requester_*/custom_fields, `FormSchema.intake_target_id` und `FormField.role` sind da).
+  - `internal/gateway/intake.go` — die modul-agnostische Engine: `intakeField`/`intakeOrigin`/
+    `intakeSubmission`/`intakeTarget`, die Registry `intakeTargets` (explizites Map-Literal,
+    kein `init()`), `mapIntakeAnswers` (Rollen -> mapped, alles andere -> extras),
+    `slugifyIntakeKey` als 1:1-Port von `slugifyKey` aus `shared/intake/engine.ts` inkl.
+    ae/oe/ue/ss-Faltung und Fallback auf die Feld-ID, `runIntakeDispatch` als testbarer
+    Einstieg mit injizierbarem `intakeSchemaLookup`.
+  - `internal/gateway/intake_helpdesk.go` — das einzige Target. Rollen-Set identisch zu
+    `formulare.validIntakeRoles` (Write-Seite) und zur FE-Dropdown-Liste; `coerceIntakePriority`
+    mit derselben Tabelle wie `coercePriority` im FE (deutsche Labels inklusive), Subject-
+    Fallback "Anfrage über Formular" wie im FE. Geht ueber `reg.GetConnection("helpdesk")` +
+    `helpdeskv1.NewHelpdeskServiceClient(...).CreateTicket`, also den Client, nie eine direkte
+    Service-Instanz.
+  - `route_formulare.go` — `HandleCreateSubmission` ruft nach erfolgreichem `CreateSubmission`
+    die neue Methode `dispatchIntake`; die laedt das Schema per `GetFormSchema` (Ziel +
+    fields), dispatcht und **schluckt jeden Fehler nach einem `slog.Error`**. Antwort bleibt
+    201, Origin ist `{Channel: "selfservice", RequesterID: userID}` (der authentifizierte
+    Pfad ist Self-Service; `isExternal()` faellt damit auf false, exakt die FE-Regel
+    `context.requester?.isExternal ?? channel !== 'selfservice'`).
+- warum im Gateway und nicht im Formulare-Service: geprueft, es gibt im ganzen Repo **keinen**
+  Service, der einen Client eines anderen Service haelt (`grep` ueber alle
+  `internal/*/service.go`). Die gRPC-Verbindungen leben ausschliesslich in der
+  `ServiceRegistry` des Gateways. Ein Helpdesk-Client in `internal/formulare` waere eine neue
+  Abhaengigkeitsrichtung gewesen — bewusst nicht eroeffnet. Kommentarblock am Kopf von
+  intake.go haelt die Begruendung fest.
+- Autorisierung (bewusste Entscheidung, im Code kommentiert): der Einreicher hat
+  `formulare:submissions:write`, NICHT `helpdesk:ticket:create`. Der gRPC-Call laeuft an den
+  HTTP-Guards vorbei — das ist der Sinn eines Intake-Formulars (wer eine Stoerung meldet, hat
+  kein Helpdesk-Schreibrecht). Begrenzt wird es dadurch, dass die Satzform vom gebundenen
+  Schema kommt und der `TenantOutboundUnaryInterceptor` den Tenant mitfuehrt (verifiziert in
+  `registry.go:110` — die Gateway-Connections haengen den Tenant an jeden ausgehenden Call).
+  Kein Tenant-Uebertritt moeglich.
+- Datenverlust-Schutz: Reihenfolge ist Submission-Speichern -> Dispatch, und der Dispatcher hat
+  keinerlei Zugriff auf die Submission-Zeile. Test
+  `TestRunIntakeDispatch_TargetFailureIsReportedNotSwallowed` belegt, dass ein
+  fehlschlagendes Target den Fehler an den Aufrufer zurueckgibt (statt zu paniken oder still
+  zu sein), `TestRunIntakeDispatch_LookupFailureStopsBeforeCreate`, dass ohne lesbares Schema
+  gar nichts erzeugt wird.
+- gate (DATABASE_URL gesetzt, Rolle `kmuhub_app`): `go build ./...` ok | `go vet
+  ./internal/gateway/...` ok | `golangci-lint run ./internal/gateway/...` **0 issues** |
+  `go test -count=1 ./internal/gateway/... ./internal/formulare/... ./internal/helpdesk/...`
+  alle ok | `go test -v ./internal/gateway/` **659 PASS / 0 FAIL / 0 SKIP** (16 davon neu),
+  darin `TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift` gruen. Keine neue Route, daher keine
+  openapi.yaml-Aenderung noetig (Statuscodes von POST .../submissions unveraendert).
+- verify vorgaenger (75e1fef6): sauber. Migration 000292 rein additiv mit gefuelltem down,
+  Rollen-Whitelist im Service statt in der DB (richtig — die Liste ist ein Code-Vertrag),
+  `normalizeIntakeTargetID` faltet Leerstring auf nil, Gateway-DTOs und Proto konsistent
+  snake_case. Kein Fund.
+- **kein Doppel-Dispatch** (geprueft, war die Hauptsorge): der FE-Pfad, der `useIntakeSubmit`
+  aufruft, ist die **interaktive Builder-Vorschau** (`FormularePage.tsx:2322`) — die erzeugt
+  ein Ticket, speichert aber **keine** Submission. Der echte
+  `POST /formulare/schemas/{id}/submissions`-Pfad hat bisher gar nicht dispatcht. Die beiden
+  Pfade ueberschneiden sich heute also nicht. **Achtung fuer spaeter:** sobald die Vorschau
+  (oder eine FE-Ausfuellseite) zusaetzlich `createSubmission` aufruft, entstehen zwei Tickets.
+  Der FE-seitige `dispatchIntake`-Aufruf gehoert dann raus, nicht dieser hier.
+- offen / bewusst nicht gemacht:
+  - **Die erzeugte Record-ID steht in keiner Antwort.** `CreateSubmissionResponse` traegt kein
+    Feld dafuer, und ein Proto-Umbau war fuer `done_when` nicht noetig. Das FE erfaehrt aus der
+    201 also nicht, ob und welches Ticket entstanden ist. Wenn eine FE-Ausfuellseite spaeter
+    "Ihr Ticket #123" anzeigen soll, braucht es ein optionales Feld
+    (`created_record_id` + `created_target_id`) — eigene kleine Unit.
+  - **Bekanntes Refinement aus backend-gaps.md, weiterhin offen** (Backlog verlangt
+    ausdruecklich, es hier nicht als erledigt gelten zu lassen): freie Felder landen als
+    custom_fields keyed auf `Slug(label)`, nicht auf den definierten Feld-Keys. Das ist hier
+    bewusst so nachgebaut, weil FE und BE identische Keys erzeugen muessen — die Korrektur
+    gehoert an beiden Enden gleichzeitig gemacht, nicht einseitig.
+  - Der FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update (camelCase-Body ohne
+    Casing-Transform, `fields` als Array vs. `[]byte`) aus Iteration 54 ist **unveraendert
+    offen**. Er blockiert diese Unit nicht (der Dispatch liest die gespeicherte Zeile), aber
+    er verhindert weiterhin, dass ein Autor `intake_target_id` und Feld-Rollen aus der echten
+    Oberflaeche heraus ueberhaupt speichern kann. Damit ist die Kette Schema-Bindung ->
+    Dispatch backend-seitig komplett, end-to-end aus der UI aber noch nicht erreichbar.
+  - `intake-public-submit` (B8) ist als naechstes dran und baut direkt auf `runIntakeDispatch`
+    auf: dort einfach ein `intakeOrigin{Channel: "external"}` ohne RequesterID uebergeben.
+    Achtung: `helpdesk.Service.CreateTicket` verlangt bei fehlender RequesterID zwingend
+    `RequesterIsExternal` **und** eine `RequesterEmail` (service.go:61, ErrMissingRequester) —
+    ein oeffentliches Formular ohne `requester_email`-Rolle erzeugt also kein Ticket. Das
+    gehoert in B8 sauber abgefangen (Formular-Validierung oder verstaendlicher Log-Eintrag),
+    sonst wirkt es wie ein stiller Ausfall.
+
+## Iteration 56 — intake-public-submit (B8)
+
+Commit `e62e795f`. Migration **000293** (`form_share_tokens`), Proto um 4 RPCs erweitert
+(`CreateFormShareLink`, `ListFormShareLinks`, `RevokeFormShareLink`, `SubmitFormByShareToken`),
+regeneriert mit `protoc` (nicht `make` — `make` existiert in dieser Shell nicht, Target aus dem
+Makefile abgeschrieben).
+
+- **Warum die Share-Link-Verwaltung mit drin ist, obwohl `done_when` sie nicht nennt:** ohne eine
+  Moeglichkeit, einen Token zu erzeugen, waere die oeffentliche Route tot gewesen. `is_public`
+  wird seit 000081 gespeichert und nirgends ausgewertet, und eine Token-Tabelle gab es fuer
+  Formulare nicht (nur `report_share_tokens`, 000252). Gebaut ist das Minimum, das die Kette
+  schliesst: Create + List + Revoke (DELETE, Soft-Revoke) + Public-Submit.
+- **Kein Permission-Seed noetig** (geprueft): `formulare:share:manage` steht seit Migration 000256
+  in `permissions` und ist admin + manager zugewiesen. Sie hatte bis jetzt nur keine Route — der
+  Kommentar im Kopf von `route_formulare.go`, der genau das feststellte, ist entsprechend
+  korrigiert.
+- Muster 1:1 vom Berichte-/CSAT-Vorbild: `RegisterPublicRoutes` auf dem Root-Router in
+  `main.go:376ff` (ausserhalb jeder authMiddleware-Gruppe), einziges Middleware
+  `publicRateLimiter.Middleware`, POST statt GET, Token-Lookup unter
+  `database.WithSystemContext` in **genau einer** Repo-Methode
+  (`GetShareLinkByToken`), unmittelbar danach `withTenant(ctx, link.TenantID)`. Der
+  System-Kontext beruehrt keine Nutzdaten.
+- **Alle Token-Verdikte sind eine 404** — unbekannt, leer, zu lang, widerrufen, abgelaufen,
+  Kontingent erschoepft, Schema wieder privat, Schema archiviert, Schema geloescht. Neun Faelle,
+  tabellengetrieben getestet (`TestSubmitByShareToken_EveryTokenVerdictIsTheSameNotFound`).
+  Groesse und Body-Form sind dagegen 400: sie sagen nichts ueber den Token, und die
+  Groessenpruefung laeuft **vor** dem Lookup (eigener Test), damit ein 300-KB-Probe keine
+  DB-Runde kostet.
+- **Schema wird bei jeder Einreichung neu geprueft**, nicht nur beim Minten. Das war die Falle:
+  `is_public` zurueckdrehen muss ausgegebene Links toeten, sonst ist der Link staerker als der
+  Schalter, mit dem der Autor ihn glaubt zurueckzunehmen.
+- **Kontingent wird im Write durchgesetzt**, nicht im Read: das UPDATE traegt
+  `AND (max_submissions IS NULL OR submission_count < max_submissions)`; 0 betroffene Zeilen =
+  nicht mehr einloesbar, Submission wird gar nicht erst geschrieben (eine Tx). `Usable()` ist
+  ausdruecklich nur der billige Vorab-Check.
+- **Dateifelder werden abgelehnt** (409 / `ErrShareLinkFileFieldUnsupported`) statt halb
+  unterstuetzt: es gibt auf dieser Route keinen Upload-Pfad, eine akzeptierte Datei-Antwort waere
+  eine Referenz ins Leere. Erkennung ueber `type == "file"` im `fields`-JSON.
+- Body-Deckel zweifach: `http.MaxBytesReader` mit 256 KiB im Gateway **vor** dem Decode, und
+  dieselbe Grenze auf `answers` im Service, damit sie auch fuer einen Aufrufer gilt, der den RPC
+  anders erreicht.
+- **Intake-Dispatch haengt dran** (Anschluss an Iteration 55): nach gespeicherter Submission
+  `dispatchIntake` mit `intakeChannelExternal` und `RequesterIsExternal=true`, ohne RequesterID.
+  Der Tenant kommt aus der **Antwort** des Service, also aus dem Token — das Gateway raet nie
+  einen. Die im Journal 55 notierte Warnung gilt weiter und ist im Code kommentiert: ohne
+  `requester_email`-Feldrolle lehnt `helpdesk.Service.CreateTicket` das Ticket ab
+  (`ErrMissingRequester`); das ist ein geloggter Dispatch-Fehler, die Submission bleibt erhalten
+  und die Antwort bleibt 201.
+- `insertSubmissionTx` aus `CreateSubmission` herausgezogen und von beiden Pfaden benutzt — eine
+  oeffentliche Submission, die still den Webhook-Fanout ueberspringt, waere ein zweites,
+  unsichtbares Verhalten desselben Features gewesen.
+- **openapi.yaml im selben Commit**: 4 Pfade + `FormShareLink`-Schema. `openapi_drift_test.go`
+  musste zusaetzlich `formulareRoutes.RegisterPublicRoutes` aufrufen (wie die 5 anderen
+  Public-Registrare dort), sonst meldet `TestOpenAPISpecDrift` die neue Route als dokumentiert-
+  aber-nie-registriert. Genau das ist erst passiert und dann behoben worden.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/formulare/...
+  ./internal/gateway/... ./internal/server/...` **0 issues** | `go test -count=1
+  ./internal/gateway/... ./internal/formulare/... ./internal/server/...` alle ok, darin
+  `TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift` gruen. 13 neue Tests in
+  `internal/formulare/form_share_test.go`.
+- **verify vorgaenger (41f771dc): sauber.** Dispatch laeuft ueber
+  `reg.GetConnection("helpdesk")` + `NewHelpdeskServiceClient` (intake_helpdesk.go:71-75), also
+  ueber die gRPC-Schicht, keine direkt injizierte Service-Instanz. Keine neue Tabelle, keine
+  neue Route, kein neuer Guard, also zu Recht keine Migration/OpenAPI-Aenderung. Kein Fund.
+- **offen / bewusst nicht gemacht:**
+  - **Migration 000293 ist NICHT gegen eine Datenbank gelaufen** — in dieser Iteration war kein
+    `DATABASE_URL` gesetzt, also sind die DB-Tests (inkl.
+    `TestAllPublicTablesHaveRLSOrAreAllowlisted`) still uebersprungen worden. Die Tabelle hat
+    `tenant_id NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` + die Standard-Policy mit
+    `is_system_context()`, ist also nach Aktenlage guard-konform — **aber unverifiziert**. Vor
+    dem Merge einmal mit `DATABASE_URL` (Rolle `kmuhub_app`) nachziehen.
+  - **`PATCH /formulare/share-links/{id}` fehlt.** Das FE (`formulare-client.ts:198`) kennt ein
+    `updateShareLink(id, {status})`. Gebaut ist nur DELETE = Soft-Revoke, was den einzigen
+    sinnvollen Status-Uebergang abdeckt (active -> disabled); ein Link von "disabled" zurueck auf
+    "active" zu drehen waere ein wiederbelebter Token und ist bewusst nicht vorgesehen. Wenn das
+    FE den PATCH braucht, ist er ein Alias auf Revoke, keine neue Faehigkeit.
+  - **Die FE-Felder `channel`, `url`, `views` von `FormShareLink` haben keine Entsprechung.**
+    `channel` (ShareChannel) und `views` sind im Mock erfunden; eine Einreichroute zaehlt keine
+    Aufrufe, weil sie nichts ausliefert. `url` baut das FE selbst — das Backend kennt seinen
+    oeffentlichen Host nicht und soll dafuer keine neue Config-Variable bekommen (waere eine
+    `config.RequireX`-artige Deploy-Falle). Der FE-Kommentar sagt selbst "placeholder host until
+    FD-4"; die Zusammenfuehrung gehoert an beide Enden gleichzeitig.
+  - Der FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update (camelCase-Body, `fields` als
+    Array vs. `[]byte`) aus Iteration 54 ist **weiterhin offen** und blockiert die Kette
+    end-to-end: ein Autor kann `is_public` und `intake_target_id` aus der echten Oberflaeche
+    heraus nicht speichern. Backend-seitig ist die Kette jetzt komplett (Schema-Bindung ->
+    Token -> oeffentliche Einreichung -> Dispatch), ueber die UI erreichbar ist sie es nicht.
+  - custom_fields-Keying auf `Slug(label)` statt auf die Feld-Keys: unveraendert offen, gehoert
+    an beiden Enden gleichzeitig korrigiert (siehe Journal 55).
+
+## Iteration 57 — fix-booking-calendar-event-id (C1)
+
+Commit `80d8a036`. Keine Migration, keine Proto-Aenderung, kein neuer Guard.
+
+- **Verify Vorgaenger (e62e795f, intake-public-submit / B8): sauber.** Gegen die acht
+  Fehlerklassen geprueft: Handler in `route_formulare.go` gehen ausschliesslich ueber
+  `client.*` (gRPC), nie ueber eine direkt injizierte Service-Instanz. Migration 000293
+  legt `tenant_id NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` + Standard-Policy an.
+  `GetShareLinkByToken` ist die einzige Stelle mit `database.WithSystemContext`, unmittelbar
+  danach `ctx = withTenant(ctx, link.TenantID)` in `SubmitByShareToken` — der System-Kontext
+  beruehrt keine Nutzdaten. Proto/.pb.go im selben Commit. `go build ./...` lokal gruen.
+  Kein Fund.
+- **Der Bug:** `booking_service.go` (CreatePublicBooking) erzeugte nach dem INSERT einen
+  Kalendertermin und schrieb `booking.CalendarEventID = &evID` nur auf das In-Memory-Struct.
+  Es gab keine Repository-Methode, die das zurueck in `public_bookings.calendar_event_id`
+  schreibt — die Spalte blieb fuer jede oeffentliche Buchung mit Kalendertermin NULL. Direkt
+  daneben stand toter Code: eine Fire-and-forget-Goroutine rief `GetBookedSlotsForPage`
+  (ein reiner SELECT) auf und verwarf sowohl Ergebnis als auch Fehler — sieht aus wie ein
+  Write, der auf die falsche Read-Methode verdrahtet wurde. Beides zusammen entfernt/gefixt.
+- **Fix:** neue Repository-Methode `UpdatePublicBookingCalendarEventID(ctx, bookingID,
+  tenantID, eventID)`, tenant-gescopt im WHERE (`id = $2 AND tenant_id = $3`), direkt nach
+  dem Setzen von `booking.CalendarEventID` aufgerufen — an der Stelle, wo vorher die tote
+  Goroutine stand. Best-effort wie der E-Mail-Versand direkt danach: ein Fehler wird
+  geloggt (`slog.Warn`), bricht die Buchung aber nicht ab — die Buchung ist die Hauptsache,
+  die Kalender-Verknuepfung die Nebensache, gleiche Linie wie A6 (Token-Erzeugung).
+- **Kein DATABASE_URL in dieser Iteration verfuegbar** (bestaetigt, siehe Memory
+  feedback_go_test_gate_needs_database_url) — ein echter Integrationstest gegen Postgres
+  waere ohnehin nur `SkipIfNoDB` und kein Beweis gewesen. Stattdessen zwei Service-Tests mit
+  Mock-Repository: `TestBookingService_CreatePublicBooking_PersistsCalendarEventID` prueft,
+  dass die Kalender-Event-ID im **Repository-Zustand** landet (nicht nur im zurueckgegebenen
+  Struct — genau das war der Bug), `TestBookingService_CreatePublicBooking_
+  CalendarEventWriteBackFailureDoesNotFailBooking` prueft, dass ein fehlschlagender
+  Write-Back die Buchung nicht scheitern laesst.
+- gate: `go build ./...` ok | `go vet ./internal/work/...` ok | `golangci-lint run
+  ./internal/work/calendar/...` 0 issues | `go test -count=1 ./internal/work/...` alle ok
+  (kein DATABASE_URL, DB-Tests dieses Pakets liefen als Skip, s.o.).
+- **offen / bewusst nicht gemacht:** keins. Die Unit ist mit dem best-effort-Muster (Log statt
+  Abbruch) minimal und in sich geschlossen.
+
+## Iteration 58 — fix-task-completed-at (Phase 3)
+
+Commit folgt. Keine Migration, keine Proto-Aenderung, kein neuer Guard, keine neue Route.
+
+- **Verify Vorgaenger (80d8a036, fix-booking-calendar-event-id):** sauber. Neue Repository-
+  Methode `UpdatePublicBookingCalendarEventID` ist tenant-gescopt im WHERE (`id = $2 AND
+  tenant_id = $3`), der synchrone Aufruf ersetzt die vorherige Fire-and-forget-Goroutine mit
+  verworfenem Read, `slog.Warn` statt Abbruch bei Fehler — kein Handler/Table/Route/Guard
+  betroffen. Kein Fund.
+- **Der Bug:** `TaskService.MoveTask` (work/task/service.go:404-421 alt) schrieb den
+  Kanban-Move in zwei getrennten Repo-Aufrufen: erst `repo.MoveTask` (status_id, sort_order),
+  dann bei Bedarf ein zweiter `repo.Update(ctx, task)` nur fuer `completed_at` — dessen Fehler
+  mit `_ = s.repo.Update(...)` ohne Log verworfen wurde. Ein fehlgeschlagener zweiter Write
+  liess `completed_at` und Status auseinanderlaufen, die API meldete trotzdem 200 (POST
+  `/{id}/move`, der Drag-and-Drop-Pfad im Kanban).
+- **Fix — Zusammenfuehren statt Loggen:** wie in den Notes vorgeschlagen zusammengelegt, nicht
+  nur den zweiten Fehler geloggt. `Repository.MoveTask` bekommt einen fuenften Parameter
+  `completedAt *time.Time`; das SQL setzt jetzt `status_id, sort_order, updated_at,
+  completed_at` in einem einzigen `UPDATE ... WHERE id = $x AND tenant_id = $y`. Der Service
+  berechnet `newCompletedAt` (unveraendert per Default, `now` beim Schliessen, `nil` beim
+  Wiedereroeffnen) und ruft `repo.MoveTask` genau einmal auf; der zweite `repo.Update`-Aufruf
+  und die separate `task := &existing.Task`-Zwischenvariable sind komplett weg. Es gibt keinen
+  verschluckbaren zweiten Fehler mehr, weil es keinen zweiten Write mehr gibt — der einzige
+  Fehler propagiert regulaer per `return moveErr`.
+- **Mitgezogene Mocks:** drei weitere Implementierungen von `task.Repository.MoveTask`
+  (`work/task/service_test.go:mockRepo`, `work/comment/service_test.go:mockTaskRepo`,
+  `server/work_label_test.go:workTaskMockRepo`, letzterer auch von `work_comment_test.go`
+  mitbenutzt) auf die neue Signatur gebracht; `mockRepo` setzt `CompletedAt` jetzt direkt aus
+  dem uebergebenen Wert statt es zu ignorieren, sonst haetten die bestehenden
+  "move to closed status sets completed_at" / "clears completed_at"-Subtests nur zufaellig
+  weiterhin gegruent (sie pruefen den Mock-State, nicht mehr einen zweiten Update-Call).
+  `tenant_write_test.go` (Postgres-Repo-Test, `DATABASE_URL`-gated) auf den fuenften
+  `nil`-Parameter angepasst.
+- **Neuer Test:** `TestService_MoveTask/repo_write_failure_is_not_swallowed` — `mockRepo`
+  bekommt ein `moveTaskErr`-Feld, `MoveTask` liefert damit gezielt einen Fehler; der Test
+  prueft, dass `Service.MoveTask` diesen Fehler nach oben durchreicht UND dass `completed_at`
+  im Mock-Zustand unveraendert bleibt (kein Teil-Write bei Fehlschlag, weil nur noch ein
+  einziger atomarer Write existiert).
+- gate: `go build ./...` ok | `go vet ./internal/work/... ./internal/server/...` ok |
+  `golangci-lint run ./internal/work/task/... ./internal/work/comment/... ./internal/server/...`
+  0 issues | `go test -count=1 ./internal/work/... ./internal/server/...` alle ok (kein
+  `DATABASE_URL` in dieser Iteration, `TestMoveTask_TenantScoped` lief als Skip).
+- **offen / bewusst nicht gemacht:** keins. `TestMoveTask_TenantScoped` ist nur per
+  `DATABASE_URL` (Rolle `kmuhub_app`) beweiskraeftig — vor dem Merge einmal live nachziehen,
+  wie schon fuer Migration 000293 in Iteration 56 notiert.
+
+## Iteration 59 — hr-personnel-documents (Phase 3)
+
+Commit folgt. Migration 000294, Proto erweitert + regeneriert, zwei neue Routen, kein neuer
+Permission-Key (also kein Seed noetig), kein neues Feature-Flag, keine neue Dependency.
+
+- **Verify Vorgaenger (8f2ccf79, fix-task-completed-at):** sauber. Das `UPDATE` bleibt
+  `WHERE id = $5 AND tenant_id = $6`, die Signaturaenderung ist in allen vier Mocks
+  (`work/task`, `work/comment`, `server/work_label_test`, `tenant_write_test`) nachgezogen,
+  kein Handler/Route/Guard/Table beruehrt. Ein Nebeneffekt ist bewusst in Kauf genommen und
+  hier notiert: `MoveTask` schreibt `completed_at` jetzt immer mit (Default = der gelesene
+  Wert), wo es die Spalte vorher gar nicht anfasste — ein gleichzeitiger Fremd-Write auf
+  `completed_at` zwischen Read und Move wuerde ueberschrieben. Fuer den Kanban-Drag-Pfad
+  akzeptabel, kein Fund.
+- **Der Befund vor dem Bauen:** die Unit klang nach „Personalakte von Null", war es aber
+  nicht. `hr_employee_documents` + `hr_document_categories` (Migr. 000046), RLS-Policy
+  `hr_document_access` (000127/000128), Service, Repo und die RPCs
+  `ListEmployeeDocuments`/`UploadEmployeeDocument`/`ListDocumentCategories` existieren alle
+  seit Langem — nur die tenant-weite Sicht `/api/v1/hr/personnel-documents`, die der
+  Personalakte-Tab liest, fehlte. Also **erweitert statt neu gebaut**: keine neue Tabelle,
+  keine zweite Dokumenten-Domaene.
+- **Migration 000294:** `title`, `file_name`, `file_size`, `expires_at` auf
+  `hr_employee_documents`, `file_id` wird nullable (das FE legt Metadaten an, bevor eine
+  Datei existiert), Index auf `(tenant_id, created_at DESC)`. Dazu vier fehlende
+  System-Kategorien (`vertrag`, `zeugnis`, `zertifikat`, `ausweis`) — die UI kennt diese
+  Slugs, der 000046-Seed hatte `arbeitsvertrag`/`zeugnisse`/`abmahnungen`/`sonstiges`.
+  RLS bleibt unberuehrt: die Policy haengt an `tenant_id` + der Category-Visibility, nicht
+  an den neuen Spalten. `uq_hr_doc_file` bleibt gueltig, weil Postgres NULLs als distinct
+  behandelt.
+- **Kein Presign-Endpunkt gebaut.** Die Notes erlauben Upload „ueber das bestehende
+  Presign-Muster"; im realen Flow gibt es aber keinen Aufrufer — das FE postet reine
+  Metadaten und der Download ist heute ein lokal erzeugter Demo-Blob. Ein Presign-Pfad ohne
+  Aufrufer waere YAGNI gewesen, deshalb ist `file_id` optional und der Presign-Weg bleibt
+  offen statt spekulativ gebaut.
+- **Zugriff — RLS statt zweitem Filter.** `ListByTenant` hat bewusst **keine**
+  Visibility-Klausel im WHERE: die Tiers erzwingt `hr_document_access` ueber die
+  `app.user_roles`-GUC, und ein handgeschriebener zweiter Filter waere nur eine Kopie, die
+  von der Policy wegdriften kann. Genau deshalb ist der neue DB-Test
+  `personnel_documents_read_test.go` die eigentliche Absicherung: er faehrt **die
+  Repo-Methoden, die der Handler ruft** (nicht rohes SQL) und prueft, dass ein Kollege ohne
+  HR-Rolle in der tenant-weiten Liste **nichts** von einer fremden Akte sieht, dass der
+  Mitarbeiter selbst nur die `employee`-Stufe sieht, dass ein fremder Tenant auch mit
+  `hr_admin` leer ausgeht — und dass `GetByID` keine Hintertuer per geratener ID ist.
+  Eigene Tenants statt der geteilten TenantA/B, damit Parallel-Tests die Counts nicht
+  verfaelschen.
+- **`employee_id` ist Pflicht, kein Default.** Das FE sendete es bisher gar nicht, der
+  MSW-Mock defaultete auf `usr-e1` — ein Dokument in der falschen Personalakte bei
+  200-Antwort. Der Handler verlangt es jetzt (`validate:"required,uuid"`), der Service
+  wirft zusaetzlich `ErrEmployeeRequired`, und der Mock antwortet ohne das Feld mit 400
+  statt still zu defaulten. Der Aufrufer ist mitgezogen: `PersonnelDocuments.tsx` sendet
+  `targetUserId` und wertet `res.ok` aus (vorher wurde jede Fehlerantwort verschluckt).
+- **Wire-Shape gegen den FE-Typ geprueft, nicht geraten.** `protoMarshaler` steht auf
+  `UseProtoNames: true` → snake_case; der FE-Typ und der MSW-Mock waren camelCase. Statt
+  einen Sondermarshaler zu bauen, ist die Hausregel geblieben und die FE-Seite angeglichen:
+  `WirePersonnelDocument` + `fromWire()` am `queryFn` (das Muster aus
+  `feedback_nested_proto_flat_type`), Mock-Fixture und POST-Handler auf dieselbe
+  snake_case-Form. `status` wird clientseitig aus `expires_at` abgeleitet
+  (`deriveStatus`, 30-Tage-Warnfenster) statt als redundantes Feld ueber die Leitung zu
+  gehen.
+- **Guards ohne neue Keys:** `hr:read` ODER `team:documents:view` fuer GET, `hr:write` ODER
+  `team:documents:edit` fuer POST — beide `team:documents:*`-Keys stehen seit Migration
+  000256 im Katalog und liegen bei admin+hr_admin, also **keine Seed-Migration noetig**
+  (Diff Code-vs-000256 geprueft). Das additive Muster ist von den Nachbar-Guards
+  (`hrDocumentCategoriesGuard`) uebernommen, weil `hr:read` allein admin-only ist.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/biz/hr/...
+  ./internal/server/... ./internal/gateway/... ./internal/models/...` 0 issues |
+  `go test -count=1 ./internal/...` alle ok | `TestOpenAPIRouteDrift` ok |
+  `npx tsc -p tsconfig.web.json` keine Fehler in den geaenderten Dateien |
+  `npx eslint` auf beiden FE-Dateien 0 Findings. Kein `DATABASE_URL` in dieser Iteration,
+  die neuen RLS-Tests liefen als Skip.
+- **offen / bewusst nicht gemacht:**
+  1. `personnel_documents_read_test.go` ist erst mit `DATABASE_URL` (Rolle `kmuhub_app`,
+     nicht `kmuhub` — BYPASSRLS) beweiskraeftig. **Vor dem Merge einmal live nachziehen**,
+     zusammen mit den schon offenen Nachzuegen aus Iteration 56 und 58.
+  2. **Bestandsfund, nicht in dieser Unit gefixt:**
+     `HRGRPCServer.ListEmployeeDocuments` ruft den Service mit hartkodiertem
+     `callerRole = "admin"` (`hr_grpc.go`, Kommentar „gateway will enforce actual user
+     role" — das Gateway tut es nicht). Der applikationsseitige Tier-Filter auf
+     `/hr/employees/{id}/documents` ist damit wirkungslos; dass dort trotzdem nichts leakt,
+     haengt allein an RLS. Der neue Pfad umgeht das Problem (kein Rollen-Parameter), der
+     alte bleibt bestehen — eigene Unit wert.
+  3. Key-Dublette `vertrag`/`arbeitsvertrag` und `zeugnis`/`zeugnisse` in den
+     System-Kategorien. Bewusst in Kauf genommen statt die alten Keys umzubenennen
+     (`/hr/employees/{id}/documents` benutzt sie), aufzuraeumen wenn Kategorien pro Tenant
+     schreibbar werden.
+
+## Iteration 60 — wiki-share-redeem (Phase 3)
+
+Commit folgt. Kein Schema-Change (die Tabelle hatte alles), Proto erweitert + regeneriert,
+eine oeffentliche Route, kein neuer Permission-Key, kein neues Feature-Flag, keine neue
+Dependency.
+
+- **Verify Vorgaenger (a164e760, hr-personnel-documents):** sauber. Beide neuen Handler gehen
+  ueber `client.<RPC>` (kein Direct-Svc), holen `tenantID` aus dem Request und geben ihn im
+  Request mit; die OpenAPI-Pfade liegen im selben Commit; die Guards nutzen ausschliesslich
+  Katalog-Keys aus 000256, also kein fehlender Seed. Kein Fund.
+- **Warum keine Migration:** `wiki_share_tokens` (Migr. 000076) hat `token TEXT NOT NULL
+  UNIQUE` samt Index, und `enable_tenant_rls` (via 000230) hat die Policy bereits als
+  `USING (tenant_id = current_tenant_id() OR is_system_context())` angelegt — genau die Form,
+  die der System-Kontext-Lookup braucht. Eine Migration haette nichts geaendert.
+  `revoked_at` ebenfalls **nicht** nachgeruestet: Widerruf ist in diesem Modul ein harter
+  DELETE (`RevokeShareToken`), die Zeile ist also weg und antwortet damit von selbst dieselbe
+  404 wie ein erfundener Token. Ein Soft-Revoke waere ein Umbau des bestehenden Pfades ohne
+  neuen Nutzen fuer diese Unit.
+- **Token-Entropie war der eigentliche Fund.** `CreateShareToken` zog den Token als
+  `uuid.New().String()` — 122 Bit aus `crypto/rand`, also nicht gebrochen, aber schmaler als
+  der Hausstandard und in einem Format, das nach Datensatz-ID aussieht statt nach Credential.
+  Jetzt `newShareToken()`: 32 Byte `crypto/rand`, `base64.RawURLEncoding`, 43 Zeichen — wie
+  `report_share_tokens` (000252), `form_share_tokens` (000293) und die CSAT-Links. **Alte
+  Tokens bleiben einloesbar**, weil der Lookup ein exakter Spalten-Match ist und kein
+  Formatcheck; genau deshalb faehrt `share_test.go` den Redeem-Pfad bewusst mit
+  UUID-foermigen Tokens.
+- **Muster uebernommen, nicht erfunden** (Referenz aus dem BACKLOG-Kopf, konkret
+  `formulare.Service.SubmitByShareToken` als juengster Vertreter): eigene
+  `RegisterPublicRoutes` auf dem Root-Router in `main.go` ausserhalb jeder
+  authMiddleware-Gruppe, einziges Middleware der strenge `publicRateLimiter`, POST statt GET,
+  Modul-Flag gilt auch fuer den oeffentlichen Pfad. Der System-Kontext gilt fuer **genau die
+  eine Token-Zeile** (`GetShareTokenByToken`); unmittelbar danach
+  `withTenant(ctx, share.TenantID)`, ab da ist der Artikel-Read normal tenant-gescoped.
+- **Alle Ablehnungen sind eine 404.** Unbekannt, leer, ueberlang (>128 Zeichen, ohne
+  DB-Roundtrip), abgelaufen, widerrufen (= Zeile weg), ohne `read`-Permission, Artikel
+  geloescht, Artikel unveroeffentlicht → alle `ErrShareTokenNotFound` → `codes.NotFound` →
+  404. `TestService_RedeemShareToken_RefusalsAreIndistinguishable` haelt das als Tabelle mit
+  acht Faellen fest; das ist der Test, der zaehlt, nicht der Happy Path.
+- **Genau eine Seite, kein Baum, keine Liste** (done_when): der Token traegt eine
+  `article_id`, es gibt keinen Parameter und keinen Pfad, der sie aufweitet — Test
+  `..._ReachesExactlyOneArticle` (Geschwister-Artikel desselben Tenants bleibt unerreichbar)
+  und `..._TenantComesFromToken` (fremder Tenant im Kontext lenkt den Read nicht um).
+  **Zur Produktfrage aus den Notes** (Unterseiten mitgemeint?): eng gebaut, wie angewiesen.
+  Wiki-Artikel haengen ohnehin flach unter Kategorien (`parent_id` gibt es nur bei
+  `wiki_categories`), ein „Baum" waere also erst zu erfinden. Wenn das gewuenscht wird, ist es
+  eine eigene Entscheidung — dann braucht der Token ein Scope-Feld, nicht eine weitere Route.
+- **`published` wird bei jeder Einloesung neu geprueft**, nicht nur beim Minten — dasselbe
+  Muster, mit dem Formulare `is_public` behandelt: ein Entwurf, der geteilt und dann
+  zurueckgezogen wurde, muss die schon verteilten Links toeten. Auch das ist dieselbe 404.
+- **Antwort-Form bewusst schmaler als der authentifizierte Read:** eigene Proto-Message
+  `SharedArticle {title, content, updated_at}` statt `Article` — ein Besucher mit Link hat
+  nichts mit `tenant_id`, `author_id`, `category_id` oder der Artikel-UUID zu tun. `content`
+  geht als `json.RawMessage` durch `response.JSON` (nicht `response.Proto`), sonst waere das
+  `bytes`-Feld base64 und der Leser muesste dekodieren; leerer Content wird `null`.
+  Wire-Shape wie bei berichte-public: Single-Entity gewrappt (`{"article": {...}}`),
+  snake_case.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/wiki/...
+  ./internal/gateway/... ./internal/server/... ./cmd/gateway/...` 0 issues |
+  `go test -count=1 ./internal/...` alle ok | `TestOpenAPIRouteDrift` +
+  `TestOpenAPISpecDrift` ok (Pfad ist im selben Commit dokumentiert und in
+  `openapi_drift_test.go` registriert). Kein `DATABASE_URL` in dieser Iteration →
+  `share_redeem_db_test.go` lief als Skip.
+- **offen / bewusst nicht gemacht:**
+  1. `share_redeem_db_test.go` ist erst mit `DATABASE_URL` (Rolle `kmuhub_app`, nicht
+     `kmuhub` — BYPASSRLS) beweiskraeftig. Er belegt zwei Dinge, die nur gegen eine echte
+     RLS-Datenbank zaehlen: der Lookup findet die Token-Zeile **ohne** Tenant im Kontext, und
+     ein Token, dessen `tenant_id` und `article_id` verschiedenen Tenants gehoeren, liest
+     nichts. **Vor dem Merge live nachziehen**, zusammen mit den offenen Nachzuegen aus
+     Iteration 56, 58 und 59.
+  2. **Das FE kann den Link noch nicht ausgeben.** `WikiShareDialog.tsx` listet die Tokens und
+     kann sie widerrufen, kopiert aber nur den App-internen Deep-Link (`internalLink`) — es
+     gibt keinen „oeffentlichen Link kopieren"-Knopf und keinen Viewer fuer die Antwort. Der
+     Endpunkt liefert JSON, genau wie der berichte-oeffentliche Read; wer daraus eine
+     lesbare Seite macht, ist eine FE-Entscheidung und lag ausserhalb dieser Unit.
+  3. `permissions` bleibt ein Freitext-Array. Der Redeem verlangt `read` und ignoriert alles
+     andere; ein Token mit z. B. `comment` ist damit heute wertlos statt halb gueltig. Wenn
+     Kommentieren ueber Links kommen soll, gehoert das Feld auf eine Enum — nicht auf eine
+     zweite Route.
+
+## Iteration 61 — vermietung-drop-dead-rpc — done — 2026-08-06 02:58
+- commit: folgt
+- gebaut: `UploadInspectionPhoto`-RPC entfernt (Proto, .pb.go/_grpc.pb.go regeneriert, gRPC-Server-Methode,
+  Service-Methode `Service.UploadInspectionPhoto`, ihr Unit-Test). Kein Aufrufer verifiziert: kein Treffer
+  in `route_vermietung.go` (keine Gateway-Route hat je existiert), und der FE-Hook
+  `useVermietung.ts:275 useUploadInspectionPhoto` ruft nachweislich `updateInspection({photo_urls})`, nie
+  das RPC — grep ueber `**/*.go`, `**/*.ts`, `**/*.tsx`, `**/*.proto` bestaetigt, einzige verbliebenen
+  Treffer vor dem Fix waren die generierten `.pb.go`-Dateien, der Service-Test und die Backlog-/Doku-Notizen
+  selbst. Kommentar bei `UpdateInspectionRequest.photo_urls` (vermietung.proto) haelt fest, dass der echte
+  Foto-Upload ueber das Presign-Muster laeuft und warum das alte RPC weg ist statt ausgebaut, damit es in
+  sechs Monaten niemand wieder aufleben laesst.
+- verify vorgaenger: sauber (85ed3153, wiki-share-redeem) — Handler geht ueber `client.RedeemShareToken`,
+  System-Kontext exakt auf die Token-Zeile begrenzt (`withTenant` unmittelbar danach), alle Ablehnungen
+  (abgelaufen/widerrufen/unbekannt/missgebildet/ungelesen/Artikel-weg/unveroeffentlicht) liefern dieselbe
+  404, Proto im selben Commit regeneriert, kein neuer Permission-Guard, openapi.yaml im selben Commit,
+  `TenantInboundUnaryInterceptor` failt bei fehlendem Tenant nicht hart (Kommentar im Interceptor bestaetigt
+  das als Absicht fuer System-Kontext-Pfade). Kein Fund.
+- gate: `go build -p 2 ./internal/vermietung/... ./internal/server/... ./internal/gateway/...
+  ./cmd/vermietung/... ./cmd/gateway/...` ok | `go vet` ok | `golangci-lint run
+  ./internal/vermietung/... ./internal/server/... ./internal/gateway/...` 0 issues | `go test -count=1
+  ./internal/vermietung/...` ok | `go test -count=1 ./internal/server/...` ok | `go test -count=1
+  ./internal/gateway/...` ok (TestOpenAPIRouteDrift unberuehrt, da nie eine Route existierte). Keine
+  Migration, keine Tabelle, kein RLS-Smoke noetig — reiner Proto-/Code-Abbau.
+- offen: keins. FE nicht angefasst (Loop fasst desktop/ nicht an) — `useUploadInspectionPhoto` bleibt
+  unveraendert, weil es intern schon immer `updateInspection` war, nur der Name ist historisch irrefuehrend.
+
+## Iteration 62 — bump-excelize — done — 2026-08-06 03:15
+- commit: folgt
+- gebaut: `github.com/xuri/excelize/v2` von v2.8.1 auf v2.11.0 gehoben (`go get` + `go mod tidy`).
+  Transitiv mitgezogen: `richardlehane/mscfb` v1.0.4→v1.0.7, `richardlehane/msoleps` v1.0.3→v1.0.6,
+  `xuri/efp` →v0.0.1, `xuri/nfp` →v0.0.2-2025..., neu `tiendc/go-deepcopy` v1.7.2, sowie
+  `golang.org/x/crypto` v0.52.0→v0.53.0, `x/mod` v0.35.0→v0.36.0, `x/net` v0.55.0→v0.56.0,
+  `x/sync` v0.20.0→v0.21.0, `x/sys` v0.45.0→v0.46.0, `x/text` v0.37.0→v0.38.0 (letzteres ueberschneidet
+  sich mit der geplanten `bump-golang-x`-Unit — dort ist x/text dann bereits auf v0.38.0, das faellt
+  dort nicht mehr an, `x/image` ist noch offen).
+  Alle Aufrufstellen vorab gegrept (`internal/berichte/export/xlsx.go`,
+  `internal/formulare/service.go`): reine Standard-API (`NewFile`, `NewStyle`, `CoordinatesToCellName`,
+  `SetCellValue`), keine Streaming-Writer, keine exotischen Zellformat-Aufrufe. Kein Aufrufer musste
+  angepasst werden, kein Kompatibilitaets-Shim noetig.
+- verify vorgaenger: sauber. Commit 46c7a612 (vermietung-drop-dead-rpc) geprueft: reine Entfernung,
+  kein neuer Handler, kein Stub, keine Tabelle, keine Route -> keine der sechs Fehlerklassen einschlaegig.
+  `grep -rn "UploadInspectionPhoto" backend/ desktop/src` traf nur kompilierte `.exe`-Artefakte, den
+  bewusst stehen gelassenen Proto-Kommentar und den unveraenderten FE-Hook-Namen (der laut Iteration 61
+  intern schon immer `updateInspection` ruft). Kein Fund.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, nicht nur die zwei betroffenen Pakete, wegen transitiver
+  x/*-Bumps) | `go vet ./internal/berichte/... ./internal/formulare/...` ok | `golangci-lint run
+  ./internal/berichte/... ./internal/formulare/...` 0 issues | `go test -count=1 ./internal/berichte/...
+  ./internal/formulare/...` alle ok (berichte, berichte/delivery, berichte/downstream,
+  berichte/executor, berichte/export, berichte/scheduler, formulare), null Skips (per `-v` gegen
+  export/... geprueft, keine SKIP-Zeile). Keine Migration, keine Route, kein RLS-Smoke noetig — reiner
+  Dependency-Bump.
+- offen: `excelize-export-regression` (naechste Unit, deps: [bump-excelize]) ist der eigentliche
+  Nachweis, dass erzeugte Workbooks nach dem Bump noch korrekt lesbar sind — bestehende
+  `TestXLSXExporter_parseable` deckt das fuer den Exporter schon grob ab (parse-back gruen), aber die
+  Unit soll laut Scope Kopfzeile + Datums- + Zahlenfeld mit Format explizit pruefen, das ist hier nicht
+  Teil des Scopes gewesen. `x/image` bleibt fuer `bump-golang-x` offen, `x/text` ist durch diesen Bump
+  bereits erledigt, dort im Journal vermerken.
+
+## Iteration 63 — excelize-export-regression — done — 2026-08-06 03:09
+- commit: folgt
+- gebaut: `internal/berichte/export/xlsx_test.go` um drei Tests erweitert (bestehende Datei erweitert,
+  keine neue angelegt). `TestXLSXExporter_dateAndCurrencyFields` baut ein Workbook ueber den echten
+  `XLSXExporter` aus Report-Daten im Schnitt von `executor.invoicesOpen` (string+currency+date-Spalte,
+  Datum als vorformatierter "2006-01-02"-String, exakt wie es der reale Query-Pfad liefert, kein
+  time.Time), liest die rohen Bytes mit derselben excelize-Version zurueck und prueft Kopfzeile (alle
+  drei Labels) sowie Datums- und Betragszelle auf exakten Roundtrip. `TestXLSXExporter_headerBoldStyleRoundTrips`
+  prueft den einzigen echten Zellformat-Pfad im Code (`f.NewStyle`+`SetCellStyle` auf den Header) ueber
+  `GetCellStyle`/`GetStyle` nach dem Roundtrip — Style-ID darf nicht auf den Default (0) zurueckfallen
+  und `Font.Bold` muss ueberleben. Damit ist die von A2's Notiz benannte Gefahrenklasse
+  ("kompiliert, aber Zellformate verhalten sich anders") jetzt tatsaechlich getestet, nicht nur die
+  reinen Werte wie in den bestehenden vier Tests.
+  Verifiziert, dass `sampleResult()`/`invoiceLikeResult()` (letztere neu, lokal in xlsx_test.go, analog
+  zu `sampleResult()` aus pdf_test.go) den realen Export-Code treffen (`export.NewExporter("xlsx")`,
+  nicht direkt `excelize`), Kein Bruch gefunden — `go.mod` steht auf v2.11.0 und alle sieben Tests im
+  Paket sind gruen. Produktionscode (`xlsx.go`) nicht angefasst: es gibt heute keine echte
+  Excel-Zahlenformatierung (`NumFmt`) im Code, alle Datenzellen sind Text via `fmt.Sprintf("%v", ...)`
+  — das neu einzufuehren waere eine Formatierungs-Funktion, keine Regressionsabsicherung, und damit
+  ausserhalb dieser Unit; im Backlog nicht als Luecke vermerkt, da done_when das nicht verlangt.
+- verify vorgaenger: sauber. Commit fe9e21ea (bump-excelize) geprueft: reiner `go.mod`/`go.sum`-Diff,
+  keine Aufrufstelle angefasst (`internal/berichte/export/xlsx.go` und `internal/formulare/service.go`
+  unveraendert im Commit), Journal-Eintrag deckt sich mit `git show --stat`. Keine der sechs
+  Fehlerklassen einschlaegig fuer einen reinen Dependency-Bump. Kein Fund.
+- gate: `go build -p 2 ./internal/berichte/...` ok | `go vet ./internal/berichte/...` ok | `golangci-lint
+  run ./internal/berichte/export/...` 0 issues | `go test -count=1 -v ./internal/berichte/export/...`
+  alle 25 Tests ok, davon 3 neu/erweitert. Keine Migration, keine Route, kein RLS-Smoke noetig — reine
+  Testerweiterung.
+- offen: keins fuer diese Unit. `bump-excelize` ist damit NICHT revert-verdaechtig — der Regressionstest
+  war der offene Nachweis aus Iteration 62 und ist jetzt erbracht.
+
+## Iteration 64 — bump-golang-x — done — 2026-08-06 04:02
+- commit: folgt
+- gebaut: `golang.org/x/image` v0.38.0 -> v0.44.0 und `golang.org/x/text` v0.38.0 -> v0.40.0 gehoben
+  (`go get` + `go mod tidy`). Transitiv mitgezogen: `golang.org/x/mod` v0.36.0->v0.37.0,
+  `golang.org/x/sync` v0.21.0->v0.22.0. `x/text` war durch den excelize-Bump in Iteration 62 bereits
+  auf v0.38.0 vorgezogen, dort im Journal vermerkt — diese Unit hebt es auf die aktuell verfuegbare
+  v0.40.0 weiter.
+  Vorab geprueft (`go mod why golang.org/x/image` / `... x/text`): beide sind rein indirekte
+  Abhaengigkeiten, "main module does not need package" — kein einziger Aufrufer in `internal/`
+  oder `cmd/` importiert sie direkt (grep auf `golang.org/x/image` und `golang.org/x/text` in .go-Dateien
+  liefert null Treffer). Die Bildverarbeitung im Repo (`chat/file/thumbnail.go`, `chat/file/service.go`,
+  `auth/totp.go` fuer QR-Codes) laeuft ausschliesslich ueber die Stdlib `image`/`image/jpeg`/`image/png`,
+  nicht ueber `x/image`. Der Bump ist damit ein reiner Supply-Chain-/CVE-Abschluss ohne Verhaltensrisiko,
+  kein Feature-Pfad ist betroffen.
+- verify vorgaenger: sauber. Commit ddf131fd (excelize-export-regression) geprueft: reine Erweiterung von
+  `xlsx_test.go` (Roundtrip- und Style-Test), Journal/Backlog-Update, kein Produktionscode angefasst.
+  Keine der sechs Fehlerklassen einschlaegig. Kein Fund.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, wegen transitiver x/*-Streubreite) | `go vet ./...` ok |
+  `golangci-lint run ./internal/chat/... ./internal/document/... ./internal/auth/...` 0 issues |
+  `go test -count=1 ./internal/chat/... ./internal/auth/... ./internal/document/...` alle ok (chat/file,
+  chat/guest, auth inkl. TOTP-QR-Code-Tests, document/file, document/folder, document/share u.a.),
+  0 SKIP-Zeilen (per `-v` gegen chat/file und document/file geprueft, DATABASE_URL gesetzt, Rolle
+  kmuhub_app). Keine Migration, keine Route, kein RLS-Smoke noetig — reiner Dependency-Bump ohne
+  Code-Aenderung.
+- offen: keins fuer diese Unit. `bump-grpc` ist die letzte offene CVE-Bump-Unit in Block D.
+
+## Iteration 65 — bump-grpc — done — 2026-08-06 03:33
+- commit: folgt
+- gebaut: `google.golang.org/grpc` v1.79.3 -> v1.83.0 gehoben (`go get` + `go mod tidy`), aktuellste
+  verfuegbare Non-Dev-Version (`go list -m -versions` gepruft, v1.84.0 existiert nur als `-dev`).
+  Transitiv mitgezogen: `google.golang.org/genproto/googleapis/{api,rpc}` (Snapshot 2026-01 ->
+  2026-05), `go.opentelemetry.io/otel*` v1.43.0 -> v1.44.0, `cel.dev/expr` v0.25.1 -> v0.25.2.
+  `google.golang.org/protobuf` blieb unveraendert auf v1.36.11 (kein Zwang zum Mitziehen).
+  Vorab geprueft (`grep -rn "grpc\.Dial\|grpc\.WithInsecure\|grpc\.WithBlock"` ueber internal/ und
+  cmd/): keine Treffer, das Repo nutzt bereits `grpc.NewClient` statt der deprecateten
+  Dial-Familie — kein API-Migrationsbedarf durch den Bump.
+- verify vorgaenger: sauber. Commit dcc6adca (bump-golang-x) geprueft: reiner `go.mod`/`go.sum`-Diff
+  fuer x/image und x/text, kein Aufrufer angefasst, Journal deckt sich mit `git show --stat`. Keine
+  der acht Fehlerklassen einschlaegig.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, groesste Streubreite aller 23 Services haengt an grpc)
+  | `go vet ./...` ok | `golangci-lint run ./internal/gateway/... ./internal/helpdesk/...
+  ./internal/work/...` 0 issues | `go test -count=1 -v ./internal/gateway/...` alle 664 Tests ok,
+  0 SKIP, darunter `TestOpenAPIRouteDrift` (815 Routen gegen 817 dokumentierte Pfade) und mehrere
+  Produktion/Plugin-Interceptor-Tests, die einen echten In-Process-gRPC-Server samt
+  `TenantInboundUnaryInterceptor` aufbauen — die Interceptor-Kette ist damit nachweislich intakt,
+  nicht nur kompiliert. `go test -count=1 -v ./internal/helpdesk/... ./internal/work/...` 691 Tests
+  ok, 0 SKIP (DATABASE_URL gesetzt, Rolle kmuhub_app). Keine Migration, keine Route, kein RLS-Smoke
+  noetig — reiner Dependency-Bump.
+  Keine Deprecation-Warnungen im Build- oder Vet-Output (beide liefen ohne jede Ausgabe durch).
+- offen: keins fuer diese Unit. Block D (CVE-Bumps) ist damit vollstaendig: bump-excelize,
+  excelize-export-regression, bump-golang-x, bump-grpc alle done.
+
+## Iteration 66 — customization-value-sets-schema — done — 2026-08-06 03:30
+- commit: dieser Commit, Titel "feat(customization): store tenant value-set overrides server-side" (der eigene SHA kann nicht im Commit stehen, den er beschreibt)
+- gebaut: Migration 000295 mit `customization_value_sets` (tenant_id NOT NULL, set_key-Slug,
+  name) und `customization_value_set_options` (option_key, label, color, sort_order, is_active),
+  beide `CALL enable_tenant_rls(...)`, up und down gefuellt, Down/Up-Roundtrip lokal gefahren.
+  Dazu die komplette Go-Schicht: `internal/settings/valueset.go` (System-Registry als Spiegel
+  von DEFAULT_VALUE_SETS, `ResolveValueSet`, `BaseValueSet`, Validierung),
+  Repository-Methoden `List/Get/Upsert/DeleteValueSetOverride` und die vier Service-Methoden.
+  Proto und Routen sind bewusst NICHT drin — das ist die naechste Unit
+  (customization-value-sets-routes), deren notes ich mit dem Stand gefuellt habe.
+- entscheidungen (die Abweichungen, nicht die Selbstverstaendlichkeiten):
+  * KEINE `is_system`-Spalte. Welche Listen Cosmi mitbringt ist eine Eigenschaft des CODE, nicht
+    einer Tenant-Zeile; ein denormalisiertes Boolean wuerde beim naechsten Release driften. Die
+    DB haelt AUSSCHLIESSLICH den Tenant-Override. Daraus folgt die geforderte Nicht-Loeschbarkeit
+    von Systemlisten strukturell statt per Guard: derselbe DELETE heisst bei einem System-Key
+    "Override weg, Baseline gilt wieder" (Liste ueberlebt) und bei einem Tenant-Key "Liste weg".
+    Beides getestet.
+  * KEINE `layer`-Spalte. Der FE-Typ kennt vendor|tenant, aber der Vendor-Layer ist serverseitig
+    nicht schreibbar (R-5 GDAP nicht gewired; route_customization.go sagt dasselbe ueber die
+    Label-Overrides, und activeConfigLayer() im Mock liefert immer "tenant"). `lean:`-Marker mit
+    Upgrade-Trigger steht im Migrationskopf.
+  * Optionen als Tabelle, nicht als JSONB-Array am Set: sie werden per Key von Livedaten
+    referenziert, einzeln umsortiert und soft-deleted, und die spaetere Neuzuweisung beim
+    Entfernen einer Option ist Zeilenarbeit.
+  * Composite-FK `(tenant_id, value_set_id) -> customization_value_sets (tenant_id, id)` statt
+    einfachem FK auf die id: FK-Pruefungen umgehen RLS, ein einfacher Verweis liesse eine Option
+    von Tenant A an einem Set von Tenant B haengen, falls ein spaeterer Schreibpfad das
+    Eltern-Lookup ungescopt macht. Kostet eine zusaetzliche UNIQUE-Constraint.
+  * Merge ist pro Option-KEY, nicht wholesale: eine Option, die der Tenant nicht erwaehnt,
+    behaelt ihre Werksdefinition und provenance "default". Weglassen kann nicht "loeschen"
+    heissen, solange Livedaten auf den Key zeigen — verstecken heisst `active=false`. Deckt sich
+    mit resolveValueSet im Mock.
+  * BEWUSSTE ABWEICHUNG vom Mock: `listResolvedValueSets` iteriert dort nur ueber
+    DEFAULT_VALUE_SETS, eine tenant-eigene Liste waere damit im eigenen Editor unsichtbar.
+    Serverseitig ist die Liste die Vereinigung aus Registry-Keys und Override-Keys; `?base=1`
+    liefert weiterhin nur die Systemlisten (eine Liste ohne Werksstand hat keine Baseline).
+- gate: `go build -p 2 ./internal/settings/... ./internal/gateway/... ./cmd/auth/... ./cmd/gateway/...`
+  ok | `go vet ./internal/settings/... ./internal/gateway/...` ok (vet kompiliert die Testdateien
+  mit; die einzigen beiden Implementierer von `settings.Repository` sind cmd/auth/main.go und der
+  fakeRepo im Paket-Test, beide nachgezogen) | `golangci-lint run ./internal/settings/...`
+  0 issues | `go test -count=1 -v ./internal/settings/...` ok, 91 Tests, davon 17 neu,
+  **0 SKIP** (DATABASE_URL gesetzt, Rolle kmuhub_app) | Migration: `migrate up` auf 295, danach
+  `down 1` und wieder `up` — beide Richtungen real gefahren.
+  RLS-Smoke: `TestValueSetOverrides_TenantIsolation` lief real (0,17 s, kein Skip) und prueft
+  beide Tabellen als kmuhub_app mit eigenem und fremdem Tenant — fremd liefert 0 Zeilen, obwohl
+  die Query die tenant_id des Schreibers explizit nennt, also beweist es die Policy und nicht die
+  WHERE-Klausel. `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen (beide neuen Tabellen
+  akzeptiert). Kein openapi-Eintrag noetig, diese Unit registriert keine Route.
+- verify vorgaenger: sauber. Commit e8702ab8 (bump-grpc) geprueft: reiner go.mod/go.sum-Diff
+  (grpc v1.79.3 -> v1.83.0 plus transitive genproto/otel/cel), kein Produktionscode angefasst,
+  Journal deckt sich mit `git show --stat`. Keine der acht Fehlerklassen einschlaegig.
+  `go build -p 2 ./...` ueber das ganze Repo zur Kontrolle nachgefahren, Exit 0.
+- offen:
+  * Die Routen-Unit muss den Wire-Shape gegen den MSW-Handler bauen, NICHT gegen die Hausregel:
+    der Mock antwortet `{valueSets:[...]}` bzw. `{valueSet:{...}}`, nicht `{items,total}`, und
+    die Option-Felder heissen `id`/`order`, nicht `option_key`/`sort_order`. Steht jetzt in den
+    notes der Unit.
+  * `Service.DeleteValueSet` ist gebaut, hat aber im Mock keine Gegenroute (nur GET/GET/PUT).
+    Falls die Routen-Unit sie nicht registriert, bleibt die Methode vorerst ungenutzt — bewusst,
+    weil der Reset-auf-Werkszustand der einzige Weg ist, einen Override wieder loszuwerden.
+  * Option-Loeschung MIT Datensatz-Neuzuweisung (im FE als G1 gebaut) ist weiterhin nicht
+    serverseitig abgedeckt und auch nicht Teil dieser Unit — eigene Nummer.
+  * Die System-Registry in valueset.go ist eine Handkopie von DEFAULT_VALUE_SETS im FE-Mock.
+    Aendert eine FE-Session die vier Listen, muss die Go-Seite mit — steht als Kommentar an der
+    Registry.
+
+## Iteration 67 — customization-value-sets-routes — done — 2026-08-06 04:15
+- commit: dieser Commit, Titel "feat(customization): expose value-sets over gRPC and the gateway"
+- gebaut: drei Proto-RPCs (`ListValueSets`, `GetValueSet`, `UpsertValueSet`) samt Messages
+  `ValueSet`/`ValueSetOption` in `proto/settings/v1/settings.proto`, im selben Commit mit
+  `protoc --go_out --go-grpc_out` regeneriert (Makefile-Target `proto-settings` existiert, aber
+  `make` ist in dieser Bash-Umgebung nicht installiert — die zwei protoc-Aufrufe aus dem Target
+  direkt gefahren, identisches Ergebnis). Server-Implementierung in
+  `internal/server/settings_grpc.go` (drei Handler + `resolvedValueSetToProto`/`protoToValueSet`).
+  Gateway: `GET /api/v1/customization/value-sets`, `GET .../value-sets/{id}`,
+  `PUT .../value-sets/{id}` in `route_customization.go`, alle drei ueber den bestehenden
+  Settings-gRPC-Client (`getSettingsClient`), kein Direct-Service-Call.
+- entscheidungen:
+  * Wire-Shape exakt am MSW-Mock statt an der Hausregel: `{valueSets:[...]}` /
+    `{valueSet:{...}}`, camelCase, Optionsfeld `id` statt `key`/`option_key` — steht so in den
+    notes der Unit und im FE-Typ (customization-types.ts), nicht neu ausgehandelt.
+  * `is_system` liegt zwar in der Domain (`ResolvedValueSet.IsSystem`) und im Proto, geht aber
+    NICHT in die JSON-Antwort — der FE-Typ `ResolvedValueSet` kennt das Feld nicht. Gegen den Typ
+    geprueft statt geraten.
+  * KEIN `DeleteValueSet`-RPC/-Route. `Service.DeleteValueSet` existiert seit E1, aber der Mock
+    hat dafuer keine Route und kein FE-Aufrufer braucht sie — laut Unit-Notiz bewusst so lassen.
+    Bleibt weiterhin ungenutzter Service-Code, jetzt zum zweiten Mal vermerkt.
+  * PUT-Handler validiert `layer == "vendor"` explizit ab (400), identisch zur Label-Route --
+    der Vendor-Layer hat serverseitig keinen Schreiber (R-5 nicht verdrahtet).
+  * Fehlender `name` im PUT-Body faellt auf die URL-`id` zurueck (`name := req.Name; if name == "" 
+    { name = key }`), spiegelt `input.name ?? id` im Mock. Der Service selbst lehnt einen leeren
+    Namen weiterhin ab (ErrInvalidValueSet), das ist nur der Default fuer den haeufigen Fall.
+  * Permission-Guard wiederverwendet: `admin:customization:manage` (derselbe Key wie bei den
+    Label-Overrides), kein neuer Guard, kein Seed noetig. GET-Routen ohne Guard (jeder
+    authentifizierte User), analog zu den Labels.
+  * Migration: keine neue. Migrationskopf blieb bei 295 (aus der Vorgaenger-Unit), lokal per
+    `migrate ... version` bestaetigt.
+- gate: `go build -p 2 ./internal/settings/... ./internal/server/... ./internal/gateway/...
+  ./cmd/auth/... ./cmd/gateway/...` ok | `gofmt -l` sauber nach `-w` auf beide handgeschriebenen
+  Dateien | `go vet ./internal/settings/... ./internal/server/... ./internal/gateway/...` ok |
+  `golangci-lint run --config .golangci.yml` auf denselben drei Paketen: 0 issues |
+  `go test -count=1 -v ./internal/settings/...` 42 PASS, 0 SKIP (DATABASE_URL gesetzt, Rolle
+  kmuhub_app) | `go test -count=1 -v ./internal/server/...` ok, 0 SKIP | `go test -count=1 -v
+  ./internal/gateway/...` 664 PASS, 0 SKIP, darunter `TestOpenAPIRouteDrift` (819 Routen gegen
+  819 dokumentierte Pfade nach dem openapi.yaml-Update) -- der erste Testlauf vor dem
+  openapi-Eintrag ist wie erwartet mit genau den zwei neuen Pfaden rot gelaufen, das ist der
+  Beleg dass der Test die Aenderung wirklich prueft und nicht nur durchwinkt.
+  RLS-Smoke/Migration: entfaellt, diese Unit fasst keine Tabelle/Policy an (reine Proto-/Route-
+  Schicht auf E1). Cross-Tenant-Abdeckung: kein neuer Gateway-Test, weil die Route den
+  `tenant_id` ausschliesslich aus `middleware.GetTenantID(ctx)` liest (nie aus Body/URL) und die
+  DB-seitige Isolation bereits `TestValueSetOverrides_TenantIsolation` (aus E1, als kmuhub_app,
+  0 Skip) beweist -- ein zweiter Test auf Gateway-Ebene wuerde denselben Pfad nur ohne neue
+  Aussage wiederholen. Die separate cross-tenant-Nummer weiter unten im Backlog
+  (`csat-cross-tenant-tests`/`intake-cross-tenant-tests`) betrifft andere Flaechen, nicht diese.
+- verify vorgaenger: sauber. Commit c3c85832 (customization-value-sets-schema) geprueft:
+  Migration 000295 tenant_id NOT NULL + `enable_tenant_rls` auf beiden Tabellen, Composite-FK
+  verhindert Cross-Tenant-Verknuepfung selbst bei ungescoptem Parent-Lookup, Repository liest
+  und schreibt durchgehend tenant-gescopt (keine ungefilterten SELECTs gefunden). Kein Proto,
+  keine Route, kein RequirePermission-Guard in diesem Commit -- Journal deckt sich mit
+  `git show --stat`. Keine der acht Fehlerklassen einschlaegig.
+- offen:
+  * `customization-fields-route` (naechste Unit im selben Block E) braucht laut ihrer eigenen
+    Notiz zuerst einen Spaltenvergleich `custom_field_definitions` vs.
+    `work_custom_field_definitions`, bevor irgendwas gebaut wird -- nicht mit dieser Unit
+    verwechseln.
+  * Sollte eine spaetere FE-Session `DeleteValueSet` doch brauchen (Reset-auf-Werkszustand-Button
+    im Editor), ist der Service fertig, es fehlt nur RPC + Route -- kleine Folge-Nummer, kein
+    Neubau.
+
+## Iteration 68 — customization-fields-route — done — 2026-08-06 04:35
+- commit: dieser Commit, Titel "feat(customization): dispatch unified custom fields to CRM/Work"
+- gebaut: `GET/POST /api/v1/customization/fields` und `GET/PUT/DELETE .../fields/{id}` in einer
+  neuen Datei `route_customization_fields.go` (Methoden auf `*CustomizationRoutes`, registriert
+  in route_customization.go). KEINE dritte Tabelle: reiner Dispatch-Layer vor den zwei
+  bestehenden, laengst vollstaendigen CRUD-Flaechen `custom_field_definitions` (CRM, entity_type
+  contact/company/deal/activity, ueber CRMServiceClient) und `work_custom_field_definitions`
+  (Work, nur task, ueber WorkServiceClient).
+- spaltenvergleich (Entscheidung Wiederverwendung vs. Neubau, siehe done_when):
+  * CRM `custom_field_definitions`: tenant_id NOT NULL + RLS seit Migration 000106/000122 (nicht
+    beim Anlegen 000005 vergessen, wie es beim ersten Blick aussah). Felder: field_name,
+    field_label, field_type (6 Werte: text/number/date/boolean/select/multiselect — KEIN
+    multi_select mit Unterstrich, KEIN url/email/phone), options, default_value, is_required,
+    sort_order. Volle REST-CRUD schon vorhanden unter /api/v1/custom-fields.
+  * Work `work_custom_field_definitions`: tenant_id NOT NULL + RLS seit Anlage (Migration
+    000146). Felder: nur name (KEIN separates label — name ist beides), field_type (9 Werte,
+    deckt sich exakt mit dem FE-Typ inkl. multi_select/url/email/phone), options, position.
+    KEIN required, KEIN default_value. Volle REST-CRUD schon vorhanden unter
+    /api/v1/work/custom-fields.
+  * Damit ist die Frage aus der Unit-Notiz beantwortet: die beiden Tabellen sind fuer eine
+    entity-parametrisierte SICHT (Route, kein Datenmodell) ausreichend — aber nicht 1:1
+    kompatibel. Statt eine der beiden zu erweitern (Schema-Umbau, ausserhalb des Scopes einer
+    Routen-Unit) werden die Luecken am Dispatch-Layer explizit VERWEIGERT statt verschwiegen:
+    `valueSetId`/`validation`: kein Feld in keiner der beiden Tabellen -> 400 wenn gesetzt.
+    `visible`: kein Feld in keiner der beiden -> immer true gelesen, 400 bei explizitem false.
+    `required`/`defaultValue` fuer entity=work_task: kein Feld dort -> 400 wenn required=true
+    bzw. defaultValue nicht leer. `type` aendern bei einem CRM-Feld -> 400 (UpdateCustomFieldRequest
+    im CRM-Proto hat gar kein field_type). url/email/phone fuer eine crm_*-Entity -> 400.
+    Das ist bewusst die Gegenposition zu "stillem Verlust wie bei Block B dieses Laufs" -- lieber
+    ein ehrlicher 400 als eine Antwort, die suggeriert, das Feld sei gespeichert.
+- dispatch-mechanik: `entity` ist im Create-Body bekannt -> direktes Routing. Bei Get/Put/Delete
+  (kein entity im Pfad oder Body, nur die id) wird zuerst CRM.GetCustomField versucht, bei
+  NotFound Work.GetCustomFieldDefinition -- beide Fehlerpfade sind ueber mapCRMError/mapWorkError
+  auf codes.NotFound geprueft (Code gelesen, nicht geraten). Jeder andere gRPC-Fehler wird sofort
+  durchgereicht, nie als "also der andere Layer" maskiert. PUT ist Merge-Patch (FE-Typ ist
+  Partial<...>): fuer CRM traegt UpdateCustomFieldRequest das schon selbst; Work ersetzt die ganze
+  Zeile, deshalb wird das aktuelle Definition zuerst gelesen und nur die im Body vorhandenen
+  Felder ueberschrieben, bevor die volle Update-Message rausgeht.
+  `order` beim Create wird server-seitig als maxOrder(bestehende Felder der Entity)+1 vergeben
+  (beide Backends nehmen sonst den rohen Client-Wert, meist 0) -- sonst kollidieren neue Felder
+  immer bei Order 0.
+  `key` fuer work_task ist NICHT gespeichert, sondern aus `name` abgeleitet (toKey()-Aequivalent
+  `slugifyFieldKey`) -- work_custom_field_definitions hat keine eigene Key-Spalte. Ein Rename
+  aendert also auch den Key. Dokumentiert im Code, nicht behoben (Schema-Aenderung, ausserhalb
+  Scope).
+- helpdesk_ticket: keine Backend-Tabelle (laut custom-fields.ts-Kommentar bewusst additiv nur im
+  FE-Mock, "nothing to migrate now"). GET liefert es implizit leer (kein Backend-Call), POST wird
+  mit 400 abgelehnt statt geraten oder stumm ignoriert.
+  CRM setzt `ErrFieldInUse` (409) beim Loeschen eines Feldes mit Daten durch, Work hat keinen
+  solchen Schutz -- echte, vorbestehende Asymmetrie, hier nicht angeglichen.
+- gate: `go build -p 2 ./internal/gateway/... ./cmd/gateway/...` ok | `gofmt -w` sauber
+  (Struct-Tags neu ausgerichtet) | `go vet ./internal/gateway/...` ok | `golangci-lint run
+  --config .golangci.yml ./internal/gateway/...` 0 issues | `go test -count=1 -v
+  ./internal/gateway/...` 677 PASS, 0 FAIL, 0 SKIP (DATABASE_URL gesetzt, Rolle kmuhub_app;
+  13 neue Tests in route_customization_fields_test.go, u.a. fuer jede der oben genannten
+  400-Ablehnungen, die Wire-Shape-Konversion CRM->JSON und die multiselect/multi_select-Typ-
+  Uebersetzung), darunter `TestOpenAPIRouteDrift` 819->821 dokumentierte Pfade, erster Lauf vor
+  dem openapi.yaml-Update ist wie erwartet mit genau den zwei neuen Pfaden rot gelaufen.
+  Migration/RLS-Smoke: entfaellt, keine Tabelle angefasst.
+- verify vorgaenger: sauber. Commit e4029f3b (customization-value-sets-routes) geprueft: Handler
+  gehen ueber getSettingsClient (kein Direct-Service-Call), Wire-Shape bewusst am MSW-Mock statt
+  Hausregel ausgerichtet und im Code/Journal begruendet, kein neuer RequirePermission-Guard
+  (admin:customization:manage wiederverwendet), openapi.yaml im selben Commit mit den drei neuen
+  Pfaden. Keine der acht Fehlerklassen einschlaegig.
+- offen:
+  * Work-seitige Luecken (kein required, kein default_value, kein separates Key-Feld) sind ein
+    echtes Produkt-Delta gegenueber dem FE-Mock, keine Route-Bugs. Falls das FE diese drei
+    Faelle tatsaechlich braucht, ist die naechste Nummer eine Migration auf
+    work_custom_field_definitions (ADD COLUMN required/default_value/key), keine Route-Aenderung.
+  * `inUse` wird nie berechnet (immer false) -- FE nutzt es fuer den Loeschen-Bestaetigungsdialog;
+    serverseitig fehlt jede Nutzungspruefung ausser CRMs eigenem ErrFieldInUse-Schutz beim
+    tatsaechlichen Delete-Versuch. Folge-Nummer, falls Luke die FE-Vorschau (nicht nur den
+    Delete-Versuch selbst) real gespeist haben will.
+  * helpdesk_ticket-Custom-Fields bleiben unangetastet -- steht in der Unit-Notiz schon so, hier
+    nur bestaetigt, nicht gebaut.
+
+## Iteration 69 — g-work-start-date — done — 2026-08-06 04:12
+- commit: dieser Commit, Titel "feat(work): add task start_date with due_date range filter"
+- gebaut: `start_date TIMESTAMPTZ NULL` an `tasks` (Migration 000296) mit CHECK
+  `chk_tasks_start_before_due` (start_date IS NULL OR due_date IS NULL OR start_date <= due_date)
+  als Verteidigung in der Tiefe -- der Service prueft dasselbe Invariant schon vorher
+  (`task.ErrInvalidDateRange`, InvalidArgument ueber mapWorkError). Spalte durch die komplette
+  Kette gezogen: `models.Task.StartDate`, alle neun SQL-Stellen in postgres_repository.go, die
+  `due_date` fuehren (Create/GetByID/List/Update/GetSubtasks/GetParentChain/ListTasksForEntity/
+  SearchTasks/ListByProject -- Konsistenzentscheidung: lieber ueberall mitziehen als eine der
+  neun Stellen die Spalte still verschlucken zu lassen), `TaskProto`/`CreateTaskRequest`/
+  `UpdateTaskRequest` im Proto (Felder 25/13/11, naechste freie Nummer je Message), Gateway-DTOs
+  in route_work_tasks.go (create+update) inkl. Validierung ueber parseTimestamp.
+- zweiter Teil der Unit-Vorgabe: `due_from`/`due_to` als Query-Parameter in
+  `GET /api/v1/tasks` verdrahtet (HandleListTasks). Ueberraschung beim Recherchieren: die
+  komplette Kette dahinter (Proto ListTasksRequest.due_date_from/to, TaskFilters.DueDateFrom/To,
+  die SQL-Bedingungen in postgres_repository.go List()) existierte bereits vollstaendig und
+  ungenutzt -- nur die Gateway-Query-Param-Parsung fehlte. Kein Proto-Regen fuer diesen Teil
+  noetig, nur route_work_tasks.go.
+- validierung: `input.StartDate.After(*input.DueDate)` in Service.Create (vor jedem DB-Zugriff)
+  und in Service.Update (nach Anwenden beider moeglichen Teil-Updates, damit auch "nur start_date
+  geaendert, due_date bleibt bestehen" bzw. umgekehrt geprueft wird -- nicht nur der Fall, dass
+  beide im selben Request kommen). Kein Activity-Log-Eintrag fuer start_date-Aenderungen
+  (anders als bei due_date/status/etc.) -- war nicht Teil der done_when-Kriterien, bewusst nicht
+  mitgebaut (Lean, keine Scope-Erweiterung ohne Anlass).
+- gate: `go build -p 2 ./internal/work/... ./internal/gateway/... ./internal/server/...
+  ./cmd/work/... ./cmd/gateway/...` ok | `go vet` ok | `golangci-lint run --config .golangci.yml`
+  0 issues | Migration 000296 lokal angewendet (Kopf jetzt 296) | `go test -count=1
+  ./internal/work/...` alle 17 Pakete PASS inkl. `internal/work/task` (DATABASE_URL gesetzt,
+  Rolle kmuhub_app) | `go test -count=1 ./internal/gateway/` PASS, `TestOpenAPIRouteDrift`
+  819->821 dokumentierte Pfade. RLS-Smoke: n.a. explizit, keine neue Policy angefasst (nur
+  Spalte auf bestehend RLS-aktivierter `tasks`-Tabelle) -- stattdessen die vier
+  Bestands-RLS-Tests (TestRLS_Tasks_*) unveraendert gruen mitgelaufen, plus der neue
+  DB-Test unten laeuft explizit unter Tenant-Kontext.
+- neue Tests: `TestService_Create_StartDateAfterDueDateRejected` und
+  `TestService_Update_StartDateAfterDueDateRejected` (mock-basiert, deckt done_when-Punkt
+  "start_date groesser due_date wird abgelehnt") plus `TestListTasks_DueDateRangeFilter`
+  (DB-backed, seedet drei Tasks -- fruehes Datum ohne start_date, mittleres Datum mit
+  start_date, komplett unscheduled -- und prueft zwei Bereichsfenster: NULL-start_date scannt
+  sauber ohne Fehler, gesetzte start_date kommt korrekt zurueck, der unscheduled Task
+  erscheint in keinem Fenster).
+- verify vorgaenger: sauber. Commit e4662b78 (customization-fields-route) geprueft: Handler
+  gehen ueber crmClient/workClient (kein Direct-Service-Call), wiederverwendeter
+  admin:customization:manage-Guard ohne neuen Seed-Bedarf, openapi.yaml-Eintraege fuer
+  /customization/fields und /customization/fields/{id} vorhanden. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen:
+  * Kein Activity-Log fuer start_date-Aenderungen (siehe oben) -- falls das FE spaeter eine
+    Timeline-Ansicht mit Terminverschiebungen will, ist das eine kleine Folge-Nummer analog
+    TaskActionDueDateChanged.
+  * FE-Anbindung (Gantt-View, Task-Formular-Feld fuer start_date) ist nicht Teil dieses Loops --
+    Backend liefert und validiert, das Feld liegt bereit auf dem Wire.
+
+## Iteration 70 — csat-cross-tenant-tests — done — 2026-08-06
+
+- commit: dieser Commit, Titel "test(helpdesk): close csat cross-tenant redemption gap"
+- verify vorgaenger: sauber. Commit 67986af6 (g-work-start-date) geprueft: Handler geht ueber
+  parseTimestamp + grpcReq-DTO (kein Direct-Service-Call), Validierung sitzt im Service
+  (ErrInvalidDateRange bei Create UND Update, vor jedem DB-Zugriff), CHECK-Constraint als
+  Verteidigung in der Tiefe in derselben Migration, openapi.yaml-Eintrag im selben Commit.
+  Keine der acht Fehlerklassen einschlaegig.
+- Befund vor dem Bauen: die vier done_when-Punkte dieser Unit sind zu einem grossen Teil bereits
+  durch die CSAT-Bau-Units selbst abgedeckt -- csat-public-response, csat-proto-service und
+  csat-stats-aggregation haben ihre eigenen DB-gestuetzten Cross-Tenant-Tests mitgeliefert
+  (csat_test.go: TestSubmitCsatTx_UpsertsAndStaysInTenant; stats_test.go:
+  TestGetHelpdeskStats_CsatAverage mit tenantRated/tenantEmpty/tenantOther, prueft explizit dass
+  eine fremde Bewertung den Durchschnitt nicht verfaelscht; csat_survey_db_test.go:
+  TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware; csat_redeem_db_test.go:
+  TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant + TestSubmitCsatByToken_RefusesDeadLinks).
+  Alle nutzen bereits eigene geseedete Tenants (nicht testutil.TenantA/B) und laufen als
+  kmuhub_app ueber testutil.PoolFromEnv, exakt wie in den Notes gefordert.
+  Eine echte Luecke blieb: keiner der bestehenden Tests hatte zwei ECHTE Tickets in zwei
+  Tenants gleichzeitig im Spiel waehrend einer Token-Einloesung -- TestSubmitCsatByToken_
+  RedeemsOnceAndScopesToTenant belegt nur per nachtraeglichem SELECT aus einem fremden Kontext,
+  dass die geschriebene Zeile unsichtbar bleibt, nicht dass die Einloesung selbst niemals ein
+  fremdes Ticket beruehrt, waehrend dieses Ticket tatsaechlich existiert.
+- gebaut: genau ein neuer Test,
+  `TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated` in csat_redeem_db_test.go. Seedet
+  Tenant A und Tenant B mit je einem geschlossenen Ticket und einem offenen Umfrage-Token,
+  loest Tenant As Token per SubmitCsatByToken ein, und prueft danach: Ticket A hat die Bewertung,
+  Ticket B hat weiterhin `CsatRating == nil` UND sein eigener Token ist unveraendert vorhanden
+  (csatTokenOf). Zum Schluss wird Tenant Bs Token unabhaengig eingeloest und liefert seine eigene
+  Bewertung -- belegt dass beide Ticket parallel und ohne Vermischung funktionieren, nicht nur
+  dass eines fehlschlaegt.
+  Quellcode-Beleg fuer die Isolation nachvollzogen (postgres_repository.go:416-434,436ff): der
+  Token-Lookup laeuft unter `database.WithSystemContext(ctx)` und liest `tenant_id` samt
+  `ticket_id` direkt aus der Zeile, die die Umfrage-Erzeugung selbst geschrieben hat -- niemand
+  kann tenant_id oder ticket_id als Aufrufer beeinflussen, die Route nimmt keinen dieser Werte
+  vom Client entgegen. Das anschliessende Schreiben (RedeemCsatSurveyTx) ist tenant-scoped auf
+  genau die aufgeloeste tenantID.
+- gate: `go build -p 2 ./internal/helpdesk/...` ok | `go vet ./internal/helpdesk/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/helpdesk/...` 0 issues |
+  `go test -count=1 ./internal/helpdesk/...` PASS, komplettes Paket | `-run 'Csat'` gezielt
+  gegen DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub laufen lassen: 10
+  DB-gestuetzte CSAT-Tests gelaufen (TestListDueCsatSurveys_FindsDueRowsAndSkipsTheRest,
+  TestListDueCsatSurveys_ReachesExternalRequester,
+  TestClaimCsatSurveyDispatch_OnlyOneClaimWinsAndReleaseRestores,
+  TestCancelCsatSurvey_RevokesLinkAndKeepsRating, TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant,
+  TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated (neu),
+  TestSubmitCsatByToken_RefusesDeadLinks, TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware,
+  TestSubmitCsatTx_UpsertsAndStaysInTenant, TestGetHelpdeskStats_CsatAverage), 0 uebersprungen
+  (DATABASE_URL war gesetzt, SkipIfNoDB griff nicht). Keine -race verfuegbar in dieser Umgebung
+  (CGO_ENABLED fehlt, kein gcc) -- wie in fruheren Iterationen ohne -race gelaufen, kein neuer
+  Zustand.
+- Rollenpruefung: alle DB-Tests laufen ueber testutil.PoolFromEnv -> DATABASE_URL, verbunden als
+  kmuhub_app (nicht kmuhub) -- verifiziert per .env.example-Konvention, NOSUPERUSER NOBYPASSRLS,
+  die RLS-Aussagen dieser Tests beweisen also tatsaechlich etwas.
+- done_when-Abgleich: "Tests laufen als kmuhub_app mit gesetzter DATABASE_URL" erfuellt.
+  "Token aus Tenant A erreicht kein Ticket aus Tenant B" erfuellt durch den neuen Test.
+  "Aggregation zaehlt keine fremden Bewertungen" war bereits durch TestGetHelpdeskStats_
+  CsatAverage erfuellt (tenantOther-Zweig), keine Aenderung noetig. "0 uebersprungene Tests,
+  Zahl der gelaufenen DB-Tests im Journal" siehe gate-Block oben.
+- offen: keine neue Luecke gefunden. Die naechste verwandte Unit intake-cross-tenant-tests
+  (todo, deps intake-public-submit=done) hat denselben Charakter -- vermutlich ebenfalls schon
+  grossteils durch die Bau-Units abgedeckt, noch nicht geprueft.
+
+## Iteration 71 — intake-cross-tenant-tests — done — 2026-08-06
+
+- commit: dieser Commit, Titel "test(helpdesk,formulare): close intake cross-tenant gaps"
+- verify vorgaenger: sauber. Commit 6be409f3 (csat-cross-tenant-tests) geprueft: der neue Test
+  TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated seedet zwei echte Tenants mit je einem
+  Ticket + offenem Token gleichzeitig, loest Tenant As Token ein und prueft VOR der Einloesung
+  von Bs Token, dass Bs Ticket und Token unangetastet sind (nicht nur ein SELECT im Nachhinein).
+  Keine der acht Fehlerklassen einschlaegig.
+- Befund vor dem Bauen: wie bei csat-cross-tenant-tests war ein Teil der drei done_when-Punkte
+  schon abgedeckt, aber mit derselben Luecke -- alle bestehenden Tests liefen entweder in einem
+  einzigen Tenant (external_requester_db_test.go, ticket_intake_test.go,
+  ticket_requester_name_db_test.go) oder gegen einen In-Memory-Stub-Repo mit fest verdrahtetem
+  testTenant (form_share_test.go: TestSubmitByShareToken_StoresTheSubmissionAndResolvesTheTenant
+  et al. -- praezise die Token-Verdict- und Quota-Logik, aber ohne RLS). Drei konkrete Luecken:
+  1. Kein Test hatte zwei echte externe Requester-Tickets in zwei Tenants gleichzeitig offen.
+  2. Kein DB-Test bewies, dass der custom_fields-Merge in Service.UpdateTicket nicht auf ein
+     fremdes Ticket zeigen kann, wenn (aus welchem Grund auch immer) die falsche tenantID an den
+     Aufruf gerdet -- GetTicketByID(id, tenantID) laedt tenant-gescoped, aber das war unbelegt.
+  3. Kein DB-Test hat SubmitByShareToken gegen eine echte Postgres-RLS-Situation mit zwei
+     gleichzeitig offenen Tenants/Schemas/Links gefahren; die Stub-Tests koennen keinen
+     RLS-Bruch zeigen, weil sie nie mit RLS liefen.
+- gebaut: drei neue Tests in zwei Paketen.
+  * `internal/formulare/form_share_db_test.go` ::
+    TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped -- seedet Tenant A und B mit je
+    einem aktiven, oeffentlichen Schema und eigenem Share-Link (echte PostgresRepository,
+    echter Service.CreateShareLink), loest A's Token per SubmitByShareToken ein, prueft dass
+    die Submission nur unter ctxA sichtbar ist (AssertRowCount) und Tenant Bs Link/
+    submission_count unangetastet bleibt (ListShareLinks unter ctxB), loest danach B's Token
+    unabhaengig ein und prueft dieselbe Isolation umgekehrt.
+  * `internal/helpdesk/intake_cross_tenant_db_test.go` ::
+    - TestExternalRequester_CrossTenantIsolation -- zwei externe Tickets (requester_id NULL,
+      requester_email gesetzt) in zwei echten Tenants gleichzeitig. Prueft RLS-Row-Count in
+      beide Richtungen UND den tatsaechlichen Lesepfad GetTicketByID/ListTickets (eine
+      bestehende RLS-Row-Count-Pruefung haette einen Bug im expliziten
+      `AND tenant_id = $2`-Praedikat der Queries nicht gefangen, wenn RLS allein durchgetragen
+      haette).
+    - TestUpdateTicket_CustomFieldsMergeCannotCrossTenant -- Tenant B hat ein Ticket mit
+      custom_fields {"vertragsnummer":"geheim-B"}. Service.UpdateTicket wird mit Bs Ticket-ID
+      aber Tenant As tenantID aufgerufen und einem injizierten Zusatzfeld; erwartet
+      ErrTicketNotFound VOR jedem Merge (belegt durch Read-Danach: Bs Feld unveraendert, kein
+      injiziertes Feld). Positivkontrolle direkt danach: derselbe Merge korrekt auf Tenant B
+      scoped gelingt und mergt (nicht ersetzt) -- damit ist die Ablehnung oben nachweislich der
+      Tenant-Guard und kein unabhaengiger Fehler im Testaufbau.
+  Quellcode-Beleg: Service.UpdateTicket (service.go:271) laedt ueber
+  s.repo.GetTicketByID(ctx, id, tenantID) BEVOR customFields ueberhaupt normalisiert oder
+  gemerged wird (service.go:317-325); GetTicketByID (postgres_repository.go:153-158) filtert
+  `WHERE t.id = $1 AND t.tenant_id = $2` und scanTicket uebersetzt pgx.ErrNoRows zu
+  ErrTicketNotFound (postgres_repository.go:1317-1330) -- ein falsches tenantID-Argument kann
+  also nie bis zum Merge durchdringen, das war vorher nur Lesart des Codes, jetzt belegt.
+- gate: `go build ./internal/helpdesk/... ./internal/formulare/...` ok |
+  `go vet ./internal/helpdesk/... ./internal/formulare/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/helpdesk/... ./internal/formulare/...`
+  0 issues | `go test -count=1 ./internal/helpdesk/... ./internal/formulare/...` PASS, beide
+  Pakete | gezielt gegen DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub
+  (Rolle kmuhub_app, NOSUPERUSER NOBYPASSRLS) gelaufen: `go test -v` ueber beide Pakete liefert
+  182 PASS, 0 SKIP -- DATABASE_URL war gesetzt, SkipIfNoDB griff nirgends, "ok" bedeutet hier
+  also wirklich etwas. Die drei neuen Tests einzeln per -run gruen (siehe oben). Kein -race
+  verfuegbar in dieser Umgebung (kein gcc/CGO), wie in jeder frueheren Iteration ohne -race
+  gelaufen.
+- done_when-Abgleich: "oeffentliche Einreichung erzeugt nur im eigenen Tenant" erfuellt durch
+  TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped. "custom_fields-Merge leakt keine
+  fremden Werte" erfuellt durch TestUpdateTicket_CustomFieldsMergeCannotCrossTenant.
+  "externer Requester bleibt tenant-gescopt" erfuellt durch
+  TestExternalRequester_CrossTenantIsolation. "0 uebersprungene Tests" siehe gate-Block.
+- offen: keine neue Sicherheitsluecke gefunden -- alle drei Angriffsflaechen halten, weil die
+  zugrundeliegenden Queries schon korrekt tenant-gescoped waren, es fehlte nur der Beleg.
+  Verbleibende Bloecke: helpdesk-kb-content-opaque, helpdesk-ticket-number-wire,
+  docs-security-interceptor-korrektur (alle todo, keine Deps offen).
+
+## Iteration 72 — helpdesk-kb-content-opaque — done — 2026-08-06
+
+- commit: dieser Commit, Titel "fix(helpdesk): cap kb article content size, document opacity"
+- verify vorgaenger: sauber. Commit f13bf719 (intake-cross-tenant-tests) geprueft: reine
+  Testdateien (form_share_db_test.go, intake_cross_tenant_db_test.go), keine der acht
+  Fehlerklassen einschlaegig -- kein Proto, keine neue Route, keine neue Tabelle, kein neuer
+  Guard, Tests laufen ueber echte PostgresRepository/Service gegen kmuhub_app statt Stub.
+- befund: `helpdesk_kb_articles.content` (Migration 000210) ist TEXT NOT NULL DEFAULT '' ohne
+  jede Groessenbegrenzung -- weder DB-CHECK noch Service noch Gateway-Validierung (models.go,
+  service.go CreateKBArticle/UpdateKBArticle, route_helpdesk.go createKBArticleRequest/
+  updateKBArticleRequest). Kein bluemonday oder sonstiger Sanitizer irgendwo im Backend, wie
+  in der Backlog-Notiz vermutet. Grep ueber `KBArticle|kb_article` in internal/ (ausserhalb
+  helpdesk/, gateway/route_helpdesk.go, server/helpdesk_grpc.go) liefert null Treffer --
+  content wird nirgends in E-Mail-Templates, PDF-Export oder einem anderen Modul angefasst,
+  also auch nirgends serverseitig als HTML interpretiert. Damit bestaetigt: das ist korrekt so
+  (Block-JSON seit G3, Legacy-HTML davor, beides clientseitig ueber die Block-Registry
+  gerendert) und keine XSS-Flaeche -- die Unit bleibt bei defensiver Haertung, kein blocked.
+- gebaut: Groessenbegrenzung 500.000 Runen ueber `validate:"omitempty,max=500000"` an
+  `createKBArticleRequest.Content` und `updateKBArticleRequest.Content`
+  (route_helpdesk.go) -- selbe Boundary-Validierung wie bei jedem anderen Feld in diesem
+  Gateway (decodeAndValidate + go-playground validator), kein neuer Mechanismus. openapi.yaml
+  bekommt `maxLength: 500000` an beiden content-Schemas (POST und PUT /kb-articles), damit
+  Spec und Validierung deckungsgleich bleiben. Dokumentierender Kommentar an
+  `KBArticle.Content` (models.go) haelt die Begruendung fest: Block-JSON/Legacy-HTML, opak,
+  Sanitizing wuerde die JSON-Struktur zerstoeren, die Gateway-Validierung ist die einzige
+  serverseitige Schranke. Zwei neue Tests in route_helpdesk_test.go
+  (TestHandleCreateKBArticle_ContentTooLong, TestHandleUpdateKBArticle_ContentTooLong) belegen
+  die Ablehnung bei 500.001 Zeichen ueber assertValidationError.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./cmd/helpdesk/...
+  ./cmd/gateway/...` ok | `go vet` beide Pakete ok | `golangci-lint run --config .golangci.yml`
+  0 issues | `go test -count=1 ./internal/helpdesk/...` PASS, 107 Tests (`-v` gezaehlt), 0 SKIP,
+  DATABASE_URL gesetzt auf kmuhub_app | `go test -count=1 ./internal/gateway/...` PASS
+  (inkl. TestOpenAPIRouteDrift: 819 registrierte Routen gegen 821 dokumentierte Pfade, gruen)
+  | die beiden neuen Tests einzeln per -run gruen. Keine Migration, keine Proto-Aenderung,
+  kein RLS-Bezug -- Migrate/RLS-Smoke daher n.a. fuer diese Unit.
+- done_when-Abgleich: "Groessenbegrenzung durchgesetzt" erfuellt (Gateway-Validierung, Test).
+  "Kommentar haelt fest warum nicht sanitized" erfuellt (models.go). "nachgewiesen dass content
+  nirgends als HTML behandelt wird" erfuellt (Grep-Beleg oben). "Legacy-HTML bleibt lesbar"
+  erfuellt implizit -- keine Schema- oder Read-Pfad-Aenderung, nur eine Schreib-Grenze.
+- offen: keine neue Luecke. Verbleibende Bloecke: helpdesk-ticket-number-wire,
+  docs-security-interceptor-korrektur (beide todo, keine Deps offen).
+
+## Iteration 73 — helpdesk-ticket-number-wire — done — 2026-08-06
+
+- commit: dieser Commit, Titel "docs(helpdesk): document ticket_number in the wire response"
+- verify vorgaenger: sauber. Commit adf21cd5 (helpdesk-kb-content-opaque) geprueft: nur ein neuer
+  `validate:"omitempty,max=500000"`-Tag an zwei bestehenden Request-DTOs plus ein Doc-Kommentar an
+  KBArticle.Content -- keine neue Route, kein neues Proto, keine neue Tabelle, kein neuer Guard,
+  keine der acht Fehlerklassen einschlaegig. openapi.yaml-Aenderung (maxLength) passt zur
+  Code-Aenderung.
+- befund (Backend-Seite bereits korrekt, kein Code-Bug): `ticket_number` ist durchgaengig im
+  Read-Pfad. Beleg: `ticketSelectColumns` (postgres_repository.go:137-150) selektiert `t.ticket_number`
+  einmal zentral und wird von GetTicketByID UND ListTickets genutzt -- kein separater, driftender
+  Query-Pfad. `ticketToProto` (server/helpdesk_grpc.go:1159-1196, EINE Funktion) setzt
+  `msg.TicketNumber = int32(t.TicketNumber)` und wird von allen zehn Call-Sites verwendet (get,
+  list, create, createFromMessage, update, close, reopen, assign, merge, csat submit) --
+  ticket_number kann also auf keinem Lesepfad fehlen. Der Gateway antwortet ueber
+  `response.Proto`/`response.ProtoList` (server/response/response.go:37-40), protojson mit
+  `UseProtoNames: true` -> das Feld liegt als `ticket_number` (snake_case) auf dem Wire, exakt der
+  Name den ein FE-Typ erwarten wuerde. Bereits bestehende Tests belegen den Repository-Roundtrip:
+  csat_dispatch_db_test.go:95 (`found.TicketNumber == 0` als Fehlerbedingung) und
+  csat_redeem_db_test.go:66-68 (Read nach Schreiben, TicketNumber gleich). Keine neue Testarbeit
+  noetig, das ist bereits abgedeckt -- Arbeit hier erfinden waere gegen die Backlog-Notiz gewesen.
+  FE-Seite (nur zur Diagnose gelesen, nicht angefasst -- desktop/ ist ausserhalb dieses Loops):
+  `helpdesk-types.ts` hat kein `ticket_number` auf `WireTicket`, `helpdesk-adapters.ts:124-137`
+  baut stattdessen `ticketNr` als `HD-<Jahr>-<vierstellig>` aus einem Hash der ersten vier Hex-Zeichen
+  der Ticket-UUID -- eine Pseudo-Nummer, keine Bestandsnummer. Das ist exakt der in der Backlog-Notiz
+  vermutete Grund: das Backend liefert das Feld, der FE-Typ kennt es nur nicht.
+- gebaut: kein Code, nur Dokumentation. `ticket_number: { type: integer, description: ... }`
+  als Property zu den bislang voellig opaken (`{type: object}`) Response-Schemas von
+  `GET /api/v1/helpdesk/tickets/{id}` und `POST /api/v1/helpdesk/tickets` ergaenzt (openapi.yaml).
+  Bewusst NICHT die komplette Ticket-Entity dokumentiert -- im ganzen File gibt es keine
+  components.schemas.Ticket, jede Ticket-Response ist ueberall `{type: object}` (list, update,
+  close, reopen, assign, merge eingeschlossen), das ist eine vorbestehende, flaechendeckende
+  Doku-Luecke fuer die gesamte Entity und keine die diese enge Unit loesen sollte -- eine
+  Vollschema-Ergaenzung waere Arbeit-Erfinden weit ueber den Scope hinaus und ein Risiko (muesste ab
+  jetzt synchron zum Proto gepflegt werden, ohne dass irgendein Test das erzwingt). Die beiden
+  ergaenzten Properties bleiben additiv (`type: object` ohne `additionalProperties: false`), brechen
+  also nichts.
+- gate: `go build -p 2 ./internal/gateway/... ./cmd/gateway/...` ok | `go vet ./internal/gateway/...`
+  ok | `golangci-lint run --config .golangci.yml ./internal/gateway/...` 0 issues |
+  `go test -count=1 ./internal/gateway/...` PASS, DATABASE_URL gesetzt (kmuhub_app); gezielt
+  `-run TestOpenAPIRouteDrift -v`: "checked 819 registered /api/v1/* routes against 821 documented
+  paths", PASS -- die YAML-Aenderung parst sauber und die Routendeckung bleibt unveraendert. Keine
+  Migration, kein Proto, keine neue Tabelle -- migrate/RLS-Smoke n.a. Kein helpdesk-Code geaendert,
+  daher kein separater helpdesk-Testlauf noetig; die zitierten Tests (csat_dispatch_db_test.go,
+  csat_redeem_db_test.go) liefen bereits in frueheren Iterationen gruen und wurden nur als
+  Beleg gelesen, nicht neu ausgefuehrt.
+- done_when-Abgleich: "ticket_number nachweislich im Ticket-Read enthalten" erfuellt (Code- und
+  Test-Beleg oben). "in openapi.yaml dokumentiert" erfuellt (zwei Response-Schemas). "Handreichung
+  fuer die FE-Umstellung im Journal" siehe naechster Absatz.
+- HANDREICHUNG FUER DIE NAECHSTE FRONTEND-SESSION: `Ticket.ticket_number` ist ein `integer`
+  (int32, immer > 0, pro Tenant fortlaufend via `helpdesk_ticket_counters`) und liegt auf JEDER
+  Ticket-Response als `ticket_number` (snake_case) vor -- get, list, create, update, close, reopen,
+  assign, merge, createFromMessage. Fix ist rein clientseitig: `ticket_number` als Pflichtfeld auf
+  `WireTicket` in `desktop/src/renderer/src/api/helpdesk-types.ts` ergaenzen, dann in
+  `helpdesk-adapters.ts:124-137` die Hash-basierte `ticketNr`-Berechnung durch
+  `` `HD-${new Date(t.created_at).getFullYear()}-${String(t.ticket_number).padStart(4, '0')}` ``
+  (oder eine Formatierung nach FE-Geschmack) ersetzen. Kein Backend-Change noetig.
+- offen: keine neue Luecke. `helpdesk-ticket-number-wire` war ein reiner Verifikations- und
+  Doku-Fund, kein Bug. Verbleibender Block: `docs-security-interceptor-korrektur` (todo, keine
+  Deps offen) -- danach ist der Backlog nach aktuellem Stand leer (naechste Iteration muss
+  BACKLOG.yml selbst pruefen, ob zwischenzeitlich neue Units von Luke ergaenzt wurden).
+
+## Iteration 74 — docs-security-interceptor-korrektur — done — 2026-08-06
+
+- commit: dieser Commit, Titel "docs(security): correct TenantInboundUnaryInterceptor coverage claim"
+- verify vorgaenger: sauber. Commit 9e86befc (helpdesk-ticket-number-wire) geprueft: zwei
+  `ticket_number`-Property-Ergaenzungen an bestehenden `{type: object}`-Response-Schemas in
+  openapi.yaml, kein Code, kein Proto, keine Migration, kein Guard -- keine der acht
+  Fehlerklassen einschlaegig.
+- befund: `.knowledge/security.md:20` behauptete "R3-P0-3 (offen): 13 Binaries fehlen noch
+  (wiki, helpdesk, berichte, inventar, einkauf, produktion, schichten, vermietung, fuhrpark,
+  rapporte, vertraege, automation, plugin)". Selbst nachgezaehlt, nicht die Notiz abgeschrieben:
+  `grep -l TenantInboundUnaryInterceptor backend/cmd/*/main.go` liefert 23 Treffer, `ls -d
+  backend/cmd/*/` liefert 24 Verzeichnisse (23 Services + `cmd/gateway`, der als Aufrufer keinen
+  Inbound-Interceptor braucht). Gezielte Schleife ueber alle 23 Nicht-Gateway-Namen
+  (inkl. der 13 genannten) findet keinen einzigen ohne den Interceptor. `git log -1 777b27ad`
+  bestaetigt den Commit: "fix(services): wire TenantInboundUnaryInterceptor in 13 remaining
+  binaries (R3-P0-3)", 2026-06-20 -- exakt die 13 aus der Backlog-Notiz. Zaehlung ist 23/23,
+  keine Abweichung von den erwarteten 13, also kein neuer Fund, nur eine veraltete Doku-Zeile.
+- gebaut: kein Code. `.knowledge/security.md:20` korrigiert -- statt "10 Binaries + 13 offen"
+  jetzt "R3-P0-3 erledigt seit 777b27ad, alle 23 gRPC-cmd-Binaries verdrahtet" mit der
+  Verifikationsmethode (grep gegen ls) und dem Datum im Text, damit die naechste Session nicht
+  erneut nachzaehlen muss, sondern nachvollziehen kann warum es korrekt ist.
+- gate: keine Build-/Test-Gates einschlaegig (reine Markdown-Aenderung, kein Code, keine
+  Migration, kein Proto). `git diff --stat` zeigt ausschliesslich `.knowledge/security.md` und
+  `BACKLOG.yml` (Status-Flag) veraendert.
+- done_when-Abgleich: "Zaehlung selbst durchgefuehrt und im Journal belegt" erfuellt (grep/ls-Beleg
+  oben). "security.md-Zeile entspricht dem Code" erfuellt. "kein Code angefasst" erfuellt.
+- offen: keine neue Luecke. Mit dieser Unit ist BACKLOG.yml nach aktuellem Stand durch --
+  alle uebrigen Units sind `done` oder `blocked` (g-hr-salary-statements, g-admin-billing,
+  fe-projects-guest-overview warten auf eine Produktentscheidung von Luke, nicht auf den Loop).
+  Naechste Iteration muss BACKLOG.yml selbst pruefen, ob Luke tagsueber neue Units ergaenzt hat.

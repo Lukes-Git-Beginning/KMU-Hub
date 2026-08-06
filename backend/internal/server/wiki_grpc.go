@@ -488,6 +488,16 @@ func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.Creat
 		input.ExpiresAt = &t
 	}
 
+	// An absent created_by is recorded as an unknown author rather than
+	// refused -- a malformed one is the caller's error and is not.
+	if cb := req.GetCreatedBy(); cb != "" {
+		id, parseErr := uuid.Parse(cb)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+
 	token, err := s.svc.CreateShareToken(ctx, input)
 	if err != nil {
 		return nil, mapWikiError(err)
@@ -531,6 +541,25 @@ func (s *WikiGRPCServer) RevokeShareToken(ctx context.Context, req *wikiv1.Revok
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.RevokeShareTokenResponse{}, nil
+}
+
+// RedeemShareToken is the only RPC in this service that takes no tenant_id: the
+// public caller has none, and resolving it is exactly what the token does. The
+// whole verdict — expired, no read permission, article gone, article
+// unpublished — collapses into the same NotFound, so this route cannot be used
+// to tell which tokens exist. See wiki.Service.RedeemShareToken.
+func (s *WikiGRPCServer) RedeemShareToken(ctx context.Context, req *wikiv1.RedeemShareTokenRequest) (*wikiv1.RedeemShareTokenResponse, error) {
+	article, err := s.svc.RedeemShareToken(ctx, req.GetToken())
+	if err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.RedeemShareTokenResponse{
+		Article: &wikiv1.SharedArticle{
+			Title:     article.Title,
+			Content:   article.Content,
+			UpdatedAt: timestamppb.New(article.UpdatedAt),
+		},
+	}, nil
 }
 
 // ============================================================================
@@ -629,6 +658,13 @@ func shareTokenToProto(t *wiki.ShareToken) *wikiv1.ShareToken {
 	if t.ExpiresAt != nil {
 		s := t.ExpiresAt.Format(time.RFC3339)
 		p.ExpiresAt = &s
+	}
+	if t.RevokedAt != nil {
+		p.RevokedAt = timestamppb.New(*t.RevokedAt)
+	}
+	if t.CreatedBy != nil {
+		s := t.CreatedBy.String()
+		p.CreatedBy = &s
 	}
 	return p
 }

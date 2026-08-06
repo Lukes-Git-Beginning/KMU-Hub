@@ -152,12 +152,13 @@ func TestEmployeeDocumentWrites_LandInCallerTenant(t *testing.T) {
 	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
 	sysCtx := testutil.WithSystemCtx(context.Background())
 
+	docFileID := uuid.New()
 	doc := &models.EmployeeDocument{
 		ID:         uuid.New(),
 		TenantID:   tenantOwn,
 		EmployeeID: userID,
 		CategoryID: categoryID,
-		FileID:     uuid.New(),
+		FileID:     &docFileID,
 		UploadedBy: userID,
 		Notes:      "write test",
 		CreatedAt:  time.Now().UTC(),

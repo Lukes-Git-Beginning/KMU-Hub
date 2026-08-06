@@ -28,11 +28,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) Create(ctx context.Context, task *models.Task) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO tasks (id, tenant_id, project_id, task_number, title, description, status_id, priority,
-		  assignee_id, parent_task_id, depth, sort_order, due_date, created_by, created_at, updated_at, completed_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+		  assignee_id, parent_task_id, depth, sort_order, start_date, due_date, created_by, created_at, updated_at, completed_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
 		task.ID, task.TenantID, task.ProjectID, task.TaskNumber, task.Title, task.Description,
 		task.StatusID, task.Priority, task.AssigneeID, task.ParentTaskID,
-		task.Depth, task.SortOrder, task.DueDate, task.CreatedBy,
+		task.Depth, task.SortOrder, task.StartDate, task.DueDate, task.CreatedBy,
 		task.CreatedAt, task.UpdatedAt, task.CompletedAt,
 	)
 	return err
@@ -53,7 +53,7 @@ func (r *PostgresRepository) GetNextTaskNumber(ctx context.Context, tenantID, pr
 
 const getByIDQuery = `
 SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
        t.created_by, t.created_at, t.updated_at, t.completed_at,
        ps.name AS status_name, ps.color AS status_color,
        u.first_name || ' ' || u.last_name AS assignee_name,
@@ -72,7 +72,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID
 	err := r.pool.QueryRow(ctx, getByIDQuery, id, tenantID).Scan(
 		&tw.ID, &tw.ProjectID, &tw.TaskNumber, &tw.Title, &tw.Description,
 		&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
-		&tw.Depth, &tw.SortOrder, &tw.DueDate, &tw.CreatedBy,
+		&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 		&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
 		&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
 		&tw.SubtaskCount, &tw.HasBlockedDeps,
@@ -194,7 +194,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 
 	listQuery := fmt.Sprintf(`
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
 		       ps.name AS status_name, ps.color AS status_color,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
@@ -224,7 +224,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		if scanErr := rows.Scan(
 			&tw.ID, &tw.ProjectID, &tw.TaskNumber, &tw.Title, &tw.Description,
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
-			&tw.Depth, &tw.SortOrder, &tw.DueDate, &tw.CreatedBy,
+			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
 			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,
@@ -240,11 +240,11 @@ func (r *PostgresRepository) Update(ctx context.Context, task *models.Task) erro
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE tasks SET title = $1, description = $2, status_id = $3, priority = $4,
 		  assignee_id = $5, parent_task_id = $6, depth = $7, sort_order = $8,
-		  due_date = $9, updated_at = $10, completed_at = $11
-		 WHERE id = $12 AND tenant_id = $13`,
+		  start_date = $9, due_date = $10, updated_at = $11, completed_at = $12
+		 WHERE id = $13 AND tenant_id = $14`,
 		task.Title, task.Description, task.StatusID, task.Priority,
 		task.AssigneeID, task.ParentTaskID, task.Depth, task.SortOrder,
-		task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID, task.TenantID,
+		task.StartDate, task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID, task.TenantID,
 	)
 	if err != nil {
 		return err
@@ -266,10 +266,10 @@ func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
+func (r *PostgresRepository) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, completedAt *time.Time) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3 WHERE id = $4 AND tenant_id = $5`,
-		newStatusID, newSortOrder, time.Now(), taskID, tenantID,
+		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3, completed_at = $4 WHERE id = $5 AND tenant_id = $6`,
+		newStatusID, newSortOrder, time.Now(), completedAt, taskID, tenantID,
 	)
 	return err
 }
@@ -278,7 +278,7 @@ func (r *PostgresRepository) GetSubtasks(ctx context.Context, parentID uuid.UUID
 	rows, err := r.pool.Query(ctx, `
 		WITH RECURSIVE subtree AS (
 			SELECT id, project_id, task_number, title, description, status_id, priority,
-			       assignee_id, parent_task_id, depth, sort_order, due_date,
+			       assignee_id, parent_task_id, depth, sort_order, start_date, due_date,
 			       created_by, created_at, updated_at, completed_at
 			FROM tasks
 			WHERE parent_task_id = $1
@@ -286,14 +286,14 @@ func (r *PostgresRepository) GetSubtasks(ctx context.Context, parentID uuid.UUID
 			UNION ALL
 
 			SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-			       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+			       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 			       t.created_by, t.created_at, t.updated_at, t.completed_at
 			FROM tasks t
 			INNER JOIN subtree s ON t.parent_task_id = s.id
 			WHERE t.depth <= $2
 		)
 		SELECT st.id, st.project_id, st.task_number, st.title, st.description, st.status_id, st.priority,
-		       st.assignee_id, st.parent_task_id, st.depth, st.sort_order, st.due_date,
+		       st.assignee_id, st.parent_task_id, st.depth, st.sort_order, st.start_date, st.due_date,
 		       st.created_by, st.created_at, st.updated_at, st.completed_at,
 		       ps.name AS status_name, ps.color AS status_color,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
@@ -318,7 +318,7 @@ func (r *PostgresRepository) GetParentChain(ctx context.Context, taskID uuid.UUI
 	rows, err := r.pool.Query(ctx, `
 		WITH RECURSIVE chain AS (
 			SELECT id, project_id, task_number, title, description, status_id, priority,
-			       assignee_id, parent_task_id, depth, sort_order, due_date,
+			       assignee_id, parent_task_id, depth, sort_order, start_date, due_date,
 			       created_by, created_at, updated_at, completed_at
 			FROM tasks
 			WHERE id = $1
@@ -326,13 +326,13 @@ func (r *PostgresRepository) GetParentChain(ctx context.Context, taskID uuid.UUI
 			UNION ALL
 
 			SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-			       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+			       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 			       t.created_by, t.created_at, t.updated_at, t.completed_at
 			FROM tasks t
 			INNER JOIN chain c ON t.id = c.parent_task_id
 		)
 		SELECT id, project_id, task_number, title, description, status_id, priority,
-		       assignee_id, parent_task_id, depth, sort_order, due_date,
+		       assignee_id, parent_task_id, depth, sort_order, start_date, due_date,
 		       created_by, created_at, updated_at, completed_at
 		FROM chain
 		ORDER BY depth ASC
@@ -348,7 +348,7 @@ func (r *PostgresRepository) GetParentChain(ctx context.Context, taskID uuid.UUI
 		if scanErr := rows.Scan(
 			&t.ID, &t.ProjectID, &t.TaskNumber, &t.Title, &t.Description,
 			&t.StatusID, &t.Priority, &t.AssigneeID, &t.ParentTaskID,
-			&t.Depth, &t.SortOrder, &t.DueDate, &t.CreatedBy,
+			&t.Depth, &t.SortOrder, &t.StartDate, &t.DueDate, &t.CreatedBy,
 			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); scanErr != nil {
 			return nil, scanErr
@@ -518,7 +518,7 @@ func (r *PostgresRepository) ListEntityLinks(ctx context.Context, taskID uuid.UU
 func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
 		       ps.name AS status_name, ps.color AS status_color,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
@@ -692,7 +692,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 
 	searchQuery := fmt.Sprintf(`
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
-		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.due_date,
+		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
 		       ps.name AS status_name, ps.color AS status_color,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
@@ -726,7 +726,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 func (r *PostgresRepository) ListByProject(ctx context.Context, projectID uuid.UUID) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, project_id, task_number, title, description, status_id, priority,
-		        assignee_id, parent_task_id, depth, sort_order, due_date,
+		        assignee_id, parent_task_id, depth, sort_order, start_date, due_date,
 		        created_by, created_at, updated_at, completed_at
 		 FROM tasks WHERE project_id = $1 ORDER BY depth ASC, sort_order ASC`,
 		projectID,
@@ -742,7 +742,7 @@ func (r *PostgresRepository) ListByProject(ctx context.Context, projectID uuid.U
 		if scanErr := rows.Scan(
 			&t.ID, &t.ProjectID, &t.TaskNumber, &t.Title, &t.Description,
 			&t.StatusID, &t.Priority, &t.AssigneeID, &t.ParentTaskID,
-			&t.Depth, &t.SortOrder, &t.DueDate, &t.CreatedBy,
+			&t.Depth, &t.SortOrder, &t.StartDate, &t.DueDate, &t.CreatedBy,
 			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); scanErr != nil {
 			return nil, scanErr
@@ -810,7 +810,7 @@ func scanTasksWithRelations(rows pgx.Rows) ([]models.TaskWithRelations, error) {
 		if scanErr := rows.Scan(
 			&tw.ID, &tw.ProjectID, &tw.TaskNumber, &tw.Title, &tw.Description,
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
-			&tw.Depth, &tw.SortOrder, &tw.DueDate, &tw.CreatedBy,
+			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
 			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,

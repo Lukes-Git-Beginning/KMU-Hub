@@ -11,6 +11,8 @@ var (
 	ErrUnauthorizedFieldUpdate = errors.New("unauthorized to update these fields")
 	// ErrDocumentCategoryNotFound is returned when a document category does not exist.
 	ErrDocumentCategoryNotFound = errors.New("document category not found")
+	// ErrEmployeeRequired is returned when a document upload names no employee.
+	ErrEmployeeRequired = errors.New("employee id is required")
 	// ErrDocumentNotFound is returned when an employee document does not exist.
 	ErrDocumentNotFound = errors.New("employee document not found")
 	// ErrInsufficientDocumentAccess is returned when a caller does not have access to view a document.

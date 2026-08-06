@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
 // HelpdeskGRPCServer implements the HelpdeskService gRPC server.
@@ -26,13 +29,107 @@ type HelpdeskGRPCServer struct {
 	// unreachable. Only CreateTicketFromMessage needs it -- every other RPC
 	// degrades gracefully without it.
 	inboxClient inboxv1.InboxServiceClient
+	// settingsClient is optional; nil if the settings service (co-located
+	// with auth) is unreachable. GetCsatConfig/SetCsatConfig degrade
+	// gracefully without it (Get returns defaults, Set is Unavailable).
+	settingsClient settingsv1.SettingsServiceClient
 }
 
-// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient may be
-// nil, which disables CreateTicketFromMessage (Unavailable) but leaves every
-// other RPC unaffected.
-func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient) *HelpdeskGRPCServer {
-	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient}
+// NewHelpdeskGRPCServer creates a new Helpdesk gRPC server. inboxClient and
+// settingsClient may be nil, which disables CreateTicketFromMessage
+// (Unavailable) resp. degrades CSAT config access, but leaves every other RPC
+// unaffected.
+func NewHelpdeskGRPCServer(svc *helpdesk.Service, inboxClient inboxv1.InboxServiceClient, settingsClient settingsv1.SettingsServiceClient) *HelpdeskGRPCServer {
+	return &HelpdeskGRPCServer{svc: svc, inboxClient: inboxClient, settingsClient: settingsClient}
+}
+
+// ============================================================================
+// CSAT tenant configuration (no dedicated RPC yet -- Go-level only, for
+// csat-survey-token (BACKLOG.yml) to call once ticket-close needs to decide
+// whether to mint a survey token. No FE contract binds a route to this yet,
+// so none is added here (see JOURNAL.md, csat-tenant-config).
+// ============================================================================
+
+// GetCsatConfig returns the tenant's CSAT survey configuration, defaulting to
+// helpdesk.DefaultCsatConfig() when the tenant has never written one or the
+// settings service is unreachable -- CSAT config is a secondary concern that
+// must not break ticket flows.
+func (s *HelpdeskGRPCServer) GetCsatConfig(ctx context.Context, tenantID uuid.UUID) (helpdesk.CsatConfig, error) {
+	if s.settingsClient == nil {
+		return helpdesk.DefaultCsatConfig(), nil
+	}
+	resp, err := s.settingsClient.GetTenantSettings(ctx, &settingsv1.GetTenantSettingsRequest{
+		TenantId: tenantID.String(),
+		ModuleId: helpdesk.CsatConfigModuleID,
+	})
+	if err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	return csatConfigFromEntries(resp.GetEntries()), nil
+}
+
+// SetCsatConfig validates and writes the tenant's CSAT survey configuration.
+// RBAC (admin or module-lead for "helpdesk_csat") is enforced by the settings
+// service's PutTenantSettings, not here.
+func (s *HelpdeskGRPCServer) SetCsatConfig(ctx context.Context, tenantID, callerID uuid.UUID, cfg helpdesk.CsatConfig) (helpdesk.CsatConfig, error) {
+	if err := helpdesk.ValidateCsatConfig(cfg); err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	if s.settingsClient == nil {
+		return helpdesk.CsatConfig{}, status.Error(codes.Unavailable, "settings service not available")
+	}
+	value, err := csatConfigToValue(cfg)
+	if err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	if _, err := s.settingsClient.PutTenantSettings(ctx, &settingsv1.PutTenantSettingsRequest{
+		TenantId:  tenantID.String(),
+		ModuleId:  helpdesk.CsatConfigModuleID,
+		UpdatedBy: callerID.String(),
+		Entries: []*settingsv1.SettingEntry{
+			{Key: helpdesk.CsatConfigEntryKey, Value: value},
+		},
+	}); err != nil {
+		return helpdesk.CsatConfig{}, err
+	}
+	return cfg, nil
+}
+
+// csatConfigToValue encodes a CsatConfig as the single JSON object stored
+// under helpdesk.CsatConfigEntryKey (a full replace, not a sparse patch --
+// there is exactly one CSAT config per tenant).
+func csatConfigToValue(cfg helpdesk.CsatConfig) (*structpb.Value, error) {
+	return structpb.NewValue(map[string]any{
+		"enabled":       cfg.Enabled,
+		"delay_minutes": float64(cfg.SurveyDelayMinutes),
+		"question":      cfg.SurveyQuestion,
+	})
+}
+
+// csatConfigFromEntries decodes the CsatConfigEntryKey entry, defaulting any
+// field that is absent or the wrong JSON type -- including every field, when
+// the tenant has no row yet (entries is empty).
+func csatConfigFromEntries(entries []*settingsv1.SettingEntry) helpdesk.CsatConfig {
+	cfg := helpdesk.DefaultCsatConfig()
+	for _, e := range entries {
+		if e.GetKey() != helpdesk.CsatConfigEntryKey {
+			continue
+		}
+		raw, ok := e.GetValue().AsInterface().(map[string]any)
+		if !ok {
+			continue
+		}
+		if v, ok := raw["enabled"].(bool); ok {
+			cfg.Enabled = v
+		}
+		if v, ok := raw["delay_minutes"].(float64); ok {
+			cfg.SurveyDelayMinutes = int32(v)
+		}
+		if v, ok := raw["question"].(string); ok {
+			cfg.SurveyQuestion = v
+		}
+	}
+	return cfg
 }
 
 // ============================================================================
@@ -45,9 +142,17 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
 	}
 
-	requesterID, err := uuid.Parse(req.GetRequesterId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+	// An empty requester_id is the external requester (000291): the public and
+	// form intake paths have no session user to name. It stays a hard parse
+	// error when a value is present but malformed, and the service rejects the
+	// combination "no requester_id and no external reply address".
+	var requesterID *uuid.UUID
+	if raw := req.GetRequesterId(); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid requester_id: %v", err)
+		}
+		requesterID = &id
 	}
 
 	var assigneeID *uuid.UUID
@@ -86,7 +191,15 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		orgID = &id
 	}
 
-	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID)
+	intake := helpdesk.TicketIntake{
+		Channel:             req.GetChannel(),
+		RequesterEmail:      req.RequesterEmail,
+		RequesterName:       req.RequesterName,
+		RequesterIsExternal: req.GetRequesterIsExternal(),
+		CustomFields:        req.GetCustomFields().AsMap(),
+	}
+
+	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory(), contactID, orgID, intake)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -215,7 +328,7 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		orgID = &oid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID, contactID, orgID)
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Status, req.Priority, assigneeID, queueID, contactID, orgID, req.GetCustomFields().AsMap())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -235,7 +348,93 @@ func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.Cl
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
+	s.issueCsatSurvey(ctx, tenantID, t)
 	return ticketToProto(t), nil
+}
+
+// issueCsatSurvey mints a CSAT survey link for a ticket that was just closed,
+// if the tenant has surveys enabled.
+//
+// Every failure in here is logged and swallowed: closing the ticket is what the
+// caller asked for and has already succeeded at this point, the survey is the
+// side errand. Returning an error would roll a successful close back into a
+// failed RPC for the agent who clicked "close".
+func (s *HelpdeskGRPCServer) issueCsatSurvey(ctx context.Context, tenantID uuid.UUID, t *helpdesk.Ticket) {
+	cfg, err := s.GetCsatConfig(ctx, tenantID)
+	if err != nil {
+		slog.WarnContext(ctx, "helpdesk: csat config unavailable, no survey token issued",
+			"ticket_id", t.ID, "error", err)
+		return
+	}
+	if _, err := s.svc.IssueCsatSurveyToken(ctx, t, cfg); err != nil {
+		slog.WarnContext(ctx, "helpdesk: csat survey token not issued",
+			"ticket_id", t.ID, "error", err)
+	}
+}
+
+func (s *HelpdeskGRPCServer) SubmitCsat(ctx context.Context, req *helpdeskv1.SubmitCsatRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	id, err := uuid.Parse(req.GetTicketId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
+	}
+	// Range check stays in the service; here we only guard the int32 -> int16
+	// narrowing so an out-of-range wire value cannot wrap into a valid rating.
+	rating := req.GetRating()
+	if rating < 1 || rating > 5 {
+		return nil, status.Error(codes.InvalidArgument, helpdesk.ErrInvalidCsatRating.Error())
+	}
+
+	var comment *string
+	if req.Comment != nil {
+		c := strings.TrimSpace(req.GetComment())
+		if c != "" {
+			comment = &c
+		}
+	}
+
+	t, err := s.svc.SubmitCsat(ctx, id, tenantID, int16(rating), comment)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return ticketToProto(t), nil
+}
+
+// SubmitCsatByToken redeems a survey link. Unlike every other RPC here it does
+// NOT read a tenant from the context: the public caller has none, and the
+// token resolves the tenant itself inside the service. Nothing about the
+// ticket goes back over the wire beyond the number the customer already has
+// from the invitation mail.
+func (s *HelpdeskGRPCServer) SubmitCsatByToken(
+	ctx context.Context,
+	req *helpdeskv1.SubmitCsatByTokenRequest,
+) (*helpdeskv1.SubmitCsatByTokenResponse, error) {
+	// Guards the int32 -> int16 narrowing so an out-of-range wire value cannot
+	// wrap into a valid rating; the range check itself lives in the service.
+	rating := req.GetRating()
+	if rating < 1 || rating > 5 {
+		return nil, status.Error(codes.InvalidArgument, helpdesk.ErrInvalidCsatRating.Error())
+	}
+
+	var comment *string
+	if req.Comment != nil {
+		c := strings.TrimSpace(req.GetComment())
+		if c != "" {
+			comment = &c
+		}
+	}
+
+	res, err := s.svc.SubmitCsatByToken(ctx, req.GetToken(), int16(rating), comment)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return &helpdeskv1.SubmitCsatByTokenResponse{
+		TicketNumber: int32(res.TicketNumber), //nolint:gosec // per-tenant counter, far below int32
+		Rating:       int32(res.Rating),
+	}, nil
 }
 
 func (s *HelpdeskGRPCServer) ReopenTicket(ctx context.Context, req *helpdeskv1.ReopenTicketRequest) (*helpdeskv1.Ticket, error) {
@@ -948,14 +1147,26 @@ func (s *HelpdeskGRPCServer) GetHelpdeskStats(ctx context.Context, req *helpdesk
 // Proto ↔ Domain conversion helpers
 // ============================================================================
 
+// requesterIDToProto renders a nullable requester id onto the wire. External
+// requesters (000291) have none.
+func requesterIDToProto(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
 func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	msg := &helpdeskv1.Ticket{
 		Id:          t.ID.String(),
 		TenantId:    t.TenantID.String(),
 		Subject:     t.Subject,
 		Status:      t.Status,
-		Priority:    t.Priority,
-		RequesterId: t.RequesterID.String(),
+		Priority: t.Priority,
+		// Empty string for an external requester, who has no user id. The
+		// module types requester_id as a plain string and renders the display
+		// name from requester_name, so an absent id reads as "" there too.
+		RequesterId: requesterIDToProto(t.RequesterID),
 		CreatedAt:   timestamppb.New(t.CreatedAt),
 		UpdatedAt:   timestamppb.New(t.UpdatedAt),
 	}
@@ -1001,6 +1212,25 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	if t.SourceMessageID != nil {
 		s := t.SourceMessageID.String()
 		msg.SourceMessageId = &s
+	}
+	if t.CsatRating != nil {
+		v := int32(*t.CsatRating)
+		msg.CsatRating = &v
+	}
+	if t.CsatComment != nil {
+		msg.CsatComment = t.CsatComment
+	}
+	msg.Channel = t.Channel
+	msg.RequesterEmail = t.RequesterEmail
+	msg.RequesterIsExternal = t.RequesterIsExternal
+	// A ticket whose custom fields will not convert is still a ticket: drop
+	// the map rather than fail the read. structpb only rejects values the
+	// intake validation already refuses, so this is a belt-and-braces branch.
+	if fields, err := structpb.NewStruct(t.CustomFields); err == nil {
+		msg.CustomFields = fields
+	} else {
+		slog.Warn("helpdesk: ticket custom_fields not representable, omitted from response",
+			"ticket_id", t.ID, "error", err)
 	}
 	return msg
 }
@@ -1151,6 +1381,24 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrOrgNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrInvalidSourceChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidRequesterEmail):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrRequesterNameTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidCustomFields):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrMissingRequester):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrCsatSurveyNotFound):
+		// Unknown, malformed, expired, revoked and already-redeemed links all
+		// land here on purpose: one verdict, no existence oracle.
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrCsatCommentTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, helpdesk.ErrInvalidCsatRating):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrMessageAlreadyLinked):
 		// Only reachable if the post-conflict re-fetch in

@@ -44,7 +44,18 @@ var validFieldTypes = map[string]struct{}{
 	"select": {}, "radio": {}, "checkbox": {}, "date": {}, "file": {},
 }
 
-// validateFields unmarshals a JSONB fields array and checks each field.Type.
+// validIntakeRoles is the fixed set of field roles a form author can assign
+// (components/shared/intake/types.ts + the Helpdesk target's role list,
+// modules/helpdesk/intake/helpdesk-ticket-target.ts). A single flat list
+// today because there is exactly one registered target; if a second target
+// needs roles this list does not offer, that becomes a per-target check.
+var validIntakeRoles = map[string]struct{}{
+	"subject": {}, "description": {}, "priority": {}, "category": {},
+	"requester_name": {}, "requester_email": {},
+}
+
+// validateFields unmarshals a JSONB fields array and checks each field.Type
+// and, if set, field.Role.
 func validateFields(fields []byte) error {
 	if len(fields) == 0 || string(fields) == "[]" || string(fields) == "null" {
 		return nil
@@ -62,6 +73,11 @@ func validateFields(fields []byte) error {
 		}
 		if _, ok := validFieldTypes[f.Type]; !ok {
 			return ErrInvalidFields
+		}
+		if f.Role != "" {
+			if _, ok := validIntakeRoles[f.Role]; !ok {
+				return ErrInvalidFields
+			}
 		}
 	}
 	return nil
@@ -81,6 +97,19 @@ func normalizePaging(limit, offset int32) (int, int) {
 		o = 0
 	}
 	return l, o
+}
+
+// normalizeIntakeTargetID trims a proposed intake target id and collapses an
+// empty result to nil ("no binding") rather than storing an empty string.
+func normalizeIntakeTargetID(id *string) *string {
+	if id == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*id)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 // maskSecret masks a webhook secret for read responses: last 4 chars with dot padding.
@@ -150,6 +179,9 @@ type CreateSchemaInput struct {
 	IsPublic    bool
 	PageCount   int
 	CreatedBy   *uuid.UUID
+	// IntakeTargetID binds the new schema to a module intake target. Nil =
+	// unbound (a plain form).
+	IntakeTargetID *string
 }
 
 // UpdateSchemaInput captures partial updates on a form schema.
@@ -163,6 +195,10 @@ type UpdateSchemaInput struct {
 	IsTemplate  *bool
 	IsPublic    *bool
 	PageCount   *int
+	// IntakeTargetID, when non-nil, replaces the schema's intake binding
+	// (same nil-means-no-change convention as Title/Description above). A
+	// pointer to "" clears the binding.
+	IntakeTargetID *string
 }
 
 // ListSchemasInput is the user-facing schema list request.
@@ -269,18 +305,19 @@ func (s *Service) CreateFormSchema(ctx context.Context, in CreateSchemaInput) (*
 
 	now := time.Now().UTC()
 	schema := &FormSchema{
-		ID:          uuid.New(),
-		TenantID:    in.TenantID,
-		Title:       title,
-		Description: strings.TrimSpace(in.Description),
-		Fields:      fields,
-		Status:      status,
-		IsTemplate:  in.IsTemplate,
-		IsPublic:    in.IsPublic,
-		PageCount:   pageCount,
-		CreatedBy:   in.CreatedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             uuid.New(),
+		TenantID:       in.TenantID,
+		Title:          title,
+		Description:    strings.TrimSpace(in.Description),
+		Fields:         fields,
+		Status:         status,
+		IsTemplate:     in.IsTemplate,
+		IsPublic:       in.IsPublic,
+		PageCount:      pageCount,
+		CreatedBy:      in.CreatedBy,
+		IntakeTargetID: normalizeIntakeTargetID(in.IntakeTargetID),
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	if err := s.repo.CreateSchema(ctx, schema); err != nil {
@@ -334,6 +371,9 @@ func (s *Service) UpdateFormSchema(ctx context.Context, in UpdateSchemaInput) (*
 	}
 	if in.PageCount != nil {
 		schema.PageCount = max(*in.PageCount, 1)
+	}
+	if in.IntakeTargetID != nil {
+		schema.IntakeTargetID = normalizeIntakeTargetID(in.IntakeTargetID)
 	}
 
 	schema.UpdatedAt = time.Now().UTC()

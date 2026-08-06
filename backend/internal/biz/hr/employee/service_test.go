@@ -123,8 +123,48 @@ func (m *mockDocCategoryRepo) GetByID(_ context.Context, tenantID, id uuid.UUID)
 	return c, nil
 }
 
+func (m *mockDocCategoryRepo) GetByKey(_ context.Context, tenantID uuid.UUID, key string) (*models.HRDocumentCategory, error) {
+	// Mirrors the Postgres repo's ORDER BY (tenant_id = $2) DESC: the tenant's
+	// own row wins over the system seed carrying the same key.
+	var seed *models.HRDocumentCategory
+	for _, c := range m.categories {
+		if c.Key != key {
+			continue
+		}
+		if c.TenantID == tenantID {
+			return c, nil
+		}
+		if c.TenantID == systemSeedTenantID {
+			seed = c
+		}
+	}
+	if seed != nil {
+		return seed, nil
+	}
+	return nil, ErrDocumentCategoryNotFound
+}
+
 type mockDocRepo struct {
 	documents []*models.EmployeeDocument
+}
+
+func (m *mockDocRepo) ListByTenant(_ context.Context, tenantID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	results := make([]*models.EmployeeDocument, 0)
+	for _, d := range m.documents {
+		if d.TenantID == tenantID {
+			results = append(results, d)
+		}
+	}
+	return results, nil
+}
+
+func (m *mockDocRepo) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.EmployeeDocument, error) {
+	for _, d := range m.documents {
+		if d.ID == id && d.TenantID == tenantID {
+			return d, nil
+		}
+	}
+	return nil, ErrDocumentNotFound
 }
 
 func newMockDocRepo() *mockDocRepo {
@@ -136,35 +176,18 @@ func (m *mockDocRepo) Create(_ context.Context, doc *models.EmployeeDocument) er
 	return nil
 }
 
-func (m *mockDocRepo) ListByEmployee(_ context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
+// ListByEmployee does no visibility filtering, mirroring the real repository:
+// the tiers live in RLS policy hr_document_access, which a mock cannot stand
+// in for. TestListEmployeeDocuments_LeavesVisibilityToThePolicy pins that
+// down; the tiers themselves are covered against the real policy in
+// internal/biz/hr/hr_role_based_test.go.
+func (m *mockDocRepo) ListByEmployee(_ context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
 	var results []*models.EmployeeDocument
 	for _, d := range m.documents {
 		if d.EmployeeID == employeeID {
 			results = append(results, d)
 		}
 	}
-	// Simulate visibility filtering
-	if callerRole == "employee" {
-		// Return only employee-visible docs
-		var filtered []*models.EmployeeDocument
-		for _, d := range results {
-			if d.CategoryName == "Sonstiges" { // employee-visible category
-				filtered = append(filtered, d)
-			}
-		}
-		return filtered, nil
-	}
-	if callerRole == "manager" {
-		// Return manager and employee visible docs
-		var filtered []*models.EmployeeDocument
-		for _, d := range results {
-			if d.CategoryName == "Sonstiges" || d.CategoryName == "Zeugnisse" {
-				filtered = append(filtered, d)
-			}
-		}
-		return filtered, nil
-	}
-	// admin/hr: return all
 	return results, nil
 }
 
@@ -349,118 +372,35 @@ func TestUpdateSelfProfile(t *testing.T) {
 // Tests: Document Access
 // ============================================================================
 
-func TestListEmployeeDocuments_EmployeeVisibility(t *testing.T) {
+// The four tests that used to live here asserted the visibility tiers against
+// a mock that simulated them by category NAME -- they proved that the fake
+// filtered, not that anything real does. The tiers are enforced by RLS policy
+// hr_document_access and are covered against that policy, with actual roles on
+// the session, in internal/biz/hr/hr_role_based_test.go. What is worth pinning
+// down here is the boundary itself: this layer passes documents through and
+// takes no role from its caller.
+func TestListEmployeeDocuments_LeavesVisibilityToThePolicy(t *testing.T) {
 	svc, _, _, docRepo := setupTestService()
 	ctx := context.Background()
 
-	// Add documents with different categories
+	other := uuid.New()
 	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Arbeitsvertrag"}, // hr_only
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Zeugnisse"},      // manager
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Sonstiges"},      // employee
+		{ID: uuid.New(), EmployeeID: other, CategoryName: "Sonstiges"},
 	}
 
-	// Employee sees only employee-visible docs
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, testUserID, "employee")
+	docs, err := svc.ListEmployeeDocuments(ctx, testUserID)
 	require.NoError(t, err)
-	assert.Len(t, docs, 1)
-	assert.Equal(t, "Sonstiges", docs[0].CategoryName)
-}
 
-func TestListEmployeeDocuments_ManagerVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
-	}
-
-	// Manager sees manager + employee visible docs
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, testManagerUserID, "manager")
-	require.NoError(t, err)
-	assert.Len(t, docs, 2)
-}
-
-func TestListEmployeeDocuments_HRVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
-	}
-
-	// HR sees all
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, uuid.New(), "hr")
-	require.NoError(t, err)
+	// Every tier comes through: the service applies no visibility filter of
+	// its own, so a second one can never drift away from the policy.
 	assert.Len(t, docs, 3)
-}
-
-func TestListEmployeeDocuments_AdminVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag",
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Abmahnungen",
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges",
-		},
+	// The employee scoping is this layer's own job and still holds.
+	for _, d := range docs {
+		assert.Equal(t, testUserID, d.EmployeeID)
 	}
-
-	// Admin sees all
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, uuid.New(), "admin")
-	require.NoError(t, err)
-	assert.Len(t, docs, 3)
 }
 
 // ============================================================================
@@ -471,10 +411,11 @@ func TestUploadEmployeeDocument_Success(t *testing.T) {
 	svc, _, _, _ := setupTestService()
 	ctx := context.Background()
 
+	fileID := uuid.New()
 	doc, err := svc.UploadEmployeeDocument(ctx, testTenantID, UploadDocumentInput{
 		EmployeeID: testUserID,
 		CategoryID: testCatID,
-		FileID:     uuid.New(),
+		FileID:     &fileID,
 		UploadedBy: testManagerUserID,
 		Notes:      "Neuer Vertrag",
 	})
@@ -489,10 +430,11 @@ func TestUploadEmployeeDocument_InvalidCategory(t *testing.T) {
 	svc, _, _, _ := setupTestService()
 	ctx := context.Background()
 
+	fileID := uuid.New()
 	_, err := svc.UploadEmployeeDocument(ctx, testTenantID, UploadDocumentInput{
 		EmployeeID: testUserID,
 		CategoryID: uuid.New(), // Non-existent
-		FileID:     uuid.New(),
+		FileID:     &fileID,
 		UploadedBy: testManagerUserID,
 	})
 	assert.ErrorIs(t, err, ErrDocumentCategoryNotFound)
@@ -574,4 +516,153 @@ func TestListDocumentCategories_UnknownScopeDefaultsRestrictive(t *testing.T) {
 	cats, err := svc.ListDocumentCategories(ctx, testTenantID, "")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"employee_cat"}, categoryKeys(cats))
+}
+
+// ============================================================================
+// Tests: Personnel documents (hr-personnel-documents)
+// ============================================================================
+
+func TestUploadEmployeeDocument_ByCategoryKey(t *testing.T) {
+	svc, _, _, docRepo := setupTestService()
+	ctx := context.Background()
+
+	expires := time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)
+	doc, err := svc.UploadEmployeeDocument(ctx, testTenantID, UploadDocumentInput{
+		EmployeeID:  testUserID,
+		CategoryKey: "arbeitsvertrag",
+		UploadedBy:  testManagerUserID,
+		Title:       "Arbeitsvertrag 2027",
+		FileName:    "vertrag.pdf",
+		FileSize:    "120 KB",
+		ExpiresAt:   &expires,
+	})
+	require.NoError(t, err)
+
+	// The slug must resolve to the category id, and the tier the category
+	// carries must come back with the document — the UI gates on it.
+	assert.Equal(t, testCatID, doc.CategoryID)
+	assert.Equal(t, "arbeitsvertrag", doc.CategoryKey)
+	assert.Equal(t, string(models.HRDocVisibilityHROnly), doc.Visibility)
+	assert.Equal(t, "Arbeitsvertrag 2027", doc.Title)
+	assert.Equal(t, "vertrag.pdf", doc.FileName)
+	require.NotNil(t, doc.ExpiresAt)
+	assert.Equal(t, expires, *doc.ExpiresAt)
+	// Metadata-only: no file linked yet, which must not be a nil-UUID either.
+	assert.Nil(t, doc.FileID)
+
+	require.Len(t, docRepo.documents, 1)
+	assert.Equal(t, doc.ID, docRepo.documents[0].ID)
+}
+
+func TestUploadEmployeeDocument_UnknownCategoryKey(t *testing.T) {
+	svc, _, _, docRepo := setupTestService()
+
+	_, err := svc.UploadEmployeeDocument(context.Background(), testTenantID, UploadDocumentInput{
+		EmployeeID:  testUserID,
+		CategoryKey: "gibt-es-nicht",
+		UploadedBy:  testManagerUserID,
+		Title:       "Irgendwas",
+	})
+	assert.ErrorIs(t, err, ErrDocumentCategoryNotFound)
+	assert.Empty(t, docRepo.documents, "a rejected upload must not leave a row behind")
+}
+
+func TestUploadEmployeeDocument_NoCategoryAtAll(t *testing.T) {
+	svc, _, _, _ := setupTestService()
+
+	_, err := svc.UploadEmployeeDocument(context.Background(), testTenantID, UploadDocumentInput{
+		EmployeeID: testUserID,
+		UploadedBy: testManagerUserID,
+		Title:      "Ohne Kategorie",
+	})
+	assert.ErrorIs(t, err, ErrDocumentCategoryNotFound)
+}
+
+// A document must never land in an unnamed personnel record: without an
+// employee it would silently attach to the zero UUID.
+func TestUploadEmployeeDocument_EmployeeRequired(t *testing.T) {
+	svc, _, _, docRepo := setupTestService()
+
+	_, err := svc.UploadEmployeeDocument(context.Background(), testTenantID, UploadDocumentInput{
+		CategoryKey: "arbeitsvertrag",
+		UploadedBy:  testManagerUserID,
+		Title:       "Herrenlos",
+	})
+	assert.ErrorIs(t, err, ErrEmployeeRequired)
+	assert.Empty(t, docRepo.documents)
+}
+
+// A foreign tenant's category id must not resolve, even though the caller may
+// upload into their own tenant.
+func TestUploadEmployeeDocument_ForeignTenantCategory(t *testing.T) {
+	svc, _, catRepo, _ := setupTestService()
+
+	foreignTenant := uuid.MustParse("10000000-0000-0000-0000-000000000009")
+	foreignCat := uuid.MustParse("70000000-0000-0000-0000-000000000009")
+	catRepo.categories[foreignCat] = &models.HRDocumentCategory{
+		ID:         foreignCat,
+		TenantID:   foreignTenant,
+		Name:       "Fremd",
+		Key:        "fremd",
+		Visibility: models.HRDocVisibilityEmployee,
+	}
+
+	_, err := svc.UploadEmployeeDocument(context.Background(), testTenantID, UploadDocumentInput{
+		EmployeeID: testUserID,
+		CategoryID: foreignCat,
+		UploadedBy: testManagerUserID,
+		Title:      "Fremdes Dokument",
+	})
+	assert.ErrorIs(t, err, ErrDocumentCategoryNotFound)
+
+	// …and neither does its slug.
+	_, keyErr := svc.UploadEmployeeDocument(context.Background(), testTenantID, UploadDocumentInput{
+		EmployeeID:  testUserID,
+		CategoryKey: "fremd",
+		UploadedBy:  testManagerUserID,
+		Title:       "Fremdes Dokument",
+	})
+	assert.ErrorIs(t, keyErr, ErrDocumentCategoryNotFound)
+}
+
+func TestListPersonnelDocuments_TenantScoped(t *testing.T) {
+	svc, _, _, docRepo := setupTestService()
+	ctx := context.Background()
+
+	foreignTenant := uuid.MustParse("10000000-0000-0000-0000-000000000009")
+	docRepo.documents = append(docRepo.documents,
+		&models.EmployeeDocument{ID: uuid.New(), TenantID: testTenantID, EmployeeID: testUserID, Title: "Eigen"},
+		&models.EmployeeDocument{ID: uuid.New(), TenantID: foreignTenant, EmployeeID: uuid.New(), Title: "Fremd"},
+	)
+
+	docs, err := svc.ListPersonnelDocuments(ctx, testTenantID)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "Eigen", docs[0].Title)
+}
+
+// An empty Akte must serialize as [], not null — the UI maps over the value.
+func TestListPersonnelDocuments_EmptyIsSlice(t *testing.T) {
+	svc, _, _, _ := setupTestService()
+
+	docs, err := svc.ListPersonnelDocuments(context.Background(), testTenantID)
+	require.NoError(t, err)
+	assert.NotNil(t, docs)
+	assert.Empty(t, docs)
+}
+
+func TestGetEmployeeDocument_ForeignTenantIsNotFound(t *testing.T) {
+	svc, _, _, docRepo := setupTestService()
+
+	foreignTenant := uuid.MustParse("10000000-0000-0000-0000-000000000009")
+	foreignDoc := &models.EmployeeDocument{ID: uuid.New(), TenantID: foreignTenant, Title: "Fremd"}
+	docRepo.documents = append(docRepo.documents, foreignDoc)
+
+	// A guessed id from another tenant must be indistinguishable from an id
+	// that does not exist at all.
+	_, err := svc.GetEmployeeDocument(context.Background(), testTenantID, foreignDoc.ID)
+	assert.ErrorIs(t, err, ErrDocumentNotFound)
+
+	_, unknownErr := svc.GetEmployeeDocument(context.Background(), testTenantID, uuid.New())
+	assert.ErrorIs(t, unknownErr, ErrDocumentNotFound)
 }

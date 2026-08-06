@@ -92,9 +92,16 @@ type CreateEmployeeInput struct {
 type UploadDocumentInput struct {
 	EmployeeID uuid.UUID
 	CategoryID uuid.UUID
-	FileID     uuid.UUID
-	UploadedBy uuid.UUID
-	Notes      string
+	// CategoryKey is the alternative to CategoryID for callers that only know
+	// the slug (the Personalakte UI). Exactly one of the two must be set.
+	CategoryKey string
+	FileID      *uuid.UUID
+	UploadedBy  uuid.UUID
+	Notes       string
+	Title       string
+	FileName    string
+	FileSize    string
+	ExpiresAt   *time.Time
 }
 
 // ============================================================================
@@ -274,19 +281,41 @@ func (s *Service) UpdateSelfProfile(ctx context.Context, userID uuid.UUID, input
 // Document Operations
 // ============================================================================
 
-// ListEmployeeDocuments retrieves documents for an employee filtered by caller role visibility.
-func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID, callerUserID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
-	return s.docRepo.ListByEmployee(ctx, employeeID, callerRole)
+// ListEmployeeDocuments retrieves one employee's documents. Which of them the
+// caller may see is decided by RLS policy hr_document_access from the roles on
+// the session, so this carries no role parameter a caller could influence --
+// exactly like ListPersonnelDocuments below.
+func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	return s.docRepo.ListByEmployee(ctx, employeeID)
+}
+
+// ListPersonnelDocuments retrieves every personnel document of the tenant the
+// caller is allowed to see. The visibility tiers are enforced by RLS policy
+// hr_document_access, which reads the caller's roles from the app.user_roles
+// GUC — so this deliberately carries no role parameter that a caller could
+// influence, unlike ListEmployeeDocuments.
+func (s *Service) ListPersonnelDocuments(ctx context.Context, tenantID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	return s.docRepo.ListByTenant(ctx, tenantID)
+}
+
+// GetEmployeeDocument reads a single personnel document, tenant-scoped and
+// subject to the same RLS visibility tiers as the list.
+func (s *Service) GetEmployeeDocument(ctx context.Context, tenantID, id uuid.UUID) (*models.EmployeeDocument, error) {
+	return s.docRepo.GetByID(ctx, tenantID, id)
 }
 
 // UploadEmployeeDocument creates an HR document record linking a file to an employee.
 // The actual file upload happens via the document service; this creates the HR metadata link.
 func (s *Service) UploadEmployeeDocument(ctx context.Context, tenantID uuid.UUID, input UploadDocumentInput) (*models.EmployeeDocument, error) {
-	// Validate the category exists for this tenant — category_id comes from the
-	// client, so a foreign tenant's id must not resolve here.
-	_, catErr := s.docCatRepo.GetByID(ctx, tenantID, input.CategoryID)
+	// Validate the category exists for this tenant — category_id/key come from
+	// the client, so a foreign tenant's id must not resolve here.
+	category, catErr := s.resolveDocumentCategory(ctx, tenantID, input)
 	if catErr != nil {
 		return nil, catErr
+	}
+
+	if input.EmployeeID == uuid.Nil {
+		return nil, ErrEmployeeRequired
 	}
 
 	now := time.Now()
@@ -294,11 +323,20 @@ func (s *Service) UploadEmployeeDocument(ctx context.Context, tenantID uuid.UUID
 		ID:         uuid.New(),
 		TenantID:   tenantID,
 		EmployeeID: input.EmployeeID,
-		CategoryID: input.CategoryID,
+		CategoryID: category.ID,
 		FileID:     input.FileID,
 		UploadedBy: input.UploadedBy,
 		Notes:      input.Notes,
+		Title:      input.Title,
+		FileName:   input.FileName,
+		FileSize:   input.FileSize,
+		ExpiresAt:  input.ExpiresAt,
 		CreatedAt:  now,
+		// Denormalized so the caller gets the same shape the list returns
+		// without a second round trip.
+		CategoryName: category.Name,
+		CategoryKey:  category.Key,
+		Visibility:   string(category.Visibility),
 	}
 
 	if createErr := s.docRepo.Create(ctx, doc); createErr != nil {
@@ -313,6 +351,19 @@ func (s *Service) UploadEmployeeDocument(ctx context.Context, tenantID uuid.UUID
 	)
 
 	return doc, nil
+}
+
+// resolveDocumentCategory accepts either the category id or its slug and
+// returns the row, so the tenant check happens exactly once regardless of
+// which the caller supplied.
+func (s *Service) resolveDocumentCategory(ctx context.Context, tenantID uuid.UUID, input UploadDocumentInput) (*models.HRDocumentCategory, error) {
+	if input.CategoryID != uuid.Nil {
+		return s.docCatRepo.GetByID(ctx, tenantID, input.CategoryID)
+	}
+	if input.CategoryKey != "" {
+		return s.docCatRepo.GetByKey(ctx, tenantID, input.CategoryKey)
+	}
+	return nil, ErrDocumentCategoryNotFound
 }
 
 // DeleteEmployeeDocument deletes an HR document link.
@@ -333,10 +384,12 @@ func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID
 	return filterCategoriesByScope(categories, callerScope), nil
 }
 
-// filterCategoriesByScope mirrors the visibility tiers in
-// PostgresEmployeeDocRepo.ListByEmployee: scope "all" (admin/hr_admin) sees
-// every category, "team" (manager) sees manager+employee, and "own" (or any
-// other/empty value) sees employee-visibility only.
+// filterCategoriesByScope mirrors the visibility tiers of RLS policy
+// hr_document_access: scope "all" (admin/hr_admin) sees every category, "team"
+// (manager) sees manager+employee, and "own" (or any other/empty value) sees
+// employee-visibility only. This one filters in Go because categories are a
+// catalogue read, not a document read -- the policy does not cover them, and
+// the scope here comes from the route guard rather than from the caller.
 func filterCategoriesByScope(categories []*models.HRDocumentCategory, callerScope string) []*models.HRDocumentCategory {
 	if callerScope == auth.ScopeAll {
 		return categories

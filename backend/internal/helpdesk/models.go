@@ -60,6 +60,25 @@ var ValidSourceChannels = map[string]bool{
 }
 
 // ---------------------------------------------------------------------------
+// Ticket intake-channel constants
+// ---------------------------------------------------------------------------
+
+const (
+	TicketChannelAgent       = "agent"
+	TicketChannelSelfService = "selfservice"
+	TicketChannelExternal    = "external"
+)
+
+// ValidTicketChannels lists the intake origins a ticket may carry -- mirrors
+// the tickets.channel CHECK constraint (migrations/000290) and the module's
+// TicketChannel union (desktop/.../api/helpdesk-types.ts).
+var ValidTicketChannels = map[string]bool{
+	TicketChannelAgent:       true,
+	TicketChannelSelfService: true,
+	TicketChannelExternal:    true,
+}
+
+// ---------------------------------------------------------------------------
 // SLA status constants
 // ---------------------------------------------------------------------------
 
@@ -78,13 +97,17 @@ const (
 
 // Ticket is the central helpdesk work item.
 type Ticket struct {
-	ID              uuid.UUID  `json:"id"`
-	TenantID        uuid.UUID  `json:"tenant_id"`
-	Subject         string     `json:"subject"`
-	Status          string     `json:"status"`
-	Priority        string     `json:"priority"`
-	AssigneeID      *uuid.UUID `json:"assignee_id,omitempty"`
-	RequesterID     uuid.UUID  `json:"requester_id"`
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	Subject    string     `json:"subject"`
+	Status     string     `json:"status"`
+	Priority   string     `json:"priority"`
+	AssigneeID *uuid.UUID `json:"assignee_id,omitempty"`
+	// RequesterID is nil for external requesters, who have no user account
+	// (000291). Their identity is RequesterEmail plus RequesterName; the CHECK
+	// chk_tickets_requester_identity guarantees that one of the two forms is
+	// always complete, so a nil RequesterID always implies a reply address.
+	RequesterID     *uuid.UUID `json:"requester_id,omitempty"`
 	QueueID         *uuid.UUID `json:"queue_id,omitempty"`
 	DueAt           *time.Time `json:"due_at,omitempty"`
 	MergedIntoID    *uuid.UUID `json:"merged_into_id,omitempty"`
@@ -100,8 +123,29 @@ type Ticket struct {
 	// reference to it (not a copy of its content).
 	SourceChannel   *string    `json:"source_channel,omitempty"`
 	SourceMessageID *uuid.UUID `json:"source_message_id,omitempty"`
-	// Denormalized via JOIN on users (read side only; not persisted here).
-	AssigneeName  *string   `json:"assignee_name,omitempty"`
+	// Denormalized mirror of the submitted CSAT response (ticket_csat_responses),
+	// written in the same transaction as the response row. Nil until rated.
+	CsatRating  *int16  `json:"csat_rating,omitempty"`
+	CsatComment *string `json:"csat_comment,omitempty"`
+	// Intake origin (000290). Channel is NOT SourceChannel: SourceChannel names
+	// the inbox a message was converted from and is set only for adapter-created
+	// tickets, Channel names how the request reached the helpdesk at all and is
+	// set for every ticket.
+	Channel             string  `json:"channel"`
+	RequesterEmail      *string `json:"requester_email,omitempty"`
+	RequesterIsExternal bool    `json:"requester_is_external"`
+	// Tenant-defined extra fields, a flat map of scalars. Never nil after a
+	// read: an absent map and an empty map mean the same thing to the module,
+	// and returning nil would serialise as JSON null where it expects {}.
+	CustomFields map[string]any `json:"custom_fields"`
+	// Denormalized via JOIN on users on the READ side.
+	AssigneeName *string `json:"assignee_name,omitempty"`
+	// RequesterName is asymmetric, and deliberately so:
+	//   read  -- the resolved display name, users JOIN first, tickets.requester_name
+	//            only as fallback (see the precedence note on ticketSelectColumns).
+	//   write -- the fallback stored in tickets.requester_name. CreateTicket
+	//            persists it only for external requesters; for internal ones the
+	//            name belongs to the user row and a copy would go stale.
 	RequesterName string    `json:"requester_name"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -162,9 +206,16 @@ const (
 
 // KBArticle is a knowledge-base article.
 type KBArticle struct {
-	ID        uuid.UUID `json:"id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
-	Title     string    `json:"title"`
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Title    string    `json:"title"`
+	// Content is opaque on the server by design: since the block-document
+	// editor (G3) it holds a block-tree JSON document rendered client-side
+	// through the shared block registry (wiki/berichte pattern), with legacy
+	// plain HTML from before G3 still stored and served as-is. Sanitizing it
+	// here (e.g. bluemonday) would corrupt the JSON structure for every
+	// current article. The only server-side guard is the size cap enforced
+	// in the gateway's create/update KB article request validation.
 	Content   string    `json:"content"`
 	Category  string    `json:"category"`
 	Status    string    `json:"status"`

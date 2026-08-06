@@ -493,27 +493,6 @@ func (s *VermietungGRPCServer) ListInspections(ctx context.Context, req *vermiet
 	return &vermietungv1.ListInspectionsResponse{Inspections: protoInspections, Total: int32(total)}, nil
 }
 
-func (s *VermietungGRPCServer) UploadInspectionPhoto(ctx context.Context, req *vermietungv1.UploadInspectionPhotoRequest) (*vermietungv1.UploadInspectionPhotoResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
-	}
-	inspectionID, err := uuid.Parse(req.GetInspectionId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid inspection_id: %v", err)
-	}
-
-	// In Sprint 2 the actual MinIO upload is a TODO — we accept a placeholder URL from the gateway.
-	// The gateway is responsible for uploading to MinIO and passing back the URL here.
-	placeholderURL := fmt.Sprintf("pending://%s/%s", inspectionID, req.GetFilename())
-
-	_, err = s.svc.UploadInspectionPhoto(ctx, tenantID, inspectionID, placeholderURL)
-	if err != nil {
-		return nil, mapVermietungError(err)
-	}
-	return &vermietungv1.UploadInspectionPhotoResponse{Url: placeholderURL}, nil
-}
-
 // ============================================================================
 // Signature RPC
 // ============================================================================

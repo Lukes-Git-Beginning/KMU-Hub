@@ -61,6 +61,63 @@ interface PersonnelDocument {
   notes?: string
 }
 
+/** Wire shape of GET /api/v1/hr/personnel-documents — protojson emits snake_case. */
+interface WirePersonnelDocument {
+  id: string
+  employee_id: string
+  employee_profile_id?: string
+  employee_name?: string
+  title?: string
+  category_key?: string
+  visibility?: DocVisibility
+  file_name?: string
+  file_size?: string
+  uploaded_by_name?: string
+  created_at?: string
+  expires_at?: string
+  notes?: string
+}
+
+/** Days before expiry at which a document counts as "bald ablaufend". */
+const EXPIRY_WARNING_DAYS = 30
+
+/**
+ * The backend stores expires_at and leaves the derived state to the client, so
+ * status is computed here rather than trusted from the wire.
+ */
+function deriveStatus(expiresAt?: string): DocStatus {
+  if (!expiresAt) return 'aktuell'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const expiry = new Date(`${expiresAt}T00:00:00`)
+  if (Number.isNaN(expiry.getTime())) return 'aktuell'
+  if (expiry < today) return 'abgelaufen'
+  const warnFrom = new Date(today)
+  warnFrom.setDate(warnFrom.getDate() + EXPIRY_WARNING_DAYS)
+  return expiry <= warnFrom ? 'bald_ablaufend' : 'aktuell'
+}
+
+function fromWire(doc: WirePersonnelDocument): PersonnelDocument {
+  return {
+    id: doc.id,
+    // The UI selects an Akte by profile id, so that — not the user id — is
+    // what employeeId has to carry.
+    employeeId: doc.employee_profile_id ?? '',
+    employeeUserId: doc.employee_id,
+    employeeName: doc.employee_name ?? '',
+    title: doc.title ?? '',
+    category: (doc.category_key ?? 'sonstiges') as DocCategory,
+    visibility: doc.visibility,
+    fileName: doc.file_name ?? '',
+    fileSize: doc.file_size ?? '',
+    uploadedAt: doc.created_at?.slice(0, 10) ?? '',
+    uploadedBy: doc.uploaded_by_name ?? '',
+    expiresAt: doc.expires_at || undefined,
+    status: deriveStatus(doc.expires_at),
+    notes: doc.notes,
+  }
+}
+
 
 // ============================================================
 // Constants
@@ -159,8 +216,8 @@ export function PersonnelDocuments() {
     queryKey: ['hr', 'personnel-documents'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE_URL}/api/v1/hr/personnel-documents`)
-      const json = (await res.json()) as { documents: PersonnelDocument[] }
-      return json.documents
+      const json = (await res.json()) as { documents?: WirePersonnelDocument[] }
+      return (json.documents ?? []).map(fromWire)
     },
   })
 
@@ -242,20 +299,28 @@ export function PersonnelDocuments() {
   }
 
   const handleUpload = async () => {
+    // employee_id is required server-side: a document filed into the wrong
+    // personnel record is worse than a rejected upload, so there is no default.
+    if (!targetUserId) {
+      toast.error(t('team.personnelDocs.uploadError', { defaultValue: 'Upload fehlgeschlagen' }))
+      return
+    }
     setUploading(true)
     try {
       const sizeKb = uploadFile ? Math.max(1, Math.round(uploadFile.size / 1024)) : 120
-      await fetch(`${API_BASE_URL}/api/v1/hr/personnel-documents`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/hr/personnel-documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          employee_id: targetUserId,
           title: uploadFile ? uploadFile.name.replace(/\.[^.]+$/, '') : t('team.personnelDocs.uploadDocument'),
           category: uploadCategory,
-          fileName: uploadFile?.name ?? 'dokument.pdf',
-          fileSize: `${sizeKb} KB`,
-          expiresAt: uploadExpiry || undefined,
+          file_name: uploadFile?.name ?? 'dokument.pdf',
+          file_size: `${sizeKb} KB`,
+          expires_at: uploadExpiry || undefined,
         }),
       })
+      if (!res.ok) throw new Error(`upload failed: ${res.status}`)
       await qc.invalidateQueries({ queryKey: ['hr', 'personnel-documents'] })
       toast.success(t('team.personnelDocs.uploadSuccess'))
       setShowUpload(false)

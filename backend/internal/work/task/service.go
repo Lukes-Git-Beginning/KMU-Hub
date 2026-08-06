@@ -57,6 +57,7 @@ type CreateInput struct {
 	AssigneeID   *uuid.UUID
 	ParentTaskID *uuid.UUID
 	SortOrder    float64
+	StartDate    *time.Time
 	DueDate      *time.Time
 	CreatedBy    uuid.UUID
 }
@@ -79,6 +80,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	}
 	if !models.ValidTaskPriorities[priority] {
 		return nil, ErrInvalidPriority
+	}
+
+	if input.StartDate != nil && input.DueDate != nil && input.StartDate.After(*input.DueDate) {
+		return nil, ErrInvalidDateRange
 	}
 
 	// Check project membership if project_id is set
@@ -142,6 +147,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 		ParentTaskID: input.ParentTaskID,
 		Depth:        depth,
 		SortOrder:    input.SortOrder,
+		StartDate:    input.StartDate,
 		DueDate:      input.DueDate,
 		CreatedBy:    input.CreatedBy,
 		CreatedAt:    now,
@@ -194,6 +200,7 @@ type UpdateInput struct {
 	StatusID    *uuid.UUID
 	Priority    *string
 	AssigneeID  *uuid.UUID // uuid.Nil to clear
+	StartDate   *time.Time
 	DueDate     *time.Time
 	SortOrder   *float64
 }
@@ -310,6 +317,14 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		task.DueDate = input.DueDate
 	}
 
+	if input.StartDate != nil {
+		task.StartDate = input.StartDate
+	}
+
+	if task.StartDate != nil && task.DueDate != nil && task.StartDate.After(*task.DueDate) {
+		return nil, ErrInvalidDateRange
+	}
+
 	if input.SortOrder != nil {
 		task.SortOrder = *input.SortOrder
 	}
@@ -401,23 +416,19 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 		return statusErr
 	}
 
-	if moveErr := s.repo.MoveTask(ctx, tenantID, taskID, newStatusID, newSortOrder); moveErr != nil {
-		return moveErr
+	// completed_at tracks the closed-status transition; unaffected transitions keep the
+	// existing value so it's folded into the same write as the status/sort_order move
+	// instead of a second, separately-failable Update call.
+	newCompletedAt := existing.CompletedAt
+	if isClosed && existing.CompletedAt == nil {
+		now := time.Now()
+		newCompletedAt = &now
+	} else if !isClosed && existing.CompletedAt != nil {
+		newCompletedAt = nil
 	}
 
-	// Handle completed_at based on closed status
-	task := &existing.Task
-	if isClosed && task.CompletedAt == nil {
-		now := time.Now()
-		task.CompletedAt = &now
-		task.StatusID = &newStatusID
-		task.UpdatedAt = time.Now()
-		_ = s.repo.Update(ctx, task)
-	} else if !isClosed && task.CompletedAt != nil {
-		task.CompletedAt = nil
-		task.StatusID = &newStatusID
-		task.UpdatedAt = time.Now()
-		_ = s.repo.Update(ctx, task)
+	if moveErr := s.repo.MoveTask(ctx, tenantID, taskID, newStatusID, newSortOrder, newCompletedAt); moveErr != nil {
+		return moveErr
 	}
 
 	// Log activity

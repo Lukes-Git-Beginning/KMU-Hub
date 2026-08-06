@@ -34,6 +34,17 @@ service FormulareService {
 
   // Stats
   rpc GetFormStats(GetFormStatsRequest) returns (GetFormStatsResponse);
+
+  // Share links: the authenticated management of public fill-out links.
+  rpc CreateFormShareLink(CreateFormShareLinkRequest) returns (CreateFormShareLinkResponse);
+  rpc ListFormShareLinks(ListFormShareLinksRequest) returns (ListFormShareLinksResponse);
+  rpc RevokeFormShareLink(RevokeFormShareLinkRequest) returns (RevokeFormShareLinkResponse);
+
+  // Public intake. The ONE RPC in this service that begins without a tenant:
+  // the token resolves it. Everything downstream is ordinary tenant-scoped
+  // work -- see Service.SubmitByShareToken for why the order is the security
+  // property.
+  rpc SubmitFormByShareToken(SubmitFormByShareTokenRequest) returns (SubmitFormByShareTokenResponse);
 }
 
 // ============================================================================
@@ -87,6 +98,9 @@ message FormSchema {
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
   optional google.protobuf.Timestamp deleted_at = 14;
+  // Key into the shared intake registry (e.g. "helpdesk_ticket") this form
+  // feeds. Unset = a plain form with no intake binding.
+  optional string intake_target_id = 15;
 }
 
 message FormSubmission {
@@ -144,6 +158,7 @@ message CreateFormSchemaRequest {
   bool is_public = 7;
   int32 page_count = 8;
   string created_by = 9;
+  optional string intake_target_id = 10;
 }
 
 message CreateFormSchemaResponse {
@@ -170,6 +185,7 @@ message UpdateFormSchemaRequest {
   optional bool is_public = 8;
   optional int32 page_count = 9;
   string editor_id = 10;
+  optional string intake_target_id = 11;         // unset = no change, "" clears
 }
 
 message UpdateFormSchemaResponse {
@@ -363,4 +379,79 @@ message FormStats {
 
 message GetFormStatsResponse {
   FormStats stats = 1;
+}
+
+// ============================================================================
+// Share Links (B8)
+// ============================================================================
+
+// FormShareLink is one public fill-out link for a schema. `token` is the
+// credential itself and is returned in clear text on purpose -- it is the link
+// the author copies out (see migration 000293).
+message FormShareLink {
+  string id = 1;
+  string tenant_id = 2;
+  string form_schema_id = 3;
+  string token = 4;
+  optional google.protobuf.Timestamp expires_at = 5;
+  optional google.protobuf.Timestamp revoked_at = 6;
+  // 0 = unlimited.
+  int32 max_submissions = 7;
+  int32 submission_count = 8;
+  optional string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  // Derived on read from revoked_at, expires_at and the submission quota:
+  // "active" | "expired" | "disabled". Mirrors ShareLinkStatus in
+  // desktop/src/renderer/src/api/formulare-types.ts.
+  string status = 11;
+}
+
+message CreateFormShareLinkRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+  optional google.protobuf.Timestamp expires_at = 3;
+  // 0 = unlimited.
+  int32 max_submissions = 4;
+  optional string created_by = 5;
+}
+
+message CreateFormShareLinkResponse {
+  FormShareLink share_link = 1;
+}
+
+message ListFormShareLinksRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+}
+
+message ListFormShareLinksResponse {
+  repeated FormShareLink share_links = 1;
+  int32 total = 2;
+}
+
+message RevokeFormShareLinkRequest {
+  string tenant_id = 1;
+  string share_link_id = 2;
+}
+
+message RevokeFormShareLinkResponse {}
+
+// ============================================================================
+// Public intake (B8)
+// ============================================================================
+
+message SubmitFormByShareTokenRequest {
+  string token = 1;
+  bytes answers = 2;
+  optional string ip_address = 3;
+}
+
+// The response deliberately carries no schema content and no submission body:
+// the visitor already has both. tenant_id and form_schema_id are here because
+// the gateway needs them to run the intake dispatch, which is where a bound
+// form turns into a module record.
+message SubmitFormByShareTokenResponse {
+  string submission_id = 1;
+  string tenant_id = 2;
+  string form_schema_id = 3;
 }

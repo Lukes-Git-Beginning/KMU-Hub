@@ -49,12 +49,18 @@ type OffboardWrite struct {
 type DocumentCategoryRepository interface {
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error)
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.HRDocumentCategory, error)
+	GetByKey(ctx context.Context, tenantID uuid.UUID, key string) (*models.HRDocumentCategory, error)
 }
 
 // EmployeeDocumentRepository defines the interface for employee document persistence.
 type EmployeeDocumentRepository interface {
 	Create(ctx context.Context, doc *models.EmployeeDocument) error
-	ListByEmployee(ctx context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error)
+	ListByEmployee(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error)
+	// ListByTenant returns every document of the tenant the caller may see.
+	// Visibility filtering is RLS policy hr_document_access (migration 000127),
+	// not a WHERE clause here — see PostgresEmployeeDocRepo.ListByTenant.
+	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.EmployeeDocument, error)
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.EmployeeDocument, error)
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 }
 

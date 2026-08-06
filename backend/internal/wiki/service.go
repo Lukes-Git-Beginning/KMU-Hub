@@ -500,6 +500,10 @@ type CreateShareTokenInput struct {
 	ArticleID   uuid.UUID
 	ExpiresAt   *time.Time
 	Permissions []string
+	// CreatedBy is who minted the link. Optional -- the gateway fills it from
+	// the authenticated caller, and a nil value is recorded as "unknown"
+	// rather than refused, so a missing subject never blocks a share.
+	CreatedBy *uuid.UUID
 }
 
 // CreateShareToken creates a new share token for an article.
@@ -516,15 +520,21 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		permissions = input.Permissions
 	}
 
+	secret, err := newShareToken()
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    input.TenantID,
 		ArticleID:   input.ArticleID,
-		Token:       uuid.New().String(), // random token
+		Token:       secret,
 		ExpiresAt:   input.ExpiresAt,
 		Permissions: permissions,
 		CreatedAt:   now,
+		CreatedBy:   input.CreatedBy,
 	}
 
 	if createErr := s.repo.CreateShareToken(ctx, token); createErr != nil {
@@ -547,10 +557,12 @@ func (s *Service) ListShareTokens(ctx context.Context, tenantID, articleID uuid.
 	return s.repo.ListShareTokensByArticle(ctx, tenantID, articleID)
 }
 
-// RevokeShareToken deletes a share token.
+// RevokeShareToken cuts a share link. The row survives with revoked_at set --
+// see 000297 for why the revocation is soft. Revoking an already revoked token
+// succeeds without moving the original timestamp.
 func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
-	if delErr := s.repo.DeleteShareToken(ctx, tenantID, tokenID); delErr != nil {
-		return fmt.Errorf("revoke share token: %w", delErr)
+	if revErr := s.repo.RevokeShareToken(ctx, tenantID, tokenID, time.Now().UTC()); revErr != nil {
+		return fmt.Errorf("revoke share token: %w", revErr)
 	}
 
 	slog.Info("wiki share token revoked",

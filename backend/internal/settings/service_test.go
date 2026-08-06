@@ -3,6 +3,7 @@ package settings_test
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 	"testing"
 
@@ -25,12 +26,14 @@ type fakeRepo struct {
 	activations    map[string]bool                         // key: tenantID+":"+moduleID
 	grantCounts    map[string]int32                        // key: tenantID+":"+moduleID
 	subscriptions  map[string]*settings.TenantSubscription // key: tenantID
+	valueSets      map[string]*settings.ValueSet           // key: tenantID+":"+setKey
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		tenantSettings: make(map[string][]*settings.SettingEntry),
 		userSettings:   make(map[string][]*settings.SettingEntry),
+		valueSets:      make(map[string]*settings.ValueSet),
 	}
 }
 
@@ -448,6 +451,46 @@ func (r *fakeRepo) GetTenantSubscription(_ context.Context, tenantID uuid.UUID) 
 		return nil, settings.ErrNotFound
 	}
 	return sub, nil
+}
+
+func valueSetKey(tenantID uuid.UUID, setKey string) string {
+	return tenantID.String() + ":" + setKey
+}
+
+func (r *fakeRepo) ListValueSetOverrides(_ context.Context, tenantID uuid.UUID) ([]*settings.ValueSet, error) {
+	out := make([]*settings.ValueSet, 0)
+	prefix := tenantID.String() + ":"
+	for k, set := range r.valueSets {
+		if strings.HasPrefix(k, prefix) {
+			out = append(out, set)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out, nil
+}
+
+func (r *fakeRepo) GetValueSetOverride(_ context.Context, tenantID uuid.UUID, setKey string) (*settings.ValueSet, error) {
+	set, ok := r.valueSets[valueSetKey(tenantID, setKey)]
+	if !ok {
+		return nil, settings.ErrNotFound
+	}
+	return set, nil
+}
+
+func (r *fakeRepo) UpsertValueSetOverride(_ context.Context, tenantID uuid.UUID, _ *uuid.UUID, set *settings.ValueSet) (*settings.ValueSet, error) {
+	stored := &settings.ValueSet{Key: set.Key, Name: set.Name}
+	stored.Options = append(stored.Options, set.Options...)
+	r.valueSets[valueSetKey(tenantID, set.Key)] = stored
+	return stored, nil
+}
+
+func (r *fakeRepo) DeleteValueSetOverride(_ context.Context, tenantID uuid.UUID, setKey string) error {
+	k := valueSetKey(tenantID, setKey)
+	if _, ok := r.valueSets[k]; !ok {
+		return settings.ErrNotFound
+	}
+	delete(r.valueSets, k)
+	return nil
 }
 
 // ============================================================================

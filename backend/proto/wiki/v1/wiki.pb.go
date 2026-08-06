@@ -1983,13 +1983,19 @@ func (x *UpdateCategoryRequest) GetPosition() int32 {
 }
 
 type ShareToken struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ArticleId     string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
-	Token         string                 `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
-	ExpiresAt     *string                `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	Permissions   []string               `protobuf:"bytes,5,rep,name=permissions,proto3" json:"permissions,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ArticleId   string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	Token       string                 `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
+	ExpiresAt   *string                `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	Permissions []string               `protobuf:"bytes,5,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Set once the link was cut. Revoked tokens stay in the listing so their
+	// author can see that they were cut -- see migration 000297.
+	RevokedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=revoked_at,json=revokedAt,proto3,oneof" json:"revoked_at,omitempty"`
+	// Who minted the link. Unset for tokens created before 000297 and for one
+	// whose author has since been deleted.
+	CreatedBy     *string `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2066,12 +2072,29 @@ func (x *ShareToken) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ShareToken) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+func (x *ShareToken) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
 type CreateShareTokenRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ArticleId     string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
-	ExpiresAt     *string                `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	Permissions   []string               `protobuf:"bytes,4,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TenantId    string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ArticleId   string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	ExpiresAt   *string                `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	Permissions []string               `protobuf:"bytes,4,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	// The authenticated caller, filled by the gateway. Unset is recorded as
+	// "unknown author" rather than refused.
+	CreatedBy     *string `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2132,6 +2155,13 @@ func (x *CreateShareTokenRequest) GetPermissions() []string {
 		return x.Permissions
 	}
 	return nil
+}
+
+func (x *CreateShareTokenRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
 }
 
 type ShareTokenResponse struct {
@@ -2362,6 +2392,159 @@ func (x *ListShareTokensResponse) GetTokens() []*ShareToken {
 	return nil
 }
 
+type RedeemShareTokenRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The link secret itself. No tenant_id, no article_id: a caller who could
+	// name the article would not need the token.
+	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RedeemShareTokenRequest) Reset() {
+	*x = RedeemShareTokenRequest{}
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RedeemShareTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RedeemShareTokenRequest) ProtoMessage() {}
+
+func (x *RedeemShareTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RedeemShareTokenRequest.ProtoReflect.Descriptor instead.
+func (*RedeemShareTokenRequest) Descriptor() ([]byte, []int) {
+	return file_proto_wiki_v1_wiki_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *RedeemShareTokenRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+// SharedArticle is the anonymous view of one shared page. Deliberately narrower
+// than Article: a visitor holding a link has no business learning the tenant,
+// the author or the category the page sits in.
+type SharedArticle struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Content       []byte                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"` // raw JSONB (TipTap JSON)
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SharedArticle) Reset() {
+	*x = SharedArticle{}
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SharedArticle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SharedArticle) ProtoMessage() {}
+
+func (x *SharedArticle) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SharedArticle.ProtoReflect.Descriptor instead.
+func (*SharedArticle) Descriptor() ([]byte, []int) {
+	return file_proto_wiki_v1_wiki_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SharedArticle) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *SharedArticle) GetContent() []byte {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *SharedArticle) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type RedeemShareTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Article       *SharedArticle         `protobuf:"bytes,1,opt,name=article,proto3" json:"article,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RedeemShareTokenResponse) Reset() {
+	*x = RedeemShareTokenResponse{}
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RedeemShareTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RedeemShareTokenResponse) ProtoMessage() {}
+
+func (x *RedeemShareTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wiki_v1_wiki_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RedeemShareTokenResponse.ProtoReflect.Descriptor instead.
+func (*RedeemShareTokenResponse) Descriptor() ([]byte, []int) {
+	return file_proto_wiki_v1_wiki_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *RedeemShareTokenResponse) GetArticle() *SharedArticle {
+	if x != nil {
+		return x.Article
+	}
+	return nil
+}
+
 var File_proto_wiki_v1_wiki_proto protoreflect.FileDescriptor
 
 const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
@@ -2554,7 +2737,7 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x05_nameB\f\n" +
 	"\n" +
 	"_parent_idB\v\n" +
-	"\t_position\"\xe1\x01\n" +
+	"\t_position\"\xe3\x02\n" +
 	"\n" +
 	"ShareToken\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
@@ -2565,16 +2748,25 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"expires_at\x18\x04 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12 \n" +
 	"\vpermissions\x18\x05 \x03(\tR\vpermissions\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\r\n" +
-	"\v_expires_at\"\xaa\x01\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n" +
+	"\n" +
+	"revoked_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\trevokedAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tH\x02R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_expires_atB\r\n" +
+	"\v_revoked_atB\r\n" +
+	"\v_created_by\"\xdd\x01\n" +
 	"\x17CreateShareTokenRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
 	"article_id\x18\x02 \x01(\tR\tarticleId\x12\"\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12 \n" +
-	"\vpermissions\x18\x04 \x03(\tR\vpermissionsB\r\n" +
-	"\v_expires_at\"?\n" +
+	"\vpermissions\x18\x04 \x03(\tR\vpermissions\x12\"\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_expires_atB\r\n" +
+	"\v_created_by\"?\n" +
 	"\x12ShareTokenResponse\x12)\n" +
 	"\x05token\x18\x01 \x01(\v2\x13.wiki.v1.ShareTokenR\x05token\"Q\n" +
 	"\x17RevokeShareTokenRequest\x12\x1b\n" +
@@ -2586,7 +2778,16 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\n" +
 	"article_id\x18\x02 \x01(\tR\tarticleId\"F\n" +
 	"\x17ListShareTokensResponse\x12+\n" +
-	"\x06tokens\x18\x01 \x03(\v2\x13.wiki.v1.ShareTokenR\x06tokens2\xf6\v\n" +
+	"\x06tokens\x18\x01 \x03(\v2\x13.wiki.v1.ShareTokenR\x06tokens\"/\n" +
+	"\x17RedeemShareTokenRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"z\n" +
+	"\rSharedArticle\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\fR\acontent\x129\n" +
+	"\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"L\n" +
+	"\x18RedeemShareTokenResponse\x120\n" +
+	"\aarticle\x18\x01 \x01(\v2\x16.wiki.v1.SharedArticleR\aarticle2\xcf\f\n" +
 	"\vWikiService\x12H\n" +
 	"\rCreateArticle\x12\x1d.wiki.v1.CreateArticleRequest\x1a\x18.wiki.v1.ArticleResponse\x12B\n" +
 	"\n" +
@@ -2608,7 +2809,8 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x0eUpdateCategory\x12\x1e.wiki.v1.UpdateCategoryRequest\x1a\x19.wiki.v1.CategoryResponse\x12Q\n" +
 	"\x10CreateShareToken\x12 .wiki.v1.CreateShareTokenRequest\x1a\x1b.wiki.v1.ShareTokenResponse\x12W\n" +
 	"\x10RevokeShareToken\x12 .wiki.v1.RevokeShareTokenRequest\x1a!.wiki.v1.RevokeShareTokenResponse\x12T\n" +
-	"\x0fListShareTokens\x12\x1f.wiki.v1.ListShareTokensRequest\x1a .wiki.v1.ListShareTokensResponseB/Z-github.com/kmuhub/kmuhub/proto/wiki/v1;wikiv1b\x06proto3"
+	"\x0fListShareTokens\x12\x1f.wiki.v1.ListShareTokensRequest\x1a .wiki.v1.ListShareTokensResponse\x12W\n" +
+	"\x10RedeemShareToken\x12 .wiki.v1.RedeemShareTokenRequest\x1a!.wiki.v1.RedeemShareTokenResponseB/Z-github.com/kmuhub/kmuhub/proto/wiki/v1;wikiv1b\x06proto3"
 
 var (
 	file_proto_wiki_v1_wiki_proto_rawDescOnce sync.Once
@@ -2622,7 +2824,7 @@ func file_proto_wiki_v1_wiki_proto_rawDescGZIP() []byte {
 	return file_proto_wiki_v1_wiki_proto_rawDescData
 }
 
-var file_proto_wiki_v1_wiki_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_wiki_v1_wiki_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_proto_wiki_v1_wiki_proto_goTypes = []any{
 	(*Article)(nil),                  // 0: wiki.v1.Article
 	(*Version)(nil),                  // 1: wiki.v1.Version
@@ -2663,15 +2865,18 @@ var file_proto_wiki_v1_wiki_proto_goTypes = []any{
 	(*RevokeShareTokenResponse)(nil), // 36: wiki.v1.RevokeShareTokenResponse
 	(*ListShareTokensRequest)(nil),   // 37: wiki.v1.ListShareTokensRequest
 	(*ListShareTokensResponse)(nil),  // 38: wiki.v1.ListShareTokensResponse
-	(*timestamppb.Timestamp)(nil),    // 39: google.protobuf.Timestamp
+	(*RedeemShareTokenRequest)(nil),  // 39: wiki.v1.RedeemShareTokenRequest
+	(*SharedArticle)(nil),            // 40: wiki.v1.SharedArticle
+	(*RedeemShareTokenResponse)(nil), // 41: wiki.v1.RedeemShareTokenResponse
+	(*timestamppb.Timestamp)(nil),    // 42: google.protobuf.Timestamp
 }
 var file_proto_wiki_v1_wiki_proto_depIdxs = []int32{
-	39, // 0: wiki.v1.Article.created_at:type_name -> google.protobuf.Timestamp
-	39, // 1: wiki.v1.Article.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 2: wiki.v1.Version.changed_at:type_name -> google.protobuf.Timestamp
-	39, // 3: wiki.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
-	39, // 4: wiki.v1.Category.created_at:type_name -> google.protobuf.Timestamp
-	39, // 5: wiki.v1.Category.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 0: wiki.v1.Article.created_at:type_name -> google.protobuf.Timestamp
+	42, // 1: wiki.v1.Article.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 2: wiki.v1.Version.changed_at:type_name -> google.protobuf.Timestamp
+	42, // 3: wiki.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
+	42, // 4: wiki.v1.Category.created_at:type_name -> google.protobuf.Timestamp
+	42, // 5: wiki.v1.Category.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 6: wiki.v1.ArticleResponse.article:type_name -> wiki.v1.Article
 	0,  // 7: wiki.v1.ListArticlesResponse.articles:type_name -> wiki.v1.Article
 	0,  // 8: wiki.v1.SearchArticlesResponse.articles:type_name -> wiki.v1.Article
@@ -2681,52 +2886,57 @@ var file_proto_wiki_v1_wiki_proto_depIdxs = []int32{
 	2,  // 12: wiki.v1.ListAttachmentsResponse.attachments:type_name -> wiki.v1.Attachment
 	3,  // 13: wiki.v1.ListCategoriesResponse.categories:type_name -> wiki.v1.Category
 	3,  // 14: wiki.v1.CategoryResponse.category:type_name -> wiki.v1.Category
-	39, // 15: wiki.v1.ShareToken.created_at:type_name -> google.protobuf.Timestamp
-	32, // 16: wiki.v1.ShareTokenResponse.token:type_name -> wiki.v1.ShareToken
-	32, // 17: wiki.v1.ListShareTokensResponse.tokens:type_name -> wiki.v1.ShareToken
-	4,  // 18: wiki.v1.WikiService.CreateArticle:input_type -> wiki.v1.CreateArticleRequest
-	5,  // 19: wiki.v1.WikiService.GetArticle:input_type -> wiki.v1.GetArticleRequest
-	6,  // 20: wiki.v1.WikiService.UpdateArticle:input_type -> wiki.v1.UpdateArticleRequest
-	7,  // 21: wiki.v1.WikiService.DeleteArticle:input_type -> wiki.v1.DeleteArticleRequest
-	10, // 22: wiki.v1.WikiService.ListArticles:input_type -> wiki.v1.ListArticlesRequest
-	12, // 23: wiki.v1.WikiService.SearchArticles:input_type -> wiki.v1.SearchArticlesRequest
-	14, // 24: wiki.v1.WikiService.ListVersions:input_type -> wiki.v1.ListVersionsRequest
-	16, // 25: wiki.v1.WikiService.GetVersion:input_type -> wiki.v1.GetVersionRequest
-	18, // 26: wiki.v1.WikiService.RestoreVersion:input_type -> wiki.v1.RestoreVersionRequest
-	19, // 27: wiki.v1.WikiService.UploadAttachment:input_type -> wiki.v1.UploadAttachmentRequest
-	21, // 28: wiki.v1.WikiService.ListAttachments:input_type -> wiki.v1.ListAttachmentsRequest
-	23, // 29: wiki.v1.WikiService.DeleteAttachment:input_type -> wiki.v1.DeleteAttachmentRequest
-	25, // 30: wiki.v1.WikiService.ListCategories:input_type -> wiki.v1.ListCategoriesRequest
-	27, // 31: wiki.v1.WikiService.CreateCategory:input_type -> wiki.v1.CreateCategoryRequest
-	29, // 32: wiki.v1.WikiService.DeleteCategory:input_type -> wiki.v1.DeleteCategoryRequest
-	31, // 33: wiki.v1.WikiService.UpdateCategory:input_type -> wiki.v1.UpdateCategoryRequest
-	33, // 34: wiki.v1.WikiService.CreateShareToken:input_type -> wiki.v1.CreateShareTokenRequest
-	35, // 35: wiki.v1.WikiService.RevokeShareToken:input_type -> wiki.v1.RevokeShareTokenRequest
-	37, // 36: wiki.v1.WikiService.ListShareTokens:input_type -> wiki.v1.ListShareTokensRequest
-	9,  // 37: wiki.v1.WikiService.CreateArticle:output_type -> wiki.v1.ArticleResponse
-	9,  // 38: wiki.v1.WikiService.GetArticle:output_type -> wiki.v1.ArticleResponse
-	9,  // 39: wiki.v1.WikiService.UpdateArticle:output_type -> wiki.v1.ArticleResponse
-	8,  // 40: wiki.v1.WikiService.DeleteArticle:output_type -> wiki.v1.DeleteArticleResponse
-	11, // 41: wiki.v1.WikiService.ListArticles:output_type -> wiki.v1.ListArticlesResponse
-	13, // 42: wiki.v1.WikiService.SearchArticles:output_type -> wiki.v1.SearchArticlesResponse
-	15, // 43: wiki.v1.WikiService.ListVersions:output_type -> wiki.v1.ListVersionsResponse
-	17, // 44: wiki.v1.WikiService.GetVersion:output_type -> wiki.v1.VersionResponse
-	9,  // 45: wiki.v1.WikiService.RestoreVersion:output_type -> wiki.v1.ArticleResponse
-	20, // 46: wiki.v1.WikiService.UploadAttachment:output_type -> wiki.v1.AttachmentResponse
-	22, // 47: wiki.v1.WikiService.ListAttachments:output_type -> wiki.v1.ListAttachmentsResponse
-	24, // 48: wiki.v1.WikiService.DeleteAttachment:output_type -> wiki.v1.DeleteAttachmentResponse
-	26, // 49: wiki.v1.WikiService.ListCategories:output_type -> wiki.v1.ListCategoriesResponse
-	28, // 50: wiki.v1.WikiService.CreateCategory:output_type -> wiki.v1.CategoryResponse
-	30, // 51: wiki.v1.WikiService.DeleteCategory:output_type -> wiki.v1.DeleteCategoryResponse
-	28, // 52: wiki.v1.WikiService.UpdateCategory:output_type -> wiki.v1.CategoryResponse
-	34, // 53: wiki.v1.WikiService.CreateShareToken:output_type -> wiki.v1.ShareTokenResponse
-	36, // 54: wiki.v1.WikiService.RevokeShareToken:output_type -> wiki.v1.RevokeShareTokenResponse
-	38, // 55: wiki.v1.WikiService.ListShareTokens:output_type -> wiki.v1.ListShareTokensResponse
-	37, // [37:56] is the sub-list for method output_type
-	18, // [18:37] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	42, // 15: wiki.v1.ShareToken.created_at:type_name -> google.protobuf.Timestamp
+	42, // 16: wiki.v1.ShareToken.revoked_at:type_name -> google.protobuf.Timestamp
+	32, // 17: wiki.v1.ShareTokenResponse.token:type_name -> wiki.v1.ShareToken
+	32, // 18: wiki.v1.ListShareTokensResponse.tokens:type_name -> wiki.v1.ShareToken
+	42, // 19: wiki.v1.SharedArticle.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 20: wiki.v1.RedeemShareTokenResponse.article:type_name -> wiki.v1.SharedArticle
+	4,  // 21: wiki.v1.WikiService.CreateArticle:input_type -> wiki.v1.CreateArticleRequest
+	5,  // 22: wiki.v1.WikiService.GetArticle:input_type -> wiki.v1.GetArticleRequest
+	6,  // 23: wiki.v1.WikiService.UpdateArticle:input_type -> wiki.v1.UpdateArticleRequest
+	7,  // 24: wiki.v1.WikiService.DeleteArticle:input_type -> wiki.v1.DeleteArticleRequest
+	10, // 25: wiki.v1.WikiService.ListArticles:input_type -> wiki.v1.ListArticlesRequest
+	12, // 26: wiki.v1.WikiService.SearchArticles:input_type -> wiki.v1.SearchArticlesRequest
+	14, // 27: wiki.v1.WikiService.ListVersions:input_type -> wiki.v1.ListVersionsRequest
+	16, // 28: wiki.v1.WikiService.GetVersion:input_type -> wiki.v1.GetVersionRequest
+	18, // 29: wiki.v1.WikiService.RestoreVersion:input_type -> wiki.v1.RestoreVersionRequest
+	19, // 30: wiki.v1.WikiService.UploadAttachment:input_type -> wiki.v1.UploadAttachmentRequest
+	21, // 31: wiki.v1.WikiService.ListAttachments:input_type -> wiki.v1.ListAttachmentsRequest
+	23, // 32: wiki.v1.WikiService.DeleteAttachment:input_type -> wiki.v1.DeleteAttachmentRequest
+	25, // 33: wiki.v1.WikiService.ListCategories:input_type -> wiki.v1.ListCategoriesRequest
+	27, // 34: wiki.v1.WikiService.CreateCategory:input_type -> wiki.v1.CreateCategoryRequest
+	29, // 35: wiki.v1.WikiService.DeleteCategory:input_type -> wiki.v1.DeleteCategoryRequest
+	31, // 36: wiki.v1.WikiService.UpdateCategory:input_type -> wiki.v1.UpdateCategoryRequest
+	33, // 37: wiki.v1.WikiService.CreateShareToken:input_type -> wiki.v1.CreateShareTokenRequest
+	35, // 38: wiki.v1.WikiService.RevokeShareToken:input_type -> wiki.v1.RevokeShareTokenRequest
+	37, // 39: wiki.v1.WikiService.ListShareTokens:input_type -> wiki.v1.ListShareTokensRequest
+	39, // 40: wiki.v1.WikiService.RedeemShareToken:input_type -> wiki.v1.RedeemShareTokenRequest
+	9,  // 41: wiki.v1.WikiService.CreateArticle:output_type -> wiki.v1.ArticleResponse
+	9,  // 42: wiki.v1.WikiService.GetArticle:output_type -> wiki.v1.ArticleResponse
+	9,  // 43: wiki.v1.WikiService.UpdateArticle:output_type -> wiki.v1.ArticleResponse
+	8,  // 44: wiki.v1.WikiService.DeleteArticle:output_type -> wiki.v1.DeleteArticleResponse
+	11, // 45: wiki.v1.WikiService.ListArticles:output_type -> wiki.v1.ListArticlesResponse
+	13, // 46: wiki.v1.WikiService.SearchArticles:output_type -> wiki.v1.SearchArticlesResponse
+	15, // 47: wiki.v1.WikiService.ListVersions:output_type -> wiki.v1.ListVersionsResponse
+	17, // 48: wiki.v1.WikiService.GetVersion:output_type -> wiki.v1.VersionResponse
+	9,  // 49: wiki.v1.WikiService.RestoreVersion:output_type -> wiki.v1.ArticleResponse
+	20, // 50: wiki.v1.WikiService.UploadAttachment:output_type -> wiki.v1.AttachmentResponse
+	22, // 51: wiki.v1.WikiService.ListAttachments:output_type -> wiki.v1.ListAttachmentsResponse
+	24, // 52: wiki.v1.WikiService.DeleteAttachment:output_type -> wiki.v1.DeleteAttachmentResponse
+	26, // 53: wiki.v1.WikiService.ListCategories:output_type -> wiki.v1.ListCategoriesResponse
+	28, // 54: wiki.v1.WikiService.CreateCategory:output_type -> wiki.v1.CategoryResponse
+	30, // 55: wiki.v1.WikiService.DeleteCategory:output_type -> wiki.v1.DeleteCategoryResponse
+	28, // 56: wiki.v1.WikiService.UpdateCategory:output_type -> wiki.v1.CategoryResponse
+	34, // 57: wiki.v1.WikiService.CreateShareToken:output_type -> wiki.v1.ShareTokenResponse
+	36, // 58: wiki.v1.WikiService.RevokeShareToken:output_type -> wiki.v1.RevokeShareTokenResponse
+	38, // 59: wiki.v1.WikiService.ListShareTokens:output_type -> wiki.v1.ListShareTokensResponse
+	41, // 60: wiki.v1.WikiService.RedeemShareToken:output_type -> wiki.v1.RedeemShareTokenResponse
+	41, // [41:61] is the sub-list for method output_type
+	21, // [21:41] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_proto_wiki_v1_wiki_proto_init() }
@@ -2752,7 +2962,7 @@ func file_proto_wiki_v1_wiki_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_wiki_v1_wiki_proto_rawDesc), len(file_proto_wiki_v1_wiki_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -55,20 +55,28 @@ type FormSchema struct {
 	PageCount       int              `json:"page_count"`
 	SubmissionCount int              `json:"submission_count"`
 	CreatedBy       *uuid.UUID       `json:"created_by,omitempty"`
-	CreatedAt       time.Time        `json:"created_at"`
-	UpdatedAt       time.Time        `json:"updated_at"`
-	DeletedAt       *time.Time       `json:"deleted_at,omitempty"`
+	// IntakeTargetID names the module record this form feeds (e.g.
+	// "helpdesk_ticket"), a key into the shared intake registry, not a FK.
+	// Nil = a plain form, no intake binding.
+	IntakeTargetID *string    `json:"intake_target_id,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 }
 
 // FormField describes a single field within a form schema (stored as JSONB array).
 type FormField struct {
-	ID               string        `json:"id"`
-	Type             string        `json:"type"`               // text|email|number|select|checkbox|radio|textarea|date|file
-	Label            string        `json:"label"`
-	Required         bool          `json:"required"`
-	Placeholder      string        `json:"placeholder,omitempty"`
-	Options          []FieldOption `json:"options,omitempty"`  // for select/radio/checkbox
+	ID               string          `json:"id"`
+	Type             string          `json:"type"`               // text|email|number|select|checkbox|radio|textarea|date|file
+	Label            string          `json:"label"`
+	Required         bool            `json:"required"`
+	Placeholder      string          `json:"placeholder,omitempty"`
+	Options          []FieldOption   `json:"options,omitempty"`  // for select/radio/checkbox
 	ConditionalLogic *FieldCondition `json:"conditional_logic,omitempty"`
+	// Role marks this field as a first-class property of the bound intake
+	// target (subject/description/priority/…). Empty/absent means the
+	// answer flows into the target record's custom fields instead.
+	Role string `json:"role,omitempty"`
 }
 
 // FieldOption is a selectable option within a select/radio/checkbox field.

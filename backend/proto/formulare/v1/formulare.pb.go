@@ -246,8 +246,11 @@ type FormSchema struct {
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	DeletedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Key into the shared intake registry (e.g. "helpdesk_ticket") this form
+	// feeds. Unset = a plain form with no intake binding.
+	IntakeTargetId *string `protobuf:"bytes,15,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *FormSchema) Reset() {
@@ -376,6 +379,13 @@ func (x *FormSchema) GetDeletedAt() *timestamppb.Timestamp {
 		return x.DeletedAt
 	}
 	return nil
+}
+
+func (x *FormSchema) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
+	}
+	return ""
 }
 
 type FormSubmission struct {
@@ -743,18 +753,19 @@ func (x *WebhookDelivery) GetDeliveredAt() *timestamppb.Timestamp {
 }
 
 type CreateFormSchemaRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Fields        []byte                 `protobuf:"bytes,4,opt,name=fields,proto3" json:"fields,omitempty"`
-	Status        FormSchemaStatus       `protobuf:"varint,5,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus" json:"status,omitempty"`
-	IsTemplate    bool                   `protobuf:"varint,6,opt,name=is_template,json=isTemplate,proto3" json:"is_template,omitempty"`
-	IsPublic      bool                   `protobuf:"varint,7,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
-	PageCount     int32                  `protobuf:"varint,8,opt,name=page_count,json=pageCount,proto3" json:"page_count,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Fields         []byte                 `protobuf:"bytes,4,opt,name=fields,proto3" json:"fields,omitempty"`
+	Status         FormSchemaStatus       `protobuf:"varint,5,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus" json:"status,omitempty"`
+	IsTemplate     bool                   `protobuf:"varint,6,opt,name=is_template,json=isTemplate,proto3" json:"is_template,omitempty"`
+	IsPublic       bool                   `protobuf:"varint,7,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	PageCount      int32                  `protobuf:"varint,8,opt,name=page_count,json=pageCount,proto3" json:"page_count,omitempty"`
+	CreatedBy      string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	IntakeTargetId *string                `protobuf:"bytes,10,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateFormSchemaRequest) Reset() {
@@ -846,6 +857,13 @@ func (x *CreateFormSchemaRequest) GetPageCount() int32 {
 func (x *CreateFormSchemaRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateFormSchemaRequest) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
 	}
 	return ""
 }
@@ -991,19 +1009,20 @@ func (x *GetFormSchemaResponse) GetSchema() *FormSchema {
 }
 
 type UpdateFormSchemaRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SchemaId      string                 `protobuf:"bytes,2,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
-	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Fields        []byte                 `protobuf:"bytes,5,opt,name=fields,proto3" json:"fields,omitempty"` // empty = no fields change
-	Status        *FormSchemaStatus      `protobuf:"varint,6,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus,oneof" json:"status,omitempty"`
-	IsTemplate    *bool                  `protobuf:"varint,7,opt,name=is_template,json=isTemplate,proto3,oneof" json:"is_template,omitempty"`
-	IsPublic      *bool                  `protobuf:"varint,8,opt,name=is_public,json=isPublic,proto3,oneof" json:"is_public,omitempty"`
-	PageCount     *int32                 `protobuf:"varint,9,opt,name=page_count,json=pageCount,proto3,oneof" json:"page_count,omitempty"`
-	EditorId      string                 `protobuf:"bytes,10,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SchemaId       string                 `protobuf:"bytes,2,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
+	Title          *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description    *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Fields         []byte                 `protobuf:"bytes,5,opt,name=fields,proto3" json:"fields,omitempty"` // empty = no fields change
+	Status         *FormSchemaStatus      `protobuf:"varint,6,opt,name=status,proto3,enum=formulare.v1.FormSchemaStatus,oneof" json:"status,omitempty"`
+	IsTemplate     *bool                  `protobuf:"varint,7,opt,name=is_template,json=isTemplate,proto3,oneof" json:"is_template,omitempty"`
+	IsPublic       *bool                  `protobuf:"varint,8,opt,name=is_public,json=isPublic,proto3,oneof" json:"is_public,omitempty"`
+	PageCount      *int32                 `protobuf:"varint,9,opt,name=page_count,json=pageCount,proto3,oneof" json:"page_count,omitempty"`
+	EditorId       string                 `protobuf:"bytes,10,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	IntakeTargetId *string                `protobuf:"bytes,11,opt,name=intake_target_id,json=intakeTargetId,proto3,oneof" json:"intake_target_id,omitempty"` // unset = no change, "" clears
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateFormSchemaRequest) Reset() {
@@ -1102,6 +1121,13 @@ func (x *UpdateFormSchemaRequest) GetPageCount() int32 {
 func (x *UpdateFormSchemaRequest) GetEditorId() string {
 	if x != nil {
 		return x.EditorId
+	}
+	return ""
+}
+
+func (x *UpdateFormSchemaRequest) GetIntakeTargetId() string {
+	if x != nil && x.IntakeTargetId != nil {
+		return *x.IntakeTargetId
 	}
 	return ""
 }
@@ -2922,11 +2948,579 @@ func (x *GetFormStatsResponse) GetStats() *FormStats {
 	return nil
 }
 
+// FormShareLink is one public fill-out link for a schema. `token` is the
+// credential itself and is returned in clear text on purpose -- it is the link
+// the author copies out (see migration 000293).
+type FormShareLink struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId     string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId string                 `protobuf:"bytes,3,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	Token        string                 `protobuf:"bytes,4,opt,name=token,proto3" json:"token,omitempty"`
+	ExpiresAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	RevokedAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=revoked_at,json=revokedAt,proto3,oneof" json:"revoked_at,omitempty"`
+	// 0 = unlimited.
+	MaxSubmissions  int32                  `protobuf:"varint,7,opt,name=max_submissions,json=maxSubmissions,proto3" json:"max_submissions,omitempty"`
+	SubmissionCount int32                  `protobuf:"varint,8,opt,name=submission_count,json=submissionCount,proto3" json:"submission_count,omitempty"`
+	CreatedBy       *string                `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Derived on read from revoked_at, expires_at and the submission quota:
+	// "active" | "expired" | "disabled". Mirrors ShareLinkStatus in
+	// desktop/src/renderer/src/api/formulare-types.ts.
+	Status        string `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FormShareLink) Reset() {
+	*x = FormShareLink{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FormShareLink) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FormShareLink) ProtoMessage() {}
+
+func (x *FormShareLink) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FormShareLink.ProtoReflect.Descriptor instead.
+func (*FormShareLink) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *FormShareLink) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FormShareLink) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FormShareLink) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
+func (x *FormShareLink) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *FormShareLink) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *FormShareLink) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+func (x *FormShareLink) GetMaxSubmissions() int32 {
+	if x != nil {
+		return x.MaxSubmissions
+	}
+	return 0
+}
+
+func (x *FormShareLink) GetSubmissionCount() int32 {
+	if x != nil {
+		return x.SubmissionCount
+	}
+	return 0
+}
+
+func (x *FormShareLink) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *FormShareLink) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *FormShareLink) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type CreateFormShareLinkRequest struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TenantId     string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId string                 `protobuf:"bytes,2,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	ExpiresAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	// 0 = unlimited.
+	MaxSubmissions int32   `protobuf:"varint,4,opt,name=max_submissions,json=maxSubmissions,proto3" json:"max_submissions,omitempty"`
+	CreatedBy      *string `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CreateFormShareLinkRequest) Reset() {
+	*x = CreateFormShareLinkRequest{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateFormShareLinkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateFormShareLinkRequest) ProtoMessage() {}
+
+func (x *CreateFormShareLinkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateFormShareLinkRequest.ProtoReflect.Descriptor instead.
+func (*CreateFormShareLinkRequest) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *CreateFormShareLinkRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateFormShareLinkRequest) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
+func (x *CreateFormShareLinkRequest) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *CreateFormShareLinkRequest) GetMaxSubmissions() int32 {
+	if x != nil {
+		return x.MaxSubmissions
+	}
+	return 0
+}
+
+func (x *CreateFormShareLinkRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type CreateFormShareLinkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ShareLink     *FormShareLink         `protobuf:"bytes,1,opt,name=share_link,json=shareLink,proto3" json:"share_link,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateFormShareLinkResponse) Reset() {
+	*x = CreateFormShareLinkResponse{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateFormShareLinkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateFormShareLinkResponse) ProtoMessage() {}
+
+func (x *CreateFormShareLinkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateFormShareLinkResponse.ProtoReflect.Descriptor instead.
+func (*CreateFormShareLinkResponse) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *CreateFormShareLinkResponse) GetShareLink() *FormShareLink {
+	if x != nil {
+		return x.ShareLink
+	}
+	return nil
+}
+
+type ListFormShareLinksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId  string                 `protobuf:"bytes,2,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFormShareLinksRequest) Reset() {
+	*x = ListFormShareLinksRequest{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFormShareLinksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFormShareLinksRequest) ProtoMessage() {}
+
+func (x *ListFormShareLinksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFormShareLinksRequest.ProtoReflect.Descriptor instead.
+func (*ListFormShareLinksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListFormShareLinksRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListFormShareLinksRequest) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
+type ListFormShareLinksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ShareLinks    []*FormShareLink       `protobuf:"bytes,1,rep,name=share_links,json=shareLinks,proto3" json:"share_links,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFormShareLinksResponse) Reset() {
+	*x = ListFormShareLinksResponse{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFormShareLinksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFormShareLinksResponse) ProtoMessage() {}
+
+func (x *ListFormShareLinksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFormShareLinksResponse.ProtoReflect.Descriptor instead.
+func (*ListFormShareLinksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListFormShareLinksResponse) GetShareLinks() []*FormShareLink {
+	if x != nil {
+		return x.ShareLinks
+	}
+	return nil
+}
+
+func (x *ListFormShareLinksResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type RevokeFormShareLinkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ShareLinkId   string                 `protobuf:"bytes,2,opt,name=share_link_id,json=shareLinkId,proto3" json:"share_link_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeFormShareLinkRequest) Reset() {
+	*x = RevokeFormShareLinkRequest{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeFormShareLinkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeFormShareLinkRequest) ProtoMessage() {}
+
+func (x *RevokeFormShareLinkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeFormShareLinkRequest.ProtoReflect.Descriptor instead.
+func (*RevokeFormShareLinkRequest) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *RevokeFormShareLinkRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RevokeFormShareLinkRequest) GetShareLinkId() string {
+	if x != nil {
+		return x.ShareLinkId
+	}
+	return ""
+}
+
+type RevokeFormShareLinkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeFormShareLinkResponse) Reset() {
+	*x = RevokeFormShareLinkResponse{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeFormShareLinkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeFormShareLinkResponse) ProtoMessage() {}
+
+func (x *RevokeFormShareLinkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeFormShareLinkResponse.ProtoReflect.Descriptor instead.
+func (*RevokeFormShareLinkResponse) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{47}
+}
+
+type SubmitFormByShareTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Answers       []byte                 `protobuf:"bytes,2,opt,name=answers,proto3" json:"answers,omitempty"`
+	IpAddress     *string                `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3,oneof" json:"ip_address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitFormByShareTokenRequest) Reset() {
+	*x = SubmitFormByShareTokenRequest{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitFormByShareTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitFormByShareTokenRequest) ProtoMessage() {}
+
+func (x *SubmitFormByShareTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitFormByShareTokenRequest.ProtoReflect.Descriptor instead.
+func (*SubmitFormByShareTokenRequest) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *SubmitFormByShareTokenRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *SubmitFormByShareTokenRequest) GetAnswers() []byte {
+	if x != nil {
+		return x.Answers
+	}
+	return nil
+}
+
+func (x *SubmitFormByShareTokenRequest) GetIpAddress() string {
+	if x != nil && x.IpAddress != nil {
+		return *x.IpAddress
+	}
+	return ""
+}
+
+// The response deliberately carries no schema content and no submission body:
+// the visitor already has both. tenant_id and form_schema_id are here because
+// the gateway needs them to run the intake dispatch, which is where a bound
+// form turns into a module record.
+type SubmitFormByShareTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SubmissionId  string                 `protobuf:"bytes,1,opt,name=submission_id,json=submissionId,proto3" json:"submission_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId  string                 `protobuf:"bytes,3,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitFormByShareTokenResponse) Reset() {
+	*x = SubmitFormByShareTokenResponse{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitFormByShareTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitFormByShareTokenResponse) ProtoMessage() {}
+
+func (x *SubmitFormByShareTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitFormByShareTokenResponse.ProtoReflect.Descriptor instead.
+func (*SubmitFormByShareTokenResponse) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *SubmitFormByShareTokenResponse) GetSubmissionId() string {
+	if x != nil {
+		return x.SubmissionId
+	}
+	return ""
+}
+
+func (x *SubmitFormByShareTokenResponse) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SubmitFormByShareTokenResponse) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
 var File_proto_formulare_v1_formulare_proto protoreflect.FileDescriptor
 
 const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
-	"\"proto/formulare/v1/formulare.proto\x12\fformulare.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x04\n" +
+	"\"proto/formulare/v1/formulare.proto\x12\fformulare.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf1\x04\n" +
 	"\n" +
 	"FormSchema\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2949,8 +3543,10 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12>\n" +
 	"\n" +
-	"deleted_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tdeletedAt\x88\x01\x01B\r\n" +
-	"\v_deleted_at\"\xba\x02\n" +
+	"deleted_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tdeletedAt\x88\x01\x01\x12-\n" +
+	"\x10intake_target_id\x18\x0f \x01(\tH\x01R\x0eintakeTargetId\x88\x01\x01B\r\n" +
+	"\v_deleted_atB\x13\n" +
+	"\x11_intake_target_id\"\xba\x02\n" +
 	"\x0eFormSubmission\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\x0eform_schema_id\x18\x02 \x01(\tR\fformSchemaId\x12\x1b\n" +
@@ -2997,7 +3593,7 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12B\n" +
 	"\fdelivered_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x01R\vdeliveredAt\x88\x01\x01B\x12\n" +
 	"\x10_next_attempt_atB\x0f\n" +
-	"\r_delivered_at\"\xba\x02\n" +
+	"\r_delivered_at\"\xfe\x02\n" +
 	"\x17CreateFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3010,14 +3606,17 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"page_count\x18\b \x01(\x05R\tpageCount\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\t \x01(\tR\tcreatedBy\"L\n" +
+	"created_by\x18\t \x01(\tR\tcreatedBy\x12-\n" +
+	"\x10intake_target_id\x18\n" +
+	" \x01(\tH\x00R\x0eintakeTargetId\x88\x01\x01B\x13\n" +
+	"\x11_intake_target_id\"L\n" +
 	"\x18CreateFormSchemaResponse\x120\n" +
 	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"P\n" +
 	"\x14GetFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\tschema_id\x18\x02 \x01(\tR\bschemaId\"I\n" +
 	"\x15GetFormSchemaResponse\x120\n" +
-	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"\xc5\x03\n" +
+	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"\x89\x04\n" +
 	"\x17UpdateFormSchemaRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\tschema_id\x18\x02 \x01(\tR\bschemaId\x12\x19\n" +
@@ -3031,14 +3630,16 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"page_count\x18\t \x01(\x05H\x05R\tpageCount\x88\x01\x01\x12\x1b\n" +
 	"\teditor_id\x18\n" +
-	" \x01(\tR\beditorIdB\b\n" +
+	" \x01(\tR\beditorId\x12-\n" +
+	"\x10intake_target_id\x18\v \x01(\tH\x06R\x0eintakeTargetId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_statusB\x0e\n" +
 	"\f_is_templateB\f\n" +
 	"\n" +
 	"_is_publicB\r\n" +
-	"\v_page_count\"L\n" +
+	"\v_page_countB\x13\n" +
+	"\x11_intake_target_id\"L\n" +
 	"\x18UpdateFormSchemaResponse\x120\n" +
 	"\x06schema\x18\x01 \x01(\v2\x18.formulare.v1.FormSchemaR\x06schema\"S\n" +
 	"\x17DeleteFormSchemaRequest\x12\x1b\n" +
@@ -3187,7 +3788,61 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\rlast_7d_count\x18\x04 \x01(\x05R\vlast7dCount\x12$\n" +
 	"\x0elast_30d_count\x18\x05 \x01(\x05R\flast30dCount\"E\n" +
 	"\x14GetFormStatsResponse\x12-\n" +
-	"\x05stats\x18\x01 \x01(\v2\x17.formulare.v1.FormStatsR\x05stats*\x94\x01\n" +
+	"\x05stats\x18\x01 \x01(\v2\x17.formulare.v1.FormStatsR\x05stats\"\xf0\x03\n" +
+	"\rFormShareLink\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12$\n" +
+	"\x0eform_schema_id\x18\x03 \x01(\tR\fformSchemaId\x12\x14\n" +
+	"\x05token\x18\x04 \x01(\tR\x05token\x12>\n" +
+	"\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x88\x01\x01\x12>\n" +
+	"\n" +
+	"revoked_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\trevokedAt\x88\x01\x01\x12'\n" +
+	"\x0fmax_submissions\x18\a \x01(\x05R\x0emaxSubmissions\x12)\n" +
+	"\x10submission_count\x18\b \x01(\x05R\x0fsubmissionCount\x12\"\n" +
+	"\n" +
+	"created_by\x18\t \x01(\tH\x02R\tcreatedBy\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x16\n" +
+	"\x06status\x18\v \x01(\tR\x06statusB\r\n" +
+	"\v_expires_atB\r\n" +
+	"\v_revoked_atB\r\n" +
+	"\v_created_by\"\x8a\x02\n" +
+	"\x1aCreateFormShareLinkRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
+	"\x0eform_schema_id\x18\x02 \x01(\tR\fformSchemaId\x12>\n" +
+	"\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x88\x01\x01\x12'\n" +
+	"\x0fmax_submissions\x18\x04 \x01(\x05R\x0emaxSubmissions\x12\"\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_expires_atB\r\n" +
+	"\v_created_by\"Y\n" +
+	"\x1bCreateFormShareLinkResponse\x12:\n" +
+	"\n" +
+	"share_link\x18\x01 \x01(\v2\x1b.formulare.v1.FormShareLinkR\tshareLink\"^\n" +
+	"\x19ListFormShareLinksRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
+	"\x0eform_schema_id\x18\x02 \x01(\tR\fformSchemaId\"p\n" +
+	"\x1aListFormShareLinksResponse\x12<\n" +
+	"\vshare_links\x18\x01 \x03(\v2\x1b.formulare.v1.FormShareLinkR\n" +
+	"shareLinks\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"]\n" +
+	"\x1aRevokeFormShareLinkRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\"\n" +
+	"\rshare_link_id\x18\x02 \x01(\tR\vshareLinkId\"\x1d\n" +
+	"\x1bRevokeFormShareLinkResponse\"\x82\x01\n" +
+	"\x1dSubmitFormByShareTokenRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
+	"\aanswers\x18\x02 \x01(\fR\aanswers\x12\"\n" +
+	"\n" +
+	"ip_address\x18\x03 \x01(\tH\x00R\tipAddress\x88\x01\x01B\r\n" +
+	"\v_ip_address\"\x88\x01\n" +
+	"\x1eSubmitFormByShareTokenResponse\x12#\n" +
+	"\rsubmission_id\x18\x01 \x01(\tR\fsubmissionId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12$\n" +
+	"\x0eform_schema_id\x18\x03 \x01(\tR\fformSchemaId*\x94\x01\n" +
 	"\x10FormSchemaStatus\x12\"\n" +
 	"\x1eFORM_SCHEMA_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18FORM_SCHEMA_STATUS_DRAFT\x10\x01\x12\x1d\n" +
@@ -3207,7 +3862,7 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\fExportFormat\x12\x1d\n" +
 	"\x19EXPORT_FORMAT_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11EXPORT_FORMAT_CSV\x10\x01\x12\x16\n" +
-	"\x12EXPORT_FORMAT_XLSX\x10\x022\xd8\r\n" +
+	"\x12EXPORT_FORMAT_XLSX\x10\x022\x8e\x11\n" +
 	"\x10FormulareService\x12a\n" +
 	"\x10CreateFormSchema\x12%.formulare.v1.CreateFormSchemaRequest\x1a&.formulare.v1.CreateFormSchemaResponse\x12X\n" +
 	"\rGetFormSchema\x12\".formulare.v1.GetFormSchemaRequest\x1a#.formulare.v1.GetFormSchemaResponse\x12a\n" +
@@ -3227,7 +3882,11 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\rDeleteWebhook\x12\".formulare.v1.DeleteWebhookRequest\x1a#.formulare.v1.DeleteWebhookResponse\x12U\n" +
 	"\fListWebhooks\x12!.formulare.v1.ListWebhooksRequest\x1a\".formulare.v1.ListWebhooksResponse\x12p\n" +
 	"\x15ListWebhookDeliveries\x12*.formulare.v1.ListWebhookDeliveriesRequest\x1a+.formulare.v1.ListWebhookDeliveriesResponse\x12U\n" +
-	"\fGetFormStats\x12!.formulare.v1.GetFormStatsRequest\x1a\".formulare.v1.GetFormStatsResponseB9Z7github.com/kmuhub/kmuhub/proto/formulare/v1;formularev1b\x06proto3"
+	"\fGetFormStats\x12!.formulare.v1.GetFormStatsRequest\x1a\".formulare.v1.GetFormStatsResponse\x12j\n" +
+	"\x13CreateFormShareLink\x12(.formulare.v1.CreateFormShareLinkRequest\x1a).formulare.v1.CreateFormShareLinkResponse\x12g\n" +
+	"\x12ListFormShareLinks\x12'.formulare.v1.ListFormShareLinksRequest\x1a(.formulare.v1.ListFormShareLinksResponse\x12j\n" +
+	"\x13RevokeFormShareLink\x12(.formulare.v1.RevokeFormShareLinkRequest\x1a).formulare.v1.RevokeFormShareLinkResponse\x12s\n" +
+	"\x16SubmitFormByShareToken\x12+.formulare.v1.SubmitFormByShareTokenRequest\x1a,.formulare.v1.SubmitFormByShareTokenResponseB9Z7github.com/kmuhub/kmuhub/proto/formulare/v1;formularev1b\x06proto3"
 
 var (
 	file_proto_formulare_v1_formulare_proto_rawDescOnce sync.Once
@@ -3242,7 +3901,7 @@ func file_proto_formulare_v1_formulare_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_formulare_v1_formulare_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_proto_formulare_v1_formulare_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_proto_formulare_v1_formulare_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_proto_formulare_v1_formulare_proto_goTypes = []any{
 	(FormSchemaStatus)(0),                  // 0: formulare.v1.FormSchemaStatus
 	(FormSubmissionStatus)(0),              // 1: formulare.v1.FormSubmissionStatus
@@ -3289,22 +3948,31 @@ var file_proto_formulare_v1_formulare_proto_goTypes = []any{
 	(*GetFormStatsRequest)(nil),            // 42: formulare.v1.GetFormStatsRequest
 	(*FormStats)(nil),                      // 43: formulare.v1.FormStats
 	(*GetFormStatsResponse)(nil),           // 44: formulare.v1.GetFormStatsResponse
-	(*timestamppb.Timestamp)(nil),          // 45: google.protobuf.Timestamp
+	(*FormShareLink)(nil),                  // 45: formulare.v1.FormShareLink
+	(*CreateFormShareLinkRequest)(nil),     // 46: formulare.v1.CreateFormShareLinkRequest
+	(*CreateFormShareLinkResponse)(nil),    // 47: formulare.v1.CreateFormShareLinkResponse
+	(*ListFormShareLinksRequest)(nil),      // 48: formulare.v1.ListFormShareLinksRequest
+	(*ListFormShareLinksResponse)(nil),     // 49: formulare.v1.ListFormShareLinksResponse
+	(*RevokeFormShareLinkRequest)(nil),     // 50: formulare.v1.RevokeFormShareLinkRequest
+	(*RevokeFormShareLinkResponse)(nil),    // 51: formulare.v1.RevokeFormShareLinkResponse
+	(*SubmitFormByShareTokenRequest)(nil),  // 52: formulare.v1.SubmitFormByShareTokenRequest
+	(*SubmitFormByShareTokenResponse)(nil), // 53: formulare.v1.SubmitFormByShareTokenResponse
+	(*timestamppb.Timestamp)(nil),          // 54: google.protobuf.Timestamp
 }
 var file_proto_formulare_v1_formulare_proto_depIdxs = []int32{
 	0,  // 0: formulare.v1.FormSchema.status:type_name -> formulare.v1.FormSchemaStatus
-	45, // 1: formulare.v1.FormSchema.created_at:type_name -> google.protobuf.Timestamp
-	45, // 2: formulare.v1.FormSchema.updated_at:type_name -> google.protobuf.Timestamp
-	45, // 3: formulare.v1.FormSchema.deleted_at:type_name -> google.protobuf.Timestamp
+	54, // 1: formulare.v1.FormSchema.created_at:type_name -> google.protobuf.Timestamp
+	54, // 2: formulare.v1.FormSchema.updated_at:type_name -> google.protobuf.Timestamp
+	54, // 3: formulare.v1.FormSchema.deleted_at:type_name -> google.protobuf.Timestamp
 	1,  // 4: formulare.v1.FormSubmission.status:type_name -> formulare.v1.FormSubmissionStatus
-	45, // 5: formulare.v1.FormSubmission.submitted_at:type_name -> google.protobuf.Timestamp
-	45, // 6: formulare.v1.FormWebhook.last_triggered_at:type_name -> google.protobuf.Timestamp
-	45, // 7: formulare.v1.FormWebhook.created_at:type_name -> google.protobuf.Timestamp
-	45, // 8: formulare.v1.FormWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	54, // 5: formulare.v1.FormSubmission.submitted_at:type_name -> google.protobuf.Timestamp
+	54, // 6: formulare.v1.FormWebhook.last_triggered_at:type_name -> google.protobuf.Timestamp
+	54, // 7: formulare.v1.FormWebhook.created_at:type_name -> google.protobuf.Timestamp
+	54, // 8: formulare.v1.FormWebhook.updated_at:type_name -> google.protobuf.Timestamp
 	2,  // 9: formulare.v1.WebhookDelivery.status:type_name -> formulare.v1.WebhookDeliveryStatus
-	45, // 10: formulare.v1.WebhookDelivery.next_attempt_at:type_name -> google.protobuf.Timestamp
-	45, // 11: formulare.v1.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	45, // 12: formulare.v1.WebhookDelivery.delivered_at:type_name -> google.protobuf.Timestamp
+	54, // 10: formulare.v1.WebhookDelivery.next_attempt_at:type_name -> google.protobuf.Timestamp
+	54, // 11: formulare.v1.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	54, // 12: formulare.v1.WebhookDelivery.delivered_at:type_name -> google.protobuf.Timestamp
 	0,  // 13: formulare.v1.CreateFormSchemaRequest.status:type_name -> formulare.v1.FormSchemaStatus
 	4,  // 14: formulare.v1.CreateFormSchemaResponse.schema:type_name -> formulare.v1.FormSchema
 	4,  // 15: formulare.v1.GetFormSchemaResponse.schema:type_name -> formulare.v1.FormSchema
@@ -3321,8 +3989,8 @@ var file_proto_formulare_v1_formulare_proto_depIdxs = []int32{
 	5,  // 26: formulare.v1.UpdateSubmissionStatusResponse.submission:type_name -> formulare.v1.FormSubmission
 	3,  // 27: formulare.v1.ExportSubmissionsRequest.format:type_name -> formulare.v1.ExportFormat
 	1,  // 28: formulare.v1.ExportSubmissionsRequest.status:type_name -> formulare.v1.FormSubmissionStatus
-	45, // 29: formulare.v1.ExportSubmissionsRequest.submitted_after:type_name -> google.protobuf.Timestamp
-	45, // 30: formulare.v1.ExportSubmissionsRequest.submitted_before:type_name -> google.protobuf.Timestamp
+	54, // 29: formulare.v1.ExportSubmissionsRequest.submitted_after:type_name -> google.protobuf.Timestamp
+	54, // 30: formulare.v1.ExportSubmissionsRequest.submitted_before:type_name -> google.protobuf.Timestamp
 	6,  // 31: formulare.v1.CreateWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
 	6,  // 32: formulare.v1.GetWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
 	6,  // 33: formulare.v1.UpdateWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
@@ -3330,47 +3998,61 @@ var file_proto_formulare_v1_formulare_proto_depIdxs = []int32{
 	2,  // 35: formulare.v1.ListWebhookDeliveriesRequest.status:type_name -> formulare.v1.WebhookDeliveryStatus
 	7,  // 36: formulare.v1.ListWebhookDeliveriesResponse.deliveries:type_name -> formulare.v1.WebhookDelivery
 	43, // 37: formulare.v1.GetFormStatsResponse.stats:type_name -> formulare.v1.FormStats
-	8,  // 38: formulare.v1.FormulareService.CreateFormSchema:input_type -> formulare.v1.CreateFormSchemaRequest
-	10, // 39: formulare.v1.FormulareService.GetFormSchema:input_type -> formulare.v1.GetFormSchemaRequest
-	12, // 40: formulare.v1.FormulareService.UpdateFormSchema:input_type -> formulare.v1.UpdateFormSchemaRequest
-	14, // 41: formulare.v1.FormulareService.DeleteFormSchema:input_type -> formulare.v1.DeleteFormSchemaRequest
-	16, // 42: formulare.v1.FormulareService.ListFormSchemas:input_type -> formulare.v1.ListFormSchemasRequest
-	18, // 43: formulare.v1.FormulareService.DuplicateFormSchema:input_type -> formulare.v1.DuplicateFormSchemaRequest
-	20, // 44: formulare.v1.FormulareService.CreateSubmission:input_type -> formulare.v1.CreateSubmissionRequest
-	22, // 45: formulare.v1.FormulareService.GetSubmission:input_type -> formulare.v1.GetSubmissionRequest
-	24, // 46: formulare.v1.FormulareService.ListSubmissions:input_type -> formulare.v1.ListSubmissionsRequest
-	26, // 47: formulare.v1.FormulareService.UpdateSubmissionStatus:input_type -> formulare.v1.UpdateSubmissionStatusRequest
-	28, // 48: formulare.v1.FormulareService.ExportSubmissions:input_type -> formulare.v1.ExportSubmissionsRequest
-	30, // 49: formulare.v1.FormulareService.CreateWebhook:input_type -> formulare.v1.CreateWebhookRequest
-	32, // 50: formulare.v1.FormulareService.GetWebhook:input_type -> formulare.v1.GetWebhookRequest
-	34, // 51: formulare.v1.FormulareService.UpdateWebhook:input_type -> formulare.v1.UpdateWebhookRequest
-	36, // 52: formulare.v1.FormulareService.DeleteWebhook:input_type -> formulare.v1.DeleteWebhookRequest
-	38, // 53: formulare.v1.FormulareService.ListWebhooks:input_type -> formulare.v1.ListWebhooksRequest
-	40, // 54: formulare.v1.FormulareService.ListWebhookDeliveries:input_type -> formulare.v1.ListWebhookDeliveriesRequest
-	42, // 55: formulare.v1.FormulareService.GetFormStats:input_type -> formulare.v1.GetFormStatsRequest
-	9,  // 56: formulare.v1.FormulareService.CreateFormSchema:output_type -> formulare.v1.CreateFormSchemaResponse
-	11, // 57: formulare.v1.FormulareService.GetFormSchema:output_type -> formulare.v1.GetFormSchemaResponse
-	13, // 58: formulare.v1.FormulareService.UpdateFormSchema:output_type -> formulare.v1.UpdateFormSchemaResponse
-	15, // 59: formulare.v1.FormulareService.DeleteFormSchema:output_type -> formulare.v1.DeleteFormSchemaResponse
-	17, // 60: formulare.v1.FormulareService.ListFormSchemas:output_type -> formulare.v1.ListFormSchemasResponse
-	19, // 61: formulare.v1.FormulareService.DuplicateFormSchema:output_type -> formulare.v1.DuplicateFormSchemaResponse
-	21, // 62: formulare.v1.FormulareService.CreateSubmission:output_type -> formulare.v1.CreateSubmissionResponse
-	23, // 63: formulare.v1.FormulareService.GetSubmission:output_type -> formulare.v1.GetSubmissionResponse
-	25, // 64: formulare.v1.FormulareService.ListSubmissions:output_type -> formulare.v1.ListSubmissionsResponse
-	27, // 65: formulare.v1.FormulareService.UpdateSubmissionStatus:output_type -> formulare.v1.UpdateSubmissionStatusResponse
-	29, // 66: formulare.v1.FormulareService.ExportSubmissions:output_type -> formulare.v1.ExportSubmissionsResponse
-	31, // 67: formulare.v1.FormulareService.CreateWebhook:output_type -> formulare.v1.CreateWebhookResponse
-	33, // 68: formulare.v1.FormulareService.GetWebhook:output_type -> formulare.v1.GetWebhookResponse
-	35, // 69: formulare.v1.FormulareService.UpdateWebhook:output_type -> formulare.v1.UpdateWebhookResponse
-	37, // 70: formulare.v1.FormulareService.DeleteWebhook:output_type -> formulare.v1.DeleteWebhookResponse
-	39, // 71: formulare.v1.FormulareService.ListWebhooks:output_type -> formulare.v1.ListWebhooksResponse
-	41, // 72: formulare.v1.FormulareService.ListWebhookDeliveries:output_type -> formulare.v1.ListWebhookDeliveriesResponse
-	44, // 73: formulare.v1.FormulareService.GetFormStats:output_type -> formulare.v1.GetFormStatsResponse
-	56, // [56:74] is the sub-list for method output_type
-	38, // [38:56] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	54, // 38: formulare.v1.FormShareLink.expires_at:type_name -> google.protobuf.Timestamp
+	54, // 39: formulare.v1.FormShareLink.revoked_at:type_name -> google.protobuf.Timestamp
+	54, // 40: formulare.v1.FormShareLink.created_at:type_name -> google.protobuf.Timestamp
+	54, // 41: formulare.v1.CreateFormShareLinkRequest.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 42: formulare.v1.CreateFormShareLinkResponse.share_link:type_name -> formulare.v1.FormShareLink
+	45, // 43: formulare.v1.ListFormShareLinksResponse.share_links:type_name -> formulare.v1.FormShareLink
+	8,  // 44: formulare.v1.FormulareService.CreateFormSchema:input_type -> formulare.v1.CreateFormSchemaRequest
+	10, // 45: formulare.v1.FormulareService.GetFormSchema:input_type -> formulare.v1.GetFormSchemaRequest
+	12, // 46: formulare.v1.FormulareService.UpdateFormSchema:input_type -> formulare.v1.UpdateFormSchemaRequest
+	14, // 47: formulare.v1.FormulareService.DeleteFormSchema:input_type -> formulare.v1.DeleteFormSchemaRequest
+	16, // 48: formulare.v1.FormulareService.ListFormSchemas:input_type -> formulare.v1.ListFormSchemasRequest
+	18, // 49: formulare.v1.FormulareService.DuplicateFormSchema:input_type -> formulare.v1.DuplicateFormSchemaRequest
+	20, // 50: formulare.v1.FormulareService.CreateSubmission:input_type -> formulare.v1.CreateSubmissionRequest
+	22, // 51: formulare.v1.FormulareService.GetSubmission:input_type -> formulare.v1.GetSubmissionRequest
+	24, // 52: formulare.v1.FormulareService.ListSubmissions:input_type -> formulare.v1.ListSubmissionsRequest
+	26, // 53: formulare.v1.FormulareService.UpdateSubmissionStatus:input_type -> formulare.v1.UpdateSubmissionStatusRequest
+	28, // 54: formulare.v1.FormulareService.ExportSubmissions:input_type -> formulare.v1.ExportSubmissionsRequest
+	30, // 55: formulare.v1.FormulareService.CreateWebhook:input_type -> formulare.v1.CreateWebhookRequest
+	32, // 56: formulare.v1.FormulareService.GetWebhook:input_type -> formulare.v1.GetWebhookRequest
+	34, // 57: formulare.v1.FormulareService.UpdateWebhook:input_type -> formulare.v1.UpdateWebhookRequest
+	36, // 58: formulare.v1.FormulareService.DeleteWebhook:input_type -> formulare.v1.DeleteWebhookRequest
+	38, // 59: formulare.v1.FormulareService.ListWebhooks:input_type -> formulare.v1.ListWebhooksRequest
+	40, // 60: formulare.v1.FormulareService.ListWebhookDeliveries:input_type -> formulare.v1.ListWebhookDeliveriesRequest
+	42, // 61: formulare.v1.FormulareService.GetFormStats:input_type -> formulare.v1.GetFormStatsRequest
+	46, // 62: formulare.v1.FormulareService.CreateFormShareLink:input_type -> formulare.v1.CreateFormShareLinkRequest
+	48, // 63: formulare.v1.FormulareService.ListFormShareLinks:input_type -> formulare.v1.ListFormShareLinksRequest
+	50, // 64: formulare.v1.FormulareService.RevokeFormShareLink:input_type -> formulare.v1.RevokeFormShareLinkRequest
+	52, // 65: formulare.v1.FormulareService.SubmitFormByShareToken:input_type -> formulare.v1.SubmitFormByShareTokenRequest
+	9,  // 66: formulare.v1.FormulareService.CreateFormSchema:output_type -> formulare.v1.CreateFormSchemaResponse
+	11, // 67: formulare.v1.FormulareService.GetFormSchema:output_type -> formulare.v1.GetFormSchemaResponse
+	13, // 68: formulare.v1.FormulareService.UpdateFormSchema:output_type -> formulare.v1.UpdateFormSchemaResponse
+	15, // 69: formulare.v1.FormulareService.DeleteFormSchema:output_type -> formulare.v1.DeleteFormSchemaResponse
+	17, // 70: formulare.v1.FormulareService.ListFormSchemas:output_type -> formulare.v1.ListFormSchemasResponse
+	19, // 71: formulare.v1.FormulareService.DuplicateFormSchema:output_type -> formulare.v1.DuplicateFormSchemaResponse
+	21, // 72: formulare.v1.FormulareService.CreateSubmission:output_type -> formulare.v1.CreateSubmissionResponse
+	23, // 73: formulare.v1.FormulareService.GetSubmission:output_type -> formulare.v1.GetSubmissionResponse
+	25, // 74: formulare.v1.FormulareService.ListSubmissions:output_type -> formulare.v1.ListSubmissionsResponse
+	27, // 75: formulare.v1.FormulareService.UpdateSubmissionStatus:output_type -> formulare.v1.UpdateSubmissionStatusResponse
+	29, // 76: formulare.v1.FormulareService.ExportSubmissions:output_type -> formulare.v1.ExportSubmissionsResponse
+	31, // 77: formulare.v1.FormulareService.CreateWebhook:output_type -> formulare.v1.CreateWebhookResponse
+	33, // 78: formulare.v1.FormulareService.GetWebhook:output_type -> formulare.v1.GetWebhookResponse
+	35, // 79: formulare.v1.FormulareService.UpdateWebhook:output_type -> formulare.v1.UpdateWebhookResponse
+	37, // 80: formulare.v1.FormulareService.DeleteWebhook:output_type -> formulare.v1.DeleteWebhookResponse
+	39, // 81: formulare.v1.FormulareService.ListWebhooks:output_type -> formulare.v1.ListWebhooksResponse
+	41, // 82: formulare.v1.FormulareService.ListWebhookDeliveries:output_type -> formulare.v1.ListWebhookDeliveriesResponse
+	44, // 83: formulare.v1.FormulareService.GetFormStats:output_type -> formulare.v1.GetFormStatsResponse
+	47, // 84: formulare.v1.FormulareService.CreateFormShareLink:output_type -> formulare.v1.CreateFormShareLinkResponse
+	49, // 85: formulare.v1.FormulareService.ListFormShareLinks:output_type -> formulare.v1.ListFormShareLinksResponse
+	51, // 86: formulare.v1.FormulareService.RevokeFormShareLink:output_type -> formulare.v1.RevokeFormShareLinkResponse
+	53, // 87: formulare.v1.FormulareService.SubmitFormByShareToken:output_type -> formulare.v1.SubmitFormByShareTokenResponse
+	66, // [66:88] is the sub-list for method output_type
+	44, // [44:66] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_proto_formulare_v1_formulare_proto_init() }
@@ -3381,6 +4063,7 @@ func file_proto_formulare_v1_formulare_proto_init() {
 	file_proto_formulare_v1_formulare_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[3].OneofWrappers = []any{}
+	file_proto_formulare_v1_formulare_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[8].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[14].OneofWrappers = []any{}
@@ -3390,13 +4073,16 @@ func file_proto_formulare_v1_formulare_proto_init() {
 	file_proto_formulare_v1_formulare_proto_msgTypes[26].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[30].OneofWrappers = []any{}
 	file_proto_formulare_v1_formulare_proto_msgTypes[36].OneofWrappers = []any{}
+	file_proto_formulare_v1_formulare_proto_msgTypes[41].OneofWrappers = []any{}
+	file_proto_formulare_v1_formulare_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_formulare_v1_formulare_proto_msgTypes[48].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_formulare_v1_formulare_proto_rawDesc), len(file_proto_formulare_v1_formulare_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   41,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

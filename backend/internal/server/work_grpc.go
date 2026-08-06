@@ -575,6 +575,10 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 		}
 		input.ParentTaskID = &parentTaskID
 	}
+	if req.StartDate != nil {
+		t := req.StartDate.AsTime()
+		input.StartDate = &t
+	}
 	if req.DueDate != nil {
 		t := req.DueDate.AsTime()
 		input.DueDate = &t
@@ -782,6 +786,10 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 			}
 			input.AssigneeID = &assigneeID
 		}
+	}
+	if req.StartDate != nil {
+		t := req.StartDate.AsTime()
+		input.StartDate = &t
 	}
 	if req.DueDate != nil {
 		t := req.DueDate.AsTime()
@@ -1628,6 +1636,9 @@ func taskToProto(t *models.TaskWithRelations) *workv1.TaskProto {
 		s := t.ParentTaskID.String()
 		proto.ParentTaskId = &s
 	}
+	if t.StartDate != nil {
+		proto.StartDate = timestamppb.New(*t.StartDate)
+	}
 	if t.DueDate != nil {
 		proto.DueDate = timestamppb.New(*t.DueDate)
 	}
@@ -2464,6 +2475,8 @@ func mapWorkError(err error) error {
 	case errors.Is(err, task.ErrInvalidPriority):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrMaxDepthExceeded):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, task.ErrInvalidDateRange):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrCircularDependency):
 		return status.Error(codes.FailedPrecondition, err.Error())

@@ -5371,6 +5371,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: due_from
+          in: query
+          description: Only tasks whose due_date is on or after this timestamp.
+          schema:
+            type: string
+            format: date-time
+        - name: due_to
+          in: query
+          description: Only tasks whose due_date is on or before this timestamp.
+          schema:
+            type: string
+            format: date-time
         - name: search
           in: query
           schema:
@@ -11537,6 +11549,76 @@ paths:
                 $ref: "#/components/schemas/EmployeeDocument"
 
   # ===========================================================================
+  # HR: Personalakte (tenant-wide personnel documents)
+  # ===========================================================================
+  /api/v1/hr/personnel-documents:
+    get:
+      summary: List personnel documents across employees
+      description: >
+        Returns every personnel document of the tenant the caller may see. The
+        visibility tiers (hr_only/manager/employee) are enforced by RLS policy
+        hr_document_access (migration 000127) against the caller's roles, not by
+        a filter in the handler — a caller who may only see employee-tier
+        documents receives exactly those, for every employee, in one list.
+        Requires hr:read or team:documents:view.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeDocument"
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:read / team:documents:view }
+        "503": { description: HR service unavailable }
+    post:
+      summary: Record a document in an employee's Akte
+      description: >
+        employee_id is required: a document filed into the wrong personnel
+        record is worse than a rejected request, so there is no caller default.
+        category is the category slug (hr_document_categories.key), which
+        decides the visibility tier the document inherits. file_id is optional —
+        metadata may be recorded before a file is linked. Requires hr:write or
+        team:documents:edit.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employee_id, title, category, file_name]
+              properties:
+                employee_id: { type: string, format: uuid, description: "users.id of the employee" }
+                title: { type: string, maxLength: 255 }
+                category: { type: string, maxLength: 50, description: "hr_document_categories.key" }
+                file_name: { type: string, maxLength: 255 }
+                file_size: { type: string, maxLength: 50 }
+                file_id: { type: string, format: uuid }
+                expires_at: { type: string, format: date }
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        "201":
+          description: Document recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDocument"
+        "400": { description: "Invalid body, unknown expires_at format, or missing employee_id" }
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:write / team:documents:edit }
+        "404": { description: Unknown category slug for this tenant }
+        "503": { description: HR service unavailable }
+
+  # ===========================================================================
   # HR: Document categories (tenant master data)
   # ===========================================================================
   /api/v1/hr/employees/{id}/documents/categories:
@@ -13193,6 +13275,203 @@ paths:
         "403":
           description: Forbidden — caller lacks admin:customization:manage
 
+  /api/v1/customization/value-sets:
+    get:
+      summary: List all value-sets resolved for the caller's tenant
+      description: >
+        Each value-set merges the shipped baseline (deal stages, ticket priority, ...)
+        with the tenant's stored override, per option key. Available to any
+        authenticated user — value-sets drive pickers and status dots for everyone,
+        not just editors.
+      operationId: listCustomizationValueSets
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns only the shipped baselines (the editor's "reset to" view). Tenant-only lists have no baseline and are omitted.
+      responses:
+        "200":
+          description: Resolved value-sets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/customization/value-sets/{id}:
+    get:
+      summary: Get one value-set resolved for the caller's tenant
+      operationId: getCustomizationValueSet
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: The value-set key (e.g. "ticket_priority", or a tenant-owned key).
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns the shipped baseline instead of the tenant-resolved value.
+      responses:
+        "200":
+          description: Resolved value-set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Upsert the tenant's override for one value-set
+      description: >
+        A system key (e.g. "ticket_priority") is overridden; an unknown key creates a
+        tenant-owned list. The full option list is replaced — the editor always submits
+        the complete list it is showing.
+      operationId: putCustomizationValueSet
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpsertValueSetRequest" }
+      responses:
+        "200":
+          description: Updated, freshly resolved value-set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValueSetResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
+  /api/v1/customization/fields:
+    get:
+      summary: List unified custom fields
+      description: >
+        Dispatch layer over custom_field_definitions (crm_* entities) and
+        work_custom_field_definitions (work_task) — see
+        route_customization_fields.go. helpdesk_ticket has no backend table
+        and is always omitted from the result.
+      operationId: listCustomizationFields
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+      responses:
+        "200":
+          description: Custom field definitions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a custom field
+      operationId: createCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCustomizationFieldRequest" }
+      responses:
+        "201":
+          description: Custom field created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
+  /api/v1/customization/fields/{id}:
+    get:
+      summary: Get one custom field by ID
+      description: Resolved by trying the CRM-backed table first, then work_custom_field_definitions.
+      operationId: getCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Merge-patch update a custom field
+      operationId: updateCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCustomizationFieldRequest" }
+      responses:
+        "200":
+          description: Custom field updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomizationFieldResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a custom field
+      description: >
+        409 when the CRM-backed field still has data on a record
+        (ErrFieldInUse) — work_custom_field_definitions has no such guard.
+      operationId: deleteCustomizationField
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /api/v1/finance/gobd-archive:
     get:
       summary: List GoBD archived documents
@@ -13912,12 +14191,22 @@ paths:
                 queue_id: { type: string, format: uuid }
                 contact_id: { type: string, format: uuid }
                 org_id: { type: string, format: uuid }
+                channel: { type: string, enum: [agent, selfservice, external] }
+                requester_email: { type: string, format: email }
+                requester_name: { type: string }
+                requester_is_external: { type: boolean }
+                custom_fields: { type: object }
       responses:
         "201":
           description: Ticket created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  ticket_number:
+                    type: integer
+                    description: Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id.
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -13970,7 +14259,12 @@ paths:
           description: Ticket
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  ticket_number:
+                    type: integer
+                    description: Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id.
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
@@ -13988,11 +14282,18 @@ paths:
               type: object
               properties:
                 subject: { type: string, maxLength: 200 }
+                status:
+                  type: string
+                  enum: [open, pending, solved]
+                  description: closed and merged go through /close and /merge instead, which carry side effects this field does not apply.
                 priority: { type: string, enum: [low, normal, high, urgent] }
                 assignee_id: { type: string, format: uuid }
                 queue_id: { type: string, format: uuid }
                 contact_id: { type: string, format: uuid }
                 org_id: { type: string, format: uuid }
+                custom_fields:
+                  type: object
+                  description: Merge patch — sent keys overwrite, absent keys are left untouched.
       responses:
         "200":
           description: Ticket updated
@@ -14036,6 +14337,99 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/csat:
+    post:
+      summary: Submit a customer-satisfaction rating for a ticket
+      tags: [helpdesk-tickets]
+      operationId: submitHelpdeskTicketCsat
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+      responses:
+        "200":
+          description: Rating recorded, updated ticket returned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/helpdesk/csat/{token}:
+    post:
+      summary: Redeem a CSAT survey link (public, unauthenticated)
+      description: >
+        No authentication. The survey token in the path — mailed to the
+        requester after the ticket was closed — is the entire credential; the
+        tenant is resolved from it server-side and the call can only ever rate
+        the one ticket the link names.
+
+
+        It is a POST rather than a GET so the token does not travel where
+        access logs, browser history and Referer headers keep it, and because
+        it writes: a prefetching GET must not be able to submit a rating.
+
+
+        Redemption consumes the token, so a link works exactly once. Unknown,
+        malformed, expired, revoked and already-redeemed links all answer 404,
+        deliberately indistinguishable — the route is not an oracle for which
+        tokens exist. An out-of-range rating or a malformed body answers 400,
+        which says nothing about the token. This route is behind the strict
+        per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the
+        authenticated one.
+
+
+        The response carries only the ticket number the invitation mail
+        already quoted and the rating just recorded — no ticket content, no
+        internal state.
+      tags: [helpdesk-tickets]
+      operationId: submitPublicHelpdeskCsat
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, maxLength: 128 }
+          description: The survey link secret (43-char base64url).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string, maxLength: 2000 }
+      responses:
+        "200":
+          description: Rating recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket_number: { type: integer }
+                  rating: { type: integer, minimum: 1, maximum: 5 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404":
+          description: No such link, or it expired, was revoked or is already redeemed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/helpdesk/tickets/{id}/assign:
     post:
@@ -14453,7 +14847,7 @@ paths:
               required: [title]
               properties:
                 title: { type: string, maxLength: 300 }
-                content: { type: string }
+                content: { type: string, maxLength: 500000 }
                 category: { type: string, maxLength: 100 }
                 status: { type: string, enum: [draft, published] }
       responses:
@@ -14481,7 +14875,7 @@ paths:
               type: object
               properties:
                 title: { type: string, maxLength: 300 }
-                content: { type: string }
+                content: { type: string, maxLength: 500000 }
                 category: { type: string, maxLength: 100 }
                 status: { type: string, enum: [draft, published] }
       responses:
@@ -14950,6 +15344,12 @@ paths:
   /api/v1/wiki/share/{tokenId}:
     delete:
       summary: Revoke a wiki article share token
+      description: >
+        Cuts a public share link. The revocation is soft: the token stays in
+        the article's share list carrying the moment it was cut, so an author
+        can tell a revoked link from one that never existed. Redeeming a
+        revoked token answers the same 404 as an invented one. Repeating the
+        call is idempotent and does not move the original revocation time.
       tags: [wiki-articles]
       operationId: revokeWikiShareToken
       security: [{ bearerAuth: [] }]
@@ -14960,6 +15360,64 @@ paths:
           description: Share token revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/wiki/articles/{token}:
+    post:
+      summary: Read a shared wiki article (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the call can
+        only ever reach the one article the token names — never its children,
+        never a listing.
+
+
+        It is a POST rather than a GET so the token does not travel where
+        access logs, browser history and Referer headers keep it, and so that
+        no prefetching GET redeems a link on the visitor's behalf.
+
+
+        Unknown, malformed, expired and revoked tokens, tokens that grant no
+        read, and tokens whose article was deleted or unpublished all answer
+        404 — deliberately indistinguishable, so the route is not an oracle for
+        which tokens exist. This route is behind the strict per-IP public rate
+        limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+
+
+        The response is narrower than the authenticated article read on
+        purpose: no ids, no tenant, no author, no category.
+      tags: [wiki-articles]
+      operationId: readPublicWikiArticleByShareToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, maxLength: 128 }
+          description: The share token secret (43-char base64url).
+      responses:
+        "200":
+          description: The shared article
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  article:
+                    type: object
+                    properties:
+                      title: { type: string }
+                      content:
+                        type: object
+                        nullable: true
+                        description: Raw article body (TipTap JSON).
+                      updated_at: { type: string, format: date-time }
+        "404":
+          description: No such link, or it expired, was revoked, or its article is gone or unpublished
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/wiki/versions/{id}:
     get:
@@ -19762,6 +20220,7 @@ paths:
                 is_template: { type: boolean }
                 is_public: { type: boolean }
                 page_count: { type: integer, format: int32 }
+                intake_target_id: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\")" }
       responses:
         "201":
           description: Form schema created
@@ -19813,6 +20272,7 @@ paths:
                 is_template: { type: boolean }
                 is_public: { type: boolean }
                 page_count: { type: integer, format: int32 }
+                intake_target_id: { type: string, description: "Key into the shared intake registry; empty string clears the binding" }
       responses:
         "200":
           description: Form schema updated
@@ -19958,6 +20418,192 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/schemas/{id}/share-links:
+    get:
+      summary: List the public fill-out links of a form schema
+      description: >
+        Returns every link ever minted for this schema, newest first, including
+        revoked and expired ones — an author looking at an external write path
+        needs to see what was cut, not only what is live. `status` is derived
+        on read from revocation, expiry and the submission quota.
+
+
+        `token` is returned in clear text on purpose: it is the copyable link
+        the author hands out, and a one-way hash would make that impossible.
+        It grants the ability to append one submission to this one schema and
+        reads nothing.
+      tags: [formulare]
+      operationId: listFormShareLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Share links of the schema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_links:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormShareLink" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      summary: Mint a public fill-out link for a form schema
+      description: >
+        Requires `formulare:share:manage`. The schema must be public
+        (`is_public`) — that flag is the precondition for opening a form up,
+        while the token is what a visitor actually presents. A schema that is
+        not public answers 409.
+
+
+        The link may carry an expiry and a submission quota; both are enforced
+        server-side on every redemption, and both are optional (omitted =
+        never expires / unlimited).
+      tags: [formulare]
+      operationId: createFormShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_at: { type: string, format: date-time, nullable: true }
+                max_submissions: { type: integer, minimum: 1, nullable: true }
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_link: { $ref: "#/components/schemas/FormShareLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The schema is not public, so no link may be minted for it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/formulare/share-links/{id}:
+    delete:
+      summary: Revoke a public fill-out link
+      description: >
+        Requires `formulare:share:manage`. Soft revoke: the row and its
+        submission count survive, because that count is the only record of how
+        often the link was used before it was cut. Re-revoking is a no-op.
+      tags: [formulare]
+      operationId: revokeFormShareLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Share link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/public/formulare/submit/{token}:
+    post:
+      summary: Submit a form through a public share link (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the call can
+        only ever append one submission to the one schema the link names.
+
+
+        It is a POST rather than a GET so the token does not travel where
+        access logs, browser history and Referer headers keep it, and because
+        it writes: a prefetching GET must not be able to submit a form.
+
+
+        Unknown, malformed, revoked, expired and used-up links, and links whose
+        form is no longer public, archived or deleted, all answer 404 —
+        deliberately indistinguishable, so the route is not an oracle for which
+        tokens exist. A malformed or oversized body answers 400, which says
+        nothing about the token. This route is behind the strict per-IP public
+        rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one, and the
+        body is capped at 256 KiB.
+
+
+        Forms declaring a file-upload field are rejected with 409: a public
+        submission carries JSON answers only, and there is no upload path on
+        this route, so accepting one would store a reference pointing at
+        nothing.
+
+
+        If the schema is bound to an intake target, the module record (today: a
+        Helpdesk ticket) is created after the submission is stored. A target
+        that refuses the record costs the ticket, never the submitter's
+        answers — the response stays 201 either way.
+      tags: [formulare]
+      operationId: submitPublicFormByShareToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, maxLength: 128 }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: object
+                  description: JSON object of field answers, keyed by field id.
+      responses:
+        "201":
+          description: >
+            Submission stored. The body carries the submission id and nothing
+            else — an unauthenticated visitor learns neither the tenant nor the
+            schema they wrote into.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission_id: { type: string, format: uuid }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404":
+          description: No such link, or it expired, was revoked, is used up, or its form is no longer public
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: The form declares a file-upload field, which public submission does not support
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/formulare/schemas/{id}/webhooks:
     get:
@@ -34650,6 +35296,9 @@ components:
         parent_task_id:
           type: string
           format: uuid
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time
@@ -34686,6 +35335,9 @@ components:
         assignee_id:
           type: string
           format: uuid
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time
@@ -34739,6 +35391,9 @@ components:
         sort_order:
           type: number
           format: double
+        start_date:
+          type: string
+          format: date-time
         due_date:
           type: string
           format: date-time
@@ -38107,9 +38762,15 @@ components:
         uploaded_by: { type: string, format: uuid }
         notes: { type: string }
         category_name: { type: string }
+        category_key: { type: string, description: "hr_document_categories.key slug" }
+        visibility: { type: string, enum: [hr_only, manager, employee] }
         file_name: { type: string }
-        file_size: { type: integer }
+        file_size: { type: string, description: "Human-readable size, e.g. \"120 KB\"" }
         uploaded_by_name: { type: string }
+        title: { type: string }
+        expires_at: { type: string, format: date, description: "Empty when the document never expires" }
+        employee_name: { type: string }
+        employee_profile_id: { type: string, format: uuid, description: "hr_employee_profiles.id" }
         created_at: { type: string, format: date-time }
 
     HRDocumentCategory:
@@ -38603,6 +39264,214 @@ components:
         locale: de
         overrides:
           crm.deals.title: "Aufträge"
+
+    ResolvedValueSetOption:
+      type: object
+      description: >
+        Field names are camelCase and use `id` (not `key`) on purpose — this shape
+        mirrors the frontend's MSW mock contract 1:1 rather than the snake_case house
+        rule (customization-types.ts ResolvedValueSetOption).
+      properties:
+        id:
+          type: string
+          description: Stable option key, referenced by live records (e.g. a deal's stage).
+        label:
+          type: string
+        color:
+          type: string
+          description: Optional HSL/hex color token for status dots.
+        order:
+          type: integer
+        active:
+          type: boolean
+          description: false = soft-deleted, hidden from pickers but kept for existing records.
+        provenance:
+          type: string
+          enum: [default, tenant]
+      required: [id, label, order, active, provenance]
+
+    ResolvedValueSet:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stable set key (e.g. "deal_stages", "ticket_priority", or a tenant-owned key).
+        name:
+          type: string
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/ResolvedValueSetOption" }
+        provenance:
+          type: string
+          enum: [default, tenant]
+          description: Provenance of the set's name/definition, not of individual options.
+      required: [id, name, options, provenance]
+
+    ValueSetsResponse:
+      type: object
+      properties:
+        valueSets:
+          type: array
+          items: { $ref: "#/components/schemas/ResolvedValueSet" }
+      required: [valueSets]
+
+    ValueSetResponse:
+      type: object
+      properties:
+        valueSet:
+          $ref: "#/components/schemas/ResolvedValueSet"
+      required: [valueSet]
+
+    UpsertValueSetOption:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        color:
+          type: string
+        order:
+          type: integer
+        active:
+          type: boolean
+      required: [id, label]
+
+    UpsertValueSetRequest:
+      type: object
+      description: >
+        Replaces the tenant's override for one value-set wholesale — the full option
+        list is expected, not a patch.
+      properties:
+        layer:
+          type: string
+          enum: [tenant, vendor]
+          description: Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+        name:
+          type: string
+          description: Defaults to the value-set id (the URL path segment) when omitted.
+        options:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/UpsertValueSetOption" }
+      required: [options]
+      example:
+        options:
+          - { id: low, label: "Niedrig", color: "hsl(142 71% 45%)", order: 0, active: true }
+          - { id: medium, label: "Mittel", color: "hsl(38 92% 50%)", order: 1, active: true }
+
+    CustomizationField:
+      type: object
+      description: >
+        Mirrors CustomFieldDefinition in mocks/data/custom-fields.ts. A thin
+        dispatch layer over two existing tables (custom_field_definitions for
+        crm_* entities, work_custom_field_definitions for work_task) — see the
+        route_customization_fields.go file header for the full mapping.
+        valueSetId, validation and inUse are never returned: neither backing
+        table has a column for the first two (a write that sets them is
+        rejected with 400, not silently dropped), and inUse is not computed.
+      properties:
+        id:
+          type: string
+        entity:
+          type: string
+          enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+        key:
+          type: string
+          description: Stable for crm_* entities; derived from the label for work_task (no separate key column there).
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+          description: url/email/phone are only valid for work_task — CRM's backing table predates them.
+        required:
+          type: boolean
+        options:
+          type: array
+          items: { type: string }
+        defaultValue:
+          type: string
+        visible:
+          type: boolean
+          description: Always true — no persisted column on either backing table yet.
+        order:
+          type: integer
+        inUse:
+          type: boolean
+          description: Always false — not computed yet, see route_customization_fields.go.
+      required: [id, entity, key, label, type, required, options, visible, order, inUse]
+
+    CustomizationFieldsResponse:
+      type: object
+      properties:
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/CustomizationField" }
+      required: [fields]
+
+    CustomizationFieldResponse:
+      type: object
+      properties:
+        field:
+          $ref: "#/components/schemas/CustomizationField"
+      required: [field]
+
+    CreateCustomizationFieldRequest:
+      type: object
+      properties:
+        entity:
+          type: string
+          enum: [work_task, crm_contact, crm_company, crm_deal, crm_activity, helpdesk_ticket]
+          description: helpdesk_ticket is rejected with 400 — no backend table yet.
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+        required:
+          type: boolean
+          description: Rejected with 400 when true for entity=work_task (no backend column).
+        options:
+          type: array
+          items: { type: string }
+        valueSetId:
+          type: string
+          description: Rejected with 400 if present — no backend column yet.
+        validation:
+          type: object
+          description: Rejected with 400 if present — no backend column yet.
+        defaultValue:
+          type: string
+          description: Rejected with 400 for entity=work_task (no backend column).
+        visible:
+          type: boolean
+          description: Rejected with 400 if set to false — no backend column yet, fields are always visible.
+      required: [entity, label, type]
+
+    UpdateCustomizationFieldRequest:
+      type: object
+      description: Merge-patch — only fields present in the body change.
+      properties:
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+          description: Rejected with 400 for CRM-backed entities — type is immutable there once created.
+        required:
+          type: boolean
+        options:
+          type: array
+          items: { type: string }
+        valueSetId:
+          type: string
+        validation:
+          type: object
+        defaultValue:
+          type: string
+        visible:
+          type: boolean
 
     GobdDocument:
       type: object
@@ -39587,6 +40456,37 @@ components:
           $ref: "#/components/schemas/ProtoTimestamp"
         deleted_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+        intake_target_id:
+          type: string
+          description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\") this form feeds. Absent = a plain form."
+
+    FormShareLink:
+      type: object
+      description: >
+        A public fill-out link for one form schema. `token` is the credential
+        itself and is returned in clear text on purpose — it is the link the
+        author copies out.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        form_schema_id: { type: string, format: uuid }
+        token:
+          type: string
+          description: 43-char base64url secret (32 bytes of crypto/rand).
+        expires_at: { type: string, format: date-time, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        max_submissions:
+          type: integer
+          description: 0 = unlimited.
+        submission_count: { type: integer }
+        created_by: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [active, expired, disabled]
+          description: >
+            Derived on read. `disabled` when revoked by hand, `expired` when
+            past its expiry or out of submission quota.
 
     FormSubmission:
       type: object

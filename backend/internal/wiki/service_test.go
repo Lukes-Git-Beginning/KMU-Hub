@@ -220,13 +220,17 @@ func (m *mockRepository) CreateShareToken(ctx context.Context, token *ShareToken
 	return nil
 }
 
-func (m *mockRepository) DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
-	for k, t := range m.tokens {
+func (m *mockRepository) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, now time.Time) error {
+	for _, t := range m.tokens {
 		if t.ID == tokenID {
 			if t.TenantID != tenantID {
 				return ErrShareTokenNotFound
 			}
-			delete(m.tokens, k)
+			// Soft: the row stays and keeps its first revocation timestamp,
+			// mirroring the COALESCE in the real UPDATE.
+			if t.RevokedAt == nil {
+				t.RevokedAt = &now
+			}
 			return nil
 		}
 	}
@@ -241,6 +245,14 @@ func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, tenantID,
 		}
 	}
 	return result, nil
+}
+
+func (m *mockRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
+	t, ok := m.tokens[token]
+	if !ok {
+		return nil, ErrShareTokenNotFound
+	}
+	return t, nil
 }
 
 // compile-time check

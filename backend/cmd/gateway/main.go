@@ -251,6 +251,15 @@ func main() {
 	// Automation: authenticated CRUD via the registrar loop, the public
 	// inbound webhook trigger outside it — same split as document/berichte.
 	automationRoutes := gateway.NewAutomationRoutes(registry)
+	// Helpdesk: authenticated routes via the registrar loop, the public
+	// redemption of a CSAT survey link outside it — same split as berichte.
+	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
+	// Formulare: authenticated CRUD via the registrar loop, the public
+	// share-link fill-out outside it -- same split as berichte/helpdesk.
+	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
+	// Wiki: authenticated CRUD via the registrar loop, the public read of one
+	// shared article outside it -- same split as berichte/helpdesk/formulare.
+	wikiRoutes := gateway.NewWikiRoutes(registry, flagRegistry)
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
@@ -282,10 +291,10 @@ func main() {
 		gateway.NewInboxRoutes(registry),
 		automationRoutes,
 		gateway.NewDialerRoutes(registry),
-		gateway.NewWikiRoutes(registry, flagRegistry),
-		gateway.NewHelpdeskRoutes(registry, flagRegistry),
+		wikiRoutes,
+		helpdeskRoutes,
 		berichteRoutes,
-		gateway.NewFormulareRoutes(registry, flagRegistry),
+		formulareRoutes,
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
 		gateway.NewProduktionRoutes(registry, flagRegistry),
@@ -366,6 +375,25 @@ func main() {
 	// gate, but per-IP throttling still bounds signature-guessing attempts.
 	automationRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "automation-public")
+
+	// Public redemption of a CSAT survey link (no auth middleware). Same strict
+	// per-IP limiter: the survey token is the whole credential, and this one
+	// writes, so an unthrottled guessing run would also be a rating-spam run.
+	helpdeskRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "helpdesk-public")
+
+	// Public fill-out of a shared form (no auth middleware). Same strict
+	// per-IP limiter: the share token is the whole credential, and this one
+	// writes, so an unthrottled guessing run would also be a submission-spam
+	// run.
+	formulareRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "formulare-public")
+
+	// Public read of one shared wiki article (no auth middleware). Same strict
+	// per-IP limiter: the share token is the whole credential, and it grants
+	// exactly one page — the limiter is what bounds a guessing run.
+	wikiRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "wiki-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

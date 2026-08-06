@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -73,6 +75,7 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(hdTicketEdit).Put("/tickets/{id}", h.HandleUpdateTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/close", h.HandleCloseTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/csat", h.HandleSubmitCsat)
 		r.With(hdTicketEdit).Post("/tickets/{id}/assign", h.HandleAssignTicket)
 		r.With(hdTicketEdit).Post("/tickets/{id}/merge", h.HandleMergeTickets)
 
@@ -121,6 +124,27 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	})
 }
 
+// RegisterPublicRoutes mounts the unauthenticated redemption of a CSAT survey
+// link. Called from cmd/gateway/main.go on the root router, OUTSIDE the
+// registrars loop and therefore outside any authMiddleware group -- the token
+// is the whole credential, and a skip-list inside the auth middleware would be
+// a far easier thing to widen by accident.
+//
+// publicRateLimit must be the stricter public limiter, not the global one:
+// this is the only helpdesk path that answers without a JWT, so per-IP
+// throttling is all that stands between a scraper and an unbounded run of
+// token guesses.
+func (h *HelpdeskRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	if !h.flags.IsEnabled("modules.helpdesk") {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/helpdesk/csat/{token}", h.HandleSubmitCsatByToken)
+	})
+}
+
 // ============================================================================
 // Request types
 // ============================================================================
@@ -134,6 +158,12 @@ type createTicketRequest struct {
 	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	ContactID   *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
 	OrgID       *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+	// Origin fields; validated service-side (TicketIntake.normalize), not here.
+	Channel             *string        `json:"channel,omitempty"`
+	RequesterEmail      *string        `json:"requester_email,omitempty"`
+	RequesterName       *string        `json:"requester_name,omitempty"`
+	RequesterIsExternal bool           `json:"requester_is_external,omitempty"`
+	CustomFields        map[string]any `json:"custom_fields,omitempty"`
 }
 
 type createTicketFromMessageRequest struct {
@@ -147,10 +177,21 @@ type updateTicketRequest struct {
 	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
 	ContactID  *string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
 	OrgID      *string `json:"org_id,omitempty" validate:"omitempty,uuid"`
+	// Status is validated service-side against ValidTicketStatuses, not here --
+	// close/reopen stay the dedicated endpoints for those two transitions, this
+	// covers the rest (e.g. open -> pending, pending -> solved).
+	Status *string `json:"status,omitempty"`
+	// CustomFields is a merge patch, not a replace (see Service.UpdateTicket).
+	CustomFields map[string]any `json:"custom_fields,omitempty"`
 }
 
 type assignTicketRequest struct {
 	AssigneeID string `json:"assignee_id" validate:"required,uuid"`
+}
+
+type submitCsatRequest struct {
+	Rating  int32   `json:"rating" validate:"required,min=1,max=5"`
+	Comment *string `json:"comment,omitempty"`
 }
 
 type mergeTicketsRequest struct {
@@ -203,16 +244,20 @@ type applySLAPolicyRequest struct {
 	SLAPolicyID string `json:"sla_policy_id" validate:"required,uuid"`
 }
 
+// Content on both requests below caps at 500k runes -- far past any real
+// article. Content is opaque to the server (see the KBArticle.Content doc
+// comment: block-document JSON or legacy HTML, never sanitized), so this
+// validate tag is the only server-side guard against a row growing unbounded.
 type createKBArticleRequest struct {
 	Title    string `json:"title" validate:"required,max=300"`
-	Content  string `json:"content"`
+	Content  string `json:"content" validate:"omitempty,max=500000"`
 	Category string `json:"category" validate:"omitempty,max=100"`
 	Status   string `json:"status" validate:"omitempty,oneof=draft published"`
 }
 
 type updateKBArticleRequest struct {
 	Title    *string `json:"title,omitempty" validate:"omitempty,min=1,max=300"`
-	Content  *string `json:"content,omitempty"`
+	Content  *string `json:"content,omitempty" validate:"omitempty,max=500000"`
 	Category *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
@@ -264,16 +309,28 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	grpcReq := &helpdeskv1.CreateTicketRequest{
-		TenantId:    tenantID.String(),
-		RequesterId: userID,
-		Subject:     req.Subject,
-		Priority:    req.Priority,
-		AssigneeId:  req.AssigneeID,
-		QueueId:     req.QueueID,
-		Description: req.Description,
-		Category:    req.Category,
-		ContactId:   req.ContactID,
-		OrgId:       req.OrgID,
+		TenantId:            tenantID.String(),
+		RequesterId:         userID,
+		Subject:             req.Subject,
+		Priority:            req.Priority,
+		AssigneeId:          req.AssigneeID,
+		QueueId:             req.QueueID,
+		Description:         req.Description,
+		Category:            req.Category,
+		ContactId:           req.ContactID,
+		OrgId:               req.OrgID,
+		Channel:             req.Channel,
+		RequesterEmail:      req.RequesterEmail,
+		RequesterName:       req.RequesterName,
+		RequesterIsExternal: req.RequesterIsExternal,
+	}
+	if req.CustomFields != nil {
+		cf, cfErr := structpb.NewStruct(req.CustomFields)
+		if cfErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid custom_fields")
+			return
+		}
+		grpcReq.CustomFields = cf
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)
@@ -412,11 +469,20 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 	grpcReq := &helpdeskv1.UpdateTicketRequest{
 		TicketId:   ticketID,
 		Subject:    req.Subject,
+		Status:     req.Status,
 		Priority:   req.Priority,
 		AssigneeId: req.AssigneeID,
 		QueueId:    req.QueueID,
 		ContactId:  req.ContactID,
 		OrgId:      req.OrgID,
+	}
+	if req.CustomFields != nil {
+		cf, cfErr := structpb.NewStruct(req.CustomFields)
+		if cfErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid custom_fields")
+			return
+		}
+		grpcReq.CustomFields = cf
 	}
 
 	resp, err := client.UpdateTicket(r.Context(), grpcReq)
@@ -462,6 +528,99 @@ func (h *HelpdeskRoutes) HandleReopenTicket(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := client.ReopenTicket(r.Context(), &helpdeskv1.ReopenTicketRequest{TicketId: ticketID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleSubmitCsat(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	ticketID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[submitCsatRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &helpdeskv1.SubmitCsatRequest{
+		TicketId: ticketID,
+		Rating:   req.Rating,
+		Comment:  req.Comment,
+	}
+
+	resp, err := client.SubmitCsat(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// maxCsatRedeemBody caps the public redemption's request body. Rating plus a
+// bounded comment fit comfortably; anything larger is not a survey answer.
+const maxCsatRedeemBody = 8 << 10
+
+// submitCsatByTokenRequest is the public redemption body. Deliberately not
+// reusing submitCsatRequest: that one is validated for an agent-facing route,
+// and the two must be free to diverge without silently loosening this one.
+type submitCsatByTokenRequest struct {
+	Rating  int32   `json:"rating"            validate:"required,min=1,max=5"`
+	Comment *string `json:"comment,omitempty" validate:"omitempty,max=2000"`
+}
+
+// HandleSubmitCsatByToken serves the unauthenticated redemption of a survey
+// link mailed out after ticket close.
+//
+// POST, not GET, for the same reason the shared-report read is: the token must
+// not land in access logs, browser history or Referer headers, and a rating is
+// a write no prefetch should be free to trigger.
+//
+// Every rejection that concerns the token itself -- missing, over-long,
+// unknown, expired, revoked, already redeemed -- comes back as the same 404,
+// so the route cannot be used to find out which tokens exist. A malformed body
+// or an out-of-range rating is the caller's own error and stays a 400: it says
+// nothing about the token.
+func (h *HelpdeskRoutes) HandleSubmitCsatByToken(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		response.Error(w, http.StatusNotFound, "survey link not found")
+		return
+	}
+
+	// Body cap before the decode, not after: an unauthenticated writer must not
+	// be able to make the gateway buffer a megabyte to find out it is invalid.
+	r.Body = http.MaxBytesReader(w, r.Body, maxCsatRedeemBody)
+
+	body, ok := decodeAndValidate[submitCsatByTokenRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &helpdeskv1.SubmitCsatByTokenRequest{
+		Token:   token,
+		Rating:  body.Rating,
+		Comment: body.Comment,
+	}
+
+	resp, err := client.SubmitCsatByToken(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

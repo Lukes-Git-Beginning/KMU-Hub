@@ -6,6 +6,7 @@ option go_package = "github.com/kmuhub/kmuhub/proto/helpdesk/v1;helpdeskv1";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 service HelpdeskService {
   // Ticket lifecycle
@@ -22,6 +23,19 @@ service HelpdeskService {
   // content a second time). Converting the same message twice returns the
   // existing ticket with created=false rather than creating a duplicate.
   rpc CreateTicketFromMessage(CreateTicketFromMessageRequest) returns (CreateTicketFromMessageResponse);
+  // SubmitCsat records a customer-satisfaction rating (1..5) plus an optional
+  // comment for a ticket and mirrors it onto the ticket row. Submitting twice
+  // updates the existing rating instead of failing -- the requester is allowed
+  // to change their mind.
+  rpc SubmitCsat(SubmitCsatRequest) returns (Ticket);
+  // SubmitCsatByToken redeems a survey link mailed out after ticket close. It
+  // is the only RPC in this service that takes no tenant: the token resolves
+  // the tenant itself, which is exactly why the lookup has to escape RLS for
+  // that one row. The response is deliberately not a Ticket -- the caller is
+  // an unauthenticated customer and gets back only what confirms their own
+  // submission. Redemption consumes the token, so a second attempt is a plain
+  // NotFound, indistinguishable from an expired, revoked or invented one.
+  rpc SubmitCsatByToken(SubmitCsatByTokenRequest) returns (SubmitCsatByTokenResponse);
 
   // Business hours (tenant-level config)
   rpc GetBusinessHours(GetBusinessHoursRequest) returns (BusinessHoursResponse);
@@ -103,6 +117,23 @@ message Ticket {
   // message's channel ("email" | "chat" | "notification").
   optional string source_channel = 22;
   optional string source_message_id = 23;
+  // Customer satisfaction, denormalised from ticket_csat_responses. Unset
+  // until the ticket has actually been rated.
+  optional int32 csat_rating = 24;
+  optional string csat_comment = 25;
+  // Intake origin (000290). Not to be confused with source_channel above:
+  // source_channel says which inbox a message was converted from and is set
+  // only for adapter-created tickets, channel says how the request reached the
+  // helpdesk at all and is set for every ticket.
+  // "agent" | "selfservice" | "external"
+  string channel = 26;
+  // Reply address of an external requester. Unset for internal tickets, which
+  // reach their requester through their user account.
+  optional string requester_email = 27;
+  bool requester_is_external = 28;
+  // Tenant-defined extra fields, a flat map of scalars (string | number |
+  // bool). Never nested: the module renders one input per key.
+  google.protobuf.Struct custom_fields = 29;
 }
 
 message TicketMessage {
@@ -162,6 +193,19 @@ message CreateTicketRequest {
   optional string category = 8;
   optional string contact_id = 9;
   optional string org_id = 10;
+  // Intake origin, validated server-side against the three accepted values.
+  // Empty means "agent" -- an unknown value is rejected rather than silently
+  // defaulted, because a silent default is how the data got lost before.
+  optional string channel = 11;
+  optional string requester_email = 12;
+  // Display name of an EXTERNAL requester. Ignored unless
+  // requester_is_external is set: an internal requester's name is resolved
+  // from their user row on read, and a persisted copy would go stale the
+  // first time they are renamed.
+  optional string requester_name = 13;
+  bool requester_is_external = 14;
+  // Flat map of scalars; nested values are rejected.
+  google.protobuf.Struct custom_fields = 15;
 }
 
 message GetTicketRequest {
@@ -195,6 +239,14 @@ message UpdateTicketRequest {
   optional string queue_id = 5;
   optional string contact_id = 6;
   optional string org_id = 7;
+  // status covers the transitions close/reopen do not: pending, solved, and
+  // any move back to open that isn't a reopen-from-closed. Validated against
+  // ValidTicketStatuses server-side, not trusted from the caller.
+  optional string status = 8;
+  // custom_fields is a MERGE patch, not a replace: the module sends only the
+  // one field it changed, and a replace here would delete every other one on
+  // the next unrelated edit.
+  google.protobuf.Struct custom_fields = 9;
 }
 
 message CloseTicketRequest {
@@ -203,6 +255,31 @@ message CloseTicketRequest {
 
 message ReopenTicketRequest {
   string ticket_id = 1;
+}
+
+// Tenant is taken from the call context, never from the request body.
+message SubmitCsatRequest {
+  string ticket_id = 1;
+  // 1..5, validated server-side.
+  int32 rating = 2;
+  optional string comment = 3;
+}
+
+// The survey token is the whole credential; there is no tenant and no user
+// context on this request.
+message SubmitCsatByTokenRequest {
+  string token = 1;
+  // 1..5, validated server-side.
+  int32 rating = 2;
+  optional string comment = 3;
+}
+
+// Only what the customer needs to see their own submission acknowledged --
+// no ticket body, no assignee, no internal state.
+message SubmitCsatByTokenResponse {
+  // Per-tenant running number, same value the invitation mail quoted.
+  int32 ticket_number = 1;
+  int32 rating = 2;
 }
 
 message AssignTicketRequest {

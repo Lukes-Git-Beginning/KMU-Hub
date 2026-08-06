@@ -2,6 +2,7 @@ package helpdesk
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -43,6 +44,41 @@ type Repository interface {
 	// Note: Partition/retention DDL (DROP TABLE) is unaffected and operates
 	// outside of row-level transactions.
 	MergeTicketTx(ctx context.Context, source *Ticket, targetID uuid.UUID) error
+
+	// SubmitCsatTx upserts the CSAT response row for a ticket and mirrors
+	// rating/comment onto the ticket itself in a single transaction, so the
+	// denormalised ticket columns can never drift from the response row.
+	// A pending survey token on an existing row is left untouched.
+	// Returns ErrTicketNotFound if the ticket does not belong to tenantID.
+	SubmitCsatTx(ctx context.Context, tenantID, ticketID uuid.UUID, rating int16, comment *string, submittedAt time.Time) error
+
+	// IssueCsatSurveyTokenTx stores a pending survey token on the ticket's CSAT
+	// response row, creating that row if the ticket has none yet. It reports
+	// false (without error) when no token was stored, which happens for a
+	// ticket of another tenant and for a ticket that already carries a rating --
+	// both are ordinary outcomes, not failures.
+	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, sendAfter, expiresAt, now time.Time) (bool, error)
+
+	// GetCsatSurveyByToken resolves a survey link. It runs in the system
+	// context -- the caller is an unauthenticated customer and has no tenant
+	// yet, so RLS would filter away the one row that says which tenant they
+	// may touch. It is pinned to an equality match on the unique token column,
+	// is never a listing and takes no filter. Returns ErrCsatSurveyNotFound
+	// for an unknown token; the expired/already-rated verdict belongs to the
+	// service, so a dead link still resolves far enough to be logged.
+	GetCsatSurveyByToken(ctx context.Context, token string) (*CsatSurveyToken, error)
+
+	// RedeemCsatSurveyTx writes the rating from a survey link and consumes the
+	// token in one transaction, returning the ticket number for the customer's
+	// acknowledgement. Returns ErrCsatSurveyNotFound when the row is no longer
+	// pending -- that is the authoritative single-use check, since the
+	// service's own is racy against a concurrent redemption.
+	RedeemCsatSurveyTx(ctx context.Context, tenantID, ticketID, responseID uuid.UUID, rating int16, comment *string, submittedAt time.Time) (int, error)
+
+	// The survey dispatch surface (list due / claim / release / cancel) is
+	// deliberately NOT part of this interface: only the background dispatcher
+	// uses it, and it declares its own narrow CsatDispatchRepository
+	// (csat_dispatch.go) -- same split as berichte's ScheduleRepository.
 
 	// -----------------------------------------------------------------------
 	// Ticket messages
