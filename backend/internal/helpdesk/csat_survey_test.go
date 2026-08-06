@@ -9,6 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// enabledCsatConfig is the default config with surveys switched on. The
+// shipped default is opt-in (DefaultCsatConfig sets Enabled=false), so every
+// test that wants a survey to happen has to say so -- otherwise it would
+// silently exercise the "tenant has surveys off" branch and pass for the
+// wrong reason.
+func enabledCsatConfig() CsatConfig {
+	cfg := DefaultCsatConfig()
+	cfg.Enabled = true
+	return cfg
+}
+
 // seedClosedTicket puts a closed, unrated ticket into the mock repo.
 func seedClosedTicket(h *testHarness, tenantID uuid.UUID) *Ticket {
 	t := &Ticket{
@@ -26,7 +37,7 @@ func TestIssueCsatSurveyToken_Success(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
 	ticket := seedClosedTicket(h, tenantID)
-	cfg := DefaultCsatConfig()
+	cfg := enabledCsatConfig()
 
 	before := time.Now().UTC()
 	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, cfg)
@@ -64,7 +75,7 @@ func TestIssueCsatSurveyToken_Success(t *testing.T) {
 func TestIssueCsatSurveyToken_TokensAreUnique(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
-	cfg := DefaultCsatConfig()
+	cfg := enabledCsatConfig()
 
 	seen := make(map[string]bool, 16)
 	for i := range 16 {
@@ -84,7 +95,7 @@ func TestIssueCsatSurveyToken_DisabledForTenant(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
 	ticket := seedClosedTicket(h, tenantID)
-	cfg := DefaultCsatConfig()
+	cfg := enabledCsatConfig()
 	cfg.Enabled = false
 
 	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, cfg)
@@ -106,7 +117,7 @@ func TestIssueCsatSurveyToken_AlreadyRated(t *testing.T) {
 	rating := int16(4)
 	ticket.CsatRating = &rating
 
-	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, DefaultCsatConfig())
+	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, enabledCsatConfig())
 	if err != nil {
 		t.Fatalf("an already rated ticket must not be an error, got %v", err)
 	}
@@ -126,7 +137,7 @@ func TestIssueCsatSurveyToken_ForeignTicketGetsNoToken(t *testing.T) {
 	foreign := *ticket
 	foreign.TenantID = uuid.New()
 
-	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), &foreign, DefaultCsatConfig())
+	survey, err := h.svc.IssueCsatSurveyToken(context.Background(), &foreign, enabledCsatConfig())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,7 +150,7 @@ func TestIssueCsatSurveyToken_InvalidConfigRejected(t *testing.T) {
 	h := newTestHarness()
 	tenantID := uuid.New()
 	ticket := seedClosedTicket(h, tenantID)
-	cfg := DefaultCsatConfig()
+	cfg := enabledCsatConfig()
 	cfg.SurveyDelayMinutes = 999_999 // beyond the 14-day cap
 
 	if _, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, cfg); err == nil {

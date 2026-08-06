@@ -33,13 +33,28 @@ const (
 )
 
 // DefaultCsatConfig is what a tenant gets before it has ever written a row.
-// Mirrors the desktop CSAT settings panel's initial store state
-// (desktop/src/renderer/src/stores/helpdesk.ts: csatEnabled=true,
-// csatDelayHours=24) so first-load behaviour matches once the panel is wired
-// to this backend config.
+//
+// Surveys are OFF by default -- opt-in, not opt-out. Two reasons, and both
+// have to go away before this may flip:
+//
+//  1. The invitation carries a link built from CSAT_SURVEY_BASE_URL (default
+//     https://app.zentria.tech/csat), and nothing is served there: the domain
+//     proxies wholesale to the gateway, and Cosmi has no public web surface.
+//     A survey that goes out today lands its recipient on a bare 404. The
+//     recipient is resolved as ticket.requester_email or, failing that, the
+//     requesting user's own address -- so that includes staff, not just
+//     external customers.
+//  2. There is no gateway route for this config. Get/UpdateCsatConfig exist as
+//     RPCs but are not exposed, and the desktop panel's toggle is local store
+//     state with no backend call -- meaning a tenant handed surveys by default
+//     would have no way to switch them off.
+//
+// The delay and question below are the values a tenant starts from once it
+// does switch surveys on, not a dormant schedule: IssueCsatSurveyToken parks
+// no token at all while Enabled is false.
 func DefaultCsatConfig() CsatConfig {
 	return CsatConfig{
-		Enabled:            true,
+		Enabled:            false,
 		SurveyDelayMinutes: 24 * 60,
 		SurveyQuestion:     "Wie zufrieden waren Sie mit der Bearbeitung Ihres Anliegens?",
 	}

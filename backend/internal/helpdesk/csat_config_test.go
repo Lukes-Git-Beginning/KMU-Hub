@@ -12,6 +12,18 @@ func TestDefaultCsatConfig_IsValid(t *testing.T) {
 	}
 }
 
+// TestDefaultCsatConfig_IsOptIn pins the default down deliberately. A tenant
+// that has never written a config must not have surveys mailed out on its
+// behalf: the invitation links to CSAT_SURVEY_BASE_URL, where nothing is
+// served, and there is no exposed route through which a tenant could switch
+// them back off. Flipping this to true needs both of those fixed first --
+// the reasoning is spelled out on DefaultCsatConfig itself.
+func TestDefaultCsatConfig_IsOptIn(t *testing.T) {
+	if DefaultCsatConfig().Enabled {
+		t.Fatal("CSAT surveys must be opt-in: a tenant that never configured them must not send any")
+	}
+}
+
 func TestValidateCsatConfig_DelayBounds(t *testing.T) {
 	cases := []struct {
 		name    string

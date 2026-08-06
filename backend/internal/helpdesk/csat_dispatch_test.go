@@ -194,7 +194,7 @@ func TestDispatcher_SkipsSurveysThatAreNotDueYet(t *testing.T) {
 	repo.add(uuid.New(), now.Add(24*time.Hour))
 
 	mailer := &fakeMailer{}
-	d := quietDispatcher(repo, mailer, &fakeConfigLoader{cfg: DefaultCsatConfig()})
+	d := quietDispatcher(repo, mailer, &fakeConfigLoader{cfg: enabledCsatConfig()})
 
 	d.ProcessTick(context.Background(), now)
 
@@ -211,7 +211,7 @@ func TestDispatcher_FailedSendReleasesTheClaimAndRetries(t *testing.T) {
 	row := repo.add(uuid.New(), now.Add(-time.Hour))
 
 	mailer := &fakeMailer{err: errors.New("smtp down")}
-	d := quietDispatcher(repo, mailer, &fakeConfigLoader{cfg: DefaultCsatConfig()})
+	d := quietDispatcher(repo, mailer, &fakeConfigLoader{cfg: enabledCsatConfig()})
 
 	d.ProcessTick(context.Background(), now)
 	if row.sentAt != nil {
@@ -289,7 +289,7 @@ func TestDispatcher_LooksTenantConfigUpOncePerTick(t *testing.T) {
 	repo.add(tenantID, now.Add(-time.Hour))
 	repo.add(tenantID, now.Add(-time.Hour))
 
-	loader := &fakeConfigLoader{cfg: DefaultCsatConfig()}
+	loader := &fakeConfigLoader{cfg: enabledCsatConfig()}
 	d := quietDispatcher(repo, &fakeMailer{}, loader)
 
 	d.ProcessTick(context.Background(), now)
