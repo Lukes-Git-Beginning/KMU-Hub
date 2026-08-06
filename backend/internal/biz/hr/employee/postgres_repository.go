@@ -462,8 +462,14 @@ func (r *PostgresEmployeeDocRepo) Create(ctx context.Context, doc *models.Employ
 // tenant-wide read. file_name/file_size prefer the row's own metadata and fall
 // back to the linked document_files row for documents created through the
 // older file-link path.
+//
+// notes is COALESCEd because the column is nullable while EmployeeDocument.Notes
+// is a plain string: a metadata-only document (migration 000294, no notes given)
+// otherwise fails the scan and takes the whole list down with it, not just its
+// own row.
 const personnelDocColumns = `
-		d.id, d.tenant_id, d.employee_id, d.category_id, d.file_id, d.uploaded_by, d.notes, d.created_at,
+		d.id, d.tenant_id, d.employee_id, d.category_id, d.file_id, d.uploaded_by,
+		COALESCE(d.notes, '') AS notes, d.created_at,
 		d.title, d.expires_at,
 		COALESCE(dc.name, '') AS category_name,
 		COALESCE(dc.key, '') AS category_key,
