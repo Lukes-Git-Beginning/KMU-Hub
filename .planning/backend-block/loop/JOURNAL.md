@@ -4554,3 +4554,34 @@ Dependency.
   Unit soll laut Scope Kopfzeile + Datums- + Zahlenfeld mit Format explizit pruefen, das ist hier nicht
   Teil des Scopes gewesen. `x/image` bleibt fuer `bump-golang-x` offen, `x/text` ist durch diesen Bump
   bereits erledigt, dort im Journal vermerken.
+
+## Iteration 63 — excelize-export-regression — done — 2026-08-06 03:09
+- commit: folgt
+- gebaut: `internal/berichte/export/xlsx_test.go` um drei Tests erweitert (bestehende Datei erweitert,
+  keine neue angelegt). `TestXLSXExporter_dateAndCurrencyFields` baut ein Workbook ueber den echten
+  `XLSXExporter` aus Report-Daten im Schnitt von `executor.invoicesOpen` (string+currency+date-Spalte,
+  Datum als vorformatierter "2006-01-02"-String, exakt wie es der reale Query-Pfad liefert, kein
+  time.Time), liest die rohen Bytes mit derselben excelize-Version zurueck und prueft Kopfzeile (alle
+  drei Labels) sowie Datums- und Betragszelle auf exakten Roundtrip. `TestXLSXExporter_headerBoldStyleRoundTrips`
+  prueft den einzigen echten Zellformat-Pfad im Code (`f.NewStyle`+`SetCellStyle` auf den Header) ueber
+  `GetCellStyle`/`GetStyle` nach dem Roundtrip — Style-ID darf nicht auf den Default (0) zurueckfallen
+  und `Font.Bold` muss ueberleben. Damit ist die von A2's Notiz benannte Gefahrenklasse
+  ("kompiliert, aber Zellformate verhalten sich anders") jetzt tatsaechlich getestet, nicht nur die
+  reinen Werte wie in den bestehenden vier Tests.
+  Verifiziert, dass `sampleResult()`/`invoiceLikeResult()` (letztere neu, lokal in xlsx_test.go, analog
+  zu `sampleResult()` aus pdf_test.go) den realen Export-Code treffen (`export.NewExporter("xlsx")`,
+  nicht direkt `excelize`), Kein Bruch gefunden — `go.mod` steht auf v2.11.0 und alle sieben Tests im
+  Paket sind gruen. Produktionscode (`xlsx.go`) nicht angefasst: es gibt heute keine echte
+  Excel-Zahlenformatierung (`NumFmt`) im Code, alle Datenzellen sind Text via `fmt.Sprintf("%v", ...)`
+  — das neu einzufuehren waere eine Formatierungs-Funktion, keine Regressionsabsicherung, und damit
+  ausserhalb dieser Unit; im Backlog nicht als Luecke vermerkt, da done_when das nicht verlangt.
+- verify vorgaenger: sauber. Commit fe9e21ea (bump-excelize) geprueft: reiner `go.mod`/`go.sum`-Diff,
+  keine Aufrufstelle angefasst (`internal/berichte/export/xlsx.go` und `internal/formulare/service.go`
+  unveraendert im Commit), Journal-Eintrag deckt sich mit `git show --stat`. Keine der sechs
+  Fehlerklassen einschlaegig fuer einen reinen Dependency-Bump. Kein Fund.
+- gate: `go build -p 2 ./internal/berichte/...` ok | `go vet ./internal/berichte/...` ok | `golangci-lint
+  run ./internal/berichte/export/...` 0 issues | `go test -count=1 -v ./internal/berichte/export/...`
+  alle 25 Tests ok, davon 3 neu/erweitert. Keine Migration, keine Route, kein RLS-Smoke noetig — reine
+  Testerweiterung.
+- offen: keins fuer diese Unit. `bump-excelize` ist damit NICHT revert-verdaechtig — der Regressionstest
+  war der offene Nachweis aus Iteration 62 und ist jetzt erbracht.

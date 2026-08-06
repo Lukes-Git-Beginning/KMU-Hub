@@ -787,7 +787,7 @@ units:
     service: deps
     model: sonnet
     deps: [bump-excelize]
-    status: todo
+    status: done
     scope: >
       Regressionstest ueber die realen Excel-Exportpfade. Ein erzeugtes Workbook wird wieder
       eingelesen und die Zellwerte werden geprueft.
