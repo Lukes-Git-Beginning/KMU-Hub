@@ -208,16 +208,32 @@ fi
 # assertions actually exercise the write path.
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$SMOKE_USER_ID" != "null" ]]; then
     if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
-        ROLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
-            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
-            -d '{"role_name":"manager"}' 2>/dev/null || echo "000")
-        if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
-            pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
+        # Roles are assigned BY ID, not by name (gateway: assignRoleRequest
+        # carries roleId with validate:"required,uuid", since 60fc6dae on
+        # 2026-08-02). Sending {"role_name":...} fails validation with 400,
+        # leaves the user on member, and every CRUD assertion below then
+        # answers 403 -- which used to fail the smoke and trigger the
+        # auto-rollback of an otherwise healthy deploy. So resolve the id
+        # first and only report a real upgrade as passed.
+        MANAGER_ROLE_ID=$(curl -s "$BASE_URL/api/v1/admin/roles" \
+            -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" 2>/dev/null \
+            | jq -r '.roles[]? | select(.name == "manager") | .id' | head -1)
+
+        if [[ -z "$MANAGER_ROLE_ID" || "$MANAGER_ROLE_ID" == "null" ]]; then
+            fail "Role upgrade: could not resolve the manager role id from /admin/roles" ""
+            ROLE_CODE="000"
         else
-            fail "Role upgrade returned $ROLE_CODE — CRUD tests will fail with 403" ""
+            ROLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
+                -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
+                -d "{\"roleId\":\"$MANAGER_ROLE_ID\"}" 2>/dev/null || echo "000")
+            if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
+                pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
+            else
+                fail "Role upgrade returned $ROLE_CODE — CRUD tests will fail with 403" ""
+            fi
         fi
 
         # 8c. Re-login to refresh JWT after role upgrade. AssignRole only writes
@@ -286,20 +302,25 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     fi
 
     # 11. Delete contact — contacts:delete is deliberately admin-only RBAC
-    # (manager has read+write only), so the delete runs with the admin token
-    # when available and falls back to the manager token otherwise.
-    if [[ -n "$SMOKE_CONTACT_ID" ]]; then
-        DELETE_TOKEN="${SMOKE_ADMIN_TOKEN:-$SMOKE_TOKEN}"
+    # (manager has read+write only), so this needs the admin token. Without
+    # SMOKE_ADMIN_TOKEN the run only has the freshly registered member, for
+    # whom 403 is the CORRECT answer -- asserting a delete there would fail
+    # the smoke over a missing credential rather than a broken deployment,
+    # and on 2026-08-06 that false positive rolled back a healthy release.
+    # Skip like the berichte and idempotency checks already do.
+    if [[ -z "$SMOKE_CONTACT_ID" ]]; then
+        fail "DELETE /contacts skipped (no contact ID)" ""
+    elif [[ -z "${SMOKE_ADMIN_TOKEN:-}" ]]; then
+        echo "  [SKIP] DELETE /contacts — SMOKE_ADMIN_TOKEN not set (contacts:delete is admin-only)"
+    else
         DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
-            -H "Authorization: Bearer $DELETE_TOKEN" \
+            -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
             -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" 2>/dev/null || echo "000")
         if [[ "$DEL_CODE" == "200" || "$DEL_CODE" == "204" ]]; then
             pass "DELETE /contacts/$SMOKE_CONTACT_ID = $DEL_CODE (admin token)"
         else
             fail "DELETE /contacts returned $DEL_CODE" ""
         fi
-    else
-        fail "DELETE /contacts skipped (no contact ID)" ""
     fi
 else
     fail "POST /contacts skipped (no token)" ""
