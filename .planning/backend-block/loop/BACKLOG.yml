@@ -614,7 +614,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     scope: >
       `calendar_event_id` einer oeffentlichen Buchung wird nie persistiert. In
       `work/calendar/booking_service.go:401-434` wird nach dem INSERT ein Kalendertermin

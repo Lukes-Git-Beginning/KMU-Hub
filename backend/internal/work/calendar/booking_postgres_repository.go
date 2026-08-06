@@ -194,6 +194,17 @@ func (r *PostgresBookingRepository) CreatePublicBooking(ctx context.Context, b *
 	return err
 }
 
+// UpdatePublicBookingCalendarEventID writes back the calendar event created for a
+// public booking after the fact: the event only exists once the booking row has
+// already been inserted, so this is the write-back half of that best-effort step.
+func (r *PostgresBookingRepository) UpdatePublicBookingCalendarEventID(ctx context.Context, bookingID, tenantID, eventID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE public_bookings SET calendar_event_id = $1 WHERE id = $2 AND tenant_id = $3`,
+		eventID, bookingID, tenantID,
+	)
+	return err
+}
+
 func (r *PostgresBookingRepository) GetBookedSlotsForPage(ctx context.Context, bookingPageID uuid.UUID, from, to time.Time) ([]models.PublicBooking, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, booking_page_id, service_id, customer_name, customer_email,

@@ -19,15 +19,16 @@ import (
 // ============================================================================
 
 type mockBookingRepository struct {
-	pages           map[uuid.UUID]*models.BookingPage
-	pagesBySlug     map[string]*models.BookingPage
-	bookings        map[uuid.UUID]*models.PublicBooking
-	calendarEvents  []eventSlot
+	pages          map[uuid.UUID]*models.BookingPage
+	pagesBySlug    map[string]*models.BookingPage
+	bookings       map[uuid.UUID]*models.PublicBooking
+	calendarEvents []eventSlot
 
-	createPageErr   error
-	getPageErr      error
-	createBookErr   error
-	dupBookErr      bool // simulate UNIQUE constraint violation
+	createPageErr     error
+	getPageErr        error
+	createBookErr     error
+	dupBookErr        bool // simulate UNIQUE constraint violation
+	updateCalEventErr error
 }
 
 func newMockBookingRepository() *mockBookingRepository {
@@ -113,6 +114,18 @@ func (m *mockBookingRepository) CreatePublicBooking(ctx context.Context, b *mode
 	}
 	cp := *b
 	m.bookings[b.ID] = &cp
+	return nil
+}
+
+func (m *mockBookingRepository) UpdatePublicBookingCalendarEventID(ctx context.Context, bookingID, tenantID, eventID uuid.UUID) error {
+	if m.updateCalEventErr != nil {
+		return m.updateCalEventErr
+	}
+	b, ok := m.bookings[bookingID]
+	if !ok || b.TenantID != tenantID {
+		return nil
+	}
+	b.CalendarEventID = &eventID
 	return nil
 }
 
@@ -473,4 +486,70 @@ func TestBookingService_CreatePublicBooking_Idempotency_UniqueConstraint(t *test
 	})
 	// The underlying error is propagated (DB unique constraint); caller can handle as 409.
 	assert.Error(t, err)
+}
+
+// mockCalClient creates a calendar event with a fixed ID, simulating a real
+// calendar integration for the write-back test below.
+type mockCalClient struct {
+	eventID string
+	err     error
+}
+
+func (m *mockCalClient) CreateEvent(ctx context.Context, input PublicBookingCalEventInput) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.eventID, nil
+}
+
+func TestBookingService_CreatePublicBooking_PersistsCalendarEventID(t *testing.T) {
+	repo := newMockBookingRepository()
+	svc := NewBookingService(repo)
+	tenantID := uuid.New()
+	seedBookingPage(t, svc, tenantID)
+
+	monday := nextWeekdayDate(time.Monday)
+	eventID := uuid.New()
+	calClient := &mockCalClient{eventID: eventID.String()}
+
+	result, err := svc.CreatePublicBooking(context.Background(), nil, calClient, CreatePublicBookingInput{
+		Slug:          "test-firma",
+		ServiceID:     "svc-beratung",
+		Date:          monday,
+		TimeSlot:      "09:00",
+		CustomerName:  "Erika Musterfrau",
+		CustomerEmail: "erika@example.com",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.Booking.CalendarEventID)
+	assert.Equal(t, eventID, *result.Booking.CalendarEventID)
+
+	// The write-back must have reached the repository, not just the in-memory
+	// struct returned to the caller — that's the bug this test guards against.
+	stored, ok := repo.bookings[result.Booking.ID]
+	require.True(t, ok)
+	require.NotNil(t, stored.CalendarEventID)
+	assert.Equal(t, eventID, *stored.CalendarEventID)
+}
+
+func TestBookingService_CreatePublicBooking_CalendarEventWriteBackFailureDoesNotFailBooking(t *testing.T) {
+	repo := newMockBookingRepository()
+	repo.updateCalEventErr = errors.New("connection reset")
+	svc := NewBookingService(repo)
+	tenantID := uuid.New()
+	seedBookingPage(t, svc, tenantID)
+
+	monday := nextWeekdayDate(time.Monday)
+	calClient := &mockCalClient{eventID: uuid.New().String()}
+
+	result, err := svc.CreatePublicBooking(context.Background(), nil, calClient, CreatePublicBookingInput{
+		Slug:          "test-firma",
+		ServiceID:     "svc-beratung",
+		Date:          monday,
+		TimeSlot:      "09:00",
+		CustomerName:  "Test",
+		CustomerEmail: "test@example.com",
+	})
+	require.NoError(t, err, "a failed calendar event write-back must not fail the booking")
+	require.NotNil(t, result)
 }

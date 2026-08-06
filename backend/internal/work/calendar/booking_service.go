@@ -29,11 +29,11 @@ func NewBookingService(repo BookingRepository) *BookingService {
 
 // CreateBookingPageInput holds the required fields for creating a booking page.
 type CreateBookingPageInput struct {
-	CalendarID          uuid.UUID
-	Slug                string
-	CompanyName         string
-	LogoURL             *string
-	Services            []models.BookingService
+	CalendarID            uuid.UUID
+	Slug                  string
+	CompanyName           string
+	LogoURL               *string
+	Services              []models.BookingService
 	AvailabilityRulesJSON string // raw JSON for the rules blob
 }
 
@@ -428,10 +428,10 @@ func (s *BookingService) CreatePublicBooking(
 			evID, parseErr := uuid.Parse(eventID)
 			if parseErr == nil {
 				booking.CalendarEventID = &evID
-				// Fire-and-forget update — don't fail the booking on this.
-				go func() {
-					_, _ = s.repo.GetBookedSlotsForPage(context.Background(), page.ID, dayStart, dayEnd)
-				}()
+				if updateErr := s.repo.UpdatePublicBookingCalendarEventID(ctx, booking.ID, page.TenantID, evID); updateErr != nil {
+					slog.Warn("failed to persist calendar event id for public booking",
+						"booking_id", booking.ID, "event_id", evID, "error", updateErr)
+				}
 			}
 		}
 	}
