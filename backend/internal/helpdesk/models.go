@@ -97,11 +97,11 @@ const (
 
 // Ticket is the central helpdesk work item.
 type Ticket struct {
-	ID              uuid.UUID  `json:"id"`
-	TenantID        uuid.UUID  `json:"tenant_id"`
-	Subject         string     `json:"subject"`
-	Status          string     `json:"status"`
-	Priority        string     `json:"priority"`
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	Subject    string     `json:"subject"`
+	Status     string     `json:"status"`
+	Priority   string     `json:"priority"`
 	AssigneeID *uuid.UUID `json:"assignee_id,omitempty"`
 	// RequesterID is nil for external requesters, who have no user account
 	// (000291). Their identity is RequesterEmail plus RequesterName; the CHECK
@@ -206,9 +206,16 @@ const (
 
 // KBArticle is a knowledge-base article.
 type KBArticle struct {
-	ID        uuid.UUID `json:"id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
-	Title     string    `json:"title"`
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Title    string    `json:"title"`
+	// Content is opaque on the server by design: since the block-document
+	// editor (G3) it holds a block-tree JSON document rendered client-side
+	// through the shared block registry (wiki/berichte pattern), with legacy
+	// plain HTML from before G3 still stored and served as-is. Sanitizing it
+	// here (e.g. bluemonday) would corrupt the JSON structure for every
+	// current article. The only server-side guard is the size cap enforced
+	// in the gateway's create/update KB article request validation.
 	Content   string    `json:"content"`
 	Category  string    `json:"category"`
 	Status    string    `json:"status"`

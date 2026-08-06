@@ -1046,7 +1046,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Bestaetigen und absichern, dass `helpdesk_kb_articles.content` serverseitig opak
       behandelt wird. Das FE speichert dort seit G3 ein Block-Dokument-JSON statt HTML

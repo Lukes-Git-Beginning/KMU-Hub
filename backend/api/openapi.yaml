@@ -14837,7 +14837,7 @@ paths:
               required: [title]
               properties:
                 title: { type: string, maxLength: 300 }
-                content: { type: string }
+                content: { type: string, maxLength: 500000 }
                 category: { type: string, maxLength: 100 }
                 status: { type: string, enum: [draft, published] }
       responses:
@@ -14865,7 +14865,7 @@ paths:
               type: object
               properties:
                 title: { type: string, maxLength: 300 }
-                content: { type: string }
+                content: { type: string, maxLength: 500000 }
                 category: { type: string, maxLength: 100 }
                 status: { type: string, enum: [draft, published] }
       responses:

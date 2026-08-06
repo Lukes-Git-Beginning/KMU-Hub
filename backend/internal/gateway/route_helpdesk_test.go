@@ -331,3 +331,30 @@ func TestHandleApplySLAPolicy_InvalidSLAPolicyIDFormat(t *testing.T) {
 	routes.HandleApplySLAPolicy(rec, req)
 	assertValidationError(t, rec, "sla_policy_id")
 }
+
+// --- HandleCreateKBArticle / HandleUpdateKBArticle ---
+
+func TestHandleCreateKBArticle_ContentTooLong(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	tooLong := strings.Repeat("a", 500_001)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/kb-articles", jsonBody(t, map[string]interface{}{
+		"title":   "Test article",
+		"content": tooLong,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateKBArticle(rec, req)
+	assertValidationError(t, rec, "content")
+}
+
+func TestHandleUpdateKBArticle_ContentTooLong(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	tooLong := strings.Repeat("a", 500_001)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{
+		"content": tooLong,
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateKBArticle(rec, req)
+	assertValidationError(t, rec, "content")
+}

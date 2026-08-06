@@ -5026,3 +5026,45 @@ Dependency.
   zugrundeliegenden Queries schon korrekt tenant-gescoped waren, es fehlte nur der Beleg.
   Verbleibende Bloecke: helpdesk-kb-content-opaque, helpdesk-ticket-number-wire,
   docs-security-interceptor-korrektur (alle todo, keine Deps offen).
+
+## Iteration 72 — helpdesk-kb-content-opaque — done — 2026-08-06
+
+- commit: dieser Commit, Titel "fix(helpdesk): cap kb article content size, document opacity"
+- verify vorgaenger: sauber. Commit f13bf719 (intake-cross-tenant-tests) geprueft: reine
+  Testdateien (form_share_db_test.go, intake_cross_tenant_db_test.go), keine der acht
+  Fehlerklassen einschlaegig -- kein Proto, keine neue Route, keine neue Tabelle, kein neuer
+  Guard, Tests laufen ueber echte PostgresRepository/Service gegen kmuhub_app statt Stub.
+- befund: `helpdesk_kb_articles.content` (Migration 000210) ist TEXT NOT NULL DEFAULT '' ohne
+  jede Groessenbegrenzung -- weder DB-CHECK noch Service noch Gateway-Validierung (models.go,
+  service.go CreateKBArticle/UpdateKBArticle, route_helpdesk.go createKBArticleRequest/
+  updateKBArticleRequest). Kein bluemonday oder sonstiger Sanitizer irgendwo im Backend, wie
+  in der Backlog-Notiz vermutet. Grep ueber `KBArticle|kb_article` in internal/ (ausserhalb
+  helpdesk/, gateway/route_helpdesk.go, server/helpdesk_grpc.go) liefert null Treffer --
+  content wird nirgends in E-Mail-Templates, PDF-Export oder einem anderen Modul angefasst,
+  also auch nirgends serverseitig als HTML interpretiert. Damit bestaetigt: das ist korrekt so
+  (Block-JSON seit G3, Legacy-HTML davor, beides clientseitig ueber die Block-Registry
+  gerendert) und keine XSS-Flaeche -- die Unit bleibt bei defensiver Haertung, kein blocked.
+- gebaut: Groessenbegrenzung 500.000 Runen ueber `validate:"omitempty,max=500000"` an
+  `createKBArticleRequest.Content` und `updateKBArticleRequest.Content`
+  (route_helpdesk.go) -- selbe Boundary-Validierung wie bei jedem anderen Feld in diesem
+  Gateway (decodeAndValidate + go-playground validator), kein neuer Mechanismus. openapi.yaml
+  bekommt `maxLength: 500000` an beiden content-Schemas (POST und PUT /kb-articles), damit
+  Spec und Validierung deckungsgleich bleiben. Dokumentierender Kommentar an
+  `KBArticle.Content` (models.go) haelt die Begruendung fest: Block-JSON/Legacy-HTML, opak,
+  Sanitizing wuerde die JSON-Struktur zerstoeren, die Gateway-Validierung ist die einzige
+  serverseitige Schranke. Zwei neue Tests in route_helpdesk_test.go
+  (TestHandleCreateKBArticle_ContentTooLong, TestHandleUpdateKBArticle_ContentTooLong) belegen
+  die Ablehnung bei 500.001 Zeichen ueber assertValidationError.
+- gate: `go build -p 2 ./internal/helpdesk/... ./internal/gateway/... ./cmd/helpdesk/...
+  ./cmd/gateway/...` ok | `go vet` beide Pakete ok | `golangci-lint run --config .golangci.yml`
+  0 issues | `go test -count=1 ./internal/helpdesk/...` PASS, 107 Tests (`-v` gezaehlt), 0 SKIP,
+  DATABASE_URL gesetzt auf kmuhub_app | `go test -count=1 ./internal/gateway/...` PASS
+  (inkl. TestOpenAPIRouteDrift: 819 registrierte Routen gegen 821 dokumentierte Pfade, gruen)
+  | die beiden neuen Tests einzeln per -run gruen. Keine Migration, keine Proto-Aenderung,
+  kein RLS-Bezug -- Migrate/RLS-Smoke daher n.a. fuer diese Unit.
+- done_when-Abgleich: "Groessenbegrenzung durchgesetzt" erfuellt (Gateway-Validierung, Test).
+  "Kommentar haelt fest warum nicht sanitized" erfuellt (models.go). "nachgewiesen dass content
+  nirgends als HTML behandelt wird" erfuellt (Grep-Beleg oben). "Legacy-HTML bleibt lesbar"
+  erfuellt implizit -- keine Schema- oder Read-Pfad-Aenderung, nur eine Schreib-Grenze.
+- offen: keine neue Luecke. Verbleibende Bloecke: helpdesk-ticket-number-wire,
+  docs-security-interceptor-korrektur (beide todo, keine Deps offen).

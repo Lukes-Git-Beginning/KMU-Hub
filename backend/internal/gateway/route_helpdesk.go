@@ -244,16 +244,20 @@ type applySLAPolicyRequest struct {
 	SLAPolicyID string `json:"sla_policy_id" validate:"required,uuid"`
 }
 
+// Content on both requests below caps at 500k runes -- far past any real
+// article. Content is opaque to the server (see the KBArticle.Content doc
+// comment: block-document JSON or legacy HTML, never sanitized), so this
+// validate tag is the only server-side guard against a row growing unbounded.
 type createKBArticleRequest struct {
 	Title    string `json:"title" validate:"required,max=300"`
-	Content  string `json:"content"`
+	Content  string `json:"content" validate:"omitempty,max=500000"`
 	Category string `json:"category" validate:"omitempty,max=100"`
 	Status   string `json:"status" validate:"omitempty,oneof=draft published"`
 }
 
 type updateKBArticleRequest struct {
 	Title    *string `json:"title,omitempty" validate:"omitempty,min=1,max=300"`
-	Content  *string `json:"content,omitempty"`
+	Content  *string `json:"content,omitempty" validate:"omitempty,max=500000"`
 	Category *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
