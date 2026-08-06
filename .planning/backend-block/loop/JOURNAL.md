@@ -4522,3 +4522,35 @@ Dependency.
   Migration, keine Tabelle, kein RLS-Smoke noetig — reiner Proto-/Code-Abbau.
 - offen: keins. FE nicht angefasst (Loop fasst desktop/ nicht an) — `useUploadInspectionPhoto` bleibt
   unveraendert, weil es intern schon immer `updateInspection` war, nur der Name ist historisch irrefuehrend.
+
+## Iteration 62 — bump-excelize — done — 2026-08-06 03:15
+- commit: folgt
+- gebaut: `github.com/xuri/excelize/v2` von v2.8.1 auf v2.11.0 gehoben (`go get` + `go mod tidy`).
+  Transitiv mitgezogen: `richardlehane/mscfb` v1.0.4→v1.0.7, `richardlehane/msoleps` v1.0.3→v1.0.6,
+  `xuri/efp` →v0.0.1, `xuri/nfp` →v0.0.2-2025..., neu `tiendc/go-deepcopy` v1.7.2, sowie
+  `golang.org/x/crypto` v0.52.0→v0.53.0, `x/mod` v0.35.0→v0.36.0, `x/net` v0.55.0→v0.56.0,
+  `x/sync` v0.20.0→v0.21.0, `x/sys` v0.45.0→v0.46.0, `x/text` v0.37.0→v0.38.0 (letzteres ueberschneidet
+  sich mit der geplanten `bump-golang-x`-Unit — dort ist x/text dann bereits auf v0.38.0, das faellt
+  dort nicht mehr an, `x/image` ist noch offen).
+  Alle Aufrufstellen vorab gegrept (`internal/berichte/export/xlsx.go`,
+  `internal/formulare/service.go`): reine Standard-API (`NewFile`, `NewStyle`, `CoordinatesToCellName`,
+  `SetCellValue`), keine Streaming-Writer, keine exotischen Zellformat-Aufrufe. Kein Aufrufer musste
+  angepasst werden, kein Kompatibilitaets-Shim noetig.
+- verify vorgaenger: sauber. Commit 46c7a612 (vermietung-drop-dead-rpc) geprueft: reine Entfernung,
+  kein neuer Handler, kein Stub, keine Tabelle, keine Route -> keine der sechs Fehlerklassen einschlaegig.
+  `grep -rn "UploadInspectionPhoto" backend/ desktop/src` traf nur kompilierte `.exe`-Artefakte, den
+  bewusst stehen gelassenen Proto-Kommentar und den unveraenderten FE-Hook-Namen (der laut Iteration 61
+  intern schon immer `updateInspection` ruft). Kein Fund.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, nicht nur die zwei betroffenen Pakete, wegen transitiver
+  x/*-Bumps) | `go vet ./internal/berichte/... ./internal/formulare/...` ok | `golangci-lint run
+  ./internal/berichte/... ./internal/formulare/...` 0 issues | `go test -count=1 ./internal/berichte/...
+  ./internal/formulare/...` alle ok (berichte, berichte/delivery, berichte/downstream,
+  berichte/executor, berichte/export, berichte/scheduler, formulare), null Skips (per `-v` gegen
+  export/... geprueft, keine SKIP-Zeile). Keine Migration, keine Route, kein RLS-Smoke noetig — reiner
+  Dependency-Bump.
+- offen: `excelize-export-regression` (naechste Unit, deps: [bump-excelize]) ist der eigentliche
+  Nachweis, dass erzeugte Workbooks nach dem Bump noch korrekt lesbar sind — bestehende
+  `TestXLSXExporter_parseable` deckt das fuer den Exporter schon grob ab (parse-back gruen), aber die
+  Unit soll laut Scope Kopfzeile + Datums- + Zahlenfeld mit Format explizit pruefen, das ist hier nicht
+  Teil des Scopes gewesen. `x/image` bleibt fuer `bump-golang-x` offen, `x/text` ist durch diesen Bump
+  bereits erledigt, dort im Journal vermerken.

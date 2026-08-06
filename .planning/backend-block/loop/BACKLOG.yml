@@ -763,7 +763,7 @@ units:
     service: deps
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `github.com/xuri/excelize/v2` von v2.8.1 auf v2.11.0. CVE-2026-54063 (Unbounded Row Index
       Allocation, OOM-DoS). Sprung ueber drei Minors, deshalb eigene Unit.
