@@ -4247,3 +4247,42 @@ Makefile abgeschrieben).
     Token -> oeffentliche Einreichung -> Dispatch), ueber die UI erreichbar ist sie es nicht.
   - custom_fields-Keying auf `Slug(label)` statt auf die Feld-Keys: unveraendert offen, gehoert
     an beiden Enden gleichzeitig korrigiert (siehe Journal 55).
+
+## Iteration 57 — fix-booking-calendar-event-id (C1)
+
+Commit `80d8a036`. Keine Migration, keine Proto-Aenderung, kein neuer Guard.
+
+- **Verify Vorgaenger (e62e795f, intake-public-submit / B8): sauber.** Gegen die acht
+  Fehlerklassen geprueft: Handler in `route_formulare.go` gehen ausschliesslich ueber
+  `client.*` (gRPC), nie ueber eine direkt injizierte Service-Instanz. Migration 000293
+  legt `tenant_id NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` + Standard-Policy an.
+  `GetShareLinkByToken` ist die einzige Stelle mit `database.WithSystemContext`, unmittelbar
+  danach `ctx = withTenant(ctx, link.TenantID)` in `SubmitByShareToken` — der System-Kontext
+  beruehrt keine Nutzdaten. Proto/.pb.go im selben Commit. `go build ./...` lokal gruen.
+  Kein Fund.
+- **Der Bug:** `booking_service.go` (CreatePublicBooking) erzeugte nach dem INSERT einen
+  Kalendertermin und schrieb `booking.CalendarEventID = &evID` nur auf das In-Memory-Struct.
+  Es gab keine Repository-Methode, die das zurueck in `public_bookings.calendar_event_id`
+  schreibt — die Spalte blieb fuer jede oeffentliche Buchung mit Kalendertermin NULL. Direkt
+  daneben stand toter Code: eine Fire-and-forget-Goroutine rief `GetBookedSlotsForPage`
+  (ein reiner SELECT) auf und verwarf sowohl Ergebnis als auch Fehler — sieht aus wie ein
+  Write, der auf die falsche Read-Methode verdrahtet wurde. Beides zusammen entfernt/gefixt.
+- **Fix:** neue Repository-Methode `UpdatePublicBookingCalendarEventID(ctx, bookingID,
+  tenantID, eventID)`, tenant-gescopt im WHERE (`id = $2 AND tenant_id = $3`), direkt nach
+  dem Setzen von `booking.CalendarEventID` aufgerufen — an der Stelle, wo vorher die tote
+  Goroutine stand. Best-effort wie der E-Mail-Versand direkt danach: ein Fehler wird
+  geloggt (`slog.Warn`), bricht die Buchung aber nicht ab — die Buchung ist die Hauptsache,
+  die Kalender-Verknuepfung die Nebensache, gleiche Linie wie A6 (Token-Erzeugung).
+- **Kein DATABASE_URL in dieser Iteration verfuegbar** (bestaetigt, siehe Memory
+  feedback_go_test_gate_needs_database_url) — ein echter Integrationstest gegen Postgres
+  waere ohnehin nur `SkipIfNoDB` und kein Beweis gewesen. Stattdessen zwei Service-Tests mit
+  Mock-Repository: `TestBookingService_CreatePublicBooking_PersistsCalendarEventID` prueft,
+  dass die Kalender-Event-ID im **Repository-Zustand** landet (nicht nur im zurueckgegebenen
+  Struct — genau das war der Bug), `TestBookingService_CreatePublicBooking_
+  CalendarEventWriteBackFailureDoesNotFailBooking` prueft, dass ein fehlschlagender
+  Write-Back die Buchung nicht scheitern laesst.
+- gate: `go build ./...` ok | `go vet ./internal/work/...` ok | `golangci-lint run
+  ./internal/work/calendar/...` 0 issues | `go test -count=1 ./internal/work/...` alle ok
+  (kein DATABASE_URL, DB-Tests dieses Pakets liefen als Skip, s.o.).
+- **offen / bewusst nicht gemacht:** keins. Die Unit ist mit dem best-effort-Muster (Log statt
+  Abbruch) minimal und in sich geschlossen.
