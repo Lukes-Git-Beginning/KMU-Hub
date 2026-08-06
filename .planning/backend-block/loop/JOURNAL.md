@@ -4157,3 +4157,93 @@ Zeitstempel der Iterationen 50–53 liegen rund eine Stunde vor der Systemzeit)
     ein oeffentliches Formular ohne `requester_email`-Rolle erzeugt also kein Ticket. Das
     gehoert in B8 sauber abgefangen (Formular-Validierung oder verstaendlicher Log-Eintrag),
     sonst wirkt es wie ein stiller Ausfall.
+
+## Iteration 56 — intake-public-submit (B8)
+
+Commit `e62e795f`. Migration **000293** (`form_share_tokens`), Proto um 4 RPCs erweitert
+(`CreateFormShareLink`, `ListFormShareLinks`, `RevokeFormShareLink`, `SubmitFormByShareToken`),
+regeneriert mit `protoc` (nicht `make` — `make` existiert in dieser Shell nicht, Target aus dem
+Makefile abgeschrieben).
+
+- **Warum die Share-Link-Verwaltung mit drin ist, obwohl `done_when` sie nicht nennt:** ohne eine
+  Moeglichkeit, einen Token zu erzeugen, waere die oeffentliche Route tot gewesen. `is_public`
+  wird seit 000081 gespeichert und nirgends ausgewertet, und eine Token-Tabelle gab es fuer
+  Formulare nicht (nur `report_share_tokens`, 000252). Gebaut ist das Minimum, das die Kette
+  schliesst: Create + List + Revoke (DELETE, Soft-Revoke) + Public-Submit.
+- **Kein Permission-Seed noetig** (geprueft): `formulare:share:manage` steht seit Migration 000256
+  in `permissions` und ist admin + manager zugewiesen. Sie hatte bis jetzt nur keine Route — der
+  Kommentar im Kopf von `route_formulare.go`, der genau das feststellte, ist entsprechend
+  korrigiert.
+- Muster 1:1 vom Berichte-/CSAT-Vorbild: `RegisterPublicRoutes` auf dem Root-Router in
+  `main.go:376ff` (ausserhalb jeder authMiddleware-Gruppe), einziges Middleware
+  `publicRateLimiter.Middleware`, POST statt GET, Token-Lookup unter
+  `database.WithSystemContext` in **genau einer** Repo-Methode
+  (`GetShareLinkByToken`), unmittelbar danach `withTenant(ctx, link.TenantID)`. Der
+  System-Kontext beruehrt keine Nutzdaten.
+- **Alle Token-Verdikte sind eine 404** — unbekannt, leer, zu lang, widerrufen, abgelaufen,
+  Kontingent erschoepft, Schema wieder privat, Schema archiviert, Schema geloescht. Neun Faelle,
+  tabellengetrieben getestet (`TestSubmitByShareToken_EveryTokenVerdictIsTheSameNotFound`).
+  Groesse und Body-Form sind dagegen 400: sie sagen nichts ueber den Token, und die
+  Groessenpruefung laeuft **vor** dem Lookup (eigener Test), damit ein 300-KB-Probe keine
+  DB-Runde kostet.
+- **Schema wird bei jeder Einreichung neu geprueft**, nicht nur beim Minten. Das war die Falle:
+  `is_public` zurueckdrehen muss ausgegebene Links toeten, sonst ist der Link staerker als der
+  Schalter, mit dem der Autor ihn glaubt zurueckzunehmen.
+- **Kontingent wird im Write durchgesetzt**, nicht im Read: das UPDATE traegt
+  `AND (max_submissions IS NULL OR submission_count < max_submissions)`; 0 betroffene Zeilen =
+  nicht mehr einloesbar, Submission wird gar nicht erst geschrieben (eine Tx). `Usable()` ist
+  ausdruecklich nur der billige Vorab-Check.
+- **Dateifelder werden abgelehnt** (409 / `ErrShareLinkFileFieldUnsupported`) statt halb
+  unterstuetzt: es gibt auf dieser Route keinen Upload-Pfad, eine akzeptierte Datei-Antwort waere
+  eine Referenz ins Leere. Erkennung ueber `type == "file"` im `fields`-JSON.
+- Body-Deckel zweifach: `http.MaxBytesReader` mit 256 KiB im Gateway **vor** dem Decode, und
+  dieselbe Grenze auf `answers` im Service, damit sie auch fuer einen Aufrufer gilt, der den RPC
+  anders erreicht.
+- **Intake-Dispatch haengt dran** (Anschluss an Iteration 55): nach gespeicherter Submission
+  `dispatchIntake` mit `intakeChannelExternal` und `RequesterIsExternal=true`, ohne RequesterID.
+  Der Tenant kommt aus der **Antwort** des Service, also aus dem Token — das Gateway raet nie
+  einen. Die im Journal 55 notierte Warnung gilt weiter und ist im Code kommentiert: ohne
+  `requester_email`-Feldrolle lehnt `helpdesk.Service.CreateTicket` das Ticket ab
+  (`ErrMissingRequester`); das ist ein geloggter Dispatch-Fehler, die Submission bleibt erhalten
+  und die Antwort bleibt 201.
+- `insertSubmissionTx` aus `CreateSubmission` herausgezogen und von beiden Pfaden benutzt — eine
+  oeffentliche Submission, die still den Webhook-Fanout ueberspringt, waere ein zweites,
+  unsichtbares Verhalten desselben Features gewesen.
+- **openapi.yaml im selben Commit**: 4 Pfade + `FormShareLink`-Schema. `openapi_drift_test.go`
+  musste zusaetzlich `formulareRoutes.RegisterPublicRoutes` aufrufen (wie die 5 anderen
+  Public-Registrare dort), sonst meldet `TestOpenAPISpecDrift` die neue Route als dokumentiert-
+  aber-nie-registriert. Genau das ist erst passiert und dann behoben worden.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/formulare/...
+  ./internal/gateway/... ./internal/server/...` **0 issues** | `go test -count=1
+  ./internal/gateway/... ./internal/formulare/... ./internal/server/...` alle ok, darin
+  `TestOpenAPIRouteDrift` + `TestOpenAPISpecDrift` gruen. 13 neue Tests in
+  `internal/formulare/form_share_test.go`.
+- **verify vorgaenger (41f771dc): sauber.** Dispatch laeuft ueber
+  `reg.GetConnection("helpdesk")` + `NewHelpdeskServiceClient` (intake_helpdesk.go:71-75), also
+  ueber die gRPC-Schicht, keine direkt injizierte Service-Instanz. Keine neue Tabelle, keine
+  neue Route, kein neuer Guard, also zu Recht keine Migration/OpenAPI-Aenderung. Kein Fund.
+- **offen / bewusst nicht gemacht:**
+  - **Migration 000293 ist NICHT gegen eine Datenbank gelaufen** — in dieser Iteration war kein
+    `DATABASE_URL` gesetzt, also sind die DB-Tests (inkl.
+    `TestAllPublicTablesHaveRLSOrAreAllowlisted`) still uebersprungen worden. Die Tabelle hat
+    `tenant_id NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` + die Standard-Policy mit
+    `is_system_context()`, ist also nach Aktenlage guard-konform — **aber unverifiziert**. Vor
+    dem Merge einmal mit `DATABASE_URL` (Rolle `kmuhub_app`) nachziehen.
+  - **`PATCH /formulare/share-links/{id}` fehlt.** Das FE (`formulare-client.ts:198`) kennt ein
+    `updateShareLink(id, {status})`. Gebaut ist nur DELETE = Soft-Revoke, was den einzigen
+    sinnvollen Status-Uebergang abdeckt (active -> disabled); ein Link von "disabled" zurueck auf
+    "active" zu drehen waere ein wiederbelebter Token und ist bewusst nicht vorgesehen. Wenn das
+    FE den PATCH braucht, ist er ein Alias auf Revoke, keine neue Faehigkeit.
+  - **Die FE-Felder `channel`, `url`, `views` von `FormShareLink` haben keine Entsprechung.**
+    `channel` (ShareChannel) und `views` sind im Mock erfunden; eine Einreichroute zaehlt keine
+    Aufrufe, weil sie nichts ausliefert. `url` baut das FE selbst — das Backend kennt seinen
+    oeffentlichen Host nicht und soll dafuer keine neue Config-Variable bekommen (waere eine
+    `config.RequireX`-artige Deploy-Falle). Der FE-Kommentar sagt selbst "placeholder host until
+    FD-4"; die Zusammenfuehrung gehoert an beide Enden gleichzeitig.
+  - Der FE/BE-Shape-Mismatch bei Formulare-Schema-Create/Update (camelCase-Body, `fields` als
+    Array vs. `[]byte`) aus Iteration 54 ist **weiterhin offen** und blockiert die Kette
+    end-to-end: ein Autor kann `is_public` und `intake_target_id` aus der echten Oberflaeche
+    heraus nicht speichern. Backend-seitig ist die Kette jetzt komplett (Schema-Bindung ->
+    Token -> oeffentliche Einreichung -> Dispatch), ueber die UI erreichbar ist sie es nicht.
+  - custom_fields-Keying auf `Slug(label)` statt auf die Feld-Keys: unveraendert offen, gehoert
+    an beiden Enden gleichzeitig korrigiert (siehe Journal 55).
