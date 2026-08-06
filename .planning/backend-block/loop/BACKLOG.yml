@@ -830,7 +830,7 @@ units:
     service: deps
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     scope: >
       `google.golang.org/grpc` von v1.79.3 auf aktuell.
     sources:
