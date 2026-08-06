@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/clientctx"
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -1135,10 +1136,21 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 		return
 	}
 
-	resp, err := client.SubmitFormByShareToken(r.Context(), &formularev1.SubmitFormByShareTokenRequest{
+	// The submitter's IP is the only forensic handle on an unauthenticated
+	// write. It is taken from the context middleware.ClientInfo filled under
+	// the configured proxy-trust setting, never from the raw header, so a
+	// spoofed X-Forwarded-For cannot launder the record.
+	submitIP := clientctx.From(r.Context()).IP
+
+	grpcReq := &formularev1.SubmitFormByShareTokenRequest{
 		Token:   token,
 		Answers: req.Answers,
-	})
+	}
+	if submitIP != "" {
+		grpcReq.IpAddress = &submitIP
+	}
+
+	resp, err := client.SubmitFormByShareToken(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -1171,7 +1183,15 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 		)
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	// Only the submission id goes back over the wire. The proto also carries
+	// tenant_id and form_schema_id because the dispatch above needs them, but
+	// handing an unauthenticated visitor the tenant UUID would tell them which
+	// installation they just wrote into -- the same reason the shared wiki
+	// article and the shared report answer through their own narrow wire types
+	// instead of the raw proto.
+	response.JSON(w, http.StatusCreated, map[string]string{
+		"submission_id": resp.GetSubmissionId(),
+	})
 }
 
 // withGatewayTenant attaches the tenant a share token resolved to, so the

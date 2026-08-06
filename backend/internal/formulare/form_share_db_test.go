@@ -77,7 +77,8 @@ func TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped(t *testing.T) {
 	// Redeem A's token. If the token lookup or the write behind it ever
 	// slipped tenant scope, this is where tenant B's link or a phantom
 	// submission in tenant B would get touched instead of (or alongside) A's.
-	subA, err := svc.SubmitByShareToken(context.Background(), linkA.Token, []byte(`{"f1":"a"}`), "")
+	const submitIP = "203.0.113.7"
+	subA, err := svc.SubmitByShareToken(context.Background(), linkA.Token, []byte(`{"f1":"a"}`), submitIP)
 	if err != nil {
 		t.Fatalf("SubmitByShareToken (A): %v", err)
 	}
@@ -85,6 +86,20 @@ func TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped(t *testing.T) {
 
 	if subA.TenantID != tenantA {
 		t.Fatalf("submission resolved to tenant %s, want %s", subA.TenantID, tenantA)
+	}
+
+	// The submitter's IP is the only forensic handle on an unauthenticated
+	// write, so it has to reach the row -- the gateway resolves it from the
+	// proxy-trusted client context and passes it here. A dead write would look
+	// exactly like a successful submission from the caller's side.
+	var storedIP *string
+	if err := pool.QueryRow(ctxA,
+		`SELECT host(ip_address) FROM form_submissions WHERE id = $1`, subA.SubmissionID,
+	).Scan(&storedIP); err != nil {
+		t.Fatalf("read back submission ip: %v", err)
+	}
+	if storedIP == nil || *storedIP != submitIP {
+		t.Fatalf("submission ip_address = %v, want %q", storedIP, submitIP)
 	}
 	testutil.AssertRowCount(t, pool, ctxA, "form_submissions", subA.SubmissionID, 1)
 	testutil.AssertRowCount(t, pool, ctxB, "form_submissions", subA.SubmissionID, 0)

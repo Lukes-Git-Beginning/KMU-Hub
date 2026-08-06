@@ -20575,15 +20575,16 @@ paths:
                   description: JSON object of field answers, keyed by field id.
       responses:
         "201":
-          description: Submission stored
+          description: >
+            Submission stored. The body carries the submission id and nothing
+            else — an unauthenticated visitor learns neither the tenant nor the
+            schema they wrote into.
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   submission_id: { type: string, format: uuid }
-                  tenant_id: { type: string, format: uuid }
-                  form_schema_id: { type: string, format: uuid }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404":
           description: No such link, or it expired, was revoked, is used up, or its form is no longer public
