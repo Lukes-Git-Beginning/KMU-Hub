@@ -997,7 +997,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [csat-public-response]
-    status: todo
+    status: done
     scope: >
       Cross-Tenant-Tests fuer die CSAT-Flaeche. Bewertung, Aggregation und oeffentliche
       Einloesung duerfen tenant-uebergreifend nichts preisgeben.

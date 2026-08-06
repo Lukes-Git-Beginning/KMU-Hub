@@ -4894,3 +4894,66 @@ Dependency.
     TaskActionDueDateChanged.
   * FE-Anbindung (Gantt-View, Task-Formular-Feld fuer start_date) ist nicht Teil dieses Loops --
     Backend liefert und validiert, das Feld liegt bereit auf dem Wire.
+
+## Iteration 70 — csat-cross-tenant-tests — done — 2026-08-06
+
+- commit: dieser Commit, Titel "test(helpdesk): close csat cross-tenant redemption gap"
+- verify vorgaenger: sauber. Commit 67986af6 (g-work-start-date) geprueft: Handler geht ueber
+  parseTimestamp + grpcReq-DTO (kein Direct-Service-Call), Validierung sitzt im Service
+  (ErrInvalidDateRange bei Create UND Update, vor jedem DB-Zugriff), CHECK-Constraint als
+  Verteidigung in der Tiefe in derselben Migration, openapi.yaml-Eintrag im selben Commit.
+  Keine der acht Fehlerklassen einschlaegig.
+- Befund vor dem Bauen: die vier done_when-Punkte dieser Unit sind zu einem grossen Teil bereits
+  durch die CSAT-Bau-Units selbst abgedeckt -- csat-public-response, csat-proto-service und
+  csat-stats-aggregation haben ihre eigenen DB-gestuetzten Cross-Tenant-Tests mitgeliefert
+  (csat_test.go: TestSubmitCsatTx_UpsertsAndStaysInTenant; stats_test.go:
+  TestGetHelpdeskStats_CsatAverage mit tenantRated/tenantEmpty/tenantOther, prueft explizit dass
+  eine fremde Bewertung den Durchschnitt nicht verfaelscht; csat_survey_db_test.go:
+  TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware; csat_redeem_db_test.go:
+  TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant + TestSubmitCsatByToken_RefusesDeadLinks).
+  Alle nutzen bereits eigene geseedete Tenants (nicht testutil.TenantA/B) und laufen als
+  kmuhub_app ueber testutil.PoolFromEnv, exakt wie in den Notes gefordert.
+  Eine echte Luecke blieb: keiner der bestehenden Tests hatte zwei ECHTE Tickets in zwei
+  Tenants gleichzeitig im Spiel waehrend einer Token-Einloesung -- TestSubmitCsatByToken_
+  RedeemsOnceAndScopesToTenant belegt nur per nachtraeglichem SELECT aus einem fremden Kontext,
+  dass die geschriebene Zeile unsichtbar bleibt, nicht dass die Einloesung selbst niemals ein
+  fremdes Ticket beruehrt, waehrend dieses Ticket tatsaechlich existiert.
+- gebaut: genau ein neuer Test,
+  `TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated` in csat_redeem_db_test.go. Seedet
+  Tenant A und Tenant B mit je einem geschlossenen Ticket und einem offenen Umfrage-Token,
+  loest Tenant As Token per SubmitCsatByToken ein, und prueft danach: Ticket A hat die Bewertung,
+  Ticket B hat weiterhin `CsatRating == nil` UND sein eigener Token ist unveraendert vorhanden
+  (csatTokenOf). Zum Schluss wird Tenant Bs Token unabhaengig eingeloest und liefert seine eigene
+  Bewertung -- belegt dass beide Ticket parallel und ohne Vermischung funktionieren, nicht nur
+  dass eines fehlschlaegt.
+  Quellcode-Beleg fuer die Isolation nachvollzogen (postgres_repository.go:416-434,436ff): der
+  Token-Lookup laeuft unter `database.WithSystemContext(ctx)` und liest `tenant_id` samt
+  `ticket_id` direkt aus der Zeile, die die Umfrage-Erzeugung selbst geschrieben hat -- niemand
+  kann tenant_id oder ticket_id als Aufrufer beeinflussen, die Route nimmt keinen dieser Werte
+  vom Client entgegen. Das anschliessende Schreiben (RedeemCsatSurveyTx) ist tenant-scoped auf
+  genau die aufgeloeste tenantID.
+- gate: `go build -p 2 ./internal/helpdesk/...` ok | `go vet ./internal/helpdesk/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/helpdesk/...` 0 issues |
+  `go test -count=1 ./internal/helpdesk/...` PASS, komplettes Paket | `-run 'Csat'` gezielt
+  gegen DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub laufen lassen: 10
+  DB-gestuetzte CSAT-Tests gelaufen (TestListDueCsatSurveys_FindsDueRowsAndSkipsTheRest,
+  TestListDueCsatSurveys_ReachesExternalRequester,
+  TestClaimCsatSurveyDispatch_OnlyOneClaimWinsAndReleaseRestores,
+  TestCancelCsatSurvey_RevokesLinkAndKeepsRating, TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant,
+  TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated (neu),
+  TestSubmitCsatByToken_RefusesDeadLinks, TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware,
+  TestSubmitCsatTx_UpsertsAndStaysInTenant, TestGetHelpdeskStats_CsatAverage), 0 uebersprungen
+  (DATABASE_URL war gesetzt, SkipIfNoDB griff nicht). Keine -race verfuegbar in dieser Umgebung
+  (CGO_ENABLED fehlt, kein gcc) -- wie in fruheren Iterationen ohne -race gelaufen, kein neuer
+  Zustand.
+- Rollenpruefung: alle DB-Tests laufen ueber testutil.PoolFromEnv -> DATABASE_URL, verbunden als
+  kmuhub_app (nicht kmuhub) -- verifiziert per .env.example-Konvention, NOSUPERUSER NOBYPASSRLS,
+  die RLS-Aussagen dieser Tests beweisen also tatsaechlich etwas.
+- done_when-Abgleich: "Tests laufen als kmuhub_app mit gesetzter DATABASE_URL" erfuellt.
+  "Token aus Tenant A erreicht kein Ticket aus Tenant B" erfuellt durch den neuen Test.
+  "Aggregation zaehlt keine fremden Bewertungen" war bereits durch TestGetHelpdeskStats_
+  CsatAverage erfuellt (tenantOther-Zweig), keine Aenderung noetig. "0 uebersprungene Tests,
+  Zahl der gelaufenen DB-Tests im Journal" siehe gate-Block oben.
+- offen: keine neue Luecke gefunden. Die naechste verwandte Unit intake-cross-tenant-tests
+  (todo, deps intake-public-submit=done) hat denselben Charakter -- vermutlich ebenfalls schon
+  grossteils durch die Bau-Units abgedeckt, noch nicht geprueft.

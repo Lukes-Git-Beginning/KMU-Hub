@@ -116,6 +116,101 @@ func TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant(t *testing.T) {
 	}
 }
 
+// TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated seeds a ticket and a
+// pending survey token in EACH of two tenants at the same time, then redeems
+// tenant A's token. The other coverage in this file proves a foreign SELECT
+// can't see the row after the fact; this one proves the redemption itself --
+// the token lookup plus the write that follows -- never touches tenant B's
+// ticket, even though both rows exist side by side while it runs.
+func TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Helpdesk CSAT Cross Redeem Tenant A")
+	testutil.EnsureTenant(t, pool, tenantB, "Helpdesk CSAT Cross Redeem Tenant B")
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+	now := time.Now().UTC()
+
+	mkTicket := func(ctx context.Context, tenantID uuid.UUID, subject string) *Ticket {
+		t.Helper()
+		tk := &Ticket{
+			ID: uuid.New(), TenantID: tenantID, Subject: subject,
+			Status: TicketStatusClosed, Priority: TicketPriorityNormal,
+			RequesterID: uuidPtr(uuid.New()), CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.CreateTicket(ctx, tk); err != nil {
+			t.Fatalf("CreateTicket(%s): %v", subject, err)
+		}
+		return tk
+	}
+
+	ticketA := mkTicket(ctxA, tenantA, "CSAT Cross Redeem Ticket A")
+	defer testutil.CleanupRow(t, pool, "tickets", ticketA.ID)
+	ticketB := mkTicket(ctxB, tenantB, "CSAT Cross Redeem Ticket B")
+	defer testutil.CleanupRow(t, pool, "tickets", ticketB.ID)
+
+	run := uuid.NewString()
+	tokenA, tokenB := "cross-a-"+run, "cross-b-"+run
+	if issued, err := repo.IssueCsatSurveyTokenTx(
+		ctxA, tenantA, ticketA.ID, tokenA, now, now.Add(CsatSurveyTokenTTL), now,
+	); err != nil || !issued {
+		t.Fatalf("IssueCsatSurveyTokenTx (A): issued=%v err=%v", issued, err)
+	}
+	if issued, err := repo.IssueCsatSurveyTokenTx(
+		ctxB, tenantB, ticketB.ID, tokenB, now, now.Add(CsatSurveyTokenTTL), now,
+	); err != nil || !issued {
+		t.Fatalf("IssueCsatSurveyTokenTx (B): issued=%v err=%v", issued, err)
+	}
+
+	// Redeem A's token. If the token lookup or the write that follows ever
+	// slipped tenant scope, this is where B's ticket would get hit instead of
+	// (or in addition to) A's.
+	if _, err := svc.SubmitCsatByToken(context.Background(), tokenA, 5, nil); err != nil {
+		t.Fatalf("SubmitCsatByToken (A): %v", err)
+	}
+
+	storedA, err := repo.GetTicketByID(ctxA, ticketA.ID, tenantA)
+	if err != nil {
+		t.Fatalf("GetTicketByID (A): %v", err)
+	}
+	if storedA.CsatRating == nil || *storedA.CsatRating != 5 {
+		t.Fatalf("ticket A did not receive the rating: %v", storedA.CsatRating)
+	}
+
+	// Ticket B must be untouched: no rating, and its own token is still live
+	// and independently redeemable.
+	storedB, err := repo.GetTicketByID(ctxB, ticketB.ID, tenantB)
+	if err != nil {
+		t.Fatalf("GetTicketByID (B): %v", err)
+	}
+	if storedB.CsatRating != nil {
+		t.Fatalf("ticket B was rated by tenant A's redemption: %v", *storedB.CsatRating)
+	}
+	if got := csatTokenOf(t, pool, ctxB, ticketB.ID); got != tokenB {
+		t.Fatalf("ticket B's token is %q, expected untouched %q", got, tokenB)
+	}
+
+	if _, err := svc.SubmitCsatByToken(context.Background(), tokenB, 2, nil); err != nil {
+		t.Fatalf("SubmitCsatByToken (B): %v", err)
+	}
+	storedB, err = repo.GetTicketByID(ctxB, ticketB.ID, tenantB)
+	if err != nil {
+		t.Fatalf("GetTicketByID (B, after own redemption): %v", err)
+	}
+	if storedB.CsatRating == nil || *storedB.CsatRating != 2 {
+		t.Fatalf("ticket B's own redemption did not land: %v", storedB.CsatRating)
+	}
+}
+
 func TestSubmitCsatByToken_RefusesDeadLinks(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
