@@ -4637,3 +4637,69 @@ Dependency.
   Keine Deprecation-Warnungen im Build- oder Vet-Output (beide liefen ohne jede Ausgabe durch).
 - offen: keins fuer diese Unit. Block D (CVE-Bumps) ist damit vollstaendig: bump-excelize,
   excelize-export-regression, bump-golang-x, bump-grpc alle done.
+
+## Iteration 66 — customization-value-sets-schema — done — 2026-08-06 03:30
+- commit: dieser Commit, Titel "feat(customization): store tenant value-set overrides server-side" (der eigene SHA kann nicht im Commit stehen, den er beschreibt)
+- gebaut: Migration 000295 mit `customization_value_sets` (tenant_id NOT NULL, set_key-Slug,
+  name) und `customization_value_set_options` (option_key, label, color, sort_order, is_active),
+  beide `CALL enable_tenant_rls(...)`, up und down gefuellt, Down/Up-Roundtrip lokal gefahren.
+  Dazu die komplette Go-Schicht: `internal/settings/valueset.go` (System-Registry als Spiegel
+  von DEFAULT_VALUE_SETS, `ResolveValueSet`, `BaseValueSet`, Validierung),
+  Repository-Methoden `List/Get/Upsert/DeleteValueSetOverride` und die vier Service-Methoden.
+  Proto und Routen sind bewusst NICHT drin — das ist die naechste Unit
+  (customization-value-sets-routes), deren notes ich mit dem Stand gefuellt habe.
+- entscheidungen (die Abweichungen, nicht die Selbstverstaendlichkeiten):
+  * KEINE `is_system`-Spalte. Welche Listen Cosmi mitbringt ist eine Eigenschaft des CODE, nicht
+    einer Tenant-Zeile; ein denormalisiertes Boolean wuerde beim naechsten Release driften. Die
+    DB haelt AUSSCHLIESSLICH den Tenant-Override. Daraus folgt die geforderte Nicht-Loeschbarkeit
+    von Systemlisten strukturell statt per Guard: derselbe DELETE heisst bei einem System-Key
+    "Override weg, Baseline gilt wieder" (Liste ueberlebt) und bei einem Tenant-Key "Liste weg".
+    Beides getestet.
+  * KEINE `layer`-Spalte. Der FE-Typ kennt vendor|tenant, aber der Vendor-Layer ist serverseitig
+    nicht schreibbar (R-5 GDAP nicht gewired; route_customization.go sagt dasselbe ueber die
+    Label-Overrides, und activeConfigLayer() im Mock liefert immer "tenant"). `lean:`-Marker mit
+    Upgrade-Trigger steht im Migrationskopf.
+  * Optionen als Tabelle, nicht als JSONB-Array am Set: sie werden per Key von Livedaten
+    referenziert, einzeln umsortiert und soft-deleted, und die spaetere Neuzuweisung beim
+    Entfernen einer Option ist Zeilenarbeit.
+  * Composite-FK `(tenant_id, value_set_id) -> customization_value_sets (tenant_id, id)` statt
+    einfachem FK auf die id: FK-Pruefungen umgehen RLS, ein einfacher Verweis liesse eine Option
+    von Tenant A an einem Set von Tenant B haengen, falls ein spaeterer Schreibpfad das
+    Eltern-Lookup ungescopt macht. Kostet eine zusaetzliche UNIQUE-Constraint.
+  * Merge ist pro Option-KEY, nicht wholesale: eine Option, die der Tenant nicht erwaehnt,
+    behaelt ihre Werksdefinition und provenance "default". Weglassen kann nicht "loeschen"
+    heissen, solange Livedaten auf den Key zeigen — verstecken heisst `active=false`. Deckt sich
+    mit resolveValueSet im Mock.
+  * BEWUSSTE ABWEICHUNG vom Mock: `listResolvedValueSets` iteriert dort nur ueber
+    DEFAULT_VALUE_SETS, eine tenant-eigene Liste waere damit im eigenen Editor unsichtbar.
+    Serverseitig ist die Liste die Vereinigung aus Registry-Keys und Override-Keys; `?base=1`
+    liefert weiterhin nur die Systemlisten (eine Liste ohne Werksstand hat keine Baseline).
+- gate: `go build -p 2 ./internal/settings/... ./internal/gateway/... ./cmd/auth/... ./cmd/gateway/...`
+  ok | `go vet ./internal/settings/... ./internal/gateway/...` ok (vet kompiliert die Testdateien
+  mit; die einzigen beiden Implementierer von `settings.Repository` sind cmd/auth/main.go und der
+  fakeRepo im Paket-Test, beide nachgezogen) | `golangci-lint run ./internal/settings/...`
+  0 issues | `go test -count=1 -v ./internal/settings/...` ok, 91 Tests, davon 17 neu,
+  **0 SKIP** (DATABASE_URL gesetzt, Rolle kmuhub_app) | Migration: `migrate up` auf 295, danach
+  `down 1` und wieder `up` — beide Richtungen real gefahren.
+  RLS-Smoke: `TestValueSetOverrides_TenantIsolation` lief real (0,17 s, kein Skip) und prueft
+  beide Tabellen als kmuhub_app mit eigenem und fremdem Tenant — fremd liefert 0 Zeilen, obwohl
+  die Query die tenant_id des Schreibers explizit nennt, also beweist es die Policy und nicht die
+  WHERE-Klausel. `TestAllPublicTablesHaveRLSOrAreAllowlisted` gruen (beide neuen Tabellen
+  akzeptiert). Kein openapi-Eintrag noetig, diese Unit registriert keine Route.
+- verify vorgaenger: sauber. Commit e8702ab8 (bump-grpc) geprueft: reiner go.mod/go.sum-Diff
+  (grpc v1.79.3 -> v1.83.0 plus transitive genproto/otel/cel), kein Produktionscode angefasst,
+  Journal deckt sich mit `git show --stat`. Keine der acht Fehlerklassen einschlaegig.
+  `go build -p 2 ./...` ueber das ganze Repo zur Kontrolle nachgefahren, Exit 0.
+- offen:
+  * Die Routen-Unit muss den Wire-Shape gegen den MSW-Handler bauen, NICHT gegen die Hausregel:
+    der Mock antwortet `{valueSets:[...]}` bzw. `{valueSet:{...}}`, nicht `{items,total}`, und
+    die Option-Felder heissen `id`/`order`, nicht `option_key`/`sort_order`. Steht jetzt in den
+    notes der Unit.
+  * `Service.DeleteValueSet` ist gebaut, hat aber im Mock keine Gegenroute (nur GET/GET/PUT).
+    Falls die Routen-Unit sie nicht registriert, bleibt die Methode vorerst ungenutzt — bewusst,
+    weil der Reset-auf-Werkszustand der einzige Weg ist, einen Override wieder loszuwerden.
+  * Option-Loeschung MIT Datensatz-Neuzuweisung (im FE als G1 gebaut) ist weiterhin nicht
+    serverseitig abgedeckt und auch nicht Teil dieser Unit — eigene Nummer.
+  * Die System-Registry in valueset.go ist eine Handkopie von DEFAULT_VALUE_SETS im FE-Mock.
+    Aendert eine FE-Session die vier Listen, muss die Go-Seite mit — steht als Kommentar an der
+    Registry.

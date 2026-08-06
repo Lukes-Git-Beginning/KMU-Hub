@@ -482,3 +482,179 @@ func (r *PostgresRepository) GetTenantSubscription(ctx context.Context, tenantID
 	sub.TotalSeats = seats
 	return &sub, nil
 }
+
+// ============================================================================
+// Value-set overrides (migration 000295)
+//
+// These rows are ONLY what a tenant changed. The shipped baseline is the Go
+// registry in valueset.go, so a tenant that never opened the editor has no
+// rows here and still reads a complete list. Every query is tenant-scoped on
+// both tables — RLS enforces it too, but a forgotten predicate here would
+// surface as a phantom-404 rather than as a leak, which is harder to spot.
+// ============================================================================
+
+// scanValueSetOptions loads all options of the given sets in one query and
+// returns them keyed by set id, already in display order.
+func (r *PostgresRepository) scanValueSetOptions(ctx context.Context, tenantID uuid.UUID, setIDs []uuid.UUID) (map[uuid.UUID][]ValueSetOption, error) {
+	out := make(map[uuid.UUID][]ValueSetOption, len(setIDs))
+	if len(setIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT value_set_id, option_key, label, COALESCE(color, ''), sort_order, is_active
+		FROM customization_value_set_options
+		WHERE tenant_id = $1 AND value_set_id = ANY($2)
+		ORDER BY value_set_id, sort_order, option_key
+	`, tenantID, setIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var setID uuid.UUID
+		var opt ValueSetOption
+		if err := rows.Scan(&setID, &opt.Key, &opt.Label, &opt.Color, &opt.Order, &opt.Active); err != nil {
+			return nil, err
+		}
+		out[setID] = append(out[setID], opt)
+	}
+	return out, rows.Err()
+}
+
+// ListValueSetOverrides returns every override the tenant has stored.
+func (r *PostgresRepository) ListValueSetOverrides(ctx context.Context, tenantID uuid.UUID) ([]*ValueSet, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, set_key, name
+		FROM customization_value_sets
+		WHERE tenant_id = $1
+		ORDER BY set_key
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sets := make([]*ValueSet, 0)
+	ids := make([]uuid.UUID, 0)
+	byID := make(map[uuid.UUID]*ValueSet)
+	for rows.Next() {
+		var id uuid.UUID
+		set := &ValueSet{}
+		if err := rows.Scan(&id, &set.Key, &set.Name); err != nil {
+			return nil, err
+		}
+		sets = append(sets, set)
+		ids = append(ids, id)
+		byID[id] = set
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	options, err := r.scanValueSetOptions(ctx, tenantID, ids)
+	if err != nil {
+		return nil, err
+	}
+	for id, opts := range options {
+		byID[id].Options = opts
+	}
+	return sets, nil
+}
+
+// GetValueSetOverride returns one override, or ErrNotFound if the tenant has
+// not overridden that key.
+func (r *PostgresRepository) GetValueSetOverride(ctx context.Context, tenantID uuid.UUID, setKey string) (*ValueSet, error) {
+	var id uuid.UUID
+	set := &ValueSet{}
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, set_key, name
+		FROM customization_value_sets
+		WHERE tenant_id = $1 AND set_key = $2
+	`, tenantID, setKey).Scan(&id, &set.Key, &set.Name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	options, err := r.scanValueSetOptions(ctx, tenantID, []uuid.UUID{id})
+	if err != nil {
+		return nil, err
+	}
+	set.Options = options[id]
+	return set, nil
+}
+
+// UpsertValueSetOverride writes a tenant's override wholesale: the option list
+// sent replaces the stored one. That matches the PUT route and the FE mock's
+// upsertValueSet — the editor always submits the full list it is showing.
+//
+// Options are deleted and re-inserted rather than diffed. Their surrogate ids
+// are never referenced (records point at option_key), so churning them costs
+// nothing and keeps removal of an option a single obvious statement.
+func (r *PostgresRepository) UpsertValueSetOverride(ctx context.Context, tenantID uuid.UUID, createdBy *uuid.UUID, set *ValueSet) (*ValueSet, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	now := time.Now().UTC()
+	var setID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO customization_value_sets (tenant_id, set_key, name, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $5)
+		ON CONFLICT (tenant_id, set_key)
+		DO UPDATE SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
+		RETURNING id
+	`, tenantID, set.Key, set.Name, createdBy, now).Scan(&setID)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = tx.Exec(ctx, `
+		DELETE FROM customization_value_set_options
+		WHERE tenant_id = $1 AND value_set_id = $2
+	`, tenantID, setID); err != nil {
+		return nil, err
+	}
+
+	for _, opt := range set.Options {
+		var color *string
+		if opt.Color != "" {
+			c := opt.Color
+			color = &c
+		}
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO customization_value_set_options
+				(tenant_id, value_set_id, option_key, label, color, sort_order, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+		`, tenantID, setID, opt.Key, opt.Label, color, opt.Order, opt.Active, now); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return r.GetValueSetOverride(ctx, tenantID, set.Key)
+}
+
+// DeleteValueSetOverride drops the tenant's override. Options go with it via
+// the composite FK's ON DELETE CASCADE. For a system key this is a reset to
+// the shipped baseline, not a deletion of the list — see Service.DeleteValueSet.
+func (r *PostgresRepository) DeleteValueSetOverride(ctx context.Context, tenantID uuid.UUID, setKey string) error {
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM customization_value_sets
+		WHERE tenant_id = $1 AND set_key = $2
+	`, tenantID, setKey)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

@@ -2,7 +2,10 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -369,4 +372,139 @@ func buildTenantModule(m modules.Module, active bool, grantedSeats int32) *Tenan
 		AssignedSeats: seats,
 		FlagKey:       m.FlagKey,
 	}
+}
+
+// ============================================================================
+// Value-sets
+//
+// Reads merge the shipped registry (valueset.go) with the tenant's override
+// rows. Authorisation is the gateway's existing customization permission guard;
+// this layer adds no policy of its own beyond validation, so that value-set
+// editing stays reachable by exactly the people who can already rename labels.
+// ============================================================================
+
+// ListValueSets returns every known value-set, resolved for this tenant.
+//
+// The key set is the union of the shipped registry and the tenant's overrides.
+// The FE mock lists only its code defaults (listResolvedValueSets iterates
+// DEFAULT_VALUE_SETS) — a deliberate difference: a tenant-created list has no
+// baseline and would otherwise be invisible in the very editor that made it.
+//
+// base=true returns the shipped baselines only (the editor's "reset to" view);
+// tenant-only lists have no baseline and are omitted from that view.
+func (s *Service) ListValueSets(ctx context.Context, tenantID uuid.UUID, base bool) ([]*ResolvedValueSet, error) {
+	if base {
+		keys := SystemValueSetKeys()
+		out := make([]*ResolvedValueSet, 0, len(keys))
+		for _, key := range keys {
+			if resolved := BaseValueSet(key); resolved != nil {
+				out = append(out, resolved)
+			}
+		}
+		return out, nil
+	}
+
+	overrides, err := s.repo.ListValueSetOverrides(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]*ValueSet, len(overrides))
+	for _, set := range overrides {
+		byKey[set.Key] = set
+	}
+
+	keys := SystemValueSetKeys()
+	for _, set := range overrides {
+		if !IsSystemValueSet(set.Key) {
+			keys = append(keys, set.Key)
+		}
+	}
+	sort.Strings(keys)
+
+	out := make([]*ResolvedValueSet, 0, len(keys))
+	for _, key := range keys {
+		if resolved := ResolveValueSet(key, byKey[key]); resolved != nil {
+			out = append(out, resolved)
+		}
+	}
+	return out, nil
+}
+
+// GetValueSet resolves one value-set for this tenant. ErrNotFound when neither
+// the registry nor the tenant knows the key.
+func (s *Service) GetValueSet(ctx context.Context, tenantID uuid.UUID, key string, base bool) (*ResolvedValueSet, error) {
+	if !valueSetKeyPattern.MatchString(key) {
+		return nil, ErrInvalidValueSetKey
+	}
+	if base {
+		resolved := BaseValueSet(key)
+		if resolved == nil {
+			return nil, ErrNotFound
+		}
+		return resolved, nil
+	}
+
+	override, err := s.repo.GetValueSetOverride(ctx, tenantID, key)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	resolved := ResolveValueSet(key, override)
+	if resolved == nil {
+		return nil, ErrNotFound
+	}
+	return resolved, nil
+}
+
+// UpsertValueSet stores a tenant's override and returns the resolved result.
+//
+// For a system key this overrides the shipped list; for an unknown key it
+// creates a tenant-owned list. Both are the same write — what differs is what
+// deleting it later means.
+func (s *Service) UpsertValueSet(ctx context.Context, tenantID uuid.UUID, callerID *uuid.UUID, set *ValueSet) (*ResolvedValueSet, error) {
+	if err := validateValueSet(set); err != nil {
+		return nil, err
+	}
+	set.Name = strings.TrimSpace(set.Name)
+	for i := range set.Options {
+		set.Options[i].Label = strings.TrimSpace(set.Options[i].Label)
+	}
+
+	stored, err := s.repo.UpsertValueSetOverride(ctx, tenantID, callerID, set)
+	if err != nil {
+		return nil, err
+	}
+	return ResolveValueSet(set.Key, stored), nil
+}
+
+// DeleteValueSet drops the tenant's override.
+//
+// The two meanings of that one DELETE:
+//   - system key  -> reset. The list survives on its shipped baseline, which is
+//     why a system list cannot be deleted at all. Returns the baseline.
+//   - tenant key  -> the list is gone. Returns nil.
+//
+// Resetting a system list that was never overridden is a no-op, not an error:
+// the caller asked for a state that already holds.
+func (s *Service) DeleteValueSet(ctx context.Context, tenantID uuid.UUID, key string) (*ResolvedValueSet, error) {
+	if !valueSetKeyPattern.MatchString(key) {
+		return nil, ErrInvalidValueSetKey
+	}
+
+	err := s.repo.DeleteValueSetOverride(ctx, tenantID, key)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrNotFound) && IsSystemValueSet(key):
+		// Nothing stored, baseline already in effect.
+	default:
+		return nil, err
+	}
+
+	if IsSystemValueSet(key) {
+		slog.InfoContext(ctx, "value-set reset to shipped baseline",
+			"tenant_id", tenantID, "value_set", key)
+		return BaseValueSet(key), nil
+	}
+	slog.InfoContext(ctx, "tenant value-set deleted",
+		"tenant_id", tenantID, "value_set", key)
+	return nil, nil
 }

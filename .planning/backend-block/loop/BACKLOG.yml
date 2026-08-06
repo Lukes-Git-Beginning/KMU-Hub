@@ -862,7 +862,7 @@ units:
     service: customization
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Serverseitige Wertelisten (Value-Sets). Tabelle fuer die Liste und ihre Optionen
       (Schluessel, Label, Farbe, Reihenfolge, aktiv). Heute existiert serverseitig gar nichts,
@@ -902,8 +902,26 @@ units:
       - backend/internal/gateway/route_customization.go
       - backend/api/openapi.yaml
     notes: >
-      Wire-Shape gegen den Mock pruefen: Listen gewrappt {items,total}, leere Liste [] nicht
-      null, snake_case. Der Mock ist die Referenz, nicht die Intuition.
+      STAND aus E1 (gebaut, Migration 000295): Datenmodell UND Service-Schicht sind fertig.
+      `internal/settings/valueset.go` haelt die System-Registry (Spiegel von DEFAULT_VALUE_SETS,
+      vier Listen) plus `ResolveValueSet`/`BaseValueSet`, `service.go` hat `ListValueSets(ctx,
+      tenantID, base bool)`, `GetValueSet(ctx, tenantID, key, base bool)`, `UpsertValueSet(ctx,
+      tenantID, callerID *uuid.UUID, *ValueSet)` und `DeleteValueSet(ctx, tenantID, key)`.
+      Offen fuer diese Unit ist NUR Proto-RPCs in `proto/settings/settings.proto` (plus
+      `make proto-settings` im selben Commit) und die Gateway-Handler. Der Settings-gRPC-Server
+      liegt beim auth-Binary, `CustomizationRoutes.getSettingsClient()` holt den Client schon.
+      ACHTUNG Wire-Shape — der Mock weicht hier von der Hausregel ab und der Mock gewinnt:
+      `GET .../value-sets` liefert `{valueSets: [...]}` (NICHT `{items,total}`),
+      `GET/PUT .../value-sets/{id}` liefert `{valueSet: {...}}`. Die Option-Felder heissen im
+      FE-Typ `id` (nicht option_key/key), `label`, `color`, `order` (nicht sort_order), `active`,
+      `provenance`; das Set traegt `id`, `name`, `options`, `provenance`. Der Server liefert als
+      Provenance nur "default" oder "tenant" — "vendor" und "draft" sind im FE-Typ, entstehen
+      serverseitig aber nie. `?base=1` ist ein echter Query-Parameter (Editor-Baseline).
+      Bewusste Abweichung vom Mock: die Liste enthaelt auch tenant-eigene Listen (der Mock
+      iteriert nur DEFAULT_VALUE_SETS und wuerde sie verschlucken), `?base=1` nur die Systemlisten.
+      Delete ist im Service gebaut, im Mock aber KEINE Route — falls diese Unit sie nicht
+      registriert, bleibt sie serverseitig ungenutzt, das ist in Ordnung und gehoert ins Journal.
+      Leere Liste [] nicht null, sonst gilt die Hausregel weiter.
       Bestehende Permission-Keys der Customization-Flaeche wiederverwenden (route_customization.go
       zeigt welche das sind), kein neuer Guard ohne Seed.
       Die Label-Whitelist-Regel gilt sinngemaess weiter: Modul-Namen und Sidebar-Nav sind NICHT
