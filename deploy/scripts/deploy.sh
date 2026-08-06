@@ -38,6 +38,32 @@ cleanup() {
     rm -f "$DEPLOY_LOCK"
 }
 
+# halt_without_rollback stops the deploy WITHOUT touching the checkout, for the
+# case where rolling the code back would be worse than leaving it forward.
+#
+# That case is: migrations have already been applied. A code rollback then puts
+# the schema ahead of the code that has to read it, and the migrate container of
+# the older revision refuses to start at all -- it finds a schema_migrations
+# version for which it carries no file. Services that wait on migrate never come
+# up, and the gateway fails closed. That is exactly how 2026-08-06 turned a
+# false-positive smoke failure into 31 minutes of production 503.
+#
+# Forward is recoverable (fix and redeploy); backward across a migration is not
+# automatic, because the down path can be destructive and has to be a human
+# decision. So we stop loudly and say precisely what state the host is in.
+halt_without_rollback() {
+    local reason=$1
+    local current_sha
+    current_sha=$(git -C "$COMPOSE_DIR" rev-parse --short HEAD)
+
+    log "DEPLOY FAILED: $reason"
+    log "NOT rolling back: migrations were applied in this run (schema is at $POST_MIGRATION_VERSION,"
+    log "  was $PRE_MIGRATION_VERSION). Rolling the code back would strand the schema ahead of it."
+    log "Host state: code at $current_sha, containers running, schema at $POST_MIGRATION_VERSION."
+    log "Decide manually: fix forward and redeploy, or roll the schema back deliberately first."
+    log_deploy "failed-no-rollback" "$PREV_SHA" "$current_sha"
+}
+
 rollback() {
     local prev_sha=$1
     local current_sha
@@ -48,18 +74,11 @@ rollback() {
     cd "$COMPOSE_DIR"
     git checkout "$prev_sha"
 
-    # Calculate migration rollback count
-    local new_migrations current_migrations diff
-    new_migrations=$(ls -1 "$COMPOSE_DIR/backend/migrations/"*.up.sql 2>/dev/null | wc -l)
-    git stash 2>/dev/null || true
-    current_migrations=$(ls -1 "$COMPOSE_DIR/backend/migrations/"*.up.sql 2>/dev/null | wc -l)
-    git stash pop 2>/dev/null || true
-
-    diff=$(( new_migrations - current_migrations ))
-    if [[ $diff -gt 0 ]]; then
-        log "Rolling back $diff migration(s)..."
-        $COMPOSE run --rm migrate -path /migrations -database "$DATABASE_URL" down "$diff" || true
-    fi
+    # No migration rollback here on purpose. This function only runs when no
+    # migration was applied in this deploy (see halt_without_rollback), so there
+    # is nothing to undo. The count this used to compute was taken AFTER the
+    # checkout above and therefore compared the old tree against itself -- it was
+    # always 0, which is why the schema silently stayed ahead of the code.
 
     # Rebuild and restart
     local build_version build_commit
@@ -186,8 +205,25 @@ else
 fi
 
 # Step 4: Run migrations
+#
+# The version is read before and after, because whether this run moved the
+# schema decides whether a later failure may roll the code back at all.
+# Read from the database rather than by counting files: the file count says
+# what this checkout carries, the table says what the database actually has.
 log "Step 4/7: Running migrations..."
+schema_version() {
+    docker exec docker-postgres-1 psql -U kmuhub -d kmuhub -tAc \
+        'SELECT version FROM schema_migrations' 2>/dev/null | tr -d '[:space:]' || echo "unknown"
+}
+PRE_MIGRATION_VERSION=$(schema_version)
 $COMPOSE run --rm migrate
+POST_MIGRATION_VERSION=$(schema_version)
+
+MIGRATIONS_APPLIED=false
+if [[ "$PRE_MIGRATION_VERSION" != "$POST_MIGRATION_VERSION" ]]; then
+    MIGRATIONS_APPLIED=true
+    log "Schema moved $PRE_MIGRATION_VERSION -> $POST_MIGRATION_VERSION (auto-rollback disabled for this run)"
+fi
 
 # Step 5: Restart services
 log "Step 5/7: Restarting services..."
@@ -214,8 +250,12 @@ fi
 log "Step 6/7: Running health checks..."
 if [[ -f "$SCRIPT_DIR/healthcheck.sh" ]]; then
     if ! "$SCRIPT_DIR/healthcheck.sh"; then
-        log "Health check FAILED — initiating auto-rollback..."
-        rollback "$PREV_SHA"
+        if [[ "$MIGRATIONS_APPLIED" == "true" ]]; then
+            halt_without_rollback "health check failed"
+        else
+            log "Health check FAILED — initiating auto-rollback..."
+            rollback "$PREV_SHA"
+        fi
         exit 1
     fi
 else
@@ -228,8 +268,12 @@ if [[ "${SKIP_SMOKE:-false}" == "true" ]]; then
     log "Smoke tests skipped (--skip-smoke). Run manually: deploy/scripts/smoke.sh --base-url https://app.zentria.tech"
 elif [[ -f "$SCRIPT_DIR/smoke.sh" ]]; then
     if ! "$SCRIPT_DIR/smoke.sh" --base-url https://app.zentria.tech --expect-version "$BUILD_COMMIT"; then
-        log "Smoke tests FAILED — initiating auto-rollback..."
-        rollback "$PREV_SHA"
+        if [[ "$MIGRATIONS_APPLIED" == "true" ]]; then
+            halt_without_rollback "smoke tests failed"
+        else
+            log "Smoke tests FAILED — initiating auto-rollback..."
+            rollback "$PREV_SHA"
+        fi
         exit 1
     fi
 else
