@@ -4611,3 +4611,29 @@ Dependency.
   kmuhub_app). Keine Migration, keine Route, kein RLS-Smoke noetig — reiner Dependency-Bump ohne
   Code-Aenderung.
 - offen: keins fuer diese Unit. `bump-grpc` ist die letzte offene CVE-Bump-Unit in Block D.
+
+## Iteration 65 — bump-grpc — done — 2026-08-06 03:33
+- commit: folgt
+- gebaut: `google.golang.org/grpc` v1.79.3 -> v1.83.0 gehoben (`go get` + `go mod tidy`), aktuellste
+  verfuegbare Non-Dev-Version (`go list -m -versions` gepruft, v1.84.0 existiert nur als `-dev`).
+  Transitiv mitgezogen: `google.golang.org/genproto/googleapis/{api,rpc}` (Snapshot 2026-01 ->
+  2026-05), `go.opentelemetry.io/otel*` v1.43.0 -> v1.44.0, `cel.dev/expr` v0.25.1 -> v0.25.2.
+  `google.golang.org/protobuf` blieb unveraendert auf v1.36.11 (kein Zwang zum Mitziehen).
+  Vorab geprueft (`grep -rn "grpc\.Dial\|grpc\.WithInsecure\|grpc\.WithBlock"` ueber internal/ und
+  cmd/): keine Treffer, das Repo nutzt bereits `grpc.NewClient` statt der deprecateten
+  Dial-Familie — kein API-Migrationsbedarf durch den Bump.
+- verify vorgaenger: sauber. Commit dcc6adca (bump-golang-x) geprueft: reiner `go.mod`/`go.sum`-Diff
+  fuer x/image und x/text, kein Aufrufer angefasst, Journal deckt sich mit `git show --stat`. Keine
+  der acht Fehlerklassen einschlaegig.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, groesste Streubreite aller 23 Services haengt an grpc)
+  | `go vet ./...` ok | `golangci-lint run ./internal/gateway/... ./internal/helpdesk/...
+  ./internal/work/...` 0 issues | `go test -count=1 -v ./internal/gateway/...` alle 664 Tests ok,
+  0 SKIP, darunter `TestOpenAPIRouteDrift` (815 Routen gegen 817 dokumentierte Pfade) und mehrere
+  Produktion/Plugin-Interceptor-Tests, die einen echten In-Process-gRPC-Server samt
+  `TenantInboundUnaryInterceptor` aufbauen — die Interceptor-Kette ist damit nachweislich intakt,
+  nicht nur kompiliert. `go test -count=1 -v ./internal/helpdesk/... ./internal/work/...` 691 Tests
+  ok, 0 SKIP (DATABASE_URL gesetzt, Rolle kmuhub_app). Keine Migration, keine Route, kein RLS-Smoke
+  noetig — reiner Dependency-Bump.
+  Keine Deprecation-Warnungen im Build- oder Vet-Output (beide liefen ohne jede Ausgabe durch).
+- offen: keins fuer diese Unit. Block D (CVE-Bumps) ist damit vollstaendig: bump-excelize,
+  excelize-export-regression, bump-golang-x, bump-grpc alle done.
