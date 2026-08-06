@@ -176,35 +176,18 @@ func (m *mockDocRepo) Create(_ context.Context, doc *models.EmployeeDocument) er
 	return nil
 }
 
-func (m *mockDocRepo) ListByEmployee(_ context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
+// ListByEmployee does no visibility filtering, mirroring the real repository:
+// the tiers live in RLS policy hr_document_access, which a mock cannot stand
+// in for. TestListEmployeeDocuments_LeavesVisibilityToThePolicy pins that
+// down; the tiers themselves are covered against the real policy in
+// internal/biz/hr/hr_role_based_test.go.
+func (m *mockDocRepo) ListByEmployee(_ context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
 	var results []*models.EmployeeDocument
 	for _, d := range m.documents {
 		if d.EmployeeID == employeeID {
 			results = append(results, d)
 		}
 	}
-	// Simulate visibility filtering
-	if callerRole == "employee" {
-		// Return only employee-visible docs
-		var filtered []*models.EmployeeDocument
-		for _, d := range results {
-			if d.CategoryName == "Sonstiges" { // employee-visible category
-				filtered = append(filtered, d)
-			}
-		}
-		return filtered, nil
-	}
-	if callerRole == "manager" {
-		// Return manager and employee visible docs
-		var filtered []*models.EmployeeDocument
-		for _, d := range results {
-			if d.CategoryName == "Sonstiges" || d.CategoryName == "Zeugnisse" {
-				filtered = append(filtered, d)
-			}
-		}
-		return filtered, nil
-	}
-	// admin/hr: return all
 	return results, nil
 }
 
@@ -389,118 +372,35 @@ func TestUpdateSelfProfile(t *testing.T) {
 // Tests: Document Access
 // ============================================================================
 
-func TestListEmployeeDocuments_EmployeeVisibility(t *testing.T) {
+// The four tests that used to live here asserted the visibility tiers against
+// a mock that simulated them by category NAME -- they proved that the fake
+// filtered, not that anything real does. The tiers are enforced by RLS policy
+// hr_document_access and are covered against that policy, with actual roles on
+// the session, in internal/biz/hr/hr_role_based_test.go. What is worth pinning
+// down here is the boundary itself: this layer passes documents through and
+// takes no role from its caller.
+func TestListEmployeeDocuments_LeavesVisibilityToThePolicy(t *testing.T) {
 	svc, _, _, docRepo := setupTestService()
 	ctx := context.Background()
 
-	// Add documents with different categories
+	other := uuid.New()
 	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Arbeitsvertrag"}, // hr_only
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Zeugnisse"},      // manager
+		{ID: uuid.New(), EmployeeID: testUserID, CategoryName: "Sonstiges"},      // employee
+		{ID: uuid.New(), EmployeeID: other, CategoryName: "Sonstiges"},
 	}
 
-	// Employee sees only employee-visible docs
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, testUserID, "employee")
+	docs, err := svc.ListEmployeeDocuments(ctx, testUserID)
 	require.NoError(t, err)
-	assert.Len(t, docs, 1)
-	assert.Equal(t, "Sonstiges", docs[0].CategoryName)
-}
 
-func TestListEmployeeDocuments_ManagerVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
-	}
-
-	// Manager sees manager + employee visible docs
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, testManagerUserID, "manager")
-	require.NoError(t, err)
-	assert.Len(t, docs, 2)
-}
-
-func TestListEmployeeDocuments_HRVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag", // hr_only
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Zeugnisse", // manager
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges", // employee
-		},
-	}
-
-	// HR sees all
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, uuid.New(), "hr")
-	require.NoError(t, err)
+	// Every tier comes through: the service applies no visibility filter of
+	// its own, so a second one can never drift away from the policy.
 	assert.Len(t, docs, 3)
-}
-
-func TestListEmployeeDocuments_AdminVisibility(t *testing.T) {
-	svc, _, _, docRepo := setupTestService()
-	ctx := context.Background()
-
-	docRepo.documents = []*models.EmployeeDocument{
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Arbeitsvertrag",
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Abmahnungen",
-		},
-		{
-			ID:           uuid.New(),
-			EmployeeID:   testUserID,
-			CategoryName: "Sonstiges",
-		},
+	// The employee scoping is this layer's own job and still holds.
+	for _, d := range docs {
+		assert.Equal(t, testUserID, d.EmployeeID)
 	}
-
-	// Admin sees all
-	docs, err := svc.ListEmployeeDocuments(ctx, testUserID, uuid.New(), "admin")
-	require.NoError(t, err)
-	assert.Len(t, docs, 3)
 }
 
 // ============================================================================

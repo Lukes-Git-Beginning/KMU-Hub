@@ -903,8 +903,10 @@ func (s *HRGRPCServer) ListEmployeeDocuments(ctx context.Context, req *hrv1.List
 		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
 	}
 
-	// Use admin role for gRPC-level access (gateway will enforce actual user role)
-	docs, err := s.employeeService.ListEmployeeDocuments(ctx, employeeID, uuid.Nil, "admin")
+	// No role is passed: which of this employee's documents the caller may see
+	// is decided by RLS policy hr_document_access from the roles on the
+	// session, the same way ListPersonnelDocuments below works.
+	docs, err := s.employeeService.ListEmployeeDocuments(ctx, employeeID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}

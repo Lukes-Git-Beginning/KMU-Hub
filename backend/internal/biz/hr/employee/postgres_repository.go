@@ -555,27 +555,21 @@ func (r *PostgresEmployeeDocRepo) GetByID(ctx context.Context, tenantID, id uuid
 	return scanPersonnelDoc(rows)
 }
 
-func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
-	// Build visibility filter based on caller role
-	var visibilityFilter string
-	switch callerRole {
-	case "admin", "hr":
-		// Admin and HR see all categories
-		visibilityFilter = "" // No filter
-	case "manager":
-		// Manager sees manager and employee visibility
-		visibilityFilter = "AND dc.visibility IN ('manager', 'employee')"
-	default:
-		// Employee (self) only sees employee visibility
-		visibilityFilter = "AND dc.visibility = 'employee'"
-	}
-
-	query := fmt.Sprintf(`SELECT `+personnelDocColumns+personnelDocJoins+`
-		WHERE d.employee_id = $1 %s
-		ORDER BY d.created_at DESC
-	`, visibilityFilter)
-
-	rows, err := r.pool.Query(ctx, query, employeeID)
+// ListByEmployee reads one employee's personnel documents. The visibility
+// tiers are NOT filtered here: RLS policy hr_document_access (000127/000128)
+// already resolves them from the caller's roles in the app.user_roles GUC --
+// admin and hr_admin see every category, a manager sees 'manager' and
+// 'employee', and the employee themselves sees 'employee'. This used to carry
+// a callerRole parameter that repeated exactly that logic in SQL, and the only
+// caller (HRGRPCServer.ListEmployeeDocuments) passed a hardcoded "admin", so
+// the second filter was inert where it mattered and a source of drift
+// everywhere else. Same reasoning as ListByTenant, which never had one.
+func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+personnelDocColumns+personnelDocJoins+`
+		WHERE d.employee_id = $1
+		ORDER BY d.created_at DESC`,
+		employeeID)
 	if err != nil {
 		return nil, err
 	}

@@ -55,7 +55,7 @@ type DocumentCategoryRepository interface {
 // EmployeeDocumentRepository defines the interface for employee document persistence.
 type EmployeeDocumentRepository interface {
 	Create(ctx context.Context, doc *models.EmployeeDocument) error
-	ListByEmployee(ctx context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error)
+	ListByEmployee(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error)
 	// ListByTenant returns every document of the tenant the caller may see.
 	// Visibility filtering is RLS policy hr_document_access (migration 000127),
 	// not a WHERE clause here — see PostgresEmployeeDocRepo.ListByTenant.

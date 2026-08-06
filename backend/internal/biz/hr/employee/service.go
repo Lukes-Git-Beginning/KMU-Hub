@@ -281,9 +281,12 @@ func (s *Service) UpdateSelfProfile(ctx context.Context, userID uuid.UUID, input
 // Document Operations
 // ============================================================================
 
-// ListEmployeeDocuments retrieves documents for an employee filtered by caller role visibility.
-func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID, callerUserID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error) {
-	return s.docRepo.ListByEmployee(ctx, employeeID, callerRole)
+// ListEmployeeDocuments retrieves one employee's documents. Which of them the
+// caller may see is decided by RLS policy hr_document_access from the roles on
+// the session, so this carries no role parameter a caller could influence --
+// exactly like ListPersonnelDocuments below.
+func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
+	return s.docRepo.ListByEmployee(ctx, employeeID)
 }
 
 // ListPersonnelDocuments retrieves every personnel document of the tenant the
@@ -381,10 +384,12 @@ func (s *Service) ListDocumentCategories(ctx context.Context, tenantID uuid.UUID
 	return filterCategoriesByScope(categories, callerScope), nil
 }
 
-// filterCategoriesByScope mirrors the visibility tiers in
-// PostgresEmployeeDocRepo.ListByEmployee: scope "all" (admin/hr_admin) sees
-// every category, "team" (manager) sees manager+employee, and "own" (or any
-// other/empty value) sees employee-visibility only.
+// filterCategoriesByScope mirrors the visibility tiers of RLS policy
+// hr_document_access: scope "all" (admin/hr_admin) sees every category, "team"
+// (manager) sees manager+employee, and "own" (or any other/empty value) sees
+// employee-visibility only. This one filters in Go because categories are a
+// catalogue read, not a document read -- the policy does not cover them, and
+// the scope here comes from the route guard rather than from the caller.
 func filterCategoriesByScope(categories []*models.HRDocumentCategory, callerScope string) []*models.HRDocumentCategory {
 	if callerScope == auth.ScopeAll {
 		return categories
