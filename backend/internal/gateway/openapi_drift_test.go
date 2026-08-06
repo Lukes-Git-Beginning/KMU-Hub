@@ -89,6 +89,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// survey redemption outside it — same split as main.go.
 	helpdeskRoutes := gateway.NewHelpdeskRoutes(registry, flagRegistry)
 	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
+	wikiRoutes := gateway.NewWikiRoutes(registry, flagRegistry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -113,7 +114,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewInboxRoutes(registry),
 		automationRoutes,
 		gateway.NewDialerRoutes(registry),
-		gateway.NewWikiRoutes(registry, flagRegistry),
+		wikiRoutes,
 		helpdeskRoutes,
 		berichteRoutes,
 		formulareRoutes,
@@ -171,6 +172,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	automationRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	helpdeskRoutes.RegisterPublicRoutes(r, passthroughAuth)
 	formulareRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	wikiRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }

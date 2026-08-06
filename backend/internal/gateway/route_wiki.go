@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -109,6 +111,26 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Route("/share", func(r chi.Router) {
 			r.With(wikiShare).Delete("/{tokenId}", wr.HandleRevokeShareToken)
 		})
+	})
+}
+
+// RegisterPublicRoutes mounts the unauthenticated read of one shared article.
+// Called from cmd/gateway/main.go on the root router, OUTSIDE the registrars
+// loop and therefore outside any authMiddleware group -- the token is the whole
+// credential, and a skip-list inside the auth middleware would be a far easier
+// thing to widen by accident.
+//
+// publicRateLimit must be the stricter public limiter, not the global one: this
+// is the only wiki path that answers without a JWT, so per-IP throttling is the
+// only thing standing between a scraper and an unbounded run of token guesses.
+func (wr *WikiRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	if !wr.flags.IsEnabled("modules.wiki") {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/wiki/articles/{token}", wr.HandleRedeemShareToken)
 	})
 }
 
@@ -756,6 +778,60 @@ func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// publicSharedArticleWire is what a visitor holding a share link gets back:
+// the page, and nothing that identifies where it lives. `content` is passed
+// through as raw JSON rather than through protojson, which would base64 the
+// bytes field and leave the reader with a string to decode.
+type publicSharedArticleWire struct {
+	Title     string          `json:"title"`
+	Content   json.RawMessage `json:"content"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// HandleRedeemShareToken serves the unauthenticated read of one shared article.
+//
+// POST, not GET, for the same reason the shared-report read and the public form
+// submission are: the token must not land in access logs, browser history or
+// Referer headers, and no prefetching GET should be free to redeem a link.
+//
+// Every rejection that concerns the token -- missing, over-long, unknown,
+// expired, revoked, granting no read, or naming an article that is gone or
+// unpublished -- comes back as the same 404, so the route cannot be used to
+// find out which tokens exist. It answers with exactly one page: no children,
+// no siblings, no listing.
+func (wr *WikiRoutes) HandleRedeemShareToken(w http.ResponseWriter, r *http.Request) {
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		// The same answer a well-formed unknown token gets: this route never
+		// distinguishes "malformed" from "no such link".
+		response.Error(w, http.StatusNotFound, "share link not found")
+		return
+	}
+
+	resp, err := client.RedeemShareToken(r.Context(), &wikiv1.RedeemShareTokenRequest{Token: token})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	article := resp.GetArticle()
+	wire := publicSharedArticleWire{
+		Title:     article.GetTitle(),
+		Content:   json.RawMessage(article.GetContent()),
+		UpdatedAt: article.GetUpdatedAt().AsTime(),
+	}
+	if len(wire.Content) == 0 {
+		wire.Content = json.RawMessage("null")
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"article": wire})
 }
 
 func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {

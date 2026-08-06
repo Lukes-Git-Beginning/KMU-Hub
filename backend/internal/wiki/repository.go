@@ -52,4 +52,7 @@ type Repository interface {
 	CreateShareToken(ctx context.Context, token *ShareToken) error
 	DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error
 	ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error)
+	// GetShareTokenByToken is the public path's lookup and therefore the one
+	// read here that takes no tenantID — resolving the tenant is what it does.
+	GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error)
 }

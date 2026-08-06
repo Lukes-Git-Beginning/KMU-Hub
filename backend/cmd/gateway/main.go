@@ -257,6 +257,9 @@ func main() {
 	// Formulare: authenticated CRUD via the registrar loop, the public
 	// share-link fill-out outside it -- same split as berichte/helpdesk.
 	formulareRoutes := gateway.NewFormulareRoutes(registry, flagRegistry)
+	// Wiki: authenticated CRUD via the registrar loop, the public read of one
+	// shared article outside it -- same split as berichte/helpdesk/formulare.
+	wikiRoutes := gateway.NewWikiRoutes(registry, flagRegistry)
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
@@ -288,7 +291,7 @@ func main() {
 		gateway.NewInboxRoutes(registry),
 		automationRoutes,
 		gateway.NewDialerRoutes(registry),
-		gateway.NewWikiRoutes(registry, flagRegistry),
+		wikiRoutes,
 		helpdeskRoutes,
 		berichteRoutes,
 		formulareRoutes,
@@ -385,6 +388,12 @@ func main() {
 	// run.
 	formulareRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "formulare-public")
+
+	// Public read of one shared wiki article (no auth middleware). Same strict
+	// per-IP limiter: the share token is the whole credential, and it grants
+	// exactly one page — the limiter is what bounds a guessing run.
+	wikiRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "wiki-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

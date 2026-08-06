@@ -15136,6 +15136,64 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/public/wiki/articles/{token}:
+    post:
+      summary: Read a shared wiki article (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the call can
+        only ever reach the one article the token names — never its children,
+        never a listing.
+
+
+        It is a POST rather than a GET so the token does not travel where
+        access logs, browser history and Referer headers keep it, and so that
+        no prefetching GET redeems a link on the visitor's behalf.
+
+
+        Unknown, malformed, expired and revoked tokens, tokens that grant no
+        read, and tokens whose article was deleted or unpublished all answer
+        404 — deliberately indistinguishable, so the route is not an oracle for
+        which tokens exist. This route is behind the strict per-IP public rate
+        limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+
+
+        The response is narrower than the authenticated article read on
+        purpose: no ids, no tenant, no author, no category.
+      tags: [wiki-articles]
+      operationId: readPublicWikiArticleByShareToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, maxLength: 128 }
+          description: The share token secret (43-char base64url).
+      responses:
+        "200":
+          description: The shared article
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  article:
+                    type: object
+                    properties:
+                      title: { type: string }
+                      content:
+                        type: object
+                        nullable: true
+                        description: Raw article body (TipTap JSON).
+                      updated_at: { type: string, format: date-time }
+        "404":
+          description: No such link, or it expired, was revoked, or its article is gone or unpublished
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/wiki/versions/{id}:
     get:
       summary: Get a single wiki article version

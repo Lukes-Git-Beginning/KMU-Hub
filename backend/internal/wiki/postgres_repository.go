@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -489,6 +491,35 @@ func (r *PostgresRepository) scanCategory(rows pgx.Rows) (*Category, error) {
 		return nil, fmt.Errorf("scan category row: %w", err)
 	}
 	return &c, nil
+}
+
+// GetShareTokenByToken resolves a share token — and with it its tenant — from
+// the secret alone.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. The query is
+// therefore pinned to an exact match on the unique token column and returns
+// everything the service needs to decide; it is never a listing and never
+// takes a filter. Whether the token is still usable is the service's verdict,
+// not this query's, so a refused token still resolves far enough to be logged.
+func (r *PostgresRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
+	if token == "" {
+		return nil, ErrShareTokenNotFound
+	}
+	var t ShareToken
+	err := r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT id, tenant_id, article_id, token, expires_at, permissions, created_at
+		 FROM wiki_share_tokens WHERE token = $1`,
+		token,
+	).Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions, &t.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareTokenNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get share token by token: %w", err)
+	}
+	return &t, nil
 }
 
 func (r *PostgresRepository) scanShareToken(rows pgx.Rows) (*ShareToken, error) {

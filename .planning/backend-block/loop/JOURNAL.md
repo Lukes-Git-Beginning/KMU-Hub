@@ -4417,3 +4417,82 @@ Permission-Key (also kein Seed noetig), kein neues Feature-Flag, keine neue Depe
      System-Kategorien. Bewusst in Kauf genommen statt die alten Keys umzubenennen
      (`/hr/employees/{id}/documents` benutzt sie), aufzuraeumen wenn Kategorien pro Tenant
      schreibbar werden.
+
+## Iteration 60 — wiki-share-redeem (Phase 3)
+
+Commit folgt. Kein Schema-Change (die Tabelle hatte alles), Proto erweitert + regeneriert,
+eine oeffentliche Route, kein neuer Permission-Key, kein neues Feature-Flag, keine neue
+Dependency.
+
+- **Verify Vorgaenger (a164e760, hr-personnel-documents):** sauber. Beide neuen Handler gehen
+  ueber `client.<RPC>` (kein Direct-Svc), holen `tenantID` aus dem Request und geben ihn im
+  Request mit; die OpenAPI-Pfade liegen im selben Commit; die Guards nutzen ausschliesslich
+  Katalog-Keys aus 000256, also kein fehlender Seed. Kein Fund.
+- **Warum keine Migration:** `wiki_share_tokens` (Migr. 000076) hat `token TEXT NOT NULL
+  UNIQUE` samt Index, und `enable_tenant_rls` (via 000230) hat die Policy bereits als
+  `USING (tenant_id = current_tenant_id() OR is_system_context())` angelegt — genau die Form,
+  die der System-Kontext-Lookup braucht. Eine Migration haette nichts geaendert.
+  `revoked_at` ebenfalls **nicht** nachgeruestet: Widerruf ist in diesem Modul ein harter
+  DELETE (`RevokeShareToken`), die Zeile ist also weg und antwortet damit von selbst dieselbe
+  404 wie ein erfundener Token. Ein Soft-Revoke waere ein Umbau des bestehenden Pfades ohne
+  neuen Nutzen fuer diese Unit.
+- **Token-Entropie war der eigentliche Fund.** `CreateShareToken` zog den Token als
+  `uuid.New().String()` — 122 Bit aus `crypto/rand`, also nicht gebrochen, aber schmaler als
+  der Hausstandard und in einem Format, das nach Datensatz-ID aussieht statt nach Credential.
+  Jetzt `newShareToken()`: 32 Byte `crypto/rand`, `base64.RawURLEncoding`, 43 Zeichen — wie
+  `report_share_tokens` (000252), `form_share_tokens` (000293) und die CSAT-Links. **Alte
+  Tokens bleiben einloesbar**, weil der Lookup ein exakter Spalten-Match ist und kein
+  Formatcheck; genau deshalb faehrt `share_test.go` den Redeem-Pfad bewusst mit
+  UUID-foermigen Tokens.
+- **Muster uebernommen, nicht erfunden** (Referenz aus dem BACKLOG-Kopf, konkret
+  `formulare.Service.SubmitByShareToken` als juengster Vertreter): eigene
+  `RegisterPublicRoutes` auf dem Root-Router in `main.go` ausserhalb jeder
+  authMiddleware-Gruppe, einziges Middleware der strenge `publicRateLimiter`, POST statt GET,
+  Modul-Flag gilt auch fuer den oeffentlichen Pfad. Der System-Kontext gilt fuer **genau die
+  eine Token-Zeile** (`GetShareTokenByToken`); unmittelbar danach
+  `withTenant(ctx, share.TenantID)`, ab da ist der Artikel-Read normal tenant-gescoped.
+- **Alle Ablehnungen sind eine 404.** Unbekannt, leer, ueberlang (>128 Zeichen, ohne
+  DB-Roundtrip), abgelaufen, widerrufen (= Zeile weg), ohne `read`-Permission, Artikel
+  geloescht, Artikel unveroeffentlicht → alle `ErrShareTokenNotFound` → `codes.NotFound` →
+  404. `TestService_RedeemShareToken_RefusalsAreIndistinguishable` haelt das als Tabelle mit
+  acht Faellen fest; das ist der Test, der zaehlt, nicht der Happy Path.
+- **Genau eine Seite, kein Baum, keine Liste** (done_when): der Token traegt eine
+  `article_id`, es gibt keinen Parameter und keinen Pfad, der sie aufweitet — Test
+  `..._ReachesExactlyOneArticle` (Geschwister-Artikel desselben Tenants bleibt unerreichbar)
+  und `..._TenantComesFromToken` (fremder Tenant im Kontext lenkt den Read nicht um).
+  **Zur Produktfrage aus den Notes** (Unterseiten mitgemeint?): eng gebaut, wie angewiesen.
+  Wiki-Artikel haengen ohnehin flach unter Kategorien (`parent_id` gibt es nur bei
+  `wiki_categories`), ein „Baum" waere also erst zu erfinden. Wenn das gewuenscht wird, ist es
+  eine eigene Entscheidung — dann braucht der Token ein Scope-Feld, nicht eine weitere Route.
+- **`published` wird bei jeder Einloesung neu geprueft**, nicht nur beim Minten — dasselbe
+  Muster, mit dem Formulare `is_public` behandelt: ein Entwurf, der geteilt und dann
+  zurueckgezogen wurde, muss die schon verteilten Links toeten. Auch das ist dieselbe 404.
+- **Antwort-Form bewusst schmaler als der authentifizierte Read:** eigene Proto-Message
+  `SharedArticle {title, content, updated_at}` statt `Article` — ein Besucher mit Link hat
+  nichts mit `tenant_id`, `author_id`, `category_id` oder der Artikel-UUID zu tun. `content`
+  geht als `json.RawMessage` durch `response.JSON` (nicht `response.Proto`), sonst waere das
+  `bytes`-Feld base64 und der Leser muesste dekodieren; leerer Content wird `null`.
+  Wire-Shape wie bei berichte-public: Single-Entity gewrappt (`{"article": {...}}`),
+  snake_case.
+- gate: `go build ./...` ok | `go vet ./...` ok | `golangci-lint run ./internal/wiki/...
+  ./internal/gateway/... ./internal/server/... ./cmd/gateway/...` 0 issues |
+  `go test -count=1 ./internal/...` alle ok | `TestOpenAPIRouteDrift` +
+  `TestOpenAPISpecDrift` ok (Pfad ist im selben Commit dokumentiert und in
+  `openapi_drift_test.go` registriert). Kein `DATABASE_URL` in dieser Iteration →
+  `share_redeem_db_test.go` lief als Skip.
+- **offen / bewusst nicht gemacht:**
+  1. `share_redeem_db_test.go` ist erst mit `DATABASE_URL` (Rolle `kmuhub_app`, nicht
+     `kmuhub` — BYPASSRLS) beweiskraeftig. Er belegt zwei Dinge, die nur gegen eine echte
+     RLS-Datenbank zaehlen: der Lookup findet die Token-Zeile **ohne** Tenant im Kontext, und
+     ein Token, dessen `tenant_id` und `article_id` verschiedenen Tenants gehoeren, liest
+     nichts. **Vor dem Merge live nachziehen**, zusammen mit den offenen Nachzuegen aus
+     Iteration 56, 58 und 59.
+  2. **Das FE kann den Link noch nicht ausgeben.** `WikiShareDialog.tsx` listet die Tokens und
+     kann sie widerrufen, kopiert aber nur den App-internen Deep-Link (`internalLink`) — es
+     gibt keinen „oeffentlichen Link kopieren"-Knopf und keinen Viewer fuer die Antwort. Der
+     Endpunkt liefert JSON, genau wie der berichte-oeffentliche Read; wer daraus eine
+     lesbare Seite macht, ist eine FE-Entscheidung und lag ausserhalb dieser Unit.
+  3. `permissions` bleibt ein Freitext-Array. Der Redeem verlangt `read` und ignoriert alles
+     andere; ein Token mit z. B. `comment` ist damit heute wertlos statt halb gueltig. Wenn
+     Kommentieren ueber Links kommen soll, gehoert das Feld auf eine Enum — nicht auf eine
+     zweite Route.

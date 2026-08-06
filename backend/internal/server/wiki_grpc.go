@@ -533,6 +533,25 @@ func (s *WikiGRPCServer) RevokeShareToken(ctx context.Context, req *wikiv1.Revok
 	return &wikiv1.RevokeShareTokenResponse{}, nil
 }
 
+// RedeemShareToken is the only RPC in this service that takes no tenant_id: the
+// public caller has none, and resolving it is exactly what the token does. The
+// whole verdict — expired, no read permission, article gone, article
+// unpublished — collapses into the same NotFound, so this route cannot be used
+// to tell which tokens exist. See wiki.Service.RedeemShareToken.
+func (s *WikiGRPCServer) RedeemShareToken(ctx context.Context, req *wikiv1.RedeemShareTokenRequest) (*wikiv1.RedeemShareTokenResponse, error) {
+	article, err := s.svc.RedeemShareToken(ctx, req.GetToken())
+	if err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.RedeemShareTokenResponse{
+		Article: &wikiv1.SharedArticle{
+			Title:     article.Title,
+			Content:   article.Content,
+			UpdatedAt: timestamppb.New(article.UpdatedAt),
+		},
+	}, nil
+}
+
 // ============================================================================
 // Conversion helpers
 // ============================================================================

@@ -38,6 +38,7 @@ const (
 	WikiService_CreateShareToken_FullMethodName = "/wiki.v1.WikiService/CreateShareToken"
 	WikiService_RevokeShareToken_FullMethodName = "/wiki.v1.WikiService/RevokeShareToken"
 	WikiService_ListShareTokens_FullMethodName  = "/wiki.v1.WikiService/ListShareTokens"
+	WikiService_RedeemShareToken_FullMethodName = "/wiki.v1.WikiService/RedeemShareToken"
 )
 
 // WikiServiceClient is the client API for WikiService service.
@@ -67,6 +68,10 @@ type WikiServiceClient interface {
 	CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error)
 	RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error)
 	ListShareTokens(ctx context.Context, in *ListShareTokensRequest, opts ...grpc.CallOption) (*ListShareTokensResponse, error)
+	// RedeemShareToken is the only RPC in this service that takes no tenant_id:
+	// which tenant the caller may see is exactly what the token answers.
+	// See wiki.Service.RedeemShareToken.
+	RedeemShareToken(ctx context.Context, in *RedeemShareTokenRequest, opts ...grpc.CallOption) (*RedeemShareTokenResponse, error)
 }
 
 type wikiServiceClient struct {
@@ -267,6 +272,16 @@ func (c *wikiServiceClient) ListShareTokens(ctx context.Context, in *ListShareTo
 	return out, nil
 }
 
+func (c *wikiServiceClient) RedeemShareToken(ctx context.Context, in *RedeemShareTokenRequest, opts ...grpc.CallOption) (*RedeemShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RedeemShareTokenResponse)
+	err := c.cc.Invoke(ctx, WikiService_RedeemShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WikiServiceServer is the server API for WikiService service.
 // All implementations must embed UnimplementedWikiServiceServer
 // for forward compatibility.
@@ -294,6 +309,10 @@ type WikiServiceServer interface {
 	CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error)
 	RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error)
 	ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error)
+	// RedeemShareToken is the only RPC in this service that takes no tenant_id:
+	// which tenant the caller may see is exactly what the token answers.
+	// See wiki.Service.RedeemShareToken.
+	RedeemShareToken(context.Context, *RedeemShareTokenRequest) (*RedeemShareTokenResponse, error)
 	mustEmbedUnimplementedWikiServiceServer()
 }
 
@@ -360,6 +379,9 @@ func (UnimplementedWikiServiceServer) RevokeShareToken(context.Context, *RevokeS
 }
 func (UnimplementedWikiServiceServer) ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListShareTokens not implemented")
+}
+func (UnimplementedWikiServiceServer) RedeemShareToken(context.Context, *RedeemShareTokenRequest) (*RedeemShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RedeemShareToken not implemented")
 }
 func (UnimplementedWikiServiceServer) mustEmbedUnimplementedWikiServiceServer() {}
 func (UnimplementedWikiServiceServer) testEmbeddedByValue()                     {}
@@ -724,6 +746,24 @@ func _WikiService_ListShareTokens_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WikiService_RedeemShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RedeemShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).RedeemShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_RedeemShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).RedeemShareToken(ctx, req.(*RedeemShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WikiService_ServiceDesc is the grpc.ServiceDesc for WikiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -806,6 +846,10 @@ var WikiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListShareTokens",
 			Handler:    _WikiService_ListShareTokens_Handler,
+		},
+		{
+			MethodName: "RedeemShareToken",
+			Handler:    _WikiService_RedeemShareToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

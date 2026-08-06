@@ -243,6 +243,14 @@ func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, tenantID,
 	return result, nil
 }
 
+func (m *mockRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
+	t, ok := m.tokens[token]
+	if !ok {
+		return nil, ErrShareTokenNotFound
+	}
+	return t, nil
+}
+
 // compile-time check
 var _ Repository = (*mockRepository)(nil)
 

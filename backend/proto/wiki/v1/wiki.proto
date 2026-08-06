@@ -33,6 +33,11 @@ service WikiService {
   rpc CreateShareToken(CreateShareTokenRequest) returns (ShareTokenResponse);
   rpc RevokeShareToken(RevokeShareTokenRequest) returns (RevokeShareTokenResponse);
   rpc ListShareTokens(ListShareTokensRequest) returns (ListShareTokensResponse);
+
+  // RedeemShareToken is the only RPC in this service that takes no tenant_id:
+  // which tenant the caller may see is exactly what the token answers.
+  // See wiki.Service.RedeemShareToken.
+  rpc RedeemShareToken(RedeemShareTokenRequest) returns (RedeemShareTokenResponse);
 }
 
 // ============================================================================
@@ -283,4 +288,23 @@ message ListShareTokensRequest {
 
 message ListShareTokensResponse {
   repeated ShareToken tokens = 1;
+}
+
+message RedeemShareTokenRequest {
+  // The link secret itself. No tenant_id, no article_id: a caller who could
+  // name the article would not need the token.
+  string token = 1;
+}
+
+// SharedArticle is the anonymous view of one shared page. Deliberately narrower
+// than Article: a visitor holding a link has no business learning the tenant,
+// the author or the category the page sits in.
+message SharedArticle {
+  string title = 1;
+  bytes content = 2; // raw JSONB (TipTap JSON)
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message RedeemShareTokenResponse {
+  SharedArticle article = 1;
 }

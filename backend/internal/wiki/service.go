@@ -516,12 +516,17 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		permissions = input.Permissions
 	}
 
+	secret, err := newShareToken()
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    input.TenantID,
 		ArticleID:   input.ArticleID,
-		Token:       uuid.New().String(), // random token
+		Token:       secret,
 		ExpiresAt:   input.ExpiresAt,
 		Permissions: permissions,
 		CreatedAt:   now,

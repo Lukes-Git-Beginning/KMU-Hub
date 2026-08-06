@@ -696,7 +696,7 @@ units:
     service: wiki
     model: opus
     deps: []
-    status: in_progress
+    status: done
     scope: >
       Oeffentlicher Einloese-Endpunkt fuer Wiki-Share-Tokens. Heute kann Wiki Tokens erzeugen,
       auflisten und widerrufen (route_wiki.go:83-110), aber es gibt kein
