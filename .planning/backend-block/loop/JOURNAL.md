@@ -4585,3 +4585,29 @@ Dependency.
   Testerweiterung.
 - offen: keins fuer diese Unit. `bump-excelize` ist damit NICHT revert-verdaechtig — der Regressionstest
   war der offene Nachweis aus Iteration 62 und ist jetzt erbracht.
+
+## Iteration 64 — bump-golang-x — done — 2026-08-06 04:02
+- commit: folgt
+- gebaut: `golang.org/x/image` v0.38.0 -> v0.44.0 und `golang.org/x/text` v0.38.0 -> v0.40.0 gehoben
+  (`go get` + `go mod tidy`). Transitiv mitgezogen: `golang.org/x/mod` v0.36.0->v0.37.0,
+  `golang.org/x/sync` v0.21.0->v0.22.0. `x/text` war durch den excelize-Bump in Iteration 62 bereits
+  auf v0.38.0 vorgezogen, dort im Journal vermerkt — diese Unit hebt es auf die aktuell verfuegbare
+  v0.40.0 weiter.
+  Vorab geprueft (`go mod why golang.org/x/image` / `... x/text`): beide sind rein indirekte
+  Abhaengigkeiten, "main module does not need package" — kein einziger Aufrufer in `internal/`
+  oder `cmd/` importiert sie direkt (grep auf `golang.org/x/image` und `golang.org/x/text` in .go-Dateien
+  liefert null Treffer). Die Bildverarbeitung im Repo (`chat/file/thumbnail.go`, `chat/file/service.go`,
+  `auth/totp.go` fuer QR-Codes) laeuft ausschliesslich ueber die Stdlib `image`/`image/jpeg`/`image/png`,
+  nicht ueber `x/image`. Der Bump ist damit ein reiner Supply-Chain-/CVE-Abschluss ohne Verhaltensrisiko,
+  kein Feature-Pfad ist betroffen.
+- verify vorgaenger: sauber. Commit ddf131fd (excelize-export-regression) geprueft: reine Erweiterung von
+  `xlsx_test.go` (Roundtrip- und Style-Test), Journal/Backlog-Update, kein Produktionscode angefasst.
+  Keine der sechs Fehlerklassen einschlaegig. Kein Fund.
+- gate: `go build -p 2 ./...` ok (ganzes Repo, wegen transitiver x/*-Streubreite) | `go vet ./...` ok |
+  `golangci-lint run ./internal/chat/... ./internal/document/... ./internal/auth/...` 0 issues |
+  `go test -count=1 ./internal/chat/... ./internal/auth/... ./internal/document/...` alle ok (chat/file,
+  chat/guest, auth inkl. TOTP-QR-Code-Tests, document/file, document/folder, document/share u.a.),
+  0 SKIP-Zeilen (per `-v` gegen chat/file und document/file geprueft, DATABASE_URL gesetzt, Rolle
+  kmuhub_app). Keine Migration, keine Route, kein RLS-Smoke noetig — reiner Dependency-Bump ohne
+  Code-Aenderung.
+- offen: keins fuer diese Unit. `bump-grpc` ist die letzte offene CVE-Bump-Unit in Block D.

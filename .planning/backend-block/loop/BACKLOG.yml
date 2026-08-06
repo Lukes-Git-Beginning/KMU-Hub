@@ -810,7 +810,7 @@ units:
     service: deps
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     scope: >
       `golang.org/x/image` (v0.38.0, zwei HIGH-CVEs) und `golang.org/x/text` (v0.37.0) auf die
       jeweils aktuelle Version, gebuendelt in einem Commit.
