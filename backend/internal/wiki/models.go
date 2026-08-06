@@ -63,4 +63,11 @@ type ShareToken struct {
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	Permissions []string   `json:"permissions"`
 	CreatedAt   time.Time  `json:"created_at"`
+	// RevokedAt is the moment the link was cut. Nil means live. Revoked
+	// tokens stay in the listing on purpose (000297): a revocation the author
+	// cannot see afterwards would be a hard delete with extra steps.
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+	// CreatedBy is nil for every token minted before 000297, and for one whose
+	// author has since been deleted.
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 }

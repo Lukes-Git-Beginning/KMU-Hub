@@ -83,7 +83,9 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 				r.With(wikiDelete).Delete("/attachments/{attachmentId}", wr.HandleDeleteAttachment)
 
 				// Share tokens — revoking is part of managing them, and the
-				// catalogue has no separate revoke key.
+				// catalogue has no separate revoke key. The revoke route
+				// itself is DELETE /wiki/share/{tokenId} further down: it
+				// needs the token's own id, not the article's.
 				r.With(wikiRead).Get("/share", wr.HandleListShareTokens)
 				r.With(wikiShare).Post("/share", wr.HandleCreateShareToken)
 			})
@@ -714,6 +716,11 @@ func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Requ
 		ArticleId:   articleID,
 		Permissions: req.Permissions,
 		ExpiresAt:   req.ExpiresAt,
+	}
+	// Who opened this article to the outside. Never taken from the body -- a
+	// client-supplied author would be worth less than no author at all.
+	if userID := middleware.GetUserID(r.Context()); userID != "" {
+		grpcReq.CreatedBy = &userID
 	}
 
 	resp, err := client.CreateShareToken(r.Context(), grpcReq)

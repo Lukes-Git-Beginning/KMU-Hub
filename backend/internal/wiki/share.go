@@ -55,10 +55,14 @@ func withTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
 	return context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
 }
 
-// Usable reports whether a share token may still be redeemed. Revocation is a
-// hard DELETE in this module (RevokeShareToken), so a revoked token never gets
-// this far — it is simply gone, which answers the same 404 as an invented one.
+// Usable reports whether a share token may still be redeemed. Revocation is
+// soft since 000297: the row survives with revoked_at set, so the check has to
+// happen here rather than being implied by the row's absence. All three
+// reasons answer the caller with the same 404 an invented token gets.
 func (t *ShareToken) Usable(now time.Time) bool {
+	if t.RevokedAt != nil {
+		return false
+	}
 	if t.ExpiresAt != nil && !now.Before(*t.ExpiresAt) {
 		return false
 	}
@@ -113,6 +117,7 @@ func (s *Service) RedeemShareToken(ctx context.Context, token string) (*SharedAr
 	if !share.Usable(now) {
 		slog.Info("wiki share token refused",
 			"token_id", share.ID,
+			"revoked", share.RevokedAt != nil,
 			"expired", share.ExpiresAt != nil && !now.Before(*share.ExpiresAt),
 			"grants_read", share.grants(sharePermissionRead),
 		)

@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -47,10 +48,12 @@ type Repository interface {
 	DeleteCategory(ctx context.Context, tenantID, categoryID uuid.UUID) error
 	UpdateCategory(ctx context.Context, category *Category) error
 
-	// Share tokens. Delete and list take an explicit tenantID for the same
+	// Share tokens. Revoke and list take an explicit tenantID for the same
 	// defense-in-depth reason as the reads above.
 	CreateShareToken(ctx context.Context, token *ShareToken) error
-	DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error
+	// RevokeShareToken cuts a link by stamping revoked_at; the row stays so
+	// the author keeps seeing that it was cut (000297).
+	RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, now time.Time) error
 	ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error)
 	// GetShareTokenByToken is the public path's lookup and therefore the one
 	// read here that takes no tenantID — resolving the tenant is what it does.

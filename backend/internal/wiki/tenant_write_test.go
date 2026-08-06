@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
@@ -180,13 +181,43 @@ func TestWikiWrites_LandInCallerTenant(t *testing.T) {
 	// Same story as attachments: a foreign session revoking the victim's
 	// real token ID (even naming the victim's real tenantID) must be
 	// refused rather than silently no-op-succeed.
-	if err := repo.DeleteShareToken(ctxOther, tenantOwn, token.ID); !errors.Is(err, ErrShareTokenNotFound) {
-		t.Fatalf("DeleteShareToken (foreign ctx): expected ErrShareTokenNotFound, got %v", err)
+	if err := repo.RevokeShareToken(ctxOther, tenantOwn, token.ID, now); !errors.Is(err, ErrShareTokenNotFound) {
+		t.Fatalf("RevokeShareToken (foreign ctx): expected ErrShareTokenNotFound, got %v", err)
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "wiki_share_tokens", token.ID, 1)
-
-	if err := repo.DeleteShareToken(ctxOwn, tenantOwn, token.ID); err != nil {
-		t.Fatalf("DeleteShareToken (own ctx): %v", err)
+	if revokedAt := readRevokedAt(t, pool, sysCtx, token.ID); revokedAt != nil {
+		t.Fatalf("a refused cross-tenant revoke still stamped revoked_at = %v", revokedAt)
 	}
-	testutil.AssertRowCount(t, pool, sysCtx, "wiki_share_tokens", token.ID, 0)
+
+	// Revocation is soft since 000297: the row survives, carrying the moment
+	// it was cut.
+	if err := repo.RevokeShareToken(ctxOwn, tenantOwn, token.ID, now); err != nil {
+		t.Fatalf("RevokeShareToken (own ctx): %v", err)
+	}
+	testutil.AssertRowCount(t, pool, sysCtx, "wiki_share_tokens", token.ID, 1)
+	firstCut := readRevokedAt(t, pool, sysCtx, token.ID)
+	if firstCut == nil {
+		t.Fatal("RevokeShareToken (own ctx): revoked_at was not stamped")
+	}
+
+	// Cutting an already cut link succeeds without rewriting when it happened.
+	if err := repo.RevokeShareToken(ctxOwn, tenantOwn, token.ID, now.Add(time.Hour)); err != nil {
+		t.Fatalf("RevokeShareToken (repeat): %v", err)
+	}
+	if secondCut := readRevokedAt(t, pool, sysCtx, token.ID); secondCut == nil || !secondCut.Equal(*firstCut) {
+		t.Fatalf("a repeated revoke moved revoked_at from %v to %v", firstCut, secondCut)
+	}
+}
+
+// readRevokedAt reads one token's revoked_at directly, bypassing the
+// repository, so the assertion cannot be satisfied by the code under test.
+func readRevokedAt(t *testing.T, pool *pgxpool.Pool, ctx context.Context, tokenID uuid.UUID) *time.Time {
+	t.Helper()
+	var revokedAt *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT revoked_at FROM wiki_share_tokens WHERE id = $1`, tokenID,
+	).Scan(&revokedAt); err != nil {
+		t.Fatalf("read revoked_at: %v", err)
+	}
+	return revokedAt
 }

@@ -261,6 +261,12 @@ message ShareToken {
   optional string expires_at = 4;
   repeated string permissions = 5;
   google.protobuf.Timestamp created_at = 6;
+  // Set once the link was cut. Revoked tokens stay in the listing so their
+  // author can see that they were cut -- see migration 000297.
+  optional google.protobuf.Timestamp revoked_at = 7;
+  // Who minted the link. Unset for tokens created before 000297 and for one
+  // whose author has since been deleted.
+  optional string created_by = 8;
 }
 
 message CreateShareTokenRequest {
@@ -268,6 +274,9 @@ message CreateShareTokenRequest {
   string article_id = 2;
   optional string expires_at = 3;
   repeated string permissions = 4;
+  // The authenticated caller, filled by the gateway. Unset is recorded as
+  // "unknown author" rather than refused.
+  optional string created_by = 5;
 }
 
 message ShareTokenResponse {

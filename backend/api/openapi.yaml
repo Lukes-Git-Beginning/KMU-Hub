@@ -15344,6 +15344,12 @@ paths:
   /api/v1/wiki/share/{tokenId}:
     delete:
       summary: Revoke a wiki article share token
+      description: >
+        Cuts a public share link. The revocation is soft: the token stays in
+        the article's share list carrying the moment it was cut, so an author
+        can tell a revoked link from one that never existed. Redeeming a
+        revoked token answers the same 404 as an invented one. Repeating the
+        call is idempotent and does not move the original revocation time.
       tags: [wiki-articles]
       operationId: revokeWikiShareToken
       security: [{ bearerAuth: [] }]

@@ -488,6 +488,16 @@ func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.Creat
 		input.ExpiresAt = &t
 	}
 
+	// An absent created_by is recorded as an unknown author rather than
+	// refused -- a malformed one is the caller's error and is not.
+	if cb := req.GetCreatedBy(); cb != "" {
+		id, parseErr := uuid.Parse(cb)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+
 	token, err := s.svc.CreateShareToken(ctx, input)
 	if err != nil {
 		return nil, mapWikiError(err)
@@ -648,6 +658,13 @@ func shareTokenToProto(t *wiki.ShareToken) *wikiv1.ShareToken {
 	if t.ExpiresAt != nil {
 		s := t.ExpiresAt.Format(time.RFC3339)
 		p.ExpiresAt = &s
+	}
+	if t.RevokedAt != nil {
+		p.RevokedAt = timestamppb.New(*t.RevokedAt)
+	}
+	if t.CreatedBy != nil {
+		s := t.CreatedBy.String()
+		p.CreatedBy = &s
 	}
 	return p
 }

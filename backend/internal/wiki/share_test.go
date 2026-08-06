@@ -132,11 +132,35 @@ func TestService_RedeemShareToken_RefusalsAreIndistinguishable(t *testing.T) {
 			},
 		},
 		{
-			name: "revoked token (row is gone)",
+			// Revocation is soft (000297): the row is still there and still
+			// resolves by its secret. Only Usable() stands between it and a
+			// reader, so this goes through the real revoke path rather than
+			// deleting the row -- a check that lived in the row's absence
+			// would be no check at all.
+			name: "revoked token",
 			token: func(repo *mockRepository) string {
 				a := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
 				share := addShareToken(repo, a, nil)
-				delete(repo.tokens, share.Token)
+				svc := NewService(repo)
+				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID); err != nil {
+					t.Fatalf("revoke: %v", err)
+				}
+				if _, ok := repo.tokens[share.Token]; !ok {
+					t.Fatal("revocation removed the row; it is supposed to be soft")
+				}
+				return share.Token
+			},
+		},
+		{
+			// A link that was cut and has since expired is still one 404.
+			name: "revoked and expired token",
+			token: func(repo *mockRepository) string {
+				a := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
+				share := addShareToken(repo, a, &past)
+				svc := NewService(repo)
+				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID); err != nil {
+					t.Fatalf("revoke: %v", err)
+				}
 				return share.Token
 			},
 		},
