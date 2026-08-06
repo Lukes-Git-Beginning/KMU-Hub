@@ -1023,7 +1023,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [intake-public-submit]
-    status: todo
+    status: done
     scope: >
       Cross-Tenant-Tests fuer die Intake-Flaeche. Ticket-Erzeugung mit externem Requester,
       custom_fields-Merge und die oeffentliche Formular-Einreichung.

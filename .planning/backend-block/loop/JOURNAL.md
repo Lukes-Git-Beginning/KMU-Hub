@@ -4957,3 +4957,72 @@ Dependency.
 - offen: keine neue Luecke gefunden. Die naechste verwandte Unit intake-cross-tenant-tests
   (todo, deps intake-public-submit=done) hat denselben Charakter -- vermutlich ebenfalls schon
   grossteils durch die Bau-Units abgedeckt, noch nicht geprueft.
+
+## Iteration 71 — intake-cross-tenant-tests — done — 2026-08-06
+
+- commit: dieser Commit, Titel "test(helpdesk,formulare): close intake cross-tenant gaps"
+- verify vorgaenger: sauber. Commit 6be409f3 (csat-cross-tenant-tests) geprueft: der neue Test
+  TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated seedet zwei echte Tenants mit je einem
+  Ticket + offenem Token gleichzeitig, loest Tenant As Token ein und prueft VOR der Einloesung
+  von Bs Token, dass Bs Ticket und Token unangetastet sind (nicht nur ein SELECT im Nachhinein).
+  Keine der acht Fehlerklassen einschlaegig.
+- Befund vor dem Bauen: wie bei csat-cross-tenant-tests war ein Teil der drei done_when-Punkte
+  schon abgedeckt, aber mit derselben Luecke -- alle bestehenden Tests liefen entweder in einem
+  einzigen Tenant (external_requester_db_test.go, ticket_intake_test.go,
+  ticket_requester_name_db_test.go) oder gegen einen In-Memory-Stub-Repo mit fest verdrahtetem
+  testTenant (form_share_test.go: TestSubmitByShareToken_StoresTheSubmissionAndResolvesTheTenant
+  et al. -- praezise die Token-Verdict- und Quota-Logik, aber ohne RLS). Drei konkrete Luecken:
+  1. Kein Test hatte zwei echte externe Requester-Tickets in zwei Tenants gleichzeitig offen.
+  2. Kein DB-Test bewies, dass der custom_fields-Merge in Service.UpdateTicket nicht auf ein
+     fremdes Ticket zeigen kann, wenn (aus welchem Grund auch immer) die falsche tenantID an den
+     Aufruf gerdet -- GetTicketByID(id, tenantID) laedt tenant-gescoped, aber das war unbelegt.
+  3. Kein DB-Test hat SubmitByShareToken gegen eine echte Postgres-RLS-Situation mit zwei
+     gleichzeitig offenen Tenants/Schemas/Links gefahren; die Stub-Tests koennen keinen
+     RLS-Bruch zeigen, weil sie nie mit RLS liefen.
+- gebaut: drei neue Tests in zwei Paketen.
+  * `internal/formulare/form_share_db_test.go` ::
+    TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped -- seedet Tenant A und B mit je
+    einem aktiven, oeffentlichen Schema und eigenem Share-Link (echte PostgresRepository,
+    echter Service.CreateShareLink), loest A's Token per SubmitByShareToken ein, prueft dass
+    die Submission nur unter ctxA sichtbar ist (AssertRowCount) und Tenant Bs Link/
+    submission_count unangetastet bleibt (ListShareLinks unter ctxB), loest danach B's Token
+    unabhaengig ein und prueft dieselbe Isolation umgekehrt.
+  * `internal/helpdesk/intake_cross_tenant_db_test.go` ::
+    - TestExternalRequester_CrossTenantIsolation -- zwei externe Tickets (requester_id NULL,
+      requester_email gesetzt) in zwei echten Tenants gleichzeitig. Prueft RLS-Row-Count in
+      beide Richtungen UND den tatsaechlichen Lesepfad GetTicketByID/ListTickets (eine
+      bestehende RLS-Row-Count-Pruefung haette einen Bug im expliziten
+      `AND tenant_id = $2`-Praedikat der Queries nicht gefangen, wenn RLS allein durchgetragen
+      haette).
+    - TestUpdateTicket_CustomFieldsMergeCannotCrossTenant -- Tenant B hat ein Ticket mit
+      custom_fields {"vertragsnummer":"geheim-B"}. Service.UpdateTicket wird mit Bs Ticket-ID
+      aber Tenant As tenantID aufgerufen und einem injizierten Zusatzfeld; erwartet
+      ErrTicketNotFound VOR jedem Merge (belegt durch Read-Danach: Bs Feld unveraendert, kein
+      injiziertes Feld). Positivkontrolle direkt danach: derselbe Merge korrekt auf Tenant B
+      scoped gelingt und mergt (nicht ersetzt) -- damit ist die Ablehnung oben nachweislich der
+      Tenant-Guard und kein unabhaengiger Fehler im Testaufbau.
+  Quellcode-Beleg: Service.UpdateTicket (service.go:271) laedt ueber
+  s.repo.GetTicketByID(ctx, id, tenantID) BEVOR customFields ueberhaupt normalisiert oder
+  gemerged wird (service.go:317-325); GetTicketByID (postgres_repository.go:153-158) filtert
+  `WHERE t.id = $1 AND t.tenant_id = $2` und scanTicket uebersetzt pgx.ErrNoRows zu
+  ErrTicketNotFound (postgres_repository.go:1317-1330) -- ein falsches tenantID-Argument kann
+  also nie bis zum Merge durchdringen, das war vorher nur Lesart des Codes, jetzt belegt.
+- gate: `go build ./internal/helpdesk/... ./internal/formulare/...` ok |
+  `go vet ./internal/helpdesk/... ./internal/formulare/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/helpdesk/... ./internal/formulare/...`
+  0 issues | `go test -count=1 ./internal/helpdesk/... ./internal/formulare/...` PASS, beide
+  Pakete | gezielt gegen DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub
+  (Rolle kmuhub_app, NOSUPERUSER NOBYPASSRLS) gelaufen: `go test -v` ueber beide Pakete liefert
+  182 PASS, 0 SKIP -- DATABASE_URL war gesetzt, SkipIfNoDB griff nirgends, "ok" bedeutet hier
+  also wirklich etwas. Die drei neuen Tests einzeln per -run gruen (siehe oben). Kein -race
+  verfuegbar in dieser Umgebung (kein gcc/CGO), wie in jeder frueheren Iteration ohne -race
+  gelaufen.
+- done_when-Abgleich: "oeffentliche Einreichung erzeugt nur im eigenen Tenant" erfuellt durch
+  TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped. "custom_fields-Merge leakt keine
+  fremden Werte" erfuellt durch TestUpdateTicket_CustomFieldsMergeCannotCrossTenant.
+  "externer Requester bleibt tenant-gescopt" erfuellt durch
+  TestExternalRequester_CrossTenantIsolation. "0 uebersprungene Tests" siehe gate-Block.
+- offen: keine neue Sicherheitsluecke gefunden -- alle drei Angriffsflaechen halten, weil die
+  zugrundeliegenden Queries schon korrekt tenant-gescoped waren, es fehlte nur der Beleg.
+  Verbleibende Bloecke: helpdesk-kb-content-opaque, helpdesk-ticket-number-wire,
+  docs-security-interceptor-korrektur (alle todo, keine Deps offen).
