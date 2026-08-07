@@ -11,8 +11,10 @@ updated: 2026-08-06
 Feature-Nachzug quer durch die Module (Laeufe 1+3, 243–268), in Lauf 4 die RLS-Welle (20 Tabellen +
 Standing-Guard, der die naechste Luecke selbst findet), **RBAC Phase 1** (tenant-eigene Rollen +
 per-User-Overrides) und 42 neue Routen, in Lauf 5 den Rest inkl. Wiki-Share-Soft-Revoke (297).
-**Repo-Kopf = Prod-Kopf 297 clean.** Loop-Backlog: 34 done · 7 blocked · 2 todo — `blocked` heisst
-hier meist „Praemisse widerlegt", nicht „nicht geschafft".
+**Repo-Kopf = Prod-Kopf 297 clean.** Loop-Backlog: 34 done · 7 blocked · **0 todo** — er ist damit
+**leer**, ein Lauf 6 braucht ihn komplett neu. Die 7 `blocked` sind keine Ausfaelle, sondern
+Entscheidungsvorlagen fuer Luke (Payroll-Datenmodell, Admin-Billing, Projekt-Meilensteine,
+CSAT-Oberflaeche, Public-Token-Landing-Pages, `DisallowUnknownFields`) plus ein reiner FE-Fix.
 
 **Gemessene Kennzahlen (2026-08-06):**
 

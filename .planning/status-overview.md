@@ -42,7 +42,7 @@ Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG-Gründung.
 | RLS-Lücken | **0** (`knownRLSGaps` leer) | `testutil/rls_regression_test.go:33` |
 | Frontend | **34 Module** (32 im Router), 81 API-Hooks, 1.231 TS/TSX | |
 | i18n | **12.044 Keys**, de/en voll, fr/it je 34 offen | node-Diff, BOM-safe |
-| Loop-Backlog | 34 done · 7 blocked · 2 todo | `backend-block/loop/BACKLOG.yml` |
+| Loop-Backlog | 34 done · 7 blocked · **0 todo** (leer) | `backend-block/loop/BACKLOG.yml` |
 
 ---
 
@@ -146,8 +146,11 @@ Sortiert nach Nähe zum Nutzer, nicht nach Aufwand.
    UTF-8-BOM — Signatur von PowerShell `Set-Content`; jedes Skript, das sie direkt parst, muss es
    abfangen.
 7. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt. Einziger echter Launch-Blocker.
-8. **Loop-Backlog:** 7 `blocked`, 2 `todo`. „Blocked" heißt hier meist, dass die Prämisse der Unit
-   widerlegt wurde (die Route existierte schon), nicht dass der Loop gescheitert wäre.
+8. **Loop-Backlog ist leer** (0 `todo`) — ein Lauf 6 braucht ihn vollständig neu. Die verbliebenen
+   7 `blocked` sind keine Ausfälle, sondern Entscheidungsvorlagen: Payroll-Datenmodell,
+   Admin-Billing, Projekt-Meilensteine, öffentliche CSAT-Oberfläche, Landing-Pages für die sieben
+   Public-Token-Routen, `DisallowUnknownFields` (repo-weit breaking) und ein reiner Frontend-Fix
+   (`ticket_number`).
 
 ---
 
