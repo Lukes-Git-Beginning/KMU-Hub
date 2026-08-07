@@ -4,6 +4,52 @@
 > Claude sammelt, Darien reicht an Luke weiter. Stand: Welle 1 (2026-06-01). **Status-Update 2026-06-10 (additiv, ✅-Markierungen):** erledigte Punkte aus Chain PILOT (2026-06-09) + Marathon-Tag-2-Wellen 1+2 (2026-06-10) sind inline markiert.
 > Priorität: 🔴 ZFA-Pilot-kritisch · 🟠 wichtig · ⚪ später/Post-Launch.
 
+## ✅ Verifikationslauf 2026-08-07 (Vorbereitung Backend-Nachtlauf 6)
+
+> Zweiter Durchgang gegen den **laufenden Code**: lokale DB auf Migrationskopf **297** (`kmuhub_app`,
+> nicht der Superuser), **820 Pfade** in `backend/api/openapi.yaml`, Service-Quelltext statt
+> Funktionsnamen. Die Läufe 4 und 5 haben nochmals rund zwanzig Punkte still geschlossen. Wer diese
+> Datei liest: **die folgende Tabelle zuerst**, sonst baut man Gebautes nach.
+
+**Seit dem 08-02-Durchgang zusätzlich geschlossen** (Beleg jeweils selbst nachgeschlagen):
+
+| Punkt | Beleg |
+|---|---|
+| mails Multi-Account · Vorlagen/Quicktext · Regeln & Filter | `/api/v1/email/accounts` (5 Pfade), `/email/templates` (3), `/email/rules` (3) + `internal/email/{account,template,rule}/` |
+| crm serverseitige Lead-Score-Berechnung | `internal/crm/contact/lead.go:84 ComputeLeadScore` |
+| crm CSV-Import verwirft die Firma (Round-Trip) | `import_service.go` `FindOrCreateCompany` + `GetCompanyNames` (Export) |
+| kommunikation Chat-Datei-Upload-Route | `/api/v1/channels/{id}/files` in der Spec + `route_chat.go:76` |
+| work `start_date` am Task | Spalte in `task/postgres_repository.go:31`, Validierung `ErrInvalidDateRange` |
+| work Projekt/Vorlage löschen | `route_work_projects.go:159 HandleDeleteProject` → `DeleteProject`-RPC |
+| dokumente Wire-Shape (bare Array → `null`) | `route_document.go` nutzt durchgängig `response.ProtoListWrapped(…, "folders", …, {"total"})` |
+| **security X-3-Spec-Lücke (31 Endpoints)** | `openapi.yaml` führt jetzt security/audit (3), gdpr (7), vault (2), auth/sessions (3), 2fa (7) |
+| admin A-1 Benutzerverwaltung · Tenant-Provisioning · A-4 Branding | `/admin/users` (6 Pfade), `/tenants`, `…branding` |
+| settings `tenant_module_leads`-Endpoints | 3 `module-leads`-Pfade |
+| fuhrpark Führerscheinkontrolle | `/fuhrpark/driver-licenses` + `/{id}` |
+| inventar `batch_number`/`serial_numbers` | Migration `000183_inventar_full_extend` |
+| rapporte `weather`-Feld | `rapporte/models.go:38` + `pdf.go:94` |
+| Cross-cutting Einkauf↔Inventar-Sync | `einkauf/service.go:15-17` — Wareneingang löst `AdjustStock` aus |
+| einkauf `PurchaseOrder.total_amount` | Recompute belegt durch `service_test.go:736-807` + `tenant_write_test.go:237-245`; die `"0"` in `service.go:317` ist der Startwert einer Bestellung ohne Zeilen, kein Bug |
+| einkauf `ExportPO`-Stub | restlos entfernt (kein Vorkommen mehr im Repo) |
+| einkauf zweistufige Bestellfreigabe | `route_einkauf.go:56-57` `RequirePermissionAny(einkauf:po write, …approve)` |
+| automatisierung `http_request`-Action | `automation/action/http_actions.go:63` |
+| automatisierung inbound `webhook.received`-Trigger | `automation/trigger/registry.go:310` |
+| berichte KPI umgeht die Modul-Sichtbarkeit | `route_berichte.go:1072-1081` Modul→RBAC-Key-Map, fail-closed |
+| helpdesk `Ticket.custom_fields` + Intake-`channel` | `helpdesk/models.go:140` bzw. `:50-63` |
+
+**Weiterhin offen und in dieser Runde neu bestätigt** (Kurzliste; Details stehen inline weiter unten):
+vertraege `contract_events` · dokumente versionsspezifischer Download · helpdesk `time_spent` ·
+helpdesk `scope=own`-Listenfilter · **biz/dunning bricht beim Mahnungsversand weiterhin fatal ab,
+wenn Company-Settings fehlen** (`dunning/service.go:315` — mit gesetztem `SYSTEM_SMTP_*` in Prod ein
+500er) · schichten `is_minor` + Availability/Qualifikation · inventar Kommissionierung ·
+fuhrpark Fahrzeugbuchung + finanzamtkonformer Fahrtenbuch-Export · vermietung Checklist-Format +
+`signature_url` + Tarif-Staffeln · work Projekt-Portfolio · `GET/PUT /users/preferences` ·
+notifications E-Mail-/SMS-Kanal im Gateway · berichte `ExecuteKindCross` + KPI-Zeitreihe ·
+automatisierung Cron-Trigger-Poller + Branch/Merge-Step · finanzen `currency`/Wechselkurs ·
+video Meeting-Recurrence + `caller_name` im Broadcast · inbox SLA-Tracking ·
+chat/channels ohne Permission-Seeds · produktion Materialverfügbarkeit + Soll/Ist-Kalkulation ·
+crm Dialer→Lead-Verknüpfung · kontakte XLSX-Import.
+
 ## ✅ Verifikationslauf 2026-08-02 (Vorbereitung Backend-Nachtlauf 4)
 
 > Diese Datei wurde Punkt für Punkt gegen den **laufenden Code** geprüft: lokale DB auf
@@ -202,7 +248,7 @@ Leere, weil FE-Pfad und Gateway-Pfad auseinanderlaufen (4× GDPR-Export, `/hr/pe
 **CRM Kontakt-CSV-Import — 2 mock-verdeckte Bugs gefunden, beide gefixt (07-05):**
 - **✅ FE-seitig gefixt: Wire-Contract-Mismatch Field-Mapping.** Das FE (`crm-import-client.ts`) sendete das Spalten-Mapping als **ein** JSON-Feld `field_mapping`; der Gateway (`route_crm_contacts.go:HandleImportContactsCSV`) liest es aber aus **einzelnen `map_<csvSpalte>=<crmFeld>`-Formularfeldern**. → Mapping kam leer an, **jede** Zeile wurde mit „both first_name and last_name are empty" geskippt (`imported_count:0`). FE sendet jetzt `map_*`-Felder. Live verifiziert: 2/2 importiert, in DB. **Kanonisch (optional, Luke):** Gateway könnte zusätzlich einen `field_mapping`-JSON-Blob akzeptieren (robuster für Spaltennamen mit Leerzeichen/Sonderzeichen im `map_`-Suffix) — nicht nötig, nur Härtung.
 - **✅ Backend-seitig gefixt: Auto-Detection-Lücke `snake_case`.** `knownMappings` (`internal/email/contact/import_service.go`) kannte `vorname`/`firstname`/`first name`, aber **nicht `first_name`/`last_name`** (Unterstrich) — und genau so heißen die **Export**-Spalten des CRM selbst. → Export→Import-Round-Trip erkannte die Namen nicht auto. `first_name`/`last_name` ergänzt.
-- **🟠 GAP für Luke: Company-Feld beim Import ignoriert + Export leer (Round-Trip kaputt).** `importSingleContact` persistiert nur email/first_name/last_name/phone/position/notes — `fields["company"]` wird komplett ignoriert. Der Export liest `Firma` aus der company-Relation → immer leer, obwohl die CSV/das Mapping eine Firma trägt. **→ Für echten Round-Trip:** company beim Import auf die company-Relation (oder ein Kontakt-Firmenfeld) mappen; Export entsprechend füllen.
+- ✅ **Company-Feld beim Import + Export-Round-Trip — ERLEDIGT** (verifiziert 2026-08-07): `import_service.go` hat `FindOrCreateCompany` (löst den Firmennamen auf die company-Relation auf, legt bei Bedarf eine schlanke Firma an) und `GetCompanyNames` (Batch-Auflösung für den Export). Ursprünglicher Befund: `importSingleContact` ignorierte `fields["company"]`, der Export lieferte `Firma` deshalb immer leer.
 
 **Dunning-Mahnung E-Mail + PDF (`273f1b6b`) — live verifiziert end-to-end, funktioniert + degradiert sauber.** Create (draft) → Send → PDF gegen echtes biz/minio: Send 200 (status→sent), PDF 200 (valides %PDF, 6722 B). biz-Log: „dunning record created" → „system SMTP not configured — dunning notice email suppressed" (Empfänger + Dateiname korrekt) → „dunning notice sent". Nil-Mailer/leerer-Host-Fallback greift wie designed.
 - **🟠 Heads-up für Luke (Prod-Risiko, kein lokaler Bug):** `sendAndNotify` bricht bei konfiguriertem Mailer **fatal** ab, wenn `emailNotice` scheitert — und `emailNotice` erfordert **Company-Settings** (`settings == nil → error`) + PDF-Gen vor dem `sent_at`-Update. In Prod mit gesetztem `SYSTEM_SMTP_*` würde ein Tenant **ohne Company-Settings** beim Mahnungs-Send einen 500 bekommen (vorher wurde nur „sent" markiert). Erwägen: Mail-/PDF-Fehler non-fatal machen (sent markieren + Fehler loggen, wie der nil-Mailer-Zweig) **oder** Company-Settings beim Onboarding erzwingen. `created_by`/`sent_by` der Dunning-Records sind zudem nil-UUID (User-ID wird im Handler nicht propagiert — kleiner Audit-Trail-Gap, vorbestehend).
@@ -237,7 +283,7 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Sobald Luke diese Endpoints + contact_id-Felder ergänzt, kann das FE die beiden Sektionen in ContactDetailPanel nachziehen (Muster: analog useDeals mit contact_id-Filter).
 
 ### crm
-- Lead-Scoring: ✅ **Feld erledigt** (`contacts.lead_score` + `lead_source`/`lead_status`/`lead_temperature`/`lifecycle_stage`, `route_crm_leads.go`); **offen** bleibt nur der serverseitige Berechnungsservice (das FE rechnet in `computeLeadScore`)
+- Lead-Scoring: ✅ **komplett erledigt** — Feld (`contacts.lead_score` + `lead_source`/`lead_status`/`lead_temperature`/`lifecycle_stage`, `route_crm_leads.go`) **und** der serverseitige Berechnungsservice (`internal/crm/contact/lead.go:84 ComputeLeadScore`, verifiziert 2026-08-07)
 - ~~Umsatz-Forecasting: dedizierter `/api/v1/reports/forecast`-Endpoint~~ — **kein Gap** (verifiziert 2026-08-02): `modules/crm/deals/DealForecastView.tsx` rechnet client-seitig aus `usePipelineStages` + `useDeals({page_size:200})`. Erst wenn die Deal-Zahl das clientseitige Limit sprengt, wird daraus ein Endpoint-Bedarf.
 - E-Mail-Marketing/Kampagnen: kompletter Service fehlt (`/api/v1/campaigns`) — **weiterhin offen**, bewusst nicht als Nachtlauf-Unit (Neubau, kein FE-Vertrag)
 
@@ -269,9 +315,7 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - ⚠ CSP-Hinweis (kein Gap, Review): `frame-src 'self' blob:` neu in `desktop/src/renderer/index.html` (Dokument-Viewer). Der OnlyOffice-iframe (externe `VITE_ONLYOFFICE_URL`) ist von `frame-src` vermutlich weiterhin blockiert — bei OnlyOffice-Scharfschaltung CSP um die Office-Domain erweitern.
 
 ### mails
-- Multi-Account: Tabelle + `ListEmailAccounts` (aktuell 1 Account/User)
-- Vorlagen/Quicktext: Template-CRUD (`email/template/`)
-- Regeln & Filter: `email/rule/` + Endpoints
+- ✅ **Multi-Account · Vorlagen/Quicktext · Regeln & Filter — ALLE DREI ERLEDIGT** (verifiziert 2026-08-07): `internal/email/{account,template,rule}/` existieren, dazu 5 Pfade `/api/v1/email/accounts*`, 3 `/email/templates*`, 3 `/email/rules*` in der Spec. Ursprünglicher Wortlaut: Multi-Account (Tabelle + `ListEmailAccounts`), Template-CRUD, `email/rule/` + Endpoints.
 
 ### helpdesk
 - ✅ **`contact_id`/`org_id` ins Ticket-Modell — ERLEDIGT** (Lauf 3, `93cead56`; Spalten in `tickets` verifiziert 2026-08-02)
@@ -346,7 +390,7 @@ FE baut den No-Code-Massanfertigungs-Editor mock-first (Overlay-Prinzip wie R-6)
 
 ### security / DSGVO  (FE-Mock-First-Batch S-1…S-5, Branch `parallel/security`)
 > BE existiert weitgehend echt: GDPR-Export/-Erasure-Handler (`47d210d9`, alle 14 auf echte SQL), Audit/Sessions/PW-Policy/IP-Rules/2FA in `route_security.go`/`route_auth.go`. Das FE läuft mock-first (MSW); Verdrahtung gegen das echte BE = später (Claude/FE-Lane).
-- **🔴 X-3-Spec-Lücke (alle 31 security/auth-Endpoints):** KEINER ist in `backend/api/openapi.yaml` dokumentiert (Spec endet bei `auth/reset-password`). Betroffen: `/security/audit|vault|gdpr/*|password/*|ip-rules|dsar/search`, `/auth/sessions*|2fa/*`. → openapi-Spec nachziehen, sonst bricht jede Typ-Regen-Runde + jeder Echt-Anschluss erneut.
+- ✅ **X-3-Spec-Lücke — ERLEDIGT** (verifiziert 2026-08-07): die Spec führt jetzt security/audit (3 Pfade), gdpr (7), vault (2), auth/sessions (3), 2fa (7). Ursprünglicher Befund: KEINER der 31 security/auth-Endpoints war in `backend/api/openapi.yaml` dokumentiert (Spec endete bei `auth/reset-password`).
 - **Wire-Shape-Befund (encoding/json über protobuf, snake_case):** Alle Handler nutzen `response.JSON` (nicht `response.Proto`). Konsequenz für den FE-Client beim Echt-Anschluss: (a) **Listen sind gewrappt** — `{secrets:[…]}`, `{rules:[…]}`, `{export_requests:[…]}`, `{sessions:[…]}`, `{policies:[…]}`, `{entries,total}` (nie nacktes Array). FE-Client (`security-client.ts`) ist in S-1 bereits darauf ausgerichtet (entpackt gewrappte Shape). (b) **Timestamps als `{seconds,nanos}`** statt RFC3339 → beim Echt-Anschluss `normalizeWireTimestamps()` (`api/wire-time.ts`) im Client anwenden (MSW liefert ISO, geht durch).
 - **🔴 Pfad-Abweichungen FE-Client ↔ echtes BE — BESTÄTIGT 2026-08-02, vier tote Aufrufe:** GDPR-Export-Request `POST /gdpr/export` (Client: `/gdpr/export/request`), Download `GET /gdpr/download/{token}` (Client: `/gdpr/export/{token}/download`), Approve/Deny über `/gdpr/exports/{id}/approve|deny` (Client: `/gdpr/export/{id}/…`). 2FA-Policy-Pfad `policy` (singular) vs Client `policies`. **Fünfter Fund:** `modules/settings/PrivacySettingsTab.tsx:139` verlinkt `/api/v1/gdpr/exports/{id}/download` — komplett ohne `/security`-Präfix. Damit ist der DSGVO-Auskunftspfad über die UI heute nicht bedienbar (fristgebunden!). **Unit `fix-security-gdpr-paths`** im Nachtlauf-4-Backlog; Richtungsentscheid: das Gateway zieht auf die FE-Pfade um.
 - **🔌 Verdrahten (nach Echt-Schaltung):** `security-client.ts` + Hooks gegen das echte Backend testen (Demo-Mode aus), Pfade + Wire-Shapes obiger Liste abgleichen, Timestamp-Normalizer einhängen.
@@ -368,8 +412,8 @@ FE baut den No-Code-Massanfertigungs-Editor mock-first (Overlay-Prinzip wie R-6)
 - E-Mail- + SMS-Kanal im Gateway exponieren (Dispatcher existiert intern)
 
 ### work
-- `start_date`-Feld im Task-Modell + Proto (für vollwertigen Gantt; aktuell nur due_date)
-- Projekt-Portfolio-Entität + Aggregations-Endpoint
+- ✅ **`start_date` im Task-Modell — ERLEDIGT** (verifiziert 2026-08-07): Spalte in `task/postgres_repository.go:31` gelesen und geschrieben, Validierung `ErrInvalidDateRange` ("start_date must not be after due_date").
+- Projekt-Portfolio-Entität + Aggregations-Endpoint — **weiterhin offen**
 
 ### zeiterfassung
 
@@ -442,18 +486,18 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 ## ⭐ Cross-cutting (einmal bauen → viele Module profitieren)
 - **S3/MinIO-Foto-Upload-Service**: generischer Upload-Endpoint für Foto-Anhänge — gebraucht von fuhrpark (Schaden), inventar (Bewegung), rapporte (Doku), vermietung (Protokoll), chat, profil (Avatar). Aktuell überall Mock.
 - **Signatur-Persistenz**: `signature`-Feld/-Endpoint — gebraucht von rapporte, vermietung, vertraege. SignatureCanvas existiert im FE, BE nimmt es nirgends an.
-- **Einkauf↔Inventar-Sync**: Wareneingang (`einkauf.ReceiveGoods`) muss `inventar.RecordMovement` triggern (Code-Kommentar „Sprint-3-Item").
+- ✅ **Einkauf↔Inventar-Sync — ERLEDIGT** (verifiziert 2026-08-07): `einkauf/service.go:15-17` — der Wareneingang löst über SKU-Auflösung `AdjustStock` im inventar-Modul aus, unbekannte SKUs degradieren sauber.
 
 ## 🟠 Branchen-BE-Lücken (für Solar-Pilot ab Nov relevant)
 ### fuhrpark
-- Führerscheinkontrolle-Modell (`LicenseCheck`: Fahrer, Ablauf, letzter Check) + Route — **offen, verifiziert** (keine Tabelle mit `license` im Namen); **Unit `g-fuhrpark-license-check`** im Nachtlauf-4-Backlog
+- ✅ **Führerscheinkontrolle — ERLEDIGT** (Lauf 4, `g-fuhrpark-license-check`; verifiziert 2026-08-07: `/api/v1/fuhrpark/driver-licenses` + `/{id}` in der Spec)
 - Fahrtenbuch: ✅ `trip_logs` + `/fuhrpark/trip-logs` existieren; **offen** bleibt nur der finanzamtkonforme PDF-Export
 - Fahrzeugbuchung/Pool (`VehicleBooking` + Conflict-Check) — **weiterhin offen** (`machine_bookings`/`resource_bookings` gibt es, für Fahrzeuge nichts)
 - ✅ **`FuelRecord` (Tankprotokoll) — ERLEDIGT** (`fuel_logs` + `/fuhrpark/fuel-logs`); Tankkartenverwaltung offen
 - ✅ **GPS/Telematik — ERLEDIGT** (`gps_positions` + `/fuhrpark/gps/ingest|positions|routes`)
 
 ### inventar
-- `batch_number`/`serial_numbers` im Item-Modell (Chargen/Seriennummern) — **weiterhin offen**
+- ✅ **`batch_number`/`serial_numbers` im Item-Modell — ERLEDIGT** (verifiziert 2026-08-07: beide Spalten in Migration `000183_inventar_full_extend`)
 - ✅ **Inventur-Modell — ERLEDIGT** (`inventur_sessions`/`inventur_counts` + `/inventar/inventur` inkl. `/counts`, `/status`, `/book`)
 - Kommissionierung/Picklisten-Modell — **weiterhin offen**
 
@@ -466,9 +510,9 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 ### einkauf
 - ~~`SupplierRating`-Modell~~ ✅ · ~~`FrameworkContract`-Modell + Katalogartikel~~ ✅ (BE + Client + MSW vorhanden, FE seit Demo-Tiefe 2026-07-16 verdrahtet: Rating-Formular, Abrufe via `CreateContractCall`)
 - ✅ **`POST /pos/{id}/cancel` — ERLEDIGT** (Lauf 1, `route_einkauf.go:91` + openapi; verifiziert 2026-08-02)
-- 🔒 **`PurchaseOrder.total_amount` wird nie berechnet**: `CreatePO` setzt `"0"` (`service.go:317`), Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach → gegen echtes BE zeigen alle Bestellungen 0,00 €. MSW macht das Recompute (Netto-Zeilensumme) vor — gleiche Semantik ins BE. **Verifiziert 2026-08-02, Unit `fix-einkauf-po-total`** im Nachtlauf-4-Backlog.
-- 🔒 **`ExportPO` ist Stub** (service.go:716): FE erzeugt Bestell-PDF/CSVs seit 2026-07-16 client-seitig (`modules/einkauf/einkauf-export.ts`), `exportPO` aus dem FE-Client entfernt. BE-Endpoint kann gestrichen oder später echt (Briefpapier/Versand an Lieferant) gebaut werden.
-- 2-stufiger Bestellfreigabe-Workflow (`approved_by`, `/approve`-Endpoint) — FE nutzt aktuell `einkaufTenant.approvalThreshold` (Settings) + Freigeben=Submit
+- ✅ **`PurchaseOrder.total_amount` — ERLEDIGT** (Lauf 4, `fix-einkauf-po-total`; verifiziert 2026-08-07): Add/Update/DeletePOLine rechnen den Kopfbetrag nach, belegt durch `service_test.go:736-807` und tenant-gescopt durch `tenant_write_test.go:237-245`. Die `"0"` in `service.go:317` ist der Startwert einer Bestellung ohne Zeilen — kein Bug.
+- ✅ **`ExportPO`-Stub — ERLEDIGT durch Entfernen** (verifiziert 2026-08-07: kein Vorkommen mehr im Repo). Das FE erzeugt Bestell-PDF/CSVs client-seitig (`modules/einkauf/einkauf-export.ts`).
+- ✅ **2-stufiger Bestellfreigabe-Workflow — ERLEDIGT** (verifiziert 2026-08-07): `route_einkauf.go:56-57` gated Submit/Approve über `RequirePermissionAny([einkauf:po, write], [einkauf:po, approve])`.
 - Automatische Bestellvorschläge (Inventar-MinQty → PO) — FE hat jetzt Katalog-Warenkorb mit Bündelung pro Lieferant als Vorstufe
 
 ### produktion (Brücke — MRP-Tiefe bewusst begrenzen)
@@ -489,7 +533,7 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 ### rapporte (Solar-Außendienst)
 - ✅ **Signatur-Persistenz — ERLEDIGT** (`/rapporte/reports/{id}/signature`, ebenso `/vermietung/rentals/{id}/signature` und `/vertraege/contracts/{id}/signature` — der cross-cutting-Punkt ist damit für alle drei Module abgehakt)
 - ✅ **Aufmaß-Modell — ERLEDIGT** (`measurements`/`measurement_positions` + 4 Routen)
-- `weather`-Feld auf WorkReport (Bautagesbericht) — **weiterhin offen**
+- ✅ **`weather`-Feld auf WorkReport — ERLEDIGT** (verifiziert 2026-08-07: `rapporte/models.go:38`, gerendert in `rapporte/pdf.go:94`)
 - ReportLine: Material-vs-Leistung-Unterscheidung schärfen
 
 ## 🟠 Mobile/Offline (Solar-Pilot)
@@ -500,8 +544,9 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 
 > ✅ **Datenmodell + Endpoints ERLEDIGT — verifiziert 2026-08-02.** `contacts` trägt
 > `lifecycle_stage`, `lead_source`, `lead_score`, `lead_status`, `lead_temperature`, dazu
-> `route_crm_leads.go` (+ Tests). **Offen bleiben zwei Punkte:** das serverseitige Spiegeln der
-> Scoring-Regel (das FE rechnet in `computeLeadScore`) und die Dialer→Lead-Verknüpfung.
+> `route_crm_leads.go` (+ Tests). ✅ **Auch die Scoring-Regel ist serverseitig gespiegelt**
+> (verifiziert 2026-08-07: `internal/crm/contact/lead.go:84 ComputeLeadScore`, 0–100 aus
+> Quelle + Vollständigkeit). **Offen bleibt nur die Dialer→Lead-Verknüpfung.**
 
 - **Architektur-Entscheidung:** Lead als **Kontakt-Lifecycle-Status** modellieren, nicht als separate Tabelle. Empfehlung: `contacts.lifecycle_stage` (`lead` → `qualified` → `customer`). Frontend baut die Inbox als gefilterte Sicht.
 - Lead-Metadaten am Kontakt: `lead_source` (manual/csv/dialer), `lead_score` (0–100, auto), `lead_temperature_override` (hot/warm/cold, sticky), `lead_status` (new/contacted/qualified/disqualified).
@@ -545,7 +590,7 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - ✅ **Label-Taxonomie + Task-Labels — BACKEND ERLEDIGT 2026-06-11 (`2b8447b6`, Migrationen 000145+000147):** `work_labels`+`task_labels` (RLS), Label-CRUD `/api/v1/work/labels`, `PUT /tasks/{id}/labels`, `label_ids` im TaskProto, Permission-Seeds `work_labels:*`. ✅ Follow-ups erledigt 2026-06-11 (`d028b8ea`): `label_ids` batch-geladen in Get/ListTasks (GetLabelsByTaskIDs, 1 Query), `filter_label_ids` als tenant-gescopte EXISTS-Clause im task-Repo; zusätzlich CreateTask/ListTasks auf `middleware.GetTenantID(ctx)` (`772483fd`). Offen nur noch: FE-Wiring (Chip-UI/Filter).
 - ✅ **Custom-Field-Definitionen (Task) — BACKEND ERLEDIGT 2026-06-11 (`2b8447b6`, Migrationen 000146+000147):** `work_custom_field_definitions` (tenant-scoped, RLS, 9 Feldtypen) + CRUD `/api/v1/work/custom-fields`, Seeds `work_custom_fields:*`. Follow-up FE-Adapter: `field_type`→`type`, `position`→`sortOrder`, Store kennt `dropdown` statt `select`.
 - **🟡 Default-Status-Set:** `stores/workSettings.defaultStatuses` mock-first — das Status-Set, mit dem neue Projekte starten. Aktuell seedet der MSW-Create-Handler ein festes Set. → tenant-Setting `default_project_statuses` + Anwendung in `createProject`.
-- **🟡 Projekt-Vorlagen löschen:** Liste (`templates_only`) + Umbenennen (PUT name) + „aus Vorlage erstellen" (`from-template`) laufen echt. **Löschen fehlt** (kein `DELETE /projects/{id}`-Endpoint im Client/Spec). → Delete-Project-Endpoint oder Template-Archivierung.
+- ✅ **Projekt-Vorlagen löschen — ERLEDIGT** (verifiziert 2026-08-07): `route_work_projects.go:159 HandleDeleteProject` ruft den `DeleteProject`-RPC. Ursprünglicher Befund: Liste/Umbenennen/„aus Vorlage erstellen" liefen echt, nur Löschen fehlte.
 - **🟡 Zeit-Regeln (billable-Default, Stundensatz):** `stores/workSettings.billableByDefault`/`defaultHourlyRate` mock-first. → tenant-Setting; Anwendung beim Anlegen von Time-Entries + Stunden→Rechnung (P4).
 - **🟢 P5 (Kalender-Sicht):** KEIN neuer Backend-Bedarf. `WorkCalendarView` bucketet `useTasks({project_id})` nach `due_date`; Drag = Fälligkeit ändern via bestehendes `PUT /tasks/{id}` (`due_date`). Nur ein latentes Komfort-Feld offen: ein `due_date`-Bereichsfilter im `listTasks`-Query (`due_from`/`due_to`) würde bei sehr vielen Tasks das clientseitige Bucketing entlasten — heute irrelevant (page_size 500).
 
