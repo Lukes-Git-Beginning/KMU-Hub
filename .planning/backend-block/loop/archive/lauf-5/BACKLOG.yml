@@ -1,0 +1,1261 @@
+# Backend-Nachtloop — Arbeitsqueue (Lauf 5, 2026-08-05, Fenster 23:00–08:30)
+#
+# Eine Unit = eine Iteration = ein Commit. Reihenfolge ist Absicht: der Darien-terminierte
+# CSAT-Block zuerst, dann der stille Datenverlust im Intake-Contract, dann Bugs, CVEs, Kosmetik.
+#
+# status: todo | in_progress | done | blocked
+# model:  sonnet (Default) | opus (architektonisch schwer, Proto, Security, Migration+RLS)
+#
+# ACHTUNG Treiber-Parsing: `model:` muss VOR `status:` stehen, und hinter `status: todo`
+# darf kein Kommentar stehen (der Treiber zaehlt offene Units per Zeilen-Regex).
+#
+# Laeufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/ — Lauf 4 (54): archive/lauf-4/
+#
+# ------------------------------------------------------------------------------------------
+# STAND DER VORBEREITUNG (2026-08-05, alles gegen den laufenden Code verifiziert)
+#
+#   - `backend-loop` wurde VOR diesem Lauf auf origin/main gemergt (46 Frontend-Commits:
+#     Customization-/Modul-Editor + Helpdesk-Ticket-Intake + CSAT). Der FE-Vertrag, gegen den
+#     die Bloecke A/B/E bauen, ist damit aktuell im Working Tree. Das ist wichtig: fast jede
+#     Unit hier hat ihren bindenden Gegenpart in `desktop/src/renderer/src/api/helpdesk-types.ts`
+#     bzw. in den MSW-Handlern unter `desktop/src/renderer/src/mocks/handlers/`.
+#   - Migrationskopf Repo = 287 (`000287_email_templates`). NAECHSTE FREIE = 288, aber IMMER
+#     zur Laufzeit ermitteln: `ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1`
+#   - RLS ist FLAECHENDECKEND: `knownRLSGaps` in
+#     `backend/internal/testutil/rls_regression_test.go` ist seit Migration 000286 LEER.
+#     Der Standing-Guard `TestAllPublicTablesHaveRLSOrAreAllowlisted` scannt pg_class gegen
+#     die 7er-Allowlist (ADR-006). Jede neue Tabelle in diesem Lauf MUSS RLS haben, sonst
+#     ist der Guard rot — das ist Absicht, nicht Schikane.
+#   - RBAC Phase 1 Welle 1a UND 1b sind ABGESCHLOSSEN (Lauf 4, Block A, 9/9). Ebenso
+#     Per-User-Overrides (R-6) und Vendor-Access. Kein RBAC-Nachbau in diesem Lauf.
+#
+# DER ROTE FADEN DIESES LAUFS
+#
+#   Die Frontend-Session hat einen Vertrag gebaut, den das Backend nicht erfuellt — und zwar
+#   STILL. `createTicketRequest` (route_helpdesk.go:128-137) und `updateTicketRequest` (:143-150)
+#   dekodieren ohne `DisallowUnknownFields`. Das FE sendet `channel`, `requester_email`,
+#   `requester_is_external`, `custom_fields` und `status`; der Decoder wirft sie kommentarlos weg,
+#   die API antwortet 200, der Nutzer sieht einen Erfolgs-Toast, und nichts davon ist persistiert.
+#   Block B schliesst genau das. Block A baut CSAT von null (es gibt weder Tabelle noch Endpoint —
+#   `postgres_repository.go:789` setzt `customer_satisfaction` hart auf "–").
+#
+# DREI OEFFENTLICHE ROUTEN IN DIESEM LAUF (A8, B8, C4) — MUSTER UEBERNEHMEN, NICHT ERFINDEN
+#
+#   Referenz ist `POST /api/v1/public/berichte/reports/{token}`, gebaut in Lauf 4:
+#     route_berichte.go:151 (Registrierung) · berichte/service.go:1077 (GetSharedDocument)
+#     berichte/postgres_repository.go:707 (Lookup) · cmd/gateway/main.go:356 (Root-Router)
+#     Migration 000252_report_share_tokens
+#   Die fuenf Punkte, die daran sicherheitsrelevant sind:
+#     1. Registrierung ueber eine eigene `RegisterPublicRoutes(r, publicRateLimit)`-Methode,
+#        aufgerufen auf dem ROOT-Router in main.go — AUSSERHALB jeder `r.Use(authMiddleware)`-
+#        Gruppe. Nicht per Skip-Liste in der Middleware.
+#     2. Einziges Middleware ist der strenge `publicRateLimiter` (Prefix `ratelimit:public`,
+#        cfg.PublicRateLimitRPS), nicht der generoese globale Limiter. Der Token IST das Credential.
+#     3. Tenant-Kontext ohne eingeloggten User: der Token-Lookup laeuft unter
+#        `database.WithSystemContext(ctx)`, die Policy lautet
+#        `USING (tenant_id = current_tenant_id() OR is_system_context())`. UNMITTELBAR danach
+#        `ctx = middleware.WithTenant(ctx, row.TenantID)` — ab da ist alles wieder normal
+#        tenant-gescoped. Der System-Kontext gilt fuer GENAU die eine Token-Zeile, nie fuer die
+#        Nutzdaten. Wer den System-Kontext weiter mitschleift, baut einen Tenant-Bypass.
+#     4. abgelaufen / widerrufen / unbekannt / missgebildet -> ALLE VIER dieselbe 404. Nie 403,
+#        nie eine unterscheidbare Meldung (sonst ist der Endpoint ein Existenz-Orakel).
+#     5. POST statt GET: Token nicht in URL-Logs/Referer, kein Prefetch-Trigger.
+#   Token-Erzeugung: 32 Byte `crypto/rand` + `base64.RawURLEncoding` (43 Zeichen), Klartext in
+#   der DB (bewusst, siehe Migrationskommentar 000252). Optionales Passwort per bcrypt —
+#   `bcrypt.CompareHashAndPassword` ist der konstantzeitige Vergleich, mehr braucht es nicht.
+#
+# GESPERRT IN DIESEM LAUF
+#
+#   - Phase 4 im Sinne von: kein Neubau ganzer Branchen-Module. Einzelluecken und Bugfixes in
+#     bestehenden Branchen-Modulen sind erlaubt (C5 ist genau so eine).
+#   - Neue `config.RequireX`-Assertionen (Deploy-Hazard: COSMI_ENV=production ist live, CD deployt).
+#   - Scharfschalten neuer `modules.*`-Feature-Flags.
+#   - Merge, Push, PR, Deploy, Production-Zugriff.
+#   - Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz: BEWUSST DRAUSSEN. Der
+#     FE-Vertrag wechselt diese Woche noch (Spalten-Panel: boolean -> {visible, order, width}).
+#     Nur Value-Sets und die fields-Route sind freigegeben (Block E).
+# ------------------------------------------------------------------------------------------
+
+units:
+
+  # ==========================================================================================
+  # BLOCK A — HELPDESK CSAT (Darien-terminiert: muss vor der grossen Team-Review fertig sein)
+  #
+  # Ist-Zustand verifiziert: KEINE CSAT-Tabelle, KEIN Proto-Feld, KEIN Endpoint.
+  # `backend/internal/helpdesk/postgres_repository.go:789` setzt `customer_satisfaction` hart
+  # auf den String "–" mit dem Kommentar "requires CSAT table, not yet in schema".
+  # Das FE ist fertig und wartet: `helpdesk-client.ts:134` ruft `POST .../tickets/{id}/csat`,
+  # der MSW-Stats-Handler (`mocks/handlers/helpdesk.ts:1189`) rechnet bereits einen echten
+  # Live-Durchschnitt aus den gemockten Ratings. Das FE-Flag `CSAT_FEATURE_ENABLED` in
+  # HelpdeskPage.tsx steht auf false und wird umgelegt, sobald das Backend liefert.
+  # ==========================================================================================
+
+  - id: csat-schema
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      Datenmodell fuer Kundenzufriedenheit. Neue Tabelle `ticket_csat_responses`
+      (ticket_id -> tickets, rating SMALLINT CHECK 1..5, comment TEXT NULL, submitted_at,
+      token TEXT UNIQUE NULL fuer die spaetere Umfrage-Einloesung) plus die zwei
+      denormalisierten Spalten `csat_rating` und `csat_comment` an `tickets`, damit der
+      Ticket-Read die Bewertung ohne Join mitliefert (das FE liest sie flach am Ticket:
+      `helpdesk-types.ts` Ticket.csat_rating / .csat_comment).
+      Ein Ticket hat hoechstens eine gueltige Bewertung — Unique auf (tenant_id, ticket_id).
+    sources:
+      - backend/migrations/000236_helpdesk_ticket_fields.up.sql
+      - backend/internal/helpdesk/models.go
+      - desktop/src/renderer/src/api/helpdesk-types.ts
+    notes: >
+      `tenant_id UUID NOT NULL` + `CALL enable_tenant_rls('ticket_csat_responses')` sind Pflicht,
+      sonst ist der Standing-Guard TestAllPublicTablesHaveRLSOrAreAllowlisted sofort rot.
+      Die `token`-Spalte hier schon anlegen (NULL erlaubt), damit A6 keine zweite Migration
+      auf dieselbe Tabelle braucht. Rating als SMALLINT mit CHECK, nicht als Text — das FE
+      sendet eine Zahl 1..5. `.down.sql` vollstaendig fuellen (beide Spalten an tickets wieder
+      droppen), forward-only heisst nicht, dass down leer sein darf.
+    done_when:
+      - Migration legt Tabelle + beide tickets-Spalten an, up und down beide gefuellt
+      - tenant_id NOT NULL + enable_tenant_rls, Unique auf (tenant_id, ticket_id)
+      - migrate up laeuft lokal durch, TestAllPublicTablesHaveRLSOrAreAllowlisted gruen
+      - RLS-Smoke, Read als kmuhub_app mit fremdem Tenant liefert 0 Zeilen
+
+  - id: csat-proto-service
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [csat-schema]
+    status: done
+    scope: >
+      Proto und Service-Schicht fuer die Bewertung. `SubmitCsat(ticket_id, rating, comment)`
+      als RPC, Persistenz in `ticket_csat_responses` und Spiegelung nach `tickets.csat_rating`
+      /`csat_comment` in EINER Transaktion. Ticket-Read liefert die Werte mit.
+    sources:
+      - backend/proto/helpdesk/
+      - backend/internal/helpdesk/service.go
+      - backend/internal/helpdesk/postgres_repository.go
+    notes: >
+      `.proto` geaendert heisst `make proto-helpdesk` im SELBEN Commit — ein Diff mit .proto
+      aber ohne passende .pb.go ist eine der sechs Fehlerklassen aus ITERATION.md und wird
+      im Verify-Vorspann der naechsten Iteration gefunden.
+      SCHEMA-STAND aus A1 (Migration 000288, gebaut): `rating` ist NULLable — eine Zeile ohne
+      Rating ist eine offene Umfrage (Token gesetzt, noch nicht eingeloest), kein kaputter
+      Datensatz. Der CHECK `chk_ticket_csat_rating_submitted` erzwingt
+      `(rating IS NULL) = (submitted_at IS NULL)`: wer `rating` schreibt, MUSS `submitted_at`
+      mitschreiben (und umgekehrt), sonst 23514. `submitted_at IS NOT NULL` ist damit die
+      autoritative "wurde bewertet"-Abfrage. Upsert-Ziel ist der Unique-Index
+      `uq_ticket_csat_responses (tenant_id, ticket_id)`.
+      Rating serverseitig validieren (1..5), nicht dem Aufrufer glauben. Zweite Bewertung
+      desselben Tickets: Upsert auf den bestehenden Eintrag, nicht Fehler — der Nutzer darf
+      seine Meinung aendern, und der Unique-Index aus A1 wuerde sonst einen 500 erzeugen.
+    done_when:
+      - RPC im Proto, .pb.go und _grpc.pb.go im selben Commit regeneriert
+      - Service schreibt Response und Ticket-Spiegelung transaktional
+      - Rating ausserhalb 1..5 wird mit InvalidArgument abgelehnt (Test)
+      - Ticket-Read liefert csat_rating und csat_comment
+
+  - id: csat-route
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [csat-proto-service]
+    status: done
+    scope: >
+      `POST /api/v1/helpdesk/tickets/{id}/csat` im Gateway. Body {rating, comment?}.
+      Das FE ruft diesen Pfad heute schon (`helpdesk-client.ts:134`, `submitCsat`).
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - desktop/src/renderer/src/api/helpdesk-client.ts
+      - backend/api/openapi.yaml
+    notes: >
+      Handler geht ueber `helpdeskClient.SubmitCsat`, nie ueber eine direkt injizierte
+      Service-Instanz (RLS-Bypass + Phantom-404). Pfad-Eintrag in openapi.yaml im SELBEN
+      Commit, alle real gelieferten Status-Codes dokumentieren (auch 400 und 404).
+      Permission: die bestehenden helpdesk-Keys wiederverwenden, keinen neuen
+      RequirePermission-Guard einfuehren — ein neuer Guard ohne Seed sperrt ALLE aus, auch Admin.
+      STAND aus A2 (gebaut): RPC ist `SubmitCsat(SubmitCsatRequest{ticket_id, rating int32,
+      optional comment}) returns (Ticket)`, Tenant kommt aus dem Call-Kontext, NICHT aus dem
+      Body. Rating ausserhalb 1..5 -> InvalidArgument (im gRPC-Server UND im Service geprueft),
+      unbekanntes/fremdes Ticket -> NotFound. Der Handler muss also 400 und 404 dokumentieren.
+      `Ticket` traegt jetzt `csat_rating` (optional int32) und `csat_comment` (optional string) —
+      die Ticket-JSON-Serialisierung des Gateways braucht beide Felder, sonst sieht das FE die
+      Bewertung nach dem eigenen POST nicht.
+    done_when:
+      - Route registriert, Handler ueber den gRPC-Client
+      - openapi.yaml-Pfad im selben Commit, go test ./internal/gateway/ gruen
+      - kein neuer RequirePermission-Key ohne Seed
+
+  - id: csat-stats-aggregation
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [csat-proto-service]
+    status: done
+    scope: >
+      `GET /helpdesk/stats` liefert echte CSAT-Werte statt des hartkodierten Platzhalters:
+      Durchschnitt, Sterne-Verteilung (1..5 mit Anzahl) und Antwortzahl, tenant-gescopt.
+      Ersetzt `postgres_repository.go:789`, wo `customer_satisfaction` fest auf "–" steht.
+    sources:
+      - backend/internal/helpdesk/postgres_repository.go
+      - desktop/src/renderer/src/mocks/handlers/helpdesk.ts
+    notes: >
+      Der MSW-Handler (helpdesk.ts, stats-Handler ~Zeile 1189) ist der bindende Wire-Vertrag,
+      dort steht welche Felder und welche Form das FE erwartet. Dagegen pruefen, nicht raten.
+      Null Bewertungen darf keinen NULL-Durchschnitt und keine Division durch Null erzeugen —
+      definiertes Leerverhalten (0 bzw. leere Verteilung mit Antwortzahl 0), und die Verteilung
+      muss alle fuenf Stufen enthalten, auch die mit Anzahl 0, sonst bricht das Chart im FE.
+      STAND aus A2: die Aggregation MUSS ueber `ticket_csat_responses` laufen und dabei
+      `WHERE submitted_at IS NOT NULL` filtern — Zeilen mit offenem Umfrage-Token haben
+      `rating IS NULL` und wuerden den Durchschnitt sonst verfaelschen bzw. als Antwort zaehlen.
+      NICHT ueber `tickets.csat_rating` aggregieren: das ist nur der Read-Spiegel.
+    done_when:
+      - customer_satisfaction stammt aus echter SQL-Aggregation, kein Literal mehr im Code
+      - Verteilung enthaelt alle 5 Stufen, auch leere
+      - Null-Bewertungen liefern definierte Leerwerte ohne Fehler (Test)
+      - tenant-gescopt, Cross-Tenant-Test
+
+  - id: csat-tenant-config
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [csat-schema]
+    status: done
+    scope: >
+      Tenant-Einstellungen fuer CSAT, an/aus, Verzoegerung bis zum Versand, Umfragetext.
+      Gelesen und geschrieben ueber die generische `tenant_settings`-Ablage, KEINE neue Tabelle.
+    sources:
+      - backend/internal/gateway/route_customization.go
+      - backend/internal/helpdesk/service.go
+    notes: >
+      Muster steht in route_customization.go:19 — dort wird `tenant_settings` mit einem
+      module_id-Schluessel als sparse JSON-Map recycelt, genau dafuer ist die Tabelle da.
+      Erst lesen, dann bauen (Lean-Regel, existiert es schon?). Defaults serverseitig setzen,
+      damit ein Tenant ohne Zeile definiert antwortet statt leer. Delay als Dauer in Minuten
+      speichern, nicht als freien String.
+    done_when:
+      - Config liegt in tenant_settings, keine neue Tabelle
+      - fehlende Zeile liefert dokumentierte Defaults statt Fehler oder leer
+      - Werte werden validiert, Delay groesser gleich 0, Rating-Skala fest
+
+  - id: csat-survey-token
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [csat-schema, csat-tenant-config]
+    status: done
+    scope: >
+      Beim Schliessen eines Tickets wird, falls CSAT fuer den Tenant aktiv ist, ein
+      Umfrage-Token erzeugt und mit Ablaufdatum an der CSAT-Zeile hinterlegt. Grundlage
+      fuer den 1-Klick-Bewertungslink.
+    sources:
+      - backend/migrations/000252_report_share_tokens.up.sql
+      - backend/internal/berichte/service.go
+      - backend/internal/helpdesk/service.go
+    notes: >
+      SPALTEN EXISTIEREN SCHON (Migration 000288 aus A1): `token TEXT NULL` mit global
+      eindeutigem Partial-Index `uq_ticket_csat_responses_token WHERE token IS NOT NULL`
+      (global, nicht tenant-gescopt — der oeffentliche Endpunkt loest den Tenant AUS dem
+      Token auf) und `token_expires_at TIMESTAMPTZ NULL`. Fuer A6 ist KEINE neue Migration
+      noetig. Dispatch-Spalten (Versandzeitpunkt, Claim) gibt es bewusst noch nicht — die
+      gehoeren zu A7 und deren Form entscheidet A7.
+      Token-Erzeugung 1:1 vom Berichte-Muster uebernehmen (`newShareSecret`, service.go:1132),
+      32 Byte crypto/rand, base64.RawURLEncoding. NICHT math/rand, NICHT UUID, NICHT die
+      Ticket-ID. Ablauf hart serverseitig durchsetzen, nicht nur im Link kodieren.
+      Der Close-Pfad darf nicht fehlschlagen, wenn die Token-Erzeugung fehlschlaegt — Ticket
+      schliessen ist die Hauptsache, die Umfrage die Nebensache. Fehler loggen (slog), nicht
+      verschlucken und nicht eskalieren.
+    done_when:
+      - Token 32 Byte crypto/rand, base64 URL-safe
+      - Erzeugung nur bei aktivem Tenant-Flag, mit Ablaufdatum
+      - fehlgeschlagene Token-Erzeugung bricht den Ticket-Close nicht ab, wird aber geloggt
+      - kein Token fuer bereits bewertete Tickets
+
+  - id: csat-survey-dispatch
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [csat-survey-token]
+    status: done
+    scope: >
+      Verzoegerter Versand der Umfrage-Mail ueber einen Poller: faellige Tokens einsammeln,
+      exklusiv beanspruchen, Mail mit dem Bewertungslink verschicken, Versandzeitpunkt vermerken.
+    sources:
+      - backend/internal/automation/trigger/
+      - backend/internal/berichte/scheduler/
+      - backend/internal/email/template/
+    notes: >
+      KEINE neue Mail- oder Scheduler-Infrastruktur bauen. Zwei Muster existieren und sind zu
+      benutzen. Erstens Exklusiv-Beanspruchung wie `ClaimTimeTrigger` bzw.
+      `berichte/scheduler.ClaimSchedule`, ein Optimistic-Concurrency-UPDATE auf einen Zeitstempel,
+      `RowsAffected()==1` entscheidet ob dieser Prozess den Job hat. Ohne das verschickt ein
+      zweiter Poller-Durchlauf dieselbe Mail nochmal. Zweitens Mail-Rendering ueber
+      `internal/email/template` (`Service.Render`, feste Platzhalter-Liste, kein text/template).
+      Lehre aus Iteration 45 mitnehmen: dort filterte der Poller auf einen trigger_type, den es
+      in der Registry gar nicht gab — die Query lieferte strukturell immer null Zeilen, und der
+      Poller lief monatelang brav ins Leere. Also nachweisen, dass die Faelligkeits-Query auf
+      echten Testdaten wirklich Zeilen liefert, nicht nur dass sie fehlerfrei laeuft.
+    done_when:
+      - faelliger Token wird gefunden UND der Fund ist mit Testdaten belegt
+      - Doppelversand durch Claim-Muster ausgeschlossen, Test mit zwei Durchlaeufen
+      - Mail ueber internal/email/template, keine neue Mail-Infrastruktur
+      - Versandzeitpunkt persistiert, zweiter Durchlauf verschickt nicht erneut
+
+  - id: csat-public-response
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [csat-survey-token, csat-proto-service]
+    status: done
+    scope: >
+      `POST /api/v1/public/helpdesk/csat/{token}`, unauthentifizierte Abgabe der Bewertung
+      ueber den Link aus der Umfrage-Mail. Body {rating, comment?}. Loest genau ein Ticket
+      auf, nie eine Liste.
+    sources:
+      - backend/internal/gateway/route_berichte.go
+      - backend/internal/berichte/service.go
+      - backend/cmd/gateway/main.go
+    notes: >
+      DAS MUSTER STEHT IM KOPF DIESER DATEI — Punkt fuer Punkt uebernehmen, nichts neu erfinden.
+      Die zwei Stellen an denen man sich hier verbaut. Erstens den System-Kontext ueber den
+      Token-Lookup hinaus mitschleifen, dann ist es ein Tenant-Bypass statt einer Ausnahme fuer
+      eine Zeile; nach dem Lookup sofort `WithTenant(ctx, row.TenantID)`. Zweitens unterscheidbare
+      Fehler liefern; abgelaufen, widerrufen, unbekannt und missgebildet muessen ALLE dieselbe
+      404 ergeben. Registrierung ueber `RegisterPublicRoutes` am Root-Router in main.go, mit dem
+      strengen publicRateLimiter, nie in einer authMiddleware-Gruppe.
+      Token nach erfolgreicher Abgabe entwerten, einmalig einloesbar.
+    done_when:
+      - Route unauthentifiziert erreichbar, aber nur mit strengem publicRateLimiter
+      - Token-Lookup unter System-Kontext, danach sofort tenant-gescopt, im Code sichtbar
+      - abgelaufen, widerrufen, unbekannt und missgebildet liefern alle 404, kein 403
+      - Token ist nach Abgabe entwertet, zweite Abgabe liefert 404
+      - openapi.yaml im selben Commit
+
+  # ==========================================================================================
+  # BLOCK B — HELPDESK-INTAKE-CONTRACT (stiller Datenverlust, heute live)
+  #
+  # `createTicketRequest` (route_helpdesk.go:128-137) kennt nur Subject/Priority/AssigneeID/
+  # QueueID/Description/Category/ContactID/OrgID. `updateTicketRequest` (:143-150) kennt weder
+  # `status` noch `custom_fields`. Kein DisallowUnknownFields -> alles andere wird still
+  # verworfen. Das FE sendet aber bereits: HelpdeskPage.tsx:461-467 (create mit channel +
+  # requester_*), :515 (update mit status), :588 (update mit custom_fields), und
+  # modules/helpdesk/intake/helpdesk-ticket-target.ts:104-109 (Formular -> Ticket).
+  # ==========================================================================================
+
+  - id: intake-ticket-columns
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      Migration fuer die Intake-Felder am Ticket. `channel` TEXT CHECK IN
+      ('agent','selfservice','external') DEFAULT 'agent', `requester_email` TEXT NULL,
+      `requester_is_external` BOOLEAN NOT NULL DEFAULT false, `requester_name` als echte
+      Spalte (heute nur per JOIN denormalisiert, models.go:104-105) und `custom_fields` JSONB
+      NOT NULL DEFAULT '{}'.
+    sources:
+      - backend/migrations/000236_helpdesk_ticket_fields.up.sql
+      - backend/migrations/000268_helpdesk_source_channel.up.sql
+      - desktop/src/renderer/src/api/helpdesk-types.ts
+    notes: >
+      ACHTUNG Namenskollision. Es gibt bereits `source_channel` (Migration 000268) mit CHECK auf
+      ('email','chat','notification') — das ist die Inbox-zu-Ticket-Konvertierung und etwas
+      ANDERES als der Intake-Kanal. Nicht zusammenlegen, nicht umdefinieren, nicht den
+      bestehenden CHECK erweitern. `channel` ist ein eigenes Feld.
+      `requester_name` als Spalte kollidiert mit dem bestehenden JOIN-Alias im Read-Pfad.
+      Pruefen wie models.go und das SELECT das heute aufloesen, und den Vorrang bewusst festlegen
+      (persistierter Wert schlaegt JOIN, oder JOIN nur wenn Spalte leer). Diese Entscheidung
+      gehoert als Kommentar in den Code und ins Journal.
+      Bestehende Zeilen bekommen sinnvolle Defaults, keine NULLs in NOT-NULL-Spalten.
+    done_when:
+      - alle fuenf Spalten angelegt, up und down gefuellt
+      - source_channel unveraendert, CHECK nicht angefasst
+      - Vorrangregel requester_name (Spalte vs JOIN) im Code kommentiert
+      - Backfill fuer Bestandszeilen, migrate up lokal gruen
+
+  - id: intake-proto-create
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [intake-ticket-columns]
+    status: done
+    scope: >
+      `CreateTicketRequest` im Proto und `Service.CreateTicket` um channel, requester_email,
+      requester_is_external, requester_name und custom_fields erweitern, Persistenz im Repository.
+    sources:
+      - backend/proto/helpdesk/
+      - backend/internal/helpdesk/service.go
+      - backend/internal/helpdesk/postgres_repository.go
+    notes: >
+      SCHEMA-STAND aus B1 (Migration 000290, gebaut): `channel TEXT NOT NULL DEFAULT 'agent'`
+      mit CHECK auf ('agent','selfservice','external') — `source_channel` (000268) blieb
+      unangetastet, es sind zwei verschiedene Fragen. `requester_email TEXT NULL`,
+      `requester_name TEXT NULL`, `requester_is_external BOOLEAN NOT NULL DEFAULT false`,
+      `custom_fields JSONB NOT NULL DEFAULT '{}'`. VORRANGREGEL requester_name ist gebaut UND
+      getestet (TestTicketRead_RequesterNamePrecedence): der users-JOIN schlaegt die Spalte,
+      die Spalte ist nur Fallback fuer Requester ohne User-Zeile. `CreateTicket` darf
+      requester_name fuer INTERNE Requester also gar nicht erst schreiben — eine Kopie des
+      User-Namens veraltet beim ersten Rename.
+      Regen im selben Commit (make proto-helpdesk). custom_fields als map<string,string> oder
+      JSON-String, am FE-Typ ausrichten (helpdesk-types.ts CreateTicketInput), nicht raten.
+      `channel` serverseitig gegen die drei erlaubten Werte validieren; ein unbekannter Wert
+      ist InvalidArgument, kein stiller Default — sonst hat man den Datenverlust nur verschoben.
+      requester_id bleibt in dieser Unit Pflicht, die Lockerung fuer Externe ist B5.
+    done_when:
+      - Proto erweitert, .pb.go und _grpc.pb.go im selben Commit regeneriert
+      - alle fuenf Felder werden persistiert und beim Read zurueckgeliefert
+      - unbekannter channel-Wert fuehrt zu InvalidArgument (Test)
+      - custom_fields-Form deckt sich mit helpdesk-types.ts
+
+  - id: intake-route-create
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [intake-proto-create]
+    status: done
+    scope: >
+      `createTicketRequest` im Gateway um die fuenf Felder erweitern, an den gRPC-Client
+      durchreichen, openapi.yaml nachziehen.
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - desktop/src/renderer/src/modules/helpdesk/intake/helpdesk-ticket-target.ts
+    notes: >
+      STAND aus B2 (gebaut): `CreateTicketRequest` hat jetzt `optional string channel = 11`,
+      `optional string requester_email = 12`, `optional string requester_name = 13`,
+      `bool requester_is_external = 14`, `google.protobuf.Struct custom_fields = 15`.
+      `Ticket` hat `channel = 26`, `requester_email = 27`, `requester_is_external = 28`,
+      `custom_fields = 29` — die Read-Seite ist damit fertig, der Handler antwortet ueber
+      `response.Proto`, also liegen die Felder ohne weiteres Zutun auf dem Wire.
+      custom_fields ist `google.protobuf.Struct` (nicht map<string,string>), weil der FE-Typ
+      `Record<string, string | number | boolean>` heterogen ist. Im Gateway-DTO also
+      `map[string]any` und ueber `structpb.NewStruct` in die gRPC-Request — schlaegt das fehl,
+      ist das ein 400, kein 500.
+      Validierung liegt komplett im Service (`ticket_intake.go`, `TicketIntake.normalize`):
+      unbekannter channel -> ErrInvalidChannel, kaputte Mail -> ErrInvalidRequesterEmail,
+      verschachtelte/leere custom_fields -> ErrInvalidCustomFields, alle vier sind in
+      mapHelpdeskError auf InvalidArgument verdrahtet. Der Handler soll das NICHT doppeln.
+      requester_id weiterhin serverseitig aus der Session setzen, NIE aus dem Body uebernehmen
+      (IDOR), gleiche Linie wie HandleListAccounts aus Iteration 46. requester_email und
+      requester_name sind dagegen Body-Felder, weil sie Externe beschreiben, nicht den Aufrufer.
+      Nach dieser Unit muss ein Ticket, das ueber den Intake-Pfad angelegt wird, seine Herkunft
+      und Zusatzfelder wirklich behalten — genau das ist heute nicht so.
+    done_when:
+      - alle fuenf Felder werden vom Handler gelesen und weitergereicht
+      - requester_id kommt aus der Session, nicht aus dem Body
+      - openapi.yaml im selben Commit, TestOpenAPIRouteDrift gruen
+      - Round-Trip-Test, create mit allen Feldern, read liefert sie zurueck
+
+  - id: intake-route-update
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [intake-proto-create]
+    status: done
+    scope: >
+      `updateTicketRequest` um `status` und `custom_fields` erweitern. Beides sendet das FE
+      heute und beides geht heute verloren, HelpdeskPage.tsx:515 (Statuswechsel im Detail)
+      und :588 (Zusatzfeld-Bearbeitung, Kommentar dort "Persist a custom-field value to the
+      wire ticket (intake P1b)").
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - desktop/src/renderer/src/mocks/handlers/helpdesk.ts
+    notes: >
+      STAND aus B2: `UpdateTicketRequest` im Proto ist noch UNVERAENDERT (weder status noch
+      custom_fields) — B2 hat nur den Create-Pfad angefasst. `PostgresRepository.UpdateTicket`
+      schreibt die Intake-Spalten heute NICHT mit (SET-Liste ohne channel/custom_fields/
+      requester_*), ein Read-Modify-Write ueberschreibt sie also aktuell nicht; wer
+      custom_fields dort ergaenzt, muss den Merge im Service machen, nicht im UPDATE.
+      Erlaubte Werte fuer status stehen in `ValidTicketStatuses` (models.go).
+      custom_fields mit MERGE-PATCH-Semantik, nicht Ersetzen — der MSW-Handler
+      (handlers/helpdesk.ts ~Zeile 552) merged, und das ist der bindende Vertrag: das FE sendet
+      immer nur das eine geaenderte Feld. Ein Replace wuerde bei jeder Einzelbearbeitung alle
+      anderen Zusatzfelder loeschen. Genau hier faellt es sonst niemandem auf, bis Daten weg sind.
+      Zu `status`: es gibt bereits eigene Endpunkte fuer close und reopen, die bleiben; das Feld
+      hier deckt die uebrigen Uebergaenge ab. Erlaubte Werte und Uebergaenge serverseitig pruefen.
+      Ueberlegen ob `DisallowUnknownFields` fuer diese beiden DTOs sinnvoll ist, damit der
+      naechste stille Verlust laut wird. Falls ja, im Journal begruenden; falls es bestehende
+      Clients brechen wuerde, ebenfalls begruenden und lassen.
+    done_when:
+      - status und custom_fields werden persistiert
+      - custom_fields merged und ueberschreibt nicht, Test mit zwei aufeinanderfolgenden Updates
+      - ungueltiger Status fuehrt zu InvalidArgument, close/reopen unveraendert
+      - openapi.yaml im selben Commit
+
+  - id: intake-external-requester
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: [intake-route-create]
+    status: done
+    scope: >
+      Externe Requester ohne User-Konto ermoeglichen. `requester_id` darf NULL sein, wenn
+      `requester_is_external` gesetzt ist; dann tragen requester_name und requester_email die
+      Identitaet. Verhalten des `scope=own`-Filters fuer Externe definieren und umsetzen.
+    sources:
+      - backend/internal/helpdesk/postgres_repository.go
+      - backend/internal/helpdesk/service.go
+    notes: >
+      Heute ist requester_id NOT NULL und zwingt jeden Requester auf einen Nutzer, externe
+      Tickets sind damit nicht abbildbar. Die Lockerung braucht einen CHECK, der die beiden
+      Faelle sauber trennt: entweder requester_id IS NOT NULL, oder requester_is_external ist
+      true UND requester_email ist gesetzt. Halb-leere Zwischenzustaende darf die DB nicht
+      zulassen.
+      `scope=own` matcht Externe heute nie, es vergleicht gegen die User-UUID. Entscheiden und
+      im Journal festhalten: bleiben externe Tickets bei scope=own unsichtbar (dann ist das
+      dokumentiertes Verhalten, kein Bug) oder matchen sie ueber die E-Mail. Die Entscheidung
+      begruenden, nicht beilaeufig umbauen — sie beeinflusst, wer welche Tickets sieht.
+      Alle Read-Pfade auf NULL-Sicherheit pruefen: ein LEFT JOIN auf users mit NULL-requester_id
+      darf keine Zeile verschlucken, sonst Phantom-404 fuer genau die externen Tickets.
+    done_when:
+      - CHECK erzwingt interner Requester ODER externer mit E-Mail, kein Mischzustand
+      - Ticket mit NULL requester_id ist anleg- und lesbar (Test)
+      - kein Read-Pfad verliert externe Tickets durch den users-JOIN (Test)
+      - scope=own-Verhalten fuer Externe entschieden, umgesetzt und im Journal begruendet
+
+  - id: intake-form-target
+    phase: 3
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `form_schemas.intake_target_id` als Spalte und `role` je Feld im bestehenden
+      `fields`-JSONB. Damit weiss ein Formular serverseitig, welchen Datensatz es erzeugt und
+      welches Feld auf welche Ziel-Eigenschaft abbildet.
+    sources:
+      - backend/migrations/000081_create_formulare.up.sql
+      - backend/internal/formulare/models.go
+      - desktop/src/renderer/src/components/shared/intake/types.ts
+    notes: >
+      Felder liegen NICHT in einer eigenen Tabelle, sondern als JSONB-Array in
+      `form_schemas.fields` — `role` kommt also ins Feld-Objekt, keine neue Tabelle, kein
+      Schema-Umbau. Erlaubte Rollen aus dem FE uebernehmen (subject, description, priority,
+      category, requester_name, requester_email); unmarkierte Felder landen spaeter in
+      custom_fields. Rollen serverseitig gegen die feste Liste validieren.
+      `intake_target_id` als Text-Kennung des Ziels (etwa helpdesk_ticket), nicht als FK —
+      das Ziel ist ein Registry-Eintrag, keine Datenbankzeile.
+    done_when:
+      - Spalte angelegt, up und down gefuellt
+      - role im Feld-JSONB persistiert und gegen feste Liste validiert
+      - unbekannte Rolle wird abgelehnt
+      - bestehende Formulare bleiben lesbar, kein Pflichtfeld ohne Default
+
+  - id: intake-form-dispatch
+    phase: 3
+    service: formulare
+    model: opus
+    deps: [intake-form-target, intake-route-create]
+    status: done
+    scope: >
+      Wird ein Formular mit gebundenem `intake_target_id` eingereicht, erzeugt der Server den
+      Zieldatensatz. Erste und einzige Instanz ist das Helpdesk-Ticket. Feld-Rollen fuellen die
+      Ticket-Felder, unmarkierte Felder gehen nach custom_fields.
+    sources:
+      - backend/internal/formulare/service.go
+      - desktop/src/renderer/src/modules/helpdesk/intake/helpdesk-ticket-target.ts
+      - backend/internal/gateway/route_formulare.go
+    notes: >
+      Die Zuordnung Rolle zu Ticket-Feld steht im FE in helpdesk-ticket-target.ts:104-109 und
+      ist der bindende Vertrag. Modul-agnostisch bleiben: eine Dispatch-Stelle mit einer
+      Ziel-Registry, nicht Helpdesk-Logik im Formulare-Service verdrahten — das FE hat es
+      bewusst genauso gebaut (shared engine plus registry).
+      Die Einreichung muss auch dann gespeichert werden, wenn die Ticket-Erzeugung scheitert,
+      sonst geht die Nutzereingabe verloren. Fehler protokollieren, Submission behalten.
+      Bekanntes Refinement aus backend-gaps.md: freie Felder landen als custom_fields keyed auf
+      Slug(label), was NICHT den definierten Feld-Keys entspricht. In dieser Unit nicht loesen,
+      aber im Journal festhalten, damit es nicht als erledigt gilt.
+    done_when:
+      - Einreichung mit gebundenem Ziel erzeugt ein Ticket mit korrekt gemappten Rollen
+      - unmarkierte Felder landen in custom_fields
+      - fehlgeschlagene Ticket-Erzeugung verliert die Submission nicht (Test)
+      - Dispatch laeuft ueber eine Registry, nicht ueber fest verdrahtete Helpdesk-Aufrufe
+
+  - id: intake-public-submit
+    phase: 3
+    service: formulare
+    model: opus
+    deps: [intake-form-dispatch]
+    status: done
+    scope: >
+      Oeffentliche, unauthentifizierte Formular-Einreichung ueber Token. Heute unmoeglich,
+      `form_schemas.is_public` wird gespeichert aber NIRGENDS als Auth-Gate ausgewertet, und
+      die komplette /formulare/*-Gruppe haengt hinter RequireAuthenticated
+      (route_formulare.go:46), inklusive POST .../submissions.
+    sources:
+      - backend/internal/gateway/route_formulare.go
+      - backend/internal/gateway/route_berichte.go
+      - backend/cmd/gateway/main.go
+    notes: >
+      Muster aus dem Kopf dieser Datei, gleiche Fallen wie bei A8 (System-Kontext nur fuer den
+      Token-Lookup, danach sofort tenant-gescopt, alle Fehlerfaelle 404).
+      Zusaetzlich hier: eine oeffentliche Schreib-Route ist ein Spam-Ziel. Rate-Limit ueber den
+      strengen publicRateLimiter ist Pflicht, Groessenbegrenzung des Bodys ebenfalls.
+      Datei-Upload in dieser Unit NICHT mitbauen. Wenn das Formular Dateifelder hat, sauber
+      ablehnen statt halb zu unterstuetzen, und die Luecke ins Journal schreiben.
+      `is_public` allein darf nicht reichen: das Gate ist der Token, is_public ist die
+      Voraussetzung dafuer, dass ueberhaupt einer erzeugt werden darf.
+    done_when:
+      - Route ausserhalb der authMiddleware-Gruppe, nur publicRateLimiter
+      - Token-Lookup unter System-Kontext, danach tenant-gescopt, im Code sichtbar
+      - abgelaufen, widerrufen, unbekannt und missgebildet liefern alle 404
+      - Body-Groesse begrenzt, Dateifelder werden explizit abgelehnt
+      - openapi.yaml im selben Commit
+
+  # ==========================================================================================
+  # BLOCK C — ECHTE BUGS UND VON LUKE FREIGEGEBENE BLOCKER
+  #
+  # C1 und C2 sind stille Datenverluste in aktiven Nutzerpfaden, gefunden beim Stub-Scan
+  # 2026-08-05. C3, C4 und C5 waren `blocked` und sind am 2026-08-05 freigegeben worden.
+  # ==========================================================================================
+
+  - id: fix-booking-calendar-event-id
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `calendar_event_id` einer oeffentlichen Buchung wird nie persistiert. In
+      `work/calendar/booking_service.go:401-434` wird nach dem INSERT ein Kalendertermin
+      erzeugt und `booking.CalendarEventID = &evID` nur auf dem In-Memory-Struct gesetzt,
+      es gibt keine Repository-Methode die das zurueckschreibt. Die Spalte bleibt immer NULL.
+    sources:
+      - backend/internal/work/calendar/booking_service.go
+      - backend/internal/work/calendar/
+    notes: >
+      Aufrufer ist `POST /api/v1/public/bookings`, also der oeffentliche Buchungspfad, real
+      genutzt. Direkt danach steht ausserdem toter Code: eine Goroutine ruft
+      `GetBookedSlotsForPage`, ein reiner SELECT, dessen Ergebnis und Fehler verworfen werden.
+      Das sieht aus wie ein Write der auf die falsche Read-Methode verdrahtet wurde. Mit
+      entfernen, aber im Journal erwaehnen, falls dort eine Absicht vermutet wird.
+      Noch faellt es niemandem auf, weil es keinen Cancel-Flow gibt der die Verknuepfung liest.
+      Genau deshalb jetzt fixen, bevor einer gebaut wird.
+    done_when:
+      - Repository-Methode schreibt calendar_event_id zurueck
+      - Test, nach CreatePublicBooking mit Kalendertermin ist die Spalte in der DB gesetzt
+      - toter Goroutine-Aufruf entfernt
+
+  - id: fix-task-completed-at
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `work/task/service.go:415` und `:420`. Nach dem Kanban-Statuswechsel wird `completed_at`
+      per zweitem Write gesetzt bzw. geleert, dessen Fehler mit `_ = s.repo.Update(ctx, task)`
+      verschluckt wird, ohne Log. Schlaegt er fehl, meldet die API trotzdem Erfolg und
+      completed_at driftet stumm.
+    sources:
+      - backend/internal/work/task/service.go
+    notes: >
+      Aufrufer ist POST /{id}/move, also Drag-and-Drop im Kanban, haeufiger Pfad.
+      Sauberste Loesung ist beide Schreibvorgaenge zusammenzufassen (ein Repo-Aufruf oder eine
+      Transaktion) statt den zweiten nur zu loggen: Reports und KPIs haengen an completed_at.
+      Vorher pruefen ob MoveTask das ohne groesseren Umbau hergibt; wenn nicht, mindestens
+      sauber loggen und im Journal begruenden warum die Zusammenfassung nicht ging.
+    done_when:
+      - Fehler des zweiten Writes wird nicht mehr verschluckt
+      - completed_at und Status koennen nicht auseinanderlaufen, oder die Abweichung wird geloggt
+      - Test deckt den Fehlerfall ab
+
+  - id: hr-personnel-documents
+    phase: 3
+    service: hr
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      `GET` und `POST /api/v1/hr/personnel-documents` bauen. Das FE ruft beide heute per
+      direktem fetch (PersonnelDocuments.tsx:161 und :248), im Backend existiert die Route
+      gar nicht, es antwortet nur der MSW-Mock (handlers/team.ts:335,340). In Produktion 404.
+    sources:
+      - desktop/src/renderer/src/modules/team/PersonnelDocuments.tsx
+      - desktop/src/renderer/src/mocks/handlers/team.ts
+      - backend/internal/chat/file/minio_store.go
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      War blocked, am 2026-08-05 freigegeben.
+      Upload ueber das bestehende Presign-Muster in chat/file/minio_store.go, keine neue
+      Storage-Anbindung, keine neue Dependency. Personalakten sind besonders schuetzenswert:
+      Zugriff strikt auf den betroffenen Mitarbeiter plus HR-Rolle begrenzen, und der
+      Download-Pfad darf keine fremden Dokumente ueber geratene IDs herausgeben.
+      Bestehende hr-Permission-Keys wiederverwenden; ein neuer RequirePermission-Guard braucht
+      zwingend einen Seed in derselben Migration, sonst 403 fuer alle inklusive Admin.
+      Der MSW-Handler ist der Wire-Vertrag fuer die Response-Form.
+    done_when:
+      - beide Routen registriert, Handler ueber den gRPC-Client
+      - Tabelle mit tenant_id NOT NULL und RLS, Upload ueber das Presign-Muster
+      - Zugriffstest, fremder Mitarbeiter ohne HR-Rolle bekommt die Dokumente nicht
+      - falls neuer Permission-Key, Seed in derselben Migration
+      - openapi.yaml im selben Commit
+
+  - id: wiki-share-redeem
+    phase: 3
+    service: wiki
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      Oeffentlicher Einloese-Endpunkt fuer Wiki-Share-Tokens. Heute kann Wiki Tokens erzeugen,
+      auflisten und widerrufen (route_wiki.go:83-110), aber es gibt kein
+      `RegisterPublicRoutes` — die erzeugten Links sind wertlos.
+    sources:
+      - backend/internal/gateway/route_wiki.go
+      - backend/internal/gateway/route_berichte.go
+      - backend/cmd/gateway/main.go
+    notes: >
+      War blocked, am 2026-08-05 freigegeben.
+      Muster aus dem Kopf dieser Datei. Erst pruefen wie die bestehenden Wiki-Tokens erzeugt
+      werden: entsprechen sie schon dem Entropie-Standard (32 Byte crypto/rand) oder wurden sie
+      schwaecher gebaut? Wenn schwaecher, ist das Teil dieser Unit — ein einloesbarer schwacher
+      Token ist schlimmer als ein nicht einloesbarer.
+      Der Token gibt genau eine Wiki-Seite frei, nie einen Baum und nie eine Liste. Falls
+      Unterseiten mitgemeint sein sollen, ist das eine Produktentscheidung, also nicht raten,
+      im Journal fragen und die enge Variante bauen.
+    done_when:
+      - oeffentliche Route ausserhalb der authMiddleware-Gruppe, nur publicRateLimiter
+      - Token-Entropie geprueft und falls noetig auf 32 Byte crypto/rand gehoben
+      - Token gibt genau eine Seite frei, kein Baum, keine Liste (Test)
+      - abgelaufen, widerrufen, unbekannt und missgebildet liefern alle 404
+      - openapi.yaml im selben Commit
+
+  - id: vermietung-drop-dead-rpc
+    phase: 3
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Das tote `UploadInspectionPhoto`-RPC entfernen. `server/vermietung_grpc.go:496-515` gibt
+      eine Fake-URL `pending://...` zurueck und hat keinen Aufrufer. Das Gateway registriert
+      keine Route dafuer, und der FE-Hook `useUploadInspectionPhoto` ruft in Wahrheit
+      `updateInspection`. Der echte Foto-Upload laeuft laengst ueber den Presign-Pfad.
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/gateway/route_vermietung.go
+    notes: >
+      War blocked, am 2026-08-05 freigegeben. Entscheidung: entfernen, nicht ausbauen.
+      Vor dem Loeschen nochmal selbst verifizieren dass es wirklich keinen Aufrufer gibt
+      (grep ueber Gateway, Tests und cmd/) — ein RPC zu entfernen das doch jemand ruft ist
+      teurer als es stehen zu lassen. Proto-Message mit entfernen und regenerieren.
+      Feldnummern im Proto NICHT nachnutzen (reserved), falls die Message Teil einer groesseren
+      bleibt. Einen kurzen Kommentar hinterlassen warum der Weg der Presign-Pfad ist, sonst
+      baut es in sechs Monaten jemand wieder.
+    done_when:
+      - kein Aufrufer nachgewiesen, grep-Beleg im Journal
+      - RPC und Message entfernt, Proto im selben Commit regeneriert
+      - Build und Tests gruen, Kommentar auf den Presign-Pfad hinterlassen
+
+  # ==========================================================================================
+  # BLOCK D — CVE-BUMPS
+  #
+  # scans.yml ist auf main rot (Run 30794155770, 2026-08-03). Wichtig zur Einordnung: der Job
+  # der den Workflow tatsaechlich rot macht ist `npm-audit` (kein continue-on-error), und sein
+  # Fund ist react-router — also FRONTEND und ausserhalb dieses Loops. Die Go-Funde laufen unter
+  # `trivy`, das auf continue-on-error: true steht. Diese Bumps schliessen echte Luecken,
+  # machen scans.yml aber NICHT gruen. Das ist bekannt und kein Fehlschlag.
+  # ==========================================================================================
+
+  - id: bump-excelize
+    phase: 3
+    service: deps
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `github.com/xuri/excelize/v2` von v2.8.1 auf v2.11.0. CVE-2026-54063 (Unbounded Row Index
+      Allocation, OOM-DoS). Sprung ueber drei Minors, deshalb eigene Unit.
+    sources:
+      - backend/go.mod
+    notes: >
+      Alle Aufrufstellen suchen bevor gebumpt wird (grep excelize) — die Export-Pfade sind der
+      Risikobereich. Kompiliert der Code nach dem Bump nicht, ist das der einfache Fall.
+      Der gefaehrliche Fall ist: kompiliert, aber Zellformate oder Streaming-Writer verhalten
+      sich anders. Deshalb ist die naechste Unit eine eigene und keine Fussnote.
+      Bricht etwas das nicht in zwei ernsthaften Versuchen sauber zu fixen ist:
+      `git checkout -- . && git clean -fd`, Unit auf blocked mit praezisem Grund. Nicht raten,
+      nicht halb migrieren.
+    done_when:
+      - go.mod und go.sum auf v2.11.0, go mod tidy gelaufen
+      - alle excelize-Aufrufstellen kompilieren ohne oder mit dokumentierter Anpassung
+      - go build -p 2 und die Tests der betroffenen Pakete gruen
+
+  - id: excelize-export-regression
+    phase: 3
+    service: deps
+    model: sonnet
+    deps: [bump-excelize]
+    status: done
+    scope: >
+      Regressionstest ueber die realen Excel-Exportpfade. Ein erzeugtes Workbook wird wieder
+      eingelesen und die Zellwerte werden geprueft.
+    sources:
+      - backend/internal/
+    notes: >
+      "Build gruen" ist hier ausdruecklich KEIN Nachweis — genau das ist die Klasse von Fehler
+      die ein Bibliotheks-Bump erzeugt: es kompiliert, und die Datei ist trotzdem kaputt.
+      Der Test muss schreiben UND zurueklesen, mindestens Kopfzeile, ein Datumsfeld und ein
+      Zahlenfeld mit Format. Existiert schon ein Export-Test, erweitern statt neu bauen.
+      Findet der Test einen echten Bruch: nicht wegdefinieren. Fund ins Journal, Unit auf
+      blocked, und bump-excelize im Journal als revert-verdaechtig markieren.
+    done_when:
+      - Test erzeugt ein Workbook und liest es wieder ein
+      - Kopfzeile, ein Datums- und ein Zahlenfeld mit Format werden geprueft
+      - Test laeuft in CI mit, kein manueller Testpfad
+
+  - id: bump-golang-x
+    phase: 3
+    service: deps
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `golang.org/x/image` (v0.38.0, zwei HIGH-CVEs) und `golang.org/x/text` (v0.37.0) auf die
+      jeweils aktuelle Version, gebuendelt in einem Commit.
+    sources:
+      - backend/go.mod
+    notes: >
+      Beides sind ueblicherweise unkritische Bumps. x/image wird fuer Bildverarbeitung genutzt
+      (Avatare, Uploads) — die Pfade nach dem Bump einmal durch die Tests schicken.
+      Gleiche Abbruchregel wie bei excelize: zwei ernsthafte Versuche, dann blocked.
+    done_when:
+      - beide Module aktualisiert, go mod tidy gelaufen
+      - go build -p 2 ueber die betroffenen Pakete gruen
+      - Tests der bildverarbeitenden Pakete gruen
+
+  - id: bump-grpc
+    phase: 3
+    service: deps
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `google.golang.org/grpc` von v1.79.3 auf aktuell.
+    sources:
+      - backend/go.mod
+    notes: >
+      Der Bump mit der groessten Streubreite, grpc haengt unter allen 23 Services.
+      Nach dem Bump zwingend `go test ./internal/gateway/` UND mindestens zwei Service-Pakete,
+      nicht nur ein Build. Deprecation-Warnungen im Build ernst nehmen und im Journal notieren,
+      auch wenn sie nichts brechen.
+      Bricht die Interceptor-Kette (der Tenant-Inbound-Interceptor haengt an jedem Service):
+      sofort blocked, nicht umbauen. Das ist Sicherheits-Infrastruktur und gehoert nicht
+      nachts nebenbei angefasst.
+    done_when:
+      - go.mod aktualisiert, go mod tidy gelaufen
+      - go test ./internal/gateway/ gruen
+      - mindestens zwei Service-Pakete getestet und gruen
+      - Deprecation-Warnungen im Journal notiert
+
+  # ==========================================================================================
+  # BLOCK E — CUSTOMIZATION, NUR DAS KONKRETE
+  #
+  # Bewusst eng: Draft/Deploy-Overlay und moduleAreas bleiben draussen, weil ihr FE-Vertrag
+  # diese Woche noch wechselt (Spalten-Panel, boolean -> {visible, order, width}).
+  # Freigegeben sind nur die zwei Dinge, die das FE heute schon konkret erwartet.
+  # ==========================================================================================
+
+  - id: customization-value-sets-schema
+    phase: 3
+    service: customization
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      Serverseitige Wertelisten (Value-Sets). Tabelle fuer die Liste und ihre Optionen
+      (Schluessel, Label, Farbe, Reihenfolge, aktiv). Heute existiert serverseitig gar nichts,
+      der Editor liest aus `desktop/src/renderer/src/mocks/data/customization.ts`, reiner
+      In-Memory-Mock der beim Reload verschwindet.
+    sources:
+      - desktop/src/renderer/src/mocks/data/customization.ts
+      - desktop/src/renderer/src/mocks/handlers/customization.ts
+      - backend/internal/gateway/route_customization.go
+    notes: >
+      `tenant_id UUID NOT NULL` und `CALL enable_tenant_rls(...)` auf BEIDEN Tabellen, sonst ist
+      der Standing-Guard rot. Die Form am Mock ausrichten, nicht neu erfinden — der Mock ist
+      der bindende Vertrag, das FE ist bereits dagegen gebaut.
+      Systemseitige Wertelisten (die ein Modul mitbringt, etwa ticket_priority) von tenant-eigenen
+      unterscheiden: ein Tenant darf Optionen einer Systemliste anpassen, aber die Liste selbst
+      nicht loeschen, sonst bricht das Modul das sie konsumiert.
+      Option-Loeschung mit Datensatz-Neuzuweisung ist NICHT Teil dieser Unit (das FE hat es als
+      G1 gebaut, serverseitig ist es eine eigene Nummer). Im Journal vermerken.
+    done_when:
+      - beide Tabellen mit tenant_id NOT NULL und RLS, up und down gefuellt
+      - System- und Tenant-Listen unterscheidbar, Systemliste nicht loeschbar
+      - Form deckt sich mit mocks/data/customization.ts
+      - RLS-Smoke gruen
+
+  - id: customization-value-sets-routes
+    phase: 3
+    service: customization
+    model: sonnet
+    deps: [customization-value-sets-schema]
+    status: done
+    scope: >
+      `GET /api/v1/customization/value-sets`, `GET .../value-sets/{id}` und
+      `PUT .../value-sets/{id}`. Der MSW-Handler (handlers/customization.ts:98,109,123) ist
+      der bindende Wire-Vertrag.
+    sources:
+      - desktop/src/renderer/src/mocks/handlers/customization.ts
+      - backend/internal/gateway/route_customization.go
+      - backend/api/openapi.yaml
+    notes: >
+      STAND aus E1 (gebaut, Migration 000295): Datenmodell UND Service-Schicht sind fertig.
+      `internal/settings/valueset.go` haelt die System-Registry (Spiegel von DEFAULT_VALUE_SETS,
+      vier Listen) plus `ResolveValueSet`/`BaseValueSet`, `service.go` hat `ListValueSets(ctx,
+      tenantID, base bool)`, `GetValueSet(ctx, tenantID, key, base bool)`, `UpsertValueSet(ctx,
+      tenantID, callerID *uuid.UUID, *ValueSet)` und `DeleteValueSet(ctx, tenantID, key)`.
+      Offen fuer diese Unit ist NUR Proto-RPCs in `proto/settings/settings.proto` (plus
+      `make proto-settings` im selben Commit) und die Gateway-Handler. Der Settings-gRPC-Server
+      liegt beim auth-Binary, `CustomizationRoutes.getSettingsClient()` holt den Client schon.
+      ACHTUNG Wire-Shape — der Mock weicht hier von der Hausregel ab und der Mock gewinnt:
+      `GET .../value-sets` liefert `{valueSets: [...]}` (NICHT `{items,total}`),
+      `GET/PUT .../value-sets/{id}` liefert `{valueSet: {...}}`. Die Option-Felder heissen im
+      FE-Typ `id` (nicht option_key/key), `label`, `color`, `order` (nicht sort_order), `active`,
+      `provenance`; das Set traegt `id`, `name`, `options`, `provenance`. Der Server liefert als
+      Provenance nur "default" oder "tenant" — "vendor" und "draft" sind im FE-Typ, entstehen
+      serverseitig aber nie. `?base=1` ist ein echter Query-Parameter (Editor-Baseline).
+      Bewusste Abweichung vom Mock: die Liste enthaelt auch tenant-eigene Listen (der Mock
+      iteriert nur DEFAULT_VALUE_SETS und wuerde sie verschlucken), `?base=1` nur die Systemlisten.
+      Delete ist im Service gebaut, im Mock aber KEINE Route — falls diese Unit sie nicht
+      registriert, bleibt sie serverseitig ungenutzt, das ist in Ordnung und gehoert ins Journal.
+      Leere Liste [] nicht null, sonst gilt die Hausregel weiter.
+      Bestehende Permission-Keys der Customization-Flaeche wiederverwenden (route_customization.go
+      zeigt welche das sind), kein neuer Guard ohne Seed.
+      Die Label-Whitelist-Regel gilt sinngemaess weiter: Modul-Namen und Sidebar-Nav sind NICHT
+      anpassbar (Darien-Regel vom 2026-07-22, steht in backend-gaps.md). Wertelisten sind Inhalt,
+      nicht Navigation, das ist erlaubt — aber die Grenze im Kopf behalten.
+    done_when:
+      - drei Routen registriert, Handler ueber den gRPC-Client
+      - Wire-Shape deckt sich mit dem MSW-Handler, gewrappt, [] statt null, snake_case
+      - openapi.yaml im selben Commit, TestOpenAPIRouteDrift gruen
+      - Cross-Tenant-Test, fremde Werteliste ist nicht lesbar
+
+  - id: customization-fields-route
+    phase: 3
+    service: customization
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `/api/v1/customization/fields`. Das FE ruft diesen Pfad heute (`useCustomFields.ts`),
+      im Backend existiert er nicht. Erst pruefen ob er auf die BESTEHENDEN Tabellen
+      abbildbar ist, statt eine dritte anzulegen.
+    sources:
+      - backend/internal/gateway/route_crm.go
+      - backend/internal/gateway/route_work.go
+      - backend/migrations/
+    notes: >
+      Es gibt bereits `custom_field_definitions` (CRM, Migration 000005, Route
+      /api/v1/custom-fields) und `work_custom_field_definitions` (Migration 000146, Route
+      /api/v1/work/custom-fields). Die Lean-Frage zuerst: reicht eine entity-parametrisierte
+      Sicht auf das Bestehende? Wenn ja, ist diese Unit eine Route und kein Datenmodell.
+      Wenn die beiden Tabellen strukturell unvereinbar sind, das im Journal BELEGEN (Spalten
+      gegenueberstellen) und erst dann etwas Neues bauen. Eine dritte Custom-Field-Tabelle
+      ohne diesen Beleg ist das Gegenteil von Lean.
+      Helpdesk-Custom-Fields (die Entity helpdesk_ticket aus dem FE-Mock) haben serverseitig
+      keine Definitionstabelle. Falls die Route sie abdecken soll ist das eine eigene Nummer,
+      im Journal vermerken, nicht nebenbei mitbauen.
+    done_when:
+      - Entscheidung Wiederverwendung vs. Neubau im Journal begruendet, mit Spaltenvergleich
+      - Route registriert, liefert die vom FE erwartete Form
+      - openapi.yaml im selben Commit
+      - keine dritte Custom-Field-Tabelle ohne dokumentierte Begruendung
+
+  # ==========================================================================================
+  # BLOCK F — REST UND PUFFER
+  # ==========================================================================================
+
+  - id: g-work-start-date
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `start_date` an Tasks. Spalte, Proto-Feld, Validierung (start_date kleiner gleich
+      due_date) und Bereichsfilter `due_from`/`due_to` im listTasks-Query. Uebernommen aus
+      Lauf 4, dort nicht mehr erreicht.
+    sources:
+      - backend/internal/work/task/
+      - backend/proto/
+    notes: >
+      Voraussetzung fuer die spaetere Gantt-Ansicht. Validierung serverseitig, nicht nur im FE.
+      Der Bereichsfilter ist heute unkritisch (page_size 500, clientseitiges Bucketing reicht),
+      aber er gehoert in dieselbe Unit weil er dieselbe Query anfasst.
+      Bestandszeilen ohne start_date muessen weiter funktionieren, NULL erlauben.
+    done_when:
+      - Spalte und Proto-Feld, Regen im selben Commit
+      - start_date groesser due_date wird abgelehnt (Test)
+      - due_from und due_to filtern korrekt, auch bei NULL-start_date
+      - openapi.yaml falls die Route-Parameter sich aendern
+
+  - id: csat-cross-tenant-tests
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [csat-public-response]
+    status: done
+    scope: >
+      Cross-Tenant-Tests fuer die CSAT-Flaeche. Bewertung, Aggregation und oeffentliche
+      Einloesung duerfen tenant-uebergreifend nichts preisgeben.
+    sources:
+      - backend/internal/helpdesk/
+      - backend/internal/testutil/
+    notes: >
+      Als Rolle `kmuhub_app` testen, nicht `kmuhub` — der Superuser hat BYPASSRLS, unter ihm
+      bestehen RLS-Tests ohne irgendetwas zu beweisen. DATABASE_URL muss gesetzt sein, sonst
+      ueberspringt SkipIfNoDB still alles und `ok` bedeutet nichts.
+      Eigene Tenants seeden, nicht TenantA/B aus bestehenden Tests mitbenutzen.
+      Der interessanteste Fall: ein Umfrage-Token aus Tenant A darf unter keinen Umstaenden ein
+      Ticket aus Tenant B erreichen — genau dort wuerde ein falsch gesetzter System-Kontext
+      auffallen.
+    done_when:
+      - Tests laufen als kmuhub_app mit gesetzter DATABASE_URL
+      - Token aus Tenant A erreicht kein Ticket aus Tenant B
+      - Aggregation zaehlt keine fremden Bewertungen
+      - null uebersprungene Tests, Zahl der gelaufenen DB-Tests im Journal
+
+  - id: intake-cross-tenant-tests
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [intake-public-submit]
+    status: done
+    scope: >
+      Cross-Tenant-Tests fuer die Intake-Flaeche. Ticket-Erzeugung mit externem Requester,
+      custom_fields-Merge und die oeffentliche Formular-Einreichung.
+    sources:
+      - backend/internal/helpdesk/
+      - backend/internal/formulare/
+    notes: >
+      Gleiche Rollen- und DATABASE_URL-Regel wie bei der CSAT-Test-Unit.
+      Besonders pruefen: ein oeffentlich eingereichtes Formular aus Tenant A darf kein Ticket
+      in Tenant B erzeugen, und custom_fields eines fremden Tickets duerfen ueber den
+      Merge-Pfad nicht lesbar werden.
+    done_when:
+      - oeffentliche Einreichung erzeugt nur im eigenen Tenant
+      - custom_fields-Merge leakt keine fremden Werte
+      - externer Requester bleibt tenant-gescopt
+      - null uebersprungene Tests
+
+  - id: helpdesk-kb-content-opaque
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Bestaetigen und absichern, dass `helpdesk_kb_articles.content` serverseitig opak
+      behandelt wird. Das FE speichert dort seit G3 ein Block-Dokument-JSON statt HTML
+      (shared Block-Engine wie wiki und berichte), Legacy-HTML bleibt lesbar.
+    sources:
+      - backend/migrations/
+      - backend/internal/helpdesk/
+      - desktop/src/renderer/src/modules/helpdesk/kb-blocks.ts
+    notes: >
+      Geprueft am 2026-08-05: `content` ist TEXT NOT NULL DEFAULT '', und es gibt serverseitig
+      KEINEN Sanitizer (kein bluemonday im gesamten Backend). Solange der Inhalt Block-JSON ist
+      und clientseitig ueber die Registry gerendert wird ist das korrekt — Sanitizing wuerde
+      das JSON zerstoeren.
+      Die eigentliche Arbeit hier ist klein und defensiv: eine Groessenbegrenzung damit ein
+      Artikel die Zeile nicht unbegrenzt aufblaeht, und ein Kommentar an der Spalte bzw. im
+      Service der festhaelt WARUM nicht sanitized wird. Ohne diesen Kommentar repariert das
+      in sechs Monaten jemand mit einem HTML-Sanitizer und zerlegt alle Artikel.
+      Falls sich beim Lesen herausstellt dass content doch irgendwo als HTML gerendert oder
+      weitergereicht wird: Unit auf blocked, Fund ins Journal. Das waere dann eine echte
+      XSS-Flaeche und keine Kosmetik.
+    done_when:
+      - Groessenbegrenzung fuer content serverseitig durchgesetzt
+      - Kommentar haelt fest warum nicht sanitized wird, Block-JSON und Client-Registry
+      - nachgewiesen dass content nirgends serverseitig als HTML behandelt wird
+      - Legacy-HTML-Inhalte bleiben lesbar
+
+  - id: helpdesk-ticket-number-wire
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Sicherstellen dass `ticket_number` sauber auf dem Wire liegt und dokumentiert ist.
+      Das Backend vergibt seit Migration 000236 eine echte fortlaufende Nummer pro Tenant
+      (`helpdesk_ticket_counters`, atomare Vergabe in postgres_repository.go:34-43), aber das
+      FE baut sich stattdessen eine Pseudo-Nummer aus der UUID (helpdesk-adapters.ts:124-137).
+    sources:
+      - backend/internal/helpdesk/postgres_repository.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/helpdesk-types.ts
+    notes: >
+      Die FE-Umstellung ist NICHT Teil dieser Unit, dieser Loop fasst desktop/ nicht an.
+      Backend-Aufgabe ist nur: pruefen dass ticket_number im Read wirklich mitkommt, dass sie
+      in openapi.yaml dokumentiert ist, und dass der FE-Typ sie kennt. Der FE-Typ hat sie laut
+      Pruefung vom 2026-08-05 NICHT — das ist der Grund fuer die Pseudo-Nummer.
+      Ergebnis als klare Handreichung ins Journal schreiben (welches Feld, welches Format),
+      damit die naechste Frontend-Session es ohne Nachforschung umstellen kann.
+      Ist alles schon korrekt auf dem Wire, ist die Unit in fuenf Minuten fertig — dann sag das
+      im Journal statt Arbeit zu erfinden.
+    done_when:
+      - ticket_number nachweislich im Ticket-Read enthalten
+      - in openapi.yaml dokumentiert
+      - Handreichung fuer die FE-Umstellung im Journal, Feldname, Format, Fundstelle
+
+  - id: docs-security-interceptor-korrektur
+    phase: 3
+    service: docs
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `.knowledge/security.md` behauptet, 13 Service-Binaries (wiki, helpdesk, berichte,
+      inventar, einkauf, produktion, schichten, vermietung, fuhrpark, rapporte, vertraege,
+      automation, plugin) haetten keinen `TenantInboundUnaryInterceptor` (R3-P0-3, offen).
+      Sie haben ihn alle seit Commit 777b27ad vom 2026-06-20. Zeile korrigieren.
+    sources:
+      - .knowledge/security.md
+      - backend/cmd/
+    notes: >
+      Vor dem Korrigieren selbst nachzaehlen (grep ueber cmd/), nicht diese Notiz abschreiben —
+      eine falsch als erledigt markierte Sicherheitszeile ist schlimmer als eine falsch als
+      offen markierte. Ergibt die Zaehlung etwas anderes als 13 von 13, ist das ein Fund und
+      gehoert ins Journal statt in eine Doku-Korrektur.
+      Reine Dokumentationsaenderung, kein Code.
+    done_when:
+      - Zaehlung selbst durchgefuehrt und im Journal belegt
+      - security.md-Zeile entspricht dem Code
+      - kein Code angefasst
+
+  # ==========================================================================================
+  # WEITERHIN BLOCKIERT — brauchen eine Produktentscheidung von Luke, nicht den Loop
+  # ==========================================================================================
+
+  - id: g-hr-salary-statements
+    phase: 3
+    service: hr
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Kein Gehalts- oder Payroll-Datenmodell im Backend (nur HourlyRate am Mitarbeiter); das FE
+      erwartet berechnete Brutto- und Nettobetraege. Drei Wege moeglich (echtes Payroll-Feld,
+      PDF-Upload als Dokumentenkategorie, Scope-Streichung) — alle drei sind Produktentscheide.
+    scope: >
+      `GET /hr/employees/me/salary-statements`.
+    notes: >
+      Bleibt blockiert bis Luke einen der drei Wege waehlt.
+
+  - id: g-admin-billing
+    phase: 3
+    service: admin
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Das FE macht gar keinen Backend-Call (useBilling.ts ist Mock und localStorage). Die
+      Datenbasis fuer die Kernfelder existiert bereits ueber drei andere Endpunkte; nur die
+      Rechnungshistorie braeuchte ein echtes Payment-Gateway. Das ist ein Deploy-Hazard und
+      eine Produktentscheidung.
+    scope: >
+      Admin-Billing-Ansicht.
+    notes: >
+      Die FE-Umstellung auf die bestehenden Endpunkte waere trivial und gehoert in eine
+      Frontend-Session, nicht hierher.
+
+  - id: fe-projects-guest-overview
+    phase: 3
+    service: work
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Kein Datenmodell fuer Meilensteine und Status-Updates im Backend (verifiziert, keine
+      Tabelle, kein Struct, kein Schreibpfad). Der FE-Mock ist reine Platzhalter-Fiktion.
+      Neubau vs. Datenreduktion vs. Streichung ist eine Produktentscheidung.
+    scope: >
+      Gast-Projektuebersicht mit Meilensteinen und Status-Updates.
+    notes: >
+      Bleibt blockiert.
+
+# ==========================================================================================
+# NACHGETRAGEN 2026-08-06, nach Merge und Deploy von Lauf 5 (PR #18 -> 9950f339, Prod 297).
+# Alle vier sind bewusst `blocked`: sie brauchen eine Entscheidung oder gehoeren in eine
+# Frontend-Session — der Loop soll sie nicht ziehen.
+# ==========================================================================================
+
+  - id: g-csat-public-surface
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      CSAT ist auf Produktion funktionsunfaehig, und zwar doppelt. (1) `SYSTEM_SMTP_*` steht
+      in `.env.production`, wird in `deploy/docker/docker-compose.yml` aber nur an `auth`,
+      `biz` und `berichte` durchgereicht — NICHT an `helpdesk`. Der Container loggt beim
+      Start `system SMTP not configured` und startet den Dispatcher nie. (2) Der Mail-Link
+      besteht aus `CSAT_SURVEY_BASE_URL` + Token, Default `https://app.zentria.tech/csat`.
+      Dort liegt nichts: der Caddyfile proxyt die Domain vollstaendig auf `gateway:8080`,
+      eine oeffentliche Weboberflaeche existiert nicht. Der Passthrough allein wuerde also
+      Umfragen mit totem Link verschicken — an `ticket.requester_email` oder ersatzweise die
+      Adresse des anfragenden Users, also auch an Mitarbeiter.
+    scope: >
+      CSAT vom Token bis zur abgegebenen Bewertung nutzbar machen: oeffentliche Seite hinter
+      CSAT_SURVEY_BASE_URL, SMTP-Passthrough fuer helpdesk, `DefaultCsatConfig().Enabled`
+      erst danach wieder auf true erwaegen.
+    notes: >
+      Der Default steht seit `f855272f` bewusst auf false (Opt-in) und ist per Test
+      festgenagelt (`TestDefaultCsatConfig_IsOptIn`). Ebenfalls offen und Teil derselben
+      Entscheidung: es gibt keine Gateway-Route fuer Get/UpdateCsatConfig — die RPCs
+      existieren, sind aber nicht exponiert, und der Desktop-Toggle in
+      `HelpdeskSettingsPanel.tsx` ist reiner lokaler Store-State ohne Backend-Call. Ein
+      Tenant kann CSAT heute also weder ein- noch ausschalten.
+
+  - id: g-public-token-landing-pages
+    phase: 3
+    service: gateway
+    model: opus
+    deps: [g-csat-public-surface]
+    status: blocked
+    blocked_reason: >
+      Sieben Public-Token-Routen sind gebaut (Berichte, Dokument, Formular-Submit,
+      Wiki-Redeem, CSAT u.a.), aber es gibt keine Oberflaeche, in der ein Empfaenger sie
+      einloesen koennte — Cosmi ist eine Electron-App. Das ist ein eigenes Projekt
+      (Hosting, Design, i18n, Consent), keine Nachtlauf-Unit.
+    scope: >
+      Oeffentliche Weboberflaeche fuer die Public-Token-Routen.
+    notes: >
+      Bis dahin sind die Routen serverseitig korrekt und nutzlos. Sicherheitsseitig sind sie
+      dicht: eigener schmaler Wire-Typ, Rate-Limit, einheitliches 404 fuer jede Ablehnung.
+
+  - id: fe-helpdesk-ticket-number
+    phase: 3
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Reiner Frontend-Fix, gehoert in eine Frontend-Session.
+    scope: >
+      `ticket_number` aus der Backend-Response uebernehmen.
+    notes: >
+      Das Backend liefert das Feld auf jeder Ticket-Response. `helpdesk-types.ts` kennt es
+      nicht, und `helpdesk-adapters.ts:124-137` baut stattdessen eine Hash-Pseudonummer — der
+      Nutzer sieht also eine andere Nummer als die, die in der CSAT-Mail und im Backend steht.
+
+  - id: g-decode-disallow-unknown-fields
+    phase: 3
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Repo-weite Entscheidung mit Breaking-Potenzial fuer jeden Client, der Zusatzfelder
+      sendet. Braucht eine bewusste Freigabe, keine Nachtlauf-Iteration.
+    scope: >
+      `decodeAndValidate` auf `DisallowUnknownFields` umstellen.
+    notes: >
+      Lauf 5 hat den konkreten Schaden dieser Nachsicht behoben (Intake-Contract), aber die
+      Klasse bleibt: ein Feld, das der Decoder nicht kennt, faellt still weg und die API
+      antwortet 200. Vor der Umstellung alle FE-Aufrufer durchgehen.
