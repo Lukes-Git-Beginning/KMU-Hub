@@ -1247,7 +1247,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/crm/contact` - gemessen 36,6 % trotz 1.969 Zeilen
       `service_test.go`. Die Luecke liegt in `postgres_repository.go` (770 Zeilen) und
@@ -1268,6 +1268,31 @@ units:
       - Filterkombinationen und Sortierung geprueft
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Coverage 36,6% -> 80,6%. Zwei neue Dateien: postgres_repository_db_test.go
+      (List/ListWithVisibility inkl. Owner/Admin/Visibility-Filter, ListByIDs,
+      ListAll, GetCompanyName(s), Tags inkl. Batch, CustomFields inkl. Batch,
+      FindDuplicateCandidates, MergeInto) und postgres_lead_db_test.go
+      (ListLeads inkl. Default-Stage-Ausschluss von customer, UpdateLead inkl.
+      Customer-Guard und Temperature-Clear). Dabei echten Produktionsbug
+      gefunden und gefixt: MergeInto setzte beim Tag-Merge kein tenant_id auf
+      contact_tags (NOT NULL + RLS seit Migration 124) - jeder Contact-Merge
+      mit Tags auf dem Duplikat schlug in Produktion mit einer RLS-Verletzung
+      fehl und rollte die gesamte Merge-Transaktion zurueck. Fix analog zum
+      bereits korrekten company_tags-Muster (company/postgres_repository.go:435).
+      Zweiter Befund, NICHT gefixt (Schema-Frage fuer Luke): idx_contacts_email
+      (Migration 000007) ist ein GLOBALER Unique-Index auf LOWER(email) ohne
+      tenant_id - zwei Kontakte koennen system-weit, nicht nur pro Tenant, nie
+      dieselbe E-Mail tragen. Macht den email_exact-Zweig in
+      FindDuplicateCandidates durch keinen aktuellen Schreibpfad erreichbar.
+      Mutations-Probe: lifecycle_stage <> customer in ListLeads zu = gedreht ->
+      TestRepository_ListLeads_DefaultStageStatusSearchAndTenantScopedCount
+      wurde sofort rot (total=1 statt 3, customer-Kontakt tauchte auf), zurueckgedreht,
+      git diff auf postgres_lead.go bestaetigt keine Differenz. go test -count=1
+      -p 1 ./internal/crm/contact/... gruen, 0 Skips, DATABASE_URL gesetzt
+      (Rolle kmuhub_app). -p 1 noetig: der volle ./internal/crm/...-Lauf ohne
+      -p 1 erschoepft lokal die Postgres-Verbindungen (mehrere Paket-Pools
+      parallel) - Umgebungsgrenze, kein Fund in diesem Diff.
 
   - id: c-cov-crm-advisoryprotocol
     phase: 3

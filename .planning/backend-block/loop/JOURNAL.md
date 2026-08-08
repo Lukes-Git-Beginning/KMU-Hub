@@ -2614,3 +2614,68 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   charmap`, ein echter Transcoding-Schritt zwischen `csv.Writer` und dem
   Ziel-`io.Writer`), keine Coverage-Nacharbeit. Aktuell exportiert das
   System nachweislich UTF-8 mit BOM, DATEV liest laut eigener Spec beides.
+
+## Iteration 32 — c-cov-crm-contact-repo — done — 2026-08-08 21:35
+- commit: (siehe unten)
+- gebaut: zwei neue DB-Testdateien fuer internal/crm/contact
+  (postgres_repository_db_test.go, postgres_lead_db_test.go). Coverage
+  36,6% -> 80,6%. Abgedeckt: List/ListWithVisibility (Filter, Sortierung,
+  Pagination inkl. Tenant-Bedingung auf der Gesamtzahl, Owner/Admin/
+  Visibility-Filter), ListByIDs/ListAll, GetCompanyName(s), Tags inkl.
+  Batch, CustomFields inkl. Batch, FindDuplicateCandidates (phone_exact +
+  name_fuzzy + merged-/foreign-tenant-Ausschluss), MergeInto (Reassign
+  Activities/Deals, Tag-/CustomField-Merge, Soft-Delete, Cross-Tenant-Guard,
+  ErrAlreadyMerged), ListLeads (Default-Stage schliesst customer aus,
+  Status-/Search-Filter, Pagination) und UpdateLead (Partial-Patch,
+  Customer-Guard, Temperature-Clear-vs-Set, fremde/fehlende ID).
+- fund + fix: MergeInto setzte beim Tag-Merge kein tenant_id auf
+  contact_tags (NOT NULL + RLS seit Migration 000124) — jeder
+  Contact-Merge mit Tags auf dem Duplikat schlug in Produktion mit einer
+  RLS-Verletzung fehl und rollte die gesamte Merge-Transaktion zurueck
+  (per Test reproduziert, nicht spekuliert). Gefixt analog zum bereits
+  korrekten company_tags-Muster (internal/crm/company/postgres_repository.go:435):
+  `INSERT INTO contact_tags (contact_id, tag_id, tenant_id) SELECT $1,
+  tag_id, tenant_id FROM contact_tags WHERE contact_id = $2`.
+- fund, nicht gefixt (Schema-Frage fuer Luke): `idx_contacts_email`
+  (Migration 000007) ist ein GLOBALER Unique-Index auf LOWER(email) ohne
+  tenant_id — zwei Kontakte koennen system-weit, nicht nur pro Tenant, nie
+  dieselbe E-Mail tragen. Macht den email_exact-Zweig in
+  FindDuplicateCandidates durch keinen aktuellen Schreibpfad erreichbar
+  (repo.Create prueft zusaetzlich GetByEmail). Kein Coverage-Thema, eine
+  Architekturfrage — als eigene Fix-Unit oder bewusste Doku-Entscheidung
+  vorzumerken.
+- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/...
+  ./cmd/gateway/...` ok | `go vet ./internal/crm/...` ok | `golangci-lint
+  run --config .golangci.yml ./internal/crm/contact/...` 0 issues |
+  `go test -count=1 -p 1 ./internal/crm/...` — alle Pakete gruen
+  (inkl. contact, report), 0 Skips, `DATABASE_URL` gesetzt (Rolle
+  kmuhub_app). `-p 1` noetig: der volle `./internal/crm/...`-Lauf ohne
+  `-p 1` erschoepft lokal die Postgres-Verbindungen (mehrere
+  Paket-Pools gleichzeitig, "remaining connection slots are reserved for
+  roles with the SUPERUSER attribute") — eine lokale Umgebungsgrenze,
+  reproduzierbar unabhaengig von diesem Diff, kein Fund im Code. Keine
+  Route/kein Proto angefasst, daher kein separater
+  `go test ./internal/gateway/`-Lauf noetig (Build-Check reicht;
+  trotzdem mitgebaut da crm oft von Gateway-Handlern importiert wird).
+- mutations-probe: `ct.lifecycle_stage <> '`+LifecycleCustomer+`'` in
+  `ListLeads` (postgres_lead.go) zu `=` gedreht — macht den
+  Default-Stage-Filter zum genauen Gegenteil (nur customer statt alles
+  ausser customer). Ergebnis: `TestRepository_ListLeads_
+  DefaultStageStatusSearchAndTenantScopedCount` sofort rot (total=1 statt
+  3, der customer-Kontakt tauchte im offenen Inbox-Filter auf, die beiden
+  echten Leads fehlten). Zurueckgedreht, `git diff --stat
+  internal/crm/contact/postgres_lead.go` bestaetigt keine Differenz,
+  Endgate danach erneut gelaufen und gruen. Der Tags-Fix in MergeInto
+  hatte de facto bereits seine eigene Mutations-Probe: der Test schlug mit
+  dem urspruenglichen (kaputten) Code real fehl (RLS-Verletzung), bestand
+  erst nach dem Fix.
+- db-tests: 15 neue DB-Integrationstests in den beiden neuen Dateien, alle
+  real gegen `kmuhub_app` gelaufen, 0 Skips.
+- verify vorgaenger: sauber (Iteration 31, DATEV-Export — nur *_test.go
+  geaendert, kein Gateway-/Proto-/Permission-/Tenant-Bezug, Build-Diff
+  bestaetigt reine Testdateien).
+- offen: Die beiden oben genannten Funde fuer Luke — (1) idx_contacts_email
+  ist global statt tenant-scoped, eine Architekturfrage, kein Bug in
+  diesem Diff. (2) Lokale Postgres-Verbindungsgrenze bei parallelen
+  crm-Paket-Laeufen — betrifft nur lokale Testlaeufe, nicht CI (dort
+  laufen Pakete vermutlich mit anderer Parallelitaet/Connection-Limits).
