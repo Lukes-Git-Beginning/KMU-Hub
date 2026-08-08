@@ -401,7 +401,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   mit Upgrade-Pfad steht im Code (`exportTripLogsCap`).
 
 ## Iteration 7 — a-vermietung-inspection-signature — done — 2026-08-08 19:10
-- commit: (siehe naechster Commit dieser Iteration)
+- commit: ec2dd22a
 - verify vorgaenger: sauber. `0c9d5afb` (a-fuhrpark-triplog-export) geprueft
   gegen alle acht Fehlerklassen: Handler geht ueber
   `fuhrparkv1.FuhrparkServiceClient.ExportTripLogs` (kein direkter
