@@ -1685,7 +1685,7 @@ units:
     service: server
     model: sonnet
     deps: [b-cov-server-video-meetings]
-    status: todo
+    status: done
     scope: >
       `internal/server/video_grpc.go`, zweite Haelfte - Anrufe, Aufzeichnungen und
       Einladungen.
@@ -1703,6 +1703,30 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Neue Datei video_call_grpc_test.go: stateful Mocks fuer video.Repository (9
+      Methoden), recording.Repository (16 Methoden), video.RoomManager und
+      recording.EgressManager, dazu Tabellentests fuer mapVideoError (6 Sentinels)
+      und mapRecordingError (8 Sentinels + der nie zurueckgegebene
+      ErrPreConsentMissing), alle toProto-Funktionen des Calls/Recordings-Bereichs,
+      Enum-Konverter, ein Validierungspfad-Test mit einem Invalid-Input-Fall je
+      Methode im Scope sowie Lifecycle-Tests (Call: Create/Join/Get/End inkl.
+      Max-Participants und Ended-Rejection; Recording: Start/Stop inkl.
+      Initiator- und Meeting-Host-Autorisierung, Consent-Pending-Default,
+      Egress-Disabled). Dabei zwei echte Bugs im Zielcode gefunden und behoben
+      (Root-Cause, gleiches Muster wie Iteration 40): (1) fuenf `var protos
+      []*videov1.X`-Stellen (ListActiveCalls, ListRecordings, GetRecordingConsent,
+      GetRecordingConsents, ListRecordingsByMeeting) lieferten bei 0 Treffern
+      `null` statt `[]` -> auf `make(..., 0, len(...))` umgestellt. (2)
+      mapRecordingError flachte bereits fertige gRPC-Status-Fehler aus
+      Service.GetRecordingDownloadURL (FailedPrecondition/PermissionDenied) auf
+      Internal ab, weil die Fehler keine der bekannten Sentinels sind -> Fix per
+      `status.FromError`-Passthrough am Anfang der Funktion, behebt alle
+      Aufrufstellen einheitlich. Sicherheitsbefund dokumentiert statt gefixt
+      (siehe Journal): DeleteRecording hat keinerlei Teilnehmer-/Initiator-Pruefung
+      und keinen RequirePermission-Guard am Gateway — im Gegensatz zu
+      StopRecording (Initiator-oder-Host) und GetRecordingDownloadURL
+      (Teilnehmer-ACL, beide durch Tests belegt vorhanden).
 
   - id: b-cov-server-hr
     phase: 3

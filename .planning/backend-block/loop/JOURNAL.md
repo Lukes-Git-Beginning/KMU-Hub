@@ -3432,3 +3432,182 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   `ListMeetingOccurrences` ist nur bis `ErrSeriesUnavailable` getestet (kein
   `SeriesSource`-Mock gebaut) — echte RRULE-Expansion-Tests gehoeren eher zur
   Calendar/Event-Coverage.
+
+## Iteration 41 — b-cov-server-video-calls — done — 2026-08-08 23:35
+- verify vorgaenger: sauber. `ef60d044` ist ein reiner Journal/Backlog-Commit
+  (Iteration-40-Eintrag nachtragen + Unit auf done), fasst keinen Code an —
+  keine der acht Fehlerklassen betroffen. `git merge origin/main` war
+  "Already up to date".
+- gebaut: Neue Datei `internal/server/video_call_grpc_test.go` fuer die
+  zweite Haelfte von `video_grpc.go` — Anrufe (CreateCall/JoinCall/EndCall/
+  GetCall/ListActiveCalls) und Aufzeichnungen (Start/Stop/Consent/List/
+  Delete/Tag/Metadata/Status/Cleanup/ConfirmInitiatorConsent/
+  DownloadURL). "Einladungen" aus dem Scope-Text existieren als eigener
+  RPC-Bereich nicht (verifiziert per Grep, 0 Treffer fuer "Invite" in
+  `internal/server`/`internal/video`) — abgedeckt ist stattdessen der
+  Anruf-/Aufzeichnungs-Einladungs-Fluss selbst (CreateCall+JoinCall).
+  Stateful Mocks: `callMockRepo` (video.Repository, 9 Methoden),
+  `recordingMockRepo` (recording.Repository, 16 Methoden, davon
+  `ListRecordingsWithAccess`/`GetRecordingParticipants` per-Recording-ACL
+  statt global wie im Vorbild in `internal/work/recording/service_test.go`,
+  damit der Cross-Recording-Fall pruefbar ist), `callMockRoomManager`
+  (video.RoomManager, 7 Methoden) und `callMockEgressManager`
+  (recording.EgressManager, 2 Methoden) — `meetingMockRepo` aus Iteration 40
+  wiederverwendet (selbes Package) fuer den Meeting-Kontext-Pfad von
+  StartRecording/StopRecording. Testschichten: (1)
+  `TestMapVideoError_AllSentinels`/`TestMapRecordingError_AllSentinels` —
+  6 bzw. 8 Sentinels + unbekannter Fehler, dazu `recording.ErrPreConsentMissing`
+  explizit als "nie tatsaechlich zurueckgegeben, faellt auf Internal" markiert
+  (siehe Befund unten). (2) Alle `toProto`-Funktionen des Bereichs
+  (`callSessionToProto`, `callSessionWithParticipantsToProto`,
+  `callParticipantToProto`, `recordingToProto`, `recordingConsentToProto`)
+  mit Nil-/Optional-Feld-Faellen. (3) Enum-Konverter (`protoCallTypeToString`
+  Rundreise, `stringToProtoCallStatus`, `stringToProtoRecordingStatus`) inkl.
+  Default-Fall. (4) `TestVideoCallHandlers_Validation` — 34 Faelle, mindestens
+  ein Invalid-Input-Pfad je Methode im Scope. (5) Lifecycle-Tests: vollstaendiger
+  Call-Umlauf (Create→Join→Get→End, Status ringing→active→ended,
+  EndCall-Idempotenz), Max-Participants-Ablehnung, Ended-Call-Join-Ablehnung,
+  LiveKit-disabled-CreateCall, ListActiveCalls-Filterung ueber zwei Nutzer.
+  Recording: Start ueber Call- UND Meeting-Kontext (Erfolg via
+  `pendingOverride`-Bypass des Consent-Gates), Consent-Pending-Default ohne
+  Override, Egress-nicht-konfiguriert, Stop mit Initiator- ODER
+  Meeting-Host-Autorisierung (via `IsHostOrCoHost`), Stop durch Unbeteiligten
+  abgelehnt, zweiter Stop auf nicht-aktive Aufnahme, Consent-Set/-Get-Rundlauf,
+  Tag/UpdateMetadata (inkl. ungueltigem Status), Pagination bei
+  ListRecordingsByMeeting, Cleanup abgelaufen/nicht-abgelaufen,
+  ConfirmInitiatorConsent Erfolg/NotFound. GetRecordingDownloadURL-Erfolg
+  braucht echtes MinIO-Presigning (Region-Auto-Discovery via
+  GetBucketLocation-HTTP-Call, kein Mock-Pfad in `recording.Service`) — dafuer
+  ein `httptest.Server`, der wie ein S3-Endpunkt auf die Location-Anfrage
+  antwortet, statt eines unerreichbaren DNS-Namens.
+- befund + fix (im selben Commit, gleiches Muster wie Iteration 40 —
+  Root-Cause, keine neue Abstraktion): zwei echte Bugs beim Lesen/Testen
+  des Zielcodes gefunden.
+  (1) **Fuenf `var protos []*videov1.X`-Stellen lieferten bei 0 Treffern
+  `null` statt `[]`**: `ListActiveCalls` (Zeile 192), `GetRecordingConsent`
+  (376), `ListRecordings` (422), `GetRecordingConsents` (471),
+  `ListRecordingsByMeeting` (564) — identisches Muster zu den vier in
+  Iteration 40 gefixten Stellen, in genau der Datei, die dort schon als
+  wiederkehrendes Problem markiert wurde. Fix: `make([]*videov1.X, 0,
+  len(...))` statt `var`. Ohne den Fix waeren die fuenf neuen
+  Empty-Slice-Tests gar nicht gruen zu bekommen gewesen — der Fix ist damit
+  die von der Unit selbst geforderte Vorgabe, kein Nebenschauplatz.
+  (2) **`mapRecordingError` flachte bereits fertige gRPC-Status-Fehler auf
+  `Internal` ab**: `Service.GetRecordingDownloadURL` baut
+  `status.Errorf`/`status.Error` direkt (FailedPrecondition fuer
+  "nicht abgeschlossen"/"keine Datei", PermissionDenied fuer
+  "kein Teilnehmer") statt Sentinel-Fehler zurueckzugeben — die einzige
+  Methode im Recording-Bereich, die das tut. `mapRecordingError`s
+  `errors.Is`-Switch kennt diese Faelle nicht und faellt auf den
+  default-Zweig (`codes.Internal`), womit der praezise Fehlercode UND die
+  Fehlermeldung verloren gehen. Beim FE kaeme aus "Aufnahme noch nicht
+  fertig" oder "kein Teilnehmer" ein bedeutungsloses "internal error"
+  an. Fix: `mapRecordingError` prueft zuerst per `status.FromError(err)`,
+  ob `err` bereits ein wohlgeformter gRPC-Status ist, und gibt ihn dann
+  unveraendert zurueck — behebt alle ~15 Aufrufstellen der Funktion
+  einheitlich, nicht nur `GetRecordingDownloadURL`. Ohne diesen Fix waren
+  drei der vier `GetRecordingDownloadURL`-Tests rot (NotCompleted,
+  MissingFileURL, NonParticipant — alle drei erwarteten FailedPrecondition/
+  PermissionDenied, bekamen Internal).
+- sicherheitsbefund (dokumentiert, NICHT gefixt — Vorgabe der Unit selbst:
+  "das ist ein Befund fuers Journal, nicht etwas, das diese Unit nebenbei
+  einbaut"): **`DeleteRecording` hat keinerlei Autorisierungspruefung.**
+  Zum Vergleich verifiziert, was korrekt abgesichert IST:
+  `StopRecording` prueft Initiator-ODER-Meeting-Host
+  (`s.meetingService.IsHostOrCoHost`, Zeile 322-329, durch
+  `TestStopRecording_UnauthorizedCallerDenied`/`_AuthorizedMeetingHost`
+  belegt), `GetRecordingDownloadURL` prueft Teilnehmerschaft
+  (`s.repo.GetRecordingParticipants`, Zeile 630-644, durch
+  `TestGetRecordingDownloadURL_NonParticipantDenied` belegt),
+  `ListRecordings` filtert ueber `ListRecordingsWithAccess` teilnehmerscharf.
+  `DeleteRecording` (Zeile 433-454) dagegen: der Handler kommentiert selbst
+  `_ = req.UserId // Authorization handled at gateway level` — das stimmt
+  nicht. `internal/gateway/route_video.go:138` registriert
+  `r.Delete("/recordings/{id}", vr.HandleDeleteRecording)` OHNE
+  `middleware.RequirePermission(...)`-Wrapper (im Unterschied zu den
+  Nachbarrouten `tag-consents`/`metadata`/`cleanup`, die alle
+  `recordings:admin` verlangen), und `HandleDeleteRecording` selbst
+  vergleicht `req.UserId` mit nichts. `TestDeleteRecording_
+  NoParticipantOrInitiatorCheck` belegt das reproduzierbar: ein Fremder,
+  der weder Initiator noch in `GetRecordingParticipants` gelistet ist,
+  loescht (soft-delete via `FailRecording`) erfolgreich die Aufnahme eines
+  anderen Nutzers — jeder authentifizierte Nutzer des Tenants kann jede
+  Aufnahme-ID (UUID, aber innerhalb des Tenants erratbar/enumerierbar ueber
+  `ListRecordings` mit eigener Teilnehmerschaft an anderer Stelle) loeschen.
+  Zusatzbefund, kleiner: **`recording.ErrPreConsentMissing` ist toter Code**
+  — als Sentinel deklariert (`errors.go:14`) und nur in einem Doc-Kommentar
+  referenziert (`service.go:81`), aber nirgends tatsaechlich
+  zurueckgegeben; der reale Pre-Consent-Gate-Pfad (Zeile 111-123) baut
+  `status.Error(codes.FailedPrecondition, ...)` direkt. Und: der Gate selbst
+  ist in Produktion unwirksam — `cmd/work/main.go:146`
+  (`recording.NewService(recordingRepo, egressMgr, ...)`) uebergibt NIE
+  einen `PreConsentChecker` (variadic `checker ...PreConsentChecker` leer),
+  und es gibt im gesamten Repo KEINE Implementierung von
+  `HasInitiatorConsented` (0 Treffer per Grep). Der Kommentar im Code
+  ("mirrors the HTTP-gateway dialog gate") stimmt ebenfalls nicht: die
+  Gateway-Handler `HandleStartRecording`/`HandleConfirmInitiatorConsent`
+  in `route_video.go` erzwingen keine Reihenfolge — ein Client kann
+  `StartRecording` aufrufen, ohne je `ConfirmInitiatorConsent` gerufen zu
+  haben. Zwei unabhaengige, aber verwandte DSGVO/UWG-Luecken bei
+  Aufnahmen — beide dokumentiert, keine gefixt (ausserhalb des Scopes
+  dieser Coverage-Unit).
+- gate: `go build -p 2 ./...` ok | `go vet ./internal/server/...
+  ./internal/gateway/... ./internal/work/video/... ./internal/work/recording/...`
+  ok | `golangci-lint run --config .golangci.yml ./internal/server/...
+  ./internal/gateway/... ./internal/work/video/... ./internal/work/recording/...`
+  0 issues | `go test -count=1 ./internal/server/... ./internal/gateway/...
+  ./internal/work/video/... ./internal/work/recording/... ./internal/work/meeting/...`
+  alle gruen inkl. `TestOpenAPIRouteDrift` (keine Route angefasst; einmal
+  parallel flaky rot ohne Diagnosetext im Log, isoliert und seriell sofort
+  wieder gruen — nicht reproduzierbar, kein Code-Zusammenhang zu dieser
+  Unit) | migration n.a. | RLS-Smoke n.a. (keine Tabelle/Policy angefasst) |
+  Coverage `internal/server` 12,7 % → 14,4 % (lokal ohne DATABASE_URL fuer
+  dieses In-Memory-Paket irrelevant, aber konsistent mit demselben
+  Env-Setup gemessen wie Iteration 40).
+- mutations-probe: zwei Stueck, beide praezise, danach zurueckgedreht
+  (`diff` gegen Backup-Kopie vor der Probe zeigt exakt Identitaet, kein
+  Rest).
+  (1) Den `status.FromError`-Passthrough-Fix aus `mapRecordingError`
+  wieder entfernt (Ruecksprung auf den Bug-Zustand). Ergebnis: GENAU
+  `TestGetRecordingDownloadURL_NotCompletedRejected`,
+  `_MissingFileURLRejected` und `_NonParticipantDenied` wurden rot (alle
+  drei erwarteten FailedPrecondition/PermissionDenied, bekamen Internal),
+  `_Success` und alle anderen 40+ Tests blieben gruen.
+  (2) `mapVideoError`: `ErrMaxParticipants` von `ResourceExhausted` auf
+  `InvalidArgument` gedreht. Ergebnis: GENAU der Subtest
+  `call_has_reached_maximum_participants` in `TestMapVideoError_AllSentinels`
+  sowie `TestJoinCall_MaxParticipantsRejected` wurden rot, alle anderen
+  Faelle blieben gruen. Beide Proben zurueckgedreht, Endgate danach erneut
+  gelaufen und gruen (487 PASS, 0 SKIP in `internal/server`).
+- db-tests: 0 (reines In-Memory-Paket, `internal/server` hat keinen
+  `SkipIfNoDB`-Pfad). `DATABASE_URL` war gesetzt, aber fuer dieses Paket
+  irrelevant.
+- offen: Fuer Luke, absteigend nach Dringlichkeit.
+  (1) **`DeleteRecording` ohne jede Autorisierung** — siehe Befund oben,
+  der dringendste Punkt aus dieser Iteration. Kandidat fuer eine eigene
+  Fix-Unit: entweder `RequirePermission("recordings", "admin")` am Gateway
+  (analog zu tag-consents/metadata/cleanup, schnellster Fix, aber sperrt
+  auch normale Nutzer von einer eigenen Aufnahme aus) oder ein
+  Initiator-oder-Host-Check im Service (analog `StopRecording`, praeziser,
+  mehr Aufwand).
+  (2) **Pre-Consent-Gate ist in Produktion tot** — `PreConsentChecker`
+  nirgends implementiert/verdrahtet, keine Reihenfolge-Erzwingung am
+  Gateway. Der DSGVO/UWG-Anspruch aus dem Code-Kommentar
+  ("mirrors the HTTP-gateway dialog gate") ist nicht eingeloest. Groessere
+  Unit: braucht entweder eine echte `PreConsentChecker`-Implementierung
+  (DB-Tabelle/Cache fuer Pre-Consent-Tokens) oder eine Gateway-seitige
+  Reihenfolge-Erzwingung.
+  (3) Kleinerer Aufraeumpunkt: `recording.ErrPreConsentMissing` ist toter
+  Code (Sentinel ohne Rueckgabepfad) — beim Bau von (2) mit entfernen oder
+  tatsaechlich verwenden.
+  (4) Call-Teilnehmer (`callParticipantToProto`) tragen strukturell immer
+  leere `FirstName`/`LastName` — `Service.GetCall`s Kommentar
+  ("names are populated at gateway/gRPC level") stimmt fuer Anrufe nicht,
+  im Unterschied zu Meetings (`meetingWithAttendeesToProto` bekommt Namen
+  aus dem Repository). Niedrige Prioritaet (FE zeigt bei Calls ohnehin
+  primaer Avatare/IDs), aber falls das UI je Namen in der Teilnehmerliste
+  eines Anrufs zeigen soll, fehlt die Anreicherung.
+  (5) Kein FE-Konsument fuer die beiden neuen Tests-getriebenen Fixes
+  ((1) leere Listen, (2) mapRecordingError) noetig — beides ist reine
+  Server-Korrektheit, wirkt sich nur auf bestehende Endpunkte aus, keine
+  neue Route/kein neues Feld.
