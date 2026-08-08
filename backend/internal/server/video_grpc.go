@@ -847,7 +847,7 @@ func (s *VideoGRPCServer) ListMeetings(ctx context.Context, req *videov1.ListMee
 		return nil, mapMeetingError(err)
 	}
 
-	var protos []*videov1.Meeting
+	protos := make([]*videov1.Meeting, 0, len(meetings))
 	for _, m := range meetings {
 		protos = append(protos, meetingToProto(&m))
 	}
@@ -1145,12 +1145,18 @@ func (s *VideoGRPCServer) ListMeetingOccurrences(ctx context.Context, req *video
 // ============================================================================
 
 func (s *VideoGRPCServer) CreateActionItem(ctx context.Context, req *videov1.CreateActionItemRequest) (*videov1.ActionItem, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
 	input := meeting.CreateActionItemInput{
+		TenantID:    tenantID,
 		MeetingID:   meetingID,
 		Description: req.Description,
 	}
@@ -1246,7 +1252,7 @@ func (s *VideoGRPCServer) ListActionItems(ctx context.Context, req *videov1.List
 		return nil, mapMeetingError(err)
 	}
 
-	var protos []*videov1.ActionItem
+	protos := make([]*videov1.ActionItem, 0, len(items))
 	for _, item := range items {
 		protos = append(protos, actionItemToProto(&item))
 	}
@@ -1283,7 +1289,7 @@ func (s *VideoGRPCServer) ConvertActionItemsToTasks(ctx context.Context, req *vi
 
 	// For each action item, create a task and link them
 	convertedCount := 0
-	var resultItems []*videov1.ActionItem
+	resultItems := make([]*videov1.ActionItem, 0, len(itemIDs))
 
 	for _, itemID := range itemIDs {
 		// Resolve the meeting ID for this action item via the meeting service.
@@ -1367,7 +1373,7 @@ func (s *VideoGRPCServer) GetBulkPresence(ctx context.Context, req *videov1.GetB
 		return nil, mapPresenceError(err)
 	}
 
-	var protos []*videov1.PresenceStatus
+	protos := make([]*videov1.PresenceStatus, 0, len(result))
 	for _, p := range result {
 		protos = append(protos, presenceToProto(p))
 	}
@@ -2142,7 +2148,7 @@ func (s *VideoGRPCServer) ListCoHosts(ctx context.Context, req *videov1.ListCoHo
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
-	var protoCoHosts []*videov1.MeetingCoHost
+	protoCoHosts := make([]*videov1.MeetingCoHost, 0, len(cohosts))
 	for _, ch := range cohosts {
 		protoCoHosts = append(protoCoHosts, meetingCoHostToProto(&ch))
 	}
