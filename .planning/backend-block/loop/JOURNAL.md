@@ -3611,3 +3611,109 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   ((1) leere Listen, (2) mapRecordingError) noetig — beides ist reine
   Server-Korrektheit, wirkt sich nur auf bestehende Endpunkte aus, keine
   neue Route/kein neues Feld.
+
+## Iteration 42 — b-cov-server-hr — done — 2026-08-09 00:05
+- verify vorgaenger: sauber. `4f84fa26` (b-cov-server-video-calls) geprueft
+  gegen alle acht Fehlerklassen: neue Testdatei plus 18 Zeilen Produktivcode
+  in `video_grpc.go` (fuenf `var protos []*X` → `make(..., 0, len(...))`,
+  ein `status.FromError`-Passthrough am Anfang von `mapRecordingError`),
+  beide exakt so im Journal dokumentiert. Kein Route-/Migrations-/Guard-Diff,
+  kein Handler-Direktzugriff auf eine Service-Instanz. Der dokumentierte
+  Sicherheitsbefund zu `DeleteRecording` (keine Autorisierungspruefung) war
+  bereits als "Befund im Journal, nicht fixen" im `done_when` der Unit selbst
+  vorgesehen — nicht mein Job, ihn in dieser Iteration zu schliessen, siehe
+  "offen" unten. `git fetch`/`git merge origin/main` war "Already up to date".
+- gebaut: Neue Datei `internal/server/hr_grpc_test.go` fuer
+  `internal/server/hr_grpc.go` (2.201 Zeilen, keine Testdatei zuvor) und
+  `internal/server/hr_grpc_changerequest.go`. `newTestHRServer()` baut den
+  Server mit allen sechs Service-Feldern `nil` (derselbe Trick wie
+  `newTestFormulareServer`) — jede Validierungs-Subtest muss vor dem
+  Service-Aufruf abbrechen, sonst Nil-Panic; das war das Leitplanke beim
+  Schreiben, nicht nur eine Behauptung danach.
+  (1) `TestMapHRError_AllSentinels`: alle 45 Sentinels der `switch`-Tabelle
+  (7 leave, 16 timetracking, 13 employee, 8 changerequest, 1 absence,
+  "gebaut" siehe unten) einzeln gegen den erwarteten gRPC-Code, plus `nil`
+  und ein unbekannter Fehler (Default-Zweig → Internal, keine Nachricht des
+  Fehlers geleakt).
+  (2) Alle sechzehn `toProto*`-Konvertierer mit Nil-Test
+  (`TestHRToProtoConverters_Nil`, ein Assert je Konvertierer) und je einem
+  vollstaendig befuellten Objekt in einer eigenen Testfunktion — inklusive
+  verschachtelter Faelle (`Breaks` in `WorkTimeEntry`, `DailySummaries` +
+  `WorkDays`-Zaehlung in `WeeklySummary`) und NULL-optionaler Felder
+  (`EmployeeDocument` ohne `FileID`/`ExpiresAt` → leerer String, kein
+  Nil-Pointer-Panic ueber `.String()`/`.Format()`). `toProtoChangeRequest`
+  hat als einziger der sechzehn KEINEN Nil-Guard (`r.ID.String()` ohne
+  vorherigen `if r == nil`-Check) — dokumentiert statt getestet, siehe
+  "offen".
+  (3) Vertragsart-Aufzaehlung (`contractTypeToProto`/`FromProto`) als
+  Rundreise ueber alle fuenf Werte (full_time/part_time/mini_job/intern/
+  temporary) PLUS beide Unspecified-Defaults: `contractTypeFromProto(
+  CONTRACT_TYPE_UNSPECIFIED)` → `full_time` (kein Fehlerkanal, muss auf
+  etwas Definiertes fallen), `contractTypeToProto("bogus domain value")` →
+  `CONTRACT_TYPE_UNSPECIFIED`. Gleiches Muster fuer `halfDayPeriod*`
+  (Rundreise + Unspecified → `morning`). `leaveStatusToProto`/
+  `workTimeStatusToProto` als reine Vorwaerts-Tabellen (keine …FromProto-
+  Gegenstuecke im Zielcode) ueber alle Werte plus einen unbekannten
+  Domainwert → jeweiliger `..._UNSPECIFIED`.
+  (4) `TestHRHandlers_Validation`: alle 56 RPCs beider Dateien (51 in
+  `hr_grpc.go`, 5 in `hr_grpc_changerequest.go`) mit mindestens einem
+  Invalid-Input-Fall — ungueltige UUID, fehlender Tenant im Context,
+  fehlende Actor-ID im Context (`OffboardEmployee`), ungueltiges Datum,
+  fehlende Pflichtfelder (`CreateManualEntry` ohne Clock-Zeiten,
+  `UploadEmployeeDocument` ohne Kategorie). Bei reinen
+  "Tenant-only"-Methoden (z. B. `CreateTimeCategory`, `ListTimeProjects`,
+  `GetHRSettings`) ist "fehlender Tenant → Unauthenticated" der EINZIGE
+  sichere Testfall, weil jeder gueltige Tenant sofort in den nil-Service
+  laufen wuerde — das ist beabsichtigt, kein Luecken-Kompromiss.
+  Praemisse aus den `notes` der Backlog-Unit widerlegt: "Namensaufloesung
+  mit E-Mail-Rueckfall" existiert nicht in `hr_grpc.go` — es ist
+  `COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+  u.email, '')` direkt in der SQL von drei Queries in
+  `internal/biz/hr/employee/postgres_repository.go` (Zeilen 56-58, 76-78,
+  141+). `UserName`/`UserEmail` kommen im Go-Code als fertige Strings an,
+  `toProtoEmployeeProfile` kopiert sie nur 1:1 — an dieser Datei nichts zu
+  testen, das nicht ein DB-Test in `employee` waere (existiert dort schon).
+- gate: `go build -p 2 ./...` ok | `go vet ./internal/server/...
+  ./internal/gateway/...` ok | `golangci-lint run --config .golangci.yml
+  ./internal/server/... ./internal/gateway/...` 0 issues | `go test -count=1
+  ./internal/server/... ./internal/gateway/... ./internal/testutil/...` alle
+  gruen inkl. `TestOpenAPIRouteDrift` (keine Route angefasst) und
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` (keine Tabelle angefasst) |
+  migration n.a. | RLS-Smoke n.a.
+- mutations-probe: zwei Stueck, beide praezise, danach zurueckgedreht
+  (`git diff --stat -- internal/server/hr_grpc.go` zeigt leer nach dem
+  Zurueckdrehen).
+  (1) `mapHRError`: `employee.ErrSuccessorRequired` von `codes.OutOfRange`
+  auf `codes.InvalidArgument` gedreht. Ergebnis: GENAU
+  `TestMapHRError_AllSentinels/SuccessorRequired` wurde rot, die 44
+  uebrigen Sentinel-Subtests plus `nil` und `UnknownError` blieben gruen.
+  (2) `contractTypeFromProto`: Default-Zweig von `models.HRContractFullTime`
+  auf `models.HRContractPartTime` gedreht. Ergebnis: GENAU
+  `TestContractTypeFromProto_UnspecifiedDefaultsToFullTime` wurde rot (volle
+  Testsuite von `internal/server` gelaufen, um sicherzugehen, dass nichts
+  anderes durch den Default-Wert kollateral betroffen ist — war es nicht,
+  da kein Validierungstest je einen gueltigen Contract-Type-Wert bis zu
+  dieser Funktion durchreicht). Beide Proben zurueckgedreht, Endgate danach
+  erneut gelaufen und gruen.
+- db-tests: 0 im neuen Paket (reines Mock/Validierungs-Testing ueber
+  `newTestHRServer()` mit nil-Services, kein `SkipIfNoDB`-Pfad in dieser
+  Datei) — **0 Skips** in der vollstaendigen `internal/server`-Suite.
+  `DATABASE_URL` war auf `kmuhub_app` gesetzt; die DB-Seite der HR-Services
+  selbst ist bereits durch die bestehenden `internal/biz/hr/*`-DB-Tests
+  abgedeckt (aus fruehren Iterationen, u. a. c-cov-biz-hr-leave), diese
+  Unit deckt ausschliesslich die gRPC-Schicht.
+- offen: Zwei Punkte fuer Luke.
+  (1) `toProtoChangeRequest` hat keinen Nil-Guard, im Unterschied zu allen
+  15 anderen `toProto*`-Funktionen in denselben zwei Dateien. Aktuell
+  ungefaehrlich, weil jeder der fuenf Aufrufer (`ListProfileChangeRequests`
+  ueber eine Slice-Iteration, die vier anderen mit dem direkten
+  Service-Rueckgabewert bei `err == nil`) nie `nil` uebergibt — aber die
+  Inkonsistenz ist ein leiser Fallstrick fuer den naechsten Aufrufer. Eine
+  Zeile Fix (`if r == nil { return nil }`), aber ausserhalb des Scopes
+  dieser Coverage-Unit, da `notes` nur Testabdeckung fordert.
+  (2) `EmployeeProfile.HourlyRate` (`*decimal.Decimal` im Modell) wird von
+  `toProtoEmployeeProfile` nirgends in die Proto-Struct kopiert — stiller
+  Datenverlust, falls das Feld je befuellt wird. Kein FE-Konsument bekannt
+  (`hourly_rate` taucht im HR-Proto ueberhaupt nicht auf), also vermutlich
+  totes Modellfeld, kein aktiver Bug — aber falls Lohn-/Gehaltsdaten je
+  darueber laufen sollen, fehlt die Verdrahtung komplett.

@@ -1733,7 +1733,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/hr_grpc.go` - 2.193 Zeilen, 51 Methoden und SECHZEHN
       Konvertierungsfunktionen, keine Testdatei. Die dichteste Konvertierungsflaeche im
@@ -1754,6 +1754,26 @@ units:
       - Validierungspfade je Methode
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Neue Datei hr_grpc_test.go: newTestHRServer() baut den Server mit allen
+      sechs Service-Feldern nil (gleicher Trick wie newTestFormulareServer),
+      jede Validierungs-Subtest muss vor dem Service-Aufruf abbrechen, sonst
+      Nil-Panic. TestMapHRError_AllSentinels deckt alle 45 Sentinels der
+      switch-Tabelle plus den Default-Zweig. Alle sechzehn toProto*-Konvertierer
+      mit Nil-Test (toProtoChangeRequest hat keinen Nil-Guard, dokumentiert statt
+      getestet) und vollstaendig befuelltem Objekt, inklusive verschachtelter
+      Faelle (Breaks in WorkTimeEntry, DailySummaries in WeeklySummary) und
+      NULL-optionaler Felder (EmployeeDocument ohne FileID/ExpiresAt). Die
+      Vertragsart-Aufzaehlung laeuft als Rundreise ueber alle fuenf Werte plus
+      beide Unspecified-Defaults (contractTypeFromProto -> full_time,
+      halfDayPeriodFromProto -> morning). TestHRHandlers_Validation deckt alle
+      56 RPCs beider Dateien (51 in hr_grpc.go, 5 in hr_grpc_changerequest.go)
+      mit je mindestens einem Invalid-Input-Fall. Praemisse aus den notes
+      widerlegt: die "Namensaufloesung mit E-Mail-Rueckfall" existiert nicht in
+      hr_grpc.go, sondern als COALESCE(NULLIF(...), email, '') direkt in der
+      SQL der PostgresEmployeeRepo-Queries - UserName/UserEmail kommen im
+      Go-Code als fertige Strings an, die toProto-Funktion kopiert sie nur.
+      Nicht an dieser Datei testbar, siehe Journal.
 
   - id: b-cov-server-document
     phase: 3
