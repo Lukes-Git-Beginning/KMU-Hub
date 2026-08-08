@@ -1537,7 +1537,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/work_grpc.go`, erste Haelfte - Projekte, Projektstatus und Aufgaben.
       2.532 Zeilen und 66 Methoden ohne eine einzige Testdatei; deshalb auf zwei Units
@@ -1559,6 +1559,61 @@ units:
       - Leere Listen kommen als [] zurueck, nicht als null
       - Mutations-Probe durchgefuehrt und ihr Ergebnis im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Neue Datei `work_project_task_test.go` (~90 Tests) deckt Projects, Project Members,
+      Project Templates, Project Statuses, Tasks (CRUD/Move/Subtasks) und Task Dependencies
+      ab, plus vollstaendige Tabellentests fuer BEIDE Fehler-Abbildungen der Datei
+      (`mapWorkError` ueber alle 34 Sentinels aus project/status/task/comment/label/
+      customfield, `mapTimeEntryError` ueber alle 8 timeentry-Sentinels), je plus unbekannter
+      Fehler -> Internal. Dafuer zwei neue In-Memory-Mock-Repos gebaut (`projectMockRepo`,
+      `statusMockRepo`), die echte Business-Logik durchlaufen lassen (Key-Eindeutigkeit,
+      Owner-Autoadd, Last-Owner-Schutz, Duplicate-Dependency, Self-Dependency), statt nur
+      Stub-Fehler zurueckzugeben - das deckt die eigentliche mapWorkError-Verdrahtung
+      end-to-end ab, nicht nur die Tabelle isoliert. `workTaskMockRepo` (work_label_test.go)
+      war fuer Dependencies ein reiner No-Op (`ListDependencies` gab immer nil zurueck) -
+      minimal erweitert um ein `dependencies []models.TaskDependency`-Feld, damit
+      Duplicate-Erkennung ueberhaupt testbar ist; keine bestehende Testerwartung haengt am
+      alten No-Op-Verhalten (verifiziert per Grep, nur die zwei Aufrufstellen in work_grpc.go).
+      Umfang bewusst auf "Projekt- und Aufgabenmethoden" im engen Sinn begrenzt (Projects,
+      Members, Templates, Statuses, Tasks, Dependencies) - Comments/Labels/CustomField-
+      Definitionen/TimeTracking gehoeren laut Scope-Text explizit zu `b-cov-server-work-rest`
+      und sind dort teilweise schon covered (work_comment_test.go, work_label_test.go).
+      Preferences/Search/EntityLinks/Activity/Files/TaskCustomFieldValues bleiben in
+      work_grpc.go ungetestet - keiner der beiden Backlog-Texte nennt sie explizit; Kandidat
+      fuer eine eigene Nachfolge-Unit statt stillschweigend hier mit reingezogen zu werden.
+      Zwei echte Befunde fuer Luke, nicht gefixt (Scope-Grenze Coverage-Unit):
+      (1) Alle Project-Handler in work_grpc.go rufen den Service konsequent mit
+      `uuid.Nil, true` (isAdmin) auf - die Owner/Member-Autorisierungspruefungen in
+      project.Service (Update/Archive/Delete/AddMember/RemoveMember/UpdateMemberRole/
+      ListMembers) sind an diesem Handler dadurch fuer JEDEN authentifizierten Nutzer
+      unerreichbar, nicht nur fuer Owner. Falls Autorisierung hier gewollt war (statt
+      vollstaendig auf RBAC-Guards am Gateway zu vertrauen), ist das ein Lock-Bypass, kein
+      Test-Bug - meine Mocks bilden das bestehende Verhalten korrekt ab.
+      (2) `CreateProjectStatus`/`UpdateProjectStatus`/`DeleteProjectStatus`/
+      `ReorderProjectStatuses`/`ListProjectStatuses`, `ListSubtasks`, `CreateTaskDependency`
+      und `ListTaskDependencies` rufen `middleware.GetTenantID(ctx)` gar nicht auf - keine
+      dieser Methoden hat einen "fehlender Tenant"-Validierungstest, weil es den Pfad im
+      Code nicht gibt. Tenant-Scoping haengt hier vollstaendig an RLS, nicht an einer
+      Handler-Pruefung.
+    mutation_probe: >
+      Zwei Proben, beide aussagekraeftig, danach zurueckgedreht (git diff auf
+      work_grpc.go bestaetigt leer). (1) In `mapWorkError` den `task.ErrSelfDependency`-Case
+      von `codes.InvalidArgument` auf `codes.PermissionDenied` geaendert: sowohl
+      `TestMapWorkError_AllSentinels/task_self_dependency` als auch
+      `TestCreateTaskDependency_SelfDependencyRejected` (End-to-End durch den echten
+      task.Service) wurden rot. (2) In `AddProjectMember` die `uuid.Parse(req.ProjectId)`-
+      Fehlerpruefung entfernt (`projectID, _ := uuid.Parse(...)`, Fehler verschluckt):
+      `TestAddProjectMember_InvalidProjectID` schlug fehl - sogar mit Panic statt nur
+      falschem Code, weil `uuid.Nil` ungeprueft bis in `project.Service.AddMember` mit
+      nil-Repo durchlief. Beide Proben belegen, dass die Tests echte Regressionen faengen.
+    gate: >
+      `go build -p 2 ./internal/server/... ./internal/gateway/...` ok |
+      `go vet ./internal/server/... ./internal/gateway/...` ok |
+      `golangci-lint run --config .golangci.yml ./internal/server/...` 0 issues |
+      `go test -count=1 -cover ./internal/server/... ./internal/gateway/...` alle gruen
+      inkl. `TestOpenAPIRouteDrift` (kein Route/Proto/Handler angefasst) | migration n.a.
+      (keine Schemaaenderung) | keine DB noetig (reine In-Memory-Mocks, kein
+      DATABASE_URL-Gate fuer dieses Paket).
 
   - id: b-cov-server-work-rest
     phase: 3

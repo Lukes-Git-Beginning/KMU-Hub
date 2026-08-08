@@ -3126,3 +3126,90 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   liest dort nur Status/Daten, nicht angefasst. Die Server-/Gateway-Schicht
   fuer `leave` (map*Error, toProto*) ist nicht Teil dieser Unit — B-Block-
   Charakter fuer `internal/server`/`internal/gateway`, dort eigene Units.
+
+## Iteration 38 — b-cov-server-work-projects — done — 2026-08-08 23:15
+- commit: (siehe naechster Commit — dieser Journal-Eintrag wird im selben
+  Zug wie der Test-Commit vorbereitet)
+- verify vorgaenger: sauber. `7e535685` (iteration-37 journal/backlog
+  commit) war reine Doku, nichts zu pruefen. `git merge origin/main` war
+  "Already up to date".
+- gebaut: `internal/server/work_grpc.go` (2.532 Zeilen, 66 Methoden) hatte
+  bislang nur zwei schmale Testdateien (`work_label_test.go`,
+  `work_comment_test.go`, beide fuer die zweite Haelfte gedacht). Diese
+  Unit deckt die erste Haelfte ab: Projects (Create/Get/List/Update/
+  Archive/Delete), Project Members (Add/Remove/List/UpdateRole), Project
+  Templates (SaveAsTemplate/CreateFromTemplate), Project Statuses (Create/
+  Update/Delete/Reorder/List), Tasks (Create/Get/List/Update/Delete/Move/
+  ListSubtasks) und Task Dependencies (Create/Delete/List) — plus BEIDE
+  Fehler-Abbildungen der Datei vollstaendig als Tabellentest, wie im
+  Scope-Text explizit gefordert ("die beiden Fehler-Abbildungen der
+  Datei"), unabhaengig davon welche Endpunkte in welcher Haelfte liegen:
+  `mapWorkError` ueber alle 34 Sentinels (project/status/task/comment/
+  label/customfield) und `mapTimeEntryError` ueber alle 8
+  timeentry-Sentinels, je plus ein unbekannter Fehler -> Internal.
+  Neue Datei `work_project_task_test.go` mit zwei neuen In-Memory-
+  Mock-Repos (`projectMockRepo`, `statusMockRepo`), die die echte
+  project.Service/wstatus.Service-Logik durchlaufen lassen statt nur
+  Stub-Fehler zurueckzugeben — Key-Eindeutigkeit (Duplicate -> 409-
+  Aequivalent AlreadyExists), Owner-Autoadd bei CreateProject, Last-
+  Owner-Schutz bei Remove/Demote, Template-Validierung (IsTemplate-Flag),
+  Self-/Duplicate-Dependency-Erkennung. Das deckt die mapWorkError-
+  Verdrahtung end-to-end ab (echter Service-Fehler -> echter grpc-Code),
+  nicht nur die Tabelle isoliert gegen den Sentinel.
+  Dabei eine echte Luecke in der bestehenden Test-Infrastruktur gefunden:
+  `workTaskMockRepo.CreateDependency`/`ListDependencies` (work_label_test.go)
+  waren reine No-Ops (Liste kam immer `nil` zurueck), damit war
+  Duplicate-Dependency-Erkennung durch den Handler gar nicht testbar.
+  Minimal erweitert um ein `dependencies []models.TaskDependency`-Feld;
+  per Grep verifiziert, dass keine bestehende Testerwartung am alten
+  No-Op-Verhalten haengt (nur zwei Aufrufstellen ueberhaupt, beide in
+  work_grpc.go selbst).
+  Umfang bewusst eng an "Projekt- und Aufgabenmethoden" gehalten (siehe
+  Scope-Text) — Comments/Labels/CustomField-Definitionen/TimeTracking
+  gehoeren laut Backlog-Text zu `b-cov-server-work-rest` und sind dort
+  teilweise schon covered. Preferences/Search/EntityLinks/Activity/Files/
+  TaskCustomFieldValues bleiben in work_grpc.go ungetestet — keiner der
+  beiden Backlog-Texte nennt sie explizit, also nicht stillschweigend
+  hier reingezogen; Kandidat fuer eine eigene Nachfolge-Unit, im Backlog
+  vermerkt.
+  Zwei echte Befunde fuer Luke, bewusst nicht gefixt (ausserhalb des
+  Scopes einer Coverage-Unit): (1) Alle Project-Handler in work_grpc.go
+  rufen `project.Service` konsequent mit `uuid.Nil, true` (isAdmin) auf —
+  die Owner/Member-Autorisierungspruefungen in project.Service (Update/
+  Archive/Delete/AddMember/RemoveMember/UpdateMemberRole/ListMembers)
+  sind an diesem Handler fuer JEDEN authentifizierten Nutzer unerreichbar,
+  nicht nur fuer Owner. Falls das nicht bewusst auf RBAC-Guards am
+  Gateway delegiert wurde, ist das ein Autorisierungs-Bypass. (2)
+  `CreateProjectStatus`/`UpdateProjectStatus`/`DeleteProjectStatus`/
+  `ReorderProjectStatuses`/`ListProjectStatuses`, `ListSubtasks`,
+  `CreateTaskDependency` und `ListTaskDependencies` rufen
+  `middleware.GetTenantID(ctx)` gar nicht auf — Tenant-Scoping haengt
+  hier vollstaendig an RLS, nicht an einer Handler-Pruefung.
+- gate: `go build -p 2 ./internal/server/... ./internal/gateway/...` ok |
+  `go vet ./internal/server/... ./internal/gateway/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/server/...`
+  0 issues | `go test -count=1 -cover ./internal/server/...
+  ./internal/gateway/...` alle gruen inkl. `TestOpenAPIRouteDrift` (kein
+  Route/Proto/Handler angefasst) | migration n.a. (keine Schemaaenderung)
+  | keine DB noetig — reine In-Memory-Mocks, kein DATABASE_URL-Gate fuer
+  `internal/server`.
+- mutations-probe: zwei Stueck, beide aussagekraeftig, danach
+  zurueckgedreht (`git diff` auf `work_grpc.go` bestaetigt leer).
+  (1) In `mapWorkError` den `task.ErrSelfDependency`-Case von
+  `codes.InvalidArgument` auf `codes.PermissionDenied` geaendert.
+  Ergebnis: sowohl `TestMapWorkError_AllSentinels/task_self_dependency`
+  (isolierte Tabelle) als auch `TestCreateTaskDependency_SelfDependencyRejected`
+  (End-to-End durch den echten task.Service) wurden rot.
+  (2) In `AddProjectMember` die `uuid.Parse(req.ProjectId)`-Fehlerpruefung
+  entfernt (`projectID, _ := uuid.Parse(...)`, Fehler verschluckt).
+  Ergebnis: `TestAddProjectMember_InvalidProjectID` schlug fehl — sogar
+  mit einem Panic statt nur einem falschen Code, weil `uuid.Nil`
+  ungeprueft bis in `project.Service.AddMember` mit dem Nil-Repo der
+  Validierungs-Testserver-Variante durchlief. Beide Proben belegen, dass
+  die neuen Tests echte Regressionen faengen, nicht nur den Happy Path
+  nachzeichnen.
+- offen: Kein Gate-Ausfall. Fuer Luke: die zwei oben genannten Befunde
+  (Autorisierungs-Bypass via hartkodiertem `isAdmin=true`, fehlende
+  Tenant-Checks in mehreren Status-/Dependency-Handlern) sowie die
+  Preferences/Search/EntityLinks/Activity/Files/TaskCustomFieldValues-
+  Restluecke in `work_grpc.go` als Kandidat fuer eine eigene Unit.
