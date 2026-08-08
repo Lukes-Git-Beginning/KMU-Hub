@@ -303,7 +303,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Unterschrift und strukturierte Checkliste am Zustandsprotokoll. `RentalInspection`
       (`internal/vermietung/models.go:65`) traegt heute nur `photo_urls` und Notizen; die

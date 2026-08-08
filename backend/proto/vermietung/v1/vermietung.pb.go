@@ -329,6 +329,8 @@ type RentalInspection struct {
 	PerformedBy   *string                `protobuf:"bytes,7,opt,name=performed_by,json=performedBy,proto3,oneof" json:"performed_by,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Checklist     []*ChecklistItem       `protobuf:"bytes,10,rep,name=checklist,proto3" json:"checklist,omitempty"`
+	SignatureData *string                `protobuf:"bytes,11,opt,name=signature_data,json=signatureData,proto3,oneof" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -426,6 +428,82 @@ func (x *RentalInspection) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *RentalInspection) GetChecklist() []*ChecklistItem {
+	if x != nil {
+		return x.Checklist
+	}
+	return nil
+}
+
+func (x *RentalInspection) GetSignatureData() string {
+	if x != nil && x.SignatureData != nil {
+		return *x.SignatureData
+	}
+	return ""
+}
+
+// ChecklistItem is one structured position of an inspection's condition
+// checklist (replaces recording condition as pure free text).
+type ChecklistItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`         // e.g. "Windschutzscheibe"
+	Condition     string                 `protobuf:"bytes,2,opt,name=condition,proto3" json:"condition,omitempty"` // e.g. "intakt", "beschaedigt"
+	Remark        string                 `protobuf:"bytes,3,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChecklistItem) Reset() {
+	*x = ChecklistItem{}
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChecklistItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChecklistItem) ProtoMessage() {}
+
+func (x *ChecklistItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChecklistItem.ProtoReflect.Descriptor instead.
+func (*ChecklistItem) Descriptor() ([]byte, []int) {
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ChecklistItem) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ChecklistItem) GetCondition() string {
+	if x != nil {
+		return x.Condition
+	}
+	return ""
+}
+
+func (x *ChecklistItem) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
 type CreateObjectRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -442,7 +520,7 @@ type CreateObjectRequest struct {
 
 func (x *CreateObjectRequest) Reset() {
 	*x = CreateObjectRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[3]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -454,7 +532,7 @@ func (x *CreateObjectRequest) String() string {
 func (*CreateObjectRequest) ProtoMessage() {}
 
 func (x *CreateObjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[3]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -467,7 +545,7 @@ func (x *CreateObjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateObjectRequest.ProtoReflect.Descriptor instead.
 func (*CreateObjectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{3}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateObjectRequest) GetTenantId() string {
@@ -544,7 +622,7 @@ type UpdateObjectRequest struct {
 
 func (x *UpdateObjectRequest) Reset() {
 	*x = UpdateObjectRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[4]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -556,7 +634,7 @@ func (x *UpdateObjectRequest) String() string {
 func (*UpdateObjectRequest) ProtoMessage() {}
 
 func (x *UpdateObjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[4]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -569,7 +647,7 @@ func (x *UpdateObjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateObjectRequest.ProtoReflect.Descriptor instead.
 func (*UpdateObjectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{4}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateObjectRequest) GetTenantId() string {
@@ -652,7 +730,7 @@ type DeleteObjectRequest struct {
 
 func (x *DeleteObjectRequest) Reset() {
 	*x = DeleteObjectRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[5]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -664,7 +742,7 @@ func (x *DeleteObjectRequest) String() string {
 func (*DeleteObjectRequest) ProtoMessage() {}
 
 func (x *DeleteObjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[5]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -677,7 +755,7 @@ func (x *DeleteObjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteObjectRequest.ProtoReflect.Descriptor instead.
 func (*DeleteObjectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{5}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteObjectRequest) GetTenantId() string {
@@ -702,7 +780,7 @@ type DeleteObjectResponse struct {
 
 func (x *DeleteObjectResponse) Reset() {
 	*x = DeleteObjectResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[6]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -714,7 +792,7 @@ func (x *DeleteObjectResponse) String() string {
 func (*DeleteObjectResponse) ProtoMessage() {}
 
 func (x *DeleteObjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[6]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -727,7 +805,7 @@ func (x *DeleteObjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteObjectResponse.ProtoReflect.Descriptor instead.
 func (*DeleteObjectResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{6}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{7}
 }
 
 type GetObjectRequest struct {
@@ -740,7 +818,7 @@ type GetObjectRequest struct {
 
 func (x *GetObjectRequest) Reset() {
 	*x = GetObjectRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[7]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +830,7 @@ func (x *GetObjectRequest) String() string {
 func (*GetObjectRequest) ProtoMessage() {}
 
 func (x *GetObjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[7]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -765,7 +843,7 @@ func (x *GetObjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetObjectRequest.ProtoReflect.Descriptor instead.
 func (*GetObjectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{7}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetObjectRequest) GetTenantId() string {
@@ -791,7 +869,7 @@ type ObjectResponse struct {
 
 func (x *ObjectResponse) Reset() {
 	*x = ObjectResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[8]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -803,7 +881,7 @@ func (x *ObjectResponse) String() string {
 func (*ObjectResponse) ProtoMessage() {}
 
 func (x *ObjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[8]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -816,7 +894,7 @@ func (x *ObjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObjectResponse.ProtoReflect.Descriptor instead.
 func (*ObjectResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{8}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ObjectResponse) GetObject() *RentalObject {
@@ -840,7 +918,7 @@ type ListObjectsRequest struct {
 
 func (x *ListObjectsRequest) Reset() {
 	*x = ListObjectsRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[9]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -852,7 +930,7 @@ func (x *ListObjectsRequest) String() string {
 func (*ListObjectsRequest) ProtoMessage() {}
 
 func (x *ListObjectsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[9]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -865,7 +943,7 @@ func (x *ListObjectsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListObjectsRequest.ProtoReflect.Descriptor instead.
 func (*ListObjectsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{9}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListObjectsRequest) GetTenantId() string {
@@ -920,7 +998,7 @@ type ListObjectsResponse struct {
 
 func (x *ListObjectsResponse) Reset() {
 	*x = ListObjectsResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[10]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +1010,7 @@ func (x *ListObjectsResponse) String() string {
 func (*ListObjectsResponse) ProtoMessage() {}
 
 func (x *ListObjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[10]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +1023,7 @@ func (x *ListObjectsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListObjectsResponse.ProtoReflect.Descriptor instead.
 func (*ListObjectsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{10}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListObjectsResponse) GetObjects() []*RentalObject {
@@ -975,7 +1053,7 @@ type CheckAvailabilityRequest struct {
 
 func (x *CheckAvailabilityRequest) Reset() {
 	*x = CheckAvailabilityRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[11]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -987,7 +1065,7 @@ func (x *CheckAvailabilityRequest) String() string {
 func (*CheckAvailabilityRequest) ProtoMessage() {}
 
 func (x *CheckAvailabilityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[11]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1000,7 +1078,7 @@ func (x *CheckAvailabilityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckAvailabilityRequest.ProtoReflect.Descriptor instead.
 func (*CheckAvailabilityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{11}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CheckAvailabilityRequest) GetTenantId() string {
@@ -1048,7 +1126,7 @@ type CheckAvailabilityResponse struct {
 
 func (x *CheckAvailabilityResponse) Reset() {
 	*x = CheckAvailabilityResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[12]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1060,7 +1138,7 @@ func (x *CheckAvailabilityResponse) String() string {
 func (*CheckAvailabilityResponse) ProtoMessage() {}
 
 func (x *CheckAvailabilityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[12]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1073,7 +1151,7 @@ func (x *CheckAvailabilityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckAvailabilityResponse.ProtoReflect.Descriptor instead.
 func (*CheckAvailabilityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{12}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CheckAvailabilityResponse) GetAvailable() bool {
@@ -1107,7 +1185,7 @@ type CreateRentalRequest struct {
 
 func (x *CreateRentalRequest) Reset() {
 	*x = CreateRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[13]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +1197,7 @@ func (x *CreateRentalRequest) String() string {
 func (*CreateRentalRequest) ProtoMessage() {}
 
 func (x *CreateRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[13]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1210,7 @@ func (x *CreateRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRentalRequest.ProtoReflect.Descriptor instead.
 func (*CreateRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{13}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CreateRentalRequest) GetTenantId() string {
@@ -1214,7 +1292,7 @@ type UpdateRentalRequest struct {
 
 func (x *UpdateRentalRequest) Reset() {
 	*x = UpdateRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[14]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1226,7 +1304,7 @@ func (x *UpdateRentalRequest) String() string {
 func (*UpdateRentalRequest) ProtoMessage() {}
 
 func (x *UpdateRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[14]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1239,7 +1317,7 @@ func (x *UpdateRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRentalRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{14}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateRentalRequest) GetTenantId() string {
@@ -1308,7 +1386,7 @@ type DeleteRentalRequest struct {
 
 func (x *DeleteRentalRequest) Reset() {
 	*x = DeleteRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[15]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1320,7 +1398,7 @@ func (x *DeleteRentalRequest) String() string {
 func (*DeleteRentalRequest) ProtoMessage() {}
 
 func (x *DeleteRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[15]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1333,7 +1411,7 @@ func (x *DeleteRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRentalRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{15}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DeleteRentalRequest) GetTenantId() string {
@@ -1358,7 +1436,7 @@ type DeleteRentalResponse struct {
 
 func (x *DeleteRentalResponse) Reset() {
 	*x = DeleteRentalResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[16]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1370,7 +1448,7 @@ func (x *DeleteRentalResponse) String() string {
 func (*DeleteRentalResponse) ProtoMessage() {}
 
 func (x *DeleteRentalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[16]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1383,7 +1461,7 @@ func (x *DeleteRentalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRentalResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRentalResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{16}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{17}
 }
 
 type GetRentalRequest struct {
@@ -1396,7 +1474,7 @@ type GetRentalRequest struct {
 
 func (x *GetRentalRequest) Reset() {
 	*x = GetRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[17]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1408,7 +1486,7 @@ func (x *GetRentalRequest) String() string {
 func (*GetRentalRequest) ProtoMessage() {}
 
 func (x *GetRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[17]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1421,7 +1499,7 @@ func (x *GetRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRentalRequest.ProtoReflect.Descriptor instead.
 func (*GetRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{17}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetRentalRequest) GetTenantId() string {
@@ -1447,7 +1525,7 @@ type RentalResponse struct {
 
 func (x *RentalResponse) Reset() {
 	*x = RentalResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[18]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1459,7 +1537,7 @@ func (x *RentalResponse) String() string {
 func (*RentalResponse) ProtoMessage() {}
 
 func (x *RentalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[18]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1472,7 +1550,7 @@ func (x *RentalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RentalResponse.ProtoReflect.Descriptor instead.
 func (*RentalResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{18}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RentalResponse) GetRental() *Rental {
@@ -1497,7 +1575,7 @@ type ListRentalsRequest struct {
 
 func (x *ListRentalsRequest) Reset() {
 	*x = ListRentalsRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[19]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1509,7 +1587,7 @@ func (x *ListRentalsRequest) String() string {
 func (*ListRentalsRequest) ProtoMessage() {}
 
 func (x *ListRentalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[19]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1522,7 +1600,7 @@ func (x *ListRentalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRentalsRequest.ProtoReflect.Descriptor instead.
 func (*ListRentalsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{19}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListRentalsRequest) GetTenantId() string {
@@ -1584,7 +1662,7 @@ type ListRentalsResponse struct {
 
 func (x *ListRentalsResponse) Reset() {
 	*x = ListRentalsResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[20]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1596,7 +1674,7 @@ func (x *ListRentalsResponse) String() string {
 func (*ListRentalsResponse) ProtoMessage() {}
 
 func (x *ListRentalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[20]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1609,7 +1687,7 @@ func (x *ListRentalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRentalsResponse.ProtoReflect.Descriptor instead.
 func (*ListRentalsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{20}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListRentalsResponse) GetRentals() []*Rental {
@@ -1636,7 +1714,7 @@ type StartRentalRequest struct {
 
 func (x *StartRentalRequest) Reset() {
 	*x = StartRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[21]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1648,7 +1726,7 @@ func (x *StartRentalRequest) String() string {
 func (*StartRentalRequest) ProtoMessage() {}
 
 func (x *StartRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[21]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1661,7 +1739,7 @@ func (x *StartRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartRentalRequest.ProtoReflect.Descriptor instead.
 func (*StartRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{21}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StartRentalRequest) GetTenantId() string {
@@ -1688,7 +1766,7 @@ type EndRentalRequest struct {
 
 func (x *EndRentalRequest) Reset() {
 	*x = EndRentalRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[22]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1700,7 +1778,7 @@ func (x *EndRentalRequest) String() string {
 func (*EndRentalRequest) ProtoMessage() {}
 
 func (x *EndRentalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[22]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1713,7 +1791,7 @@ func (x *EndRentalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndRentalRequest.ProtoReflect.Descriptor instead.
 func (*EndRentalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{22}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *EndRentalRequest) GetTenantId() string {
@@ -1738,13 +1816,14 @@ type CreateInspectionRequest struct {
 	Notes         string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
 	PhotoUrls     []string               `protobuf:"bytes,5,rep,name=photo_urls,json=photoUrls,proto3" json:"photo_urls,omitempty"`
 	PerformedBy   *string                `protobuf:"bytes,6,opt,name=performed_by,json=performedBy,proto3,oneof" json:"performed_by,omitempty"`
+	Checklist     []*ChecklistItem       `protobuf:"bytes,7,rep,name=checklist,proto3" json:"checklist,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateInspectionRequest) Reset() {
 	*x = CreateInspectionRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[23]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1756,7 +1835,7 @@ func (x *CreateInspectionRequest) String() string {
 func (*CreateInspectionRequest) ProtoMessage() {}
 
 func (x *CreateInspectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[23]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1769,7 +1848,7 @@ func (x *CreateInspectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInspectionRequest.ProtoReflect.Descriptor instead.
 func (*CreateInspectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{23}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateInspectionRequest) GetTenantId() string {
@@ -1814,6 +1893,13 @@ func (x *CreateInspectionRequest) GetPerformedBy() string {
 	return ""
 }
 
+func (x *CreateInspectionRequest) GetChecklist() []*ChecklistItem {
+	if x != nil {
+		return x.Checklist
+	}
+	return nil
+}
+
 type UpdateInspectionRequest struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	TenantId     string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1828,13 +1914,20 @@ type UpdateInspectionRequest struct {
 	// replace_photos: when true, photo_urls replaces the existing list (even if empty).
 	// When false (default), photo_urls is ignored and existing photos are kept.
 	ReplacePhotos bool `protobuf:"varint,5,opt,name=replace_photos,json=replacePhotos,proto3" json:"replace_photos,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// checklist + replace_checklist follow the same full-replacement convention
+	// as photo_urls/replace_photos above, for the same reason: a repeated field
+	// has no wire-level presence bit, so "not provided" and "provided empty"
+	// need an explicit flag to stay distinguishable.
+	Checklist        []*ChecklistItem `protobuf:"bytes,6,rep,name=checklist,proto3" json:"checklist,omitempty"`
+	ReplaceChecklist bool             `protobuf:"varint,7,opt,name=replace_checklist,json=replaceChecklist,proto3" json:"replace_checklist,omitempty"`
+	SignatureData    *string          `protobuf:"bytes,8,opt,name=signature_data,json=signatureData,proto3,oneof" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateInspectionRequest) Reset() {
 	*x = UpdateInspectionRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[24]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1846,7 +1939,7 @@ func (x *UpdateInspectionRequest) String() string {
 func (*UpdateInspectionRequest) ProtoMessage() {}
 
 func (x *UpdateInspectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[24]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1859,7 +1952,7 @@ func (x *UpdateInspectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateInspectionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateInspectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{24}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UpdateInspectionRequest) GetTenantId() string {
@@ -1897,6 +1990,27 @@ func (x *UpdateInspectionRequest) GetReplacePhotos() bool {
 	return false
 }
 
+func (x *UpdateInspectionRequest) GetChecklist() []*ChecklistItem {
+	if x != nil {
+		return x.Checklist
+	}
+	return nil
+}
+
+func (x *UpdateInspectionRequest) GetReplaceChecklist() bool {
+	if x != nil {
+		return x.ReplaceChecklist
+	}
+	return false
+}
+
+func (x *UpdateInspectionRequest) GetSignatureData() string {
+	if x != nil && x.SignatureData != nil {
+		return *x.SignatureData
+	}
+	return ""
+}
+
 type GetInspectionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1907,7 +2021,7 @@ type GetInspectionRequest struct {
 
 func (x *GetInspectionRequest) Reset() {
 	*x = GetInspectionRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[25]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1919,7 +2033,7 @@ func (x *GetInspectionRequest) String() string {
 func (*GetInspectionRequest) ProtoMessage() {}
 
 func (x *GetInspectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[25]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1932,7 +2046,7 @@ func (x *GetInspectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInspectionRequest.ProtoReflect.Descriptor instead.
 func (*GetInspectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{25}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetInspectionRequest) GetTenantId() string {
@@ -1958,7 +2072,7 @@ type InspectionResponse struct {
 
 func (x *InspectionResponse) Reset() {
 	*x = InspectionResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[26]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1970,7 +2084,7 @@ func (x *InspectionResponse) String() string {
 func (*InspectionResponse) ProtoMessage() {}
 
 func (x *InspectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[26]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1983,7 +2097,7 @@ func (x *InspectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectionResponse.ProtoReflect.Descriptor instead.
 func (*InspectionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{26}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *InspectionResponse) GetInspection() *RentalInspection {
@@ -2005,7 +2119,7 @@ type ListInspectionsRequest struct {
 
 func (x *ListInspectionsRequest) Reset() {
 	*x = ListInspectionsRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[27]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2017,7 +2131,7 @@ func (x *ListInspectionsRequest) String() string {
 func (*ListInspectionsRequest) ProtoMessage() {}
 
 func (x *ListInspectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[27]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2030,7 +2144,7 @@ func (x *ListInspectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInspectionsRequest.ProtoReflect.Descriptor instead.
 func (*ListInspectionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{27}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListInspectionsRequest) GetTenantId() string {
@@ -2071,7 +2185,7 @@ type ListInspectionsResponse struct {
 
 func (x *ListInspectionsResponse) Reset() {
 	*x = ListInspectionsResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[28]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2083,7 +2197,7 @@ func (x *ListInspectionsResponse) String() string {
 func (*ListInspectionsResponse) ProtoMessage() {}
 
 func (x *ListInspectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[28]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2096,7 +2210,7 @@ func (x *ListInspectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInspectionsResponse.ProtoReflect.Descriptor instead.
 func (*ListInspectionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{28}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListInspectionsResponse) GetInspections() []*RentalInspection {
@@ -2124,7 +2238,7 @@ type GetRentalCalendarRequest struct {
 
 func (x *GetRentalCalendarRequest) Reset() {
 	*x = GetRentalCalendarRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[29]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2136,7 +2250,7 @@ func (x *GetRentalCalendarRequest) String() string {
 func (*GetRentalCalendarRequest) ProtoMessage() {}
 
 func (x *GetRentalCalendarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[29]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2149,7 +2263,7 @@ func (x *GetRentalCalendarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRentalCalendarRequest.ProtoReflect.Descriptor instead.
 func (*GetRentalCalendarRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{29}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetRentalCalendarRequest) GetTenantId() string {
@@ -2184,7 +2298,7 @@ type CalendarEntry struct {
 
 func (x *CalendarEntry) Reset() {
 	*x = CalendarEntry{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[30]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2196,7 +2310,7 @@ func (x *CalendarEntry) String() string {
 func (*CalendarEntry) ProtoMessage() {}
 
 func (x *CalendarEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[30]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2209,7 +2323,7 @@ func (x *CalendarEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CalendarEntry.ProtoReflect.Descriptor instead.
 func (*CalendarEntry) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{30}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CalendarEntry) GetObjectId() string {
@@ -2242,7 +2356,7 @@ type GetRentalCalendarResponse struct {
 
 func (x *GetRentalCalendarResponse) Reset() {
 	*x = GetRentalCalendarResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[31]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2254,7 +2368,7 @@ func (x *GetRentalCalendarResponse) String() string {
 func (*GetRentalCalendarResponse) ProtoMessage() {}
 
 func (x *GetRentalCalendarResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[31]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2267,7 +2381,7 @@ func (x *GetRentalCalendarResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRentalCalendarResponse.ProtoReflect.Descriptor instead.
 func (*GetRentalCalendarResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{31}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetRentalCalendarResponse) GetEntries() []*CalendarEntry {
@@ -2289,7 +2403,7 @@ type ExportRentalReportRequest struct {
 
 func (x *ExportRentalReportRequest) Reset() {
 	*x = ExportRentalReportRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[32]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2301,7 +2415,7 @@ func (x *ExportRentalReportRequest) String() string {
 func (*ExportRentalReportRequest) ProtoMessage() {}
 
 func (x *ExportRentalReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[32]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2314,7 +2428,7 @@ func (x *ExportRentalReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportRentalReportRequest.ProtoReflect.Descriptor instead.
 func (*ExportRentalReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{32}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ExportRentalReportRequest) GetTenantId() string {
@@ -2356,7 +2470,7 @@ type ExportRentalReportResponse struct {
 
 func (x *ExportRentalReportResponse) Reset() {
 	*x = ExportRentalReportResponse{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[33]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2368,7 +2482,7 @@ func (x *ExportRentalReportResponse) String() string {
 func (*ExportRentalReportResponse) ProtoMessage() {}
 
 func (x *ExportRentalReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[33]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2381,7 +2495,7 @@ func (x *ExportRentalReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportRentalReportResponse.ProtoReflect.Descriptor instead.
 func (*ExportRentalReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{33}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ExportRentalReportResponse) GetPayload() []byte {
@@ -2417,7 +2531,7 @@ type SaveRentalSignatureRequest struct {
 
 func (x *SaveRentalSignatureRequest) Reset() {
 	*x = SaveRentalSignatureRequest{}
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[34]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2429,7 +2543,7 @@ func (x *SaveRentalSignatureRequest) String() string {
 func (*SaveRentalSignatureRequest) ProtoMessage() {}
 
 func (x *SaveRentalSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[34]
+	mi := &file_proto_vermietung_v1_vermietung_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2442,7 +2556,7 @@ func (x *SaveRentalSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveRentalSignatureRequest.ProtoReflect.Descriptor instead.
 func (*SaveRentalSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{34}
+	return file_proto_vermietung_v1_vermietung_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SaveRentalSignatureRequest) GetTenantId() string {
@@ -2525,7 +2639,7 @@ const file_proto_vermietung_v1_vermietung_proto_rawDesc = "" +
 	"\v_contact_idB\b\n" +
 	"\x06_notesB\f\n" +
 	"\n" +
-	"_signed_at\"\xd4\x02\n" +
+	"_signed_at\"\xcf\x03\n" +
 	"\x10RentalInspection\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
@@ -2538,8 +2652,16 @@ const file_proto_vermietung_v1_vermietung_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x0f\n" +
-	"\r_performed_by\"\xa5\x02\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12:\n" +
+	"\tchecklist\x18\n" +
+	" \x03(\v2\x1c.vermietung.v1.ChecklistItemR\tchecklist\x12*\n" +
+	"\x0esignature_data\x18\v \x01(\tH\x01R\rsignatureData\x88\x01\x01B\x0f\n" +
+	"\r_performed_byB\x11\n" +
+	"\x0f_signature_data\"[\n" +
+	"\rChecklistItem\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1c\n" +
+	"\tcondition\x18\x02 \x01(\tR\tcondition\x12\x16\n" +
+	"\x06remark\x18\x03 \x01(\tR\x06remark\"\xa5\x02\n" +
 	"\x13CreateObjectRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
@@ -2672,7 +2794,7 @@ const file_proto_vermietung_v1_vermietung_proto_rawDesc = "" +
 	"\trental_id\x18\x02 \x01(\tR\brentalId\"L\n" +
 	"\x10EndRentalRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\trental_id\x18\x02 \x01(\tR\brentalId\"\xd5\x01\n" +
+	"\trental_id\x18\x02 \x01(\tR\brentalId\"\x91\x02\n" +
 	"\x17CreateInspectionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\trental_id\x18\x02 \x01(\tR\brentalId\x12\x12\n" +
@@ -2680,16 +2802,21 @@ const file_proto_vermietung_v1_vermietung_proto_rawDesc = "" +
 	"\x05notes\x18\x04 \x01(\tR\x05notes\x12\x1d\n" +
 	"\n" +
 	"photo_urls\x18\x05 \x03(\tR\tphotoUrls\x12&\n" +
-	"\fperformed_by\x18\x06 \x01(\tH\x00R\vperformedBy\x88\x01\x01B\x0f\n" +
-	"\r_performed_by\"\xc6\x01\n" +
+	"\fperformed_by\x18\x06 \x01(\tH\x00R\vperformedBy\x88\x01\x01\x12:\n" +
+	"\tchecklist\x18\a \x03(\v2\x1c.vermietung.v1.ChecklistItemR\tchecklistB\x0f\n" +
+	"\r_performed_by\"\xee\x02\n" +
 	"\x17UpdateInspectionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
 	"\rinspection_id\x18\x02 \x01(\tR\finspectionId\x12\x19\n" +
 	"\x05notes\x18\x03 \x01(\tH\x00R\x05notes\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"photo_urls\x18\x04 \x03(\tR\tphotoUrls\x12%\n" +
-	"\x0ereplace_photos\x18\x05 \x01(\bR\rreplacePhotosB\b\n" +
-	"\x06_notes\"X\n" +
+	"\x0ereplace_photos\x18\x05 \x01(\bR\rreplacePhotos\x12:\n" +
+	"\tchecklist\x18\x06 \x03(\v2\x1c.vermietung.v1.ChecklistItemR\tchecklist\x12+\n" +
+	"\x11replace_checklist\x18\a \x01(\bR\x10replaceChecklist\x12*\n" +
+	"\x0esignature_data\x18\b \x01(\tH\x01R\rsignatureData\x88\x01\x01B\b\n" +
+	"\x06_notesB\x11\n" +
+	"\x0f_signature_data\"X\n" +
 	"\x14GetInspectionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
 	"\rinspection_id\x18\x02 \x01(\tR\finspectionId\"U\n" +
@@ -2766,119 +2893,123 @@ func file_proto_vermietung_v1_vermietung_proto_rawDescGZIP() []byte {
 	return file_proto_vermietung_v1_vermietung_proto_rawDescData
 }
 
-var file_proto_vermietung_v1_vermietung_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_proto_vermietung_v1_vermietung_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_proto_vermietung_v1_vermietung_proto_goTypes = []any{
 	(*RentalObject)(nil),               // 0: vermietung.v1.RentalObject
 	(*Rental)(nil),                     // 1: vermietung.v1.Rental
 	(*RentalInspection)(nil),           // 2: vermietung.v1.RentalInspection
-	(*CreateObjectRequest)(nil),        // 3: vermietung.v1.CreateObjectRequest
-	(*UpdateObjectRequest)(nil),        // 4: vermietung.v1.UpdateObjectRequest
-	(*DeleteObjectRequest)(nil),        // 5: vermietung.v1.DeleteObjectRequest
-	(*DeleteObjectResponse)(nil),       // 6: vermietung.v1.DeleteObjectResponse
-	(*GetObjectRequest)(nil),           // 7: vermietung.v1.GetObjectRequest
-	(*ObjectResponse)(nil),             // 8: vermietung.v1.ObjectResponse
-	(*ListObjectsRequest)(nil),         // 9: vermietung.v1.ListObjectsRequest
-	(*ListObjectsResponse)(nil),        // 10: vermietung.v1.ListObjectsResponse
-	(*CheckAvailabilityRequest)(nil),   // 11: vermietung.v1.CheckAvailabilityRequest
-	(*CheckAvailabilityResponse)(nil),  // 12: vermietung.v1.CheckAvailabilityResponse
-	(*CreateRentalRequest)(nil),        // 13: vermietung.v1.CreateRentalRequest
-	(*UpdateRentalRequest)(nil),        // 14: vermietung.v1.UpdateRentalRequest
-	(*DeleteRentalRequest)(nil),        // 15: vermietung.v1.DeleteRentalRequest
-	(*DeleteRentalResponse)(nil),       // 16: vermietung.v1.DeleteRentalResponse
-	(*GetRentalRequest)(nil),           // 17: vermietung.v1.GetRentalRequest
-	(*RentalResponse)(nil),             // 18: vermietung.v1.RentalResponse
-	(*ListRentalsRequest)(nil),         // 19: vermietung.v1.ListRentalsRequest
-	(*ListRentalsResponse)(nil),        // 20: vermietung.v1.ListRentalsResponse
-	(*StartRentalRequest)(nil),         // 21: vermietung.v1.StartRentalRequest
-	(*EndRentalRequest)(nil),           // 22: vermietung.v1.EndRentalRequest
-	(*CreateInspectionRequest)(nil),    // 23: vermietung.v1.CreateInspectionRequest
-	(*UpdateInspectionRequest)(nil),    // 24: vermietung.v1.UpdateInspectionRequest
-	(*GetInspectionRequest)(nil),       // 25: vermietung.v1.GetInspectionRequest
-	(*InspectionResponse)(nil),         // 26: vermietung.v1.InspectionResponse
-	(*ListInspectionsRequest)(nil),     // 27: vermietung.v1.ListInspectionsRequest
-	(*ListInspectionsResponse)(nil),    // 28: vermietung.v1.ListInspectionsResponse
-	(*GetRentalCalendarRequest)(nil),   // 29: vermietung.v1.GetRentalCalendarRequest
-	(*CalendarEntry)(nil),              // 30: vermietung.v1.CalendarEntry
-	(*GetRentalCalendarResponse)(nil),  // 31: vermietung.v1.GetRentalCalendarResponse
-	(*ExportRentalReportRequest)(nil),  // 32: vermietung.v1.ExportRentalReportRequest
-	(*ExportRentalReportResponse)(nil), // 33: vermietung.v1.ExportRentalReportResponse
-	(*SaveRentalSignatureRequest)(nil), // 34: vermietung.v1.SaveRentalSignatureRequest
-	(*timestamppb.Timestamp)(nil),      // 35: google.protobuf.Timestamp
+	(*ChecklistItem)(nil),              // 3: vermietung.v1.ChecklistItem
+	(*CreateObjectRequest)(nil),        // 4: vermietung.v1.CreateObjectRequest
+	(*UpdateObjectRequest)(nil),        // 5: vermietung.v1.UpdateObjectRequest
+	(*DeleteObjectRequest)(nil),        // 6: vermietung.v1.DeleteObjectRequest
+	(*DeleteObjectResponse)(nil),       // 7: vermietung.v1.DeleteObjectResponse
+	(*GetObjectRequest)(nil),           // 8: vermietung.v1.GetObjectRequest
+	(*ObjectResponse)(nil),             // 9: vermietung.v1.ObjectResponse
+	(*ListObjectsRequest)(nil),         // 10: vermietung.v1.ListObjectsRequest
+	(*ListObjectsResponse)(nil),        // 11: vermietung.v1.ListObjectsResponse
+	(*CheckAvailabilityRequest)(nil),   // 12: vermietung.v1.CheckAvailabilityRequest
+	(*CheckAvailabilityResponse)(nil),  // 13: vermietung.v1.CheckAvailabilityResponse
+	(*CreateRentalRequest)(nil),        // 14: vermietung.v1.CreateRentalRequest
+	(*UpdateRentalRequest)(nil),        // 15: vermietung.v1.UpdateRentalRequest
+	(*DeleteRentalRequest)(nil),        // 16: vermietung.v1.DeleteRentalRequest
+	(*DeleteRentalResponse)(nil),       // 17: vermietung.v1.DeleteRentalResponse
+	(*GetRentalRequest)(nil),           // 18: vermietung.v1.GetRentalRequest
+	(*RentalResponse)(nil),             // 19: vermietung.v1.RentalResponse
+	(*ListRentalsRequest)(nil),         // 20: vermietung.v1.ListRentalsRequest
+	(*ListRentalsResponse)(nil),        // 21: vermietung.v1.ListRentalsResponse
+	(*StartRentalRequest)(nil),         // 22: vermietung.v1.StartRentalRequest
+	(*EndRentalRequest)(nil),           // 23: vermietung.v1.EndRentalRequest
+	(*CreateInspectionRequest)(nil),    // 24: vermietung.v1.CreateInspectionRequest
+	(*UpdateInspectionRequest)(nil),    // 25: vermietung.v1.UpdateInspectionRequest
+	(*GetInspectionRequest)(nil),       // 26: vermietung.v1.GetInspectionRequest
+	(*InspectionResponse)(nil),         // 27: vermietung.v1.InspectionResponse
+	(*ListInspectionsRequest)(nil),     // 28: vermietung.v1.ListInspectionsRequest
+	(*ListInspectionsResponse)(nil),    // 29: vermietung.v1.ListInspectionsResponse
+	(*GetRentalCalendarRequest)(nil),   // 30: vermietung.v1.GetRentalCalendarRequest
+	(*CalendarEntry)(nil),              // 31: vermietung.v1.CalendarEntry
+	(*GetRentalCalendarResponse)(nil),  // 32: vermietung.v1.GetRentalCalendarResponse
+	(*ExportRentalReportRequest)(nil),  // 33: vermietung.v1.ExportRentalReportRequest
+	(*ExportRentalReportResponse)(nil), // 34: vermietung.v1.ExportRentalReportResponse
+	(*SaveRentalSignatureRequest)(nil), // 35: vermietung.v1.SaveRentalSignatureRequest
+	(*timestamppb.Timestamp)(nil),      // 36: google.protobuf.Timestamp
 }
 var file_proto_vermietung_v1_vermietung_proto_depIdxs = []int32{
-	35, // 0: vermietung.v1.RentalObject.created_at:type_name -> google.protobuf.Timestamp
-	35, // 1: vermietung.v1.RentalObject.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 2: vermietung.v1.Rental.start_date:type_name -> google.protobuf.Timestamp
-	35, // 3: vermietung.v1.Rental.end_date:type_name -> google.protobuf.Timestamp
-	35, // 4: vermietung.v1.Rental.created_at:type_name -> google.protobuf.Timestamp
-	35, // 5: vermietung.v1.Rental.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 6: vermietung.v1.Rental.signed_at:type_name -> google.protobuf.Timestamp
-	35, // 7: vermietung.v1.RentalInspection.created_at:type_name -> google.protobuf.Timestamp
-	35, // 8: vermietung.v1.RentalInspection.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 9: vermietung.v1.ObjectResponse.object:type_name -> vermietung.v1.RentalObject
-	0,  // 10: vermietung.v1.ListObjectsResponse.objects:type_name -> vermietung.v1.RentalObject
-	35, // 11: vermietung.v1.CheckAvailabilityRequest.start_date:type_name -> google.protobuf.Timestamp
-	35, // 12: vermietung.v1.CheckAvailabilityRequest.end_date:type_name -> google.protobuf.Timestamp
-	1,  // 13: vermietung.v1.CheckAvailabilityResponse.conflicting_rentals:type_name -> vermietung.v1.Rental
-	35, // 14: vermietung.v1.CreateRentalRequest.start_date:type_name -> google.protobuf.Timestamp
-	35, // 15: vermietung.v1.CreateRentalRequest.end_date:type_name -> google.protobuf.Timestamp
-	35, // 16: vermietung.v1.UpdateRentalRequest.start_date:type_name -> google.protobuf.Timestamp
-	35, // 17: vermietung.v1.UpdateRentalRequest.end_date:type_name -> google.protobuf.Timestamp
-	1,  // 18: vermietung.v1.RentalResponse.rental:type_name -> vermietung.v1.Rental
-	35, // 19: vermietung.v1.ListRentalsRequest.from:type_name -> google.protobuf.Timestamp
-	35, // 20: vermietung.v1.ListRentalsRequest.to:type_name -> google.protobuf.Timestamp
-	1,  // 21: vermietung.v1.ListRentalsResponse.rentals:type_name -> vermietung.v1.Rental
-	2,  // 22: vermietung.v1.InspectionResponse.inspection:type_name -> vermietung.v1.RentalInspection
-	2,  // 23: vermietung.v1.ListInspectionsResponse.inspections:type_name -> vermietung.v1.RentalInspection
-	1,  // 24: vermietung.v1.CalendarEntry.rentals:type_name -> vermietung.v1.Rental
-	30, // 25: vermietung.v1.GetRentalCalendarResponse.entries:type_name -> vermietung.v1.CalendarEntry
-	35, // 26: vermietung.v1.ExportRentalReportRequest.from:type_name -> google.protobuf.Timestamp
-	35, // 27: vermietung.v1.ExportRentalReportRequest.to:type_name -> google.protobuf.Timestamp
-	3,  // 28: vermietung.v1.VermietungService.CreateObject:input_type -> vermietung.v1.CreateObjectRequest
-	4,  // 29: vermietung.v1.VermietungService.UpdateObject:input_type -> vermietung.v1.UpdateObjectRequest
-	5,  // 30: vermietung.v1.VermietungService.DeleteObject:input_type -> vermietung.v1.DeleteObjectRequest
-	7,  // 31: vermietung.v1.VermietungService.GetObject:input_type -> vermietung.v1.GetObjectRequest
-	9,  // 32: vermietung.v1.VermietungService.ListObjects:input_type -> vermietung.v1.ListObjectsRequest
-	11, // 33: vermietung.v1.VermietungService.CheckAvailability:input_type -> vermietung.v1.CheckAvailabilityRequest
-	13, // 34: vermietung.v1.VermietungService.CreateRental:input_type -> vermietung.v1.CreateRentalRequest
-	14, // 35: vermietung.v1.VermietungService.UpdateRental:input_type -> vermietung.v1.UpdateRentalRequest
-	15, // 36: vermietung.v1.VermietungService.DeleteRental:input_type -> vermietung.v1.DeleteRentalRequest
-	17, // 37: vermietung.v1.VermietungService.GetRental:input_type -> vermietung.v1.GetRentalRequest
-	19, // 38: vermietung.v1.VermietungService.ListRentals:input_type -> vermietung.v1.ListRentalsRequest
-	21, // 39: vermietung.v1.VermietungService.StartRental:input_type -> vermietung.v1.StartRentalRequest
-	22, // 40: vermietung.v1.VermietungService.EndRental:input_type -> vermietung.v1.EndRentalRequest
-	23, // 41: vermietung.v1.VermietungService.CreateInspection:input_type -> vermietung.v1.CreateInspectionRequest
-	24, // 42: vermietung.v1.VermietungService.UpdateInspection:input_type -> vermietung.v1.UpdateInspectionRequest
-	25, // 43: vermietung.v1.VermietungService.GetInspection:input_type -> vermietung.v1.GetInspectionRequest
-	27, // 44: vermietung.v1.VermietungService.ListInspections:input_type -> vermietung.v1.ListInspectionsRequest
-	29, // 45: vermietung.v1.VermietungService.GetRentalCalendar:input_type -> vermietung.v1.GetRentalCalendarRequest
-	32, // 46: vermietung.v1.VermietungService.ExportRentalReport:input_type -> vermietung.v1.ExportRentalReportRequest
-	34, // 47: vermietung.v1.VermietungService.SaveSignature:input_type -> vermietung.v1.SaveRentalSignatureRequest
-	8,  // 48: vermietung.v1.VermietungService.CreateObject:output_type -> vermietung.v1.ObjectResponse
-	8,  // 49: vermietung.v1.VermietungService.UpdateObject:output_type -> vermietung.v1.ObjectResponse
-	6,  // 50: vermietung.v1.VermietungService.DeleteObject:output_type -> vermietung.v1.DeleteObjectResponse
-	8,  // 51: vermietung.v1.VermietungService.GetObject:output_type -> vermietung.v1.ObjectResponse
-	10, // 52: vermietung.v1.VermietungService.ListObjects:output_type -> vermietung.v1.ListObjectsResponse
-	12, // 53: vermietung.v1.VermietungService.CheckAvailability:output_type -> vermietung.v1.CheckAvailabilityResponse
-	18, // 54: vermietung.v1.VermietungService.CreateRental:output_type -> vermietung.v1.RentalResponse
-	18, // 55: vermietung.v1.VermietungService.UpdateRental:output_type -> vermietung.v1.RentalResponse
-	16, // 56: vermietung.v1.VermietungService.DeleteRental:output_type -> vermietung.v1.DeleteRentalResponse
-	18, // 57: vermietung.v1.VermietungService.GetRental:output_type -> vermietung.v1.RentalResponse
-	20, // 58: vermietung.v1.VermietungService.ListRentals:output_type -> vermietung.v1.ListRentalsResponse
-	18, // 59: vermietung.v1.VermietungService.StartRental:output_type -> vermietung.v1.RentalResponse
-	18, // 60: vermietung.v1.VermietungService.EndRental:output_type -> vermietung.v1.RentalResponse
-	26, // 61: vermietung.v1.VermietungService.CreateInspection:output_type -> vermietung.v1.InspectionResponse
-	26, // 62: vermietung.v1.VermietungService.UpdateInspection:output_type -> vermietung.v1.InspectionResponse
-	26, // 63: vermietung.v1.VermietungService.GetInspection:output_type -> vermietung.v1.InspectionResponse
-	28, // 64: vermietung.v1.VermietungService.ListInspections:output_type -> vermietung.v1.ListInspectionsResponse
-	31, // 65: vermietung.v1.VermietungService.GetRentalCalendar:output_type -> vermietung.v1.GetRentalCalendarResponse
-	33, // 66: vermietung.v1.VermietungService.ExportRentalReport:output_type -> vermietung.v1.ExportRentalReportResponse
-	18, // 67: vermietung.v1.VermietungService.SaveSignature:output_type -> vermietung.v1.RentalResponse
-	48, // [48:68] is the sub-list for method output_type
-	28, // [28:48] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	36, // 0: vermietung.v1.RentalObject.created_at:type_name -> google.protobuf.Timestamp
+	36, // 1: vermietung.v1.RentalObject.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 2: vermietung.v1.Rental.start_date:type_name -> google.protobuf.Timestamp
+	36, // 3: vermietung.v1.Rental.end_date:type_name -> google.protobuf.Timestamp
+	36, // 4: vermietung.v1.Rental.created_at:type_name -> google.protobuf.Timestamp
+	36, // 5: vermietung.v1.Rental.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 6: vermietung.v1.Rental.signed_at:type_name -> google.protobuf.Timestamp
+	36, // 7: vermietung.v1.RentalInspection.created_at:type_name -> google.protobuf.Timestamp
+	36, // 8: vermietung.v1.RentalInspection.updated_at:type_name -> google.protobuf.Timestamp
+	3,  // 9: vermietung.v1.RentalInspection.checklist:type_name -> vermietung.v1.ChecklistItem
+	0,  // 10: vermietung.v1.ObjectResponse.object:type_name -> vermietung.v1.RentalObject
+	0,  // 11: vermietung.v1.ListObjectsResponse.objects:type_name -> vermietung.v1.RentalObject
+	36, // 12: vermietung.v1.CheckAvailabilityRequest.start_date:type_name -> google.protobuf.Timestamp
+	36, // 13: vermietung.v1.CheckAvailabilityRequest.end_date:type_name -> google.protobuf.Timestamp
+	1,  // 14: vermietung.v1.CheckAvailabilityResponse.conflicting_rentals:type_name -> vermietung.v1.Rental
+	36, // 15: vermietung.v1.CreateRentalRequest.start_date:type_name -> google.protobuf.Timestamp
+	36, // 16: vermietung.v1.CreateRentalRequest.end_date:type_name -> google.protobuf.Timestamp
+	36, // 17: vermietung.v1.UpdateRentalRequest.start_date:type_name -> google.protobuf.Timestamp
+	36, // 18: vermietung.v1.UpdateRentalRequest.end_date:type_name -> google.protobuf.Timestamp
+	1,  // 19: vermietung.v1.RentalResponse.rental:type_name -> vermietung.v1.Rental
+	36, // 20: vermietung.v1.ListRentalsRequest.from:type_name -> google.protobuf.Timestamp
+	36, // 21: vermietung.v1.ListRentalsRequest.to:type_name -> google.protobuf.Timestamp
+	1,  // 22: vermietung.v1.ListRentalsResponse.rentals:type_name -> vermietung.v1.Rental
+	3,  // 23: vermietung.v1.CreateInspectionRequest.checklist:type_name -> vermietung.v1.ChecklistItem
+	3,  // 24: vermietung.v1.UpdateInspectionRequest.checklist:type_name -> vermietung.v1.ChecklistItem
+	2,  // 25: vermietung.v1.InspectionResponse.inspection:type_name -> vermietung.v1.RentalInspection
+	2,  // 26: vermietung.v1.ListInspectionsResponse.inspections:type_name -> vermietung.v1.RentalInspection
+	1,  // 27: vermietung.v1.CalendarEntry.rentals:type_name -> vermietung.v1.Rental
+	31, // 28: vermietung.v1.GetRentalCalendarResponse.entries:type_name -> vermietung.v1.CalendarEntry
+	36, // 29: vermietung.v1.ExportRentalReportRequest.from:type_name -> google.protobuf.Timestamp
+	36, // 30: vermietung.v1.ExportRentalReportRequest.to:type_name -> google.protobuf.Timestamp
+	4,  // 31: vermietung.v1.VermietungService.CreateObject:input_type -> vermietung.v1.CreateObjectRequest
+	5,  // 32: vermietung.v1.VermietungService.UpdateObject:input_type -> vermietung.v1.UpdateObjectRequest
+	6,  // 33: vermietung.v1.VermietungService.DeleteObject:input_type -> vermietung.v1.DeleteObjectRequest
+	8,  // 34: vermietung.v1.VermietungService.GetObject:input_type -> vermietung.v1.GetObjectRequest
+	10, // 35: vermietung.v1.VermietungService.ListObjects:input_type -> vermietung.v1.ListObjectsRequest
+	12, // 36: vermietung.v1.VermietungService.CheckAvailability:input_type -> vermietung.v1.CheckAvailabilityRequest
+	14, // 37: vermietung.v1.VermietungService.CreateRental:input_type -> vermietung.v1.CreateRentalRequest
+	15, // 38: vermietung.v1.VermietungService.UpdateRental:input_type -> vermietung.v1.UpdateRentalRequest
+	16, // 39: vermietung.v1.VermietungService.DeleteRental:input_type -> vermietung.v1.DeleteRentalRequest
+	18, // 40: vermietung.v1.VermietungService.GetRental:input_type -> vermietung.v1.GetRentalRequest
+	20, // 41: vermietung.v1.VermietungService.ListRentals:input_type -> vermietung.v1.ListRentalsRequest
+	22, // 42: vermietung.v1.VermietungService.StartRental:input_type -> vermietung.v1.StartRentalRequest
+	23, // 43: vermietung.v1.VermietungService.EndRental:input_type -> vermietung.v1.EndRentalRequest
+	24, // 44: vermietung.v1.VermietungService.CreateInspection:input_type -> vermietung.v1.CreateInspectionRequest
+	25, // 45: vermietung.v1.VermietungService.UpdateInspection:input_type -> vermietung.v1.UpdateInspectionRequest
+	26, // 46: vermietung.v1.VermietungService.GetInspection:input_type -> vermietung.v1.GetInspectionRequest
+	28, // 47: vermietung.v1.VermietungService.ListInspections:input_type -> vermietung.v1.ListInspectionsRequest
+	30, // 48: vermietung.v1.VermietungService.GetRentalCalendar:input_type -> vermietung.v1.GetRentalCalendarRequest
+	33, // 49: vermietung.v1.VermietungService.ExportRentalReport:input_type -> vermietung.v1.ExportRentalReportRequest
+	35, // 50: vermietung.v1.VermietungService.SaveSignature:input_type -> vermietung.v1.SaveRentalSignatureRequest
+	9,  // 51: vermietung.v1.VermietungService.CreateObject:output_type -> vermietung.v1.ObjectResponse
+	9,  // 52: vermietung.v1.VermietungService.UpdateObject:output_type -> vermietung.v1.ObjectResponse
+	7,  // 53: vermietung.v1.VermietungService.DeleteObject:output_type -> vermietung.v1.DeleteObjectResponse
+	9,  // 54: vermietung.v1.VermietungService.GetObject:output_type -> vermietung.v1.ObjectResponse
+	11, // 55: vermietung.v1.VermietungService.ListObjects:output_type -> vermietung.v1.ListObjectsResponse
+	13, // 56: vermietung.v1.VermietungService.CheckAvailability:output_type -> vermietung.v1.CheckAvailabilityResponse
+	19, // 57: vermietung.v1.VermietungService.CreateRental:output_type -> vermietung.v1.RentalResponse
+	19, // 58: vermietung.v1.VermietungService.UpdateRental:output_type -> vermietung.v1.RentalResponse
+	17, // 59: vermietung.v1.VermietungService.DeleteRental:output_type -> vermietung.v1.DeleteRentalResponse
+	19, // 60: vermietung.v1.VermietungService.GetRental:output_type -> vermietung.v1.RentalResponse
+	21, // 61: vermietung.v1.VermietungService.ListRentals:output_type -> vermietung.v1.ListRentalsResponse
+	19, // 62: vermietung.v1.VermietungService.StartRental:output_type -> vermietung.v1.RentalResponse
+	19, // 63: vermietung.v1.VermietungService.EndRental:output_type -> vermietung.v1.RentalResponse
+	27, // 64: vermietung.v1.VermietungService.CreateInspection:output_type -> vermietung.v1.InspectionResponse
+	27, // 65: vermietung.v1.VermietungService.UpdateInspection:output_type -> vermietung.v1.InspectionResponse
+	27, // 66: vermietung.v1.VermietungService.GetInspection:output_type -> vermietung.v1.InspectionResponse
+	29, // 67: vermietung.v1.VermietungService.ListInspections:output_type -> vermietung.v1.ListInspectionsResponse
+	32, // 68: vermietung.v1.VermietungService.GetRentalCalendar:output_type -> vermietung.v1.GetRentalCalendarResponse
+	34, // 69: vermietung.v1.VermietungService.ExportRentalReport:output_type -> vermietung.v1.ExportRentalReportResponse
+	19, // 70: vermietung.v1.VermietungService.SaveSignature:output_type -> vermietung.v1.RentalResponse
+	51, // [51:71] is the sub-list for method output_type
+	31, // [31:51] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_proto_vermietung_v1_vermietung_proto_init() }
@@ -2889,23 +3020,23 @@ func file_proto_vermietung_v1_vermietung_proto_init() {
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[2].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[5].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[14].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[19].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[23].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[15].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_vermietung_v1_vermietung_proto_msgTypes[24].OneofWrappers = []any{}
-	file_proto_vermietung_v1_vermietung_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_vermietung_v1_vermietung_proto_msgTypes[33].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_vermietung_v1_vermietung_proto_rawDesc), len(file_proto_vermietung_v1_vermietung_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

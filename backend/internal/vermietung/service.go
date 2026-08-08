@@ -118,14 +118,18 @@ type CreateInspectionInput struct {
 	Notes       string
 	PhotoURLs   []string
 	PerformedBy *uuid.UUID
+	Checklist   []ChecklistItem
 }
 
 type UpdateInspectionInput struct {
-	TenantID      uuid.UUID
-	InspectionID  uuid.UUID
-	Notes         *string
-	PhotoURLs     []string // full replacement; nil = no change
-	ReplacePhotos bool
+	TenantID         uuid.UUID
+	InspectionID     uuid.UUID
+	Notes            *string
+	PhotoURLs        []string // full replacement; nil = no change
+	ReplacePhotos    bool
+	Checklist        []ChecklistItem // full replacement; nil = no change
+	ReplaceChecklist bool
+	SignatureData    *string // nil = no change
 }
 
 type ListInspectionsInput struct {
@@ -514,6 +518,11 @@ func (s *Service) CreateInspection(ctx context.Context, input CreateInspectionIn
 		photos = []string{}
 	}
 
+	checklist, err := normalizeChecklist(input.Checklist)
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	ins := &RentalInspection{
 		ID:          uuid.New(),
@@ -523,6 +532,7 @@ func (s *Service) CreateInspection(ctx context.Context, input CreateInspectionIn
 		Notes:       input.Notes,
 		PhotoURLs:   photos,
 		PerformedBy: input.PerformedBy,
+		Checklist:   checklist,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -554,6 +564,19 @@ func (s *Service) UpdateInspection(ctx context.Context, input UpdateInspectionIn
 			photos = []string{}
 		}
 		ins.PhotoURLs = photos
+	}
+	if input.ReplaceChecklist {
+		checklist, err := normalizeChecklist(input.Checklist)
+		if err != nil {
+			return nil, err
+		}
+		ins.Checklist = checklist
+	}
+	if input.SignatureData != nil {
+		if err := validateInlineSignature(*input.SignatureData); err != nil {
+			return nil, err
+		}
+		ins.SignatureData = input.SignatureData
 	}
 
 	ins.UpdatedAt = time.Now()
@@ -592,11 +615,13 @@ var signatureValidPrefixes = []string{
 
 const signatureMaxBytes = 1_048_576 // 1 MiB
 
-// SaveSignature stores an EES inline signature for a rental.
-// Validates the data-URI prefix, enforces the 1 MiB size limit, and delegates persistence.
-func (s *Service) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
+// validateInlineSignature checks an EES inline signature data-URI against the
+// accepted MIME-type prefixes and the size limit. Shared by rental signatures
+// (SaveSignature) and inspection signatures (UpdateInspection) so both use the
+// same storage form and the same validation.
+func validateInlineSignature(signatureData string) error {
 	if signatureData == "" {
-		return nil, ErrInvalidInput
+		return ErrInvalidInput
 	}
 
 	hasValidPrefix := false
@@ -607,11 +632,37 @@ func (s *Service) SaveSignature(ctx context.Context, tenantID, rentalID, signatu
 		}
 	}
 	if !hasValidPrefix {
-		return nil, ErrInvalidInput
+		return ErrInvalidInput
 	}
 
 	if len(signatureData) > signatureMaxBytes {
-		return nil, ErrInvalidInput
+		return ErrInvalidInput
+	}
+
+	return nil
+}
+
+// normalizeChecklist validates and defaults an inspection checklist: every
+// position needs a non-blank label, and a nil input becomes an empty (not
+// nil) slice so callers never have to distinguish "no checklist" from "empty
+// checklist".
+func normalizeChecklist(items []ChecklistItem) ([]ChecklistItem, error) {
+	if items == nil {
+		return []ChecklistItem{}, nil
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.Label) == "" {
+			return nil, ErrInvalidInput
+		}
+	}
+	return items, nil
+}
+
+// SaveSignature stores an EES inline signature for a rental.
+// Validates the data-URI prefix, enforces the 1 MiB size limit, and delegates persistence.
+func (s *Service) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
+	if err := validateInlineSignature(signatureData); err != nil {
+		return nil, err
 	}
 
 	if strings.TrimSpace(signedBy) == "" {

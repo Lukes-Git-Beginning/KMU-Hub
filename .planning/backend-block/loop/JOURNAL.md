@@ -399,3 +399,92 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   ein Tenant je mehr Fahrten zwischen zwei Exports sammelt, greift die Grenze
   still (keine Fehlermeldung, nur ein unvollstaendiges Dokument). Kommentar
   mit Upgrade-Pfad steht im Code (`exportTripLogsCap`).
+
+## Iteration 7 — a-vermietung-inspection-signature — done — 2026-08-08 19:10
+- commit: (siehe naechster Commit dieser Iteration)
+- verify vorgaenger: sauber. `0c9d5afb` (a-fuhrpark-triplog-export) geprueft
+  gegen alle acht Fehlerklassen: Handler geht ueber
+  `fuhrparkv1.FuhrparkServiceClient.ExportTripLogs` (kein direkter
+  Service-Zugriff), keine Stub-Rueckgabe (echte Repository-Query +
+  `berichte.ReportResult` + `export.CSVExporter`/`PDFExporter`), `.proto`
+  UND `fuhrpark.pb.go`/`fuhrpark_grpc.pb.go` im selben Commit regeneriert,
+  kein neuer `RequirePermission`-Guard (nutzt den bestehenden
+  `fuhrpark:trip`/`read`-Key), Migration 000301 nur eine Spalte an einer
+  bereits RLS-gescopten Tabelle (kein neuer Guard noetig), Wire additiv
+  (`business_partner` optional), Route `/fuhrpark/trip-logs/export` steht in
+  `api/openapi.yaml` im selben Commit, kein Altkey ersetzt. `git merge
+  origin/main` war "Already up to date".
+- gebaut: Unterschrift und strukturierte Checkliste am
+  Zustandsprotokoll (`RentalInspection`). Migration 000302 ergaenzt
+  `rental_inspections.signature_data TEXT NULL` und
+  `rental_inspections.checklist JSONB NULL` — beide bewusst NULLABLE statt
+  NOT NULL DEFAULT: `TestVermietungWrites_LandInCallerTenant`
+  (`tenant_write_test.go`) baut eine `RentalInspection` direkt gegen das
+  Repository ohne den Service-Normalisierungspfad, und ein NOT-NULL-Default
+  haette dort mit dem gebundenen `nil`-Parameter einen Constraint-Verstoss
+  ausgeloest, weil ein explizit gebundener NULL-Parameter den DEFAULT
+  umgeht. Modell: neuer Typ `ChecklistItem{Label, Condition, Remark}`,
+  `RentalInspection.Checklist []ChecklistItem` und `.SignatureData
+  *string`. Service: `normalizeChecklist` validiert nicht-leere Labels und
+  macht `nil` bei einem Create explizit zu `[]ChecklistItem{}`;
+  `validateInlineSignature` ist die aus `SaveSignature` extrahierte
+  Validierung (gleiche Praefix-/Groessenpruefung, jetzt von Renal- UND
+  Inspektions-Signatur geteilt, Verhalten unveraendert — alle sieben
+  bestehenden `signature_test.go`-Tests blieben gruen). `UpdateInspection`
+  bekommt `ReplaceChecklist bool` nach demselben Muster wie das
+  bestehende `ReplacePhotos` (ein bare `repeated`-Feld hat auf dem
+  gRPC-Wire kein Presence-Bit, also braucht "ersetzen" ein explizites Flag)
+  — anders als beim photo_urls-Pfad ist das neue Flag hier vom Gateway bis
+  zum Service durchgaengig verdrahtet, nicht nur im Proto vorgesehen.
+  Proto: `ChecklistItem`-Message, `RentalInspection.checklist`+
+  `.signature_data`, `CreateInspectionRequest.checklist`,
+  `UpdateInspectionRequest.checklist`+`.replace_checklist`+
+  `.signature_data` — regeneriert im selben Commit. Gateway:
+  `checklistItemRequest`, beide Request-Structs erweitert, neue
+  Helfer `checklistRequestToProto`/`checklistToProto`/`checklistFromProto`
+  (Serverseite) normalisieren `nil` zu `[]` fuers Wire, damit ein
+  Bestand ohne Checkliste nie als `null` serialisiert. Route/Guard
+  unveraendert (bestehender `vermietung:inspection`/`write`-Key, kein
+  neuer Seed). `api/openapi.yaml`: neues Schema
+  `VermietungChecklistItem`, Felder an `VermietungRentalInspection`, Request-
+  Bodies von POST .../inspections und PATCH .../inspections/{id}.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (vermietung 51/51,
+  0 Skips; gateway ok inkl. `TestOpenAPIRouteDrift`; server ok inkl. neuer
+  `vermietung_checklist_test.go`) | migration ok (302 lokal angewendet,
+  Kopf jetzt 302) | openapi `swagger-cli validate` ok | rls-smoke n.a.
+  (keine neue Tabelle/Policy — `rental_inspections` steht seit Migration
+  000122 unter RLS; `relrowsecurity`/`relforcerowsecurity` nach der
+  `ALTER TABLE` verifiziert weiterhin `t|t`, aber die Tabelle hat lokal
+  keine Zeilen fuer einen aussagekraeftigen Positiv/Negativ-Vergleich)
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) `normalizeChecklist`s Leerlabel-Check von `== ""` auf `!= ""`
+  gedreht → alle fuenf neuen Checklist-Tests (Create Happy/Reject, Update
+  Replace/Ignore/Reject) wurden rot, keine Nachbartests betroffen.
+  (2) `if input.ReplaceChecklist` in `UpdateInspection` auf `if true`
+  gesetzt → GENAU `TestService_UpdateInspection_ChecklistIgnoredWithoutReplaceFlag`
+  wurde rot, alle 50 uebrigen Tests im Paket (inklusive der beiden echten
+  DB-Tests) blieben gruen. Beide Proben zurueckgedreht, Endgate danach
+  erneut gelaufen und gruen.
+- db-tests: `TestVermietungWrites_LandInCallerTenant` und
+  `TestTenantIsolation_Vermietung` liefen real gegen die lokale DB — **0
+  Skips** im gesamten Paket `vermietung` (51 PASS, 0 SKIP). `DATABASE_URL`
+  war auf `kmuhub_app` gesetzt, Migration 302 vorher angewendet. Kein
+  eigener DB-Test fuer die neuen Spalten noetig, weil
+  `TestVermietungWrites_LandInCallerTenant` bereits eine Inspektion ohne
+  Checklist/Signature ueber den echten Repository-Pfad anlegt und damit
+  den Nullable-Fall abdeckt — hat das Fehlen der zweiten Migrationsspalte
+  im gebundenen INSERT sofort aufgedeckt (siehe "gebaut").
+- offen: Drei Punkte fuer Luke.
+  (1) Kein FE-Konsument. Weder ein Checklisten-Editor noch ein
+  Signatur-Pad fuer Inspektionen existieren im Vermietung-Modul — der
+  Wire-Vertrag steht in `openapi.yaml` unter `VermietungRentalInspection`/
+  `VermietungChecklistItem`.
+  (2) `Condition` (Zustand) ist bewusst Freitext, kein Enum — die Aufgabe
+  nannte keine feste Werteliste, und `production_orders`-artige
+  Value-Sets waeren eine eigene Entscheidung. Falls das FE ein Dropdown
+  will (z. B. intakt/beschaedigt/fehlt), ist das eine kleine Folge-Unit.
+  (3) `signature_data` an der Inspektion ist NUR ueber PATCH setzbar, nicht
+  beim Create — Signaturen entstehen in der Praxis erst nach der
+  Begehung, nicht beim Anlegen des Datensatzes. Falls das FE einen
+  Create-mit-Signatur-Flow braucht, ist das additiv nachruestbar
+  (`optional string signature_data` an `CreateInspectionRequest`).

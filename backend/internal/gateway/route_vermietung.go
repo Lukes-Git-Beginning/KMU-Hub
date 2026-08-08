@@ -166,16 +166,26 @@ type saveRentalSignatureRequest struct {
 	SignedBy      string `json:"signed_by"      validate:"required"`
 }
 
+type checklistItemRequest struct {
+	Label     string `json:"label"               validate:"required"`
+	Condition string `json:"condition"`
+	Remark    string `json:"remark,omitempty"`
+}
+
 type createInspectionRequest struct {
-	Kind        string   `json:"kind"                  validate:"required,oneof=handover return"` // handover|return
-	Notes       string   `json:"notes"`
-	PhotoURLs   []string `json:"photo_urls,omitempty"`
-	PerformedBy *string  `json:"performed_by,omitempty" validate:"omitempty,uuid"`
+	Kind        string                 `json:"kind"                  validate:"required,oneof=handover return"` // handover|return
+	Notes       string                 `json:"notes"`
+	PhotoURLs   []string               `json:"photo_urls,omitempty"`
+	PerformedBy *string                `json:"performed_by,omitempty" validate:"omitempty,uuid"`
+	Checklist   []checklistItemRequest `json:"checklist,omitempty"`
 }
 
 type updateInspectionRequest struct {
-	Notes     *string  `json:"notes,omitempty"`
-	PhotoURLs []string `json:"photo_urls,omitempty"`
+	Notes            *string                `json:"notes,omitempty"`
+	PhotoURLs        []string               `json:"photo_urls,omitempty"`
+	Checklist        []checklistItemRequest `json:"checklist,omitempty"`
+	ReplaceChecklist bool                   `json:"replace_checklist,omitempty"`
+	SignatureData    *string                `json:"signature_data,omitempty"`
 }
 
 // ============================================================================
@@ -784,6 +794,7 @@ func (vr *VermietungRoutes) HandleCreateInspection(w http.ResponseWriter, r *htt
 		Notes:       req.Notes,
 		PhotoUrls:   req.PhotoURLs,
 		PerformedBy: req.PerformedBy,
+		Checklist:   checklistRequestToProto(req.Checklist),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -843,16 +854,38 @@ func (vr *VermietungRoutes) HandleUpdateInspection(w http.ResponseWriter, r *htt
 	}
 
 	resp, err := client.UpdateInspection(r.Context(), &vermietungv1.UpdateInspectionRequest{
-		TenantId:     tenantID.String(),
-		InspectionId: id,
-		Notes:        req.Notes,
-		PhotoUrls:    req.PhotoURLs,
+		TenantId:         tenantID.String(),
+		InspectionId:     id,
+		Notes:            req.Notes,
+		PhotoUrls:        req.PhotoURLs,
+		Checklist:        checklistRequestToProto(req.Checklist),
+		ReplaceChecklist: req.ReplaceChecklist,
+		SignatureData:    req.SignatureData,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// checklistRequestToProto converts decoded checklist positions to their wire
+// form. A nil input (key absent from the request body) stays nil, so the
+// service layer can tell "no checklist in this request" apart from "an
+// explicit empty checklist" via ReplaceChecklist/replace semantics.
+func checklistRequestToProto(items []checklistItemRequest) []*vermietungv1.ChecklistItem {
+	if items == nil {
+		return nil
+	}
+	out := make([]*vermietungv1.ChecklistItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, &vermietungv1.ChecklistItem{
+			Label:     item.Label,
+			Condition: item.Condition,
+			Remark:    item.Remark,
+		})
+	}
+	return out
 }
 
 // ============================================================================

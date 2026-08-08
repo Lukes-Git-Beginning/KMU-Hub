@@ -88,6 +88,16 @@ message RentalInspection {
   optional string performed_by = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  repeated ChecklistItem checklist = 10;
+  optional string signature_data = 11; // data:image/png;base64,... or data:image/svg+xml;base64,...
+}
+
+// ChecklistItem is one structured position of an inspection's condition
+// checklist (replaces recording condition as pure free text).
+message ChecklistItem {
+  string label = 1;     // e.g. "Windschutzscheibe"
+  string condition = 2; // e.g. "intakt", "beschaedigt"
+  string remark = 3;
 }
 
 // ============================================================================
@@ -244,6 +254,7 @@ message CreateInspectionRequest {
   string notes = 4;
   repeated string photo_urls = 5;
   optional string performed_by = 6;
+  repeated ChecklistItem checklist = 7;
 }
 
 message UpdateInspectionRequest {
@@ -259,6 +270,13 @@ message UpdateInspectionRequest {
   // replace_photos: when true, photo_urls replaces the existing list (even if empty).
   // When false (default), photo_urls is ignored and existing photos are kept.
   bool replace_photos = 5;
+  // checklist + replace_checklist follow the same full-replacement convention
+  // as photo_urls/replace_photos above, for the same reason: a repeated field
+  // has no wire-level presence bit, so "not provided" and "provided empty"
+  // need an explicit flag to stay distinguishable.
+  repeated ChecklistItem checklist = 6;
+  bool replace_checklist = 7;
+  optional string signature_data = 8; // data:image/png;base64,... or data:image/svg+xml;base64,...
 }
 
 message GetInspectionRequest {

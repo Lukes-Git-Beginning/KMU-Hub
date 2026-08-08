@@ -24619,6 +24619,9 @@ paths:
                   type: array
                   items: { type: string, format: uri }
                 performed_by: { type: string, format: uuid }
+                checklist:
+                  type: array
+                  items: { $ref: "#/components/schemas/VermietungChecklistItem" }
       responses:
         "201":
           description: Inspection created
@@ -24671,6 +24674,15 @@ paths:
                 photo_urls:
                   type: array
                   items: { type: string, format: uri }
+                checklist:
+                  type: array
+                  items: { $ref: "#/components/schemas/VermietungChecklistItem" }
+                replace_checklist:
+                  type: boolean
+                  description: When true, checklist replaces the existing list (even if empty). When false/omitted, checklist is ignored.
+                signature_data:
+                  type: string
+                  description: "data:image/png;base64,... or data:image/svg+xml;base64,..., max 1 MiB"
       responses:
         "200":
           description: Inspection updated
@@ -42696,10 +42708,29 @@ components:
         performed_by:
           type: string
           format: uuid
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/VermietungChecklistItem"
+        signature_data:
+          type: string
+          description: "data:image/png;base64,... or data:image/svg+xml;base64,... — absent when unsigned"
         created_at:
           $ref: "#/components/schemas/ProtoTimestamp"
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+
+    VermietungChecklistItem:
+      type: object
+      description: One structured position of an inspection's condition checklist.
+      required: [label]
+      properties:
+        label:
+          type: string
+        condition:
+          type: string
+        remark:
+          type: string
 
     VermietungCalendarEntry:
       type: object
