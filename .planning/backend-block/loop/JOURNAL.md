@@ -3837,3 +3837,95 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   aber ein FE, das auf einen der beiden Codes reagiert, muesste beide Faelle
   abfangen. Vereinheitlichung waere eine eigene, kleine Unit — kein aktiver
   Bug, nur eine API-Unschoenheit.
+
+## Iteration 44 — b-cov-server-inbox — done — 2026-08-09 00:13
+- commit: (wird im chore-Folgecommit nachgetragen)
+- verify vorgaenger: sauber. `c3f0c46f` (b-cov-server-document) geprueft gegen
+  alle acht Fehlerklassen: reine Testdatei plus 4-Zeilen-Fix in
+  `document_grpc.go`, Diff deckt sich exakt mit der Journal-Behauptung
+  (`toProtoFile`-Tags-Vorbelegung + `ErrStorageKeyMissing` in
+  `mapDocumentError`), keine Route/Migration/Guard angefasst, keine
+  Stub-Rueckgabe. `git fetch` + `git merge origin/main` war "Already up to
+  date".
+- gebaut: `internal/server/inbox_grpc_test.go` (neu, 1278 Zeilen, 45
+  Testfunktionen). Anders als document_grpc/hr_grpc lief das NICHT ueber
+  nil-Services: `message.Service`/`team.Service`/`routing.Service`/
+  `thread.Service` nehmen alle ein Repository-Interface entgegen, also vier
+  Stub-Repos (`stubMessageRepo`, `stubTeamRepo`, `stubRoutingRepo`,
+  `stubThreadRepo`) gebaut und echte Services + `InboxGRPCServer` darueber
+  verdrahtet — Happy-Path UND Fehlerpfad testbar, nicht nur Validierung.
+  Alle sieben Konvertierer abgedeckt (`toInboxMessageInfo` populated +
+  nil-optional, `toTeamInboxInfo` mit/ohne Description, `toTeamMemberInfo`,
+  `toRoutingRuleInfo` mit/ohne Channel, `toThreadMessageInfo` mit/ohne
+  AuthorID, `toCannedResponseInfo`, `protoMessageToInboxMessage` nil +
+  RoundTrip + invalide UUIDs werden ignoriert statt zu crashen). Vier
+  Enum-Rundreisen (Channel, AssignmentMode, Visibility, TeamMemberRole) je
+  inkl. Unspecified-Default in beide Richtungen (`assignmentModeToString`
+  und `visibilityToString` degradieren Unspecified auf "manual"/"open", nicht
+  auf einen leeren String — als Regressionstest festgehalten). Die vier
+  laut `notes` geforderten Methodenfamilien je mit Happy-Path UND Fehlerpfad:
+  Status (`SetMessageStatus`: gueltiger Wechsel / `ErrInvalidStatus`), Tags
+  (`AddMessageTag`: Tag gesetzt / leerer Tag getrimmt→Reject;
+  `RemoveMessageTag`: Tag entfernt, Nachbar-Tag bleibt erhalten), Thread
+  (`ListThreadMessages`: seedet die Inbound-Nachricht beim ersten Lesen,
+  `AuthorId` bleibt `nil` fuer die eingehende Nachricht), Weiterleiten
+  (`ForwardMessage` + `ReplyToMessage`: mit einer leeren `AdapterRegistry`
+  treffen beide zuverlaessig `message.ErrAdapterNotFound` →
+  `codes.Unimplemented` — der einzige ohne echten Kanal-Adapter erreichbare
+  Fehlerpfad in diesen zwei Methoden). `TestMapInboxError_AllSentinels`
+  deckt alle 18 Sentinels (8 message, 6 team, 3 routing, 1 thread) + nil +
+  einen unbekannten Fehler auf `codes.Internal`.
+  Beim genauen Lesen einen echten Bug gefunden und gefixt: FUENF Stellen in
+  `inbox_grpc.go` bauten Listen ueber `var infos []*T` statt
+  `make(...,0,len(...))` — `ListMessages`, `GetUnreadCount` (`ByChannel`),
+  `ListTeamInboxes`, `ListTeamMembers`, `ListRoutingRules`. Bei leerem
+  Ergebnis serialisiert das als `null` statt `[]` (dieselbe
+  Wire-Shape-Drift-Klasse wie in document_grpc/Iteration 43, hier aber fuenf
+  statt eine Fundstelle in einer einzigen Datei). Alle fuenf auf
+  `make(...)`-Vorbelegung umgestellt, mit fuenf Regressionstests
+  (`Test*_EmptyResultIsNotNil`) belegt. Produktivcode-Diff: 5 Zeilen
+  geaendert (nur die fuenf Deklarationszeilen, keine Logik sonst
+  angefasst).
+- gate: build ok (`go build ./...` — kein Linker-OOM diesmal, anders als
+  Iteration 43) | vet ok | lint ok (0 issues,
+  `./internal/server/... ./internal/gateway/...`) | test ok (`server` inkl.
+  aller 45 neuen Tests, `server/response`, `gateway` inkl.
+  `TestOpenAPIRouteDrift` — keine Route angefasst, `testutil` inkl.
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` — keine Tabelle angefasst) |
+  migration n.a. | rls-smoke n.a.
+- mutations-probe: zwei Stueck, beide praezise.
+  (1) `infos := make([]*inboxv1.InboxMessageInfo, 0, len(msgs))` in
+  `ListMessages` zurueck auf `var infos []*inboxv1.InboxMessageInfo`
+  gedreht → GENAU `TestListMessages_EmptyResultIsNotNil` wurde rot, die
+  vier anderen `Test*_EmptyResultIsNotNil` (TeamInboxes, TeamMembers,
+  RoutingRules, GetUnreadCount) blieben gruen.
+  (2) `mapInboxError`s `team.ErrNotTeamAdmin`-Fall von
+  `codes.PermissionDenied` auf `codes.NotFound` gedreht → GENAU
+  `TestMapInboxError_AllSentinels/NotTeamAdmin` wurde rot, die uebrigen 17
+  Subtests blieben gruen. Beide zurueckgedreht,
+  `git diff --stat -- internal/server/inbox_grpc.go` zeigt danach exakt die
+  fuenf beabsichtigten Fix-Zeilen (5 insertions, 5 deletions), Endgate
+  erneut gelaufen und gruen.
+- db-tests: 0 im neuen Paket (reines Mock/Stub-Testing gegen
+  In-Memory-Repos, kein `SkipIfNoDB`-Pfad in dieser Datei) — **0 Skips** in
+  der vollstaendigen `internal/server`-Suite. `DATABASE_URL` war auf
+  `kmuhub_app` gesetzt.
+- offen: Drei Punkte fuer Luke, keiner davon eine noetige Code-Aenderung.
+  (1) `routing.ErrAutoReplyNonEmail` ist ein totes Sentinel:
+  `actionAutoReply` prueft den Kanal (`msg.Channel != "email"`), gibt bei
+  Nicht-Email aber `nil` zurueck (stiller Skip mit Warn-Log) statt das
+  Sentinel — es wird also nirgends erzeugt und `mapInboxError` erreicht es
+  nie. Kein aktiver Bug (stilles Uebergehen ist fachlich plausibel fuer
+  eine automatische Aktion), nur dokumentiert statt uebersehen.
+  (2) `jsonToStruct`s Code-Kommentar "if it fails as a Struct (e.g., it's
+  an array), wrap it" ist irrefuehrend: der Fallback re-parsed in eine
+  `map[string]any`, was fuer ein Top-Level-JSON-Array ebenfalls fehlschlaegt
+  — ein Test belegt das tatsaechliche Verhalten (Fehler statt Wrap). Nicht
+  live, weil `Actions`/`Conditions` in `CreateRoutingRule`/
+  `UpdateRoutingRule` immer als gewracktes Objekt (`{"actions":[...]}`)
+  persistiert werden, nie als nacktes Array — der Kommentar sollte bei
+  Gelegenheit korrigiert oder der Fallback tatsaechlich array-faehig
+  gemacht werden.
+  (3) Kein FE-Konsument-Check noetig (reine Coverage-Unit ohne
+  Wire-Vertrags-Aenderung ausser der Null→[]-Korrektur, die das FE nur
+  robuster macht, nie bricht).

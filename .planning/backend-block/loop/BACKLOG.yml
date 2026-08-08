@@ -1835,7 +1835,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/inbox_grpc.go` - 1.457 Zeilen, 36 Methoden, sieben
       Konvertierungsfunktionen, keine Testdatei.
@@ -1852,6 +1852,53 @@ units:
       - Leere Listen als [] statt null
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Anders als document_grpc/hr_grpc lief das nicht ueber nil-Services: message.Service,
+      team.Service, routing.Service und thread.Service nehmen alle ein Repository-Interface
+      entgegen, also vier Stub-Repos (stubMessageRepo/stubTeamRepo/stubRoutingRepo/
+      stubThreadRepo) gebaut und echte Services + InboxGRPCServer darueber verdrahtet -
+      Happy-Path UND Fehlerpfad testbar, nicht nur Validierung. Alle sieben Konvertierer
+      abgedeckt (toInboxMessageInfo populated+nil-optional, toTeamInboxInfo mit/ohne
+      Description, toTeamMemberInfo, toRoutingRuleInfo mit/ohne Channel, toThreadMessageInfo
+      mit/ohne AuthorID, toCannedResponseInfo, protoMessageToInboxMessage nil+RoundTrip+
+      invalide UUIDs). Vier Enum-Rundreisen (Channel, AssignmentMode, Visibility,
+      TeamMemberRole) je inkl. Unspecified-Default in beide Richtungen.
+      TestMapInboxError_AllSentinels deckt alle 18 Sentinels (8 message, 6 team, 3 routing,
+      1 thread) + nil-Fall via requireGRPCCode + einen unbekannten Fehler auf codes.Internal.
+      Die vier geforderten Methodenfamilien je mit Happy-Path und Fehlerpfad: Status
+      (SetMessageStatus: gueltiger Wechsel / ErrInvalidStatus), Tags (AddMessageTag: Tag
+      gesetzt / leerer Tag getrimmt->Reject; RemoveMessageTag: Tag entfernt, Nachbar-Tag
+      bleibt), Thread (ListThreadMessages: seedet die Inbound-Message beim ersten Read,
+      AuthorId bleibt nil fuer die eingehende Nachricht), Weiterleiten (ForwardMessage +
+      ReplyToMessage: mit einer leeren AdapterRegistry treffen beide zuverlaessig
+      ErrAdapterNotFound -> codes.Unimplemented, der einzige ohne echten Kanal-Adapter
+      erreichbare Fehlerpfad).
+      Beim genauen Lesen einen echten Bug gefunden und gefixt: FUENF Stellen bauen Listen
+      ueber `var infos []*T` statt `make(...,0,len(...))` - ListMessages, GetUnreadCount
+      (ByChannel), ListTeamInboxes, ListTeamMembers, ListRoutingRules. Bei leerem Ergebnis
+      serialisiert das als `null` statt `[]` (dieselbe Wire-Shape-Drift-Klasse wie in
+      document_grpc/Iteration 43, hier aber fuenf statt eine Fundstelle). Alle fuenf auf
+      `make(...)`-Vorbelegung umgestellt, mit fuenf Regressionstests
+      (`Test*_EmptyResultIsNotNil`) belegt.
+      Zwei Mutations-Proben, beide praezise: (1) `infos := make(...)` in ListMessages
+      zurueck auf `var infos []*T` gedreht -> GENAU
+      `TestListMessages_EmptyResultIsNotNil` wurde rot, die vier anderen
+      `Test*_EmptyResultIsNotNil` blieben gruen. (2) `mapInboxError`s
+      `team.ErrNotTeamAdmin`-Fall von `codes.PermissionDenied` auf `codes.NotFound` gedreht
+      -> GENAU `TestMapInboxError_AllSentinels/NotTeamAdmin` wurde rot, die uebrigen 17
+      Subtests blieben gruen. Beide zurueckgedreht, Endgate danach erneut gelaufen und
+      gruen (`git diff --stat -- internal/server/inbox_grpc.go` zeigt nach dem
+      Zurueckdrehen exakt die fuenf beabsichtigten Fix-Zeilen).
+      Nebenbefund ohne Codeaenderung: `routing.ErrAutoReplyNonEmail` ist ein totes Sentinel
+      - `actionAutoReply` prueft den Kanal zwar (`msg.Channel != "email"`), gibt bei
+      Nicht-Email aber `nil` zurueck (stiller Skip mit Warn-Log) statt das Sentinel, das
+      folglich nirgends erzeugt wird und `mapInboxError` nie erreicht. Kein aktiver Bug
+      (das Verhalten "still ueberspringen" ist plausibel), nur vermerkt. Zweiter Nebenbefund:
+      `jsonToStruct`s Kommentar "if it fails as a Struct (e.g., it's an array), wrap it"
+      ist irrefuehrend - der Fallback re-parsed in eine `map[string]any`, was fuer ein
+      Top-Level-Array ebenfalls fehlschlaegt; ein Test belegt das tatsaechliche Verhalten
+      (Fehler statt Wrap). Nicht live, weil `Actions`/`Conditions` immer als gewracktes
+      Objekt persistiert werden, nie als nacktes Array.
 
   - id: b-cov-server-helpdesk
     phase: 3
