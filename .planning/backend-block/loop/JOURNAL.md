@@ -262,7 +262,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   abholt — eine Frontend-Session waere der naechste Schritt.
 
 ## Iteration 5 — a-fuhrpark-vehicle-booking — done — 2026-08-08 17:35
-- commit: <pending>
+- commit: 4383e7b2
 - gebaut: Poolfahrzeug-Buchung mit Konfliktpruefung. Neue Tabelle
   `vehicle_bookings` (Migration 000300, `tenant_id NOT NULL` + FK auf
   `tenants`/`vehicles`/`users`, `CALL enable_tenant_rls`, CHECK auf
