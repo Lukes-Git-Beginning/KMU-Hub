@@ -210,7 +210,7 @@ units:
     service: schichten
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       JArbSchG-Flag am Mitarbeiter und Auswertung in der Compliance-Pruefung. Heute existiert
       `/api/v1/schichten/compliance`, aber kein `is_minor` irgendwo im Repo (verifiziert

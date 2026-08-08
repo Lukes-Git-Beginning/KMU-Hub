@@ -176,3 +176,87 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (2) Kein FE-Konsument geprueft — der Download-Knopf in der Versionshistorie
   (`FileContextMenu.tsx`) ist nicht Teil dieser Unit; das FE muesste den
   neuen Endpoint noch verdrahten.
+
+## Iteration 4 — a-schichten-minor-compliance — done — 2026-08-08 17:20
+- commit: nachgetragen im Folge-Commit
+- gebaut: Migration 000299 ergaenzt `is_minor BOOLEAN NOT NULL DEFAULT FALSE`
+  an `hr_employee_profiles` (up + down gefuellt, Partial-Index
+  `(tenant_id, is_minor) WHERE is_minor` fuer den Lookup). Keine neue Tabelle,
+  also keine neue RLS-Policy noetig — die Tabelle steht seit Migration 123
+  unter RLS. Wire durchgereicht: `models.EmployeeProfile.IsMinor`, beide
+  Scan-Helfer, alle drei SELECT-Listen, INSERT und UPDATE im
+  `PostgresEmployeeRepo`; `CreateEmployeeInput.IsMinor bool` und
+  `UpdateEmployeeInput.IsMinor *bool` (Pointer = "nil heisst keine
+  Aenderung", wie die uebrigen Update-Felder), zusaetzlich in
+  `hasRestrictedFields` aufgenommen, damit ein Mitarbeiter das Flag nicht
+  per Self-Service an sich selbst loeschen kann. Proto: `is_minor` an
+  `EmployeeProfile` (26), `CreateEmployeeReq` (16) und als `optional bool`
+  an `UpdateEmployeeReq` (10) — `optional`, weil ein blankes `bool` "auf
+  false setzen" nicht von "nicht Teil dieses Updates" trennen kann;
+  `hr.pb.go` im selben Commit regeneriert (`hr_grpc.pb.go` unveraendert,
+  keine Version-Drift). Gateway: `is_minor` in `createEmployeeHTTPReq` (bool)
+  und `updateEmployeeHTTPReq` (`*bool`).
+  Compliance: die bestehende Pruefung wurde ERWEITERT, keine zweite Engine
+  daneben. `CheckArbzgCompliance` ruft nach `validateRestPeriod` neu
+  `validateMinorProtection` auf; die Verstoesse kommen als derselbe
+  `(compliant bool, reason string)` zurueck wie bisher, das FE lernt nichts
+  Neues. Drei Sentinels in `errors.go` (`ErrJArbSchGNightWork`,
+  `…DailyHours`, `…Weekend`), alle drei auf `FailedPrecondition` gemappt wie
+  `ErrArbzgViolation`. Regeln in der reinen, DB-freien Funktion
+  `checkMinorShiftLimits`: §16/§17 kein Sa/So (beide Enden geprueft, damit
+  Freitagnacht in den Samstag mitgefangen wird), §14 Fenster 06:00–20:00
+  (beide Grenzen am Starttag verankert, damit eine Schicht ueber Mitternacht
+  hinter der Obergrenze landet statt wie ein frueher Morgen auszusehen),
+  §8 hoechstens acht Stunden. Zeiten werden vorher nach `Europe/Berlin`
+  konvertiert (Muster von `ApplyTemplate` uebernommen) — der UTC-Stundenwert
+  wuerde genau die Nachtschichten durchlassen, um die es geht.
+  Der Guard sitzt zusaetzlich in `AssignEmployee` als Guard 3: eine Schicht,
+  die ein Minderjaehriger nicht arbeiten darf, soll gar nicht erst zur
+  Zuweisung werden. Fuer alle ohne Flag aendert sich nichts (Default false).
+  Der Lookup `IsMinorEmployee` liest `hr_employee_profiles` direkt aus dem
+  schichten-Repo — dasselbe Muster wie
+  `PostgresEmployeeRepo.CountOtherActiveRoleAdmins`, das eine auth-Tabelle
+  liest ("there is no service-to-service gRPC in this repository", Kommentar
+  dort). Tenant-Praedikat explizit, RLS greift zusaetzlich. Kein Profil =
+  kein Verstoss (fehlende HR-Daten sind keine Aussage ueber das Alter).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (schichten, biz/hr
+  komplett, server, gateway inkl. TestOpenAPIRouteDrift, testutil inkl.
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`) | migration ok (299 lokal
+  angewendet, Kopf jetzt 299) | openapi `swagger-cli validate` ok
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) `end.After(latest)` aus der §14-Bedingung entfernt → genau
+  `TestService_CheckArbzgCompliance_Minor_NightWork` und
+  `TestService_AssignEmployee_MinorNightShiftRejected` wurden rot, die
+  uebrigen blieben gruen. Genau die Zeile, genau die Tests.
+  (2) `if !isMinor` zu `if isMinor` gedreht (Flag-Steuerung invertiert) →
+  zehn Tests rot, darunter vier bestehende ArbZG-Tests und der neue
+  `_Adult_NightShiftAllowed`. Das belegt beide Richtungen: das Flag schaltet
+  die Regeln ein UND haelt sie von allen anderen fern. Beide Proben
+  zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- db-tests: `internal/biz/hr/employee` hat DB-Integrationstests
+  (`integration_test.go`, `offboard_db_test.go`), die real gegen die lokale
+  DB liefen — **0 Skips** in `hr/employee` und `schichten`. `DATABASE_URL`
+  war gesetzt (`kmuhub_app`), Migration 299 vorher angewendet.
+- verify vorgaenger: `fb6893d3` (a-dokumente-version-download) sauber. Handler
+  geht ueber `documentv1.DocumentServiceClient`, kein direkter Service-Zugriff;
+  `GetVersionByID` filtert `id AND file_id AND tenant_id`; kein neuer
+  `RequirePermission`-Guard (nutzt den bestehenden `docDownload`); Pfad in
+  `openapi.yaml` im selben Commit; keine neue Tabelle, also nichts an RLS.
+- offen: Drei Punkte fuer Luke.
+  (1) Die `(id = $2 OR user_id = $2)`-Bedingung im Lookup ist bewusst breit
+  und mit `lean:` markiert: `shift_assignments.employee_id` hat keinen
+  Foreign Key, das Desktop-Raster fuettert dort Profil-IDs
+  (`useEmployees() → e.id`), waehrend derselbe Wert im Swap-Pfad `userId`
+  heisst. Eine Spalte zu raten waere fail-open gewesen (unerkannte
+  Minderjaehrige). Sobald die Spalte einen FK bekommt, gehoert die Bedingung
+  auf eine Spalte verengt. Ein Test deckt diese Verzweigung NICHT ab — der
+  Mock liefert den Bool direkt, belegt ist sie nur durch die SQL-Query.
+  (2) Zeitzone ist fest `Europe/Berlin`, nicht `hr_company_settings.timezone`
+  — schichten hat auf die HR-Settings keinen Zugriff, und ein zweiter
+  Cross-Modul-Lookup pro Compliance-Pruefung waere teurer als der Nutzen bei
+  aktuell einem Land. Mit `lean:` markiert.
+  (3) Kein FE-Konsument: das Team-Modul hat keinen Schalter fuer `is_minor`,
+  und `SchichtenPage.tsx` rechnet seine Warnungen weiterhin im Client
+  (`type: 'max_hours' | 'rest_period' | 'consecutive_days'`), ohne den
+  Compliance-Endpoint zu fragen. Das Backend kann jetzt mehr als das FE
+  abholt — eine Frontend-Session waere der naechste Schritt.

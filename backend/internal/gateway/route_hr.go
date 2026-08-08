@@ -1070,6 +1070,9 @@ type updateEmployeeHTTPReq struct {
 	AnnualLeaveDays int32  `json:"annual_leave_days"  validate:"omitempty,gte=0"`
 	ManagerUserID   string `json:"manager_user_id"`
 	StartDate       string `json:"start_date"`
+	// Pointer so an omitted field leaves the flag untouched instead of
+	// clearing it — the other fields here use their zero value for that.
+	IsMinor *bool `json:"is_minor"`
 }
 
 func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -1095,6 +1098,7 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 		AnnualLeaveDays: req.AnnualLeaveDays,
 		ManagerUserId:   req.ManagerUserID,
 		StartDate:       req.StartDate,
+		IsMinor:         req.IsMinor,
 	}
 
 	resp, err := client.UpdateEmployee(r.Context(), grpcReq)
@@ -1463,6 +1467,7 @@ type createEmployeeHTTPReq struct {
 	AddressCity           string `json:"address_city"`
 	AddressPostalCode     string `json:"address_postal_code"     validate:"omitempty,plz_dach"`
 	AddressCountry        string `json:"address_country"`
+	IsMinor               bool   `json:"is_minor"`
 }
 
 func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -1499,6 +1504,7 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 		AddressCity:           req.AddressCity,
 		AddressPostalCode:     req.AddressPostalCode,
 		AddressCountry:        req.AddressCountry,
+		IsMinor:               req.IsMinor,
 	}
 
 	resp, err := client.CreateEmployee(r.Context(), grpcReq)

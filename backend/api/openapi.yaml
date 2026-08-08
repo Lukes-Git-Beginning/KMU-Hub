@@ -38774,6 +38774,13 @@ components:
         exit_date: { type: string, format: date }
         exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
         exit_reason: { type: string }
+        is_minor:
+          type: boolean
+          description: >-
+            Under 18. Shift compliance applies the stricter JArbSchG limits (no
+            work before 06:00 or after 20:00, at most 8 hours per shift, no
+            weekend shifts) to everyone carrying this flag, and refuses shift
+            assignments that break them. Settable by HR only.
 
     OffboardEmployeeInput:
       type: object
@@ -38801,6 +38808,12 @@ components:
         annual_leave_days: { type: integer }
         manager_user_id: { type: string, format: uuid }
         start_date: { type: string, format: date }
+        is_minor:
+          type: boolean
+          description: >-
+            Omit to leave the flag untouched; send false to clear it. Not part
+            of UpdateSelfProfileInput — an employee must not be able to clear
+            it on themselves.
 
     UpdateSelfProfileInput:
       type: object

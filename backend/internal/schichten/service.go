@@ -2,6 +2,7 @@ package schichten
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -11,6 +12,32 @@ import (
 )
 
 const arbzgMinRestDuration = 11 * time.Hour
+
+// JArbSchG limits for employees flagged as minors. They are stricter than the
+// ArbZG limits that apply to everyone and are checked on top of them, never
+// instead of them.
+const (
+	// §14: no work before 06:00 or after 20:00.
+	jarbschgEarliestStartHour = 6
+	jarbschgLatestEndHour     = 20
+	// §8: at most eight hours a day.
+	jarbschgMaxShiftDuration = 8 * time.Hour
+)
+
+// jarbschgLocation is the wall-clock zone the hour limits are read in. A shift
+// stored as 19:00 UTC is 21:00 in Berlin and therefore night work; comparing
+// the UTC hour would miss exactly the violations this check exists for.
+//
+// lean: fixed to the tenant timezone default rather than read from
+// hr_company_settings.timezone (which schichten has no access to). Thread the
+// tenant's zone through once a tenant outside Europe/Berlin exists.
+func jarbschgLocation() *time.Location {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
 
 // Service handles schichten business logic.
 type Service struct {
@@ -272,6 +299,13 @@ func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput)
 		return nil, err
 	}
 
+	// Guard 3: JArbSchG limits, for employees flagged as minors only. A shift
+	// a minor may not legally work must not become an assignment that the
+	// compliance endpoint later reports as a violation after the fact.
+	if err := s.validateMinorProtection(ctx, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
+		return nil, err
+	}
+
 	assignment := &ShiftAssignment{
 		ID:         uuid.New(),
 		TenantID:   input.TenantID,
@@ -522,10 +556,21 @@ func (s *Service) ApplyTemplate(ctx context.Context, input ApplyTemplateInput) (
 // Compliance & Stats
 // ============================================================================
 
-// CheckArbzgCompliance validates ArbZG §5 rest requirements without writing to DB.
+// CheckArbzgCompliance validates the ArbZG §5 rest requirement and, for
+// employees flagged as minors, the JArbSchG limits on top of it. It writes
+// nothing to the DB.
 func (s *Service) CheckArbzgCompliance(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) (bool, string, error) {
 	if err := s.validateRestPeriod(ctx, tenantID, employeeID, newStart, newEnd); err != nil {
 		return false, err.Error(), nil
+	}
+	if err := s.validateMinorProtection(ctx, tenantID, employeeID, newStart, newEnd); err != nil {
+		// A rule violation is an answer, a failed lookup is not: reporting
+		// "compliant: false, no reason" for a dead database would read as a
+		// clean verdict.
+		if isJArbSchGViolation(err) {
+			return false, err.Error(), nil
+		}
+		return false, "", err
 	}
 	return true, "", nil
 }
@@ -733,4 +778,75 @@ func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID u
 	}
 
 	return nil
+}
+
+// validateMinorProtection applies the JArbSchG limits to employees whose HR
+// profile carries the minor flag. Employees without the flag are unaffected,
+// which is why it can sit in front of every assignment without changing the
+// behaviour of an existing plan.
+//
+// Only the first violation is reported. The response carries one reason
+// string, the same shape the rest-period check has always returned, so the
+// frontend learns nothing new.
+func (s *Service) validateMinorProtection(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
+	isMinor, err := s.repo.IsMinorEmployee(ctx, tenantID, employeeID)
+	if err != nil {
+		return fmt.Errorf("jarbschg check: %w", err)
+	}
+	if !isMinor {
+		return nil
+	}
+
+	if violation := checkMinorShiftLimits(newStart, newEnd); violation != nil {
+		slog.Warn("JArbSchG violation detected",
+			"employee_id", employeeID,
+			"tenant_id", tenantID,
+			"shift_start", newStart,
+			"shift_end", newEnd,
+			"violation", violation.Error(),
+		)
+		return violation
+	}
+	return nil
+}
+
+// checkMinorShiftLimits holds the JArbSchG rules themselves. It touches no
+// storage, so the rules are testable on their own.
+func checkMinorShiftLimits(newStart, newEnd time.Time) error {
+	loc := jarbschgLocation()
+	start := newStart.In(loc)
+	end := newEnd.In(loc)
+
+	// §16/§17: no Saturdays or Sundays. A shift running past midnight is
+	// checked on both ends, so a Friday night into Saturday is caught too.
+	if isWeekend(start) || isWeekend(end) {
+		return ErrJArbSchGWeekend
+	}
+
+	// §14: the working day is bounded by 06:00 and 20:00 of the start date.
+	// Anchoring both bounds to the start date means a shift ending after
+	// midnight lands after the upper bound rather than looking like an early
+	// morning.
+	earliest := time.Date(start.Year(), start.Month(), start.Day(), jarbschgEarliestStartHour, 0, 0, 0, loc)
+	latest := time.Date(start.Year(), start.Month(), start.Day(), jarbschgLatestEndHour, 0, 0, 0, loc)
+	if start.Before(earliest) || end.After(latest) {
+		return ErrJArbSchGNightWork
+	}
+
+	// §8: at most eight hours.
+	if end.Sub(start) > jarbschgMaxShiftDuration {
+		return ErrJArbSchGDailyHours
+	}
+
+	return nil
+}
+
+func isWeekend(t time.Time) bool {
+	return t.Weekday() == time.Saturday || t.Weekday() == time.Sunday
+}
+
+func isJArbSchGViolation(err error) bool {
+	return errors.Is(err, ErrJArbSchGNightWork) ||
+		errors.Is(err, ErrJArbSchGDailyHours) ||
+		errors.Is(err, ErrJArbSchGWeekend)
 }

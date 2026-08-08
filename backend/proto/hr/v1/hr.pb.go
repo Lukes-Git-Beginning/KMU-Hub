@@ -1013,11 +1013,14 @@ type EmployeeProfile struct {
 	ManagerName string `protobuf:"bytes,20,opt,name=manager_name,json=managerName,proto3" json:"manager_name,omitempty"`
 	// Offboarding state. status is active | inactive; the exit_* fields stay
 	// empty until the employee leaves.
-	Status        string `protobuf:"bytes,21,opt,name=status,proto3" json:"status,omitempty"`
-	LastWorkDay   string `protobuf:"bytes,22,opt,name=last_work_day,json=lastWorkDay,proto3" json:"last_work_day,omitempty"` // YYYY-MM-DD
-	ExitDate      string `protobuf:"bytes,23,opt,name=exit_date,json=exitDate,proto3" json:"exit_date,omitempty"`            // YYYY-MM-DD
-	ExitType      string `protobuf:"bytes,24,opt,name=exit_type,json=exitType,proto3" json:"exit_type,omitempty"`
-	ExitReason    string `protobuf:"bytes,25,opt,name=exit_reason,json=exitReason,proto3" json:"exit_reason,omitempty"`
+	Status      string `protobuf:"bytes,21,opt,name=status,proto3" json:"status,omitempty"`
+	LastWorkDay string `protobuf:"bytes,22,opt,name=last_work_day,json=lastWorkDay,proto3" json:"last_work_day,omitempty"` // YYYY-MM-DD
+	ExitDate    string `protobuf:"bytes,23,opt,name=exit_date,json=exitDate,proto3" json:"exit_date,omitempty"`            // YYYY-MM-DD
+	ExitType    string `protobuf:"bytes,24,opt,name=exit_type,json=exitType,proto3" json:"exit_type,omitempty"`
+	ExitReason  string `protobuf:"bytes,25,opt,name=exit_reason,json=exitReason,proto3" json:"exit_reason,omitempty"`
+	// Under 18. Drives the stricter JArbSchG limits in the shift compliance
+	// check (no night work, max 8 hours a day, no weekend shifts).
+	IsMinor       bool `protobuf:"varint,26,opt,name=is_minor,json=isMinor,proto3" json:"is_minor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1225,6 +1228,13 @@ func (x *EmployeeProfile) GetExitReason() string {
 		return x.ExitReason
 	}
 	return ""
+}
+
+func (x *EmployeeProfile) GetIsMinor() bool {
+	if x != nil {
+		return x.IsMinor
+	}
+	return false
 }
 
 type HRDocumentCategory struct {
@@ -4612,8 +4622,12 @@ type UpdateEmployeeReq struct {
 	AnnualLeaveDays int32                  `protobuf:"varint,7,opt,name=annual_leave_days,json=annualLeaveDays,proto3" json:"annual_leave_days,omitempty"`
 	ManagerUserId   string                 `protobuf:"bytes,8,opt,name=manager_user_id,json=managerUserId,proto3" json:"manager_user_id,omitempty"`
 	StartDate       string                 `protobuf:"bytes,9,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // YYYY-MM-DD
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// optional, because a plain bool cannot tell "set to false" apart from
+	// "not part of this update" — every other field here uses its zero value
+	// for the latter.
+	IsMinor       *bool `protobuf:"varint,10,opt,name=is_minor,json=isMinor,proto3,oneof" json:"is_minor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateEmployeeReq) Reset() {
@@ -4707,6 +4721,13 @@ func (x *UpdateEmployeeReq) GetStartDate() string {
 		return x.StartDate
 	}
 	return ""
+}
+
+func (x *UpdateEmployeeReq) GetIsMinor() bool {
+	if x != nil && x.IsMinor != nil {
+		return *x.IsMinor
+	}
+	return false
 }
 
 type UpdateEmployeeResp struct {
@@ -5756,6 +5777,7 @@ type CreateEmployeeReq struct {
 	AddressCity           string                 `protobuf:"bytes,13,opt,name=address_city,json=addressCity,proto3" json:"address_city,omitempty"`
 	AddressPostalCode     string                 `protobuf:"bytes,14,opt,name=address_postal_code,json=addressPostalCode,proto3" json:"address_postal_code,omitempty"`
 	AddressCountry        string                 `protobuf:"bytes,15,opt,name=address_country,json=addressCountry,proto3" json:"address_country,omitempty"`
+	IsMinor               bool                   `protobuf:"varint,16,opt,name=is_minor,json=isMinor,proto3" json:"is_minor,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -5893,6 +5915,13 @@ func (x *CreateEmployeeReq) GetAddressCountry() string {
 		return x.AddressCountry
 	}
 	return ""
+}
+
+func (x *CreateEmployeeReq) GetIsMinor() bool {
+	if x != nil {
+		return x.IsMinor
+	}
+	return false
 }
 
 type CreateEmployeeResp struct {
@@ -9497,7 +9526,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
 	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12)\n" +
-	"\x10duration_minutes\x18\x05 \x01(\x05R\x0fdurationMinutes\"\xd8\a\n" +
+	"\x10duration_minutes\x18\x05 \x01(\x05R\x0fdurationMinutes\"\xf3\a\n" +
 	"\x0fEmployeeProfile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1e\n" +
@@ -9531,7 +9560,8 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\texit_date\x18\x17 \x01(\tR\bexitDate\x12\x1b\n" +
 	"\texit_type\x18\x18 \x01(\tR\bexitType\x12\x1f\n" +
 	"\vexit_reason\x18\x19 \x01(\tR\n" +
-	"exitReason\"\xfe\x01\n" +
+	"exitReason\x12\x19\n" +
+	"\bis_minor\x18\x1a \x01(\bR\aisMinor\"\xfe\x01\n" +
 	"\x12HRDocumentCategory\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
@@ -9817,7 +9847,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"E\n" +
 	"\x0fGetEmployeeResp\x122\n" +
-	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xea\x02\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\x97\x03\n" +
 	"\x11UpdateEmployeeReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1e\n" +
@@ -9830,7 +9860,10 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x11annual_leave_days\x18\a \x01(\x05R\x0fannualLeaveDays\x12&\n" +
 	"\x0fmanager_user_id\x18\b \x01(\tR\rmanagerUserId\x12\x1d\n" +
 	"\n" +
-	"start_date\x18\t \x01(\tR\tstartDate\"H\n" +
+	"start_date\x18\t \x01(\tR\tstartDate\x12\x1e\n" +
+	"\bis_minor\x18\n" +
+	" \x01(\bH\x00R\aisMinor\x88\x01\x01B\v\n" +
+	"\t_is_minor\"H\n" +
 	"\x12UpdateEmployeeResp\x122\n" +
 	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xf4\x01\n" +
 	"\x13OffboardEmployeeReq\x12\x1f\n" +
@@ -9907,7 +9940,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x0fmax_daily_hours\x18\a \x01(\x05R\rmaxDailyHours\x12*\n" +
 	"\x11break_after_hours\x18\b \x01(\x05R\x0fbreakAfterHours\"E\n" +
 	"\x14UpdateHRSettingsResp\x12-\n" +
-	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\xfb\x04\n" +
+	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\x96\x05\n" +
 	"\x11CreateEmployeeReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1e\n" +
@@ -9927,7 +9960,8 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x0eaddress_street\x18\f \x01(\tR\raddressStreet\x12!\n" +
 	"\faddress_city\x18\r \x01(\tR\vaddressCity\x12.\n" +
 	"\x13address_postal_code\x18\x0e \x01(\tR\x11addressPostalCode\x12'\n" +
-	"\x0faddress_country\x18\x0f \x01(\tR\x0eaddressCountry\"H\n" +
+	"\x0faddress_country\x18\x0f \x01(\tR\x0eaddressCountry\x12\x19\n" +
+	"\bis_minor\x18\x10 \x01(\bR\aisMinor\"H\n" +
 	"\x12CreateEmployeeResp\x122\n" +
 	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\x8e\x02\n" +
 	"\fTimeCategory\x12\x0e\n" +
@@ -10695,6 +10729,7 @@ func file_proto_hr_v1_hr_proto_init() {
 	if File_proto_hr_v1_hr_proto != nil {
 		return
 	}
+	file_proto_hr_v1_hr_proto_msgTypes[58].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
