@@ -1341,7 +1341,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/hr/employee` - gemessen 22,8 %. Die Namensaufloesung ueber
       `CONCAT_WS` mit E-Mail-Rueckfall war schon einmal produktiv kaputt; dieser Pfad und die

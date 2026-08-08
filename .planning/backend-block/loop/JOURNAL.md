@@ -2772,3 +2772,81 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   mitschickt), waere das ein Datenpunkt wert, das zu verifizieren; falls
   nein, war das Feature bislang komplett unbenutzbar. Naechste Unit im
   Backlog: `c-cov-biz-hr-employee`.
+
+## Iteration 34 — c-cov-biz-hr-employee — done — 2026-08-08 22:40
+- commit: 41155e98
+- verify vorgaenger: sauber (85ea0f31 ist ein reiner chore-Commit, der nur die
+  Iteration-33-SHA nachtraegt — kein Gateway/Route/Proto/Guard/neue-Tabelle
+  betroffen). `git merge origin/main` war "Already up to date".
+- gebaut: Neue Datei `postgres_repository_db_test.go` mit 20 DB-Integrationstests
+  fuer `internal/biz/hr/employee` (vorher 0 DB-Tests gegen `PostgresEmployeeRepo`/
+  `PostgresDocCategoryRepo`/`PostgresEmployeeDocRepo` im normal laufenden Gate —
+  die vorhandene `integration_test.go` haengt an `//go:build integration` und
+  laeuft nur in `nightly.yml`, nicht in `go test ./...`). Coverage 22,8% -> 75,3%.
+  Dabei EINEN echten, live gegen die DB verifizierten Produktionsbug gefunden
+  und gefixt: `CONCAT_WS(' ', a, b)` uebergeht nur NULL-Argumente, keine leeren
+  Strings — bei zwei leeren Strings liefert es trotzdem den Separator, also ein
+  einzelnes Leerzeichen (`' '`), nicht `''`. `NULLIF(' ', '')` erkennt das nicht
+  als leer, der COALESCE-Fallback auf die E-Mail griff also NIE. Da
+  `users.first_name`/`last_name` seit Migration 000001 `NOT NULL DEFAULT ''`
+  sind (nie NULL), zeigte JEDER Nutzer ohne gesetzten Namen ein einzelnes
+  Leerzeichen statt der E-Mail an — reproduziert per `docker exec ... psql`
+  VOR dem Fix (`length(CONCAT_WS(...)) = 1`, `NULLIF(...) IS NULL = false`).
+  Fix: `TRIM(...)` um jedes `CONCAT_WS(...)` vor dem `NULLIF`, an allen acht
+  Fundstellen in der Datei (user_name x3, manager_name x3, uploaded_by_name,
+  employee_name in `personnelDocColumns`) — derselbe kopierte SQL-Fragment,
+  einheitlich behoben, kein Sonderfall uebrig.
+  Tests decken: Namensaufloesung inkl. E-Mail-Fallback auf allen drei
+  Lesepfaden (GetByID/GetByUserID/List) UND fuer den Manager-Join, jeweils
+  gegen das echte Migrationsschema; Cross-Tenant-Unsichtbarkeit auf JEDEM
+  Lesepfad (GetByID, GetByUserID, List, DocCategory GetByID/ListByTenant,
+  EmployeeDoc GetByID/ListByTenant); Update persistiert Felder; DocCategory
+  GetByKey-Tie-Break (Tenant-eigene Zeile schlaegt System-Seed bei gleichem
+  Key); EmployeeDoc Create/GetByID-Roundtrip inkl. E-Mail-Fallback fuer den
+  Uploader, ListByEmployee-Scoping, Delete. Fuer `hr_employee_documents`
+  (RLS-Policy `hr_document_access`, Migration 000127: USING/WITH CHECK
+  verlangen `admin`/`hr_admin`-Rolle oder System-Kontext, nicht nur den
+  Tenant) neuer Helper `employeeDocCtx(tenantID)` setzt zusaetzlich
+  `middleware.UserRolesKey = []string{"hr_admin"}` — spiegelt einen echten
+  Caller (der RPC-Pfad prueft `RequirePermission` vor dem Aufruf), statt auf
+  den System-Kontext-Bypass auszuweichen, den `SeedRow` nutzt.
+- gate: `go build -p 2 ./internal/biz/hr/employee/... ./internal/gateway/...
+  ./internal/server/...` ok | `go vet ./internal/biz/hr/employee/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/biz/hr/employee/...`
+  0 issues | `gofmt -l` clean (Anmerkung: gofmt formatiert Doc-Comments seit
+  Go 1.19 um und wandelt darin `''` zu typografischen Anfuehrungszeichen —
+  kein Encoding-Fehler, Standardverhalten, mit `gofmt -w` uebernommen) |
+  `go test -count=1 -cover ./internal/biz/hr/employee/... ./internal/gateway/...
+  ./internal/server/...` alle gruen inkl. `TestOpenAPIRouteDrift` (kein
+  Route/Proto/Migration angefasst) | `go test -tags=integration -count=1
+  ./internal/biz/hr/employee/...` (die bestehenden Nightly-Tests) weiterhin
+  gruen — der Fix bricht sie nicht | migration n.a. (keine Schemaaenderung,
+  reiner SQL-Ausdrucksfix) | rls-smoke n.a. (keine neue Tabelle/Policy)
+- mutations-probe: TRIM() bei EINER der acht Fundstellen (GetByID user_name,
+  Zeile 56) zurueckgenommen (`NULLIF(TRIM(CONCAT_WS(...)), '')` ->
+  `NULLIF(CONCAT_WS(...), '')`). Ergebnis: GENAU
+  `TestRepository_GetByID_BlankNameFallsBackToEmail` wurde rot, alle 14
+  anderen `TestRepository_*`-Tests blieben gruen (inkl. der beiden anderen
+  Blank-Name-Tests fuer GetByUserID/List, die auf ihre EIGENEN, unveraenderten
+  Fundstellen zeigen — belegt, dass jeder Lesepfad seine eigene Kopie
+  tatsaechlich einzeln abdeckt). Zurueckgedreht (Backup-Diff verifiziert:
+  8/8 Fundstellen wieder mit TRIM), Endgate danach erneut gelaufen und gruen.
+- db-tests: 20 neue DB-Integrationstests, alle real gegen `kmuhub_app`
+  gelaufen (inkl. der neun bestehenden `TestOffboard_*` aus
+  `offboard_db_test.go`, unveraendert) — **0 Skips** im gesamten Paket
+  `employee` (45 Tests total: 20 neu + 9 Offboard-DB + 16 Mock-basiert).
+  `DATABASE_URL` war auf `kmuhub_app` gesetzt.
+- offen: Kein DB-Gate-Ausfall. Zwei Punkte fuer Luke.
+  (1) Derselbe `CONCAT_WS(' ', a, b)`-ohne-TRIM-Pattern koennte auch in
+  anderen Services vorkommen (das Repository hier hatte es an acht Stellen
+  kopiert) — diese Iteration hat NUR `internal/biz/hr/employee` gefixt, wie
+  im Scope vorgesehen. Ein Grep ueber `backend/internal` nach
+  `NULLIF(CONCAT_WS` waere ein schneller Folge-Check, wurde hier bewusst
+  nicht ausgeweitet (Scope-Disziplin).
+  (2) Die vorhandene `integration_test.go` (Testcontainer-basiert, `-tags
+  integration`, laeuft nur in `nightly.yml`) deckt denselben
+  Namensaufloesungs-Pfad bereits ab, war aber vom taeglichen Loop-Gate nie
+  sichtbar — genau deshalb stand die Unit trotz vermeintlicher Abdeckung im
+  Backlog. Beide Testsuiten liefen nach dem Fix gruen, keine Kollision oder
+  Redundanz-Bereinigung noetig.
+  Naechste Unit im Backlog: `c-cov-biz-hr-absence`.
