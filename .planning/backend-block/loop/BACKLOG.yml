@@ -1157,7 +1157,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/crm/activity` - gemessen 36,2 %. Aktivitaeten haengen an
       Kontakten, Firmen und Deals - die Zuordnungspfade, die Zeitraumfilter und die
@@ -1175,6 +1175,47 @@ units:
       - Zeitraumfilter geprueft, inklusive leerem Zeitraum
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Neue Datei `postgres_repository_db_test.go` mit acht DB-Integrationstests (vorher 0
+      DB-Tests im Paket, nur Mock-basierte `service_test.go` plus die bestehenden
+      `rls_test.go`/`tenant_write_test.go` fuer die reine CRUD-RLS-Flaeche). Coverage 40,1 %
+      (lokal gemessen, Backlog nannte 36,2 %) -> 77,8 %. Praemisse zu "Zeitraumfilter" geprueft:
+      es gibt keinen Datumsbereichs-Parameter im Repo (weder in `ListFilter` noch im Gateway-
+      Handler) - abgedeckt sind stattdessen Sortierung nach `due_date` (bereits vorhanden) und
+      der Seiten-Grenzfall (Offset ueber dem Total liefert eine leere Seite, keinen Fehler).
+      Kernstueck ist `TestService_Create_RejectsActivityLinkedToForeignTenantEntity`: die vier
+      `*Exists`-Existenzchecks (`ContactExists`/`CompanyExists`/`DealExists`/`UserExists`)
+      tragen KEIN `tenant_id`-Praedikat im SQL - RLS ist der einzige Schutz gegen eine
+      Aktivitaet, die an eine fremde Entitaet gehaengt wird. Test belegt das ueber den echten
+      `Service.Create`-Pfad (nicht nur den Repository-Aufruf direkt), inklusive aller drei
+      Zweige (Contact/Company/Deal). `TestExistenceChecks_AreTenantScopedByRLS` haelt dieselbe
+      Eigenschaft direkt auf Repository-Ebene fest. Weitere Abdeckung: `List` (alle sieben
+      Filter plus AND-Tag-Filter plus Pagination), die vier `Get*Name`-Aufloesungen (Treffer +
+      Nicht-Treffer), `GetTags`/`AddTags`/`RemoveTags`/`TagExists` (letzteres ebenfalls ohne
+      SQL-Tenant-Praedikat, RLS-getragen), `SetCustomFieldValues`/`GetCustomFieldValues`
+      (Upsert-Overwrite, leere Aktivitaet liefert leeren Slice) und `GetContactTimeline`
+      (UNION aus Activities+Deals, Sortierung, Pagination, echter Fremd-Tenant-Datensatz mit
+      demselben `contact_id` bleibt ausgeschlossen).
+      testfixture-falle (wie iteration 30): `custom_field_definitions.tenant_id` hat DEFAULT
+      auf den System-Tenant - `SeedRow` muss `tenant_id` explizit setzen, sonst ist das Feld
+      unter dem echten Test-Tenant per RLS unsichtbar.
+      korrigierter erster Entwurf: die "Fremd-Tenant-Session sieht nichts"-Assertion in
+      `GetContactTimeline` pruefte zunaechst mit der ECHTEN `tenantOther`-ID als Parameter -
+      damit haette die absichtlich fremd-tenant-verseuchte Test-Deal-Zeile (gleiche
+      `contact_id`, aber `tenant_id=tenantOther`) legitim erscheinen muessen, der Test haette
+      also nichts bewiesen. Korrigiert auf die gestohlene ECHTE `tenantOwn`-ID aus der
+      Angreifer-Session heraus - das ist der Fall, der nur durch RLS blockiert wird, nicht
+      durch die SQL-WHERE-Klausel selbst.
+      gate: `go build -p 2 ./internal/crm/... ./internal/gateway/...` ok | `go vet` ok |
+      `golangci-lint run --config .golangci.yml ./internal/crm/activity/...` 0 issues |
+      `go test -count=1 ./internal/crm/activity/...` alle 41 Tests gruen (33 bestehende + 8
+      neue), 0 Skips, DATABASE_URL gesetzt (Rolle kmuhub_app). Keine Route/kein Proto/keine
+      Migration angefasst, `TestOpenAPIRouteDrift` daher nicht betroffen.
+      mutations-probe: `List`s `CompanyID`-Filterbedingung entfernt (Bind-Parameter blieb
+      erhalten) -> `TestRepository_List_FiltersScopesAndPaginates` sofort rot
+      (`expected 1 arguments, got 2`, pgx-Placeholder-Mismatch). Zurueckgedreht, `git diff`
+      bestaetigt keine Differenz.
+      offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-biz-datev`.
 
   - id: c-cov-biz-datev
     phase: 3

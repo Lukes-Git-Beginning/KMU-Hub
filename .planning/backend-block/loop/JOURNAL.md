@@ -2427,3 +2427,96 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Beweislast wie eine absichtliche Probe, nur in umgekehrter Reihenfolge
   entstanden.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-crm-activity`.
+
+## Iteration 31 — c-cov-crm-activity — done — 2026-08-08 22:10
+- commit: (siehe naechster chore-Commit)
+- verify vorgaenger: sauber (a05208e2 aendert nur die Testdatei plus einen
+  gezielten 7-Zeilen-Fix in MergeInto's Tag-Merge-INSERT, exakt wie im
+  Journal-Eintrag der Iteration 30 beschrieben — kein Gateway/Route/Proto/
+  Guard/neue-Tabelle betroffen).
+- gebaut: Neue Datei `postgres_repository_db_test.go` mit acht
+  DB-Integrationstests gegen `internal/crm/activity` (vorher 0 DB-Tests im
+  Paket — nur Mock-basierte `service_test.go` sowie die bestehenden
+  `rls_test.go`/`tenant_write_test.go` fuer die reine CRUD-RLS-Flaeche).
+  Coverage 40,1 % (lokal gemessen; Backlog nannte 36,2 %) -> 77,8 %.
+  - `TestRepository_List_FiltersScopesAndPaginates` — alle sieben Filter
+    (ActivityType, ContactID, CompanyID, DealID, AssignedTo, CreatedBy,
+    IsCompleted) einzeln, Search, Sortierung nach subject, Pagination
+    (Offset ueber Total liefert leer statt Fehler), Tenant-Scopung ueber
+    eine fremde Aktivitaet, die nirgends auftaucht.
+  - `TestRepository_List_TagFilterRequiresAllTags` — die
+    `HAVING COUNT(DISTINCT tag_id) = N`-AND-Semantik: eine doppelt getaggte
+    Aktivitaet matcht bei zwei angefragten Tags, eine einfach getaggte nicht.
+  - `TestRepository_GetRelationNames_FoundAndNotFound` — GetContactName/
+    GetCompanyName/GetDealName/GetUserName je Treffer- und
+    Nicht-Treffer-Zweig (leerer String + nil-Error bei pgx.ErrNoRows).
+  - `TestExistenceChecks_AreTenantScopedByRLS` — der Kern der Unit:
+    ContactExists/CompanyExists/DealExists/UserExists tragen KEIN
+    tenant_id-Praedikat im SQL. Unter der eigenen Tenant-Session sind die
+    seeded Zeilen sichtbar, unter einer fremden Session verschwinden sie —
+    ausschliesslich RLS haelt diese Grenze.
+  - `TestService_Create_RejectsActivityLinkedToForeignTenantEntity` — dieselbe
+    Eigenschaft ueber den echten `Service.Create`-Pfad bewiesen, alle drei
+    Zweige (Contact/Company/Deal): eine Aktivitaet, die an eine fremde
+    Entitaet verlinkt werden soll, liefert ErrContactNotFound/
+    ErrCompanyNotFound/ErrDealNotFound, weil die Exists-Checks unter der
+    aufrufenden Session die fremde Zeile gar nicht erst sehen. Das ist genau
+    die im Backlog benannte Luecke ("eine fehlende Vorpruefung") — sie
+    existiert nicht als Bug, weil RLS sie schliesst, aber das stand bislang
+    nirgends als Test.
+  - `TestRepository_Tags_AddGetRemoveRoundtripAndTagExistsIsTenantScoped` —
+    Roundtrip plus TagExists ebenfalls ohne SQL-Tenant-Praedikat (RLS-getragen),
+    GetTags aus fremder Session liefert keine Zeilen.
+  - `TestRepository_CustomFields_SetGetRoundtripUpsertAndEmptyReturnsNoRows`
+    — Upsert-Overwrite, leere Aktivitaet liefert leeren Slice statt Fehler.
+  - `TestRepository_GetContactTimeline_CombinesActivitiesAndDealsScopedAndPaginated`
+    — UNION aus Activities und Deal-Links, Sortierung neueste-zuerst,
+    Pagination, ein absichtlich fremd-tenant-verseuchter Deal mit derselben
+    contact_id bleibt in der eigenen Sicht aussen vor, und eine
+    Angreifer-Session mit der GESTOHLENEN echten Tenant-ID als Parameter
+    sieht trotzdem nichts (RLS, nicht die WHERE-Klausel, blockiert).
+- praemisse widerlegt (Teilaspekt): "Zeitraumfilter" aus dem Backlog-Scope
+  existiert nicht als Datumsbereichs-Parameter — weder in `ListFilter` noch
+  im Gateway-Handler (`route_crm_activities.go`) gibt es einen From/To-Filter
+  auf due_date oder created_at. Interpretiert als das, was tatsaechlich im
+  Code steckt: Sortierung nach due_date (bereits vorhanden, mitgetestet)
+  und der Pagination-Grenzfall leerer Zeitraum/leere Seite (Offset ueber
+  Total). Kein Blocker, kein neuer Endpunkt gebaut — reine Praezisierung.
+- testfixture-falle (wie iteration 30, hier erneut bestaetigt):
+  `custom_field_definitions.tenant_id` hat `DEFAULT
+  '00000000-...001'::uuid` (System-Tenant). Ein `SeedRow`-Aufruf ohne
+  explizites `tenant_id` landet unsichtbar ausserhalb des echten
+  Test-Tenants. Diesmal vorab bekannt und in der Testdatei per Kommentar
+  festgehalten, damit es nicht erneut zu einem falschen Rot-Befund fuehrt.
+- korrigierter erster Entwurf (relevant fuer folgende Iterationen): Die
+  "Fremd-Tenant-Session sieht nichts"-Assertion in
+  `TestRepository_GetContactTimeline_CombinesActivitiesAndDealsScopedAndPaginated`
+  pruefte im ersten Entwurf mit der ECHTEN `tenantOther`-ID als Parameter.
+  Da absichtlich eine fremd-tenant-verseuchte Test-Deal-Zeile mit exakt
+  `tenant_id=tenantOther` UND derselben `contact_id` existiert, haette diese
+  Zeile unter ihrer EIGENEN Tenant-ID legitim zurueckkommen muessen — der
+  Test haette also mit einer falschen Erwartung gearbeitet und nichts
+  bewiesen (waere aber zufaellig gruen gelaufen, weil ich das vor dem
+  ersten Testlauf beim Nachdenken ueber die RLS-Policy-Kombination aus
+  Session-Tenant und WHERE-Klausel gefunden und korrigiert habe, nicht weil
+  der Testlauf es aufgedeckt haette). Korrigiert auf die gestohlene ECHTE
+  `tenantOwn`-ID aus der Angreifer-Session (`ctxOther`) heraus — das ist der
+  Fall, in dem RLS (Session-Tenant = tenantOther) und die WHERE-Klausel
+  (Parameter = tenantOwn) einander widersprechen und daher garantiert 0
+  Zeilen liefern, unabhaengig vom Dateninhalt.
+- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/...` ok |
+  `go vet ./internal/crm/activity/...` ok | `golangci-lint run --config
+  .golangci.yml ./internal/crm/activity/...` 0 issues | `go test -count=1
+  ./internal/crm/activity/...` — alle 41 Tests gruen (33 bestehende + 8
+  neue), **0 Skips**, DATABASE_URL gesetzt (Rolle kmuhub_app). Keine
+  Route/kein Proto/keine Migration angefasst, daher `TestOpenAPIRouteDrift`
+  nicht betroffen und kein separater `go test ./internal/gateway/`-Lauf
+  noetig.
+- mutations-probe: In `List` die `CompanyID`-Filterbedingung
+  (`conditions = append(...)`) entfernt, aber den Bind-Parameter
+  (`args = append(...)`, `argNum++`) belassen -> `TestRepository_List_FiltersScopesAndPaginates`
+  wurde sofort rot (`expected 1 arguments, got 2` — pgx-Placeholder-Mismatch,
+  weil ein ungenutzter Parameter im Slice blieb). Zurueckgedreht, `git diff
+  --stat internal/crm/activity/postgres_repository.go` bestaetigt keine
+  Differenz.
+- offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-biz-datev`.
