@@ -1087,6 +1087,8 @@ type NotificationPreferenceInfo struct {
 	Sound         string                 `protobuf:"bytes,7,opt,name=sound,proto3" json:"sound,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Email         bool                   `protobuf:"varint,10,opt,name=email,proto3" json:"email,omitempty"`
+	Sms           bool                   `protobuf:"varint,11,opt,name=sms,proto3" json:"sms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1182,6 +1184,20 @@ func (x *NotificationPreferenceInfo) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *NotificationPreferenceInfo) GetEmail() bool {
+	if x != nil {
+		return x.Email
+	}
+	return false
+}
+
+func (x *NotificationPreferenceInfo) GetSms() bool {
+	if x != nil {
+		return x.Sms
+	}
+	return false
 }
 
 type GetNotificationPreferencesRequest struct {
@@ -1288,6 +1304,8 @@ type UpdateNotificationPreferenceRequest struct {
 	InApp         bool                   `protobuf:"varint,4,opt,name=in_app,json=inApp,proto3" json:"in_app,omitempty"`
 	DesktopPush   bool                   `protobuf:"varint,5,opt,name=desktop_push,json=desktopPush,proto3" json:"desktop_push,omitempty"`
 	Sound         string                 `protobuf:"bytes,6,opt,name=sound,proto3" json:"sound,omitempty"`
+	Email         bool                   `protobuf:"varint,7,opt,name=email,proto3" json:"email,omitempty"`
+	Sms           bool                   `protobuf:"varint,8,opt,name=sms,proto3" json:"sms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1362,6 +1380,20 @@ func (x *UpdateNotificationPreferenceRequest) GetSound() string {
 		return x.Sound
 	}
 	return ""
+}
+
+func (x *UpdateNotificationPreferenceRequest) GetEmail() bool {
+	if x != nil {
+		return x.Email
+	}
+	return false
+}
+
+func (x *UpdateNotificationPreferenceRequest) GetSms() bool {
+	if x != nil {
+		return x.Sms
+	}
+	return false
 }
 
 type UpdateNotificationPreferenceResponse struct {
@@ -4183,7 +4215,7 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"m\n" +
 	"\x1aSnoozeNotificationResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12?\n" +
-	"\rsnoozed_until\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fsnoozedUntil\"\xf9\x02\n" +
+	"\rsnoozed_until\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fsnoozedUntil\"\xa1\x03\n" +
 	"\x1aNotificationPreferenceInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12)\n" +
@@ -4195,7 +4227,10 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x11\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x14\n" +
+	"\x05email\x18\n" +
+	" \x01(\bR\x05email\x12\x10\n" +
+	"\x03sms\x18\v \x01(\bR\x03smsB\x11\n" +
 	"\x0f_event_type_keyB\f\n" +
 	"\n" +
 	"_module_id\"l\n" +
@@ -4205,14 +4240,16 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\n" +
 	"_module_id\"s\n" +
 	"\"GetNotificationPreferencesResponse\x12M\n" +
-	"\vpreferences\x18\x01 \x03(\v2+.notification.v1.NotificationPreferenceInfoR\vpreferences\"\xfc\x01\n" +
+	"\vpreferences\x18\x01 \x03(\v2+.notification.v1.NotificationPreferenceInfoR\vpreferences\"\xa4\x02\n" +
 	"#UpdateNotificationPreferenceRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12)\n" +
 	"\x0eevent_type_key\x18\x02 \x01(\tH\x00R\feventTypeKey\x88\x01\x01\x12 \n" +
 	"\tmodule_id\x18\x03 \x01(\tH\x01R\bmoduleId\x88\x01\x01\x12\x15\n" +
 	"\x06in_app\x18\x04 \x01(\bR\x05inApp\x12!\n" +
 	"\fdesktop_push\x18\x05 \x01(\bR\vdesktopPush\x12\x14\n" +
-	"\x05sound\x18\x06 \x01(\tR\x05soundB\x11\n" +
+	"\x05sound\x18\x06 \x01(\tR\x05sound\x12\x14\n" +
+	"\x05email\x18\a \x01(\bR\x05email\x12\x10\n" +
+	"\x03sms\x18\b \x01(\bR\x03smsB\x11\n" +
 	"\x0f_event_type_keyB\f\n" +
 	"\n" +
 	"_module_id\"s\n" +

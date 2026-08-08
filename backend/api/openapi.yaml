@@ -35254,6 +35254,17 @@ components:
           type: boolean
         desktop_push:
           type: boolean
+        email:
+          type: boolean
+          description: >
+            Whether this preference selects email as a delivery channel. Carried
+            through for the user's choice; actual email delivery is not wired to
+            the dispatcher yet.
+        sms:
+          type: boolean
+          description: >
+            Whether this preference selects SMS as a delivery channel. Carried
+            through for the user's choice; no SMS provider is configured.
         sound:
           type: string
 
@@ -35269,6 +35280,10 @@ components:
         in_app:
           type: boolean
         desktop_push:
+          type: boolean
+        email:
+          type: boolean
+        sms:
           type: boolean
         sound:
           type: string

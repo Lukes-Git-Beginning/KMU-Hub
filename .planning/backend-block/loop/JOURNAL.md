@@ -1130,3 +1130,131 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Wer ein bestehendes Meeting nachtraeglich zur Serie machen will, kann das ueber
   die API nicht. Eigene Unit, keine Nebenbei-Aenderung. (3) Frontend kennt die
   Route noch nicht (Loop baut Backend).
+
+## Iteration 15 — a-notifications-channel-exposure — done — 2026-08-08 19:05
+
+- commit: (siehe unten)
+- verify vorgaenger: Commit `6f5779ec` (Iteration 14, Meeting-Occurrences) gegen
+  die sechs Fehlerklassen geprueft. `git show --stat` = 15 Dateien: Handler geht
+  ueber `client.ListMeetingOccurrences` (gRPC-Client, kein Direct-Svc-Bypass),
+  `.proto` UND `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert, keine neue
+  Tabelle/Migration (also keine Tenant-/RLS-Frage), kein neuer
+  `RequirePermission`-Guard, neuer Pfad `/meetings/{id}/occurrences` steht in
+  `openapi.yaml` im selben Commit. Sauber, nichts nachzuziehen.
+- praemisse (Notiz verlangte das zuerst): `internal/notification/preference/`
+  UND `/api/v1/notifications/preferences` existieren bereits — aber die
+  Kanalwahl selbst fehlte nachweislich. `models.NotificationPreference` /
+  `notification_preferences` (Migration 000022) kannten nur `in_app` und
+  `desktop_push`; `DeliveryDecision` im Service ebenso. Tiefer nachgesehen als
+  die Notiz verlangte, weil die Praemisse sonst nur halb gilt: der Dispatcher
+  (`internal/notification/delivery/dispatcher.go`) liefert bis heute NUR
+  in_app/desktop_push (WS) und Teams/Slack-Integration-Forwarding aus
+  `cmd/notification/main.go` — keine Zeile Email- oder SMS-Versand fuer
+  Notifications. Trotzdem nicht `blocked`: die Notiz selbst sagt explizit
+  "Zustellung selbst bleibt beim Dispatcher" — die Kanalwahl ist als reines
+  Praeferenz-Feld gescopt, die Zustellung ist bewusst eine spaetere Unit. Ein
+  Treiber fuer eine echte Email-Zustellung existiert inzwischen sogar
+  (`internal/email/systemmail`, aus Lauf 3 Iteration 50 fuer den
+  Berichte-Scheduler gebaut) — aber ihn hier anzuschliessen waere Scope-Creep
+  ueber die Notiz hinaus gewesen, nicht Mechanik.
+- gebaut: `email`/`sms` als zusaetzliche Spalten auf `notification_preferences`
+  (Migration 000304, `email DEFAULT true`, `sms DEFAULT false` — Default
+  spiegelt den bisherigen faktischen Zustand: In-App/Push liefen immer, Email
+  war nie aktiv verweigert, SMS gibt es nicht). Additiv durch die gesamte
+  Kette gezogen: `models.NotificationPreference`, `postgres_repository.go`
+  (alle vier Queries), `preference.Service.DeliveryDecision` +
+  `Evaluate()`, `notification.proto`
+  (`NotificationPreferenceInfo`/`UpdateNotificationPreferenceRequest`, Felder
+  10/11 bzw. 7/8, `make proto` fuer notification.proto neu generiert — Diff nur
+  Feldanhang, keine Generator-Versionszeile), `notification_grpc.go`
+  (`toPreferenceInfo`, `UpdateNotificationPreference`), Gateway
+  `updatePreferenceRequest` + `route_notification.go`, `openapi.yaml`
+  (`NotificationPreference`/`UpdateNotificationPreferenceRequest`-Schemas).
+  KEINE neue Route — genau wie die Notiz verlangt.
+  ENTSCHEIDUNG die ueber ein reines Copy-Paste hinausgeht: die "alle Kanaele
+  deaktiviert -> Deliver=false"-Pruefung in `Evaluate()` pruefte bisher nur
+  `!InApp && !DesktopPush`. Unveraendert gelassen haette das bedeutet, dass ein
+  Nutzer, der ausschliesslich Email waehlt (in_app=false, desktop_push=false,
+  email=true), von der Entscheidungsebene als "nicht zuzustellen" markiert
+  wird — sobald irgendwann ein Email-Callback drangehaengt wird, wuerde diese
+  Preference ihn sofort wieder stumm schalten. Die Pruefung um `!Email &&
+  !SMS` erweitert, damit die Kanalwahl ab dem ersten Tag korrekt in die
+  Deliver-Entscheidung einfliesst, auch wenn heute noch niemand `decision.Email`
+  liest.
+- ROOT-CAUSE-FUND beim Testen, nicht geraten: `UpsertPreference`s
+  `ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS
+  NOT NULL` passte seit Migration 000124 (tenant_id NOT NULL + RLS) auf KEINEN
+  echten Unique-Index mehr — der Index aus Migration 000022 kennt nur
+  `(user_id, event_type_key)`, tenant_id wurde nie nachgezogen. Postgres:
+  "no unique or exclusion constraint matching the ON CONFLICT specification".
+  Das bedeutet: jedes Upsert einer event-type-spezifischen Preference ist seit
+  000124 in Produktion mit einem 500er gescheitert — nie aufgefallen, weil es
+  vor dieser Iteration keinen einzigen DB-gestuetzten Test fuer
+  `UpsertPreference` gab (nur den Mock-basierten `service_test.go`). Fix in
+  derselben Datei, die ich ohnehin anfasse: Migration 000305 ersetzt den Index
+  durch `(tenant_id, user_id, event_type_key)` — echte Obermenge des alten
+  Index, kann also keine bestehende Zeile verletzen. Root-Cause-Fix statt Guard
+  um den Aufrufer, wie von der Lean-Regel verlangt.
+  GEFUNDEN, NICHT BEHOBEN (ausserhalb Scope): derselbe Tenant-Blindfleck
+  besteht auch bei `idx_notification_preferences_module_default`
+  (`(user_id, module_id) WHERE event_type_key IS NULL`) — dort loest er aber
+  aktuell keinen Fehler aus, weil `UpsertPreference` fuer den
+  Modul-Default-Fall gar kein `ON CONFLICT` definiert (ein zweites Upsert
+  desselben Moduls wuerde also mit einem rohen Duplicate-Key-Fehler statt
+  einem Update enden — ein eigener, vorbestehender Bug, nicht durch diese
+  Iteration ausgeloest). Kandidat fuer eine eigene Fix-Unit.
+- abweichung vom woertlichen done_when: "Unbekannter Kanal liefert 400" liess
+  sich nicht sinnvoll umsetzen, weil dieses Repo Kanaele als benannte
+  Booleans fuehrt (`in_app`, `desktop_push`, jetzt `email`, `sms`), nicht als
+  generischer String/Array — eine Kanal-Enum-Validierung haette eine zweite,
+  inkonsistente Wire-Form neben dem bestehenden Muster erzwungen. Bewusst
+  NICHT gebaut (Lean-Code-Leiter: Muster wiederverwenden statt neu erfinden).
+  Bestehendes Verhalten fuer unbekannte JSON-Felder gilt unveraendert
+  (werden von `decodeAndValidate` ignoriert, kein 400 — wie bei allen anderen
+  Preference-Feldern auch).
+- risiko, dokumentiert statt versteckt: Das Preference-PUT ersetzt den ganzen
+  Satz (bestehendes Muster, siehe `a-users-preferences`-Notiz). Solange das FE
+  `email`/`sms` nicht mitschickt, faellt jedes PUT von einer noch unwissenden
+  FE-Version auf `email=false, sms=false` zurueck (Go-Zero-Value bei
+  JSON-Absenz) — ein stiller Abfall vom DB-Default `email=true`. Wirkt sich
+  aktuell auf NICHTS aus (kein Dispatcher-Callback liest `decision.Email`),
+  wird aber real in dem Moment, in dem sowohl FE-Formular als auch
+  Email-Zustellung nachgezogen sind. Luke sollte das beim FE-Anschluss wissen.
+- fehlerpfade: `GetEventTypePreference`/`GetModuleDefault` liefern weiterhin
+  `ErrPreferenceNotFound` unveraendert (keine Verhaltensaenderung an diesen
+  Pfaden ausser den zwei zusaetzlichen Spalten).
+- mutations-proben (zwei, beide rot geworden, beide zurueckgedreht): (A) die
+  neue `!Email && !SMS`-Klausel im Deliver-Gate entfernt ->
+  `TestEvaluateEmailOnlyChannelStillDelivers` rot ("Should be true"). (B) in
+  `GetEventTypePreference` die Scan-Reihenfolge von `&pref.Email, &pref.SMS`
+  auf `&pref.SMS, &pref.Email` vertauscht (Spaltennamen in der SELECT-Liste
+  unveraendert) -> `TestPostgresRepository_EmailSMSRoundTrip` rot ("email must
+  round-trip as false, not the column default"). Beide zurueckgedreht, Endgate
+  danach erneut gruen gelaufen.
+- gate: build (`internal/notification/... internal/server/... internal/gateway/...
+  cmd/notification/... cmd/gateway/...`, `-p 2`) ok | vet ok | golangci-lint
+  **0 issues** | migration: 000304 + 000305 angewendet
+  (`migrate -path backend/migrations -database
+  postgres://kmuhub:kmuhub_dev@localhost:5432/kmuhub?sslmode=disable up`,
+  lokaler Hostname-Ersatz fuer `postgres` aus `.env`, siehe GATE-COMMANDS.md) |
+  Tests mit `DATABASE_URL` (Rolle `kmuhub_app`): `internal/notification/...`
+  (7 Pakete) und `internal/gateway/` (inkl. `TestOpenAPIRouteDrift`, 826
+  Routen/828 Pfade, keine Drift) alle **ok**, 0 Skips beobachtet | openapi:
+  Felder ergaenzt (keine neue Route) **und** `swagger-cli validate` = valid |
+  rls-smoke: kein neues Tabellenschema, aber ein bestehender RLS-Index auf
+  `notification_preferences` wurde per Migration ersetzt ->
+  `TestTenantIsolation_Notifications` nach beiden Migrationen erneut gruen,
+  plus der neue `TestPostgresRepository_EmailSMSRoundTrip` laeuft explizit
+  unter `testutil.WithTenantCtx(..., TenantA)` (RLS-INSERT haette sonst schon
+  am Schreiben abgelehnt — hat es beim ersten Versuch mit
+  `context.Background()` auch getan, SQLSTATE 42501, dann korrigiert).
+- offen:
+  - Email-/SMS-Zustellung selbst bleibt unwired (Notiz-Vorgabe). Sobald ein
+    Dispatcher-Callback fuer Email gebaut wird (Kandidat: `internal/email/
+    systemmail.Sender`, bereits fuer Berichte/Dunning im Einsatz), zusaetzlich
+    Nutzer-E-Mail-Adresse aufloesen und `decision.Email` konsumieren.
+  - FE-Formular kennt `email`/`sms` noch nicht — siehe "risiko" oben, vor dem
+    FE-Anschluss lesen.
+  - `idx_notification_preferences_module_default` hat denselben
+    Tenant-Blindfleck wie der jetzt gefixte Index, aber ohne aktiven Fehler
+    (siehe "GEFUNDEN, NICHT BEHOBEN" oben) — eigene Fix-Unit-Kandidat.

@@ -350,6 +350,8 @@ func (s *NotificationGRPCServer) UpdateNotificationPreference(ctx context.Contex
 		ModuleID:     req.ModuleId,
 		InApp:        req.InApp,
 		DesktopPush:  req.DesktopPush,
+		Email:        req.Email,
+		SMS:          req.Sms,
 		Sound:        req.Sound,
 	}
 
@@ -598,6 +600,8 @@ func toPreferenceInfo(p *models.NotificationPreference) *notificationv1.Notifica
 		ModuleId:     p.ModuleID,
 		InApp:        p.InApp,
 		DesktopPush:  p.DesktopPush,
+		Email:        p.Email,
+		Sms:          p.SMS,
 		Sound:        p.Sound,
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 		UpdatedAt:    timestamppb.New(p.UpdatedAt),

@@ -543,7 +543,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       E-Mail- und SMS-Zustellweg im Gateway sichtbar machen. Der Dispatcher liegt in
       `internal/notification/delivery/`, aber das Gateway exponiert die Kanalverwaltung
@@ -566,6 +566,15 @@ units:
       - Falls gebaut - Kanalwahl an den bestehenden Praeferenzen, keine neue Route
       - Unbekannter Kanal liefert 400
       - openapi.yaml nachgezogen, go test ./internal/gateway/ gruen
+    followup: >
+      Iteration 15 (2026-08-08): email/sms als Praeferenz-Felder gebaut (additiv,
+      Migration 000304), Zustellung bewusst unwired gelassen (siehe Journal).
+      Root-Cause-Fund dabei: `idx_notification_preferences_event_type` kannte seit
+      Migration 000124 (tenant_id NOT NULL) kein tenant_id, UpsertPreference-ON
+      CONFLICT lief seitdem in Produktion ins Leere - gefixt in Migration 000305.
+      Derselbe Blindfleck besteht weiterhin bei `idx_notification_preferences_module_default`,
+      dort aber ohne aktiven Fehler (kein ON CONFLICT fuer den Modul-Default-Fall im
+      Repository) - Kandidat fuer eine eigene Fix-Unit, kein aktiver Incident.
 
   - id: a-kontakte-xlsx-import
     phase: 3
