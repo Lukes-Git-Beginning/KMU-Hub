@@ -250,6 +250,7 @@ func (m *labelMockRepo) GetTaskLabelIDs(_ context.Context, _, taskID string) ([]
 type workTaskMockRepo struct {
 	tasks          map[uuid.UUID]*models.TaskWithRelations
 	lastListFilter task.TaskFilters
+	dependencies   []models.TaskDependency
 }
 
 func newWorkTaskMockRepo() *workTaskMockRepo {
@@ -290,12 +291,19 @@ func (r *workTaskMockRepo) GetParentChain(_ context.Context, _ uuid.UUID) ([]mod
 	return nil, nil
 }
 func (r *workTaskMockRepo) GetDepth(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil }
-func (r *workTaskMockRepo) CreateDependency(_ context.Context, _ *models.TaskDependency) error {
+func (r *workTaskMockRepo) CreateDependency(_ context.Context, d *models.TaskDependency) error {
+	r.dependencies = append(r.dependencies, *d)
 	return nil
 }
 func (r *workTaskMockRepo) DeleteDependency(_ context.Context, _, _ uuid.UUID) error { return nil }
-func (r *workTaskMockRepo) ListDependencies(_ context.Context, _ uuid.UUID) ([]models.TaskDependency, error) {
-	return nil, nil
+func (r *workTaskMockRepo) ListDependencies(_ context.Context, sourceTaskID uuid.UUID) ([]models.TaskDependency, error) {
+	var out []models.TaskDependency
+	for _, d := range r.dependencies {
+		if d.SourceTaskID == sourceTaskID {
+			out = append(out, d)
+		}
+	}
+	return out, nil
 }
 func (r *workTaskMockRepo) HasCycle(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
