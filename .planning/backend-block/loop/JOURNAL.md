@@ -950,7 +950,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Sicherheitsnetz-Fallback sinnvoll bestehen).
 
 ## Iteration 13 — fix-a-video-caller-identity — done — 2026-08-08 17:36
-- commit: <siehe unten>
+- commit: 651f7905
 - verify vorgaenger: **BEFUND** an `e736f324` (Iteration 12,
   `a-video-caller-identity`). Fehlerklasse 2 (Stub-Wirkung: der neue Pfad kann
   in Produktion nie liefern). Die Broadcast-Goroutine in `HandleCreateCall`
