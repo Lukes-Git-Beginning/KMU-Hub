@@ -864,3 +864,87 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 4. `finance_invoices.status` kennt `'overdue'`, aber niemand setzt es je —
    die Abfrage nimmt `IN ('sent','overdue')`, damit ein spaeterer Setzer den
    Trigger nicht stillschweigend abwuergt.
+
+## Iteration 12 — a-video-caller-identity — done — 2026-08-08 17:27
+- commit: -
+- verify vorgaenger (`a6e4665b`, a-automation-cron-poller): sauber. Migration
+  000303 hat `tenant_id UUID NOT NULL` + FK auf `tenants`/`automations` + `CALL
+  enable_tenant_rls('automation_time_trigger_fires')`, up und down beide
+  gefuellt. `PostgresDueResolver` scopt beide Queries (`overdueInvoices`,
+  `upcomingCalendarEvents`) explizit auf `tenant_id = $1` — der Poller laeuft
+  unter `database.WithSystemContext`, RLS ist damit offen, das WHERE ist die
+  einzige Schranke, und beide Stellen haben sie. Kein neuer
+  `RequirePermission`-Guard, keine Route, kein `.proto` angefasst, also kein
+  `openapi.yaml`-Bedarf und `TestOpenAPIRouteDrift` unveraendert. Kein Stub im
+  neuen Pfad (`PostgresDueResolver` fuehrt echte SQL aus, keine
+  Platzhalter-Rueckgabe). `git merge origin/main` war "Already up to date".
+- gebaut: `call.incoming`-Broadcast traegt jetzt `caller_name` und
+  `caller_avatar`. Praemisse beim Lesen bestaetigt: die Notiz "FE zeigt eine
+  UUID statt eines Namens" stimmt exakt, und `HandleCreateCall`
+  (`route_video.go:318`) baute den Broadcast bislang nur mit `caller_id`.
+  Fund beim Lesen des FE-Konsumenten (`useIncomingCallListener.ts:43-49`):
+  dort liegt bereits ein `lean:`-Kommentar, der genau diese Luecke benennt
+  und `caller_name`/`caller_avatar` schon entgegennimmt — die Feldnamen sind
+  also nicht neu erfunden, sondern aus dem bestehenden FE-Vertrag
+  uebernommen (`caller_avatar`, nicht `caller_avatar_key` — das FE hatte hier
+  bereits entschieden).
+  Aufloesung an EINER Stelle (wie von `notes` gefordert): neue
+  `VideoRoutes.getAuthClient()` (Wrapper analog zu
+  `route_customization.go:getSettingsClient`, `registry.GetConnection("auth")`)
+  und `resolveCallerIdentity(ctx, userID)` rufen `AuthServiceClient.GetUser`
+  auf — ein bereits bestehender RPC, kein neuer. `callerDisplayName` bildet
+  denselben Fallback wie das CONCAT_WS-Muster der HR-Lesepfade
+  (`postgres_repository.go` in `biz/hr/*`): Vor- und Nachname wenn gesetzt,
+  sonst E-Mail. Best-effort: schlaegt `getAuthClient` oder `GetUser` fehl,
+  wird `slog.Error` mit `user_id` geloggt und mit leerem Namen/Avatar
+  weitergemacht — der Anruf selbst wird nie abgebrochen, exakt der Nil-Mailer-
+  artige Pfad, den `notes` verlangt. Die Aufloesung laeuft in DERSELBEN
+  Goroutine wie die Broadcasts (vorher: eine Goroutine PRO Teilnehmer ohne
+  Aufloesung; jetzt: eine Goroutine gesamt, Identitaet einmal aufgeloest,
+  dann sequentiell an alle Teilnehmer verschickt) — verhindert N identische
+  `GetUser`-Aufrufe bei einer Gruppen-Einladung und blockiert nicht die
+  HTTP-Antwort von `HandleCreateCall` (Broadcast lief schon vorher async).
+  `avatar_url` (der Spaltenname traegt laut Kommentar in `auth/service.go:344`
+  tatsaechlich einen Objekt-Key, kein volles URL) wird 1:1 als
+  `caller_avatar` durchgereicht — kein Presign hier, das FE loest den Key
+  selbst auf (unveraendert zu jedem anderen Avatar-Consumer im Repo).
+- gate: build ok (`go build -p 1 ./...` — Standard-`go build ./...` starb am
+  Linker mit `runtime: cannot allocate memory` beim parallelen Linken
+  mehrerer `cmd/*`-Binaries; System hatte >20 GB frei, also ein
+  Sandbox-Job-Limit dieser Maschine, kein Code-Problem — mit `-p 1`
+  reproduzierbar gruen) | vet ok (`-p 1`) | lint ok (`golangci-lint run
+  ./internal/gateway/...` — 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/...` inkl. `TestOpenAPIRouteDrift` = 825 Routen gegen
+  827 Pfade, unveraendert) | migration n.a. (keine neue Tabelle/Spalte) |
+  openapi n.a. (kein neuer Pfad, `call.incoming` ist ein WS-Event, keine
+  REST-Route)
+- mutations-probe: `if len(parts) > 0` in `callerDisplayName` zu
+  `if len(parts) >= 0` gedreht (Email-Fallback wird nie erreicht) → GENAU
+  die zwei Subtests `TestCallerDisplayName/no_name_falls_back_to_email` und
+  `.../blank_name_fields_fall_back_to_email` wurden rot, die vier anderen
+  Subtests (beide Namen, nur Vorname, nur Nachname, nil-User) blieben gruen.
+  Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- fehlerpfade im Test: `TestResolveCallerIdentity_AuthClientUnavailable_ReturnsEmpty`
+  (Registry kennt "auth" gar nicht — `getAuthClient` schlaegt sofort fehl)
+  und `TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError`
+  (Registry kennt "auth", aber die dahinterliegende Verbindung ist ein
+  unerreichbarer Dummy — der RPC selbst schlaegt fehl). Beide liefern
+  `("", "")` ohne Panic oder propagierten Fehler — das ist done_when Punkt 3.
+- db-tests: keine — reine Gateway-Logik ohne neue Tabelle, kein
+  `SkipIfNoDB`-Pfad in `internal/gateway`. `DATABASE_URL` war gesetzt, aber
+  fuer dieses Paket ohne Wirkung.
+- offen: Zwei Punkte fuer Luke.
+  (1) **`./internal/video/...` aus `done_when` existiert nicht** — der
+  Video-Businesslogik-Code liegt unter `internal/work/video`, die
+  Broadcast-Aufloesung selbst sitzt komplett im Gateway
+  (`internal/gateway/route_video_test.go`), wo sie laut `notes` auch
+  hingehoert ("dort, wo der Broadcast gebaut wird"). `go test
+  ./internal/work/video/... ./internal/server/...` liefen zur Kontrolle
+  trotzdem gruen (unveraendert, da nicht angefasst).
+  (2) **FE-`lean:`-Marker ist jetzt stale.** `useIncomingCallListener.ts:43-49`
+  dokumentiert explizit, dass `caller_name`/`caller_avatar` serverseitig noch
+  nicht aufgeloest werden — das stimmt ab diesem Commit nicht mehr. Der
+  Marker + sein Fallback-Kommentar sollten in einer FE-Session entfernt
+  werden (reines Aufraeumen, keine Logikaenderung noetig: das FE liest die
+  Felder bereits korrekt, `?? data.caller_id` bleibt als harmloser
+  Sicherheitsnetz-Fallback sinnvoll bestehen).

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
@@ -191,4 +193,81 @@ func TestHandleGetBulkPresence_EmptyUserIDs(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleGetBulkPresence(rec, req)
 	assertValidationError(t, rec, "user_ids")
+}
+
+// ============================================================================
+// Caller identity resolution for the call.incoming broadcast
+// ============================================================================
+
+// TestCallerDisplayName covers the fallback chain: first+last name, either
+// alone, and the email fallback when neither name is set. Mirrors the SQL
+// COALESCE(NULLIF(CONCAT_WS(...))) pattern used throughout the HR read paths.
+func TestCallerDisplayName(t *testing.T) {
+	tests := []struct {
+		name string
+		user *authv1.UserInfo
+		want string
+	}{
+		{
+			name: "first and last name set",
+			user: &authv1.UserInfo{FirstName: "Ada", LastName: "Lovelace", Email: "ada@example.com"},
+			want: "Ada Lovelace",
+		},
+		{
+			name: "only first name set",
+			user: &authv1.UserInfo{FirstName: "Ada", Email: "ada@example.com"},
+			want: "Ada",
+		},
+		{
+			name: "only last name set",
+			user: &authv1.UserInfo{LastName: "Lovelace", Email: "ada@example.com"},
+			want: "Lovelace",
+		},
+		{
+			name: "no name falls back to email",
+			user: &authv1.UserInfo{Email: "ada@example.com"},
+			want: "ada@example.com",
+		},
+		{
+			name: "blank name fields fall back to email",
+			user: &authv1.UserInfo{FirstName: "  ", LastName: "", Email: "ada@example.com"},
+			want: "ada@example.com",
+		},
+		{
+			name: "nil user yields empty string",
+			user: nil,
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := callerDisplayName(tt.user); got != tt.want {
+				t.Errorf("callerDisplayName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestResolveCallerIdentity_AuthClientUnavailable_ReturnsEmpty covers the case
+// where the auth service is not registered at all (dev without the service
+// wired up). The call must not panic or propagate an error to the caller.
+func TestResolveCallerIdentity_AuthClientUnavailable_ReturnsEmpty(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	name, avatar := routes.resolveCallerIdentity(context.Background(), uuid.New().String())
+	if name != "" || avatar != "" {
+		t.Errorf("resolveCallerIdentity() = (%q, %q), want (\"\", \"\") when auth client is unavailable", name, avatar)
+	}
+}
+
+// TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError belongs to
+// a-video-caller-identity's third done_when criterion: a failed lookup (here,
+// the RPC itself fails because "auth" resolves to a dummy unreachable address)
+// must not abort the call -- the broadcast proceeds without a name.
+func TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("auth"), "", "")
+	name, avatar := routes.resolveCallerIdentity(context.Background(), uuid.New().String())
+	if name != "" || avatar != "" {
+		t.Errorf("resolveCallerIdentity() = (%q, %q), want (\"\", \"\") on RPC failure", name, avatar)
+	}
 }

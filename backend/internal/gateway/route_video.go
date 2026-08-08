@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
@@ -92,6 +93,17 @@ func (vr *VideoRoutes) getVideoEgressClient() (videov1.VideoServiceClient, error
 		return nil, err
 	}
 	return videov1.NewVideoServiceClient(conn), nil
+}
+
+// getAuthClient lazily obtains a gRPC client for the Auth service, used to
+// resolve the caller's display name and avatar for the call.incoming
+// broadcast (see resolveCallerIdentity).
+func (vr *VideoRoutes) getAuthClient() (authv1.AuthServiceClient, error) {
+	conn, err := vr.registry.GetConnection("auth")
+	if err != nil {
+		return nil, err
+	}
+	return authv1.NewAuthServiceClient(conn), nil
 }
 
 // RegisterRoutes registers all Video, Meeting, Recording, Presence, and Reaction HTTP routes.
@@ -310,7 +322,6 @@ type returnToMainRoomHTTPRequest struct {
 	TargetUserID *string `json:"target_user_id,omitempty" validate:"omitempty,uuid"`
 }
 
-
 // ============================================================================
 // Call Handlers
 // ============================================================================
@@ -352,18 +363,65 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 	// Push call.incoming WS events so invited participants see the call
 	// overlay in real time instead of relying on polling. Best-effort: hub
 	// may be nil (dev without WS) or the broadcast may fail; neither case
-	// should block the HTTP response.
+	// should block the HTTP response. Identity resolution runs once in the
+	// same goroutine ahead of the per-participant sends, not once per
+	// receiver, and never delays the HTTP response below.
 	if vr.wsHub != nil {
-		for _, participantID := range req.ParticipantIDs {
-			go vr.wsHub.BroadcastCallIncoming(context.Background(), participantID, map[string]interface{}{
-				"call_id":   resp.GetId(),
-				"call_type": callTypeStr,
-				"caller_id": userID,
-			})
-		}
+		callID := resp.GetId()
+		participantIDs := req.ParticipantIDs
+		go func() {
+			callerName, callerAvatar := vr.resolveCallerIdentity(context.Background(), userID)
+			for _, participantID := range participantIDs {
+				vr.wsHub.BroadcastCallIncoming(context.Background(), participantID, map[string]interface{}{
+					"call_id":       callID,
+					"call_type":     callTypeStr,
+					"caller_id":     userID,
+					"caller_name":   callerName,
+					"caller_avatar": callerAvatar,
+				})
+			}
+		}()
 	}
 
 	response.Proto(w, http.StatusCreated, resp)
+}
+
+// resolveCallerIdentity looks up the caller's display name and avatar key for
+// the call.incoming broadcast. Resolution is best-effort: a lookup failure is
+// logged and the call proceeds without a name, matching the client's existing
+// fallback to caller_id -- a call without a name is better than no call.
+func (vr *VideoRoutes) resolveCallerIdentity(ctx context.Context, userID string) (name, avatar string) {
+	authClient, err := vr.getAuthClient()
+	if err != nil {
+		slog.Error("resolve caller identity: auth client unavailable", "error", err, "user_id", userID)
+		return "", ""
+	}
+
+	resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
+	if err != nil {
+		slog.Error("resolve caller identity: get user failed", "error", err, "user_id", userID)
+		return "", ""
+	}
+
+	return callerDisplayName(resp.GetUser()), resp.GetUser().GetAvatarUrl()
+}
+
+// callerDisplayName mirrors the SQL fallback used throughout the HR read
+// paths (e.g. internal/biz/hr/employee/postgres_repository.go):
+// COALESCE(NULLIF(CONCAT_WS(space, first_name, last_name), empty), email,
+// empty) -- first and last name joined when set, otherwise the email.
+func callerDisplayName(user *authv1.UserInfo) string {
+	parts := make([]string, 0, 2)
+	if fn := strings.TrimSpace(user.GetFirstName()); fn != "" {
+		parts = append(parts, fn)
+	}
+	if ln := strings.TrimSpace(user.GetLastName()); ln != "" {
+		parts = append(parts, ln)
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, " ")
+	}
+	return user.GetEmail()
 }
 
 func (vr *VideoRoutes) HandleJoinCall(w http.ResponseWriter, r *http.Request) {

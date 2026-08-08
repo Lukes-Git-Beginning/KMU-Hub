@@ -452,7 +452,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Anrufer-Identitaet im `call.incoming`-Broadcast. Der Broadcast traegt heute nur
       `caller_id`, das FE zeigt deshalb im Anruf-Overlay eine UUID statt eines Namens
