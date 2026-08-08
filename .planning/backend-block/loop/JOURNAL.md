@@ -1593,3 +1593,43 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   heute gibt es keine (784 von 784 erfasst), aber der `lean:`-Marker im Code
   nennt den Upgrade-Trigger, falls je eine Route ihren Key zur Laufzeit
   berechnet.
+
+## Iteration 20 — a-inbox-sla — blocked — 2026-08-08 19:15
+- commit: -
+- verify vorgaenger: sauber. `dd9da170` (a-chat-permission-seeds, Iteration
+  19) geprueft: Migration 000306 ordnet `mentions:read` per
+  `WHERE r.tenant_id IS NULL AND r.name IN ('admin','manager','member')`
+  ausschliesslich den drei Presets zu, `ON CONFLICT DO NOTHING` macht sie
+  idempotent, down loescht exakt dieselben drei Grants und laesst
+  tenant-eigene Rollen unberuehrt; kein `RequirePermission`-Guard geaendert,
+  keine neue Route, kein Handler angefasst — reine Daten-Migration plus ein
+  neuer Standing-Guard-Test. Diff-Umfang (`git show --stat`) bestaetigt genau
+  das: Migration + Test + Backlog/Journal, keine Handler-/Proto-Dateien. `git
+  merge origin/main` war "Already up to date".
+- praemisse: WACKELT, wie von der Unit selbst vorhergesagt — nur eine Ebene
+  tiefer als der Notiz-Wortlaut nahelegt. `sla_policies` existiert
+  tatsaechlich (Migration 000077), aber es ist keine freistehende,
+  modul-unabhaengige Tabelle: sie haengt an `ticket_queues.sla_policy_id`,
+  traegt `first_response_mins`/`resolution_mins`/`business_hours` fuer
+  Helpdesk-Queues und wird ausschliesslich von `internal/helpdesk` gelesen
+  (verifiziert per Grep, 0 Treffer in `internal/inbox`). Inbox
+  (`inbox_messages`, `team_inboxes`, `team_inbox_members`, `routing_rules`,
+  Migration 000047 + Folgemigrationen 000110/000124) hat keine Spalte und
+  keinen Code-Pfad, der je auf `sla_policies` verweist oder verwiesen hat.
+  Es gibt also keine Antwort auf die Frage "welche Policy gilt fuer welchen
+  Team-Inbox/Channel" — exakt die Produktentscheidung, die die Notiz fuer
+  den Fall "keine Richtlinien-Quelle" vorgesehen hat.
+- gebaut: nichts im Code. `BACKLOG.yml`: `a-inbox-sla` auf `status: blocked`
+  mit `blocked_reason` (Fundstelle: Migration 000077 fuer die Tabelle,
+  Migrationen 000047/000110/000124 fuer die vollstaendige Inbox-Historie
+  ohne `sla_policy_id`-Spalte, Grep-Ergebnis fuer `internal/inbox/**`) und
+  drei konkreten Entscheidungsoptionen (eigene Inbox-Policy-Tabelle,
+  Cross-Modul-FK auf Helpdesks `sla_policies`, oder Scope-Streichung).
+- gate: n.a. — keine Code-/Migrations-Aenderung in diesem Schritt.
+- mutations-probe: n.a. — Block-A-Unit ohne Coverage-Pflicht, und es gibt
+  keinen neuen Code, an dem eine Probe etwas beweisen koennte.
+- db-tests: n.a.
+- offen: Fuer Luke — SLA-Modell-Entscheidung fuer Inbox treffen (siehe
+  `blocked_reason`/`notes` in `BACKLOG.yml`). Sobald entschieden, ist die
+  Berechnung selbst laut Notiz mechanisch (serverseitig, Filter in SQL) und
+  eine kleine Folge-Unit.

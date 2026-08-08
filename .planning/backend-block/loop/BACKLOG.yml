@@ -711,7 +711,22 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      `sla_policies` existiert (Migration 000077), gehoert aber vollstaendig dem Helpdesk-
+      Bounded-Context: es haengt an `ticket_queues.sla_policy_id`, traegt `first_response_mins`/
+      `resolution_mins`/`business_hours` fuer Ticket-Queues und wird ausschliesslich von
+      `internal/helpdesk` gelesen. Inbox (`inbox_messages`, `team_inboxes`,
+      `team_inbox_members`, `routing_rules`, Migration 000047 + Folgen) hat keine Spalte, keinen
+      Code-Pfad und keine Migration, die je auf `sla_policies` verweist - verifiziert per Grep
+      ueber `backend/internal/inbox/**` (0 Treffer fuer sla/due_at/first_response/resolution)
+      und ueber alle Migrationen, die `team_inboxes` anfassen (000047, 000110, 000124 - keine
+      fuegt eine `sla_policy_id`-Spalte hinzu). Es gibt also keine bestehende Zuordnung
+      "welche Policy gilt fuer welchen Team-Inbox/Channel" und keine Vorgabe, ob Inbox
+      ueberhaupt dieselbe Tabelle wie Helpdesk teilen soll oder eine eigene braucht. Genau das
+      ist die in den notes selbst benannte Produktentscheidung ("Gibt es keine ... eine
+      Produktentscheidung") - nur eine Ebene tiefer als vermutet: die Tabelle existiert, aber
+      nicht fuer diesen Bounded Context, und die Zuordnungsfrage ist ungeklaert.
     scope: >
       SLA-Verfolgung im Posteingang. Status, Threading, Tags und Weiterleiten sind gebaut;
       SLA ist der letzte offene Punkt aus dem Inbox-Block. Reaktions- und Loesungsfrist je
@@ -722,12 +737,11 @@ units:
       - backend/internal/inbox/postgres_repository.go
       - backend/internal/gateway/route_inbox.go
     notes: >
-      PRAEMISSE WACKELT und ist zuerst zu pruefen: `backend-gaps.md` behauptet, eine Tabelle
-      `sla_policies` existiere bereits, die Suche danach in `migrations/` war am 2026-08-07
-      aber leer. Also zuerst nachsehen, ob es eine Richtlinien-Quelle gibt. Gibt es keine, ist
-      die Frage, woher die Fristen kommen sollen, eine Produktentscheidung - dann `blocked`
-      mit genau diesem Befund, nicht eine Frist erfinden. Gibt es sie, nur die Berechnung und
-      den Filter bauen. Berechnung serverseitig, nicht im FE. Filter in SQL, nicht im Speicher.
+      Bleibt blockiert bis Luke entscheidet: (a) Inbox bekommt eine eigene Policy-Tabelle
+      analog `sla_policies`, mit eigener Zuordnung (global? pro `team_inbox`? pro `channel`?),
+      oder (b) `team_inboxes.sla_policy_id` referenziert Helpdesks `sla_policies` direkt
+      (Cross-Modul-Kopplung zweier bisher unabhaengiger Services), oder (c) Scope-Streichung.
+      Sobald entschieden, ist die Berechnung selbst mechanisch (serverseitig, Filter in SQL).
     done_when:
       - Praemisse geprueft, Ergebnis mit Fundstelle im Journal belegt
       - Falls gebaut - Fristen im Wire, Filter auf ueberfaellig greift in SQL
