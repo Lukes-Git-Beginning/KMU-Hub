@@ -329,7 +329,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   eine Zeile Handler plus ein openapi-Pfad.
 
 ## Iteration 6 — a-fuhrpark-triplog-export — done — 2026-08-08 17:55
-- commit: <wird nach commit ergaenzt>
+- commit: 0c9d5afb
 - gebaut: Finanzamtkonformer Fahrtenbuch-Export unter
   `GET /api/v1/fuhrpark/trip-logs/export?vehicle_id=&from=&to=&format=csv|pdf`.
   Praemisse zuerst geprueft: `/fuhrpark/export` (HandleExportVehicleReport)
