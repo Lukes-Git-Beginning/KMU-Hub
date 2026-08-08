@@ -143,6 +143,82 @@ func TestKPISnapshot_ExcludesClosedDealsAndResolvedTickets(t *testing.T) {
 	}
 }
 
+// TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant proves the
+// series query's period bucketing, not just its aggregates: a fixture dated
+// into last month, closed/resolved exactly at this month's boundary, must
+// land in the second-to-last bucket and move nothing in the last (current)
+// one — the boundary itself is the part a Go-side loop over KPISnapshot
+// calls would get subtly wrong (off-by-one on which side of midnight a
+// closed_at exactly on the boundary falls).
+func TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
+	testutil.EnsureTenant(t, pool, kpiOtherTenant, "KPI Other Tenant")
+
+	repo := NewPostgresKPIRepo(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), kpiTenant)
+
+	// .UTC() matters: dbNow's pgx scan can carry a non-UTC Location (the test
+	// host's local zone) even though the underlying instant is correct. The
+	// query buckets in the database's session time zone (UTC, verified by
+	// TestKPISnapshot's own tenant-scoped assertions running clean); building
+	// currentMonthStart from a non-UTC Location would shift these fixtures'
+	// timestamps by the zone offset and land them on the wrong side of a
+	// boundary that is supposed to be exact.
+	now := dbNow(t, pool).UTC()
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	lastMonthStart := currentMonthStart.AddDate(0, -1, 0)
+
+	before, err := repo.KPISeries(ctx, kpiTenant, now, 8)
+	if err != nil {
+		t.Fatalf("baseline series: %v", err)
+	}
+	if len(before) != 8 {
+		t.Fatalf("expected 8 buckets, got %d", len(before))
+	}
+	if !before[7].PeriodStart.Equal(currentMonthStart) {
+		t.Errorf("last bucket period_start = %s, want %s (current month)", before[7].PeriodStart, currentMonthStart)
+	}
+	for i := 1; i < len(before); i++ {
+		want := before[i-1].PeriodStart.AddDate(0, 1, 0)
+		if !before[i].PeriodStart.Equal(want) {
+			t.Errorf("bucket %d period_start = %s, want %s (one calendar month after bucket %d)", i, before[i].PeriodStart, want, i-1)
+		}
+	}
+
+	seedKPISeriesFixture(t, pool, kpiTenant, lastMonthStart, currentMonthStart)
+	seedKPISeriesFixture(t, pool, kpiOtherTenant, lastMonthStart, currentMonthStart)
+
+	after, err := repo.KPISeries(ctx, kpiTenant, now, 8)
+	if err != nil {
+		t.Fatalf("series after seed: %v", err)
+	}
+
+	if got := after[7].Revenue.Sub(before[7].Revenue); !got.IsZero() {
+		t.Errorf("current-month revenue delta = %s, want 0 — the invoice is dated last month", got)
+	}
+	if got := after[7].PipelineVolume.Sub(before[7].PipelineVolume); !got.IsZero() {
+		t.Errorf("current-month pipeline delta = %s, want 0 — the deal closed exactly at this month's start", got)
+	}
+	if got := after[7].OpenTickets - before[7].OpenTickets; got != 0 {
+		t.Errorf("current-month open ticket delta = %d, want 0 — the ticket resolved exactly at this month's start", got)
+	}
+
+	if got, want := after[6].Revenue.Sub(before[6].Revenue), decimal.RequireFromString("321.00"); !got.Equal(want) {
+		t.Errorf("last-month revenue delta = %s, want %s", got, want)
+	}
+	if got, want := after[6].PipelineVolume.Sub(before[6].PipelineVolume), decimal.RequireFromString("654.00"); !got.Equal(want) {
+		t.Errorf("last-month pipeline delta = %s, want %s — the deal was still open through last month's end", got, want)
+	}
+	if got := after[6].OpenTickets - before[6].OpenTickets; got != 1 {
+		t.Errorf("last-month open ticket delta = %d, want 1 — the ticket was still open through last month's end", got)
+	}
+}
+
 // dbNow reads the database clock, the same one that stamps created_at.
 func dbNow(t *testing.T, pool *pgxpool.Pool) time.Time {
 	t.Helper()
@@ -220,4 +296,63 @@ func seedKPIFixtures(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, gross
 		"status":    "active",
 	})
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "stock_warnings", warningID) })
+}
+
+// seedKPISeriesFixture seeds one invoice dated 5 days into lastMonthStart's
+// month, and one deal and one ticket created at lastMonthStart and
+// closed/resolved exactly at currentMonthStart — so all three belong to last
+// month's bucket and must not move the current one.
+func seedKPISeriesFixture(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, lastMonthStart, currentMonthStart time.Time) {
+	t.Helper()
+
+	invoiceDate := lastMonthStart.AddDate(0, 0, 5).Format("2006-01-02")
+	dueDate := currentMonthStart.AddDate(0, 0, 30).Format("2006-01-02")
+
+	invoiceID := testutil.SeedRow(t, pool, "finance_invoices", map[string]any{
+		"tenant_id":      tenantID,
+		"invoice_number": fmt.Sprintf("KPISER-%s", uuid.New().String()[:18]), // column is varchar(30)
+		"invoice_date":   invoiceDate,
+		"due_date":       dueDate,
+		"status":         "sent",
+		"gross_total":    "321.00",
+		"created_by":     uuid.New(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", invoiceID) })
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"email":         fmt.Sprintf("kpi-series-%s@test.invalid", uuid.New()),
+		"password_hash": "x",
+		"tenant_id":     tenantID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+
+	stageID := testutil.SeedRow(t, pool, "pipeline_stages", map[string]any{
+		"id":        uuid.New(),
+		"tenant_id": tenantID,
+		"name":      fmt.Sprintf("KPI-Series-Stage-%s", uuid.New()),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "pipeline_stages", stageID) })
+
+	dealID := testutil.SeedRow(t, pool, "deals", map[string]any{
+		"id":         uuid.New(),
+		"tenant_id":  tenantID,
+		"name":       "KPI Series Deal",
+		"value":      "654.00",
+		"stage_id":   stageID,
+		"created_by": userID,
+		"created_at": lastMonthStart,
+		"closed_at":  currentMonthStart,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "deals", dealID) })
+
+	ticketID := testutil.SeedRow(t, pool, "tickets", map[string]any{
+		"id":           uuid.New(),
+		"tenant_id":    tenantID,
+		"subject":      "KPI Series Ticket",
+		"requester_id": uuid.New(),
+		"created_at":   lastMonthStart,
+		"resolved_at":  currentMonthStart,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "tickets", ticketID) })
 }

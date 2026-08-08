@@ -180,10 +180,25 @@ type KPISnapshot struct {
 	StockWarnings  int
 }
 
+// KPISeriesPoint is one calendar-month bucket of the three history-capable
+// dashboard metrics. StockWarnings is excluded — see KPISnapshot's doc
+// comment, it has no history to bucket.
+type KPISeriesPoint struct {
+	PeriodStart    time.Time
+	Revenue        decimal.Decimal
+	PipelineVolume decimal.Decimal
+	OpenTickets    int
+}
+
 // KPIRepo aggregates the dashboard KPIs straight from the module tables. Every
 // query it runs must be tenant-scoped on top of RLS.
 type KPIRepo interface {
 	KPISnapshot(ctx context.Context, tenantID uuid.UUID, from, to time.Time) (*KPISnapshot, error)
+
+	// KPISeries returns the last `periods` calendar-month buckets ending in
+	// the month of `now`, oldest first. The last bucket covers [month start,
+	// now) the same way KPISnapshot's "current" reading does.
+	KPISeries(ctx context.Context, tenantID uuid.UUID, now time.Time, periods int) ([]KPISeriesPoint, error)
 }
 
 // ============================================================================
@@ -365,6 +380,17 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 		prev = nil
 	}
 
+	// Sparkline history for the three metrics that have any: same
+	// graceful-degradation stance as `prev` above, a failed series call must
+	// not cost the user the current values.
+	const seriesPeriods = 8
+	series, err := e.kpi.KPISeries(ctx, tenantID, now, seriesPeriods)
+	if err != nil {
+		slog.WarnContext(ctx, "berichte: dashboard KPI series failed, serving KPIs without history",
+			"tenant_id", tenantID, "error", err)
+		series = nil
+	}
+
 	if active["finanzen"] {
 		kpi := berichte.KPI{
 			ID:       "revenue_current_month",
@@ -372,6 +398,9 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 			Value:    cur.Revenue.StringFixed(2),
 			Unit:     "EUR",
 			ModuleID: "finanzen",
+			Series: kpiSeries(series, func(p KPISeriesPoint) string {
+				return p.Revenue.StringFixed(2)
+			}),
 		}
 		if prev != nil {
 			kpi.ChangePercent = changePercent(cur.Revenue, prev.Revenue)
@@ -386,6 +415,9 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 			Value:    cur.PipelineVolume.StringFixed(2),
 			Unit:     "EUR",
 			ModuleID: "crm",
+			Series: kpiSeries(series, func(p KPISeriesPoint) string {
+				return p.PipelineVolume.StringFixed(2)
+			}),
 		}
 		if prev != nil {
 			kpi.ChangePercent = changePercent(cur.PipelineVolume, prev.PipelineVolume)
@@ -403,6 +435,9 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 			Label:    "Offene Tickets",
 			Value:    strconv.Itoa(cur.OpenTickets),
 			ModuleID: "helpdesk",
+			Series: kpiSeries(series, func(p KPISeriesPoint) string {
+				return strconv.Itoa(p.OpenTickets)
+			}),
 		}
 		if prev != nil {
 			kpi.ChangePercent = changePercentInt(cur.OpenTickets, prev.OpenTickets)
@@ -411,8 +446,11 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 	}
 
 	if active["inventar"] {
-		// No change_percent: stock_warnings rows are mutated in place, so there
-		// is no previous-period state to compare against.
+		// No change_percent and no series: stock_warnings rows are mutated in
+		// place (status flips on the same row), so there is no previous-period
+		// or historical state to reconstruct — unlike revenue/pipeline/tickets,
+		// which are either a flow or derivable point-in-time from timestamped
+		// rows.
 		out = append(out, berichte.KPI{
 			ID:       "stock_warnings_count",
 			Label:    "Bestands-Warnungen",
@@ -422,6 +460,21 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 	}
 
 	return out, nil
+}
+
+// kpiSeries renders a repository series into the KPI's wire form, extracting
+// one metric per point. Returns nil (omitted on the wire) when the series
+// call degraded above — an empty-but-present series would read as "flat
+// history", not "unavailable".
+func kpiSeries(points []KPISeriesPoint, value func(KPISeriesPoint) string) []berichte.KPISeriesPoint {
+	if points == nil {
+		return nil
+	}
+	out := make([]berichte.KPISeriesPoint, len(points))
+	for i, p := range points {
+		out[i] = berichte.KPISeriesPoint{PeriodStart: p.PeriodStart, Value: value(p)}
+	}
+	return out
 }
 
 // changePercent returns the relative change from prev to cur, rounded to one

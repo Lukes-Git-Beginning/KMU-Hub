@@ -80,11 +80,23 @@ type kpiCall struct {
 }
 
 // mockKPI answers snapshot calls in order: first the current period, then the
-// previous one.
+// previous one. Series calls are separate: a fixed result (or error) returned
+// on every call, since DashboardKPIs only ever asks for one series per
+// invocation (unlike the two ordered snapshot calls).
 type mockKPI struct {
 	snapshots []*KPISnapshot
 	errs      []error
 	calls     []kpiCall
+
+	series      []KPISeriesPoint
+	seriesErr   error
+	seriesCalls []kpiSeriesCall
+}
+
+type kpiSeriesCall struct {
+	tenantID uuid.UUID
+	now      time.Time
+	periods  int
 }
 
 func (m *mockKPI) KPISnapshot(_ context.Context, tenantID uuid.UUID, from, to time.Time) (*KPISnapshot, error) {
@@ -97,6 +109,14 @@ func (m *mockKPI) KPISnapshot(_ context.Context, tenantID uuid.UUID, from, to ti
 		return &KPISnapshot{}, nil
 	}
 	return m.snapshots[i], nil
+}
+
+func (m *mockKPI) KPISeries(_ context.Context, tenantID uuid.UUID, now time.Time, periods int) ([]KPISeriesPoint, error) {
+	m.seriesCalls = append(m.seriesCalls, kpiSeriesCall{tenantID: tenantID, now: now, periods: periods})
+	if m.seriesErr != nil {
+		return nil, m.seriesErr
+	}
+	return m.series, nil
 }
 
 type mockDatev struct {
@@ -603,6 +623,72 @@ func TestDashboardKPIs_PreviousSnapshotErrorStillServesKPIs(t *testing.T) {
 	}
 	if kpis[0].ChangePercent != nil {
 		t.Errorf("expected no change_percent without a previous snapshot, got %v", *kpis[0].ChangePercent)
+	}
+}
+
+// Each history-capable module KPI carries its own metric out of the shared
+// series call — a wiring bug here would show, say, ticket counts under the
+// revenue KPI's series.
+func TestDashboardKPIs_SeriesPerModule(t *testing.T) {
+	period := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{{}, {}},
+		series: []KPISeriesPoint{
+			{PeriodStart: period, Revenue: decimal.NewFromInt(1000), PipelineVolume: decimal.NewFromInt(2000), OpenTickets: 7},
+		},
+	}
+	exec := newTestExecutor(Deps{KPI: repo})
+
+	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	revenue := kpiByID(kpis, "revenue_current_month")
+	if len(revenue.Series) != 1 || revenue.Series[0].Value != "1000.00" || !revenue.Series[0].PeriodStart.Equal(period) {
+		t.Fatalf("unexpected revenue series: %+v", revenue.Series)
+	}
+	pipeline := kpiByID(kpis, "pipeline_volume")
+	if len(pipeline.Series) != 1 || pipeline.Series[0].Value != "2000.00" {
+		t.Fatalf("unexpected pipeline series: %+v", pipeline.Series)
+	}
+	tickets := kpiByID(kpis, "open_tickets")
+	if len(tickets.Series) != 1 || tickets.Series[0].Value != "7" {
+		t.Fatalf("unexpected tickets series: %+v", tickets.Series)
+	}
+
+	// stock_warnings has no history to bucket — see the executor's doc comment.
+	stock := kpiByID(kpis, "stock_warnings_count")
+	if stock.Series != nil {
+		t.Errorf("expected no series for stock warnings, got %+v", stock.Series)
+	}
+
+	if len(repo.seriesCalls) != 1 {
+		t.Fatalf("expected exactly 1 series call (one query, not one per KPI), got %d", len(repo.seriesCalls))
+	}
+	if got := repo.seriesCalls[0].periods; got != 8 {
+		t.Errorf("expected 8 periods requested, got %d", got)
+	}
+}
+
+// A failed series call must not cost the user the current KPI values —
+// same graceful-degradation stance as a failed previous-period snapshot.
+func TestDashboardKPIs_SeriesErrorStillServesKPIs(t *testing.T) {
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{{Revenue: decimal.NewFromInt(700)}, {}},
+		seriesErr: errors.New("boom"),
+	}
+	exec := newTestExecutor(Deps{KPI: repo})
+
+	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, []string{"finanzen"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kpis) != 1 || kpis[0].Value != "700.00" {
+		t.Fatalf("unexpected KPIs: %+v", kpis)
+	}
+	if kpis[0].Series != nil {
+		t.Errorf("expected no series after a failed series call, got %+v", kpis[0].Series)
 	}
 }
 

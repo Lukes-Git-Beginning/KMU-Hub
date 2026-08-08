@@ -363,7 +363,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Echte Zeitreihe je Dashboard-KPI. Der KPI-Endpunkt liefert heute nur den aktuellen Wert
       plus `change_percent`; das FE synthetisiert die Trendlinie daraus deterministisch

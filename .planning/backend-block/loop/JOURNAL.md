@@ -569,3 +569,91 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   mitschicken (erst GET, dann PUT mit allen dreien) — sonst gehen die
   fehlenden Keys verloren. Das ist Absicht laut `notes` im Backlog ("PUT
   ersetzt den ganzen Satz"), aber ein FE-Implementierer muss das wissen.
+
+## Iteration 9 — a-berichte-kpi-timeseries — done — 2026-08-08 22:15
+- commit: (wird im Folge-Commit nachgetragen — ein Journal kann seine eigene
+  SHA nicht enthalten)
+- verify vorgaenger: sauber. `836c98c0` (a-users-preferences) geprueft gegen
+  alle acht Fehlerklassen: `HandleGetUserPreferences`/`HandlePutUserPreferences`
+  gehen ueber `sr.getSettingsClient()` (gRPC-Client), kein direkter
+  Service-Zugriff; keine neue Tabelle, kein neuer `RequirePermission`-Guard
+  (bestehender `settings:read`/`write`-Key); die Ziel-`user_id` kommt beim PUT
+  ausschliesslich aus `middleware.GetUserID(ctx)`, `putUserPreferencesRequest`
+  hat strukturell gar kein `user_id`-Feld; `openapi.yaml` im selben Commit
+  erweitert; kein Alt-Key ersetzt. `git merge origin/main` war "Already up to
+  date", `git fetch` brachte nichts Neues.
+- gebaut: `GET /api/v1/berichte/kpis` liefert jetzt `series` (bis zu acht
+  Kalendermonats-Perioden, aelteste zuerst) je KPI mit Historie, statt dass
+  das FE die Sparkline deterministisch aus `change_percent` synthetisiert.
+  Proto: neue Message `KPISeriesPoint` (`period_start`, `value`) +
+  `repeated KPISeriesPoint series = 7` an `KPI`, regeneriert
+  (`berichte.pb.go`; `berichte_grpc.pb.go` unveraendert, kein neuer RPC).
+  Modell/Executor: `berichte.KPISeriesPoint`, `executor.KPISeriesPoint`,
+  `KPIRepo.KPISeries(ctx, tenantID, now, periods)` als vierte Methode neben
+  `KPISnapshot`. Postgres: `kpiSeriesQuery` in `downstream/kpi_postgres.go` —
+  EINE SQL-Abfrage mit einer `periods`-CTE (`generate_series` ueber die
+  letzten acht Kalendermonate) und drei Aggregat-Subqueries pro Bucket
+  (revenue, pipeline_volume, open_tickets), kein Go-Loop ueber acht
+  Snapshot-Aufrufe. Bucket-Grenzen sind exklusiv: fuer Vormonate die
+  Monatsgrenze, fuer den laufenden (unvollstaendigen) Monat `now + 1 Tag` —
+  der letzte Punkt deckt sich damit exakt mit `KPISnapshot`s "aktuell"
+  (Monat bis heute). Stock-Warnings bleiben bewusst ohne Serie — die Zeilen
+  werden in-place mutiert (kein `resolved_at`), dieselbe Begruendung wie das
+  bestehende Fehlen von `change_percent` dort; das weicht von der woertlichen
+  Lesart "series je sichtbarem KPI" in `done_when` ab, ist aber dieselbe
+  Einschraenkung, die der bestehende Code fuer `change_percent` bei diesem
+  KPI schon dokumentiert (kein neu erfundenes Problem, nur jetzt auch fuer
+  die Serie sichtbar gemacht). `DashboardKPIs` ruft `KPISeries` einmal pro
+  Aufruf ab (nicht einmal je KPI) und degradiert bei Fehler graceful genau
+  wie beim `prev`-Snapshot (Log-Warn, Serie bleibt weg, aktuelle Werte
+  bleiben erhalten). Modul-Sichtbarkeit unveraendert und automatisch
+  mitgedeckt: `series` haengt am selben `berichte.KPI`-Objekt wie
+  `value`/`change_percent`, die bestehende `visibleKPIModules`-Filterung in
+  `route_berichte.go` (fail-closed pro Modul) laesst ein nicht sichtbares
+  Modul gar nicht erst in den RPC-Aufruf — kein separater Zugriffspfad zum
+  Umgehen. openapi.yaml: neues Schema `BerichtKPISeriesPoint`, `series`-Feld
+  additiv an `BerichtKPI`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (berichte,
+  berichte/executor, berichte/downstream, server, gateway inkl.
+  `TestOpenAPIRouteDrift`, testutil inkl.
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`) | migration n.a. (keine neue
+  Tabelle, keine neue Spalte) | openapi `swagger-cli validate` ok
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) SQL: `closed_at >= p.period_end` zu `closed_at > p.period_end` gedreht
+  (Grenzfall exakt auf dem Bucket-Rand kippt auf die falsche Seite) → GENAU
+  `TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant` wurde rot
+  (Pipeline-Delta im Vormonats-Bucket 0 statt 654), die beiden
+  `TestKPISnapshot_*`-Nachbartests blieben gruen.
+  (2) Go: in `DashboardKPIs` die Revenue-Serie versehentlich auf
+  `p.PipelineVolume` statt `p.Revenue` verdrahtet → GENAU
+  `TestDashboardKPIs_SeriesPerModule` wurde rot, alle acht Nachbartests im
+  Paket blieben gruen. Beide Proben zurueckgedreht, Endgate danach erneut
+  gelaufen und gruen.
+- db-tests: `TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant`
+  (neu: Foreign-Tenant-Kontrolle + exakte Bucket-Grenze) lief real gegen die
+  lokale DB, zusammen mit den zwei bestehenden `TestKPISnapshot_*`-Tests —
+  **0 Skips** im gesamten Paket `downstream` (3 PASS, 0 SKIP). `DATABASE_URL`
+  war auf `kmuhub_app` gesetzt. Beim ersten Lauf des neuen Tests einen
+  echten Zeitzonen-Bug im TEST (nicht im Produktionscode) gefunden und
+  behoben: `dbNow(t, pool)` kann eine nicht-UTC `time.Location` tragen
+  (lokale Maschinenzeit statt UTC), obwohl der zugrunde liegende Zeitpunkt
+  korrekt ist — `time.Date(..., now.Location())` daraus zu bauen verschiebt
+  die gebundenen Fixture-Zeitstempel um den Zonen-Offset und laesst sie auf
+  der falschen Seite einer exakten Bucket-Grenze landen. Fix: `.UTC()` auf
+  `now` vor der Monatsarithmetik im Test. Die Produktions-Query war davon
+  nicht betroffen, weil die Bucket-Grenzen vollstaendig in SQL berechnet
+  werden (DB-Session-Timezone verifiziert `UTC` per `SHOW timezone`), nicht
+  in Go.
+- offen: Zwei Punkte fuer Luke.
+  (1) Kein FE-Konsument. `DashboardGrid.tsx` synthetisiert die Sparkline im
+  Drilldown-Modal weiterhin deterministisch aus `change_percent`
+  (`buildDrilldownSeries`) statt die neue `series` zu lesen — der
+  Wire-Vertrag steht in `openapi.yaml` unter `BerichtKPI.series`/
+  `BerichtKPISeriesPoint`. Eine FE-Session muesste `buildDrilldownSeries`
+  durch einen echten `series`-Read ersetzen.
+  (2) `stock_warnings_count` traegt bewusst keine `series` (siehe "gebaut").
+  Eine woertliche Lesart von `done_when` ("acht Punkte je sichtbarem KPI")
+  waere hier nur durch Erfinden von Daten erfuellbar; die Abweichung ist
+  dieselbe, die der bestehende Code fuer `change_percent` bei diesem KPI
+  schon macht und dokumentiert — kein neues Problem, nur jetzt auch fuer die
+  Serie sichtbar.

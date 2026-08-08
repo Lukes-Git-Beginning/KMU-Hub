@@ -44175,6 +44175,25 @@ components:
           format: double
         module_id:
           type: string
+        series:
+          type: array
+          description: >-
+            Last up to eight calendar-month periods, oldest first. Omitted (not an
+            empty array) for KPIs with no historical state, e.g. stock warnings,
+            whose rows are mutated in place.
+          items:
+            $ref: "#/components/schemas/BerichtKPISeriesPoint"
+
+    BerichtKPISeriesPoint:
+      type: object
+      description: One point of a BerichtKPI's history, for dashboard sparklines.
+      properties:
+        period_start:
+          type: string
+          format: date-time
+        value:
+          type: string
+          description: Rendered value, same convention as BerichtKPI.value
 
     # === openapi-drift sweep: documents ===
     DocumentFolder:
