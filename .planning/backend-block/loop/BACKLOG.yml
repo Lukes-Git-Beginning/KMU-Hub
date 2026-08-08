@@ -392,7 +392,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Datenquellen-uebergreifende Report-Art im Executor. `internal/berichte/executor/executor.go:297`
       verzweigt ueber `cfg.Kind`; eine Art, die zwei Datenquellen verbindet, fehlt

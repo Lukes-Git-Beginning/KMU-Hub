@@ -656,3 +656,91 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   dieselbe, die der bestehende Code fuer `change_percent` bei diesem KPI
   schon macht und dokumentiert — kein neues Problem, nur jetzt auch fuer die
   Serie sichtbar.
+
+## Iteration 10 — a-berichte-execute-kind-cross — done — 2026-08-08 17:30
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Neue Report-Art `cross` im Executor
+  (`internal/berichte/executor/executor.go`). Sie fuehrt **zwei bestehende
+  Arten** ueber einen gemeinsamen Wert zusammen, statt eigene Downstream-
+  Abfragen zu bauen — damit erbt sie Tenant-Scoping, Fehlerpfade und die
+  Graceful Degradation der Art, die sie wiederverwendet (Lean-Leiter Stufe 2).
+  `Run` wurde in `Run` (nur `cross`-Weiche) und `runKind` (die acht
+  Einzelquellen-Arten) geteilt; `runKind` kennt `cross` bewusst NICHT, damit
+  eine Quelle nicht wieder `cross` heissen kann — die Rekursion faellt
+  automatisch in `ErrInvalidQueryConfig` statt in einen Fan-out.
+  Config additiv im bestehenden `query_config`-Dialekt:
+  `{"kind":"cross","period":"…","join_on":"stage","sources":[{"kind":"pipeline","key":"stage"},{"kind":"conversion","key":"from_stage","period":"last_30_days"}]}`.
+  Ergebnis ist dieselbe `Columns/Rows/Totals/Meta`-Form wie bei jeder anderen
+  Art — CSV/XLSX/PDF-Export und die FE-Tabelle brauchen keinen Sonderfall.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (`./internal/berichte/...` alle sechs Pakete gruen, **0 Skips** bei 185
+  Testfaellen, `DATABASE_URL` auf `kmuhub_app` gesetzt) |
+  `go test ./internal/gateway/` ok (inkl. `TestOpenAPIRouteDrift`) |
+  migration n.a. | openapi n.a. (keine neue Route, keine neue Response-Form —
+  `query_config` ist in der Spec ein freies JSON-Feld)
+- verify vorgaenger (`bff9c891`, KPI-Series): sauber. `.proto` und `.pb.go` im
+  selben Commit regeneriert; die neue `KPISeries`-Query filtert in allen drei
+  Sub-Selects auf `tenant_id = $1` (Read-Seite also nicht vergessen);
+  `response.Proto` serialisiert mit `UseProtoNames` → `period_start` snake_case
+  und Timestamp als RFC3339, deckt sich mit dem neuen openapi-Schema
+  `BerichtKPISeriesPoint`; keine neue Route, keine neue Tabelle, kein neuer
+  `RequirePermission`-Guard, kein Stub im neuen Pfad.
+- entscheidungen (bewusst, nicht geraten):
+  1. **Per-Source-Join-Keys statt eines gemeinsamen Spaltennamens.** Beim Bauen
+     nachgeschlagen: von den acht bestehenden Arten teilen sich **keine zwei**
+     einen Spaltennamen (pipeline nennt die Dimension `stage`, conversion
+     `from_stage`, helpdesk `queue`, datev `code`). Ein `join_on`, das in beiden
+     Quellen identisch heissen muss, waere mit dem heutigen Bestand unbenutzbar
+     gewesen. Deshalb: jede Quelle nennt ihre eigene Schluesselspalte (`key`,
+     Default = `join_on`), `join_on` ist der Name, den die Schluesselspalte im
+     Ergebnis traegt. Das ist der Punkt, den `notes` als moegliche Vertragsfrage
+     markiert hat — er ist im Konfigurationsschema loesbar, ohne dass ein
+     Downstream oder ein FE-Vertrag angefasst wird, also kein `blocked`.
+  2. **Inner Join, nicht outer.** Der CSV-Exporter rendert fehlende Zellen als
+     `fmt.Sprintf("%v", nil)` → `"<nil>"`; ein Outer Join haette also Loecher
+     mit `<nil>` in jede Export-Datei geschrieben. Die verworfenen Zeilen sind
+     dafuer sichtbar: `Totals["cross_unmatched_<alias>"]` je Seite.
+  3. **Kein `Series`.** Welche der zusammengefuehrten Kennzahlen ein Chart
+     zeichnen soll, steht in der Config nicht — Raten haette einen falschen
+     Chart erzeugt statt gar keinen.
+  4. Spalten ausser dem Schluessel bekommen den Alias-Praefix (`pipeline_volume`,
+     `conversion_rate`); der Praefix laeuft ueber die Row-Map, nicht ueber die
+     deklarierten Spalten, weil Zeilen undeklarierte Extras (`currency`,
+     `user_id`) tragen, die zwischen zwei Quellen kollidieren.
+  5. Zwei Deckel, beide noetig: `maxCrossSourceRows = 1000` je Quelle (grosse
+     Einzelquelle) UND dieselbe Grenze auf der Ausgabe (kartesisches Produkt bei
+     wiederholten Schluesseln — 1000 × 1000 waere eine Million Zeilen aus einem
+     Aufruf). Getroffener Deckel setzt `Meta.Warning = "cross_truncated"`.
+- mutations-probe: drei Stueck, die zweite war der eigentliche Ertrag.
+  (1) Join-Seite vertauscht (`joinKey(leftRow, rightKey)`) → vier cross-Tests
+  rot, alle Nachbartests gruen. Zurueckgedreht.
+  (2) Per-Source-Deckel aufgeweicht (`> maxCrossSourceRows+250`) → **zuerst
+  NICHT gefangen**: mein erster Cap-Test (beide Seiten ueberlang, passende
+  Schluessel) wurde vom Ausgabe-Deckel gerettet und haette den Per-Source-Deckel
+  nie belegt — genau die Zeilenabdeckung ohne Aussage, vor der die Regel warnt.
+  Test daraufhin ersetzt durch `TestRun_Cross_SourceRowCapDropsRowsBeyondLimit`:
+  der einzige passende Schluessel liegt jenseits des Deckels, der Join findet ihn
+  also nur, wenn nicht gekappt wurde (zwei Subtests, links und rechts). Probe
+  wiederholt → beide Subtests rot, Rest gruen. Zurueckgedreht.
+  (3) Ausgabe-Deckel verdoppelt → GENAU
+  `TestRun_Cross_OutputRowCapBoundsCartesianProduct` rot (beide Quellen exakt am
+  Per-Source-Limit, damit dieser Deckel stumm bleibt), alle anderen gruen.
+  Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- fehlerpfade im Test: unbekannte Quellen-Art, verschachteltes `cross`, leere
+  Quellen-Art, eine/drei Quellen, fehlendes `join_on`, kollidierende Aliase,
+  Schluessel ist keine Spalte der Quelle (alle → `ErrInvalidQueryConfig`, kein
+  Panic), Downstream nicht verdrahtet (→ `downstream_not_available` statt
+  Config-Fehler), Downstream-Fehler propagiert, Per-Source-Period-Override
+  erreicht das Downstream wirklich (am Mock gemessen).
+- offen: Zwei Punkte fuer Luke.
+  (1) **Kein Erzeuger.** `cross` ist serverseitig da, aber niemand schreibt so
+  eine Config: der FE-Builder produziert einen ganz anderen Dialekt
+  (`{"kind":"builder","sourceId":…}`, siehe `desktop/.../berichte-types.ts`),
+  den der Executor **gar nicht kennt** — `runKind` gibt dafuer heute
+  `ErrInvalidQueryConfig` zurueck, interpretiert wird er nur vom MSW-Demo-Handler.
+  Das ist eine groessere Luecke als diese Unit und steht in keinem Backlog-Eintrag;
+  bis sie geschlossen ist, ist `cross` nur ueber die API (oder eine Seed-Zeile)
+  erreichbar. Erwaegenswert als Unit fuer Lauf 7.
+  (2) Kein Seed-Bericht fuer `cross` angelegt — die Migration 000079 seedet acht
+  System-Definitionen, eine neunte haette einen Deploy-relevanten Datenzusatz
+  bedeutet, ohne dass das FE ihn heute rendern kann. Sinnvoll erst zusammen mit (1).

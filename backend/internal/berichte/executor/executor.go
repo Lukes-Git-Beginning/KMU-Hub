@@ -262,6 +262,43 @@ func New(deps Deps) *Executor {
 type queryConfig struct {
 	Kind   string `json:"kind"`
 	Period string `json:"period"` // last_7_days | last_30_days | last_90_days | last_12_months | current_month | ""
+
+	// Only for kind "cross": the two sources to join, and the name the joined
+	// key carries in the result.
+	Sources []crossSource `json:"sources,omitempty"`
+	JoinOn  string        `json:"join_on,omitempty"`
+}
+
+// crossSource is one side of a "cross" report. It names an existing report
+// kind rather than a table, so a cross report inherits every downstream
+// guarantee (tenant scoping, graceful degradation) of the kind it reuses.
+type crossSource struct {
+	Kind string `json:"kind"`
+	// Key is the column of THIS source that carries the join value. It
+	// defaults to the report's join_on. Per-source keys are what make the kind
+	// usable at all: no two built-in kinds happen to name their shared
+	// dimension identically (pipeline calls it "stage", conversion
+	// "from_stage").
+	Key string `json:"key,omitempty"`
+	// Alias prefixes this source's columns in the joined result. Defaults to
+	// Kind; must differ between the two sources.
+	Alias string `json:"alias,omitempty"`
+	// Period overrides the report-level period for this source only.
+	Period string `json:"period,omitempty"`
+}
+
+func (s crossSource) alias() string {
+	if s.Alias != "" {
+		return s.Alias
+	}
+	return s.Kind
+}
+
+func (s crossSource) key(joinOn string) string {
+	if s.Key != "" {
+		return s.Key
+	}
+	return joinOn
 }
 
 func parseQueryConfig(raw []byte) (*queryConfig, error) {
@@ -308,7 +345,17 @@ func (e *Executor) Run(ctx context.Context, def *berichte.Definition, _ json.Raw
 	if err != nil {
 		return nil, err
 	}
+	if cfg.Kind == crossKind {
+		return e.cross(ctx, def, cfg)
+	}
+	return e.runKind(ctx, def, cfg)
+}
 
+// runKind dispatches the single-source kinds. It deliberately knows nothing
+// about "cross": that keeps a cross source from naming "cross" again (it falls
+// through to ErrInvalidQueryConfig), so a config cannot nest itself into an
+// unbounded fan-out.
+func (e *Executor) runKind(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	switch cfg.Kind {
 	case "revenue_by_month":
 		return e.revenueByMonth(ctx, def, cfg)
@@ -499,7 +546,7 @@ func changePercentInt(cur, prev int) *float64 {
 
 func (e *Executor) revenueByMonth(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.finance == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	from, to := e.periodRange(cfg.Period)
 	rows, err := e.finance.GetRevenueByMonth(ctx, def.TenantID, from, to)
@@ -541,7 +588,7 @@ func (e *Executor) revenueByMonth(ctx context.Context, def *berichte.Definition,
 
 func (e *Executor) invoicesOpen(ctx context.Context, def *berichte.Definition, _ *queryConfig) (*berichte.ReportResult, error) {
 	if e.finance == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	rows, err := e.finance.ListInvoicesByStatus(ctx, def.TenantID, []string{"sent", "overdue"})
 	if err != nil {
@@ -585,7 +632,7 @@ func (e *Executor) invoicesOpen(ctx context.Context, def *berichte.Definition, _
 
 func (e *Executor) pipeline(ctx context.Context, def *berichte.Definition, _ *queryConfig) (*berichte.ReportResult, error) {
 	if e.crm == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	rep, err := e.crm.GetPipelineReport(ctx, def.TenantID)
 	if err != nil {
@@ -628,7 +675,7 @@ func (e *Executor) pipeline(ctx context.Context, def *berichte.Definition, _ *qu
 
 func (e *Executor) conversion(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.crm == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	from, to := e.periodRange(cfg.Period)
 	rep, err := e.crm.GetConversionReport(ctx, def.TenantID, from, to)
@@ -669,7 +716,7 @@ func (e *Executor) conversion(ctx context.Context, def *berichte.Definition, cfg
 
 func (e *Executor) activityByUser(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.crm == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	from, to := e.periodRange(cfg.Period)
 	rep, err := e.crm.GetActivityReport(ctx, def.TenantID, from, to)
@@ -713,7 +760,7 @@ func (e *Executor) activityByUser(ctx context.Context, def *berichte.Definition,
 
 func (e *Executor) helpdeskSLA(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.helpdesk == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	from, to := e.periodRange(cfg.Period)
 	rep, err := e.helpdesk.GetSLAReport(ctx, def.TenantID, from, to)
@@ -760,7 +807,7 @@ func (e *Executor) helpdeskSLA(ctx context.Context, def *berichte.Definition, cf
 
 func (e *Executor) stockWarnings(ctx context.Context, def *berichte.Definition, _ *queryConfig) (*berichte.ReportResult, error) {
 	if e.inventar == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	rows, err := e.inventar.GetStockWarnings(ctx, def.TenantID)
 	if err != nil {
@@ -793,7 +840,7 @@ func (e *Executor) stockWarnings(ctx context.Context, def *berichte.Definition, 
 
 func (e *Executor) datevBWA(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.datev == nil {
-		return emptyResult(def, "downstream_not_available"), nil
+		return emptyResult(def, warningDownstreamMissing), nil
 	}
 	from, to := e.periodRange(cfg.Period)
 	data, err := e.datev.GetBWAData(ctx, def.TenantID, from, to)
@@ -826,6 +873,241 @@ func (e *Executor) datevBWA(ctx context.Context, def *berichte.Definition, cfg *
 	result.Meta.DefinitionID = def.ID
 	result.Meta.GeneratedAt = e.clock.Now()
 	return result, nil
+}
+
+// ============================================================================
+// Cross-source kind
+// ============================================================================
+
+const (
+	crossKind = "cross"
+
+	// warningDownstreamMissing is the Meta.Warning every kind sets when its
+	// downstream repository is not wired. cross reads it to decide whether an
+	// empty source is a degraded service or a broken config.
+	warningDownstreamMissing = "downstream_not_available"
+
+	// maxCrossSourceRows caps how many rows each side contributes to a join,
+	// and how many rows the join itself may produce. Both caps are needed: the
+	// first keeps a large single source out of memory, the second bounds the
+	// per-key cartesian product that repeating join values produce (1000 rows
+	// on each side sharing one key would otherwise be a million rows from one
+	// request).
+	maxCrossSourceRows = 1000
+
+	// warningCrossTruncated marks a result whose input or output was cut by
+	// maxCrossSourceRows, so the reader knows the table is partial.
+	warningCrossTruncated = "cross_truncated"
+)
+
+// cross joins two existing report kinds on a value each of them carries in a
+// column of its own choosing, and returns the merged table in the same
+// Columns/Rows/Totals/Meta shape as every other kind — exports and the
+// frontend table need no special case for it.
+//
+// Config (query_config):
+//
+//	{"kind":"cross","period":"last_90_days","join_on":"stage",
+//	 "sources":[{"kind":"pipeline","key":"stage"},
+//	            {"kind":"conversion","key":"from_stage","period":"last_30_days"}]}
+//
+// Semantics deliberately kept narrow:
+//   - Inner join. A key present on only one side is dropped, and the number of
+//     dropped rows per side lands in Totals as cross_unmatched_<alias>, so the
+//     omission is visible instead of silent. An outer join would leave holes
+//     that the CSV exporter renders as "<nil>".
+//   - Row order follows the first source, which makes the result stable across
+//     runs for the same data.
+//   - Columns other than the join key are prefixed with their source's alias,
+//     because two sources routinely carry the same column name (currency,
+//     status) with different meanings.
+//   - No Series: which of the joined measures a chart should plot is not
+//     derivable from the config, and guessing produces a wrong chart rather
+//     than none.
+func (e *Executor) cross(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
+	if len(cfg.Sources) != 2 || cfg.JoinOn == "" {
+		return nil, berichte.ErrInvalidQueryConfig
+	}
+	left, right := cfg.Sources[0], cfg.Sources[1]
+	if left.Kind == "" || right.Kind == "" || left.alias() == right.alias() {
+		return nil, berichte.ErrInvalidQueryConfig
+	}
+
+	leftRes, err := e.crossSourceResult(ctx, def, cfg, left)
+	if err != nil {
+		return nil, err
+	}
+	rightRes, err := e.crossSourceResult(ctx, def, cfg, right)
+	if err != nil {
+		return nil, err
+	}
+
+	// A downstream that is being restarted must degrade the cross report the
+	// same way it degrades the single-source kinds, not surface as a config
+	// error just because its empty result carries no join column.
+	if leftRes.Meta.Warning == warningDownstreamMissing || rightRes.Meta.Warning == warningDownstreamMissing {
+		return emptyResult(def, warningDownstreamMissing), nil
+	}
+	leftKey, rightKey := left.key(cfg.JoinOn), right.key(cfg.JoinOn)
+	if !hasColumn(leftRes.Columns, leftKey) || !hasColumn(rightRes.Columns, rightKey) {
+		return nil, berichte.ErrInvalidQueryConfig
+	}
+
+	truncated := false
+	leftRows, cut := capRows(leftRes.Rows)
+	truncated = truncated || cut
+	rightRows, cut := capRows(rightRes.Rows)
+	truncated = truncated || cut
+
+	result := &berichte.ReportResult{
+		Columns: crossColumns(cfg.JoinOn, leftKey, rightKey, leftRes.Columns, rightRes.Columns, left.alias(), right.alias()),
+		Rows:    make([]map[string]any, 0, len(leftRows)),
+		Totals:  map[string]any{},
+	}
+
+	// Index the right side by join key first, so the join is one pass over the
+	// left rows instead of a nested scan.
+	rightByKey := make(map[string][]map[string]any, len(rightRows))
+	for _, row := range rightRows {
+		key, ok := joinKey(row, rightKey)
+		if !ok {
+			continue
+		}
+		rightByKey[key] = append(rightByKey[key], row)
+	}
+
+	matchedRightKeys := make(map[string]struct{}, len(rightByKey))
+	unmatchedLeft := 0
+joinLoop:
+	for _, leftRow := range leftRows {
+		key, ok := joinKey(leftRow, leftKey)
+		if !ok {
+			continue
+		}
+		matches := rightByKey[key]
+		if len(matches) == 0 {
+			unmatchedLeft++
+			continue
+		}
+		matchedRightKeys[key] = struct{}{}
+		for _, rightRow := range matches {
+			// Checked before the append, not after: a join that fills the
+			// budget exactly has lost nothing and must not be flagged partial.
+			if len(result.Rows) >= maxCrossSourceRows {
+				truncated = true
+				break joinLoop
+			}
+			merged := map[string]any{cfg.JoinOn: leftRow[leftKey]}
+			prefixInto(merged, leftRow, left.alias(), leftKey)
+			prefixInto(merged, rightRow, right.alias(), rightKey)
+			result.Rows = append(result.Rows, merged)
+		}
+	}
+
+	unmatchedRight := 0
+	for key, rows := range rightByKey {
+		if _, ok := matchedRightKeys[key]; !ok {
+			unmatchedRight += len(rows)
+		}
+	}
+
+	for k, v := range leftRes.Totals {
+		result.Totals[left.alias()+"_"+k] = v
+	}
+	for k, v := range rightRes.Totals {
+		result.Totals[right.alias()+"_"+k] = v
+	}
+	result.Totals["cross_unmatched_"+left.alias()] = unmatchedLeft
+	result.Totals["cross_unmatched_"+right.alias()] = unmatchedRight
+
+	result.Meta.RowCount = len(result.Rows)
+	result.Meta.DefinitionID = def.ID
+	result.Meta.GeneratedAt = e.clock.Now()
+	if truncated {
+		result.Meta.Warning = warningCrossTruncated
+		slog.WarnContext(ctx, "berichte: cross report truncated",
+			"definition_id", def.ID, "tenant_id", def.TenantID, "limit", maxCrossSourceRows)
+	}
+	return result, nil
+}
+
+// crossSourceResult runs one side of the join. The source inherits the report
+// period unless it overrides it, and an unknown kind comes back as
+// ErrInvalidQueryConfig from runKind rather than as a panic.
+func (e *Executor) crossSourceResult(ctx context.Context, def *berichte.Definition, cfg *queryConfig, src crossSource) (*berichte.ReportResult, error) {
+	period := src.Period
+	if period == "" {
+		period = cfg.Period
+	}
+	return e.runKind(ctx, def, &queryConfig{Kind: src.Kind, Period: period})
+}
+
+// crossColumns emits the join column once — named join_on, labelled after the
+// left source's key column — then every other column of each source under its
+// alias prefix.
+func crossColumns(joinOn, leftKey, rightKey string, leftCols, rightCols []berichte.Column, leftAlias, rightAlias string) []berichte.Column {
+	out := make([]berichte.Column, 0, len(leftCols)+len(rightCols))
+	for _, c := range leftCols {
+		if c.Name == leftKey {
+			out = append(out, berichte.Column{Name: joinOn, Label: c.Label, Kind: c.Kind})
+			break
+		}
+	}
+	appendPrefixed := func(cols []berichte.Column, key, alias string) {
+		for _, c := range cols {
+			if c.Name == key {
+				continue
+			}
+			out = append(out, berichte.Column{
+				Name:  alias + "_" + c.Name,
+				Label: c.Label + " (" + alias + ")",
+				Kind:  c.Kind,
+			})
+		}
+	}
+	appendPrefixed(leftCols, leftKey, leftAlias)
+	appendPrefixed(rightCols, rightKey, rightAlias)
+	return out
+}
+
+// prefixInto copies every value of src into dst under the alias prefix, minus
+// the source's own key column (already emitted once as the join column). It
+// walks the row map rather than the declared columns on purpose: rows carry
+// undeclared extras (currency, user_id) that collide between sources.
+func prefixInto(dst, src map[string]any, alias, key string) {
+	for k, v := range src {
+		if k == key {
+			continue
+		}
+		dst[alias+"_"+k] = v
+	}
+}
+
+// joinKey renders a row's join value as a comparable string. Sources hand back
+// `any` (string from one, float64 from another), so comparison happens on the
+// rendered form — the same form the exporters print.
+func joinKey(row map[string]any, key string) (string, bool) {
+	v, ok := row[key]
+	if !ok || v == nil {
+		return "", false
+	}
+	return fmt.Sprintf("%v", v), true
+}
+
+func hasColumn(cols []berichte.Column, name string) bool {
+	for _, c := range cols {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func capRows(rows []map[string]any) ([]map[string]any, bool) {
+	if len(rows) > maxCrossSourceRows {
+		return rows[:maxCrossSourceRows], true
+	}
+	return rows, false
 }
 
 // ============================================================================
