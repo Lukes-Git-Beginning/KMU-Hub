@@ -2681,7 +2681,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   laufen Pakete vermutlich mit anderer Parallelitaet/Connection-Limits).
 
 ## Iteration 33 — c-cov-crm-advisoryprotocol — done — 2026-08-08 21:50
-- commit: (siehe naechster chore-Commit)
+- commit: 2da5d08d
 - verify vorgaenger: sauber (c98d4f9d ist ein reiner chore-Commit, der nur
   Commit-SHAs in bestehende Journal-Eintraege nachtraegt — kein Gateway/
   Route/Proto/Guard/neue-Tabelle betroffen). `git merge origin/main` war
