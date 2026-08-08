@@ -1966,7 +1966,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/security_grpc.go` - 1.148 Zeilen, 31 Methoden, acht
       Konvertierungsfunktionen, keine Testdatei. Audit, Tresor, Passwortrichtlinie,
@@ -1986,6 +1986,16 @@ units:
       - Alle acht Konvertierer abgedeckt
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      "Acht Konvertierer" stimmte nicht: `security_grpc.go` hat genau sieben
+      benannte `toProto*`-Funktionen (Audit/Vault/GDPRExport/VendorAccess/
+      PasswordPolicy/IPRule/RetentionPolicy) - DSARSearch baut seine Antwort
+      inline ohne eigene Konvertierungsfunktion. Alle sieben abgedeckt, nil-
+      optional und populated je einmal. ListIPRules und
+      ListRetentionPolicies validieren nichts vor dem `s.pool`-Zugriff und
+      sind ohne echte DB nicht erreichbar - beide bewusst ausgelassen (siehe
+      Journal Iteration 46), alle anderen 30 RPCs ueber die
+      Validierungstabelle oder Happy-Path-Tests abgedeckt.
 
   - id: b-cov-server-notification
     phase: 3

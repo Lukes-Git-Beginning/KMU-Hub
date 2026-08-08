@@ -4020,3 +4020,62 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 - offen: keiner. CSAT-Verhalten wurde wie in den `notes` gefordert nicht
   angefasst, nur getestet (Codec-Tests unveraendert aus der Vorgaenger-
   Iteration).
+
+## Iteration 46 — b-cov-server-security — done — 2026-08-09 00:40
+- commit: ed52b01f
+- gebaut: `internal/server/security_grpc_test.go` (1318 Zeilen) - vollstaendige
+  `mapSecurityError`-Sentinel-Tabelle (11 Sentinels + nil + unbekannt ->
+  Internal), alle sieben Proto<->Domain-Konvertierer (nil-optional vs.
+  populated), eine Validierungspfad-Tabelle ueber 30 der 31 RPCs, plus
+  gezielte Happy-Path-Tests je RPC-Gruppe (Audit, GDPR-Export, Passwort,
+  Vendor-Access) und zwei Cross-Tenant-Isolationstests (Vault-Secrets,
+  Vendor-Access-Requests).
+  Anders als bei helpdesk/inbox/document/hr reicht ein Nil-Service-Server
+  hier nicht: `ListVaultSecrets`, `GetPasswordPolicy`, `VerifyAuditChain`
+  und `ListVendorAccessRequests` haben KEINE Validierung vor dem
+  Service-Aufruf und wuerden auf einem Nil-Service sofort paniken. Deshalb
+  alle fuenf Sub-Services (audit, vault, gdpr, password, vendoraccess)
+  gegen kleine In-Memory-Stub-Repositories verdrahtet (jedes Repository-
+  Interface hat 4-5 Methoden, `pool` bleibt nil).
+  Wertvollster Test laut Backlog-Notiz: `TestVaultSecret_PlaintextNeverLeaksOutsideGet`
+  setzt ein Secret, prueft dass Set-/List-/Delete-Antworten das Klartext
+  niemals enthalten, und dass GetVaultSecret (der einzige dafuer vorgesehene
+  Pfad) es korrekt liefert. `TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly`
+  haelt sich an die Vorgabe "nie einen echten Loeschlauf": PreviewErasure
+  laeuft komplett (read-only, keine registrierten Erasure-Handler in diesem
+  Server), ExecuteErasure nur ueber die Validierungsfaelle in der Tabelle.
+  Backlog-Praemisse korrigiert: "acht Konvertierer" stimmte nicht - es sind
+  genau sieben benannte `toProto*`-Funktionen; DSARSearch baut seine Antwort
+  inline. Alle sieben abgedeckt (Detail im BACKLOG.yml `result:`-Block).
+- gate: build ok (`go build -p 2` ueber server/gateway/cmd/gateway, clean) |
+  vet ok | lint ok (0 issues, inkl. server+gateway) | test ok
+  (`internal/server` komplett inkl. aller neuen Tests, `internal/gateway`
+  inkl. `TestOpenAPIRouteDrift`, 0 Skips mit `DATABASE_URL` auf `kmuhub_app`)
+  | migration n.a. (keine Tabelle angefasst) | rls-smoke n.a. (reiner
+  Handler-Test, kein Repository-Code).
+- verify vorgaenger: sauber. `ead08dec` (Iteration 45, helpdesk_grpc) ist
+  reine Testdatei ohne Route/Proto/Migration - Grep auf TODO/Unimplemented/
+  panic/t.Skip liefert 0 Treffer, kein gRPC-Layer-Umgehen moeglich (keine
+  Handler-Aenderung).
+- mutations-probe: zwei Stueck in `security_grpc.go` selbst.
+  (1) `mapSecurityError`s `ErrSensitiveAckRequired`-Fall von
+  `codes.OutOfRange` auf `codes.InvalidArgument` gedreht -> GENAU
+  `TestMapSecurityError_AllSentinels/vendoraccess_sensitive_ack_required`
+  und `TestVendorAccessRPCs_HappyPathAndDomainErrors` (haelt denselben Fall
+  end-to-end) wurden rot, alle anderen Subtests blieben gruen.
+  (2) In `CreateAuditEntry` die `user_id`-Parsing-Bedingung mit `if false &&`
+  stillgelegt -> GENAU
+  `TestSecurityGRPC_ValidationErrors/CreateAuditEntry/invalid_user_id` wurde
+  rot. Beide zurueckgedreht, `git diff --stat -- internal/server/security_grpc.go`
+  zeigt danach keinen Diff. Endgate (build/vet/lint/test) erneut gelaufen
+  und gruen.
+- db-tests: 0 (In-Memory-Stub-Repos, kein `SkipIfNoDB`-Pfad) - **0 Skips**
+  in der vollstaendigen `internal/server`-Suite. `DATABASE_URL` war auf
+  `kmuhub_app` gesetzt.
+- offen: `ListIPRules` und `ListRetentionPolicies` haben keinerlei
+  Validierung vor dem direkten `s.pool`-Zugriff (kein Request-Feld wird
+  geprueft) - mit `pool=nil` in diesem Testserver nicht erreichbar, auch
+  nicht fuer den Validierungspfad. Echte Coverage dafuer braucht eine
+  DB-Integrationstest-Datei nach dem Muster von `internal/biz/invoice/integration_test.go`,
+  nicht den Handler-Test-Stil dieser Datei - Kandidat fuer eine eigene
+  Folge-Unit, kein aktiver Mangel.
