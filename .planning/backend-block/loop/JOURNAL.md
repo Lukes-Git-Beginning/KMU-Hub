@@ -1881,7 +1881,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 - offen: keins. Naechste Unit im Backlog: `c-cov-biz-gobdarchive`.
 
 ## Iteration 24 — c-cov-biz-gobdarchive — done — 2026-08-08 20:15
-- commit: (nachzutragen im Folge-Commit)
+- commit: 94f5aa05
 - verify vorgaenger: sauber. `ac3f9178` (c-cov-biz-dashboard, Iteration 23)
   gegen den finalen Baum erneut gelaufen: `go test ./internal/biz/dashboard/...
   -count=1 -cover` mit `DATABASE_URL` auf `kmuhub_app` — 21/21 PASS, 0 Skips,
