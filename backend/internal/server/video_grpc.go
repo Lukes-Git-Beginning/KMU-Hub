@@ -189,7 +189,7 @@ func (s *VideoGRPCServer) ListActiveCalls(ctx context.Context, req *videov1.List
 		return nil, mapVideoError(err)
 	}
 
-	var protos []*videov1.CallSession
+	protos := make([]*videov1.CallSession, 0, len(calls))
 	for _, c := range calls {
 		protos = append(protos, callSessionToProto(&c, nil))
 	}
@@ -373,7 +373,7 @@ func (s *VideoGRPCServer) GetRecordingConsent(ctx context.Context, req *videov1.
 		return nil, mapRecordingError(err)
 	}
 
-	var protoConsents []*videov1.RecordingConsent
+	protoConsents := make([]*videov1.RecordingConsent, 0, len(consents))
 	for _, c := range consents {
 		protoConsents = append(protoConsents, recordingConsentToProto(&c))
 	}
@@ -419,7 +419,7 @@ func (s *VideoGRPCServer) ListRecordings(ctx context.Context, req *videov1.ListR
 		return nil, mapRecordingError(err)
 	}
 
-	var protos []*videov1.Recording
+	protos := make([]*videov1.Recording, 0, len(recordings))
 	for _, r := range recordings {
 		protos = append(protos, recordingToProto(&r))
 	}
@@ -468,7 +468,7 @@ func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1
 		return nil, mapRecordingError(err)
 	}
 
-	var protoConsents []*videov1.RecordingConsent
+	protoConsents := make([]*videov1.RecordingConsent, 0, len(cs.Consents))
 	for _, c := range cs.Consents {
 		protoConsents = append(protoConsents, &videov1.RecordingConsent{
 			RecordingId: c.RecordingID.String(),
@@ -561,7 +561,7 @@ func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *vide
 		return nil, mapRecordingError(err)
 	}
 
-	var protos []*videov1.Recording
+	protos := make([]*videov1.Recording, 0, len(recordings))
 	for _, r := range recordings {
 		protos = append(protos, recordingToProto(&r))
 	}
@@ -1916,6 +1916,14 @@ func mapVideoError(err error) error {
 }
 
 func mapRecordingError(err error) error {
+	// Service.GetRecordingDownloadURL builds well-formed gRPC status errors directly
+	// (codes.FailedPrecondition/PermissionDenied/Internal) instead of sentinel errors.
+	// Without this passthrough, none of the errors.Is cases below match and the switch
+	// falls to default, flattening a correct FailedPrecondition/PermissionDenied into a
+	// generic Internal — silently discarding the real cause.
+	if st, ok := status.FromError(err); ok {
+		return st.Err()
+	}
 	switch {
 	case errors.Is(err, recording.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
