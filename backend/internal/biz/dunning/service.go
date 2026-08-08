@@ -7,6 +7,7 @@ package dunning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -301,6 +302,11 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 //     error is returned and the record stays in draft. GoBD requires "sent" to
 //     mean the notice was actually delivered, so flipping status on a failed
 //     send would misrepresent the audit trail.
+//   - noticeMailer configured but the tenant has no company settings
+//     (ErrCompanySettingsMissing): fail-open like the nil-mailer branch. That is
+//     a missing-master-data gap, not a delivery attempt that failed, so the GoBD
+//     argument does not apply — blocking the whole dunning run on it would only
+//     leave the record stuck in draft behind a 500.
 func (s *Service) sendAndNotify(ctx context.Context, tenantID, id, userID uuid.UUID) (*models.DunningRecord, error) {
 	record, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
@@ -313,7 +319,14 @@ func (s *Service) sendAndNotify(ctx context.Context, tenantID, id, userID uuid.U
 
 	if s.noticeMailer != nil {
 		if sendErr := s.emailNotice(ctx, tenantID, record); sendErr != nil {
-			return nil, fmt.Errorf("send dunning notice: %w", sendErr)
+			if !errors.Is(sendErr, ErrCompanySettingsMissing) {
+				return nil, fmt.Errorf("send dunning notice: %w", sendErr)
+			}
+			slog.Error("dunning notice email skipped, company settings missing; flipping status anyway",
+				"dunning_id", id,
+				"tenant_id", tenantID,
+				"error", sendErr,
+			)
 		}
 	} else {
 		slog.Warn("notice mailer not configured, dunning notice email not sent",
@@ -356,8 +369,10 @@ func dunningDocPrefix(level int) string {
 }
 
 // emailNotice loads the linked invoice + company settings, renders the dunning
-// PDF, and dispatches it via the configured NoticeSender. Any failure here is
-// fail-closed by the caller (sendAndNotify) — draft status is preserved.
+// PDF, and dispatches it via the configured NoticeSender. Failures are
+// fail-closed by the caller (sendAndNotify) — draft status is preserved — with
+// the single exception of ErrCompanySettingsMissing, which the caller treats as
+// non-fatal.
 func (s *Service) emailNotice(ctx context.Context, tenantID uuid.UUID, record *models.DunningRecord) error {
 	invoice, err := s.invReader.GetByID(ctx, tenantID, record.InvoiceID)
 	if err != nil {
@@ -369,7 +384,7 @@ func (s *Service) emailNotice(ctx context.Context, tenantID uuid.UUID, record *m
 		return fmt.Errorf("load company settings: %w", err)
 	}
 	if settings == nil {
-		return fmt.Errorf("no company settings configured for tenant %s", tenantID)
+		return fmt.Errorf("%w %s", ErrCompanySettingsMissing, tenantID)
 	}
 
 	pdfBytes, err := pdf.NewGenerator(*settings).GenerateDunningPDF(*record, *invoice, record.Level)

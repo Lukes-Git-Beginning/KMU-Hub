@@ -114,7 +114,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Den Mahnungsversand gegen fehlende Firmen-Einstellungen haerten.
       `internal/biz/dunning/service.go:314-317` bricht heute hart ab, sobald ein Mailer

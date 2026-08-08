@@ -45,3 +45,32 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   eingeplant, kein Versaeumnis. Ein Loop, der um 02:00 leerlaeuft, waere der teurere Fehler.
 - Coverage-Ausgangswerte, am 2026-08-07 lokal ohne `DATABASE_URL` gemessen (untere Schranke):
   `internal/server` 6,2 % · `internal/gateway` 24,1 %. Mit DB in CI: 8,1 / 27,2.
+
+## Iteration 1 — a-dunning-send-non-fatal — done — 2026-08-08 14:45
+- commit: b790bcb8
+- gebaut: Neues Sentinel `ErrCompanySettingsMissing` in `internal/biz/dunning/errors.go`;
+  `emailNotice` wrappt es beim `settings == nil`-Zweig statt eines anonymen Fehlers, und
+  `sendAndNotify` prueft per `errors.Is` — fehlende Firmen-Stammdaten sind jetzt non-fatal
+  (Status flippt auf `sent`, `sent_at` gesetzt, Miss als `slog.Error` mit `dunning_id` und
+  `tenant_id`), waehrend jeder echte Zustell-, PDF- oder Settings-Ladefehler weiterhin
+  fail-closed bleibt und den Datensatz in `draft` haelt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (dunning 53/53, 0 Skips;
+  `./internal/gateway/` ok inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a.
+- mutations-probe: `if !errors.Is(sendErr, ErrCompanySettingsMissing)` zu
+  `if !errors.Is(sendErr, ErrDunningNotFound)` gedreht (macht den Settings-Fall wieder fatal).
+  Ergebnis: genau `TestSend_WithNoticeMailer_MissingCompanySettings_StillSends` wurde rot, die
+  drei Nachbartests blieben gruen. Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+  Anmerkung fuer kuenftige Proben: die naive Mutation `if true {` faellt nicht als Test-Rot
+  auf, sondern als Compile-Fehler (`"errors" imported and not used`) — dann ist die Probe
+  wertlos. Immer eine Mutation waehlen, die kompiliert.
+- db-tests: 0 real gelaufene DB-Tests, 0 Skips — `internal/biz/dunning` ist reines
+  Mock-Testing, es gibt in dem Paket keinen `SkipIfNoDB`-Pfad. `DATABASE_URL` war gesetzt.
+- verify vorgaenger: n.a. — erste Iteration des Laufs, letzter Commit `535ea306` ist
+  docs/chore am Loop-Verzeichnis. `git merge origin/main` war "Already up to date".
+- offen: Bewusste Abweichung vom `scope`-Wortlaut, gedeckt durch `notes`: entschaerft ist NUR
+  `settings == nil`, nicht jeder Fehler des konfigurierten Mailers. Ein SMTP-Refuse laesst die
+  Mahnung weiter in `draft` (GoBD: "sent" = zugestellt). Zweiter Punkt fuer Luke: bei
+  fehlenden Stammdaten gilt die Mahnung jetzt als `sent`, obwohl keine Mail rausging — die
+  Fachlage will das so (der Nil-Mailer-Zweig macht es seit je genauso), aber die UI hat dafuer
+  keinen Hinweis. Falls gewuenscht, gehoert eine Warnung in die Send-Response, das waere eine
+  eigene Unit inkl. Proto-Feld.
