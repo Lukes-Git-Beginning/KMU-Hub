@@ -1620,7 +1620,7 @@ units:
     service: server
     model: sonnet
     deps: [b-cov-server-work-projects]
-    status: todo
+    status: done
     scope: >
       `internal/server/work_grpc.go`, zweite Haelfte - Kommentare, Zeiterfassung, Labels und
       benutzerdefinierte Felder.

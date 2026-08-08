@@ -3213,3 +3213,99 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Tenant-Checks in mehreren Status-/Dependency-Handlern) sowie die
   Preferences/Search/EntityLinks/Activity/Files/TaskCustomFieldValues-
   Restluecke in `work_grpc.go` als Kandidat fuer eine eigene Unit.
+
+## Iteration 39 — b-cov-server-work-rest — done — 2026-08-08 23:55
+- commit: f4e6039c
+- verify vorgaenger: sauber. `4cf743ed`/`6f9f0907` (Iteration 38,
+  b-cov-server-work-projects) geprueft: reine Testdatei-Aenderung
+  (`work_project_task_test.go` neu, `work_label_test.go` minimal erweitert
+  um `dependencies`-Tracking im Mock), kein Route-/Proto-/Migrations-Diff,
+  kein gRPC-Client-Umgehen, kein neuer `RequirePermission`-Guard. `git merge
+  origin/main` war "Already up to date".
+- gebaut: Zweite Haelfte von `internal/server/work_grpc.go` gemaess Scope-
+  Text ("Kommentare, Zeiterfassung, Labels und benutzerdefinierte Felder").
+  `work_label_test.go`/`work_comment_test.go` zuerst gelesen: beide
+  `mapWorkError`/`mapTimeEntryError`-Sentinel-Tabellen waren bereits in
+  Iteration 38 vollstaendig (34 bzw. 8 Sentinels), also keine zweite Tabelle
+  daneben — diese Unit deckt stattdessen die End-to-End-Handler-Pfade ab,
+  die die Sentinel-Tabelle allein nicht belegt (echter Service+Repo-Lauf,
+  nicht nur der isolierte Fehler-Case).
+  Neue Datei `work_timeentry_label_customfield_test.go` (84 neue Tests):
+  (1) `timeEntryMockRepo`, ein stateful `timeentry.Repository` (Timer-
+  Autostop-Verkettung, Owner-Only Edit/Delete, Tenant-Scoping) — deckt
+  StartTimer (inkl. Auto-Stop eines laufenden Fremdtimers),
+  StopTimer/GetActiveTimer, AddManualTimeEntry (Dauer-/Beschreibungs-
+  Validierung), UpdateTimeEntry/DeleteTimeEntry (Owner-Pruefung),
+  ListTimeEntries (Page/PageSize-Defaults), GetTaskTimeSummary,
+  ListBillableTimeEntries (nur beendete Eintraege), ListProjectTimeEntries
+  und ListProjectTeamUtilization (beide: Projekt-Zugehoerigkeit wird ueber
+  `projectService.Get` echt geprueft, nicht nur RLS-vertraut).
+  (2) `customFieldMockRepo`, stateful `customfield.Repository` (das
+  bestehende `customfieldStubRepo` war ein reiner No-Op-Stub, taugt nur fuer
+  Validierungspfade) — deckt CreateCustomFieldDefinition (Name-Pflicht,
+  FieldType-Whitelist), Get/List (Tenant-Scoping per Zwei-Tenant-Fall),
+  Update, Delete.
+  (3) Labels: direkte CRUD-Tests gegen das bereits stateful `labelMockRepo`
+  aus Iteration frueher (bisher nur indirekt ueber `ListTasks`/`GetTask`
+  genutzt) — Create (Default-Farbe `#6b7280`, Farb-/Namensvalidierung),
+  Get, List (Tenant-Scoping per Zwei-Tenant-Fall), Update, Delete,
+  SetTaskLabels (inkl. der Leerstring-Label-ID-Ablehnung in
+  `label.Service.SetTaskLabels`).
+  (4) Comments: `CreateTaskComment`/`ListTaskComments` waren in Iteration
+  vorher nur ueber Update/Delete-Autorisierung getestet (Regression fuer
+  fix-g-work-task-comment-authz) — jetzt zusaetzlich Create (Task-Existenz-
+  Pruefung, Inhaltsvalidierung, Zitat-Validierung) und List (Page/PageSize-
+  Defaults, Tenant-/Task-Filterung). Dafuer `commentAuthzMockRepo.List` in
+  `work_comment_test.go` von einem No-Op (`return nil, 0, nil`) auf eine
+  echte taskID-gefilterte Implementierung mit Page/PageSize-Tracking
+  erweitert (minimal, additiv — keine bestehende Testerwartung haengt am
+  alten No-Op-Verhalten, da bisher kein Test `List` aufrief).
+  Alle Validierungspfade (invalide UUID, fehlender Tenant) laufen ueber den
+  bestehenden Nil-Service-Testserver (`newWorkValidationTestServer`), da sie
+  vor jedem Service-Aufruf abbrechen — kein neuer Nil-Panic-Risiko-Pfad.
+  Bewusst NICHT in dieser Unit: `ListProjectTeamUtilization`s Bucket-
+  Aggregation im Detail (reine Funktion `buildMemberUtilization`, kein
+  DB-/Handler-Anteil) und die in Iteration 38 bereits vermerkte
+  Preferences/Search/EntityLinks/Activity/Files/TaskCustomFieldValues-
+  Restluecke — die bleibt weiterhin unangetastet und offen.
+- gate: `go build -p 2 ./internal/server/... ./internal/gateway/...` ok |
+  `go vet ./internal/server/... ./internal/gateway/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/server/...`
+  0 issues | `go test -count=1 ./internal/server/... ./internal/gateway/...`
+  alle gruen inkl. `TestOpenAPIRouteDrift` (kein Route/Proto/Handler
+  angefasst) | migration n.a. (keine Schemaaenderung) | keine DB noetig —
+  reine In-Memory-Mocks, kein DATABASE_URL-Gate fuer `internal/server`.
+  Coverage `internal/server` 6,2 % (lokale Ausgangsmessung Lauf 6) -> 9,4 %
+  (gemessen ohne DATABASE_URL, wie zu Laufbeginn).
+- mutations-probe: zwei Stueck, beide aussagekraeftig, danach
+  zurueckgedreht (`git diff -- internal/server/work_grpc.go` bestaetigt
+  leer).
+  (1) `DeleteTimeEntry`: das hartkodierte `isAdmin=false` im Aufruf von
+  `s.timeEntryService.DeleteEntry` auf `true` gesetzt (macht jeden Aufrufer
+  zum Admin). Ergebnis: GENAU `TestDeleteTimeEntry_CannotDeleteOthers` wurde
+  rot (erwarteter `PermissionDenied` blieb aus), alle anderen Tests
+  blieben gruen.
+  (2) `CreateLabel`: die Default-Farben-Bedingung von `if color == ""` auf
+  `if color != ""` gedreht (Default greift jetzt nur bei bereits gesetzter
+  Farbe, laesst leere Farben leer und akzeptiert jede ungueltige Farbe als
+  "default"). Ergebnis: GENAU `TestCreateLabel_Success` (Default-Farbe
+  fehlt) und `TestCreateLabel_InvalidColor` (ungueltige Farbe wird
+  stillschweigend zu `#6b7280` und die erwartete Validierung greift nicht
+  mehr) wurden rot, keine anderen Label-, CustomField- oder Comment-Tests
+  betroffen.
+- db-tests: 0 DB-Integrationstests (keine Aenderung an einer Tabelle,
+  `internal/server` hat generell keinen `SkipIfNoDB`-Pfad), **0 Skips**
+  bei allen 84 neuen plus den bestehenden Tests im Paket. `DATABASE_URL`
+  war gesetzt, aber fuer dieses Paket irrelevant.
+- offen: Kein Gate-Ausfall. Fuer Luke: bestaetigt aus Iteration 38 weiterhin
+  offen — die Preferences/Search/EntityLinks/Activity/Files/
+  TaskCustomFieldValues-Methoden in `work_grpc.go` bleiben ungetestet
+  (keiner der beiden b-cov-server-work-*-Backlog-Texte nennt sie), guter
+  Kandidat fuer eine eigene Nachfolge-Unit falls das 60-%-Kritikalitaetsziel
+  je auf `internal/server` als Ganzes ausgedehnt wird (aktuell nur biz/crm
+  im Scope). `ListProjectTeamUtilization`s reine Bucket-/Label-Logik
+  (`buildMemberUtilization`, Wochen-/Monatslabels) ist ebenfalls nicht
+  handler-seitig, sondern nur am Erfolgspfad mit leerem Team belegt —
+  falls die reine Funktion isoliert getestet werden soll, ist das eine
+  kleine eigene Erweiterung in `internal/work/timeentry`, nicht in
+  `internal/server`.
