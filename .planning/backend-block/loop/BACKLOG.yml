@@ -1366,7 +1366,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/hr/absence` - gemessen 36,4 %. Ueberschneidende
       Abwesenheiten, Halbtage, Feiertage und die Saldenberechnung sind die Faelle, an denen

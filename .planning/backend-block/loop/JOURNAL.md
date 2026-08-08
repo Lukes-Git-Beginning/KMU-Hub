@@ -2850,3 +2850,92 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Backlog. Beide Testsuiten liefen nach dem Fix gruen, keine Kollision oder
   Redundanz-Bereinigung noetig.
   Naechste Unit im Backlog: `c-cov-biz-hr-absence`.
+
+## Iteration 35 — c-cov-biz-hr-absence — done — 2026-08-08 22:20
+- commit: 246137c1
+- verify vorgaenger: sauber. `41155e98` (c-cov-biz-hr-employee) geprueft
+  gegen alle acht Fehlerklassen: reine Test- plus SQL-Ausdrucksaenderung,
+  kein Handler/Route/Proto/Guard angefasst, keine neue Tabelle, kein
+  direkter Service-Zugriff unter Umgehung eines gRPC-Clients, `TRIM()`
+  konsequent an allen acht Fundstellen (nicht nur einer). `git merge
+  origin/main` war "Already up to date".
+- gebaut: `internal/biz/hr/absence` hatte 0 DB-Tests im normal laufenden
+  Gate (die vorhandene `integration_test.go` haengt an `//go:build
+  integration`, laeuft nur in `nightly.yml`) — Coverage 36,4%. Praemisse
+  aus dem Backlog-Scope zuerst geprueft: das Paket implementiert KEINE
+  Ueberschneidungs-, Halbtags-, Feiertags- oder Saldenberechnung — es ist
+  ein reiner Kalender-Lesedienst ueber bereits genehmigte
+  `hr_leave_requests`-Zeilen (Erstellung/Genehmigung/Konfliktlogik sitzt im
+  `leave`-Paket, das NICHT in `sources` steht). Die konkreten
+  `done_when`-Punkte (Ueberschneidung vs. Grenzberuehrung getrennt,
+  Jahreswechsel, Fehlerpfad, Mutations-Probe, 0 Skips) sind trotzdem
+  vollstaendig umgesetzt, nur gegen das, was der Code tatsaechlich tut.
+  Neue Datei `postgres_repository_db_test.go` (kein Build-Tag, laeuft im
+  Standard-Gate) deckt: Namensaufloesung inkl. E-Mail-Fallback,
+  Status-Filter (nur `approved` sichtbar; `pending`/`rejected`/`cancelled`
+  bewusst mitgesät und als abwesend geprueft), Datumsbereich-Ueberlappung
+  als Tabellentest mit fuenf Faellen (voll innen, beide Grenzen beruehrend,
+  strikt davor, strikt danach), Jahreswechsel (Abwesenheit UND Kalenderfenster
+  ueberspannen denselben Silvester, plus Gegenprobe direkt nach Ende),
+  Abteilungsfilter, Halbtags-Roundtrip (`is_half_day_start/end` +
+  `half_day_period_start/end`), Cross-Tenant-Unsichtbarkeit. Bewusste
+  Abweichung von der woertlichen Notiz "halboffene Intervall-Semantik wie
+  die Buchungen anderswo im Repo, Grenzberuehrung ist KEINE Ueberschneidung":
+  die SQL-Query nutzt `daterange(...,'[]') && daterange(...,'[]')` —
+  beidseitig INKLUSIV, nicht halboffen. Das ist fuer einen
+  Kalender-Anzeigefilter richtig (eine Abwesenheit, die exakt am ersten Tag
+  des angefragten Fensters endet, muss an dem Tag sichtbar sein) und
+  bewusst anders als ein Buchungskonflikt-Check, der Rueckgabe-um-12:00
+  erlauben will. Getestet wird deshalb "Grenzberuehrung ist eine
+  Ueberschneidung", nicht das Gegenteil — dokumentierte Abweichung von der
+  Notiz, keine stillschweigende.
+  Bei "Namensaufloesung" denselben produktiven Bug gefunden wie in Iteration
+  34 bei `employee` (`c2cc98ad`-Nachbarschaft, dort schon als
+  Grep-Folge-Check vermerkt): `postgres_repository.go` hatte die
+  `CONCAT_WS(' ', first_name, last_name)`-ohne-`TRIM`-Kopie NIE bekommen,
+  obwohl der Commit, der das Feld ueberhaupt erst lauffaehig machte
+  (`c2cc98ad`), `absence` explizit mit umfasste. Gleicher Fix: `TRIM()` um
+  `CONCAT_WS(...)` vor dem `NULLIF`.
+- gate: `go build -p 2 ./internal/biz/hr/absence/... ./internal/gateway/...
+  ./internal/server/...` ok | `go vet ./internal/biz/hr/absence/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/biz/hr/absence/...`
+  0 issues | `go test -count=1 -cover ./internal/biz/hr/absence/...
+  ./internal/gateway/... ./internal/server/... ./internal/testutil/...`
+  alle gruen inkl. `TestOpenAPIRouteDrift` (kein Route/Proto angefasst) |
+  `go test -tags=integration -count=1 ./internal/biz/hr/absence/...` (die
+  beiden bestehenden Nightly-Tests, je ein frischer Testcontainer) weiterhin
+  gruen — der Fix bricht sie nicht | migration n.a. (keine Schemaaenderung,
+  reiner SQL-Ausdrucksfix) | rls-smoke n.a. (keine neue Tabelle/Policy)
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) `TRIM()` um EINE Fundstelle zurueckgenommen (der einzigen im Paket).
+  Ergebnis: GENAU `TestRepository_GetAbsenceCalendar_BlankNameFallsBackToEmail`
+  wurde rot, alle 17 anderen Tests (inkl. der acht Subtests/Nachbartests)
+  blieben gruen.
+  (2) `lr.status = 'approved'` zu `lr.status != 'nonexistent'` gedreht (Filter
+  wirkungslos, laesst alle vier Status durch). Ergebnis: GENAU
+  `TestRepository_GetAbsenceCalendar_OnlyApprovedStatusIncluded` wurde rot,
+  alle uebrigen blieben gruen. Beide Proben zurueckgedreht, `git diff`
+  bestaetigt danach wieder den urspruenglichen Ein-Zeilen-Fix, Endgate
+  erneut gelaufen und gruen.
+- db-tests: 9 neue DB-Integrationstests (davon einer mit 5 Subtests) liefen
+  real gegen `kmuhub_app`, **0 Skips** im gesamten Paket `absence` (18
+  PASS total: 9 neu + 4 bestehende Mock-Service-Tests + die 5 Overlap-
+  Subtests separat gezaehlt). `DATABASE_URL` war gesetzt.
+- offen: Kein DB-Gate-Ausfall. Zwei Punkte fuer Luke.
+  (1) Derselbe `NULLIF(CONCAT_WS`-ohne-`TRIM`-Bug steht laut Grep noch in
+  sechs weiteren Dateien ausserhalb des Scopes dieser Unit:
+  `internal/biz/hr/changerequest/postgres_repository.go`,
+  `internal/gateway/route_video.go`, `internal/helpdesk/postgres_repository.go`,
+  `internal/biz/hr/leave/postgres_repository.go`,
+  `internal/inbox/thread/postgres_repository.go` (plus die employee/absence-
+  Testdateien selbst, die den Fix als Kommentar referenzieren, nicht den
+  Bug). `leave` ist besonders relevant, weil es im selben `c2cc98ad`-Commit
+  gefixt wurde wie employee/absence — dort lohnt sich ein gezielter Blick
+  zuerst. Bewusst nicht mit ausgeweitet (Scope-Disziplin dieser Unit).
+  (2) Die Praemisse "Ueberschneidende Abwesenheiten, Halbtage, Feiertage und
+  Saldenberechnung" aus dem Backlog-`scope`-Text trifft auf dieses Paket
+  nicht zu — das ist ein reiner Kalender-Lesedienst, keine
+  Validierungs-Engine. Falls eine echte Ueberschneidungs-/Saldenpruefung
+  fehlt, sitzt sie (falls ueberhaupt) im `leave`-Service beim Anlegen eines
+  Leave-Requests, nicht hier. Nicht verifiziert, ob dort Coverage-Luecken
+  bestehen — waere eine eigene Recherche wert.
