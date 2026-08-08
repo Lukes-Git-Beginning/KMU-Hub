@@ -1780,7 +1780,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/document_grpc.go` - 1.812 Zeilen, 49 Methoden, elf
       Konvertierungsfunktionen, keine Testdatei.
@@ -1798,6 +1798,37 @@ units:
       - Raumtyp-Aufzaehlung in beide Richtungen geprueft
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Praemisse leicht korrigiert: es sind ZEHN toProto*-Konvertierer, nicht
+      elf (toProtoFolder, toProtoFile, toProtoFileVersion, toProtoShare,
+      toProtoTag, toProtoEntityLink, toProtoFileActivity, toProtoFileComment,
+      toProtoShareLink, toProtoVirtualFile) - alle zehn mit vollstaendig
+      befuelltem Objekt abgedeckt, vier davon zusaetzlich mit ihrem
+      NULL-optionalen Feld (Folder ohne Parent, FileVersion ohne Label, Tag
+      ohne Color, ShareLink ohne Password/Expiry). Keiner der zehn hat einen
+      Nil-Guard (anders als hr_grpc.go) - dokumentiert, nicht mit nil
+      aufgerufen, um keinen Test-Panic zu erzeugen. Beim genauen Lesen zwei
+      echte Bugs gefunden und in diesem Commit gefixt: (1) toProtoFile liess
+      Tags nil bei einer Datei ohne Tags (Append auf ein unbelegtes Feld ueber
+      null Iterationen) - genau die im Scope benannte Wire-Shape-Drift, jetzt
+      make([]*documentv1.DocumentTag, 0, len(...)) vorbelegt, Regressionstest
+      TestToProtoFile_EmptyTagsIsNotNil. (2) file.ErrStorageKeyMissing fehlte
+      in mapDocumentError und fiel auf den Internal-Default - ein Client ohne
+      storage_key bekam 500 statt 400, jetzt InvalidArgument gemappt. Alle
+      Listen-Aufbaustellen im Handler-Code selbst waren dagegen schon
+      null-sicher (make(...,0,len(...)) an allen 15 Fundstellen) - keine
+      weitere Drift gefunden. TestMapDocumentError_AllSentinels deckt alle 39
+      Sentinels der switch-Tabelle (9 folder, 10 file, 5 comment, 5 share, 4
+      share-link, 5 tag, 1 search) plus nil und einen unbekannten Fehler.
+      TestDocumentHandlers_Validation deckt 46 der 50 Methoden mit mindestens
+      einem Invalid-Input-Fall ueber einen Server mit acht nil-Services; vier
+      Methoden (GetSharedFile, GetPresignedUploadURL,
+      GetPresignedDownloadURL, ListVirtualFiles) haben keinen einzigen
+      Pruefzweig vor dem Service-Aufruf und sind ohne Stub-Repo nicht
+      testbar - vermerkt statt erzwungen. Raumtyp-Aufzaehlung als Rundreise
+      ueber alle drei Werte plus Unspecified-Default in beide Richtungen
+      geprueft (TestSpaceTypeRoundTrip), ebenso Permission und
+      VirtualFileSource.
 
   - id: b-cov-server-inbox
     phase: 3

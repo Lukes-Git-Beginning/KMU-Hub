@@ -3717,3 +3717,123 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   (`hourly_rate` taucht im HR-Proto ueberhaupt nicht auf), also vermutlich
   totes Modellfeld, kein aktiver Bug — aber falls Lohn-/Gehaltsdaten je
   darueber laufen sollen, fehlt die Verdrahtung komplett.
+
+## Iteration 43 — b-cov-server-document — done — 2026-08-09 00:50
+- verify vorgaenger: sauber. `4eab4d49` (b-cov-server-hr) geprueft gegen alle
+  acht Fehlerklassen: neue Testdatei `hr_grpc_test.go`, kein Produktivcode
+  ausser dem bereits in Iteration 42 dokumentierten Journal-Inhalt (der Commit
+  selbst fasst nur `hr_grpc_test.go` an — reiner Test-Commit, `git show --stat`
+  bestaetigt). Kein Route-/Migrations-/Guard-Diff, kein Handler-Direktzugriff
+  auf eine Service-Instanz, keine Stub-Rueckgabe. `git fetch`/`git merge
+  origin/main` war "Already up to date".
+- gebaut: Neue Datei `internal/server/document_grpc_test.go` fuer
+  `internal/server/document_grpc.go` (1.845 Zeilen, 50 Methoden — Backlog
+  sprach von 49/elf, korrigiert siehe unten). `newTestDocumentServer()` baut
+  den Server mit allen acht Service-Feldern `nil`, derselbe Trick wie bei HR
+  und Formulare.
+  (1) `TestMapDocumentError_AllSentinels`: alle 39 Sentinels der
+  `switch`-Tabelle (9 folder, 10 file, 5 comment, 5 share, 4 share-link,
+  5 tag, 1 search) einzeln gegen den erwarteten gRPC-Code, plus `nil` und ein
+  unbekannter Fehler (Default-Zweig → Internal).
+  (2) Alle zehn `toProto*`-Konvertierer (nicht elf — siehe "offen") mit
+  vollstaendig befuelltem Objekt in eigenen Testfunktionen, vier davon
+  zusaetzlich mit ihrem NULL-optionalen Feld (Folder ohne Parent, FileVersion
+  ohne Label, Tag ohne Color, ShareLink ohne Password/Expiry). Keiner der
+  zehn hat einen Nil-Guard (anders als `hr_grpc.go`s Familie) — dokumentiert
+  im Kommentarblock, nicht mit `nil` aufgerufen, um keinen Test-Panic zu
+  erzeugen.
+  (3) Enum-Rundreisen fuer Raumtyp (personal/team/project + Unspecified in
+  beide Richtungen), Permission (read/write + Unspecified), SortField/SortDir
+  (nur `FromProto`, kein `ToProto`-Gegenstueck im Zielcode) und
+  VirtualFileSource (chat/email/task + Unspecified in beide Richtungen).
+  (4) `TestDocumentHandlers_Validation`: 46 der 50 Methoden mit mindestens
+  einem Invalid-Input-Fall — ungueltige UUID, fehlender Tenant (teils
+  `InvalidArgument`, teils `Unauthenticated` — die Handler in diesem File
+  sind inkonsistent: Folder/File/Entity-Link-Handler antworten
+  `InvalidArgument`, Tag/Share-Handler `Unauthenticated`, dokumentiert statt
+  vereinheitlicht, da ausserhalb des Coverage-Scopes), fehlender Actor
+  (`Unauthenticated`). Vier Methoden — `GetSharedFile`,
+  `GetPresignedUploadURL`, `GetPresignedDownloadURL`, `ListVirtualFiles` —
+  haben KEINEN einzigen Pruefzweig vor dem ersten Service-Aufruf (Praemisse
+  am Code verifiziert: jede ruft ihre nil-Service-Methode als buchstaeblich
+  erste Zeile) und sind ohne Stub-Repo nicht sicher testbar — ausgelassen
+  statt erzwungen, siehe "offen". `CreateFileVersion` ist die Ausnahme in die
+  andere Richtung: die Methode baut ihre Antwort direkt aus dem Request ohne
+  jeden Service-Aufruf, deshalb zusaetzlich zu den zwei Validierungsfaellen
+  ein echter Happy-Path-Test (`TestCreateFileVersion_BuildsResponseWithoutService`).
+  `GetWOPIDiscovery` hat keine Validierung noetig (statische Liste, kein
+  Service-Zugriff) und bekommt einen eigenen Test auf die 18 Aktionen.
+  Zwei echte Bugs beim genauen Lesen gefunden und in diesem Commit gefixt
+  (Produktivcode-Diff: 3 Zeilen):
+  (a) `toProtoFile` liess `pf.Tags` `nil` bei einer Datei ohne Tags (Append
+  auf ein unbelegtes Slice-Feld ueber null Iterationen aendert nichts) —
+  genau die im Scope der Unit benannte Wire-Shape-Drift ("leere Listen als
+  null"). Fix: `pf.Tags = make([]*documentv1.DocumentTag, 0, len(f.Tags))`
+  vor der Schleife.
+  (b) `file.ErrStorageKeyMissing` (`internal/document/file/errors.go:12`,
+  zurueckgegeben von `Service.Register` bei leerem `storage_key`) fehlte in
+  `mapDocumentError`s `switch` und fiel auf den `default`-Zweig → 500 statt
+  400 fuer einen Client, der `RegisterUploadedFile` ohne `storage_key`
+  aufruft. Fix: in die bestehende `InvalidArgument`-Fallgruppe der
+  Datei-Sentinels aufgenommen.
+  Alle 15 Listen-Aufbaustellen im Handler-Code selbst (`ListFolders`,
+  `ListFiles`, `ListFileVersions`, `ListFileActivity`, `ListFileComments`,
+  `ListShareLinks`, `ListShares`, `ListSharedWithMe`, `ListTags`,
+  `ListFileEntityLinks`, `ListFilesByEntity`, `SearchFiles`,
+  `ListVirtualFiles`, `GetFolderPath`) waren dagegen bereits
+  `make(..., 0, len(...))`-sicher — keine weitere Drift dort gefunden, per
+  Grep verifiziert vor dem Schreiben der Tests, nicht nur behauptet.
+- gate: `go vet ./internal/server/... ./internal/gateway/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/server/...
+  ./internal/gateway/...` 0 issues | `go test -count=1 ./internal/server/...
+  ./internal/gateway/... ./internal/testutil/...` alle gruen inkl.
+  `TestOpenAPIRouteDrift` (keine Route angefasst) und
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` (keine Tabelle angefasst) |
+  migration n.a. | RLS-Smoke n.a. (`go build ./...` scheiterte lokal an
+  einem Speicherfehler des Linkers beim Bauen ALLER `cmd/*`-Binaries
+  gleichzeitig — Umgebungsproblem, kein Code-Problem; `go vet` auf den
+  betroffenen Paketen lief sauber durch und deckt Kompilierbarkeit ab)
+- mutations-probe: zwei Stueck, beide praezise, danach zurueckgedreht
+  (`git diff --stat -- internal/server/document_grpc.go` zeigte nach dem
+  Zurueckdrehen exakt die zwei beabsichtigten Fix-Zeilen, sonst leer).
+  (1) `mapDocumentError`: `file.ErrNoWritePermission` von
+  `codes.PermissionDenied` auf `codes.FailedPrecondition` gedreht. Ergebnis:
+  GENAU `TestMapDocumentError_AllSentinels/NoWritePermission` wurde rot, alle
+  38 uebrigen Sentinel-Subtests plus `nil` und `UnknownError` blieben gruen.
+  (2) `toProtoFile`s `make(...)`-Vorbelegung von `pf.Tags` entfernt (Ruecksprung
+  zum Bug-Zustand). Ergebnis: GENAU `TestToProtoFile_EmptyTagsIsNotNil` wurde
+  rot, `TestToProtoFile_Populated` (mit einem Tag) blieb gruen — die Probe
+  trifft praezise den leeren, nicht den befuellten Fall. Beide Proben
+  zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- db-tests: 0 im neuen Paket (reines Mock/Validierungs-Testing ueber
+  `newTestDocumentServer()` mit nil-Services, kein `SkipIfNoDB`-Pfad in
+  dieser Datei) — **0 Skips** in der vollstaendigen `internal/server`-Suite.
+  `DATABASE_URL` war auf `kmuhub_app` gesetzt; die zwei einzigen
+  DB-Integrationstests im Paket (`rbac_audit_events_db_test.go`) liefen real,
+  0 Skips insgesamt.
+- offen: Drei Punkte fuer Luke.
+  (1) Backlog-Praemisse leicht ungenau: "49 Methoden, elf
+  Konvertierungsfunktionen" — tatsaechlich sind es 50 Methoden und ZEHN
+  `toProto*`-Konvertierer (nachgezaehlt per Grep auf
+  `func toProto` in `document_grpc.go`). Keine fachliche Konsequenz, nur
+  fuer die Backlog-Historie vermerkt.
+  (2) Vier Methoden bleiben ohne Handler-Testabdeckung, weil sie strukturell
+  keinen Pruefzweig vor dem ersten Service-Aufruf haben: `GetSharedFile`
+  (oeffentliche Share-Link-Einloesung — token/password gehen direkt an
+  `fileService.RedeemShareLink`), `GetPresignedUploadURL`/
+  `GetPresignedDownloadURL` (direkter Passthrough an `fileService`, der
+  Kommentar im Code sagt bereits "Service already returns gRPC status
+  errors"), `ListVirtualFiles` (nutzt hartkodiert `uuid.Nil` als userID mit
+  dem Kommentar "gateway handles auth context" und ruft direkt
+  `virtualService.ListVirtualFiles`). Fuer echte Abdeckung braeuchte jede
+  einen Stub, der das jeweilige Service-Interface implementiert — ausserhalb
+  des Aufwands dieser Coverage-Unit, analog zur bestehenden Praxis in
+  `hr_grpc_test.go`/`video_grpc_test.go`, die dieselbe Grenze ziehen.
+  (3) Inkonsistente Tenant-Fehlercodes bereits im bestehenden Code (nicht neu
+  eingefuehrt, nur jetzt durch die Tests sichtbar dokumentiert): Folder-,
+  File- und Entity-Link-Handler antworten bei fehlendem Tenant mit
+  `InvalidArgument`, Tag- und Share-Handler mit `Unauthenticated`. Fachlich
+  vermutlich beides vertretbar (beides "der Request ist so nicht bearbeitbar"),
+  aber ein FE, das auf einen der beiden Codes reagiert, muesste beide Faelle
+  abfangen. Vereinheitlichung waere eine eigene, kleine Unit — kein aktiver
+  Bug, nur eine API-Unschoenheit.
