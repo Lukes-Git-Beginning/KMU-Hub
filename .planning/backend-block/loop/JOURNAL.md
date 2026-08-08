@@ -47,7 +47,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `internal/server` 6,2 % · `internal/gateway` 24,1 %. Mit DB in CI: 8,1 / 27,2.
 
 ## Iteration 1 — a-dunning-send-non-fatal — done — 2026-08-08 14:45
-- commit: b790bcb8
+- commit: a3bcfda0 (nachgetragen im Folge-Commit — ein Journal kann seine eigene SHA nicht enthalten)
 - gebaut: Neues Sentinel `ErrCompanySettingsMissing` in `internal/biz/dunning/errors.go`;
   `emailNotice` wrappt es beim `settings == nil`-Zweig statt eines anonymen Fehlers, und
   `sendAndNotify` prueft per `errors.Is` — fehlende Firmen-Stammdaten sind jetzt non-fatal
