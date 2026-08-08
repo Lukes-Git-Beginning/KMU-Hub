@@ -2143,6 +2143,35 @@ func (s *CRMGRPCServer) ImportContactsVCard(ctx context.Context, req *crmv1.Impo
 	return toImportResponse(result), nil
 }
 
+func (s *CRMGRPCServer) ImportContactsXLSX(ctx context.Context, req *crmv1.ImportContactsXLSXRequest) (*crmv1.ImportContactsResponse, error) {
+	if s.importService == nil {
+		return nil, status.Error(codes.Unimplemented, "import service not configured")
+	}
+
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, s.companyService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
+	result, err := importSvc.ImportXLSX(ctx, bytes.NewReader(req.FileContent), req.FieldMapping, req.Visibility, userID, req.MergeByEmail)
+	if err != nil {
+		if errors.Is(err, emailcontact.ErrInvalidXLSX) {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid xlsx file: %v", err)
+		}
+		return nil, status.Errorf(codes.Internal, "import failed: %v", err)
+	}
+
+	return toImportResponse(result), nil
+}
+
 func (s *CRMGRPCServer) ExportContactsCSV(ctx context.Context, req *crmv1.ExportContactsCSVRequest) (*crmv1.ExportContactsResponse, error) {
 	if s.exportService == nil {
 		return nil, status.Error(codes.Unimplemented, "export service not configured")

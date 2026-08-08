@@ -1258,3 +1258,85 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   - `idx_notification_preferences_module_default` hat denselben
     Tenant-Blindfleck wie der jetzt gefixte Index, aber ohne aktiven Fehler
     (siehe "GEFUNDEN, NICHT BEHOBEN" oben) — eigene Fix-Unit-Kandidat.
+
+## Iteration 16 — a-kontakte-xlsx-import — done — 2026-08-08 19:35
+- commit: (siehe naechster Chore-Commit)
+- verify vorgaenger: sauber. `3e094778` (Iteration 15, notification channel
+  exposure) gegen die Fehlerklassen geprueft: `route_notification.go` fasst
+  keine neue Route an (nur additive Felder auf dem bestehenden
+  Update-Preference-Request), kein neuer `RequirePermission`-Guard, beide
+  Migrationen (000304, 000305) haben up UND down gefuellt, Migration 000305
+  ist eine reine Index-Verbreiterung (Obermenge des Altindex, kann keine
+  Bestandszeile verletzen), `.proto` UND `.pb.go` im selben Commit
+  regeneriert (kein `.grpc.pb.go`-Diff noetig, da kein neuer RPC). `git merge
+  origin/main` war "Already up to date".
+- gebaut: XLSX-Import fuer Kontakte, viertes Format neben CSV/vCard/Preview.
+  Neuer RPC `ImportContactsXLSX` im `crm.proto` (Request-Form identisch zu
+  `ImportContactsCSVRequest`: `file_content`, `field_mapping`, `visibility`,
+  `merge_by_email`, `user_id`), `crm.pb.go`/`crm_grpc.pb.go` im selben Commit
+  regeneriert (Diff gross, aber wie in Iteration 14 belegt: nur verschobene
+  `msgTypes`-Indizes durch die mittig eingefuegte Message, keine
+  Generator-Versionszeile geaendert). Route `POST /api/v1/contacts/import/xlsx`
+  hinter dem bestehenden `contactImport`-Guard (`contacts:write` ODER
+  `crm:import:run`, additiv, keine neue Guard-Kombination) — Handler geht
+  ueber `crmv1.CRMServiceClient`, keine direkte Service-Instanz.
+  `ImportService.ImportXLSX` (neu in `internal/email/contact/import_service.go`)
+  liest NUR das erste Arbeitsblatt via `excelize.Rows()`-Streaming-Iterator
+  (kein `GetRows()`, das haette das ganze Blatt vorab in den Speicher
+  geladen), erste Zeile als Kopfzeile — ab da laeuft exakt derselbe Pfad wie
+  CSV: `extractFieldsFromRow`, `importSingleContact`, `resolveCompany` mit
+  demselben `companyCache`. Keine zweite Auto-Erkennung, keine zweite
+  Firmen-Aufloesung, wie von `notes` verlangt.
+  Zeilenobergrenze `maxXLSXImportRows = 5000` (`lean:`-Marker mit
+  Upgrade-Pfad): anders als CSV/vCard, deren Zeilenzahl implizit durch die
+  10-MB-Multipart-Grenze im Gateway gedeckelt ist, entkoppelt die
+  XLSX-Kompression Dateigroesse und Zeilenzahl fast vollstaendig — genau der
+  Fall, den die Notiz mit "eine 50-MB-Arbeitsmappe darf den Dienst nicht
+  umbringen" meint. Ueberschrittene Zeilen werden still uebersprungen (kein
+  Fehler, ein `slog.Warn`), der Import laeuft mit dem Rest weiter.
+  Neuer Sentinel `ErrInvalidXLSX` (`errors.go`), im `crm_grpc.go`-Handler
+  `ImportContactsXLSX` explizit auf `codes.InvalidArgument` gemappt (anders
+  als die bestehenden CSV/VCard-Handler, die JEDEN Importfehler pauschal auf
+  `codes.Internal` legen — siehe "offen"). `respondGRPCError` setzt
+  `InvalidArgument` auf 400 (`helpers.go:51`, bestehendes Muster). Pfad in
+  `api/openapi.yaml` inklusive `ContactsImportXLSXForm`-Schema.
+- gate: build ok (`-p 2`, `./internal/... ./cmd/crm/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run` ueber
+  contact/server/gateway = 0 issues) | test ok (`internal/email/contact`
+  25 PASS/0 SKIP inkl. 6 neuer XLSX-Tests, `internal/server` gruen,
+  `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift` = 827 Routen gegen
+  829 Pfade) | migration n.a. (keine neue Tabelle/Spalte, `excelize` steht
+  bereits in `go.mod`) | openapi `swagger-cli validate` = valid | rls-smoke
+  n.a. (kein Tabellenschema angefasst)
+- mutations-probe: `dataRows >= maxXLSXImportRows` auf
+  `dataRows >= maxXLSXImportRows+1000` aufgeweicht (Deckel wirkungslos) →
+  GENAU `TestImportXLSX_RowCapTruncatesImport` wurde rot (5050 statt 5000
+  importiert), die vier XLSX-Nachbartests und alle CSV/vCard-Tests blieben
+  gruen. Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- fehlerpfade im Test: korrupte Datei (kein gueltiges ZIP/XLSX) →
+  `ErrInvalidXLSX`, ungueltige E-Mail in einer Zeile → 1 Skip mit korrektem
+  Workbook-Zeilenindex im Fehlerobjekt (Zeile 2 = erste Datenzeile, Kopfzeile
+  ist Zeile 1 — bewusst die echte Excel-Zeilennummer, nicht die
+  CSV-eigene "Header = Zeile 0"-Zaehlweise, die in diesem Repo ohnehin
+  zwischen Lese- und Importfehler-Pfad um eins auseinanderlaeuft).
+- offen: Drei Punkte fuer Luke.
+  (1) **Kein FE-Konsument.** Der Import-Wizard im Kontakte-Modul kennt XLSX
+  als Dateityp noch nicht — der Wire-Vertrag steht in `openapi.yaml` unter
+  `ContactsImportXLSXForm`, identisch zum CSV-Formular bis auf den Dateityp.
+  (2) **Vorbestehende Inkonsistenz gefunden, nicht angefasst:** die
+  Geschwister-RPCs `ImportContactsCSV`/`ImportContactsVCard` in `crm_grpc.go`
+  mappen JEDEN Fehler (auch eine kaputte Datei) auf `codes.Internal` statt
+  `codes.InvalidArgument` — der neue XLSX-Pfad macht es richtig
+  (`ErrInvalidXLSX` -> `InvalidArgument` -> 400), die beiden aelteren Pfade
+  liefern bei derselben Fehlerklasse weiterhin 500. Root-Cause-Fix waere eine
+  Zeile in beiden bestehenden Handlern, aber ausserhalb des Scopes dieser
+  Unit (nicht die von mir angefasste Funktion) — Kandidat fuer eine eigene,
+  sehr kleine Fix-Unit.
+  (3) **Zweiter, unabhaengiger Import-Pfad existiert bereits:** `internal/server/email_grpc.go`
+  spiegelt `ImportContactsCSV`/`ImportContactsVCard` fuer den `email`-Service
+  unter `/api/v1/email/contacts/import/*` (eigenes Proto, eigener Handler,
+  gleiche `ImportService` dahinter). Diese Unit hat dort bewusst NICHTS
+  ergaenzt — die Backlog-`sources` nennen nur die CRM-Seite
+  (`route_crm_contacts.go`), und ein zweiter XLSX-Pfad dort waere Scope-Creep
+  gewesen. Falls XLSX auch fuer den E-Mail-Kontaktimport gewuenscht ist, ist
+  das eine eigene, sehr aehnliche Unit.

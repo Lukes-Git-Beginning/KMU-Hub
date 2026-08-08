@@ -32563,6 +32563,37 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/contacts/import/xlsx:
+    post:
+      summary: Import contacts from an XLSX workbook (multipart upload)
+      description: >-
+        Only the first worksheet is read; the first row is treated as the
+        header. Row count is capped server-side; rows beyond the cap are
+        silently skipped, not erred.
+      tags: [contacts]
+      operationId: importCRMContactsXLSX
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ContactsImportXLSXForm"
+      responses:
+        "200":
+          description: Import result with counts and per-row errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/contacts/import/preview:
     post:
       summary: Preview a CSV file's columns and sample rows before import
@@ -46707,6 +46738,27 @@ components:
         merge_by_email:
           type: string
           enum: ["true", "false"]
+
+    ContactsImportXLSXForm:
+      type: object
+      required: [file]
+      description: >-
+        multipart/form-data. Additional dynamic fields named map_<column>
+        (form value = target CRM field name) configure the worksheet-column-
+        to-CRM-field mapping; not enumerable as a fixed schema property.
+      properties:
+        file:
+          type: string
+          format: binary
+          description: XLSX workbook to import
+        visibility:
+          type: string
+          enum: [shared, personal]
+          default: shared
+        merge_by_email:
+          type: string
+          enum: ["true", "false"]
+          description: Merge with existing contacts sharing the same email
 
     ContactsPreviewImportForm:
       type: object

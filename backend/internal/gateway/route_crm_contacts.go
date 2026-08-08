@@ -394,6 +394,62 @@ func (c *CRMRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Req
 	response.Proto(w, http.StatusOK, resp)
 }
 
+func (c *CRMRoutes) HandleImportContactsXLSX(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil { // 10MB max
+		response.Error(w, http.StatusBadRequest, "invalid multipart form")
+		return
+	}
+
+	file, _, fileErr := r.FormFile("file")
+	if fileErr != nil {
+		response.Error(w, http.StatusBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	if _, copyErr := buf.ReadFrom(file); copyErr != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read file")
+		return
+	}
+
+	// Parse field mapping from form values
+	fieldMapping := make(map[string]string)
+	for key, values := range r.MultipartForm.Value {
+		if len(key) > 4 && key[:4] == "map_" {
+			fieldMapping[key[4:]] = values[0]
+		}
+	}
+
+	visibility := r.FormValue("visibility")
+	if visibility == "" {
+		visibility = "shared"
+	}
+	mergeByEmail := r.FormValue("merge_by_email") == "true"
+
+	resp, err := client.ImportContactsXLSX(r.Context(), &crmv1.ImportContactsXLSXRequest{
+		FileContent:  buf.Bytes(),
+		FieldMapping: fieldMapping,
+		Visibility:   visibility,
+		MergeByEmail: mergeByEmail,
+		UserId:       userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
 func (c *CRMRoutes) HandlePreviewImportCSV(w http.ResponseWriter, r *http.Request) {
 	client, err := c.getCRMClient()
 	if err != nil {

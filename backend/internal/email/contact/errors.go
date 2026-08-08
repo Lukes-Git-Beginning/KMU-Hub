@@ -11,4 +11,7 @@ var (
 
 	// ErrInvalidVCard is returned when the vCard file is malformed or has invalid structure.
 	ErrInvalidVCard = errors.New("invalid vCard file format")
+
+	// ErrInvalidXLSX is returned when the XLSX workbook is malformed or has invalid structure.
+	ErrInvalidXLSX = errors.New("invalid XLSX file format")
 )

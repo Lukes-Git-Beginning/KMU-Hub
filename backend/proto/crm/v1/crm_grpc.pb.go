@@ -38,6 +38,7 @@ const (
 	CRMService_RemoveContactTags_FullMethodName           = "/crm.v1.CRMService/RemoveContactTags"
 	CRMService_ImportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ImportContactsCSV"
 	CRMService_ImportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ImportContactsVCard"
+	CRMService_ImportContactsXLSX_FullMethodName          = "/crm.v1.CRMService/ImportContactsXLSX"
 	CRMService_ExportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ExportContactsCSV"
 	CRMService_ExportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ExportContactsVCard"
 	CRMService_PreviewImportCSV_FullMethodName            = "/crm.v1.CRMService/PreviewImportCSV"
@@ -127,6 +128,7 @@ type CRMServiceClient interface {
 	// Contact Import/Export (Phase 10)
 	ImportContactsCSV(ctx context.Context, in *ImportContactsCSVRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
 	ImportContactsVCard(ctx context.Context, in *ImportContactsVCardRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
+	ImportContactsXLSX(ctx context.Context, in *ImportContactsXLSXRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
 	ExportContactsCSV(ctx context.Context, in *ExportContactsCSVRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
 	ExportContactsVCard(ctx context.Context, in *ExportContactsVCardRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
 	PreviewImportCSV(ctx context.Context, in *PreviewImportCSVRequest, opts ...grpc.CallOption) (*PreviewImportCSVResponse, error)
@@ -393,6 +395,16 @@ func (c *cRMServiceClient) ImportContactsVCard(ctx context.Context, in *ImportCo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ImportContactsResponse)
 	err := c.cc.Invoke(ctx, CRMService_ImportContactsVCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ImportContactsXLSX(ctx context.Context, in *ImportContactsXLSXRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ImportContactsXLSX_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1026,6 +1038,7 @@ type CRMServiceServer interface {
 	// Contact Import/Export (Phase 10)
 	ImportContactsCSV(context.Context, *ImportContactsCSVRequest) (*ImportContactsResponse, error)
 	ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error)
+	ImportContactsXLSX(context.Context, *ImportContactsXLSXRequest) (*ImportContactsResponse, error)
 	ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error)
 	ExportContactsVCard(context.Context, *ExportContactsVCardRequest) (*ExportContactsResponse, error)
 	PreviewImportCSV(context.Context, *PreviewImportCSVRequest) (*PreviewImportCSVResponse, error)
@@ -1164,6 +1177,9 @@ func (UnimplementedCRMServiceServer) ImportContactsCSV(context.Context, *ImportC
 }
 func (UnimplementedCRMServiceServer) ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ImportContactsVCard not implemented")
+}
+func (UnimplementedCRMServiceServer) ImportContactsXLSX(context.Context, *ImportContactsXLSXRequest) (*ImportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportContactsXLSX not implemented")
 }
 func (UnimplementedCRMServiceServer) ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportContactsCSV not implemented")
@@ -1704,6 +1720,24 @@ func _CRMService_ImportContactsVCard_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CRMServiceServer).ImportContactsVCard(ctx, req.(*ImportContactsVCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ImportContactsXLSX_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportContactsXLSXRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ImportContactsXLSX(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ImportContactsXLSX_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ImportContactsXLSX(ctx, req.(*ImportContactsXLSXRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2870,6 +2904,10 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ImportContactsVCard",
 			Handler:    _CRMService_ImportContactsVCard_Handler,
+		},
+		{
+			MethodName: "ImportContactsXLSX",
+			Handler:    _CRMService_ImportContactsXLSX_Handler,
 		},
 		{
 			MethodName: "ExportContactsCSV",

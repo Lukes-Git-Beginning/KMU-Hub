@@ -581,7 +581,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       XLSX-Import fuer Kontakte. CSV und vCard existieren (fuenf `/contacts/import*`-Pfade),
       XLSX nicht. Den bestehenden Import-Pfad um XLSX erweitern - dieselbe

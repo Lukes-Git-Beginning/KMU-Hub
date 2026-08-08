@@ -13,9 +13,18 @@ import (
 
 	"github.com/emersion/go-vcard"
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// maxXLSXImportRows caps the number of data rows read from an XLSX workbook.
+// Unlike CSV/vCard, whose row count is implicitly bounded by the gateway's
+// 10MB multipart limit on the raw text, XLSX compresses far more efficiently:
+// a 10MB workbook can unzip to a data volume plain text never reaches at that
+// size. lean: fixed cap instead of a streamed/paginated import; raise or make
+// configurable if a tenant legitimately needs larger contact lists imported.
+const maxXLSXImportRows = 5000
 
 // ContactProvider abstracts the CRM contact service for import/export use.
 type ContactProvider interface {
@@ -222,6 +231,92 @@ func (s *ImportService) ImportVCard(
 	}
 
 	s.logger.Info("vCard import complete",
+		"imported", result.ImportedCount,
+		"merged", result.MergedCount,
+		"skipped", result.SkippedCount,
+	)
+
+	return result, nil
+}
+
+// ImportXLSX imports contacts from an XLSX workbook using the provided field mapping.
+// Only the first worksheet is read; its first row is treated as the header, exactly
+// like ImportCSV. Rows beyond maxXLSXImportRows are skipped, not erred: the import
+// still runs, just truncated, and the truncation is logged.
+func (s *ImportService) ImportXLSX(
+	ctx context.Context,
+	reader io.Reader,
+	fieldMapping map[string]string,
+	visibility string,
+	ownerID uuid.UUID,
+	mergeByEmail bool,
+) (*ImportResult, error) {
+	f, err := excelize.OpenReader(reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidXLSX, err)
+	}
+	defer f.Close() //nolint:errcheck // read-only, nothing to flush
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return nil, fmt.Errorf("%w: workbook has no sheets", ErrInvalidXLSX)
+	}
+
+	rowIter, err := f.Rows(sheets[0])
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidXLSX, err)
+	}
+	defer rowIter.Close() //nolint:errcheck // read-only cursor
+
+	if !rowIter.Next() {
+		return nil, fmt.Errorf("%w: cannot read header", ErrInvalidXLSX)
+	}
+	header, err := rowIter.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidXLSX, err)
+	}
+
+	colIndex := make(map[string]int)
+	for i, col := range header {
+		colIndex[col] = i
+	}
+
+	result := &ImportResult{}
+	companyCache := make(map[string]uuid.UUID)
+	excelRow := 1 // header consumed above, row 1 in the workbook
+	dataRows := 0
+	truncated := false
+
+	for rowIter.Next() {
+		excelRow++
+		if dataRows >= maxXLSXImportRows {
+			truncated = true
+			break
+		}
+		dataRows++
+
+		row, readErr := rowIter.Columns()
+		if readErr != nil {
+			result.Errors = append(result.Errors, ImportError{Row: excelRow, Reason: readErr.Error()})
+			result.SkippedCount++
+			continue
+		}
+
+		fields := extractFieldsFromRow(row, header, fieldMapping, colIndex)
+
+		importErr := s.importSingleContact(ctx, fields, visibility, ownerID, mergeByEmail, result, companyCache)
+		if importErr != nil {
+			result.Errors = append(result.Errors, ImportError{Row: excelRow, Reason: importErr.Error()})
+			result.SkippedCount++
+		}
+	}
+
+	if truncated {
+		s.logger.Warn("XLSX import row cap reached, remaining rows skipped",
+			"cap", maxXLSXImportRows, "sheet", sheets[0])
+	}
+
+	s.logger.Info("XLSX import complete",
 		"imported", result.ImportedCount,
 		"merged", result.MergedCount,
 		"skipped", result.SkippedCount,

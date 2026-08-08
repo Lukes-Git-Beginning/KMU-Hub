@@ -1,11 +1,15 @@
 package contact
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -447,5 +451,162 @@ func TestImportCSV_EmptyCompanyLeavesContactUnassigned(t *testing.T) {
 	}
 	if provider.companyCalls != 0 {
 		t.Errorf("expected FindOrCreateCompany not to be called for a blank company, got %d calls", provider.companyCalls)
+	}
+}
+
+// buildXLSX writes rows (row 0 = header) to sheet "Sheet1" of a new in-memory
+// workbook and returns its bytes, ready to feed into ImportXLSX/excelize.OpenReader.
+func buildXLSX(t *testing.T, rows [][]string) []byte {
+	t.Helper()
+	f := excelize.NewFile()
+	defer f.Close() //nolint:errcheck // close on cleanup only
+
+	for rowIdx, row := range rows {
+		for colIdx, val := range row {
+			cell, err := excelize.CoordinatesToCellName(colIdx+1, rowIdx+1)
+			if err != nil {
+				t.Fatalf("CoordinatesToCellName: %v", err)
+			}
+			if err := f.SetCellValue("Sheet1", cell, val); err != nil {
+				t.Fatalf("SetCellValue: %v", err)
+			}
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		t.Fatalf("write xlsx: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestImportXLSX_BasicImport(t *testing.T) {
+	data := buildXLSX(t, [][]string{
+		{"Vorname", "Nachname", "E-Mail"},
+		{"Max", "Mustermann", "max@example.com"},
+		{"Erika", "Muster", "erika@example.com"},
+	})
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+	}
+
+	result, err := svc.ImportXLSX(context.Background(), bytes.NewReader(data), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportXLSX failed: %v", err)
+	}
+	if result.ImportedCount != 2 {
+		t.Errorf("expected 2 imported, got %d", result.ImportedCount)
+	}
+	if len(provider.created) != 2 {
+		t.Errorf("expected 2 contacts created, got %d", len(provider.created))
+	}
+}
+
+func TestImportXLSX_MergeByEmail(t *testing.T) {
+	provider := newMockProvider()
+	existingEmail := "max@example.com"
+	provider.contacts[existingEmail] = &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Max",
+		LastName:  "Mustermann",
+		Email:     &existingEmail,
+	}
+
+	data := buildXLSX(t, [][]string{
+		{"Vorname", "Nachname", "E-Mail", "Telefon"},
+		{"Max", "Mustermann", "max@example.com", "+49123"},
+	})
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+		"Telefon":  "phone",
+	}
+
+	result, err := svc.ImportXLSX(context.Background(), bytes.NewReader(data), mapping, VisibilityShared, uuid.New(), true)
+	if err != nil {
+		t.Fatalf("ImportXLSX failed: %v", err)
+	}
+	if result.MergedCount != 1 {
+		t.Errorf("expected 1 merged, got %d", result.MergedCount)
+	}
+	if provider.updated[0].Phone == nil || *provider.updated[0].Phone != "+49123" {
+		t.Error("expected phone to be merged")
+	}
+}
+
+func TestImportXLSX_SkipInvalidEmail(t *testing.T) {
+	data := buildXLSX(t, [][]string{
+		{"Vorname", "Nachname", "E-Mail"},
+		{"Bad", "Row", "not-an-email"},
+	})
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+	}
+
+	result, err := svc.ImportXLSX(context.Background(), bytes.NewReader(data), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportXLSX failed: %v", err)
+	}
+	if result.SkippedCount != 1 {
+		t.Errorf("expected 1 skipped, got %d", result.SkippedCount)
+	}
+	if len(result.Errors) != 1 {
+		t.Errorf("expected 1 error, got %d", len(result.Errors))
+	}
+	if result.Errors[0].Row != 2 {
+		t.Errorf("expected the failing row to be reported as workbook row 2, got %d", result.Errors[0].Row)
+	}
+}
+
+func TestImportXLSX_CorruptFileReturnsErrInvalidXLSX(t *testing.T) {
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	_, err := svc.ImportXLSX(context.Background(), strings.NewReader("this is not a zip/xlsx file"), nil, VisibilityShared, uuid.New(), false)
+	if err == nil {
+		t.Fatal("expected an error for a corrupt file, got nil")
+	}
+	if !errors.Is(err, ErrInvalidXLSX) {
+		t.Errorf("expected ErrInvalidXLSX, got %v", err)
+	}
+}
+
+func TestImportXLSX_RowCapTruncatesImport(t *testing.T) {
+	rows := [][]string{{"Vorname", "Nachname", "E-Mail"}}
+	for i := 0; i < maxXLSXImportRows+50; i++ {
+		rows = append(rows, []string{"Person", fmt.Sprintf("Nr%d", i), fmt.Sprintf("person%d@example.com", i)})
+	}
+	data := buildXLSX(t, rows)
+	provider := newMockProvider()
+	svc := NewImportService(provider, nil)
+
+	mapping := map[string]string{
+		"Vorname":  "first_name",
+		"Nachname": "last_name",
+		"E-Mail":   "email",
+	}
+
+	result, err := svc.ImportXLSX(context.Background(), bytes.NewReader(data), mapping, VisibilityShared, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("ImportXLSX failed: %v", err)
+	}
+	if result.ImportedCount != maxXLSXImportRows {
+		t.Errorf("expected exactly the cap of %d imported, got %d", maxXLSXImportRows, result.ImportedCount)
+	}
+	if len(provider.created) != maxXLSXImportRows {
+		t.Errorf("expected exactly %d contacts created, got %d", maxXLSXImportRows, len(provider.created))
 	}
 }
