@@ -104,6 +104,11 @@ func (m *mockTimeProjectRepo) Create(_ context.Context, p *models.HRTimeProject)
 
 type mockWeekApprovalRepo struct {
 	approvals map[string]*models.HRWeekApproval // key: "employeeID:weekStart"
+	// getErr, when set, is returned by GetByEmployeeWeek instead of the usual
+	// not-found/found handling — used to prove a real read failure propagates
+	// instead of being mistaken for "no record yet" (see
+	// TestGetMyWeekStatus_ReadFailure_IsNotTreatedAsOpen).
+	getErr error
 }
 
 func newMockWeekApprovalRepo() *mockWeekApprovalRepo {
@@ -111,6 +116,9 @@ func newMockWeekApprovalRepo() *mockWeekApprovalRepo {
 }
 
 func (m *mockWeekApprovalRepo) GetByEmployeeWeek(_ context.Context, _ uuid.UUID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
 	key := employeeID.String() + ":" + weekStart.Format("2006-01-02")
 	w, ok := m.approvals[key]
 	if !ok {
