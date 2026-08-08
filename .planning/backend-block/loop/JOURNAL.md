@@ -1879,3 +1879,123 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   `PoolFromEnv`), **0 Skips** unter `DATABASE_URL` auf `kmuhub_app`
   (NOSUPERUSER NOBYPASSRLS). Paket-Coverage 17,2 % -> **79,3 %**.
 - offen: keins. Naechste Unit im Backlog: `c-cov-biz-gobdarchive`.
+
+## Iteration 24 — c-cov-biz-gobdarchive — done — 2026-08-08 20:15
+- commit: (nachzutragen im Folge-Commit)
+- verify vorgaenger: sauber. `ac3f9178` (c-cov-biz-dashboard, Iteration 23)
+  gegen den finalen Baum erneut gelaufen: `go test ./internal/biz/dashboard/...
+  -count=1 -cover` mit `DATABASE_URL` auf `kmuhub_app` — 21/21 PASS, 0 Skips,
+  79,3 % Coverage wie behauptet. Diff nur die neue Testdatei
+  `postgres_repository_db_test.go`, keine Quelldatei-Aenderung, keine
+  Migration. `git merge origin/main` war "Already up to date".
+- praemisse: teilweise widerlegt. Die `notes` im Backlog verlangen einen
+  Test, der beweist, dass "ein Aenderungsversuch am archivierten Dokument
+  scheitert". Beim Lesen von `repository.go` und Migration 000139 zeigt sich:
+  das `Repository`-Interface hat strukturell KEIN `Update`/`Delete` — es gibt
+  also gar keine Methode, ueber die ein Aenderungsversuch überhaupt
+  ausgefuehrt werden koennte. Die Migration sagt das selbst so ("immutability
+  by design — service-side"). Auf DB-Ebene gibt es dagegen KEINEN Schutz:
+  kein Trigger, keine Rule, und `kmuhub_app` hat aus Migration 000121
+  uneingeschraenkt `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` —
+  auch auf `gobd_documents`/`gobd_document_events`. "Unveraenderlich" gilt
+  also nur, solange kein Code jemals ein UPDATE/DELETE auf diese Tabellen
+  ausfuehrt, nicht weil die DB es verweigern wuerde. Der einzige Schreibpfad
+  im Repository ist `Create` — der wertvollste, ehrliche Test ist deshalb:
+  ein zweiter `Create`-Aufruf mit derselben Dokument-ID (der einzige
+  "Aenderungsversuch", den diese API ueberhaupt zulaesst) muss am Primary
+  Key scheitern, und der Originaldatensatz muss unveraendert bleiben. Das ist
+  real DB-erzwungen (PK-Unique-Constraint), im Unterschied zur reinen
+  Interface-Abwesenheit. Diese Erkenntnis ist ein Befund fuer Luke, siehe
+  "offen" — kein Fix in dieser Unit (Grant/Trigger-Aenderung ist Schema, nicht
+  Test, und eine bewusste eigene Entscheidung wert).
+  "Manipulierter Inhalt faellt an der Pruefsumme auf" ist ebenfalls keine
+  eigene Verify-Funktion (es gibt keine `VerifyIntegrity`-RPC, nur den toten
+  ENUM-Wert `integrity_check`) — getestet ist stattdessen die eigentliche
+  Garantie: der SHA-256 wird per `io.TeeReader` waehrend des Uploads
+  berechnet, landet unveraenderlich im Datensatz, und weicht jede
+  nachtraegliche Manipulation der gespeicherten Bytes zwangslaeufig von
+  diesem fixen Soll-Wert ab.
+- gebaut: 24,8 % -> **89,9 %** Coverage, keine Quelldatei-Verhaltensaenderung.
+  (1) `service_test.go` (+30 Tests): Fehlerpfade fuer `ArchiveDocument`
+  (Upload-Fehler bricht VOR `repo.Create` ab, `repo.Create`-Fehler
+  propagiert), `ArchiveInvoiceDocument` (kein InvoiceReader konfiguriert,
+  Invoice-Lookup-Fehler, Dateiname mit/ohne Rechnungsnummer),
+  `GetByID`/`List`/`GetDownloadURL`/`ListEvents` (vorher alle vier bei 0 %:
+  Passthrough + NotFound + `GetPresignedURL`-Fehler +
+  Access-Event-Append-Fehler ist non-fatal), `AddAnnotation`
+  (Append-Fehler propagiert). Dazu
+  `TestArchiveDocument_ChecksumDetectsStorageCorruption` (siehe oben).
+  (2) NEUE Datei `postgres_repository_db_test.go` (10 DB-Tests, das
+  eigentliche 0-%-Loch): `Create`+`GetByID`-Roundtrip inkl. NULL
+  `source_invoice_id` -> nil-Pointer-Roundtrip,
+  `Create`-Duplikat-ID-Ablehnung (PK-Constraint, siehe Praemisse),
+  `GetByID` cross-tenant/unbekannte ID -> `ErrDocumentNotFound`,
+  `List`-Filter (DocType, SourceInvoiceID inkl. echter FK-Zeile in
+  `finance_invoices`, DateFrom), `List`-Pagination+Sortierung
+  (`archived_at DESC`, Seite 1/2), `AppendEvent`+`ListEvents` Sortierung
+  (`created_at DESC`), `ListEvents` fuer unbekanntes Dokument -> leer, kein
+  Fehler.
+  (3) Nebenbei-Fund beim Lesen: drei Dokumentationskommentare
+  (`service.go`-Package-Doc, `models/gobd.go`-Struct-Doc,
+  Migration-000139-Kopfkommentar) behaupteten "archivedAt.Year + 8", der
+  tatsaechliche Code UND alle drei bestehenden `computeRetentionUntil`-Tests
+  (Normal/Dec31/Jan1) belegen seit je "+10" (§147 AO: 10 Jahre). Reiner
+  Kommentar-Fix auf allen drei Stellen, keine Verhaltensaenderung, keine neue
+  Migration (nur Kommentartext in der bereits angewandten 000139 korrigiert
+  — `schema_migrations` traegt keinen Content-Hash, unkritisch).
+- gate: build ok | vet ok (`./...`) | lint ok (`golangci-lint run
+  ./internal/biz/gobdarchive/...`, 0 issues) | test ok
+  (`./internal/biz/gobdarchive/` 39/39 PASS 0 SKIP,
+  `./internal/server/`+`./internal/gateway/`+`./internal/testutil/` alle
+  gruen) | migration n.a. (nur Kommentar in 000139, Kopf lokal weiter 308,
+  `dirty=false`) | openapi n.a. (kein RPC/Route angefasst)
+- mutations-probe: drei Versuche, zwei davon aussagekraeftig, einer verworfen.
+  (1) `ArchiveInvoiceDocument`s Leerstring-Check `if inv.InvoiceNumber == ""`
+  zu `!= ""` gedreht (Dateiname-Fallback invertiert) -> GENAU
+  `TestArchiveInvoiceDocument_FilenameUsesInvoiceNumberWhenPresent` und
+  `..._FilenameFallsBackToIDWhenNumberBlank` wurden rot (beide, weil sie sich
+  gegenseitig ergaenzen), alle uebrigen blieben gruen.
+  (2) `GetByID`s `WHERE tenant_id = $1 AND id = $2` auf `WHERE id = $2`
+  verkuerzt (Tenant-Scoping in der SQL entfernt) -> verworfen: Postgres kann
+  bei ungenutztem `$1` den Parametertyp nicht ableiten (SQLSTATE 42P18,
+  Compile-Fehler in ALLEN vier betroffenen Tests statt eines gezielten Rots
+  — dieselbe Falle wie in Iteration 1 vermerkt). Ersetzt durch
+  `WHERE ($1::uuid IS NOT NULL) AND id = $2` (syntaktisch gueltig, Tenant-
+  Bedingung trotzdem wirkungslos) -> blieb GRUEN, inklusive
+  `TestPostgresRepository_GetByID_CrossTenantReturnsNotFound`. Grund: RLS
+  greift als zweite, unabhaengige Schicht (`app.tenant_id`-GUC aus
+  `WithTenantCtx`) und faengt den Cross-Tenant-Read trotzdem ab — derselbe
+  Befund wie in Iteration 23 bei `dashboard` ("RLS ist Defense-in-Depth,
+  nicht nur die Anwendungsschicht"). Kein aktiver Fund, aber die Probe war
+  fuer DIESEN Test nicht aussagekraeftig.
+  (3) `scanDocument`s `if sourceInvoiceID != uuid.Nil` auf `if true` gesetzt
+  (NULL-Behandlung ausgehebelt) -> GENAU
+  `TestPostgresRepository_CreateAndGetByID_RoundTrip` wurde rot (die
+  `assert.Nil(t, got.SourceInvoiceID, ...)`-Zeile), alle 38 uebrigen Tests
+  blieben gruen. Alle drei Aenderungen zurueckgedreht, `git diff --stat` auf
+  `postgres_repository.go` bestaetigt 0 Zeilen Differenz, Endgate danach
+  erneut gelaufen und gruen (39/39, 0 Skips).
+- db-tests: 10 neue DB-Integrationstests in `postgres_repository_db_test.go`
+  (`SkipIfNoDB` + `PoolFromEnv`), **0 Skips** im gesamten Paket (39 PASS, 0
+  SKIP) unter `DATABASE_URL` auf `kmuhub_app`. Migrationskopf 308 vorher
+  bereits angewendet (keine neue Migration in dieser Unit).
+- offen: Ein Befund fuer Luke, kein Fix in dieser Unit. Die "GoBD-Immutability"
+  von `gobd_documents`/`gobd_document_events` ist NICHT auf DB-Ebene erzwungen
+  — `kmuhub_app` hat aus der generischen Rollen-Migration 000121 volles
+  `UPDATE`/`DELETE` auf ALLE Tabellen, es gibt weder Trigger noch Rule noch
+  einen expliziten `REVOKE` fuer diese beiden. Der einzige Schutz ist, dass
+  aktuell kein Code-Pfad ein UPDATE/DELETE auf diese Tabellen ausfuehrt (das
+  Repository-Interface bietet keine Methode dafuer) — das ist Schutz durch
+  Abwesenheit, kein DB-Constraint. Ein Angreifer mit direktem DB-Zugriff
+  (oder ein zukuenftiger Bugfix, der versehentlich ein UPDATE ergaenzt) waere
+  nicht blockiert. Fuer ein §147-AO-Archiv, das explizit mit
+  "revisionssicher" wirbt, waere ein `REVOKE UPDATE, DELETE ON gobd_documents,
+  gobd_document_events FROM kmuhub_app` (plus ggf. ein expliziter
+  Ausnahmepfad fuer `AppendEvent`, falls INSERT-only gewuenscht ist) die
+  naheliegende Haertung. Bewusst nicht in dieser Coverage-Unit umgesetzt,
+  weil das ein Schema-/Grant-Eingriff mit Sicherheitsauswirkung ist, kein
+  Test — waere eine eigene Block-A-artige Unit wert. Ausserdem: `mockRepository`s
+  `createErr`/`getErr`/`appendEventErr`/`uploadErr`-Felder in
+  `service_test.go` existierten vorher unbenutzt (toter Scaffold-Code) und
+  sind jetzt alle real durch mindestens einen Test bespielt.
+  Naechste Unit im Backlog: `c-cov-biz-creditnote`.

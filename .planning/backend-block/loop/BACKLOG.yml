@@ -868,7 +868,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/gobdarchive` - gemessen 24,8 %. Das Archiv ist
       unveraenderlich, per SHA-256 gesichert und die Ereignisse sind append-only - genau diese
