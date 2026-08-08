@@ -4079,3 +4079,75 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   DB-Integrationstest-Datei nach dem Muster von `internal/biz/invoice/integration_test.go`,
   nicht den Handler-Test-Stil dieser Datei - Kandidat fuer eine eigene
   Folge-Unit, kein aktiver Mangel.
+
+## Iteration 47 — b-cov-server-notification — done — 2026-08-09 01:20
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: `internal/server/notification_grpc_test.go` (neu) - vollstaendige
+  `mapNotificationError`-Sentinel-Tabelle (22 Sentinels + nil + unbekannt ->
+  Internal), alle acht `toProto*`-Konvertierer (nil-optional vs. populated),
+  eine Validierungspfad-Tabelle ueber 28 der 30 RPCs (ListNotifications/
+  GetUnreadCount decken TestIntegrationConfig bereits mit ab), plus gezielte
+  Happy-Path- und Isolationstests.
+  Drei Stub-Repositories gebaut (`stubNotifRepo`, `stubPrefRepo`,
+  `notifIntegStub`), alle nach dem `stubIntegrationRepo`-Muster aus
+  `notification_integration_test.go`: embedden das jeweilige Repository-
+  Interface, implementieren nur die tatsaechlich erreichten Methoden, der Rest
+  bleibt nil und panikt bei Erreichen. `stubNotifRepo.List` bildet das echte
+  `WHERE tenant_id = ? AND user_id = ?` nach - das ist der Durchsetzungspunkt,
+  gegen den `TestListNotifications_ScopedToRequestingUser` beweist, dass eine
+  Benachrichtigung fuer Nutzer A nie bei Nutzer B auftaucht (und
+  `TestListNotifications_CrossTenantYieldsEmpty` denselben Fall pro Tenant).
+  `TestMarkNotificationRead_RejectsOtherUsersNotification` und
+  `TestUnmuteResource_CrossUserRejected` decken die Owner-Pruefung auf den
+  Mutationspfaden ab.
+  Backlog-Praemisse korrigiert: "neun Konvertierer" stimmte nicht - es sind
+  genau acht benannte `toProto*`-Funktionen; `GetAccountLinkStatus` baut seine
+  `AccountLinkInfo`-Eintraege inline, genau wie `DSARSearch` in
+  `security_grpc.go` (Iteration 46). Alle acht bei 100% Coverage.
+  `LinkAccount`/`UnlinkAccount` laufen ueber den echten
+  `integration.AccountLinkService` (Token generieren, verifizieren, verbrauchen)
+  statt die SHA-256-Hash-Logik im Test zu duplizieren - `TestLinkAccount_HappyPathAndDomainErrors`
+  deckt damit auch den "Token bereits verbraucht"-Fall (AlreadyExists) end-to-end
+  ab, `TestLinkAccount_ExpiredToken` den Ablauf-Fall (DeadlineExceeded).
+  `GetQuietHours`' Spezialfall (`ErrQuietHoursNotFound` -> deaktivierter Default
+  statt 404, weil "keine Regel gesetzt" ein normaler Zustand ist) einzeln
+  getestet - das ist Handler-Logik in `notification_grpc.go` selbst, nicht im
+  Service, und genau deshalb einer der beiden Mutations-Probe-Kandidaten.
+- gate: build ok (`go build -p 2` ueber server/gateway/cmd/gateway, clean) |
+  vet ok | lint ok (0 issues, inkl. server+gateway, zwei `min()`-Modernize-
+  Hinweise im ersten Entwurf selbst behoben) | test ok (`internal/server`
+  komplett inkl. aller neuen Tests, `internal/server/response`,
+  `internal/gateway` inkl. `TestOpenAPIRouteDrift`, 0 Skips mit
+  `DATABASE_URL` auf `kmuhub_app`) | migration n.a. (keine Tabelle
+  angefasst) | rls-smoke n.a. (reiner Handler-Test, kein Repository-Code).
+- verify vorgaenger: sauber. `ed52b01f` (Iteration 46, security_grpc) ist
+  reine Testdatei ohne Route/Proto/Migration - Grep auf TODO/Unimplemented/
+  panic/t.Skip liefert 0 Treffer, kein gRPC-Layer-Umgehen moeglich (keine
+  Handler-Aenderung).
+- mutations-probe: zwei Stueck in `notification_grpc.go` selbst.
+  (1) `mapNotificationError`s `ErrMuteAlreadyExists`-Fall von
+  `codes.AlreadyExists` auf `codes.InvalidArgument` gedreht -> GENAU
+  `TestMapNotificationError_AllSentinels/mute_already_exists` und
+  `TestMuteResource_AlreadyMutedRejected` (haelt denselben Fall end-to-end)
+  wurden rot, alle anderen Subtests blieben gruen.
+  (2) In `GetQuietHours` die Sonderfall-Bedingung von
+  `errors.Is(err, preference.ErrQuietHoursNotFound)` auf
+  `errors.Is(err, notification.ErrNotificationNotFound)` (falscher Fehlertyp)
+  gedreht -> GENAU `TestGetQuietHours_NoRecordYetReturnsDisabledDefault` wurde
+  rot (bekam NotFound statt des deaktivierten Defaults),
+  `TestGetQuietHours_ExistingRecord` blieb gruen. Beide zurueckgedreht,
+  `git diff --stat -- internal/server/notification_grpc.go` zeigt danach
+  keinen Diff. Endgate (build/vet/lint/test) erneut gelaufen und gruen.
+- db-tests: 0 im neuen Paket (Mock/Stub-Testing gegen In-Memory-Repos, kein
+  `SkipIfNoDB`-Pfad) - **0 Skips** in der vollstaendigen `internal/server`-
+  Suite. `DATABASE_URL` war auf `kmuhub_app` gesetzt.
+- coverage: `notification_grpc.go` vorher ~13% (nur `TestIntegrationConfig`-
+  Codec + `HandlePlatformWebhook`-Tunnel). Jetzt alle acht Konvertierer und
+  `mapNotificationError` bei 100%, die 30 RPC-Handler zwischen 60%
+  (`GetUnreadCount` - trivialer Drei-Zeiler, der einzige Fehlerpfad ist ein
+  Repo-Fehler, den der Stub nie erzeugt) und 100% (`GetIntegrationConfig`,
+  `TestIntegrationConfig`, `ListEventTypes`, `LinkAccount`, `UnlinkAccount`,
+  `GetAccountLinkStatus`), die meisten im 80-94%-Band.
+- offen: keiner. `HandlePlatformWebhook` (separate Datei,
+  `notification_webhook.go`) und `TestIntegrationConfig` waren bereits
+  abgedeckt und wurden nicht angefasst.

@@ -2002,7 +2002,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/notification_grpc.go` - 1.117 Zeilen, 30 Methoden, neun
       Konvertierungsfunktionen. Es gibt `notification_integration_test.go` (148 Zeilen) und
@@ -2020,6 +2020,25 @@ units:
       - Alle neun Konvertierer abgedeckt
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      "Neun Konvertierer" stimmte nicht: `notification_grpc.go` hat genau acht
+      benannte `toProto`-artige Funktionen (toNotificationInfo, toPreferenceInfo,
+      toMuteInfo, toQuietHoursInfo, toEventTypeInfo, toPriority,
+      toIntegrationConfigInfo, toChannelMappingInfo) - GetAccountLinkStatus baut
+      seine AccountLinkInfo-Eintraege inline wie DSARSearch in security_grpc.go.
+      Alle acht bei 100% Coverage. `notification_grpc_test.go` (neu) deckt zusaetzlich:
+      mapNotificationError als volle 22-Sentinel-Tabelle, Validierungspfade ueber
+      alle 28 uebrigen RPCs (Tabellentest, inkl. "integration not configured" fuer
+      die zehn integrationRepo/linkService-gated RPCs), und gezielte Happy-Path-/
+      Isolationstests: ListNotifications filtert strikt auf tenant_id+user_id (Stub
+      bildet das echte WHERE nach) - Notification fuer User A erscheint nie bei
+      User B, Cross-Tenant liefert leere Liste. MarkNotificationRead/UnmuteResource
+      lehnen fremde Owner ab (ErrUnauthorized bzw. eigener Not-Found-Pfad im Stub).
+      GetQuietHours' Spezialfall (ErrQuietHoursNotFound -> deaktivierter Default
+      statt 404) einzeln getestet - das ist Handler-Logik, nicht Service-Logik.
+      LinkAccount/UnlinkAccount laufen ueber den echten `integration.AccountLinkService`
+      (kein Duplikat der Token-Hash-Logik). RPC-Methoden liegen zwischen 60% (GetUnreadCount,
+      trivialer 3-Zeiler) und 100%, die meisten 80-100%.
 
   - id: b-cov-server-fuhrpark
     phase: 3
