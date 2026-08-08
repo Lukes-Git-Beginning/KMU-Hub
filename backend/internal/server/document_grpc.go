@@ -1507,6 +1507,7 @@ func toProtoFile(f *models.DocumentFile) *documentv1.DocumentFile {
 	if f.ThumbnailKey != nil {
 		pf.ThumbnailKey = *f.ThumbnailKey
 	}
+	pf.Tags = make([]*documentv1.DocumentTag, 0, len(f.Tags))
 	for _, t := range f.Tags {
 		pf.Tags = append(pf.Tags, toProtoTag(&t))
 	}
@@ -1784,7 +1785,8 @@ func mapDocumentError(err error) error {
 		errors.Is(err, file.ErrFilenameTooLong),
 		errors.Is(err, file.ErrFileSizeZero),
 		errors.Is(err, file.ErrFileTooLarge),
-		errors.Is(err, file.ErrInvalidEntityType):
+		errors.Is(err, file.ErrInvalidEntityType),
+		errors.Is(err, file.ErrStorageKeyMissing):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, file.ErrVersionConflict):
 		return status.Error(codes.AlreadyExists, err.Error())
