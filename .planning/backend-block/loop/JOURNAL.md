@@ -746,7 +746,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   bedeutet, ohne dass das FE ihn heute rendern kann. Sinnvoll erst zusammen mit (1).
 
 ## Iteration 11 — a-automation-cron-poller — done — 2026-08-08 17:40
-- commit: <folgt unten>
+- commit: a6e4665b
 - gebaut: Faelligkeitsaufloesung fuer die zeitbasierten Automations-Trigger.
   Neu: `trigger.DueResolver` (+ `DueEntity`, `ErrUnknownTimeTrigger`) in
   `due.go`, `PostgresDueResolver` in `due_postgres.go` mit je einer Abfrage
