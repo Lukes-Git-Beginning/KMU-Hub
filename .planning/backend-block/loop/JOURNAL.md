@@ -490,7 +490,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (`optional string signature_data` an `CreateInspectionRequest`).
 
 ## Iteration 8 — a-users-preferences — done — 2026-08-08 20:35
-- commit: (siehe naechster Commit dieser Iteration)
+- commit: 836c98c0
 - verify vorgaenger: sauber. `ec2dd22a` (a-vermietung-inspection-signature)
   geprueft gegen alle acht Fehlerklassen: `HandleCreateInspection`/
   `HandleUpdateInspection` gehen ueber `client.CreateInspection`/
