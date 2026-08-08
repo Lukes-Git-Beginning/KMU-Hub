@@ -1718,7 +1718,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   statt zwei Muster nebeneinander zu haben.
 
 ## Iteration 22 — c-cov-biz-hr-changerequest — done — 2026-08-08 22:35
-- commit: -
+- commit: 353d557a
 - verify vorgaenger: sauber. `9445f8c8` (a-inventar-picking, Iteration 21)
   gegen alle acht Fehlerklassen geprueft: alle sieben Handler in
   `route_inventar.go` gehen ueber `client.<RPC>` (`InventarServiceClient`,
