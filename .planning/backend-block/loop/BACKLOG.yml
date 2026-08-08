@@ -1006,7 +1006,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/invoice` - gemessen 30,9 % bei 881 Zeilen
       `postgres_repository.go` plus `postgres_document_chains.go`, `postgres_open_items.go`
@@ -1027,6 +1027,46 @@ units:
       - Cross-Tenant an jedem neu getesteten Lesepfad
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      68,1 % (integration-Tag) statt vorher 47,7 % / 30,9 % ohne DB. Bestehender
+      integration_test.go (587 Zeilen) deckte Zeilen/Lock/Overdue/Import bereits ab -
+      komplett ungetestet waren postgres_open_items.go (ListOpenItems,
+      SummarizeOpenItems, bucketCondition, bucketIndexCase) und
+      postgres_document_chains.go (ListDocumentChains + die vier
+      *NodeStatus-Helfer), genau die von den notes benannten "lohnendsten
+      Luecken". Zwei neue Dateien: open_items_chains_helpers_test.go (kein
+      Build-Tag, reine Funktionstests fuer bucketCondition/bucketIndexCase und
+      die vier NodeStatus-Helfer) und
+      postgres_open_items_and_chains_integration_test.go (//go:build
+      integration, testcontainers wie die bestehende Datei). Drei
+      Testfunktionen mit Subtests: ListOpenItems (Bucket-Filter, OverdueOnly,
+      Pagination vs. Total, hoechstes Dunning-Level via LATERAL-Join,
+      Teilzahlung reduziert OpenAmount, Volltilgung entfernt die Rechnung
+      komplett aus der Liste, unbekannter Bucket-Key ist ein Fehler,
+      Cross-Tenant, abgebrochener Kontext), SummarizeOpenItems
+      (Wahrungs-/Bucket-Aggregation, leerer Tenant liefert [] nicht nil,
+      Cross-Tenant, abgebrochener Kontext) und ListDocumentChains (volle Kette
+      Angebot->Rechnung->Teilzahlung->Mahnung->Restbetrag-Pending-Node,
+      vollstaendig bezahlt->complete ohne Pending-Node, stornierte Rechnung
+      ->complete unabhaengig vom Restbetrag, Gutschrift im Entwurf zaehlt
+      nicht mit, versendete Gutschrift ueber den vollen Betrag schliesst die
+      Kette ab, alleinstehendes abgelehntes Angebot als Ein-Knoten-Kette,
+      Cross-Tenant, abgebrochener Kontext).
+    mutations_probe: >
+      Zwei Brueche, beide aussagekraeftig. (1) In postgres_open_items.go
+      ORDER BY level DESC -> ORDER BY level ASC im LATERAL-Join gedreht ->
+      genau der Subtest bucket_filter_isolates_d60 wurde rot ("dunning level:
+      got 1, want 2"), alle anderen blieben gruen. (2) In
+      postgres_document_chains.go invoiceNodeStatus() den Paid-Zweig von
+      ChainNodeCompleted auf ChainNodeActive gedreht -> TestInvoiceNodeStatus
+      wurde rot. Beide Aenderungen zurueckgedreht, git diff --stat auf beiden
+      Dateien bestaetigt keine Differenz zum Ausgangsstand.
+    gate: >
+      go build ./internal/... ok | go vet -tags=integration
+      ./internal/biz/invoice/... ok | golangci-lint run
+      ./internal/biz/invoice/... 0 issues | go test -count=1 -tags=integration
+      -cover ./internal/biz/invoice/... - alle Tests gruen (inkl. bestehender
+      Service-/Import-/JSONB-/Atomic-Rollback-Tests), 0 Skips, 68,1 % Coverage.
 
   - id: c-cov-biz-quote
     phase: 3

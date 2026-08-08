@@ -2191,3 +2191,80 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   YAML-Parse-Check (`python3 -c "import yaml; yaml.safe_load(open(...))"`),
   nicht nur ein visueller Diff-Blick.
   Naechste Unit im Backlog: `c-cov-biz-invoice-repo`.
+
+## Iteration 28 — c-cov-biz-invoice-repo — done — 2026-08-08 21:40
+
+- gebaut: `internal/biz/invoice` war bei 47,7 % (mit `-tags=integration`) bzw.
+  30,9 % ohne DB. Der bestehende `integration_test.go` (587 Zeilen) deckt
+  Zeilen-Roundtrip, Lock-Spalten, Overdue-Filter und den Bexio-Import-Pfad
+  bereits gut ab. Komplett ungetestet waren `postgres_open_items.go`
+  (`ListOpenItems`, `SummarizeOpenItems`, `bucketCondition`,
+  `bucketIndexCase`) und `postgres_document_chains.go` (`ListDocumentChains`
+  plus die vier `*NodeStatus`-Helfer und `paymentNodeNumber`) — genau die von
+  den Backlog-notes benannten "lohnendsten Luecken" (Offene Posten,
+  Belegketten). Zwei neue Dateien:
+  - `open_items_chains_helpers_test.go` (kein Build-Tag, reine
+    Funktionstests): `bucketCondition` fuer alle vier Bucket-Keys plus
+    unbekannter Key -> `ErrUnknownAgingBucket`, `bucketIndexCase`-Bounds
+    gegen `models.AgingBucketUpperDays()`, die vier Node-Status-Helfer und
+    `paymentNodeNumber` (Referenz vs. Fallback auf Rechnungsnummer).
+  - `postgres_open_items_and_chains_integration_test.go` (`//go:build
+    integration`, testcontainers wie die bestehende Datei, wiederverwendet
+    `seedTenant`/`makeInvoice`/`twoLines` aus `integration_test.go` desselben
+    Pakets). Drei Testfunktionen mit Subtests:
+    - `TestListOpenItems_FiltersPaginationAndDunning`: alle vier Aging-Buckets
+      belegt, `OverdueOnly` filtert "noch nicht faellig" raus, Bucket-Filter
+      isoliert genau eine Rechnung, unbekannter Bucket-Key ist ein Fehler,
+      Pagination begrenzt die Seite aber nicht `total`, Teilzahlung reduziert
+      `OpenAmount` exakt um den gezahlten Betrag (Decimal-Vergleich, nicht
+      Float), Volltilgung entfernt die Rechnung komplett aus der Liste
+      (`gross_total - paid > 0`-Filter), zwei Mahnstufen auf derselben
+      Rechnung liefern die HOECHSTE (nicht die zuletzt eingefuegte) ueber den
+      LATERAL-Join, Cross-Tenant-Isolation, abgebrochener Kontext.
+    - `TestSummarizeOpenItems_AggregatesByCurrencyAndBucket`: Zwei-Rechnungen-
+      Bucket-Summe (Count, Amount, DaysOverdueSum), leerer Tenant liefert `[]`
+      nicht `nil`, Cross-Tenant-Isolation, abgebrochener Kontext.
+    - `TestListDocumentChains_FullLifecycleAndBranches`: sechs Ketten-
+      Varianten in einem Testlauf — volle Kette Angebot(accepted)->Rechnung->
+      Teilzahlung->Mahnung->Pending-Restbetrag-Knoten (inkl. Datums-Sortierung
+      der Knoten), vollstaendig bezahlt->`IsComplete=true` ohne Pending-Knoten,
+      stornierte Rechnung->`IsComplete=true` unabhaengig vom Restbetrag,
+      Gutschrift im Entwurf zaehlt weder zum Restbetrag noch zur
+      Vollstaendigkeit, versendete Gutschrift ueber den vollen Betrag schliesst
+      die Kette ab, alleinstehendes abgelehntes Angebot als Ein-Knoten-Kette
+      mit `IsComplete=true`, Cross-Tenant-Isolation, abgebrochener Kontext.
+  Seed-Helfer fuer `finance_quotes`/`finance_payments`/
+  `finance_dunning_records`/`finance_credit_notes` sind rohes SQL im Testfile
+  (Spalten aus den jeweiligen `postgres_repository.go` der Nachbarpakete
+  abgeschrieben) statt eines Imports dieser Pakete — vermeidet jedes
+  Zyklusrisiko und bleibt im Stil der bestehenden Tests dieses Pakets.
+- gate: `go build ./internal/...` ok | `go vet -tags=integration
+  ./internal/biz/invoice/...` ok | `golangci-lint run
+  ./internal/biz/invoice/...` 0 issues | `go test -count=1 -tags=integration
+  -cover ./internal/biz/invoice/...` — alle Tests gruen (neue + alle
+  bestehenden Service-/Import-/JSONB-/Atomic-Rollback-Tests), 0 Skips,
+  **68,1 % Coverage** (vorher 47,7 % mit `-tags=integration`, 30,9 % ohne DB).
+  Migration n.a. (kein Schema angefasst), openapi n.a. (kein RPC/Route
+  angefasst).
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) In `postgres_open_items.go` `ORDER BY level DESC` auf
+  `ORDER BY level ASC` gedreht (im LATERAL-Join fuer den hoechsten
+  Mahnstatus) -> genau der Subtest `bucket_filter_isolates_d60` wurde rot
+  ("dunning level: got 1, want 2"), alle anderen Subtests blieben gruen.
+  (2) In `postgres_document_chains.go` `invoiceNodeStatus()` den
+  `InvoiceStatusPaid`-Zweig von `ChainNodeCompleted` auf `ChainNodeActive`
+  gedreht -> `TestInvoiceNodeStatus` wurde rot. Beide Aenderungen
+  zurueckgedreht, `git diff --stat` auf beiden Dateien bestaetigt keine
+  Differenz zum Ausgangsstand.
+- db-tests: alle neuen DB-Integrationstests laufen unter dem
+  testcontainers-Muster dieses Pakets (frischer Container pro
+  `pgtc.StartPostgres(t)`-Aufruf, kein `DATABASE_URL`/`SkipIfNoDB`), **0
+  Skips**.
+- offen: Kein Befund fuer Luke aus dieser Unit. Bemerkenswert fuer den
+  naechsten Verify-Vorspann: dieses Paket nutzt testcontainers
+  (`//go:build integration`, `pgtc.StartPostgres`) statt des
+  `DATABASE_URL`+`SkipIfNoDB`-Musters, das `c-cov-crm-report` und
+  `c-cov-biz-dashboard` nutzen — beide Muster existieren nebeneinander im
+  Repo, je nach Paket nachsehen, welches dort schon etabliert ist, statt zu
+  raten.
+  Naechste Unit im Backlog: `c-cov-biz-quote`.
