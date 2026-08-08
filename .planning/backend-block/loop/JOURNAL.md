@@ -571,8 +571,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   ersetzt den ganzen Satz"), aber ein FE-Implementierer muss das wissen.
 
 ## Iteration 9 — a-berichte-kpi-timeseries — done — 2026-08-08 22:15
-- commit: (wird im Folge-Commit nachgetragen — ein Journal kann seine eigene
-  SHA nicht enthalten)
+- commit: bff9c891
 - verify vorgaenger: sauber. `836c98c0` (a-users-preferences) geprueft gegen
   alle acht Fehlerklassen: `HandleGetUserPreferences`/`HandlePutUserPreferences`
   gehen ueber `sr.getSettingsClient()` (gRPC-Client), kein direkter
