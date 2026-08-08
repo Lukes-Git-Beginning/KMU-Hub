@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: proto/fuhrpark/v1/fuhrpark.proto
+// source: fuhrpark/v1/fuhrpark.proto
 
 package fuhrparkv1
 
@@ -55,6 +55,10 @@ const (
 	FuhrparkService_CreateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/CreateDriverLicense"
 	FuhrparkService_UpdateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/UpdateDriverLicense"
 	FuhrparkService_DeleteDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/DeleteDriverLicense"
+	FuhrparkService_ListVehicleBookings_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ListVehicleBookings"
+	FuhrparkService_CreateVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/CreateVehicleBooking"
+	FuhrparkService_UpdateVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/UpdateVehicleBooking"
+	FuhrparkService_DeleteVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/DeleteVehicleBooking"
 )
 
 // FuhrparkServiceClient is the client API for FuhrparkService service.
@@ -106,6 +110,11 @@ type FuhrparkServiceClient interface {
 	CreateDriverLicense(ctx context.Context, in *CreateDriverLicenseRequest, opts ...grpc.CallOption) (*CreateDriverLicenseResponse, error)
 	UpdateDriverLicense(ctx context.Context, in *UpdateDriverLicenseRequest, opts ...grpc.CallOption) (*UpdateDriverLicenseResponse, error)
 	DeleteDriverLicense(ctx context.Context, in *DeleteDriverLicenseRequest, opts ...grpc.CallOption) (*DeleteDriverLicenseResponse, error)
+	// Bookings (Poolfahrzeug-Reservierung)
+	ListVehicleBookings(ctx context.Context, in *ListVehicleBookingsRequest, opts ...grpc.CallOption) (*ListVehicleBookingsResponse, error)
+	CreateVehicleBooking(ctx context.Context, in *CreateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error)
+	UpdateVehicleBooking(ctx context.Context, in *UpdateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error)
+	DeleteVehicleBooking(ctx context.Context, in *DeleteVehicleBookingRequest, opts ...grpc.CallOption) (*DeleteVehicleBookingResponse, error)
 }
 
 type fuhrparkServiceClient struct {
@@ -476,6 +485,46 @@ func (c *fuhrparkServiceClient) DeleteDriverLicense(ctx context.Context, in *Del
 	return out, nil
 }
 
+func (c *fuhrparkServiceClient) ListVehicleBookings(ctx context.Context, in *ListVehicleBookingsRequest, opts ...grpc.CallOption) (*ListVehicleBookingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVehicleBookingsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ListVehicleBookings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) CreateVehicleBooking(ctx context.Context, in *CreateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VehicleBookingResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_CreateVehicleBooking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) UpdateVehicleBooking(ctx context.Context, in *UpdateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VehicleBookingResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_UpdateVehicleBooking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) DeleteVehicleBooking(ctx context.Context, in *DeleteVehicleBookingRequest, opts ...grpc.CallOption) (*DeleteVehicleBookingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteVehicleBookingResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_DeleteVehicleBooking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FuhrparkServiceServer is the server API for FuhrparkService service.
 // All implementations must embed UnimplementedFuhrparkServiceServer
 // for forward compatibility.
@@ -525,6 +574,11 @@ type FuhrparkServiceServer interface {
 	CreateDriverLicense(context.Context, *CreateDriverLicenseRequest) (*CreateDriverLicenseResponse, error)
 	UpdateDriverLicense(context.Context, *UpdateDriverLicenseRequest) (*UpdateDriverLicenseResponse, error)
 	DeleteDriverLicense(context.Context, *DeleteDriverLicenseRequest) (*DeleteDriverLicenseResponse, error)
+	// Bookings (Poolfahrzeug-Reservierung)
+	ListVehicleBookings(context.Context, *ListVehicleBookingsRequest) (*ListVehicleBookingsResponse, error)
+	CreateVehicleBooking(context.Context, *CreateVehicleBookingRequest) (*VehicleBookingResponse, error)
+	UpdateVehicleBooking(context.Context, *UpdateVehicleBookingRequest) (*VehicleBookingResponse, error)
+	DeleteVehicleBooking(context.Context, *DeleteVehicleBookingRequest) (*DeleteVehicleBookingResponse, error)
 	mustEmbedUnimplementedFuhrparkServiceServer()
 }
 
@@ -642,6 +696,18 @@ func (UnimplementedFuhrparkServiceServer) UpdateDriverLicense(context.Context, *
 }
 func (UnimplementedFuhrparkServiceServer) DeleteDriverLicense(context.Context, *DeleteDriverLicenseRequest) (*DeleteDriverLicenseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteDriverLicense not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ListVehicleBookings(context.Context, *ListVehicleBookingsRequest) (*ListVehicleBookingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVehicleBookings not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) CreateVehicleBooking(context.Context, *CreateVehicleBookingRequest) (*VehicleBookingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVehicleBooking not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) UpdateVehicleBooking(context.Context, *UpdateVehicleBookingRequest) (*VehicleBookingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateVehicleBooking not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) DeleteVehicleBooking(context.Context, *DeleteVehicleBookingRequest) (*DeleteVehicleBookingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteVehicleBooking not implemented")
 }
 func (UnimplementedFuhrparkServiceServer) mustEmbedUnimplementedFuhrparkServiceServer() {}
 func (UnimplementedFuhrparkServiceServer) testEmbeddedByValue()                         {}
@@ -1312,6 +1378,78 @@ func _FuhrparkService_DeleteDriverLicense_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FuhrparkService_ListVehicleBookings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVehicleBookingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ListVehicleBookings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ListVehicleBookings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ListVehicleBookings(ctx, req.(*ListVehicleBookingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_CreateVehicleBooking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVehicleBookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).CreateVehicleBooking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_CreateVehicleBooking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).CreateVehicleBooking(ctx, req.(*CreateVehicleBookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_UpdateVehicleBooking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateVehicleBookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).UpdateVehicleBooking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_UpdateVehicleBooking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).UpdateVehicleBooking(ctx, req.(*UpdateVehicleBookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_DeleteVehicleBooking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteVehicleBookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).DeleteVehicleBooking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_DeleteVehicleBooking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).DeleteVehicleBooking(ctx, req.(*DeleteVehicleBookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FuhrparkService_ServiceDesc is the grpc.ServiceDesc for FuhrparkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1463,7 +1601,23 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteDriverLicense",
 			Handler:    _FuhrparkService_DeleteDriverLicense_Handler,
 		},
+		{
+			MethodName: "ListVehicleBookings",
+			Handler:    _FuhrparkService_ListVehicleBookings_Handler,
+		},
+		{
+			MethodName: "CreateVehicleBooking",
+			Handler:    _FuhrparkService_CreateVehicleBooking_Handler,
+		},
+		{
+			MethodName: "UpdateVehicleBooking",
+			Handler:    _FuhrparkService_UpdateVehicleBooking_Handler,
+		},
+		{
+			MethodName: "DeleteVehicleBooking",
+			Handler:    _FuhrparkService_DeleteVehicleBooking_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/fuhrpark/v1/fuhrpark.proto",
+	Metadata: "fuhrpark/v1/fuhrpark.proto",
 }

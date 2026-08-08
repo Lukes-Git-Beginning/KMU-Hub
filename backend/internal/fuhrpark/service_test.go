@@ -21,9 +21,20 @@ type mockRepository struct {
 	damages  map[uuid.UUID]*VehicleDamage
 	plates   map[string]uuid.UUID // tenantID:plate -> vehicleID
 
+	bookings map[uuid.UUID]*VehicleBooking
+
 	createVehicleErr error
 	updateVehicleErr error
 	getVehicleErr    error
+
+	// Booking probes: bookingConflictID is the canned answer of both conflict
+	// paths, the counters prove whether the service asked at all.
+	bookingConflictID  *uuid.UUID
+	createBookingErr   error
+	findConflictErr    error
+	createBookingCalls int
+	findConflictCalls  int
+	listBookingsParams *ListVehicleBookingsParams
 }
 
 func newMockRepository() *mockRepository {
@@ -32,6 +43,7 @@ func newMockRepository() *mockRepository {
 		services: make(map[uuid.UUID]*VehicleService),
 		damages:  make(map[uuid.UUID]*VehicleDamage),
 		plates:   make(map[string]uuid.UUID),
+		bookings: make(map[uuid.UUID]*VehicleBooking),
 	}
 }
 
@@ -297,6 +309,67 @@ func (m *mockRepository) GetVehicleRoutes(_ context.Context, _ GetVehicleRoutesP
 }
 func (m *mockRepository) GetGpsPositions(_ context.Context, _ GetGpsPositionsParams) ([]GpsPosition, error) {
 	return nil, nil
+}
+
+// Bookings. The overlap arithmetic lives in SQL, so the mock does NOT
+// reimplement it -- a mock that did would only test itself. It records what the
+// service asked for and replays a canned answer; the half-open semantics are
+// covered by TestBookingConflict_HalfOpenAndTenantScoped against a real
+// database.
+func (m *mockRepository) CreateBookingWithLock(_ context.Context, b *VehicleBooking) (*uuid.UUID, error) {
+	m.createBookingCalls++
+	if m.createBookingErr != nil {
+		return nil, m.createBookingErr
+	}
+	if m.bookingConflictID != nil {
+		return m.bookingConflictID, nil
+	}
+	m.bookings[b.ID] = b
+	return nil, nil
+}
+
+func (m *mockRepository) FindConflictingBooking(_ context.Context, _, _ uuid.UUID, _, _ time.Time, _ *uuid.UUID) (*uuid.UUID, error) {
+	m.findConflictCalls++
+	if m.findConflictErr != nil {
+		return nil, m.findConflictErr
+	}
+	return m.bookingConflictID, nil
+}
+
+func (m *mockRepository) UpdateBooking(_ context.Context, b *VehicleBooking) error {
+	if _, ok := m.bookings[b.ID]; !ok {
+		return ErrBookingNotFound
+	}
+	m.bookings[b.ID] = b
+	return nil
+}
+
+func (m *mockRepository) DeleteBooking(_ context.Context, tenantID, bookingID uuid.UUID) error {
+	b, ok := m.bookings[bookingID]
+	if !ok || b.TenantID != tenantID {
+		return ErrBookingNotFound
+	}
+	delete(m.bookings, bookingID)
+	return nil
+}
+
+func (m *mockRepository) GetBooking(_ context.Context, tenantID, bookingID uuid.UUID) (*VehicleBooking, error) {
+	b, ok := m.bookings[bookingID]
+	if !ok || b.TenantID != tenantID {
+		return nil, ErrBookingNotFound
+	}
+	return b, nil
+}
+
+func (m *mockRepository) ListBookings(_ context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error) {
+	m.listBookingsParams = &params
+	out := make([]*VehicleBooking, 0)
+	for _, b := range m.bookings {
+		if b.TenantID == params.TenantID {
+			out = append(out, b)
+		}
+	}
+	return out, len(out), nil
 }
 
 // compile-time interface check
@@ -880,4 +953,191 @@ func TestService_CompleteService_CancelledNotAllowed(t *testing.T) {
 		TenantID: tenantID, ServiceID: entry.ID,
 	})
 	assert.ErrorIs(t, err, ErrInvalidTransition)
+}
+
+// ============================================================================
+// Booking Tests
+// ============================================================================
+
+// bookingFixture returns a service with one vehicle in tenantID.
+func bookingFixture(t *testing.T) (*mockRepository, *Service, uuid.UUID, *Vehicle) {
+	t.Helper()
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	v, err := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: tenantID, LicensePlate: "BK-" + uuid.New().String()[:6], Make: "VW", Model: "Caddy", Year: 2023,
+	})
+	require.NoError(t, err)
+	return repo, svc, tenantID, v
+}
+
+func TestService_CreateVehicleBooking_Success(t *testing.T) {
+	repo, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+
+	b, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID:  tenantID,
+		VehicleID: v.ID,
+		UserID:    uuid.New(),
+		StartsAt:  start,
+		EndsAt:    start.Add(2 * time.Hour),
+		Purpose:   "  Kundentermin  ",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, BookingStatusBooked, b.Status)
+	assert.Equal(t, "Kundentermin", b.Purpose, "purpose should be trimmed")
+	assert.Equal(t, 1, repo.createBookingCalls)
+}
+
+func TestService_CreateVehicleBooking_Conflict(t *testing.T) {
+	repo, svc, tenantID, v := bookingFixture(t)
+	existing := uuid.New()
+	repo.bookingConflictID = &existing
+	start := time.Now().Add(time.Hour)
+
+	_, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(),
+		StartsAt: start, EndsAt: start.Add(time.Hour),
+	})
+	assert.ErrorIs(t, err, ErrBookingConflict)
+	assert.Contains(t, err.Error(), existing.String(), "the conflicting booking id belongs in the message")
+}
+
+func TestService_CreateVehicleBooking_RejectsBadInput(t *testing.T) {
+	_, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+
+	tests := map[string]struct {
+		input   CreateBookingInput
+		wantErr error
+	}{
+		"missing user": {
+			input:   CreateBookingInput{TenantID: tenantID, VehicleID: v.ID, StartsAt: start, EndsAt: start.Add(time.Hour)},
+			wantErr: ErrInvalidInput,
+		},
+		"end before start": {
+			input:   CreateBookingInput{TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(), StartsAt: start, EndsAt: start.Add(-time.Hour)},
+			wantErr: ErrInvalidInput,
+		},
+		"zero-length interval": {
+			input:   CreateBookingInput{TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(), StartsAt: start, EndsAt: start},
+			wantErr: ErrInvalidInput,
+		},
+		"unknown vehicle": {
+			input:   CreateBookingInput{TenantID: tenantID, VehicleID: uuid.New(), UserID: uuid.New(), StartsAt: start, EndsAt: start.Add(time.Hour)},
+			wantErr: ErrVehicleNotFound,
+		},
+		"vehicle of another tenant": {
+			input:   CreateBookingInput{TenantID: uuid.New(), VehicleID: v.ID, UserID: uuid.New(), StartsAt: start, EndsAt: start.Add(time.Hour)},
+			wantErr: ErrVehicleNotFound,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := svc.CreateVehicleBooking(context.Background(), tc.input)
+			assert.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestService_UpdateVehicleBooking_ReCheckesConflictWhileActive(t *testing.T) {
+	repo, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+	b, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(),
+		StartsAt: start, EndsAt: start.Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	other := uuid.New()
+	repo.bookingConflictID = &other
+	movedStart := start.Add(3 * time.Hour)
+	movedEnd := movedStart.Add(time.Hour)
+	_, err = svc.UpdateVehicleBooking(context.Background(), UpdateBookingInput{
+		TenantID: tenantID, BookingID: b.ID, StartsAt: &movedStart, EndsAt: &movedEnd,
+	})
+	assert.ErrorIs(t, err, ErrBookingConflict)
+	assert.Equal(t, 1, repo.findConflictCalls)
+}
+
+// Cancelling is what frees a slot; it must never be refused because the slot is
+// occupied — by the very booking being cancelled, among others.
+func TestService_UpdateVehicleBooking_ReleaseSkipsConflictCheck(t *testing.T) {
+	repo, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+	b, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(),
+		StartsAt: start, EndsAt: start.Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	other := uuid.New()
+	repo.bookingConflictID = &other // would conflict if asked
+	cancelled := BookingStatusCancelled
+	updated, err := svc.UpdateVehicleBooking(context.Background(), UpdateBookingInput{
+		TenantID: tenantID, BookingID: b.ID, Status: &cancelled,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, BookingStatusCancelled, updated.Status)
+	assert.Zero(t, repo.findConflictCalls, "a released booking must not be conflict-checked")
+}
+
+func TestService_UpdateVehicleBooking_RejectsBadInput(t *testing.T) {
+	_, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+	b, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(),
+		StartsAt: start, EndsAt: start.Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	before := start.Add(-time.Hour)
+	_, err = svc.UpdateVehicleBooking(context.Background(), UpdateBookingInput{
+		TenantID: tenantID, BookingID: b.ID, EndsAt: &before,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "an inverted interval must not reach the database CHECK")
+
+	bogus := BookingStatus("half_booked")
+	_, err = svc.UpdateVehicleBooking(context.Background(), UpdateBookingInput{
+		TenantID: tenantID, BookingID: b.ID, Status: &bogus,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "an unknown status must be a 400, not a CHECK violation")
+
+	_, err = svc.UpdateVehicleBooking(context.Background(), UpdateBookingInput{
+		TenantID: uuid.New(), BookingID: b.ID,
+	})
+	assert.ErrorIs(t, err, ErrBookingNotFound, "another tenant must not see the booking")
+}
+
+func TestService_DeleteVehicleBooking_TenantScoped(t *testing.T) {
+	_, svc, tenantID, v := bookingFixture(t)
+	start := time.Now().Add(time.Hour)
+	b, err := svc.CreateVehicleBooking(context.Background(), CreateBookingInput{
+		TenantID: tenantID, VehicleID: v.ID, UserID: uuid.New(),
+		StartsAt: start, EndsAt: start.Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	assert.ErrorIs(t, svc.DeleteVehicleBooking(context.Background(), uuid.New(), b.ID), ErrBookingNotFound)
+	require.NoError(t, svc.DeleteVehicleBooking(context.Background(), tenantID, b.ID))
+	assert.ErrorIs(t, svc.DeleteVehicleBooking(context.Background(), tenantID, b.ID), ErrBookingNotFound)
+}
+
+func TestService_ListVehicleBookings_ClampsPagingAndRejectsStatus(t *testing.T) {
+	repo, svc, tenantID, _ := bookingFixture(t)
+
+	_, _, err := svc.ListVehicleBookings(context.Background(), ListVehicleBookingsParams{
+		TenantID: tenantID, Page: 0, PageSize: 5000,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, repo.listBookingsParams)
+	assert.Equal(t, int32(1), repo.listBookingsParams.Page)
+	assert.Equal(t, int32(50), repo.listBookingsParams.PageSize)
+
+	bogus := BookingStatus("parked")
+	_, _, err = svc.ListVehicleBookings(context.Background(), ListVehicleBookingsParams{
+		TenantID: tenantID, Status: &bogus,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput)
 }

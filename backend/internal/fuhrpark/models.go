@@ -236,3 +236,46 @@ type GetGpsPositionsParams struct {
 	To        time.Time
 	Limit     int32
 }
+
+// BookingStatus represents the lifecycle state of a vehicle booking.
+// Vocabulary matches machine_bookings so a reservation means the same thing
+// across modules.
+type BookingStatus string
+
+const (
+	BookingStatusBooked    BookingStatus = "booked"
+	BookingStatusInUse     BookingStatus = "in_use"
+	BookingStatusCompleted BookingStatus = "completed"
+	BookingStatusCancelled BookingStatus = "cancelled"
+)
+
+// ActiveBookingStatuses are the states that block the vehicle for the booked
+// interval. Cancelled and completed bookings free it again.
+var ActiveBookingStatuses = []BookingStatus{BookingStatusBooked, BookingStatusInUse}
+
+// VehicleBooking reserves a pool vehicle for a user over a time interval.
+type VehicleBooking struct {
+	ID        uuid.UUID     `json:"id"`
+	TenantID  uuid.UUID     `json:"tenant_id"`
+	VehicleID uuid.UUID     `json:"vehicle_id"`
+	UserID    uuid.UUID     `json:"user_id"`
+	StartsAt  time.Time     `json:"starts_at"`
+	EndsAt    time.Time     `json:"ends_at"`
+	Purpose   string        `json:"purpose"`
+	Status    BookingStatus `json:"status"`
+	CreatedBy *uuid.UUID    `json:"created_by"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// ListVehicleBookingsParams holds filtering and pagination for booking queries.
+type ListVehicleBookingsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID      // zero value = no filter
+	UserID    uuid.UUID      // zero value = no filter
+	Status    *BookingStatus // nil = no filter
+	From      *time.Time     // nil = no lower bound on ends_at
+	To        *time.Time     // nil = no upper bound on starts_at
+	Page      int32
+	PageSize  int32
+}

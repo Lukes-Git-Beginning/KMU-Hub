@@ -60,6 +60,12 @@ service FuhrparkService {
   rpc CreateDriverLicense(CreateDriverLicenseRequest) returns (CreateDriverLicenseResponse);
   rpc UpdateDriverLicense(UpdateDriverLicenseRequest) returns (UpdateDriverLicenseResponse);
   rpc DeleteDriverLicense(DeleteDriverLicenseRequest) returns (DeleteDriverLicenseResponse);
+
+  // Bookings (Poolfahrzeug-Reservierung)
+  rpc ListVehicleBookings(ListVehicleBookingsRequest)   returns (ListVehicleBookingsResponse);
+  rpc CreateVehicleBooking(CreateVehicleBookingRequest) returns (VehicleBookingResponse);
+  rpc UpdateVehicleBooking(UpdateVehicleBookingRequest) returns (VehicleBookingResponse);
+  rpc DeleteVehicleBooking(DeleteVehicleBookingRequest) returns (DeleteVehicleBookingResponse);
 }
 
 // ============================================================================
@@ -583,3 +589,52 @@ message UpdateDriverLicenseRequest {
 message UpdateDriverLicenseResponse { DriverLicense license = 1; }
 message DeleteDriverLicenseRequest  { string id = 1; }
 message DeleteDriverLicenseResponse {}
+
+// ============================================================================
+// Vehicle Bookings
+// ============================================================================
+
+message VehicleBooking {
+  string id         = 1;
+  string tenant_id  = 2;
+  string vehicle_id = 3;
+  string user_id    = 4;
+  string starts_at  = 5; // RFC3339
+  string ends_at    = 6; // RFC3339
+  string purpose    = 7;
+  string status     = 8; // booked|in_use|completed|cancelled
+  string created_by = 9; // empty when the booking has no known creator
+  string created_at = 10;
+  string updated_at = 11;
+}
+message ListVehicleBookingsRequest {
+  string vehicle_id = 1; // optional filter
+  string user_id    = 2; // optional filter
+  string status     = 3; // optional filter
+  string from       = 4; // optional RFC3339 window start
+  string to         = 5; // optional RFC3339 window end
+  int32  page       = 6;
+  int32  page_size  = 7;
+}
+message ListVehicleBookingsResponse {
+  repeated VehicleBooking bookings = 1;
+  int32 total = 2;
+}
+message CreateVehicleBookingRequest {
+  string vehicle_id = 1;
+  string user_id    = 2;
+  string starts_at  = 3; // RFC3339
+  string ends_at    = 4; // RFC3339
+  string purpose    = 5;
+}
+// Optional so an omitted field stays untouched instead of being cleared.
+message UpdateVehicleBookingRequest {
+  string id                  = 1;
+  optional string starts_at  = 2;
+  optional string ends_at    = 3;
+  optional string purpose    = 4;
+  optional string status     = 5;
+}
+message VehicleBookingResponse { VehicleBooking booking = 1; }
+message DeleteVehicleBookingRequest  { string id = 1; }
+message DeleteVehicleBookingResponse {}

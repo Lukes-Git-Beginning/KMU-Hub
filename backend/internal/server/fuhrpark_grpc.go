@@ -914,6 +914,163 @@ func (s *FuhrparkGRPCServer) DeleteTripLog(ctx context.Context, req *fuhrparkv1.
 }
 
 // ============================================================================
+// Vehicle Booking RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) ListVehicleBookings(ctx context.Context, req *fuhrparkv1.ListVehicleBookingsRequest) (*fuhrparkv1.ListVehicleBookingsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	params := fuhrpark.ListVehicleBookingsParams{
+		TenantID: tenantID,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+	if req.VehicleId != "" {
+		id, parseErr := uuid.Parse(req.VehicleId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", parseErr)
+		}
+		params.VehicleID = id
+	}
+	if req.UserId != "" {
+		id, parseErr := uuid.Parse(req.UserId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", parseErr)
+		}
+		params.UserID = id
+	}
+	if req.Status != "" {
+		st := fuhrpark.BookingStatus(req.Status)
+		params.Status = &st
+	}
+	if req.From != "" {
+		t, parseErr := time.Parse(time.RFC3339, req.From)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid from: %v", parseErr)
+		}
+		params.From = &t
+	}
+	if req.To != "" {
+		t, parseErr := time.Parse(time.RFC3339, req.To)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid to: %v", parseErr)
+		}
+		params.To = &t
+	}
+
+	bookings, total, err := s.svc.ListVehicleBookings(ctx, params)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.VehicleBooking, len(bookings))
+	for i, b := range bookings {
+		pb[i] = vehicleBookingToProto(b)
+	}
+	return &fuhrparkv1.ListVehicleBookingsResponse{Bookings: pb, Total: int32(total)}, nil
+}
+
+func (s *FuhrparkGRPCServer) CreateVehicleBooking(ctx context.Context, req *fuhrparkv1.CreateVehicleBookingRequest) (*fuhrparkv1.VehicleBookingResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
+	}
+	startsAt, err := time.Parse(time.RFC3339, req.StartsAt)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid starts_at: %v", err)
+	}
+	endsAt, err := time.Parse(time.RFC3339, req.EndsAt)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid ends_at: %v", err)
+	}
+
+	input := fuhrpark.CreateBookingInput{
+		TenantID:  tenantID,
+		VehicleID: vehicleID,
+		UserID:    userID,
+		StartsAt:  startsAt,
+		EndsAt:    endsAt,
+		Purpose:   req.Purpose,
+	}
+	// The creator comes from the authenticated context, never from the request
+	// body -- otherwise a caller could book in someone else's name.
+	if caller, parseErr := uuid.Parse(middleware.GetUserID(ctx)); parseErr == nil {
+		input.CreatedBy = &caller
+	}
+
+	booking, err := s.svc.CreateVehicleBooking(ctx, input)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.VehicleBookingResponse{Booking: vehicleBookingToProto(booking)}, nil
+}
+
+func (s *FuhrparkGRPCServer) UpdateVehicleBooking(ctx context.Context, req *fuhrparkv1.UpdateVehicleBookingRequest) (*fuhrparkv1.VehicleBookingResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	input := fuhrpark.UpdateBookingInput{TenantID: tenantID, BookingID: id}
+	if req.StartsAt != nil {
+		t, parseErr := time.Parse(time.RFC3339, req.GetStartsAt())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid starts_at: %v", parseErr)
+		}
+		input.StartsAt = &t
+	}
+	if req.EndsAt != nil {
+		t, parseErr := time.Parse(time.RFC3339, req.GetEndsAt())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid ends_at: %v", parseErr)
+		}
+		input.EndsAt = &t
+	}
+	if req.Purpose != nil {
+		p := req.GetPurpose()
+		input.Purpose = &p
+	}
+	if req.Status != nil {
+		st := fuhrpark.BookingStatus(req.GetStatus())
+		input.Status = &st
+	}
+
+	booking, err := s.svc.UpdateVehicleBooking(ctx, input)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.VehicleBookingResponse{Booking: vehicleBookingToProto(booking)}, nil
+}
+
+func (s *FuhrparkGRPCServer) DeleteVehicleBooking(ctx context.Context, req *fuhrparkv1.DeleteVehicleBookingRequest) (*fuhrparkv1.DeleteVehicleBookingResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if delErr := s.svc.DeleteVehicleBooking(ctx, tenantID, id); delErr != nil {
+		return nil, mapFuhrparkError(delErr)
+	}
+	return &fuhrparkv1.DeleteVehicleBookingResponse{}, nil
+}
+
+// ============================================================================
 // Vehicle Document RPCs
 // ============================================================================
 
@@ -1273,6 +1430,29 @@ func tripLogToProto(l fuhrpark.TripLog) *fuhrparkv1.TripLog {
 	}
 }
 
+func vehicleBookingToProto(b *fuhrpark.VehicleBooking) *fuhrparkv1.VehicleBooking {
+	if b == nil {
+		return nil
+	}
+	createdBy := ""
+	if b.CreatedBy != nil {
+		createdBy = b.CreatedBy.String()
+	}
+	return &fuhrparkv1.VehicleBooking{
+		Id:        b.ID.String(),
+		TenantId:  b.TenantID.String(),
+		VehicleId: b.VehicleID.String(),
+		UserId:    b.UserID.String(),
+		StartsAt:  b.StartsAt.Format(time.RFC3339),
+		EndsAt:    b.EndsAt.Format(time.RFC3339),
+		Purpose:   b.Purpose,
+		Status:    string(b.Status),
+		CreatedBy: createdBy,
+		CreatedAt: b.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: b.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
 func vehicleDocumentToProto(d fuhrpark.VehicleDocument) *fuhrparkv1.VehicleDocument {
 	expiry := ""
 	if d.ExpiryDate != nil {
@@ -1363,7 +1543,13 @@ func mapFuhrparkError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrDriverNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrBookingNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrPlateTaken):
+		return status.Error(codes.AlreadyExists, err.Error())
+	// AlreadyExists, so the gateway turns an overlap into 409 and not 400 --
+	// the caller has to know the slot is taken, not that the request was wrong.
+	case errors.Is(err, fuhrpark.ErrBookingConflict):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, fuhrpark.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())

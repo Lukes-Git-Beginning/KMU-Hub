@@ -260,3 +260,70 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (`type: 'max_hours' | 'rest_period' | 'consecutive_days'`), ohne den
   Compliance-Endpoint zu fragen. Das Backend kann jetzt mehr als das FE
   abholt — eine Frontend-Session waere der naechste Schritt.
+
+## Iteration 5 — a-fuhrpark-vehicle-booking — done — 2026-08-08 17:35
+- commit: <pending>
+- gebaut: Poolfahrzeug-Buchung mit Konfliktpruefung. Neue Tabelle
+  `vehicle_bookings` (Migration 000300, `tenant_id NOT NULL` + FK auf
+  `tenants`/`vehicles`/`users`, `CALL enable_tenant_rls`, CHECK auf
+  `ends_at > starts_at` und den Status-Wortschatz von `machine_bookings`),
+  vier RPCs (List/Create/Update/Delete), vier Routen unter
+  `/api/v1/fuhrpark/bookings` hinter der neuen Ressource `fuhrpark:booking`.
+  Die Ueberschneidungspruefung ist NICHT neu entworfen: sie ist das Muster aus
+  `produktion/postgres_repository.go` — halboffenes Intervall
+  `starts_at < $ends AND ends_at > $starts`, Konflikt-Check und INSERT in EINER
+  Transaktion unter `pg_advisory_xact_lock(hashtext(tenant||':'||vehicle))`,
+  damit zwei gleichzeitige Anfragen nicht beide ein freies Fahrzeug sehen.
+  Konflikt = `ErrBookingConflict` → `codes.AlreadyExists` → 409 (belegt durch
+  `helpers_test.go:19`), nicht 400. Zwei bewusste Abweichungen von
+  `machine_bookings`: `vehicle_id` ist ein echter FK (die Tabelle `vehicles`
+  existiert, `produktion` hat keine Maschinentabelle), und `user_id` ist
+  Pflicht — eine Reservierung, fuer die niemand verantwortlich ist, laesst sich
+  am Schluesselschrank nicht durchsetzen. Der INSERT geht als
+  `INSERT ... SELECT FROM users WHERE u.id=$ AND u.tenant_id=$` (Muster von
+  `CreateDriverLicense`): der blosse FK auf `users` wuerde eine Buchung fuer
+  einen fremden Tenant-Nutzer durchlassen. `created_by` kommt aus
+  `middleware.GetUserID(ctx)`, nicht aus dem Request-Body — sonst koennte ein
+  Aufrufer im Namen eines anderen buchen. Beim Update wird nur
+  nachgeprueft, solange die Buchung aktiv bleibt: Stornieren ist genau das, was
+  einen Slot freigibt, und darf nie an einem Konflikt scheitern.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (fuhrpark, gateway inkl.
+  `TestOpenAPIRouteDrift`, server, testutil inkl.
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted`) | migration ok (300 lokal
+  angewendet, Kopf jetzt 300) | rls-smoke ok (Cross-Tenant-Lesen beider
+  Richtungen als `kmuhub_app` = 0 Zeilen, im DB-Test) | openapi
+  `swagger-cli validate` ok
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) `bookingOverlapPredicate` von `<`/`>` auf `<=`/`>=` gedreht (halboffen →
+  geschlossen) → GENAU `TestBookingConflict_.../adjacent_is_accepted` wurde rot,
+  `overlapping_is_rejected` blieb gruen. Das ist der Punkt der Unit: die
+  Uebergabe um 12:00 bleibt moeglich.
+  (2) `if isActiveBookingStatus(booking.Status)` im Update auf `if true`
+  gesetzt → `TestService_UpdateVehicleBooking_ReleaseSkipsConflictCheck` wurde
+  rot, die uebrigen blieben gruen. Beide Proben zurueckgedreht, Endgate danach
+  erneut gelaufen und gruen.
+- db-tests: `TestBookingConflict_HalfOpenAndTenantScoped` mit sechs Subtests
+  lief real gegen die lokale DB — **0 Skips** im gesamten Paket `fuhrpark`
+  (67 PASS, 0 SKIP). `DATABASE_URL` war auf `kmuhub_app` gesetzt, Migration 300
+  vorher angewendet.
+- verify vorgaenger: `7493cf0f` (a-schichten-minor-compliance) sauber. Beide
+  Handler in `route_hr.go` gehen ueber `hrv1.HRServiceClient`, kein direkter
+  Service-Zugriff; `is_minor` sitzt auf der bestehenden RLS-Tabelle
+  `hr_employee_profiles`, also keine neue Policy noetig; Migration 000299 hat
+  up UND down; kein neuer `RequirePermission`-Guard; openapi-Aenderung im
+  selben Commit. Der Pointer-Typ im Update-Request ist korrekt gewaehlt
+  (ausgelassenes Feld laesst das Flag stehen).
+- offen: Drei Punkte fuer Luke.
+  (1) Die Migration seedet `fuhrpark:booking:read/write` NUR fuer die Rolle
+  `admin` (Muster von 000196). Andere Rollen sehen die Routen bis zur
+  Zuweisung nicht — falls das Modul an eine Fuhrpark-Rolle soll, ist das eine
+  eigene Seed-Migration.
+  (2) Kein FE-Konsument. `FuhrparkPage.tsx` hat keinen Buchungskalender, und
+  `capability-catalog.ts` kennt `fuhrpark:booking` noch nicht — das Backend
+  kann jetzt mehr, als das Frontend abholt. Eine Frontend-Session waere der
+  naechste Schritt; der Wire-Vertrag steht in `openapi.yaml` unter
+  `FuhrparkVehicleBooking`.
+  (3) Es gibt bewusst kein `GET /bookings/{id}`: `produktion` hat fuer
+  `machine_bookings` auch keins, und die Liste mit `vehicle_id`-Filter deckt
+  jeden bekannten Lesefall. Falls das FE eine Detailansicht braucht, ist das
+  eine Zeile Handler plus ein openapi-Pfad.

@@ -17107,6 +17107,128 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/fuhrpark/bookings:
+    get:
+      summary: List vehicle bookings (tenant-wide, optionally filtered)
+      tags: [fuhrpark]
+      operationId: listVehicleBookings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: user_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [booked, in_use, completed, cancelled] } }
+        - name: from
+          in: query
+          description: Lower bound of the window (RFC3339); a booking still running at this time is included.
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          description: Upper bound of the window (RFC3339).
+          schema: { type: string, format: date-time }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Booking list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkVehicleBooking'
+                  total:
+                    type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Book a pool vehicle for a time interval
+      description: >
+        Rejects the request with 409 when the interval overlaps an active
+        booking (booked, in_use) of the same vehicle. Intervals are half-open:
+        a booking starting exactly when another ends is accepted.
+      tags: [fuhrpark]
+      operationId: createVehicleBooking
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_id, user_id, starts_at, ends_at]
+              properties:
+                vehicle_id: { type: string, format: uuid }
+                user_id: { type: string, format: uuid }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                purpose: { type: string }
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/FuhrparkVehicleBooking'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/fuhrpark/bookings/{id}:
+    patch:
+      summary: Update a vehicle booking
+      description: >
+        Re-checks for conflicts whenever the booking stays active. Releasing a
+        booking (status completed or cancelled) never conflicts.
+      tags: [fuhrpark]
+      operationId: updateVehicleBooking
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                purpose: { type: string }
+                status: { type: string, enum: [booked, in_use, completed, cancelled] }
+      responses:
+        "200":
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/FuhrparkVehicleBooking'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      summary: Delete a vehicle booking
+      tags: [fuhrpark]
+      operationId: deleteVehicleBooking
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/fuhrpark/documents/{id}:
     delete:
       summary: Delete a vehicle document
@@ -43477,6 +43599,44 @@ components:
           $ref: "#/components/schemas/ProtoTimestamp"
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+
+    FuhrparkVehicleBooking:
+      type: object
+      description: A pool vehicle reservation (proto VehicleBooking).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: The user the vehicle is reserved for.
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        purpose:
+          type: string
+        status:
+          type: string
+          enum: [booked, in_use, completed, cancelled]
+        created_by:
+          type: string
+          description: Empty when the booking has no known creator.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     FuhrparkTripLog:
       type: object

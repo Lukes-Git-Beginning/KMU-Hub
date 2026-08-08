@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: proto/fuhrpark/v1/fuhrpark.proto
+// source: fuhrpark/v1/fuhrpark.proto
 
 package fuhrparkv1
 
@@ -46,7 +46,7 @@ type Vehicle struct {
 
 func (x *Vehicle) Reset() {
 	*x = Vehicle{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[0]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -58,7 +58,7 @@ func (x *Vehicle) String() string {
 func (*Vehicle) ProtoMessage() {}
 
 func (x *Vehicle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[0]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -71,7 +71,7 @@ func (x *Vehicle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vehicle.ProtoReflect.Descriptor instead.
 func (*Vehicle) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{0}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Vehicle) GetId() string {
@@ -209,7 +209,7 @@ type VehicleService struct {
 
 func (x *VehicleService) Reset() {
 	*x = VehicleService{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[1]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -221,7 +221,7 @@ func (x *VehicleService) String() string {
 func (*VehicleService) ProtoMessage() {}
 
 func (x *VehicleService) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[1]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -234,7 +234,7 @@ func (x *VehicleService) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleService.ProtoReflect.Descriptor instead.
 func (*VehicleService) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{1}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *VehicleService) GetId() string {
@@ -364,7 +364,7 @@ type Damage struct {
 
 func (x *Damage) Reset() {
 	*x = Damage{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[2]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -376,7 +376,7 @@ func (x *Damage) String() string {
 func (*Damage) ProtoMessage() {}
 
 func (x *Damage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[2]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -389,7 +389,7 @@ func (x *Damage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Damage.ProtoReflect.Descriptor instead.
 func (*Damage) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{2}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Damage) GetId() string {
@@ -510,7 +510,7 @@ type CreateVehicleRequest struct {
 
 func (x *CreateVehicleRequest) Reset() {
 	*x = CreateVehicleRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[3]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -522,7 +522,7 @@ func (x *CreateVehicleRequest) String() string {
 func (*CreateVehicleRequest) ProtoMessage() {}
 
 func (x *CreateVehicleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[3]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -535,7 +535,7 @@ func (x *CreateVehicleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVehicleRequest.ProtoReflect.Descriptor instead.
 func (*CreateVehicleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{3}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateVehicleRequest) GetTenantId() string {
@@ -644,7 +644,7 @@ type UpdateVehicleRequest struct {
 
 func (x *UpdateVehicleRequest) Reset() {
 	*x = UpdateVehicleRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[4]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -656,7 +656,7 @@ func (x *UpdateVehicleRequest) String() string {
 func (*UpdateVehicleRequest) ProtoMessage() {}
 
 func (x *UpdateVehicleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[4]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -669,7 +669,7 @@ func (x *UpdateVehicleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateVehicleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateVehicleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{4}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdateVehicleRequest) GetTenantId() string {
@@ -780,7 +780,7 @@ type DeleteVehicleRequest struct {
 
 func (x *DeleteVehicleRequest) Reset() {
 	*x = DeleteVehicleRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[5]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -792,7 +792,7 @@ func (x *DeleteVehicleRequest) String() string {
 func (*DeleteVehicleRequest) ProtoMessage() {}
 
 func (x *DeleteVehicleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[5]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -805,7 +805,7 @@ func (x *DeleteVehicleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVehicleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVehicleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{5}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeleteVehicleRequest) GetTenantId() string {
@@ -830,7 +830,7 @@ type DeleteVehicleResponse struct {
 
 func (x *DeleteVehicleResponse) Reset() {
 	*x = DeleteVehicleResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[6]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +842,7 @@ func (x *DeleteVehicleResponse) String() string {
 func (*DeleteVehicleResponse) ProtoMessage() {}
 
 func (x *DeleteVehicleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[6]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -855,7 +855,7 @@ func (x *DeleteVehicleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVehicleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteVehicleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{6}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{6}
 }
 
 type GetVehicleRequest struct {
@@ -868,7 +868,7 @@ type GetVehicleRequest struct {
 
 func (x *GetVehicleRequest) Reset() {
 	*x = GetVehicleRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[7]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -880,7 +880,7 @@ func (x *GetVehicleRequest) String() string {
 func (*GetVehicleRequest) ProtoMessage() {}
 
 func (x *GetVehicleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[7]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -893,7 +893,7 @@ func (x *GetVehicleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVehicleRequest.ProtoReflect.Descriptor instead.
 func (*GetVehicleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{7}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetVehicleRequest) GetTenantId() string {
@@ -919,7 +919,7 @@ type VehicleResponse struct {
 
 func (x *VehicleResponse) Reset() {
 	*x = VehicleResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[8]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -931,7 +931,7 @@ func (x *VehicleResponse) String() string {
 func (*VehicleResponse) ProtoMessage() {}
 
 func (x *VehicleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[8]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -944,7 +944,7 @@ func (x *VehicleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleResponse.ProtoReflect.Descriptor instead.
 func (*VehicleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{8}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *VehicleResponse) GetVehicle() *Vehicle {
@@ -968,7 +968,7 @@ type ListVehiclesRequest struct {
 
 func (x *ListVehiclesRequest) Reset() {
 	*x = ListVehiclesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[9]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -980,7 +980,7 @@ func (x *ListVehiclesRequest) String() string {
 func (*ListVehiclesRequest) ProtoMessage() {}
 
 func (x *ListVehiclesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[9]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -993,7 +993,7 @@ func (x *ListVehiclesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVehiclesRequest.ProtoReflect.Descriptor instead.
 func (*ListVehiclesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{9}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListVehiclesRequest) GetTenantId() string {
@@ -1048,7 +1048,7 @@ type ListVehiclesResponse struct {
 
 func (x *ListVehiclesResponse) Reset() {
 	*x = ListVehiclesResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[10]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1060,7 +1060,7 @@ func (x *ListVehiclesResponse) String() string {
 func (*ListVehiclesResponse) ProtoMessage() {}
 
 func (x *ListVehiclesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[10]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1073,7 +1073,7 @@ func (x *ListVehiclesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVehiclesResponse.ProtoReflect.Descriptor instead.
 func (*ListVehiclesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{10}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListVehiclesResponse) GetVehicles() []*Vehicle {
@@ -1108,7 +1108,7 @@ type ScheduleServiceRequest struct {
 
 func (x *ScheduleServiceRequest) Reset() {
 	*x = ScheduleServiceRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[11]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1120,7 +1120,7 @@ func (x *ScheduleServiceRequest) String() string {
 func (*ScheduleServiceRequest) ProtoMessage() {}
 
 func (x *ScheduleServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[11]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1133,7 +1133,7 @@ func (x *ScheduleServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleServiceRequest.ProtoReflect.Descriptor instead.
 func (*ScheduleServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{11}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ScheduleServiceRequest) GetTenantId() string {
@@ -1224,7 +1224,7 @@ type UpdateServiceRequest struct {
 
 func (x *UpdateServiceRequest) Reset() {
 	*x = UpdateServiceRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[12]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1236,7 +1236,7 @@ func (x *UpdateServiceRequest) String() string {
 func (*UpdateServiceRequest) ProtoMessage() {}
 
 func (x *UpdateServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[12]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1249,7 +1249,7 @@ func (x *UpdateServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateServiceRequest.ProtoReflect.Descriptor instead.
 func (*UpdateServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{12}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateServiceRequest) GetTenantId() string {
@@ -1332,7 +1332,7 @@ type DeleteServiceRequest struct {
 
 func (x *DeleteServiceRequest) Reset() {
 	*x = DeleteServiceRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[13]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1344,7 +1344,7 @@ func (x *DeleteServiceRequest) String() string {
 func (*DeleteServiceRequest) ProtoMessage() {}
 
 func (x *DeleteServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[13]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1357,7 +1357,7 @@ func (x *DeleteServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteServiceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{13}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DeleteServiceRequest) GetTenantId() string {
@@ -1382,7 +1382,7 @@ type DeleteServiceResponse struct {
 
 func (x *DeleteServiceResponse) Reset() {
 	*x = DeleteServiceResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[14]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1394,7 +1394,7 @@ func (x *DeleteServiceResponse) String() string {
 func (*DeleteServiceResponse) ProtoMessage() {}
 
 func (x *DeleteServiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[14]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1407,7 +1407,7 @@ func (x *DeleteServiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteServiceResponse.ProtoReflect.Descriptor instead.
 func (*DeleteServiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{14}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{14}
 }
 
 type CompleteServiceRequest struct {
@@ -1423,7 +1423,7 @@ type CompleteServiceRequest struct {
 
 func (x *CompleteServiceRequest) Reset() {
 	*x = CompleteServiceRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[15]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1435,7 +1435,7 @@ func (x *CompleteServiceRequest) String() string {
 func (*CompleteServiceRequest) ProtoMessage() {}
 
 func (x *CompleteServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[15]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1448,7 +1448,7 @@ func (x *CompleteServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteServiceRequest.ProtoReflect.Descriptor instead.
 func (*CompleteServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{15}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CompleteServiceRequest) GetTenantId() string {
@@ -1499,7 +1499,7 @@ type ListServicesRequest struct {
 
 func (x *ListServicesRequest) Reset() {
 	*x = ListServicesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[16]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1511,7 +1511,7 @@ func (x *ListServicesRequest) String() string {
 func (*ListServicesRequest) ProtoMessage() {}
 
 func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[16]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1524,7 +1524,7 @@ func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesRequest.ProtoReflect.Descriptor instead.
 func (*ListServicesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{16}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListServicesRequest) GetTenantId() string {
@@ -1571,7 +1571,7 @@ type VehicleServiceResponse struct {
 
 func (x *VehicleServiceResponse) Reset() {
 	*x = VehicleServiceResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[17]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1583,7 +1583,7 @@ func (x *VehicleServiceResponse) String() string {
 func (*VehicleServiceResponse) ProtoMessage() {}
 
 func (x *VehicleServiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[17]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1596,7 +1596,7 @@ func (x *VehicleServiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleServiceResponse.ProtoReflect.Descriptor instead.
 func (*VehicleServiceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{17}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *VehicleServiceResponse) GetService() *VehicleService {
@@ -1616,7 +1616,7 @@ type ListServicesResponse struct {
 
 func (x *ListServicesResponse) Reset() {
 	*x = ListServicesResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[18]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1628,7 +1628,7 @@ func (x *ListServicesResponse) String() string {
 func (*ListServicesResponse) ProtoMessage() {}
 
 func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[18]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1641,7 +1641,7 @@ func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesResponse.ProtoReflect.Descriptor instead.
 func (*ListServicesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{18}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListServicesResponse) GetServices() []*VehicleService {
@@ -1674,7 +1674,7 @@ type ReportDamageRequest struct {
 
 func (x *ReportDamageRequest) Reset() {
 	*x = ReportDamageRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[19]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1686,7 +1686,7 @@ func (x *ReportDamageRequest) String() string {
 func (*ReportDamageRequest) ProtoMessage() {}
 
 func (x *ReportDamageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[19]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1699,7 +1699,7 @@ func (x *ReportDamageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportDamageRequest.ProtoReflect.Descriptor instead.
 func (*ReportDamageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{19}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ReportDamageRequest) GetTenantId() string {
@@ -1774,7 +1774,7 @@ type UpdateDamageRequest struct {
 
 func (x *UpdateDamageRequest) Reset() {
 	*x = UpdateDamageRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[20]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1786,7 +1786,7 @@ func (x *UpdateDamageRequest) String() string {
 func (*UpdateDamageRequest) ProtoMessage() {}
 
 func (x *UpdateDamageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[20]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1799,7 +1799,7 @@ func (x *UpdateDamageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDamageRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDamageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{20}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateDamageRequest) GetTenantId() string {
@@ -1871,7 +1871,7 @@ type ResolveDamageRequest struct {
 
 func (x *ResolveDamageRequest) Reset() {
 	*x = ResolveDamageRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[21]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1883,7 +1883,7 @@ func (x *ResolveDamageRequest) String() string {
 func (*ResolveDamageRequest) ProtoMessage() {}
 
 func (x *ResolveDamageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[21]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1896,7 +1896,7 @@ func (x *ResolveDamageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveDamageRequest.ProtoReflect.Descriptor instead.
 func (*ResolveDamageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{21}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ResolveDamageRequest) GetTenantId() string {
@@ -1947,7 +1947,7 @@ type ListDamagesRequest struct {
 
 func (x *ListDamagesRequest) Reset() {
 	*x = ListDamagesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[22]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1959,7 +1959,7 @@ func (x *ListDamagesRequest) String() string {
 func (*ListDamagesRequest) ProtoMessage() {}
 
 func (x *ListDamagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[22]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1972,7 +1972,7 @@ func (x *ListDamagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDamagesRequest.ProtoReflect.Descriptor instead.
 func (*ListDamagesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{22}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListDamagesRequest) GetTenantId() string {
@@ -2019,7 +2019,7 @@ type DamageResponse struct {
 
 func (x *DamageResponse) Reset() {
 	*x = DamageResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[23]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2031,7 +2031,7 @@ func (x *DamageResponse) String() string {
 func (*DamageResponse) ProtoMessage() {}
 
 func (x *DamageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[23]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2044,7 +2044,7 @@ func (x *DamageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DamageResponse.ProtoReflect.Descriptor instead.
 func (*DamageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{23}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DamageResponse) GetDamage() *Damage {
@@ -2064,7 +2064,7 @@ type ListDamagesResponse struct {
 
 func (x *ListDamagesResponse) Reset() {
 	*x = ListDamagesResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[24]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2076,7 +2076,7 @@ func (x *ListDamagesResponse) String() string {
 func (*ListDamagesResponse) ProtoMessage() {}
 
 func (x *ListDamagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[24]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2089,7 +2089,7 @@ func (x *ListDamagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDamagesResponse.ProtoReflect.Descriptor instead.
 func (*ListDamagesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{24}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListDamagesResponse) GetDamages() []*Damage {
@@ -2118,7 +2118,7 @@ type GetVehicleHistoryRequest struct {
 
 func (x *GetVehicleHistoryRequest) Reset() {
 	*x = GetVehicleHistoryRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[25]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2130,7 +2130,7 @@ func (x *GetVehicleHistoryRequest) String() string {
 func (*GetVehicleHistoryRequest) ProtoMessage() {}
 
 func (x *GetVehicleHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[25]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2143,7 +2143,7 @@ func (x *GetVehicleHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVehicleHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetVehicleHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{25}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetVehicleHistoryRequest) GetTenantId() string {
@@ -2186,7 +2186,7 @@ type VehicleHistoryEntry struct {
 
 func (x *VehicleHistoryEntry) Reset() {
 	*x = VehicleHistoryEntry{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[26]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2198,7 +2198,7 @@ func (x *VehicleHistoryEntry) String() string {
 func (*VehicleHistoryEntry) ProtoMessage() {}
 
 func (x *VehicleHistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[26]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2211,7 +2211,7 @@ func (x *VehicleHistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleHistoryEntry.ProtoReflect.Descriptor instead.
 func (*VehicleHistoryEntry) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{26}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *VehicleHistoryEntry) GetKind() string {
@@ -2252,7 +2252,7 @@ type VehicleHistoryResponse struct {
 
 func (x *VehicleHistoryResponse) Reset() {
 	*x = VehicleHistoryResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[27]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2264,7 +2264,7 @@ func (x *VehicleHistoryResponse) String() string {
 func (*VehicleHistoryResponse) ProtoMessage() {}
 
 func (x *VehicleHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[27]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2277,7 +2277,7 @@ func (x *VehicleHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleHistoryResponse.ProtoReflect.Descriptor instead.
 func (*VehicleHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{27}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *VehicleHistoryResponse) GetEntries() []*VehicleHistoryEntry {
@@ -2304,7 +2304,7 @@ type CheckTuevDueRequest struct {
 
 func (x *CheckTuevDueRequest) Reset() {
 	*x = CheckTuevDueRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[28]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2316,7 +2316,7 @@ func (x *CheckTuevDueRequest) String() string {
 func (*CheckTuevDueRequest) ProtoMessage() {}
 
 func (x *CheckTuevDueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[28]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2329,7 +2329,7 @@ func (x *CheckTuevDueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTuevDueRequest.ProtoReflect.Descriptor instead.
 func (*CheckTuevDueRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{28}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CheckTuevDueRequest) GetTenantId() string {
@@ -2355,7 +2355,7 @@ type CheckTuevDueResponse struct {
 
 func (x *CheckTuevDueResponse) Reset() {
 	*x = CheckTuevDueResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[29]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2367,7 +2367,7 @@ func (x *CheckTuevDueResponse) String() string {
 func (*CheckTuevDueResponse) ProtoMessage() {}
 
 func (x *CheckTuevDueResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[29]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2380,7 +2380,7 @@ func (x *CheckTuevDueResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTuevDueResponse.ProtoReflect.Descriptor instead.
 func (*CheckTuevDueResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{29}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CheckTuevDueResponse) GetVehicles() []*Vehicle {
@@ -2402,7 +2402,7 @@ type ListUpcomingServicesRequest struct {
 
 func (x *ListUpcomingServicesRequest) Reset() {
 	*x = ListUpcomingServicesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[30]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2414,7 +2414,7 @@ func (x *ListUpcomingServicesRequest) String() string {
 func (*ListUpcomingServicesRequest) ProtoMessage() {}
 
 func (x *ListUpcomingServicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[30]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2427,7 +2427,7 @@ func (x *ListUpcomingServicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUpcomingServicesRequest.ProtoReflect.Descriptor instead.
 func (*ListUpcomingServicesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{30}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListUpcomingServicesRequest) GetTenantId() string {
@@ -2468,7 +2468,7 @@ type ExportVehicleReportRequest struct {
 
 func (x *ExportVehicleReportRequest) Reset() {
 	*x = ExportVehicleReportRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[31]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2480,7 +2480,7 @@ func (x *ExportVehicleReportRequest) String() string {
 func (*ExportVehicleReportRequest) ProtoMessage() {}
 
 func (x *ExportVehicleReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[31]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2493,7 +2493,7 @@ func (x *ExportVehicleReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportVehicleReportRequest.ProtoReflect.Descriptor instead.
 func (*ExportVehicleReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{31}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ExportVehicleReportRequest) GetTenantId() string {
@@ -2521,7 +2521,7 @@ type ExportVehicleReportResponse struct {
 
 func (x *ExportVehicleReportResponse) Reset() {
 	*x = ExportVehicleReportResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[32]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2533,7 +2533,7 @@ func (x *ExportVehicleReportResponse) String() string {
 func (*ExportVehicleReportResponse) ProtoMessage() {}
 
 func (x *ExportVehicleReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[32]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2546,7 +2546,7 @@ func (x *ExportVehicleReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportVehicleReportResponse.ProtoReflect.Descriptor instead.
 func (*ExportVehicleReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{32}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ExportVehicleReportResponse) GetPayload() []byte {
@@ -2589,7 +2589,7 @@ type FuelLog struct {
 
 func (x *FuelLog) Reset() {
 	*x = FuelLog{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[33]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2601,7 +2601,7 @@ func (x *FuelLog) String() string {
 func (*FuelLog) ProtoMessage() {}
 
 func (x *FuelLog) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[33]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2614,7 +2614,7 @@ func (x *FuelLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FuelLog.ProtoReflect.Descriptor instead.
 func (*FuelLog) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{33}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *FuelLog) GetId() string {
@@ -2705,7 +2705,7 @@ type ListFuelLogsRequest struct {
 
 func (x *ListFuelLogsRequest) Reset() {
 	*x = ListFuelLogsRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[34]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2717,7 +2717,7 @@ func (x *ListFuelLogsRequest) String() string {
 func (*ListFuelLogsRequest) ProtoMessage() {}
 
 func (x *ListFuelLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[34]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2730,7 +2730,7 @@ func (x *ListFuelLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFuelLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListFuelLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{34}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListFuelLogsRequest) GetVehicleId() string {
@@ -2764,7 +2764,7 @@ type ListFuelLogsResponse struct {
 
 func (x *ListFuelLogsResponse) Reset() {
 	*x = ListFuelLogsResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[35]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2776,7 +2776,7 @@ func (x *ListFuelLogsResponse) String() string {
 func (*ListFuelLogsResponse) ProtoMessage() {}
 
 func (x *ListFuelLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[35]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2789,7 +2789,7 @@ func (x *ListFuelLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFuelLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListFuelLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{35}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListFuelLogsResponse) GetFuelLogs() []*FuelLog {
@@ -2821,7 +2821,7 @@ type CreateFuelLogRequest struct {
 
 func (x *CreateFuelLogRequest) Reset() {
 	*x = CreateFuelLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[36]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2833,7 +2833,7 @@ func (x *CreateFuelLogRequest) String() string {
 func (*CreateFuelLogRequest) ProtoMessage() {}
 
 func (x *CreateFuelLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[36]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2846,7 +2846,7 @@ func (x *CreateFuelLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFuelLogRequest.ProtoReflect.Descriptor instead.
 func (*CreateFuelLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{36}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CreateFuelLogRequest) GetVehicleId() string {
@@ -2907,7 +2907,7 @@ type CreateFuelLogResponse struct {
 
 func (x *CreateFuelLogResponse) Reset() {
 	*x = CreateFuelLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[37]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2919,7 +2919,7 @@ func (x *CreateFuelLogResponse) String() string {
 func (*CreateFuelLogResponse) ProtoMessage() {}
 
 func (x *CreateFuelLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[37]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2932,7 +2932,7 @@ func (x *CreateFuelLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFuelLogResponse.ProtoReflect.Descriptor instead.
 func (*CreateFuelLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{37}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreateFuelLogResponse) GetFuelLog() *FuelLog {
@@ -2957,7 +2957,7 @@ type UpdateFuelLogRequest struct {
 
 func (x *UpdateFuelLogRequest) Reset() {
 	*x = UpdateFuelLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[38]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2969,7 +2969,7 @@ func (x *UpdateFuelLogRequest) String() string {
 func (*UpdateFuelLogRequest) ProtoMessage() {}
 
 func (x *UpdateFuelLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[38]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2982,7 +2982,7 @@ func (x *UpdateFuelLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFuelLogRequest.ProtoReflect.Descriptor instead.
 func (*UpdateFuelLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{38}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *UpdateFuelLogRequest) GetId() string {
@@ -3043,7 +3043,7 @@ type UpdateFuelLogResponse struct {
 
 func (x *UpdateFuelLogResponse) Reset() {
 	*x = UpdateFuelLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[39]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3055,7 +3055,7 @@ func (x *UpdateFuelLogResponse) String() string {
 func (*UpdateFuelLogResponse) ProtoMessage() {}
 
 func (x *UpdateFuelLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[39]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3068,7 +3068,7 @@ func (x *UpdateFuelLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFuelLogResponse.ProtoReflect.Descriptor instead.
 func (*UpdateFuelLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{39}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *UpdateFuelLogResponse) GetFuelLog() *FuelLog {
@@ -3087,7 +3087,7 @@ type DeleteFuelLogRequest struct {
 
 func (x *DeleteFuelLogRequest) Reset() {
 	*x = DeleteFuelLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[40]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3099,7 +3099,7 @@ func (x *DeleteFuelLogRequest) String() string {
 func (*DeleteFuelLogRequest) ProtoMessage() {}
 
 func (x *DeleteFuelLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[40]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3112,7 +3112,7 @@ func (x *DeleteFuelLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFuelLogRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFuelLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{40}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteFuelLogRequest) GetId() string {
@@ -3130,7 +3130,7 @@ type DeleteFuelLogResponse struct {
 
 func (x *DeleteFuelLogResponse) Reset() {
 	*x = DeleteFuelLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[41]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3142,7 +3142,7 @@ func (x *DeleteFuelLogResponse) String() string {
 func (*DeleteFuelLogResponse) ProtoMessage() {}
 
 func (x *DeleteFuelLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[41]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3155,7 +3155,7 @@ func (x *DeleteFuelLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFuelLogResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFuelLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{41}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{41}
 }
 
 type TripLog struct {
@@ -3181,7 +3181,7 @@ type TripLog struct {
 
 func (x *TripLog) Reset() {
 	*x = TripLog{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[42]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3193,7 +3193,7 @@ func (x *TripLog) String() string {
 func (*TripLog) ProtoMessage() {}
 
 func (x *TripLog) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[42]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3206,7 +3206,7 @@ func (x *TripLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TripLog.ProtoReflect.Descriptor instead.
 func (*TripLog) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{42}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TripLog) GetId() string {
@@ -3325,7 +3325,7 @@ type ListTripLogsRequest struct {
 
 func (x *ListTripLogsRequest) Reset() {
 	*x = ListTripLogsRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[43]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3337,7 +3337,7 @@ func (x *ListTripLogsRequest) String() string {
 func (*ListTripLogsRequest) ProtoMessage() {}
 
 func (x *ListTripLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[43]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3350,7 +3350,7 @@ func (x *ListTripLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTripLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListTripLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{43}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListTripLogsRequest) GetVehicleId() string {
@@ -3384,7 +3384,7 @@ type ListTripLogsResponse struct {
 
 func (x *ListTripLogsResponse) Reset() {
 	*x = ListTripLogsResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[44]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3396,7 +3396,7 @@ func (x *ListTripLogsResponse) String() string {
 func (*ListTripLogsResponse) ProtoMessage() {}
 
 func (x *ListTripLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[44]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3409,7 +3409,7 @@ func (x *ListTripLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTripLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListTripLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{44}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListTripLogsResponse) GetTripLogs() []*TripLog {
@@ -3444,7 +3444,7 @@ type CreateTripLogRequest struct {
 
 func (x *CreateTripLogRequest) Reset() {
 	*x = CreateTripLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[45]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3456,7 +3456,7 @@ func (x *CreateTripLogRequest) String() string {
 func (*CreateTripLogRequest) ProtoMessage() {}
 
 func (x *CreateTripLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[45]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3469,7 +3469,7 @@ func (x *CreateTripLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTripLogRequest.ProtoReflect.Descriptor instead.
 func (*CreateTripLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{45}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *CreateTripLogRequest) GetVehicleId() string {
@@ -3551,7 +3551,7 @@ type CreateTripLogResponse struct {
 
 func (x *CreateTripLogResponse) Reset() {
 	*x = CreateTripLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[46]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3563,7 +3563,7 @@ func (x *CreateTripLogResponse) String() string {
 func (*CreateTripLogResponse) ProtoMessage() {}
 
 func (x *CreateTripLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[46]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3576,7 +3576,7 @@ func (x *CreateTripLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTripLogResponse.ProtoReflect.Descriptor instead.
 func (*CreateTripLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{46}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CreateTripLogResponse) GetTripLog() *TripLog {
@@ -3604,7 +3604,7 @@ type UpdateTripLogRequest struct {
 
 func (x *UpdateTripLogRequest) Reset() {
 	*x = UpdateTripLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[47]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3616,7 +3616,7 @@ func (x *UpdateTripLogRequest) String() string {
 func (*UpdateTripLogRequest) ProtoMessage() {}
 
 func (x *UpdateTripLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[47]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3629,7 +3629,7 @@ func (x *UpdateTripLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTripLogRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTripLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{47}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *UpdateTripLogRequest) GetId() string {
@@ -3711,7 +3711,7 @@ type UpdateTripLogResponse struct {
 
 func (x *UpdateTripLogResponse) Reset() {
 	*x = UpdateTripLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[48]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3723,7 +3723,7 @@ func (x *UpdateTripLogResponse) String() string {
 func (*UpdateTripLogResponse) ProtoMessage() {}
 
 func (x *UpdateTripLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[48]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3736,7 +3736,7 @@ func (x *UpdateTripLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTripLogResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTripLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{48}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *UpdateTripLogResponse) GetTripLog() *TripLog {
@@ -3755,7 +3755,7 @@ type DeleteTripLogRequest struct {
 
 func (x *DeleteTripLogRequest) Reset() {
 	*x = DeleteTripLogRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[49]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3767,7 +3767,7 @@ func (x *DeleteTripLogRequest) String() string {
 func (*DeleteTripLogRequest) ProtoMessage() {}
 
 func (x *DeleteTripLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[49]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3780,7 +3780,7 @@ func (x *DeleteTripLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTripLogRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTripLogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{49}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *DeleteTripLogRequest) GetId() string {
@@ -3798,7 +3798,7 @@ type DeleteTripLogResponse struct {
 
 func (x *DeleteTripLogResponse) Reset() {
 	*x = DeleteTripLogResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[50]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3810,7 +3810,7 @@ func (x *DeleteTripLogResponse) String() string {
 func (*DeleteTripLogResponse) ProtoMessage() {}
 
 func (x *DeleteTripLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[50]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3823,7 +3823,7 @@ func (x *DeleteTripLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTripLogResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTripLogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{50}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{50}
 }
 
 type VehicleDocument struct {
@@ -3844,7 +3844,7 @@ type VehicleDocument struct {
 
 func (x *VehicleDocument) Reset() {
 	*x = VehicleDocument{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[51]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3856,7 +3856,7 @@ func (x *VehicleDocument) String() string {
 func (*VehicleDocument) ProtoMessage() {}
 
 func (x *VehicleDocument) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[51]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3869,7 +3869,7 @@ func (x *VehicleDocument) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleDocument.ProtoReflect.Descriptor instead.
 func (*VehicleDocument) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{51}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *VehicleDocument) GetId() string {
@@ -3953,7 +3953,7 @@ type ListVehicleDocumentsRequest struct {
 
 func (x *ListVehicleDocumentsRequest) Reset() {
 	*x = ListVehicleDocumentsRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[52]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3965,7 +3965,7 @@ func (x *ListVehicleDocumentsRequest) String() string {
 func (*ListVehicleDocumentsRequest) ProtoMessage() {}
 
 func (x *ListVehicleDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[52]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3978,7 +3978,7 @@ func (x *ListVehicleDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVehicleDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListVehicleDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{52}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ListVehicleDocumentsRequest) GetVehicleId() string {
@@ -4012,7 +4012,7 @@ type ListVehicleDocumentsResponse struct {
 
 func (x *ListVehicleDocumentsResponse) Reset() {
 	*x = ListVehicleDocumentsResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[53]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4024,7 +4024,7 @@ func (x *ListVehicleDocumentsResponse) String() string {
 func (*ListVehicleDocumentsResponse) ProtoMessage() {}
 
 func (x *ListVehicleDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[53]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4037,7 +4037,7 @@ func (x *ListVehicleDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVehicleDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListVehicleDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{53}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ListVehicleDocumentsResponse) GetDocuments() []*VehicleDocument {
@@ -4067,7 +4067,7 @@ type CreateVehicleDocumentRequest struct {
 
 func (x *CreateVehicleDocumentRequest) Reset() {
 	*x = CreateVehicleDocumentRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[54]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4079,7 +4079,7 @@ func (x *CreateVehicleDocumentRequest) String() string {
 func (*CreateVehicleDocumentRequest) ProtoMessage() {}
 
 func (x *CreateVehicleDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[54]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4092,7 +4092,7 @@ func (x *CreateVehicleDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVehicleDocumentRequest.ProtoReflect.Descriptor instead.
 func (*CreateVehicleDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{54}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *CreateVehicleDocumentRequest) GetVehicleId() string {
@@ -4139,7 +4139,7 @@ type CreateVehicleDocumentResponse struct {
 
 func (x *CreateVehicleDocumentResponse) Reset() {
 	*x = CreateVehicleDocumentResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[55]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4151,7 +4151,7 @@ func (x *CreateVehicleDocumentResponse) String() string {
 func (*CreateVehicleDocumentResponse) ProtoMessage() {}
 
 func (x *CreateVehicleDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[55]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4164,7 +4164,7 @@ func (x *CreateVehicleDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVehicleDocumentResponse.ProtoReflect.Descriptor instead.
 func (*CreateVehicleDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{55}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CreateVehicleDocumentResponse) GetDocument() *VehicleDocument {
@@ -4183,7 +4183,7 @@ type DeleteVehicleDocumentRequest struct {
 
 func (x *DeleteVehicleDocumentRequest) Reset() {
 	*x = DeleteVehicleDocumentRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[56]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4195,7 +4195,7 @@ func (x *DeleteVehicleDocumentRequest) String() string {
 func (*DeleteVehicleDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteVehicleDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[56]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4208,7 +4208,7 @@ func (x *DeleteVehicleDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVehicleDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVehicleDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{56}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *DeleteVehicleDocumentRequest) GetId() string {
@@ -4226,7 +4226,7 @@ type DeleteVehicleDocumentResponse struct {
 
 func (x *DeleteVehicleDocumentResponse) Reset() {
 	*x = DeleteVehicleDocumentResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[57]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4238,7 +4238,7 @@ func (x *DeleteVehicleDocumentResponse) String() string {
 func (*DeleteVehicleDocumentResponse) ProtoMessage() {}
 
 func (x *DeleteVehicleDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[57]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4251,7 +4251,7 @@ func (x *DeleteVehicleDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVehicleDocumentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteVehicleDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{57}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{57}
 }
 
 type GpsPosition struct {
@@ -4268,7 +4268,7 @@ type GpsPosition struct {
 
 func (x *GpsPosition) Reset() {
 	*x = GpsPosition{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[58]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4280,7 +4280,7 @@ func (x *GpsPosition) String() string {
 func (*GpsPosition) ProtoMessage() {}
 
 func (x *GpsPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[58]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4293,7 +4293,7 @@ func (x *GpsPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GpsPosition.ProtoReflect.Descriptor instead.
 func (*GpsPosition) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{58}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GpsPosition) GetId() string {
@@ -4353,7 +4353,7 @@ type VehicleRoute struct {
 
 func (x *VehicleRoute) Reset() {
 	*x = VehicleRoute{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[59]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4365,7 +4365,7 @@ func (x *VehicleRoute) String() string {
 func (*VehicleRoute) ProtoMessage() {}
 
 func (x *VehicleRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[59]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4378,7 +4378,7 @@ func (x *VehicleRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleRoute.ProtoReflect.Descriptor instead.
 func (*VehicleRoute) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{59}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *VehicleRoute) GetVehicleId() string {
@@ -4440,7 +4440,7 @@ type IngestGpsPositionsRequest struct {
 
 func (x *IngestGpsPositionsRequest) Reset() {
 	*x = IngestGpsPositionsRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[60]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4452,7 +4452,7 @@ func (x *IngestGpsPositionsRequest) String() string {
 func (*IngestGpsPositionsRequest) ProtoMessage() {}
 
 func (x *IngestGpsPositionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[60]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4465,7 +4465,7 @@ func (x *IngestGpsPositionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngestGpsPositionsRequest.ProtoReflect.Descriptor instead.
 func (*IngestGpsPositionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{60}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *IngestGpsPositionsRequest) GetVehicleId() string {
@@ -4491,7 +4491,7 @@ type IngestGpsPositionsResponse struct {
 
 func (x *IngestGpsPositionsResponse) Reset() {
 	*x = IngestGpsPositionsResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[61]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4503,7 +4503,7 @@ func (x *IngestGpsPositionsResponse) String() string {
 func (*IngestGpsPositionsResponse) ProtoMessage() {}
 
 func (x *IngestGpsPositionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[61]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4516,7 +4516,7 @@ func (x *IngestGpsPositionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngestGpsPositionsResponse.ProtoReflect.Descriptor instead.
 func (*IngestGpsPositionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{61}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *IngestGpsPositionsResponse) GetIngested() int32 {
@@ -4537,7 +4537,7 @@ type GetVehicleRoutesRequest struct {
 
 func (x *GetVehicleRoutesRequest) Reset() {
 	*x = GetVehicleRoutesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[62]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4549,7 +4549,7 @@ func (x *GetVehicleRoutesRequest) String() string {
 func (*GetVehicleRoutesRequest) ProtoMessage() {}
 
 func (x *GetVehicleRoutesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[62]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4562,7 +4562,7 @@ func (x *GetVehicleRoutesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVehicleRoutesRequest.ProtoReflect.Descriptor instead.
 func (*GetVehicleRoutesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{62}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetVehicleRoutesRequest) GetDateFrom() string {
@@ -4595,7 +4595,7 @@ type GetVehicleRoutesResponse struct {
 
 func (x *GetVehicleRoutesResponse) Reset() {
 	*x = GetVehicleRoutesResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[63]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4607,7 +4607,7 @@ func (x *GetVehicleRoutesResponse) String() string {
 func (*GetVehicleRoutesResponse) ProtoMessage() {}
 
 func (x *GetVehicleRoutesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[63]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4620,7 +4620,7 @@ func (x *GetVehicleRoutesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVehicleRoutesResponse.ProtoReflect.Descriptor instead.
 func (*GetVehicleRoutesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{63}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GetVehicleRoutesResponse) GetRoutes() []*VehicleRoute {
@@ -4642,7 +4642,7 @@ type GetGpsPositionsRequest struct {
 
 func (x *GetGpsPositionsRequest) Reset() {
 	*x = GetGpsPositionsRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[64]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4654,7 +4654,7 @@ func (x *GetGpsPositionsRequest) String() string {
 func (*GetGpsPositionsRequest) ProtoMessage() {}
 
 func (x *GetGpsPositionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[64]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4667,7 +4667,7 @@ func (x *GetGpsPositionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGpsPositionsRequest.ProtoReflect.Descriptor instead.
 func (*GetGpsPositionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{64}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *GetGpsPositionsRequest) GetVehicleId() string {
@@ -4707,7 +4707,7 @@ type GetGpsPositionsResponse struct {
 
 func (x *GetGpsPositionsResponse) Reset() {
 	*x = GetGpsPositionsResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[65]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4719,7 +4719,7 @@ func (x *GetGpsPositionsResponse) String() string {
 func (*GetGpsPositionsResponse) ProtoMessage() {}
 
 func (x *GetGpsPositionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[65]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4732,7 +4732,7 @@ func (x *GetGpsPositionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGpsPositionsResponse.ProtoReflect.Descriptor instead.
 func (*GetGpsPositionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{65}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetGpsPositionsResponse) GetPositions() []*GpsPosition {
@@ -4760,7 +4760,7 @@ type DriverLicense struct {
 
 func (x *DriverLicense) Reset() {
 	*x = DriverLicense{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4772,7 +4772,7 @@ func (x *DriverLicense) String() string {
 func (*DriverLicense) ProtoMessage() {}
 
 func (x *DriverLicense) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4785,7 +4785,7 @@ func (x *DriverLicense) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DriverLicense.ProtoReflect.Descriptor instead.
 func (*DriverLicense) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{66}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DriverLicense) GetId() string {
@@ -4869,7 +4869,7 @@ type ListDriverLicensesRequest struct {
 
 func (x *ListDriverLicensesRequest) Reset() {
 	*x = ListDriverLicensesRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4881,7 +4881,7 @@ func (x *ListDriverLicensesRequest) String() string {
 func (*ListDriverLicensesRequest) ProtoMessage() {}
 
 func (x *ListDriverLicensesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4894,7 +4894,7 @@ func (x *ListDriverLicensesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDriverLicensesRequest.ProtoReflect.Descriptor instead.
 func (*ListDriverLicensesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{67}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListDriverLicensesRequest) GetDriverId() string {
@@ -4928,7 +4928,7 @@ type ListDriverLicensesResponse struct {
 
 func (x *ListDriverLicensesResponse) Reset() {
 	*x = ListDriverLicensesResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4940,7 +4940,7 @@ func (x *ListDriverLicensesResponse) String() string {
 func (*ListDriverLicensesResponse) ProtoMessage() {}
 
 func (x *ListDriverLicensesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4953,7 +4953,7 @@ func (x *ListDriverLicensesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDriverLicensesResponse.ProtoReflect.Descriptor instead.
 func (*ListDriverLicensesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{68}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ListDriverLicensesResponse) GetLicenses() []*DriverLicense {
@@ -4984,7 +4984,7 @@ type CreateDriverLicenseRequest struct {
 
 func (x *CreateDriverLicenseRequest) Reset() {
 	*x = CreateDriverLicenseRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4996,7 +4996,7 @@ func (x *CreateDriverLicenseRequest) String() string {
 func (*CreateDriverLicenseRequest) ProtoMessage() {}
 
 func (x *CreateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5009,7 +5009,7 @@ func (x *CreateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDriverLicenseRequest.ProtoReflect.Descriptor instead.
 func (*CreateDriverLicenseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{69}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CreateDriverLicenseRequest) GetDriverId() string {
@@ -5063,7 +5063,7 @@ type CreateDriverLicenseResponse struct {
 
 func (x *CreateDriverLicenseResponse) Reset() {
 	*x = CreateDriverLicenseResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5075,7 +5075,7 @@ func (x *CreateDriverLicenseResponse) String() string {
 func (*CreateDriverLicenseResponse) ProtoMessage() {}
 
 func (x *CreateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5088,7 +5088,7 @@ func (x *CreateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDriverLicenseResponse.ProtoReflect.Descriptor instead.
 func (*CreateDriverLicenseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{70}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *CreateDriverLicenseResponse) GetLicense() *DriverLicense {
@@ -5112,7 +5112,7 @@ type UpdateDriverLicenseRequest struct {
 
 func (x *UpdateDriverLicenseRequest) Reset() {
 	*x = UpdateDriverLicenseRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5124,7 +5124,7 @@ func (x *UpdateDriverLicenseRequest) String() string {
 func (*UpdateDriverLicenseRequest) ProtoMessage() {}
 
 func (x *UpdateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5137,7 +5137,7 @@ func (x *UpdateDriverLicenseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDriverLicenseRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDriverLicenseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{71}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *UpdateDriverLicenseRequest) GetId() string {
@@ -5191,7 +5191,7 @@ type UpdateDriverLicenseResponse struct {
 
 func (x *UpdateDriverLicenseResponse) Reset() {
 	*x = UpdateDriverLicenseResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5203,7 +5203,7 @@ func (x *UpdateDriverLicenseResponse) String() string {
 func (*UpdateDriverLicenseResponse) ProtoMessage() {}
 
 func (x *UpdateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5216,7 +5216,7 @@ func (x *UpdateDriverLicenseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDriverLicenseResponse.ProtoReflect.Descriptor instead.
 func (*UpdateDriverLicenseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{72}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpdateDriverLicenseResponse) GetLicense() *DriverLicense {
@@ -5235,7 +5235,7 @@ type DeleteDriverLicenseRequest struct {
 
 func (x *DeleteDriverLicenseRequest) Reset() {
 	*x = DeleteDriverLicenseRequest{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5247,7 +5247,7 @@ func (x *DeleteDriverLicenseRequest) String() string {
 func (*DeleteDriverLicenseRequest) ProtoMessage() {}
 
 func (x *DeleteDriverLicenseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5260,7 +5260,7 @@ func (x *DeleteDriverLicenseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDriverLicenseRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDriverLicenseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{73}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *DeleteDriverLicenseRequest) GetId() string {
@@ -5278,7 +5278,7 @@ type DeleteDriverLicenseResponse struct {
 
 func (x *DeleteDriverLicenseResponse) Reset() {
 	*x = DeleteDriverLicenseResponse{}
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5290,7 +5290,7 @@ func (x *DeleteDriverLicenseResponse) String() string {
 func (*DeleteDriverLicenseResponse) ProtoMessage() {}
 
 func (x *DeleteDriverLicenseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5303,14 +5303,559 @@ func (x *DeleteDriverLicenseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDriverLicenseResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDriverLicenseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{74}
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{74}
 }
 
-var File_proto_fuhrpark_v1_fuhrpark_proto protoreflect.FileDescriptor
+type VehicleBooking struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	VehicleId     string                 `protobuf:"bytes,3,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	StartsAt      string                 `protobuf:"bytes,5,opt,name=starts_at,json=startsAt,proto3" json:"starts_at,omitempty"` // RFC3339
+	EndsAt        string                 `protobuf:"bytes,6,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`       // RFC3339
+	Purpose       string                 `protobuf:"bytes,7,opt,name=purpose,proto3" json:"purpose,omitempty"`
+	Status        string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`                        // booked|in_use|completed|cancelled
+	CreatedBy     string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"` // empty when the booking has no known creator
+	CreatedAt     string                 `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
+func (x *VehicleBooking) Reset() {
+	*x = VehicleBooking{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VehicleBooking) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VehicleBooking) ProtoMessage() {}
+
+func (x *VehicleBooking) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VehicleBooking.ProtoReflect.Descriptor instead.
+func (*VehicleBooking) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *VehicleBooking) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetStartsAt() string {
+	if x != nil {
+		return x.StartsAt
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *VehicleBooking) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListVehicleBookingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"` // optional filter
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`          // optional filter
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                        // optional filter
+	From          string                 `protobuf:"bytes,4,opt,name=from,proto3" json:"from,omitempty"`                            // optional RFC3339 window start
+	To            string                 `protobuf:"bytes,5,opt,name=to,proto3" json:"to,omitempty"`                                // optional RFC3339 window end
+	Page          int32                  `protobuf:"varint,6,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVehicleBookingsRequest) Reset() {
+	*x = ListVehicleBookingsRequest{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVehicleBookingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVehicleBookingsRequest) ProtoMessage() {}
+
+func (x *ListVehicleBookingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVehicleBookingsRequest.ProtoReflect.Descriptor instead.
+func (*ListVehicleBookingsRequest) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *ListVehicleBookingsRequest) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *ListVehicleBookingsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ListVehicleBookingsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListVehicleBookingsRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *ListVehicleBookingsRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *ListVehicleBookingsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListVehicleBookingsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListVehicleBookingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bookings      []*VehicleBooking      `protobuf:"bytes,1,rep,name=bookings,proto3" json:"bookings,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVehicleBookingsResponse) Reset() {
+	*x = ListVehicleBookingsResponse{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVehicleBookingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVehicleBookingsResponse) ProtoMessage() {}
+
+func (x *ListVehicleBookingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVehicleBookingsResponse.ProtoReflect.Descriptor instead.
+func (*ListVehicleBookingsResponse) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *ListVehicleBookingsResponse) GetBookings() []*VehicleBooking {
+	if x != nil {
+		return x.Bookings
+	}
+	return nil
+}
+
+func (x *ListVehicleBookingsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type CreateVehicleBookingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	StartsAt      string                 `protobuf:"bytes,3,opt,name=starts_at,json=startsAt,proto3" json:"starts_at,omitempty"` // RFC3339
+	EndsAt        string                 `protobuf:"bytes,4,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`       // RFC3339
+	Purpose       string                 `protobuf:"bytes,5,opt,name=purpose,proto3" json:"purpose,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateVehicleBookingRequest) Reset() {
+	*x = CreateVehicleBookingRequest{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateVehicleBookingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateVehicleBookingRequest) ProtoMessage() {}
+
+func (x *CreateVehicleBookingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateVehicleBookingRequest.ProtoReflect.Descriptor instead.
+func (*CreateVehicleBookingRequest) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *CreateVehicleBookingRequest) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *CreateVehicleBookingRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *CreateVehicleBookingRequest) GetStartsAt() string {
+	if x != nil {
+		return x.StartsAt
+	}
+	return ""
+}
+
+func (x *CreateVehicleBookingRequest) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+func (x *CreateVehicleBookingRequest) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
+}
+
+// Optional so an omitted field stays untouched instead of being cleared.
+type UpdateVehicleBookingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	StartsAt      *string                `protobuf:"bytes,2,opt,name=starts_at,json=startsAt,proto3,oneof" json:"starts_at,omitempty"`
+	EndsAt        *string                `protobuf:"bytes,3,opt,name=ends_at,json=endsAt,proto3,oneof" json:"ends_at,omitempty"`
+	Purpose       *string                `protobuf:"bytes,4,opt,name=purpose,proto3,oneof" json:"purpose,omitempty"`
+	Status        *string                `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateVehicleBookingRequest) Reset() {
+	*x = UpdateVehicleBookingRequest{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateVehicleBookingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateVehicleBookingRequest) ProtoMessage() {}
+
+func (x *UpdateVehicleBookingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateVehicleBookingRequest.ProtoReflect.Descriptor instead.
+func (*UpdateVehicleBookingRequest) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *UpdateVehicleBookingRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateVehicleBookingRequest) GetStartsAt() string {
+	if x != nil && x.StartsAt != nil {
+		return *x.StartsAt
+	}
+	return ""
+}
+
+func (x *UpdateVehicleBookingRequest) GetEndsAt() string {
+	if x != nil && x.EndsAt != nil {
+		return *x.EndsAt
+	}
+	return ""
+}
+
+func (x *UpdateVehicleBookingRequest) GetPurpose() string {
+	if x != nil && x.Purpose != nil {
+		return *x.Purpose
+	}
+	return ""
+}
+
+func (x *UpdateVehicleBookingRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+type VehicleBookingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Booking       *VehicleBooking        `protobuf:"bytes,1,opt,name=booking,proto3" json:"booking,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VehicleBookingResponse) Reset() {
+	*x = VehicleBookingResponse{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VehicleBookingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VehicleBookingResponse) ProtoMessage() {}
+
+func (x *VehicleBookingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VehicleBookingResponse.ProtoReflect.Descriptor instead.
+func (*VehicleBookingResponse) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *VehicleBookingResponse) GetBooking() *VehicleBooking {
+	if x != nil {
+		return x.Booking
+	}
+	return nil
+}
+
+type DeleteVehicleBookingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteVehicleBookingRequest) Reset() {
+	*x = DeleteVehicleBookingRequest{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteVehicleBookingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteVehicleBookingRequest) ProtoMessage() {}
+
+func (x *DeleteVehicleBookingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteVehicleBookingRequest.ProtoReflect.Descriptor instead.
+func (*DeleteVehicleBookingRequest) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *DeleteVehicleBookingRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteVehicleBookingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteVehicleBookingResponse) Reset() {
+	*x = DeleteVehicleBookingResponse{}
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteVehicleBookingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteVehicleBookingResponse) ProtoMessage() {}
+
+func (x *DeleteVehicleBookingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fuhrpark_v1_fuhrpark_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteVehicleBookingResponse.ProtoReflect.Descriptor instead.
+func (*DeleteVehicleBookingResponse) Descriptor() ([]byte, []int) {
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{82}
+}
+
+var File_fuhrpark_v1_fuhrpark_proto protoreflect.FileDescriptor
+
+const file_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\n" +
-	" proto/fuhrpark/v1/fuhrpark.proto\x12\vfuhrpark.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd1\x04\n" +
+	"\x1afuhrpark/v1/fuhrpark.proto\x12\vfuhrpark.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd1\x04\n" +
 	"\aVehicle\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12#\n" +
@@ -5886,7 +6431,61 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\",\n" +
 	"\x1aDeleteDriverLicenseRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x1d\n" +
-	"\x1bDeleteDriverLicenseResponse2\x86\x1a\n" +
+	"\x1bDeleteDriverLicenseResponse\"\xba\x02\n" +
+	"\x0eVehicleBooking\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x03 \x01(\tR\tvehicleId\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tstarts_at\x18\x05 \x01(\tR\bstartsAt\x12\x17\n" +
+	"\aends_at\x18\x06 \x01(\tR\x06endsAt\x12\x18\n" +
+	"\apurpose\x18\a \x01(\tR\apurpose\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\t \x01(\tR\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\tR\tupdatedAt\"\xc1\x01\n" +
+	"\x1aListVehicleBookingsRequest\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x12\n" +
+	"\x04from\x18\x04 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x05 \x01(\tR\x02to\x12\x12\n" +
+	"\x04page\x18\x06 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\a \x01(\x05R\bpageSize\"l\n" +
+	"\x1bListVehicleBookingsResponse\x127\n" +
+	"\bbookings\x18\x01 \x03(\v2\x1b.fuhrpark.v1.VehicleBookingR\bbookings\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xa5\x01\n" +
+	"\x1bCreateVehicleBookingRequest\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tstarts_at\x18\x03 \x01(\tR\bstartsAt\x12\x17\n" +
+	"\aends_at\x18\x04 \x01(\tR\x06endsAt\x12\x18\n" +
+	"\apurpose\x18\x05 \x01(\tR\apurpose\"\xda\x01\n" +
+	"\x1bUpdateVehicleBookingRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
+	"\tstarts_at\x18\x02 \x01(\tH\x00R\bstartsAt\x88\x01\x01\x12\x1c\n" +
+	"\aends_at\x18\x03 \x01(\tH\x01R\x06endsAt\x88\x01\x01\x12\x1d\n" +
+	"\apurpose\x18\x04 \x01(\tH\x02R\apurpose\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x05 \x01(\tH\x03R\x06status\x88\x01\x01B\f\n" +
+	"\n" +
+	"_starts_atB\n" +
+	"\n" +
+	"\b_ends_atB\n" +
+	"\n" +
+	"\b_purposeB\t\n" +
+	"\a_status\"O\n" +
+	"\x16VehicleBookingResponse\x125\n" +
+	"\abooking\x18\x01 \x01(\v2\x1b.fuhrpark.v1.VehicleBookingR\abooking\"-\n" +
+	"\x1bDeleteVehicleBookingRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x1cDeleteVehicleBookingResponse2\xab\x1d\n" +
 	"\x0fFuhrparkService\x12P\n" +
 	"\rCreateVehicle\x12!.fuhrpark.v1.CreateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12P\n" +
 	"\rUpdateVehicle\x12!.fuhrpark.v1.UpdateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12V\n" +
@@ -5924,22 +6523,26 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x12ListDriverLicenses\x12&.fuhrpark.v1.ListDriverLicensesRequest\x1a'.fuhrpark.v1.ListDriverLicensesResponse\x12h\n" +
 	"\x13CreateDriverLicense\x12'.fuhrpark.v1.CreateDriverLicenseRequest\x1a(.fuhrpark.v1.CreateDriverLicenseResponse\x12h\n" +
 	"\x13UpdateDriverLicense\x12'.fuhrpark.v1.UpdateDriverLicenseRequest\x1a(.fuhrpark.v1.UpdateDriverLicenseResponse\x12h\n" +
-	"\x13DeleteDriverLicense\x12'.fuhrpark.v1.DeleteDriverLicenseRequest\x1a(.fuhrpark.v1.DeleteDriverLicenseResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
+	"\x13DeleteDriverLicense\x12'.fuhrpark.v1.DeleteDriverLicenseRequest\x1a(.fuhrpark.v1.DeleteDriverLicenseResponse\x12h\n" +
+	"\x13ListVehicleBookings\x12'.fuhrpark.v1.ListVehicleBookingsRequest\x1a(.fuhrpark.v1.ListVehicleBookingsResponse\x12e\n" +
+	"\x14CreateVehicleBooking\x12(.fuhrpark.v1.CreateVehicleBookingRequest\x1a#.fuhrpark.v1.VehicleBookingResponse\x12e\n" +
+	"\x14UpdateVehicleBooking\x12(.fuhrpark.v1.UpdateVehicleBookingRequest\x1a#.fuhrpark.v1.VehicleBookingResponse\x12k\n" +
+	"\x14DeleteVehicleBooking\x12(.fuhrpark.v1.DeleteVehicleBookingRequest\x1a).fuhrpark.v1.DeleteVehicleBookingResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
 
 var (
-	file_proto_fuhrpark_v1_fuhrpark_proto_rawDescOnce sync.Once
-	file_proto_fuhrpark_v1_fuhrpark_proto_rawDescData []byte
+	file_fuhrpark_v1_fuhrpark_proto_rawDescOnce sync.Once
+	file_fuhrpark_v1_fuhrpark_proto_rawDescData []byte
 )
 
-func file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP() []byte {
-	file_proto_fuhrpark_v1_fuhrpark_proto_rawDescOnce.Do(func() {
-		file_proto_fuhrpark_v1_fuhrpark_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc)))
+func file_fuhrpark_v1_fuhrpark_proto_rawDescGZIP() []byte {
+	file_fuhrpark_v1_fuhrpark_proto_rawDescOnce.Do(func() {
+		file_fuhrpark_v1_fuhrpark_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_fuhrpark_v1_fuhrpark_proto_rawDesc)))
 	})
-	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescData
+	return file_fuhrpark_v1_fuhrpark_proto_rawDescData
 }
 
-var file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
-var file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
+var file_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
+var file_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
 	(*Vehicle)(nil),                       // 0: fuhrpark.v1.Vehicle
 	(*VehicleService)(nil),                // 1: fuhrpark.v1.VehicleService
 	(*Damage)(nil),                        // 2: fuhrpark.v1.Damage
@@ -6015,24 +6618,32 @@ var file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
 	(*UpdateDriverLicenseResponse)(nil),   // 72: fuhrpark.v1.UpdateDriverLicenseResponse
 	(*DeleteDriverLicenseRequest)(nil),    // 73: fuhrpark.v1.DeleteDriverLicenseRequest
 	(*DeleteDriverLicenseResponse)(nil),   // 74: fuhrpark.v1.DeleteDriverLicenseResponse
-	(*timestamppb.Timestamp)(nil),         // 75: google.protobuf.Timestamp
+	(*VehicleBooking)(nil),                // 75: fuhrpark.v1.VehicleBooking
+	(*ListVehicleBookingsRequest)(nil),    // 76: fuhrpark.v1.ListVehicleBookingsRequest
+	(*ListVehicleBookingsResponse)(nil),   // 77: fuhrpark.v1.ListVehicleBookingsResponse
+	(*CreateVehicleBookingRequest)(nil),   // 78: fuhrpark.v1.CreateVehicleBookingRequest
+	(*UpdateVehicleBookingRequest)(nil),   // 79: fuhrpark.v1.UpdateVehicleBookingRequest
+	(*VehicleBookingResponse)(nil),        // 80: fuhrpark.v1.VehicleBookingResponse
+	(*DeleteVehicleBookingRequest)(nil),   // 81: fuhrpark.v1.DeleteVehicleBookingRequest
+	(*DeleteVehicleBookingResponse)(nil),  // 82: fuhrpark.v1.DeleteVehicleBookingResponse
+	(*timestamppb.Timestamp)(nil),         // 83: google.protobuf.Timestamp
 }
-var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
-	75, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
-	75, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
-	75, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
-	75, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
-	75, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
-	75, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
+var file_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
+	83, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
+	83, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
+	83, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
+	83, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
+	83, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
+	83, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
+	83, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
+	83, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: fuhrpark.v1.VehicleResponse.vehicle:type_name -> fuhrpark.v1.Vehicle
 	0,  // 9: fuhrpark.v1.ListVehiclesResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	1,  // 10: fuhrpark.v1.VehicleServiceResponse.service:type_name -> fuhrpark.v1.VehicleService
 	1,  // 11: fuhrpark.v1.ListServicesResponse.services:type_name -> fuhrpark.v1.VehicleService
 	2,  // 12: fuhrpark.v1.DamageResponse.damage:type_name -> fuhrpark.v1.Damage
 	2,  // 13: fuhrpark.v1.ListDamagesResponse.damages:type_name -> fuhrpark.v1.Damage
-	75, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
+	83, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
 	26, // 15: fuhrpark.v1.VehicleHistoryResponse.entries:type_name -> fuhrpark.v1.VehicleHistoryEntry
 	0,  // 16: fuhrpark.v1.CheckTuevDueResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	33, // 17: fuhrpark.v1.ListFuelLogsResponse.fuel_logs:type_name -> fuhrpark.v1.FuelLog
@@ -6050,120 +6661,131 @@ var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
 	66, // 29: fuhrpark.v1.ListDriverLicensesResponse.licenses:type_name -> fuhrpark.v1.DriverLicense
 	66, // 30: fuhrpark.v1.CreateDriverLicenseResponse.license:type_name -> fuhrpark.v1.DriverLicense
 	66, // 31: fuhrpark.v1.UpdateDriverLicenseResponse.license:type_name -> fuhrpark.v1.DriverLicense
-	3,  // 32: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
-	4,  // 33: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
-	5,  // 34: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
-	7,  // 35: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
-	9,  // 36: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
-	11, // 37: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
-	12, // 38: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
-	13, // 39: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
-	15, // 40: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
-	16, // 41: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
-	19, // 42: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
-	20, // 43: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
-	21, // 44: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
-	22, // 45: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
-	25, // 46: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
-	28, // 47: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
-	30, // 48: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
-	31, // 49: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
-	34, // 50: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
-	36, // 51: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
-	38, // 52: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
-	40, // 53: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
-	43, // 54: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
-	45, // 55: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
-	47, // 56: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
-	49, // 57: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
-	52, // 58: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
-	54, // 59: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
-	56, // 60: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
-	60, // 61: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
-	62, // 62: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
-	64, // 63: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
-	67, // 64: fuhrpark.v1.FuhrparkService.ListDriverLicenses:input_type -> fuhrpark.v1.ListDriverLicensesRequest
-	69, // 65: fuhrpark.v1.FuhrparkService.CreateDriverLicense:input_type -> fuhrpark.v1.CreateDriverLicenseRequest
-	71, // 66: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:input_type -> fuhrpark.v1.UpdateDriverLicenseRequest
-	73, // 67: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:input_type -> fuhrpark.v1.DeleteDriverLicenseRequest
-	8,  // 68: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	8,  // 69: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	6,  // 70: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
-	8,  // 71: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	10, // 72: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
-	17, // 73: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	17, // 74: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	14, // 75: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
-	17, // 76: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	18, // 77: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
-	23, // 78: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 79: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 80: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
-	24, // 81: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
-	27, // 82: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
-	29, // 83: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
-	18, // 84: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
-	32, // 85: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
-	35, // 86: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
-	37, // 87: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
-	39, // 88: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
-	41, // 89: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
-	44, // 90: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
-	46, // 91: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
-	48, // 92: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
-	50, // 93: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
-	53, // 94: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
-	55, // 95: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
-	57, // 96: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
-	61, // 97: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
-	63, // 98: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
-	65, // 99: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
-	68, // 100: fuhrpark.v1.FuhrparkService.ListDriverLicenses:output_type -> fuhrpark.v1.ListDriverLicensesResponse
-	70, // 101: fuhrpark.v1.FuhrparkService.CreateDriverLicense:output_type -> fuhrpark.v1.CreateDriverLicenseResponse
-	72, // 102: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:output_type -> fuhrpark.v1.UpdateDriverLicenseResponse
-	74, // 103: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:output_type -> fuhrpark.v1.DeleteDriverLicenseResponse
-	68, // [68:104] is the sub-list for method output_type
-	32, // [32:68] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	75, // 32: fuhrpark.v1.ListVehicleBookingsResponse.bookings:type_name -> fuhrpark.v1.VehicleBooking
+	75, // 33: fuhrpark.v1.VehicleBookingResponse.booking:type_name -> fuhrpark.v1.VehicleBooking
+	3,  // 34: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
+	4,  // 35: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
+	5,  // 36: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
+	7,  // 37: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
+	9,  // 38: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
+	11, // 39: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
+	12, // 40: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
+	13, // 41: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
+	15, // 42: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
+	16, // 43: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
+	19, // 44: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
+	20, // 45: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
+	21, // 46: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
+	22, // 47: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
+	25, // 48: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
+	28, // 49: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
+	30, // 50: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
+	31, // 51: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
+	34, // 52: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
+	36, // 53: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
+	38, // 54: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
+	40, // 55: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
+	43, // 56: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
+	45, // 57: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
+	47, // 58: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
+	49, // 59: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
+	52, // 60: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
+	54, // 61: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
+	56, // 62: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
+	60, // 63: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
+	62, // 64: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
+	64, // 65: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
+	67, // 66: fuhrpark.v1.FuhrparkService.ListDriverLicenses:input_type -> fuhrpark.v1.ListDriverLicensesRequest
+	69, // 67: fuhrpark.v1.FuhrparkService.CreateDriverLicense:input_type -> fuhrpark.v1.CreateDriverLicenseRequest
+	71, // 68: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:input_type -> fuhrpark.v1.UpdateDriverLicenseRequest
+	73, // 69: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:input_type -> fuhrpark.v1.DeleteDriverLicenseRequest
+	76, // 70: fuhrpark.v1.FuhrparkService.ListVehicleBookings:input_type -> fuhrpark.v1.ListVehicleBookingsRequest
+	78, // 71: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:input_type -> fuhrpark.v1.CreateVehicleBookingRequest
+	79, // 72: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:input_type -> fuhrpark.v1.UpdateVehicleBookingRequest
+	81, // 73: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:input_type -> fuhrpark.v1.DeleteVehicleBookingRequest
+	8,  // 74: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	8,  // 75: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	6,  // 76: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
+	8,  // 77: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	10, // 78: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
+	17, // 79: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	17, // 80: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	14, // 81: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
+	17, // 82: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	18, // 83: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
+	23, // 84: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 85: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 86: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
+	24, // 87: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
+	27, // 88: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
+	29, // 89: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
+	18, // 90: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
+	32, // 91: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
+	35, // 92: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
+	37, // 93: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
+	39, // 94: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
+	41, // 95: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
+	44, // 96: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
+	46, // 97: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
+	48, // 98: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
+	50, // 99: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
+	53, // 100: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
+	55, // 101: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
+	57, // 102: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
+	61, // 103: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
+	63, // 104: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
+	65, // 105: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
+	68, // 106: fuhrpark.v1.FuhrparkService.ListDriverLicenses:output_type -> fuhrpark.v1.ListDriverLicensesResponse
+	70, // 107: fuhrpark.v1.FuhrparkService.CreateDriverLicense:output_type -> fuhrpark.v1.CreateDriverLicenseResponse
+	72, // 108: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:output_type -> fuhrpark.v1.UpdateDriverLicenseResponse
+	74, // 109: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:output_type -> fuhrpark.v1.DeleteDriverLicenseResponse
+	77, // 110: fuhrpark.v1.FuhrparkService.ListVehicleBookings:output_type -> fuhrpark.v1.ListVehicleBookingsResponse
+	80, // 111: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
+	80, // 112: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
+	82, // 113: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:output_type -> fuhrpark.v1.DeleteVehicleBookingResponse
+	74, // [74:114] is the sub-list for method output_type
+	34, // [34:74] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
-func init() { file_proto_fuhrpark_v1_fuhrpark_proto_init() }
-func file_proto_fuhrpark_v1_fuhrpark_proto_init() {
-	if File_proto_fuhrpark_v1_fuhrpark_proto != nil {
+func init() { file_fuhrpark_v1_fuhrpark_proto_init() }
+func file_fuhrpark_v1_fuhrpark_proto_init() {
+	if File_fuhrpark_v1_fuhrpark_proto != nil {
 		return
 	}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[0].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[1].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[2].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[3].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[12].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[15].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[16].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[19].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[20].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[21].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[22].OneofWrappers = []any{}
-	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[28].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[0].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[1].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[2].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[3].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[4].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[9].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[11].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[12].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[15].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[16].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[19].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[20].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[21].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[22].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[28].OneofWrappers = []any{}
+	file_fuhrpark_v1_fuhrpark_proto_msgTypes[79].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_fuhrpark_v1_fuhrpark_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   75,
+			NumMessages:   83,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_fuhrpark_v1_fuhrpark_proto_goTypes,
-		DependencyIndexes: file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs,
-		MessageInfos:      file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes,
+		GoTypes:           file_fuhrpark_v1_fuhrpark_proto_goTypes,
+		DependencyIndexes: file_fuhrpark_v1_fuhrpark_proto_depIdxs,
+		MessageInfos:      file_fuhrpark_v1_fuhrpark_proto_msgTypes,
 	}.Build()
-	File_proto_fuhrpark_v1_fuhrpark_proto = out.File
-	file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = nil
-	file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = nil
+	File_fuhrpark_v1_fuhrpark_proto = out.File
+	file_fuhrpark_v1_fuhrpark_proto_goTypes = nil
+	file_fuhrpark_v1_fuhrpark_proto_depIdxs = nil
 }

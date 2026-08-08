@@ -241,7 +241,7 @@ units:
     service: fuhrpark
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Fahrzeugbuchung mit Konfliktpruefung (Pool-Nutzung). Verifiziert 2026-08-07 - unter den
       27 `/api/v1/fuhrpark/*`-Pfaden gibt es keine Buchung. Neue Tabelle `vehicle_bookings`

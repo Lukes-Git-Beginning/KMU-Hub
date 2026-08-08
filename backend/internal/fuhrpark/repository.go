@@ -76,6 +76,22 @@ type Repository interface {
 	UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
 	DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error
 
+	// Bookings
+	//
+	// CreateBookingWithLock inserts a booking only if no active booking of the
+	// same vehicle overlaps [starts_at, ends_at). Conflict check and insert run
+	// in one advisory-lock transaction; a returned UUID is the conflicting
+	// booking and means nothing was written. Splitting the check off into its
+	// own call would reopen the TOCTOU race that produktion closed.
+	CreateBookingWithLock(ctx context.Context, b *VehicleBooking) (*uuid.UUID, error)
+	UpdateBooking(ctx context.Context, b *VehicleBooking) error
+	DeleteBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error
+	GetBooking(ctx context.Context, tenantID, bookingID uuid.UUID) (*VehicleBooking, error)
+	ListBookings(ctx context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error)
+	// FindConflictingBooking reports the first active booking of the same
+	// vehicle overlapping [startsAt, endsAt), excluding excludeID when set.
+	FindConflictingBooking(ctx context.Context, tenantID, vehicleID uuid.UUID, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error)
+
 	// GPS
 	IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error)
 	GetVehicleRoutes(ctx context.Context, params GetVehicleRoutesParams) ([]VehicleRouteAggregation, error)

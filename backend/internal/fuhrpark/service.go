@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -816,4 +817,164 @@ func (s *Service) GetVehicleHistory(ctx context.Context, input GetVehicleHistory
 	}
 	offset := (input.Page - 1) * input.PageSize
 	return s.repo.GetVehicleHistory(ctx, input.TenantID, input.VehicleID, offset, input.PageSize)
+}
+
+// ============================================================================
+// Bookings
+// ============================================================================
+
+// CreateBookingInput holds data to reserve a vehicle.
+type CreateBookingInput struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID
+	UserID    uuid.UUID
+	StartsAt  time.Time
+	EndsAt    time.Time
+	Purpose   string
+	CreatedBy *uuid.UUID
+}
+
+// UpdateBookingInput holds the mutable fields of a booking. Nil means unchanged.
+type UpdateBookingInput struct {
+	TenantID  uuid.UUID
+	BookingID uuid.UUID
+	StartsAt  *time.Time
+	EndsAt    *time.Time
+	Purpose   *string
+	Status    *BookingStatus
+}
+
+// validBookingStatus reports whether the status is one the table accepts. The
+// CHECK constraint would catch the rest, but as a 500 rather than a 400.
+func validBookingStatus(s BookingStatus) bool {
+	switch s {
+	case BookingStatusBooked, BookingStatusInUse, BookingStatusCompleted, BookingStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// CreateVehicleBooking reserves a vehicle, rejecting overlaps with an existing
+// active booking of the same vehicle.
+//
+// The conflict check and the insert happen in one locked transaction
+// (CreateBookingWithLock). Checking first and inserting afterwards would leave
+// the window in which two concurrent requests both see a free vehicle -- the
+// exact race produktion closed for machine bookings.
+func (s *Service) CreateVehicleBooking(ctx context.Context, input CreateBookingInput) (*VehicleBooking, error) {
+	if input.UserID == uuid.Nil {
+		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidInput)
+	}
+	if !input.EndsAt.After(input.StartsAt) {
+		return nil, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalidInput)
+	}
+	// Verify the vehicle belongs to the tenant, so an unknown id is a 404 and
+	// not a foreign-key violation surfacing as a 500.
+	if _, err := s.repo.GetVehicle(ctx, input.TenantID, input.VehicleID); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	booking := &VehicleBooking{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		VehicleID: input.VehicleID,
+		UserID:    input.UserID,
+		StartsAt:  input.StartsAt,
+		EndsAt:    input.EndsAt,
+		Purpose:   strings.TrimSpace(input.Purpose),
+		Status:    BookingStatusBooked,
+		CreatedBy: input.CreatedBy,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	conflictID, err := s.repo.CreateBookingWithLock(ctx, booking)
+	if err != nil {
+		return nil, err
+	}
+	if conflictID != nil {
+		return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, *conflictID)
+	}
+
+	slog.Info("vehicle booked",
+		"booking_id", booking.ID,
+		"vehicle_id", booking.VehicleID,
+		"user_id", booking.UserID,
+		"starts_at", booking.StartsAt,
+		"ends_at", booking.EndsAt,
+	)
+	return booking, nil
+}
+
+// UpdateVehicleBooking changes an existing booking, re-checking for conflicts
+// whenever the interval moves or a released booking becomes active again.
+func (s *Service) UpdateVehicleBooking(ctx context.Context, input UpdateBookingInput) (*VehicleBooking, error) {
+	booking, err := s.repo.GetBooking(ctx, input.TenantID, input.BookingID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.StartsAt != nil {
+		booking.StartsAt = *input.StartsAt
+	}
+	if input.EndsAt != nil {
+		booking.EndsAt = *input.EndsAt
+	}
+	if !booking.EndsAt.After(booking.StartsAt) {
+		return nil, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalidInput)
+	}
+	if input.Purpose != nil {
+		booking.Purpose = strings.TrimSpace(*input.Purpose)
+	}
+	if input.Status != nil {
+		if !validBookingStatus(*input.Status) {
+			return nil, fmt.Errorf("%w: unknown booking status %q", ErrInvalidInput, *input.Status)
+		}
+		booking.Status = *input.Status
+	}
+
+	// Only an active booking occupies the vehicle. Cancelling one must never
+	// fail on a conflict -- it is what frees the slot in the first place.
+	if isActiveBookingStatus(booking.Status) {
+		conflictID, findErr := s.repo.FindConflictingBooking(
+			ctx, booking.TenantID, booking.VehicleID, booking.StartsAt, booking.EndsAt, &booking.ID,
+		)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if conflictID != nil {
+			return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, *conflictID)
+		}
+	}
+
+	booking.UpdatedAt = time.Now()
+	if updateErr := s.repo.UpdateBooking(ctx, booking); updateErr != nil {
+		return nil, updateErr
+	}
+	return booking, nil
+}
+
+func isActiveBookingStatus(s BookingStatus) bool {
+	return slices.Contains(ActiveBookingStatuses, s)
+}
+
+// DeleteVehicleBooking removes a booking.
+func (s *Service) DeleteVehicleBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error {
+	return s.repo.DeleteBooking(ctx, tenantID, bookingID)
+}
+
+// ListVehicleBookings returns bookings with optional filtering and pagination.
+func (s *Service) ListVehicleBookings(ctx context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error) {
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 || params.PageSize > 200 {
+		params.PageSize = 50
+	}
+	if params.Status != nil && !validBookingStatus(*params.Status) {
+		return nil, 0, fmt.Errorf("%w: unknown booking status %q", ErrInvalidInput, *params.Status)
+	}
+	return s.repo.ListBookings(ctx, params)
 }
