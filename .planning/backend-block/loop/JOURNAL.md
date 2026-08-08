@@ -3309,3 +3309,126 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   falls die reine Funktion isoliert getestet werden soll, ist das eine
   kleine eigene Erweiterung in `internal/work/timeentry`, nicht in
   `internal/server`.
+
+## Iteration 40 — b-cov-server-video-meetings — done — 2026-08-08 23:20
+- verify vorgaenger: sauber. `f4e6039c` fuegt ausschliesslich eine
+  Testdatei hinzu (`work_timeentry_label_customfield_test.go` +
+  `work_comment_test.go`-Erweiterung), keine der sechs Fehlerklassen greift
+  (kein Handler-/Proto-/Migrations-/Routen-Code angefasst).
+- gebaut: Neue Datei `internal/server/video_meeting_grpc_test.go`
+  (~1370 Zeilen) fuer den Meetings/Teilnehmer/Breakout-Raeume-Teil von
+  `video_grpc.go` (die andere Haelfte — Anrufe/Aufzeichnungen/Einladungen —
+  ist die separate Folge-Unit `b-cov-server-video-calls`). Stateful Mock
+  `meetingMockRepo` implementiert alle 30 Methoden von `meeting.Repository`
+  (Meeting-CRUD, Attendees, Notes, Action Items, Chat, Co-Hosts, Lock,
+  Breakout-Rooms/-Assignments), dazu `presenceMockStore`/
+  `presenceMockConfigRepo` fuer `presence.Store`/`presence.ConfigRepository`
+  — beide klein genug (5 bzw. 2 Methoden), um `meeting.Service` und
+  `presence.Service` echt (nicht gestubbt) hinter `VideoGRPCServer` laufen
+  zu lassen. Testschichten:
+  (1) `TestMapMeetingError_AllSentinels`/`TestMapPresenceError_AllSentinels`
+  — Tabellentests ueber alle 31 bzw. 3 Sentinel-Fehler plus ein unbekannter
+  Fehler, wie im Kopf der Unit als "wertvollster Teil" markiert.
+  (2) Enum-Konvertierungen in beide Richtungen: `MeetingStatus`, `RsvpStatus`
+  (nur eine Richtung noetig, da es keine Rueckfunktion gibt), `PresenceLevel`
+  — inklusive der beiden dokumentierten Default-Faelle (unbekanntes Proto-Enum
+  faellt bei Meetings auf "scheduled", bei Presence auf "offline" zurueck,
+  statt einer leeren Zeichenkette).
+  (3) Alle `toProto`-Funktionen des Bereichs (`meetingToProto`,
+  `meetingWithAttendeesToProto`, `actionItemToProto`,
+  `actionItemWithAssigneeToProto`, `meetingChatMessageToProto`,
+  `meetingCoHostToProto`, `breakoutRoomToProto`, `presenceToProto`) mit
+  Nil-/Optional-Feld-Faellen.
+  (4) `TestVideoMeetingHandlers_Validation` — 47 Faelle, mindestens ein
+  Invalid-Input-Pfad je Methode im Scope (fehlender Tenant, ungueltige UUID,
+  fehlende Pflichtfelder), erfuellt "Validierungspfade je Methode" woertlich.
+  (5) Fuenf dedizierte Tests fuer "leere Liste als [] statt null"
+  (ListMeetings, ListActionItems, ListCoHosts, GetBulkPresence,
+  ConvertActionItemsToTasks je mit 0 Treffern).
+  (6) Vertiefte Happy-Path-Tests: Meeting-Lifecycle (Create -> Start ->
+  Join -> CompleteMeetingByRoom), Lock + Co-Host-Bypass, Mute nur bei
+  `in_progress`, Breakout-Room-Rundlauf (Create -> Assign -> Get -> Return
+  -> Close), Presence-Config-Default vor erstem Schreiben, Chat
+  speichern+listen.
+- befund + fix (im selben Commit, siehe Begruendung unten): drei echte Bugs
+  beim Lesen des Zielcodes gefunden, alle mit demselben Muster wie
+  bestehender Nachbarcode behoben (Root-Cause-Fix, keine neue Abstraktion):
+  (1) **CreateActionItem-Handler setzte `input.TenantID` nie** — im
+  Unterschied zu JEDEM anderen Handler in der Datei fehlte der
+  `middleware.GetTenantID(ctx)`-Aufruf komplett, `CreateActionItemInput`
+  ging mit `TenantID: uuid.Nil` an den Service. Folge in Produktion: die
+  Meeting-Existenzpruefung im Service laeuft unter Tenant `Nil` (schlaegt
+  fast immer mit NotFound fehl), und im hypothetischen Erfolgsfall waere
+  das erzeugte Action-Item tenant-los gespeichert — ein RLS-relevanter
+  Bug, kein Stilfehler. Fix: `tenantID, tenantErr := middleware.GetTenantID(ctx)`
+  ergaenzt, exakt wie in `DeleteActionItem`/`ListActionItems` daneben.
+  (2) **`meeting.Service.UpdateActionItem` lud nie das echte Item.** Die
+  private Hilfsfunktion `listAllActionItemsByID` (deren eigener Kommentar
+  das Workaround-Weglassen ausdruecklich eingestand) gab nur
+  `&MeetingActionItem{ID: id}` zurueck; jedes Partial-Update setzte damit
+  alle NICHT im Request enthaltenen Felder (Description, AssigneeID,
+  SortOrder) auf ihren Zero-Value zurueck — ein `PUT .../action-items/{id}`
+  mit nur `is_completed` im Body loeschte die Beschreibung. Fix: echtes
+  `s.repo.GetActionItemByID(ctx, id, tenantID)` laden (die Methode existierte
+  schon im Repository-Interface und wird in `service_test.go`s bestehendem
+  Mock bereits sauber unterstuetzt), tote Hilfsfunktion entfernt.
+  Regressionstest `TestUpdateActionItem_PartialUpdate_PreservesOtherFields`.
+  (3) **Vier Handler lieferten bei 0 Treffern `null` statt `[]`**
+  (`ListMeetings`, `ListActionItems`, `ListCoHosts`, `GetBulkPresence`,
+  dazu `ConvertActionItemsToTasks`s Ergebnisliste) — alle nutzten
+  `var protos []*videov1.X` statt `make([]*videov1.X, 0, len(...))`, exakt
+  das in dieser Codebase wiederholt aufgetretene Wire-Shape-Muster. Fix
+  ist die geforderte Vorgabe der Unit selbst ("Leere Listen als [] statt
+  null"), nicht nur eine Testbehauptung darueber — die vier Stellen
+  liessen sich sonst gar nicht gruen testen. `ListMeetingChatMessages`,
+  `ListMeetingOccurrences`, `CreateBreakoutRooms`/`ListBreakoutRooms`
+  waren bereits korrekt (`make(..., len(...))`) und blieben unangetastet.
+  Alle drei Fixes sind reine Bestandsmuster-Uebernahmen ohne neue
+  Abstraktion, ohne Proto-/Migrations-/Routenaenderung — daher im selben
+  Commit wie die Coverage-Unit statt einer eigenen Fix-Unit.
+- gate: `go build -p 2 ./internal/server/... ./internal/work/meeting/...
+  ./internal/gateway/... ./cmd/gateway/...` ok | `go vet` ok |
+  `golangci-lint run --config .golangci.yml ./internal/server/...
+  ./internal/work/meeting/... ./internal/gateway/...` 0 issues |
+  `go test -count=1 ./internal/server/... ./internal/work/meeting/...
+  ./internal/gateway/` alle gruen inkl. `TestOpenAPIRouteDrift` (keine Route
+  angefasst) | migration n.a. | RLS-Smoke n.a. (keine Tabelle/Policy
+  angefasst) | Coverage `internal/server` 9,4 % -> 12,7 % (lokal ohne
+  DATABASE_URL fuer dieses reine In-Memory-Paket irrelevant, aber zur
+  Konsistenz mit demselben Env-Setup gemessen wie die Vorlaeufer-Iterationen).
+- mutations-probe: zwei Stueck, beide praezise, danach zurueckgedreht
+  (`git diff --stat -- internal/server/video_grpc.go
+  internal/work/meeting/service.go` nach dem Zuruecksetzen zeigt wieder
+  exakt den beabsichtigten Fix-Diff, keine Reste).
+  (1) `mapMeetingError`: `ErrNotOrganizer` von `PermissionDenied` auf
+  `InvalidArgument` gedreht. Ergebnis: GENAU der Subtest
+  `only_the_meeting_organizer_can_perform_this_action` in
+  `TestMapMeetingError_AllSentinels` sowie `TestStartMeeting_NonOrganizer_Denied`
+  und `TestPromoteCoHost_NonOrganizer_Denied` wurden rot, alle anderen
+  Faelle blieben gruen.
+  (2) `Service.UpdateActionItem`: den Fix testweise zurueckgenommen
+  (`item := &MeetingActionItem{ID: id}` statt echtem Laden). Ergebnis:
+  GENAU `TestUpdateActionItem_PartialUpdate_PreservesOtherFields` wurde rot
+  (`expected: "original description", actual: ""`), alle anderen Tests im
+  Paket blieben gruen.
+- db-tests: 0 (reines In-Memory-Paket, `internal/server` hat keinen
+  `SkipIfNoDB`-Pfad). `DATABASE_URL` war gesetzt, aber fuer dieses Paket
+  irrelevant.
+- offen: `b-cov-server-video-calls` (Folge-Unit, `deps:
+  [b-cov-server-video-meetings]`) deckt die zweite Haelfte von
+  `video_grpc.go` ab (Calls/Recordings/Invites, `mapVideoError`/
+  `mapRecordingError`) und ist jetzt entsperrt. `GetMeetingNotes`
+  (`video_grpc.go:1047`) ist eine separate, nicht angefasste Designschwaeche:
+  sie ruft intern `SaveNotes` mit leerem Content auf, um "Notizen lesen" zu
+  simulieren — das schlaegt an `ErrNotesContentRequired` fehl und liefert
+  IMMER einen leeren Notes-Stub statt der echten gespeicherten Notiz. Kein
+  Fix in dieser Unit (der Service exponiert kein `GetNotes` oeffentlich,
+  eine echte Loesung braucht eine neue Service-Methode — das ist
+  Feature-/Bugfix-Arbeit, keine Testabdeckung mehr). `meetingWithAttendeesToProto`s
+  `Attendees`-Feld bleibt bei 0 Teilnehmern `nil` statt `[]` (dasselbe Muster
+  wie die vier gefixten Stellen), aber praktisch unerreichbar, weil
+  `CreateMeeting` den Organizer immer als Attendee eintraegt — daher nur
+  dokumentiert (Test `TestMeetingWithAttendeesToProto`), nicht gefixt.
+  `ListMeetingOccurrences` ist nur bis `ErrSeriesUnavailable` getestet (kein
+  `SeriesSource`-Mock gebaut) — echte RRULE-Expansion-Tests gehoeren eher zur
+  Calendar/Event-Coverage.

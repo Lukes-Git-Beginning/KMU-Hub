@@ -1644,7 +1644,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/video_grpc.go`, erste Haelfte - Meetings, Teilnehmer und
       Breakout-Raeume. 2.454 Zeilen, 60 Methoden, vier Fehler-/Konvertierungsfunktionen, keine
@@ -1662,6 +1662,23 @@ units:
       - Leere Listen als [] statt null
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Neue Datei video_meeting_grpc_test.go (~1370 Zeilen): stateful Mock fuer
+      meeting.Repository (30 Methoden) + presence.Store/ConfigRepository, dazu
+      Tabellentests fuer mapMeetingError (29 gemappte + 2 tote Sentinels +
+      unbekannter Fehler) und mapPresenceError, beide Enum-Richtungen
+      (MeetingStatus, RsvpStatus, PresenceLevel), alle toProto-Funktionen des
+      Meetings/Presence-Bereichs, ein 47-Fall-Validierungspfad-Test (mind. ein
+      Invalid-Input-Fall je Methode im Scope) sowie vertiefte Happy-Path-Tests
+      (Meeting-Lifecycle, Lock/CoHost-Bypass, Breakout-Room-Rundlauf,
+      CompleteMeetingByRoom-Idempotenz, Presence-Config-Default). Dabei drei
+      echte Bugs im Zielcode gefunden und mit demselben Muster wie die
+      Nachbar-Handler behoben (siehe Journal Iteration 40): (1)
+      CreateActionItem setzte input.TenantID nie -> Tenant-Bruch, (2)
+      Service.UpdateActionItem lud nie das echte Item, wischte bei jedem
+      Partial-Update alle nicht uebergebenen Felder auf Zero-Value, (3) vier
+      Handler (ListMeetings, ListActionItems, ListCoHosts, GetBulkPresence,
+      ConvertActionItemsToTasks) lieferten bei 0 Treffern `null` statt `[]`.
 
   - id: b-cov-server-video-calls
     phase: 3
