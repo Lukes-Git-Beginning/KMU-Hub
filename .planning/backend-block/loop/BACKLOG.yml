@@ -1073,7 +1073,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/quote` - gemessen 33,3 %. Angebot-zu-Rechnung-Uebergang,
       Statuswechsel-Guards, Positionssummen und Tenant-Scopung.
@@ -1090,6 +1090,33 @@ units:
       - Cross-Tenant-Fall vorhanden
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      PRAEMISSE VERALTET (2026-08-08): 33,3 % stimmte nicht mehr, gemessen waren 62,8 %
+      (mit `-tags=integration`, dem testcontainers-Muster dieses Pakets). Die im
+      done_when geforderten Statuswechsel-Guards, Zeichenketten-Summen und der
+      Cross-Tenant-Fall waren bereits durch bestehende Tests abgedeckt
+      (service_test.go Mock-Ebene, integration_test.go Repository-Ebene). Die echte
+      Luecke lag in `postgres_repository.go` bei 0,0 %: `Delete`, `UpdateStatus`,
+      der komplette `PostgresNumberSequenceRepo` (NextNumber/NextNumberInTx/
+      GetSequenceInfo) und der komplette `PostgresCompanySettingsRepo`
+      (GetByTenantID/Upsert) liefen noch nie gegen echtes SQL - obwohl
+      NumberSequenceRepo die GoBD-luecken-freie Nummerierung fuer Angebote,
+      Rechnungen UND Gutschriften traegt. Neue Datei
+      `postgres_repository_db_test.go` mit neun Tests: Delete/UpdateStatus
+      tenant-gescopt inkl. Cross-Tenant-Fall; NumberSequenceRepo sequentiell
+      + unabhaengig je Fiskaljahr/Tenant + GetSequenceInfo-Nil-Zweig;
+      CompanySettingsRepo-Upsert-Roundtrip inkl. Basiszinssatz-Vorzeichen
+      (-0,88, negative Basiszinssaetze kamen real vor) und dem B6-Leerstring-Guard;
+      und der wichtigste Fund - `Service.Send`s atomare Kopplung aus
+      NextNumberInTx+UpdateInTx (der in service.go dokumentierte historische
+      GoBD-Bug: fehlgeschlagenes Update nach Nummernvergabe darf die Nummer
+      nicht verbrennen) war nirgends gegen eine echte Transaktion getestet -
+      die bestehenden Send-Tests nutzen einen noopTxBeginner und koennten eine
+      kaputte Tx-Kopplung nicht fangen. Neuer Test erzwingt den Fehlerfall ueber
+      die CHECK-Constraint `chk_finance_quotes_status` (bogus-status), rollt
+      zurueck und belegt, dass die naechste Nummer wieder bei 0001 startet statt
+      bei 0002 (kein verbrannter Beleg). Coverage 62,8 % -> 73,5 %.
+
 
   - id: c-cov-crm-company
     phase: 3

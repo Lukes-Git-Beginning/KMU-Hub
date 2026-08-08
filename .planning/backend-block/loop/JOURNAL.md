@@ -2268,3 +2268,87 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Repo, je nach Paket nachsehen, welches dort schon etabliert ist, statt zu
   raten.
   Naechste Unit im Backlog: `c-cov-biz-quote`.
+
+## Iteration 29 — c-cov-biz-quote — done — 2026-08-08 21:55
+- commit: (siehe naechster chore-Commit)
+- praemisse widerlegt: Backlog behauptete 33,3 % Coverage fuer
+  `internal/biz/quote`; gemessen waren 62,8 % (`-tags=integration`, testcontainers-
+  Muster wie bei `c-cov-biz-invoice-repo`). Alle vier `done_when`-Kriterien zu
+  Statuswechsel-Guards, Zeichenketten-Summen und Cross-Tenant waren bereits durch
+  `service_test.go` (Mock-Ebene, 41 Tests) und `integration_test.go`
+  (Repository-Ebene: Create/Update/List/GetByDealID/RLS) abgedeckt.
+- gebaut: Die echte Luecke lag komplett in `postgres_repository.go` bei 0,0 %
+  gemessener Funktionsabdeckung: `Delete`, `UpdateStatus`, der gesamte
+  `PostgresNumberSequenceRepo` (`NextNumber`, `NextNumberInTx`,
+  `GetSequenceInfo`) und der gesamte `PostgresCompanySettingsRepo`
+  (`GetByTenantID`, `Upsert`) liefen noch nie gegen echtes SQL — obwohl
+  `PostgresNumberSequenceRepo` die GoBD-luecken-freie Dokumentennummerierung
+  fuer Angebote, Rechnungen UND Gutschriften traegt (geteilter Code, ueber
+  `invoicebiz.SequenceInfo` auch von `internal/biz/invoice` genutzt). Neue
+  Datei `postgres_repository_db_test.go` (`//go:build integration`, package
+  `quote`, wiederverwendet `seedTenantQ`/`makeQuote`/`twoQuoteLines`/
+  `countQuoteLineRows` aus `integration_test.go` desselben Pakets), neun
+  Testfunktionen:
+  - `TestRepository_Delete_RemovesQuoteAndLines` — Delete raeumt die
+    `finance_quote_lines`-Zeilen mit auf (Cascade), Cross-Tenant-Delete
+    aendert 0 Zeilen statt eines Fehlers.
+  - `TestRepository_UpdateStatus_IsTenantScoped` — Cross-Tenant-Aufruf laesst
+    den Status unveraendert, eigener Tenant kann ihn setzen.
+  - `TestNumberSequenceRepo_SequentialWithinTenantAndYear` — drei
+    aufeinanderfolgende Nummern, `GetSequenceInfo` liefert `CurrentNumber=3`.
+  - `TestNumberSequenceRepo_IndependentPerFiscalYearAndTenant` — neues
+    Fiskaljahr UND fremder Tenant starten beide wieder bei 0001, statt den
+    Zaehler des anderen fortzusetzen.
+  - `TestNumberSequenceRepo_GetSequenceInfo_NilForUnseenSequence` — der
+    `pgx.ErrNoRows`-Zweig liefert `(nil, nil)`, keinen Fehler.
+  - `TestSend_RealDB_AssignsNumberAndStatusAtomically` — `Service.Send` mit
+    echtem Pool (nicht Mock/noopTxBeginner) committet Nummer + Status in
+    einem Zug.
+  - `TestSend_RealDB_FailedUpdateRollsBackNumberAssignment` — der
+    wertvollste Test der Unit: repliziert genau die Tx-Kopplung, die
+    `service.go`s Send-Kommentar als historischen GoBD-Bugfix beschreibt
+    (NextNumberInTx + UpdateInTx in EINER Transaktion, damit ein
+    fehlgeschlagenes Update die Nummer nicht verbrennt). `Send()` selbst
+    schreibt immer einen gueltigen Status und laesst sich von aussen nicht in
+    den Fehlerfall zwingen — der Test baut deshalb dieselbe Tx-Sequenz manuell
+    nach und erzwingt den Fehler ueber die CHECK-Constraint
+    `chk_finance_quotes_status` (Status `"bogus-status"`), rollt zurueck und
+    belegt per zweitem `NextNumber`-Aufruf, dass die naechste Nummer wieder
+    0001 ist statt 0002.
+  - `TestCompanySettingsRepo_UpsertAndGetByTenantID_RoundtripsDecimalPrecision`
+    — `Basiszinssatz` als NUMERIC(5,2) mit Vorzeichen (-0,88; deutsche
+    Basiszinssaetze waren real ueber Jahre negativ) uebersteht den
+    String-Roundtrip; zweiter Upsert auf denselben Tenant geht ueber
+    `ON CONFLICT (tenant_id)` (kein Duplikat); der B6-Guard bestaetigt: ein
+    leerer `DefaultCurrency` faellt auf den System-Default `EUR` zurueck,
+    NICHT auf den zuvor gespeicherten Tenant-Wert — meine erste
+    Testerwartung ("bleibt CHF") war falsch und wurde vom Testlauf selbst
+    widerlegt, korrigiert auf die tatsaechliche Guard-Semantik.
+- gate: `go build ./internal/...` ok | `go vet -tags=integration
+  ./internal/biz/quote/...` ok | `golangci-lint run --build-tags=integration
+  ./internal/biz/quote/...` 0 issues | `go test -tags=integration -count=1
+  -cover ./internal/biz/quote/...` — alle 41 Tests gruen (13 Integration- +
+  28 Service-Tests), 0 Skips, **73,5 % Coverage** (vorher 62,8 %).
+  Migration n.a. (kein Schema angefasst), openapi n.a. (kein RPC/Route
+  angefasst).
+- mutations-probe: zwei Stueck.
+  (1) In `NextNumberInTx`s SELECT die Bedingung `AND fiscal_year = $3`
+  entfernt (Query behaelt aber den dritten Bind-Parameter) ->
+  `TestNumberSequenceRepo_IndependentPerFiscalYearAndTenant` wurde sofort rot
+  (`select sequence: expected 2 arguments, got 3`). Zurueckgedreht,
+  `git diff --stat` bestaetigt keine Differenz.
+  (2) In `PostgresCompanySettingsRepo.Upsert` den B6-Leerstring-Guard
+  entfernt (`defaultCurrency := settings.DefaultCurrency` ohne Fallback) ->
+  `TestCompanySettingsRepo_UpsertAndGetByTenantID_RoundtripsDecimalPrecision`
+  wurde rot (`DefaultCurrency after empty-string Upsert: got "   ", want
+  "EUR"`). Zurueckgedreht, `git diff --stat` bestaetigt keine Differenz.
+- db-tests: testcontainers-Muster (frischer Container pro
+  `pgtc.StartPostgres(t)`), **0 Skips**. Laufzeit des Gesamtpakets ~66s
+  (13 neue DB-Tests je ein eigener Container, ~4-6s je Test).
+- offen: Kein Befund fuer Luke aus dieser Unit. Bemerkenswert fuer folgende
+  Iterationen: `PostgresNumberSequenceRepo` wird von quote, invoice UND
+  creditnote genutzt (geteilter Code in `internal/biz/quote/postgres_repository.go`,
+  ueber `invoicebiz.NumberSequenceRepo`-Interface) — die hier gebauten
+  Sequence-Tests decken damit indirekt auch die Nummerierungs-Grundlage der
+  anderen beiden Pakete ab, falls dort noch Coverage-Units offen sind.
+  Naechste Unit im Backlog: `c-cov-crm-company`.
