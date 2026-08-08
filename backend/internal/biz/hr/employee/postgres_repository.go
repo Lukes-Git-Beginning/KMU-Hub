@@ -53,9 +53,9 @@ func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate, ep.is_minor,
 			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
-			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mu.first_name, mu.last_name)), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -73,9 +73,9 @@ func (r *PostgresEmployeeRepo) GetByUserID(ctx context.Context, userID uuid.UUID
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate, ep.is_minor,
 			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
-			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mu.first_name, mu.last_name)), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -138,9 +138,9 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at, ep.hourly_rate, ep.is_minor,
 			ep.status, ep.last_work_day, ep.exit_date, COALESCE(ep.exit_type, ''), COALESCE(ep.exit_reason, ''),
-			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mu.first_name, mu.last_name)), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -478,8 +478,8 @@ const personnelDocColumns = `
 		COALESCE(dc.visibility, '') AS visibility,
 		COALESCE(NULLIF(d.file_name, ''), f.filename, '') AS file_name,
 		COALESCE(NULLIF(d.file_size, ''), f.file_size::text, '') AS file_size,
-		COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS uploaded_by_name,
-		COALESCE(NULLIF(CONCAT_WS(' ', e.first_name, e.last_name), ''), e.email, '') AS employee_name,
+		COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS uploaded_by_name,
+		COALESCE(NULLIF(TRIM(CONCAT_WS(' ', e.first_name, e.last_name)), ''), e.email, '') AS employee_name,
 		COALESCE(p.id::text, '') AS employee_profile_id`
 
 const personnelDocJoins = `
