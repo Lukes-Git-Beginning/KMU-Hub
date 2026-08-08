@@ -2270,7 +2270,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Naechste Unit im Backlog: `c-cov-biz-quote`.
 
 ## Iteration 29 — c-cov-biz-quote — done — 2026-08-08 21:55
-- commit: (siehe naechster chore-Commit)
+- commit: 7ead6260
 - praemisse widerlegt: Backlog behauptete 33,3 % Coverage fuer
   `internal/biz/quote`; gemessen waren 62,8 % (`-tags=integration`, testcontainers-
   Muster wie bei `c-cov-biz-invoice-repo`). Alle vier `done_when`-Kriterien zu
