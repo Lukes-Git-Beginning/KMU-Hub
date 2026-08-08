@@ -2001,7 +2001,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Naechste Unit im Backlog: `c-cov-biz-creditnote`.
 
 ## Iteration 25 — c-cov-biz-creditnote — done — 2026-08-08 21:15
-- commit: (nachgetragen im Folge-Commit)
+- commit: df6a7398
 - verify vorgaenger: sauber. `94f5aa05` (c-cov-biz-gobdarchive) geprueft: nur
   `service_test.go`/`postgres_repository_db_test.go` (neu) plus drei reine
   Kommentarkorrekturen (`service.go`-Package-Doc, `models/gobd.go`,
