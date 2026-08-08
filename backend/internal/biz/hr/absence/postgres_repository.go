@@ -49,7 +49,7 @@ func (r *PostgresAbsenceRepo) GetAbsenceCalendar(ctx context.Context, filter Abs
 
 	query := fmt.Sprintf(`
 		SELECT lr.employee_id,
-			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS employee_name,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS employee_name,
 			COALESCE(ep.department, '') AS department,
 			COALESCE(lt.name, '') AS leave_type_name,
 			COALESCE(lt.key, '') AS leave_type_key,
