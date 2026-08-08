@@ -1026,8 +1026,8 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Unit ("Grep `go func` + `context.Background` in `internal/gateway`"), keine
   Nebenbei-Aenderung.
 
-## Iteration 14 — `a-video-meeting-recurrence` (2026-08-08)
-
+## Iteration 14 — a-video-meeting-recurrence — done — 2026-08-08 18:20
+- commit: 6f5779ec
 - vorspann: `651f7905` (Iteration 13) nachgeprueft. `git show --stat` = 4 Dateien,
   davon zwei Loop-Dateien; Code-Diff nur `route_video.go` (+
   `context.WithoutCancel`, Goroutine als benannte Methode) und ein neuer Test.
