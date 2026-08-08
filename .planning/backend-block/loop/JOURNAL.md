@@ -1133,7 +1133,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 
 ## Iteration 15 — a-notifications-channel-exposure — done — 2026-08-08 19:05
 
-- commit: (siehe unten)
+- commit: 3e094778
 - verify vorgaenger: Commit `6f5779ec` (Iteration 14, Meeting-Occurrences) gegen
   die sechs Fehlerklassen geprueft. `git show --stat` = 15 Dateien: Handler geht
   ueber `client.ListMeetingOccurrences` (gRPC-Client, kein Direct-Svc-Bypass),
