@@ -76,7 +76,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   eigene Unit inkl. Proto-Feld.
 
 ## Iteration 2 — a-vertraege-contract-events — done — 2026-08-08 15:40
-- commit: (im Folge-Commit nachgetragen)
+- commit: 04278996
 - gebaut: Migration **000298** legt `contract_events` an (`tenant_id UUID NOT NULL` +
   `contract_id` -> contracts ON DELETE CASCADE, `action TEXT`, `user_id UUID NULL` ->
   users ON DELETE SET NULL, `payload JSONB NOT NULL DEFAULT '{}'`, `created_at`), Index
