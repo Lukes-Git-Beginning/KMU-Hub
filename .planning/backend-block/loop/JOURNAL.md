@@ -4081,7 +4081,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Folge-Unit, kein aktiver Mangel.
 
 ## Iteration 47 — b-cov-server-notification — done — 2026-08-09 01:20
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 09e6aace
 - gebaut: `internal/server/notification_grpc_test.go` (neu) - vollstaendige
   `mapNotificationError`-Sentinel-Tabelle (22 Sentinels + nil + unbekannt ->
   Internal), alle acht `toProto*`-Konvertierer (nil-optional vs. populated),
