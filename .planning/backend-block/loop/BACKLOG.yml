@@ -931,11 +931,12 @@ units:
       `::text` aus der NUMERIC-Spalte gelesen). Zwei Mutations-Proben, beide
       aussagekraeftig (Details im Journal).
 
+  - id: c-cov-crm-report
     phase: 3
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/crm/report` - gemessen 28,4 %. Die CRM-Auswertungen gegen
       echtes Schema testen, mit Zwei-Tenant-Faellen je Aggregation und leeren Ergebnismengen.
@@ -953,6 +954,52 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      28,4 % -> 90,8 %. Echter Fund dabei, nicht nur Coverage: `GetPipelineReport`
+      gruppierte/sortierte nach `ps.position`, einer Spalte, die in
+      `pipeline_stages` nie existiert hat (Migration 000008 nennt sie
+      `sort_order`) - jeder produktive Aufruf waere mit einem SQL-Fehler
+      gescheitert, unentdeckt, weil `service_test.go` nur die Mock-Repository
+      testete. Fix in `postgres_repository.go` (Zeilen 48-49) im selben Commit.
+      Neue Datei `postgres_repository_db_test.go` (Paket `report`, DATABASE_URL-
+      Pattern wie `internal/crm/contact/rls_test.go`) mit elf Tests: je
+      Aggregation (Pipeline, Conversion, Activity) ein Zwei-Tenant-Fall, ein
+      Leerer-Tenant-Fall (Stages/Metrics == leerer Slice, nicht nil) und ein
+      Fehlerpfad (canceled context). Der Pipeline-Test prueft zusaetzlich die
+      sort_order-Sortierung und die Weighted-Value-Formel (value *
+      probability/100) mit exakten Werten, der Conversion-Test die
+      Average-Days-Berechnung ueber direkt geseedete `deal_stage_history`-Zeilen
+      (Trigger umgangen fuer volle Kontrolle ueber changed_at), der
+      Activity-Test das `created_by OR assigned_to`-Userfilter explizit in
+      beiden Zweigen.
+    gate: >
+      build ok (`go build ./internal/...` - `go build ./...` scheitert
+      systembedingt am Linken aller 24 Service-Binaries mit
+      "cannot allocate memory", unabhaengig von dieser Aenderung, siehe Journal)
+      | vet ok (`./internal/...`) | lint ok (`golangci-lint run
+      ./internal/crm/report/...`, 0 issues) | test ok (`go test -count=1
+      -cover ./internal/crm/report/...` 25/25 PASS 0 SKIP, Coverage 90,8 %;
+      `./internal/gateway/` + `./internal/server/` + `./internal/testutil/` +
+      `./internal/crm/...` mit DATABASE_URL auf kmuhub_app alle gruen)
+      | migration n.a. (keine Migration, kein Schema angefasst)
+      | openapi n.a. (kein RPC/Route angefasst)
+    mutations_probe: >
+      Zwei Stueck, beide aussagekraeftig. (1) Den `sort_order`-Fix zurueck auf
+      `ps.position` gedreht -> alle drei Tests, die GetPipelineReport
+      aufrufen, wurden rot mit "column ps.position does not exist" (nur der
+      Canceled-Context-Test blieb gruen, weil er vor dem Query abbricht) -
+      belegt, dass die Tests wirklich gegen die reale Query laufen, nicht nur
+      gegen eine Mock. (2) Im Userfilter von GetActivityReport
+      `(created_by = $4 OR assigned_to = $4)` auf `created_by = $4` verkuerzt
+      -> GENAU `TestGetActivityReport_UserFilterMatchesCreatedByOrAssignedTo`
+      wurde rot (die nur-zugewiesene Aktivitaet fiel raus), alle uebrigen
+      Tests blieben gruen. Beide Aenderungen zurueckgedreht, `git diff --stat`
+      auf `postgres_repository.go` bestaetigt nur die zwei beabsichtigten
+      Fix-Zeilen als Differenz, Endgate danach erneut gelaufen und gruen.
+    db_tests: >
+      11 neue DB-Integrationstests unter dem DATABASE_URL-Pattern (kein
+      SkipIfNoDB-Skip in diesem Lauf, lokale docker-postgres-1 verfuegbar),
+      0 Skips. Gesamtpaket 25/25 PASS.
 
   - id: c-cov-biz-invoice-repo
     phase: 3

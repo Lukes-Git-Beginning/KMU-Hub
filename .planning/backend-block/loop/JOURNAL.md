@@ -2107,3 +2107,87 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   eine eigene kleine Rechercheeinheit ("laufen die drei HR-Integrationstests
   noch durch, und falls ja, warum sind sie nicht in nightly.yml?").
   Naechste Unit im Backlog: `c-cov-crm-report`.
+
+## Iteration 26 — c-cov-crm-report — done — 2026-08-08 20:22
+- commit: (nachgetragen im Folge-Commit)
+- verify vorgaenger: teilweise unsauber, aber am Code selbst nichts
+  auszusetzen. `df6a7398` (c-cov-biz-creditnote, Iteration 25) inhaltlich
+  geprueft: nur die neue Testdatei `repository_coverage_integration_test.go`,
+  keine Quelldatei angefasst, `go test -tags=integration
+  ./internal/biz/creditnote/...` lief erneut 27/27 gruen. Der Fehler steckte
+  im selben Commit an anderer Stelle: der `BACKLOG.yml`-Hunk, der den neuen
+  `result:`-Block an die `c-cov-biz-creditnote`-Unit anhaengte, hat dabei die
+  Zeile `- id: c-cov-crm-report` der DARAUFFOLGENDEN Unit geloescht (sichtbar
+  im Diff: `-  - id: c-cov-crm-report` ohne Ersatz). Ergebnis: kein gueltiges
+  YAML-Listenelement mehr — `phase`/`service`/`model`/... der crm-report-Unit
+  haengten als zusaetzliche (Duplikat-)Keys an der creditnote-Unit. Der
+  Treiber selbst waere davon vermutlich nicht gestolpert (er zaehlt offene
+  Units per Zeilen-Regex auf `status: todo`, nicht per YAML-Parser — siehe
+  Kopfkommentar), aber jedes Tool, das die Datei als YAML laedt (dieser
+  Verify-Schritt eingeschlossen), waere auf einen Parse-Fehler oder
+  stille Duplicate-Key-Ueberschreibung gelaufen. Reparatur: `- id:
+  c-cov-crm-report` wieder eingefuegt (ein Zeilen-Insert, siehe Commit-Diff).
+  `python3 -c "import yaml; ..."` bestaetigt danach 78 Units, keine
+  doppelten IDs. `git merge origin/main` war "Already up to date".
+- praemisse: bestaetigt. `internal/crm/report` hatte 0 DB-Tests
+  (`service_test.go` nur gegen `MockRepository`), alle drei
+  Repository-Methoden liefen nie gegen echtes SQL.
+- gebaut: 28,4 % -> **90,8 %** Coverage. Echter Fund dabei, kein reiner
+  Test-Zuwachs: `GetPipelineReport` gruppierte und sortierte nach
+  `ps.position` — diese Spalte hat in `pipeline_stages` nie existiert
+  (Migration 000008 nennt sie `sort_order`). Jeder produktive Aufruf dieser
+  Methode waere mit `SQLSTATE 42703` gescheitert; unentdeckt, weil die
+  einzige bestehende Testdatei die Mock-Repository testete, nie die echte
+  SQL-Query. Fix: `ps.position` -> `ps.sort_order` in `GROUP BY`/`ORDER BY`
+  (`postgres_repository.go:48-49`), selber Commit. Neue Datei
+  `postgres_repository_db_test.go` (Paket `report`, DATABASE_URL-Pattern wie
+  `internal/crm/contact/rls_test.go`, `SkipIfNoDB`+`PoolFromEnv`) mit elf
+  Tests: je Aggregation (Pipeline, Conversion, Activity) ein Zwei-Tenant-Fall,
+  ein Leerer-Tenant-Fall (Stages/Metrics kommen als leerer Slice, nicht nil,
+  zurueck — der Repository-Code allokiert das schon korrekt vor, die Tests
+  pinnen es fest) und ein Fehlerpfad (canceled context). Der Pipeline-Test
+  prueft zusaetzlich `sort_order`-Sortierung und die Weighted-Value-Formel
+  (`value * probability / 100`) mit exakten Decimal-Werten; der
+  Conversion-Test seedet `deal_stage_history` direkt (Trigger umgangen, um
+  `changed_at` frei zu kontrollieren) und prueft die Average-Days-Berechnung
+  auf ~4 Tage genau; der Activity-Test deckt beide Zweige des
+  `created_by OR assigned_to`-Userfilters einzeln ab.
+- gate: build ok (`go build ./internal/...` — `go build ./...` scheitert auf
+  dieser Maschine systembedingt beim Linken aller 24 Service-Binaries mit
+  "fatal error: runtime: cannot allocate memory", reproduzierbar unabhaengig
+  von dieser Aenderung, kein Regressionsindiz) | vet ok (`./internal/...`)
+  | lint ok (`golangci-lint run ./internal/crm/report/...`, 0 issues)
+  | test ok (`go test -count=1 -cover ./internal/crm/report/...` 25/25 PASS
+  0 SKIP, 90,8 % Coverage; `./internal/gateway/`+`./internal/server/`+
+  `./internal/testutil/`+`./internal/crm/...` mit DATABASE_URL auf
+  `kmuhub_app` alle gruen) | migration n.a. (keine Migration, kein Schema
+  angefasst) | openapi n.a. (kein RPC/Route angefasst)
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) Den `sort_order`-Fix zurueck auf `ps.position` gedreht -> alle drei
+  Tests, die `GetPipelineReport` tatsaechlich aufrufen, wurden rot mit
+  "column ps.position does not exist" (nur der Canceled-Context-Test blieb
+  gruen, weil er vor dem Query abbricht) — belegt, dass die Tests real gegen
+  die SQL-Query laufen, nicht gegen eine Mock-Attrappe.
+  (2) Im Userfilter von `GetActivityReport` `(created_by = $4 OR
+  assigned_to = $4)` auf `created_by = $4` verkuerzt -> GENAU
+  `TestGetActivityReport_UserFilterMatchesCreatedByOrAssignedTo` wurde rot
+  (die nur-zugewiesene, nicht selbst erstellte Aktivitaet fiel aus der
+  Zaehlung), alle uebrigen Tests blieben gruen. Beide Aenderungen
+  zurueckgedreht, `git diff --stat` auf `postgres_repository.go` bestaetigt
+  nur die zwei beabsichtigten Fix-Zeilen als Differenz zum Ausgangsstand,
+  Endgate danach erneut gelaufen und gruen (25/25, 0 Skips, 90,8 %).
+- db-tests: 11 neue DB-Integrationstests unter dem DATABASE_URL-Pattern
+  (`SkipIfNoDB`+`PoolFromEnv`, lokale `docker-postgres-1` verfuegbar),
+  **0 Skips** im gesamten Paket (25 PASS, 0 SKIP).
+- offen: Kein Befund fuer Luke aus dieser Unit selbst — der einzige Fund
+  (`ps.position`) wurde direkt gefixt, nicht nur dokumentiert, weil die
+  Korrektur eindeutig und risikofrei war (Spaltenname, keine Schema-
+  Aenderung, keine Verhaltensaenderung ausser "funktioniert jetzt statt
+  SQL-Fehler"). Erwaehnenswert fuer den naechsten Verify-Vorspann: Achtung
+  beim Anhaengen von `result:`-Bloecken an bestehende Backlog-Units mit
+  dem Edit-Tool — der Bug in dieser Iteration entstand dadurch, dass die
+  neue `result:`-Sektion versehentlich die `- id:`-Zeile der naechsten Unit
+  mit ueberschrieben hat. Nach jedem BACKLOG.yml-Edit lohnt sich ein
+  YAML-Parse-Check (`python3 -c "import yaml; yaml.safe_load(open(...))"`),
+  nicht nur ein visueller Diff-Blick.
+  Naechste Unit im Backlog: `c-cov-biz-invoice-repo`.

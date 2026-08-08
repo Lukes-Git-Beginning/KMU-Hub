@@ -45,8 +45,8 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 	}
 
 	query += `
-		GROUP BY ps.id, ps.name, ps.position
-		ORDER BY ps.position ASC
+		GROUP BY ps.id, ps.name, ps.sort_order
+		ORDER BY ps.sort_order ASC
 	`
 
 	rows, err := r.pool.Query(ctx, query, args...)
