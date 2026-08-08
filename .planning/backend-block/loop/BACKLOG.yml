@@ -894,7 +894,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/creditnote` - gemessen 28,2 %. Gutschriften sind ein
       Zahlungspfad - Betragsvorzeichen, Bezug zur Ursprungsrechnung, Teilgutschrift ueber den
@@ -913,8 +913,24 @@ units:
       - Cross-Tenant-Fall vorhanden
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      28,2 % -> 82,1 % (gemessen mit `-tags=integration`, dem tatsaechlichen
+      Testpfad dieses Pakets - siehe Journal). Der zuvor unbelegte
+      0-%-Rest lag komplett in `postgres_repository.go`: `List`,
+      `GetByInvoiceID` und `ListForDATEVExport` liefen nie gegen echtes SQL.
+      Neue Datei `repository_coverage_integration_test.go` (package
+      `creditnote_test`, `//go:build integration`, testcontainers via
+      `pgtc.StartPostgres`) mit fuenf Tests: Filter/Pagination/Tenant-Scopung
+      fuer List, Tenant-Scopung + ORDER BY fuer GetByInvoiceID (die Abfrage,
+      auf die StornoInvoice sich beim Doppel-Storno-Schutz verlaesst),
+      Datumsgrenze + Keyset-Paging fuer ListForDATEVExport, die geforderte
+      "ueberzogene Gutschrift" als Ist-Verhalten festgeschrieben (Create
+      prueft den Betrag nicht gegen die Rechnung - keine neue Validierung in
+      dieser Coverage-Unit, siehe Journal), und ein DB-Roundtrip mit 0.10+0.20
+      der beweist, dass Betraege nie durch float64 laufen (roh per
+      `::text` aus der NUMERIC-Spalte gelesen). Zwei Mutations-Proben, beide
+      aussagekraeftig (Details im Journal).
 
-  - id: c-cov-crm-report
     phase: 3
     service: crm
     model: sonnet

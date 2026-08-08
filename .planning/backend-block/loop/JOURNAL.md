@@ -1999,3 +1999,111 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   `service_test.go` existierten vorher unbenutzt (toter Scaffold-Code) und
   sind jetzt alle real durch mindestens einen Test bespielt.
   Naechste Unit im Backlog: `c-cov-biz-creditnote`.
+
+## Iteration 25 — c-cov-biz-creditnote — done — 2026-08-08 21:15
+- commit: (nachgetragen im Folge-Commit)
+- verify vorgaenger: sauber. `94f5aa05` (c-cov-biz-gobdarchive) geprueft: nur
+  `service_test.go`/`postgres_repository_db_test.go` (neu) plus drei reine
+  Kommentarkorrekturen (`service.go`-Package-Doc, `models/gobd.go`,
+  Migration-000139-Kopfkommentar: `+8` -> `+10`) — `git show` gegen alle drei
+  Nicht-Test-Dateien bestaetigt Kommentar-only, keine Logikaenderung. Kein
+  Handler, keine Route, kein RPC, keine neue Tabelle, kein
+  `RequirePermission`-Guard angefasst. `git merge origin/main` war "Already
+  up to date".
+- gebaut: Praemisse beim Lesen korrigiert, bevor irgendetwas geschrieben
+  wurde — `internal/biz/creditnote` hat KEINE 0-DB-Test-Luecke wie die
+  vorigen Bloecke: `integration_test.go` und
+  `send_atomic_integration_test.go` existierten bereits (Muster
+  `//go:build integration` + `testsupport/pgtc` + testcontainers-go, laeuft
+  nachts in `.github/workflows/nightly.yml` als eigener "Finance Integration
+  Tests"-Job fuer invoice/quote/creditnote — NICHT Teil von `go test ./...`
+  in `ci.yml`, deshalb hatte die im Backlog notierte 28,2 % nur die
+  Mock-basierten Tests aus `service_test.go` gezaehlt). Gemessen MIT
+  `-tags=integration` lag der echte Ausgangswert bei 50,2 %, nicht 28,2 %.
+  Der verbliebene 0-%-Rest war trotzdem real: `List`, `GetByInvoiceID` und
+  `ListForDATEVExport` in `postgres_repository.go` liefen nie gegen
+  echtes SQL — nur `Create`/`GetByID`/`Update`/`UpdateInTx` waren durch die
+  bestehenden Tests abgedeckt.
+  Neue Datei `repository_coverage_integration_test.go`
+  (package `creditnote_test`, externes Testpaket wie
+  `send_atomic_integration_test.go`, damit `internal/biz/invoice` als echter
+  `InvoiceReader` importiert werden kann ohne einen Zyklus in Package
+  `creditnote` selbst zu erzeugen) mit fuenf Tests:
+  (1) `TestList_FiltersPaginationAndTenantScoping` — Status-Filter,
+  `OriginalInvID`-Filter, Pagination (Limit/Offset, Total bleibt ueber beide
+  Seiten korrekt), Tenant-Scopung (Tenant B nie in Tenant As Liste).
+  (2) `TestGetByInvoiceID_TenantScopedAndOrderedDescending` — genau die
+  Abfrage, auf die `StornoInvoice`s Doppel-Storno-Schutz sich verlaesst;
+  `ORDER BY created_at DESC`, unbekannte Invoice-ID liefert leer statt
+  Fehler, Cross-Tenant-Kontext gegen eine fremde Invoice-ID liefert leer.
+  (3) `TestListForDATEVExport_DateRangeStatusAndKeysetPaging` —
+  Status-Filter (nur `sent`), die inklusive Tagesgrenze
+  (`created_at < $3::date + INTERVAL '1 day'`), Keyset-Paging ueber zwei
+  Seiten per `(created_at, id)`-Cursor.
+  (4) `TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance` — die im
+  Backlog geforderte "ueberzogene Gutschrift" als Ist-Verhalten
+  festgeschrieben, NICHT als neue Validierung gebaut: `Service.Create`
+  prueft den Gutschriftsbetrag an keiner Stelle gegen den offenen
+  Rechnungsbetrag der Originalrechnung, eine Gutschrift ueber das
+  Zehnfache der Rechnungssumme wird anstandslos angelegt. Das ist eine
+  Coverage-Unit, keine Block-A-Luecke — eine neue Pruefung waere
+  Scope-Erweiterung ueber `done_when` hinaus ("wird abgelehnt ODER ihr
+  Verhalten ist als Test festgeschrieben" erlaubt ausdruecklich Letzteres).
+  (5) `TestCreate_DecimalAmountsSurviveDBRoundTripAsExactStrings` — belegt
+  die zweite `done_when`-Vorgabe ("Betragspruefungen auf der Zeichenkette,
+  nicht auf gerundeten Floats") mit dem klassischen Float64-Fall 0,10+0,20:
+  Subtotal wird als exakte Dezimalzahl "0.30" im Go-Objekt UND nach dem
+  DB-Roundtrip erwartet, zusaetzlich wird die NUMERIC-Spalte per `::text`
+  roh gelesen (umgeht jede Go-seitige Formatierung) und ebenfalls gegen
+  "0.30" verglichen — waere irgendwo im Pfad float64 im Spiel, stuende dort
+  "0.30000000000000004" oder eine Rundung.
+- gate: build ok | vet ok (`./...`) | lint ok (`golangci-lint run
+  ./internal/biz/creditnote/...` UND mit `--build-tags=integration`, beide
+  0 issues) | test ok (`go test -tags=integration ./internal/biz/creditnote/...`
+  27/27 PASS 0 SKIP inkl. aller fuenf neuen Tests;
+  `./internal/gateway/`+`./internal/server/`+`./internal/testutil/` mit
+  `DATABASE_URL` auf `kmuhub_app` alle gruen) | migration n.a. (keine
+  Migration, kein Schema angefasst) | openapi n.a. (kein RPC/Route
+  angefasst)
+- mutations-probe: zwei Stueck, beide aussagekraeftig, an den zwei
+  vorher 0-%-Abfragen mit der hoechsten Business-Relevanz.
+  (1) `GetByInvoiceID`s `ORDER BY created_at DESC` auf `ASC` gedreht ->
+  GENAU `TestGetByInvoiceID_TenantScopedAndOrderedDescending` wurde rot,
+  alle 26 uebrigen Tests blieben gruen.
+  (2) `ListForDATEVExport`s `created_at < ($3::date + INTERVAL '1 day')`
+  auf `created_at < $3::date` verkuerzt (inklusive Tagesgrenze aufgehoben)
+  -> GENAU `TestListForDATEVExport_DateRangeStatusAndKeysetPaging` wurde
+  rot (der Datensatz vom letzten Tag im Bereich fiel raus), alle uebrigen
+  blieben gruen. Beide Aenderungen zurueckgedreht, `git diff --stat` auf
+  `postgres_repository.go` bestaetigt 0 Zeilen Differenz, Endgate danach
+  erneut gelaufen und gruen (27/27, 0 Skips, 82,1 % Coverage).
+- db-tests: 27 Tests im gesamten Paket unter `-tags=integration`
+  (testcontainers-go, kein `SkipIfNoDB`/`DATABASE_URL`-Pfad in diesem
+  Paket — jeder Testlauf startet seinen eigenen `pgvector/pgvector:pg16`-
+  Container und wendet alle 277 `.up.sql`-Migrationen an), **0 Skips**.
+  Docker Desktop war lokal verfuegbar.
+- offen: Zwei Befunde fuer Luke, keiner in dieser Unit behoben.
+  (1) Die im Backlog beschriebene Luecke "Ueberzogene Gutschrift wird nicht
+  geprueft" ist real und jetzt durch einen Test dauerhaft sichtbar gemacht
+  (`TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance`) statt nur in
+  `backend-gaps.md` zu stehen. Ob das eine gewollte Freiheit ist (der
+  Sachbearbeiter entscheidet den Betrag manuell) oder eine echte Luecke, ist
+  eine Fachentscheidung — waere als eigene Block-A-artige Unit sauber
+  nachruestbar (Guard in `Service.Create`, vergleicht `GrossTotal` gegen
+  `inv.GrossTotal` minus Summe bereits gesendeter Gutschriften zu dieser
+  Rechnung, ueber `GetByInvoiceID`).
+  (2) Waehrend der Recherche aufgefallen, nicht Teil dieser Unit:
+  `internal/biz/hr/absence/integration_test.go`,
+  `internal/biz/hr/employee/integration_test.go` und
+  `internal/biz/hr/leave/integration_test.go` tragen ebenfalls
+  `//go:build integration`, tauchen aber in KEINEM Workflow unter
+  `.github/workflows/*.yml` auf (nur invoice/quote/creditnote sind im
+  "Finance Integration Tests"-Job von `nightly.yml` verdrahtet) — diese drei
+  Dateien laufen nirgends in CI, weder taeglich noch nachts. Ob das
+  historisch tote Testdateien sind oder ein fehlender Nightly-Eintrag, ist
+  unklar; ein Grep zeigt, dass sie kompilieren (`go build -tags=integration
+  ./...` war Teil des BUILD_OK oben), aber ob sie inhaltlich noch zum Schema
+  passen, wurde in dieser Unit nicht geprueft. Waere ein guter Kandidat fuer
+  eine eigene kleine Rechercheeinheit ("laufen die drei HR-Integrationstests
+  noch durch, und falls ja, warum sind sie nicht in nightly.yml?").
+  Naechste Unit im Backlog: `c-cov-crm-report`.
