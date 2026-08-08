@@ -866,7 +866,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
    Trigger nicht stillschweigend abwuergt.
 
 ## Iteration 12 — a-video-caller-identity — done — 2026-08-08 17:27
-- commit: -
+- commit: e736f324
 - verify vorgaenger (`a6e4665b`, a-automation-cron-poller): sauber. Migration
   000303 hat `tenant_id UUID NOT NULL` + FK auf `tenants`/`automations` + `CALL
   enable_tenant_rls('automation_time_trigger_fires')`, up und down beide
