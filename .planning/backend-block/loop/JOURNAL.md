@@ -2354,7 +2354,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Naechste Unit im Backlog: `c-cov-crm-company`.
 
 ## Iteration 30 — c-cov-crm-company — done — 2026-08-08 21:05
-- commit: (siehe naechster chore-Commit)
+- commit: a05208e2
 - verify vorgaenger: sauber (7ead6260 ist ein reiner Testdatei-Commit, keine
   der sechs Fehlerklassen betroffen — kein Gateway/Route/Proto/Guard/Tabelle
   angefasst).
@@ -2429,7 +2429,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-crm-activity`.
 
 ## Iteration 31 — c-cov-crm-activity — done — 2026-08-08 22:10
-- commit: (siehe naechster chore-Commit)
+- commit: 259ab227
 - verify vorgaenger: sauber (a05208e2 aendert nur die Testdatei plus einen
   gezielten 7-Zeilen-Fix in MergeInto's Tag-Merge-INSERT, exakt wie im
   Journal-Eintrag der Iteration 30 beschrieben — kein Gateway/Route/Proto/
