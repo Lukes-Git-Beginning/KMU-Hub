@@ -177,6 +177,11 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Get("/{id}/notes", vr.HandleGetMeetingNotes)
 		r.Get("/{id}/previous-notes", vr.HandleGetPreviousMeetingNotes)
 
+		// Recurring series — read-only expansion of the linked calendar event's
+		// RRULE. Same guard as the other meeting reads: authenticated only, the
+		// rows themselves are tenant-scoped by RLS.
+		r.Get("/{id}/occurrences", vr.HandleListMeetingOccurrences)
+
 		// Action Items
 		r.Post("/{id}/action-items", vr.HandleCreateActionItem)
 		r.Get("/{id}/action-items", vr.HandleListActionItems)
@@ -1089,6 +1094,54 @@ func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *h
 	resp, err := client.GetPreviousMeetingNotes(r.Context(), &videov1.GetPreviousMeetingNotesRequest{
 		CurrentMeetingId: meetingID,
 		UserId:           userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleListMeetingOccurrences returns the dated instances of a recurring
+// meeting inside a window. The series is defined on the calendar event the
+// meeting is linked to; occurrences are expanded on read, so they carry no id
+// of their own.
+func (vr *VideoRoutes) HandleListMeetingOccurrences(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	q := r.URL.Query()
+	startStr := q.Get("start")
+	endStr := q.Get("end")
+	if startStr == "" || endStr == "" {
+		response.Error(w, http.StatusBadRequest, "start and end query parameters are required")
+		return
+	}
+
+	start, err := parseTimestamp(startStr)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid start time format")
+		return
+	}
+	end, err := parseTimestamp(endStr)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid end time format")
+		return
+	}
+
+	resp, err := client.ListMeetingOccurrences(r.Context(), &videov1.ListMeetingOccurrencesRequest{
+		MeetingId: meetingID,
+		Start:     start,
+		End:       end,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

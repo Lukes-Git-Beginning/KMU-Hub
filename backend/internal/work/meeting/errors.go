@@ -18,6 +18,8 @@ var (
 	ErrActionItemNotFound    = errors.New("action item not found")
 	ErrNotRecurring          = errors.New("meeting is not part of a recurring series")
 	ErrNoPreviousNotes       = errors.New("no previous meeting notes found")
+	ErrInvalidRecurrence     = errors.New("the linked calendar event has an unusable recurrence rule")
+	ErrSeriesUnavailable     = errors.New("recurring series lookup is not wired on this deployment")
 	ErrNoAttendeesProvided   = errors.New("at least one attendee is required")
 	ErrNotOrganizer          = errors.New("only the meeting organizer can perform this action")
 	ErrNotAttendee           = errors.New("only invited attendees can join this meeting")

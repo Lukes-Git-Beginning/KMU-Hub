@@ -8401,6 +8401,84 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/meetings/{id}/occurrences:
+    get:
+      summary: List the dated instances of a recurring meeting
+      description: >
+        Expands the recurrence rule of the calendar event this meeting is linked
+        to (meetings.calendar_event_id) into concrete occurrences inside the
+        requested window. Occurrences are computed on read and never stored, so
+        they carry no id of their own -- only the id of the meeting that repeats.
+        Cancelled occurrences are omitted and moved occurrences report their
+        moved start. Returns 409 when the meeting is not linked to a recurring
+        event or the stored rule is unusable.
+      tags: [meetings]
+      operationId: listMeetingOccurrences
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: start
+          in: query
+          required: true
+          description: Window start (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          description: Window end (RFC3339), must be after start
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Occurrences inside the window
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        meeting_id:
+                          type: string
+                          format: uuid
+                        calendar_event_id:
+                          type: string
+                          format: uuid
+                        start:
+                          type: string
+                          format: date-time
+                        end:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+                  truncated:
+                    type: boolean
+                    description: >
+                      True when the window held more occurrences than the server
+                      returns at once. Narrow the window to reach the remainder.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Meeting is not part of a recurring series, or its rule is unusable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   # ===========================================================================
   # Action Items
   # ===========================================================================

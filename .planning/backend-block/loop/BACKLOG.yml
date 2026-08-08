@@ -515,7 +515,7 @@ units:
     service: video
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Wiederkehrende Meetings. `/api/v1/calendar/events/{id}/recurring` deckt heute nur den
       Kalender ab; ein Meeting-Serientermin existiert nicht (verifiziert 2026-08-07 - unter

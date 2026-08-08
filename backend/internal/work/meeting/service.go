@@ -37,6 +37,7 @@ type Service struct {
 	repo    Repository
 	roomMgr RoomManager   // nil when LiveKit is not configured
 	llm     LLMSummarizer // nil when no LLM is configured
+	series  SeriesSource  // nil when the calendar service is not wired
 }
 
 // NewService creates a new meeting service without LiveKit integration.

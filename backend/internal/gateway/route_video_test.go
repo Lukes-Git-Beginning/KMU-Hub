@@ -346,3 +346,101 @@ func TestBroadcastCallIncoming_PropagatesTenantContext(t *testing.T) {
 		t.Errorf("payload caller_name = %v, want empty on failed resolution", got)
 	}
 }
+
+// ============================================================================
+// Recurring meeting occurrences
+// ============================================================================
+
+// TestHandleListMeetingOccurrences_ServiceUnavailable verifies 503 when the
+// work service is not registered.
+func TestHandleListMeetingOccurrences_ServiceUnavailable(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/meetings/"+uuid.New().String()+"/occurrences?start=2026-09-01T00:00:00Z&end=2026-10-01T00:00:00Z", nil)
+	req = withAuth(req, uuid.New().String(), testTenantID)
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleListMeetingOccurrences(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListMeetingOccurrences_Validation covers the parameter checks that
+// run before the RPC. Each case must be rejected at the gateway -- forwarding
+// an unbounded or unparseable window would push the cost onto the service.
+func TestHandleListMeetingOccurrences_Validation(t *testing.T) {
+	meetingID := uuid.New().String()
+
+	cases := []struct {
+		name    string
+		id      string
+		query   string
+		wantMsg string
+	}{
+		{"invalid meeting id", "not-a-uuid", "?start=2026-09-01T00:00:00Z&end=2026-10-01T00:00:00Z", ""},
+		{"missing both", meetingID, "", "start and end query parameters are required"},
+		{"missing end", meetingID, "?start=2026-09-01T00:00:00Z", "start and end query parameters are required"},
+		{"missing start", meetingID, "?end=2026-10-01T00:00:00Z", "start and end query parameters are required"},
+		{"unparseable start", meetingID, "?start=yesterday&end=2026-10-01T00:00:00Z", "invalid start time format"},
+		{"unparseable end", meetingID, "?start=2026-09-01T00:00:00Z&end=whenever", "invalid end time format"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			routes := NewVideoRoutes(registryWithService("work"), "", "")
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/api/v1/meetings/"+tc.id+"/occurrences"+tc.query, nil)
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			req = withChiURLParam(req, "id", tc.id)
+			routes.HandleListMeetingOccurrences(rec, req)
+
+			assertStatus(t, rec, http.StatusBadRequest)
+			if tc.wantMsg != "" {
+				assertErrorContains(t, rec, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// TestProtoMeetingOccurrences_WireShape locks the shape the frontend reads:
+// a wrapped list under items with snake_case keys and RFC3339 timestamps, and
+// an empty list that serialises as [] rather than null.
+func TestProtoMeetingOccurrences_WireShape(t *testing.T) {
+	meetingID := uuid.New().String()
+	eventID := uuid.New().String()
+	start := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	rec := httptest.NewRecorder()
+	response.Proto(rec, http.StatusOK, &videov1.ListMeetingOccurrencesResponse{
+		Items: []*videov1.MeetingOccurrence{{
+			MeetingId:       meetingID,
+			CalendarEventId: eventID,
+			Start:           timestamppb.New(start),
+			End:             timestamppb.New(start.Add(30 * time.Minute)),
+		}},
+		Total:     1,
+		Truncated: true,
+	})
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`"items"`, `"meeting_id":"` + meetingID + `"`, `"calendar_event_id":"` + eventID + `"`,
+		`"start":"2026-09-01T10:00:00Z"`, `"end":"2026-09-01T10:30:00Z"`,
+		`"total":1`, `"truncated":true`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body missing %s, got: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `"seconds"`) {
+		t.Errorf("Timestamp leaked {seconds,nanos} shape into body: %s", body)
+	}
+
+	empty := httptest.NewRecorder()
+	response.Proto(empty, http.StatusOK, &videov1.ListMeetingOccurrencesResponse{Items: []*videov1.MeetingOccurrence{}})
+	var sink map[string]any
+	if err := json.Unmarshal(empty.Body.Bytes(), &sink); err != nil {
+		t.Fatalf("empty response is not valid JSON: %v", err)
+	}
+	if items, ok := sink["items"]; ok && items == nil {
+		t.Errorf("empty items serialised as null, want [] or omitted; body: %s", empty.Body.String())
+	}
+}

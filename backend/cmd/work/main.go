@@ -154,6 +154,9 @@ func main() {
 	})
 
 	meetingService := meeting.NewServiceWithRoomManager(meetingRepo, roomMgr)
+	// Recurring meetings read their series off the calendar event they are
+	// linked to, so the meeting service needs the event service to expand it.
+	meetingService = meetingService.WithSeriesSource(eventService)
 	// AI meeting summaries (Wave 7C) — optional. Only attach an LLM client when
 	// LLM_BASE_URL is set; otherwise the feature stays off (graceful degradation)
 	// and the meeting service keeps a nil summarizer.

@@ -1101,6 +1101,45 @@ func (s *VideoGRPCServer) GetPreviousMeetingNotes(ctx context.Context, req *vide
 	return meetingNotesToProto(notes), nil
 }
 
+// ListMeetingOccurrences expands the series of a recurring meeting inside the
+// requested window. The rule lives on the linked calendar event; occurrences
+// are computed on read and never stored.
+func (s *VideoGRPCServer) ListMeetingOccurrences(ctx context.Context, req *videov1.ListMeetingOccurrencesRequest) (*videov1.ListMeetingOccurrencesResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	if req.Start == nil || req.End == nil {
+		return nil, status.Error(codes.InvalidArgument, "start and end are required")
+	}
+
+	occurrences, truncated, err := s.meetingService.ListOccurrences(ctx, meetingID, tenantID, req.Start.AsTime(), req.End.AsTime())
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	items := make([]*videov1.MeetingOccurrence, 0, len(occurrences))
+	for _, o := range occurrences {
+		items = append(items, &videov1.MeetingOccurrence{
+			MeetingId:       o.MeetingID.String(),
+			CalendarEventId: o.CalendarEventID.String(),
+			Start:           timestamppb.New(o.Start),
+			End:             timestamppb.New(o.End),
+		})
+	}
+
+	return &videov1.ListMeetingOccurrencesResponse{
+		Items:     items,
+		Total:     int32(len(items)),
+		Truncated: truncated,
+	}, nil
+}
+
 // ============================================================================
 // Action Items
 // ============================================================================
@@ -1928,6 +1967,10 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, meeting.ErrNoPreviousNotes):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, meeting.ErrInvalidRecurrence):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, meeting.ErrSeriesUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, meeting.ErrNoAttendeesProvided):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrInvalidRSVP):

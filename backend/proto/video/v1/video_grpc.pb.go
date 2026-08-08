@@ -44,6 +44,7 @@ const (
 	VideoService_SaveMeetingNotes_FullMethodName           = "/video.v1.VideoService/SaveMeetingNotes"
 	VideoService_GetMeetingNotes_FullMethodName            = "/video.v1.VideoService/GetMeetingNotes"
 	VideoService_GetPreviousMeetingNotes_FullMethodName    = "/video.v1.VideoService/GetPreviousMeetingNotes"
+	VideoService_ListMeetingOccurrences_FullMethodName     = "/video.v1.VideoService/ListMeetingOccurrences"
 	VideoService_CreateActionItem_FullMethodName           = "/video.v1.VideoService/CreateActionItem"
 	VideoService_UpdateActionItem_FullMethodName           = "/video.v1.VideoService/UpdateActionItem"
 	VideoService_DeleteActionItem_FullMethodName           = "/video.v1.VideoService/DeleteActionItem"
@@ -112,6 +113,7 @@ type VideoServiceClient interface {
 	SaveMeetingNotes(ctx context.Context, in *SaveMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
 	GetMeetingNotes(ctx context.Context, in *GetMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
 	GetPreviousMeetingNotes(ctx context.Context, in *GetPreviousMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
+	ListMeetingOccurrences(ctx context.Context, in *ListMeetingOccurrencesRequest, opts ...grpc.CallOption) (*ListMeetingOccurrencesResponse, error)
 	CreateActionItem(ctx context.Context, in *CreateActionItemRequest, opts ...grpc.CallOption) (*ActionItem, error)
 	UpdateActionItem(ctx context.Context, in *UpdateActionItemRequest, opts ...grpc.CallOption) (*ActionItem, error)
 	DeleteActionItem(ctx context.Context, in *DeleteActionItemRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -395,6 +397,16 @@ func (c *videoServiceClient) GetPreviousMeetingNotes(ctx context.Context, in *Ge
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MeetingNotes)
 	err := c.cc.Invoke(ctx, VideoService_GetPreviousMeetingNotes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ListMeetingOccurrences(ctx context.Context, in *ListMeetingOccurrencesRequest, opts ...grpc.CallOption) (*ListMeetingOccurrencesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMeetingOccurrencesResponse)
+	err := c.cc.Invoke(ctx, VideoService_ListMeetingOccurrences_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -728,6 +740,7 @@ type VideoServiceServer interface {
 	SaveMeetingNotes(context.Context, *SaveMeetingNotesRequest) (*MeetingNotes, error)
 	GetMeetingNotes(context.Context, *GetMeetingNotesRequest) (*MeetingNotes, error)
 	GetPreviousMeetingNotes(context.Context, *GetPreviousMeetingNotesRequest) (*MeetingNotes, error)
+	ListMeetingOccurrences(context.Context, *ListMeetingOccurrencesRequest) (*ListMeetingOccurrencesResponse, error)
 	CreateActionItem(context.Context, *CreateActionItemRequest) (*ActionItem, error)
 	UpdateActionItem(context.Context, *UpdateActionItemRequest) (*ActionItem, error)
 	DeleteActionItem(context.Context, *DeleteActionItemRequest) (*emptypb.Empty, error)
@@ -848,6 +861,9 @@ func (UnimplementedVideoServiceServer) GetMeetingNotes(context.Context, *GetMeet
 }
 func (UnimplementedVideoServiceServer) GetPreviousMeetingNotes(context.Context, *GetPreviousMeetingNotesRequest) (*MeetingNotes, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPreviousMeetingNotes not implemented")
+}
+func (UnimplementedVideoServiceServer) ListMeetingOccurrences(context.Context, *ListMeetingOccurrencesRequest) (*ListMeetingOccurrencesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMeetingOccurrences not implemented")
 }
 func (UnimplementedVideoServiceServer) CreateActionItem(context.Context, *CreateActionItemRequest) (*ActionItem, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateActionItem not implemented")
@@ -1385,6 +1401,24 @@ func _VideoService_GetPreviousMeetingNotes_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoServiceServer).GetPreviousMeetingNotes(ctx, req.(*GetPreviousMeetingNotesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ListMeetingOccurrences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMeetingOccurrencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ListMeetingOccurrences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ListMeetingOccurrences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ListMeetingOccurrences(ctx, req.(*ListMeetingOccurrencesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2013,6 +2047,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPreviousMeetingNotes",
 			Handler:    _VideoService_GetPreviousMeetingNotes_Handler,
+		},
+		{
+			MethodName: "ListMeetingOccurrences",
+			Handler:    _VideoService_ListMeetingOccurrences_Handler,
 		},
 		{
 			MethodName: "CreateActionItem",

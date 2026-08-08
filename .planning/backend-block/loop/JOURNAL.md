@@ -1025,3 +1025,108 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   gRPC-Aufrufe machen, haben sie denselben Defekt — das waere eine eigene
   Unit ("Grep `go func` + `context.Background` in `internal/gateway`"), keine
   Nebenbei-Aenderung.
+
+## Iteration 14 — `a-video-meeting-recurrence` (2026-08-08)
+
+- vorspann: `651f7905` (Iteration 13) nachgeprueft. `git show --stat` = 4 Dateien,
+  davon zwei Loop-Dateien; Code-Diff nur `route_video.go` (+
+  `context.WithoutCancel`, Goroutine als benannte Methode) und ein neuer Test.
+  Keine neue Route (`call.incoming` ist ein WS-Event) → OpenAPI zu Recht
+  unberuehrt; keine Migration, keine Tabelle, kein `RequirePermission`. Handler
+  ruft weiter ueber den gRPC-Client. Sauber, nichts nachzuziehen.
+- praemisse (das Kernstueck dieser Unit): die Vermutung im Backlog — „vielleicht
+  haengt ein Meeting schon am Kalendereintrag und die Serie ist damit geloest" —
+  ist **halb** wahr, und die Haelfte entscheidet alles:
+  - Die Spalte existiert: `meetings.calendar_event_id UUID` seit
+    `000037_create_meetings.up.sql:14` (kein FK, nur Spalte + Index), im Proto
+    als `Meeting.calendar_event_id = 12` und `CreateMeetingRequest.…= 7`, vom
+    Client durchgereicht bis `postgres_repository.go:29`.
+  - Sie ist aber **inert**: nichts liest sie. Kein Codepfad erzeugt beim
+    Meeting-Anlegen einen Kalendereintrag oder umgekehrt, und die Rueckrichtung
+    (`calendar_events.meeting_id`) existiert gar nicht.
+  - `meetings.recurring_meeting_id` ist **keine** Seriendefinition, sondern eine
+    Self-FK als Gruppierungsschluessel; einziger Leser ist
+    `GetPreviousMeetingNotes` (`service.go:713`). Kein `rrule`/`recurrence` auf
+    `meetings` oder im Meeting-Proto.
+  Ergebnis: **nicht blocked.** Die Serie war nicht geloest — aber die
+  Verknuepfung, ueber die sie zu loesen ist, lag fertig da. Also nicht `blocked`
+  und auch nicht „Serie am Meeting neu definieren", sondern: die vorhandene
+  Verknuepfung zum Tragen bringen.
+- entscheidung gegen den Scope-Wortlaut: der Scope sagt „Serien-Definition am
+  Meeting ergaenzen". Das haette `rrule` + `recurrence_end` auf `meetings`
+  bedeutet — eine **zweite** Quelle fuer dieselbe Serie, direkt neben der
+  Spalte, die schon auf den Kalendereintrag zeigt. Die Notiz derselben Unit
+  verbietet genau das („nicht eine zweite daneben stellen"). Gebaut ist deshalb
+  die Lesart, die beide Saetze erfuellt: die Regel bleibt am Kalendereintrag,
+  das Meeting erbt sie ueber `calendar_event_id`. Spart Migration 298, spart
+  Repository-Umbau, und Meeting- und Kalenderserie koennen nicht auseinander
+  driften.
+- gebaut:
+  - `internal/work/meeting/occurrences.go` — `SeriesSource`-Interface (`Get` +
+    `ListExceptions`, erfuellt von `*event.Service`), `WithSeriesSource`,
+    `ListOccurrences(ctx, meetingID, tenantID, start, end) ([]MeetingOccurrence,
+    truncated bool, error)`. Expandiert mit **`event.ExpandRecurrence`** —
+    dieselbe Funktion, die `ListEventsInRange` benutzt, keine zweite
+    Implementierung.
+  - `internal/work/event/service.go` — `ListExceptions` als Passthrough auf das
+    Repo, damit das Meeting dieselben Ausnahmen sieht wie der Kalender
+    (Absagen + verschobene Starts) und nicht am Service vorbei ins Repository
+    greifen muss.
+  - Proto: `ListMeetingOccurrences` + `MeetingOccurrence`/Request/Response
+    (`items`/`total`/`truncated`), regeneriert. Der `.pb.go`-Diff hat 332
+    Loeschungen — das sind ausschliesslich verschobene `msgTypes`-Indizes durch
+    die drei mittig eingefuegten Messages plus gofmt-Ausrichtung, kein
+    Generator-Wechsel (geprueft: keine `protoc-gen-go v…`-Zeile im Diff).
+  - `video_grpc.go`: RPC + `mapMeetingError` um `ErrInvalidRecurrence` →
+    `FailedPrecondition` und `ErrSeriesUnavailable` → `Unavailable`.
+  - Gateway: `GET /api/v1/meetings/{id}/occurrences?start&end`, Validierung wie
+    beim Kalender-Pendant (`HandleListEventsInRange`), ueber den gRPC-Client.
+- obergrenze: `maxMeetingOccurrences = 200`, `truncated` im Response. **Befund
+  nebenbei:** der Kalender selbst hat *keine* Kappung — `ExpandRecurrence` wird
+  in `ListEventsInRange` nur durch das angefragte Fenster begrenzt, und
+  `HandleListEventsInRange` prueft die Fensterbreite nicht. `FREQ=HOURLY` +
+  Zehn-Jahres-Fenster ist dort heute erlaubt. Nicht in dieser Unit gefixt (der
+  Kalender war nicht ihr Gegenstand); gehoert als eigene Unit nachgelegt.
+- semantik, die eine Entscheidung war: Zeitpunkt der Instanz kommt vom Kalender,
+  **Laenge** vom Meeting (`ScheduledEnd - ScheduledStart`), weil das Meeting das
+  Wiederholte ist. Ausserdem wird `recurrence_end` des Events als harte
+  Fensterklammer gezogen, auch wenn der Aufrufer weiter fragt.
+- gate: build ok (`go build ./...`) | vet ok | lint ok (`golangci-lint run` ueber
+  gateway/meeting/event/server/cmd-work = 0 issues) | test ok
+  (`./internal/gateway/` inkl. `TestOpenAPIRouteDrift`, `./internal/work/meeting/`,
+  `./internal/work/event/`, `./internal/server/`) | migration n.a. (keine neue
+  Tabelle/Spalte) | permission-seed n.a. (Route nur `authMiddleware`, wie die
+  uebrigen Meeting-Reads) | openapi: Pfad ergaenzt **und**
+  `swagger-cli validate` = valid.
+- statuscode-falle, fast reingelaufen: die OpenAPI-Antwort stand zuerst auf 412.
+  `respondGRPCError` mappt `FailedPrecondition` in diesem Repo aber auf **409**
+  (`internal/gateway/helpers.go:53`, festgehalten in `helpers_test.go:23`).
+  Korrigiert, bevor die Spec das Gegenteil des Handlers behauptet haette.
+- mutations-proben (drei, alle rot geworden, alle zurueckgedreht):
+  (A) Kappung deaktiviert (`if len(occurrences) == max` → `if false`) →
+  `TestListOccurrences_CapsInstances` rot („the caller must learn the window was
+  cut short"). (B) Absage-Skip deaktiviert → `…_SkipsCancelledAndHonoursMovedStart`
+  rot mit „should have 3 item(s), but has 4". (C) Pflichtparameter-Guard im
+  Gateway deaktiviert → `…_Validation` rot in drei Subtests (Fehlertext kippte
+  auf „invalid start time format", d. h. ohne Guard laeuft ein leerer Parameter
+  bis in den Parser). Endgate nach dem Zurueckdrehen erneut gelaufen und gruen;
+  `grep -c "if false"` = 0 in beiden Dateien.
+- fehlerpfade im Test: neun Stueck als Subtests — Fenster nicht positiv, Series
+  Source nicht verdrahtet, unbekanntes Meeting, **fremder Tenant** (muss
+  `ErrNotFound` sein, nicht „nicht wiederkehrend" — sonst verraet die Antwort
+  die Existenz), Meeting ohne Kalender-Link, Event ohne Regel (auch `"   "`),
+  unparsebare Regel, Event-Lookup-Fehler, Exception-Lookup-Fehler. Der letzte
+  bricht bewusst ab statt best-effort weiterzumachen: eine halb geladene
+  Ausnahmenliste zeigt abgesagte Termine als lebende Meetings — der Kalender
+  loggt dort nur eine Warnung, das ist fuer eine Meeting-Liste zu wenig.
+- db-tests: die neuen Tests sind stub-basiert (kein DB-Bedarf). Gegenprobe
+  trotzdem gemacht: ohne `DATABASE_URL` melden `./internal/work/meeting/` und
+  `./internal/work/event/` zusammen **2 SKIPs**, mit gesetzter
+  `DATABASE_URL` (`kmuhub_app`) **0** — die DB-gebundenen Tests der beruehrten
+  Pakete laufen real und sind gruen.
+- offen: (1) Die fehlende Kappung im Kalender selbst (oben). (2) Es gibt weiterhin
+  keinen Weg, `calendar_event_id` **aus dem Meeting heraus** zu setzen — der
+  Client muss es beim Anlegen mitgeben, `UpdateMeeting` kann es nicht nachtragen.
+  Wer ein bestehendes Meeting nachtraeglich zur Serie machen will, kann das ueber
+  die API nicht. Eigene Unit, keine Nebenbei-Aenderung. (3) Frontend kennt die
+  Route noch nicht (Loop baut Backend).
