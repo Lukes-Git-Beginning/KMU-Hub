@@ -3025,3 +3025,104 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Wochen-Freigabe-Fluss, Pausenlogik, Tagessummen, und die genannten
   Luecken sind naeher an B-Block-Charakter (mechanisch, wenig
   Business-Logik) als an C-Charakter. Waeren eine eigene, kleinere Unit.
+
+## Iteration 37 — c-cov-biz-hr-leave — done — 2026-08-08 22:55
+- commit: d7318abc
+- verify vorgaenger: sauber. `121ea866` (c-cov-biz-hr-timetracking) aendert
+  ausschliesslich drei Testdateien (postgres_weekapproval_db_test.go,
+  service_break_threshold_test.go, service_extended_test.go) — keine
+  Gateway-Handler, kein `.proto`, kein neuer `RequirePermission`-Guard, keine
+  neue Tabelle, keine neue Route. Keine der acht Fehlerklassen betroffen.
+  `a56ac4db` war reine Journal/Backlog-Doku. `git merge origin/main` war
+  "Already up to date".
+- gebaut: `internal/biz/hr/leave` stand bei 43,5% (deckt sich mit dem
+  Backlog-Scope, keine Vorlaeufer-Anhebung diesmal). `absence` (im selben
+  `sources`-Block) war bereits bei 93,2% aus einer frueheren Iteration, also
+  lag der Scope praktisch komplett bei `leave` selbst. Groesste Luecke:
+  `postgres_repository.go` hatte 0% DB-Coverage — nur das build-getaggte
+  `integration_test.go` (laeuft in `nightly.yml`, nicht im Loop-Gate) deckte
+  drei Happy-Path-Faelle ab. Neue Datei `postgres_repository_db_test.go` im
+  Muster von `internal/biz/hr/absence/postgres_repository_db_test.go`, alle
+  vier Repos: `PostgresLeaveRequestRepo` (Create/GetByID-Roundtrip,
+  Not-Found, List mit Employee-/Status-/Datumsbereichs-Filter und
+  Pagination, `Update` mit Tenant-Mismatch-Noop-Nachweis — die
+  `WHERE id=$8 AND tenant_id=$9`-Klausel darf bei falschem `tenant_id` still
+  0 Zeilen treffen statt zu fehlern —, `FindOverlaps` mit
+  Selbstausschluss via `excludeID` und dem Nachweis, dass nur
+  pending/approved zaehlen), `PostgresLeaveBalanceRepo` (Not-Found liefert
+  `nil, nil` ohne Sentinel — das ist Vertrag, kein Bug —, und der
+  Upsert-ON-CONFLICT-Beweis: zweiter Upsert mit frischer ID landet auf
+  derselben `(tenant_id, employee_id, year)`-Zeile), `PostgresLeaveTypeRepo`
+  (ListByTenant-Sortierung + Tenant-Scope, GetByID/GetByKey Not-Found,
+  GetByKey mit gleichem `key` in zwei Tenants — jeder sieht nur seinen
+  eigenen) und `PostgresHRSettingsRepo` (Not-Found, Upsert-Roundtrip ueber
+  das `UNIQUE(tenant_id)`). Dabei denselben CONCAT_WS-Blank-Name-Bug
+  gefunden wie zuvor in absence/employee/timetracking: `GetByID` und `List`
+  hatten kein `TRIM()` um `CONCAT_WS(' ', first_name, last_name)` — bei
+  leerem Vor-/Nachnamen liefert Postgres ein einzelnes Leerzeichen statt
+  NULL, `NULLIF(x,'')` greift dann nicht, der E-Mail-Fallback bleibt aus.
+  Fix (`TRIM()` ergaenzt) + Regressionstest, der gegen die Vorfassung rot
+  ist. Auf Service-Ebene die drei von den Backlog-Notes geforderten Faelle
+  in `service_test.go` ergaenzt: (1) `getOrCreateBalance` zweimal
+  aufgerufen mit zwischenzeitlicher Verbrauchsaenderung — der fruehe
+  `existing != nil`-Return verhindert, dass ein zweiter Lookup den Saldo aus
+  dem BUrlG-Rechner neu erzeugt und die bereits verbrauchten Tage wieder
+  gutschreibt. Das ist der eigentliche "doppelt gutgeschriebene Uebertrag"
+  aus den Notes — woertlich ueber `time.Now()` haette ein
+  Jahreswechsel-Uebertrag-Test nichts bewiesen, weil `compliance.go` den
+  Uebertrag ab dem 1. April des Zieljahres ohnehin immer auf 0 setzt (heute
+  ist der 8. August). (2) Teilzeit mit nicht-ganzzahligem Ergebnis (27 Tage
+  * 3/5-Woche = 16,2). (3) `verifyApprover`-HR-Fallback ohne zugewiesenen
+  Manager (jeder Approver zulaessig, die gRPC-Schicht prueft die HR-Rolle
+  separat) war zuvor komplett ungetestet. Dazu fehlende Fehlerpfade je
+  mutierender Methode: Approve/Reject/Cancel je einmal NotFound und je
+  einmal ein zweiter unzulaessiger Uebergang (Doppel-Approve, Doppel-
+  Reject, Doppel-Cancel), `CancelLeaveRequest` nach Start-Datum
+  (`ErrCannotCancelPastLeave` — bisher war nur die Vor-Start-Variante
+  getestet), `CreateLeaveRequest` mit unbekanntem LeaveType,
+  `RecordSickLeave` ohne konfigurierten "krank"-Typ, `GetLeaveBalance` mit
+  unbekanntem Employee. Coverage 43,5% -> 85,7%.
+- gate: `go build -p 2 ./internal/biz/hr/leave/... ./internal/gateway/...
+  ./internal/server/...` ok | `go vet ./internal/biz/hr/leave/...` ok |
+  `golangci-lint run --config .golangci.yml ./internal/biz/hr/leave/...`
+  0 issues | `go test -count=1 -cover ./internal/biz/hr/leave/...
+  ./internal/gateway/... ./internal/server/... ./internal/testutil/...`
+  alle gruen inkl. `TestOpenAPIRouteDrift` (kein Route/Proto/Handler
+  angefasst) | migration n.a. (keine Schemaaenderung) | rls-smoke: der
+  neue `TestPostgresLeaveRequestRepo_Update_WrongTenantIsNoop` UND
+  `TestPostgresLeaveTypeRepo_GetByKey_TenantScoped` sind der RLS-Smoke fuer
+  diese Tabellen (Foreign-Tenant-Zugriff, analog
+  `postgres_tenant_scope_test.go`).
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) In `service.go` `getOrCreateBalance` das `if existing != nil { return
+  existing, nil }` durch `if false && existing != nil { ... }` ersetzt
+  (Guard wirkungslos, jeder Aufruf rechnet neu). Ergebnis: GENAU
+  `TestGetOrCreateBalance_SecondCallDoesNotRecomputeOrDoubleBalance` wurde
+  rot — Used sprang von 5 zurueck auf 0, Remaining verdoppelte sich von 25
+  auf 30, und die Balance-ID wechselte (neue Zeile statt Wiederverwendung).
+  Alle anderen Tests blieben gruen, wie erwartet (kein anderer Test ruft
+  `getOrCreateBalance` zweimal fuer denselben Employee/Jahr auf).
+  (2) In `postgres_repository.go` das `TRIM()` aus `GetByID`s
+  CONCAT_WS-Ausdruck wieder entfernt. Ergebnis: GENAU
+  `TestPostgresLeaveRequestRepo_GetByID_BlankNameFallsBackToEmail` wurde rot
+  (`EmployeeName: got " ", want die E-Mail`), alle anderen DB-Tests blieben
+  gruen. Beide Proben zurueckgedreht, `git diff` auf `service.go` bestaetigt
+  leer (nicht committet), `postgres_repository.go` zeigt nur die zwei
+  beabsichtigten TRIM-Fixes, Endgate erneut gelaufen und gruen.
+- db-tests: 18 neue DB-Integrationstests (alle vier Repos) plus 12 neue
+  Mock-basierte Service-Tests liefen real gegen `kmuhub_app`, **0 Skips**
+  im gesamten Paket `leave` (45 PASS total inkl. Subtests). `DATABASE_URL`
+  war gesetzt. Eine Cleanup-Reihenfolge-Falle beim Schreiben selbst
+  gefunden und behoben: `t.Cleanup` laeuft LIFO — wird der Approver-User
+  vor dem `hr_leave_requests`-Datensatz seed­t, der auf `approved_by`
+  verweist, versucht das Cleanup den User zu loeschen, waehrend die
+  referenzierende Zeile noch existiert (FK-Verletzung, nur geloggt, testet
+  aber nichts falsch — reines Hygiene-Problem). Fix: Approver vor dem
+  `Create`-Aufruf seed­en, damit die LIFO-Reihenfolge die Loesch-Reihenfolge
+  spiegelt.
+- offen: Kein DB-Gate-Ausfall. Fuer Luke: `FindOverlaps` liefert
+  Employee-/Type-Name als drei Literal-Leerstrings statt eines echten
+  Joins — war schon vorher so, Aufrufer (ApproveLeaveRequest-Overlap-Warnung)
+  liest dort nur Status/Daten, nicht angefasst. Die Server-/Gateway-Schicht
+  fuer `leave` (map*Error, toProto*) ist nicht Teil dieser Unit — B-Block-
+  Charakter fuer `internal/server`/`internal/gateway`, dort eigene Units.

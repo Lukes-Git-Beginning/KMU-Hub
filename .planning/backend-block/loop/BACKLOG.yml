@@ -1455,7 +1455,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/hr/leave` - gemessen 43,5 %. Urlaubsanspruch, Uebertrag ins
       Folgejahr, Teilzeit-Anteile und die Genehmigungskette.
@@ -1472,6 +1472,41 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Coverage 43,5% -> 85,7%. absence war bereits bei 93,2% (aus einer Vorlaeufer-Iteration),
+      der Scope dieser Unit lag also fast vollstaendig bei leave selbst. Groesste Luecke:
+      postgres_repository.go hatte 0% DB-Coverage - nur das build-getaggte integration_test.go
+      (nightly.yml, nicht der Loop-Gate) deckte es ueberhaupt an. Neue Datei
+      postgres_repository_db_test.go im Muster von absence/postgres_repository_db_test.go: alle
+      vier Repos (LeaveRequest, LeaveBalance, LeaveType, HRSettings) - Create/GetByID-Roundtrip,
+      Not-Found-Pfade, List mit Employee-/Status-/Datumsbereichs-Filter und Pagination,
+      FindOverlaps (inkl. excludeID-Selbstausschluss und dass nur pending/approved zaehlen),
+      Update mit Tenant-Mismatch-Noop-Nachweis, und der Upsert-ON-CONFLICT-Target-Nachweis fuer
+      LeaveBalance (zweiter Upsert mit frischer ID landet auf derselben Zeile). Dabei denselben
+      CONCAT_WS-Blank-Name-Bug gefunden und gefixt wie zuvor in absence/employee/timetracking:
+      GetByID und List hatten kein TRIM() um CONCAT_WS, wodurch ein Mitarbeiter mit leerem
+      Vor-/Nachnamen einen Ein-Leerzeichen-Namen statt des E-Mail-Fallbacks bekam - Fix + eigener
+      Regressionstest. Auf Service-Ebene die drei laut Notes fehlenden Faelle ergaenzt: (1)
+      getOrCreateBalance zweimal aufgerufen mit einer zwischenzeitlichen Verbrauchs-Aenderung -
+      der fruehe "existing != nil"-Return verhindert, dass ein zweiter Lookup den Saldo aus dem
+      BUrlG-Rechner neu erzeugt und damit die bereits verbrauchten Tage wieder gutschreibt (das
+      ist der eigentliche "doppelt gutgeschriebene Uebertrag", nicht woertlich der
+      Jahreswechsel-Uebertrag - der ist bei Erzeugung nach dem 31.03. laut compliance.go ohnehin
+      immer 0, echtes Testen ueber time.Now() waere hier eine Attrappe gewesen). (2) Teilzeit mit
+      nicht-ganzzahligem Ergebnis (27 Tage * 3/5-Woche = 16,2). (3) verifyApprover-Fallback ohne
+      Manager (jeder Approver zulaessig, gRPC-Schicht prueft die HR-Rolle separat) war zuvor
+      ungetestet. Dazu fehlende Fehlerpfade fuer jede mutierende Methode: Approve/Reject/Cancel
+      je einmal NotFound und je einmal ein zweiter unzulaessiger Uebergang (Doppel-Approve,
+      Doppel-Reject, Doppel-Cancel), CancelLeaveRequest nach Start-Datum (ErrCannotCancelPastLeave,
+      bisher nur die Vor-Start-Variante war getestet), CreateLeaveRequest mit unbekanntem
+      LeaveType, RecordSickLeave ohne konfigurierten "krank"-Typ, GetLeaveBalance mit unbekanntem
+      Employee.
+    followup: >
+      postgres_repository.go List/FindOverlaps sind jetzt getestet, aber die Denormalisierung
+      in FindOverlaps (drei Literal-Leerstrings statt echtem Join) war schon vorher so und wird
+      nicht gebraucht (Aufrufer liest dort nur Status/Daten). Nicht angefasst. Server-/Gateway-
+      Handler fuer leave (map*Error, toProto*) sind nicht Teil dieser Unit - das ist B-Block-
+      Charakter fuer internal/server bzw. internal/gateway.
 
   # ==========================================================================================
   # BLOCK B — COVERAGE BREITE: internal/server UND internal/gateway (30 Units)
