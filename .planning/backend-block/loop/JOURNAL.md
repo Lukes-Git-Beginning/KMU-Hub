@@ -2939,3 +2939,89 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   fehlt, sitzt sie (falls ueberhaupt) im `leave`-Service beim Anlegen eines
   Leave-Requests, nicht hier. Nicht verifiziert, ob dort Coverage-Luecken
   bestehen — waere eine eigene Recherche wert.
+
+## Iteration 36 — c-cov-biz-hr-timetracking — done — 2026-08-08 22:45
+- commit: 121ea866
+- verify vorgaenger: sauber. `6558218b` (iteration-35 journal/backlog commit)
+  war reine Doku, nichts zu pruefen; `246137c1` (c-cov-biz-hr-absence) bereits
+  in Iteration 35 selbst verifiziert. `git merge origin/main` war "Already up
+  to date".
+- gebaut: `internal/biz/hr/timetracking` stand bei 55,0% (gemessen, nicht
+  40,9% wie im Backlog-Scope vermerkt — Vorlaeufer-Iterationen hatten das
+  Paket bereits angehoben, ohne die Unit selbst abzuschliessen). Der
+  Wochen-Freigabe-Fluss und die Pausenlogik waren ueberraschend gut gemockt
+  getestet; die reale Luecke lag wo der Block-C-Kopf sie vorhersagt — in der
+  `postgres_*.go`. Drei neue Testdateien:
+  (1) `postgres_weekapproval_db_test.go` — `PostgresWeekApprovalRepo`
+  (`hr_week_approvals`) hatte 0% DB-Coverage, obwohl sie den gesamten
+  Freigabe-Fluss persistiert. Fuenf DB-Tests: GetByEmployeeWeek not-found,
+  Insert-dann-Update-Roundtrip (beweist, dass der ON-CONFLICT-Target
+  `(tenant_id, employee_id, week_start)` ist und nicht `id` — ein zweiter
+  Upsert-Aufruf mit frischer ID landet auf derselben Zeile, wie es
+  SubmitWeek/ApproveWeek/RejectWeek erwarten), Feld-Nullung beim Reopen
+  (approved_by/approved_at/rejection_reason muessen beim Upsert wirklich
+  NULL werden — eine versehentliche COALESCE(EXCLUDED.x, alt.x) waere hier
+  durchgefallen), ListByWeek-Scoping ueber Tenant und Woche inkl.
+  Sortierung nach employee_id, und Foreign-Tenant-Read (System-Context,
+  gleiches Muster wie `postgres_tenant_scope_test.go`).
+  (2) `service_week_status_test.go` — `GetMyWeekStatus` war 0% abgedeckt,
+  das ist der Read-Pfad fuer die FE-Wochenstatusanzeige. Drei Faelle:
+  kein Datensatz -> synthetisiertes `open`, vorhandener Datensatz -> echter
+  Status, und der sicherheitsrelevante Fall: ein echter Repo-Fehler
+  (nicht `ErrWeekApprovalNotFound`) darf NICHT als "offen" durchgereicht
+  werden — sonst zeigt eine genehmigte Woche bei einem DB-Hickup
+  faelschlich editierbar. Dafuer `mockWeekApprovalRepo` um ein `getErr`-Feld
+  erweitert (service_extended_test.go). Dazu die im Backlog geforderten
+  "unzulaessigen Zustandsuebergaenge", von denen vorher nur
+  Approve-auf-nie-eingereicht existierte: Doppel-Approve, Approve-auf-
+  rejected, Reject-auf-nie-eingereicht, Reject-auf-approved, Doppel-Reject —
+  plus die Gegenprobe, dass Submit-nach-Reject erlaubt bleibt (Rejection
+  existiert, damit die Woche korrigiert und neu eingereicht werden kann,
+  keine Sackgasse).
+  (3) `service_break_threshold_test.go` — die 6h-Pausenschwelle war bei
+  7h/10h getestet, nicht direkt an der Kante. Neue Tests bei exakt
+  360 Minuten (kein Auto-Abzug) und 361 Minuten (30min Abzug), gegen die
+  echte ClockOut-Verdrahtung, nicht nur gegen die isolierte
+  compliance-Formel (die war schon grenzwertig getestet).
+  Coverage 55,0% -> 60,2%.
+- gate: `go build -p 2 ./internal/biz/hr/timetracking/... ./internal/gateway/...
+  ./internal/server/...` ok | `go vet` dieselben Pakete ok |
+  `golangci-lint run --config .golangci.yml ./internal/biz/hr/timetracking/...`
+  0 issues | `go test -count=1 -cover ./internal/biz/hr/timetracking/...
+  ./internal/gateway/... ./internal/server/... ./internal/testutil/...` alle
+  gruen inkl. `TestOpenAPIRouteDrift` (kein Route/Proto/Handler angefasst) |
+  migration n.a. (keine Schemaaenderung) | rls-smoke: die neuen
+  WeekApprovalRepo-Tests SIND der RLS-Smoke fuer diese Tabelle (Foreign-
+  Tenant-Read via System-Context, analog `postgres_tenant_scope_test.go`).
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) In `postgres_extended_repository.go` `GetByEmployeeWeek` das
+  `tenant_id=$1 AND` aus der WHERE-Klausel entfernt. Ergebnis: 4 von 5
+  neuen WeekApprovalRepo-Tests wurden rot (Postgres verweigert die Query
+  sogar ganz, weil `$1` dann unbenutzt ist — noch deutlicher als ein
+  stiller Cross-Tenant-Leak). `TestWeekApprovalRepo_ListByWeek_...` blieb
+  gruen, weil diese Query einen eigenen `tenant_id=$1`-Parameter hat und
+  nicht betroffen war — erwartungsgemaess.
+  (2) In `service.go` `RejectWeek` den Zustands-Guard
+  `if wa.Status != models.WeekApprovalSubmitted` durch `if false`
+  ersetzt (Guard wirkungslos). Ergebnis: GENAU die drei neuen
+  RejectWeek-Illegal-Transition-Tests (`NeverSubmittedWeek`,
+  `ApprovedWeek`, `RejectedWeek`) wurden rot, alle anderen — inklusive
+  der ApproveWeek-Gegenstuecke und `TestRejectWeek_HappyPath` — blieben
+  gruen. Beide Proben zurueckgedreht, `git diff` auf `service.go` und
+  `postgres_extended_repository.go` bestaetigt danach leer, Endgate erneut
+  gelaufen und gruen.
+- db-tests: 5 neue DB-Integrationstests (WeekApprovalRepo) plus 14 neue
+  Mock-basierte Service-Tests liefen real gegen `kmuhub_app`,
+  **0 Skips** im gesamten Paket `timetracking` (70 PASS total).
+  `DATABASE_URL` war gesetzt.
+- offen: Kein DB-Gate-Ausfall. Fuer Luke: `postgres_repository.go` hat
+  weiterhin 0% auf `List`, `GetWeeklySummary` (der Single-Employee-Wrapper
+  um `GetWeeklySummaryBatch`, die selbst 88% haelt), `GetDailySummaryRange`,
+  `GetProjectBreakdown`, `AggregateWorkTimeForInvoice`, sowie
+  `ApproveCorrection` DB-seitig. `postgres_extended_repository.go` hat 0%
+  auf die Category-/Template-/Project-Repos komplett (nur die
+  Service-Methoden darueber sind gemockt getestet). Bewusst nicht
+  mitgezogen — der Backlog-Scope dieser Unit war explizit
+  Wochen-Freigabe-Fluss, Pausenlogik, Tagessummen, und die genannten
+  Luecken sind naeher an B-Block-Charakter (mechanisch, wenig
+  Business-Logik) als an C-Charakter. Waeren eine eigene, kleinere Unit.

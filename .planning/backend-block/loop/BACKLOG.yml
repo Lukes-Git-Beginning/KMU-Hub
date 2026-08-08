@@ -1390,7 +1390,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/hr/timetracking` - gemessen 40,9 %. Der Wochen-Freigabe-Fluss
       (einreichen, genehmigen, ablehnen, wieder oeffnen), die Pausenlogik und die
@@ -1409,6 +1409,46 @@ units:
       - Pausenschwelle knapp darunter und knapp darueber geprueft
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Coverage 40,9% (Backlog-Stand) / 55,0% (gemessen bei Start dieser Iteration,
+      Vorlaeufer-Units hatten das Paket bereits angehoben) -> 60,2%. Die
+      Zustandsmaschine (submit/approve/reject/reopen) und die Pausenlogik waren
+      bereits gut abgedeckt; die reale Luecke lag in drei Stellen: (1)
+      PostgresWeekApprovalRepo (hr_week_approvals) hatte 0% DB-Coverage -
+      GetByEmployeeWeek/Upsert/ListByWeek liefen nur gegen den In-Memory-Mock.
+      Neue Datei postgres_weekapproval_db_test.go mit 5 DB-Tests: Not-Found,
+      Insert-dann-Update-Roundtrip (ON CONFLICT-Target ist (tenant_id,
+      employee_id, week_start), nicht id - ein zweiter Upsert mit neuer ID
+      landet auf derselben Zeile), Felder-Nullung beim Reopen (approved_by/
+      approved_at/rejection_reason muessen beim Upsert wirklich NULL werden,
+      keine COALESCE-Falle), ListByWeek-Scoping ueber Tenant+Woche mit
+      Sortierung, Foreign-Tenant-Read. (2) GetMyWeekStatus (Service) war 0%
+      abgedeckt - der Read-Pfad, den das FE fuer die Wochenstatusanzeige nutzt.
+      Neue Datei service_week_status_test.go: synthetisiertes Open ohne
+      Datensatz, existierender Datensatz, und der sicherheitsrelevante Fall -
+      ein echter Repo-Fehler (nicht ErrWeekApprovalNotFound) darf NICHT als
+      "offen" behandelt werden (sonst zeigt eine genehmigte Woche faelschlich
+      editierbar). (3) Von den "unzulaessigen Zustandsuebergaengen" war nur
+      Approve-auf-nie-eingereicht getestet. Ergaenzt: Doppel-Approve,
+      Approve-auf-rejected, Reject-auf-nie-eingereicht, Reject-auf-approved,
+      Doppel-Reject, plus Submit-nach-Reject (das ist ERLAUBT, nicht gesperrt -
+      Rejection existiert, damit die Woche korrigiert und neu eingereicht
+      werden kann). Pausenschwelle knapp darunter/darueber: die
+      compliance-Formel selbst war schon grenzwertig getestet, aber ClockOut's
+      Verdrahtung dieser Formel nur bei 7h/10h, nicht direkt an der
+      6h-Schwelle - neue Tests bei exakt 360min (kein Abzug) und 361min
+      (30min Abzug) in service_break_threshold_test.go.
+    followup: >
+      postgres_repository.go hat weiterhin 0% auf List, GetWeeklySummary
+      (delegiert an GetWeeklySummaryBatch, die selbst 88% hat - der
+      Single-Employee-Wrapper ist ungetestet), GetDailySummaryRange,
+      GetProjectBreakdown, AggregateWorkTimeForInvoice, ApproveCorrection
+      (DB-seitig, nur der Mock-Pfad ist getestet); postgres_extended_repository.go
+      hat 0% auf Category/Template/Project-Repos komplett (nur die Service-Methoden
+      darueber sind gemockt getestet). Bewusst nicht mitgezogen - Scope dieser
+      Unit war explizit Wochen-Freigabe-Fluss, Pausenlogik, Tagessummen; die
+      genannten Luecken sind naeher an "b-cov-*"-Charakter (mechanisch, wenig
+      Business-Logik) als an c-Charakter und waeren eine eigene, kleinere Unit.
 
   - id: c-cov-biz-hr-leave
     phase: 3
