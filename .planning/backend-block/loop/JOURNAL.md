@@ -2193,7 +2193,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Naechste Unit im Backlog: `c-cov-biz-invoice-repo`.
 
 ## Iteration 28 — c-cov-biz-invoice-repo — done — 2026-08-08 21:40
-
+- commit: f22ac820
 - gebaut: `internal/biz/invoice` war bei 47,7 % (mit `-tags=integration`) bzw.
   30,9 % ohne DB. Der bestehende `integration_test.go` (587 Zeilen) deckt
   Zeilen-Roundtrip, Lock-Spalten, Overdue-Filter und den Bexio-Import-Pfad
