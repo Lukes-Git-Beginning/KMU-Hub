@@ -658,7 +658,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Serie sichtbar.
 
 ## Iteration 10 — a-berichte-execute-kind-cross — done — 2026-08-08 17:30
-- commit: <wird nach dem Commit nachgetragen>
+- commit: a86c166c
 - gebaut: Neue Report-Art `cross` im Executor
   (`internal/berichte/executor/executor.go`). Sie fuehrt **zwei bestehende
   Arten** ueber einen gemeinsamen Wert zusammen, statt eigene Downstream-
