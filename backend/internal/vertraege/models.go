@@ -55,6 +55,33 @@ const (
 	ReminderStatusCancelled ReminderStatus = "cancelled"
 )
 
+// ContractEventAction names the kind of change recorded on a contract. The
+// column is TEXT, so this constant set — not the database — is what keeps the
+// vocabulary closed; never write a literal at a call site.
+type ContractEventAction string
+
+const (
+	ContractEventCreated      ContractEventAction = "created"
+	ContractEventUpdated      ContractEventAction = "updated"
+	ContractEventTerminated   ContractEventAction = "terminated"
+	ContractEventSigned       ContractEventAction = "signed"
+	ContractEventPartyAdded   ContractEventAction = "party_added"
+	ContractEventPartyRemoved ContractEventAction = "party_removed"
+)
+
+// ContractEvent is one entry of a contract's append-only audit trail.
+// UserID is nil for changes made without a caller (reminder worker,
+// auto-expiry) or after the acting account was deleted.
+type ContractEvent struct {
+	ID         uuid.UUID           `json:"id"`
+	TenantID   uuid.UUID           `json:"tenant_id"`
+	ContractID uuid.UUID           `json:"contract_id"`
+	Action     ContractEventAction `json:"action"`
+	UserID     *uuid.UUID          `json:"user_id,omitempty"`
+	Payload    map[string]any      `json:"payload"`
+	CreatedAt  time.Time           `json:"created_at"`
+}
+
 // Contract is the central aggregate for a Vertrag (contract).
 type Contract struct {
 	ID                uuid.UUID      `json:"id"`

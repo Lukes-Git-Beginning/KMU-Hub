@@ -74,3 +74,50 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Fachlage will das so (der Nil-Mailer-Zweig macht es seit je genauso), aber die UI hat dafuer
   keinen Hinweis. Falls gewuenscht, gehoert eine Warnung in die Send-Response, das waere eine
   eigene Unit inkl. Proto-Feld.
+
+## Iteration 2 — a-vertraege-contract-events — done — 2026-08-08 15:40
+- commit: (im Folge-Commit nachgetragen)
+- gebaut: Migration **000298** legt `contract_events` an (`tenant_id UUID NOT NULL` +
+  `contract_id` -> contracts ON DELETE CASCADE, `action TEXT`, `user_id UUID NULL` ->
+  users ON DELETE SET NULL, `payload JSONB NOT NULL DEFAULT '{}'`, `created_at`), Index
+  `(tenant_id, contract_id, created_at DESC)`, `CALL enable_tenant_rls('contract_events')`.
+  Repository bekommt `CreateContractEvent` + `ListContractEvents` (append-only: kein UPDATE,
+  kein DELETE). Der Service schreibt an Create (`created`), Update (`updated` mit der Liste
+  der real geaenderten Feldnamen), Kuendigung (`terminated` + `from_status`, nur auf dem
+  Uebergang), Signatur (`signed`) und beiden Party-Pfaden (`party_added`/`party_removed`).
+  Neuer RPC `ListContractEvents` (Proto regeneriert) und
+  `GET /api/v1/vertraege/contracts/{id}/events` hinter `RequirePermission("vertraege:contract",
+  "read")` — bestehender Key, deshalb **keine** Seed-Migration noetig.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (vertraege 57/57, gateway ok inkl.
+  TestOpenAPIRouteDrift, server ok, testutil-RLS-Standing-Guard PASS) | migration ok (298
+  angewandt, `298/u contract_events`) | rls-smoke ok
+- rls-smoke: zwei Vertraege + je ein Event in Tenant `0000…0001` und `aaaa…0001` gesetzt,
+  dann als `kmuhub_app` (NOSUPERUSER NOBYPASSRLS): eigener Tenant -> 1, anderer Tenant -> 1,
+  fremder Tenant (`…00ff`) -> 0. `relforcerowsecurity = true`, Policy `tenant_isolation` da.
+  Anschliessend `DELETE FROM contracts WHERE contract_number IN (…)` — die Events sind per
+  Cascade mitgegangen (`rest: 0`), die lokale DB ist wieder sauber.
+- mutations-probe: `previousStatus != ContractStatusTerminated` zu
+  `previousStatus != ContractStatusDraft` gedreht (macht aus jedem Speichern eines bereits
+  gekuendigten Vertrags eine zweite Kuendigung). Ergebnis: genau
+  `TestService_UpdateContract_TerminationIsRecordedOnTransitionOnly` wurde rot,
+  `…RecordsTerminationWithPreviousStatus` und die uebrigen blieben gruen. Zurueckgedreht,
+  Endgate danach erneut gelaufen und gruen.
+- db-tests: 0 DB-Tests im Paket `internal/vertraege` (reines Mock-Testing, kein
+  `SkipIfNoDB`-Pfad), **0 Skips** bei 57 Tests. `DATABASE_URL` war gesetzt; die DB-Seite ist
+  ueber die angewandte Migration + den RLS-Smoke + den testutil-Standing-Guard abgedeckt.
+- verify vorgaenger: sauber. `a3bcfda0` (dunning) fasst keine Route, keine Migration und kein
+  `.proto` an, ruft nichts am gRPC-Client vorbei, hat keinen neuen `RequirePermission`-Guard
+  und keinen Stub; die Sentinel-Unterscheidung per `errors.Is` ist praezise. `git merge
+  origin/main` war "Already up to date".
+- offen: Zwei Punkte fuer Luke.
+  (1) **Signatur-Aenderung an `Repository.RemoveParty`**: gibt jetzt `(uuid.UUID, error)`
+  zurueck (`DELETE … RETURNING contract_id`), damit das Party-Entfernen ueberhaupt einem
+  Vertrag zugeordnet werden kann. Loeschen einer nicht existierenden Partei bleibt ein
+  stiller No-Op (`uuid.Nil, nil`) und schreibt bewusst keinen Eintrag.
+  (2) **`//nolint:staticcheck` in `vertraege_grpc.go`**: die Proto-Regeneration hat die
+  `Deprecated:`-Kommentare zu `UploadDocument` erstmals in die `.pb.go` gebracht — die
+  eingecheckte Datei war gegenueber der `.proto` veraltet. Der Linter meldet damit zu Recht
+  SA1019 auf dem absichtlich behaltenen Unimplemented-Stub. Wenn der RPC ganz weg soll, ist
+  das eine eigene Unit (analog zum toten Vermietung-RPC im Backlog).
+  Kein FE-Konsument: `{items,total}` ist die im Backlog vorgegebene Form, das
+  Vertraege-Modul im Frontend liest den Endpoint noch nicht.

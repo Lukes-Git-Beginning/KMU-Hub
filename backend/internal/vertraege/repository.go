@@ -37,8 +37,16 @@ type Repository interface {
 
 	// Parties
 	AddParty(ctx context.Context, p *ContractParty) error
-	RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) error
+	// RemoveParty deletes a party and returns the contract it belonged to, so
+	// the caller can file the audit entry against that contract. Removing a
+	// party that does not exist stays a no-op and returns uuid.Nil.
+	RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error)
 	ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error)
+
+	// Contract events — append-only audit trail. There is deliberately no
+	// update and no delete: an entry that can be rewritten is not a trail.
+	CreateContractEvent(ctx context.Context, e *ContractEvent) error
+	ListContractEvents(ctx context.Context, tenantID, contractID uuid.UUID, offset, limit int) ([]*ContractEvent, int, error)
 
 	// Reminders
 	CreateReminder(ctx context.Context, r *ContractReminder) error

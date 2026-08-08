@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // Service handles contract business logic.
@@ -83,6 +85,18 @@ type AddPartyInput struct {
 }
 
 // ============================================================================
+// Input types — Events
+// ============================================================================
+
+// ListContractEventsInput holds pagination options for a contract's audit trail.
+type ListContractEventsInput struct {
+	TenantID   uuid.UUID
+	ContractID uuid.UUID
+	Page       int
+	PageSize   int
+}
+
+// ============================================================================
 // Input types — Reminders
 // ============================================================================
 
@@ -105,6 +119,71 @@ type UpdateReminderInput struct {
 	Subject      *string
 	Message      *string
 	Status       *ReminderStatus
+}
+
+// ============================================================================
+// Audit trail
+// ============================================================================
+
+// actorFromContext resolves the account behind the request from the request
+// context. The gateway puts the JWT `sub` there and the inbound gRPC
+// interceptor restores it across the hop, so this works for both entry paths.
+// Nil is a legitimate answer, not a failure: the reminder worker and the
+// auto-expiry job touch contracts with no caller at all.
+func actorFromContext(ctx context.Context) *uuid.UUID {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+// recordEvent appends one entry to a contract's audit trail.
+//
+// Deliberately non-fatal: it runs after the mutation is already committed, so
+// returning the error would report a failure for a change that did happen and
+// tempt the caller into a rollback it cannot perform. A lost entry is a gap in
+// the trail — loud in the log, and the only honest option short of writing
+// both in one transaction, which the repository does not expose.
+func (s *Service) recordEvent(ctx context.Context, tenantID, contractID uuid.UUID, action ContractEventAction, payload map[string]any) {
+	if contractID == uuid.Nil {
+		return
+	}
+	e := &ContractEvent{
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ContractID: contractID,
+		Action:     action,
+		UserID:     actorFromContext(ctx),
+		Payload:    payload,
+		CreatedAt:  time.Now(),
+	}
+	if err := s.repo.CreateContractEvent(ctx, e); err != nil {
+		slog.Error("contract audit event not recorded",
+			"contract_id", contractID,
+			"tenant_id", tenantID,
+			"action", action,
+			"error", err,
+		)
+	}
+}
+
+// ListContractEvents returns one contract's audit trail, newest first.
+// The contract is loaded first so an unknown or foreign id answers 404 instead
+// of an empty list — an empty trail and a contract that is not yours must not
+// look the same.
+func (s *Service) ListContractEvents(ctx context.Context, input ListContractEventsInput) ([]*ContractEvent, int, error) {
+	if _, err := s.repo.GetContract(ctx, input.TenantID, input.ContractID); err != nil {
+		return nil, 0, err
+	}
+	if input.Page < 1 {
+		input.Page = 1
+	}
+	if input.PageSize < 1 || input.PageSize > 100 {
+		input.PageSize = 20
+	}
+	offset := (input.Page - 1) * input.PageSize
+	return s.repo.ListContractEvents(ctx, input.TenantID, input.ContractID, offset, input.PageSize)
 }
 
 // ============================================================================
@@ -159,6 +238,11 @@ func (s *Service) CreateContract(ctx context.Context, input CreateContractInput)
 		"tenant_id", c.TenantID,
 		"contract_number", c.ContractNumber,
 	)
+	s.recordEvent(ctx, c.TenantID, c.ID, ContractEventCreated, map[string]any{
+		"contract_number": c.ContractNumber,
+		"title":           c.Title,
+		"contract_type":   string(c.ContractType),
+	})
 	return c, nil
 }
 
@@ -168,6 +252,12 @@ func (s *Service) UpdateContract(ctx context.Context, input UpdateContractInput)
 	if err != nil {
 		return nil, err
 	}
+	previousStatus := c.Status
+
+	// Field names of what the request actually changes, in a stable order, for
+	// the audit entry. Collected while applying so the trail cannot drift from
+	// the mutation it describes.
+	changed := make([]string, 0, 8)
 
 	if input.Title != nil {
 		t := strings.TrimSpace(*input.Title)
@@ -175,26 +265,34 @@ func (s *Service) UpdateContract(ctx context.Context, input UpdateContractInput)
 			return nil, ErrInvalidInput
 		}
 		c.Title = t
+		changed = append(changed, "title")
 	}
 	if input.ContractType != nil {
 		c.ContractType = *input.ContractType
+		changed = append(changed, "contract_type")
 	}
 	if input.Status != nil {
 		c.Status = *input.Status
+		changed = append(changed, "status")
 	}
 	if input.StartsOn != nil {
 		c.StartsOn = *input.StartsOn
+		changed = append(changed, "starts_on")
 	}
 	if input.ClearEndsOn {
 		c.EndsOn = nil
+		changed = append(changed, "ends_on")
 	} else if input.EndsOn != nil {
 		c.EndsOn = input.EndsOn
+		changed = append(changed, "ends_on")
 	}
 	if input.DocumentURL != nil {
 		c.DocumentURL = input.DocumentURL
+		changed = append(changed, "document_url")
 	}
 	if input.Notes != nil {
 		c.Notes = *input.Notes
+		changed = append(changed, "notes")
 	}
 
 	c.UpdatedAt = time.Now()
@@ -210,6 +308,18 @@ func (s *Service) UpdateContract(ctx context.Context, input UpdateContractInput)
 		"contract_id", c.ID,
 		"tenant_id", c.TenantID,
 	)
+
+	// Termination arrives as a plain status update (the FE dialog calls the
+	// same RPC as an edit), so it is recognised here rather than at a route of
+	// its own — and only on the transition, so re-saving an already terminated
+	// contract does not file a second termination.
+	action := ContractEventUpdated
+	payload := map[string]any{"fields": changed}
+	if c.Status == ContractStatusTerminated && previousStatus != ContractStatusTerminated {
+		action = ContractEventTerminated
+		payload["from_status"] = string(previousStatus)
+	}
+	s.recordEvent(ctx, c.TenantID, c.ID, action, payload)
 	return c, nil
 }
 
@@ -308,15 +418,26 @@ func (s *Service) AddParty(ctx context.Context, input AddPartyInput) (*ContractP
 		"party_id", p.ID,
 		"contract_id", p.ContractID,
 	)
+	s.recordEvent(ctx, p.TenantID, p.ContractID, ContractEventPartyAdded, map[string]any{
+		"party_id":         p.ID.String(),
+		"party_type":       string(p.PartyType),
+		"role_in_contract": p.RoleInContract,
+	})
 	return p, nil
 }
 
 // RemoveParty detaches a party from a contract.
 func (s *Service) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) error {
-	if delErr := s.repo.RemoveParty(ctx, tenantID, partyID); delErr != nil {
+	contractID, delErr := s.repo.RemoveParty(ctx, tenantID, partyID)
+	if delErr != nil {
 		return fmt.Errorf("remove party: %w", delErr)
 	}
 	slog.Info("contract party removed", "party_id", partyID, "tenant_id", tenantID)
+	// contractID is uuid.Nil when nothing matched — recordEvent drops those, so
+	// a no-op delete does not invent a trail entry.
+	s.recordEvent(ctx, tenantID, contractID, ContractEventPartyRemoved, map[string]any{
+		"party_id": partyID.String(),
+	})
 	return nil
 }
 
@@ -449,5 +570,10 @@ func (s *Service) SaveSignature(ctx context.Context, tenantID, contractID, signa
 	}
 
 	slog.Info("contract signature saved", "contract_id", contractID, "tenant_id", tenantID, "signed_by", signedBy)
+	// IDs come off the updated record, not off the string arguments this method
+	// takes — the record is the row the write actually hit.
+	s.recordEvent(ctx, contract.TenantID, contract.ID, ContractEventSigned, map[string]any{
+		"signed_by": signedBy,
+	})
 	return contract, nil
 }

@@ -20971,6 +20971,38 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/vertraege/contracts/{id}/events:
+    get:
+      summary: List a contract's audit trail (newest first)
+      description: >
+        Append-only history of one contract: creation, updates, termination,
+        signature and party changes. Requires vertraege:contract read — the
+        trail is part of reading the contract, not a separate capability.
+      tags: [vertraege]
+      operationId: listContractEvents
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Audit trail page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/VertraegeContractEvent" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/vertraege/contracts/{id}/signature:
     put:
       summary: Save a digital signature on a contract
@@ -40614,6 +40646,33 @@ components:
     # -----------------------------------------------------------------------
     # Modul: vertraege
     # -----------------------------------------------------------------------
+
+    VertraegeContractEvent:
+      type: object
+      description: One entry of a contract's append-only audit trail.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [created, updated, terminated, signed, party_added, party_removed]
+        user_id:
+          type: string
+          format: uuid
+          description: "Absent when the change had no caller (reminder worker, auto-expiry) or the acting account was deleted"
+        payload:
+          type: object
+          additionalProperties: true
+          description: "Per-action facts, no fixed schema: {\"fields\":[...]} for an update, {\"party_id\":...} for a party change"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
 
     VertraegeContract:
       type: object

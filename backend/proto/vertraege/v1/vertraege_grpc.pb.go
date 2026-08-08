@@ -19,21 +19,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VertraegeService_CreateContract_FullMethodName = "/vertraege.v1.VertraegeService/CreateContract"
-	VertraegeService_UpdateContract_FullMethodName = "/vertraege.v1.VertraegeService/UpdateContract"
-	VertraegeService_DeleteContract_FullMethodName = "/vertraege.v1.VertraegeService/DeleteContract"
-	VertraegeService_GetContract_FullMethodName    = "/vertraege.v1.VertraegeService/GetContract"
-	VertraegeService_ListContracts_FullMethodName  = "/vertraege.v1.VertraegeService/ListContracts"
-	VertraegeService_AddParty_FullMethodName       = "/vertraege.v1.VertraegeService/AddParty"
-	VertraegeService_RemoveParty_FullMethodName    = "/vertraege.v1.VertraegeService/RemoveParty"
-	VertraegeService_ListParties_FullMethodName    = "/vertraege.v1.VertraegeService/ListParties"
-	VertraegeService_CreateReminder_FullMethodName = "/vertraege.v1.VertraegeService/CreateReminder"
-	VertraegeService_UpdateReminder_FullMethodName = "/vertraege.v1.VertraegeService/UpdateReminder"
-	VertraegeService_DeleteReminder_FullMethodName = "/vertraege.v1.VertraegeService/DeleteReminder"
-	VertraegeService_ListReminders_FullMethodName  = "/vertraege.v1.VertraegeService/ListReminders"
-	VertraegeService_UploadDocument_FullMethodName = "/vertraege.v1.VertraegeService/UploadDocument"
-	VertraegeService_ExportContract_FullMethodName = "/vertraege.v1.VertraegeService/ExportContract"
-	VertraegeService_SaveSignature_FullMethodName  = "/vertraege.v1.VertraegeService/SaveSignature"
+	VertraegeService_CreateContract_FullMethodName     = "/vertraege.v1.VertraegeService/CreateContract"
+	VertraegeService_UpdateContract_FullMethodName     = "/vertraege.v1.VertraegeService/UpdateContract"
+	VertraegeService_DeleteContract_FullMethodName     = "/vertraege.v1.VertraegeService/DeleteContract"
+	VertraegeService_GetContract_FullMethodName        = "/vertraege.v1.VertraegeService/GetContract"
+	VertraegeService_ListContracts_FullMethodName      = "/vertraege.v1.VertraegeService/ListContracts"
+	VertraegeService_AddParty_FullMethodName           = "/vertraege.v1.VertraegeService/AddParty"
+	VertraegeService_RemoveParty_FullMethodName        = "/vertraege.v1.VertraegeService/RemoveParty"
+	VertraegeService_ListParties_FullMethodName        = "/vertraege.v1.VertraegeService/ListParties"
+	VertraegeService_CreateReminder_FullMethodName     = "/vertraege.v1.VertraegeService/CreateReminder"
+	VertraegeService_UpdateReminder_FullMethodName     = "/vertraege.v1.VertraegeService/UpdateReminder"
+	VertraegeService_DeleteReminder_FullMethodName     = "/vertraege.v1.VertraegeService/DeleteReminder"
+	VertraegeService_ListReminders_FullMethodName      = "/vertraege.v1.VertraegeService/ListReminders"
+	VertraegeService_UploadDocument_FullMethodName     = "/vertraege.v1.VertraegeService/UploadDocument"
+	VertraegeService_ExportContract_FullMethodName     = "/vertraege.v1.VertraegeService/ExportContract"
+	VertraegeService_SaveSignature_FullMethodName      = "/vertraege.v1.VertraegeService/SaveSignature"
+	VertraegeService_ListContractEvents_FullMethodName = "/vertraege.v1.VertraegeService/ListContractEvents"
 )
 
 // VertraegeServiceClient is the client API for VertraegeService service.
@@ -55,12 +56,16 @@ type VertraegeServiceClient interface {
 	UpdateReminder(ctx context.Context, in *UpdateReminderRequest, opts ...grpc.CallOption) (*ReminderResponse, error)
 	DeleteReminder(ctx context.Context, in *DeleteReminderRequest, opts ...grpc.CallOption) (*DeleteReminderResponse, error)
 	ListReminders(ctx context.Context, in *ListRemindersRequest, opts ...grpc.CallOption) (*ListRemindersResponse, error)
-	// Document upload helper (returns signed-URL stub; Sprint 3 wires MinIO)
+	// Deprecated: use POST /api/v1/files/presign-upload with scope=vertraege instead.
+	// The client-side presign flow (vertraege-client.ts uploadDocument) handles
+	// presign → PUT → PATCH contract entirely without going through this RPC.
 	UploadDocument(ctx context.Context, in *UploadDocumentRequest, opts ...grpc.CallOption) (*UploadDocumentResponse, error)
 	// Export (text dump for now; Sprint 3 adds PDF renderer)
 	ExportContract(ctx context.Context, in *ExportContractRequest, opts ...grpc.CallOption) (*ExportContractResponse, error)
 	// Signature
 	SaveSignature(ctx context.Context, in *SaveContractSignatureRequest, opts ...grpc.CallOption) (*ContractResponse, error)
+	// Audit trail
+	ListContractEvents(ctx context.Context, in *ListContractEventsRequest, opts ...grpc.CallOption) (*ListContractEventsResponse, error)
 }
 
 type vertraegeServiceClient struct {
@@ -221,6 +226,16 @@ func (c *vertraegeServiceClient) SaveSignature(ctx context.Context, in *SaveCont
 	return out, nil
 }
 
+func (c *vertraegeServiceClient) ListContractEvents(ctx context.Context, in *ListContractEventsRequest, opts ...grpc.CallOption) (*ListContractEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListContractEventsResponse)
+	err := c.cc.Invoke(ctx, VertraegeService_ListContractEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VertraegeServiceServer is the server API for VertraegeService service.
 // All implementations must embed UnimplementedVertraegeServiceServer
 // for forward compatibility.
@@ -240,12 +255,16 @@ type VertraegeServiceServer interface {
 	UpdateReminder(context.Context, *UpdateReminderRequest) (*ReminderResponse, error)
 	DeleteReminder(context.Context, *DeleteReminderRequest) (*DeleteReminderResponse, error)
 	ListReminders(context.Context, *ListRemindersRequest) (*ListRemindersResponse, error)
-	// Document upload helper (returns signed-URL stub; Sprint 3 wires MinIO)
+	// Deprecated: use POST /api/v1/files/presign-upload with scope=vertraege instead.
+	// The client-side presign flow (vertraege-client.ts uploadDocument) handles
+	// presign → PUT → PATCH contract entirely without going through this RPC.
 	UploadDocument(context.Context, *UploadDocumentRequest) (*UploadDocumentResponse, error)
 	// Export (text dump for now; Sprint 3 adds PDF renderer)
 	ExportContract(context.Context, *ExportContractRequest) (*ExportContractResponse, error)
 	// Signature
 	SaveSignature(context.Context, *SaveContractSignatureRequest) (*ContractResponse, error)
+	// Audit trail
+	ListContractEvents(context.Context, *ListContractEventsRequest) (*ListContractEventsResponse, error)
 	mustEmbedUnimplementedVertraegeServiceServer()
 }
 
@@ -300,6 +319,9 @@ func (UnimplementedVertraegeServiceServer) ExportContract(context.Context, *Expo
 }
 func (UnimplementedVertraegeServiceServer) SaveSignature(context.Context, *SaveContractSignatureRequest) (*ContractResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveSignature not implemented")
+}
+func (UnimplementedVertraegeServiceServer) ListContractEvents(context.Context, *ListContractEventsRequest) (*ListContractEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListContractEvents not implemented")
 }
 func (UnimplementedVertraegeServiceServer) mustEmbedUnimplementedVertraegeServiceServer() {}
 func (UnimplementedVertraegeServiceServer) testEmbeddedByValue()                          {}
@@ -592,6 +614,24 @@ func _VertraegeService_SaveSignature_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VertraegeService_ListContractEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListContractEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VertraegeServiceServer).ListContractEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VertraegeService_ListContractEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VertraegeServiceServer).ListContractEvents(ctx, req.(*ListContractEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VertraegeService_ServiceDesc is the grpc.ServiceDesc for VertraegeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -658,6 +698,10 @@ var VertraegeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveSignature",
 			Handler:    _VertraegeService_SaveSignature_Handler,
+		},
+		{
+			MethodName: "ListContractEvents",
+			Handler:    _VertraegeService_ListContractEvents_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

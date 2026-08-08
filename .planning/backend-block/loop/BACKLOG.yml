@@ -149,7 +149,7 @@ units:
     service: vertraege
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Audit-Verlauf fuer Vertraege. Neue Tabelle `contract_events`
       (tenant_id, contract_id -> contracts, action TEXT, user_id UUID NULL, payload JSONB,
