@@ -1797,3 +1797,85 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   provozierbar ohne einen Fault-Injection-Mechanismus, den es in diesem
   Repo nicht gibt. Kein aktiver Befund, nur eine Grenze der
   DB-Integrationstest-Methode selbst.
+
+## Iteration 23 — c-cov-biz-dashboard — done — 2026-08-08 19:42
+- commit: (folgt nach diesem Eintrag)
+- verify vorgaenger: sauber. `353d557a` (c-cov-biz-hr-changerequest, Iteration
+  22) erneut gegen den finalen Baum laufen lassen: `go test
+  ./internal/biz/hr/changerequest/... -count=1 -v -cover` mit
+  `DATABASE_URL` auf `kmuhub_app` — 12/12 PASS, 0 Skips, 85,2 % Coverage,
+  identisch zum im Journal behaupteten Ergebnis. Diff nur Testdatei
+  (`integration_db_test.go`, +140 Zeilen), keine Quelldatei-Aenderung, keine
+  Migration, keine neue Route. `git merge origin/main` war "Already up to
+  date".
+- praemisse: bestaetigt. `internal/biz/dashboard/` hatte VOR dieser Iteration
+  0 DB-Integrationstests — nur `service_test.go` (Service gegen
+  MockRepository) und `cached_repository_test.go` (Cache-Wrapper gegen
+  Miniredis). Die eigentliche Aggregationslogik in
+  `postgres_repository.go::GetDashboardMetrics` (sechs handgeschriebene
+  SQL-Queries: Umsatz, Pipeline, Statusverteilung, letzte Rechnungen,
+  ablaufende Angebote, offene Mahnungen) lief nie gegen echtes Schema.
+  Gemessen vor dieser Iteration: 17,2 % (`go test
+  ./internal/biz/dashboard/... -cover` ohne die neue Datei).
+- gebaut: Neue Datei `internal/biz/dashboard/postgres_repository_db_test.go`,
+  neun Tests, keine Quelldatei-Aenderung. Muster von
+  `internal/biz/hr/changerequest/integration_db_test.go` uebernommen
+  (`testutil.SkipIfNoDB` + `PoolFromEnv`, kein Build-Tag, jeder Test seedet
+  eigene Tenants).
+  (1) `TestGetDashboardMetrics_RevenueScopedByTenantAndDateRange` — Query 1,
+  zwei Tenants, Rechnung ausserhalb des Zeitraums, prueft alle vier
+  Umsatzsummen exakt.
+  (2) `TestGetDashboardMetrics_EmptyDateRangeReturnsZeroNotError` — leerer
+  Tenant, alle Summen 0, kein Fehler, `MonthsInRange >= 1`.
+  (3) `TestGetDashboardMetrics_PipelineScopedByTenant` — zwei Tenants,
+  Entwurfs-Angebot darf den Durchschnittswert nicht verzerren,
+  Konversionsrate 33,3 %.
+  (4) `TestGetDashboardMetrics_StatusBreakdownIsAllTimeButTenantScoped` —
+  Query 3 ignoriert bewusst den Zeitraum (Kommentar im Quellcode bestaetigt);
+  Testzeitraum schliesst alle Rechnungen aus, Breakdown zaehlt trotzdem
+  korrekt, zweiter Tenant zaehlt nicht mit.
+  (5) `TestGetDashboardMetrics_RecentInvoicesScopedByTenantAndLimitedToTen`
+  — elf Rechnungen, nur zehn kommen zurueck, neueste zuerst, fremder Tenant
+  nicht dabei.
+  (6) `TestGetDashboardMetrics_ExpiringQuotesWithinSevenDays` — Status,
+  `valid_until`-Fenster und Tenant als Dreifachfilter.
+  (7) `TestGetDashboardMetrics_PendingDunningRecordsScopedByTenant` — nur
+  `status=draft`, nur der eigene Tenant.
+  (8) `TestGetDashboardMetrics_CanceledContextReturnsError` — Fehlerpfad:
+  abgebrochener Kontext liefert einen Fehler statt Panic oder leerem
+  Ergebnis.
+- gate: build ok (`go build -p 2 ./...`, komplettes Repo) | vet ok
+  (`go vet ./internal/biz/dashboard/...`) | lint ok (`golangci-lint run
+  ./internal/biz/dashboard/...`, 0 issues, nach Aufraeumen zweier
+  Modernizer-Hinweise im neuen Testcode: `maps.Copy` statt manueller
+  Merge-Schleife, `for i := range 11` statt `for i := 0; i < 11; i++`) |
+  test ok (`./internal/biz/dashboard/` 21/21 PASS 0 SKIP,
+  `./internal/gateway/` inkl. `TestOpenAPIRouteDrift` gruen) | migration
+  n.a. (keine Schema-Aenderung) | openapi n.a. (keine neue Route, reine
+  Testergaenzung)
+- befund unterwegs: RLS ist hier Defense-in-Depth, nicht nur die
+  Anwendungsschicht. Testweise `tenant_id = $1` aus der Umsatz-Query
+  entfernt (`WHERE ($1::uuid IS NOT NULL) AND invoice_date...`, Parameter
+  bewusst referenziert belassen, um keinen reinen SQL-Typfehler zu erzeugen)
+  — der Zwei-Tenant-Test blieb GRUEN, weil die RLS-Policy auf
+  `finance_invoices` unter `kmuhub_app` mit `app.tenant_id` aus dem
+  `WithTenantCtx`-Kontext bereits auf den eigenen Tenant einschraenkt, bevor
+  die explizite WHERE-Bedingung ueberhaupt greift. Kein aktiver Fund (die
+  App-Ebene filtert trotzdem korrekt, siehe Mutations-Probe unten), aber
+  bemerkenswert: ein vergessenes `tenant_id = $1` in einer neuen
+  `postgres_repository.go`-Query dieser Art waere hier durch RLS abgefangen,
+  nicht zwangslaeufig ein Produktionsleck.
+- mutations-probe: zwei Versuche, zurueckgedreht.
+  (1) `tenant_id = $1` durch `($1::uuid IS NOT NULL)` ersetzt (s.o.) — Test
+  blieb gruen (RLS faengt es ab, siehe Befund oben). Als Mutations-Probe
+  fuer DIESEN Test also nicht aussagekraeftig, deshalb Versuch (2).
+  (2) `status IN ('sent','paid','overdue')` in der `total_invoiced`-Summe zu
+  `status IN ('sent','paid')` verkuerzt (overdue faellt raus) — GENAU
+  `TestGetDashboardMetrics_RevenueScopedByTenantAndDateRange` wurde rot
+  (`TotalInvoiced = 1500, want 1700`), alle anderen Tests blieben gruen.
+  Beide Aenderungen zurueckgedreht, `git diff --stat` auf die Quelldatei
+  bestaetigt 0 Zeilen Differenz, Endgate danach erneut gelaufen und gruen.
+- db-tests: alle neun neuen Tests sind DB-Integrationstests (`SkipIfNoDB` +
+  `PoolFromEnv`), **0 Skips** unter `DATABASE_URL` auf `kmuhub_app`
+  (NOSUPERUSER NOBYPASSRLS). Paket-Coverage 17,2 % -> **79,3 %**.
+- offen: keins. Naechste Unit im Backlog: `c-cov-biz-gobdarchive`.

@@ -835,7 +835,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/dashboard` - gemessen 17,2 %. Die Kennzahl-Aggregationen
       gegen echtes Schema testen - insbesondere leere Zeitraeume, Zeitraumgrenzen und die
@@ -855,6 +855,13 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Neue Datei `postgres_repository_db_test.go` mit neun DB-Integrationstests gegen
+      `GetDashboardMetrics` (vorher 0 DB-Tests im Paket, nur Mock-basierte
+      `service_test.go`/`cached_repository_test.go`). Coverage 17,2 % -> 79,3 %. Je Aggregation
+      (Umsatz, Pipeline, Statusverteilung, letzte Rechnungen, ablaufende Angebote, offene
+      Mahnungen) ein Zwei-Tenant-Fall, plus leerer Zeitraum (liefert 0, kein Fehler) und
+      abgebrochener Kontext als Fehlerpfad. Details siehe JOURNAL.md.
 
   - id: c-cov-biz-gobdarchive
     phase: 3
