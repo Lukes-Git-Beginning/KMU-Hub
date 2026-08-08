@@ -2109,7 +2109,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Naechste Unit im Backlog: `c-cov-crm-report`.
 
 ## Iteration 26 — c-cov-crm-report — done — 2026-08-08 20:22
-- commit: (nachgetragen im Folge-Commit)
+- commit: bcf8b28e
 - verify vorgaenger: teilweise unsauber, aber am Code selbst nichts
   auszusetzen. `df6a7398` (c-cov-biz-creditnote, Iteration 25) inhaltlich
   geprueft: nur die neue Testdatei `repository_coverage_integration_test.go`,
