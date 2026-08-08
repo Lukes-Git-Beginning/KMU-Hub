@@ -305,6 +305,24 @@ func (r *PostgresRepository) ClaimTimeTrigger(ctx context.Context, id uuid.UUID,
 	return tag.RowsAffected() == 1, nil
 }
 
+// ClaimTimeTriggerFire inserts the (automation_id, entity_key) fire record and
+// reports whether this caller was the one that inserted it. ON CONFLICT DO
+// NOTHING makes the check-and-record a single atomic statement, so two poller
+// instances resolving the same due entity in the same tick cannot both fire:
+// the loser's INSERT affects zero rows.
+func (r *PostgresRepository) ClaimTimeTriggerFire(ctx context.Context, tenantID, automationID uuid.UUID, entityKey string, now time.Time) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`INSERT INTO automation_time_trigger_fires (tenant_id, automation_id, entity_key, fired_at)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (automation_id, entity_key) DO NOTHING`,
+		tenantID, automationID, entityKey, now,
+	)
+	if err != nil {
+		return false, fmt.Errorf("claim time trigger fire: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (r *PostgresRepository) SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error {
 	query := `UPDATE automations SET is_active = $3, updated_at = NOW() WHERE id = $1 AND tenant_id = $2`
 

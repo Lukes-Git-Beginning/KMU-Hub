@@ -2,10 +2,9 @@ package trigger
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -25,7 +24,7 @@ type TimeTriggerPoller struct {
 	interval     time.Duration
 	workflowRepo workflow.Repository
 	engine       EngineExecutor
-	pool         *pgxpool.Pool
+	resolver     DueResolver
 
 	// timeBasedTypes is the set of TriggerDefinition.Type values with
 	// TimeBased=true, computed once from registry at construction. The
@@ -34,18 +33,21 @@ type TimeTriggerPoller struct {
 	timeBasedTypes []string
 }
 
-// NewTimeTriggerPoller creates a new time-based trigger poller.
+// NewTimeTriggerPoller creates a new time-based trigger poller. resolver
+// decides which entities make a trigger due; without one the poller has no
+// way to distinguish "the invoice went overdue" from "five minutes elapsed"
+// and would fire every active time-based automation on every tick.
 func NewTimeTriggerPoller(
 	repo workflow.Repository,
 	engine EngineExecutor,
-	pool *pgxpool.Pool,
+	resolver DueResolver,
 	registry *TriggerRegistry,
 ) *TimeTriggerPoller {
 	return &TimeTriggerPoller{
 		interval:       5 * time.Minute,
 		workflowRepo:   repo,
 		engine:         engine,
-		pool:           pool,
+		resolver:       resolver,
 		timeBasedTypes: timeBasedTriggerTypes(registry),
 	}
 }
@@ -127,6 +129,66 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 			continue
 		}
 
+		p.fireDueEntities(ctx, auto, now)
+	}
+}
+
+// fireDueEntities resolves which entities make auto's trigger due and executes
+// auto once per entity that has not fired for that entity before.
+//
+// Resolving is what makes the trigger time-BASED rather than time-DRIVEN: the
+// tick only decides when to look, the resolver decides whether there is
+// anything to fire for. An empty result means nothing is due and nothing runs.
+func (p *TimeTriggerPoller) fireDueEntities(ctx context.Context, auto *models.Automation, now time.Time) {
+	entities, err := p.resolver.Resolve(ctx, auto.TriggerType, auto.TenantID, now)
+	if err != nil {
+		// Includes ErrUnknownTimeTrigger: a trigger flagged TimeBased in the
+		// registry but never taught to the resolver is a wiring bug, and a
+		// loud one beats an automation that quietly never runs.
+		slog.Error("failed to resolve due entities for time-based trigger",
+			"automation_id", auto.ID,
+			"trigger_type", auto.TriggerType,
+			"error", err,
+		)
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
+	if len(entities) >= maxDueEntitiesPerAutomation {
+		slog.Warn("due entities hit the per-automation cap, remainder deferred to the next tick",
+			"automation_id", auto.ID,
+			"trigger_type", auto.TriggerType,
+			"cap", maxDueEntitiesPerAutomation,
+		)
+	}
+
+	for _, entity := range entities {
+		fired, fireErr := p.workflowRepo.ClaimTimeTriggerFire(ctx, auto.TenantID, auto.ID, entity.Key, now)
+		if fireErr != nil {
+			slog.Error("failed to claim time-based trigger fire",
+				"automation_id", auto.ID,
+				"entity_key", entity.Key,
+				"error", fireErr,
+			)
+			continue
+		}
+		if !fired {
+			// Already fired for this entity -- by an earlier tick, or by
+			// another instance racing this one.
+			continue
+		}
+
+		payload, marshalErr := json.Marshal(entity.Payload)
+		if marshalErr != nil {
+			slog.Error("failed to marshal due entity payload",
+				"automation_id", auto.ID,
+				"entity_key", entity.Key,
+				"error", marshalErr,
+			)
+			continue
+		}
+
 		// Create synthetic event payload for the time-based trigger.
 		//
 		// ModuleID must NOT be "automation" (event.ModuleAutomation): engine.Execute's
@@ -137,9 +199,12 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 		// "scheduler" identifies the poller as the origin without colliding with
 		// the sentinel.
 		evt := models.EventPayload{
-			Type:      auto.TriggerType,
-			ModuleID:  "scheduler",
-			Timestamp: now,
+			Type:       auto.TriggerType,
+			TenantID:   auto.TenantID,
+			ModuleID:   "scheduler",
+			ResourceID: entity.ResourceID,
+			Payload:    payload,
+			Timestamp:  now,
 		}
 
 		// Execute in a goroutine with timeout
@@ -150,6 +215,7 @@ func (p *TimeTriggerPoller) checkTimeTriggers(ctx context.Context) {
 				slog.Error("time-based trigger execution failed",
 					"automation_id", a.ID,
 					"trigger_type", a.TriggerType,
+					"resource_id", e.ResourceID,
 					"error", execErr,
 				)
 			}

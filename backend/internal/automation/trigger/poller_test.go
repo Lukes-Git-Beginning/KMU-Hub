@@ -29,6 +29,80 @@ type fakeTimeBasedRepo struct {
 	claimResult map[uuid.UUID]bool // per-automation-id claim outcome; default true
 	claimErr    error
 	claimCalls  []uuid.UUID
+
+	fireResult map[string]bool // per-entity-key fire outcome; default true
+	fireErr    error
+	fireCalls  []fireCall
+}
+
+// fireCall records one ClaimTimeTriggerFire invocation.
+type fireCall struct {
+	tenantID     uuid.UUID
+	automationID uuid.UUID
+	entityKey    string
+}
+
+func (f *fakeTimeBasedRepo) ClaimTimeTriggerFire(_ context.Context, tenantID, automationID uuid.UUID, entityKey string, _ time.Time) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fireCalls = append(f.fireCalls, fireCall{tenantID: tenantID, automationID: automationID, entityKey: entityKey})
+	if f.fireErr != nil {
+		return false, f.fireErr
+	}
+	if f.fireResult == nil {
+		return true, nil
+	}
+	fired, ok := f.fireResult[entityKey]
+	if !ok {
+		return true, nil
+	}
+	return fired, nil
+}
+
+func (f *fakeTimeBasedRepo) firedKeys() []fireCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]fireCall(nil), f.fireCalls...)
+}
+
+// fakeDueResolver returns a canned due-entity set per trigger type.
+type fakeDueResolver struct {
+	mu sync.Mutex
+
+	byTrigger map[string][]DueEntity
+	err       error
+	calls     []resolveCall
+}
+
+type resolveCall struct {
+	triggerType string
+	tenantID    uuid.UUID
+}
+
+func (f *fakeDueResolver) Resolve(_ context.Context, triggerType string, tenantID uuid.UUID, _ time.Time) ([]DueEntity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, resolveCall{triggerType: triggerType, tenantID: tenantID})
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.byTrigger[triggerType], nil
+}
+
+func (f *fakeDueResolver) resolveCalls() []resolveCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]resolveCall(nil), f.calls...)
+}
+
+// dueEverything resolves one entity for every registered time-based trigger,
+// so tests that are not about resolution itself behave as before this file
+// learned about resolvers.
+func dueEverything() *fakeDueResolver {
+	return &fakeDueResolver{byTrigger: map[string][]DueEntity{
+		"biz.invoice.overdue":     {{Key: "invoice:1", ResourceID: "1", Payload: map[string]any{"invoice": map[string]any{"days_overdue": 3}}}},
+		"calendar.event.upcoming": {{Key: "calendar_event:1", ResourceID: "1", Payload: map[string]any{"event": map[string]any{"minutes_until": 5}}}},
+	}}
 }
 
 func (f *fakeTimeBasedRepo) ListActiveTimeBased(_ context.Context, triggerTypes []string) ([]*models.Automation, error) {
@@ -88,25 +162,33 @@ func (f *fakeTimeBasedRepo) UpdateLastTriggered(context.Context, uuid.UUID, time
 // fakeEngineExecutor records every Execute call on a buffered channel so
 // tests can wait for the poller's async goroutine without sleeping.
 type fakeEngineExecutor struct {
-	executed chan uuid.UUID
+	executed chan execution
+}
+
+// execution is one recorded Execute call: the automation plus the synthetic
+// event the poller built for it, so tests can assert the wire contract of the
+// payload and not just that something ran.
+type execution struct {
+	automationID uuid.UUID
+	event        models.EventPayload
 }
 
 func newFakeEngineExecutor() *fakeEngineExecutor {
-	return &fakeEngineExecutor{executed: make(chan uuid.UUID, 16)}
+	return &fakeEngineExecutor{executed: make(chan execution, 512)}
 }
 
-func (f *fakeEngineExecutor) Execute(_ context.Context, auto models.Automation, _ models.EventPayload) error {
-	f.executed <- auto.ID
+func (f *fakeEngineExecutor) Execute(_ context.Context, auto models.Automation, evt models.EventPayload) error {
+	f.executed <- execution{automationID: auto.ID, event: evt}
 	return nil
 }
 
-func waitExecutedIDs(t *testing.T, executor *fakeEngineExecutor, n int) []uuid.UUID {
+func waitExecutions(t *testing.T, executor *fakeEngineExecutor, n int) []execution {
 	t.Helper()
-	var got []uuid.UUID
+	var got []execution
 	for i := range n {
 		select {
-		case id := <-executor.executed:
-			got = append(got, id)
+		case exec := <-executor.executed:
+			got = append(got, exec)
 		case <-time.After(2 * time.Second):
 			t.Fatalf("timeout waiting for execution %d/%d", i+1, n)
 		}
@@ -114,11 +196,20 @@ func waitExecutedIDs(t *testing.T, executor *fakeEngineExecutor, n int) []uuid.U
 	return got
 }
 
+func waitExecutedIDs(t *testing.T, executor *fakeEngineExecutor, n int) []uuid.UUID {
+	t.Helper()
+	var ids []uuid.UUID
+	for _, exec := range waitExecutions(t, executor, n) {
+		ids = append(ids, exec.automationID)
+	}
+	return ids
+}
+
 func assertNoExecution(t *testing.T, executor *fakeEngineExecutor) {
 	t.Helper()
 	select {
-	case id := <-executor.executed:
-		t.Fatalf("expected no execution, got one for automation %s", id)
+	case exec := <-executor.executed:
+		t.Fatalf("expected no execution, got one for automation %s", exec.automationID)
 	case <-time.After(200 * time.Millisecond):
 	}
 }
@@ -180,7 +271,7 @@ func TestCheckTimeTriggers_ExecutesOnlyClaimedAutomations(t *testing.T) {
 	}
 	executor := newFakeEngineExecutor()
 
-	poller := NewTimeTriggerPoller(repo, executor, nil, NewTriggerRegistry())
+	poller := NewTimeTriggerPoller(repo, executor, dueEverything(), NewTriggerRegistry())
 	poller.checkTimeTriggers(context.Background())
 
 	executed := waitExecutedIDs(t, executor, 1)
@@ -200,7 +291,7 @@ func TestCheckTimeTriggers_PassesRegistryTimeBasedTypesToRepo(t *testing.T) {
 	executor := newFakeEngineExecutor()
 	registry := NewTriggerRegistry()
 
-	poller := NewTimeTriggerPoller(repo, executor, nil, registry)
+	poller := NewTimeTriggerPoller(repo, executor, dueEverything(), registry)
 	poller.checkTimeTriggers(context.Background())
 
 	if len(repo.listCalls) != 1 {
@@ -221,7 +312,7 @@ func TestCheckTimeTriggers_NoTimeBasedTriggers_SkipsRepoEntirely(t *testing.T) {
 	repo := &fakeTimeBasedRepo{}
 	executor := newFakeEngineExecutor()
 
-	poller := NewTimeTriggerPoller(repo, executor, nil, empty)
+	poller := NewTimeTriggerPoller(repo, executor, dueEverything(), empty)
 	poller.checkTimeTriggers(context.Background())
 
 	if len(repo.listCalls) != 0 {
@@ -246,7 +337,7 @@ func TestCheckTimeTriggers_ClaimError_SkipsExecutionWithoutFailingOthers(t *test
 	repo.claimErr = context.Canceled
 	executor := newFakeEngineExecutor()
 
-	poller := NewTimeTriggerPoller(repo, executor, nil, NewTriggerRegistry())
+	poller := NewTimeTriggerPoller(repo, executor, dueEverything(), NewTriggerRegistry())
 	poller.checkTimeTriggers(context.Background())
 
 	assertNoExecution(t, executor)

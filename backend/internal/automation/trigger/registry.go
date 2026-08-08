@@ -248,11 +248,11 @@ func (r *TriggerRegistry) registerBuiltins() {
 	// Calendar trigger (1) -- synthetic, time-based
 	// =========================================================================
 	r.Register(&TriggerDefinition{
-		Type:        "calendar.event.upcoming",
+		Type:        triggerCalendarEventUpcoming,
 		Module:      "calendar",
 		Name:        "Termin in Kuerze",
 		Description: "Wird 15 Minuten vor einem Kalenderereignis ausgeloest (zeitbasiert)",
-		EventType:   "calendar.event.upcoming",
+		EventType:   triggerCalendarEventUpcoming,
 		TimeBased:   true,
 		Fields: []TriggerField{
 			{Key: "event.title", Label: "Titel", Type: "string", Operators: stringOps()},

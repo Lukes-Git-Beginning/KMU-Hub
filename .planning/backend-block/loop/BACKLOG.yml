@@ -421,7 +421,7 @@ units:
     service: automation
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Zeitbasierte Automations-Ausloeser wirklich ausloesen. Der Trigger-Typ ist registriert
       (`internal/automation/trigger/registry.go` fuehrt neben `webhook.received` auch die

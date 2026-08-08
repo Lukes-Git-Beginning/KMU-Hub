@@ -744,3 +744,123 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (2) Kein Seed-Bericht fuer `cross` angelegt — die Migration 000079 seedet acht
   System-Definitionen, eine neunte haette einen Deploy-relevanten Datenzusatz
   bedeutet, ohne dass das FE ihn heute rendern kann. Sinnvoll erst zusammen mit (1).
+
+## Iteration 11 — a-automation-cron-poller — done — 2026-08-08 17:40
+- commit: <folgt unten>
+- gebaut: Faelligkeitsaufloesung fuer die zeitbasierten Automations-Trigger.
+  Neu: `trigger.DueResolver` (+ `DueEntity`, `ErrUnknownTimeTrigger`) in
+  `due.go`, `PostgresDueResolver` in `due_postgres.go` mit je einer Abfrage
+  fuer `biz.invoice.overdue` (finance_invoices) und `calendar.event.upcoming`
+  (calendar_events), Migration 000303 `automation_time_trigger_fires` als
+  Per-Entitaet-Dedup, `workflow.Repository.ClaimTimeTriggerFire`, und der
+  Poller feuert jetzt pro faelliger Entitaet statt pro Tick.
+- gate: build ok | vet ok | lint 0 issues | test ok (18 PASS, **0 SKIP**,
+  davon 4 echte DB-Tests gegen die lokale DB als `kmuhub_app`) |
+  migration 000303 angewandt, Kopf jetzt 303 | rls-smoke ok
+  (fremder Tenant 0 Zeilen, eigener 1) | `TestAllPublicTablesHaveRLSOrAreAllowlisted`
+  gruen | `TestOpenAPIRouteDrift` gruen (keine Route angefasst)
+- verify vorgaenger (`a86c166c`): sauber. Nur `executor.go` + Tests; keine
+  Route, kein Proto, keine Migration, kein Guard, keine neue Tabelle. Auf
+  Stub-Marker im neuen Pfad gegrept — nichts.
+
+### Der eigentliche Befund: die Unit-Praemisse war falsch, der Gap ein anderer
+
+Das Backlog sagte „kein Cron, kein `time.Ticker` in `internal/automation/`".
+Das stimmt seit Lauf 4 nicht mehr: `trigger/poller.go` existiert, laeuft
+(`cmd/automation/main.go:174`), hat einen atomaren Claim auf `last_polled_at`
+(Migration 000284) und Tests. Alle vier `done_when` waren nominell erfuellt.
+
+Beim Nachlesen war der Poller aber **schlimmer als keiner**:
+
+1. Er lud aktive zeitbasierte Automationen — nicht faellige Entitaeten. Jede
+   aktive `biz.invoice.overdue`-Automation feuerte **alle 5 Minuten**,
+   unabhaengig davon, ob eine Rechnung ueberfaellig ist. Der
+   `last_polled_at`-Claim verhindert nur Doppelausfuehrung *innerhalb* eines
+   Ticks, nicht die Wiederholung *ueber* Ticks: beim naechsten Tick liest der
+   Poller den neuen Wert und der Claim gelingt wieder.
+2. Das synthetische Event trug **gar keine Payload** (`{Type, ModuleID,
+   Timestamp}`). `engine.buildEnvFromPayload` merged `evt.Payload` flach ins
+   env — ohne Payload gibt es kein `invoice.days_overdue`. Die mitgelieferte
+   Vorlage `invoice-overdue-dunning` filtert auf `invoice.days_overdue >= 14`
+   und konnte damit **nie** wahr werden. Netto: die Automation feuerte
+   entweder dauernd (ohne Bedingung) oder nie (mit Bedingung).
+3. `p.pool` war ein totes Feld — deklariert, im Konstruktor gesetzt, nirgends
+   benutzt. Genau der Platz, an den die Faelligkeitsabfrage gehoert hat.
+4. Niemand sonst publiziert diese Events: `grep EventInvoiceOverdue` findet
+   ausser der Registry und dem Poller keinen Erzeuger.
+
+Ich habe die Unit deshalb nicht als „schon erledigt" abgehakt, sondern den
+verbliebenen Kern gebaut. `done_when` Punkt 2 („faellige Automation wird
+ausgefuehrt") war vorher nur dem Wortlaut nach erfuellt.
+
+### Entscheidungen (nachgeschlagen, nicht geraten)
+
+- **Payload verschachtelt**, nicht flach. `condition.getFieldValue`
+  (`evaluator.go:174`) laeuft `invoice.days_overdue` als **verschachtelte
+  Maps** ab; `action/executor.go:32` flacht erst fuer Templates ab. Ein
+  flaches `{"invoice.days_overdue": 12}` haette keine einzige Bedingung
+  getroffen. Test `..._EventCarriesTenantResourceAndNestedPayload` pinnt das.
+- **Dedup-Granularitaet gehoert dem Resolver, nicht der Tabelle.**
+  Rechnung: `invoice:<id>:<yyyy-mm-dd>` = einmal pro Tag. Einmal-pro-Rechnung
+  waere falsch — die Dunning-Vorlage zuendet erst ab Tag 14, ein einziger
+  Schuss an Tag 1 haette die Bedingung `false` ausgewertet und die einzige
+  Chance verbraucht. Kalender: `calendar_event:<id>` ohne Datum — ein Termin
+  beginnt einmal, eine Erinnerung an zwei Tagen ist ein Bug.
+- **Zwei Waechter, zwei verschiedene Fragen.** `last_polled_at` (Bestand):
+  „darf DIESE Instanz diese Automation in DIESEM Tick anfassen".
+  `automation_time_trigger_fires` (neu): „hat diese Automation fuer DIESE
+  Entitaet schon gefeuert". Beide noetig, keiner ersetzt den anderen.
+  Beide `INSERT ... ON CONFLICT DO NOTHING` / bedingtes `UPDATE` — also
+  atomar, kein check-then-act.
+- **Tenant-Scoping explizit in jedem Query.** Der Poller laeuft unter
+  `database.WithSystemContext` — RLS ist damit offen, das `WHERE tenant_id =
+  $1` ist das einzige, was Tenant As Automation von Tenant Bs Rechnungen
+  fernhaelt. Zwei DB-Tests belegen das mit zwei echten Tenants.
+- **Deckel 200 Entitaeten je Automation je Tick** (Resolver-`LIMIT`). Der
+  Poller startet eine Goroutine pro gefeuerter Entitaet; ein Tenant mit
+  fuenfstelligem Mahn-Rueckstand haette beim ersten Tick nach Aktivierung
+  genau so viele gleichzeitige Ausfuehrungen gestartet. Getroffener Deckel
+  loggt `Warn` und vertagt den Rest auf den naechsten Tick.
+- **Mitgenommener Bug (gleiche Wurzel):** `buildEnvFromPayload` setzte nie
+  `tenant_id` ins env, obwohl die Dunning-Vorlage `{{tenant_id}}` an
+  `biz.create_dunning` durchreicht. Da ich genau diesen Pfad zum Leben
+  erwecke, waere er sonst garantiert mit leerem Tenant gescheitert. Fix an
+  der gemeinsamen Funktion, nur wenn `evt.TenantID != uuid.Nil` — eine
+  gerenderte Null-UUID waere schlimmer als ein unaufgeloester Platzhalter.
+
+### Mutations-Probe: drei Stueck, alle gefangen
+
+1. Tenant-Filter im Overdue-Query durch `($1::uuid IS NOT NULL)` ersetzt →
+   **genau** die zwei Tenant-Tests rot
+   (`..._ScopesToTenantAndCarriesFields`, `..._IgnoresNotYetDueAndSettled`),
+   alle Unit-Tests gruen. Zurueckgedreht.
+2. `if !fired { continue }` im Poller entschaerft → **genau**
+   `TestFireDueEntities_FireClaimLost_DoesNotExecute` rot. Zurueckgedreht.
+3. Vorzustand rekonstruiert (leeres Resolver-Ergebnis feuert trotzdem eine
+   Pseudo-Entitaet) → **genau** `TestFireDueEntities_NothingDue_DoesNotExecute`
+   rot. Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+
+### Fehlerpfade im Test
+Resolver-Fehler (bricht die uebrigen Automationen nicht ab), unbekannter
+Trigger-Typ (`ErrUnknownTimeTrigger` → kein Feuern statt leerer Payload),
+Fire-Claim verloren, Fire-Claim-Fehler (die restlichen Entitaeten laufen
+weiter), nichts faellig, Deckel-grosse Ergebnismenge, sowie DB-seitig:
+zukuenftig faellige / bezahlte / Entwurfs-Rechnung werden ignoriert, Termin
+ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
+
+### Offen fuer Luke
+1. **Serientermine sind nicht abgedeckt.** `rrule`-Instanzen werden nirgends
+   serverseitig materialisiert (die Expansion liegt im Desktop-Client), also
+   trifft `calendar.event.upcoming` eine Serie nur zu ihrer Ur-Startzeit.
+   `lean:`-Marker mit Upgrade-Trigger steht an der Abfrage.
+2. **Keine Retention** auf `automation_time_trigger_fires`. Wachstum ist eine
+   Zeile pro echtem Feuern; `lean:`-Marker nennt
+   `CleanupOldExecutions` als Anschlussstelle ab sechsstelligen Zeilenzahlen.
+3. **Der Poller ist jetzt scharf** in dem Sinn, dass eine aktive
+   `biz.invoice.overdue`-Automation ab Deploy real Mahnungen anlegen kann —
+   vorher konnte sie das nachweislich nie. Lokal existiert genau eine
+   ueberfaellige Rechnung (RE-2026-001, 69 Tage). Vor dem Deploy einmal
+   pruefen, wie viele aktive Automationen dieses Typs produktiv stehen.
+4. `finance_invoices.status` kennt `'overdue'`, aber niemand setzt es je —
+   die Abfrage nimmt `IN ('sent','overdue')`, damit ein spaeterer Setzer den
+   Trigger nicht stillschweigend abwuergt.

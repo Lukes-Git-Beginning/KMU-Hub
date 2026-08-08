@@ -121,6 +121,10 @@ func (m *mockRepo) ClaimTimeTrigger(ctx context.Context, id uuid.UUID, previous 
 	return true, nil
 }
 
+func (m *mockRepo) ClaimTimeTriggerFire(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (bool, error) {
+	return true, nil
+}
+
 type mockExecRepo struct {
 	createExecFn func(ctx context.Context, e *models.AutomationExecution) error
 	updateExecFn func(ctx context.Context, e *models.AutomationExecution) error
