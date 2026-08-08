@@ -116,6 +116,7 @@ service CRMService {
   rpc CreateLead(CreateLeadRequest) returns (CreateLeadResponse);
   rpc UpdateLead(UpdateLeadRequest) returns (UpdateLeadResponse);
   rpc ConvertLead(ConvertLeadRequest) returns (ConvertLeadResponse);
+  rpc PromoteContactToLead(PromoteContactToLeadRequest) returns (PromoteContactToLeadResponse);
 }
 
 // ============================================================================
@@ -1317,5 +1318,18 @@ message ConvertLeadRequest {
 }
 
 message ConvertLeadResponse {
+  LeadInfo lead = 1;
+}
+
+// PromoteContactToLead lifts a contact into the lead funnel when a dialer
+// call outcome carries a callback request. It never moves a contact
+// backwards: a contact already at "qualified" or "customer" is returned
+// unchanged. Called service-to-service by the dialer, never over the HTTP
+// gateway.
+message PromoteContactToLeadRequest {
+  string contact_id = 1;
+}
+
+message PromoteContactToLeadResponse {
   LeadInfo lead = 1;
 }

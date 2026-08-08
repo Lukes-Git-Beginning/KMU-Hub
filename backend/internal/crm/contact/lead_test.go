@@ -400,3 +400,116 @@ func TestUpdateLead_Validation(t *testing.T) {
 		t.Fatalf("disqualifying should leave the stage at lead, got %q", updated.LifecycleStage)
 	}
 }
+
+func TestPromoteFromDialerCallback_LiftsLeadAndRecomputesScore(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	now := time.Now().UTC()
+	csvSource := LeadSourceCSV
+	csvScore := int16(10)
+	email := "lead@example.invalid"
+
+	repo.contacts[contactID] = &models.Contact{
+		ID:             contactID,
+		TenantID:       tenantID,
+		FirstName:      "Rueckruf",
+		LastName:       "Wunsch",
+		Email:          &email,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		LifecycleStage: LifecycleLead,
+		LeadSource:     &csvSource,
+		LeadScore:      &csvScore,
+	}
+
+	updated, err := svc.PromoteFromDialerCallback(context.Background(), contactID, tenantID)
+	if err != nil {
+		t.Fatalf("PromoteFromDialerCallback: %v", err)
+	}
+	if updated.LifecycleStage != LifecycleLead {
+		t.Fatalf("expected stage lead, got %q", updated.LifecycleStage)
+	}
+	if updated.LeadSource == nil || *updated.LeadSource != LeadSourceDialer {
+		t.Fatalf("expected lead_source dialer, got %v", updated.LeadSource)
+	}
+	// dialer base (35) + email present (20) = 55 -- higher than the csv-sourced
+	// 10 it started with, reflecting the stronger signal of a live callback.
+	if updated.LeadScore == nil || *updated.LeadScore != 55 {
+		t.Fatalf("expected recomputed score 55, got %v", updated.LeadScore)
+	}
+}
+
+// TestPromoteFromDialerCallback_NeverDemotesQualifiedOrCustomer is the guard
+// this unit exists for: the funnel only moves forward (lead -> qualified ->
+// customer), and a callback request must never pull a contact backwards --
+// most concretely for "customer", the default stage of every ordinary
+// contact that never went through the lead inbox.
+func TestPromoteFromDialerCallback_NeverDemotesQualifiedOrCustomer(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	now := time.Now().UTC()
+
+	qualifiedID := uuid.New()
+	repo.contacts[qualifiedID] = &models.Contact{
+		ID: qualifiedID, TenantID: tenantID, FirstName: "Q", LastName: "Ualified",
+		CreatedAt: now, UpdatedAt: now, LifecycleStage: LifecycleQualified,
+	}
+	customerID := uuid.New()
+	repo.contacts[customerID] = &models.Contact{
+		ID: customerID, TenantID: tenantID, FirstName: "C", LastName: "Ustomer",
+		CreatedAt: now, UpdatedAt: now, LifecycleStage: LifecycleCustomer,
+	}
+
+	for _, id := range []uuid.UUID{qualifiedID, customerID} {
+		before := repo.contacts[id].LifecycleStage
+		updated, err := svc.PromoteFromDialerCallback(context.Background(), id, tenantID)
+		if err != nil {
+			t.Fatalf("PromoteFromDialerCallback(%s): %v", id, err)
+		}
+		if updated.LifecycleStage != before {
+			t.Errorf("contact %s was moved from %q to %q -- must never be demoted", id, before, updated.LifecycleStage)
+		}
+		if updated.LeadSource != nil {
+			t.Errorf("contact %s got a lead_source it should not have: %v", id, *updated.LeadSource)
+		}
+	}
+}
+
+// TestPromoteFromDialerCallback_IdempotentOnReplay covers the idempotency
+// requirement: a call outcome delivered twice must not change the lifecycle
+// stage a second time or double the score. The score recompute is an
+// absolute SET, so this should hold by construction -- the test pins it down.
+func TestPromoteFromDialerCallback_IdempotentOnReplay(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	now := time.Now().UTC()
+
+	repo.contacts[contactID] = &models.Contact{
+		ID: contactID, TenantID: tenantID, FirstName: "Re", LastName: "Play",
+		CreatedAt: now, UpdatedAt: now, LifecycleStage: LifecycleLead,
+	}
+
+	first, err := svc.PromoteFromDialerCallback(context.Background(), contactID, tenantID)
+	if err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	second, err := svc.PromoteFromDialerCallback(context.Background(), contactID, tenantID)
+	if err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	if second.LifecycleStage != first.LifecycleStage {
+		t.Errorf("stage changed on replay: %q -> %q", first.LifecycleStage, second.LifecycleStage)
+	}
+	if *second.LeadScore != *first.LeadScore {
+		t.Errorf("score changed on replay (not idempotent, looks additive): %d -> %d", *first.LeadScore, *second.LeadScore)
+	}
+	if *second.LeadSource != *first.LeadSource {
+		t.Errorf("source changed on replay: %q -> %q", *first.LeadSource, *second.LeadSource)
+	}
+}

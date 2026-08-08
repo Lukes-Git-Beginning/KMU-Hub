@@ -63,6 +63,8 @@ type LeadFilter struct {
 type LeadPatch struct {
 	Stage            *string
 	Status           *string
+	Source           *string
+	Score            *int16
 	Temperature      *string
 	ClearTemperature bool
 }

@@ -127,6 +127,16 @@ func (r *PostgresRepository) UpdateLead(ctx context.Context, id uuid.UUID, tenan
 		args = append(args, *patch.Status)
 		argNum++
 	}
+	if patch.Source != nil {
+		setClauses = append(setClauses, fmt.Sprintf("lead_source = $%d", argNum))
+		args = append(args, *patch.Source)
+		argNum++
+	}
+	if patch.Score != nil {
+		setClauses = append(setClauses, fmt.Sprintf("lead_score = $%d", argNum))
+		args = append(args, *patch.Score)
+		argNum++
+	}
 	switch {
 	case patch.ClearTemperature:
 		setClauses = append(setClauses, "lead_temperature = NULL")

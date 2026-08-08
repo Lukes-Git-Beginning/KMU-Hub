@@ -609,7 +609,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Dialer-Ergebnisse mit Rueckrufwunsch erzeugen einen Lead. Das Lead-Datenmodell ist
       vollstaendig (`contacts.lifecycle_stage`, `lead_source`, `lead_score`, `lead_status`,

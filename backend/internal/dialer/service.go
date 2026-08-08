@@ -679,6 +679,7 @@ func (s *Service) LogCallOutcome(
 
 	// Resolve the real CRM contact UUID from the campaign contact join record.
 	var realContactID uuid.UUID
+	realContactResolved := false
 	cc, ccErr := s.campaigns.GetCampaignContactByID(ctx, session.CampaignContactID, tenantID)
 	if ccErr != nil || cc == nil {
 		slog.WarnContext(ctx, "dialer: resolve campaign contact for CRM bridge failed",
@@ -688,6 +689,7 @@ func (s *Service) LogCallOutcome(
 		realContactID = session.CampaignContactID // fallback — better than uuid.Nil
 	} else {
 		realContactID = cc.ContactID
+		realContactResolved = true
 	}
 
 	crmInput := CallActivityInput{
@@ -703,6 +705,21 @@ func (s *Service) LogCallOutcome(
 			"session_id", sessionID,
 			"error", err,
 		)
+	}
+
+	// A callback request is a live signal of interest -- lift the contact
+	// into the CRM lead funnel. Best-effort, non-fatal: an outcome must be
+	// loggable even if the CRM is unreachable. Only fires when the real
+	// contact ID actually resolved -- promoting the wrong contact (the
+	// campaign-contact fallback ID) would be worse than not promoting at all.
+	if contactStatus == ContactStatusCallback && realContactResolved {
+		if err := s.crmBridge.PromoteToLead(ctx, realContactID); err != nil {
+			slog.WarnContext(ctx, "dialer: promote contact to lead failed",
+				"session_id", sessionID,
+				"contact_id", realContactID,
+				"error", err,
+			)
+		}
 	}
 
 	// Refresh campaign denormalized counts.

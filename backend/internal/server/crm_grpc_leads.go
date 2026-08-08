@@ -163,3 +163,26 @@ func (s *CRMGRPCServer) ConvertLead(ctx context.Context, req *crmv1.ConvertLeadR
 
 	return &crmv1.ConvertLeadResponse{Lead: toLeadInfo(converted)}, nil
 }
+
+// PromoteContactToLead is called service-to-service by the dialer when a
+// call outcome carries a callback request. It is not exposed over the HTTP
+// gateway -- there is no product surface for a human to trigger this
+// directly, only the dialer's outcome-logging path.
+func (s *CRMGRPCServer) PromoteContactToLead(ctx context.Context, req *crmv1.PromoteContactToLeadRequest) (*crmv1.PromoteContactToLeadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	contactID, err := uuid.Parse(req.GetContactId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	promoted, err := s.contactService.PromoteFromDialerCallback(ctx, contactID, tenantID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.PromoteContactToLeadResponse{Lead: toLeadInfo(promoted)}, nil
+}

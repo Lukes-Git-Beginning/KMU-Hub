@@ -35,6 +35,10 @@ type CRMBridge interface {
 	// ResolveFilterContacts expands a saved CRM filter into a flat contact list
 	// suitable for campaign import.
 	ResolveFilterContacts(ctx context.Context, filterID uuid.UUID) ([]ContactImport, error)
+
+	// PromoteToLead lifts a contact into the CRM lead funnel. Called when a
+	// call outcome carries a callback request.
+	PromoteToLead(ctx context.Context, contactID uuid.UUID) error
 }
 
 // CallActivityInput carries the data needed to create a call activity in the CRM.
@@ -141,6 +145,19 @@ func (b *GRPCCRMBridge) GetContactDetails(ctx context.Context, contactID uuid.UU
 		Company: company,
 		Email:   c.Email,
 	}, nil
+}
+
+// PromoteToLead lifts the contact into the CRM lead funnel via the
+// dedicated service-to-service RPC. The CRM side owns the "never move
+// backwards" guard and the score recompute -- the dialer only signals that a
+// callback happened.
+func (b *GRPCCRMBridge) PromoteToLead(ctx context.Context, contactID uuid.UUID) error {
+	if _, err := b.client.PromoteContactToLead(ctx, &crmv1.PromoteContactToLeadRequest{
+		ContactId: contactID.String(),
+	}); err != nil {
+		return fmt.Errorf("crm bridge promote to lead: %w", err)
+	}
+	return nil
 }
 
 // ResolveFilterContacts fetches all contacts matched by a saved CRM filter.

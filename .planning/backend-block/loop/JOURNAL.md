@@ -1340,3 +1340,89 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   (`route_crm_contacts.go`), und ein zweiter XLSX-Pfad dort waere Scope-Creep
   gewesen. Falls XLSX auch fuer den E-Mail-Kontaktimport gewuenscht ist, ist
   das eine eigene, sehr aehnliche Unit.
+
+## Iteration 17 — a-crm-dialer-lead-link — done — 2026-08-08 20:10
+- commit: (siehe naechster Chore-Commit)
+- verify vorgaenger: sauber. `4baf1304` (Iteration 16, XLSX-Import) gegen die
+  Fehlerklassen geprueft: Handler geht ueber `crmv1.CRMServiceClient`, keine
+  direkte Service-Instanz; `.proto`, `.pb.go` UND `.grpc.pb.go` im selben
+  Commit regeneriert; kein neuer `RequirePermission`-Guard (wiederverwendet
+  den bestehenden `contactImport`-Guard); keine Migration noetig; Route in
+  `route_crm.go` UND `api/openapi.yaml` registriert. `git merge origin/main`
+  war "Already up to date".
+- gebaut: Dialer-Ergebnisse mit Rueckrufwunsch heben den verknuepften
+  Kontakt in den CRM-Lead-Funnel. Neue RPC `PromoteContactToLead`
+  (`crm.proto`, service-zu-service, bewusst OHNE HTTP-Gateway-Route — kein
+  FE-Konsument, done_when verlangt keinen openapi.yaml-Eintrag), Handler in
+  `internal/server/crm_grpc_leads.go` (gleiche Datei wie `ConvertLead` etc.,
+  gleiches Muster). Business-Logik in einer neuen Service-Methode
+  `contact.Service.PromoteFromDialerCallback` (`lead.go`): laedt den
+  Kontakt, rechnet bei Rueckrufwunsch die Bewertung ueber `ComputeLeadScore`
+  mit `LeadSourceDialer` neu, setzt `lifecycle_stage=lead`,
+  `lead_source=dialer` per erweitertem `LeadPatch{Source,Score}` auf dem
+  bestehenden `UpdateLead`-Repository-Pfad (`postgres_lead.go`, zwei neue
+  SET-Klauseln, keine neue Query).
+  **Der zentrale Designentscheid dieser Unit:** die Note im Backlog verlangt
+  explizit "ein Kontakt, der schon `customer` ist, wird NICHT auf `lead`
+  zurueckgestuft". Das Datenmodell (`models/contact.go:29-31`) macht
+  `customer` zum STANDARDWERT jedes gewoehnlichen, nie ueber die Lead-Inbox
+  angelegten Kontakts — es gibt im Code keine Unterscheidung zwischen "echter
+  zahlender Kunde" und "nie angefasster Standardkontakt". Die Guard-Klausel
+  ist trotzdem woertlich umgesetzt (Kontakt bei `customer` unangetastet
+  zurueckgegeben, kein Fehler). Zusaetzlich, ueber die explizite Anforderung
+  hinaus, denselben Schutz auf `qualified` ausgedehnt: `ConvertLead`/
+  `UpdateLead` bewegen die Stage in diesem Repo nirgends rueckwaerts, und ein
+  Rueckruf sollte eine bereits qualifizierte Sales-Stage nicht stillschweigend
+  auf `lead` zuruecksetzen. Praktische Konsequenz, siehe "offen".
+  Verdrahtung im Dialer (`service.go`, `LogCallOutcome`): direkt neben dem
+  bestehenden `CreateCallActivity`-Bestcase-Aufruf, nur wenn
+  `contactStatus == ContactStatusCallback` UND die echte Kontakt-ID ueber die
+  Campaign-Contact-Verknuepfung tatsaechlich aufgeloest werden konnte (neues
+  Flag `realContactResolved` — bei Aufloesungsfehler faellt der Code auf die
+  Campaign-Contact-ID zurueck, und genau DIE darf niemals als CRM-Kontakt
+  befoerdert werden, das waere ein falscher Kontakt). `CRMBridge`-Interface
+  um `PromoteToLead(ctx, contactID)` erweitert, `GRPCCRMBridge`-Implementierung
+  ruft die neue RPC. Aufruf best-effort/non-fatal wie `CreateCallActivity` —
+  ein Anrufergebnis muss loggbar bleiben, auch wenn die Lead-Promotion
+  fehlschlaegt.
+  Idempotenz (done_when-Kriterium): die Bewertung wird immer als absolutes
+  SET geschrieben, nie inkrementell — zweimal denselben Callback verarbeiten
+  liefert denselben Score, dieselbe Source, dieselbe Stage. Test
+  `TestPromoteFromDialerCallback_IdempotentOnReplay` belegt das explizit.
+- gate: build ok (`-p 2`, dialer/crm/server/gateway/cmd-dialer/cmd-crm/cmd-gateway)
+  | vet ok | lint ok (`golangci-lint run` ueber dialer/crm/server = 0 issues)
+  | test ok, DATABASE_URL gesetzt, 0 Skips (`internal/dialer` inkl. 2 neuer
+  Tests, `internal/crm/contact` inkl. 3 neuer Tests, alle uebrigen
+  `internal/crm/*`-Pakete, `internal/server`, `internal/gateway` inkl.
+  `TestOpenAPIRouteDrift` — unveraendert, da keine neue HTTP-Route) |
+  migration n.a. (keine neue Tabelle/Spalte) | openapi n.a. (service-zu-
+  service-RPC, kein Gateway-Pfad) | rls-smoke n.a. (kein Tabellenschema
+  angefasst)
+- mutations-probe: Guard-Zeile
+  `if current.LifecycleStage == LifecycleQualified || ... == LifecycleCustomer`
+  auf `if false` verkuerzt (Guard wirkungslos) →
+  `TestPromoteFromDialerCallback_NeverDemotesQualifiedOrCustomer` wurde rot
+  (qualified- UND customer-Kontakt wurden faelschlich auf `lead` gehoben),
+  die beiden Nachbartests (`_LiftsLeadAndRecomputesScore`,
+  `_IdempotentOnReplay`) blieben gruen. Zurueckgedreht, Endgate danach
+  erneut gelaufen und gruen.
+- fehlerpfade im Test: Rueckruf-Outcome ohne aufgeloeste Kontakt-ID (Fallback
+  auf Campaign-Contact-ID) → `PromoteToLead` wird NICHT aufgerufen
+  (`realContactResolved=false`); Nicht-Rueckruf-Outcome → `PromoteToLead`
+  wird NICHT aufgerufen; Kontakt bei `qualified`/`customer` → Aufruf liefert
+  keinen Fehler, aber keine Aenderung.
+- offen: Zwei Punkte fuer Luke.
+  (1) **Praktische Reichweite der Guard-Klausel.** Weil `customer` der
+  Standardwert jedes gewoehnlichen Kontakts ist (nicht nur echter Kunden),
+  greift die Promotion in der Praxis vor allem bei Kontakten, die bereits
+  ueber die Lead-Inbox angelegt wurden (Stage `lead`, z. B. aus einem
+  CSV-Import) — ein Dialer-Ziel, das nie durch die Lead-Inbox lief, bleibt
+  trotz Rueckrufwunsch bei `customer` und wird NICHT befoerdert. Das ist die
+  woertliche Umsetzung der Backlog-Note, aber falls der eigentliche
+  Produktwunsch ist, dass JEDER Kaltakquise-Kontakt mit Rueckrufwunsch zum
+  Lead wird, braucht es zuerst eine Entscheidung, wie "echter Kunde" von
+  "nie qualifizierter Standardkontakt" unterschieden werden soll — das ist
+  eine Datenmodell-Frage, keine Iteration.
+  (2) **`qualified`-Schutz ueber die Anforderung hinaus ergaenzt** (siehe
+  oben) — falls das nicht gewuenscht ist, ist es eine einzelne Zeile in
+  `lead.go` (`PromoteFromDialerCallback`), leicht rueckgaengig zu machen.
