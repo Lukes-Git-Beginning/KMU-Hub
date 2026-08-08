@@ -680,5 +680,179 @@ func (r *PostgresRepository) DeleteItemAttachment(ctx context.Context, tenantID,
 	return nil
 }
 
+// ============================================================================
+// Picking Lists
+// ============================================================================
+
+func (r *PostgresRepository) CreatePickingList(ctx context.Context, list *PickingList) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO picking_lists (id, tenant_id, reference, status, assigned_to, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		list.ID, list.TenantID, list.Reference, list.Status,
+		list.AssignedTo, list.CreatedBy, list.CreatedAt, list.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) UpdatePickingList(ctx context.Context, list *PickingList) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE picking_lists SET reference=$1, status=$2, assigned_to=$3, updated_at=$4
+		 WHERE id=$5 AND tenant_id=$6`,
+		list.Reference, list.Status, list.AssignedTo, list.UpdatedAt, list.ID, list.TenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPickingListNotFound
+	}
+	return nil
+}
+
+// CompletePickingList claims the list for booking. The status predicate lives
+// in the WHERE clause, so a second concurrent booking affects zero rows and
+// gets false back instead of moving stock a second time.
+func (r *PostgresRepository) CompletePickingList(ctx context.Context, tenantID, listID uuid.UUID) (bool, error) {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE picking_lists SET status='completed', updated_at=NOW()
+		 WHERE id=$1 AND tenant_id=$2 AND status <> 'completed'`,
+		listID, tenantID,
+	)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
+func (r *PostgresRepository) DeletePickingList(ctx context.Context, tenantID, listID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM picking_lists WHERE id=$1 AND tenant_id=$2`,
+		listID, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPickingListNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetPickingList(ctx context.Context, tenantID, listID uuid.UUID) (*PickingList, error) {
+	var l PickingList
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, reference, status, assigned_to, created_by, created_at, updated_at
+		 FROM picking_lists WHERE id=$1 AND tenant_id=$2`,
+		listID, tenantID,
+	).Scan(&l.ID, &l.TenantID, &l.Reference, &l.Status, &l.AssignedTo, &l.CreatedBy, &l.CreatedAt, &l.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrPickingListNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get picking list: %w", err)
+	}
+
+	items, iErr := r.ListPickingListItems(ctx, tenantID, l.ID)
+	if iErr != nil {
+		return nil, iErr
+	}
+	for _, it := range items {
+		l.Items = append(l.Items, *it)
+	}
+	return &l, nil
+}
+
+func (r *PostgresRepository) ListPickingLists(ctx context.Context, tenantID uuid.UUID, status *PickingStatus, offset, limit int) ([]*PickingList, int, error) {
+	var statusArg *string
+	if status != nil {
+		s := string(*status)
+		statusArg = &s
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM picking_lists WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2)`,
+		tenantID, statusArg,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count picking lists: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, reference, status, assigned_to, created_by, created_at, updated_at
+		 FROM picking_lists
+		 WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2)
+		 ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+		tenantID, statusArg, limit, offset,
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list picking lists: %w", err)
+	}
+	defer rows.Close()
+
+	lists := []*PickingList{}
+	for rows.Next() {
+		var l PickingList
+		if scanErr := rows.Scan(&l.ID, &l.TenantID, &l.Reference, &l.Status, &l.AssignedTo,
+			&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt); scanErr != nil {
+			return nil, 0, fmt.Errorf("scan picking list row: %w", scanErr)
+		}
+		lists = append(lists, &l)
+	}
+	return lists, total, rows.Err()
+}
+
+func (r *PostgresRepository) UpsertPickingListItem(ctx context.Context, item *PickingListItem) error {
+	return r.pool.QueryRow(ctx,
+		`INSERT INTO picking_list_items
+		     (id, tenant_id, picking_list_id, item_id, quantity_requested, quantity_picked, location)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (picking_list_id, item_id) DO UPDATE
+		   SET quantity_requested = EXCLUDED.quantity_requested,
+		       quantity_picked    = EXCLUDED.quantity_picked,
+		       location           = EXCLUDED.location,
+		       updated_at         = NOW()
+		 RETURNING id, created_at, updated_at`,
+		item.ID, item.TenantID, item.PickingListID, item.ItemID,
+		item.QuantityRequested, item.QuantityPicked, item.Location,
+	).Scan(&item.ID, &item.CreatedAt, &item.UpdatedAt)
+}
+
+func (r *PostgresRepository) DeletePickingListItem(ctx context.Context, tenantID, itemRowID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM picking_list_items WHERE id=$1 AND tenant_id=$2`, itemRowID, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPickingListItemNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListPickingListItems(ctx context.Context, tenantID, listID uuid.UUID) ([]*PickingListItem, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, picking_list_id, item_id, quantity_requested, quantity_picked,
+		        location, created_at, updated_at
+		 FROM picking_list_items WHERE tenant_id=$1 AND picking_list_id=$2 ORDER BY created_at`,
+		tenantID, listID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list picking list items: %w", err)
+	}
+	defer rows.Close()
+
+	items := []*PickingListItem{}
+	for rows.Next() {
+		var it PickingListItem
+		if scanErr := rows.Scan(&it.ID, &it.TenantID, &it.PickingListID, &it.ItemID,
+			&it.QuantityRequested, &it.QuantityPicked, &it.Location,
+			&it.CreatedAt, &it.UpdatedAt); scanErr != nil {
+			return nil, fmt.Errorf("scan picking list item row: %w", scanErr)
+		}
+		items = append(items, &it)
+	}
+	return items, rows.Err()
+}
+
 // compile-time interface check
 var _ Repository = (*PostgresRepository)(nil)

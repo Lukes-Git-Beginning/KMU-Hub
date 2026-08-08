@@ -753,7 +753,7 @@ units:
     service: inventar
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Kommissionierung. Verifiziert 2026-08-07 - unter den `/api/v1/inventar/*`-Pfaden gibt es
       keine Pickliste. Neue Tabellen `picking_lists` (tenant_id, reference, status, assigned_to,

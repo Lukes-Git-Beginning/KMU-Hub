@@ -139,6 +139,26 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(inventurBook).Post("/book", ir.HandleBookInventurDifferences)
 			})
 		})
+
+		// Picking lists. Booking moves stock, so it carries its own guard —
+		// "write" covers the picker, "book" the person who releases the goods.
+		pickingBook := middleware.RequirePermissionAny([2]string{"inventar:picking", "write"}, [2]string{"inventar:picking", "book"})
+		r.Route("/picking", func(r chi.Router) {
+			r.With(middleware.RequirePermission("inventar:picking", "read")).Get("/", ir.HandleListPickingLists)
+			r.With(middleware.RequirePermission("inventar:picking", "write")).Post("/", ir.HandleCreatePickingList)
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("inventar:picking", "read")).Get("/", ir.HandleGetPickingList)
+				r.With(middleware.RequirePermission("inventar:picking", "write")).Patch("/", ir.HandleUpdatePickingList)
+				r.With(middleware.RequirePermission("inventar:picking", "write")).Delete("/", ir.HandleDeletePickingList)
+				r.With(middleware.RequirePermission("inventar:picking", "write")).Post("/items", ir.HandleUpsertPickingListItem)
+				r.With(pickingBook).Post("/book", ir.HandleBookPickingList)
+			})
+		})
+
+		// Position deletion (keyed by position id, not list id)
+		r.With(middleware.RequirePermission("inventar:picking", "write")).
+			Delete("/picking-items/{id}", ir.HandleDeletePickingListItem)
 	})
 }
 
@@ -808,6 +828,40 @@ type bookInventurDifferencesRequest struct {
 }
 
 // ============================================================================
+// Picking list request types
+// ============================================================================
+
+type pickingListItemRequest struct {
+	ItemID            string  `json:"item_id"                     validate:"required,uuid"`
+	QuantityRequested int64   `json:"quantity_requested"          validate:"gt=0"`
+	QuantityPicked    int64   `json:"quantity_picked,omitempty"   validate:"gte=0"`
+	Location          *string `json:"location,omitempty"`
+}
+
+type createPickingListRequest struct {
+	Reference  string                   `json:"reference"             validate:"required"`
+	AssignedTo *string                  `json:"assigned_to,omitempty" validate:"omitempty,uuid"`
+	Items      []pickingListItemRequest `json:"items,omitempty"       validate:"omitempty,dive"`
+}
+
+type updatePickingListRequest struct {
+	Reference  *string `json:"reference,omitempty"`
+	Status     *string `json:"status,omitempty"      validate:"omitempty,oneof=open picking completed"`
+	AssignedTo *string `json:"assigned_to,omitempty" validate:"omitempty,uuid"`
+}
+
+type upsertPickingListItemRequest struct {
+	ItemID            string  `json:"item_id"                   validate:"required,uuid"`
+	QuantityRequested int64   `json:"quantity_requested"        validate:"gt=0"`
+	QuantityPicked    int64   `json:"quantity_picked,omitempty" validate:"gte=0"`
+	Location          *string `json:"location,omitempty"`
+}
+
+type bookPickingListRequest struct {
+	BookedBy *string `json:"booked_by,omitempty" validate:"omitempty,uuid"`
+}
+
+// ============================================================================
 // Location Handlers (via gRPC client — tenant context flows through metadata)
 // ============================================================================
 
@@ -1178,6 +1232,282 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 		TenantId:  tenantID.String(),
 		SessionId: id,
 		BookedBy:  req.BookedBy,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Picking List Handlers (via gRPC client)
+// ============================================================================
+
+func (ir *InventarRoutes) HandleListPickingLists(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	grpcReq := &inventarv1.ListPickingListsRequest{TenantId: tenantID.String()}
+	page, pageSize := parsePagination(r, 1, 50)
+	grpcReq.Page = int32(page)
+	grpcReq.PageSize = int32(pageSize)
+	if raw := r.URL.Query().Get("status"); raw != "" {
+		switch raw {
+		case "open", "picking", "completed":
+			grpcReq.Status = &raw
+		default:
+			response.Error(w, http.StatusBadRequest, "invalid status filter, expected open, picking or completed")
+			return
+		}
+	}
+
+	resp, err := client.ListPickingLists(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleCreatePickingList(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createPickingListRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &inventarv1.CreatePickingListRequest{
+		TenantId:   tenantID.String(),
+		Reference:  req.Reference,
+		AssignedTo: req.AssignedTo,
+	}
+	if userID := middleware.GetUserID(r.Context()); userID != "" {
+		grpcReq.CreatedBy = &userID
+	}
+	for _, it := range req.Items {
+		grpcReq.Items = append(grpcReq.Items, &inventarv1.CreatePickingListItemInput{
+			ItemId:            it.ItemID,
+			QuantityRequested: it.QuantityRequested,
+			QuantityPicked:    it.QuantityPicked,
+			Location:          it.Location,
+		})
+	}
+
+	resp, err := client.CreatePickingList(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+func (ir *InventarRoutes) HandleGetPickingList(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetPickingList(r.Context(), &inventarv1.GetPickingListRequest{
+		TenantId:      tenantID.String(),
+		PickingListId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleUpdatePickingList(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updatePickingListRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdatePickingList(r.Context(), &inventarv1.UpdatePickingListRequest{
+		TenantId:      tenantID.String(),
+		PickingListId: id,
+		Reference:     req.Reference,
+		Status:        req.Status,
+		AssignedTo:    req.AssignedTo,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleDeletePickingList(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err = client.DeletePickingList(r.Context(), &inventarv1.DeletePickingListRequest{
+		TenantId:      tenantID.String(),
+		PickingListId: id,
+	}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (ir *InventarRoutes) HandleUpsertPickingListItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[upsertPickingListItemRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpsertPickingListItem(r.Context(), &inventarv1.UpsertPickingListItemRequest{
+		TenantId:          tenantID.String(),
+		PickingListId:     id,
+		ItemId:            req.ItemID,
+		QuantityRequested: req.QuantityRequested,
+		QuantityPicked:    req.QuantityPicked,
+		Location:          req.Location,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleDeletePickingListItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err = client.DeletePickingListItem(r.Context(), &inventarv1.DeletePickingListItemRequest{
+		TenantId:          tenantID.String(),
+		PickingListItemId: id,
+	}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (ir *InventarRoutes) HandleBookPickingList(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[bookPickingListRequest](w, r)
+	if !ok {
+		return
+	}
+
+	bookedBy := req.BookedBy
+	if bookedBy == nil {
+		if userID := middleware.GetUserID(r.Context()); userID != "" {
+			bookedBy = &userID
+		}
+	}
+
+	resp, err := client.BookPickingList(r.Context(), &inventarv1.BookPickingListRequest{
+		TenantId:      tenantID.String(),
+		PickingListId: id,
+		BookedBy:      bookedBy,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -1633,3 +1633,86 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   `blocked_reason`/`notes` in `BACKLOG.yml`). Sobald entschieden, ist die
   Berechnung selbst laut Notiz mechanisch (serverseitig, Filter in SQL) und
   eine kleine Folge-Unit.
+
+## Iteration 21 — a-inventar-picking — done — 2026-08-08 19:25
+- commit: (wird per chore(loop) nachgetragen)
+- verify vorgaenger: sauber. Iteration 20 hat keinen Code angefasst; ihr
+  Commit `2373880c` enthaelt exakt zwei Dateien (`BACKLOG.yml`,
+  `JOURNAL.md`), `git show --stat` bestaetigt das. Der davorliegende
+  Code-Commit `dd9da170` war in Iteration 20 bereits gegen die sechs
+  Fehlerklassen geprueft und ist unveraendert. `git merge origin/main` war
+  "Already up to date".
+- gebaut: Kommissionierung, vollstaendig durch alle Schichten.
+  - Migration 000307: `picking_lists` (tenant_id, reference, status
+    open|picking|completed, assigned_to, created_by) und
+    `picking_list_items` (tenant_id, picking_list_id, item_id,
+    quantity_requested > 0, quantity_picked >= 0, location, UNIQUE
+    (picking_list_id, item_id)), beide mit `tenant_id UUID NOT NULL` +
+    `CALL enable_tenant_rls(...)`, up und down gefuellt.
+  - Migration 000308: Seeds `inventar:picking:read|write|book`, an die
+    System-Presets (`tenant_id IS NULL`) admin+manager voll, member nur read.
+  - `internal/inventar`: Models, Errors, Repository-Interface,
+    Postgres-Implementierung, Service (CRUD, Positions-Upsert, Buchen).
+  - Proto: 8 RPCs + Messages, mit protoc regeneriert
+    (`inventar.pb.go`/`inventar_grpc.pb.go`).
+  - `internal/server/inventar_grpc.go`: 8 RPC-Methoden, `pickingListToProto`
+    (Items als `[]`, nicht `null`), Fehler-Mapping.
+  - `internal/gateway/route_inventar.go`: 7 Routen ueber den gRPC-Client,
+    alle in `api/openapi.yaml` (`swagger-cli validate` gruen), plus zwei
+    Schemas `InventarPickingList`/`InventarPickingListItem`.
+- buchungs-semantik (die eigentliche Entscheidung dieser Unit): Bestand
+  bewegt sich ausschliesslich ueber `AdjustStock` — denselben Pfad, den
+  Anpassung und Inventur-Buchung nehmen, also mit `stock_movements`-Eintrag
+  und Warnungs-Trigger; kein zweites UPDATE auf `inventory_items`.
+  Reihenfolge: erst ALLE Positionen gegen den Bestand vorpruefen, dann die
+  Liste per bedingtem UPDATE (`WHERE status <> 'completed'`, Rows-Affected
+  als Rueckgabe) beanspruchen, erst dann buchen. Damit kann eine Liste, die
+  nicht vollstaendig buchbar ist, nicht halb gebucht liegen bleiben, und ein
+  zweiter Aufruf — auch ein gleichzeitiger — findet null betroffene Zeilen
+  und bekommt 409 statt einer zweiten Bestandsbewegung.
+- nebenbefund, mitgefixt: `ErrInsufficientStock` fiel in `mapInventarError`
+  in den `default`-Zweig und wurde damit zu `codes.Internal` = HTTP 500.
+  Es ist eine Aufrufer-Vorbedingung, nicht ein Serverfehler — jetzt
+  `FailedPrecondition` = 409. Das betrifft auch die Bestandsrouten
+  `/items/{id}/adjust` und `/transfer`; beide haben den 409 in
+  `openapi.yaml` nachgetragen bekommen.
+- gate: `go build` / `go vet` / `golangci-lint` (0 issues) /
+  `go test ./internal/inventar/... ./internal/gateway/ ./internal/server/
+  ./internal/testutil/` — alle gruen, auf dem finalen Tree wiederholt.
+  `swagger-cli validate backend/api/openapi.yaml` gruen (der Drift-Test
+  prueft nur Pfade, nicht die Spec).
+  `TestEveryRouteGuardHasAUsablePermission` mit DB: 792 Guard-Fundstellen
+  (vorher 784, also die 8 neuen erfasst), PASS —
+  `TestAllPublicTablesHaveRLSOrAreAllowlisted` PASS.
+- mutations-probe: zwei Stueck, beide rot, beide zurueckgedreht.
+  (1) Doppelbuchungs-Schutz entfernt (Status-Guard + `!claimed`-Zweig
+  raus) → `TestBookPickingList_SecondBookingDoesNotMoveStockAgain` FAIL
+  ("stock must not move twice"). (2) Bestandsvorpruefung auf `if false`
+  gesetzt → `TestBookPickingList_InsufficientStockLeavesEverythingUntouched`
+  FAIL, und der Lauf zeigt genau den Schaden, den die Vorpruefung
+  verhindert: die erste Position war schon gebucht, als die zweite an
+  `ErrInsufficientStock` starb. Danach `go test ./internal/inventar/` wieder
+  gruen.
+- rls-smoke: `picking_lists` und `picking_list_items` beide
+  `relrowsecurity=true`/`forced=true`, Policy `tenant_isolation`
+  (`tenant_id = current_tenant_id() OR is_system_context()`). Real gefahren
+  unter `SET LOCAL ROLE kmuhub_app` mit zwei Tenants: als A 1 von 2 Listen
+  und 1 von 2 Positionen sichtbar, als B die eigene 1 / die fremde 0 /
+  1 Position; Cross-Tenant-INSERT von der WITH-CHECK-Policy abgelehnt.
+  Alles in einer zurueckgerollten Transaktion.
+- db-tests: die Service-Tests sind Stub-Tests (mockRepository), kein
+  `SkipIfNoDB` — dafuer lief das Gate mit gesetztem `DATABASE_URL`, sodass
+  die beiden Standing-Guards in `internal/testutil` real gegen die DB
+  geprueft haben. Migrationen 307/308 lokal angewandt, Kopf jetzt **308**,
+  `dirty=false`.
+- offen: Fuer Luke — (1) Es gibt noch kein Frontend fuer die
+  Kommissionierung; die Routen sind da, `InventarPage.tsx` kennt sie nicht.
+  Das ist eine Frontend-Session, kein Nachtlauf. (2) Der 500→409-Wechsel bei
+  `ErrInsufficientStock` aendert das Verhalten der bestehenden
+  Adjust-/Transfer-Routen. Wenn im FE irgendwo auf 500 gesondert reagiert
+  wird, muesste das mitgezogen werden — ein Grep im Desktop-Client waere
+  billig. (3) Die Buchung schreibt pro Position eine Bewegung mit Grund
+  "Kommissionierung: <reference>"; eine echte Referenz-Spalte
+  (`stock_movements.reference`) haette sie feiner verknuepft, das
+  Inventur-Vorbild nutzt sie aber ebenfalls nicht — bewusst gleich gelassen
+  statt zwei Muster nebeneinander zu haben.

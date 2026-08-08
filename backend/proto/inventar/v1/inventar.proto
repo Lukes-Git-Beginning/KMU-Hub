@@ -47,6 +47,16 @@ service InventarService {
   rpc UpsertInventurCount(UpsertInventurCountRequest) returns (InventurCountResponse);
   rpc BookInventurDifferences(BookInventurDifferencesRequest) returns (InventurSessionResponse);
 
+  // Picking lists
+  rpc CreatePickingList(CreatePickingListRequest) returns (PickingListResponse);
+  rpc GetPickingList(GetPickingListRequest) returns (PickingListResponse);
+  rpc UpdatePickingList(UpdatePickingListRequest) returns (PickingListResponse);
+  rpc DeletePickingList(DeletePickingListRequest) returns (DeletePickingListResponse);
+  rpc ListPickingLists(ListPickingListsRequest) returns (ListPickingListsResponse);
+  rpc UpsertPickingListItem(UpsertPickingListItemRequest) returns (PickingListItemResponse);
+  rpc DeletePickingListItem(DeletePickingListItemRequest) returns (DeletePickingListItemResponse);
+  rpc BookPickingList(BookPickingListRequest) returns (PickingListResponse);
+
   // Item attachments
   rpc CreateItemAttachment(CreateItemAttachmentRequest) returns (ItemAttachmentResponse);
   rpc ListItemAttachments(ListItemAttachmentsRequest) returns (ListItemAttachmentsResponse);
@@ -434,6 +444,111 @@ message BookInventurDifferencesRequest {
 
 message InventurSessionResponse {
   InventurSession session = 1;
+}
+
+// ============================================================================
+// Picking List Messages
+// ============================================================================
+
+message PickingListItem {
+  string id = 1;
+  string tenant_id = 2;
+  string picking_list_id = 3;
+  string item_id = 4;
+  int64 quantity_requested = 5;
+  int64 quantity_picked = 6;
+  optional string location = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message PickingList {
+  string id = 1;
+  string tenant_id = 2;
+  string reference = 3;
+  string status = 4; // open|picking|completed
+  optional string assigned_to = 5;
+  optional string created_by = 6;
+  repeated PickingListItem items = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreatePickingListItemInput {
+  string item_id = 1;
+  int64 quantity_requested = 2;
+  int64 quantity_picked = 3;
+  optional string location = 4;
+}
+
+message CreatePickingListRequest {
+  string tenant_id = 1;
+  string reference = 2;
+  optional string assigned_to = 3;
+  optional string created_by = 4;
+  repeated CreatePickingListItemInput items = 5;
+}
+
+message GetPickingListRequest {
+  string tenant_id = 1;
+  string picking_list_id = 2;
+}
+
+message UpdatePickingListRequest {
+  string tenant_id = 1;
+  string picking_list_id = 2;
+  optional string reference = 3;
+  optional string status = 4;
+  optional string assigned_to = 5;
+}
+
+message DeletePickingListRequest {
+  string tenant_id = 1;
+  string picking_list_id = 2;
+}
+
+message DeletePickingListResponse {}
+
+message ListPickingListsRequest {
+  string tenant_id = 1;
+  optional string status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListPickingListsResponse {
+  repeated PickingList picking_lists = 1;
+  int32 total = 2;
+}
+
+message UpsertPickingListItemRequest {
+  string tenant_id = 1;
+  string picking_list_id = 2;
+  string item_id = 3;
+  int64 quantity_requested = 4;
+  int64 quantity_picked = 5;
+  optional string location = 6;
+}
+
+message PickingListItemResponse {
+  PickingListItem item = 1;
+}
+
+message DeletePickingListItemRequest {
+  string tenant_id = 1;
+  string picking_list_item_id = 2;
+}
+
+message DeletePickingListItemResponse {}
+
+message BookPickingListRequest {
+  string tenant_id = 1;
+  string picking_list_id = 2;
+  optional string booked_by = 3;
+}
+
+message PickingListResponse {
+  PickingList picking_list = 1;
 }
 
 // ============================================================================

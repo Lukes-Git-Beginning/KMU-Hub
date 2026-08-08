@@ -53,6 +53,22 @@ type Repository interface {
 	UpsertInventurCount(ctx context.Context, count *InventurCount) error
 	ListInventurCounts(ctx context.Context, tenantID, sessionID uuid.UUID) ([]*InventurCount, error)
 
+	// Picking Lists
+	CreatePickingList(ctx context.Context, list *PickingList) error
+	UpdatePickingList(ctx context.Context, list *PickingList) error
+	// CompletePickingList flips the list to completed only if it is not
+	// completed yet and reports whether it did. That conditional UPDATE is what
+	// makes booking idempotent under concurrent callers.
+	CompletePickingList(ctx context.Context, tenantID, listID uuid.UUID) (bool, error)
+	DeletePickingList(ctx context.Context, tenantID, listID uuid.UUID) error
+	GetPickingList(ctx context.Context, tenantID, listID uuid.UUID) (*PickingList, error)
+	ListPickingLists(ctx context.Context, tenantID uuid.UUID, status *PickingStatus, offset, limit int) ([]*PickingList, int, error)
+
+	// Picking List Items
+	UpsertPickingListItem(ctx context.Context, item *PickingListItem) error
+	DeletePickingListItem(ctx context.Context, tenantID, itemRowID uuid.UUID) error
+	ListPickingListItems(ctx context.Context, tenantID, listID uuid.UUID) ([]*PickingListItem, error)
+
 	// Item Attachments
 	CreateItemAttachment(ctx context.Context, att *ItemAttachment) error
 	ListItemAttachments(ctx context.Context, tenantID, itemID uuid.UUID) ([]*ItemAttachment, error)
