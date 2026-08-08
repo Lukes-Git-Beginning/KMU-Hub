@@ -571,3 +571,50 @@ func qualityCheckToProto(c *produktion.QualityCheck) *produktionv1.QualityCheck 
 	}
 	return p
 }
+
+// ============================================================================
+// Material Availability RPC
+// ============================================================================
+
+func (s *ProduktionGRPCServer) GetMaterialAvailability(ctx context.Context, req *produktionv1.GetMaterialAvailabilityRequest) (*produktionv1.MaterialAvailabilityResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	orderID, err := uuid.Parse(req.GetOrderId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid order_id: %v", err)
+	}
+
+	availability, err := s.svc.GetMaterialAvailability(ctx, tenantID, orderID)
+	if err != nil {
+		return nil, mapProduktionExtError(err)
+	}
+	return materialAvailabilityToProto(availability), nil
+}
+
+func materialAvailabilityToProto(a *produktion.MaterialAvailability) *produktionv1.MaterialAvailabilityResponse {
+	if a == nil {
+		return nil
+	}
+	resp := &produktionv1.MaterialAvailabilityResponse{
+		OrderId: a.OrderID.String(),
+		BomId:   a.BomID.String(),
+		Lines:   make([]*produktionv1.MaterialAvailabilityLine, 0, len(a.Lines)),
+	}
+	for _, line := range a.Lines {
+		p := &produktionv1.MaterialAvailabilityLine{
+			MaterialName:     line.MaterialName,
+			Unit:             line.Unit,
+			RequiredQuantity: line.RequiredQuantity,
+		}
+		if line.AvailableQuantity != nil {
+			p.AvailableQuantity = line.AvailableQuantity
+		}
+		if line.ShortfallQuantity != nil {
+			p.ShortfallQuantity = line.ShortfallQuantity
+		}
+		resp.Lines = append(resp.Lines, p)
+	}
+	return resp
+}

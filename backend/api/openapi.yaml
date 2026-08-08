@@ -16100,6 +16100,7 @@ paths:
                 planned_end: { type: string, format: date-time }
                 priority: { type: integer }
                 notes: { type: string }
+                bom_id: { type: string, format: uuid }
       responses:
         "201":
           description: Order created
@@ -16145,6 +16146,7 @@ paths:
                 planned_end: { type: string, format: date-time }
                 priority: { type: integer }
                 notes: { type: string }
+                bom_id: { type: string, format: uuid }
       responses:
         "200":
           description: Order updated
@@ -16217,6 +16219,28 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/orders/{id}/material-availability:
+    get:
+      summary: Check BOM material availability against inventar stock for a production order
+      tags: [produktion]
+      operationId: getProductionOrderMaterialAvailability
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Per-material required/available/shortfall quantities. available_quantity and shortfall_quantity are omitted for a material that could not be matched against inventar (unknown availability, not zero stock).
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Order has no linked BOM
+          content:
+            application/json:
+              schema: { type: object }
 
   /api/v1/produktion/bookings:
     get:

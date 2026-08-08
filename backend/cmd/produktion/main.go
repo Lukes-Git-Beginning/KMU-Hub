@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -20,6 +21,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/produktion"
 	"github.com/kmuhub/kmuhub/internal/server"
+	inventarv1 "github.com/kmuhub/kmuhub/proto/inventar/v1"
 	produktionv1 "github.com/kmuhub/kmuhub/proto/produktion/v1"
 )
 
@@ -46,6 +48,23 @@ func main() {
 	// Repository and service
 	repo := produktion.NewPostgresRepository(pool)
 	produktionService := produktion.NewService(repo)
+
+	// Wire inventar gRPC client for the material availability check. The
+	// connection is established lazily; failure to connect is non-fatal
+	// since the inventar lookup is best-effort (graceful degradation).
+	inventarConn, inventarConnErr := grpc.NewClient(
+		cfg.InventarGRPCAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if inventarConnErr != nil {
+		slog.Warn("failed to create inventar gRPC connection; material availability check disabled",
+			"address", cfg.InventarGRPCAddress, "error", inventarConnErr)
+	} else {
+		inventarClient := inventarv1.NewInventarServiceClient(inventarConn)
+		produktionService.WithInventarLookup(produktion.NewGRPCInventarLookup(inventarClient))
+		defer inventarConn.Close()
+		slog.Info("inventar gRPC client connected", "address", cfg.InventarGRPCAddress)
+	}
 
 	metricsRegistry := metrics.NewRegistry()
 

@@ -39,6 +39,7 @@ type ProductionOrder struct {
 	CreatedBy     *string                `protobuf:"bytes,13,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	BomId         *string                `protobuf:"bytes,16,opt,name=bom_id,json=bomId,proto3,oneof" json:"bom_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -176,6 +177,13 @@ func (x *ProductionOrder) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *ProductionOrder) GetBomId() string {
+	if x != nil && x.BomId != nil {
+		return *x.BomId
+	}
+	return ""
 }
 
 type MachineBooking struct {
@@ -513,6 +521,7 @@ type CreateOrderRequest struct {
 	Priority      int32                  `protobuf:"varint,7,opt,name=priority,proto3" json:"priority,omitempty"`
 	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
 	CreatedBy     *string                `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	BomId         *string                `protobuf:"bytes,10,opt,name=bom_id,json=bomId,proto3,oneof" json:"bom_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -610,6 +619,13 @@ func (x *CreateOrderRequest) GetCreatedBy() string {
 	return ""
 }
 
+func (x *CreateOrderRequest) GetBomId() string {
+	if x != nil && x.BomId != nil {
+		return *x.BomId
+	}
+	return ""
+}
+
 type UpdateOrderRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -620,6 +636,7 @@ type UpdateOrderRequest struct {
 	PlannedEnd    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=planned_end,json=plannedEnd,proto3,oneof" json:"planned_end,omitempty"`
 	Priority      *int32                 `protobuf:"varint,7,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
 	Notes         *string                `protobuf:"bytes,8,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	BomId         *string                `protobuf:"bytes,9,opt,name=bom_id,json=bomId,proto3,oneof" json:"bom_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -706,6 +723,13 @@ func (x *UpdateOrderRequest) GetPriority() int32 {
 func (x *UpdateOrderRequest) GetNotes() string {
 	if x != nil && x.Notes != nil {
 		return *x.Notes
+	}
+	return ""
+}
+
+func (x *UpdateOrderRequest) GetBomId() string {
+	if x != nil && x.BomId != nil {
+		return *x.BomId
 	}
 	return ""
 }
@@ -4294,11 +4318,203 @@ func (x *ListQualityChecksResponse) GetTotal() int32 {
 	return 0
 }
 
+type MaterialAvailabilityLine struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	MaterialName     string                 `protobuf:"bytes,1,opt,name=material_name,json=materialName,proto3" json:"material_name,omitempty"`
+	Unit             string                 `protobuf:"bytes,2,opt,name=unit,proto3" json:"unit,omitempty"`
+	RequiredQuantity float64                `protobuf:"fixed64,3,opt,name=required_quantity,json=requiredQuantity,proto3" json:"required_quantity,omitempty"`
+	// available_quantity/shortfall_quantity are unset when the material could
+	// not be matched against an inventar item (unknown SKU/name, or the
+	// inventar lookup was unavailable) -- an unmatched position is not an
+	// error, it is a position with unknown availability.
+	AvailableQuantity *float64 `protobuf:"fixed64,4,opt,name=available_quantity,json=availableQuantity,proto3,oneof" json:"available_quantity,omitempty"`
+	ShortfallQuantity *float64 `protobuf:"fixed64,5,opt,name=shortfall_quantity,json=shortfallQuantity,proto3,oneof" json:"shortfall_quantity,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *MaterialAvailabilityLine) Reset() {
+	*x = MaterialAvailabilityLine{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MaterialAvailabilityLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MaterialAvailabilityLine) ProtoMessage() {}
+
+func (x *MaterialAvailabilityLine) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MaterialAvailabilityLine.ProtoReflect.Descriptor instead.
+func (*MaterialAvailabilityLine) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *MaterialAvailabilityLine) GetMaterialName() string {
+	if x != nil {
+		return x.MaterialName
+	}
+	return ""
+}
+
+func (x *MaterialAvailabilityLine) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *MaterialAvailabilityLine) GetRequiredQuantity() float64 {
+	if x != nil {
+		return x.RequiredQuantity
+	}
+	return 0
+}
+
+func (x *MaterialAvailabilityLine) GetAvailableQuantity() float64 {
+	if x != nil && x.AvailableQuantity != nil {
+		return *x.AvailableQuantity
+	}
+	return 0
+}
+
+func (x *MaterialAvailabilityLine) GetShortfallQuantity() float64 {
+	if x != nil && x.ShortfallQuantity != nil {
+		return *x.ShortfallQuantity
+	}
+	return 0
+}
+
+type GetMaterialAvailabilityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMaterialAvailabilityRequest) Reset() {
+	*x = GetMaterialAvailabilityRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMaterialAvailabilityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMaterialAvailabilityRequest) ProtoMessage() {}
+
+func (x *GetMaterialAvailabilityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMaterialAvailabilityRequest.ProtoReflect.Descriptor instead.
+func (*GetMaterialAvailabilityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *GetMaterialAvailabilityRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetMaterialAvailabilityRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+type MaterialAvailabilityResponse struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	OrderId       string                      `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	BomId         string                      `protobuf:"bytes,2,opt,name=bom_id,json=bomId,proto3" json:"bom_id,omitempty"`
+	Lines         []*MaterialAvailabilityLine `protobuf:"bytes,3,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MaterialAvailabilityResponse) Reset() {
+	*x = MaterialAvailabilityResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MaterialAvailabilityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MaterialAvailabilityResponse) ProtoMessage() {}
+
+func (x *MaterialAvailabilityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MaterialAvailabilityResponse.ProtoReflect.Descriptor instead.
+func (*MaterialAvailabilityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *MaterialAvailabilityResponse) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *MaterialAvailabilityResponse) GetBomId() string {
+	if x != nil {
+		return x.BomId
+	}
+	return ""
+}
+
+func (x *MaterialAvailabilityResponse) GetLines() []*MaterialAvailabilityLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
 var File_proto_produktion_v1_produktion_proto protoreflect.FileDescriptor
 
 const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\n" +
-	"$proto/produktion/v1/produktion.proto\x12\rproduktion.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb5\x05\n" +
+	"$proto/produktion/v1/produktion.proto\x12\rproduktion.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdc\x05\n" +
 	"\x0fProductionOrder\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12!\n" +
@@ -4320,10 +4536,12 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x0f\n" +
+	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
+	"\x06bom_id\x18\x10 \x01(\tH\x03R\x05bomId\x88\x01\x01B\x0f\n" +
 	"\r_actual_startB\r\n" +
 	"\v_actual_endB\r\n" +
-	"\v_created_by\"\xd1\x03\n" +
+	"\v_created_byB\t\n" +
+	"\a_bom_id\"\xd1\x03\n" +
 	"\x0eMachineBooking\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
@@ -4366,7 +4584,7 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"machine_id\x18\x01 \x01(\tR\tmachineId\x120\n" +
 	"\x14total_capacity_hours\x18\x02 \x01(\x01R\x12totalCapacityHours\x12!\n" +
 	"\fbooked_hours\x18\x03 \x01(\x01R\vbookedHours\x12'\n" +
-	"\x0favailable_hours\x18\x04 \x01(\x01R\x0eavailableHours\"\xf6\x02\n" +
+	"\x0favailable_hours\x18\x04 \x01(\x01R\x0eavailableHours\"\x9d\x03\n" +
 	"\x12CreateOrderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
 	"\forder_number\x18\x02 \x01(\tR\vorderNumber\x12!\n" +
@@ -4378,8 +4596,11 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\bpriority\x18\a \x01(\x05R\bpriority\x12\x14\n" +
 	"\x05notes\x18\b \x01(\tR\x05notes\x12\"\n" +
 	"\n" +
-	"created_by\x18\t \x01(\tH\x00R\tcreatedBy\x88\x01\x01B\r\n" +
-	"\v_created_by\"\xb0\x03\n" +
+	"created_by\x18\t \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x1a\n" +
+	"\x06bom_id\x18\n" +
+	" \x01(\tH\x01R\x05bomId\x88\x01\x01B\r\n" +
+	"\v_created_byB\t\n" +
+	"\a_bom_id\"\xd7\x03\n" +
 	"\x12UpdateOrderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
 	"\border_id\x18\x02 \x01(\tR\aorderId\x12&\n" +
@@ -4389,13 +4610,15 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\vplanned_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\n" +
 	"plannedEnd\x88\x01\x01\x12\x1f\n" +
 	"\bpriority\x18\a \x01(\x05H\x04R\bpriority\x88\x01\x01\x12\x19\n" +
-	"\x05notes\x18\b \x01(\tH\x05R\x05notes\x88\x01\x01B\x0f\n" +
+	"\x05notes\x18\b \x01(\tH\x05R\x05notes\x88\x01\x01\x12\x1a\n" +
+	"\x06bom_id\x18\t \x01(\tH\x06R\x05bomId\x88\x01\x01B\x0f\n" +
 	"\r_product_nameB\v\n" +
 	"\t_quantityB\x10\n" +
 	"\x0e_planned_startB\x0e\n" +
 	"\f_planned_endB\v\n" +
 	"\t_priorityB\b\n" +
-	"\x06_notes\"L\n" +
+	"\x06_notesB\t\n" +
+	"\a_bom_id\"L\n" +
 	"\x12DeleteOrderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
 	"\border_id\x18\x02 \x01(\tR\aorderId\"\x15\n" +
@@ -4740,7 +4963,22 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\t_order_id\"f\n" +
 	"\x19ListQualityChecksResponse\x123\n" +
 	"\x06checks\x18\x01 \x03(\v2\x1b.produktion.v1.QualityCheckR\x06checks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total2\xd7\x16\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x96\x02\n" +
+	"\x18MaterialAvailabilityLine\x12#\n" +
+	"\rmaterial_name\x18\x01 \x01(\tR\fmaterialName\x12\x12\n" +
+	"\x04unit\x18\x02 \x01(\tR\x04unit\x12+\n" +
+	"\x11required_quantity\x18\x03 \x01(\x01R\x10requiredQuantity\x122\n" +
+	"\x12available_quantity\x18\x04 \x01(\x01H\x00R\x11availableQuantity\x88\x01\x01\x122\n" +
+	"\x12shortfall_quantity\x18\x05 \x01(\x01H\x01R\x11shortfallQuantity\x88\x01\x01B\x15\n" +
+	"\x13_available_quantityB\x15\n" +
+	"\x13_shortfall_quantity\"X\n" +
+	"\x1eGetMaterialAvailabilityRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\"\x8f\x01\n" +
+	"\x1cMaterialAvailabilityResponse\x12\x19\n" +
+	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x15\n" +
+	"\x06bom_id\x18\x02 \x01(\tR\x05bomId\x12=\n" +
+	"\x05lines\x18\x03 \x03(\v2'.produktion.v1.MaterialAvailabilityLineR\x05lines2\xce\x17\n" +
 	"\x11ProduktionService\x12N\n" +
 	"\vCreateOrder\x12!.produktion.v1.CreateOrderRequest\x1a\x1c.produktion.v1.OrderResponse\x12N\n" +
 	"\vUpdateOrder\x12!.produktion.v1.UpdateOrderRequest\x1a\x1c.produktion.v1.OrderResponse\x12T\n" +
@@ -4779,7 +5017,8 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\fListMachines\x12\".produktion.v1.ListMachinesRequest\x1a#.produktion.v1.ListMachinesResponse\x12c\n" +
 	"\x12CreateQualityCheck\x12(.produktion.v1.CreateQualityCheckRequest\x1a#.produktion.v1.QualityCheckResponse\x12]\n" +
 	"\x0fGetQualityCheck\x12%.produktion.v1.GetQualityCheckRequest\x1a#.produktion.v1.QualityCheckResponse\x12f\n" +
-	"\x11ListQualityChecks\x12'.produktion.v1.ListQualityChecksRequest\x1a(.produktion.v1.ListQualityChecksResponseB;Z9github.com/kmuhub/kmuhub/proto/produktion/v1;produktionv1b\x06proto3"
+	"\x11ListQualityChecks\x12'.produktion.v1.ListQualityChecksRequest\x1a(.produktion.v1.ListQualityChecksResponse\x12u\n" +
+	"\x17GetMaterialAvailability\x12-.produktion.v1.GetMaterialAvailabilityRequest\x1a+.produktion.v1.MaterialAvailabilityResponseB;Z9github.com/kmuhub/kmuhub/proto/produktion/v1;produktionv1b\x06proto3"
 
 var (
 	file_proto_produktion_v1_produktion_proto_rawDescOnce sync.Once
@@ -4793,192 +5032,198 @@ func file_proto_produktion_v1_produktion_proto_rawDescGZIP() []byte {
 	return file_proto_produktion_v1_produktion_proto_rawDescData
 }
 
-var file_proto_produktion_v1_produktion_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
+var file_proto_produktion_v1_produktion_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
 var file_proto_produktion_v1_produktion_proto_goTypes = []any{
-	(*ProductionOrder)(nil),              // 0: produktion.v1.ProductionOrder
-	(*MachineBooking)(nil),               // 1: produktion.v1.MachineBooking
-	(*ProductionPlan)(nil),               // 2: produktion.v1.ProductionPlan
-	(*CapacityOverview)(nil),             // 3: produktion.v1.CapacityOverview
-	(*CreateOrderRequest)(nil),           // 4: produktion.v1.CreateOrderRequest
-	(*UpdateOrderRequest)(nil),           // 5: produktion.v1.UpdateOrderRequest
-	(*DeleteOrderRequest)(nil),           // 6: produktion.v1.DeleteOrderRequest
-	(*DeleteOrderResponse)(nil),          // 7: produktion.v1.DeleteOrderResponse
-	(*GetOrderRequest)(nil),              // 8: produktion.v1.GetOrderRequest
-	(*OrderResponse)(nil),                // 9: produktion.v1.OrderResponse
-	(*OrderActionRequest)(nil),           // 10: produktion.v1.OrderActionRequest
-	(*ListOrdersRequest)(nil),            // 11: produktion.v1.ListOrdersRequest
-	(*ListOrdersResponse)(nil),           // 12: produktion.v1.ListOrdersResponse
-	(*CreateMachineBookingRequest)(nil),  // 13: produktion.v1.CreateMachineBookingRequest
-	(*UpdateMachineBookingRequest)(nil),  // 14: produktion.v1.UpdateMachineBookingRequest
-	(*DeleteMachineBookingRequest)(nil),  // 15: produktion.v1.DeleteMachineBookingRequest
-	(*DeleteMachineBookingResponse)(nil), // 16: produktion.v1.DeleteMachineBookingResponse
-	(*MachineBookingResponse)(nil),       // 17: produktion.v1.MachineBookingResponse
-	(*ListMachineBookingsRequest)(nil),   // 18: produktion.v1.ListMachineBookingsRequest
-	(*ListMachineBookingsResponse)(nil),  // 19: produktion.v1.ListMachineBookingsResponse
-	(*CreatePlanRequest)(nil),            // 20: produktion.v1.CreatePlanRequest
-	(*UpdatePlanRequest)(nil),            // 21: produktion.v1.UpdatePlanRequest
-	(*GetPlanRequest)(nil),               // 22: produktion.v1.GetPlanRequest
-	(*PlanResponse)(nil),                 // 23: produktion.v1.PlanResponse
-	(*GetCapacityOverviewRequest)(nil),   // 24: produktion.v1.GetCapacityOverviewRequest
-	(*CapacityOverviewResponse)(nil),     // 25: produktion.v1.CapacityOverviewResponse
-	(*BomItem)(nil),                      // 26: produktion.v1.BomItem
-	(*BOM)(nil),                          // 27: produktion.v1.BOM
-	(*CreateBOMRequest)(nil),             // 28: produktion.v1.CreateBOMRequest
-	(*CreateBomItemInput)(nil),           // 29: produktion.v1.CreateBomItemInput
-	(*UpdateBOMRequest)(nil),             // 30: produktion.v1.UpdateBOMRequest
-	(*DeleteBOMRequest)(nil),             // 31: produktion.v1.DeleteBOMRequest
-	(*DeleteBOMResponse)(nil),            // 32: produktion.v1.DeleteBOMResponse
-	(*GetBOMRequest)(nil),                // 33: produktion.v1.GetBOMRequest
-	(*BOMResponse)(nil),                  // 34: produktion.v1.BOMResponse
-	(*ListBOMsRequest)(nil),              // 35: produktion.v1.ListBOMsRequest
-	(*ListBOMsResponse)(nil),             // 36: produktion.v1.ListBOMsResponse
-	(*WorkStep)(nil),                     // 37: produktion.v1.WorkStep
-	(*CreateWorkStepRequest)(nil),        // 38: produktion.v1.CreateWorkStepRequest
-	(*UpdateWorkStepRequest)(nil),        // 39: produktion.v1.UpdateWorkStepRequest
-	(*DeleteWorkStepRequest)(nil),        // 40: produktion.v1.DeleteWorkStepRequest
-	(*DeleteWorkStepResponse)(nil),       // 41: produktion.v1.DeleteWorkStepResponse
-	(*WorkStepResponse)(nil),             // 42: produktion.v1.WorkStepResponse
-	(*ListWorkStepsRequest)(nil),         // 43: produktion.v1.ListWorkStepsRequest
-	(*ListWorkStepsResponse)(nil),        // 44: produktion.v1.ListWorkStepsResponse
-	(*Machine)(nil),                      // 45: produktion.v1.Machine
-	(*CreateMachineRequest)(nil),         // 46: produktion.v1.CreateMachineRequest
-	(*UpdateMachineRequest)(nil),         // 47: produktion.v1.UpdateMachineRequest
-	(*DeleteMachineRequest)(nil),         // 48: produktion.v1.DeleteMachineRequest
-	(*DeleteMachineResponse)(nil),        // 49: produktion.v1.DeleteMachineResponse
-	(*GetMachineRequest)(nil),            // 50: produktion.v1.GetMachineRequest
-	(*MachineResponse)(nil),              // 51: produktion.v1.MachineResponse
-	(*ListMachinesRequest)(nil),          // 52: produktion.v1.ListMachinesRequest
-	(*ListMachinesResponse)(nil),         // 53: produktion.v1.ListMachinesResponse
-	(*QualityCheck)(nil),                 // 54: produktion.v1.QualityCheck
-	(*CreateQualityCheckRequest)(nil),    // 55: produktion.v1.CreateQualityCheckRequest
-	(*GetQualityCheckRequest)(nil),       // 56: produktion.v1.GetQualityCheckRequest
-	(*QualityCheckResponse)(nil),         // 57: produktion.v1.QualityCheckResponse
-	(*ListQualityChecksRequest)(nil),     // 58: produktion.v1.ListQualityChecksRequest
-	(*ListQualityChecksResponse)(nil),    // 59: produktion.v1.ListQualityChecksResponse
-	(*timestamppb.Timestamp)(nil),        // 60: google.protobuf.Timestamp
+	(*ProductionOrder)(nil),                // 0: produktion.v1.ProductionOrder
+	(*MachineBooking)(nil),                 // 1: produktion.v1.MachineBooking
+	(*ProductionPlan)(nil),                 // 2: produktion.v1.ProductionPlan
+	(*CapacityOverview)(nil),               // 3: produktion.v1.CapacityOverview
+	(*CreateOrderRequest)(nil),             // 4: produktion.v1.CreateOrderRequest
+	(*UpdateOrderRequest)(nil),             // 5: produktion.v1.UpdateOrderRequest
+	(*DeleteOrderRequest)(nil),             // 6: produktion.v1.DeleteOrderRequest
+	(*DeleteOrderResponse)(nil),            // 7: produktion.v1.DeleteOrderResponse
+	(*GetOrderRequest)(nil),                // 8: produktion.v1.GetOrderRequest
+	(*OrderResponse)(nil),                  // 9: produktion.v1.OrderResponse
+	(*OrderActionRequest)(nil),             // 10: produktion.v1.OrderActionRequest
+	(*ListOrdersRequest)(nil),              // 11: produktion.v1.ListOrdersRequest
+	(*ListOrdersResponse)(nil),             // 12: produktion.v1.ListOrdersResponse
+	(*CreateMachineBookingRequest)(nil),    // 13: produktion.v1.CreateMachineBookingRequest
+	(*UpdateMachineBookingRequest)(nil),    // 14: produktion.v1.UpdateMachineBookingRequest
+	(*DeleteMachineBookingRequest)(nil),    // 15: produktion.v1.DeleteMachineBookingRequest
+	(*DeleteMachineBookingResponse)(nil),   // 16: produktion.v1.DeleteMachineBookingResponse
+	(*MachineBookingResponse)(nil),         // 17: produktion.v1.MachineBookingResponse
+	(*ListMachineBookingsRequest)(nil),     // 18: produktion.v1.ListMachineBookingsRequest
+	(*ListMachineBookingsResponse)(nil),    // 19: produktion.v1.ListMachineBookingsResponse
+	(*CreatePlanRequest)(nil),              // 20: produktion.v1.CreatePlanRequest
+	(*UpdatePlanRequest)(nil),              // 21: produktion.v1.UpdatePlanRequest
+	(*GetPlanRequest)(nil),                 // 22: produktion.v1.GetPlanRequest
+	(*PlanResponse)(nil),                   // 23: produktion.v1.PlanResponse
+	(*GetCapacityOverviewRequest)(nil),     // 24: produktion.v1.GetCapacityOverviewRequest
+	(*CapacityOverviewResponse)(nil),       // 25: produktion.v1.CapacityOverviewResponse
+	(*BomItem)(nil),                        // 26: produktion.v1.BomItem
+	(*BOM)(nil),                            // 27: produktion.v1.BOM
+	(*CreateBOMRequest)(nil),               // 28: produktion.v1.CreateBOMRequest
+	(*CreateBomItemInput)(nil),             // 29: produktion.v1.CreateBomItemInput
+	(*UpdateBOMRequest)(nil),               // 30: produktion.v1.UpdateBOMRequest
+	(*DeleteBOMRequest)(nil),               // 31: produktion.v1.DeleteBOMRequest
+	(*DeleteBOMResponse)(nil),              // 32: produktion.v1.DeleteBOMResponse
+	(*GetBOMRequest)(nil),                  // 33: produktion.v1.GetBOMRequest
+	(*BOMResponse)(nil),                    // 34: produktion.v1.BOMResponse
+	(*ListBOMsRequest)(nil),                // 35: produktion.v1.ListBOMsRequest
+	(*ListBOMsResponse)(nil),               // 36: produktion.v1.ListBOMsResponse
+	(*WorkStep)(nil),                       // 37: produktion.v1.WorkStep
+	(*CreateWorkStepRequest)(nil),          // 38: produktion.v1.CreateWorkStepRequest
+	(*UpdateWorkStepRequest)(nil),          // 39: produktion.v1.UpdateWorkStepRequest
+	(*DeleteWorkStepRequest)(nil),          // 40: produktion.v1.DeleteWorkStepRequest
+	(*DeleteWorkStepResponse)(nil),         // 41: produktion.v1.DeleteWorkStepResponse
+	(*WorkStepResponse)(nil),               // 42: produktion.v1.WorkStepResponse
+	(*ListWorkStepsRequest)(nil),           // 43: produktion.v1.ListWorkStepsRequest
+	(*ListWorkStepsResponse)(nil),          // 44: produktion.v1.ListWorkStepsResponse
+	(*Machine)(nil),                        // 45: produktion.v1.Machine
+	(*CreateMachineRequest)(nil),           // 46: produktion.v1.CreateMachineRequest
+	(*UpdateMachineRequest)(nil),           // 47: produktion.v1.UpdateMachineRequest
+	(*DeleteMachineRequest)(nil),           // 48: produktion.v1.DeleteMachineRequest
+	(*DeleteMachineResponse)(nil),          // 49: produktion.v1.DeleteMachineResponse
+	(*GetMachineRequest)(nil),              // 50: produktion.v1.GetMachineRequest
+	(*MachineResponse)(nil),                // 51: produktion.v1.MachineResponse
+	(*ListMachinesRequest)(nil),            // 52: produktion.v1.ListMachinesRequest
+	(*ListMachinesResponse)(nil),           // 53: produktion.v1.ListMachinesResponse
+	(*QualityCheck)(nil),                   // 54: produktion.v1.QualityCheck
+	(*CreateQualityCheckRequest)(nil),      // 55: produktion.v1.CreateQualityCheckRequest
+	(*GetQualityCheckRequest)(nil),         // 56: produktion.v1.GetQualityCheckRequest
+	(*QualityCheckResponse)(nil),           // 57: produktion.v1.QualityCheckResponse
+	(*ListQualityChecksRequest)(nil),       // 58: produktion.v1.ListQualityChecksRequest
+	(*ListQualityChecksResponse)(nil),      // 59: produktion.v1.ListQualityChecksResponse
+	(*MaterialAvailabilityLine)(nil),       // 60: produktion.v1.MaterialAvailabilityLine
+	(*GetMaterialAvailabilityRequest)(nil), // 61: produktion.v1.GetMaterialAvailabilityRequest
+	(*MaterialAvailabilityResponse)(nil),   // 62: produktion.v1.MaterialAvailabilityResponse
+	(*timestamppb.Timestamp)(nil),          // 63: google.protobuf.Timestamp
 }
 var file_proto_produktion_v1_produktion_proto_depIdxs = []int32{
-	60, // 0: produktion.v1.ProductionOrder.planned_start:type_name -> google.protobuf.Timestamp
-	60, // 1: produktion.v1.ProductionOrder.planned_end:type_name -> google.protobuf.Timestamp
-	60, // 2: produktion.v1.ProductionOrder.actual_start:type_name -> google.protobuf.Timestamp
-	60, // 3: produktion.v1.ProductionOrder.actual_end:type_name -> google.protobuf.Timestamp
-	60, // 4: produktion.v1.ProductionOrder.created_at:type_name -> google.protobuf.Timestamp
-	60, // 5: produktion.v1.ProductionOrder.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 6: produktion.v1.MachineBooking.starts_at:type_name -> google.protobuf.Timestamp
-	60, // 7: produktion.v1.MachineBooking.ends_at:type_name -> google.protobuf.Timestamp
-	60, // 8: produktion.v1.MachineBooking.created_at:type_name -> google.protobuf.Timestamp
-	60, // 9: produktion.v1.MachineBooking.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 10: produktion.v1.ProductionPlan.created_at:type_name -> google.protobuf.Timestamp
-	60, // 11: produktion.v1.ProductionPlan.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 12: produktion.v1.CreateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
-	60, // 13: produktion.v1.CreateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
-	60, // 14: produktion.v1.UpdateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
-	60, // 15: produktion.v1.UpdateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
+	63, // 0: produktion.v1.ProductionOrder.planned_start:type_name -> google.protobuf.Timestamp
+	63, // 1: produktion.v1.ProductionOrder.planned_end:type_name -> google.protobuf.Timestamp
+	63, // 2: produktion.v1.ProductionOrder.actual_start:type_name -> google.protobuf.Timestamp
+	63, // 3: produktion.v1.ProductionOrder.actual_end:type_name -> google.protobuf.Timestamp
+	63, // 4: produktion.v1.ProductionOrder.created_at:type_name -> google.protobuf.Timestamp
+	63, // 5: produktion.v1.ProductionOrder.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 6: produktion.v1.MachineBooking.starts_at:type_name -> google.protobuf.Timestamp
+	63, // 7: produktion.v1.MachineBooking.ends_at:type_name -> google.protobuf.Timestamp
+	63, // 8: produktion.v1.MachineBooking.created_at:type_name -> google.protobuf.Timestamp
+	63, // 9: produktion.v1.MachineBooking.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 10: produktion.v1.ProductionPlan.created_at:type_name -> google.protobuf.Timestamp
+	63, // 11: produktion.v1.ProductionPlan.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 12: produktion.v1.CreateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
+	63, // 13: produktion.v1.CreateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
+	63, // 14: produktion.v1.UpdateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
+	63, // 15: produktion.v1.UpdateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
 	0,  // 16: produktion.v1.OrderResponse.order:type_name -> produktion.v1.ProductionOrder
-	60, // 17: produktion.v1.ListOrdersRequest.date_from:type_name -> google.protobuf.Timestamp
-	60, // 18: produktion.v1.ListOrdersRequest.date_to:type_name -> google.protobuf.Timestamp
+	63, // 17: produktion.v1.ListOrdersRequest.date_from:type_name -> google.protobuf.Timestamp
+	63, // 18: produktion.v1.ListOrdersRequest.date_to:type_name -> google.protobuf.Timestamp
 	0,  // 19: produktion.v1.ListOrdersResponse.orders:type_name -> produktion.v1.ProductionOrder
-	60, // 20: produktion.v1.CreateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
-	60, // 21: produktion.v1.CreateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
-	60, // 22: produktion.v1.UpdateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
-	60, // 23: produktion.v1.UpdateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
+	63, // 20: produktion.v1.CreateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
+	63, // 21: produktion.v1.CreateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
+	63, // 22: produktion.v1.UpdateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
+	63, // 23: produktion.v1.UpdateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
 	1,  // 24: produktion.v1.MachineBookingResponse.booking:type_name -> produktion.v1.MachineBooking
-	60, // 25: produktion.v1.ListMachineBookingsRequest.date_from:type_name -> google.protobuf.Timestamp
-	60, // 26: produktion.v1.ListMachineBookingsRequest.date_to:type_name -> google.protobuf.Timestamp
+	63, // 25: produktion.v1.ListMachineBookingsRequest.date_from:type_name -> google.protobuf.Timestamp
+	63, // 26: produktion.v1.ListMachineBookingsRequest.date_to:type_name -> google.protobuf.Timestamp
 	1,  // 27: produktion.v1.ListMachineBookingsResponse.bookings:type_name -> produktion.v1.MachineBooking
 	2,  // 28: produktion.v1.PlanResponse.plan:type_name -> produktion.v1.ProductionPlan
 	3,  // 29: produktion.v1.CapacityOverviewResponse.overview:type_name -> produktion.v1.CapacityOverview
 	26, // 30: produktion.v1.BOM.items:type_name -> produktion.v1.BomItem
-	60, // 31: produktion.v1.BOM.created_at:type_name -> google.protobuf.Timestamp
-	60, // 32: produktion.v1.BOM.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 31: produktion.v1.BOM.created_at:type_name -> google.protobuf.Timestamp
+	63, // 32: produktion.v1.BOM.updated_at:type_name -> google.protobuf.Timestamp
 	29, // 33: produktion.v1.CreateBOMRequest.items:type_name -> produktion.v1.CreateBomItemInput
 	27, // 34: produktion.v1.BOMResponse.bom:type_name -> produktion.v1.BOM
 	27, // 35: produktion.v1.ListBOMsResponse.boms:type_name -> produktion.v1.BOM
-	60, // 36: produktion.v1.WorkStep.created_at:type_name -> google.protobuf.Timestamp
-	60, // 37: produktion.v1.WorkStep.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 36: produktion.v1.WorkStep.created_at:type_name -> google.protobuf.Timestamp
+	63, // 37: produktion.v1.WorkStep.updated_at:type_name -> google.protobuf.Timestamp
 	37, // 38: produktion.v1.WorkStepResponse.step:type_name -> produktion.v1.WorkStep
 	37, // 39: produktion.v1.ListWorkStepsResponse.steps:type_name -> produktion.v1.WorkStep
-	60, // 40: produktion.v1.Machine.created_at:type_name -> google.protobuf.Timestamp
-	60, // 41: produktion.v1.Machine.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 40: produktion.v1.Machine.created_at:type_name -> google.protobuf.Timestamp
+	63, // 41: produktion.v1.Machine.updated_at:type_name -> google.protobuf.Timestamp
 	45, // 42: produktion.v1.MachineResponse.machine:type_name -> produktion.v1.Machine
 	45, // 43: produktion.v1.ListMachinesResponse.machines:type_name -> produktion.v1.Machine
-	60, // 44: produktion.v1.QualityCheck.checked_at:type_name -> google.protobuf.Timestamp
-	60, // 45: produktion.v1.QualityCheck.created_at:type_name -> google.protobuf.Timestamp
-	60, // 46: produktion.v1.QualityCheck.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 47: produktion.v1.CreateQualityCheckRequest.checked_at:type_name -> google.protobuf.Timestamp
+	63, // 44: produktion.v1.QualityCheck.checked_at:type_name -> google.protobuf.Timestamp
+	63, // 45: produktion.v1.QualityCheck.created_at:type_name -> google.protobuf.Timestamp
+	63, // 46: produktion.v1.QualityCheck.updated_at:type_name -> google.protobuf.Timestamp
+	63, // 47: produktion.v1.CreateQualityCheckRequest.checked_at:type_name -> google.protobuf.Timestamp
 	54, // 48: produktion.v1.QualityCheckResponse.check:type_name -> produktion.v1.QualityCheck
 	54, // 49: produktion.v1.ListQualityChecksResponse.checks:type_name -> produktion.v1.QualityCheck
-	4,  // 50: produktion.v1.ProduktionService.CreateOrder:input_type -> produktion.v1.CreateOrderRequest
-	5,  // 51: produktion.v1.ProduktionService.UpdateOrder:input_type -> produktion.v1.UpdateOrderRequest
-	6,  // 52: produktion.v1.ProduktionService.DeleteOrder:input_type -> produktion.v1.DeleteOrderRequest
-	8,  // 53: produktion.v1.ProduktionService.GetOrder:input_type -> produktion.v1.GetOrderRequest
-	11, // 54: produktion.v1.ProduktionService.ListOrders:input_type -> produktion.v1.ListOrdersRequest
-	10, // 55: produktion.v1.ProduktionService.StartOrder:input_type -> produktion.v1.OrderActionRequest
-	10, // 56: produktion.v1.ProduktionService.CompleteOrder:input_type -> produktion.v1.OrderActionRequest
-	10, // 57: produktion.v1.ProduktionService.CancelOrder:input_type -> produktion.v1.OrderActionRequest
-	13, // 58: produktion.v1.ProduktionService.CreateMachineBooking:input_type -> produktion.v1.CreateMachineBookingRequest
-	14, // 59: produktion.v1.ProduktionService.UpdateMachineBooking:input_type -> produktion.v1.UpdateMachineBookingRequest
-	15, // 60: produktion.v1.ProduktionService.DeleteMachineBooking:input_type -> produktion.v1.DeleteMachineBookingRequest
-	18, // 61: produktion.v1.ProduktionService.ListMachineBookings:input_type -> produktion.v1.ListMachineBookingsRequest
-	20, // 62: produktion.v1.ProduktionService.CreatePlan:input_type -> produktion.v1.CreatePlanRequest
-	21, // 63: produktion.v1.ProduktionService.UpdatePlan:input_type -> produktion.v1.UpdatePlanRequest
-	22, // 64: produktion.v1.ProduktionService.GetPlan:input_type -> produktion.v1.GetPlanRequest
-	24, // 65: produktion.v1.ProduktionService.GetCapacityOverview:input_type -> produktion.v1.GetCapacityOverviewRequest
-	28, // 66: produktion.v1.ProduktionService.CreateBOM:input_type -> produktion.v1.CreateBOMRequest
-	30, // 67: produktion.v1.ProduktionService.UpdateBOM:input_type -> produktion.v1.UpdateBOMRequest
-	31, // 68: produktion.v1.ProduktionService.DeleteBOM:input_type -> produktion.v1.DeleteBOMRequest
-	33, // 69: produktion.v1.ProduktionService.GetBOM:input_type -> produktion.v1.GetBOMRequest
-	35, // 70: produktion.v1.ProduktionService.ListBOMs:input_type -> produktion.v1.ListBOMsRequest
-	38, // 71: produktion.v1.ProduktionService.CreateWorkStep:input_type -> produktion.v1.CreateWorkStepRequest
-	39, // 72: produktion.v1.ProduktionService.UpdateWorkStep:input_type -> produktion.v1.UpdateWorkStepRequest
-	40, // 73: produktion.v1.ProduktionService.DeleteWorkStep:input_type -> produktion.v1.DeleteWorkStepRequest
-	43, // 74: produktion.v1.ProduktionService.ListWorkSteps:input_type -> produktion.v1.ListWorkStepsRequest
-	46, // 75: produktion.v1.ProduktionService.CreateMachine:input_type -> produktion.v1.CreateMachineRequest
-	47, // 76: produktion.v1.ProduktionService.UpdateMachine:input_type -> produktion.v1.UpdateMachineRequest
-	48, // 77: produktion.v1.ProduktionService.DeleteMachine:input_type -> produktion.v1.DeleteMachineRequest
-	50, // 78: produktion.v1.ProduktionService.GetMachine:input_type -> produktion.v1.GetMachineRequest
-	52, // 79: produktion.v1.ProduktionService.ListMachines:input_type -> produktion.v1.ListMachinesRequest
-	55, // 80: produktion.v1.ProduktionService.CreateQualityCheck:input_type -> produktion.v1.CreateQualityCheckRequest
-	56, // 81: produktion.v1.ProduktionService.GetQualityCheck:input_type -> produktion.v1.GetQualityCheckRequest
-	58, // 82: produktion.v1.ProduktionService.ListQualityChecks:input_type -> produktion.v1.ListQualityChecksRequest
-	9,  // 83: produktion.v1.ProduktionService.CreateOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 84: produktion.v1.ProduktionService.UpdateOrder:output_type -> produktion.v1.OrderResponse
-	7,  // 85: produktion.v1.ProduktionService.DeleteOrder:output_type -> produktion.v1.DeleteOrderResponse
-	9,  // 86: produktion.v1.ProduktionService.GetOrder:output_type -> produktion.v1.OrderResponse
-	12, // 87: produktion.v1.ProduktionService.ListOrders:output_type -> produktion.v1.ListOrdersResponse
-	9,  // 88: produktion.v1.ProduktionService.StartOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 89: produktion.v1.ProduktionService.CompleteOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 90: produktion.v1.ProduktionService.CancelOrder:output_type -> produktion.v1.OrderResponse
-	17, // 91: produktion.v1.ProduktionService.CreateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
-	17, // 92: produktion.v1.ProduktionService.UpdateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
-	16, // 93: produktion.v1.ProduktionService.DeleteMachineBooking:output_type -> produktion.v1.DeleteMachineBookingResponse
-	19, // 94: produktion.v1.ProduktionService.ListMachineBookings:output_type -> produktion.v1.ListMachineBookingsResponse
-	23, // 95: produktion.v1.ProduktionService.CreatePlan:output_type -> produktion.v1.PlanResponse
-	23, // 96: produktion.v1.ProduktionService.UpdatePlan:output_type -> produktion.v1.PlanResponse
-	23, // 97: produktion.v1.ProduktionService.GetPlan:output_type -> produktion.v1.PlanResponse
-	25, // 98: produktion.v1.ProduktionService.GetCapacityOverview:output_type -> produktion.v1.CapacityOverviewResponse
-	34, // 99: produktion.v1.ProduktionService.CreateBOM:output_type -> produktion.v1.BOMResponse
-	34, // 100: produktion.v1.ProduktionService.UpdateBOM:output_type -> produktion.v1.BOMResponse
-	32, // 101: produktion.v1.ProduktionService.DeleteBOM:output_type -> produktion.v1.DeleteBOMResponse
-	34, // 102: produktion.v1.ProduktionService.GetBOM:output_type -> produktion.v1.BOMResponse
-	36, // 103: produktion.v1.ProduktionService.ListBOMs:output_type -> produktion.v1.ListBOMsResponse
-	42, // 104: produktion.v1.ProduktionService.CreateWorkStep:output_type -> produktion.v1.WorkStepResponse
-	42, // 105: produktion.v1.ProduktionService.UpdateWorkStep:output_type -> produktion.v1.WorkStepResponse
-	41, // 106: produktion.v1.ProduktionService.DeleteWorkStep:output_type -> produktion.v1.DeleteWorkStepResponse
-	44, // 107: produktion.v1.ProduktionService.ListWorkSteps:output_type -> produktion.v1.ListWorkStepsResponse
-	51, // 108: produktion.v1.ProduktionService.CreateMachine:output_type -> produktion.v1.MachineResponse
-	51, // 109: produktion.v1.ProduktionService.UpdateMachine:output_type -> produktion.v1.MachineResponse
-	49, // 110: produktion.v1.ProduktionService.DeleteMachine:output_type -> produktion.v1.DeleteMachineResponse
-	51, // 111: produktion.v1.ProduktionService.GetMachine:output_type -> produktion.v1.MachineResponse
-	53, // 112: produktion.v1.ProduktionService.ListMachines:output_type -> produktion.v1.ListMachinesResponse
-	57, // 113: produktion.v1.ProduktionService.CreateQualityCheck:output_type -> produktion.v1.QualityCheckResponse
-	57, // 114: produktion.v1.ProduktionService.GetQualityCheck:output_type -> produktion.v1.QualityCheckResponse
-	59, // 115: produktion.v1.ProduktionService.ListQualityChecks:output_type -> produktion.v1.ListQualityChecksResponse
-	83, // [83:116] is the sub-list for method output_type
-	50, // [50:83] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	60, // 50: produktion.v1.MaterialAvailabilityResponse.lines:type_name -> produktion.v1.MaterialAvailabilityLine
+	4,  // 51: produktion.v1.ProduktionService.CreateOrder:input_type -> produktion.v1.CreateOrderRequest
+	5,  // 52: produktion.v1.ProduktionService.UpdateOrder:input_type -> produktion.v1.UpdateOrderRequest
+	6,  // 53: produktion.v1.ProduktionService.DeleteOrder:input_type -> produktion.v1.DeleteOrderRequest
+	8,  // 54: produktion.v1.ProduktionService.GetOrder:input_type -> produktion.v1.GetOrderRequest
+	11, // 55: produktion.v1.ProduktionService.ListOrders:input_type -> produktion.v1.ListOrdersRequest
+	10, // 56: produktion.v1.ProduktionService.StartOrder:input_type -> produktion.v1.OrderActionRequest
+	10, // 57: produktion.v1.ProduktionService.CompleteOrder:input_type -> produktion.v1.OrderActionRequest
+	10, // 58: produktion.v1.ProduktionService.CancelOrder:input_type -> produktion.v1.OrderActionRequest
+	13, // 59: produktion.v1.ProduktionService.CreateMachineBooking:input_type -> produktion.v1.CreateMachineBookingRequest
+	14, // 60: produktion.v1.ProduktionService.UpdateMachineBooking:input_type -> produktion.v1.UpdateMachineBookingRequest
+	15, // 61: produktion.v1.ProduktionService.DeleteMachineBooking:input_type -> produktion.v1.DeleteMachineBookingRequest
+	18, // 62: produktion.v1.ProduktionService.ListMachineBookings:input_type -> produktion.v1.ListMachineBookingsRequest
+	20, // 63: produktion.v1.ProduktionService.CreatePlan:input_type -> produktion.v1.CreatePlanRequest
+	21, // 64: produktion.v1.ProduktionService.UpdatePlan:input_type -> produktion.v1.UpdatePlanRequest
+	22, // 65: produktion.v1.ProduktionService.GetPlan:input_type -> produktion.v1.GetPlanRequest
+	24, // 66: produktion.v1.ProduktionService.GetCapacityOverview:input_type -> produktion.v1.GetCapacityOverviewRequest
+	28, // 67: produktion.v1.ProduktionService.CreateBOM:input_type -> produktion.v1.CreateBOMRequest
+	30, // 68: produktion.v1.ProduktionService.UpdateBOM:input_type -> produktion.v1.UpdateBOMRequest
+	31, // 69: produktion.v1.ProduktionService.DeleteBOM:input_type -> produktion.v1.DeleteBOMRequest
+	33, // 70: produktion.v1.ProduktionService.GetBOM:input_type -> produktion.v1.GetBOMRequest
+	35, // 71: produktion.v1.ProduktionService.ListBOMs:input_type -> produktion.v1.ListBOMsRequest
+	38, // 72: produktion.v1.ProduktionService.CreateWorkStep:input_type -> produktion.v1.CreateWorkStepRequest
+	39, // 73: produktion.v1.ProduktionService.UpdateWorkStep:input_type -> produktion.v1.UpdateWorkStepRequest
+	40, // 74: produktion.v1.ProduktionService.DeleteWorkStep:input_type -> produktion.v1.DeleteWorkStepRequest
+	43, // 75: produktion.v1.ProduktionService.ListWorkSteps:input_type -> produktion.v1.ListWorkStepsRequest
+	46, // 76: produktion.v1.ProduktionService.CreateMachine:input_type -> produktion.v1.CreateMachineRequest
+	47, // 77: produktion.v1.ProduktionService.UpdateMachine:input_type -> produktion.v1.UpdateMachineRequest
+	48, // 78: produktion.v1.ProduktionService.DeleteMachine:input_type -> produktion.v1.DeleteMachineRequest
+	50, // 79: produktion.v1.ProduktionService.GetMachine:input_type -> produktion.v1.GetMachineRequest
+	52, // 80: produktion.v1.ProduktionService.ListMachines:input_type -> produktion.v1.ListMachinesRequest
+	55, // 81: produktion.v1.ProduktionService.CreateQualityCheck:input_type -> produktion.v1.CreateQualityCheckRequest
+	56, // 82: produktion.v1.ProduktionService.GetQualityCheck:input_type -> produktion.v1.GetQualityCheckRequest
+	58, // 83: produktion.v1.ProduktionService.ListQualityChecks:input_type -> produktion.v1.ListQualityChecksRequest
+	61, // 84: produktion.v1.ProduktionService.GetMaterialAvailability:input_type -> produktion.v1.GetMaterialAvailabilityRequest
+	9,  // 85: produktion.v1.ProduktionService.CreateOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 86: produktion.v1.ProduktionService.UpdateOrder:output_type -> produktion.v1.OrderResponse
+	7,  // 87: produktion.v1.ProduktionService.DeleteOrder:output_type -> produktion.v1.DeleteOrderResponse
+	9,  // 88: produktion.v1.ProduktionService.GetOrder:output_type -> produktion.v1.OrderResponse
+	12, // 89: produktion.v1.ProduktionService.ListOrders:output_type -> produktion.v1.ListOrdersResponse
+	9,  // 90: produktion.v1.ProduktionService.StartOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 91: produktion.v1.ProduktionService.CompleteOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 92: produktion.v1.ProduktionService.CancelOrder:output_type -> produktion.v1.OrderResponse
+	17, // 93: produktion.v1.ProduktionService.CreateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
+	17, // 94: produktion.v1.ProduktionService.UpdateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
+	16, // 95: produktion.v1.ProduktionService.DeleteMachineBooking:output_type -> produktion.v1.DeleteMachineBookingResponse
+	19, // 96: produktion.v1.ProduktionService.ListMachineBookings:output_type -> produktion.v1.ListMachineBookingsResponse
+	23, // 97: produktion.v1.ProduktionService.CreatePlan:output_type -> produktion.v1.PlanResponse
+	23, // 98: produktion.v1.ProduktionService.UpdatePlan:output_type -> produktion.v1.PlanResponse
+	23, // 99: produktion.v1.ProduktionService.GetPlan:output_type -> produktion.v1.PlanResponse
+	25, // 100: produktion.v1.ProduktionService.GetCapacityOverview:output_type -> produktion.v1.CapacityOverviewResponse
+	34, // 101: produktion.v1.ProduktionService.CreateBOM:output_type -> produktion.v1.BOMResponse
+	34, // 102: produktion.v1.ProduktionService.UpdateBOM:output_type -> produktion.v1.BOMResponse
+	32, // 103: produktion.v1.ProduktionService.DeleteBOM:output_type -> produktion.v1.DeleteBOMResponse
+	34, // 104: produktion.v1.ProduktionService.GetBOM:output_type -> produktion.v1.BOMResponse
+	36, // 105: produktion.v1.ProduktionService.ListBOMs:output_type -> produktion.v1.ListBOMsResponse
+	42, // 106: produktion.v1.ProduktionService.CreateWorkStep:output_type -> produktion.v1.WorkStepResponse
+	42, // 107: produktion.v1.ProduktionService.UpdateWorkStep:output_type -> produktion.v1.WorkStepResponse
+	41, // 108: produktion.v1.ProduktionService.DeleteWorkStep:output_type -> produktion.v1.DeleteWorkStepResponse
+	44, // 109: produktion.v1.ProduktionService.ListWorkSteps:output_type -> produktion.v1.ListWorkStepsResponse
+	51, // 110: produktion.v1.ProduktionService.CreateMachine:output_type -> produktion.v1.MachineResponse
+	51, // 111: produktion.v1.ProduktionService.UpdateMachine:output_type -> produktion.v1.MachineResponse
+	49, // 112: produktion.v1.ProduktionService.DeleteMachine:output_type -> produktion.v1.DeleteMachineResponse
+	51, // 113: produktion.v1.ProduktionService.GetMachine:output_type -> produktion.v1.MachineResponse
+	53, // 114: produktion.v1.ProduktionService.ListMachines:output_type -> produktion.v1.ListMachinesResponse
+	57, // 115: produktion.v1.ProduktionService.CreateQualityCheck:output_type -> produktion.v1.QualityCheckResponse
+	57, // 116: produktion.v1.ProduktionService.GetQualityCheck:output_type -> produktion.v1.QualityCheckResponse
+	59, // 117: produktion.v1.ProduktionService.ListQualityChecks:output_type -> produktion.v1.ListQualityChecksResponse
+	62, // 118: produktion.v1.ProduktionService.GetMaterialAvailability:output_type -> produktion.v1.MaterialAvailabilityResponse
+	85, // [85:119] is the sub-list for method output_type
+	51, // [51:85] is the sub-list for method input_type
+	51, // [51:51] is the sub-list for extension type_name
+	51, // [51:51] is the sub-list for extension extendee
+	0,  // [0:51] is the sub-list for field type_name
 }
 
 func init() { file_proto_produktion_v1_produktion_proto_init() }
@@ -5009,13 +5254,14 @@ func file_proto_produktion_v1_produktion_proto_init() {
 	file_proto_produktion_v1_produktion_proto_msgTypes[54].OneofWrappers = []any{}
 	file_proto_produktion_v1_produktion_proto_msgTypes[55].OneofWrappers = []any{}
 	file_proto_produktion_v1_produktion_proto_msgTypes[58].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[60].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_produktion_v1_produktion_proto_rawDesc), len(file_proto_produktion_v1_produktion_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   60,
+			NumMessages:   63,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -31,12 +31,12 @@ func (r *PostgresRepository) CreateOrder(ctx context.Context, order *ProductionO
 		`INSERT INTO production_orders
 		    (id, tenant_id, order_number, product_name, quantity, status,
 		     planned_start, planned_end, actual_start, actual_end,
-		     priority, notes, created_by, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		     priority, notes, created_by, created_at, updated_at, bom_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		order.ID, order.TenantID, order.OrderNumber, order.ProductName,
 		order.Quantity, order.Status, order.PlannedStart, order.PlannedEnd,
 		order.ActualStart, order.ActualEnd, order.Priority, order.Notes,
-		order.CreatedBy, order.CreatedAt, order.UpdatedAt,
+		order.CreatedBy, order.CreatedAt, order.UpdatedAt, order.BomID,
 	)
 	return err
 }
@@ -46,11 +46,11 @@ func (r *PostgresRepository) UpdateOrder(ctx context.Context, order *ProductionO
 		`UPDATE production_orders
 		 SET product_name=$1, quantity=$2, status=$3,
 		     planned_start=$4, planned_end=$5, actual_start=$6, actual_end=$7,
-		     priority=$8, notes=$9, updated_at=$10
-		 WHERE id=$11 AND tenant_id=$12`,
+		     priority=$8, notes=$9, updated_at=$10, bom_id=$11
+		 WHERE id=$12 AND tenant_id=$13`,
 		order.ProductName, order.Quantity, order.Status,
 		order.PlannedStart, order.PlannedEnd, order.ActualStart, order.ActualEnd,
-		order.Priority, order.Notes, order.UpdatedAt,
+		order.Priority, order.Notes, order.UpdatedAt, order.BomID,
 		order.ID, order.TenantID,
 	)
 	return err
@@ -60,7 +60,7 @@ func (r *PostgresRepository) GetOrder(ctx context.Context, tenantID, orderID uui
 	return r.scanOrder(r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, order_number, product_name, quantity, status,
 		        planned_start, planned_end, actual_start, actual_end,
-		        priority, notes, created_by, created_at, updated_at
+		        priority, notes, created_by, created_at, updated_at, bom_id
 		 FROM production_orders WHERE id=$1 AND tenant_id=$2`,
 		orderID, tenantID,
 	))
@@ -112,7 +112,7 @@ func (r *PostgresRepository) ListOrders(ctx context.Context, tenantID uuid.UUID,
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, order_number, product_name, quantity, status,
 		       planned_start, planned_end, actual_start, actual_end,
-		       priority, notes, created_by, created_at, updated_at
+		       priority, notes, created_by, created_at, updated_at, bom_id
 		FROM production_orders %s
 		ORDER BY priority ASC, planned_start ASC
 		LIMIT $%d OFFSET $%d
@@ -515,7 +515,7 @@ func (r *PostgresRepository) scanOrder(row pgx.Row) (*ProductionOrder, error) {
 	err := row.Scan(
 		&o.ID, &o.TenantID, &o.OrderNumber, &o.ProductName, &o.Quantity, &o.Status,
 		&o.PlannedStart, &o.PlannedEnd, &o.ActualStart, &o.ActualEnd,
-		&o.Priority, &o.Notes, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt,
+		&o.Priority, &o.Notes, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.BomID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrderNotFound
@@ -531,7 +531,7 @@ func (r *PostgresRepository) scanOrderFromRows(rows pgx.Rows) (*ProductionOrder,
 	err := rows.Scan(
 		&o.ID, &o.TenantID, &o.OrderNumber, &o.ProductName, &o.Quantity, &o.Status,
 		&o.PlannedStart, &o.PlannedEnd, &o.ActualStart, &o.ActualEnd,
-		&o.Priority, &o.Notes, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt,
+		&o.Priority, &o.Notes, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.BomID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan order row: %w", err)

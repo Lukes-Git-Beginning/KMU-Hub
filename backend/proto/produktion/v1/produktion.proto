@@ -55,6 +55,9 @@ service ProduktionService {
   rpc CreateQualityCheck(CreateQualityCheckRequest) returns (QualityCheckResponse);
   rpc GetQualityCheck(GetQualityCheckRequest) returns (QualityCheckResponse);
   rpc ListQualityChecks(ListQualityChecksRequest) returns (ListQualityChecksResponse);
+
+  // Material availability
+  rpc GetMaterialAvailability(GetMaterialAvailabilityRequest) returns (MaterialAvailabilityResponse);
 }
 
 // ============================================================================
@@ -77,6 +80,7 @@ message ProductionOrder {
   optional string created_by = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  optional string bom_id = 16;
 }
 
 message MachineBooking {
@@ -129,6 +133,7 @@ message CreateOrderRequest {
   int32 priority = 7;
   string notes = 8;
   optional string created_by = 9;
+  optional string bom_id = 10;
 }
 
 message UpdateOrderRequest {
@@ -140,6 +145,7 @@ message UpdateOrderRequest {
   optional google.protobuf.Timestamp planned_end = 6;
   optional int32 priority = 7;
   optional string notes = 8;
+  optional string bom_id = 9;
 }
 
 message DeleteOrderRequest {
@@ -526,4 +532,31 @@ message ListQualityChecksRequest {
 message ListQualityChecksResponse {
   repeated QualityCheck checks = 1;
   int32 total = 2;
+}
+
+// ============================================================================
+// Material Availability Messages
+// ============================================================================
+
+message MaterialAvailabilityLine {
+  string material_name = 1;
+  string unit = 2;
+  double required_quantity = 3;
+  // available_quantity/shortfall_quantity are unset when the material could
+  // not be matched against an inventar item (unknown SKU/name, or the
+  // inventar lookup was unavailable) -- an unmatched position is not an
+  // error, it is a position with unknown availability.
+  optional double available_quantity = 4;
+  optional double shortfall_quantity = 5;
+}
+
+message GetMaterialAvailabilityRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+}
+
+message MaterialAvailabilityResponse {
+  string order_id = 1;
+  string bom_id = 2;
+  repeated MaterialAvailabilityLine lines = 3;
 }

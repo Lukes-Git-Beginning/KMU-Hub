@@ -1426,3 +1426,81 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   (2) **`qualified`-Schutz ueber die Anforderung hinaus ergaenzt** (siehe
   oben) — falls das nicht gewuenscht ist, ist es eine einzelne Zeile in
   `lead.go` (`PromoteFromDialerCallback`), leicht rueckgaengig zu machen.
+
+## Iteration 18 — a-produktion-material-availability — done — 2026-08-08 19:45
+- commit: (siehe naechster Chore-Commit)
+- verify vorgaenger: sauber. 66afd509 (a-crm-dialer-lead-link, Iteration 17)
+  gegen alle acht Fehlerklassen geprueft: GRPCCRMBridge.PromoteToLead geht
+  ueber b.client.PromoteContactToLead (gRPC-Client); der neue RPC-Handler in
+  crm_grpc_leads.go ruft s.contactService.PromoteFromDialerCallback innerhalb
+  des CRM-Dienstes selbst (kein Layer-Bypass); .proto, .pb.go UND
+  .grpc.pb.go regeneriert; kein neuer RequirePermission-Guard, keine
+  Migration; bewusst kein openapi.yaml-Eintrag (service-zu-service-RPC ohne
+  Gateway-Route); Kontext wird durchgereicht (ctx, nicht Background()). git
+  merge origin/main war "Already up to date".
+- gebaut: GET /api/v1/produktion/orders/{id}/material-availability.
+  Praemisse widerlegt und dabei eine tiefere Luecke gefunden:
+  production_orders.bom_id existiert seit Migration 000187 als DB-Spalte,
+  aber der Go-Stack hat sie nie gelesen/geschrieben. Ohne diese Luecke waere
+  der Endpunkt fuer jeden Auftrag leer gewesen, also durchgezogen statt
+  blocked: ProductionOrder.BomID *uuid.UUID, INSERT/UPDATE/SELECT in
+  postgres_repository.go, CreateOrderInput.BomID/UpdateOrderInput.BomID
+  (validieren BOM-Existenz via repo.GetBOM, sonst ErrBOMNotFound, jetzt auch
+  in mapProduktionError gemappt), Proto bom_id an ProductionOrder/
+  CreateOrderRequest/UpdateOrderRequest (optional, additiv), Gateway-Wire an
+  beiden Order-Bodies. Keine neue Migration noetig.
+  Zweite Praemisse widerlegt: production_bom_items hat KEIN SKU-Feld, nur
+  material_name. Bewusste Abweichung: Abgleich laeuft ueber material_name
+  gegen den inventar-Item-Namen (case-insensitiv/getrimmt,
+  normalizeMaterialName), gleiche Kernsemantik wie der SKU-Abgleich in
+  einkauf/inventar_adjuster.go, nur auf dem Feld das wirklich existiert.
+  Neu: InventarLookup-Interface + GRPCInventarLookup
+  (internal/produktion/inventar_lookup.go, Muster von
+  einkauf.GRPCInventarAdjuster) — EIN ListItems-Aufruf (PageSize:200, die
+  von inventar.Service.ListItems selbst erzwungene Obergrenze) statt N
+  Einzelaufrufen, danach Client-seitiges Matching. Service.WithInventarLookup
+  in cmd/produktion/main.go mit demselben lazy-connect/non-fatal-Muster wie
+  cmd/einkauf/main.go verdrahtet.
+  Neue Service-Methode GetMaterialAvailability
+  (internal/produktion/material_availability.go): verlangt BomID != nil
+  (sonst ErrOrderHasNoBOM, FailedPrecondition/409), loest alle
+  Positionsnamen in einem Batch auf, RequiredQuantity = item.Quantity *
+  order.Quantity. Nicht gematchte Position ODER fehlgeschlagener/nicht
+  konfigurierter Lookup -> Available/ShortfallQuantity bleiben nil (kein
+  Fehler fuer die gesamte Anfrage, Architekturregel 8). Shortfall bei
+  Ueberschuss auf 0 geklemmt. Gateway-Handler geht ueber
+  ProduktionServiceClient, Route hinter dem bestehenden
+  produktion:order/read-Key.
+- gate: build ok (-p 2) | vet ok | lint ok (0 issues) | test ok (produktion
+  40/40 PASS 0 SKIP inkl. TestTenantIsolation_Produktion real gegen DB,
+  server ok, gateway ok inkl. TestOpenAPIRouteDrift = 828 Routen gegen 830
+  Pfade) | migration n.a. (Spalte existierte bereits) | openapi
+  swagger-cli validate ok | rls-smoke n.a. (kein Schema angefasst)
+- mutations-probe: zwei Stueck. (1) Shortfall-Klemme aufgeweicht
+  (if shortfall < -999999 statt < 0) -> GENAU
+  TestService_GetMaterialAvailability_SufficientStockHasZeroShortfall wurde
+  rot, sechs Nachbartests blieben gruen. (2) `if info, ok := stock[...]; ok`
+  auf immer-wahr gedreht -> GENAU die drei Tests rot, die den Unknown-Pfad
+  pruefen, vier andere blieben gruen. Beide zurueckgedreht, Endgate danach
+  erneut gruen (40/40, 0 Skips).
+- db-tests: TestTenantIsolation_Produktion (unveraendert) lief real gegen
+  die lokale DB — 0 Skips im Paket produktion (40 PASS). Kein eigener
+  DB-Test fuer bom_id-Persistenz (kein DB-Test fuer BOM existierte vorher im
+  Paket ueberhaupt); Spaltenverdrahtung ist durch Build+Vet+Lint sowie die
+  neuen Mock-Repo-Tests belegt, nicht durch einen echten Repository-Roundtrip.
+- offen: Vier Punkte fuer Luke. (1) Kein FE-Konsument — weder Order-Formular
+  noch ProduktionDetailModals.tsx kennen bom_id oder den neuen Endpoint,
+  getMaterialAvailability im FE bleibt bis zu einer FE-Session der
+  deterministische Pseudo-Wert. (2) BOM-CRUD hatte vorher keinerlei
+  Testabdeckung im Paket produktion — der Mock-Kommentar behauptete
+  "covered by service_ext tests", eine Datei die es nicht gibt; CreateBOM/
+  GetBOM als Service-RPC-Pfad bleiben ungetestet, Kandidat fuer eine eigene
+  Coverage-Unit. (3) Namensabgleich statt SKU-Abgleich ist bewusste
+  Abweichung vom Backlog-Wortlaut mangels SKU-Feld an BOM-Positionen — bei
+  spaeterem SKU-Feld an production_bom_items ist inventar_lookup.go leicht
+  umzustellen. (4) GRPCInventarLookup.ResolveByNames selbst hat keinen
+  Unit-Test (Service-Tests laufen gegen fakeInventarLookup); der
+  200er-Deckel aus inventar.Service.ListItems ist dokumentiert aber
+  ungetestet — ein Tenant mit >200 Inventar-Positionen kann Materialien
+  haben, die der eine Batch-Call nicht mehr sieht (unbekannt statt
+  gefunden, kein Fehler, aber ein stiller Deckel).

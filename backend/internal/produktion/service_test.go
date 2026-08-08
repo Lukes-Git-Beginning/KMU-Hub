@@ -21,6 +21,7 @@ type mockRepository struct {
 	orders   map[uuid.UUID]*ProductionOrder
 	bookings map[uuid.UUID]*MachineBooking
 	plans    map[uuid.UUID]*ProductionPlan
+	boms     map[uuid.UUID]*BOM
 
 	// injected errors for specific methods
 	createOrderErr   error
@@ -35,6 +36,7 @@ func newMockRepository() *mockRepository {
 		orders:    make(map[uuid.UUID]*ProductionOrder),
 		bookings:  make(map[uuid.UUID]*MachineBooking),
 		plans:     make(map[uuid.UUID]*ProductionPlan),
+		boms:      make(map[uuid.UUID]*BOM),
 		conflicts: make(map[string]*uuid.UUID),
 	}
 }
@@ -257,13 +259,21 @@ func (m *mockRepository) GetCapacityOverview(ctx context.Context, tenantID uuid.
 
 // ============================================================================
 // Extended Repository methods (BOMs, WorkSteps, Machines, QualityChecks)
-// Minimal stubs — returning not-found errors; covered by service_ext tests.
+// BOM Create/Get are backed by the boms map (needed for material
+// availability tests); the rest are minimal not-found stubs.
 // ============================================================================
 
-func (m *mockRepository) CreateBOM(_ context.Context, _ *BOM) error            { return nil }
-func (m *mockRepository) UpdateBOM(_ context.Context, _ *BOM) error            { return nil }
-func (m *mockRepository) GetBOM(_ context.Context, _, _ uuid.UUID) (*BOM, error) {
-	return nil, ErrBOMNotFound
+func (m *mockRepository) CreateBOM(_ context.Context, bom *BOM) error {
+	m.boms[bom.ID] = bom
+	return nil
+}
+func (m *mockRepository) UpdateBOM(_ context.Context, _ *BOM) error { return nil }
+func (m *mockRepository) GetBOM(_ context.Context, tenantID, bomID uuid.UUID) (*BOM, error) {
+	bom, ok := m.boms[bomID]
+	if !ok || bom.TenantID != tenantID {
+		return nil, ErrBOMNotFound
+	}
+	return bom, nil
 }
 func (m *mockRepository) ListBOMs(_ context.Context, _ uuid.UUID, _ *bool, _, _ int) ([]*BOM, int, error) {
 	return nil, 0, nil

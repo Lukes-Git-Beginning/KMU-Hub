@@ -53,6 +53,13 @@ func (s *ProduktionGRPCServer) CreateOrder(ctx context.Context, req *produktionv
 		}
 		input.CreatedBy = &id
 	}
+	if req.BomId != nil {
+		id, parseErr := uuid.Parse(*req.BomId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid bom_id: %v", parseErr)
+		}
+		input.BomID = &id
+	}
 
 	order, err := s.svc.CreateOrder(ctx, input)
 	if err != nil {
@@ -97,6 +104,13 @@ func (s *ProduktionGRPCServer) UpdateOrder(ctx context.Context, req *produktionv
 	}
 	if req.Notes != nil {
 		input.Notes = req.Notes
+	}
+	if req.BomId != nil {
+		id, parseErr := uuid.Parse(*req.BomId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid bom_id: %v", parseErr)
+		}
+		input.BomID = &id
 	}
 
 	order, err := s.svc.UpdateOrder(ctx, input)
@@ -533,6 +547,10 @@ func orderToProto(o *produktion.ProductionOrder) *produktionv1.ProductionOrder {
 		s := o.CreatedBy.String()
 		p.CreatedBy = &s
 	}
+	if o.BomID != nil {
+		s := o.BomID.String()
+		p.BomId = &s
+	}
 	return p
 }
 
@@ -598,6 +616,10 @@ func mapProduktionError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, produktion.ErrPlanNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, produktion.ErrBOMNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, produktion.ErrOrderHasNoBOM):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, produktion.ErrOrderNumberTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, produktion.ErrOrderNotDeletable):

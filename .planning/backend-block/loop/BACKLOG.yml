@@ -639,7 +639,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Materialverfuegbarkeit eines Fertigungsauftrags gegen den echten Lagerbestand. Das FE
       rechnet heute mit einem deterministischen Pseudo-Wert

@@ -19,39 +19,40 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProduktionService_CreateOrder_FullMethodName          = "/produktion.v1.ProduktionService/CreateOrder"
-	ProduktionService_UpdateOrder_FullMethodName          = "/produktion.v1.ProduktionService/UpdateOrder"
-	ProduktionService_DeleteOrder_FullMethodName          = "/produktion.v1.ProduktionService/DeleteOrder"
-	ProduktionService_GetOrder_FullMethodName             = "/produktion.v1.ProduktionService/GetOrder"
-	ProduktionService_ListOrders_FullMethodName           = "/produktion.v1.ProduktionService/ListOrders"
-	ProduktionService_StartOrder_FullMethodName           = "/produktion.v1.ProduktionService/StartOrder"
-	ProduktionService_CompleteOrder_FullMethodName        = "/produktion.v1.ProduktionService/CompleteOrder"
-	ProduktionService_CancelOrder_FullMethodName          = "/produktion.v1.ProduktionService/CancelOrder"
-	ProduktionService_CreateMachineBooking_FullMethodName = "/produktion.v1.ProduktionService/CreateMachineBooking"
-	ProduktionService_UpdateMachineBooking_FullMethodName = "/produktion.v1.ProduktionService/UpdateMachineBooking"
-	ProduktionService_DeleteMachineBooking_FullMethodName = "/produktion.v1.ProduktionService/DeleteMachineBooking"
-	ProduktionService_ListMachineBookings_FullMethodName  = "/produktion.v1.ProduktionService/ListMachineBookings"
-	ProduktionService_CreatePlan_FullMethodName           = "/produktion.v1.ProduktionService/CreatePlan"
-	ProduktionService_UpdatePlan_FullMethodName           = "/produktion.v1.ProduktionService/UpdatePlan"
-	ProduktionService_GetPlan_FullMethodName              = "/produktion.v1.ProduktionService/GetPlan"
-	ProduktionService_GetCapacityOverview_FullMethodName  = "/produktion.v1.ProduktionService/GetCapacityOverview"
-	ProduktionService_CreateBOM_FullMethodName            = "/produktion.v1.ProduktionService/CreateBOM"
-	ProduktionService_UpdateBOM_FullMethodName            = "/produktion.v1.ProduktionService/UpdateBOM"
-	ProduktionService_DeleteBOM_FullMethodName            = "/produktion.v1.ProduktionService/DeleteBOM"
-	ProduktionService_GetBOM_FullMethodName               = "/produktion.v1.ProduktionService/GetBOM"
-	ProduktionService_ListBOMs_FullMethodName             = "/produktion.v1.ProduktionService/ListBOMs"
-	ProduktionService_CreateWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/CreateWorkStep"
-	ProduktionService_UpdateWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/UpdateWorkStep"
-	ProduktionService_DeleteWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/DeleteWorkStep"
-	ProduktionService_ListWorkSteps_FullMethodName        = "/produktion.v1.ProduktionService/ListWorkSteps"
-	ProduktionService_CreateMachine_FullMethodName        = "/produktion.v1.ProduktionService/CreateMachine"
-	ProduktionService_UpdateMachine_FullMethodName        = "/produktion.v1.ProduktionService/UpdateMachine"
-	ProduktionService_DeleteMachine_FullMethodName        = "/produktion.v1.ProduktionService/DeleteMachine"
-	ProduktionService_GetMachine_FullMethodName           = "/produktion.v1.ProduktionService/GetMachine"
-	ProduktionService_ListMachines_FullMethodName         = "/produktion.v1.ProduktionService/ListMachines"
-	ProduktionService_CreateQualityCheck_FullMethodName   = "/produktion.v1.ProduktionService/CreateQualityCheck"
-	ProduktionService_GetQualityCheck_FullMethodName      = "/produktion.v1.ProduktionService/GetQualityCheck"
-	ProduktionService_ListQualityChecks_FullMethodName    = "/produktion.v1.ProduktionService/ListQualityChecks"
+	ProduktionService_CreateOrder_FullMethodName             = "/produktion.v1.ProduktionService/CreateOrder"
+	ProduktionService_UpdateOrder_FullMethodName             = "/produktion.v1.ProduktionService/UpdateOrder"
+	ProduktionService_DeleteOrder_FullMethodName             = "/produktion.v1.ProduktionService/DeleteOrder"
+	ProduktionService_GetOrder_FullMethodName                = "/produktion.v1.ProduktionService/GetOrder"
+	ProduktionService_ListOrders_FullMethodName              = "/produktion.v1.ProduktionService/ListOrders"
+	ProduktionService_StartOrder_FullMethodName              = "/produktion.v1.ProduktionService/StartOrder"
+	ProduktionService_CompleteOrder_FullMethodName           = "/produktion.v1.ProduktionService/CompleteOrder"
+	ProduktionService_CancelOrder_FullMethodName             = "/produktion.v1.ProduktionService/CancelOrder"
+	ProduktionService_CreateMachineBooking_FullMethodName    = "/produktion.v1.ProduktionService/CreateMachineBooking"
+	ProduktionService_UpdateMachineBooking_FullMethodName    = "/produktion.v1.ProduktionService/UpdateMachineBooking"
+	ProduktionService_DeleteMachineBooking_FullMethodName    = "/produktion.v1.ProduktionService/DeleteMachineBooking"
+	ProduktionService_ListMachineBookings_FullMethodName     = "/produktion.v1.ProduktionService/ListMachineBookings"
+	ProduktionService_CreatePlan_FullMethodName              = "/produktion.v1.ProduktionService/CreatePlan"
+	ProduktionService_UpdatePlan_FullMethodName              = "/produktion.v1.ProduktionService/UpdatePlan"
+	ProduktionService_GetPlan_FullMethodName                 = "/produktion.v1.ProduktionService/GetPlan"
+	ProduktionService_GetCapacityOverview_FullMethodName     = "/produktion.v1.ProduktionService/GetCapacityOverview"
+	ProduktionService_CreateBOM_FullMethodName               = "/produktion.v1.ProduktionService/CreateBOM"
+	ProduktionService_UpdateBOM_FullMethodName               = "/produktion.v1.ProduktionService/UpdateBOM"
+	ProduktionService_DeleteBOM_FullMethodName               = "/produktion.v1.ProduktionService/DeleteBOM"
+	ProduktionService_GetBOM_FullMethodName                  = "/produktion.v1.ProduktionService/GetBOM"
+	ProduktionService_ListBOMs_FullMethodName                = "/produktion.v1.ProduktionService/ListBOMs"
+	ProduktionService_CreateWorkStep_FullMethodName          = "/produktion.v1.ProduktionService/CreateWorkStep"
+	ProduktionService_UpdateWorkStep_FullMethodName          = "/produktion.v1.ProduktionService/UpdateWorkStep"
+	ProduktionService_DeleteWorkStep_FullMethodName          = "/produktion.v1.ProduktionService/DeleteWorkStep"
+	ProduktionService_ListWorkSteps_FullMethodName           = "/produktion.v1.ProduktionService/ListWorkSteps"
+	ProduktionService_CreateMachine_FullMethodName           = "/produktion.v1.ProduktionService/CreateMachine"
+	ProduktionService_UpdateMachine_FullMethodName           = "/produktion.v1.ProduktionService/UpdateMachine"
+	ProduktionService_DeleteMachine_FullMethodName           = "/produktion.v1.ProduktionService/DeleteMachine"
+	ProduktionService_GetMachine_FullMethodName              = "/produktion.v1.ProduktionService/GetMachine"
+	ProduktionService_ListMachines_FullMethodName            = "/produktion.v1.ProduktionService/ListMachines"
+	ProduktionService_CreateQualityCheck_FullMethodName      = "/produktion.v1.ProduktionService/CreateQualityCheck"
+	ProduktionService_GetQualityCheck_FullMethodName         = "/produktion.v1.ProduktionService/GetQualityCheck"
+	ProduktionService_ListQualityChecks_FullMethodName       = "/produktion.v1.ProduktionService/ListQualityChecks"
+	ProduktionService_GetMaterialAvailability_FullMethodName = "/produktion.v1.ProduktionService/GetMaterialAvailability"
 )
 
 // ProduktionServiceClient is the client API for ProduktionService service.
@@ -99,6 +100,8 @@ type ProduktionServiceClient interface {
 	CreateQualityCheck(ctx context.Context, in *CreateQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error)
 	GetQualityCheck(ctx context.Context, in *GetQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error)
 	ListQualityChecks(ctx context.Context, in *ListQualityChecksRequest, opts ...grpc.CallOption) (*ListQualityChecksResponse, error)
+	// Material availability
+	GetMaterialAvailability(ctx context.Context, in *GetMaterialAvailabilityRequest, opts ...grpc.CallOption) (*MaterialAvailabilityResponse, error)
 }
 
 type produktionServiceClient struct {
@@ -439,6 +442,16 @@ func (c *produktionServiceClient) ListQualityChecks(ctx context.Context, in *Lis
 	return out, nil
 }
 
+func (c *produktionServiceClient) GetMaterialAvailability(ctx context.Context, in *GetMaterialAvailabilityRequest, opts ...grpc.CallOption) (*MaterialAvailabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MaterialAvailabilityResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_GetMaterialAvailability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProduktionServiceServer is the server API for ProduktionService service.
 // All implementations must embed UnimplementedProduktionServiceServer
 // for forward compatibility.
@@ -484,6 +497,8 @@ type ProduktionServiceServer interface {
 	CreateQualityCheck(context.Context, *CreateQualityCheckRequest) (*QualityCheckResponse, error)
 	GetQualityCheck(context.Context, *GetQualityCheckRequest) (*QualityCheckResponse, error)
 	ListQualityChecks(context.Context, *ListQualityChecksRequest) (*ListQualityChecksResponse, error)
+	// Material availability
+	GetMaterialAvailability(context.Context, *GetMaterialAvailabilityRequest) (*MaterialAvailabilityResponse, error)
 	mustEmbedUnimplementedProduktionServiceServer()
 }
 
@@ -592,6 +607,9 @@ func (UnimplementedProduktionServiceServer) GetQualityCheck(context.Context, *Ge
 }
 func (UnimplementedProduktionServiceServer) ListQualityChecks(context.Context, *ListQualityChecksRequest) (*ListQualityChecksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListQualityChecks not implemented")
+}
+func (UnimplementedProduktionServiceServer) GetMaterialAvailability(context.Context, *GetMaterialAvailabilityRequest) (*MaterialAvailabilityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMaterialAvailability not implemented")
 }
 func (UnimplementedProduktionServiceServer) mustEmbedUnimplementedProduktionServiceServer() {}
 func (UnimplementedProduktionServiceServer) testEmbeddedByValue()                           {}
@@ -1208,6 +1226,24 @@ func _ProduktionService_ListQualityChecks_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProduktionService_GetMaterialAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMaterialAvailabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).GetMaterialAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_GetMaterialAvailability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).GetMaterialAvailability(ctx, req.(*GetMaterialAvailabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProduktionService_ServiceDesc is the grpc.ServiceDesc for ProduktionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1346,6 +1382,10 @@ var ProduktionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListQualityChecks",
 			Handler:    _ProduktionService_ListQualityChecks_Handler,
+		},
+		{
+			MethodName: "GetMaterialAvailability",
+			Handler:    _ProduktionService_GetMaterialAvailability_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

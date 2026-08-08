@@ -11,6 +11,7 @@ var (
 	ErrBookingConflict        = errors.New("machine booking overlaps with an existing booking")
 	ErrPlanNotFound           = errors.New("production plan not found")
 	ErrInvalidInput           = errors.New("invalid input")
+	ErrOrderHasNoBOM          = errors.New("production order has no linked BOM")
 
 	ErrBOMNotFound          = errors.New("BOM not found")
 	ErrBOMSKUTaken          = errors.New("BOM SKU already exists")

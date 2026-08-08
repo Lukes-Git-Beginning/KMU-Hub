@@ -13,11 +13,22 @@ import (
 // Service handles produktion business logic.
 type Service struct {
 	repo Repository
+	// inventarLookup is optional; if non-nil, GetMaterialAvailability checks
+	// BOM positions against real inventar stock instead of returning unknown
+	// availability for every line.
+	inventarLookup InventarLookup
 }
 
 // NewService creates a new produktion service.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// WithInventarLookup attaches an InventarLookup to the service so that
+// GetMaterialAvailability can check real inventar stock levels.
+func (s *Service) WithInventarLookup(lookup InventarLookup) *Service {
+	s.inventarLookup = lookup
+	return s
 }
 
 // ============================================================================
@@ -35,6 +46,7 @@ type CreateOrderInput struct {
 	Priority     int
 	Notes        string
 	CreatedBy    *uuid.UUID
+	BomID        *uuid.UUID
 }
 
 // UpdateOrderInput contains the data that can be updated on a production order.
@@ -47,6 +59,7 @@ type UpdateOrderInput struct {
 	PlannedEnd   *time.Time
 	Priority     *int
 	Notes        *string
+	BomID        *uuid.UUID
 }
 
 // ListOrdersInput contains filtering and pagination for listing orders.
@@ -160,6 +173,12 @@ func (s *Service) CreateOrder(ctx context.Context, input CreateOrderInput) (*Pro
 		return nil, ErrOrderNumberTaken
 	}
 
+	if input.BomID != nil {
+		if _, bomErr := s.repo.GetBOM(ctx, input.TenantID, *input.BomID); bomErr != nil {
+			return nil, bomErr
+		}
+	}
+
 	now := time.Now()
 	order := &ProductionOrder{
 		ID:           uuid.New(),
@@ -175,6 +194,7 @@ func (s *Service) CreateOrder(ctx context.Context, input CreateOrderInput) (*Pro
 		CreatedBy:    input.CreatedBy,
 		CreatedAt:    now,
 		UpdatedAt:    now,
+		BomID:        input.BomID,
 	}
 
 	if createErr := s.repo.CreateOrder(ctx, order); createErr != nil {
@@ -234,6 +254,13 @@ func (s *Service) UpdateOrder(ctx context.Context, input UpdateOrderInput) (*Pro
 
 	if input.Notes != nil {
 		order.Notes = *input.Notes
+	}
+
+	if input.BomID != nil {
+		if _, bomErr := s.repo.GetBOM(ctx, input.TenantID, *input.BomID); bomErr != nil {
+			return nil, bomErr
+		}
+		order.BomID = input.BomID
 	}
 
 	order.UpdatedAt = time.Now()
