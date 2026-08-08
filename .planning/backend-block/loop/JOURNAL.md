@@ -2679,3 +2679,96 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   diesem Diff. (2) Lokale Postgres-Verbindungsgrenze bei parallelen
   crm-Paket-Laeufen — betrifft nur lokale Testlaeufe, nicht CI (dort
   laufen Pakete vermutlich mit anderer Parallelitaet/Connection-Limits).
+
+## Iteration 33 — c-cov-crm-advisoryprotocol — done — 2026-08-08 21:50
+- commit: (siehe naechster chore-Commit)
+- verify vorgaenger: sauber (c98d4f9d ist ein reiner chore-Commit, der nur
+  Commit-SHAs in bestehende Journal-Eintraege nachtraegt — kein Gateway/
+  Route/Proto/Guard/neue-Tabelle betroffen). `git merge origin/main` war
+  "Already up to date".
+- gebaut: Neue Datei `postgres_repository_db_test.go` mit zehn
+  DB-Integrationstests fuer `internal/crm/advisoryprotocol` (vorher 0
+  DB-Tests im Paket — nur Mock-basierte `service_test.go`). Coverage
+  40,0% -> 65,5% (der Rest ist ueberwiegend `GeneratePDF`, PDF-Rendering,
+  kein Schreibpfad).
+  Dabei DREI echte Produktionsbugs gefunden und gefixt, alle per
+  DB-Test reproduziert statt spekuliert:
+  (1) **Der eigentliche Zweck der Unit — Immutability-Race.** `Update`
+  und `Delete` haengen ihre Query an `AND status='draft'`, pruefen aber
+  nie `RowsAffected()`. Ein Race zwischen dem Service-Precondition-Check
+  (`GetByID` + `status=="finalized"`) und dem eigentlichen Write haette
+  ein zehn Jahre aufzubewahrendes, ausgehaendigtes Protokoll still
+  ueberschreiben/loeschen koennen — `nil`-Error, 0 tatsaechlich
+  geaenderte Zeilen. Fix: `RowsAffected()==0` -> `ErrProtocolFinalized`
+  in beiden Methoden. Kein Mapping-Code noetig, `crm_grpc.go:2837`
+  kennt den Sentinel bereits aus dem Service-Pfad.
+  (2) **DATE-Spalten crashen jeden Read mit gesetztem Datum.** `date`,
+  `birth_date`, `document_delivered_date`, `followup_date` sind Postgres
+  `DATE` und werden im Binaerformat (OID 1082) uebertragen — pgx kann
+  das nicht direkt in `*string` scannen (`cannot scan date ... in binary
+  format into **string`). `GetByID`/`ListByContact` crashten also bei
+  JEDEM Protokoll mit gesetztem Datum, nicht nur einem Edge-Case. Fix:
+  `::text`-Cast auf alle vier Spalten in beiden SELECTs (Go-Feld bleibt
+  `*string`, ISO-Format `yyyy-mm-dd` bleibt erhalten — Kommentar im
+  Modell stimmt weiterhin).
+  (3) **NOT-NULL-Verletzung auf dem Create-Pfad selbst.**
+  `known_asset_classes`/`investment_purpose`/`warnings_given` sowie
+  `horizon`/`delivery_form` sind `NOT NULL DEFAULT ...`-Spalten, aber
+  `nullableTextArray` wandelte leere Arrays und `emptyToNil` wandelte
+  leere Strings in NULL. `Service.Create` baut jedes neue Draft-Protokoll
+  GENAU mit leeren Arrays und leerem `Horizon` — der allererste
+  `repo.Create`-Aufruf nach jedem `Service.Create` schlug mit
+  `null value in column "known_asset_classes" violates not-null
+  constraint` fehl. Fix: neue Funktion `textArrayOrEmpty` (nil -> `[]`
+  statt nil -> NULL) ersetzt `nullableTextArray` an allen sechs
+  Stellen; `horizon`/`delivery_form` binden jetzt direkt den String statt
+  durch `emptyToNil` zu laufen (beide Spalten haben ohnehin ein
+  DB-seitiges `DEFAULT`, brauchen also nie NULL).
+  Zusammengenommen: die Advisory-Protocol-Erstellung war vor diesem
+  Fix fuer praktisch jedes reale Protokoll ungetestet und kaputt — der
+  Happy Path "Draft anlegen, dann ansehen" ist per neuem Test
+  `TestRepository_CreateGetByID_BlankDraftRoundTrips` jetzt exakt so
+  abgedeckt, wie `Service.Create` das Objekt tatsaechlich baut.
+  Weitere Tests: Create/GetByID-Roundtrip mit allen Feldern (Arrays,
+  JSONB-Products, Pointer-Felder), ListByContact-Sortierung
+  (`COALESCE(date, created_at::date) DESC, created_at DESC`) inkl.
+  RLS-Leak-Probe mit gestohlener Tenant-ID, Update auf Draft (inkl.
+  Products-JSON), HandOver setzt Status+Zeitstempel, ContactExists in
+  beide Richtungen tenant-gescoped (WHERE-Parameter UND RLS-Session
+  getrennt geprueft), GetReferralReport aggregiert korrekt und
+  tenant-scoped.
+- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/...
+  ./internal/server/... ./cmd/gateway/... ./cmd/crm/...` ok | `go vet
+  ./internal/crm/advisoryprotocol/...` ok | `golangci-lint run --config
+  .golangci.yml ./internal/crm/advisoryprotocol/...` 0 issues | `go test
+  -count=1 ./internal/crm/advisoryprotocol/... ./internal/gateway/...`
+  — beide Pakete gruen, **0 Skips**, `DATABASE_URL` gesetzt (Rolle
+  kmuhub_app). Keine Route/kein Proto/keine Migration angefasst
+  (Fix ist reines SQL/Go im Repository), daher kein separater
+  `TestOpenAPIRouteDrift`-Lauf noetig — trotzdem mitgetestet, da das
+  Paket von Gateway-Handlern importiert wird.
+- mutations-probe: `if tag.RowsAffected() == 0` im `Update`-Pfad zu
+  `!= 0` gedreht (macht die neue Race-Absicherung zum genauen Gegenteil:
+  ein erfolgreiches Draft-Update liefert jetzt faelschlich
+  `ErrProtocolFinalized`, ein Update auf ein finalisiertes Protokoll
+  faelschlich `nil`). Ergebnis: GENAU
+  `TestRepository_Update_DraftAppliesAllFieldsIncludingProductsJSON`
+  und `TestRepository_Update_OnFinalizedReturnsErrProtocolFinalizedAndDoesNotMutate`
+  wurden rot, alle 23 uebrigen Tests (inklusive der analogen
+  Delete-Finalized-Probe, deren eigener RowsAffected-Check unveraendert
+  blieb) bestanden weiter. Zurueckgedreht, `git diff --stat
+  internal/crm/advisoryprotocol/postgres_repository.go` bestaetigt danach
+  wieder den urspruenglichen (kumulierten) Fix-Diff, Endgate erneut
+  gelaufen und gruen. Die drei echten Bugfunde hatten de facto bereits
+  ihre eigene Mutations-Probe: jeder Test schlug mit dem urspruenglichen
+  Code real fehl (NOT-NULL-Verletzung bzw. Scan-Fehler), bestand erst
+  nach dem jeweiligen Fix.
+- db-tests: 10 neue DB-Integrationstests, alle real gegen `kmuhub_app`
+  gelaufen, **0 Skips**.
+- offen: Kein DB-Gate-Ausfall. Ein Punkt fuer Luke: Punkt (3) oben wirft
+  die Frage auf, ob das Beratungsprotokoll-Feature in Produktion je
+  erfolgreich ein Draft angelegt hat — falls ja (z. B. durch einen
+  Frontend-Pfad, der abweichend von `Service.Create` nicht-leere Arrays
+  mitschickt), waere das ein Datenpunkt wert, das zu verifizieren; falls
+  nein, war das Feature bislang komplett unbenutzbar. Naechste Unit im
+  Backlog: `c-cov-biz-hr-employee`.

@@ -1299,7 +1299,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/crm/advisoryprotocol` - gemessen 40,0 % bei 933 Zeilen Code
       gegen 386 Zeilen Test. Das Beratungsprotokoll ist nach Aushaendigung unveraenderlich und
@@ -1318,6 +1318,23 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      Coverage 40,0% -> 65,5%. Neue Datei postgres_repository_db_test.go (10 DB-Integrationstests,
+      0 Skips). Dabei drei echte Produktionsbugs gefunden und gefixt, alle ueber DB-Tests
+      reproduziert statt spekuliert: (1) Update/Delete pruefen die WHERE-status='draft'-Klausel
+      nie auf RowsAffected - ein finalisiertes Protokoll liess sich per direktem Repo-Aufruf
+      (Race zwischen Service-Precondition-Check und Write) still ueberschreiben/loeschen, ohne
+      Fehler zurueckzugeben. Fix: RowsAffected()==0 -> ErrProtocolFinalized (Mapping in
+      crm_grpc.go existierte bereits, keine Server-/Gateway-Aenderung noetig). (2) date/
+      birth_date/document_delivered_date/followup_date sind Postgres-DATE-Spalten; pgx kann das
+      Binaerformat nicht in *string scannen - GetByID/ListByContact crashten bei JEDEM Protokoll
+      mit gesetztem Datum. Fix: ::text-Cast in beiden SELECTs. (3) known_asset_classes/
+      investment_purpose/warnings_given sowie horizon/delivery_form sind NOT NULL-Spalten;
+      nullableTextArray/emptyToNil wandelten leere Werte in NULL - jedes frisch angelegte Draft
+      (Service.Create baut genau diesen Zustand) crashte beim INSERT mit einer NOT-NULL-
+      Verletzung. Fix: textArrayOrEmpty statt nullableTextArray, direkte Bindung statt
+      emptyToNil fuer horizon/delivery_form. Ergebnis: die Advisory-Protocol-Erstellung war vor
+      diesem Fix in Produktion fuer praktisch jedes reale Protokoll ungetestet und kaputt.
 
   - id: c-cov-biz-hr-employee
     phase: 3
