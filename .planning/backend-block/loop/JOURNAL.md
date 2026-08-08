@@ -123,7 +123,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Vertraege-Modul im Frontend liest den Endpoint noch nicht.
 
 ## Iteration 3 — a-dokumente-version-download — done — 2026-08-08 15:55
-- commit: nachgetragen im Folge-Commit
+- commit: fb6893d3
 - gebaut: Neuer RPC `GetFileVersionDownloadURL` im document-Proto (Request:
   `file_id`+`version_id`, Response wie `GetFileDownloadURLResponse`). Neue
   Repository-Methode `GetVersionByID(ctx, fileID, versionID, tenantID)` filtert
@@ -178,7 +178,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   neuen Endpoint noch verdrahten.
 
 ## Iteration 4 — a-schichten-minor-compliance — done — 2026-08-08 17:20
-- commit: nachgetragen im Folge-Commit
+- commit: 7493cf0f
 - gebaut: Migration 000299 ergaenzt `is_minor BOOLEAN NOT NULL DEFAULT FALSE`
   an `hr_employee_profiles` (up + down gefuellt, Partial-Index
   `(tenant_id, is_minor) WHERE is_minor` fuer den Lookup). Keine neue Tabelle,
