@@ -429,10 +429,11 @@ func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicate
 		return fmt.Errorf("reassign deals: %w", err)
 	}
 
-	// Merge tags
+	// Merge tags. tenant_id is NOT NULL + RLS-checked on company_tags, so it
+	// must be carried explicitly — the same pattern AddTags uses.
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO company_tags (company_id, tag_id)
-		 SELECT $1, tag_id FROM company_tags WHERE company_id = $2
+		`INSERT INTO company_tags (company_id, tag_id, tenant_id)
+		 SELECT $1, tag_id, tenant_id FROM company_tags WHERE company_id = $2
 		 ON CONFLICT DO NOTHING`,
 		primaryID, duplicateID,
 	); err != nil {

@@ -1123,7 +1123,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/crm/company` - gemessen 35,6 %. Schwerpunkt auf
       `postgres_repository.go` - Anlegen, Suchen, Zusammenfuehren mit Kontakten, Loeschen mit
@@ -1141,6 +1141,16 @@ units:
       - Fehlerpfad je getesteter Funktion
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips
+    result: >
+      42,7 % -> 79,7 % (gemessen mit DATABASE_URL, vor dieser Unit bereits hoeher als die im
+      Backlog notierten 35,6 % durch fruehere RLS-Iterationen). Echter Bug gefunden und
+      gefixt: `MergeInto`s Tag-Merge-INSERT (`postgres_repository.go`) setzte kein
+      `tenant_id` auf `company_tags` - das Feld ist NOT NULL + RLS-bewehrt, jeder Merge
+      einer Dublette MIT Tags schlug in der Transaktion fehl (RLS-Policy-Verletzung,
+      SQLSTATE 42501). Fix uebernimmt das Muster aus `AddTags` (Subselect auf
+      `company_tags.tenant_id` statt company). Siehe JOURNAL.md fuer Details, Mutations-Probe
+      und die zwei Testfixture-Fallen (custom_field_definitions/activities/deals defaulten
+      ohne explizites tenant_id auf den System-Tenant, nicht auf den Test-Tenant).
 
   - id: c-cov-crm-activity
     phase: 3

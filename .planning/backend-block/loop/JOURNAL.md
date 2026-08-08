@@ -2352,3 +2352,78 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Sequence-Tests decken damit indirekt auch die Nummerierungs-Grundlage der
   anderen beiden Pakete ab, falls dort noch Coverage-Units offen sind.
   Naechste Unit im Backlog: `c-cov-crm-company`.
+
+## Iteration 30 — c-cov-crm-company — done — 2026-08-08 21:05
+- commit: (siehe naechster chore-Commit)
+- verify vorgaenger: sauber (7ead6260 ist ein reiner Testdatei-Commit, keine
+  der sechs Fehlerklassen betroffen — kein Gateway/Route/Proto/Guard/Tabelle
+  angefasst).
+- gebaut: Neue Datei `postgres_repository_db_test.go` mit sechs DB-Integrationstests
+  gegen `internal/crm/company` (Konvention der bestehenden `rls_test.go`/
+  `tenant_write_test.go` uebernommen: `testutil.PoolFromEnv` gegen die lokale
+  Compose-DB, NICHT testcontainers — das ist crm-Konvention, biz-Pakete nutzen
+  `pgtc`). Coverage 42,7 % -> 79,7 % (Backlog nannte 35,6 %, war durch
+  fruehere Iterationen bereits hoeher).
+  - `TestRepository_List_FiltersScopesAndPaginates` — Suche, Industrie-Filter,
+    Tag-AND-Filter, Pagination (Offset ueber Total liefert leer statt Fehler),
+    Tenant-Scopung.
+  - `TestService_Delete_HangingContactsBlockDeletionButForeignTenantContactDoesNot`
+    — der Kern der Unit: ein Kontakt im GLEICHEN Tenant blockiert (`ErrCompanyInUse`),
+    ein absichtlich fremd-tenant-verseuchter `company_id`-Verweis (direkt
+    geseedet, kein Pfad den die App je erzeugen wuerde) blockiert NICHT, weil
+    `HasContacts`/`GetContactCount` tenant-scoped filtern. Plus
+    `ErrCompanyNotFound` fuer eine nicht existente Firma.
+  - `TestRepository_Tags_AddGetRemoveRoundtripAndTagExistsIsTenantScoped` —
+    `TagExists` traegt KEIN explizites `tenant_id` im SQL, RLS ist die einzige
+    Schranke; belegt fuer eigenen und fremden Tag. `Service.AddTags` mit
+    fremdem Tag liefert `ErrTagNotFound` (RLS versteckt die Zeile, der Service
+    kann "existiert nicht" von "gehoert jemand anderem" nicht unterscheiden —
+    by design).
+  - `TestRepository_CustomFields_SetGetRoundtripAndEmptyReturnsNoRows` —
+    Roundtrip inkl. Upsert-Overwrite, leere Firma liefert leeren Slice statt
+    Fehler.
+  - `TestRepository_FindDuplicateCandidates_DomainExactAndFuzzyNameExcludeMergedAndForeignTenant`
+    — domain_exact, name_fuzzy (Trigram), bereits gemergte Firma und
+    Fremd-Tenant-Domain-Treffer beide ausgeschlossen.
+  - `TestRepository_MergeInto_ReassignsRelationsMergesTagsAndCustomFieldsThenSoftDeletes`
+    — Kontakte/Aktivitaeten/Deals umgehaengt, Tags und Custom Fields gemergt,
+    Dublette soft-deleted (`merged_into_id`), Cross-Tenant-Guard (Dublette aus
+    fremdem Tenant) liefert Fehler statt Merge, zweiter Merge-Versuch auf eine
+    bereits gemergte Firma liefert `ErrAlreadyMerged`.
+- echter-bug: `MergeInto`s Tag-Merge-INSERT (`postgres_repository.go:432-439`
+  vor dem Fix) setzte `company_tags.tenant_id` NICHT — die Spalte ist seit
+  Migration 000124 NOT NULL + RLS-bewehrt (`enable_tenant_rls('company_tags')`,
+  kein Default, kein Trigger). Jeder Merge einer Dublette, die mindestens
+  einen Tag trug, brach die gesamte Merge-Transaktion mit einer
+  RLS-Policy-Verletzung (SQLSTATE 42501) ab — mein erster Testlauf hat das
+  live reproduziert, bevor ich es gefixt habe. Fix: INSERT uebernimmt
+  `tenant_id` aus der Quellzeile (`SELECT $1, tag_id, tenant_id FROM
+  company_tags WHERE company_id = $2`), exakt das Muster, das `AddTags`
+  bereits fuer denselben Sachverhalt benutzt. Root-Cause-Fix, kein Workaround
+  (Regel `shared-lean-code.md`: Bug-Fix an der gemeinsamen Funktion).
+- testfixture-falle (fuer folgende Iterationen relevant): `custom_field_definitions`,
+  `activities` und `deals` haben `tenant_id NOT NULL DEFAULT
+  '00000000-...001'` (System-Tenant) — ein `testutil.SeedRow`-Aufruf ohne
+  explizites `tenant_id` landet also NICHT im Test-Tenant, sondern im
+  System-Tenant, und die Zeile ist unter einem echten Tenant-Kontext per RLS
+  unsichtbar (kein Fehler, nur leere Ergebnisse — genau das ist mir zweimal
+  passiert und hat die Tests zunaechst mit falschem Befund rot laufen lassen,
+  bis ich es auf ein fehlendes Testfixture-Feld statt einen Repo-Bug
+  zurueckgefuehrt habe). `pipeline_stages`/`deals`/`contacts` explizit
+  `tenant_id` setzen, nicht auf den Default verlassen.
+- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/...` ok |
+  `go vet` ok | `golangci-lint run --config .golangci.yml
+  ./internal/crm/company/...` 0 issues | `go test -count=1
+  ./internal/crm/company/...` — alle Tests gruen (bestehende + 6 neue),
+  **0 Skips**, DATABASE_URL gesetzt (Rolle kmuhub_app). Keine Route/kein
+  Proto/keine Migration angefasst, daher `TestOpenAPIRouteDrift` nicht
+  betroffen und kein separater `go test ./internal/gateway/`-Lauf noetig.
+- mutations-probe: `HasContacts`s `AND tenant_id = $2` entfernt (Query behielt
+  den zweiten Bind-Parameter) -> `TestService_Delete_HangingContactsBlockDeletionButForeignTenantContactDoesNot`
+  wurde sofort rot (`expected 1 arguments, got 2`). Zurueckgedreht, `git diff
+  --stat` bestaetigt keine Differenz. Der Fund fuer den echten Bug
+  (`MergeInto`-Tag-Merge) diente als zweite, unabsichtliche Mutations-Probe:
+  der Test war rot VOR dem Fix (RLS-Verletzung) und gruen danach — dieselbe
+  Beweislast wie eine absichtliche Probe, nur in umgekehrter Reihenfolge
+  entstanden.
+- offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-crm-activity`.
