@@ -1799,7 +1799,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   DB-Integrationstest-Methode selbst.
 
 ## Iteration 23 — c-cov-biz-dashboard — done — 2026-08-08 19:42
-- commit: (folgt nach diesem Eintrag)
+- commit: ac3f9178
 - verify vorgaenger: sauber. `353d557a` (c-cov-biz-hr-changerequest, Iteration
   22) erneut gegen den finalen Baum laufen lassen: `go test
   ./internal/biz/hr/changerequest/... -count=1 -v -cover` mit
