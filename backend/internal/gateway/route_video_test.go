@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
@@ -269,5 +270,79 @@ func TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError(t *testing
 	name, avatar := routes.resolveCallerIdentity(context.Background(), uuid.New().String())
 	if name != "" || avatar != "" {
 		t.Errorf("resolveCallerIdentity() = (%q, %q), want (\"\", \"\") on RPC failure", name, avatar)
+	}
+}
+
+// captureBroadcaster records every call.incoming push, including the context it
+// arrived on, so tests can assert what the broadcast goroutine carries.
+type captureBroadcaster struct {
+	contexts []context.Context
+	targets  []string
+	payloads []map[string]interface{}
+}
+
+func (c *captureBroadcaster) BroadcastRecordingStarted(context.Context, string, string, string) {}
+
+func (c *captureBroadcaster) BroadcastCallIncoming(ctx context.Context, targetUserID string, callData map[string]interface{}) {
+	c.contexts = append(c.contexts, ctx)
+	c.targets = append(c.targets, targetUserID)
+	c.payloads = append(c.payloads, callData)
+}
+
+// TestBroadcastCallIncoming_PropagatesTenantContext guards the regression this
+// unit fixes: the broadcast used to run on context.Background(), which strips
+// tenant and user. TenantOutboundUnaryInterceptor reads both off the context to
+// set x-tenant-id/x-user-id, and without them the auth service rejects the
+// caller lookup with Unauthenticated -- so the name silently stayed empty on
+// every call. Asserting the tenant survives all the way to the hub catches a
+// relapse to Background at either send site.
+func TestBroadcastCallIncoming_PropagatesTenantContext(t *testing.T) {
+	tenantID := uuid.New()
+	callerID := uuid.New().String()
+	participants := []string{uuid.New().String(), uuid.New().String()}
+
+	hub := &captureBroadcaster{}
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	routes.SetWSHub(hub)
+
+	// WithoutCancel over an already-cancelled parent mirrors production: the
+	// HTTP handler has returned by the time the goroutine runs.
+	reqCtx, cancel := context.WithCancel(context.Background())
+	reqCtx = context.WithValue(reqCtx, middleware.TenantIDKey, tenantID.String())
+	reqCtx = context.WithValue(reqCtx, middleware.UserIDKey, callerID)
+	cancel()
+
+	routes.broadcastCallIncoming(context.WithoutCancel(reqCtx), "call-1", "group", callerID, participants)
+
+	if len(hub.contexts) != len(participants) {
+		t.Fatalf("BroadcastCallIncoming called %d times, want %d", len(hub.contexts), len(participants))
+	}
+
+	for i, ctx := range hub.contexts {
+		got, err := middleware.GetTenantID(ctx)
+		if err != nil {
+			t.Fatalf("broadcast %d: GetTenantID() error = %v, want the request tenant", i, err)
+		}
+		if got != tenantID {
+			t.Errorf("broadcast %d: tenant = %s, want %s", i, got, tenantID)
+		}
+		if uid := middleware.GetUserID(ctx); uid != callerID {
+			t.Errorf("broadcast %d: user = %q, want %q", i, uid, callerID)
+		}
+		if err := ctx.Err(); err != nil {
+			t.Errorf("broadcast %d: ctx.Err() = %v, want nil -- the goroutine must outlive the request", i, err)
+		}
+	}
+
+	if hub.targets[0] != participants[0] || hub.targets[1] != participants[1] {
+		t.Errorf("broadcast targets = %v, want %v", hub.targets, participants)
+	}
+	if got := hub.payloads[0]["caller_id"]; got != callerID {
+		t.Errorf("payload caller_id = %v, want %s", got, callerID)
+	}
+	// The registry knows no "auth" service here, so resolution fails and the
+	// name falls back to empty -- the best-effort contract, not an error.
+	if got := hub.payloads[0]["caller_name"]; got != "" {
+		t.Errorf("payload caller_name = %v, want empty on failed resolution", got)
 	}
 }

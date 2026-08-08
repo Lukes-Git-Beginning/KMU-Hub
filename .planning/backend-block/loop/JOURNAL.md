@@ -948,3 +948,80 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   werden (reines Aufraeumen, keine Logikaenderung noetig: das FE liest die
   Felder bereits korrekt, `?? data.caller_id` bleibt als harmloser
   Sicherheitsnetz-Fallback sinnvoll bestehen).
+
+## Iteration 13 — fix-a-video-caller-identity — done — 2026-08-08 17:36
+- commit: <siehe unten>
+- verify vorgaenger: **BEFUND** an `e736f324` (Iteration 12,
+  `a-video-caller-identity`). Fehlerklasse 2 (Stub-Wirkung: der neue Pfad kann
+  in Produktion nie liefern). Die Broadcast-Goroutine in `HandleCreateCall`
+  rief `resolveCallerIdentity(context.Background(), userID)` auf. Damit haengt
+  weder Tenant noch User im Kontext. Belegkette, in dieser Reihenfolge
+  nachgeschlagen:
+  (a) `internal/gateway/registry.go:110-112` haengt an jede ausgehende
+      gRPC-Verbindung `middleware.TenantOutboundUnaryInterceptor()`;
+  (b) der setzt `x-tenant-id`/`x-user-id` NUR, wenn `GetTenantID(ctx)` bzw.
+      `GetUserID(ctx)` etwas liefern (`internal/middleware/grpc_tenant.go:43-48`)
+      — bei `context.Background()` also gar nicht;
+  (c) auf der Gegenseite antwortet `TenantInboundUnaryInterceptor` ohne
+      `tenant_id` mit `codes.Unauthenticated` (`grpc_tenant.go:73-75`, im
+      Doc-Kommentar ausdruecklich so zugesichert).
+  Folge: `AuthServiceClient.GetUser` schlaegt bei JEDER Anruferstellung fehl,
+  `caller_name`/`caller_avatar` sind immer `""`, und der best-effort-Zweig
+  loggt bei jedem Anruf ein `slog.Error`. Das FE zeigte weiter die rohe UUID —
+  also genau der Zustand, den Iteration 12 beheben wollte. Zweiter Pfad
+  desselben Problems (falls die Metadaten je durchkaemen): der Pool setzt die
+  RLS-GUCs in `BeforeAcquire` aus `middleware.GetTenantID(ctx)`
+  (`internal/database/postgres.go:60-84`) — ohne Tenant bleibt `app.tenant_id`
+  leer und der `users`-SELECT liefert 0 Zeilen. Fix-Unit
+  `fix-a-video-caller-identity` vorne im Backlog angelegt und in dieser
+  Iteration abgearbeitet.
+- gebaut: `HandleCreateCall` koppelt den Kontext jetzt mit
+  `context.WithoutCancel(r.Context())` ab statt ihn wegzuwerfen — dasselbe
+  Muster, das `internal/middleware/idempotency.go:164` fuer denselben Zweck
+  schon verwendet (Goroutine ueberlebt den Handler, Werte bleiben, Cancel
+  faellt weg). Der anonyme Goroutine-Rumpf wurde zur benannten Methode
+  `broadcastCallIncoming(ctx, callID, callType, callerID, participantIDs)` —
+  das ist die testbare Naht, an der der Kontext ankommt; ohne sie liesse sich
+  die Regression nicht pruefen (`HandleCreateCall` bricht in Tests schon am
+  fehlenden Video-Client ab). Verhalten sonst unveraendert: eine
+  Identitaets-Aufloesung pro Anruf, danach sequentiell an alle Teilnehmer,
+  best-effort bei Fehlschlag.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` = 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/` inkl. `TestOpenAPIRouteDrift`) | migration n.a. |
+  openapi n.a. (keine neue Route, `call.incoming` ist ein WS-Event) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- mutations-probe: `vr.wsHub.BroadcastCallIncoming(ctx, …)` in
+  `broadcastCallIncoming` auf `context.Background()` gedreht →
+  `TestBroadcastCallIncoming_PropagatesTenantContext` wurde rot mit
+  `broadcast 0: GetTenantID() error = missing or invalid tenant_id in token`.
+  Zurueckgedreht, Endgate danach erneut gelaufen und gruen. Der Test faengt
+  also genau den Rueckfall, der die Iteration-12-Regression war.
+- fehlerpfade im Test: der neue Test laeuft bewusst gegen `emptyRegistry()` —
+  die Aufloesung SCHLAEGT FEHL und der Broadcast geht trotzdem an beide
+  Teilnehmer raus, mit leerem `caller_name`. Damit ist der best-effort-Vertrag
+  mitgeprueft, nicht nur der Happy Path. Zusaetzlich wird der Parent-Kontext
+  vor dem Aufruf gecancelt (`cancel()` vor `WithoutCancel`), was die
+  Produktionslage nachstellt: der HTTP-Handler ist zurueck, bevor die
+  Goroutine laeuft. `ctx.Err() == nil` in der Assertion belegt, dass das
+  Abkoppeln wirkt und nicht nur die Werte kopiert wurden.
+- db-tests: keine — reine Gateway-Logik. `DATABASE_URL` war gesetzt;
+  `go test -count=1 -v ./internal/gateway/` meldete **0 SKIPs** im ganzen
+  Paket (gezaehlt via `grep -c -- "--- SKIP"`).
+- offen: (1) Der FE-`lean:`-Marker in `useIncomingCallListener.ts:43-49` ist
+  weiterhin stale und sollte in einer FE-Session weg — ab diesem Commit
+  stimmt seine Aussage tatsaechlich nicht mehr (nach Iteration 12 allein
+  stimmte sie faktisch noch, nur der Grund war ein anderer).
+  (2) **Ungeprueft ist der echte Ende-zu-Ende-Pfad**: dass `GetUser` mit
+  vorhandenem `x-tenant-id` fuer einen Anrufer aus dem eigenen Tenant
+  wirklich Namen und Avatar liefert, ist hier nur aus dem Code abgeleitet
+  (`AuthGRPCServer.GetUser` in `internal/server/grpc.go:140` hat keinen
+  eigenen Permission-Guard, der `users`-SELECT ist rein RLS-gescoped). Ein
+  echter Anruf zwischen zwei Accounts nach dem Merge ist die einzige harte
+  Bestaetigung — der Aufwand dafuer gehoert nicht in eine Nacht-Iteration.
+  (3) Andere `context.Background()`-Stellen im Gateway sind in dieser
+  Iteration NICHT durchgesehen worden. Wenn dort weitere Goroutinen ausgehende
+  gRPC-Aufrufe machen, haben sie denselben Defekt — das waere eine eigene
+  Unit ("Grep `go func` + `context.Background` in `internal/gateway`"), keine
+  Nebenbei-Aenderung.

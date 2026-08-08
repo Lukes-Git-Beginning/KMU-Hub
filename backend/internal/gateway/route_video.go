@@ -363,27 +363,40 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 	// Push call.incoming WS events so invited participants see the call
 	// overlay in real time instead of relying on polling. Best-effort: hub
 	// may be nil (dev without WS) or the broadcast may fail; neither case
-	// should block the HTTP response. Identity resolution runs once in the
-	// same goroutine ahead of the per-participant sends, not once per
-	// receiver, and never delays the HTTP response below.
+	// should block the HTTP response.
+	//
+	// WithoutCancel, not Background: the goroutine outlives the handler, so
+	// the request's cancellation must go -- but its values must stay. The
+	// caller lookup below is a gRPC call, and TenantOutboundUnaryInterceptor
+	// reads tenant and user off the context to set x-tenant-id/x-user-id. On
+	// a bare Background context those headers are absent and the auth
+	// service's inbound interceptor rejects the call with Unauthenticated,
+	// which would make the name resolution fail every single time.
 	if vr.wsHub != nil {
-		callID := resp.GetId()
-		participantIDs := req.ParticipantIDs
-		go func() {
-			callerName, callerAvatar := vr.resolveCallerIdentity(context.Background(), userID)
-			for _, participantID := range participantIDs {
-				vr.wsHub.BroadcastCallIncoming(context.Background(), participantID, map[string]interface{}{
-					"call_id":       callID,
-					"call_type":     callTypeStr,
-					"caller_id":     userID,
-					"caller_name":   callerName,
-					"caller_avatar": callerAvatar,
-				})
-			}
-		}()
+		go vr.broadcastCallIncoming(context.WithoutCancel(r.Context()), resp.GetId(), callTypeStr, userID, req.ParticipantIDs)
 	}
 
 	response.Proto(w, http.StatusCreated, resp)
+}
+
+// broadcastCallIncoming resolves the caller's identity once and then fans a
+// call.incoming event out to every invited participant. Identity resolution
+// happens ahead of the sends rather than per receiver, so a group call costs
+// one auth lookup, not one per invitee.
+//
+// ctx must still carry tenant and user (see HandleCreateCall) -- resolution
+// silently yields an empty name otherwise.
+func (vr *VideoRoutes) broadcastCallIncoming(ctx context.Context, callID, callType, callerID string, participantIDs []string) {
+	callerName, callerAvatar := vr.resolveCallerIdentity(ctx, callerID)
+	for _, participantID := range participantIDs {
+		vr.wsHub.BroadcastCallIncoming(ctx, participantID, map[string]interface{}{
+			"call_id":       callID,
+			"call_type":     callType,
+			"caller_id":     callerID,
+			"caller_name":   callerName,
+			"caller_avatar": callerAvatar,
+		})
+	}
 }
 
 // resolveCallerIdentity looks up the caller's display name and avatar key for

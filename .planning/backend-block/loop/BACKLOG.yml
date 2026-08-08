@@ -100,6 +100,40 @@
 
 units:
 
+  - id: fix-a-video-caller-identity
+    phase: 3
+    service: video
+    model: opus
+    deps: []
+    status: done
+    scope: >
+      Der `call.incoming`-Broadcast aus `e736f324` loest den Anrufernamen in Produktion
+      NIE auf. Die Goroutine in `HandleCreateCall` ruft `resolveCallerIdentity` mit
+      `context.Background()` auf; damit haengt kein Tenant/User mehr im Kontext,
+      `middleware.TenantOutboundUnaryInterceptor` (`internal/gateway/registry.go:112`)
+      setzt kein `x-tenant-id`, und `TenantInboundUnaryInterceptor`
+      (`internal/middleware/grpc_tenant.go:75`) antwortet garantiert mit
+      `codes.Unauthenticated`. Ergebnis: `caller_name`/`caller_avatar` immer leer plus
+      ein `slog.Error` bei JEDER Anruferstellung. Kontext beim Abkoppeln behalten statt
+      wegwerfen — `context.WithoutCancel(r.Context())` wie in
+      `internal/middleware/idempotency.go:164`.
+    sources:
+      - backend/internal/gateway/route_video.go
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/internal/middleware/idempotency.go
+    notes: >
+      Kein neuer RPC, kein neuer Pfad, keine Migration. Die Goroutine muss abgekoppelt
+      bleiben (der Handler kehrt vor ihr zurueck), aber die Werte des Request-Kontexts
+      behalten — genau das leistet `WithoutCancel` und `Background` nicht. Den
+      Goroutine-Rumpf als benannte Methode herausziehen, damit der Kontext an einer
+      testbaren Naht ankommt; `recordingBroadcaster` ist bereits ein Interface, ein
+      Fake-Hub reicht.
+    done_when:
+      - Broadcast-Goroutine laeuft auf einem Kontext, der Tenant und User traegt
+      - Test faengt den Kontext am Hub ab und belegt, dass der Tenant ankommt
+      - Bestehende resolveCallerIdentity-Tests bleiben gruen
+      - go test ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
   # ==========================================================================================
   # BLOCK A — VERIFIZIERTE LUECKEN (20 Units)
   #
