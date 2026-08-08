@@ -2,7 +2,9 @@ package datev
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -401,5 +403,255 @@ func TestExport_HeaderConsultantClientAndForeignCurrency(t *testing.T) {
 	}
 	if !strings.Contains(content, ";CHF;") {
 		t.Error("expected WKZ Umsatz to be the document currency CHF, not EUR")
+	}
+}
+
+// TestExport_GoldenBytesWithUmlauts is a byte-for-byte comparison against a
+// fixed expected output, per c-cov-biz-datev's done_when. The backlog notes
+// asked for the charset to be "belegt" as Windows-1252 — that premise does
+// not hold against this code: NewStreamWriter writes a UTF-8 BOM (EF BB BF)
+// and encoding/csv itself only ever emits UTF-8. There is no cp1252
+// transcoding step anywhere in this package (confirmed by reading
+// exporter.go top to bottom and grepping the whole datev package for a
+// charmap/golang.org/x/text/encoding import — there is none). So this test
+// documents and locks in what actually ships: UTF-8, with umlauts and the
+// eszett as their real multi-byte UTF-8 sequences (c3bc for "ü", c39f for
+// "ß" — verified byte-for-byte below, not just via string containment). If
+// DATEV import ever turns out to require cp1252 in practice, that is a
+// product decision (a real encoding step, a new dependency) — out of scope
+// for a coverage-only unit, and not something to silently invent here.
+func TestExport_GoldenBytesWithUmlauts(t *testing.T) {
+	exporter := NewExporter()
+	items := []models.LineItem{{
+		ID: "1", Position: 1, Description: "Prüfung für Straßenbau",
+		Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromFloat(100.00),
+		TaxRate: decimal.NewFromInt(19), LineTotal: decimal.NewFromFloat(100.00),
+	}}
+	lineItemsRaw, err := json.Marshal(items)
+	if err != nil {
+		t.Fatalf("marshal line items: %v", err)
+	}
+	invoices := []*models.Invoice{
+		{
+			ID:            uuid.New(),
+			TenantID:      uuid.New(),
+			InvoiceNumber: "RE-2026-0100",
+			Status:        models.InvoiceStatusSent,
+			CustomerName:  "Müller GmbH",
+			TaxMode:       models.TaxModeStandard,
+			Currency:      "EUR",
+			LineItems:     lineItemsRaw,
+			InvoiceDate:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	got, err := exporter.Export(invoices, nil, "1001", "2002",
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("Export failed: %v", err)
+	}
+
+	want := "\xef\xbb\xbf" +
+		"EXTF;700;21;Buchungsstapel;13;20260315103000000;;KMU Hub;;;1001;2002;20260101;4;;;;;;\n" +
+		"Umsatz (ohne Soll/Haben-Kz);Soll/Haben-Kennzeichen;WKZ Umsatz;Kurs;Basis-Umsatz;WKZ Basis-Umsatz;Konto;Gegenkonto (ohne BU-Schluessel);BU-Schluessel;Belegdatum;Belegfeld 1;Belegfeld 2;Skonto;Buchungstext\n" +
+		"119,00;S;EUR;;;;10001;8400;3;2003;RE-2026-0100;;;Prüfung für Straßenbau\n"
+
+	if !bytes.Equal(got, []byte(want)) {
+		t.Fatalf("golden byte mismatch\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+
+	// Belt-and-braces: prove the umlaut/eszett bytes are the real UTF-8
+	// sequences, not an accidental ASCII-substitution or mojibake that a
+	// looser string comparison could miss.
+	if !bytes.Contains(got, []byte{0xC3, 0xBC}) { // "ü"
+		t.Error("expected the UTF-8 byte sequence for 'ü' (0xC3 0xBC) in the output")
+	}
+	if !bytes.Contains(got, []byte{0xC3, 0x9F}) { // "ß"
+		t.Error("expected the UTF-8 byte sequence for 'ß' (0xC3 0x9F) in the output")
+	}
+	if !bytes.HasPrefix(got, []byte{0xEF, 0xBB, 0xBF}) {
+		t.Error("expected the file to start with a UTF-8 BOM (0xEF 0xBB 0xBF)")
+	}
+}
+
+// TestWriteInvoices_SkipsNonExportableStatuses proves draft and cancelled
+// invoices never reach the CSV — only sent/paid/overdue do (line 103-107 of
+// exporter.go). A skipped invoice must not even count towards DocumentCount.
+func TestWriteInvoices_SkipsNonExportableStatuses(t *testing.T) {
+	exporter := NewExporter()
+	cancelled := sentInvoice("RE-CANCELLED")
+	cancelled.Status = "cancelled"
+	invoices := []*models.Invoice{draftInvoice("RE-DRAFT"), cancelled}
+
+	var buf bytes.Buffer
+	sw, err := exporter.NewStreamWriter(&buf, "", "", time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("NewStreamWriter failed: %v", err)
+	}
+	if err := sw.WriteInvoices(invoices); err != nil {
+		t.Fatalf("WriteInvoices failed: %v", err)
+	}
+	if sw.LineCount() != 0 {
+		t.Errorf("expected 0 booking lines for draft/cancelled invoices, got %d", sw.LineCount())
+	}
+	if sw.DocumentCount() != 0 {
+		t.Errorf("expected DocumentCount 0, got %d", sw.DocumentCount())
+	}
+	content := buf.String()
+	if strings.Contains(content, ";S;") {
+		t.Error("draft/cancelled invoice must not produce a booking line")
+	}
+}
+
+// TestWriteCreditNotes_SkipsNonSentStatus mirrors the invoice skip test for
+// credit notes: only "sent" credit notes are exported (line 137 of exporter.go).
+func TestWriteCreditNotes_SkipsNonSentStatus(t *testing.T) {
+	exporter := NewExporter()
+	creditNotes := []*models.CreditNote{
+		{
+			ID: uuid.New(), CreditNoteNumber: "GS-DRAFT", Status: models.CreditNoteStatusDraft,
+			CustomerName: "Test GmbH", TaxMode: models.TaxModeStandard,
+			LineItems: makeLineItems([]models.LineItem{{
+				ID: "1", Position: 1, Description: "Draft", Quantity: decimal.NewFromInt(1),
+				UnitPrice: decimal.NewFromFloat(10), TaxRate: decimal.NewFromInt(19), LineTotal: decimal.NewFromFloat(10),
+			}}),
+			CreatedAt: time.Now(),
+		},
+	}
+
+	var buf bytes.Buffer
+	sw, err := exporter.NewStreamWriter(&buf, "", "", time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("NewStreamWriter failed: %v", err)
+	}
+	if err := sw.WriteCreditNotes(creditNotes); err != nil {
+		t.Fatalf("WriteCreditNotes failed: %v", err)
+	}
+	if sw.LineCount() != 0 {
+		t.Errorf("expected 0 booking lines for a draft credit note, got %d", sw.LineCount())
+	}
+	if strings.Contains(buf.String(), ";H;") {
+		t.Error("draft credit note must not produce a booking line")
+	}
+}
+
+// TestWriteInvoices_InvalidLineItemsJSON_ReturnsWrappedError proves a
+// malformed line_items JSONB blob is surfaced as an error naming the invoice,
+// not silently skipped or panicked on.
+func TestWriteInvoices_InvalidLineItemsJSON_ReturnsWrappedError(t *testing.T) {
+	exporter := NewExporter()
+	inv := sentInvoice("RE-BROKEN")
+	inv.LineItems = json.RawMessage(`{not valid json`)
+
+	var buf bytes.Buffer
+	sw, err := exporter.NewStreamWriter(&buf, "", "", time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("NewStreamWriter failed: %v", err)
+	}
+	err = sw.WriteInvoices([]*models.Invoice{inv})
+	if err == nil {
+		t.Fatal("expected an error for malformed line_items JSON")
+	}
+	if !strings.Contains(err.Error(), "RE-BROKEN") && !strings.Contains(err.Error(), inv.ID.String()) {
+		t.Errorf("expected the error to identify the offending invoice, got: %v", err)
+	}
+}
+
+// TestWriteCreditNotes_InvalidLineItemsJSON_ReturnsWrappedError mirrors the
+// invoice case for credit notes.
+func TestWriteCreditNotes_InvalidLineItemsJSON_ReturnsWrappedError(t *testing.T) {
+	exporter := NewExporter()
+	cn := &models.CreditNote{
+		ID: uuid.New(), CreditNoteNumber: "GS-BROKEN", Status: models.CreditNoteStatusSent,
+		CustomerName: "Test GmbH", TaxMode: models.TaxModeStandard,
+		LineItems: json.RawMessage(`{not valid json`),
+		CreatedAt: time.Now(),
+	}
+
+	var buf bytes.Buffer
+	sw, err := exporter.NewStreamWriter(&buf, "", "", time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("NewStreamWriter failed: %v", err)
+	}
+	err = sw.WriteCreditNotes([]*models.CreditNote{cn})
+	if err == nil {
+		t.Fatal("expected an error for malformed line_items JSON")
+	}
+	if !strings.Contains(err.Error(), "GS-BROKEN") && !strings.Contains(err.Error(), cn.ID.String()) {
+		t.Errorf("expected the error to identify the offending credit note, got: %v", err)
+	}
+}
+
+// TestExport_WriteInvoicesErrorPropagates proves Export() forwards a
+// WriteInvoices failure instead of returning a partial/truncated file.
+func TestExport_WriteInvoicesErrorPropagates(t *testing.T) {
+	exporter := NewExporter()
+	inv := sentInvoice("RE-BROKEN")
+	inv.LineItems = json.RawMessage(`{not valid json`)
+
+	_, err := exporter.Export([]*models.Invoice{inv}, nil, "", "", time.Now(), time.Now())
+	if err == nil {
+		t.Fatal("expected Export to propagate the WriteInvoices error")
+	}
+}
+
+// TestExport_WriteCreditNotesErrorPropagates mirrors the above for credit notes.
+func TestExport_WriteCreditNotesErrorPropagates(t *testing.T) {
+	exporter := NewExporter()
+	cn := &models.CreditNote{
+		ID: uuid.New(), CreditNoteNumber: "GS-BROKEN", Status: models.CreditNoteStatusSent,
+		CustomerName: "Test GmbH", TaxMode: models.TaxModeStandard,
+		LineItems: json.RawMessage(`{not valid json`),
+		CreatedAt: time.Now(),
+	}
+
+	_, err := exporter.Export(nil, []*models.CreditNote{cn}, "", "", time.Now(), time.Now())
+	if err == nil {
+		t.Fatal("expected Export to propagate the WriteCreditNotes error")
+	}
+}
+
+// alwaysFailWriter fails on every Write call, simulating a downstream sink
+// (disk, pipe, HTTP body) that stops accepting bytes mid-export.
+type alwaysFailWriter struct{}
+
+func (alwaysFailWriter) Write(p []byte) (int, error) {
+	return 0, errors.New("simulated write failure")
+}
+
+// TestNewStreamWriter_BOMWriteErrorIsWrapped proves a failing sink is caught
+// at the very first write (the UTF-8 BOM), not later.
+func TestNewStreamWriter_BOMWriteErrorIsWrapped(t *testing.T) {
+	exporter := NewExporter()
+	_, err := exporter.NewStreamWriter(alwaysFailWriter{}, "", "", time.Now(), time.Now())
+	if err == nil {
+		t.Fatal("expected an error when the underlying writer rejects the BOM")
+	}
+	if !strings.Contains(err.Error(), "write BOM") {
+		t.Errorf("expected the error to name the BOM write step, got: %v", err)
+	}
+}
+
+// TestStreamWriter_CloseReturnsWrappedFlushError proves a downstream write
+// failure surfaces through Close() as a wrapped "csv flush" error instead of
+// being swallowed. Constructed directly (same-package test) so the failure
+// is deterministic instead of depending on bufio's internal buffer size.
+func TestStreamWriter_CloseReturnsWrappedFlushError(t *testing.T) {
+	sw := &StreamWriter{
+		w:             csv.NewWriter(alwaysFailWriter{}),
+		customerIndex: make(map[string]int),
+		nextIndex:     1,
+	}
+	if err := sw.w.Write([]string{"buffered", "row"}); err != nil {
+		t.Fatalf("buffering a row into csv.Writer should not itself fail: %v", err)
+	}
+
+	err := sw.Close()
+	if err == nil {
+		t.Fatal("expected Close to surface the flush error")
+	}
+	if !strings.Contains(err.Error(), "csv flush") {
+		t.Errorf("expected a wrapped 'csv flush' error, got: %v", err)
 	}
 }

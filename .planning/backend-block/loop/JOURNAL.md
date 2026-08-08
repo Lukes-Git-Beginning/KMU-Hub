@@ -2520,3 +2520,97 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   --stat internal/crm/activity/postgres_repository.go` bestaetigt keine
   Differenz.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-biz-datev`.
+
+## Iteration 32 — c-cov-biz-datev — done — 2026-08-08 21:35
+- commit: (siehe naechster chore-Commit)
+- verify vorgaenger: sauber. `259ab227` (c-cov-crm-activity) ist ein reiner
+  Test-Commit (neue Datei `postgres_repository_db_test.go` + Backlog/Journal),
+  kein Gateway/Route/Proto/Guard/neue-Tabelle betroffen, `git show --stat`
+  bestaetigt nur die drei erwarteten Dateien. `git merge origin/main` war
+  "Already up to date".
+- praemisse widerlegt: Der Backlog-Scope verlangte "Zeichensatz (Windows-1252)
+  belegt" per Testdaten. Das stimmt nicht gegen den echten Code:
+  `NewStreamWriter` schreibt eine UTF-8-BOM (`0xEF 0xBB 0xBF`), und
+  `encoding/csv` emittiert grundsaetzlich nur UTF-8 — es gibt in diesem Paket
+  keinen cp1252/charmap-Transcoding-Schritt (Grep ueber `internal/biz/datev`
+  auf `1252`/`charmap`/`golang.org/x/text/encoding`: 0 Treffer; nur
+  Planungsdateien wie `backend-gaps.md` erwaehnen Windows-1252 als
+  Erwartung, kein Code). Statt eine Windows-1252-Kodierung zu erfinden (das
+  waere ein Fach-/Architektur-Entscheid mit neuer Dependency, keine
+  Coverage-Unit), belegt der neue Golden-Test genau das, was real
+  ausgeliefert wird: UTF-8 mit BOM, Umlaute/Eszett als ihre echten
+  Mehrbyte-UTF-8-Sequenzen (`c3bc` = "ü", `c39f` = "ß", per Byte-Vergleich
+  bewiesen, nicht nur per String-Contains). Vorab per Probe-Test verifiziert
+  (Hex-Dump der realen Export-Bytes angeschaut, dann als literale
+  Erwartung uebernommen) statt blind generiert.
+- gebaut: Coverage fuer den EXTF-Formatvertrag (`exporter.go`, `mapping.go`,
+  `buchungsstapel.go`) — 36,6 % -> 40,8 % Paket-Coverage (der Rest des
+  Pakets — oauth.go, uploader.go, postgres_config_repo.go,
+  postgres_upload_repo.go, belegbilder.go — ist DATEV-API-Anbindung, nicht
+  der Formatvertrag, und blieb bewusst ausserhalb des Scopes). Neu:
+  - `TestExport_GoldenBytesWithUmlauts` — Byte-fuer-Byte-Vergleich der
+    kompletten Export-Ausgabe (BOM, EXTF-Header, Spaltenkoepfe, eine
+    Buchungszeile) gegen eine festgeschriebene erwartete Zeichenkette,
+    inkl. expliziter Byte-Assertion auf die UTF-8-Sequenzen von ü/ß.
+  - `mapping_test.go` (neu) — `RevenueAccountForRate`,
+    `RevenueAccountForRateAndMode` (alle vier Verzweigungen inkl.
+    reverse_charge vs. Kleinunternehmer) und `BUSchluesselForRate` auf
+    100 % Coverage.
+  - Skip-Zweige: `TestWriteInvoices_SkipsNonExportableStatuses` (draft +
+    ein unbekannter Status "cancelled") und
+    `TestWriteCreditNotes_SkipsNonSentStatus` — belegen, dass nicht
+    exportierbare Belege weder eine Buchungszeile noch einen
+    DocumentCount-Eintrag erzeugen.
+  - Fehlerpfade: kaputtes `line_items`-JSON in Invoice UND CreditNote wird
+    als Fehler mit Beleg-Nummer/ID durchgereicht (`parseLineItems`), und
+    `Export()` reicht beide Fehler nach oben durch statt eine
+    Teil-Datei zurueckzugeben.
+  - Schreibfehler: `alwaysFailWriter` (schlaegt bei jedem Write fehl) deckt
+    den BOM-Schreibfehler in `NewStreamWriter` (sofortiger Fehlschlag, kein
+    Puffer-Trick noetig) und, per direkter Konstruktion eines
+    `StreamWriter` mit eigenem `*csv.Writer` (selbes Package, Zugriff auf
+    das unexportierte Feld `w`), den `Close()`-Flush-Fehlerpfad
+    ("csv flush: ...").
+  - `buchungsstapel_test.go` (neu, schlank): NUR das, was in
+    `upload_service_test.go` fehlte (dort bereits vorhanden:
+    Pagination-Cursor, DocumentCount-schliesst-Drafts-aus, invertierter
+    Zeitraum — wiederverwendet statt dupliziert). Neu:
+    `ErrBuilderNotConfigured` bei nil-Builder und bei fehlendem
+    Invoice-/CreditNote-Reader, `TestBuild_SettingsErrorIsBestEffortTolerated`
+    (ein fehlschlagender `CompanySettingsReader` lässt den Export trotzdem
+    durch, Berater-/Mandantennummer bleiben leer), sowie
+    Invoice-/CreditNote-Reader-Fehlerpropagation (dafuer
+    `creditNotePagerStub` in `upload_service_test.go` um ein `err`-Feld
+    ergaenzt, analog zum bereits vorhandenen `invoicePagerStub.err`).
+- gate: `go build -p 2 ./internal/biz/datev/... ./internal/gateway/...
+  ./cmd/biz/... ./cmd/gateway/...` ok | `go vet ./internal/biz/datev/...`
+  ok | `golangci-lint run --config .golangci.yml ./internal/biz/datev/...`
+  0 issues | `go test -count=1 ./internal/biz/datev/...` — 36/36 PASS,
+  **0 Skips**, `DATABASE_URL` gesetzt (Rolle kmuhub_app). Keine
+  Route/kein Proto/keine Migration angefasst, daher kein separater
+  `go test ./internal/gateway/`-Lauf noetig (Build-Check reicht).
+- mutations-probe: zwei Stueck.
+  (1) In `WriteInvoices`s Status-Filter `&&` zu `||` gedreht (macht die
+  Bedingung tautologisch wahr -> ALLE Invoices werden uebersprungen, auch
+  `sent`). Ergebnis: `go vet` (Teil von `go test`) schlug SOFORT mit
+  `suspect or` auf beiden betroffenen Zeilen an, bevor ueberhaupt ein Test
+  lief — der Build-Gate wurde rot. Aussagekraeftig, aber kein
+  Test-Rot im engeren Sinn, deshalb zweite Probe.
+  (2) `docDate.Format("0201")` (DDMM) zu `docDate.Format("0102")` (MMDD)
+  gedreht -> GENAU `TestExport_SingleInvoice19Percent` (bestehend) und
+  `TestExport_GoldenBytesWithUmlauts` (neu) wurden rot (erwartet
+  Belegdatum "1503"/"2003", bekommen "0315"/"0320"), alle uebrigen 34
+  Tests blieben gruen. Beide Proben zurueckgedreht, `git diff --stat
+  internal/biz/datev/exporter.go` bestaetigt keine Differenz, Endgate
+  danach erneut gelaufen und gruen (36/36, 0 Skips).
+- db-tests: 0 echte DB-Integrationstests in den neuen/geaenderten Dateien
+  (reines Mock-/In-Memory-Testing — der EXTF-Export braucht keine DB). Das
+  bestehende `TestTenantIsolation_Datev_DB` im Paket lief unveraendert mit
+  **0 Skips** (2 Subtests), `DATABASE_URL` war gesetzt.
+- offen: Ein Punkt fuer Luke. Die Windows-1252-Erwartung aus
+  `backend-gaps.md`/dem Backlog-Scope ist gegen den Code falsifiziert (siehe
+  oben) — falls DATEV-Importe in der Praxis cp1252 brauchen, ist das ein
+  eigener Fach-Entscheid (neue Dependency `golang.org/x/text/encoding/
+  charmap`, ein echter Transcoding-Schritt zwischen `csv.Writer` und dem
+  Ziel-`io.Writer`), keine Coverage-Nacharbeit. Aktuell exportiert das
+  System nachweislich UTF-8 mit BOM, DATEV liest laut eigener Spec beides.

@@ -1222,7 +1222,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/datev` - gemessen 36,6 %. Der EXTF-Export ist ein
       Formatvertrag gegen eine fremde Software - Kopfzeile, Feldreihenfolge, Zeichensatz
