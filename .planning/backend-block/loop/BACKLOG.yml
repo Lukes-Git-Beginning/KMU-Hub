@@ -668,7 +668,7 @@ units:
     service: chat
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Permission-Seeds fuer chat und channels. Verifiziert 2026-08-07 - unter den
       Seed-Migrationen fuer Berechtigungen taucht chat nirgends auf, waehrend das FE laengst
@@ -692,6 +692,19 @@ units:
       - Schluesselnamen stimmen zeichengenau mit dem FE-Katalog ueberein
       - Zuordnung zu den Preset-Rollen entspricht dem FE-Katalog
       - KEIN neuer RequirePermission-Aufruf in diesem Commit
+    result: >
+      PRAEMISSE WIDERLEGT (2026-08-08). Es fehlt kein einziger Seed: alle 252 Keys des
+      FE-Katalogs und alle 174 Keys aus RequirePermission-Aufrufen sind geseedet, die
+      fuenf kommunikation:*-Keys seit Migration 000256. Die Backlog-Notiz hatte nach dem
+      Praefix `chat` gesucht, das FE benutzt aber `kommunikation:`.
+      Der beschriebene Fehlermodus existierte trotzdem, nur eine Ebene tiefer: `mentions:read`
+      war seit Migration 000017 geseedet und KEINER Rolle zugeordnet, waehrend
+      route_chat.go:83 es erzwingt - GET /api/v1/messages/mentions gab jedem Nutzer 403,
+      Admin eingeschlossen. Es war die einzige Permission der Tabelle ohne jeden
+      System-Rollen-Grant. Migration 000306 ordnet sie den drei Rollen zu, die schon
+      messages:read halten. Zusaetzlich TestEveryRouteGuardHasAUsablePermission als
+      Standing-Guard (AST-Scan aller 784 Guard-Call-Sites gegen die DB), damit der
+      naechste solche Lockout im Test auffaellt statt in Produktion.
 
   - id: a-inbox-sla
     phase: 3

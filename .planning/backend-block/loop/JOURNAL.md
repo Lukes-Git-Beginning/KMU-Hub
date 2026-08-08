@@ -1504,3 +1504,92 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   ungetestet — ein Tenant mit >200 Inventar-Positionen kann Materialien
   haben, die der eine Batch-Call nicht mehr sieht (unbekannt statt
   gefunden, kein Fehler, aber ein stiller Deckel).
+
+## Iteration 19 — a-chat-permission-seeds — done — 2026-08-08 21:10
+- commit: (siehe naechster Chore-Commit)
+- verify vorgaenger: sauber. 2e0f3bea (a-produktion-material-availability,
+  Iteration 18) geprueft: HandleGetMaterialAvailability geht ueber
+  pr.getClient() -> client.GetMaterialAvailability (gRPC-Client, kein
+  Layer-Bypass), holt tenantID aus middleware.GetTenantID und validiert den
+  Pfad-Parameter via validateUUIDParam; Route haengt am bestehenden
+  produktion:order/read-Key, also kein Seed noetig; .proto, .pb.go und
+  .grpc.pb.go regeneriert; openapi.yaml im selben Commit ergaenzt; keine
+  Migration, keine neue Dependency. git merge origin/main war "Already up to
+  date".
+- praemisse: WIDERLEGT, und zwar vollstaendig. Die Unit behauptete, chat-
+  bzw. channels-Permissions fehlten in den Seed-Migrationen. Gegengeprueft
+  per Mengenvergleich statt per Stichprobe: alle 252 Keys aus
+  capability-catalog.ts gegen alle 628 Permission-Namen aus backend/migrations/*.sql
+  -> Differenz LEER. Die fuenf kommunikation:*-Keys stehen seit Migration
+  000256 (Zeilen 254-259) drin und sind den Preset-Rollen zugeordnet. Die
+  Notiz hatte nach dem Praefix `chat` gesucht; das FE benutzt `kommunikation:`.
+  Gegenrichtung ebenfalls geprueft (die sicherheitskritischere): alle 174 Keys
+  aus RequirePermission-Aufrufen in backend/internal/ gegen dieselbe
+  Seed-Menge -> ebenfalls leer, sowohl im 3-Segment- als auch im
+  Legacy-2-Segment-Format.
+- gefunden: Der von der Notiz beschriebene Lockout existierte trotzdem, eine
+  Ebene tiefer als vermutet. Nicht "Permission fehlt", sondern "Permission
+  existiert und gehoert niemandem". DB-Abfrage gegen die lokale DB (Stand
+  305, clean): genau EINE Permission hatte keinen einzigen Grant an eine
+  System-Rolle — `mentions:read`. Migration 000017 legt die Zeile an und
+  ordnet sie keiner Rolle zu; route_chat.go:83 erzwingt sie seit jeher fuer
+  GET /api/v1/messages/mentions. Ergebnis: 403 fuer JEDEN Nutzer, Admin
+  eingeschlossen. Genau der Fehlermodus, den die Unit-Notiz als "in diesem
+  Repo schon einmal schiefgegangen" beschreibt.
+- gebaut: (1) Migration 000306_grant_mentions_read_to_presets. Ordnet
+  mentions:read den drei Preset-Rollen zu, die messages:read schon halten —
+  admin, manager, member, scope 'all', per DB abgefragt statt geraten. Die
+  Nachbarrouten im selben /api/v1/messages-Block haengen alle an
+  messages:read, also dieselbe Zielgruppe; readonly/it_admin/hr_admin halten
+  messages:read nicht und bleiben bewusst unveraendert. Idempotent
+  (ON CONFLICT DO NOTHING), down loescht exakt diese drei Grants und laesst
+  tenant-eigene Rollen in Ruhe. KEIN Guard angefasst, wie von der Unit
+  gefordert.
+  (2) TestEveryRouteGuardHasAUsablePermission in
+  internal/testutil/permission_seed_regression_test.go — Standing-Guard nach
+  dem Muster von TestAllPublicTablesHaveRLSOrAreAllowlisted. Parst per
+  go/ast (Stdlib, keine neue Dependency) alle .go-Dateien unter internal/,
+  sammelt jeden RequirePermission- und RequirePermissionAny-Aufruf mit
+  String-Literalen und prueft gegen die DB, ob mindestens ein Key des
+  Guards geseedet UND einer System-Rolle zugeordnet ist. AST statt Regex,
+  weil route_auth.go mehrzeilige RequirePermissionAny-Aufrufe hat, die eine
+  Zeilen-Regex verschluckt. Any-Guards werden bewusst als Gruppe gewertet
+  (ODER-Semantik): die Legacy-Coarse-Aliase in diesen Aufrufen sind
+  absichtlich teils nicht mehr geseedet, eine Pro-Key-Forderung waere falsch
+  rot. 784 Call-Sites erfasst.
+- gate: build ok (go build -p 2 ./...) | vet ok (testutil, gateway) | lint ok
+  (golangci-lint testutil, 0 issues) | test ok (testutil 0 SKIP real gegen
+  die lokale DB, gateway ok inkl. TestOpenAPIRouteDrift, middleware ok) |
+  migration 306 up+down+up real gegen die lokale DB gefahren, danach
+  Grants per psql verifiziert (admin/manager/member je scope 'all'), down
+  liess 0 Zeilen zurueck | openapi n.a. (keine neue Route) | rls-smoke n.a.
+  (kein Schema angefasst, nur Daten; TestAllPublicTablesHaveRLSOrAreAllowlisted
+  lief im selben Paket gruen mit)
+- mutations-probe: zwei Stueck, beide Diagnosezweige des neuen Tests belegt.
+  (1) Der staerkste Beweis kam gratis: der Test lief VOR Migration 306
+  gegen dieselbe DB und war rot mit exakt einem Treffer —
+  "route_chat.go:83:10: mentions:read (seeded, granted to no preset role)".
+  Nach der Migration gruen, ohne Testaenderung. (2) Fuer den zweiten Zweig
+  RequirePermission("mentions","read") temporaer auf "mentions_bogus"
+  gedreht -> Meldung wechselte korrekt auf "(no permission row)", 783
+  andere Guards blieben gruen. Zurueckgedreht, Endgate danach erneut gruen.
+- db-tests: Der neue Test IST ein DB-Test (SkipIfNoDB + PoolFromEnv, Rolle
+  kmuhub_app also NOBYPASSRLS). Vorab geprueft, dass die Abfrage unter
+  kmuhub_app ohne Tenant-Kontext ueberhaupt liest: role_permissions und
+  roles haben Lesepolicies fuer tenant_id IS NULL, 8 System-Rollen und 459
+  gegrantete Permissions sichtbar. Paket testutil: 0 Skips.
+- offen: Drei Punkte fuer Luke. (1) PRODUKTIONSWIRKUNG: mentions:read ist
+  auf Prod genauso ungegrantet — die Mentions-Route ist dort seit jeher tot
+  (403 fuer alle). Migration 306 heilt das beim naechsten Deploy; ob es je
+  jemandem aufgefallen ist, waere ein Blick ins FE wert (der Aufruf koennte
+  clientseitig weggefangen worden sein und die Luecke deshalb still bleiben).
+  (2) Der Standing-Guard prueft nur System-Presets (tenant_id IS NULL). In
+  auth/postgres_repository.go:451 gibt es ein INSERT INTO roles mit
+  `based_on` — kopiert eine tenant-eigene Rolle beim Anlegen die
+  Preset-Grants, hat keine bestehende Kopie mentions:read je bekommen. Das
+  ist Bestandsdaten-Nacharbeit, nicht Migrations-Scope, und lokal nicht
+  pruefbar (0 tenant-eigene Rollen in der DB). (3) Der AST-Scanner
+  ueberspringt Guards mit nicht-literalen Argumenten und loggt sie nur —
+  heute gibt es keine (784 von 784 erfasst), aber der `lean:`-Marker im Code
+  nennt den Upgrade-Trigger, falls je eine Route ihren Key zur Laufzeit
+  berechnet.
