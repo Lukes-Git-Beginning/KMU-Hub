@@ -1635,7 +1635,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   eine kleine Folge-Unit.
 
 ## Iteration 21 — a-inventar-picking — done — 2026-08-08 19:25
-- commit: (wird per chore(loop) nachgetragen)
+- commit: 9445f8c8
 - verify vorgaenger: sauber. Iteration 20 hat keinen Code angefasst; ihr
   Commit `2373880c` enthaelt exakt zwei Dateien (`BACKLOG.yml`,
   `JOURNAL.md`), `git show --stat` bestaetigt das. Der davorliegende
