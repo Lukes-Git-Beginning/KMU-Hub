@@ -119,21 +119,22 @@ type FuelLog struct {
 
 // TripLog represents a single trip/logbook entry.
 type TripLog struct {
-	ID            uuid.UUID `json:"id"`
-	TenantID      uuid.UUID `json:"tenant_id"`
-	VehicleID     uuid.UUID `json:"vehicle_id"`
-	Date          time.Time `json:"date"`
-	StartLocation string    `json:"start_location"`
-	EndLocation   string    `json:"end_location"`
-	Purpose       string    `json:"purpose"`
-	StartKm       int64     `json:"start_km"`
-	EndKm         int64     `json:"end_km"`
-	Km            int64     `json:"km"` // computed column
-	IsPrivate     bool      `json:"is_private"`
-	DriverName    string    `json:"driver_name"`
-	Notes         string    `json:"notes"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID               uuid.UUID `json:"id"`
+	TenantID         uuid.UUID `json:"tenant_id"`
+	VehicleID        uuid.UUID `json:"vehicle_id"`
+	Date             time.Time `json:"date"`
+	StartLocation    string    `json:"start_location"`
+	EndLocation      string    `json:"end_location"`
+	Purpose          string    `json:"purpose"`
+	StartKm          int64     `json:"start_km"`
+	EndKm            int64     `json:"end_km"`
+	Km               int64     `json:"km"` // computed column
+	IsPrivate        bool      `json:"is_private"`
+	DriverName       string    `json:"driver_name"`
+	BusinessPartner  string    `json:"business_partner"`
+	Notes            string    `json:"notes"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // VehicleDocument represents a document attached to a vehicle.
@@ -202,6 +203,16 @@ type ListTripLogsParams struct {
 	VehicleID uuid.UUID // zero value = no filter
 	Page      int32
 	PageSize  int32
+}
+
+// ExportTripLogsParams holds filtering for the trip log export. Unlike
+// ListTripLogsParams it has no pagination -- an export is the full matching
+// range, capped server-side, not one page of it.
+type ExportTripLogsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID  // zero value = no filter
+	From      *time.Time // nil = no lower bound
+	To        *time.Time // nil = no upper bound
 }
 
 // ListVehicleDocumentsParams holds filtering and pagination for vehicle document queries.

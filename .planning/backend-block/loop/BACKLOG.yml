@@ -272,7 +272,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Finanzamtkonformer Fahrtenbuch-Export. `trip_logs` und `/api/v1/fuhrpark/trip-logs`
       existieren, ein Export dafuer nicht (die vorhandene `/fuhrpark/export`-Route zuerst

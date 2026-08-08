@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: fuhrpark/v1/fuhrpark.proto
+// source: proto/fuhrpark/v1/fuhrpark.proto
 
 package fuhrparkv1
 
@@ -45,6 +45,7 @@ const (
 	FuhrparkService_CreateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateTripLog"
 	FuhrparkService_UpdateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateTripLog"
 	FuhrparkService_DeleteTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteTripLog"
+	FuhrparkService_ExportTripLogs_FullMethodName        = "/fuhrpark.v1.FuhrparkService/ExportTripLogs"
 	FuhrparkService_ListVehicleDocuments_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ListVehicleDocuments"
 	FuhrparkService_CreateVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/CreateVehicleDocument"
 	FuhrparkService_DeleteVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/DeleteVehicleDocument"
@@ -97,6 +98,7 @@ type FuhrparkServiceClient interface {
 	CreateTripLog(ctx context.Context, in *CreateTripLogRequest, opts ...grpc.CallOption) (*CreateTripLogResponse, error)
 	UpdateTripLog(ctx context.Context, in *UpdateTripLogRequest, opts ...grpc.CallOption) (*UpdateTripLogResponse, error)
 	DeleteTripLog(ctx context.Context, in *DeleteTripLogRequest, opts ...grpc.CallOption) (*DeleteTripLogResponse, error)
+	ExportTripLogs(ctx context.Context, in *ExportTripLogsRequest, opts ...grpc.CallOption) (*ExportTripLogsResponse, error)
 	// Vehicle documents
 	ListVehicleDocuments(ctx context.Context, in *ListVehicleDocumentsRequest, opts ...grpc.CallOption) (*ListVehicleDocumentsResponse, error)
 	CreateVehicleDocument(ctx context.Context, in *CreateVehicleDocumentRequest, opts ...grpc.CallOption) (*CreateVehicleDocumentResponse, error)
@@ -385,6 +387,16 @@ func (c *fuhrparkServiceClient) DeleteTripLog(ctx context.Context, in *DeleteTri
 	return out, nil
 }
 
+func (c *fuhrparkServiceClient) ExportTripLogs(ctx context.Context, in *ExportTripLogsRequest, opts ...grpc.CallOption) (*ExportTripLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportTripLogsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ExportTripLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fuhrparkServiceClient) ListVehicleDocuments(ctx context.Context, in *ListVehicleDocumentsRequest, opts ...grpc.CallOption) (*ListVehicleDocumentsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListVehicleDocumentsResponse)
@@ -561,6 +573,7 @@ type FuhrparkServiceServer interface {
 	CreateTripLog(context.Context, *CreateTripLogRequest) (*CreateTripLogResponse, error)
 	UpdateTripLog(context.Context, *UpdateTripLogRequest) (*UpdateTripLogResponse, error)
 	DeleteTripLog(context.Context, *DeleteTripLogRequest) (*DeleteTripLogResponse, error)
+	ExportTripLogs(context.Context, *ExportTripLogsRequest) (*ExportTripLogsResponse, error)
 	// Vehicle documents
 	ListVehicleDocuments(context.Context, *ListVehicleDocumentsRequest) (*ListVehicleDocumentsResponse, error)
 	CreateVehicleDocument(context.Context, *CreateVehicleDocumentRequest) (*CreateVehicleDocumentResponse, error)
@@ -666,6 +679,9 @@ func (UnimplementedFuhrparkServiceServer) UpdateTripLog(context.Context, *Update
 }
 func (UnimplementedFuhrparkServiceServer) DeleteTripLog(context.Context, *DeleteTripLogRequest) (*DeleteTripLogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteTripLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ExportTripLogs(context.Context, *ExportTripLogsRequest) (*ExportTripLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportTripLogs not implemented")
 }
 func (UnimplementedFuhrparkServiceServer) ListVehicleDocuments(context.Context, *ListVehicleDocumentsRequest) (*ListVehicleDocumentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListVehicleDocuments not implemented")
@@ -1198,6 +1214,24 @@ func _FuhrparkService_DeleteTripLog_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FuhrparkService_ExportTripLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportTripLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ExportTripLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ExportTripLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ExportTripLogs(ctx, req.(*ExportTripLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FuhrparkService_ListVehicleDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListVehicleDocumentsRequest)
 	if err := dec(in); err != nil {
@@ -1562,6 +1596,10 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FuhrparkService_DeleteTripLog_Handler,
 		},
 		{
+			MethodName: "ExportTripLogs",
+			Handler:    _FuhrparkService_ExportTripLogs_Handler,
+		},
+		{
 			MethodName: "ListVehicleDocuments",
 			Handler:    _FuhrparkService_ListVehicleDocuments_Handler,
 		},
@@ -1619,5 +1657,5 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "fuhrpark/v1/fuhrpark.proto",
+	Metadata: "proto/fuhrpark/v1/fuhrpark.proto",
 }

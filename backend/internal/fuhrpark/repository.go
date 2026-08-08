@@ -64,6 +64,7 @@ type Repository interface {
 	CreateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error
+	ListTripLogsForExport(ctx context.Context, params ExportTripLogsParams) ([]TripLog, error)
 
 	// Vehicle documents
 	ListVehicleDocuments(ctx context.Context, params ListVehicleDocumentsParams) ([]VehicleDocument, int, error)

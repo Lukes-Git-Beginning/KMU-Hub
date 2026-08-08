@@ -16664,6 +16664,7 @@ paths:
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
                 driver_name: { type: string }
+                business_partner: { type: string }
                 notes: { type: string }
       responses:
         "201":
@@ -17057,6 +17058,26 @@ paths:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/fuhrpark/trip-logs/export:
+    get:
+      summary: Export a Fahrtenbuch-compliant trip log report (CSV or PDF)
+      tags: [fuhrpark]
+      operationId: exportTripLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, pdf], default: csv } }
+      responses:
+        "200":
+          description: Trip log report file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/fuhrpark/trip-logs/{id}:
     patch:
       summary: Update a trip log entry
@@ -17080,6 +17101,7 @@ paths:
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
                 driver_name: { type: string }
+                business_partner: { type: string }
                 notes: { type: string }
       responses:
         "200":
@@ -43674,6 +43696,9 @@ components:
           type: boolean
         driver_name:
           type: string
+        business_partner:
+          type: string
+          description: "Geschaeftspartner (Fahrtenbuch Pflichtangabe)"
         notes:
           type: string
         created_at:

@@ -124,6 +124,7 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Trip logs
 		r.Route("/trip-logs", func(r chi.Router) {
 			r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/", fr.HandleListTripLogs)
+			r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/export", fr.HandleExportTripLogs)
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Patch("/", fr.HandleUpdateTripLog)
 				r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Delete("/", fr.HandleDeleteTripLog)
@@ -276,27 +277,29 @@ type updateFuelLogRequest struct {
 }
 
 type createTripLogRequest struct {
-	Date          string `json:"date"           validate:"required"`
-	StartLocation string `json:"start_location" validate:"required"`
-	EndLocation   string `json:"end_location"   validate:"required"`
-	Purpose       string `json:"purpose"        validate:"required"`
-	StartKm       int64  `json:"start_km"       validate:"gte=0"`
-	EndKm         int64  `json:"end_km"         validate:"gte=0"`
-	IsPrivate     bool   `json:"is_private"`
-	DriverName    string `json:"driver_name"    validate:"required"`
-	Notes         string `json:"notes,omitempty"`
+	Date             string `json:"date"           validate:"required"`
+	StartLocation    string `json:"start_location" validate:"required"`
+	EndLocation      string `json:"end_location"   validate:"required"`
+	Purpose          string `json:"purpose"        validate:"required"`
+	StartKm          int64  `json:"start_km"       validate:"gte=0"`
+	EndKm            int64  `json:"end_km"         validate:"gte=0"`
+	IsPrivate        bool   `json:"is_private"`
+	DriverName       string `json:"driver_name"    validate:"required"`
+	BusinessPartner  string `json:"business_partner,omitempty"`
+	Notes            string `json:"notes,omitempty"`
 }
 
 type updateTripLogRequest struct {
-	Date          *string `json:"date,omitempty"`
-	StartLocation *string `json:"start_location,omitempty"`
-	EndLocation   *string `json:"end_location,omitempty"`
-	Purpose       *string `json:"purpose,omitempty"`
-	StartKm       *int64  `json:"start_km,omitempty" validate:"omitempty,gte=0"`
-	EndKm         *int64  `json:"end_km,omitempty"   validate:"omitempty,gte=0"`
-	IsPrivate     *bool   `json:"is_private,omitempty"`
-	DriverName    *string `json:"driver_name,omitempty"`
-	Notes         *string `json:"notes,omitempty"`
+	Date            *string `json:"date,omitempty"`
+	StartLocation   *string `json:"start_location,omitempty"`
+	EndLocation     *string `json:"end_location,omitempty"`
+	Purpose         *string `json:"purpose,omitempty"`
+	StartKm         *int64  `json:"start_km,omitempty" validate:"omitempty,gte=0"`
+	EndKm           *int64  `json:"end_km,omitempty"   validate:"omitempty,gte=0"`
+	IsPrivate       *bool   `json:"is_private,omitempty"`
+	DriverName      *string `json:"driver_name,omitempty"`
+	BusinessPartner *string `json:"business_partner,omitempty"`
+	Notes           *string `json:"notes,omitempty"`
 }
 
 type createVehicleDocumentRequest struct {
@@ -1219,16 +1222,17 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 		return
 	}
 	resp, err := client.CreateTripLog(r.Context(), &fuhrparkv1.CreateTripLogRequest{
-		VehicleId:     vehicleID,
-		Date:          req.Date,
-		StartLocation: req.StartLocation,
-		EndLocation:   req.EndLocation,
-		Purpose:       req.Purpose,
-		StartKm:       req.StartKm,
-		EndKm:         req.EndKm,
-		IsPrivate:     req.IsPrivate,
-		DriverName:    req.DriverName,
-		Notes:         req.Notes,
+		VehicleId:       vehicleID,
+		Date:            req.Date,
+		StartLocation:   req.StartLocation,
+		EndLocation:     req.EndLocation,
+		Purpose:         req.Purpose,
+		StartKm:         req.StartKm,
+		EndKm:           req.EndKm,
+		IsPrivate:       req.IsPrivate,
+		DriverName:      req.DriverName,
+		BusinessPartner: req.BusinessPartner,
+		Notes:           req.Notes,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1281,6 +1285,9 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 	if req.DriverName != nil {
 		grpcReq.DriverName = *req.DriverName
 	}
+	if req.BusinessPartner != nil {
+		grpcReq.BusinessPartner = *req.BusinessPartner
+	}
 	if req.Notes != nil {
 		grpcReq.Notes = *req.Notes
 	}
@@ -1313,6 +1320,51 @@ func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Req
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (fr *FuhrparkRoutes) HandleExportTripLogs(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "csv"
+	} else if format != "csv" && format != "pdf" {
+		response.Error(w, http.StatusBadRequest, "format must be csv or pdf")
+		return
+	}
+	resp, err := client.ExportTripLogs(r.Context(), &fuhrparkv1.ExportTripLogsRequest{
+		TenantId:  tenantID.String(),
+		VehicleId: r.URL.Query().Get("vehicle_id"),
+		From:      r.URL.Query().Get("from"),
+		To:        r.URL.Query().Get("to"),
+		Format:    format,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	ct := resp.GetContentType()
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	filename := resp.GetFilename()
+	if filename == "" {
+		filename = "fahrtenbuch.csv"
+	}
+
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("Content-Disposition", "attachment; filename="+formatFilename(filename))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(resp.GetPayload())
 }
 
 // ============================================================================

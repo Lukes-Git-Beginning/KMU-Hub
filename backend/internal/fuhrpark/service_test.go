@@ -35,6 +35,10 @@ type mockRepository struct {
 	createBookingCalls int
 	findConflictCalls  int
 	listBookingsParams *ListVehicleBookingsParams
+
+	exportTripLogs       []TripLog
+	exportTripLogsErr    error
+	exportTripLogsParams *ExportTripLogsParams
 }
 
 func newMockRepository() *mockRepository {
@@ -281,6 +285,14 @@ func (m *mockRepository) UpdateTripLog(_ context.Context, log TripLog) (TripLog,
 	return log, nil
 }
 func (m *mockRepository) DeleteTripLog(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) ListTripLogsForExport(_ context.Context, params ExportTripLogsParams) ([]TripLog, error) {
+	m.exportTripLogsParams = &params
+	if m.exportTripLogsErr != nil {
+		return nil, m.exportTripLogsErr
+	}
+	return m.exportTripLogs, nil
+}
 
 func (m *mockRepository) ListVehicleDocuments(_ context.Context, _ ListVehicleDocumentsParams) ([]VehicleDocument, int, error) {
 	return nil, 0, nil
@@ -1140,4 +1152,84 @@ func TestService_ListVehicleBookings_ClampsPagingAndRejectsStatus(t *testing.T) 
 		TenantID: tenantID, Status: &bogus,
 	})
 	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestService_ExportTripLogs_CSVContainsAllMandatoryFields(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	repo.exportTripLogs = []TripLog{
+		{
+			ID: uuid.New(), TenantID: tenantID, Date: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+			StartLocation: "Buero", EndLocation: "Kunde A", Purpose: "Termin",
+			BusinessPartner: "Muster GmbH", StartKm: 100, EndKm: 150, Km: 50, DriverName: "Max Mustermann",
+		},
+	}
+
+	payload, contentType, filename, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: tenantID}, "csv")
+	require.NoError(t, err)
+	assert.Equal(t, "text/csv; charset=utf-8", contentType)
+	assert.Contains(t, filename, ".csv")
+	body := string(payload)
+	for _, want := range []string{"Muster GmbH", "Max Mustermann", "Kunde A", "Termin", "100", "150"} {
+		assert.Contains(t, body, want, "csv export must contain %q", want)
+	}
+}
+
+func TestService_ExportTripLogs_DefaultsToCSVOnUnknownFormat(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	_, contentType, filename, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: uuid.New()}, "xlsx")
+	require.NoError(t, err)
+	assert.Equal(t, "text/csv; charset=utf-8", contentType)
+	assert.Contains(t, filename, ".csv")
+}
+
+func TestService_ExportTripLogs_PDFFormat(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	repo.exportTripLogs = []TripLog{{ID: uuid.New(), TenantID: uuid.New(), Date: time.Now()}}
+
+	payload, contentType, filename, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: uuid.New()}, "pdf")
+	require.NoError(t, err)
+	assert.Equal(t, "application/pdf", contentType)
+	assert.Contains(t, filename, ".pdf")
+	assert.NotEmpty(t, payload)
+}
+
+func TestService_ExportTripLogs_EmptyRangeReturnsValidEmptyDocument(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	payload, _, _, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: uuid.New()}, "csv")
+	require.NoError(t, err)
+	// Header line only (plus BOM) -- a valid, empty document, not an error.
+	assert.NotEmpty(t, payload)
+}
+
+func TestService_ExportTripLogs_RepoErrorPropagates(t *testing.T) {
+	repo := newMockRepository()
+	repo.exportTripLogsErr = ErrInvalidInput
+	svc := NewService(repo)
+	_, _, _, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: uuid.New()}, "csv")
+	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestService_ExportTripLogs_RowNumbersAreGapFree(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	repo.exportTripLogs = []TripLog{
+		{ID: uuid.New(), TenantID: tenantID, Date: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: uuid.New(), TenantID: tenantID, Date: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC)},
+		{ID: uuid.New(), TenantID: tenantID, Date: time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC)},
+	}
+	payload, _, _, err := svc.ExportTripLogs(context.Background(), ExportTripLogsParams{TenantID: tenantID}, "csv")
+	require.NoError(t, err)
+	body := string(payload)
+	// Row numbers come from enumerating the repo's return order (1,2,3),
+	// not from a stored sequence -- three rows in, three consecutive
+	// numbers out.
+	for _, want := range []string{"1;2026-03-01", "2;2026-03-02", "3;2026-03-03"} {
+		assert.Contains(t, body, want)
+	}
 }

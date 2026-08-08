@@ -327,3 +327,75 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `machine_bookings` auch keins, und die Liste mit `vehicle_id`-Filter deckt
   jeden bekannten Lesefall. Falls das FE eine Detailansicht braucht, ist das
   eine Zeile Handler plus ein openapi-Pfad.
+
+## Iteration 6 — a-fuhrpark-triplog-export — done — 2026-08-08 17:55
+- commit: <wird nach commit ergaenzt>
+- gebaut: Finanzamtkonformer Fahrtenbuch-Export unter
+  `GET /api/v1/fuhrpark/trip-logs/export?vehicle_id=&from=&to=&format=csv|pdf`.
+  Praemisse zuerst geprueft: `/fuhrpark/export` (HandleExportVehicleReport)
+  liefert nur eine CSV der Fahrzeugflotte, keine Fahrten — die Unit war also
+  nicht durch Ueberschneidung blockiert. Zweite Praemisse, die beim Lesen von
+  `TripLog` aufgefallen ist: die geforderte Pflichtangabe "Geschaeftspartner"
+  hatte kein Feld im Modell (nur `purpose`, `start_location`, `end_location`,
+  `driver_name`). Statt sie wegzulassen oder in `purpose` zu verstecken (wo
+  sie fuer Bestandsdaten unrekonstruierbar waere), Migration 000301:
+  `trip_logs.business_partner TEXT NOT NULL DEFAULT ''`, durchgezogen durch
+  Proto (`business_partner` an `TripLog`/`Create`/`UpdateTripLogRequest`,
+  neu generiert), Repository, Service, gRPC-Server und Gateway-Wire-Typen
+  (`createTripLogRequest`/`updateTripLogRequest`) — bestehende Zeilen bleiben
+  lesbar mit leerem String.
+  Export selbst ist NEU implementiertes Format-Handling, aber KEIN neuer
+  PDF/CSV-Code: `Service.ExportTripLogs` baut ein `berichte.ReportResult`
+  (10 Spalten: Lfd. Nr., Datum, Fahrer, Start, Ziel, Zweck, Geschaeftspartner,
+  KM Beginn, KM Ende, Gefahrene KM) und reicht es an
+  `export.CSVExporter`/`export.PDFExporter` aus `internal/berichte/export`
+  durch — dieselben Typen, die `berichte`/`cmd/berichte` schon benutzen, hier
+  zum ersten Mal aus einem anderen Service heraus (kein Zyklus, `berichte`
+  importiert `fuhrpark` nirgends). Neue Repository-Methode
+  `ListTripLogsForExport` filtert Tenant, optional Fahrzeug und Datumsbereich
+  vollstaendig in SQL (kein Laden+Filtern in Go), sortiert aufsteigend nach
+  Datum/created_at — genau diese Reihenfolge liefert die luecken-sichere
+  fortlaufende Nummerierung, denn die Zeilennummer 1..N entsteht rein aus der
+  Aufzaehlung der Ergebnisreihenfolge, nicht aus einer gespeicherten Sequenz.
+  Cap bei 5000 Zeilen pro Export (`exportTripLogsCap`, Kommentar mit
+  Upgrade-Pfad), analog zum bestehenden `PageSize:10000` in
+  `ExportVehicleReport`. Leerer Zeitraum liefert ein gueltiges Dokument mit
+  nur der Kopfzeile, kein Fehler. `format=` ausserhalb `csv|pdf` liefert 400
+  am Gateway, nicht am Service (Service degradiert defensiv auf CSV, falls er
+  je direkt aufgerufen wird).
+- gate: build ok | vet ok | lint ok (0 issues, nach einem
+  ineffassign-Fund selbst behoben) | test ok (fuhrpark 47/47 PASS inkl. 6
+  neuer Service-Tests + 5 neuer DB-Subtests, gateway inkl.
+  `TestOpenAPIRouteDrift` = 824 Routen gegen 826 Pfade, server, testutil
+  inkl. `TestAllPublicTablesHaveRLSOrAreAllowlisted`) | migration ok (301
+  lokal angewendet) | openapi `swagger-cli validate` ok
+- mutations-probe: eine, an der SQL-Zeitraumgrenze (Block-A-Unit, keine
+  Coverage-Pflicht laut Kopf der Datei, trotzdem gemacht wie in Iteration 5).
+  `date >= $n` auf `date > $n` gedreht → GENAU der Subtest
+  `date_range_narrows_in_SQL,_not_in_Go` wurde rot, die anderen vier Subtests
+  blieben gruen. Zurueckgedreht, Endgate danach erneut gelaufen und gruen.
+- db-tests: `TestListTripLogsForExport_FiltersRunInSQL` mit fuenf Subtests
+  lief real gegen die lokale DB (Tenant-Scoping, Fahrzeugfilter,
+  Datumsbereich, chronologische Reihenfolge, leerer Bereich) — **0 Skips**
+  im gesamten Paket `fuhrpark` (47 PASS, 0 SKIP). `DATABASE_URL` war auf
+  `kmuhub_app` gesetzt, Migration 301 vorher angewendet.
+- verify vorgaenger: `4383e7b2` (a-fuhrpark-vehicle-booking) sauber. Handler
+  in `route_fuhrpark.go` gehen ueber `fuhrparkv1.FuhrparkServiceClient`, kein
+  direkter Service-Zugriff. Migration 000300 hat `tenant_id NOT NULL` + FK +
+  `CALL enable_tenant_rls('vehicle_bookings')` + Permission-Seed fuer
+  `fuhrpark:booking:read/write` auf die Rolle `admin`, up UND down gefuellt.
+  `.proto` wurde geaendert UND `fuhrpark.pb.go`/`fuhrpark_grpc.pb.go` im
+  selben Commit regeneriert (1334 Zeilen Diff, keine Stub-Rueckgabe). Kein
+  ersetzter `RequirePermission`-Guard, nur additiv neue Ressource
+  `fuhrpark:booking`. Route in `api/openapi.yaml` im selben Commit.
+- offen: Zwei Punkte fuer Luke.
+  (1) Kein FE-Konsument fuer `business_partner` und den Export-Button.
+  `FuhrparkPage.tsx`/Trip-Log-Formular kennen das Feld noch nicht — die
+  Spalte ist additiv und bestehende Eintraege lesen mit leerem String, aber
+  ohne FE-Aenderung bleibt "Geschaeftspartner" in jedem Fahrtenbuch-Export
+  leer, bis das Formular es abfragt.
+  (2) Export-Cap bei 5000 Zeilen ist ungetestet am oberen Rand (kein Test mit
+  >5000 Zeilen erzeugt, waere ein teurer DB-Seed fuer wenig Aussage) — falls
+  ein Tenant je mehr Fahrten zwischen zwei Exports sammelt, greift die Grenze
+  still (keine Fehlermeldung, nur ein unvollstaendiges Dokument). Kommentar
+  mit Upgrade-Pfad steht im Code (`exportTripLogsCap`).

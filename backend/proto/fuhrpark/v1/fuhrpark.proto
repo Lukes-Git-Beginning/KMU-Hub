@@ -44,6 +44,7 @@ service FuhrparkService {
   rpc CreateTripLog(CreateTripLogRequest)       returns (CreateTripLogResponse);
   rpc UpdateTripLog(UpdateTripLogRequest)       returns (UpdateTripLogResponse);
   rpc DeleteTripLog(DeleteTripLogRequest)       returns (DeleteTripLogResponse);
+  rpc ExportTripLogs(ExportTripLogsRequest)     returns (ExportTripLogsResponse);
 
   // Vehicle documents
   rpc ListVehicleDocuments(ListVehicleDocumentsRequest)     returns (ListVehicleDocumentsResponse);
@@ -410,21 +411,22 @@ message DeleteFuelLogResponse {}
 // ============================================================================
 
 message TripLog {
-  string id             = 1;
-  string tenant_id      = 2;
-  string vehicle_id     = 3;
-  string date           = 4;
-  string start_location = 5;
-  string end_location   = 6;
-  string purpose        = 7;
-  int64  start_km       = 8;
-  int64  end_km         = 9;
-  int64  km             = 10; // computed: end_km - start_km
-  bool   is_private     = 11;
-  string driver_name    = 12;
-  string notes          = 13;
-  string created_at     = 14;
-  string updated_at     = 15;
+  string id                = 1;
+  string tenant_id         = 2;
+  string vehicle_id        = 3;
+  string date               = 4;
+  string start_location     = 5;
+  string end_location       = 6;
+  string purpose             = 7;
+  int64  start_km           = 8;
+  int64  end_km             = 9;
+  int64  km                 = 10; // computed: end_km - start_km
+  bool   is_private         = 11;
+  string driver_name        = 12;
+  string notes               = 13;
+  string created_at          = 14;
+  string updated_at          = 15;
+  string business_partner    = 16; // Geschaeftspartner (Fahrtenbuch Pflichtangabe)
 }
 message ListTripLogsRequest {
   string vehicle_id = 1;
@@ -436,33 +438,48 @@ message ListTripLogsResponse {
   int32 total = 2;
 }
 message CreateTripLogRequest {
-  string vehicle_id     = 1;
-  string date           = 2;
-  string start_location = 3;
-  string end_location   = 4;
-  string purpose        = 5;
-  int64  start_km       = 6;
-  int64  end_km         = 7;
-  bool   is_private     = 8;
-  string driver_name    = 9;
-  string notes          = 10;
+  string vehicle_id       = 1;
+  string date              = 2;
+  string start_location    = 3;
+  string end_location      = 4;
+  string purpose            = 5;
+  int64  start_km          = 6;
+  int64  end_km            = 7;
+  bool   is_private        = 8;
+  string driver_name       = 9;
+  string notes              = 10;
+  string business_partner   = 11;
 }
 message CreateTripLogResponse { TripLog trip_log = 1; }
 message UpdateTripLogRequest {
-  string id             = 1;
-  string date           = 2;
-  string start_location = 3;
-  string end_location   = 4;
-  string purpose        = 5;
-  int64  start_km       = 6;
-  int64  end_km         = 7;
-  bool   is_private     = 8;
-  string driver_name    = 9;
-  string notes          = 10;
+  string id                = 1;
+  string date              = 2;
+  string start_location    = 3;
+  string end_location      = 4;
+  string purpose            = 5;
+  int64  start_km          = 6;
+  int64  end_km            = 7;
+  bool   is_private        = 8;
+  string driver_name       = 9;
+  string notes              = 10;
+  string business_partner   = 11;
 }
 message UpdateTripLogResponse { TripLog trip_log = 1; }
 message DeleteTripLogRequest  { string id = 1; }
 message DeleteTripLogResponse {}
+
+message ExportTripLogsRequest {
+  string tenant_id  = 1;
+  string vehicle_id = 2; // optional filter
+  string from       = 3; // optional ISO date, inclusive
+  string to         = 4; // optional ISO date, inclusive
+  string format     = 5; // csv|pdf
+}
+message ExportTripLogsResponse {
+  bytes  payload      = 1;
+  string content_type = 2;
+  string filename     = 3;
+}
 
 // ============================================================================
 // Vehicle Documents

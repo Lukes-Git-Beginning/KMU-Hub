@@ -851,17 +851,18 @@ func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.
 	}
 	date, _ := time.Parse("2006-01-02", req.Date)
 	l, err := s.svc.CreateTripLog(ctx, fuhrpark.TripLog{
-		TenantID:      tenantID,
-		VehicleID:     vehicleID,
-		Date:          date,
-		StartLocation: req.StartLocation,
-		EndLocation:   req.EndLocation,
-		Purpose:       req.Purpose,
-		StartKm:       req.StartKm,
-		EndKm:         req.EndKm,
-		IsPrivate:     req.IsPrivate,
-		DriverName:    req.DriverName,
-		Notes:         req.Notes,
+		TenantID:        tenantID,
+		VehicleID:       vehicleID,
+		Date:            date,
+		StartLocation:   req.StartLocation,
+		EndLocation:     req.EndLocation,
+		Purpose:         req.Purpose,
+		StartKm:         req.StartKm,
+		EndKm:           req.EndKm,
+		IsPrivate:       req.IsPrivate,
+		DriverName:      req.DriverName,
+		BusinessPartner: req.BusinessPartner,
+		Notes:           req.Notes,
 	})
 	if err != nil {
 		return nil, mapFuhrparkError(err)
@@ -880,17 +881,18 @@ func (s *FuhrparkGRPCServer) UpdateTripLog(ctx context.Context, req *fuhrparkv1.
 	}
 	date, _ := time.Parse("2006-01-02", req.Date)
 	l, err := s.svc.UpdateTripLog(ctx, fuhrpark.TripLog{
-		ID:            id,
-		TenantID:      tenantID,
-		Date:          date,
-		StartLocation: req.StartLocation,
-		EndLocation:   req.EndLocation,
-		Purpose:       req.Purpose,
-		StartKm:       req.StartKm,
-		EndKm:         req.EndKm,
-		IsPrivate:     req.IsPrivate,
-		DriverName:    req.DriverName,
-		Notes:         req.Notes,
+		ID:              id,
+		TenantID:        tenantID,
+		Date:            date,
+		StartLocation:   req.StartLocation,
+		EndLocation:     req.EndLocation,
+		Purpose:         req.Purpose,
+		StartKm:         req.StartKm,
+		EndKm:           req.EndKm,
+		IsPrivate:       req.IsPrivate,
+		DriverName:      req.DriverName,
+		BusinessPartner: req.BusinessPartner,
+		Notes:           req.Notes,
 	})
 	if err != nil {
 		return nil, mapFuhrparkError(err)
@@ -911,6 +913,45 @@ func (s *FuhrparkGRPCServer) DeleteTripLog(ctx context.Context, req *fuhrparkv1.
 		return nil, mapFuhrparkError(err)
 	}
 	return &fuhrparkv1.DeleteTripLogResponse{}, nil
+}
+
+func (s *FuhrparkGRPCServer) ExportTripLogs(ctx context.Context, req *fuhrparkv1.ExportTripLogsRequest) (*fuhrparkv1.ExportTripLogsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	params := fuhrpark.ExportTripLogsParams{TenantID: tenantID}
+	if req.GetVehicleId() != "" {
+		vehicleID, parseErr := uuid.Parse(req.GetVehicleId())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", parseErr)
+		}
+		params.VehicleID = vehicleID
+	}
+	if req.GetFrom() != "" {
+		from, parseErr := time.Parse("2006-01-02", req.GetFrom())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid from: %v", parseErr)
+		}
+		params.From = &from
+	}
+	if req.GetTo() != "" {
+		to, parseErr := time.Parse("2006-01-02", req.GetTo())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid to: %v", parseErr)
+		}
+		params.To = &to
+	}
+
+	payload, contentType, filename, err := s.svc.ExportTripLogs(ctx, params, req.GetFormat())
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.ExportTripLogsResponse{
+		Payload:     payload,
+		ContentType: contentType,
+		Filename:    filename,
+	}, nil
 }
 
 // ============================================================================
@@ -1412,21 +1453,22 @@ func fuelLogToProto(l fuhrpark.FuelLog) *fuhrparkv1.FuelLog {
 
 func tripLogToProto(l fuhrpark.TripLog) *fuhrparkv1.TripLog {
 	return &fuhrparkv1.TripLog{
-		Id:            l.ID.String(),
-		TenantId:      l.TenantID.String(),
-		VehicleId:     l.VehicleID.String(),
-		Date:          l.Date.Format("2006-01-02"),
-		StartLocation: l.StartLocation,
-		EndLocation:   l.EndLocation,
-		Purpose:       l.Purpose,
-		StartKm:       l.StartKm,
-		EndKm:         l.EndKm,
-		Km:            l.Km,
-		IsPrivate:     l.IsPrivate,
-		DriverName:    l.DriverName,
-		Notes:         l.Notes,
-		CreatedAt:     l.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     l.UpdatedAt.Format(time.RFC3339),
+		Id:              l.ID.String(),
+		TenantId:        l.TenantID.String(),
+		VehicleId:       l.VehicleID.String(),
+		Date:            l.Date.Format("2006-01-02"),
+		StartLocation:   l.StartLocation,
+		EndLocation:     l.EndLocation,
+		Purpose:         l.Purpose,
+		StartKm:         l.StartKm,
+		EndKm:           l.EndKm,
+		Km:              l.Km,
+		IsPrivate:       l.IsPrivate,
+		DriverName:      l.DriverName,
+		BusinessPartner: l.BusinessPartner,
+		Notes:           l.Notes,
+		CreatedAt:       l.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       l.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

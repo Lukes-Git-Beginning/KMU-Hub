@@ -1,14 +1,19 @@
 package fuhrpark
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/export"
 )
 
 // Service handles fuhrpark business logic.
@@ -724,6 +729,70 @@ func (s *Service) UpdateTripLog(ctx context.Context, req TripLog) (TripLog, erro
 // DeleteTripLog deletes a trip log entry.
 func (s *Service) DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error {
 	return s.repo.DeleteTripLog(ctx, tenantID, id)
+}
+
+// tripLogExportColumns mirrors the mandatory fields of a Fahrtenbuch entry
+// (Section 6 EStG): a gap-free running number, date, driver, route, purpose,
+// business partner and both odometer readings.
+var tripLogExportColumns = []berichte.Column{
+	{Name: "no", Label: "Lfd. Nr.", Kind: "number"},
+	{Name: "date", Label: "Datum", Kind: "date"},
+	{Name: "driver_name", Label: "Fahrer", Kind: "string"},
+	{Name: "start_location", Label: "Start", Kind: "string"},
+	{Name: "end_location", Label: "Ziel", Kind: "string"},
+	{Name: "purpose", Label: "Zweck", Kind: "string"},
+	{Name: "business_partner", Label: "Geschaeftspartner", Kind: "string"},
+	{Name: "start_km", Label: "KM Beginn", Kind: "number"},
+	{Name: "end_km", Label: "KM Ende", Kind: "number"},
+	{Name: "km", Label: "Gefahrene KM", Kind: "number"},
+}
+
+// ExportTripLogs renders the trip logs matching params as a Finanzamt-ready
+// Fahrtenbuch document. Ordering and row numbering come from
+// ListTripLogsForExport (chronological, so "row N" never skips a trip); an
+// empty match returns a valid, empty document rather than an error.
+func (s *Service) ExportTripLogs(ctx context.Context, params ExportTripLogsParams, format string) ([]byte, string, string, error) {
+	logs, err := s.repo.ListTripLogsForExport(ctx, params)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	rows := make([]map[string]any, 0, len(logs))
+	for i, l := range logs {
+		rows = append(rows, map[string]any{
+			"no":               i + 1,
+			"date":             l.Date.Format("2006-01-02"),
+			"driver_name":      l.DriverName,
+			"start_location":   l.StartLocation,
+			"end_location":     l.EndLocation,
+			"purpose":          l.Purpose,
+			"business_partner": l.BusinessPartner,
+			"start_km":         l.StartKm,
+			"end_km":           l.EndKm,
+			"km":               l.Km,
+		})
+	}
+	result := &berichte.ReportResult{Columns: tripLogExportColumns, Rows: rows}
+
+	var exporter interface {
+		Export(*berichte.ReportResult, io.Writer) error
+		ContentType() string
+		FileExtension() string
+	}
+	switch format {
+	case "pdf":
+		exporter = &export.PDFExporter{}
+	default:
+		exporter = &export.CSVExporter{}
+	}
+
+	var buf bytes.Buffer
+	if err := exporter.Export(result, &buf); err != nil {
+		return nil, "", "", fmt.Errorf("export trip logs: %w", err)
+	}
+
+	filename := "fahrtenbuch-" + time.Now().Format("2006-01-02") + exporter.FileExtension()
+	return buf.Bytes(), exporter.ContentType(), filename, nil
 }
 
 // ============================================================================
