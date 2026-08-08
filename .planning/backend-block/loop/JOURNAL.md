@@ -2522,7 +2522,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-biz-datev`.
 
 ## Iteration 32 — c-cov-biz-datev — done — 2026-08-08 21:35
-- commit: (siehe naechster chore-Commit)
+- commit: 95650432
 - verify vorgaenger: sauber. `259ab227` (c-cov-crm-activity) ist ein reiner
   Test-Commit (neue Datei `postgres_repository_db_test.go` + Backlog/Journal),
   kein Gateway/Route/Proto/Guard/neue-Tabelle betroffen, `git show --stat`
@@ -2616,7 +2616,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   System nachweislich UTF-8 mit BOM, DATEV liest laut eigener Spec beides.
 
 ## Iteration 32 — c-cov-crm-contact-repo — done — 2026-08-08 21:35
-- commit: (siehe unten)
+- commit: f27f1c77
 - gebaut: zwei neue DB-Testdateien fuer internal/crm/contact
   (postgres_repository_db_test.go, postgres_lead_db_test.go). Coverage
   36,6% -> 80,6%. Abgedeckt: List/ListWithVisibility (Filter, Sortierung,
