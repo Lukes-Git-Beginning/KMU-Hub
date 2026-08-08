@@ -1260,7 +1260,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
     (siehe "GEFUNDEN, NICHT BEHOBEN" oben) — eigene Fix-Unit-Kandidat.
 
 ## Iteration 16 — a-kontakte-xlsx-import — done — 2026-08-08 19:35
-- commit: dd9da170
+- commit: 4baf1304
 - verify vorgaenger: sauber. `3e094778` (Iteration 15, notification channel
   exposure) gegen die Fehlerklassen geprueft: `route_notification.go` fasst
   keine neue Route an (nur additive Felder auf dem bestehenden
@@ -1342,7 +1342,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   das eine eigene, sehr aehnliche Unit.
 
 ## Iteration 17 — a-crm-dialer-lead-link — done — 2026-08-08 20:10
-- commit: dd9da170
+- commit: 66afd509
 - verify vorgaenger: sauber. `4baf1304` (Iteration 16, XLSX-Import) gegen die
   Fehlerklassen geprueft: Handler geht ueber `crmv1.CRMServiceClient`, keine
   direkte Service-Instanz; `.proto`, `.pb.go` UND `.grpc.pb.go` im selben
@@ -1428,7 +1428,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   `lead.go` (`PromoteFromDialerCallback`), leicht rueckgaengig zu machen.
 
 ## Iteration 18 — a-produktion-material-availability — done — 2026-08-08 19:45
-- commit: dd9da170
+- commit: 2e0f3bea
 - verify vorgaenger: sauber. 66afd509 (a-crm-dialer-lead-link, Iteration 17)
   gegen alle acht Fehlerklassen geprueft: GRPCCRMBridge.PromoteToLead geht
   ueber b.client.PromoteContactToLead (gRPC-Client); der neue RPC-Handler in
