@@ -180,6 +180,15 @@ func (m *MockRepository) GetVersion(_ context.Context, fileID uuid.UUID, version
 	return nil, ErrVersionNotFound
 }
 
+func (m *MockRepository) GetVersionByID(_ context.Context, fileID, versionID, tenantID uuid.UUID) (*models.DocumentFileVersion, error) {
+	for _, v := range m.versions[fileID] {
+		if v.ID == versionID && (tenantID == uuid.Nil || v.TenantID == uuid.Nil || v.TenantID == tenantID) {
+			return v, nil
+		}
+	}
+	return nil, ErrVersionNotFound
+}
+
 func (m *MockRepository) UpdateCurrentVersion(_ context.Context, fileID uuid.UUID, versionNumber int) error {
 	file, ok := m.files[fileID]
 	if !ok {
@@ -754,6 +763,96 @@ func TestCreateVersion_Success(t *testing.T) {
 	assert.Equal(t, 2, version.VersionNumber)
 	assert.Equal(t, seeded.ID, version.FileID)
 	assert.Equal(t, userID, version.CreatedBy)
+}
+
+func TestGetVersionDownloadURL_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	version := &models.DocumentFileVersion{
+		ID:            uuid.New(),
+		TenantID:      tenant,
+		FileID:        file.ID,
+		VersionNumber: 1,
+		StorageKey:    "documents/versions/" + file.ID.String() + "/1/existing.pdf",
+		FileSize:      2048,
+		CreatedBy:     uuid.New(),
+		CreatedAt:     time.Now(),
+	}
+	repo.versions[file.ID] = append(repo.versions[file.ID], version)
+
+	url, filename, contentType, fileSize, err := svc.GetVersionDownloadURL(context.Background(), file.ID, version.ID, tenant)
+
+	require.NoError(t, err)
+	assert.Contains(t, url, version.StorageKey)
+	assert.Equal(t, file.Filename, filename)
+	assert.Equal(t, file.MimeType, contentType)
+	assert.Equal(t, version.FileSize, fileSize)
+}
+
+// TestGetVersionDownloadURL_ForeignFile verifies that a version belonging to
+// a file the caller's tenant does not own is not reachable — a version id
+// that is valid but for the wrong file must 404 like an unknown one, not leak
+// the foreign file's content.
+func TestGetVersionDownloadURL_ForeignFile(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	foreignFile := seedFileForTenant(repo, tenantA)
+	ownFile := seedFileForTenant(repo, tenantB)
+	foreignVersion := &models.DocumentFileVersion{
+		ID:            uuid.New(),
+		TenantID:      tenantA,
+		FileID:        foreignFile.ID,
+		VersionNumber: 1,
+		StorageKey:    "documents/versions/" + foreignFile.ID.String() + "/1/existing.pdf",
+		FileSize:      2048,
+		CreatedBy:     uuid.New(),
+		CreatedAt:     time.Now(),
+	}
+	repo.versions[foreignFile.ID] = append(repo.versions[foreignFile.ID], foreignVersion)
+
+	// Attacker owns ownFile and tries the foreign version id through it — the
+	// version exists, but not under this file, so the lookup scoped to
+	// (fileID, versionID, tenantID) must miss.
+	_, _, _, _, err := svc.GetVersionDownloadURL(context.Background(), ownFile.ID, foreignVersion.ID, tenantB)
+	assert.ErrorIs(t, err, ErrVersionNotFound, "a version id valid for a different file must not resolve")
+
+	// Attacker guesses the right (foreign) file id but wrong tenant.
+	_, _, _, _, err = svc.GetVersionDownloadURL(context.Background(), foreignFile.ID, foreignVersion.ID, tenantB)
+	assert.ErrorIs(t, err, ErrFileNotFound)
+}
+
+func TestGetVersionDownloadURL_UnknownVersion(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+
+	_, _, _, _, err := svc.GetVersionDownloadURL(context.Background(), file.ID, uuid.New(), tenant)
+
+	assert.ErrorIs(t, err, ErrVersionNotFound)
+}
+
+func TestGetVersionDownloadURL_DeletedFile(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	version := &models.DocumentFileVersion{
+		ID:            uuid.New(),
+		TenantID:      tenant,
+		FileID:        file.ID,
+		VersionNumber: 1,
+		StorageKey:    "documents/versions/" + file.ID.String() + "/1/existing.pdf",
+		FileSize:      2048,
+		CreatedBy:     uuid.New(),
+		CreatedAt:     time.Now(),
+	}
+	repo.versions[file.ID] = append(repo.versions[file.ID], version)
+	require.NoError(t, svc.Delete(context.Background(), file.ID, tenant))
+
+	_, _, _, _, err := svc.GetVersionDownloadURL(context.Background(), file.ID, version.ID, tenant)
+
+	assert.ErrorIs(t, err, ErrFileDeleted)
 }
 
 // ============================================================================

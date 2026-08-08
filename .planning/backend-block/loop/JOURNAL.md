@@ -121,3 +121,58 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   das eine eigene Unit (analog zum toten Vermietung-RPC im Backlog).
   Kein FE-Konsument: `{items,total}` ist die im Backlog vorgegebene Form, das
   Vertraege-Modul im Frontend liest den Endpoint noch nicht.
+
+## Iteration 3 — a-dokumente-version-download — done — 2026-08-08 15:55
+- commit: nachgetragen im Folge-Commit
+- gebaut: Neuer RPC `GetFileVersionDownloadURL` im document-Proto (Request:
+  `file_id`+`version_id`, Response wie `GetFileDownloadURLResponse`). Neue
+  Repository-Methode `GetVersionByID(ctx, fileID, versionID, tenantID)` filtert
+  in SQL auf `id = $1 AND file_id = $2 AND tenant_id = $3` (nicht nur auf die
+  version_id, wie in den `notes` gefordert). Neue Service-Methode
+  `GetVersionDownloadURL` prueft zuerst `GetByID(fileID, tenantID)` (File
+  gehoert dem Tenant, nicht geloescht), dann die Version scoped auf
+  `(fileID, versionID, tenantID)`, liefert dann eine Presign-URL ueber
+  `store.GetPresignedURL` (Wiederverwendung des chat/file-Presign-Musters,
+  keine neue Storage-Logik). Filename/Content-Type kommen vom File-Datensatz
+  (Version traegt beides nicht), file_size von der Version. Neue Route
+  `GET /api/v1/documents/files/{id}/versions/{versionId}/download` hinter dem
+  bestehenden `docDownload`-Guard (`documents:read` ODER
+  `documents:file:download`, additiv, keine neue Guard-Kombination) — Handler
+  geht ueber `documentv1.DocumentServiceClient`, keine direkte Service-Instanz.
+  Pfad in `api/openapi.yaml` nachgezogen (Parameter-Stil vom
+  `wiki/articles/{id}/versions/{versionId}/restore`-Pfad uebernommen).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (document/file 
+  inkl. 4 neuer Tests, server ok, gateway ok inkl. TestOpenAPIRouteDrift) |
+  migration n.a. (keine neue Tabelle) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst)
+- mutations-probe: `if f.IsDeleted { return ..., ErrFileDeleted }` in
+  `GetVersionDownloadURL` entfernt. Ergebnis: genau
+  `TestGetVersionDownloadURL_DeletedFile` wurde rot, die drei
+  Nachbartests (`_Success`, `_ForeignFile`, `_UnknownVersion`) blieben gruen.
+  Zurueckgedreht, Endgate danach erneut gelaufen und gruen. Eine zweite Probe
+  (tenantID beim `GetVersionByID`-Aufruf durch `uuid.Nil` ersetzt) wurde NICHT
+  rot — die Mock-Repo-Isolation in den Tests laeuft ueber die
+  `map[fileID][]version`-Struktur, nicht ueber den tenantID-Parameter selbst,
+  weil im Mock ohnehin nie zwei Tenants dieselbe file_id teilen. Die
+  tenant_id-Bedingung in der SQL-Query ist damit nur durch die Postgres-Seite
+  (Migrationskopf 297, RLS auf `document_files`/`document_file_versions`)
+  belegt, nicht durch einen Unit-Test — vermerkt statt verschwiegen.
+- db-tests: 0 DB-Integrationstests im Paket `internal/document/file` (reines
+  Mock-Testing, kein `SkipIfNoDB`-Pfad), **0 Skips** bei allen gelaufenen
+  Tests. `DATABASE_URL` war gesetzt.
+- verify vorgaenger: sauber. `04278996` (vertraege-contract-events) geht im
+  Handler ueber `vr.getClient()` (gRPC-Client), Migration 298 hat
+  `tenant_id UUID NOT NULL` + `CALL enable_tenant_rls(...)`, up und down
+  beide gefuellt, `.proto` und `.pb.go`/`_grpc.pb.go` beide im Commit, kein
+  neuer `RequirePermission`-Guard (nutzt den bestehenden
+  `vertraege:contract`/`read`-Key), Pfad in `openapi.yaml` vorhanden.
+- offen: Zwei Punkte fuer Luke.
+  (1) Die zweite Mutations-Probe (tenantID-Parameter) hat keine rote Zeile
+  erzeugt, siehe oben — der Unit-Test-Beweis fuer die
+  Tenant-Scopung dieses spezifischen Aufrufs fehlt, die Verteidigung steht
+  nur in der SQL-Query und im DB-Schema. Waere eine eigene, kleinere Unit
+  wert, wenn das lueckenlos belegt werden soll (z.B. ein Repository-Test mit
+  echter DB, zwei Tenants, gleiche file_id kollidiert nicht).
+  (2) Kein FE-Konsument geprueft — der Download-Knopf in der Versionshistorie
+  (`FileContextMenu.tsx`) ist nicht Teil dieser Unit; das FE muesste den
+  neuen Endpoint noch verdrahten.

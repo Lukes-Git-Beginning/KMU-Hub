@@ -26356,6 +26356,35 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/documents/files/{id}/versions/{versionId}/download:
+    get:
+      summary: Get a download URL for one past version of a document file
+      description: >-
+        Requires documents:read or documents:file:download permission. A version id that does not
+        belong to this file (foreign or unknown) returns 404, same as an unknown file id — the two
+        are not told apart.
+      tags: [documents]
+      operationId: getDocumentFileVersionDownloadUrl
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Presigned download URL and file metadata for the version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url: { type: string, format: uri }
+                  filename: { type: string }
+                  content_type: { type: string }
+                  file_size: { type: integer, format: int64 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/documents/files/{id}/links:
     get:
       summary: List CRM entity links for a document file

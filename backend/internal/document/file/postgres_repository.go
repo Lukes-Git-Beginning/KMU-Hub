@@ -265,6 +265,23 @@ func (r *PostgresRepository) GetVersion(ctx context.Context, fileID uuid.UUID, v
 	return &v, nil
 }
 
+func (r *PostgresRepository) GetVersionByID(ctx context.Context, fileID, versionID, tenantID uuid.UUID) (*models.DocumentFileVersion, error) {
+	var v models.DocumentFileVersion
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at
+		 FROM document_file_versions
+		 WHERE id = $1 AND file_id = $2 AND tenant_id = $3`, versionID, fileID, tenantID,
+	).Scan(&v.ID, &v.TenantID, &v.FileID, &v.VersionNumber, &v.VersionLabel,
+		&v.StorageKey, &v.FileSize, &v.CreatedBy, &v.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
 func (r *PostgresRepository) UpdateCurrentVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE document_files SET current_version = $1, updated_at = NOW() WHERE id = $2`,

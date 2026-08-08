@@ -123,6 +123,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
+		r.With(docDownload).Get("/{id}/versions/{versionId}/download", d.HandleGetFileVersionDownloadURL)
 		// Entity links
 		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/links", d.HandleListFileEntityLinks)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/links", d.HandleLinkFileToEntity)
@@ -1048,6 +1049,36 @@ func (d *DocumentRoutes) HandleListFileVersions(w http.ResponseWriter, r *http.R
 	}
 
 	response.ProtoListWrapped(w, http.StatusOK, "versions", resp.Versions, nil)
+}
+
+// HandleGetFileVersionDownloadURL returns a presigned download URL for one
+// past version of a file. Mirrors HandleGetFileDownloadURL, scoped to a
+// version instead of the file's current content.
+func (d *DocumentRoutes) HandleGetFileVersionDownloadURL(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+	versionID := chi.URLParam(r, "versionId")
+
+	resp, err := client.GetFileVersionDownloadURL(r.Context(), &documentv1.GetFileVersionDownloadURLRequest{
+		FileId:    fileID,
+		VersionId: versionID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"download_url": resp.DownloadUrl,
+		"filename":     resp.Filename,
+		"content_type": resp.ContentType,
+		"file_size":    resp.FileSize,
+	})
 }
 
 type revertVersionRequest struct {

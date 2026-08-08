@@ -28,6 +28,7 @@ service DocumentService {
   rpc CreateFileVersion(CreateFileVersionRequest) returns (CreateFileVersionResponse);
   rpc ListFileVersions(ListFileVersionsRequest) returns (ListFileVersionsResponse);
   rpc RevertFileVersion(RevertFileVersionRequest) returns (RevertFileVersionResponse);
+  rpc GetFileVersionDownloadURL(GetFileVersionDownloadURLRequest) returns (GetFileVersionDownloadURLResponse);
   rpc ListFileActivity(ListFileActivityRequest) returns (ListFileActivityResponse);
   // Registers metadata for a file already uploaded to object storage via a
   // presigned PUT URL (browser-direct upload). Does not touch object storage.
@@ -447,6 +448,18 @@ message RevertFileVersionRequest {
 
 message RevertFileVersionResponse {
   DocumentFile file = 1;
+}
+
+message GetFileVersionDownloadURLRequest {
+  string file_id = 1;
+  string version_id = 2;
+}
+
+message GetFileVersionDownloadURLResponse {
+  string download_url = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 file_size = 4;
 }
 
 message ListFileActivityRequest {

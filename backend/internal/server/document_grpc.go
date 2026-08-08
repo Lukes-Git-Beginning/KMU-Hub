@@ -602,6 +602,38 @@ func (s *DocumentGRPCServer) GetFileDownloadURL(ctx context.Context, req *docume
 	}, nil
 }
 
+func (s *DocumentGRPCServer) GetFileVersionDownloadURL(ctx context.Context, req *documentv1.GetFileVersionDownloadURLRequest) (*documentv1.GetFileVersionDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file id")
+	}
+	versionID, err := uuid.Parse(req.VersionId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid version id")
+	}
+
+	url, filename, contentType, fileSize, err := s.fileService.GetVersionDownloadURL(ctx, fileID, versionID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	if actorID, actorErr := actorIDFromContext(ctx); actorErr == nil {
+		s.fileService.LogDownload(ctx, fileID, tenantID, actorID)
+	}
+
+	return &documentv1.GetFileVersionDownloadURLResponse{
+		DownloadUrl: url,
+		Filename:    filename,
+		ContentType: contentType,
+		FileSize:    fileSize,
+	}, nil
+}
+
 func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documentv1.CreateFileVersionRequest) (*documentv1.CreateFileVersionResponse, error) {
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {

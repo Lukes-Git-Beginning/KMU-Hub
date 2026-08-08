@@ -181,7 +181,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Versionsspezifischer Download. Die Spec kennt heute nur
       `/api/v1/documents/files/{id}/versions` (Liste) und `/versions/revert`; der
