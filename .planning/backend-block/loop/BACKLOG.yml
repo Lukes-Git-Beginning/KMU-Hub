@@ -801,7 +801,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Abdeckung fuer `internal/biz/hr/changerequest` - gemessen 0,0 %, also vollstaendig
       ungetestet. Der Aenderungsantrags-Fluss (anlegen, genehmigen, ablehnen, zuruecknehmen)
@@ -821,6 +821,14 @@ units:
       - Cross-Tenant-Zugriff liefert 0 Zeilen bzw. NotFound
       - Mutations-Probe durchgefuehrt und ihr Ergebnis im Journal belegt
       - go test -count=1 mit DATABASE_URL gruen, 0 Skips, Skip-Zahl im Journal
+    result: >
+      PRAEMISSE WIDERLEGT (2026-08-08): 0,0 % stimmte nicht mehr. Migration
+      dbcf2493 ("feat(hr): add employee profile change requests") brachte
+      integration_db_test.go bereits mit sieben DB-Tests, gemessene Coverage
+      war 79,9 %. Statt die Unit als erledigt/blocked abzuhaken: die
+      verbliebenen Luecken waren real und sicherheitsrelevant (siehe Journal),
+      also fuenf weitere DB-Tests ergaenzt statt neu erfunden - Coverage jetzt
+      85,2 %.
 
   - id: c-cov-biz-dashboard
     phase: 3

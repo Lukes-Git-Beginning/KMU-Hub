@@ -10,6 +10,7 @@ package changerequest
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -294,6 +295,145 @@ func TestCancel_OnlyTheProposerAndOnlyWhilePending(t *testing.T) {
 	// the unique index is partial for exactly this reason.
 	again := submit(t, ctx, svc, tenantID, employeeID, "addressCity", "Erfurt")
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_profile_change_requests", again.ID) })
+}
+
+func TestCreate_DrawerMismatchIsRefused(t *testing.T) {
+	pool, tenantID, ctx := newFixture(t)
+	svc := newSvc(pool)
+
+	employeeID := seedUser(t, pool, tenantID, "drawer-"+uuid.NewString()+"@example.test")
+	seedProfile(t, pool, tenantID, employeeID, nil)
+
+	// addressCity belongs to the "personal" drawer. Submitting it under a
+	// mismatched drawer is a client bug: approval would write the field into a
+	// section of the UI it does not belong to.
+	if _, err := svc.Create(ctx, CreateInput{
+		TenantID: tenantID, ActorID: employeeID,
+		Drawer: "banking", Field: "addressCity", NewValue: "Berlin",
+	}); !errors.Is(err, ErrFieldNotProposable) {
+		t.Fatalf("field submitted under the wrong drawer: got %v, want ErrFieldNotProposable", err)
+	}
+
+	requests, err := svc.List(ctx, ListInput{TenantID: tenantID, ActorID: employeeID, OwnOnly: true})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(requests) != 0 {
+		t.Fatalf("refused proposal was stored anyway: %d row(s)", len(requests))
+	}
+}
+
+func TestCreate_BlankOrOversizedValueIsRefused(t *testing.T) {
+	pool, tenantID, ctx := newFixture(t)
+	svc := newSvc(pool)
+
+	employeeID := seedUser(t, pool, tenantID, "value-"+uuid.NewString()+"@example.test")
+	seedProfile(t, pool, tenantID, employeeID, nil)
+
+	if _, err := svc.Create(ctx, CreateInput{
+		TenantID: tenantID, ActorID: employeeID,
+		Drawer: "personal", Field: "addressCity", NewValue: "   ",
+	}); !errors.Is(err, ErrFieldNotProposable) {
+		t.Fatalf("blank new value: got %v, want ErrFieldNotProposable", err)
+	}
+
+	if _, err := svc.Create(ctx, CreateInput{
+		TenantID: tenantID, ActorID: employeeID,
+		Drawer: "personal", Field: "addressCity", NewValue: strings.Repeat("x", 501),
+	}); !errors.Is(err, ErrFieldNotProposable) {
+		t.Fatalf("oversized new value (501 chars): got %v, want ErrFieldNotProposable", err)
+	}
+}
+
+// TestApprove_OwnScopeOnlyReachesTheApproversOwnRequest covers the branch of
+// approveScopeAllows that has never run under a real reporting line before:
+// auth.ScopeOwn. It is the narrowest scope team:data_personal:edit can carry,
+// so an approver holding it may only decide about themselves.
+func TestApprove_OwnScopeOnlyReachesTheApproversOwnRequest(t *testing.T) {
+	pool, tenantID, ctx := newFixture(t)
+	svc := newSvc(pool)
+
+	selfID := seedUser(t, pool, tenantID, "own-self-"+uuid.NewString()+"@example.test")
+	seedProfile(t, pool, tenantID, selfID, nil)
+	otherID := seedUser(t, pool, tenantID, "own-other-"+uuid.NewString()+"@example.test")
+	seedProfile(t, pool, tenantID, otherID, nil)
+
+	ownReq := submit(t, ctx, svc, tenantID, selfID, "addressCity", "Bremen")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_profile_change_requests", ownReq.ID) })
+	otherReq := submit(t, ctx, svc, tenantID, otherID, "addressCity", "Essen")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_profile_change_requests", otherReq.ID) })
+
+	if _, err := svc.Approve(ctx, DecideInput{
+		TenantID: tenantID, ActorID: selfID, ActorScope: auth.ScopeOwn, RequestID: otherReq.ID,
+	}); !errors.Is(err, ErrOutOfScope) {
+		t.Fatalf("own-scope approver deciding somebody else's request: got %v, want ErrOutOfScope", err)
+	}
+
+	if _, err := svc.Approve(ctx, DecideInput{
+		TenantID: tenantID, ActorID: selfID, ActorScope: auth.ScopeOwn, RequestID: ownReq.ID,
+	}); err != nil {
+		t.Fatalf("own-scope approver deciding their own request: %v", err)
+	}
+}
+
+// TestApprove_TeamScope_ProposerWithoutProfileIsOutOfScope covers the branch
+// where ManagerOf finds no hr_employee_profiles row for the proposer at all
+// (e.g. offboarded before HR got to decide): approveScopeAllows must treat
+// "no reporting line to prove" as out of scope, not as a server error.
+func TestApprove_TeamScope_ProposerWithoutProfileIsOutOfScope(t *testing.T) {
+	pool, tenantID, ctx := newFixture(t)
+	svc := newSvc(pool)
+
+	managerID := seedUser(t, pool, tenantID, "team-noprofile-mgr-"+uuid.NewString()+"@example.test")
+	seedProfile(t, pool, tenantID, managerID, nil)
+	proposerID := seedUser(t, pool, tenantID, "team-noprofile-emp-"+uuid.NewString()+"@example.test")
+	// Deliberately no seedProfile for proposerID: Create does not require one.
+
+	req := submit(t, ctx, svc, tenantID, proposerID, "addressCity", "Kassel")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_profile_change_requests", req.ID) })
+
+	if _, err := svc.Approve(ctx, DecideInput{
+		TenantID: tenantID, ActorID: managerID, ActorScope: auth.ScopeTeam, RequestID: req.ID,
+	}); !errors.Is(err, ErrOutOfScope) {
+		t.Fatalf("team-scope approver deciding for a proposer without a profile: got %v, want ErrOutOfScope", err)
+	}
+}
+
+// TestApprove_ProfileRemovedBetweenSubmitAndDecideRollsBack is the one case
+// only a real transaction can prove: the profile the approval must write to
+// disappears after the request was filed. ApproveAndApply has to roll back
+// the status flip too, or the request would sit as "approved" forever with
+// nothing ever written.
+func TestApprove_ProfileRemovedBetweenSubmitAndDecideRollsBack(t *testing.T) {
+	pool, tenantID, ctx := newFixture(t)
+	svc := newSvc(pool)
+
+	employeeID := seedUser(t, pool, tenantID, "vanish-"+uuid.NewString()+"@example.test")
+	profileID := seedProfile(t, pool, tenantID, employeeID, nil)
+	approverID := seedUser(t, pool, tenantID, "vanish-hr-"+uuid.NewString()+"@example.test")
+
+	req := submit(t, ctx, svc, tenantID, employeeID, "addressCity", "Rostock")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_profile_change_requests", req.ID) })
+
+	// The employee's profile disappears (e.g. offboarding) before HR decides.
+	testutil.CleanupRow(t, pool, "hr_employee_profiles", profileID)
+
+	if _, err := svc.Approve(ctx, DecideInput{
+		TenantID: tenantID, ActorID: approverID, ActorScope: auth.ScopeAll, RequestID: req.ID,
+	}); !errors.Is(err, ErrProfileNotFound) {
+		t.Fatalf("approving a request whose profile vanished: got %v, want ErrProfileNotFound", err)
+	}
+
+	stillPending, err := svc.repo.GetByID(ctx, tenantID, req.ID)
+	if err != nil {
+		t.Fatalf("GetByID after a failed approval: %v", err)
+	}
+	if stillPending.Status != models.HRChangeRequestPending {
+		t.Fatalf("status after a failed approval = %q, want pending — the transaction must roll back the status flip", stillPending.Status)
+	}
+	if stillPending.DecidedAt != nil || stillPending.DecidedBy != nil {
+		t.Fatalf("a failed approval left a decision recorded: decided_at=%v decided_by=%v", stillPending.DecidedAt, stillPending.DecidedBy)
+	}
 }
 
 func TestChangeRequests_AreInvisibleToAnotherTenant(t *testing.T) {

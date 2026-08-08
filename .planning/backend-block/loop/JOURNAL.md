@@ -1716,3 +1716,84 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   (`stock_movements.reference`) haette sie feiner verknuepft, das
   Inventur-Vorbild nutzt sie aber ebenfalls nicht — bewusst gleich gelassen
   statt zwei Muster nebeneinander zu haben.
+
+## Iteration 22 — c-cov-biz-hr-changerequest — done — 2026-08-08 22:35
+- commit: -
+- verify vorgaenger: sauber. `9445f8c8` (a-inventar-picking, Iteration 21)
+  gegen alle acht Fehlerklassen geprueft: alle sieben Handler in
+  `route_inventar.go` gehen ueber `client.<RPC>` (`InventarServiceClient`,
+  gRPC-Client, kein direkter Service-Zugriff); Migration 000307
+  (`picking_lists`/`picking_list_items`) hat `tenant_id UUID NOT NULL` +
+  `CALL enable_tenant_rls(...)` fuer beide Tabellen, up und down gefuellt;
+  Migration 000308 seedet `inventar:picking:read/write/book` VOR jedem neuen
+  `RequirePermission`-Aufruf (Reihenfolge stimmt); `.proto` und
+  `inventar.pb.go`/`inventar_grpc.pb.go` im selben Commit regeneriert; alle
+  sieben Routen in `api/openapi.yaml` (`picking`-Grep bestaetigt 20+
+  Fundstellen inkl. Pfade und Schemas); kein Alt-Guard ersetzt, nur additiv.
+  `git merge origin/main` war "Already up to date".
+- praemisse: WIDERLEGT. Die Backlog-Notiz behauptete 0,0 % Coverage,
+  "vollstaendig ungetestet". Tatsaechlich existiert
+  `integration_db_test.go` bereits seit dem Feature-Commit `dbcf2493`
+  ("feat(hr): add employee profile change requests") mit sieben
+  DB-Integrationstests (Doppelantrag-Ablehnung, unbekanntes Feld,
+  Genehmigung inkl. Zweifachgenehmigung, Team-Scope-Reichweite, Ablehnung
+  mit Pflichtgrund, Ruecknahme, Cross-Tenant-Unsichtbarkeit). Gemessen vor
+  dieser Iteration: **79,9 %** (`go test ./internal/biz/hr/changerequest/...
+  -cover`), nicht 0,0 %. Trotzdem nicht als erledigt/blocked abgehakt —
+  `go tool cover -func` zeigte reale, sicherheitsrelevante Luecken in
+  `approveScopeAllows` (der laut Paket-Doku "eigentliche Grund, warum der
+  Flow existiert") und in der Transaktionslogik von `ApproveAndApply`, also
+  ergaenzt statt neu erfunden.
+- gebaut: Fuenf neue DB-Tests in `integration_db_test.go`, keine
+  Quelldatei-Aenderung (reine Testergaenzung).
+  (1) `TestCreate_DrawerMismatchIsRefused` — Feld unter falschem Drawer
+  eingereicht (`addressCity` unter `"banking"` statt `"personal"`) →
+  `ErrFieldNotProposable`, nichts gespeichert.
+  (2) `TestCreate_BlankOrOversizedValueIsRefused` — Leerwert (nur
+  Whitespace) und 501-Zeichen-Wert beide abgelehnt.
+  (3) `TestApprove_OwnScopeOnlyReachesTheApproversOwnRequest` — deckt
+  `auth.ScopeOwn` in `approveScopeAllows` ab, vorher 0 % Zeilenabdeckung:
+  ein Genehmiger mit `own`-Scope darf nur seinen eigenen Antrag entscheiden,
+  einen fremden liefert `ErrOutOfScope`.
+  (4) `TestApprove_TeamScope_ProposerWithoutProfileIsOutOfScope` — Antragsteller
+  ohne `hr_employee_profiles`-Zeile (z. B. schon offgeboardet); `ManagerOf`
+  liefert `ErrProfileNotFound`, `approveScopeAllows` macht daraus
+  `false, nil` statt eines Serverfehlers → `ErrOutOfScope`.
+  (5) `TestApprove_ProfileRemovedBetweenSubmitAndDecideRollsBack` — das
+  Profil verschwindet zwischen Einreichung und Entscheidung; `ApproveAndApply`
+  claimt die Zeile (`status='approved'`), das nachfolgende
+  `UPDATE hr_employee_profiles` trifft 0 Zeilen → `ErrProfileNotFound`,
+  UND die Transaktion rollt zurueck (Status bleibt `pending`, kein
+  `decided_at`/`decided_by`) — das ist der Fall, der nur gegen eine echte
+  DB beweisbar ist, kein Mock haette die Rollback-Semantik gepruefe.
+- gate: build ok (`-p 2`, Windows-Linker-Workaround wie in fruehreren
+  Iterationen) | vet ok | lint ok (`golangci-lint run
+  ./internal/biz/hr/changerequest/...`, 0 issues) | test ok
+  (`./internal/biz/hr/changerequest/` 12/12 PASS 0 SKIP,
+  `./internal/gateway/` inkl. `TestOpenAPIRouteDrift`,
+  `./internal/testutil/`, `./internal/server/` alle gruen) | migration n.a.
+  (keine Schema-Aenderung) | openapi n.a. (keine neue Route)
+- mutations-probe: zwei Stueck, beide aussagekraeftig, beide zurueckgedreht.
+  (1) `case auth.ScopeOwn: return actorID == proposerID, nil` zu
+  `return true, nil` gedreht (Own-Scope wirkungslos) → GENAU
+  `TestApprove_OwnScopeOnlyReachesTheApproversOwnRequest` wurde rot, die
+  drei Nachbartests (`_WritesTheValueToTheProfile`,
+  `_TeamScopeReachesOnlyDirectReports`,
+  `_TeamScope_ProposerWithoutProfileIsOutOfScope`) blieben gruen.
+  (2) In `ApproveAndApply` die `if tag.RowsAffected() == 0`-Pruefung auf
+  `if false` gesetzt (Profil-Verschwinden wird nicht mehr erkannt) → GENAU
+  `TestApprove_ProfileRemovedBetweenSubmitAndDecideRollsBack` wurde rot, die
+  drei Nachbar-Approve-Tests blieben gruen. Beide Proben zurueckgedreht,
+  Endgate danach erneut gelaufen und gruen (12/12, 0 Skips).
+- db-tests: alle zwoelf Tests im Paket sind DB-Integrationstests
+  (`testutil.SkipIfNoDB` + `PoolFromEnv`, jeder Test seedet seinen eigenen
+  Tenant) — **0 Skips**. `DATABASE_URL` war auf `kmuhub_app` gesetzt
+  (NOSUPERUSER NOBYPASSRLS). Coverage vorher 79,9 %, nachher **85,2 %**
+  (`go test ./internal/biz/hr/changerequest/... -cover`).
+- offen: Ein Punkt fuer Luke. `ApproveAndApply` bleibt bei 68,4→hoeher aber
+  nicht 100 % Coverage: `tx.Commit`-Fehler und der generische
+  `tx.Exec`-Fehler (z. B. Verbindungsabbruch mitten in der Transaktion)
+  sind weiterhin ungetestet — beides ist gegen die lokale DB nicht
+  provozierbar ohne einen Fault-Injection-Mechanismus, den es in diesem
+  Repo nicht gibt. Kein aktiver Befund, nur eine Grenze der
+  DB-Integrationstest-Methode selbst.
