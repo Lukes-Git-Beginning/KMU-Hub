@@ -1905,7 +1905,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/helpdesk_grpc.go` - 1.413 Zeilen, 41 Methoden. Es gibt bereits zwei
       schmale Testdateien (`helpdesk_csat_config_test.go`, `helpdesk_intake_error_test.go`),
@@ -1925,6 +1925,41 @@ units:
       - Fehler-Abbildung als Tabellentest
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/server/ gruen
+    result: >
+      Iteration 45 (2026-08-09): `helpdesk_grpc_test.go` (neu, ~1050 Zeilen). Kein
+      Repository-Interface-Stub fuer den Happy-Path der meisten RPCs noetig, weil in
+      diesem Handler fast jede Zeile Parse/Validierung VOR dem Service-Aufruf ist - ein
+      Server mit nil *helpdesk.Service deckt daher fast alle 41 Methoden ab (Tabellentest
+      mit ~60 Faellen: ungueltige UUIDs, fehlender Tenant-Kontext, CSAT-Rating aus dem
+      Bereich, CreateTicketFromMessage ohne inboxClient -> Unavailable). Fuer den
+      sicherheitsrelevanten Teilnehmerfilter in ListTickets ist das zu wenig - dafuer
+      `stubHelpdeskRepo` (volles Repository-Interface, Map-basiert) plus echter
+      *helpdesk.Service gebaut: mit gesetztem participant_id kommen nur Tickets zurueck,
+      bei denen der Aufrufer Assignee ODER Requester ist, nie das Ticket eines anderen
+      Agents. `mapHelpdeskError` als vollstaendiger Sentinel-Tabellentest (alle 22 aus
+      errors.go + nil + unbekannter Fehler -> Internal). Alle acht Proto<->Domain-Konverter
+      mit nil-optional- und populated-Fall (ticketToProto/ticketQueueToProto/
+      slaPolicyToProto/routingRuleToProto/businessHoursToProto je mit und ohne die
+      jeweiligen Pointer-Felder).
+      Zwei Mutations-Proben, beide praezise. (1) `mapHelpdeskError`s
+      `ErrAlreadyMerged`-Fall von `codes.FailedPrecondition` auf `codes.InvalidArgument`
+      gedreht -> GENAU `TestMapHelpdeskError_AllSentinels/already_merged` wurde rot, die
+      21 anderen Sentinel-Subtests blieben gruen. (2) In `ListTickets` die
+      `participant_id`-Parsing-Bedingung mit `if false &&` stillgelegt -> GENAU
+      `TestListTickets_ParticipantFilter/with_participant_filter_...` wurde rot (erwartet
+      2, bekommen 3 - der B-Ticket-Leck), der Fall ohne Filter blieb gruen. Beide
+      zurueckgedreht, `git diff --stat -- internal/server/helpdesk_grpc.go` zeigt danach
+      keinen Diff.
+      gate: build ok (`go build ./...` - erster Versuch Linker-OOM wie in Iteration 43,
+      zweiter Versuch clean) | vet ok | lint ok (0 issues, `./internal/server/...`) |
+      test ok (`internal/server` inkl. aller neuen Tests, `internal/server/response`,
+      0 Skips mit `DATABASE_URL` auf `kmuhub_app`) | migration n.a. | rls-smoke n.a.
+      Coverage von `helpdesk_grpc.go`: alle acht Konverter + `mapHelpdeskError` bei
+      100 %, die meisten RPC-Handler zwischen 30 % (reine Listen-RPCs, deren Service-Aufruf
+      Repository-Interna ist) und 86 % (ListTickets). `issueCsatSurvey`/`GetCsatConfig`/
+      `SetCsatConfig` bleiben bei 0 % - die beiden bestehenden Testdateien decken deren
+      Codec (`csatConfigFromEntries`/`csatConfigToValue`) bereits ab, der Rest haengt am
+      `settingsClient`, der wie `svc` nil ist; ausserhalb des Scopes dieser Unit.
 
   - id: b-cov-server-security
     phase: 3

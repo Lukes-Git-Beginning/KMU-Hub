@@ -3929,3 +3929,94 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   (3) Kein FE-Konsument-Check noetig (reine Coverage-Unit ohne
   Wire-Vertrags-Aenderung ausser der Null→[]-Korrektur, die das FE nur
   robuster macht, nie bricht).
+
+## Iteration 45 — b-cov-server-helpdesk — done — 2026-08-09 00:35
+- commit: ead08dec
+- verify vorgaenger: sauber. `2b217efe` (b-cov-server-inbox) geprueft: reine
+  Testdatei (1278 Zeilen) plus der im Journal behauptete 5-Zeilen-Fix in
+  `inbox_grpc.go` (fuenf `var infos []*T` → `make(...,0,len(...))`), `git
+  show --stat` deckt sich exakt mit der Beschreibung, keine Route/Migration/
+  Guard angefasst. `git fetch` + `git merge origin/main` war "Already up to
+  date".
+- gebaut: `internal/server/helpdesk_grpc_test.go` (neu, ~1050 Zeilen).
+  Anders als inbox_grpc (vier Repository-Interface-Services) ist
+  `helpdesk_grpc.go` fast durchgehend Parse-dann-Service: fast jede der 41
+  Methoden validiert UUIDs/Tenant-Kontext VOR dem einzigen `s.svc.*`-Aufruf,
+  also deckt ein Server mit nil `*helpdesk.Service` (Muster aus
+  `formulare_grpc_test.go`) die weit ueberwiegende Mehrheit ab —
+  `TestHelpdeskGRPC_ValidationErrors` als ein Tabellentest mit ~60 Faellen:
+  ungueltige tenant_id/ticket_id/assignee_id/queue_id/contact_id/org_id/
+  sla_policy_id/rule_id/article_id, fehlender Tenant-Kontext (`GetTenantID`
+  schlaegt fehl), CSAT-Rating ausserhalb [1,5] in `SubmitCsat` UND
+  `SubmitCsatByToken` (Letzteres ganz ohne Tenant-Kontext, wie im Code
+  vorgesehen — der Public-Redeem-Pfad hat keinen), ungueltiges
+  business_hours/conditions/schedule_json/holidays_json als JSON, und
+  `CreateTicketFromMessage` ohne `inboxClient` → `codes.Unavailable` (der
+  Nil-Check laeuft NACH allen drei UUID-Parses, also mit nil `svc` UND nil
+  `inboxClient` sicher erreichbar).
+  Fuer den in den `notes` explizit verlangten Teilnehmerfilter reicht das
+  nicht — dafuer `stubHelpdeskRepo` gebaut, das komplette
+  `helpdesk.Repository`-Interface (26 Methoden) map-basiert implementiert,
+  und einen echten `*helpdesk.Service` darueber verdrahtet. Drei Tickets
+  geseedet (direkt in die Map, nicht ueber `Service.CreateTicket`, um dessen
+  Intake-Validierung fuer diesen Test zu umgehen): eines Agent A zugewiesen,
+  eines von Agent A angefragt (`RequesterID`), eines Agent B zugewiesen.
+  Ohne `participant_id` liefert `ListTickets` alle drei; mit `participant_id
+  = A` genau die ersten zwei — Agent B's Ticket bleibt aussen vor, das ist
+  der own-Scope-Beweis.
+  `TestMapHelpdeskError_AllSentinels` deckt alle 22 Sentinels aus
+  `errors.go` (nicht nur die vier Intake-Faelle aus
+  `helpdesk_intake_error_test.go`) + nil + einen unbekannten Fehler auf
+  `codes.Internal`. Alle acht Proto↔Domain-Konverter mit nil-optional- UND
+  populated-Fall: `ticketToProto` (elf optionale Pointer-Felder je einmal
+  nil, einmal gesetzt), `ticketQueueToProto`, `slaPolicyToProto`
+  (BusinessHours leer vs. gefuellt), `routingRuleToProto` (TargetQueueId
+  nil vs. gesetzt, Conditions-JSON), `businessHoursToProto` (UpdatedAt
+  Zero-Value vs. gesetzt — Zero bleibt `nil` auf dem Wire),
+  `requesterIDToProto`, `kbArticleToProto`, `cannedResponseToProto`,
+  `ticketMessageToProto`.
+  Kein Bug gefunden (anders als document_grpc/inbox_grpc) — der Handler ist
+  bereits konsistent auf `make(...)`-Vorbelegung für alle Listen-Returns
+  (`protoTickets`, `protoMsgs`, `protoQueues`, `protoPolicies`, etc. nutzen
+  durchgehend `make([]*T, len(...))`, keine `var infos []*T`-Faelle wie in
+  den beiden Vorgaenger-Iterationen).
+- gate: build ok (`go build ./internal/...` clean; `go build ./...` erster
+  Versuch Linker-OOM — "Insufficient system resources" beim Linken von
+  `cmd/gateway`, exakt dasselbe transiente Muster wie Iteration 43, zweiter
+  Versuch clean) | vet ok (`./internal/server/...`) | lint ok (0 issues,
+  `./internal/server/...`, ein `min()`-Modernize-Hinweis im ersten Entwurf
+  selbst behoben) | test ok (`internal/server` inkl. aller neuen Tests,
+  `internal/server/response`) | migration n.a. (keine Tabelle angefasst) |
+  rls-smoke n.a. (kein Repository-Code, reiner Handler-Test).
+- mutations-probe: zwei Stueck, beide praezise, in `helpdesk_grpc.go`
+  selbst (nicht im Stub).
+  (1) `mapHelpdeskError`s `ErrAlreadyMerged`-Fall von
+  `codes.FailedPrecondition` auf `codes.InvalidArgument` gedreht → GENAU
+  `TestMapHelpdeskError_AllSentinels/already_merged` wurde rot, alle 21
+  anderen Sentinel-Subtests blieben gruen.
+  (2) In `ListTickets` die participant_id-Parsing-Bedingung mit `if false
+  && req.ParticipantId != nil` stillgelegt (participantID bleibt immer nil)
+  → GENAU `TestListTickets_ParticipantFilter/with_participant_filter_...`
+  wurde rot (erwartet 2 Tickets, bekommen 3 — Agent B's Ticket leckte
+  durch), der Fall ohne Filter blieb gruen. Beide zurueckgedreht,
+  `git diff --stat -- internal/server/helpdesk_grpc.go` zeigt danach keinen
+  Diff. Endgate (build/vet/lint/test) erneut gelaufen und gruen.
+- db-tests: 0 im neuen Paket (Mock/Stub-Testing gegen In-Memory-Repo und
+  nil-Service, kein `SkipIfNoDB`-Pfad) — **0 Skips** in der vollstaendigen
+  `internal/server`-Suite. `DATABASE_URL` war auf `kmuhub_app` gesetzt.
+- coverage: `helpdesk_grpc.go` vorher ~7 % (nur CSAT-Codec +
+  Intake-Fehlerabbildung, 98 Zeilen Testcode). Jetzt alle acht Konverter
+  und `mapHelpdeskError` bei 100 %, die 41 RPC-Handler zwischen 30 %
+  (reine List-RPCs — der Service-Aufruf selbst ist Repository-Interna,
+  ausserhalb des Handler-Scopes) und 86 % (`ListTickets`). Drei Methoden
+  bleiben bei 0 %: `GetCsatConfig`/`SetCsatConfig` (deren Codec
+  `csatConfigFromEntries`/`csatConfigToValue` bereits in
+  `helpdesk_csat_config_test.go` abgedeckt ist, der Rest haengt am
+  `settingsClient`, der wie `svc` in dieser Unit nil bleibt) und
+  `issueCsatSurvey` (privater Helper, nur ueber `CloseTicket` erreichbar,
+  das selbst einen funktionierenden Service braucht — auesserhalb des
+  fuer diese Unit gebauten Stub-Umfangs). Kein aktiver Mangel, nur
+  vermerkt fuer eine moegliche Folge-Unit.
+- offen: keiner. CSAT-Verhalten wurde wie in den `notes` gefordert nicht
+  angefasst, nur getestet (Codec-Tests unveraendert aus der Vorgaenger-
+  Iteration).
