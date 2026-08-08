@@ -25,7 +25,9 @@ import (
 // commentStubRepo (work_label_test.go), GetByID returns a real, seeded comment so
 // the author/admin authorization branches in comment.Service actually execute.
 type commentAuthzMockRepo struct {
-	comments map[uuid.UUID]*models.TaskComment
+	comments     map[uuid.UUID]*models.TaskComment
+	lastPage     int
+	lastPageSize int
 }
 
 func newCommentAuthzMockRepo() *commentAuthzMockRepo {
@@ -45,8 +47,16 @@ func (r *commentAuthzMockRepo) GetByID(_ context.Context, id uuid.UUID) (*models
 	return c, nil
 }
 
-func (r *commentAuthzMockRepo) List(_ context.Context, _ uuid.UUID, _, _ int) ([]comment.TaskCommentWithAuthor, int, error) {
-	return nil, 0, nil
+func (r *commentAuthzMockRepo) List(_ context.Context, taskID uuid.UUID, page, pageSize int) ([]comment.TaskCommentWithAuthor, int, error) {
+	r.lastPage = page
+	r.lastPageSize = pageSize
+	var out []comment.TaskCommentWithAuthor
+	for _, c := range r.comments {
+		if c.TaskID == taskID {
+			out = append(out, comment.TaskCommentWithAuthor{TaskComment: *c})
+		}
+	}
+	return out, len(out), nil
 }
 
 func (r *commentAuthzMockRepo) Update(_ context.Context, id uuid.UUID, content string) error {
