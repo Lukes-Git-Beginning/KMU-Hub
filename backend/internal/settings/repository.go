@@ -29,6 +29,10 @@ type Repository interface {
 	// User settings
 	GetUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) ([]*SettingEntry, error)
 	PutUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error)
+	// ReplaceUserSettings overwrites the entire entry set for a user/module pair:
+	// keys not present in entries are deleted, not left untouched. Used by
+	// /api/v1/users/preferences, whose client always sends the complete set.
+	ReplaceUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error)
 
 	// Value-set overrides (migration 000295). These hold ONLY what a tenant
 	// changed; the shipped baseline lives in the Go registry (valueset.go).

@@ -166,6 +166,13 @@ func (r *fakeRepo) PutUserSettings(_ context.Context, tenantID, userID uuid.UUID
 	return result, nil
 }
 
+func (r *fakeRepo) ReplaceUserSettings(_ context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*settings.SettingEntry) ([]*settings.SettingEntry, error) {
+	result := make([]*settings.SettingEntry, len(entries))
+	copy(result, entries)
+	r.userSettings[usKey(tenantID, userID, moduleID)] = result
+	return result, nil
+}
+
 // fakeRoleChecker always returns a configurable isAdmin value.
 type fakeRoleChecker struct {
 	adminIDs map[uuid.UUID]bool

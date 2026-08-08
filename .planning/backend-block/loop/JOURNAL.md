@@ -488,3 +488,84 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Begehung, nicht beim Anlegen des Datensatzes. Falls das FE einen
   Create-mit-Signatur-Flow braucht, ist das additiv nachruestbar
   (`optional string signature_data` an `CreateInspectionRequest`).
+
+## Iteration 8 — a-users-preferences — done — 2026-08-08 20:35
+- commit: (siehe naechster Commit dieser Iteration)
+- verify vorgaenger: sauber. `ec2dd22a` (a-vermietung-inspection-signature)
+  geprueft gegen alle acht Fehlerklassen: `HandleCreateInspection`/
+  `HandleUpdateInspection` gehen ueber `client.CreateInspection`/
+  `client.UpdateInspection` (`vermietungv1.VermietungServiceClient`), keine
+  direkte Service-Instanz; keine Stub-Rueckgabe; `.proto` UND `vermietung.pb.go`
+  im selben Commit regeneriert (kein neuer RPC, also kein `_grpc.pb.go`-Diff
+  noetig); kein neuer `RequirePermission`-Guard (bestehender
+  `vermietung:inspection`/`write`-Key); Migration 000302 fuegt nur zwei
+  NULLABLE Spalten an einer seit Migration 000122 RLS-gescopten Tabelle an,
+  keine neue Policy noetig; `checklistToProto` liefert immer ein
+  Non-Nil-Slice, also `[]` statt `null`; Pfad-Erweiterungen in
+  `api/openapi.yaml` im selben Commit; kein Alt-Key ersetzt. War bereits als
+  Iteration 7 im Journal protokolliert, dieser Lauf hat nur die SHA
+  nachgetragen (`1c283333`, chore-Commit) und dann selbst verifiziert. `git
+  merge origin/main` war "Already up to date".
+- gebaut: `GET`/`PUT /api/v1/users/preferences` — duenner Endpunkt ueber der
+  bestehenden `user_settings`-Tabelle (Migration 000138), `module_id =
+  "profile"`, KEINE neue Tabelle. Praemisse beim Lesen widerlegt: die
+  Backlog-Notiz "FE haelt Praeferenzen nur im localStorage" stimmt fuer
+  Sprache nicht — `desktop/.../stores/locale.ts` synct das Locale bereits
+  serverseitig ueber `PUT /settings/language/user`; Theme ist in
+  `stores/ui.ts` bewusst NICHT synct (`lean:`-Marker mit explizitem
+  Upgrade-Pfad auf `/settings/appearance/user`) und "Region" existiert im FE
+  ueberhaupt nicht als allgemeine Praeferenz. Der Endpunkt ist trotzdem
+  gebaut, weil `done_when` ihn explizit fordert und er echten Mehrwert hat:
+  anders als der generische `/settings/{module_id}/user` lehnt er unbekannte
+  Schluessel mit 400 ab und ersetzt beim PUT den ganzen Satz (Keys, die im
+  Body fehlen, werden GELOESCHT, nicht nur unangetastet gelassen) — echte
+  Full-Replace-Semantik statt Patch. Dafuer eine neue RPC
+  `ReplaceUserSettings` am bestehenden `SettingsService` ergaenzt (Proto +
+  `settings.pb.go`/`_grpc.pb.go` regeneriert), Repository-Methode nach dem
+  Delete-dann-Insert-Transaktionsmuster aus
+  `auth.PostgresRepository.SetUserOverrides` (nicht neu erfunden). Erlaubte
+  Schluessel: `language`, `theme`, `region` (`userPreferenceKeys`-Allowlist
+  im Gateway). Handler ignorieren jedes `user_id`-Feld im Body strukturell —
+  `putUserPreferencesRequest` hat gar kein solches Feld, der Zielnutzer kommt
+  ausschliesslich aus `middleware.GetUserID(ctx)`. Guard: bestehender
+  `settings:read`/`settings:write`-Key (Migration 000138 seedet ihn schon
+  fuer admin/manager/member) — KEINE neue Seed-Migration noetig, KEINE neue
+  Migration ueberhaupt. Response-Form identisch zu
+  `GET/PUT /settings/{module_id}/user` (`{entries:[{key,value}]}` via
+  `response.Proto`), damit das Wire-Muster konsistent bleibt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (settings 42/42 PASS
+  0 SKIP inkl. neuem DB-Test, server ok, gateway ok inkl.
+  `TestOpenAPIRouteDrift` = 826 Routen gegen 827 Pfade) | migration n.a.
+  (keine neue Tabelle, keine neue Permission) | openapi `swagger-cli
+  validate` ok
+- mutations-probe: zwei Stueck, beide aussagekraeftig.
+  (1) Gateway: `if !userPreferenceKeys[key]` zu `if false` gedreht (Allowlist
+  wirkungslos) → GENAU `TestHandlePutUserPreferences_UnknownKeyRejected`
+  wurde rot (503 statt 400 — der Request kam ungeprueft bis zum toten
+  gRPC-Dial durch), die vier Nachbartests blieben gruen.
+  (2) Repository: `DELETE FROM user_settings WHERE ... module_id = $3` um
+  `AND FALSE` erweitert (Full-Replace liefert kein Delete mehr) → GENAU
+  `TestSettingsWrites_LandInCallerTenant` wurde rot (`ERROR: duplicate key
+  value violates unique constraint "user_settings_pk"` — der zweite INSERT
+  auf denselben Schluessel `language` kollidierte mit der nicht geloeschten
+  Altzeile). Beide Proben zurueckgedreht, Endgate danach erneut gelaufen und
+  gruen (42/42, 0 Skips).
+- db-tests: `TestSettingsWrites_LandInCallerTenant` (erweitert um den
+  `ReplaceUserSettings`-Block: Full-Replace loescht `region`, behaelt nur das
+  neu gesetzte `language`, Cross-Tenant liefert 0 Zeilen) lief real gegen die
+  lokale DB — **0 Skips** im gesamten Paket `settings` (42 PASS, 0 SKIP).
+  `DATABASE_URL` war auf `kmuhub_app` gesetzt.
+- offen: Zwei Punkte fuer Luke.
+  (1) Kein FE-Konsument. `stores/locale.ts` und `stores/ui.ts` schreiben
+  weiterhin gegen `/settings/language/user` bzw. gar nicht serverseitig
+  (Theme) — eine Umstellung auf `/users/preferences` waere ein
+  FE-Vertragswechsel und liegt ausserhalb dieser Unit. Der neue Endpunkt ist
+  bewusst additiv, kollidiert mit nichts Bestehendem.
+  (2) Architektur-Entscheidung zur Bestaetigung: das Full-Replace-Verhalten
+  (fehlender Key = geloescht) weicht vom Rest der Settings-Familie ab (dort
+  ueberall Patch-Semantik). Wenn das FE spaeter einzelne Praeferenzen partiell
+  aktualisieren will (z. B. nur Theme aendern, ohne Sprache/Region
+  mitzuschicken), muesste es bei jedem PUT den vollstaendigen Satz
+  mitschicken (erst GET, dann PUT mit allen dreien) — sonst gehen die
+  fehlenden Keys verloren. Das ist Absicht laut `notes` im Backlog ("PUT
+  ersetzt den ganzen Satz"), aber ein FE-Implementierer muss das wissen.

@@ -334,7 +334,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Nutzerweite Praeferenzen (Sprache, Theme, Region) serverseitig persistieren:
       `GET /api/v1/users/preferences` und `PUT /api/v1/users/preferences`. Verifiziert

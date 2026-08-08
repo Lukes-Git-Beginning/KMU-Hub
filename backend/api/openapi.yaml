@@ -13224,6 +13224,50 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/users/preferences:
+    get:
+      summary: Get the caller's user-wide preferences (language, theme, region)
+      description: >
+        Thin, fixed-key wrapper over the same user_settings table as
+        GET /settings/{module_id}/user (module_id "profile") — no dedicated
+        table.
+      operationId: getUserPreferences
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Replace the caller's user-wide preferences
+      description: >
+        Full-replace semantics — keys omitted from the request are deleted,
+        not left untouched (unlike PUT /settings/{module_id}/user, which
+        patches). Only the known preference keys (language, theme, region)
+        are accepted; any other key is rejected with 400. Any user_id in the
+        body is ignored — the target is always the authenticated caller.
+      operationId: putUserPreferences
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutUserPreferencesRequest" }
+      responses:
+        "200":
+          description: Updated user preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/customization/labels:
     get:
       summary: Get resolved tenant label overrides for a locale
@@ -39447,6 +39491,20 @@ components:
           workStartHour: 8
           payroll.beraterNr: "12345"
           payroll.mandantNr: "67890"
+
+    PutUserPreferencesRequest:
+      type: object
+      description: >
+        Full-replace semantics — the given keys become the caller's complete
+        preference set. Only language, theme and region are accepted; any
+        other key is rejected with 400.
+      properties:
+        preferences:
+          type: object
+          additionalProperties: true
+          description: 'Subset of {language, theme, region}. Example: {"language": "de", "theme": "dark"}'
+      required: [preferences]
+
     ResolvedLabel:
       type: object
       properties:
