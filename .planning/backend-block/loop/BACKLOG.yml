@@ -1083,7 +1083,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/settings_grpc.go` - 738 Zeilen, 21 Methoden, keine Testdatei.
     sources:

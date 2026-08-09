@@ -1564,3 +1564,83 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `fix-plugin-error-mapping-gaps`,
   `fix-plugin-nil-manifest-panic-on-orphaned-installation`) - Luke
   entscheidet welche noch in Lauf 7 reinpassen.
+
+## Iteration 24 — b-cov-server-settings — done — 2026-08-10 01:25
+- commit: (siehe unten)
+- gebaut: neue Datei `internal/server/settings_grpc_test.go` fuer
+  `settings_grpc.go` (771 Zeilen, 21 RPC-Methoden ueber `SettingsGRPCServer`,
+  vorher 0 % Coverage, keine Testdatei). Eigener In-Memory-Stub fuer
+  `settings.Repository` (23 Methoden) und `settings.RoleChecker`
+  (`stubSettingsRepo`/`stubRoleChecker`, neu — `settings_test.go`s
+  `fakeRepo` ist Package-privat in `settings_test` und von `internal/server`
+  aus nicht erreichbar). `forceErr` auf dem Stub-Repo faengt die generische
+  "slog.Error + codes.Internal"-Fallback-Verzweigung, die sich alle 21
+  RPCs teilen, ohne 20 fast identische Injektionspunkte zu brauchen.
+  Abgedeckt je RPC: UUID-Validierung fuer tenant_id/user_id/granted_by/
+  updated_by (inkl. `optional string`-Filterfelder bei List*), die
+  dreistufige Settings-Aufloesung (`GetResolvedSettings`: Tenant-Default
+  per Admin geschrieben -> Modul-Leiter-Override am selben Speicherpfad
+  (beweist das RBAC-Gate, nicht eine eigene Speicherebene) -> persoenlicher
+  User-Override gewinnt -> ein zweiter User ohne eigenen Override sieht
+  weiterhin die Tenant-/Leiter-Ebene, nicht den ersten User), Tenant-
+  Schreibzugriff ohne Modul-Leiter-/Admin-Recht scheitert
+  (`PutTenantSettings`/`PutBranding` -> PermissionDenied), leerer
+  Settings-Key -> InvalidArgument, `[]` statt `null` bei leerer
+  `GetResolvedSettings`-Antwort, `ReplaceUserSettings`-Full-Replace-
+  Semantik (nicht mitgeschickte Keys verschwinden), `mapModuleGrantError`
+  als eigener Tabellentest ueber alle drei Zweige
+  (ErrNotAdmin/ErrInvalidModuleID/generisch), Branding-Validierungskette
+  als Tabellentest (Name zu lang, Accent-Farbe ausserhalb der Palette,
+  Objekt-Key eines fremden Tenants), Lizenzierung (`GetTenantLicense`
+  liefert den vollen Katalog mit Aktivierung/Sitzen je Modul,
+  `SetTenantModuleActive` mit unbekanntem Modul -> InvalidArgument, Sitze
+  fallen bei Deaktivierung auf 0), `GetTenantSubscription` NotFound vs.
+  Erfolg inkl. Datumsformat "YYYY-MM-DD" fuer `billing_period_end`, und
+  Value-Sets (`base=true`-Baseline-Ansicht, Tenant-Override-Merge,
+  ungueltiges Key-Pattern, unbekannter Key -> NotFound,
+  `UpsertValueSet`-Validierungstabelle ueber alle vier `validateValueSet`-
+  Sentinels). `internal/server`-Gesamtcoverage laut `go tool cover -func`:
+  keine Methode in `settings_grpc.go` bleibt bei 0 % (Spanne 55,6 % bis
+  100 %, `ReplaceUserSettings` am niedrigsten wegen ihres unbenutzten
+  Fehlerpfads bei Repo-Fehlern, der nicht extra injiziert wurde).
+- **Befund waehrend der Arbeit, kein Fix (ausserhalb Scope):** `DeleteValueSet`
+  existiert als Service-Methode (`internal/settings/service.go:504`,
+  System-Key -> Reset auf Baseline, Tenant-Key -> geloescht) und im
+  Repository-Interface, ist aber im `.proto` bewusst nicht als RPC
+  exponiert — der Proto-Kommentar selbst dokumentiert das ("Delete is
+  deliberately not exposed here yet -- no caller needs it"). Kein Bug,
+  nur zur Kenntnis: die Coverage-Luecke fuer `DeleteValueSet` in
+  `internal/settings` bleibt unabhaengig von dieser gRPC-Coverage-Unit
+  bestehen, falls eine kuenftige `internal/settings`-Coverage-Unit das
+  aufgreifen will.
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/settings/...`) | vet ok (`go vet ./internal/server/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/server/...`,
+  0 issues — ein erster Lauf meldete `ST1012` fuer den generischen
+  Test-Error `assertAnError`, auf `errStubRepoFailure` umbenannt) | test ok
+  (`go test -count=3 ./internal/server/...`, dreimal wiederholt,
+  durchgehend gruen) | migration n.a. (reine Test-Coverage, keine Tabelle
+  angefasst) | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff durch die neuen
+  Tests)
+- verify vorgaenger: sauber — `920447cc` (b-cov-server-automation) geprueft:
+  `git show --stat` zeigt nur `automation_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- mutations-probe: in `mapModuleGrantError` (settings_grpc.go, Zeile
+  `case errors.Is(err, settings.ErrInvalidModuleID): return
+  status.Errorf(codes.InvalidArgument, ...)`) den Code testweise auf
+  `codes.Unimplemented` geaendert → zwei Tests wurden rot
+  (`TestMapModuleGrantError_Table/invalid_module_id`,
+  `TestGrantModuleAccess_ErrorMapping/empty_module_id`), alle anderen
+  blieben gruen. Zurueckgedreht, `git diff --stat internal/server/
+  settings_grpc.go` zeigt keine Restaenderung (leerer Diff bestaetigt),
+  `go test -count=3 ./internal/server/...` danach wieder vollstaendig
+  gruen.
+- db-tests: 0 — `settings.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: sechste von zwoelf Units in Block B-Server erledigt (6/12).
+  Naechste laut Reihenfolge: `b-cov-server-wiki` (widerrufener vs.
+  unbekannter Freigabe-Token muss dieselbe Antwort erzeugen, beide
+  Artikelinhalt-Formen). `go test ./internal/gateway/` nicht gelaufen -
+  diese Iteration hat keine Route-/Gateway-Datei angefasst, laut Schritt 5
+  daher nicht Pflicht.
