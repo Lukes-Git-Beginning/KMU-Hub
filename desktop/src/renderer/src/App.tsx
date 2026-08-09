@@ -65,16 +65,13 @@ const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
 const PluginListPage = lazy(() => import('@/modules/admin/plugins/PluginListPage'))
 
 // New module pages from design integration (mock data, Zustand stores)
+// Die Bereichs-Seiten der Kunden-Zentrale lädt KontakteLayout selbst nach — es
+// führt die Bereiche per Zustand, damit der Anpassungs-Editor sie schalten kann.
+// Hier stehen nur noch das Layout und die eigenständigen Detail-Seiten.
 const KontakteLayout = lazy(() => import('@/modules/kontakte/KontakteLayout'))
-const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
-const CompaniesListPage = lazy(() => import('@/modules/crm/companies/CompaniesListPage'))
 const CompanyDetailPage = lazy(() => import('@/modules/crm/companies/CompanyDetailPage'))
-const DealsListPage = lazy(() => import('@/modules/crm/deals/DealsListPage'))
-const LeadsInboxPage = lazy(() => import('@/modules/kontakte/leads/LeadsInboxPage'))
-const AuswertungenPage = lazy(() => import('@/modules/kontakte/AuswertungenPage'))
 const AdvisoryProtocolEditor = lazy(() => import('@/modules/kontakte/advisory/AdvisoryProtocolEditor'))
 const DealDetailPage = lazy(() => import('@/modules/crm/deals/DealDetailPage'))
-const ActivitiesListPage = lazy(() => import('@/modules/crm/activities/ActivitiesListPage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
 const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
@@ -312,18 +309,23 @@ const router = createHashRouter([
       { path: 'admin/plugins', element: lazyRoute(PluginListPage, 'list', 'admin') },
 
       // Kontakte — Kunden-Zentrale (Kontakte + Firmen + Pipeline + Aktivitäten)
+      // Die Bereiche führt seit 2026-08-10 das Layout per Zustand, damit sie im
+      // Anpassungs-Editor schaltbar sind (die Sandbox hat keine passende URL). Die
+      // Bereichs-Pfade bleiben als Einstieg stehen — ohne eigenes Element, das
+      // Layout liest den Bereich aus der URL. Nur die Detail-Seiten rendern noch
+      // über den Outlet.
       {
         path: 'kontakte',
         element: lazyRoute(KontakteLayout, 'kontakte', 'crm'),
         children: [
-          { index: true, element: lazyRoute(KontaktePage, 'kontakte') },
-          { path: 'firmen', element: lazyRoute(CompaniesListPage, 'kontakte') },
+          { index: true },
+          { path: 'firmen' },
+          { path: 'leads' },
+          { path: 'pipeline' },
+          { path: 'aktivitaeten' },
+          { path: 'auswertungen' },
           { path: 'firmen/:id', element: lazyRoute(CompanyDetailPage, 'detail') },
-          { path: 'leads', element: lazyRoute(LeadsInboxPage, 'leads') },
-          { path: 'pipeline', element: lazyRoute(DealsListPage, 'pipeline') },
           { path: 'pipeline/:id', element: lazyRoute(DealDetailPage, 'detail') },
-          { path: 'aktivitaeten', element: lazyRoute(ActivitiesListPage, 'aktivitaeten') },
-          { path: 'auswertungen', element: lazyRoute(AuswertungenPage, 'dashboard') },
           { path: 'protokoll/:contactId/:protocolId', element: lazyRoute(AdvisoryProtocolEditor, 'detail') },
         ],
       },

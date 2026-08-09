@@ -76,6 +76,16 @@ export const LABEL_WHITELIST: string[] = [
   'kontakte.category.employee',
   'kontakte.category.customers',
   'kontakte.category.partner',
+  // Bereichs-Beschriftungen der Kunden-Zentrale (2026-08-10). Das sind die Namen der
+  // Bereiche INNERHALB des Moduls, nicht der Modulname (`rbac.module.crm`, fest) —
+  // genau der Fall, für den es diese Liste gibt: eine Praxis nennt „Kontakte"
+  // „Patienten", und dann muss auch der Bereich so heißen, nicht nur die Überschrift.
+  'crm.nav.contacts',
+  'crm.nav.leads',
+  'crm.nav.companies',
+  'crm.nav.deals',
+  'crm.nav.activities',
+  'crm.nav.reports',
   // List-column headings (Darien 2026-08-05). Renaming a column previewed fine but
   // was dropped on deploy, because this whitelist is the deploy filter — the rename
   // only ever lived in the sandbox bundle. Every key here is an `EditorModuleDef.

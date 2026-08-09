@@ -2309,6 +2309,7 @@
   "crm.nav.contacts": "Contacts",
   "crm.nav.deals": "Deals",
   "crm.nav.leads": "Leads",
+  "crm.nav.noSections": "No section of this module is visible right now.",
   "crm.nav.reports": "Reports",
   "crm.nav.search": "Search",
   "crm.pagination": "Page {page} of {totalPages}",
