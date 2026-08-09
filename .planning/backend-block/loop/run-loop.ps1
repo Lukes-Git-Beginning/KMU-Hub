@@ -8,6 +8,7 @@
 # Aufruf (aus dem Repo-Root):
 #   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -MaxIterations 2
 #   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "07:30"
+#   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "10:00" -PauseFrom "20:30" -PauseTo "22:30"
 #
 # Abbrechen: Datei .planning\backend-block\loop\STOP anlegen (der Loop beendet
 # nach der laufenden Iteration) oder Strg+C.
@@ -18,6 +19,9 @@
 param(
     [int]    $MaxIterations = 100,
     [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
+    [string] $PauseFrom     = "",        # "HH:mm" - einmaliges Pausenfenster, Beginn
+    [string] $PauseTo       = "",        # "HH:mm" - Ende (naechstes Auftreten nach PauseFrom)
+    [int]    $PauseGuard    = 15,        # Minuten vor PauseFrom, ab denen keine Iteration mehr startet
     [double] $BudgetUsd     = 12,        # Deckel pro Iteration
     [string] $Effort        = "high",
     [string] $ForceModel    = "",        # ueberschreibt das Modell aus BACKLOG.yml
@@ -147,6 +151,35 @@ if ($UntilTime -ne "") {
     Write-Line ("Deadline: {0}" -f $Deadline.ToString("yyyy-MM-dd HH:mm")) "Cyan"
 }
 
+# --- Pausenfenster (einmalig) ------------------------------------------------
+# Damit sich ein Nachtlauf abends ein paar Stunden aus dem Weg gehen kann (der
+# Rechner wird gebraucht), ohne dafuer in zwei Laeufe zerlegt zu werden - zwei
+# Laeufe heissen zwei Pushes, zwei CI-Laeufe und einen manuellen Neustart mitten
+# am Abend.
+#
+# Bewusst EINMALIG statt taeglich wiederkehrend: die Grenzen werden hier zu
+# absoluten Zeitpunkten aufgeloest, und das Fenster verbraucht sich, sobald es
+# einmal gegriffen hat. Damit gibt es kein Mitternachts-Rollover zu behandeln und
+# keinen Fall, in dem ein 14-Stunden-Lauf zweimal in dieselbe Pause faellt.
+$PauseStart = [DateTime]::MaxValue
+$PauseEnd   = [DateTime]::MaxValue
+if (($PauseFrom -eq "") -xor ($PauseTo -eq "")) {
+    Write-Line "ABBRUCH: -PauseFrom und -PauseTo gibt es nur zusammen." "Red"
+    exit 1
+}
+if ($PauseFrom -ne "") {
+    $PauseStart = [DateTime]::ParseExact($PauseFrom, "HH:mm", $null)
+    if ($PauseStart -le (Get-Date)) { $PauseStart = $PauseStart.AddDays(1) }
+    $PauseEnd = [DateTime]::ParseExact($PauseTo, "HH:mm", $null)
+    while ($PauseEnd -le $PauseStart) { $PauseEnd = $PauseEnd.AddDays(1) }
+    if ($PauseEnd -ge $Deadline) {
+        Write-Line "ABBRUCH: Pausenende liegt auf oder hinter der Deadline - nach der Pause bliebe keine Arbeitszeit." "Red"
+        exit 1
+    }
+    Write-Line ("Pause: {0} bis {1} (ab {2} min davor startet nichts Neues mehr)" -f `
+        $PauseStart.ToString("yyyy-MM-dd HH:mm"), $PauseEnd.ToString("yyyy-MM-dd HH:mm"), $PauseGuard) "Cyan"
+}
+
 # --- Schlafsperre ------------------------------------------------------------
 # Ohne das schickt Windows die Maschine mitten im Lauf in den Standby. Der Treiber
 # und seine claude-Kindprozesse ueberleben das zwar (verifiziert 2026-08-01: der
@@ -230,6 +263,25 @@ while ($i -lt $MaxIterations) {
 
     $open = Get-OpenUnitCount
     if ($open -eq 0) { Write-Line "Keine offenen Units mehr im Backlog - Lauf beendet." "Green"; break }
+
+    # Pausenfenster. Steht hinter dem Open-Count (sonst wuerde der Loop zwei
+    # Stunden schlafen, obwohl der Backlog leer ist) und vor $i++ (die Pause ist
+    # keine Iteration). Der Guard verhindert, dass kurz vor Pausenbeginn noch
+    # eine ~15-min-Iteration losgeschickt wird und in die Pause hineinlaeuft -
+    # eine laufende Iteration wird naemlich nicht abgebrochen.
+    if ((Get-Date).AddMinutes($PauseGuard) -ge $PauseStart) {
+        Write-Line ("Pause bis {0} - keine neue Iteration." -f $PauseEnd.ToString("HH:mm")) "Yellow"
+        # In Minutenschritten schlafen, damit die STOP-Datei auch waehrend der
+        # Pause wirkt - ein einzelnes Start-Sleep ueber zwei Stunden waere von
+        # aussen nur noch per Strg+C zu beenden.
+        while (((Get-Date) -lt $PauseEnd) -and (-not (Test-Path $StopFile))) {
+            Start-Sleep -Seconds 60
+        }
+        $PauseStart = [DateTime]::MaxValue   # Fenster verbraucht
+        $PauseEnd   = [DateTime]::MaxValue
+        Write-Line "Pause vorbei." "Green"
+        continue                              # STOP und Deadline oben neu pruefen
+    }
 
     $i++
     $model = Get-NextUnitModel
