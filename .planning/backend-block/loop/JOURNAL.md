@@ -1275,3 +1275,76 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Input-Validierung ohne neue Tabelle/Route/Guard, exakt im bestehenden `AddLine`-Muster.
   Naechste Unit laut Reihenfolge: `b-cov-server-inventar` (erste verbleibende `todo`-Unit,
   Block B-Server 3/12).
+
+## Iteration 21 — b-cov-server-inventar — done — 2026-08-10 00:47
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: `internal/server/inventar_grpc_test.go` (neu, 0 → alle 31 Methoden von
+  `InventarGRPCServer`). `stubInventarRepo` implementiert `inventar.Repository`
+  vollstaendig (Item/Movement/Warning/Location/InventurSession/InventurCount/
+  PickingList/PickingListItem/ItemAttachment), mit steuerbaren Feldern
+  `itemQuantity`, `sessionStatus`, `pickingStatus`, `bookingClaimed` fuer die
+  Zustandspfade. `newInventarTestServer(repo)` baut den echten
+  `inventar.Service` auf dem Stub auf (Muster aus `fuhrpark_grpc_test.go`,
+  nicht das Nil-Service-Muster aus `formulare_grpc_test.go` - inventar_grpc.go
+  parst `tenant_id` in JEDEM Handler aus dem Request, nie aus dem
+  Auth-Kontext, also gibt es hier keine ctx-basierten Tenant-Tests wie bei
+  fuhrpark). `TestMapInventarError` deckt alle 14 Sentinel-Fehler plus den
+  Internal-Fallback als Tabellentest ab. Zu- und Abgang sind getrennt
+  geprueft: `AdjustStock` mit positivem Delta (Zugang), negativem Delta
+  innerhalb des Bestands (Abgang) und negativem Delta unter den verfuegbaren
+  Bestand (`ErrInsufficientStock` -> `FailedPrecondition`), ebenso
+  `TransferStock` mit zu hoher Menge. Zustandsuebergaenge: Inventur-Session
+  bereits `completed` blockt `UpdateInventurSessionStatus`/
+  `UpsertInventurCount`/`BookInventurDifferences`; Picking-Liste bereits
+  `completed` blockt `UpdatePickingList`/`UpsertPickingListItem`/
+  `BookPickingList`, inklusive des Sonderfalls "zweite gleichzeitige Buchung"
+  (`BookPickingListTx` liefert `claimed=false` -> `ErrPickingListAlreadyBooked`,
+  ohne dass der Handler das an `list.Status` erkennen kann). Jede der 31
+  Methoden hat mindestens einen Validierungsfall (ungueltige `tenant_id`
+  und/oder ID-Felder), Listen-Handler zusaetzlich den Leer-Ergebnis-Fall
+  (Wire-Shape: leeres Proto-Slice, nicht nil, ueber `make([]*X, len(items))`
+  in allen `List*`-Handlern bestaetigt).
+  Randbefund waehrend der Recherche: `ListItemAttachments`
+  (inventar_grpc.go:1020) baut `resp.Attachments` per `append` statt per
+  `make([]*X, len(atts))` wie alle anderen List-Handler - bei leerem
+  Ergebnis bleibt das Proto-Feld `nil` statt eines leeren Slices. Geprueft,
+  ob das ein echter Wire-Shape-Bug ist: der Gateway-Handler
+  `HandleListItemAttachments` (route_inventar.go:1523) gibt die Antwort ueber
+  `response.Proto` aus, das per `protoMarshaler.Marshal` (protojson) codiert
+  - protojson serialisiert `repeated`-Felder unabhaengig von nil/leer immer
+  als JSON-Array `[]`, nie als `null`. Kein Fund, keine Fix-Unit noetig -
+  Go-interner nil-vs-empty-Unterschied ist hier folgenlos, weil protojson ihn
+  einebnet (anders als bei den Gateway-Handlern, die selbst `encoding/json`
+  auf einen rohen Go-Typ anwenden - dort waere derselbe Unterschied real).
+- gate: build ok (`go build -p 2 ./internal/inventar/... ./internal/server/...
+  ./cmd/inventar/... ./cmd/gateway/...`) | vet ok (`go vet
+  ./internal/inventar/... ./internal/server/...`) | lint ok (`golangci-lint
+  run --config .golangci.yml ./internal/inventar/... ./internal/server/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/inventar/...
+  ./internal/server/...`, alle gruen; `internal/inventar` 65 Subtests laut
+  `-v`-Zaehlung, 0 uebersprungen bei gesetzter `DATABASE_URL` -
+  `docker-postgres-1` lief bereits healthy) | `go test -count=1
+  ./internal/gateway/` zusaetzlich gruen (Pflichtlauf, obwohl diese Iteration
+  keine Route/kein `.proto` anfasst) | migration n.a. (reine
+  Server-Test-Coverage, keine Schemaaenderung) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst)
+- verify vorgaenger: sauber — `cefb5419` (fix-rapporte-reject-without-reason)
+  geprueft: `git show --stat` zeigt nur `service.go` (5 Zeilen,
+  Trim+Leer-Check vor dem Repository-Aufruf) plus zwei Testdateien
+  (`service_test.go`, `rapporte_grpc_test.go`) und Journal/Backlog. Kein
+  gRPC-Layer-Umgehung, kein Stub, kein `.proto` angefasst, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung,
+  keine neue Route, kein Guard-Alt-Key verloren. `mapRapporteError` unangetastet,
+  `ErrInvalidInput` war bereits auf `codes.InvalidArgument` gemappt.
+- mutations-probe: in `Service.AdjustStock` (internal/inventar/service.go,
+  Zeile `if item.Quantity+input.Delta < 0`) die Schwelle testweise auf
+  `< -1000` gesetzt → `TestInventarStockHandlers/AdjustStock_negative_delta_
+  below_zero_is_rejected_as_failed_precondition` wurde rot (erwarteter Code
+  FailedPrecondition, Aufruf lief stattdessen durch), alle anderen Subtests
+  blieben gruen. Zurueckgedreht, `git diff internal/inventar/service.go`
+  zeigt keine Restaenderung (leerer Diff bestaetigt), volle Suite
+  (`inventar`+`server`) danach wieder gruen.
+- offen: dritte von zwoelf Units in Block B-Server erledigt (3/12). Naechste
+  laut Reihenfolge: `b-cov-server-plugin` (WASM-Feature-Flag AUS, Build-Tag
+  `no_wasm` beachten - siehe Notiz an der Unit selbst). Kein neuer Befund,
+  der eine Fix-Unit rechtfertigt (siehe Randbefund oben - kein echter Bug).

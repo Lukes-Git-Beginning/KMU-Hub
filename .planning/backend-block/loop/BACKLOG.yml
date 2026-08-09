@@ -808,7 +808,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/inventar_grpc.go` - 1.047 Zeilen, 31 Methoden, keine Testdatei.
     sources:
