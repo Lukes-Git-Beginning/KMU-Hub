@@ -990,3 +990,63 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: kein neuer Fund fuer Lauf 8. Docker/Postgres weiterhin nicht benoetigt fuer diese
   Unit, Status ungeprueft gelassen (letzter bekannter Stand: gestoppt) - vor der naechsten
   DB-Unit (Block B-Server oder C2) pruefen/hochfahren.
+
+## Iteration 16 — b-cov-gateway-einkauf-extended — done — 2026-08-10 00:20
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_einkauf_extended_test.go` fuer `route_einkauf_extended.go` (19
+  Handler, vorher 0 % - `route_einkauf_test.go` deckt nur die Basisdatei `route_einkauf.go`
+  ab, wie im Backlog vermerkt gelesen und nichts gedoppelt). Abgedeckt: Catalog (List mit
+  allen Query-Filtern category/search/supplier_id/available in beiden Boolean-Schreibweisen
+  und Pagination, Get/Create/Update/Delete inkl. `decimal_gte0` auf `price`), Supplier
+  Ratings (List/Create/Delete inkl. der beiden Pflichtfelder category/rating), Framework
+  Contracts (List mit supplier_id/status-Filtern, Get/Create/Update/Delete inkl.
+  `decimal_gte0` auf `total_value`), Contract Items (Create/Update/Delete, beide UUID-Params
+  id+itemId je einzeln falsch getestet) und Contract Calls (List, Create inkl. optionalem
+  `po_id`-Zeiger-Wiring mit und ohne Wert). `go tool cover -func` zeigt alle 19 Handler
+  zwischen 54,5 % (`HandleUpdateContractItem`) und 100 % (`registerExtendedRoutes`).
+  Gateway-Gesamtcoverage 34,0 % laut `go test -coverprofile` (vorher 33,2 % nach Iteration 15).
+- befund contract-call-ohne-mengenpruefung: `Service.CreateContractCall`
+  (internal/einkauf/service_extended.go:610) prueft den Abrufbetrag nur auf `v < 0` - kein
+  Abgleich gegen `framework_contracts.total_value` oder das bereits verbrauchte `used_value`.
+  `UpdateContractUsedValue` (postgres_repository_extended.go:403) rechnet danach nur die
+  Summe aus `framework_contract_calls` neu und schreibt sie zurueck, rein informativ. Ein
+  Rahmenvertrag laesst sich damit beliebig oft und beliebig hoch abrufen - genau der im
+  Backlog selbst benannte Verdacht ("ein Abruf ueber die Rahmenvertragsmenge hinaus ist der
+  Fall, an dem eine fehlende Pruefung sichtbar wird"), jetzt per Lektuere von Service UND
+  Repository bestaetigt statt nur vermutet. Kein Fake-`EinkaufServiceClient` im Gateway-Paket,
+  also strukturell dieselbe Grenze wie in jeder vorigen Gateway-Unit - die Pruefung selbst
+  gehoert ins `internal/einkauf`-Service, nicht ins Gateway. NICHT gefixt (echte
+  Verhaltensaenderung, keine Coverage-Aenderung) - neue Unit
+  `fix-einkauf-contract-call-no-value-check` ganz vorne im Backlog fuer Lauf 8 angelegt,
+  inkl. Fix-Vorschlag und offener Produktfrage (Verhalten bei Vertragsstatus != active).
+  `TestHandleCreateContractCall_WithAndWithoutPOID` schreibt deshalb nur fest, dass der
+  Handler bei beiden Formen ohne Panic bis zur RPC durchlaeuft, nicht dass eine
+  Mengenpruefung greift - die gibt es serverseitig noch nicht.
+- befund rating-ohne-obergrenze: `createSupplierRatingRequest.Rating` (route_einkauf_extended.go:100)
+  traegt `validate:"required"` (also nur != 0), obwohl der Proto-Kommentar `int32 rating = 4; //
+  1-5` eine Spanne vorgibt. Ein Wert wie 99 oder -3 wuerde die Gateway-Validierung anstandslos
+  passieren. Gegengeprueft: kein `min=1,max=5`-Tag existiert, kein serverseitiger Guard gefunden
+  in `internal/einkauf` fuer `CreateSupplierRating`. Kleinerer Fund als die Mengenpruefung, nicht
+  separat als Unit angelegt - falls Lauf 8 die Contract-Call-Unit aufgreift, gehoert diese
+  Bereichspruefung als Ein-Zeiler mit rein (`validate:"required,min=1,max=5"` reicht,
+  Root-Cause-Fix an der gemeinsamen Stelle statt Guard verstreut).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/...`, gruen, 0 uebersprungen)
+  | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `6a4831e7` (b-cov-gateway-biz-invoices) geprueft: `git show
+  --stat` zeigt nur `route_biz_invoices_test.go` (neu) plus Journal/Backlog, kein
+  Produktionscode, keine neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required"` vom `Name`-Feld in `createCatalogItemRequest`
+  (route_einkauf_extended.go:77) entfernt → `TestHandleCreateCatalogItem_MissingName` wurde
+  rot (503 "connection error" statt 400/"validation_failed"/Feld "name"), die uebrigen fuenf
+  Create-Tests blieben unberuehrt. Erste Probe (SupplierID-`required` entfernt, nur `uuid`
+  belassen) waere KEINE echte Probe gewesen - der `uuid`-Tag lehnt einen leeren String
+  ohnehin ab (kein `omitempty`), also waere der Test zufaellig gruen geblieben; verworfen
+  und durch die Name-Probe ersetzt, bevor sie ins Journal kam. Zurueckgedreht, `git diff
+  --stat` auf die Produktionsdatei zeigt keine Restaenderung, volle Suite danach gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: `fix-einkauf-contract-call-no-value-check` im Backlog fuer Lauf 8 angelegt (echter
+  Produktionsbug, kein Test-Diff). Naechste Unit laut Reihenfolge: `b-cov-gateway-bexio`
+  (letzte Gateway-Unit vor Block B-Server). Docker/Postgres weiterhin nicht hochgefahren -
+  vor der ersten Block-B-Server- oder C2-Unit noetig.

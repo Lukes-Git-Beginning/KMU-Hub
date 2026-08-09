@@ -142,6 +142,44 @@
 
 units:
 
+  - id: fix-einkauf-contract-call-no-value-check
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `Service.CreateContractCall` (internal/einkauf/service_extended.go:610) validiert nur,
+      dass der Abrufbetrag nicht-negativ ist (`v < 0`) - es gibt keinen Vergleich gegen
+      `framework_contracts.total_value` oder den bereits verbrauchten `used_value`. Jeder
+      Abruf, egal wie hoch, wird angenommen; `UpdateContractUsedValue` (postgres_repository_
+      extended.go:403) rechnet danach nur die Summe aus `framework_contract_calls` neu und
+      schreibt sie zurueck - rein informativ, keine Schranke. Ein Rahmenvertrag ueber 5.000 EUR
+      lässt sich damit beliebig oft und beliebig hoch abrufen, ohne dass irgendeine Schicht
+      (Gateway-Handler, Service, Repository, DB-Constraint) das ablehnt.
+    sources:
+      - backend/internal/einkauf/service_extended.go
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/gateway/route_einkauf_extended.go
+      - backend/internal/einkauf/models_extended.go
+    notes: >
+      Gefunden waehrend b-cov-gateway-einkauf-extended (Lauf 7, Iteration 16) - im Backlog
+      selbst als Verdacht benannt ("ein Abruf ueber die Rahmenvertragsmenge hinaus ist der
+      Fall, an dem eine fehlende Pruefung sichtbar wird"), per Code-Lektuere von Service UND
+      Repository bestaetigt statt nur vermutet. Nicht in der Coverage-Unit gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: vor dem Insert `total_value - used_value` (oder die Summe bestehender
+      Calls) laden und den neuen Betrag dagegen pruefen, Ueberschreitung als `ErrInvalidInput`
+      oder eigenen Sentinel ablehnen. Ob eine Teilausschoepfung ueberhaupt erlaubt sein soll
+      oder ob Ueberschreitung je nach Vertragsstatus zulaessig ist (z. B. `draft`), ist eine
+      Produktfrage - kurz mit Luke klaeren, bevor der Fix geschrieben wird.
+    done_when:
+      - Abruf, der total_value (abzueglich bereits verbrauchtem used_value) uebersteigt, wird
+        abgelehnt statt angenommen
+      - Verhalten bei Vertragsstatus != active geklaert und getestet (falls relevant)
+      - DB-Test gegen das reale Schema fuer den Ablehnungsfall
+      - go test -count=1 ./internal/einkauf/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -634,7 +672,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_einkauf_extended.go` - 778 Zeilen, 19 Handler, keine eigene
       Testdatei (`route_einkauf_test.go` deckt die Basisdatei ab).
