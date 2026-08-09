@@ -91,3 +91,80 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Rollback bei Teilfehler), 0 Skips bei gesetzter `DATABASE_URL`. Docker Desktop war zu
   Laufbeginn nicht gestartet — musste hochgefahren und `docker-compose up -d postgres` erneut
   laufen lassen, bevor die DB-Tests liefen; danach `docker-postgres-1` wieder healthy.
+
+## Iteration 2 — c-cov-biz-lexware — done — 2026-08-09 19:23
+- commit: 9d0443b3
+- gebaut: 6 neue Testdateien fuer `internal/biz/lexware`: `field_mapper_test.go`
+  (Tabellentests fuer `MapContactToKMUHub`/`MapContactToLexware`/
+  `applyContactFieldTo*`/`setNestedLexwareValue`/`ValidateFieldMappings`/
+  `MapInvoiceToLexware`/`MapQuoteToLexware`, jede Switch-Case-Verzweigung
+  einzeln), `auth_test.go` (`APIKeyManager` komplett), `postgres_config_repo_db_test.go`
+  + `postgres_repository_db_test.go` (DB-Tests gegen das reale Schema fuer
+  Get/List/Delete/Update-Pfade beider Repositories, `PostgresIntegrationConfigRepo.Upsert`
+  eingeschlossen — der ist sauber), `service_extra_test.go` (TriggerSync,
+  Service-Feldmappings, Scheduler Start/Stop/AddTenant ueber Mocks),
+  `webhook_handler_registration_test.go` (Register-/UnregisterWebhooks gegen
+  `httptest`-Server, Muster von `bexio/contact_sync_happy_test.go` uebernommen).
+  Coverage `internal/biz/lexware`: 41,5 % → 71,4 %.
+- gate: build ok | vet ok | lint ok (golangci-lint 0 issues) | test ok | migration n.a. | rls-smoke n.a. (nur Reads/Deletes gegen bestehende RLS-Policies, keine Policy angefasst)
+- verify vorgaenger: sauber — `06700605` (fix-inventar-picking-partial-book)
+  gegen alle acht Fehlerklassen geprueft: kein gRPC-Layer-Bypass (reine
+  `internal/inventar`-Service-/Repository-Aenderung), kein Stub, kein
+  `.proto` beruehrt, kein neuer `RequirePermission`-Guard, keine neue
+  Tabelle, korrekte Transaktionsgrenzen (`BeginTx`/`defer Rollback`/`Commit`
+  in `applyMovementsInTx`, geteilt von `BookPickingListTx` und
+  `CompleteInventurSessionTx`), keine Routen-Aenderung, kein Guard ersetzt.
+- **Befund waehrend der Arbeit (kein Fix in dieser Iteration, siehe Grund unten):**
+  `UpsertSyncConfig`, `UpsertEntityMapping`, `UpsertFieldMappings`,
+  `CreateSyncLog` und `UpsertWebhookSubscription` in
+  `internal/biz/lexware/postgres_repository.go` bauen ihre INSERTs ohne
+  `tenant_id`-Spalte. Alle fuenf Zieltabellen haben `tenant_id UUID NOT NULL`
+  ohne Default und ohne befuellenden Trigger — verifiziert per `\d <table>`
+  gegen `docker-postgres-1` (alle fuenf) und per Grep ueber saemtliche
+  Migrationen nach einem tenant_id-setzenden Trigger (keiner vorhanden;
+  `enable_tenant_rls` legt nur die RLS-Policy an, backfillt keine Inserts).
+  Jeder Aufruf dieser fuenf Methoden scheitert auf einer echten Datenbank
+  JEDES MAL mit einer NOT-NULL-Verletzung. Die vier `models.Lexware*`-Structs,
+  die sie schreiben, tragen nicht einmal ein TenantID-Feld — die Luecke geht
+  bis ins Modell durch. Betroffen: der komplette Lexware-Schreibpfad — Connect
+  (UpsertSyncConfig), Kontakt-Sync in beide Richtungen (CreateSyncLog,
+  UpsertEntityMapping), UpdateFieldMappings (UpsertFieldMappings), Webhook-
+  (De-)Registrierung (UpsertWebhookSubscription). Nicht in dieser Iteration
+  gefixt: Signaturaenderung ueber viele Call-Sites (Repository-Interface,
+  service.go, contact_sync.go, webhook_handler.go, alle Mock-Doubles in
+  service_test.go/service_wiring_test.go/tenant_isolation_*_test.go) —
+  explizit ausserhalb des Lauf-7-Scopes fuer eine Coverage-Unit ("keine Fixes
+  nebenbei"). Neue Fix-Unit `fix-lexware-tenant-id-missing-on-upsert` ganz
+  vorne in `BACKLOG.yml` fuer Lauf 8 angelegt, `status: todo`. Meine neuen
+  DB-Tests seeden ihre Fixtures deshalb direkt per `testutil.SeedRow`
+  (umgeht die kaputten Upsert/Create-Methoden) und testen nur die Lese-/
+  Lösch-/Update-Pfade — dokumentiert im Dateikopf von `postgres_repository_db_test.go`.
+- **Wegen dieses Befunds bleibt `lexware ueber 80 %` (done_when) knapp
+  verfehlt** — 71,4 % statt der geforderten 80 %. Die fuenf blockierten
+  Funktionen sind rund 120 der 998 Statements (~12 %); ohne den Fix ist das
+  praktische Maximum rund 88 %. Alle uebrigen done_when-Punkte sind erfuellt:
+  Mapping-Pfade als Tabellentests gegen erwartete Literale, Fehlerklassen
+  abgedeckt, Mutations-Probe durchgefuehrt.
+- mutations-probe: `ValidateFieldMappings` in `field_mapper.go` — die
+  Duplikat-Pruefung `if lexwareTargets[m.LexwareField] {` auf
+  `if false && lexwareTargets[m.LexwareField] {` gesetzt →
+  `TestValidateFieldMappings/duplicate_lexware_target` wurde rot ("An error
+  is expected but got nil"), zurueckgedreht, Suite wieder gruen.
+- db-tests: 17 echte DB-Tests gelaufen (3 `postgres_config_repo_db_test.go`,
+  12 neu in `postgres_repository_db_test.go`, 2 vorbestehend in
+  `tenant_isolation_phase2_test.go`/`tenant_isolation_phase3_test.go`),
+  0 Skips bei gesetzter `DATABASE_URL` (verifiziert: `grep -c SKIP` auf dem
+  vollen `-v`-Testlauf = 0). Cleanup-Reihenfolge-Bug dabei gefunden und
+  behoben: `defer pool.Close()` lief vor den `t.Cleanup`-Aufrufen aus
+  `seedLexwareFixture` (t.Cleanup laeuft immer erst NACH allen Defers der
+  Testfunktion) — auf `t.Cleanup(func() { pool.Close() })` umgestellt, damit
+  Zeilen wirklich geloescht werden statt gegen einen bereits geschlossenen
+  Pool zu laufen.
+- offen: `go test ./internal/gateway/` nicht gelaufen — diese Iteration hat
+  keine Route/Gateway-Datei angefasst, daher laut Schritt 5 nicht Pflicht.
+  `fix-lexware-tenant-id-missing-on-upsert` ist die naechste inhaltlich
+  wichtige Unit fuer Lauf 8, gehoert aber nicht automatisch an die Spitze der
+  Reihenfolge — Luke sollte kurz entscheiden, ob sie vor `c-cov-biz-recurring`
+  vorgezogen wird (Bug mit Produktions-Impact fuer den Lexware-Schreibpfad,
+  sobald `modules.lexware` aktiv ist) oder regulaer in der C1-Reihenfolge
+  bleibt.
