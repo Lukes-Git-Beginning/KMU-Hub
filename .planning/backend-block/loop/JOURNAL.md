@@ -259,7 +259,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (`go test -v ./internal/biz/lexware/...`, `grep -c SKIP` = 0).
 
 ## Iteration 4 — fix-bexio-tenant-id-missing-on-upsert — done — 2026-08-09 19:55
-- commit: (wird nach diesem Eintrag erstellt)
+- commit: 8118db67
 - gebaut: `UpsertSyncConfig`, `UpsertEntityMapping`, `UpsertFieldMappings`, `CreateSyncLog`
   in `internal/biz/bexio/postgres_repository.go` schreiben jetzt `tenant_id` in ihr INSERT.
   Die vier `models.Bexio*`-Structs (`BexioSyncConfig`, `BexioEntityMapping`,
