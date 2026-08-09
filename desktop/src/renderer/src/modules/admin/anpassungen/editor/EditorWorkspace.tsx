@@ -12,7 +12,7 @@
  * panels (trio-nav · module preview · properties) · commit footer. Trio-panel
  * editing + deploy dialog arrive in E-3 / E-5.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -29,6 +29,14 @@ import { ModuleSandbox } from './ModuleSandbox'
 import { EmbeddedFormEditor } from './EmbeddedFormEditor'
 import { DeployDialog } from './DeployDialog'
 import type { EditorModuleDef } from './editorModules'
+
+/**
+ * Sections that live at ONE identifiable place inside the module (a tab of their
+ * own, a record detail). Everything else — Begriffe, Wertelisten, Bereiche,
+ * Spalten — is judged on the list, which is also the module's default view, so a
+ * module returning there says nothing about which of them the user meant.
+ */
+const LOCATED_SECTIONS = new Set<EditorSection>(['statistik', 'felder', 'kanäle'])
 
 export function EditorWorkspace({
   module,
@@ -76,6 +84,21 @@ function EditorLayout({
     // the canvas is displaying.
     if (section !== 'kanäle') setFormEditId(null)
   }
+
+  // The way back (Darien 2026-08-06): walking the module by hand moves the rail and
+  // the properties panel too. Deliberately WITHOUT bumping focusNonce — that nonce
+  // is the rail asking the preview to navigate, and echoing it here would push the
+  // preview back where the rail last pointed.
+  const reportContext = useCallback((section: EditorSection | null): void => {
+    setActiveSection((current) => {
+      // "I am nowhere in particular" (the plain list): only clear a section that
+      // has a place of its own, because that place is the one just left. Sections
+      // that live on the list itself stay selected — the user is still looking at
+      // them.
+      if (section === null) return current && LOCATED_SECTIONS.has(current) ? null : current
+      return section
+    })
+  }, [])
 
   // Editor is for editing, not using: block any in-module action that navigates
   // away (email → /mails, call → /chat, out-linking rows). State-based navigation
@@ -197,7 +220,12 @@ function EditorLayout({
           {formEditId ? (
             <EmbeddedFormEditor formId={formEditId} onBack={() => setFormEditId(null)} />
           ) : (
-            <ModuleSandbox module={module} focusSection={activeSection} focusNonce={focusNonce} />
+            <ModuleSandbox
+              module={module}
+              focusSection={activeSection}
+              focusNonce={focusNonce}
+              onContextChange={reportContext}
+            />
           )}
         </div>
         <EditorPropertiesPanel

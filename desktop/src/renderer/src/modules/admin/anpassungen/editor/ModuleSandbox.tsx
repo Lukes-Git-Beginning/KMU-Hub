@@ -34,6 +34,9 @@ import {
 import { useDraftConfig } from './DraftConfigProvider'
 import type { EditorModuleDef } from './editorModules'
 
+/** Stable fallback so a sandbox without a listener never re-memoises the surface. */
+const noopReport = (): void => {}
+
 class SandboxErrorBoundary extends Component<
   { fallback: ReactNode; children: ReactNode },
   { hasError: boolean }
@@ -51,11 +54,14 @@ export function ModuleSandbox({
   module,
   focusSection = null,
   focusNonce = 0,
+  onContextChange,
 }: {
   module: EditorModuleDef
   /** Left-rail section the user selected — the module navigates itself there. */
   focusSection?: EditorFocusSection | null
   focusNonce?: number
+  /** The module reporting where the user now is — the rail follows it back. */
+  onContextChange?: (section: EditorFocusSection | null) => void
 }): ReactNode {
   const { t } = useTranslation()
   const {
@@ -95,6 +101,7 @@ export function ModuleSandbox({
       customFields,
       focusSection,
       focusNonce,
+      reportContext: onContextChange ?? noopReport,
     }),
     [
       labels,
@@ -108,6 +115,7 @@ export function ModuleSandbox({
       customFields,
       focusSection,
       focusNonce,
+      onContextChange,
     ],
   )
 

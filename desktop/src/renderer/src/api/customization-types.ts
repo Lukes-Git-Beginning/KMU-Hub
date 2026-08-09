@@ -111,6 +111,13 @@ export interface ValueSet {
   options: ValueSetOption[]
   /** Which layer owns this definition (vendor | tenant). */
   layer: ConfigLayer
+  /**
+   * The module a self-created list belongs to. Built-in lists are declared by the
+   * module registry instead; a list created in the editor has no such declaration,
+   * and without this it fell out of the panel the moment its draft was deployed —
+   * editable only through a field that happened to bind it (Darien 2026-08-06).
+   */
+  moduleKey?: string
 }
 
 /**
@@ -130,6 +137,8 @@ export interface ResolvedValueSet {
   options: ResolvedValueSetOption[]
   /** Provenance of the value-set definition itself. */
   provenance: ConfigProvenance
+  /** Set for lists created in the editor — which module they belong to. */
+  moduleKey?: string
 }
 
 // ── Module-area visibility (R4: tab/section on-off per tenant) ─────────────────

@@ -111,6 +111,22 @@ function hydrateOnce(): void {
   }
 }
 
+/**
+ * Make the deployed customization true for THIS window, at startup (Darien
+ * 2026-08-06).
+ *
+ * Until now hydration only happened when something read the draft list — which
+ * only the Anpassungen page does. Open the app and go straight to Helpdesk and
+ * the module showed stock value lists: a rollout that had been live for weeks
+ * looked like it had never happened, and came back the moment you visited
+ * Anpassungen. Every window boots through main.tsx, so this is where it belongs.
+ *
+ * The backend replaces this: there the tenant layer arrives with the data.
+ */
+export function hydrateCustomization(): void {
+  hydrateOnce()
+}
+
 function newId(): string {
   draftSeq += 1
   return `draft-${String(draftSeq).padStart(3, '0')}`

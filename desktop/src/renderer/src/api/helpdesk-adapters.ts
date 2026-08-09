@@ -122,14 +122,27 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
   const slaHours = Math.floor((absDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
 
   // ticketNr: HD-YYYY-XXXX — Jahr aus created_at, lfd-Nr aus ersten 4 Hex-Chars der UUID.
-  // Fallback auf eine deterministische Zeichensumme, falls die ID nicht hex-parsbar
-  // ist (z.B. Demo-IDs wie "tk-10") — sonst entsteht "HD-YYYY-0NaN".
+  // Nicht-hex-IDs (Demo-Daten wie "hd-tk-001") brauchen einen Ersatzweg. Der war
+  // eine Zeichensumme — und die ignoriert die Reihenfolge: "hd-tk-001" und
+  // "hd-tk-010" ergaben dieselbe Nummer, fünf der vierzehn Demo-Tickets liefen
+  // doppelt. Jetzt zuerst die laufende Nummer aus der ID lesen (die ist genau das,
+  // was der Nutzer als Ticket-Nr erwartet), sonst ein positionsabhängiger Hash.
   const year = new Date(t.created_at).getFullYear()
   const parsedId = parseInt(t.id.replace(/-/g, '').slice(0, 4), 16)
-  const idBase = Number.isNaN(parsedId)
-    ? Array.from(t.id).reduce((acc, c) => acc + c.charCodeAt(0), 0)
-    : parsedId
-  const idNum = (idBase % 9999) + 1
+  const trailing = /(\d+)$/.exec(t.id)
+  let idNum: number
+  if (!Number.isNaN(parsedId)) {
+    idNum = (parsedId % 9999) + 1
+  } else if (trailing) {
+    // Demo-IDs tragen ihre laufende Nummer schon — genau das erwartet der Nutzer
+    // als Ticket-Nr, statt einer aus der ID errechneten Zahl.
+    idNum = Math.max(1, Number(trailing[1]) % 10000)
+  } else {
+    // FNV-1a: gleiche Zeichen in anderer Reihenfolge → andere Zahl.
+    let h = 0x811c9dc5
+    for (const c of t.id) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0
+    idNum = (h % 9999) + 1
+  }
   const ticketNr = `HD-${year}-${String(idNum).padStart(4, '0')}`
 
   return {

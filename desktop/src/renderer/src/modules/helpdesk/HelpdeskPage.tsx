@@ -71,7 +71,7 @@ import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } f
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useEditorContextReport, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
 import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
 import { useFormSchema } from '@/api/hooks/useFormulare'
 import type { FormField } from '@/api/formulare-types'
@@ -389,6 +389,14 @@ export default function HelpdeskPage() {
     'kanäle': () => { setSelectedTicketId(null); setTab('tickets') },
   })
 
+  // …and the way back (Darien 2026-08-06): clicking the Statistik tab in the preview
+  // moves the rail and the properties panel with it. Only the two unambiguous places
+  // report — the plain ticket list is where Begriffe, Wertelisten, Bereiche AND
+  // Spalten are all judged, so it reports nothing and leaves the rail alone.
+  useEditorContextReport(
+    tab === 'statistik' ? 'statistik' : selectedTicketId ? 'felder' : null,
+  )
+
   const filteredTickets = useMemo(() => {
     return baseTickets.filter((t) => {
       // Origin sub-tab (Herkunft) — only narrows when the tabs are actually shown.
@@ -538,7 +546,9 @@ export default function HelpdeskPage() {
   // for free). Built-ins default to ON, custom-field columns to OFF — otherwise
   // every new field would silently widen the table.
   const columnDefs: { key: string; header: React.ReactNode; cell: (tk: DisplayTicket) => React.ReactNode; optIn?: boolean }[] = [
-    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="font-mono text-xs text-muted-foreground">{tk.ticketNr}</span> },
+    // whitespace-nowrap: eine Ticket-Nr ist eine Einheit. In einer schmalen Spalte
+    // (Editor-Vorschau, konfigurierte Breite) brach sie sonst in drei Zeilen um.
+    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">{tk.ticketNr}</span> },
     {
       key: 'subject',
       header: <EditableText as="span" dkey="helpdesk.table.subject" />,
