@@ -58,7 +58,7 @@ func (r *PostgresRepository) SeedInboundIfEmpty(ctx context.Context, tenantID, m
 func (r *PostgresRepository) ListThreadMessages(ctx context.Context, tenantID, messageID uuid.UUID) ([]*ThreadMessage, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT tm.id, tm.tenant_id, tm.message_id, tm.author_id, tm.direction, tm.body, tm.created_at,
-		        COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, tm.author_name, '') AS author_name
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, tm.author_name, '') AS author_name
 		 FROM inbox_thread_messages tm
 		 LEFT JOIN users u ON tm.author_id = u.id
 		 WHERE tm.message_id = $1 AND tm.tenant_id = $2
