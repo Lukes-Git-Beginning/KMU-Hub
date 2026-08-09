@@ -28,7 +28,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { resolveValueSet, listTenantValueSetsForModule } from '@/mocks/data/customization'
+import {
+  resolveValueSet,
+  listTenantValueSetsForModule,
+  resolveValueSetMigrations,
+} from '@/mocks/data/customization'
 import type { ResolvedValueSet, ValueSetOption } from '@/api/customization-types'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
@@ -120,7 +124,19 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
     setDraftValueSetMigration,
     clearDraftValueSetMigration,
   } = useDraftConfig()
-  const setMig = valueSetMigrations[id] ?? {}
+  /**
+   * Removed-with-move options: the ones staged in this session PLUS the ones that
+   * already went live. Without the live half, reopening the editor after a
+   * rollout showed the option merely as "ausgeblendet" — no target, no way back
+   * (Darien 2026-08-09). An empty target means "undo the move", which is what the
+   * restore button writes; falsy values therefore drop out of this map on their
+   * own and the option returns to the normal list.
+   */
+  const liveMig = resolveValueSetMigrations(id)
+  const setMig: Record<string, string> = {}
+  for (const [from, to] of Object.entries({ ...liveMig, ...(valueSetMigrations[id] ?? {}) })) {
+    if (to) setMig[from] = to
+  }
   // Options that exist in the persisted layers (pre-draft) — records may use them,
   // so deleting one requires reassigning those records. Draft-added options aren't
   // here → they can be deleted straight away (nothing references them yet).
@@ -171,6 +187,9 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
   const restoreRemoved = (optId: string): void => {
     patchOption(optId, { active: true })
     clearDraftValueSetMigration(id, optId)
+    // A move that is already live cannot just be dropped from the draft — it has
+    // to be actively undone on deploy, hence the empty target.
+    if (liveMig[optId]) setDraftValueSetMigration(id, optId, '')
   }
 
   const labelOf = (optId: string): string => editable.options.find((o) => o.id === optId)?.label ?? optId

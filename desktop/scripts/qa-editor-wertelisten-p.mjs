@@ -72,6 +72,14 @@ try {
   await shot(editor, 'p1-liste-angelegt.png')
   check('P0 Die neue Liste steht im Panel', (await listNames(editor)).includes(NAME))
 
+  // Zusätzlich eine benutzte Option entfernen — nach dem Deploy muss der Umzug im
+  // Panel weiterhin sichtbar und rücknehmbar sein.
+  await editor.getByRole('button', { name: /.Mittel. löschen/ }).first().click()
+  await wait(editor, 1000)
+  await editor.locator('select').last().selectOption({ label: 'Hoch' })
+  await editor.getByRole('button', { name: 'Entfernen' }).first().click()
+  await wait(editor, 1500)
+
   await editor.locator('button').filter({ hasText: /^Übernehmen$/ }).first().dispatchEvent('click')
   await wait(editor, 1500)
   await editor.getByRole('button', { name: 'Jetzt übernehmen' }).first().click()
@@ -105,6 +113,20 @@ try {
   check('P2 Sie steht genau einmal in der Liste',
     namesAfter.filter((n) => n === NAME).length === 1,
     `${namesAfter.filter((n) => n === NAME).length}×`)
+
+  // ── P3 · Ein bereits ausgerollter Umzug bleibt sichtbar und rücknehmbar ──
+  const panelText = await editor2.evaluate(() => document.body.innerText)
+  check('P3 Der ausgerollte Umzug steht weiter als „Entfernt" mit Ziel im Panel',
+    /ENTFERNT/i.test(panelText) && panelText.includes('→'))
+  const restore = editor2.getByRole('button', { name: /Wiederherstellen/ }).first()
+  check('P3b Es gibt einen Weg zurück', (await restore.count()) > 0)
+  if ((await restore.count()) > 0) {
+    await restore.click()
+    await wait(editor2, 1500)
+    await shot(editor2, 'p3-wiederhergestellt.png')
+    const opts = await editor2.getByLabel(/^Option .* umbenennen$/).evaluateAll((els) => els.map((e) => e.value))
+    check('P3c Die Option ist zurück in der Liste', opts.includes('Mittel'), opts.slice(0, 5).join(' · '))
+  }
 } catch (e) {
   out.push('ABBRUCH: ' + String(e).split('\n').slice(0, 3).join(' ⏎ '))
   for (const [i, w] of app.windows().entries()) {

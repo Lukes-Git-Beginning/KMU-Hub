@@ -62,6 +62,11 @@ function openWindow(hash: string, title: string, width: number, height: number, 
 export function registerEditorWindowHandlers(): void {
   ipcMain.handle('editor:open-window', (_event, moduleKey: string): boolean => {
     const key = String(moduleKey ?? '')
-    return openWindow(`editor-window?module=${encodeURIComponent(key)}`, 'Modul-Editor', 1280, 860, `editor:${key}`)
+    // 1600 statt 1280: Leiste (240px) und Eigenschaften-Panel (~320px) gehen von
+    // der Breite ab, der Rest ist die Modulvorschau. Bei 1280 blieben davon rund
+    // 680px — zu wenig für eine achtspaltige Liste, ausgerechnet beim
+    // Spalten-Konfigurieren (Darien 2026-08-09). Auf kleineren Bildschirmen
+    // klemmt Electron das Fenster selbst auf die Arbeitsfläche.
+    return openWindow(`editor-window?module=${encodeURIComponent(key)}`, 'Modul-Editor', 1600, 900, `editor:${key}`)
   })
 }
