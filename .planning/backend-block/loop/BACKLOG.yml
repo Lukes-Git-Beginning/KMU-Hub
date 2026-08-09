@@ -432,6 +432,146 @@ units:
       - TestTestCondition_OmittedConditionsSurfacesAsError auf das neue Verhalten aktualisiert
       - go test -count=1 ./internal/server/... ./internal/automation/... gruen
 
+  - id: fix-schichten-createtemplate-drops-location
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `SchichtenGRPCServer.CreateTemplate` (internal/server/schichten_grpc.go:268) parses
+      `tenant_id` and then builds `schichten.CreateTemplateInput` from `req.GetName()`,
+      `GetDescription()`, `GetDayOfWeek()`, `GetStartHour()`, `GetStartMinute()`,
+      `GetDurationMinutes()` - it never calls `req.GetLocation()` and never sets
+      `CreateTemplateInput.Location`. Every shift template created via the API therefore has
+      `Location: nil` regardless of what the client sent, even though `CreateTemplateInput`
+      (service.go:97-106) fully supports the field and `Service.CreateTemplate` writes it
+      through unchanged. `UpdateTemplate` (schichten_grpc.go:289, same file) wires the
+      identical field correctly (`if l := req.GetLocation(); l != "" { input.Location = &l }`),
+      so this is a one-RPC omission, not a missing feature. `ApplyTemplate` then copies
+      `tmpl.Location` onto every generated shift (service.go:526), so the loss also silently
+      propagates into every shift a template with a location produces.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/schichten/service.go
+      - backend/internal/server/schichten_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - `TestSchichten_TemplateCRUDAndList`
+      erwartete zunaechst, dass ein bei CreateTemplate gesetztes Location-Feld im Response
+      auftaucht (analog zum bereits bestehenden CreateShift-Test), und schlug fehl. Nicht inline
+      gefixt - echte Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine
+      eigene Unit. Fix-Vorschlag: in `CreateTemplate` dieselbe
+      `if l := req.GetLocation(); l != "" { input.Location = &l }`-Zeile ergaenzen, die
+      `UpdateTemplate` schon hat. Der Testfall in `schichten_grpc_test.go`
+      (`TestSchichten_TemplateCRUDAndList`) traegt bereits einen "documents current gap"-
+      Kommentar an der Stelle, die nach dem Fix auf `assert.NotNil`/den gesetzten Wert
+      umgestellt werden muss.
+    done_when:
+      - CreateTemplate liest req.GetLocation() und setzt CreateTemplateInput.Location wie
+        UpdateTemplate es bereits tut
+      - Der "documents current gap"-Kommentar in TestSchichten_TemplateCRUDAndList auf das neue
+        (korrekte) Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... gruen
+
+  - id: fix-schichten-error-mapping-shiftfull-gap
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `mapSchichtenError` (internal/server/schichten_grpc.go:647) hat keinen Fall fuer
+      `schichten.ErrShiftFull` (errors.go:12, zurueckgegeben von `Service.AssignEmployee`s
+      Kapazitaets-Guard, service.go:280-294, sobald `CountAssignments >= *shift.Capacity`).
+      Der Fehler faellt auf den generischen Default-Zweig und wird als `codes.Internal`
+      beantwortet, obwohl er - wie `ErrAlreadyAssigned` (AlreadyExists) oder
+      `ErrArbzgViolation`/die JArbSchG-Sentinels (FailedPrecondition) - ein wohlgeformter,
+      client-actionabler Fehler ist: "diese Schicht ist voll" ist kein Serverfehler. Jeder
+      andere Sentinel aus errors.go ist in `mapSchichtenError` vertreten, nur dieser eine
+      fehlt. Belegt durch `TestMapSchichtenError_Table/shift_full_documents_current_gap` und
+      `TestSchichten_AssignEmployee_CapacityExceeded_MapsToInternal` in
+      `internal/server/schichten_grpc_test.go` (beide mit "documents current gap"-Kommentar).
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/schichten/errors.go
+      - backend/internal/schichten/service.go
+      - backend/internal/server/schichten_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - die per done_when geforderte
+      Tabellentest-Abdeckung ueber alle mapSchichtenError-Sentinels deckte die Luecke auf.
+      Nicht inline gefixt - echte Verhaltensaenderung (500 -> 4xx fuer einen konkreten Fall),
+      keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: einen
+      Fall `case errors.Is(err, schichten.ErrShiftFull): return
+      status.Error(codes.FailedPrecondition, err.Error())` ergaenzen (FailedPrecondition
+      passt zum Muster der anderen Kapazitaets-/Regel-Verstoesse in dieser Funktion; nicht
+      AlreadyExists, da keine Entitaet doppelt existiert). Danach die beiden
+      "documents current gap"-Testfaelle in schichten_grpc_test.go auf den neuen erwarteten
+      Code umstellen.
+    done_when:
+      - ErrShiftFull hat einen eigenen Fall in mapSchichtenError (FailedPrecondition oder
+        gleichwertig client-actionable), nicht mehr Internal
+      - Die beiden "documents current gap"-Testfaelle in schichten_grpc_test.go auf den
+        neuen erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... gruen
+
+  - id: fix-schichten-swaprequests-no-own-scope
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Es gibt keine own-Scope-Filterung fuer Tauschantraege - an keiner Stelle im Stack.
+      `schichten.SwapRequestFilter` (repository.go:18) traegt nur `ShiftID`/`Status`,
+      `ListSwapRequestsInput` (service.go:599) hat kein Mitarbeiterfeld, und die Gateway-Route
+      `GET /schichten/swap-requests` (route_schichten.go:105) guardet nur mit der einzelnen
+      flachen Permission `schichten:swap read` - keine own-Variante wie sie
+      `rapporte`/`helpdesk` fuer denselben Zweck haben. Jeder Nutzer mit Lese-Recht auf
+      `schichten:swap` sieht damit JEDEN Tauschantrag des Tenants, unabhaengig davon, ob er
+      Antragsteller oder Tauschpartner ist. Verifiziert per Grep ueber
+      `internal/schichten/**` und `internal/gateway/route_schichten.go` (0 Treffer fuer
+      "own"/"Own"). `internal/rapporte/own_scope_list_test.go` und
+      `internal/helpdesk/own_scope_list_test.go` zeigen das etablierte Muster: der Scope
+      erreicht die Datenbank als Praedikat auf dem Autoren-/Zustaendigen-Feld, angewendet auf
+      Service-Ebene (vor dem Offset/Limit-Split), sodass Zeilen UND `total` konsistent
+      bleiben.
+    sources:
+      - backend/internal/schichten/repository.go
+      - backend/internal/schichten/service.go
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/rapporte/own_scope_list_test.go
+      - backend/internal/helpdesk/own_scope_list_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - der Backlog-Scope dieser Unit
+      forderte selbst "own-Scope ueber beide Mitarbeiterfelder geprueft" als done_when-
+      Kriterium; beim Nachlesen von repository.go/service.go/route_schichten.go bestaetigt,
+      dass die Filterung schlicht nicht existiert, statt nur falsch verdrahtet zu sein.
+      Dokumentiert in `TestSchichten_ListSwapRequests_NoOwnScopeFiltering`
+      (internal/server/schichten_grpc_test.go). Nicht inline gebaut - echte neue Filterlogik
+      quer durch Repository/Service/Gateway, keine Coverage-Aenderung, nach Backlog-Regel
+      eine eigene Unit. Anders als bei `a-inbox-sla` gibt es hier KEINE offene
+      Produktentscheidung ueber Datenmodell oder Zustaendigkeit - beide Mitarbeiterfelder
+      (`RequestedByEmployeeID`, `SwapWithEmployeeID`) existieren bereits auf `SwapRequest`,
+      es fehlt nur die Filterung selbst. Einzige offene Frage: ob "own" bei Tauschantraegen
+      ueberhaupt der richtige Default ist (Schichtleitung braucht ggf. tenant-weite Sicht
+      fuer Genehmigen/Ablehnen) - falls ja, gehoert die own-Filterung nur an
+      `ListSwapRequests` fuer die lesende Rolle, waehrend `ApproveSwapRequest`/
+      `RejectSwapRequest` unveraendert bleiben. Fix-Vorschlag: `ListSwapRequestsInput` um
+      ein optionales `OwnEmployeeID *uuid.UUID` erweitern, `SwapRequestFilter` um dasselbe
+      Feld (matched gegen `requested_by_employee_id OR swap_with_employee_id`), und die
+      Gateway-Route mit `RequirePermissionAny` auf eine "read"/"read:own"-Unterscheidung
+      umstellen (Muster: `route_rapporte.go`/`route_helpdesk.go` abschauen).
+    done_when:
+      - Produktfrage geklaert - own-Scope gilt fuer ListSwapRequests, Genehmigen/Ablehnen
+        bleiben tenant-weit oder bekommen ihre eigene Regel
+      - SwapRequestFilter/ListSwapRequestsInput tragen ein own-Scope-Feld, matched gegen
+        BEIDE Mitarbeiterfelder
+      - Zeilen UND total bleiben konsistent (Filterung auf Service-Ebene, nicht nach dem
+        Offset/Limit-Split)
+      - TestSchichten_ListSwapRequests_NoOwnScopeFiltering in schichten_grpc_test.go auf
+        das neue Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... ./internal/gateway/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -1129,7 +1269,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/schichten_grpc.go` - 669 Zeilen, 20 Methoden, keine Testdatei.
     sources:

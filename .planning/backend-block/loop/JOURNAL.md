@@ -1714,3 +1714,102 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Naechste laut Reihenfolge: `b-cov-server-schichten`. `go test
   ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
   Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 26 — b-cov-server-schichten — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- gebaut: neue Datei `internal/server/schichten_grpc_test.go` fuer
+  `schichten_grpc.go` (675 Zeilen, 24 RPC-Methoden ueber
+  `SchichtenGRPCServer`, vorher 0 % Coverage, keine Testdatei). Eigener
+  In-Memory-Stub `stubSchichtenRepo` fuer `schichten.Repository` (23
+  Methoden — Shifts, Assignments, Templates, Stats, SwapRequests —
+  inklusive injizierbarer `priorShiftEnd`/`nextShiftStart`/
+  `minorEmployees`/`existingTemplate` fuer die ArbZG-/JArbSchG-Pfade und
+  `forceErr` fuer die generische Internal-Fallback-Verzweigung).
+  `newTestSchichtenServer()` liefert einen Nil-Service-Server fuer 43
+  UUID-/Pflichtfeld-Validierungsfaelle als Tabellentest,
+  `newSchichtenServerWithRepo(repo)` fuer Happy-Path- und Fehlerpfad-
+  Cluster. Kernstueck laut Scope: Tauschantrags-Uebergaenge
+  (Create -> Approve -> zweites Approve/Reject scheitert mit
+  `FailedPrecondition`, spiegelbildlich fuer Reject -> Approve),
+  `mapSchichtenError` als Tabellentest ueber alle elf Sentinels plus
+  Default-Internal-Zweig. `go tool cover -func`: keine Methode bleibt bei
+  0 % (Spanne 64,3 % bis 100 %).
+- befund own-scope (Kern des Scope-Auftrags "own-Scope ueber beide
+  Mitarbeiterfelder geprueft"): geprueft und die Praemisse haelt NICHT.
+  `schichten.SwapRequestFilter` (repository.go) traegt nur ShiftID/
+  Status, `ListSwapRequestsInput` (service.go) hat kein Mitarbeiterfeld,
+  `route_schichten.go` guardet `GET /swap-requests` nur mit der flachen
+  Permission `schichten:swap read` - keine own-Variante wie
+  `rapporte`/`helpdesk` sie ueber `own_scope_list_test.go` demonstrieren.
+  Jeder Leser mit dieser Permission sieht jeden Tauschantrag des
+  Tenants, unabhaengig von Antragsteller/Tauschpartner. Dokumentiert in
+  `TestSchichten_ListSwapRequests_NoOwnScopeFiltering` (mit
+  Erklaer-Kommentar im Test). Neue Backlog-Unit fuer Lauf 8:
+  `fix-schichten-swaprequests-no-own-scope` - anders als bei
+  `a-inbox-sla` keine offene Produktentscheidung ueber das Datenmodell
+  (beide Mitarbeiterfelder existieren bereits auf SwapRequest), nur die
+  Filterung selbst fehlt; eine kleine offene Frage bleibt, ob Genehmigen/
+  Ablehnen (Schichtleitung) tenant-weit bleiben sollen, waehrend nur das
+  Lesen own-gescoped wird.
+- befund createtemplate-location: `CreateTemplate`
+  (schichten_grpc.go:268) liest `req.GetLocation()` nie und setzt es nie
+  auf `CreateTemplateInput` - jedes ueber die API erstellte Template
+  verliert seinen Standort, obwohl `UpdateTemplate` dasselbe Feld direkt
+  daneben korrekt verdrahtet und `ApplyTemplate` den Standort auf jede
+  generierte Schicht kopiert. Gefunden, weil
+  `TestSchichten_TemplateCRUDAndList` zunaechst denselben Location-
+  Rundlauf wie beim Shift-Test erwartete und rot wurde. Test auf den
+  IST-Zustand umgestellt (`assert.Nil`, mit "documents current gap"-
+  Kommentar), UpdateTemplate-Teil des Tests deckt jetzt zusaetzlich den
+  korrekten Location-Rundlauf ab. Neue Backlog-Unit fuer Lauf 8:
+  `fix-schichten-createtemplate-drops-location` (mechanischer Ein-
+  Zeilen-Fix, Muster liegt direkt daneben in UpdateTemplate).
+- befund error-mapping-luecke: `mapSchichtenError` hat keinen Fall fuer
+  `schichten.ErrShiftFull` (zurueckgegeben von `AssignEmployee`s
+  Kapazitaets-Guard) - faellt auf den Default-Internal-Zweig, obwohl es
+  wie `ErrArbzgViolation`/die JArbSchG-Sentinels ein client-actionabler
+  Fehler ist ("Schicht ist voll" ist kein 500er). Alle anderen zehn
+  Sentinels aus errors.go sind vertreten, nur dieser fehlt. Belegt durch
+  `TestMapSchichtenError_Table/shift_full_documents_current_gap`
+  (Tabellentest, direkter Funktionsaufruf) UND
+  `TestSchichten_AssignEmployee_CapacityExceeded_MapsToInternal`
+  (End-to-End durch den echten Handler). Neue Backlog-Unit fuer Lauf 8:
+  `fix-schichten-error-mapping-shiftfull-gap`.
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/schichten/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/schichten/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/... ./internal/schichten/...`, 0
+  issues — ein erster Lauf meldete drei `minmax`-Hinweise
+  (offset+limit-Klammerung in ListShifts/ListTemplates/
+  ListSwapRequests des Stub-Repos) und einen `rangeint`-Hinweis in
+  einer Test-Schleife, alle behoben) | test ok (`go test -count=3
+  ./internal/server/... ./internal/schichten/...`, dreimal wiederholt,
+  durchgehend gruen — der erste Lauf schlug wegen der
+  CreateTemplate-Location-Erwartung fehl, siehe Befund oben, danach
+  gruen) | migration n.a. (reine Test-Coverage, keine Tabelle
+  angefasst) | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff durch die
+  neuen Tests)
+- verify vorgaenger: sauber — `3ed2e7c3` (b-cov-server-wiki) geprueft:
+  `git show --stat` zeigt nur `wiki_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- mutations-probe: in `internal/server/schichten_grpc.go`,
+  `mapSchichtenError` den `ErrArbzgViolation`-Fall testweise auf
+  `codes.Internal` statt `codes.FailedPrecondition` entschaerft →
+  sowohl `TestMapSchichtenError_Table/arbzg_violation` als auch
+  `TestSchichten_AssignEmployee_ArbzgViolation` wurden rot (erwarteter
+  Code FailedPrecondition, bekommen Internal). Zurueckgedreht,
+  `git diff --stat internal/server/schichten_grpc.go` zeigt keine
+  Restaenderung (leerer Diff bestaetigt), `go test -count=3
+  ./internal/server/... ./internal/schichten/...` danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — `schichten.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: achte von zwoelf Units in Block B-Server erledigt (8/12).
+  Naechste laut Reihenfolge: `b-cov-server-vermietung`. Drei neue
+  Fix-Units fuer Lauf 8 im Backlog:
+  `fix-schichten-createtemplate-drops-location`,
+  `fix-schichten-error-mapping-shiftfull-gap`,
+  `fix-schichten-swaprequests-no-own-scope`. `go test
+  ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
+  Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
