@@ -894,3 +894,51 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Kein-Mapping/kein-Datei-Fall abgesichert, aber die genaue Schluessel-Zuordnung bleibt bis zu
   einem echten Fake-`CRMServiceClient` im Paket unbewiesen - dieselbe strukturelle Luecke, die
   jede vorige Gateway-Unit dieses Laufs schon dokumentiert hat, keine neue Erkenntnis.
+
+## Iteration 14 — b-cov-gateway-crm-pipeline — done — 2026-08-09 23:52
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_crm_pipeline_test.go` fuer `route_crm_pipeline.go` (14 Handler,
+  keine bestehende Testdatei vorher: sechs Pipeline-Stage-Handler + acht Deal-Handler inkl. der
+  zwei Tag-Stubs). `go tool cover -func` zeigt alle 14 Handler zwischen 58,3 % (die beiden
+  reinen Id-Handler `HandleGetPipelineStage`/`HandleDeletePipelineStage`, deren Erfolgspfad ohne
+  Fake-`CRMServiceClient` strukturell nicht erreichbar ist, dieselbe Grenze wie in jeder vorigen
+  Gateway-Unit dieses Laufs) und 100 % (die beiden Tag-Stubs). Gateway-Gesamtcoverage 32,9 % laut
+  `go test -coverprofile`.
+- befund reihenfolge: die Tenant-Pruefreihenfolge wechselt innerhalb dieser einen Datei zweimal.
+  `HandleCreateDeal`/`HandleGetDeal`/`HandleListDeals`/`HandleDeleteDeal` pruefen den Tenant VOR
+  Body-Decode bzw. Id-Validierung; `HandleUpdateDeal`/`HandleMoveDealToStage` pruefen ihn ERST
+  NACH Id-Validierung und Body-Decode. Beide Reihenfolgen als eigene Tests festgeschrieben
+  (`_NoTenant` vs. `_NoTenantAfterValidBody`), nicht angenommen - exakt das Muster, das
+  `b-cov-gateway-crm-activities` (Iteration 7) fuer diese Datei-Familie schon dokumentiert hat.
+- befund reorder-logik: die im Backlog benannte "echte Logik" der Umsortierung
+  (unvollstaendige/doppelte Reihenfolge ablehnen, Gewonnen/Verloren-Einmaligkeit -> 409) sitzt
+  serverseitig in `internal/server/crm_grpc.go`/dem CRM-Service, nicht im Gateway-Handler. Der
+  Handler selbst validiert nur `required,min=1,dive,uuid` auf `stage_ids` - dieselbe strukturelle
+  Grenze wie ueberall in diesem Lauf: ohne Fake-`CRMServiceClient` kann diese Testdatei die
+  Server-Logik nicht erreichen, nur die Gateway-seitige Vorbedingung. Kein Fund, der eine neue
+  Unit braucht - die 409-/Duplikat-Logik gehoert (falls ungetestet) in eine `internal/server`-
+  oder `internal/crm`-Coverage-Unit, nicht in eine Gateway-Unit.
+- befund pipeline-stage-ohne-tenant: die sechs Pipeline-Stage-Handler (Create/Get/List/Update/
+  Delete/Reorder) rufen `middleware.GetTenantID` nirgends auf und senden auch kein `TenantId`-
+  Feld im gRPC-Request (anders als alle Deal-Handler). Gegengepueft gegen
+  `internal/server/crm_grpc.go`: der Server liest den Tenant serverseitig aus dem propagierten
+  Kontext, exakt das bereits in Iteration 7 fuer die Saved-Filter-Handler dokumentierte
+  ctx-basierte statt feld-basierte Propagierungsmuster. Kein Tenant-Leck, keine neue Unit.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt,
+  durchgehend gruen, 0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `503517c7` (b-cov-gateway-crm-contacts) geprueft: `git show --stat`
+  zeigt nur `route_crm_contacts_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required,min=1,dive,uuid"` auf `StageIDs` in
+  `reorderPipelineStagesRequest` (route_crm_pipeline.go:160) zu `validate:"dive,uuid"` verkuerzt
+  (Pflicht + Mindestlaenge entfernt) → `TestHandleReorderPipelineStages_EmptyIDs` und
+  `_MissingField` wurden rot (503 statt 400/"validation_failed"/Feld "stage_ids"), `_InvalidElement`
+  und `_ValidReachesRPC` blieben erwartungsgemaess gruen. Zurueckgedreht, `git diff --stat` auf die
+  Produktionsdatei zeigt keine Restaenderung, volle Suite danach gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: kein neuer Fund fuer Lauf 8, der eine eigene Unit braucht. Docker/Postgres war zu
+  Iterationsbeginn gestoppt (`docker-postgres-1: Exited`) - fuer diese reine Gateway-Unit nicht
+  noetig, nicht neu gestartet; Luke sollte das vor der naechsten DB-Unit (Block B-Server oder C2)
+  wieder hochfahren.
