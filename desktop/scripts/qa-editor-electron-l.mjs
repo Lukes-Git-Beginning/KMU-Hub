@@ -108,7 +108,16 @@ try {
   await shot(editor, 'l2a-layout-im-entwurf.png')
 
   await editor.locator('button').filter({ hasText: /^Als Entwurf speichern$/ }).first().dispatchEvent('click')
-  await wait(editor, 2000)
+  await wait(editor, 1500)
+  // Seit 2026-08-09 fragt das erste Speichern nach einem Namen (drei Entwürfe
+  // desselben Moduls hießen sonst gleich).
+  const nameField = editor.getByLabel('Name des Entwurfs')
+  if ((await nameField.count()) > 0) {
+    await nameField.fill('Helpdesk — Anpassung')
+    await editor.getByRole('button', { name: /^Speichern$/ }).first().click()
+    await wait(editor, 1500)
+  }
+  await wait(editor, 800)
   await shot(editor, 'l2-gespeichert.png')
 
   // Was steht wirklich im Entwurf? (Der Kern von Dariens Beobachtung.)
