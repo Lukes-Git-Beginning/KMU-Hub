@@ -427,7 +427,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_crm_activities.go` - 903 Zeilen, 27 Handler, keine Testdatei.
     sources:

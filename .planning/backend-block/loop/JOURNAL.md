@@ -453,3 +453,76 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne
   DB-Zugriff, alle bestehenden Gateway-Tests im Repo sind reine
   In-Memory-Tests. done_when verlangt hier keine DB-Tests.
+
+## Iteration 7 — b-cov-gateway-crm-activities — done — 2026-08-09 20:22
+- commit: (siehe unten)
+- gebaut: `internal/gateway/route_crm_activities_test.go` (neu, ~500 Zeilen) —
+  deckt die 23 zuvor ungetesteten Handler aus `route_crm_activities.go` ab
+  (Activities CRUD + Complete + Tags-Stubs, Search, Saved Filters CRUD,
+  drei Reports-Handler, plus die in `route_crm_test.go` noch fehlenden
+  List/Update/Delete-Handler fuer Custom Fields und Tags). Create/Get fuer
+  Custom Fields und Tags waren schon in `route_crm_test.go` abgedeckt und
+  wurden nicht verdoppelt. Getestet: alle Validierungspfade
+  (`activity_type`/`subject` required, `contact_id`/`company_id`/`deal_id`
+  je einzeln als eigener Validierungsfall fuer den polymorphen Zweig,
+  `tag_ids` dive-uuid, Saved-Filter- und Custom-Field-Pflichtfelder), die
+  Reihenfolge-Eigenheiten (bei `HandleGetActivity`/`HandleDeleteActivity`/
+  `HandleCompleteActivity` laeuft der Tenant-Check VOR dem UUID-Check, bei
+  `HandleUpdateActivity` GENAU ANDERSHERUM — UUID vor Decode vor Tenant;
+  beide Reihenfolgen als eigene Tests festgeschrieben, nicht angenommen),
+  die zwei `HandleAddActivityTags`/`HandleRemoveActivityTags`-Stubs (rufen
+  nie einen gRPC-Client, liefern immer 501 "not implemented via HTTP, use
+  gRPC" — als bewusster, bereits bestehender Vertrag getestet, nicht neu
+  gebaut), Filterkombinationen fuer `HandleListActivities`/
+  `HandleListCustomFields`/`HandleListTags` und die `HandleSearch`-
+  Limit-Grenzfaelle. `internal/gateway`-Gesamtcoverage: 26,5 % (von 25,6 %
+  zu Iterationsbeginn), Handler-Coverage in `route_crm_activities.go` von
+  0 % auf 41–100 % je Handler.
+- **Befund waehrend der Arbeit:** die drei Reports-Handler
+  (`HandleGetPipelineReport`/`HandleGetConversionReport`/
+  `HandleGetActivityReport`) validieren `start_date`/`end_date` NUR auf
+  Nicht-Leerheit, keine Datumsformat-Pruefung — ein syntaktisch ungueltiges
+  Datum ("banana") wird unveraendert an den gRPC-Call durchgereicht statt
+  lokal mit 400 abgewiesen zu werden. Kein Absturz (durch Test belegt),
+  aber die im Backlog-`done_when` unterstellte 400-Antwort fuer ein
+  ungueltiges Datum existiert im aktuellen Code nicht. Kein Fix in dieser
+  Unit (reine Coverage-Iteration, keine Produktionscode-Aenderung
+  vorgesehen) — als Befund hier festgehalten, ggf. eigene Unit fuer
+  Lauf 8, falls gewuenscht.
+- **Zweiter Pruefpunkt, kein Befund:** die fuenf Saved-Filter-Handler
+  setzen `TenantId` NICHT im gRPC-Request (Proto-Nachrichten
+  `CreateSavedFilterRequest`/`GetSavedFilterRequest`/... tragen gar kein
+  `tenant_id`-Feld). Gegengeprueft gegen `internal/server/crm_grpc.go`
+  (Zeilen 1783–1832) und `internal/crm/savedfilter/postgres_repository.go`:
+  der Server liest den Tenant serverseitig ueber
+  `middleware.GetTenantID(ctx)` aus dem propagierten Kontext, und jede
+  Repository-Methode ist tenant-gescoped (`WHERE tenant_id = $n` in
+  GetByID/List/Update/Delete, `tenant_id` im INSERT). Kein Tenant-Leck,
+  nur ein anderes (ctx-basiertes statt feld-basiertes) Propagierungs-
+  Muster als bei Activities. Kein Fix-Unit-Anlass.
+- gate: build ok (`go build -p 2 ./internal/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run
+  ./internal/gateway/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/`, dreimal wiederholt, durchgehend gruen) | migration
+  n.a. | rls-smoke n.a. (kein DB-Zugriff in diesem Testpaket)
+- verify vorgaenger: sauber — `b2a80006` (b-cov-gateway-inbox) geprueft:
+  reiner Test-Additiv (`route_inbox_test.go`, neu), folgt dem etablierten
+  `registryWithService`/`testServiceUnavailable`-Muster, kein
+  Produktionscode angefasst, kein neues `.proto`, keine neue Route, kein
+  neuer `RequirePermission`-Guard, keine neue Tabelle.
+- mutations-probe: `dive,uuid` aus dem `tag_ids`-Validate-Tag von
+  `createActivityRequest` entfernt → `TestHandleCreateActivity_InvalidTagIDs`
+  wurde rot (503 statt 400, keine `validation_failed`-Details), exakt wie
+  erwartet. Zurueckgedreht, `git diff` auf die Produktionsdatei bestaetigt
+  keine Restaenderung, volle Suite danach wieder gruen (dreimal).
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne
+  DB-Zugriff, alle Tests hier sind In-Memory. done_when verlangt hier keine
+  DB-Tests.
+- offen: keine neue Handler-Datei bleibt bei 0 %; `HandleUpdateActivity`
+  (41,2 %) und `HandleCreateActivity`/`HandleGetCustomField`/`HandleGetTag`
+  (41,7–46,2 %) haben noch keinen echten RPC-Erfolgspfad-Test — wie bei
+  `b-cov-gateway-inbox` schon notiert braeuchte das einen Fake-
+  `CRMServiceClient` (das Interface ist gross, > 50 Methoden ueber
+  Contacts/Companies/Deals/Activities/Filters/Reports/Fields/Tags), den es
+  fuer dieses Paket noch nicht gibt — kein Blocker, nur Grenze dieser
+  Iteration.
