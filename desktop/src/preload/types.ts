@@ -59,7 +59,8 @@ export interface ElectronAPI {
 
   /** Module editor: open the customization editor for a module in its own window */
   editor: {
-    openWindow: (moduleKey: string) => Promise<void>
+    /** Resolves true when a NEW window was created, false when an open one was focused. */
+    openWindow: (moduleKey: string) => Promise<boolean>
   }
 
   /**

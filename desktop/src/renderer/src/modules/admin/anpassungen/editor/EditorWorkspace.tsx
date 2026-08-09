@@ -18,7 +18,9 @@ import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { X, Undo2, Redo2, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DetailModal } from '@/components/shared/DetailModal'
 import { cn } from '@/lib'
+import { i18n } from '@/i18n/i18n'
 import { saveDraft } from '@/mocks/data/customization-drafts'
 import type { CustomizationDraft } from '@/api/customization-types'
 import { publishDraftMirror, takeStashedDraft, useResumeDraftListener } from './customization-sync'
@@ -37,6 +39,20 @@ import type { EditorModuleDef } from './editorModules'
  * module returning there says nothing about which of them the user meant.
  */
 const LOCATED_SECTIONS = new Set<EditorSection>(['statistik', 'felder', 'kanäle'])
+
+/**
+ * Key-order-independent serialisation, used to answer "is there work that has not
+ * been saved yet?". `isDirty` cannot answer that — it means "differs from live",
+ * which stays true after saving (the draft holds exactly those differences).
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(',')}}`
+}
 
 export function EditorWorkspace({
   module,
@@ -119,38 +135,99 @@ function EditorLayout({
   // Which record this session writes to: the continued one, or the one created by
   // the first save. Without it, every save created another entry in the list.
   const [draftId, setDraftId] = useState<string | undefined>(resumed?.id)
-  const [resumedName, setResumedName] = useState<string | undefined>(resumed?.name)
-  // A continued draft keeps its own name — renaming it on every save would make
-  // the rollout list read as if a second rollout had appeared.
-  const draftName = resumedName ?? t('customization.editor.draftName', { module: moduleName })
+  // The name the user gave this draft (or the one a continued draft brought with
+  // it). Undefined = not named yet → the first save asks (Darien 2026-08-09:
+  // „sonst heißen drei unterschiedliche Entwürfe für Helpdesk alle gleich und man
+  // weiß nicht was welcher war").
+  const [draftName, setDraftName] = useState<string | undefined>(resumed?.name)
+  const [nameDialogOpen, setNameDialogOpen] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  // A draft handed over while this window has unsaved work — the user decides.
+  const [pendingResume, setPendingResume] = useState<CustomizationDraft | null>(null)
+  /** The payload as it was last written to the record — anything else is unsaved. */
+  const [savedSignature, setSavedSignature] = useState<string | null>(
+    resumed ? stableStringify(resumed.payload) : null,
+  )
+
+  /** True only for work that has NOT been written to the draft record yet. */
+  const hasUnsavedWork = (): boolean =>
+    savedSignature === null ? isDirty : stableStringify(buildPayload()) !== savedSignature
+
+  /** What the name field starts with: the module plus when it was saved. */
+  const suggestedName = (): string =>
+    t('customization.editor.draftNameSuggestion', {
+      module: moduleName,
+      date: new Date().toLocaleString(i18n.language, {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    })
 
   // Only one editor window exists per module, so "Weiter bearbeiten" on an
   // already-open editor arrives as a message instead of a fresh window. Unsaved
   // work wins: loading over it would throw away what is on screen.
-  useResumeDraftListener(module.key, (incoming) => {
-    if (isDirty) {
-      toast.warning(t('customization.editor.toast.resumeBlocked'))
-      return
-    }
+  const applyResume = (incoming: CustomizationDraft): void => {
     loadDraft(incoming.payload)
     setDraftId(incoming.id)
-    setResumedName(incoming.name)
+    setDraftName(incoming.name)
+    setSavedSignature(stableStringify(incoming.payload))
+    setPendingResume(null)
     toast.success(t('customization.editor.toast.resumed', { name: incoming.name }))
+  }
+
+  useResumeDraftListener(module.key, (incoming) => {
+    // Unsaved work is never thrown away silently — but refusing outright meant
+    // the user asked for a draft and kept looking at the current state without a
+    // way forward. Ask instead. Saved work loads without a question: `isDirty`
+    // would say yes forever here, because a saved draft still differs from live.
+    if (hasUnsavedWork()) {
+      setPendingResume(incoming)
+      return
+    }
+    applyResume(incoming)
   })
 
   /** Drop the continued draft and start from the live state. */
   const startFresh = (): void => {
     resetAll()
     setDraftId(undefined)
-    setResumedName(undefined)
+    setDraftName(undefined)
+    setSavedSignature(null)
     toast.success(t('customization.editor.toast.freshStart'))
   }
 
-  const handleSaveDraft = (): void => {
-    const d = saveDraft({ id: draftId, moduleKey: module.key, name: draftName, payload: buildPayload() })
+  /** Write to the record — with the name the user gave it. */
+  const persistDraft = (name: string): void => {
+    const payload = buildPayload()
+    const d = saveDraft({ id: draftId, moduleKey: module.key, name, payload })
     setDraftId(d.id)
+    setDraftName(name)
+    setSavedSignature(stableStringify(payload))
     publishDraftMirror(d)
     toast.success(t('customization.editor.toast.draftSaved'))
+  }
+
+  const handleSaveDraft = (): void => {
+    // Named once, then quiet: asking on every save would make saving a chore.
+    // Renaming later happens on the rollout entry.
+    if (draftName) {
+      persistDraft(draftName)
+      return
+    }
+    setNameInput(suggestedName())
+    setNameDialogOpen(true)
+  }
+
+  const confirmName = (): void => {
+    const name = nameInput.trim()
+    if (!name) {
+      toast.warning(t('customization.editor.saveDialog.nameRequired'))
+      return
+    }
+    setNameDialogOpen(false)
+    persistDraft(name)
   }
 
   return (
@@ -196,9 +273,9 @@ function EditorLayout({
         {/* Which draft is on screen. Without this the editor silently continued
             something and looked like it had forgotten the last session — the
             same confusion from the other side. */}
-        {resumedName && (
+        {draftName && (
           <p className="flex shrink-0 items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
-            {t('customization.editor.resumedBanner', { name: resumedName })}
+            {t('customization.editor.resumedBanner', { name: draftName })}
             <button
               type="button"
               onClick={startFresh}
@@ -257,11 +334,71 @@ function EditorLayout({
         onClose={() => setDeployOpen(false)}
         draftId={draftId}
         moduleKey={module.key}
-        draftName={draftName}
+        draftName={draftName ?? suggestedName()}
         changeCount={changeCount}
         buildPayload={buildPayload}
         onDeployed={onClose}
       />
+
+      {/* Name the draft — once, on the first save. Three drafts of the same module
+          were otherwise indistinguishable in the rollout list. */}
+      <DetailModal
+        open={nameDialogOpen}
+        onClose={() => setNameDialogOpen(false)}
+        title={t('customization.editor.saveDialog.title')}
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setNameDialogOpen(false)}>
+              {t('customization.editor.deploy.cancel')}
+            </Button>
+            <Button size="sm" onClick={confirmName}>
+              {t('customization.editor.saveDialog.confirm')}
+            </Button>
+          </div>
+        }
+      >
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-foreground">
+            {t('customization.editor.saveDialog.nameLabel')}
+          </span>
+          <input
+            autoFocus
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmName()
+            }}
+            placeholder={t('customization.editor.saveDialog.namePlaceholder')}
+            className="h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm outline-none focus:border-primary"
+          />
+        </label>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          {t('customization.editor.saveDialog.hint')}
+        </p>
+      </DetailModal>
+
+      {/* A draft was handed over while this window has unsaved work. */}
+      <DetailModal
+        open={pendingResume !== null}
+        onClose={() => setPendingResume(null)}
+        title={t('customization.editor.resumeDialog.title')}
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPendingResume(null)}>
+              {t('customization.editor.resumeDialog.cancel')}
+            </Button>
+            <Button size="sm" onClick={() => pendingResume && applyResume(pendingResume)}>
+              {t('customization.editor.resumeDialog.confirm')}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {t('customization.editor.resumeDialog.body', { name: pendingResume?.name ?? '' })}
+        </p>
+      </DetailModal>
     </div>
   )
 }

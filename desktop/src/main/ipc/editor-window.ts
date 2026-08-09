@@ -16,13 +16,18 @@ import { join } from 'path'
  */
 const openWindows = new Map<string, BrowserWindow>()
 
-/** Shared shell for the editor-family windows (same chrome, different route). */
-function openWindow(hash: string, title: string, width: number, height: number, key: string): void {
+/**
+ * Shared shell for the editor-family windows (same chrome, different route).
+ * Returns whether a NEW window was created — the caller needs to know, because a
+ * draft handover is left in shared storage for a window that is about to boot,
+ * and a window that merely got focused would never read it (see the hub).
+ */
+function openWindow(hash: string, title: string, width: number, height: number, key: string): boolean {
   const existing = openWindows.get(key)
   if (existing && !existing.isDestroyed()) {
     if (existing.isMinimized()) existing.restore()
     existing.focus()
-    return
+    return false
   }
 
   const win = new BrowserWindow({
@@ -51,11 +56,12 @@ function openWindow(hash: string, title: string, width: number, height: number, 
   } else {
     win.loadFile(join(__dirname, '../../renderer/index.html'), { hash })
   }
+  return true
 }
 
 export function registerEditorWindowHandlers(): void {
-  ipcMain.handle('editor:open-window', (_event, moduleKey: string) => {
+  ipcMain.handle('editor:open-window', (_event, moduleKey: string): boolean => {
     const key = String(moduleKey ?? '')
-    openWindow(`editor-window?module=${encodeURIComponent(key)}`, 'Modul-Editor', 1280, 860, `editor:${key}`)
+    return openWindow(`editor-window?module=${encodeURIComponent(key)}`, 'Modul-Editor', 1280, 860, `editor:${key}`)
   })
 }

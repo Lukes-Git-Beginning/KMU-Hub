@@ -88,11 +88,28 @@ const RESUME_KEY = 'cosmi:customization:resume-draft'
  */
 export function stashDraftForEditor(draft: CustomizationDraft): void {
   try {
-    localStorage.setItem(RESUME_KEY, JSON.stringify(draft))
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ draft, at: Date.now() }))
   } catch {
     // Private mode / quota: the editor simply opens empty, as it did before.
   }
   getChannel()?.postMessage({ type: 'resume-draft', draft } satisfies ResumeDraftMessage)
+}
+
+/**
+ * Take the handover back (Darien 2026-08-09: „beim zweiten Versuch die Version,
+ * die man vor zwei Mal Speichern hatte").
+ *
+ * The note was written for a window that is about to boot. If the window was
+ * already open it only got focused and never read the note — which then sat in
+ * storage and was picked up by the NEXT editor launch, hours and several saves
+ * later. The hub clears it as soon as it knows no new window was created.
+ */
+export function clearStashedDraft(): void {
+  try {
+    localStorage.removeItem(RESUME_KEY)
+  } catch {
+    // Nothing stored, nothing to clear.
+  }
 }
 
 /**
@@ -120,16 +137,27 @@ export function useResumeDraftListener(
 }
 
 /**
+ * How long a handover stays valid. It is written milliseconds before the window
+ * launches, so anything older belongs to an earlier attempt — loading it would
+ * silently open a state the user left behind long ago.
+ */
+const RESUME_MAX_AGE_MS = 30_000
+
+/**
  * Editor → read and CONSUME the handover (one-shot, so a later plain open starts
- * clean). Returns null when nothing was handed over for this module.
+ * clean). Returns null when nothing was handed over for this module, or when the
+ * note is stale.
  */
 export function takeStashedDraft(moduleKey: string): CustomizationDraft | null {
   try {
     const raw = localStorage.getItem(RESUME_KEY)
     if (!raw) return null
     localStorage.removeItem(RESUME_KEY)
-    const draft = JSON.parse(raw) as CustomizationDraft
-    return draft?.moduleKey === moduleKey ? draft : null
+    const parsed = JSON.parse(raw) as { draft: CustomizationDraft; at: number }
+    const { draft, at } = parsed
+    if (!draft || draft.moduleKey !== moduleKey) return null
+    if (typeof at === 'number' && Date.now() - at > RESUME_MAX_AGE_MS) return null
+    return draft
   } catch {
     return null
   }

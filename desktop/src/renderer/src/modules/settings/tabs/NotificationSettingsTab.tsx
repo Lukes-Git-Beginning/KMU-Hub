@@ -78,6 +78,8 @@ export function NotificationSettingsTab({ embedded = false }: { embedded?: boole
   const { notifications, updateNotification } = useSettingsStore()
   const soundEnabled = useNotificationsStore((s) => s.soundEnabled)
   const toggleSound = useNotificationsStore((s) => s.toggleSound)
+  const muteAll = useNotificationsStore((s) => s.muteAll)
+  const toggleMuteAll = useNotificationsStore((s) => s.toggleMuteAll)
 
   // Quiet Hours (from API)
   const { data: quietHours, isLoading: qhLoading } = useQuietHours()
@@ -183,10 +185,10 @@ export function NotificationSettingsTab({ embedded = false }: { embedded?: boole
 
       <Separator className="mb-8" />
 
-      {/* ── Ton ──────────────────────────────────────── */}
+      {/* ── Ton & Stummschalten ──────────────────────── */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
-          {soundEnabled ? (
+          {soundEnabled && !muteAll ? (
             <Volume2 className="h-4 w-4 text-muted-foreground" />
           ) : (
             <VolumeX className="h-4 w-4 text-muted-foreground" />
@@ -194,21 +196,33 @@ export function NotificationSettingsTab({ embedded = false }: { embedded?: boole
           <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.sound.title')}</h3>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-          <div>
-            <p className="text-sm text-foreground">{t('settings.notifications.sound.label')}</p>
-            <p className="text-xs text-muted-foreground">{t('settings.notifications.sound.desc')}</p>
+        <div className="flex flex-col gap-3">
+          {/* The big switch first: when someone comes here to get quiet, this is
+              the one they are looking for. */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+            <div className="min-w-0 pr-4">
+              <p className="text-sm text-foreground">{t('settings.notifications.mute.label')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.notifications.mute.desc')}</p>
+            </div>
+            <Switch checked={muteAll} onCheckedChange={toggleMuteAll} />
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => playNotificationSound()}
-              disabled={!soundEnabled}
-            >
-              {t('settings.notifications.sound.test')}
-            </Button>
-            <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
+
+          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+            <div className="min-w-0 pr-4">
+              <p className="text-sm text-foreground">{t('settings.notifications.sound.label')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.notifications.sound.desc')}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => playNotificationSound()}
+                disabled={!soundEnabled || muteAll}
+              >
+                {t('settings.notifications.sound.test')}
+              </Button>
+              <Switch checked={soundEnabled && !muteAll} disabled={muteAll} onCheckedChange={toggleSound} />
+            </div>
           </div>
         </div>
       </section>

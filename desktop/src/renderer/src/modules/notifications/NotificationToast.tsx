@@ -182,6 +182,7 @@ export default function NotificationToast() {
   const { data: dnd } = useDNDStatus()
   const { data: quietHours } = useQuietHours()
   const soundEnabled = useNotificationsStore((s) => s.soundEnabled)
+  const muteAll = useNotificationsStore((s) => s.muteAll)
 
   // null until the first list resolves — that first batch seeds the "seen" set
   // silently so a reload never replays the backlog as toasts.
@@ -197,7 +198,9 @@ export default function NotificationToast() {
       return
     }
     const seen = seenRef.current
-    const suppressed = shouldSuppressToast({ dnd, quietHours })
+    // "Alles stumm" beats every other rule — it is the switch you reach for when
+    // you need quiet now, so it must not be negotiable by DND/quiet-hours logic.
+    const suppressed = muteAll || shouldSuppressToast({ dnd, quietHours })
 
     let chimed = false
     for (const n of list) {
@@ -234,7 +237,7 @@ export default function NotificationToast() {
         chimed = true
       }
     }
-  }, [data, dnd, quietHours, soundEnabled, markRead])
+  }, [data, dnd, quietHours, soundEnabled, muteAll, markRead])
 
   return null
 }
