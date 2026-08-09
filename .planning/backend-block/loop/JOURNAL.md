@@ -380,3 +380,76 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   freigegebener Block bei Widerspruch) — diese Iteration war davon nicht
   betroffen, da `c-cov-biz-recurring` sowohl die erste `todo`-Unit als auch
   Teil des urspruenglich freigegebenen Blocks C1 ist.
+
+## Iteration 6 — b-cov-gateway-inbox — done — 2026-08-09 20:10
+- commit: (siehe naechster chore-Commit)
+- gebaut: neue Datei `internal/gateway/route_inbox_test.go` fuer
+  `route_inbox.go` (1.396 Zeilen, 36 Handler-Funktionen ueber 45 registrierte
+  Routen, vorher 0 % Coverage, keine Testdatei). Abgedeckt: `ServiceName`,
+  ein tabellengetriebener 503-Test ueber alle 36 Handler (jeder prueft den
+  gRPC-Client zuerst, bevor er irgendetwas anderes tut — verifiziert per
+  vollstaendiger Dateilektuere), ein Router-Level-Test fuer die im Backlog
+  benannte Kollisionsgefahr `/messages/unread-count` vs. `/messages/{id}`,
+  ein tabellengetriebener UUID-Validierungstest ueber alle 15 reinen
+  Id-Handler plus die beiden Zwei-Id-Faelle von `HandleRemoveTeamMember`,
+  und je ein bis drei Validierungsfaelle fuer jeden Handler mit Body
+  (Status-`oneof`, Tag/To/Body-`required`, RFC3339-Parse in
+  `HandleSnoozeMessage` — das liegt nach `decodeAndValidate`, kein
+  `validate`-Tag kann "parsebar als Zeitstempel" ausdruecken —, AssigneeID-
+  `uuid`, Bulk-IDs `dive,uuid`, Canned-Response-Name/-Body inkl.
+  Laengenlimit, Team-Inbox `assignment_mode`/`visibility`-`oneof`,
+  Team-Member-Felder, Routing-Rule-Name plus die `rawJSONToStruct`-
+  Fehlerpfade fuer `conditions`/`actions` bei Create UND Update).
+  Zusaetzlich vier Tabellentests fuer die vier Enum-Parser
+  (`parseChannelQuery`/`parseAssignmentMode`/`parseVisibility`/
+  `parseTeamMemberRole`, je inklusive Default-Fallback-Zweig) und vier
+  direkte Tests fuer `rawJSONToStruct` (leer, gueltig, Nicht-Objekt,
+  kaputtes JSON). Response-Wire-Shapes (`toProto*`-Aequivalent) wurden NICHT
+  extra getestet, weil diese Datei keine eigene `toProto`-Konvertierung
+  besitzt — jeder Erfolgspfad reicht das rohe `resp` direkt an
+  `response.Proto` durch (Ausnahme: die beiden Canned-Response-Handler
+  marshaln ueber `cannedResponseMarshaler` und wrappen in
+  `{"canned_response": ...}` — das liegt aber HINTER dem RPC-Call und ist
+  mit den vorhandenen Gateway-Testhelfern ohne einen Fake-gRPC-Server nicht
+  erreichbar, exakt das im Backlog-Kopf dokumentierte Repo-Muster: dieser
+  Layer testet nur, was VOR dem RPC-Aufruf passiert).
+- gate: build ok (`go build ./internal/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run
+  ./internal/gateway/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/`, dreimal wiederholt fuer Flake-Check, durchgehend
+  gruen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff in diesem
+  Testpaket)
+- verify vorgaenger: sauber — `b965ba93` (c-cov-biz-recurring) Diff
+  vollstaendig gelesen: nur `postgres_repository_db_test.go` (neu) und
+  `service_test.go` (erweitert) plus Journal/Backlog, kein gRPC-Layer-
+  Bypass, kein Stub, kein Proto beruehrt, kein neuer Guard, keine neue
+  Tabelle/Migration, keine Routen-Aenderung.
+- **Befund waehrend der Arbeit:** `assertValidationError` erwartet den
+  JSON-Tag-Namen (z. B. `"status"`, `"member_user_id"`, `"ids[0]"` fuer
+  ein einzelnes Slice-Element), nicht den Go-Feldnamen — beim ersten
+  Testlauf 15 Fehlschlaege deswegen, alle auf die JSON-Tags korrigiert.
+  Kein Code-Befund, nur eine Erinnerung fuer kuenftige Coverage-Units:
+  `validation.ErrorBody` gibt `field` immer als JSON-Tag zurueck.
+- offen: `HandleListMessages` bleibt bei 12,9 % (kein dedizierter Test fuer
+  die Query-Parameter-Kombinatorik `channel`/`is_read`/`is_starred`/
+  `team_inbox_id`/`search`/`status`/`page_size`-Clamp) und mehrere
+  Update-Handler (`HandleUpdateCannedResponse` 28 %, `HandleUpdateTeamInbox`
+  29,6 %, `HandleListTeamInboxes`/`HandleListRoutingRules`/
+  `HandleListCannedResponses` 36–44 %) haben nur den Service-Unavailable-
+  und ggf. den Id-Validierungspfad, keinen Test fuer die optionalen-Felder-
+  Zusammenstellung nach dem `if body.X != nil`-Muster — das waere jeweils
+  ein weiterer RPC-Erfolgspfad und braucht einen Fake-`InboxServiceClient`
+  (Interface-Mock), den es fuer dieses Paket noch nicht gibt. Kein Blocker,
+  nur Grenze dieser Iteration; ein kuenftiger `InboxServiceClient`-Mock nach
+  dem `formulare_grpc_test.go`-Stub-Repo-Muster koennte das schliessen, ist
+  aber ein groesserer Aufbau als eine einzelne Coverage-Unit.
+  `internal/gateway`-Gesamtcoverage: 25,6 % (von 24,2 % zu Laufbeginn).
+- mutations-probe: `/messages/unread-count` in `RegisterRoutes` kurzzeitig
+  von `ir.HandleGetUnreadCount` auf `ir.HandleGetMessage` umgehaengt →
+  `TestInboxRoutes_UnreadCountRouteOrder` wurde rot ("unread-count was
+  routed into /messages/{id} and rejected as an invalid UUID"), exakt der
+  im Backlog benannte Risikofall. Zurueckgedreht (`git diff` bestaetigt
+  keine Restaenderung), Suite dreimal in Folge gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne
+  DB-Zugriff, alle bestehenden Gateway-Tests im Repo sind reine
+  In-Memory-Tests. done_when verlangt hier keine DB-Tests.
