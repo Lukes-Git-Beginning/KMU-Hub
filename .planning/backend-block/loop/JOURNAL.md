@@ -1050,3 +1050,62 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Produktionsbug, kein Test-Diff). Naechste Unit laut Reihenfolge: `b-cov-gateway-bexio`
   (letzte Gateway-Unit vor Block B-Server). Docker/Postgres weiterhin nicht hochgefahren -
   vor der ersten Block-B-Server- oder C2-Unit noetig.
+
+## Iteration 17 — b-cov-gateway-bexio — done — 2026-08-10 00:25
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_bexio_test.go` fuer `route_bexio.go` (16 Handler/Methoden, vorher
+  0 % - `bexio_state_test.go` deckte nur die HMAC-Token-Logik in `bexio_state.go` ab, wie im
+  Backlog vermerkt gelesen und nichts gedoppelt). Abgedeckt: `HandleOAuthCallback` (Service-
+  Unavailable, fehlender Code mit/ohne `error`-Query, fehlend konfiguriertes `stateSecret`,
+  ungueltiges State-Token, gueltiges State-Token mit anschliessendem RPC-Fehl → generischer
+  Redirect), `HandleGetAuthURL` (Service-Unavailable, fehlender Tenant, fehlendes
+  `stateSecret`, RPC-Fehler), sowie fuer alle uebrigen zehn Handler (Disconnect,
+  GetConnectionStatus, TriggerSync, GetSyncStatus, UpdateSyncConfig, ListSyncLogs,
+  GetFieldMappings, UpdateFieldMappings, PushInvoice, PushQuote) durchgaengig Service-
+  Unavailable + fehlender Tenant + (wo zutreffend) ungueltiges JSON + RPC-Fehler-Pfad.
+  `TriggerSync` bekam zusaetzlich einen Test fuer den `ContentLength==0`-Kurzschluss (leerer
+  Body wird NICHT als kaputtes JSON abgelehnt, sondern faellt mit `sync_type=""` durch).
+  `go tool cover -func` zeigt alle 16 Handler/Methoden zwischen 50,0 % (`HandleGetSyncStatus`)
+  und 100 % (Konstruktor/`ServiceName`/`getBexioClient`/`RegisterRoutes`). Gateway-
+  Gesamtcoverage 34,9 % laut `go test -coverprofile` (vorher 34,0 % nach Iteration 16).
+- kein-token-befund: `done_when` verlangt einen Test, dass kein Access-/Refresh-Token in einer
+  Antwort auftaucht. Ein Live-Test dafuer ist strukturell nicht moeglich - `internal/gateway`
+  hat wie jede vorige Coverage-Unit dieses Laufs keinen Fake-/bufconn-Client fuer
+  `BexioIntegrationServiceClient`, ein RPC-Aufruf schlaegt in jedem Testfall am
+  Verbindungsaufbau fehl, es gibt also nie eine echte erfolgreiche Response zum Pruefen.
+  Stattdessen per Proto-Lektuere verifiziert (`proto/biz/v1/bexio.proto`, alle 14
+  Response-Messages durchgesehen): keine einzige traegt ueberhaupt ein Token- oder
+  Secret-Feld - der OAuth-Access-Token verlaesst den `biz`-Service nie in Richtung Gateway.
+  `TestBexioResponseProtos_NeverExposeOAuthTokens` schreibt das als Reflection-Test ueber alle
+  14 generierten Response-Structs fest (keine Feldnamen, die "token" oder "clientsecret"
+  enthalten) - kein Live-Beweis, aber ein echter Regressions-Wächter: wird dem Proto je ein
+  Token-Feld hinzugefuegt, faellt dieser Test, bevor irgendein Handler es durchreichen koennte.
+  Der zweite Teil des done_when ("Rueckruf mit falschem Zustandsparameter wird
+  ununterscheidbar abgewiesen") ist end-to-end getestet:
+  `TestHandleOAuthCallback_InvalidState_SameResponseAsExpiredState` vergleicht Status UND Body
+  eines kaputten gegen ein gueltig signiertes, aber abgelaufenes Token - beide identisch.
+- kleinerer-befund: `HandlePushInvoice`/`HandlePushQuote` validieren `invoice_id`/`quote_id`
+  aus dem chi-URL-Parameter nicht als UUID (kein `validateUUIDParam`-Aufruf, anders als in
+  mehreren anderen Routendateien dieses Laufs) - jeder String erreicht direkt die RPC. Kein
+  eigener Fund fuer eine Unit, da die biz-Service-Seite die eigentliche Validierung tragen
+  muss und ein Format-Fehler dort ohnehin nur zu einer schlechteren Fehlermeldung fuehrt, nicht
+  zu einem Sicherheitsproblem (Tenant-Scoping passiert serverseitig) - der Vollstaendigkeit
+  halber hier notiert, falls Lauf 8 die Gateway-UUID-Validierungskonvention vereinheitlicht.
+- gate: build ok (`go build ./internal/gateway/...`) | vet ok (`go vet ./internal/gateway/...`)
+  | lint ok (`golangci-lint run ./internal/gateway/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/gateway/...`, gruen, 0 uebersprungen) | migration n.a. |
+  rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `9bd78903` (b-cov-gateway-einkauf-extended) geprueft: `git show
+  --stat` zeigt nur `route_einkauf_extended_test.go` (neu) plus Journal/Backlog, kein
+  Produktionscode, keine neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required,min=1"` vom `Mappings`-Feld in
+  `updateBexioFieldMappingsRequest` (route_bexio.go:470) entfernt →
+  `TestHandleUpdateFieldMappings_MissingMappings` wurde rot (503 statt 400/"validation_failed"/
+  Feld "mappings"), die uebrige Suite unberuehrt. Zurueckgedreht, `git diff --stat` auf die
+  Produktionsdatei zeigt keine Restaenderung, volle Suite danach gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: letzte Unit in Block B-Gateway (12/12 erledigt). Naechste Unit laut Reihenfolge:
+  `b-cov-server-fuhrpark` (erste Unit in Block B-Server) - Docker/Postgres bisher nicht
+  hochgefahren, fuer diese und alle folgenden Server-Units pruefen ob DB-Zugriff noetig ist
+  (fuhrpark-Scope nennt GPS-Lesepfade + Tenant, ggf. reine gRPC-Handler-Tests ohne DB analog
+  zum `formulare_grpc_test.go`-Muster ausreichend).

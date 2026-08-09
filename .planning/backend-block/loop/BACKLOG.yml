@@ -695,7 +695,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_bexio.go` - 566 Zeilen, 16 Handler, keine Testdatei.
       OAuth2-Anbindung an eine externe Buchhaltung.
