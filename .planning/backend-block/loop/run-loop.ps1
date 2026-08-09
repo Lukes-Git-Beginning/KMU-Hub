@@ -18,6 +18,7 @@
 [CmdletBinding()]
 param(
     [int]    $MaxIterations = 100,
+    [int]    $StartAt       = 1,         # Iterationsnummer, bei der die Zaehlung beginnt
     [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
     [string] $PauseFrom     = "",        # "HH:mm" - einmaliges Pausenfenster, Beginn
     [string] $PauseTo       = "",        # "HH:mm" - Ende (naechstes Auftreten nach PauseFrom)
@@ -227,7 +228,12 @@ function Get-OpenUnitCount {
 
 # --- Hauptschleife -----------------------------------------------------------
 $promptText = Get-Content $Prompt -Raw
-$i = 0
+# Muss ein abgebrochener Lauf am selben Abend fortgesetzt werden (geaenderte
+# Parameter, Rechnerneustart), zaehlt -StartAt weiter statt wieder bei 1 zu
+# beginnen. Sonst ueberschreibt der zweite Lauf die iter-NNN.json des ersten und
+# das JOURNAL.md fuehrt eine Nummer doppelt - genau der Fall, der die
+# Fortschrittsanzeige unten (hoechste Journal-Nummer) schon einmal einfrieren liess.
+$i = $StartAt - 1
 $consecutiveFailures = 0
 $rateLimitBackoffs = 0
 
