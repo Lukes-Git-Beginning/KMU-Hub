@@ -600,3 +600,64 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   abgewiesen zu werden. Kein Sicherheitsproblem (der Service validiert
   serverseitig), aber eine Inkonsistenz im Handler-Stil, die als Befund fuer
   eine kuenftige Unit vermerkt ist, falls gewuenscht.
+
+## Iteration 9 — b-cov-gateway-work-tasks — done — 2026-08-09 20:39
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_work_tasks_test.go` (route_work_test.go blieb unangetastet,
+  dort lagen bereits Tests fuer HandleCreateTask/HandleGetTask/HandleMoveTask-Teilmengen und
+  fuer HandleDeleteTimeEntry aus einer anderen Datei — nichts davon dupliziert). Abgedeckt:
+  alle 25 Handler aus `route_work_tasks.go` mit mindestens ServiceUnavailable-Pfad, dazu
+  Validierungsfaelle fuer jeden Handler mit Body (CreateTask: NoTenant/invalid start_date/
+  due_date/priority; UpdateTask: InvalidUUID/InvalidJSON/EmptyTitle/InvalidPriority/
+  InvalidStatusIDUUID/InvalidAssigneeIDUUID/InvalidStartDate/InvalidDueDate/leerer Body reicht
+  bis zum RPC; CreateTaskDependency: MissingTargetTaskID/InvalidUUID/InvalidDependencyType;
+  CreateTaskComment/UpdateTaskComment: MissingContent, InvalidQuotedCommentIDUUID;
+  LinkEntityToTask: MissingEntityType/MissingEntityID/InvalidEntityIDUUID; AttachFileToTask:
+  alle Pflichtfelder plus file_size<=0; SetTaskCustomFieldValues: EmptyValues;
+  ListEntityTasks/SearchTasks: fehlende Pflicht-Query-Parameter). ListTasks bekam eine
+  Tabellen-Testreihe ueber alle Filterkombinationen (project_id, assignee_id, status_id,
+  priority, parent_task_id, label_ids inkl. Leerstrings/Whitespace, due_from/due_to,
+  search+sort, include_completed, alle gleichzeitig, und die leere Kombination) sowie eigene
+  Faelle fuer invalid due_from/due_to-Format und fehlenden Tenant. Kein Handler bleibt bei
+  0 % (vorher 25 von 25 ungetestet); Gateway-Gesamtcoverage 27,3 % -> 28,3 %, Einzelabdeckung
+  je Handler 36,4-97,5 % (Rest ist der unerreichbare Erfolgspfad ohne Fake-WorkServiceClient,
+  wie in den vorigen drei Gateway-Units).
+- befund own-scope: `ownerFilterForScope` (helpers.go:144, benutzt in route_biz_expenses.go,
+  route_helpdesk.go, route_rapporte.go) wird in `route_work_tasks.go` NIRGENDS aufgerufen —
+  `HandleListTasks` filtert nur ueber den optionalen `assignee_id`-Query-Parameter, den der
+  Client selbst setzen muss, nicht ueber eine serverseitig erzwungene Scope-Aufloesung. Waere
+  ein RBAC-Grant `work:task:read` jemals auf Scope "own" gesetzt (Mechanismus seit Lauf 4
+  vorhanden), saehe der Nutzer trotzdem alle Tenant-Tasks, sofern er selbst keinen
+  assignee_id-Filter mitschickt. Zusaetzlich ist die im Backlog notierte Praemisse
+  ueberholt: `TaskProto` traegt inzwischen `created_by` (work.proto:167) — die Listen-Antwort
+  hat also seit einer frueheren Aenderung sehr wohl einen Ersteller, nur wird er nirgends als
+  Filter genutzt. Kein Fix in dieser Coverage-Unit (Produktentscheidung + echte
+  Verhaltensaenderung, kein Test-Diff) — als Fund fuer eine kuenftige Unit vermerkt.
+- befund fehlende id-validierung: `HandleDeleteTask` und `HandleMoveTask` lesen `id` per
+  `chi.URLParam` ohne `validateUUIDParam` (anders als `HandleGetTask`/`HandleUpdateTask` im
+  selben File) — eine ungueltige ID erreicht den (serverseitig validierenden) RPC-Call statt
+  lokal mit 400 abgelehnt zu werden. Gleiches Muster wie in Iteration 8
+  (route_biz_billing.go) schon vermerkt, hier als Test `TestHandleDeleteTask_
+  InvalidIDReachesRPCNotLocalValidation` festgeschrieben statt uebersehen. Kein
+  Sicherheitsproblem, nur Stil-Inkonsistenz.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt,
+  durchgehend gruen, 0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `8204ad01` (b-cov-gateway-biz-billing) geprueft: `git show
+  --stat` zeigt nur `route_biz_billing_test.go` (neu) plus Journal/Backlog, kein
+  Produktionscode, kein Proto, keine neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `entityType == "" || entityID == ""` in `HandleListEntityTasks`
+  (route_work_tasks.go:626) auf nur `entityType == ""` verkuerzt →
+  `TestHandleListEntityTasks_MissingParams/missing_entity_id` wurde rot (503 "connection
+  error" statt 400 "entity_type and entity_id are required"), die beiden anderen Faelle
+  blieben erwartungsgemaess gruen. Zurueckgedreht, `git diff` auf die Produktionsdatei zeigt
+  keine Restaenderung, volle Suite danach gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: HandleGetTask/HandleListTaskDependencies/HandleUnlinkEntityFromTask/
+  HandleListTaskEntityLinks/HandleRemoveTaskFile/HandleListTaskFiles/
+  HandleGetTaskCustomFieldValues und die reinen Lesehandler bleiben bei 36-58 % — wie in den
+  vorigen drei Gateway-Coverage-Units haben sie keinen Erfolgspfad-Test, weil kein Fake-
+  `WorkServiceClient` existiert. Beide own-scope- und id-Validierungs-Befunde oben sind fuer
+  Lauf 8 vorgemerkt, nicht in dieser Unit gefixt (Backlog-Regel: Coverage-Units bauen keine
+  Fixes nebenbei).
