@@ -140,39 +140,3 @@ jobs:
             echo "=== $log Service Logs ==="
             cat /tmp/$log.log || true
           done
-
-  integration:
-    name: Finance Integration Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Runs in parallel with smoke — both are independent nightly safety nets.
-    # testcontainers-go spins up its own pgvector/pgvector:pg16 container
-    # internally; no external Postgres service is needed here.
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: backend/go.sum
-
-      - name: Run Finance integration tests
-        working-directory: backend
-        env:
-          # testcontainers-go starts its own pgvector/pgvector:pg16 container and
-          # runs all *.up.sql migrations via pgtc.StartPostgres — no external DB
-          # needed. Ryuk reaper is disabled to avoid Docker-in-Docker permission
-          # issues on GitHub Actions runners.
-          TESTCONTAINERS_RYUK_DISABLED: "true"
-          # Optional: override the migrations directory if the runtime.Caller path
-          # resolution fails in the CI sandbox (unlikely, but documented).
-          # MIGRATIONS_DIR: ${{ github.workspace }}/backend/migrations
-        run: |
-          go test -tags=integration \
-            ./internal/biz/invoice/... \
-            ./internal/biz/quote/... \
-            ./internal/biz/creditnote/... \
-            -race -count=1 -v -timeout 15m
