@@ -70,7 +70,7 @@ import { DocumentBlockEditor, DocumentReader, isDocEmpty, type DocRow } from '@/
 import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } from './kb-blocks'
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
-import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
+import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, VsChip, type SortDirection } from '@/components/shared'
 import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useEditorContextReport, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
 import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
 import { useFormSchema } from '@/api/hooks/useFormulare'
@@ -139,26 +139,6 @@ const categoryColors: Record<string, string> = {
   Telefonie: 'bg-secondary text-muted-foreground',
   Sicherheit: 'bg-error-light text-error',
   Sonstiges: 'bg-secondary text-muted-foreground',
-}
-
-/**
- * A status/priority chip coloured from the customizable value-set. When the
- * value-set option carries a colour we tint the pill with it (so recolouring in
- * the Wertelisten editor shows live); otherwise we fall back to the semantic
- * Tailwind class. Keeps one look whether or not a tenant has customised colours.
- */
-function VsChip({ label, color, fallbackClass, className = '' }: {
-  label: string; color?: string; fallbackClass?: string; className?: string
-}) {
-  const base = 'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium'
-  if (color) {
-    return (
-      <span className={`${base} ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>
-        {label}
-      </span>
-    )
-  }
-  return <span className={`${base} ${fallbackClass ?? ''} ${className}`}>{label}</span>
 }
 
 // ---------------------------------------------------------------------------

@@ -23,4 +23,5 @@ export {
 } from './ModuleSettingsShell'
 export { useSettingsSectionScope, type ScopeContextValue } from './module-settings-scope'
 export { ColorSwatchPicker } from './ColorSwatchPicker'
+export { VsChip } from './VsChip'
 export { SWATCH_COLORS } from '@/lib/swatch-colors'
