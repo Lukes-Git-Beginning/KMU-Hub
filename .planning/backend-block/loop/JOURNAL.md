@@ -526,3 +526,77 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Contacts/Companies/Deals/Activities/Filters/Reports/Fields/Tags), den es
   fuer dieses Paket noch nicht gibt — kein Blocker, nur Grenze dieser
   Iteration.
+
+## Iteration 8 — b-cov-gateway-biz-billing — done — 2026-08-09 20:31
+- commit: (siehe unten)
+- gebaut: neue Datei `internal/gateway/route_biz_billing_test.go` fuer
+  `route_biz_billing.go` (868 Zeilen, 24 Handler — Credit Notes, Payments,
+  Dunning, Finance-Dashboard, DATEV-Export, GoBD-Journal/Compliance).
+  `route_biz_test.go` deckte bereits Teile ab (Create/List-Validierung fuer
+  Credit Notes, RecordPayment-Validierung, Dunning-Detect-Validierung,
+  DATEV-Validierung) — vor dem Schreiben gelesen, nichts verdoppelt. Zwei
+  tabellengetriebene Tests ueber alle 24 Handler
+  (`TestBizBillingRoutes_ServiceUnavailable`,
+  `TestBizBillingRoutes_NoTenant` — Client-Check laeuft in dieser Datei
+  durchgehend VOR dem Tenant-Check, anders als bei `route_crm_activities.go`,
+  wo die Reihenfolge je Handler wechselt; per Volldateilektuere verifiziert,
+  dann fuer alle 24 als eine Reihenfolge angenommen). Dazu gezielte
+  Validierungsfaelle fuer die bislang unbedeckten Zweige: Credit-Note
+  `line_items`/`tax_mode`/`original_invoice_id`(uuid)/VAT, Dunning
+  `level`-Grenzen (gte=1,lte=3) und `fee`(decimal_gte0), Escalate-Dunning-
+  Body (`invoice_id` required+uuid, eigener lokaler Typ), Update-Dunning-
+  Config (`level1_days_after_due` gte=0), Update-Dunning-Status
+  (`status`-oneof), Journal-Summary-Jahr (fehlend, nicht-numerisch,
+  ausserhalb 2000-2100 je als eigener Fall), Payment-Stats (`from`/`to`
+  fehlend in allen drei Kombinationen), GoBD-Export (`from_date`/`to_date`
+  required). Fuer `HandleRecordPayment` zwei gezielte Tests: ein
+  20-stelliger Dezimalbetrag mit 9 Nachkommastellen erreicht den (nicht
+  erreichbaren Dummy-)RPC-Call statt 400 zu liefern — belegt, dass
+  `decimal_gt0` ueber `shopspring/decimal` laeuft (beliebige Praezision),
+  keine `float64`-Konvertierung im Pfad stattfindet; ein zweiter Test
+  belegt, dass ein gesetzter `Idempotency-Key`-Header den Request nicht
+  lokal abweist (503 statt 400) — die eigentliche Deduplizierung passiert
+  serverseitig (Kommentar im Handler: "DB-level dedup (F5)"), eine
+  Zustellungspruefung des Headers ins Proto-Feld braeuchte einen Fake-
+  `FinanceServiceClient`, der fuer dieses Paket wie schon bei
+  `b-cov-gateway-inbox`/`b-cov-gateway-crm-activities` nicht existiert —
+  als Grenze im Test-Kommentar dokumentiert, kein Fix-Anlass. Kein Handler
+  in `route_biz_billing.go` bleibt bei 0 % (vorher 12 von 24). Gateway-
+  Gesamtcoverage: 27,3 % (von 26,5 % zu Iterationsbeginn).
+- gate: build ok (`go build ./internal/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run
+  ./internal/gateway/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/...`, dreimal wiederholt, durchgehend gruen) |
+  migration n.a. | rls-smoke n.a. (kein DB-Zugriff in diesem Testpaket)
+- verify vorgaenger: sauber — `7a83e348` (b-cov-gateway-crm-activities)
+  vor dem Ziehen dieser Unit geprueft: `go build`/`go vet`/`go test`
+  gruen, Diff nur `route_crm_activities_test.go` (neu) + Journal/Backlog,
+  kein Produktionscode angefasst, kein Build-Tag, kein Proto/Route/Guard
+  beruehrt.
+- mutations-probe: `year < 2000 || year > 2100` in `HandleGetJournalSummary`
+  (`route_biz_billing.go:639`) auf nur `year < 2000` verkuerzt (Obergrenze
+  entfernt) → `TestHandleGetJournalSummary_YearOutOfRange/TooHigh` wurde rot
+  (503 statt 400, "connection error" statt "4-digit number"), `TooLow`
+  blieb erwartungsgemaess gruen (untere Grenze unveraendert). Zurueckgedreht,
+  `git diff` auf die Produktionsdatei bestaetigt keine Restaenderung, volle
+  Suite danach dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne
+  DB-Zugriff, alle Tests hier sind In-Memory. done_when verlangt hier keine
+  DB-Tests.
+- offen: `HandleListCreditNotes`/`HandleListPayments`/`HandleListDunnings`
+  (42-44 %) und die reinen ID-Handler (`HandleGetCreditNote`/
+  `HandleSendCreditNote`/`HandleGenerateCreditNotePDF`/`HandleDeletePayment`/
+  `HandleSendDunning`/`HandleGenerateDunningPDF` bei 53-61 %) haben — wie in
+  den vorigen zwei Iterationen schon notiert — keinen echten
+  RPC-Erfolgspfad-Test, weil kein Fake-`FinanceServiceClient` existiert.
+  Auffaellig, aber kein Fix in dieser Coverage-Unit: keiner der ID-Handler
+  (`HandleGetCreditNote`, `HandleSendCreditNote`,
+  `HandleGenerateCreditNotePDF`, `HandleSendDunning`, `HandleEscalateDunning`,
+  `HandleGenerateDunningPDF`, `HandleLockInvoice`, `HandleSendDunningNotice`)
+  validiert die `id` aus `chi.URLParam` als UUID, bevor sie in den
+  gRPC-Request geht — anders als z. B. `route_crm_activities.go`, wo
+  `HandleGetActivity`/`HandleDeleteActivity` das tun. Eine ungueltige ID
+  erreicht hier immer erst den (dummy) gRPC-Call statt lokal mit 400
+  abgewiesen zu werden. Kein Sicherheitsproblem (der Service validiert
+  serverseitig), aber eine Inkonsistenz im Handler-Stil, die als Befund fuer
+  eine kuenftige Unit vermerkt ist, falls gewuenscht.

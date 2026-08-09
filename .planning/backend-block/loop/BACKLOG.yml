@@ -449,7 +449,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_biz_billing.go` - 868 Zeilen, 24 Handler, keine Testdatei.
       Zahlungspfad.
