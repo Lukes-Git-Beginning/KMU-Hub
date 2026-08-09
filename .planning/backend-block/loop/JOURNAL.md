@@ -257,3 +257,59 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   mit den 17 bereits bestehenden lexware-DB-Tests aus Iteration 2 liefen
   22 echte DB-Tests, 0 Skips bei gesetzter `DATABASE_URL`
   (`go test -v ./internal/biz/lexware/...`, `grep -c SKIP` = 0).
+
+## Iteration 4 — fix-bexio-tenant-id-missing-on-upsert — done — 2026-08-09 19:55
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: `UpsertSyncConfig`, `UpsertEntityMapping`, `UpsertFieldMappings`, `CreateSyncLog`
+  in `internal/biz/bexio/postgres_repository.go` schreiben jetzt `tenant_id` in ihr INSERT.
+  Die vier `models.Bexio*`-Structs (`BexioSyncConfig`, `BexioEntityMapping`,
+  `BexioFieldMapping`, `BexioSyncLog`) tragen ein neues `TenantID`-Feld. Jede
+  Konstruktionsstelle eines neuen Structs wurde mit `TenantID` bestueckt:
+  `contact_sync.go` (SyncLog, zwei `newMapping`-Literale), `invoice_pull.go`
+  (SyncLog, Mapping bei Neuanlage), `invoice_push.go` und `quote_push.go`
+  (je SyncLog + `newMapping`), `payment_poll.go` (SyncLog), `oauth_handler.go`
+  (SyncConfig + FieldMapping in `HandleCallback`, das `tenantID` bereits als
+  Parameter fuehrt). Anders als bei lexware brauchte KEIN Repository-Interface
+  eine neue Signatur — alle vier betroffenen Methoden nehmen bereits das volle
+  Model-Struct entgegen, nicht einzelne Skalare. Eine echte Signaturaenderung
+  gab es nur eine Ebene hoeher: `Service.UpdateFieldMappings` bekam einen
+  neuen `tenantID uuid.UUID`-Parameter (identisches Muster zu lexware), durch-
+  gereicht vom gRPC-Layer `bexio_grpc.go:UpdateBexioFieldMappings`, wo
+  `req.GetTenantId()` bisher nur auf Leerstring geprueft, nie geparst wurde.
+  Update-Pfade, die ein bestehendes Struct laden und mutiert wieder upserten
+  (`UpsertEntityMapping` in den Update-Zweigen, `UpdateSyncConfig`), lassen
+  `TenantID` bewusst leer — sicher, weil `ON CONFLICT ... DO UPDATE` `tenant_id`
+  nie in sein `SET` aufnimmt, exakt das etablierte lexware-Muster.
+- **ON-CONFLICT-Targets verifiziert, kein zweiter Bug wie bei lexware:** alle
+  drei `ON CONFLICT`-Klauseln (`(config_id)`, `(config_id, entity_type,
+  kmuhub_id)`, `(config_id, entity_type)`) wurden gegen die echten
+  UNIQUE-Constraints aus `backend/migrations/000055_add_bexio_integration.up.sql`
+  gegengeprueft — alle drei stimmen exakt. bexio hat kein Webhook-Pendant
+  (OAuth-basiert), also keine fuenfte Methode wie bei lexware.
+- **`payment_poll.go` und `invoice_pull.go` gezielt geprueft** (kein
+  lexware-Aequivalent, im Backlog-Eintrag als offener Pruefpunkt vermerkt):
+  beide haben `tenantID` bereits als Funktionsparameter im Scope, keine
+  Ueberraschung gefunden.
+- gate: build ok (`go build -p 2 ./internal/biz/bexio/... ./internal/server/...
+  ./internal/models/... ./cmd/gateway/... ./cmd/biz/...`) | vet ok | lint ok
+  (golangci-lint, dieselben Pakete, 0 issues) | test ok (`go test -count=1
+  ./internal/biz/bexio/...`, `./internal/server/...`, `./internal/gateway/...`
+  alle gruen) | migration n.a. (keine neue Migration, nur bestehende Spalten
+  genutzt) | rls-smoke n.a. (keine Tabelle/Policy angefasst, nur
+  INSERT-Spaltenlisten)
+- verify vorgaenger: sauber — `5b847267` (fix-lexware-tenant-id-missing-on-upsert)
+  gegen alle acht Fehlerklassen geprueft (vollstaendiger Diff gelesen): kein
+  gRPC-Bypass, kein Stub, kein Proto-Drift ohne Regen, kein neuer Guard ohne
+  Seed, keine neue Tabelle, Wire-Shape unveraendert, keine neue Route ohne
+  Spec-Eintrag, kein Guard-Alt-Key verloren.
+- offen: Diese Iteration zog mechanisch die erste `status: todo`-Unit in
+  `BACKLOG.yml` (Schritt 2 des Ablaufs), obwohl Iteration 3 in ihren eigenen
+  Notizen vermerkt hatte, die Unit bewusst NICHT zu ziehen und fuer Lauf 8
+  aufzuheben — die beiden Iterationen widersprechen sich darin, ob "erste
+  todo-Unit" oder "urspruenglich freigegebener Block" Vorrang hat. Diese
+  Iteration folgt dem woertlichen Ablauf-Text ("Nimm die erste Unit mit
+  status: todo"). Luke sollte das einmal grundsaetzlich klaeren, damit
+  kuenftige Iterationen nicht wieder unterschiedlich entscheiden. Inhaltlich
+  ist der Fix selbst risikoarm und eng am bereits gepruegten lexware-Muster.
+  `modules.bexio`s Aktivierungsstatus wurde nicht separat geprueft (wie schon
+  im urspruenglichen Fund vermerkt) — der Fix behebt den Bug unabhaengig davon.

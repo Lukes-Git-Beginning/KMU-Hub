@@ -49,13 +49,13 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO bexio_sync_configs (
-			id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
+			id, tenant_id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
 			invoice_push_enabled, quote_push_enabled,
 			payment_poll_enabled, payment_poll_interval_minutes,
 			invoice_pull_enabled, invoice_pull_interval_minutes,
 			last_contact_sync_at, last_payment_poll_at, last_invoice_pull_at,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		ON CONFLICT (config_id) DO UPDATE SET
 			contact_sync_enabled = EXCLUDED.contact_sync_enabled,
 			contact_sync_interval_minutes = EXCLUDED.contact_sync_interval_minutes,
@@ -66,7 +66,7 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 			invoice_pull_enabled = EXCLUDED.invoice_pull_enabled,
 			invoice_pull_interval_minutes = EXCLUDED.invoice_pull_interval_minutes,
 			updated_at = EXCLUDED.updated_at`,
-		config.ID, config.ConfigID, config.ContactSyncEnabled, config.ContactSyncIntervalMin,
+		config.ID, config.TenantID, config.ConfigID, config.ContactSyncEnabled, config.ContactSyncIntervalMin,
 		config.InvoicePushEnabled, config.QuotePushEnabled,
 		config.PaymentPollEnabled, config.PaymentPollIntervalMin,
 		config.InvoicePullEnabled, config.InvoicePullIntervalMin,
@@ -150,10 +150,10 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO bexio_entity_mappings (
-			id, config_id, entity_type, kmuhub_id, bexio_id,
+			id, tenant_id, config_id, entity_type, kmuhub_id, bexio_id,
 			last_synced_at, bexio_updated_at, kmuhub_updated_at, sync_direction,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (config_id, entity_type, kmuhub_id) DO UPDATE SET
 			bexio_id = EXCLUDED.bexio_id,
 			last_synced_at = EXCLUDED.last_synced_at,
@@ -161,7 +161,7 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 			kmuhub_updated_at = EXCLUDED.kmuhub_updated_at,
 			sync_direction = EXCLUDED.sync_direction,
 			updated_at = EXCLUDED.updated_at`,
-		mapping.ID, mapping.ConfigID, mapping.EntityType, mapping.KmuhubID, mapping.BexioID,
+		mapping.ID, mapping.TenantID, mapping.ConfigID, mapping.EntityType, mapping.KmuhubID, mapping.BexioID,
 		mapping.LastSyncedAt, mapping.BexioUpdatedAt, mapping.KmuhubUpdatedAt, mapping.SyncDirection,
 		mapping.CreatedAt, mapping.UpdatedAt,
 	)
@@ -260,12 +260,12 @@ func (r *PostgresRepository) UpsertFieldMappings(ctx context.Context, mapping *m
 	}
 
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO bexio_field_mappings (id, config_id, entity_type, mappings, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO bexio_field_mappings (id, tenant_id, config_id, entity_type, mappings, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (config_id, entity_type) DO UPDATE SET
 			mappings = EXCLUDED.mappings,
 			updated_at = EXCLUDED.updated_at`,
-		mapping.ID, mapping.ConfigID, mapping.EntityType, mappingsJSON,
+		mapping.ID, mapping.TenantID, mapping.ConfigID, mapping.EntityType, mappingsJSON,
 		mapping.CreatedAt, mapping.UpdatedAt,
 	)
 	return err
@@ -285,11 +285,11 @@ func (r *PostgresRepository) CreateSyncLog(ctx context.Context, log *models.Bexi
 
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO bexio_sync_log (
-			id, config_id, sync_type, status,
+			id, tenant_id, config_id, sync_type, status,
 			items_processed, items_created, items_updated, items_failed,
 			error_message, started_at, completed_at, metadata
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		log.ID, log.ConfigID, log.SyncType, log.Status,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		log.ID, log.TenantID, log.ConfigID, log.SyncType, log.Status,
 		log.ItemsProcessed, log.ItemsCreated, log.ItemsUpdated, log.ItemsFailed,
 		log.ErrorMessage, log.StartedAt, log.CompletedAt, metadataJSON,
 	)

@@ -224,8 +224,9 @@ func (s *BexioGRPCServer) GetBexioFieldMappings(ctx context.Context, req *bizv1.
 
 // UpdateBexioFieldMappings validates and saves field mappings.
 func (s *BexioGRPCServer) UpdateBexioFieldMappings(ctx context.Context, req *bizv1.UpdateBexioFieldMappingsRequest) (*bizv1.UpdateBexioFieldMappingsResponse, error) {
-	if req.GetTenantId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 	if req.GetEntityType() == "" {
 		return nil, status.Error(codes.InvalidArgument, "entity_type is required")
@@ -241,7 +242,7 @@ func (s *BexioGRPCServer) UpdateBexioFieldMappings(ctx context.Context, req *biz
 		})
 	}
 
-	if err := s.bexioService.UpdateFieldMappings(ctx, req.GetEntityType(), mappings); err != nil {
+	if err := s.bexioService.UpdateFieldMappings(ctx, tenantID, req.GetEntityType(), mappings); err != nil {
 		return nil, mapBexioError(err)
 	}
 

@@ -68,6 +68,7 @@ func (cs *ContactSyncer) SyncContacts(ctx context.Context, configID, tenantID uu
 
 	// Create sync log entry
 	syncLog := &models.BexioSyncLog{
+		TenantID:  tenantID,
 		ConfigID:  configID,
 		SyncType:  "contact_delta",
 		Status:    "running",
@@ -223,6 +224,7 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 
 			bexioTime := parseBexioTime(bc.UpdatedAt)
 			newMapping := &models.BexioEntityMapping{
+				TenantID:       tenantID,
 				ConfigID:       configID,
 				EntityType:     "contact",
 				KmuhubID:       kmuhubID,
@@ -318,6 +320,7 @@ func (cs *ContactSyncer) syncOutbound(ctx context.Context, configID, tenantID uu
 			}
 
 			newMapping := &models.BexioEntityMapping{
+				TenantID:        tenantID,
 				ConfigID:        configID,
 				EntityType:      "contact",
 				KmuhubID:        contact.ID,

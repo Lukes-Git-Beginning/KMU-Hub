@@ -126,6 +126,7 @@ func (h *OAuthHandler) HandleCallback(ctx context.Context, tenantID uuid.UUID, c
 
 	// Create default sync config
 	syncConfig := &models.BexioSyncConfig{
+		TenantID:               tenantID,
 		ConfigID:               ic.ID,
 		ContactSyncEnabled:     true,
 		ContactSyncIntervalMin: 15,
@@ -151,6 +152,7 @@ func (h *OAuthHandler) HandleCallback(ctx context.Context, tenantID uuid.UUID, c
 		}
 
 		fm := &models.BexioFieldMapping{
+			TenantID:   tenantID,
 			ConfigID:   ic.ID,
 			EntityType: entityType,
 			Mappings:   mappings,

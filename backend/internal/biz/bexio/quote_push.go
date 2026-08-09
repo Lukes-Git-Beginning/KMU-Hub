@@ -103,6 +103,7 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 		}
 
 		newMapping := &models.BexioEntityMapping{
+			TenantID:        tenantID,
 			ConfigID:        configID,
 			EntityType:      "quote",
 			KmuhubID:        quoteID,
@@ -118,6 +119,7 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 
 	// Log sync
 	syncLog := &models.BexioSyncLog{
+		TenantID:       tenantID,
 		ConfigID:       configID,
 		SyncType:       "quote_push",
 		Status:         "completed",

@@ -40,6 +40,7 @@ func (pp *PaymentPoller) PollPayments(ctx context.Context, configID, tenantID uu
 
 	now := time.Now().UTC()
 	syncLog := &models.BexioSyncLog{
+		TenantID:  tenantID,
 		ConfigID:  configID,
 		SyncType:  "payment_poll",
 		Status:    "running",
