@@ -382,7 +382,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Teil des urspruenglich freigegebenen Blocks C1 ist.
 
 ## Iteration 6 — b-cov-gateway-inbox — done — 2026-08-09 20:10
-- commit: (siehe naechster chore-Commit)
+- commit: b2a80006
 - gebaut: neue Datei `internal/gateway/route_inbox_test.go` fuer
   `route_inbox.go` (1.396 Zeilen, 36 Handler-Funktionen ueber 45 registrierte
   Routen, vorher 0 % Coverage, keine Testdatei). Abgedeckt: `ServiceName`,
