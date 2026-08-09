@@ -376,7 +376,7 @@ function SortableColumnRow({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 rounded-lg border px-2 py-2.5 ${row.visible ? 'bg-card' : 'bg-muted/40'} ${
+      className={`group flex items-center gap-2 rounded-lg border px-2 py-2 ${row.visible ? 'bg-card' : 'bg-muted/40'} ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
@@ -391,7 +391,11 @@ function SortableColumnRow({
         <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {/* Eine Zeile pro Spalte (Darien 2026-08-09): Herkunft, Breite und
+          „Zurücksetzen" zeigt nur die Zeile, die gerade angefasst wird. Vorher
+          brauchte jeder Eintrag drei Zeilen — von acht Spalten waren fünf zu
+          sehen, und gerade beim Sortieren will man alle auf einmal sehen. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {renaming ? (
           <input
             autoFocus
@@ -402,7 +406,7 @@ function SortableColumnRow({
             }}
             onBlur={(e) => onRename(e.target.value)}
             aria-label={t('customization.editor.spalten.rename', { column: row.label })}
-            className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+            className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary"
           />
         ) : (
           <button
@@ -419,7 +423,7 @@ function SortableColumnRow({
               row.builtIn ? 'customization.editor.spalten.rename' : 'customization.editor.spalten.editColumn',
               { column: row.label },
             )}
-            className="group flex min-w-0 items-center gap-1.5 text-left"
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
           >
             <span
               className={`min-w-0 truncate text-sm ${row.visible ? 'text-foreground' : 'text-muted-foreground line-through'}`}
@@ -433,16 +437,19 @@ function SortableColumnRow({
           </button>
         )}
 
-        {/* Wraps instead of truncating: with a width set, origin + width + reset do
-            not fit on one line in the panel's column. */}
-        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+        {/* Details, nur wenn die Zeile dran ist — und ohne Platzhalter: reserviert
+            man den Raum, bleibt für die Namen so wenig übrig, dass „Ticket-Nr."
+            als „Ticket…" dasteht. Beim Anfassen rückt der Name zusammen, was
+            verkraftbar ist: man weiß, welche Zeile man gerade greift. `hidden`
+            hält die Bedienelemente außerdem aus der Tab-Reihenfolge. */}
+        <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground group-hover:flex group-focus-within:flex">
           {row.builtIn ? (
             <span className="flex items-center gap-1">
               <Lock className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
               {t('customization.editor.spalten.builtIn')}
             </span>
           ) : (
-            <span className="min-w-0 truncate">
+            <span className="max-w-[7rem] truncate">
               {row.boundSetName
                 ? t('customization.fields.boundToSet', { set: row.boundSetName })
                 : t('customization.editor.spalten.fromField')}
@@ -450,12 +457,9 @@ function SortableColumnRow({
           )}
           {row.width !== undefined && (
             <>
-              {/* Own line, no separator: origin + width never fit side by side in
-                  the panel's width, and a dangling "·" at a wrap looks like debris.
-                  The number is a READING (Darien: "da stehen nur zahlen … man checkt
-                  das nicht"), the reset is its own labelled control next to it. */}
-              <span className="w-full" aria-hidden="true" />
-              <span className="shrink-0">
+              {/* Die Zahl ist eine ABLESUNG (Darien: „da stehen nur Zahlen … man
+                  checkt das nicht"), das Zurücksetzen daneben ein eigener Knopf. */}
+              <span className="shrink-0 tabular-nums">
                 {t('customization.editor.spalten.width', { percent: Math.round(row.width * 100) })}
               </span>
               <button

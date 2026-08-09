@@ -1,8 +1,12 @@
-# RESUME — nächster Einstieg (Stand 2026-08-09, Session #36)
+# RESUME — nächster Einstieg (Stand 2026-08-09, Session #36 abgeschlossen + GEPUSHT)
 
-> **★★★★★ ZUERST:**
->   1. **Dariens Werteliste-Symptome einsammeln.** Er wollte nachschauen, wo es konkret hakte. Ich habe die Prüfliste W1–W11 in der Zwischenzeit selbst durchgespielt und **vier echte Defekte** behoben (unten) — das muss nicht dasselbe sein, was ihm aufgefallen ist.
->   2. **Editor-Dokumentation** als Rollout-Vorlage (offen seit #32): Spalten, Fokus **in beiden Richtungen**, Wertelisten.
+> **★★★★★ NEUES TERMINAL STARTET HIER: Paket C — `.planning/editor-doku-und-rollout-paket.md`**
+>   Darien am Session-Ende: *„speicher alles ab, wir machen das in nem neuen Terminal weiter."*
+>   Inhalt: **C4 Editor-Dokumentation** (der Hebel, offen seit #32) · **C1 `VsChip` nach `shared/`** · **C2 LABEL_WHITELIST-Pflicht pro Modul** · **C3 Kontakte-Sonderweg (Router-Tabs)**.
+>   Die Frage „Doku zuerst oder VsChip zuerst?" wurde gestellt, aber nicht mehr beantwortet — Doku ist der naheliegende Einstieg, sie trägt die anderen drei als Arbeitspakete mit.
+>
+> **★ Entscheidungen von Darien (2026-08-09):** Spaltenbreite bleibt wie sie ist (die 8–80 %-Grenzen genügen; der Zusammenbruch kam von der zurückgenommenen Skalierung) · Spalten-Panel **kompakt** (gebaut).
+> **★ Dariens Werteliste-Symptome:** nie konkretisiert — er wollte nachschauen, kam nicht dazu. Die Prüfliste W1–W11 wurde stattdessen selbst durchgespielt, vier echte Defekte behoben. Falls er nochmal etwas nennt: es kann etwas anderes sein.
 >
 > **★ Session #36 — alles gepusht, jede Änderung mit echter Electron-QA belegt:**
 > - **Fokus-Kopplung beidseitig** (`a927b37f`): das Modul meldet seinen Ort zurück, Leiste + rechtes Panel folgen. Zwei Regeln halten das stabil — nur *eindeutige* Orte melden (die blanke Liste ist Heimat von vier Sektionen → meldet nichts), und `useEditorFocusEffect` hängt nur noch am `focusNonce`, sonst hätte die Rückmeldung den Fokus-Handler erneut ausgelöst und die Vorschau aufs erste Ticket zurückgeworfen. QA `qa-editor-fokus-m.mjs` 12/12.
@@ -12,8 +16,15 @@
 > - **Eigene Werteliste verschwand nach dem Übernehmen aus dem Panel** (`3f3c5767`): sie gehörte zu keinem Modul. Listen tragen jetzt ihr Modul.
 > - **Ticket-Nummern waren doppelt** (`71f13dd1`): die laufende Nummer war eine Quersumme der ID, `hd-tk-001` und `hd-tk-010` ergaben dieselbe — fünf von vierzehn Demo-Tickets betroffen.
 >
-> **★ QA-Regeln, neu bestätigt:** echtes Electron für alles Fenster-/IPC-Nahe · **Dev-Server nach Code-Änderungen neu starten**, sonst stirbt der Editor an einem HMR-Zustand („useDraftConfig must be used within a DraftConfigProvider") · Suiten **einzeln** fahren (drei Electron-Starts in einem Befehl machten O wacklig) · `innerText` sieht keine Eingabefelder und liefert CSS-Großschreibung.
-> **★ Offen:** Panel zeigt bereits deployte Umzüge ohne „→ Ziel"/„Wiederherstellen" · Editor-Vorschau schneidet die Liste rechts ab (SLA/Zugewiesen an/Erstellt am nicht sichtbar) · Spalten-Untergrenze aus R7 weiterhin ungeklärt. Details: `.planning/wertelisten-und-fokus-naechste-runde.md`.
+> **★ Zweite Hälfte der Session (nach Dariens Live-Test):**
+> - **Entwürfe** (`f9796377`): „manchmal öffnet er den Entwurf so wie es aktuell ist, oder die Version von vor zwei Mal Speichern" — drei Ursachen, alle im Fenster-Handover: der Übergabe-Zettel blieb liegen, wenn das Fenster schon offen war (und wurde vom NÄCHSTEN Start eingelöst) · das Öffnen las aus dem Query-Cache statt aus dem geteilten Speicher · jede Mutation schrieb die ganze Liste des eigenen Fensters zurück. Dazu **Entwürfe benennen** (erstes Speichern fragt, später umbenennbar im Rollout-Detail) und die Rückfrage bei ungespeicherter Arbeit — wobei „ungespeichert" ≠ `isDirty` ist.
+> - **Benachrichtigungen** (`115ebd6d`): Ton standardmäßig aus (inkl. Migration für gespeichertes „an") + **„Alle Benachrichtigungen stummschalten"** im Center-Kopf und in den Einstellungen.
+> - **A-Runde** (`8c05d9a3`): Balkendiagramm „Tickets pro Tag" gefixt (Prozent-Höhe ohne Elternteil-Höhe) · Editor-Fenster 1600 breit · deployte Umzüge im Panel sichtbar + rücknehmbar.
+> - **⚠ Revert** (`02d8c3da`): „Vorschau einpassen" zerlegte die Spaltenbreiten (eine Spalte über die ganze Breite, Rest unerreichbar) — Darien lief live hinein. Zurückgenommen; geblieben ist das breitere Fenster.
+> - **Spalten-Panel einzeilig** (`bed82797`): zehn Einträge statt fünf, Details nur bei der angefassten Zeile.
+>
+> **★ QA-Regeln, neu bestätigt:** echtes Electron für alles Fenster-/IPC-Nahe · **Dev-Server nach Code-Änderungen neu starten**, sonst stirbt der Editor an einem HMR-Zustand („useDraftConfig must be used within a DraftConfigProvider") · Suiten **einzeln** fahren · `innerText` sieht keine Eingabefelder und liefert CSS-Großschreibung · **nach Änderungen am Main-Prozess `npx electron-vite build` vor der Electron-QA**.
+> **★ Suiten-Stand:** fokus-m 12/12 · wertelisten-n 16/16 · -o 7/7 · -p 6/6 · entwurf-r 15/15 · notifications-mute-s 8/8 · electron-l 11/11 (an den Namens-Dialog angepasst).
 >
 > ---
 
