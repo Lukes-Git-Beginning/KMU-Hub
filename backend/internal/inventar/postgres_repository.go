@@ -554,6 +554,88 @@ func (r *PostgresRepository) ListInventurSessions(ctx context.Context, tenantID 
 	return sessions, total, rows.Err()
 }
 
+// CompleteInventurSessionTx applies every counted difference and marks the
+// session completed in one transaction, sharing applyMovementsInTx with
+// BookPickingListTx so a failed position rolls back everything in the same
+// call rather than leaving some differences booked and the rest silently
+// dropped.
+func (r *PostgresRepository) CompleteInventurSessionTx(ctx context.Context, tenantID, sessionID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin inventur booking tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
+	if err != nil {
+		return nil, err
+	}
+
+	ct, err := tx.Exec(ctx,
+		`UPDATE inventur_sessions SET status='completed', updated_at=NOW() WHERE id=$1 AND tenant_id=$2`,
+		sessionID, tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("complete inventur session: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return nil, ErrInventurSessionNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit inventur booking tx: %w", err)
+	}
+	return items, nil
+}
+
+// applyMovementsInTx applies each movement under the given transaction: the
+// item row is locked with SELECT ... FOR UPDATE, the delta is checked against
+// the locked quantity, the new quantity is written, and the movement is
+// inserted. Shared by BookPickingListTx and CompleteInventurSessionTx so both
+// get the same all-or-nothing guarantee from a single implementation.
+func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	items := make([]*Item, 0, len(movements))
+	for _, mv := range movements {
+		var it Item
+		err := tx.QueryRow(ctx,
+			`SELECT id, tenant_id, quantity, min_quantity
+			 FROM inventory_items
+			 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+			 FOR UPDATE`,
+			mv.ItemID, tenantID,
+		).Scan(&it.ID, &it.TenantID, &it.Quantity, &it.MinQuantity)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrItemNotFound
+		}
+		if err != nil {
+			return nil, fmt.Errorf("lock item for stock movement: %w", err)
+		}
+		if it.Quantity+mv.Delta < 0 {
+			return nil, fmt.Errorf("%w: item %s has %d, requested %d",
+				ErrInsufficientStock, mv.ItemID, it.Quantity, -mv.Delta)
+		}
+		it.Quantity += mv.Delta
+
+		if _, err := tx.Exec(ctx,
+			`UPDATE inventory_items SET quantity = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+			it.Quantity, mv.ItemID, tenantID,
+		); err != nil {
+			return nil, fmt.Errorf("update item quantity in tx: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO inventory_movements
+			    (id, tenant_id, item_id, movement_type, quantity, performed_by, reason, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+			uuid.New(), tenantID, mv.ItemID, mv.MovementType, mv.Delta, mv.PerformedBy, mv.Reason,
+		); err != nil {
+			return nil, fmt.Errorf("insert movement in tx: %w", err)
+		}
+		items = append(items, &it)
+	}
+	return items, nil
+}
+
 func (r *PostgresRepository) UpsertInventurCount(ctx context.Context, count *InventurCount) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO inventur_counts (id, tenant_id, session_id, item_id, expected, counted, counted_at)
@@ -709,19 +791,40 @@ func (r *PostgresRepository) UpdatePickingList(ctx context.Context, list *Pickin
 	return nil
 }
 
-// CompletePickingList claims the list for booking. The status predicate lives
-// in the WHERE clause, so a second concurrent booking affects zero rows and
-// gets false back instead of moving stock a second time.
-func (r *PostgresRepository) CompletePickingList(ctx context.Context, tenantID, listID uuid.UUID) (bool, error) {
-	ct, err := r.pool.Exec(ctx,
+// BookPickingListTx claims the list for booking and applies every stock
+// movement in one transaction. The claim's status predicate lives in the
+// WHERE clause, so a second concurrent booking affects zero rows and gets
+// claimed=false back instead of moving stock a second time. If applying any
+// movement fails, the whole transaction (claim included) rolls back — a list
+// that cannot be booked in full is never left half-booked.
+func (r *PostgresRepository) BookPickingListTx(ctx context.Context, tenantID, listID uuid.UUID, movements []StockMovementInput) (bool, []*Item, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return false, nil, fmt.Errorf("begin picking booking tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	ct, err := tx.Exec(ctx,
 		`UPDATE picking_lists SET status='completed', updated_at=NOW()
 		 WHERE id=$1 AND tenant_id=$2 AND status <> 'completed'`,
 		listID, tenantID,
 	)
 	if err != nil {
-		return false, err
+		return false, nil, fmt.Errorf("claim picking list: %w", err)
 	}
-	return ct.RowsAffected() > 0, nil
+	if ct.RowsAffected() == 0 {
+		return false, nil, nil
+	}
+
+	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
+	if err != nil {
+		return false, nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, nil, fmt.Errorf("commit picking booking tx: %w", err)
+	}
+	return true, items, nil
 }
 
 func (r *PostgresRepository) DeletePickingList(ctx context.Context, tenantID, listID uuid.UUID) error {

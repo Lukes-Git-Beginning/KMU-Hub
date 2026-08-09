@@ -347,18 +347,11 @@ func (s *Service) AdjustStock(ctx context.Context, input AdjustStockInput) (*Ite
 		return nil, fmt.Errorf("update item quantity: %w", updateErr)
 	}
 
-	movementType := MovementTypeAdjustment
-	if input.Delta < 0 {
-		movementType = MovementTypeOut
-	} else if input.Delta > 0 {
-		movementType = MovementTypeIn
-	}
-
 	movement := &Movement{
 		ID:           uuid.New(),
 		TenantID:     input.TenantID,
 		ItemID:       item.ID,
-		MovementType: movementType,
+		MovementType: movementTypeForDelta(input.Delta),
 		Quantity:     input.Delta,
 		PerformedBy:  input.PerformedBy,
 		Reason:       input.Reason,
@@ -929,7 +922,11 @@ func (s *Service) UpsertInventurCount(ctx context.Context, input UpsertInventurC
 	return count, nil
 }
 
-// BookInventurDifferences applies stock adjustments for all counted differences and marks session completed.
+// BookInventurDifferences applies stock adjustments for all counted
+// differences and marks the session completed, both in one transaction: a
+// difference that cannot be booked (unknown item, insufficient stock) must
+// leave the session exactly as it was, not completed with some deltas
+// silently dropped.
 func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventurDifferencesInput) (*InventurSession, error) {
 	session, err := s.repo.GetInventurSession(ctx, input.TenantID, input.SessionID)
 	if err != nil {
@@ -944,6 +941,7 @@ func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventu
 		return nil, fmt.Errorf("list counts for booking: %w", err)
 	}
 
+	var movements []StockMovementInput
 	for _, count := range counts {
 		if count.Counted == nil {
 			continue // uncounted items are skipped
@@ -952,25 +950,25 @@ func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventu
 		if diff == 0 {
 			continue
 		}
-		adjustInput := AdjustStockInput{
-			TenantID:    input.TenantID,
-			ItemID:      count.ItemID,
-			Delta:       diff,
-			Reason:      "Inventur-Buchung: " + session.Name,
-			PerformedBy: input.BookedBy,
-		}
-		if _, err := s.AdjustStock(ctx, adjustInput); err != nil {
-			slog.WarnContext(ctx, "book inventur difference failed", "item_id", count.ItemID, "error", err)
-		}
+		movements = append(movements, StockMovementInput{
+			ItemID:       count.ItemID,
+			Delta:        diff,
+			MovementType: movementTypeForDelta(diff),
+			PerformedBy:  input.BookedBy,
+			Reason:       "Inventur-Buchung: " + session.Name,
+		})
 	}
 
-	session.Status = InventurStatusCompleted
-	session.UpdatedAt = time.Now()
-	if err := s.repo.UpdateInventurSession(ctx, session); err != nil {
-		return nil, fmt.Errorf("complete inventur session: %w", err)
+	items, err := s.repo.CompleteInventurSessionTx(ctx, input.TenantID, input.SessionID, movements)
+	if err != nil {
+		return nil, fmt.Errorf("book inventur differences: %w", err)
 	}
+	for _, item := range items {
+		s.maybeCreateWarning(ctx, item)
+	}
+
 	slog.InfoContext(ctx, "inventur session booked", "session_id", session.ID, "tenant_id", session.TenantID)
-	return session, nil
+	return s.repo.GetInventurSession(ctx, input.TenantID, input.SessionID)
 }
 
 // ============================================================================
@@ -1133,12 +1131,10 @@ func (s *Service) DeletePickingListItem(ctx context.Context, tenantID, itemRowID
 }
 
 // BookPickingList books the picked quantities out of stock and completes the
-// list. Stock moves through AdjustStock — the same path adjustments and
-// Inventur bookings take — so every change lands in stock_movements and can
-// trigger a low-stock warning.
-//
-// Order matters: stock is checked first, then the list is CLAIMED by a
-// conditional UPDATE, and only then is stock moved. A second booking finds the
+// list. The claim and every stock movement run in one transaction
+// (Repository.BookPickingListTx): a position that cannot be booked (unknown
+// item, insufficient stock) rolls back the claim too, so a list that cannot
+// be booked in full is never left half-booked. A second booking finds the
 // list already completed, gets ErrPickingListAlreadyBooked, and moves nothing.
 func (s *Service) BookPickingList(ctx context.Context, input BookPickingListInput) (*PickingList, error) {
 	list, err := s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
@@ -1149,53 +1145,53 @@ func (s *Service) BookPickingList(ctx context.Context, input BookPickingListInpu
 		return nil, ErrPickingListAlreadyBooked
 	}
 
-	items, err := s.repo.ListPickingListItems(ctx, input.TenantID, input.ListID)
+	positions, err := s.repo.ListPickingListItems(ctx, input.TenantID, input.ListID)
 	if err != nil {
 		return nil, fmt.Errorf("list picking positions for booking: %w", err)
 	}
 
-	// Pre-check every position before touching anything: a list that cannot be
-	// booked in full must not leave half its stock moved.
-	toBook := make([]*PickingListItem, 0, len(items))
-	for _, pos := range items {
+	movements := make([]StockMovementInput, 0, len(positions))
+	for _, pos := range positions {
 		if pos.QuantityPicked <= 0 {
 			continue
 		}
-		item, itemErr := s.repo.GetItem(ctx, input.TenantID, pos.ItemID)
-		if itemErr != nil {
-			return nil, itemErr
-		}
-		if item.Quantity < pos.QuantityPicked {
-			return nil, fmt.Errorf("%w: item %s has %d, picked %d",
-				ErrInsufficientStock, pos.ItemID, item.Quantity, pos.QuantityPicked)
-		}
-		toBook = append(toBook, pos)
+		movements = append(movements, StockMovementInput{
+			ItemID:       pos.ItemID,
+			Delta:        -pos.QuantityPicked,
+			MovementType: MovementTypeOut,
+			PerformedBy:  input.BookedBy,
+			Reason:       "Kommissionierung: " + list.Reference,
+		})
 	}
 
-	claimed, err := s.repo.CompletePickingList(ctx, input.TenantID, input.ListID)
+	claimed, items, err := s.repo.BookPickingListTx(ctx, input.TenantID, input.ListID, movements)
 	if err != nil {
-		return nil, fmt.Errorf("complete picking list: %w", err)
+		return nil, fmt.Errorf("book picking list: %w", err)
 	}
 	if !claimed {
 		return nil, ErrPickingListAlreadyBooked
 	}
-
-	for _, pos := range toBook {
-		if _, adjErr := s.AdjustStock(ctx, AdjustStockInput{
-			TenantID:    input.TenantID,
-			ItemID:      pos.ItemID,
-			Delta:       -pos.QuantityPicked,
-			Reason:      "Kommissionierung: " + list.Reference,
-			PerformedBy: input.BookedBy,
-		}); adjErr != nil {
-			slog.ErrorContext(ctx, "book picking position failed",
-				"list_id", input.ListID, "item_id", pos.ItemID, "error", adjErr)
-		}
+	for _, item := range items {
+		s.maybeCreateWarning(ctx, item)
 	}
 
 	slog.InfoContext(ctx, "picking list booked",
-		"list_id", input.ListID, "tenant_id", input.TenantID, "positions", len(toBook))
+		"list_id", input.ListID, "tenant_id", input.TenantID, "positions", len(movements))
 	return s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
+}
+
+// movementTypeForDelta classifies a signed quantity delta into the movement
+// type it represents, shared by every stock-changing path (manual
+// adjustment, picking, Inventur booking) so the classification cannot drift.
+func movementTypeForDelta(delta int64) MovementType {
+	switch {
+	case delta < 0:
+		return MovementTypeOut
+	case delta > 0:
+		return MovementTypeIn
+	default:
+		return MovementTypeAdjustment
+	}
 }
 
 // validatePickQuantities rejects positions that cannot describe a real pick.
