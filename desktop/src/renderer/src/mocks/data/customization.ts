@@ -431,7 +431,20 @@ export function resolveValueSet(
     name: effectiveName,
     provenance: nameProvenance,
     options: Object.values(merged).sort((a, b) => a.order - b.order),
+    moduleKey: draftSet?.moduleKey ?? tenantSet?.moduleKey ?? vendorSet?.moduleKey,
   }
+}
+
+/**
+ * Ids of the lists a module owns beyond its built-in ones — the lists someone
+ * created in that module's editor and deployed. Without this the Wertelisten panel
+ * only knew the registry's fixed ids plus whatever sat in the current draft, so a
+ * self-created list disappeared from the panel as soon as it went live.
+ */
+export function listTenantValueSetsForModule(moduleKey: string): string[] {
+  return Object.values(tenantValueSets)
+    .filter((set) => set.moduleKey === moduleKey)
+    .map((set) => set.id)
 }
 
 /** List all known value-set ids (default set is the source of truth for ids). */

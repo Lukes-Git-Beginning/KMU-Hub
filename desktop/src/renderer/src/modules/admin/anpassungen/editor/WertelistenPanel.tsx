@@ -28,7 +28,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { resolveValueSet } from '@/mocks/data/customization'
+import { resolveValueSet, listTenantValueSetsForModule } from '@/mocks/data/customization'
 import type { ResolvedValueSet, ValueSetOption } from '@/api/customization-types'
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
@@ -58,10 +58,14 @@ function toEditable(resolved: ResolvedValueSet): {
   id: string
   name: string
   options: ValueSetOption[]
+  moduleKey?: string
 } {
   return {
     id: resolved.id,
     name: resolved.name,
+    // Carried through every edit: dropping it here would orphan a self-created
+    // list on the next keystroke.
+    moduleKey: resolved.moduleKey,
     options: resolved.options.map(({ id, label, color, order, active }) => ({ id, label, color, order, active })),
   }
 }
@@ -412,9 +416,13 @@ export function WertelistenPanel({ moduleKey }: { moduleKey: string }): React.Re
   const module = getEditorModule(moduleKey)
   const predefinedIds = module?.valueSetIds ?? []
   const { valueSets: draftSets, setDraftValueSet } = useDraftConfig()
-  // Sets present in the draft but not part of the module's fixed list are ones
-  // the user created here — rendered below the predefined ones, fully editable.
-  const newIds = Object.keys(draftSets).filter((id) => !predefinedIds.includes(id))
+  // Lists the user created for this module: the ones staged in the current draft
+  // plus the ones already deployed. Without the second half a self-created list
+  // vanished from the panel the moment it went live — it was still in use in the
+  // module, but only reachable through the field that bound it.
+  const newIds = [
+    ...new Set([...Object.keys(draftSets), ...listTenantValueSetsForModule(moduleKey)]),
+  ].filter((id) => !predefinedIds.includes(id))
 
   const createValueSet = (): void => {
     const stamp = Date.now().toString(36)
@@ -423,6 +431,7 @@ export function WertelistenPanel({ moduleKey }: { moduleKey: string }): React.Re
     setDraftValueSet(setId, {
       id: setId,
       name: t('customization.editor.wertelisten.newSetName'),
+      moduleKey,
       options: [
         { id: `opt-${stamp}`, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1].value, order: 0, active: true },
       ],
