@@ -142,6 +142,72 @@
 
 units:
 
+  - id: fix-lexware-tenant-id-missing-on-upsert
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/biz/lexware/postgres_repository.go`: `UpsertSyncConfig`,
+      `UpsertEntityMapping`, `UpsertFieldMappings`, `CreateSyncLog`, and
+      `UpsertWebhookSubscription` build their INSERT statements without a
+      `tenant_id` column. All five target tables (`lexware_sync_configs`,
+      `lexware_entity_mappings`, `lexware_field_mappings`, `lexware_sync_log`,
+      `lexware_webhook_subscriptions`) have `tenant_id UUID NOT NULL` with NO
+      default and NO populating trigger - verified against the live schema
+      (`\d <table>` on docker-postgres-1, five for five) and by grepping every
+      migration for a tenant_id-setting trigger (none exists; `enable_tenant_rls`
+      only adds the RLS policy, it does not backfill inserts). Every one of
+      these five methods therefore fails on a real database with a
+      not-null-violation, every single time. The four `models.Lexware*`
+      structs they write from (`LexwareSyncConfig`, `LexwareEntityMapping`,
+      `LexwareFieldMapping`, `LexwareSyncLog`) do not even carry a TenantID
+      field, so the gap runs from the model up. Net effect: the entire
+      Lexware integration write path - Connect (UpsertSyncConfig), contact
+      sync in both directions (CreateSyncLog, UpsertEntityMapping),
+      UpdateFieldMappings (UpsertFieldMappings), and webhook (de)registration
+      (UpsertWebhookSubscription) - cannot write to a real tenant-scoped
+      database today. `modules.lexware`'s activation state was not checked as
+      part of this finding; treat this as broken regardless.
+    sources:
+      - backend/internal/biz/lexware/postgres_repository.go
+      - backend/internal/models/lexware.go
+      - backend/internal/biz/lexware/repository.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/contact_sync.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/migrations/000125_rls_welle4_integration_configs_constraint.up.sql
+    notes: >
+      Found while building c-cov-biz-lexware (Lauf 7, Iteration 2): every DB
+      test written for the read/list/delete/update paths of
+      postgres_repository.go had to seed its fixture rows directly via
+      testutil.SeedRow (which does carry tenant_id) instead of through the
+      repository's own Upsert/Create methods, because those methods do not
+      compile a working INSERT against the real schema. Fix shape: add
+      `TenantID uuid.UUID` to the four models.Lexware* structs, thread a
+      tenantID argument (or read it off middleware.GetTenantID(ctx), matching
+      the pattern everywhere else in this codebase) through the five
+      Repository methods and their INSERT statements, and update every call
+      site (contact_sync.go, webhook_handler.go, service.go
+      UpdateFieldMappings, scheduler.go where relevant) plus the mockRepository
+      test doubles across service_test.go/service_wiring_test.go/
+      tenant_isolation_*_test.go that implement the Repository interface.
+      This is a real signature change across many call sites, not a one-line
+      fix - explicitly out of scope for a Lauf-7 coverage unit per this run's
+      own rule against building fixes on the side. bexio's equivalent methods
+      were NOT checked as part of this finding; worth a quick grep before
+      starting this unit in case the same gap exists there too.
+    done_when:
+      - The four models.Lexware* structs carry TenantID
+      - All five Repository Upsert/Create methods write tenant_id in their INSERT
+      - Every call site and mock/test double updated to match the new signature
+      - A DB test proves UpsertSyncConfig (or another of the five) succeeds
+        end-to-end against the real schema, replacing today's
+        SeedRow-bypasses-Upsert workaround in postgres_repository_db_test.go
+      - go test -count=1 ./internal/biz/lexware/... green with DATABASE_URL set, 0 skips
+
   - id: a-inbox-sla
     phase: 3
     service: inbox
@@ -230,7 +296,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/biz/lexware` - 998 Statements, 41,5 % gedeckt, 584 ungedeckt. Der groesste
       ungedeckte Block in `biz`, der ueberhaupt in die Coverage-Zahl einzahlt.
