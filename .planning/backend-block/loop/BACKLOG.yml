@@ -2040,279 +2040,96 @@ units:
       (kein Duplikat der Token-Hash-Logik). RPC-Methoden liegen zwischen 60% (GetUnreadCount,
       trivialer 3-Zeiler) und 100%, die meisten 80-100%.
 
-  - id: b-cov-server-fuhrpark
+  - id: fix-inventar-picking-partial-book
     phase: 3
-    service: server
+    service: inventar
     model: sonnet
     deps: []
     status: todo
     scope: >
-      `internal/server/fuhrpark_grpc.go` - 1.376 Zeilen, 36 Methoden, keine Testdatei.
+      `BookPickingList` (internal/inventar/service.go, ~Zeile 1143) haelt die Zusage aus
+      seinem eigenen Doc-Kommentar nicht: "a list that cannot be booked in full must not
+      leave half its stock moved". Der Vorab-Check deckt nur den Bestandsfall ab. Schlaegt
+      `AdjustStock` in der Schleife danach fehl, wird der Fehler NUR geloggt - die Liste
+      bleibt `completed`, der Aufrufer bekommt 200, ein Teil des Bestands ist bewegt.
+      Dasselbe Muster steht in `BookInventurDifferences` (~Zeile 962); nach der
+      Root-Cause-Regel gehoert der Fix an die gemeinsame Stelle, nicht zweimal als Guard.
+      Zweiter Teil: die neuen Picking-Tabellen sind nie gegen das reale Schema gelaufen.
+      `picking_service_test.go` faehrt nur gegen `mockRepository`, also ist weder
+      `ON CONFLICT (picking_list_id, item_id)` noch das konditionale
+      `UPDATE ... WHERE status <> 'completed'` verifiziert. Genau diese Fehlerklasse hat
+      in Lauf 6 Migration 000305 noetig gemacht.
     sources:
-      - backend/internal/server/fuhrpark_grpc.go
-      - backend/internal/server/formulare_grpc_test.go
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/picking_service_test.go
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/fuhrpark/booking_conflict_test.go
+      - backend/migrations/000307_picking_lists.up.sql
     notes: >
-      GPS-Positionen sind personenbezogene Bewegungsdaten - die Lesepfade dazu gehoeren
-      besonders geprueft, insbesondere dass sie tenant-gescopt sind. Kilometerstaende und
-      Datumsfelder sind die typischen Konvertierungsfallen.
+      Claim und alle Bestandsbewegungen gehoeren in EINE Transaktion. Das Muster steht
+      bereits im Repo: `produktion/postgres_repository.go` ~Zeile 347
+      (`pool.BeginTx(ReadCommitted)` / `defer tx.Rollback` / `tx.Commit`, mit
+      dokumentierter Schrittliste) und `fuhrpark/postgres_repository.go` ~Zeile 1279.
+      Keine neue Abstraktion, kein Tx-Framework, keine neue Dependency.
+      `modules.inventar` ist per Default OFF - der Pfad ist auf Produktion nicht
+      erreichbar, die Unit ist wichtig aber nicht dringend.
     done_when:
-      - GPS-Lesepfade mit Tenant-Fall abgedeckt
-      - Fehler-Abbildung als Tabellentest
-      - Validierungspfade je Methode
+      - Teilfehler beim Buchen laesst die Liste NICHT completed und liefert einen Fehler
+      - Fix sitzt an der gemeinsamen Stelle, BookInventurDifferences mit abgedeckt
+      - DB-Test gegen das reale Schema fuer ON CONFLICT und den Claim-UPDATE
+      - Doppelbuchung liefert weiterhin ErrPickingListAlreadyBooked
       - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
+      - go test -count=1 ./internal/inventar/... gruen
 
-  - id: b-cov-server-rapporte
+  - id: c-cov-biz-lexware
     phase: 3
-    service: server
+    service: biz
     model: sonnet
     deps: []
     status: todo
     scope: >
-      `internal/server/rapporte_grpc.go` - 1.066 Zeilen, 34 Methoden, keine Testdatei.
+      `internal/biz/lexware` - 998 Statements, 41,5 % gedeckt, 584 ungedeckt. Der groesste
+      ungedeckte Block in `biz`, der ueberhaupt in die Coverage-Zahl einzahlt.
     sources:
-      - backend/internal/server/rapporte_grpc.go
-      - backend/internal/server/formulare_grpc_test.go
+      - backend/internal/biz/lexware/
+      - backend/internal/biz/bexio/
     notes: >
-      Der Genehmigungsfluss (Entwurf, eingereicht, genehmigt, abgelehnt, erneut eingereicht)
-      ist die eigentliche Logik - jeder unzulaessige Uebergang braucht einen Fall. Ablehnen
-      ohne Begruendung muss scheitern.
+      `internal/biz` steht bei 54,9 % - fuer das 60-%-Ziel der kritischen Pfade fehlen rund
+      446 gedeckte Statements. invoice/quote/creditnote bringen dafuer NICHTS: ihre Tests
+      tragen `//go:build integration` und zaehlen nicht in `coverage.out`. Seit 2026-08-09
+      gaten sie immerhin den Merge (eigener blockierender CI-Job `integration`), aber die
+      Zahl bewegen sie nicht. lexware und recurring sind deshalb die wirksamen Ziele.
+      Mapping- und Fehlerpfade zuerst, nicht die HTTP-Attrappe. bexio ist das
+      Schwestermodul und taugt als Muster fuer den Testaufbau.
     done_when:
-      - Jeder unzulaessige Zustandsuebergang hat einen Fall
-      - Ablehnen ohne Begruendung scheitert
-      - Fehler-Abbildung als Tabellentest
+      - Mapping-Pfade als Tabellentests gegen erwartete Literale, nicht gegen nachgebaute Logik
+      - Fehlerklassen der API-Antworten abgedeckt
+      - lexware ueber 80 %
       - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
+      - go test -count=1 ./internal/biz/lexware/... gruen
 
-  - id: b-cov-server-inventar
+  - id: c-cov-biz-recurring
     phase: 3
-    service: server
+    service: biz
     model: sonnet
     deps: []
     status: todo
     scope: >
-      `internal/server/inventar_grpc.go` - 1.047 Zeilen, 31 Methoden, keine Testdatei.
+      `internal/biz/recurring` - 269 Statements, 52,4 % gedeckt, 128 ungedeckt.
+      Wiederkehrende Rechnungen: Terminberechnung und Ausloese-Logik.
     sources:
-      - backend/internal/server/inventar_grpc.go
-      - backend/internal/server/formulare_grpc_test.go
+      - backend/internal/biz/recurring/
     notes: >
-      Bestandsbewegungen sind vorzeichenbehaftet - Zu- und Abgang gehoeren getrennt geprueft,
-      ebenso ein Abgang unter null, falls das Modul ihn verbietet. Mengen liegen als
-      Zeichenkette oder Ganzzahl vor - im Modell nachsehen, nicht raten.
+      Zweites Paket fuer das 60-%-Ziel aus `c-cov-biz-lexware` - zusammen decken die
+      beiden rechnerisch die fehlenden ~446 Statements ab. Terminberechnung ueber
+      Monatsgrenzen und Schaltjahre ist die typische Falle; Zeitpunkte in den Test
+      injizieren, nie `time.Now()` im Test verwenden.
     done_when:
-      - Zu- und Abgang getrennt geprueft, inklusive Abgang unter null
-      - Fehler-Abbildung als Tabellentest
-      - Validierungspfade je Methode
+      - Terminberechnung inkl. Monatsende- und Schaltjahrfaellen abgedeckt
+      - Ausloese-Pfad mit und ohne faelligen Termin abgedeckt
+      - recurring ueber 85 %
       - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-plugin
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/plugin_grpc.go` - 868 Zeilen, 32 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/plugin_grpc.go
-      - backend/internal/gateway/route_plugin_test.go
-    notes: >
-      WASM ist per Feature-Flag AUS und wird mit Build-Tag `no_wasm` gebaut - die Tests
-      duerfen deshalb nichts voraussetzen, was nur mit eingeschaltetem WASM existiert, sonst
-      sind sie in CI rot. Nur die Verwaltungs- und Validierungspfade testen, keine
-      Plugin-Ausfuehrung.
-    done_when:
-      - Tests laufen mit Build-Tag no_wasm gruen
-      - Keine Plugin-Ausfuehrung im Test, nur Verwaltung und Validierung
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-automation
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/automation_grpc.go` - 834 Zeilen, 17 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/automation_grpc.go
-      - backend/internal/automation/trigger/registry.go
-    notes: >
-      Die Ausloeser- und Aktionstypen kommen aus einer Registry - ein unbekannter Typ muss
-      als Validierungsfehler abgelehnt werden, nicht still ignoriert. Genau das testen. Die
-      HTTP-Aktion ist SSRF-relevant; falls dort eine Zieladressen-Pruefung existiert, gehoert
-      sie mitgeprueft, und falls nicht, ist das ein Befund fuers Journal.
-    done_when:
-      - Unbekannter Ausloeser- oder Aktionstyp wird abgelehnt, nicht ignoriert
-      - Befund zur SSRF-Pruefung der HTTP-Aktion im Journal
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-settings
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/settings_grpc.go` - 738 Zeilen, 21 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/settings_grpc.go
-      - backend/migrations/000138_settings_foundation.up.sql
-    notes: >
-      Die Aufloesung ist dreistufig - Tenant-Vorgabe, Modul-Leiter-Override, persoenlicher
-      Override. Genau diese Reihenfolge ist die Logik und gehoert mit allen drei Ebenen
-      besetzt getestet, nicht nur mit einer. Schreiben auf Tenant-Ebene ohne Modul-Leiter-
-      oder Admin-Recht muss scheitern.
-    done_when:
-      - Aufloesung mit allen drei Ebenen besetzt geprueft
-      - Tenant-Schreibzugriff ohne Recht scheitert
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-wiki
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/wiki_grpc.go` - 699 Zeilen, 20 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/wiki_grpc.go
-      - backend/internal/gateway/route_wiki_test.go
-    notes: >
-      Die Freigabe-Token sind seit Lauf 5 weich widerrufbar und tragen ihren Ersteller -
-      ein widerrufener Token muss dieselbe Antwort erzeugen wie ein unbekannter, sonst ist
-      der Endpunkt ein Existenz-Orakel. Genau das testen. Artikelinhalt ist opak (Block-Doc
-      als JSON oder Alt-HTML) - beide Formen muessen durchlaufen.
-    done_when:
-      - Widerrufener und unbekannter Token erzeugen dieselbe Antwort
-      - Beide Inhaltsformen laufen durch
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-schichten
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/schichten_grpc.go` - 669 Zeilen, 20 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/schichten_grpc.go
-      - backend/internal/gateway/route_schichten_test.go
-    notes: >
-      Die Tauschantraege sind der Teil mit Logik - genehmigen, ablehnen, und der own-Scope
-      ueber die beiden Mitarbeiterfelder. Ein Antrag, der weder vom Antragsteller noch vom
-      Tauschpartner stammt, darf in einer own-gescopten Liste nicht auftauchen.
-    done_when:
-      - Tauschantrags-Uebergaenge abgedeckt, zulaessig und unzulaessig
-      - own-Scope ueber beide Mitarbeiterfelder geprueft
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-vermietung
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/vermietung_grpc.go` - 715 Zeilen, 25 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/vermietung_grpc.go
-      - backend/internal/gateway/route_vermietung_test.go
-    notes: >
-      Miete und Uebergabe haben eine Zustandsfolge; Ruecknahme vor Uebergabe muss scheitern.
-      Datumsfelder und Tarifbetraege sind die Konvertierungsfallen.
-    done_when:
-      - Ruecknahme vor Uebergabe scheitert
-      - Fehler-Abbildung als Tabellentest
-      - Validierungspfade je Methode
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-einkauf
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/einkauf_grpc.go` und `einkauf_grpc_extended.go` - zusammen 1.292
-      Zeilen, 46 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/einkauf_grpc.go
-      - backend/internal/server/einkauf_grpc_extended.go
-      - backend/internal/einkauf/service_test.go
-    notes: >
-      Der Kopfbetrag wird bei jeder Zeilenaenderung nachgerechnet (belegt in
-      `einkauf/service_test.go:736-807`) - auf gRPC-Ebene gehoert geprueft, dass der
-      nachgerechnete Wert unveraendert bis auf den Wire kommt, als Zeichenkette und nicht
-      als gerundeter Float. Der Statusfluss Entwurf, eingereicht, genehmigt, storniert
-      braucht seine unzulaessigen Uebergaenge.
-    done_when:
-      - Kopfbetrag kommt als Zeichenkette unveraendert auf den Wire
-      - Unzulaessige Statusuebergaenge haben je einen Fall
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-produktion
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/produktion_grpc.go` und `produktion_grpc_ext.go` - zusammen 1.189
-      Zeilen, 43 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/produktion_grpc.go
-      - backend/internal/server/produktion_grpc_ext.go
-      - backend/internal/produktion/errors.go
-    notes: >
-      Die Maschinenbuchung hat eine Ueberschneidungspruefung mit halboffenem Intervall
-      (`produktion/postgres_repository.go:282-286`, Sentinel `ErrBookingConflict`) - auf
-      gRPC-Ebene gehoert geprueft, dass daraus wirklich ein Konflikt-Code wird und nicht
-      Internal. Angrenzende Buchungen sind KEIN Konflikt.
-    done_when:
-      - ErrBookingConflict wird auf den erwarteten Code abgebildet, nicht auf Internal
-      - Angrenzende Buchung erzeugt keinen Konflikt
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: b-cov-server-vertraege
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    scope: >
-      `internal/server/vertraege_grpc.go` - 580 Zeilen, 15 Methoden, keine Testdatei.
-    sources:
-      - backend/internal/server/vertraege_grpc.go
-      - backend/internal/gateway/route_vertraege_test.go
-    notes: >
-      Kuendigungsfristen und Verlaengerungsdaten sind reine Datumslogik - Grenzfaelle am
-      Monatsende und am Jahreswechsel gehoeren dazu. Signaturdaten duerfen in keiner
-      Listen-Antwort auftauchen, nur im Detail.
-    done_when:
-      - Datums-Grenzfaelle am Monats- und Jahreswechsel abgedeckt
-      - Signaturdaten erscheinen nicht in Listen-Antworten
-      - Fehler-Abbildung als Tabellentest
-      - Mutations-Probe durchgefuehrt und im Journal belegt
-      - go test -count=1 ./internal/server/ gruen
+      - go test -count=1 ./internal/biz/recurring/... gruen
 
   - id: b-cov-gateway-inbox
     phase: 3
@@ -2594,6 +2411,280 @@ units:
       - Validierungspfade je Handler
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-server-fuhrpark
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/fuhrpark_grpc.go` - 1.376 Zeilen, 36 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      GPS-Positionen sind personenbezogene Bewegungsdaten - die Lesepfade dazu gehoeren
+      besonders geprueft, insbesondere dass sie tenant-gescopt sind. Kilometerstaende und
+      Datumsfelder sind die typischen Konvertierungsfallen.
+    done_when:
+      - GPS-Lesepfade mit Tenant-Fall abgedeckt
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-rapporte
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/rapporte_grpc.go` - 1.066 Zeilen, 34 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      Der Genehmigungsfluss (Entwurf, eingereicht, genehmigt, abgelehnt, erneut eingereicht)
+      ist die eigentliche Logik - jeder unzulaessige Uebergang braucht einen Fall. Ablehnen
+      ohne Begruendung muss scheitern.
+    done_when:
+      - Jeder unzulaessige Zustandsuebergang hat einen Fall
+      - Ablehnen ohne Begruendung scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-inventar
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/inventar_grpc.go` - 1.047 Zeilen, 31 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/inventar_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      Bestandsbewegungen sind vorzeichenbehaftet - Zu- und Abgang gehoeren getrennt geprueft,
+      ebenso ein Abgang unter null, falls das Modul ihn verbietet. Mengen liegen als
+      Zeichenkette oder Ganzzahl vor - im Modell nachsehen, nicht raten.
+    done_when:
+      - Zu- und Abgang getrennt geprueft, inklusive Abgang unter null
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-plugin
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/plugin_grpc.go` - 868 Zeilen, 32 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/plugin_grpc.go
+      - backend/internal/gateway/route_plugin_test.go
+    notes: >
+      WASM ist per Feature-Flag AUS und wird mit Build-Tag `no_wasm` gebaut - die Tests
+      duerfen deshalb nichts voraussetzen, was nur mit eingeschaltetem WASM existiert, sonst
+      sind sie in CI rot. Nur die Verwaltungs- und Validierungspfade testen, keine
+      Plugin-Ausfuehrung.
+    done_when:
+      - Tests laufen mit Build-Tag no_wasm gruen
+      - Keine Plugin-Ausfuehrung im Test, nur Verwaltung und Validierung
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-automation
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/automation_grpc.go` - 834 Zeilen, 17 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/automation/trigger/registry.go
+    notes: >
+      Die Ausloeser- und Aktionstypen kommen aus einer Registry - ein unbekannter Typ muss
+      als Validierungsfehler abgelehnt werden, nicht still ignoriert. Genau das testen. Die
+      HTTP-Aktion ist SSRF-relevant; falls dort eine Zieladressen-Pruefung existiert, gehoert
+      sie mitgeprueft, und falls nicht, ist das ein Befund fuers Journal.
+    done_when:
+      - Unbekannter Ausloeser- oder Aktionstyp wird abgelehnt, nicht ignoriert
+      - Befund zur SSRF-Pruefung der HTTP-Aktion im Journal
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-settings
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/settings_grpc.go` - 738 Zeilen, 21 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/settings_grpc.go
+      - backend/migrations/000138_settings_foundation.up.sql
+    notes: >
+      Die Aufloesung ist dreistufig - Tenant-Vorgabe, Modul-Leiter-Override, persoenlicher
+      Override. Genau diese Reihenfolge ist die Logik und gehoert mit allen drei Ebenen
+      besetzt getestet, nicht nur mit einer. Schreiben auf Tenant-Ebene ohne Modul-Leiter-
+      oder Admin-Recht muss scheitern.
+    done_when:
+      - Aufloesung mit allen drei Ebenen besetzt geprueft
+      - Tenant-Schreibzugriff ohne Recht scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-wiki
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/wiki_grpc.go` - 699 Zeilen, 20 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/wiki_grpc.go
+      - backend/internal/gateway/route_wiki_test.go
+    notes: >
+      Die Freigabe-Token sind seit Lauf 5 weich widerrufbar und tragen ihren Ersteller -
+      ein widerrufener Token muss dieselbe Antwort erzeugen wie ein unbekannter, sonst ist
+      der Endpunkt ein Existenz-Orakel. Genau das testen. Artikelinhalt ist opak (Block-Doc
+      als JSON oder Alt-HTML) - beide Formen muessen durchlaufen.
+    done_when:
+      - Widerrufener und unbekannter Token erzeugen dieselbe Antwort
+      - Beide Inhaltsformen laufen durch
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-schichten
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/schichten_grpc.go` - 669 Zeilen, 20 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/gateway/route_schichten_test.go
+    notes: >
+      Die Tauschantraege sind der Teil mit Logik - genehmigen, ablehnen, und der own-Scope
+      ueber die beiden Mitarbeiterfelder. Ein Antrag, der weder vom Antragsteller noch vom
+      Tauschpartner stammt, darf in einer own-gescopten Liste nicht auftauchen.
+    done_when:
+      - Tauschantrags-Uebergaenge abgedeckt, zulaessig und unzulaessig
+      - own-Scope ueber beide Mitarbeiterfelder geprueft
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-vermietung
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/vermietung_grpc.go` - 715 Zeilen, 25 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/gateway/route_vermietung_test.go
+    notes: >
+      Miete und Uebergabe haben eine Zustandsfolge; Ruecknahme vor Uebergabe muss scheitern.
+      Datumsfelder und Tarifbetraege sind die Konvertierungsfallen.
+    done_when:
+      - Ruecknahme vor Uebergabe scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-einkauf
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/einkauf_grpc.go` und `einkauf_grpc_extended.go` - zusammen 1.292
+      Zeilen, 46 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/einkauf_grpc.go
+      - backend/internal/server/einkauf_grpc_extended.go
+      - backend/internal/einkauf/service_test.go
+    notes: >
+      Der Kopfbetrag wird bei jeder Zeilenaenderung nachgerechnet (belegt in
+      `einkauf/service_test.go:736-807`) - auf gRPC-Ebene gehoert geprueft, dass der
+      nachgerechnete Wert unveraendert bis auf den Wire kommt, als Zeichenkette und nicht
+      als gerundeter Float. Der Statusfluss Entwurf, eingereicht, genehmigt, storniert
+      braucht seine unzulaessigen Uebergaenge.
+    done_when:
+      - Kopfbetrag kommt als Zeichenkette unveraendert auf den Wire
+      - Unzulaessige Statusuebergaenge haben je einen Fall
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-produktion
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/produktion_grpc.go` und `produktion_grpc_ext.go` - zusammen 1.189
+      Zeilen, 43 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/produktion_grpc.go
+      - backend/internal/server/produktion_grpc_ext.go
+      - backend/internal/produktion/errors.go
+    notes: >
+      Die Maschinenbuchung hat eine Ueberschneidungspruefung mit halboffenem Intervall
+      (`produktion/postgres_repository.go:282-286`, Sentinel `ErrBookingConflict`) - auf
+      gRPC-Ebene gehoert geprueft, dass daraus wirklich ein Konflikt-Code wird und nicht
+      Internal. Angrenzende Buchungen sind KEIN Konflikt.
+    done_when:
+      - ErrBookingConflict wird auf den erwarteten Code abgebildet, nicht auf Internal
+      - Angrenzende Buchung erzeugt keinen Konflikt
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-vertraege
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/server/vertraege_grpc.go` - 580 Zeilen, 15 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/vertraege_grpc.go
+      - backend/internal/gateway/route_vertraege_test.go
+    notes: >
+      Kuendigungsfristen und Verlaengerungsdaten sind reine Datumslogik - Grenzfaelle am
+      Monatsende und am Jahreswechsel gehoeren dazu. Signaturdaten duerfen in keiner
+      Listen-Antwort auftauchen, nur im Detail.
+    done_when:
+      - Datums-Grenzfaelle am Monats- und Jahreswechsel abgedeckt
+      - Signaturdaten erscheinen nicht in Listen-Antworten
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
 
   # ==========================================================================================
   # WEITERHIN BLOCKIERT — unveraendert aus Lauf 5 uebernommen.
