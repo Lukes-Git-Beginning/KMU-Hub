@@ -2309,6 +2309,7 @@
   "crm.nav.contacts": "Kontakte",
   "crm.nav.deals": "Deals",
   "crm.nav.leads": "Leads",
+  "crm.nav.noSections": "Für dieses Modul ist derzeit kein Bereich sichtbar.",
   "crm.nav.reports": "Auswertungen",
   "crm.nav.search": "Suche",
   "crm.pagination": "Seite {page} von {totalPages}",

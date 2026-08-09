@@ -84,10 +84,21 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     ],
     valueSetIds: ['deal_stages'],
     fieldEntities: ['crm_contact', 'crm_company', 'crm_deal', 'crm_activity'],
-    // CRM sub-tabs are router-based (blocked in the editor) → area toggles deferred
-    // until the router-sandbox path is built (see MODUL-AUDIT).
-    areas: [],
-    Component: lazy(() => import('@/modules/kontakte/KontaktePage')) as EditorModuleDef['Component'],
+    // Sub-areas were router-based until 2026-08-10, which is why this used to be
+    // empty — the sandbox has no matching URL and may not open its own router.
+    // KontakteLayout now drives them by state (routes remain as entry points), so
+    // they toggle like any other module's tabs. `key` matches KontakteSection.
+    areas: [
+      { key: 'kontakte', labelKey: 'crm.nav.contacts' },
+      { key: 'leads', labelKey: 'crm.nav.leads' },
+      { key: 'firmen', labelKey: 'crm.nav.companies' },
+      { key: 'pipeline', labelKey: 'crm.nav.deals' },
+      { key: 'aktivitaeten', labelKey: 'crm.nav.activities' },
+      { key: 'auswertungen', labelKey: 'crm.nav.reports' },
+    ],
+    // The layout, not the contacts list — otherwise the preview shows a module
+    // without its own navigation and the area toggles have nothing to act on.
+    Component: lazy(() => import('@/modules/kontakte/KontakteLayout')) as EditorModuleDef['Component'],
   },
   {
     key: 'helpdesk',

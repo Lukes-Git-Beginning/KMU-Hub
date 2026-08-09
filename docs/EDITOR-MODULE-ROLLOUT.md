@@ -256,7 +256,23 @@ Aus `.planning/customization-block/MODUL-AUDIT.md`:
 
 1. finanzen, inventar, einkauf, vertraege, produktion, vermietung, formulare, work
 2. kalender, zeiterfassung, rapporte, fuhrpark
-3. **kontakte** — Sonderweg, siehe unten
+
+**kontakte** ist seit 2026-08-10 erledigt (siehe unten) und taugt jetzt als zweite
+Vorlage — Helpdesk zeigt zustandsgeführte Tabs, Kontakte zeigt, wie ein Modul mit
+eigenen Routen dazu kommt.
+
+**Zu `work` — geprüft, keine Sonderbehandlung nötig.** Es sieht auf den ersten Blick
+aus wie Kontakte (verschachtelte `<Routes>` unter `work/*`), hat aber gar keine
+Bereichs-Leiste: „Navigation is handled by the main sidebar/topnav — no sub-nav
+needed", und die inneren Routen sind Detail-Ansichten (`projects/:id/*`), keine Tabs.
+Für den Editor wird deshalb **nicht** `WorkLayout` registriert — sonst stünde die
+Vorschau leer, weil `<Routes>` im Editor-Fenster nichts trifft — sondern direkt die
+Seite, die man beurteilen soll (`projects/ProjectsListPage`). `areas: []` ist dort
+inhaltlich richtig, kein Mangel.
+
+**Regel daraus für jedes Modul:** registriert wird die Komponente, die ohne passende
+URL etwas Sinnvolles zeigt. Hat ein Modul eine eigene Bereichs-Leiste, muss diese
+zustandsgeführt sein (Kontakte-Muster); hat es keine, nimmt man die Seite selbst.
 
 ## 6 · Offen: der Kontakte-Sonderweg
 

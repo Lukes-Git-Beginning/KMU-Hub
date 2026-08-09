@@ -48,6 +48,7 @@ const SCAN_EXCLUDE = ['components/customization/EditorSurface.tsx']
 const KNOWN_DYNAMIC_SOURCES: Record<string, string> = {
   'item.dkey': 'helpdesk tab list — keys are the EditorModuleDef.areas labelKeys',
   'cat.labelKey': 'kontakte category sidebar — keys are kontakte.category.*',
+  'item.labelKey': 'kontakte section bar — keys are the EditorModuleDef.areas labelKeys',
 }
 
 // ── Quellcode-Scan ───────────────────────────────────────────────────────────
