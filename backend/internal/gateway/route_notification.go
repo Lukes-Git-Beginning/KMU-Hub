@@ -351,6 +351,8 @@ type updatePreferenceRequest struct {
 	ModuleID     *string `json:"module_id,omitempty"`
 	InApp        bool    `json:"in_app"`
 	DesktopPush  bool    `json:"desktop_push"`
+	Email        bool    `json:"email"`
+	SMS          bool    `json:"sms"`
 	Sound        string  `json:"sound"`
 }
 
@@ -372,6 +374,8 @@ func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *ht
 		UserId:      userID,
 		InApp:       req.InApp,
 		DesktopPush: req.DesktopPush,
+		Email:       req.Email,
+		Sms:         req.SMS,
 		Sound:       req.Sound,
 	}
 	if req.EventTypeKey != nil {

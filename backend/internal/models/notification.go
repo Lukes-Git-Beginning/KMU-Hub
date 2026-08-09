@@ -56,6 +56,8 @@ type NotificationPreference struct {
 	ModuleID     *string    `json:"module_id,omitempty"`
 	InApp        bool       `json:"in_app"`
 	DesktopPush  bool       `json:"desktop_push"`
+	Email        bool       `json:"email"`
+	SMS          bool       `json:"sms"`
 	Sound        string     `json:"sound"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`

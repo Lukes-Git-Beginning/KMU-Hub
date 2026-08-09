@@ -98,3 +98,84 @@ func (r *PostgresKPIRepo) KPISnapshot(ctx context.Context, tenantID uuid.UUID, f
 	snap.PipelineVolume = pipeline
 	return snap, nil
 }
+
+// kpiSeriesQuery buckets the same three history-capable metrics from
+// kpiSnapshotQuery (stock_warnings has no history, see the executor's doc
+// comment) into `periods` calendar months ending in the month of $2, in one
+// round trip via a shared `periods` CTE instead of one query per bucket.
+//
+// Each bucket's upper bound is exclusive: the 1st of the following month for
+// a past bucket, or the day after $2 for the current (partial) month — so the
+// last point matches KPISnapshot's "current" reading exactly (month-to-date
+// as of $2). Revenue buckets on invoice_date (a flow within the bucket);
+// pipeline volume and open tickets are point-in-time as of the bucket's
+// upper bound (a stock value, same convention as kpiSnapshotQuery).
+const kpiSeriesQuery = `
+	WITH periods AS (
+		SELECT
+			gs::date AS period_start,
+			LEAST(gs + INTERVAL '1 month', $2::timestamptz + INTERVAL '1 day') AS period_end
+		FROM generate_series(
+			date_trunc('month', $2::timestamptz) - ($3::int - 1) * INTERVAL '1 month',
+			date_trunc('month', $2::timestamptz),
+			INTERVAL '1 month'
+		) AS gs
+	)
+	SELECT
+		p.period_start,
+		COALESCE((
+			SELECT SUM(gross_total) FROM finance_invoices
+			WHERE tenant_id = $1
+			  AND status IN ('sent', 'paid', 'overdue')
+			  AND invoice_date >= p.period_start
+			  AND invoice_date < p.period_end::date
+		), 0)::text AS revenue,
+		COALESCE((
+			SELECT SUM(value) FROM deals
+			WHERE tenant_id = $1
+			  AND created_at < p.period_end
+			  AND (closed_at IS NULL OR closed_at >= p.period_end)
+		), 0)::text AS pipeline_volume,
+		(
+			SELECT COUNT(*) FROM tickets
+			WHERE tenant_id = $1
+			  AND status <> 'merged'
+			  AND created_at < p.period_end
+			  AND (resolved_at IS NULL OR resolved_at >= p.period_end)
+		)::int AS open_tickets
+	FROM periods p
+	ORDER BY p.period_start`
+
+// KPISeries returns the last `periods` calendar-month buckets ending in the
+// month of `now`, oldest first.
+func (r *PostgresKPIRepo) KPISeries(ctx context.Context, tenantID uuid.UUID, now time.Time, periods int) ([]executor.KPISeriesPoint, error) {
+	rows, err := r.pool.Query(ctx, kpiSeriesQuery, tenantID, now, periods)
+	if err != nil {
+		return nil, fmt.Errorf("kpi series: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]executor.KPISeriesPoint, 0, periods)
+	for rows.Next() {
+		var p executor.KPISeriesPoint
+		var revenueRaw, pipelineRaw string
+		if err := rows.Scan(&p.PeriodStart, &revenueRaw, &pipelineRaw, &p.OpenTickets); err != nil {
+			return nil, fmt.Errorf("kpi series: scan: %w", err)
+		}
+		revenue, err := decimal.NewFromString(revenueRaw)
+		if err != nil {
+			return nil, fmt.Errorf("kpi series: parse revenue %q: %w", revenueRaw, err)
+		}
+		pipeline, err := decimal.NewFromString(pipelineRaw)
+		if err != nil {
+			return nil, fmt.Errorf("kpi series: parse pipeline volume %q: %w", pipelineRaw, err)
+		}
+		p.Revenue = revenue
+		p.PipelineVolume = pipeline
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("kpi series: %w", err)
+	}
+	return out, nil
+}

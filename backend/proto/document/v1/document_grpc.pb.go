@@ -19,55 +19,56 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DocumentService_CreateFolder_FullMethodName            = "/document.v1.DocumentService/CreateFolder"
-	DocumentService_GetFolder_FullMethodName               = "/document.v1.DocumentService/GetFolder"
-	DocumentService_ListFolders_FullMethodName             = "/document.v1.DocumentService/ListFolders"
-	DocumentService_UpdateFolder_FullMethodName            = "/document.v1.DocumentService/UpdateFolder"
-	DocumentService_DeleteFolder_FullMethodName            = "/document.v1.DocumentService/DeleteFolder"
-	DocumentService_GetFolderPath_FullMethodName           = "/document.v1.DocumentService/GetFolderPath"
-	DocumentService_InitializeUserSpace_FullMethodName     = "/document.v1.DocumentService/InitializeUserSpace"
-	DocumentService_InitializeTeamSpace_FullMethodName     = "/document.v1.DocumentService/InitializeTeamSpace"
-	DocumentService_GetFile_FullMethodName                 = "/document.v1.DocumentService/GetFile"
-	DocumentService_ListFiles_FullMethodName               = "/document.v1.DocumentService/ListFiles"
-	DocumentService_UpdateFile_FullMethodName              = "/document.v1.DocumentService/UpdateFile"
-	DocumentService_DeleteFile_FullMethodName              = "/document.v1.DocumentService/DeleteFile"
-	DocumentService_CopyFile_FullMethodName                = "/document.v1.DocumentService/CopyFile"
-	DocumentService_MoveFile_FullMethodName                = "/document.v1.DocumentService/MoveFile"
-	DocumentService_GetFileDownloadURL_FullMethodName      = "/document.v1.DocumentService/GetFileDownloadURL"
-	DocumentService_CreateFileVersion_FullMethodName       = "/document.v1.DocumentService/CreateFileVersion"
-	DocumentService_ListFileVersions_FullMethodName        = "/document.v1.DocumentService/ListFileVersions"
-	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
-	DocumentService_ListFileActivity_FullMethodName        = "/document.v1.DocumentService/ListFileActivity"
-	DocumentService_RegisterUploadedFile_FullMethodName    = "/document.v1.DocumentService/RegisterUploadedFile"
-	DocumentService_UploadFile_FullMethodName              = "/document.v1.DocumentService/UploadFile"
-	DocumentService_ListFileComments_FullMethodName        = "/document.v1.DocumentService/ListFileComments"
-	DocumentService_CreateFileComment_FullMethodName       = "/document.v1.DocumentService/CreateFileComment"
-	DocumentService_UpdateFileComment_FullMethodName       = "/document.v1.DocumentService/UpdateFileComment"
-	DocumentService_DeleteFileComment_FullMethodName       = "/document.v1.DocumentService/DeleteFileComment"
-	DocumentService_CreateShareLink_FullMethodName         = "/document.v1.DocumentService/CreateShareLink"
-	DocumentService_ListShareLinks_FullMethodName          = "/document.v1.DocumentService/ListShareLinks"
-	DocumentService_RevokeShareLink_FullMethodName         = "/document.v1.DocumentService/RevokeShareLink"
-	DocumentService_GetSharedFile_FullMethodName           = "/document.v1.DocumentService/GetSharedFile"
-	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
-	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
-	DocumentService_ListShares_FullMethodName              = "/document.v1.DocumentService/ListShares"
-	DocumentService_ListSharedWithMe_FullMethodName        = "/document.v1.DocumentService/ListSharedWithMe"
-	DocumentService_CreateTag_FullMethodName               = "/document.v1.DocumentService/CreateTag"
-	DocumentService_ListTags_FullMethodName                = "/document.v1.DocumentService/ListTags"
-	DocumentService_DeleteTag_FullMethodName               = "/document.v1.DocumentService/DeleteTag"
-	DocumentService_TagFile_FullMethodName                 = "/document.v1.DocumentService/TagFile"
-	DocumentService_UntagFile_FullMethodName               = "/document.v1.DocumentService/UntagFile"
-	DocumentService_LinkFileToEntity_FullMethodName        = "/document.v1.DocumentService/LinkFileToEntity"
-	DocumentService_UnlinkFileFromEntity_FullMethodName    = "/document.v1.DocumentService/UnlinkFileFromEntity"
-	DocumentService_ListFileEntityLinks_FullMethodName     = "/document.v1.DocumentService/ListFileEntityLinks"
-	DocumentService_DeleteEntityLink_FullMethodName        = "/document.v1.DocumentService/DeleteEntityLink"
-	DocumentService_ListFilesByEntity_FullMethodName       = "/document.v1.DocumentService/ListFilesByEntity"
-	DocumentService_SearchFiles_FullMethodName             = "/document.v1.DocumentService/SearchFiles"
-	DocumentService_ListVirtualFiles_FullMethodName        = "/document.v1.DocumentService/ListVirtualFiles"
-	DocumentService_GenerateWOPIToken_FullMethodName       = "/document.v1.DocumentService/GenerateWOPIToken"
-	DocumentService_GetWOPIDiscovery_FullMethodName        = "/document.v1.DocumentService/GetWOPIDiscovery"
-	DocumentService_GetPresignedUploadURL_FullMethodName   = "/document.v1.DocumentService/GetPresignedUploadURL"
-	DocumentService_GetPresignedDownloadURL_FullMethodName = "/document.v1.DocumentService/GetPresignedDownloadURL"
+	DocumentService_CreateFolder_FullMethodName              = "/document.v1.DocumentService/CreateFolder"
+	DocumentService_GetFolder_FullMethodName                 = "/document.v1.DocumentService/GetFolder"
+	DocumentService_ListFolders_FullMethodName               = "/document.v1.DocumentService/ListFolders"
+	DocumentService_UpdateFolder_FullMethodName              = "/document.v1.DocumentService/UpdateFolder"
+	DocumentService_DeleteFolder_FullMethodName              = "/document.v1.DocumentService/DeleteFolder"
+	DocumentService_GetFolderPath_FullMethodName             = "/document.v1.DocumentService/GetFolderPath"
+	DocumentService_InitializeUserSpace_FullMethodName       = "/document.v1.DocumentService/InitializeUserSpace"
+	DocumentService_InitializeTeamSpace_FullMethodName       = "/document.v1.DocumentService/InitializeTeamSpace"
+	DocumentService_GetFile_FullMethodName                   = "/document.v1.DocumentService/GetFile"
+	DocumentService_ListFiles_FullMethodName                 = "/document.v1.DocumentService/ListFiles"
+	DocumentService_UpdateFile_FullMethodName                = "/document.v1.DocumentService/UpdateFile"
+	DocumentService_DeleteFile_FullMethodName                = "/document.v1.DocumentService/DeleteFile"
+	DocumentService_CopyFile_FullMethodName                  = "/document.v1.DocumentService/CopyFile"
+	DocumentService_MoveFile_FullMethodName                  = "/document.v1.DocumentService/MoveFile"
+	DocumentService_GetFileDownloadURL_FullMethodName        = "/document.v1.DocumentService/GetFileDownloadURL"
+	DocumentService_CreateFileVersion_FullMethodName         = "/document.v1.DocumentService/CreateFileVersion"
+	DocumentService_ListFileVersions_FullMethodName          = "/document.v1.DocumentService/ListFileVersions"
+	DocumentService_RevertFileVersion_FullMethodName         = "/document.v1.DocumentService/RevertFileVersion"
+	DocumentService_GetFileVersionDownloadURL_FullMethodName = "/document.v1.DocumentService/GetFileVersionDownloadURL"
+	DocumentService_ListFileActivity_FullMethodName          = "/document.v1.DocumentService/ListFileActivity"
+	DocumentService_RegisterUploadedFile_FullMethodName      = "/document.v1.DocumentService/RegisterUploadedFile"
+	DocumentService_UploadFile_FullMethodName                = "/document.v1.DocumentService/UploadFile"
+	DocumentService_ListFileComments_FullMethodName          = "/document.v1.DocumentService/ListFileComments"
+	DocumentService_CreateFileComment_FullMethodName         = "/document.v1.DocumentService/CreateFileComment"
+	DocumentService_UpdateFileComment_FullMethodName         = "/document.v1.DocumentService/UpdateFileComment"
+	DocumentService_DeleteFileComment_FullMethodName         = "/document.v1.DocumentService/DeleteFileComment"
+	DocumentService_CreateShareLink_FullMethodName           = "/document.v1.DocumentService/CreateShareLink"
+	DocumentService_ListShareLinks_FullMethodName            = "/document.v1.DocumentService/ListShareLinks"
+	DocumentService_RevokeShareLink_FullMethodName           = "/document.v1.DocumentService/RevokeShareLink"
+	DocumentService_GetSharedFile_FullMethodName             = "/document.v1.DocumentService/GetSharedFile"
+	DocumentService_ShareEntity_FullMethodName               = "/document.v1.DocumentService/ShareEntity"
+	DocumentService_UnshareEntity_FullMethodName             = "/document.v1.DocumentService/UnshareEntity"
+	DocumentService_ListShares_FullMethodName                = "/document.v1.DocumentService/ListShares"
+	DocumentService_ListSharedWithMe_FullMethodName          = "/document.v1.DocumentService/ListSharedWithMe"
+	DocumentService_CreateTag_FullMethodName                 = "/document.v1.DocumentService/CreateTag"
+	DocumentService_ListTags_FullMethodName                  = "/document.v1.DocumentService/ListTags"
+	DocumentService_DeleteTag_FullMethodName                 = "/document.v1.DocumentService/DeleteTag"
+	DocumentService_TagFile_FullMethodName                   = "/document.v1.DocumentService/TagFile"
+	DocumentService_UntagFile_FullMethodName                 = "/document.v1.DocumentService/UntagFile"
+	DocumentService_LinkFileToEntity_FullMethodName          = "/document.v1.DocumentService/LinkFileToEntity"
+	DocumentService_UnlinkFileFromEntity_FullMethodName      = "/document.v1.DocumentService/UnlinkFileFromEntity"
+	DocumentService_ListFileEntityLinks_FullMethodName       = "/document.v1.DocumentService/ListFileEntityLinks"
+	DocumentService_DeleteEntityLink_FullMethodName          = "/document.v1.DocumentService/DeleteEntityLink"
+	DocumentService_ListFilesByEntity_FullMethodName         = "/document.v1.DocumentService/ListFilesByEntity"
+	DocumentService_SearchFiles_FullMethodName               = "/document.v1.DocumentService/SearchFiles"
+	DocumentService_ListVirtualFiles_FullMethodName          = "/document.v1.DocumentService/ListVirtualFiles"
+	DocumentService_GenerateWOPIToken_FullMethodName         = "/document.v1.DocumentService/GenerateWOPIToken"
+	DocumentService_GetWOPIDiscovery_FullMethodName          = "/document.v1.DocumentService/GetWOPIDiscovery"
+	DocumentService_GetPresignedUploadURL_FullMethodName     = "/document.v1.DocumentService/GetPresignedUploadURL"
+	DocumentService_GetPresignedDownloadURL_FullMethodName   = "/document.v1.DocumentService/GetPresignedDownloadURL"
 )
 
 // DocumentServiceClient is the client API for DocumentService service.
@@ -94,6 +95,7 @@ type DocumentServiceClient interface {
 	CreateFileVersion(ctx context.Context, in *CreateFileVersionRequest, opts ...grpc.CallOption) (*CreateFileVersionResponse, error)
 	ListFileVersions(ctx context.Context, in *ListFileVersionsRequest, opts ...grpc.CallOption) (*ListFileVersionsResponse, error)
 	RevertFileVersion(ctx context.Context, in *RevertFileVersionRequest, opts ...grpc.CallOption) (*RevertFileVersionResponse, error)
+	GetFileVersionDownloadURL(ctx context.Context, in *GetFileVersionDownloadURLRequest, opts ...grpc.CallOption) (*GetFileVersionDownloadURLResponse, error)
 	ListFileActivity(ctx context.Context, in *ListFileActivityRequest, opts ...grpc.CallOption) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
@@ -324,6 +326,16 @@ func (c *documentServiceClient) RevertFileVersion(ctx context.Context, in *Rever
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevertFileVersionResponse)
 	err := c.cc.Invoke(ctx, DocumentService_RevertFileVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) GetFileVersionDownloadURL(ctx context.Context, in *GetFileVersionDownloadURLRequest, opts ...grpc.CallOption) (*GetFileVersionDownloadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFileVersionDownloadURLResponse)
+	err := c.cc.Invoke(ctx, DocumentService_GetFileVersionDownloadURL_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -664,6 +676,7 @@ type DocumentServiceServer interface {
 	CreateFileVersion(context.Context, *CreateFileVersionRequest) (*CreateFileVersionResponse, error)
 	ListFileVersions(context.Context, *ListFileVersionsRequest) (*ListFileVersionsResponse, error)
 	RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error)
+	GetFileVersionDownloadURL(context.Context, *GetFileVersionDownloadURLRequest) (*GetFileVersionDownloadURLResponse, error)
 	ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error)
 	// Registers metadata for a file already uploaded to object storage via a
 	// presigned PUT URL (browser-direct upload). Does not touch object storage.
@@ -773,6 +786,9 @@ func (UnimplementedDocumentServiceServer) ListFileVersions(context.Context, *Lis
 }
 func (UnimplementedDocumentServiceServer) RevertFileVersion(context.Context, *RevertFileVersionRequest) (*RevertFileVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevertFileVersion not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetFileVersionDownloadURL(context.Context, *GetFileVersionDownloadURLRequest) (*GetFileVersionDownloadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFileVersionDownloadURL not implemented")
 }
 func (UnimplementedDocumentServiceServer) ListFileActivity(context.Context, *ListFileActivityRequest) (*ListFileActivityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFileActivity not implemented")
@@ -1208,6 +1224,24 @@ func _DocumentService_RevertFileVersion_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DocumentServiceServer).RevertFileVersion(ctx, req.(*RevertFileVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_GetFileVersionDownloadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFileVersionDownloadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetFileVersionDownloadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_GetFileVersionDownloadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetFileVersionDownloadURL(ctx, req.(*GetFileVersionDownloadURLRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1848,6 +1882,10 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevertFileVersion",
 			Handler:    _DocumentService_RevertFileVersion_Handler,
+		},
+		{
+			MethodName: "GetFileVersionDownloadURL",
+			Handler:    _DocumentService_GetFileVersionDownloadURL_Handler,
 		},
 		{
 			MethodName: "ListFileActivity",

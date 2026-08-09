@@ -758,6 +758,58 @@ type BookInventurDifferencesInput struct {
 	BookedBy  *uuid.UUID
 }
 
+// PickingListItemInput is one requested position when creating or updating a
+// picking list.
+type PickingListItemInput struct {
+	ItemID            uuid.UUID
+	QuantityRequested int64
+	QuantityPicked    int64
+	Location          *string
+}
+
+// CreatePickingListInput creates a picking list with its positions.
+type CreatePickingListInput struct {
+	TenantID   uuid.UUID
+	Reference  string
+	AssignedTo *uuid.UUID
+	CreatedBy  *uuid.UUID
+	Items      []PickingListItemInput
+}
+
+// UpdatePickingListInput changes head data of a picking list.
+type UpdatePickingListInput struct {
+	TenantID   uuid.UUID
+	ListID     uuid.UUID
+	Reference  *string
+	Status     *PickingStatus
+	AssignedTo *uuid.UUID
+}
+
+// ListPickingListsInput holds pagination and the optional status filter.
+type ListPickingListsInput struct {
+	TenantID uuid.UUID
+	Status   *PickingStatus
+	Page     int
+	PageSize int
+}
+
+// UpsertPickingListItemInput records the picked quantity for one position.
+type UpsertPickingListItemInput struct {
+	TenantID          uuid.UUID
+	ListID            uuid.UUID
+	ItemID            uuid.UUID
+	QuantityRequested int64
+	QuantityPicked    int64
+	Location          *string
+}
+
+// BookPickingListInput books the picked quantities out of stock.
+type BookPickingListInput struct {
+	TenantID uuid.UUID
+	ListID   uuid.UUID
+	BookedBy *uuid.UUID
+}
+
 // ============================================================================
 // Inventur Session service methods
 // ============================================================================
@@ -919,6 +971,245 @@ func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventu
 	}
 	slog.InfoContext(ctx, "inventur session booked", "session_id", session.ID, "tenant_id", session.TenantID)
 	return session, nil
+}
+
+// ============================================================================
+// Picking list service methods
+// ============================================================================
+
+// CreatePickingList creates a picking list head plus its positions.
+func (s *Service) CreatePickingList(ctx context.Context, input CreatePickingListInput) (*PickingList, error) {
+	if input.Reference == "" {
+		return nil, fmt.Errorf("%w: picking list reference is required", ErrInvalidInput)
+	}
+	for _, it := range input.Items {
+		if err := validatePickQuantities(it.QuantityRequested, it.QuantityPicked); err != nil {
+			return nil, err
+		}
+	}
+
+	now := time.Now()
+	list := &PickingList{
+		ID:         uuid.New(),
+		TenantID:   input.TenantID,
+		Reference:  input.Reference,
+		Status:     PickingStatusOpen,
+		AssignedTo: input.AssignedTo,
+		CreatedBy:  input.CreatedBy,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if err := s.repo.CreatePickingList(ctx, list); err != nil {
+		return nil, fmt.Errorf("create picking list: %w", err)
+	}
+
+	for _, in := range input.Items {
+		if _, err := s.repo.GetItem(ctx, input.TenantID, in.ItemID); err != nil {
+			return nil, err // unknown item is a caller error, not something to swallow
+		}
+		row := &PickingListItem{
+			ID:                uuid.New(),
+			TenantID:          input.TenantID,
+			PickingListID:     list.ID,
+			ItemID:            in.ItemID,
+			QuantityRequested: in.QuantityRequested,
+			QuantityPicked:    in.QuantityPicked,
+			Location:          in.Location,
+		}
+		if err := s.repo.UpsertPickingListItem(ctx, row); err != nil {
+			return nil, fmt.Errorf("create picking list item: %w", err)
+		}
+		list.Items = append(list.Items, *row)
+	}
+
+	slog.InfoContext(ctx, "picking list created", "list_id", list.ID, "tenant_id", list.TenantID, "positions", len(list.Items))
+	return list, nil
+}
+
+// GetPickingList returns a single picking list including its positions.
+func (s *Service) GetPickingList(ctx context.Context, tenantID, listID uuid.UUID) (*PickingList, error) {
+	return s.repo.GetPickingList(ctx, tenantID, listID)
+}
+
+// ListPickingLists returns a paginated list of picking lists.
+func (s *Service) ListPickingLists(ctx context.Context, input ListPickingListsInput) ([]*PickingList, int, error) {
+	page := input.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := input.PageSize
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+	return s.repo.ListPickingLists(ctx, input.TenantID, input.Status, (page-1)*pageSize, pageSize)
+}
+
+// UpdatePickingList changes reference, status or assignee of a picking list.
+func (s *Service) UpdatePickingList(ctx context.Context, input UpdatePickingListInput) (*PickingList, error) {
+	list, err := s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
+	if err != nil {
+		return nil, err
+	}
+	if list.Status == PickingStatusCompleted {
+		return nil, ErrPickingListAlreadyBooked
+	}
+	if input.Reference != nil {
+		if *input.Reference == "" {
+			return nil, fmt.Errorf("%w: picking list reference is required", ErrInvalidInput)
+		}
+		list.Reference = *input.Reference
+	}
+	if input.Status != nil {
+		switch *input.Status {
+		case PickingStatusOpen, PickingStatusPicking:
+			list.Status = *input.Status
+		case PickingStatusCompleted:
+			// Completion is what booking does; letting it be set by hand would
+			// mark the stock as moved without moving it.
+			return nil, fmt.Errorf("%w: completed is reached by booking the list", ErrInvalidInput)
+		default:
+			return nil, fmt.Errorf("%w: unknown picking status %q", ErrInvalidInput, *input.Status)
+		}
+	}
+	if input.AssignedTo != nil {
+		list.AssignedTo = input.AssignedTo
+	}
+	list.UpdatedAt = time.Now()
+	if err := s.repo.UpdatePickingList(ctx, list); err != nil {
+		return nil, fmt.Errorf("update picking list: %w", err)
+	}
+	return list, nil
+}
+
+// DeletePickingList removes a picking list (cascades to its positions).
+func (s *Service) DeletePickingList(ctx context.Context, tenantID, listID uuid.UUID) error {
+	return s.repo.DeletePickingList(ctx, tenantID, listID)
+}
+
+// UpsertPickingListItem records or updates one position of a picking list.
+func (s *Service) UpsertPickingListItem(ctx context.Context, input UpsertPickingListItemInput) (*PickingListItem, error) {
+	list, err := s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
+	if err != nil {
+		return nil, err
+	}
+	if list.Status == PickingStatusCompleted {
+		return nil, ErrPickingListAlreadyBooked
+	}
+	if err := validatePickQuantities(input.QuantityRequested, input.QuantityPicked); err != nil {
+		return nil, err
+	}
+	if _, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID); err != nil {
+		return nil, err
+	}
+
+	row := &PickingListItem{
+		ID:                uuid.New(),
+		TenantID:          input.TenantID,
+		PickingListID:     input.ListID,
+		ItemID:            input.ItemID,
+		QuantityRequested: input.QuantityRequested,
+		QuantityPicked:    input.QuantityPicked,
+		Location:          input.Location,
+	}
+	if err := s.repo.UpsertPickingListItem(ctx, row); err != nil {
+		return nil, fmt.Errorf("upsert picking list item: %w", err)
+	}
+
+	// First recorded pick moves the list out of "open", mirroring the
+	// open->counting transition of an Inventur session.
+	if list.Status == PickingStatusOpen && input.QuantityPicked > 0 {
+		list.Status = PickingStatusPicking
+		list.UpdatedAt = time.Now()
+		if err := s.repo.UpdatePickingList(ctx, list); err != nil {
+			return nil, fmt.Errorf("advance picking list status: %w", err)
+		}
+	}
+	return row, nil
+}
+
+// DeletePickingListItem removes one position from a picking list.
+func (s *Service) DeletePickingListItem(ctx context.Context, tenantID, itemRowID uuid.UUID) error {
+	return s.repo.DeletePickingListItem(ctx, tenantID, itemRowID)
+}
+
+// BookPickingList books the picked quantities out of stock and completes the
+// list. Stock moves through AdjustStock — the same path adjustments and
+// Inventur bookings take — so every change lands in stock_movements and can
+// trigger a low-stock warning.
+//
+// Order matters: stock is checked first, then the list is CLAIMED by a
+// conditional UPDATE, and only then is stock moved. A second booking finds the
+// list already completed, gets ErrPickingListAlreadyBooked, and moves nothing.
+func (s *Service) BookPickingList(ctx context.Context, input BookPickingListInput) (*PickingList, error) {
+	list, err := s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
+	if err != nil {
+		return nil, err
+	}
+	if list.Status == PickingStatusCompleted {
+		return nil, ErrPickingListAlreadyBooked
+	}
+
+	items, err := s.repo.ListPickingListItems(ctx, input.TenantID, input.ListID)
+	if err != nil {
+		return nil, fmt.Errorf("list picking positions for booking: %w", err)
+	}
+
+	// Pre-check every position before touching anything: a list that cannot be
+	// booked in full must not leave half its stock moved.
+	toBook := make([]*PickingListItem, 0, len(items))
+	for _, pos := range items {
+		if pos.QuantityPicked <= 0 {
+			continue
+		}
+		item, itemErr := s.repo.GetItem(ctx, input.TenantID, pos.ItemID)
+		if itemErr != nil {
+			return nil, itemErr
+		}
+		if item.Quantity < pos.QuantityPicked {
+			return nil, fmt.Errorf("%w: item %s has %d, picked %d",
+				ErrInsufficientStock, pos.ItemID, item.Quantity, pos.QuantityPicked)
+		}
+		toBook = append(toBook, pos)
+	}
+
+	claimed, err := s.repo.CompletePickingList(ctx, input.TenantID, input.ListID)
+	if err != nil {
+		return nil, fmt.Errorf("complete picking list: %w", err)
+	}
+	if !claimed {
+		return nil, ErrPickingListAlreadyBooked
+	}
+
+	for _, pos := range toBook {
+		if _, adjErr := s.AdjustStock(ctx, AdjustStockInput{
+			TenantID:    input.TenantID,
+			ItemID:      pos.ItemID,
+			Delta:       -pos.QuantityPicked,
+			Reason:      "Kommissionierung: " + list.Reference,
+			PerformedBy: input.BookedBy,
+		}); adjErr != nil {
+			slog.ErrorContext(ctx, "book picking position failed",
+				"list_id", input.ListID, "item_id", pos.ItemID, "error", adjErr)
+		}
+	}
+
+	slog.InfoContext(ctx, "picking list booked",
+		"list_id", input.ListID, "tenant_id", input.TenantID, "positions", len(toBook))
+	return s.repo.GetPickingList(ctx, input.TenantID, input.ListID)
+}
+
+// validatePickQuantities rejects positions that cannot describe a real pick.
+func validatePickQuantities(requested, picked int64) error {
+	if requested <= 0 {
+		return fmt.Errorf("%w: quantity_requested must be greater than zero", ErrInvalidInput)
+	}
+	if picked < 0 {
+		return fmt.Errorf("%w: quantity_picked must not be negative", ErrInvalidInput)
+	}
+	if picked > requested {
+		return fmt.Errorf("%w: quantity_picked (%d) exceeds quantity_requested (%d)", ErrInvalidInput, picked, requested)
+	}
+	return nil
 }
 
 // ============================================================================

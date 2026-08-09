@@ -38,6 +38,15 @@ type Repository interface {
 	// trigger.TimeTriggerPoller instances racing on the same tick cannot both
 	// fire the same automation.
 	ClaimTimeTrigger(ctx context.Context, id uuid.UUID, previousLastPolledAt *time.Time, now time.Time) (bool, error)
+	// ClaimTimeTriggerFire records that automationID has fired for entityKey
+	// and returns true only for the caller that recorded it. This is the
+	// second of the poller's two guards and answers a different question than
+	// ClaimTimeTrigger: that one asks "may this instance handle this
+	// automation on this tick", this one asks "has this automation already
+	// fired for this entity". Without it every due entity re-fires on every
+	// tick forever. entityKey's granularity belongs to the trigger.DueResolver
+	// that produced it -- see migration 000303.
+	ClaimTimeTriggerFire(ctx context.Context, tenantID, automationID uuid.UUID, entityKey string, now time.Time) (bool, error)
 }
 
 // ExecutionRepository defines the data access interface for automation execution logs.

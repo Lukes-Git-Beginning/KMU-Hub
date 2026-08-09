@@ -37,6 +37,7 @@ type Service struct {
 	repo    Repository
 	roomMgr RoomManager   // nil when LiveKit is not configured
 	llm     LLMSummarizer // nil when no LLM is configured
+	series  SeriesSource  // nil when the calendar service is not wired
 }
 
 // NewService creates a new meeting service without LiveKit integration.
@@ -761,14 +762,10 @@ func (s *Service) CreateActionItem(ctx context.Context, input CreateActionItemIn
 
 // UpdateActionItem updates an existing action item
 func (s *Service) UpdateActionItem(ctx context.Context, id, tenantID uuid.UUID, input UpdateActionItemInput) (*MeetingActionItem, error) {
-	// Get the existing items for this meeting by loading through list
-	// We need to find the item first; use a direct approach
-	items, err := s.listAllActionItemsByID(ctx, id)
+	item, err := s.repo.GetActionItemByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
-
-	item := items
 
 	if input.Description != nil {
 		desc := strings.TrimSpace(*input.Description)
@@ -792,20 +789,6 @@ func (s *Service) UpdateActionItem(ctx context.Context, id, tenantID uuid.UUID, 
 	}
 
 	return item, nil
-}
-
-// listAllActionItemsByID finds a single action item by its ID across meetings
-// This is a convenience method that iterates through meeting action items
-func (s *Service) listAllActionItemsByID(ctx context.Context, id uuid.UUID) (*MeetingActionItem, error) {
-	// Since we don't have a direct GetActionItem by ID in the repo,
-	// we need it. For now, we work around this by having the caller
-	// provide meeting context. But the update call uses repo directly.
-	_ = ctx
-	_ = id
-	// We'll rely on the repo.UpdateActionItem to return ErrActionItemNotFound
-	// if the item doesn't exist. Return a placeholder that will be filled in
-	// by the caller providing the current state.
-	return &MeetingActionItem{ID: id}, nil
 }
 
 // DeleteActionItem deletes an action item

@@ -122,6 +122,14 @@ message KPI {
   string unit = 4;
   optional double change_percent = 5;
   string module_id = 6;
+  // Last up to eight calendar-month periods, oldest first. Empty for KPIs
+  // with no historical state (e.g. stock warnings, mutated in place).
+  repeated KPISeriesPoint series = 7;
+}
+
+message KPISeriesPoint {
+  google.protobuf.Timestamp period_start = 1;
+  string value = 2;               // rendered value, same convention as KPI.value
 }
 
 // ============================================================================

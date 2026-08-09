@@ -23,6 +23,11 @@ type mockRepository struct {
 	// sku -> itemID for uniqueness checks (tenant-scoped)
 	skus map[string]uuid.UUID
 
+	// picking state; maps are lazily created by the picking methods in
+	// picking_service_test.go so newMockRepository stays untouched.
+	pickingLists map[uuid.UUID]*PickingList
+	pickingItems map[uuid.UUID][]*PickingListItem
+
 	createItemErr    error
 	updateItemErr    error
 	getItemErr       error

@@ -789,6 +789,12 @@ func (s *HRGRPCServer) UpdateEmployee(ctx context.Context, req *hrv1.UpdateEmplo
 			input.StartDate = &t
 		}
 	}
+	// Explicitly present, so false means "clear the flag" and absent means
+	// "leave it alone" — unlike the zero-value fields above.
+	if req.IsMinor != nil {
+		m := req.GetIsMinor()
+		input.IsMinor = &m
+	}
 
 	// Admin/manager caller role (gRPC layer assumes authorized caller)
 	updated, err := s.employeeService.UpdateEmployee(ctx, emp.ID, input, "admin")
@@ -1061,6 +1067,7 @@ func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmplo
 		AddressCity:           req.GetAddressCity(),
 		AddressPostalCode:     req.GetAddressPostalCode(),
 		AddressCountry:        req.GetAddressCountry(),
+		IsMinor:               req.GetIsMinor(),
 	}
 
 	if req.GetManagerUserId() != "" {
@@ -1781,6 +1788,7 @@ func toProtoEmployeeProfile(e *models.EmployeeProfile) *hrv1.EmployeeProfile {
 		Status:                string(e.Status),
 		ExitType:              e.ExitType,
 		ExitReason:            e.ExitReason,
+		IsMinor:               e.IsMinor,
 	}
 	if e.ManagerUserID != nil {
 		pe.ManagerUserId = e.ManagerUserID.String()

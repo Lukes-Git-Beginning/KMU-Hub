@@ -181,6 +181,37 @@ func TestSettingsWrites_LandInCallerTenant(t *testing.T) {
 		"tenant_id = $1 AND user_id = $2 AND module_id = $3 AND key = $4", 0, tenantWrite, userWrite, moduleID, "theme")
 
 	// ------------------------------------------------------------------
+	// user_settings — ReplaceUserSettings (full-replace semantics)
+	// ------------------------------------------------------------------
+	const prefsModule = "profile"
+	if _, err := repo.PutUserSettings(ctxWrite, tenantWrite, userWrite, prefsModule, []*settings.SettingEntry{
+		{Key: "language", Value: json.RawMessage(`"de"`)},
+		{Key: "region", Value: json.RawMessage(`"DE"`)},
+	}); err != nil {
+		t.Fatalf("PutUserSettings (seed for replace): %v", err)
+	}
+	assertRowCountWhere(t, pool, ctxWrite, "user_settings",
+		"tenant_id = $1 AND user_id = $2 AND module_id = $3", 2, tenantWrite, userWrite, prefsModule)
+
+	replaced, err := repo.ReplaceUserSettings(ctxWrite, tenantWrite, userWrite, prefsModule, []*settings.SettingEntry{
+		{Key: "language", Value: json.RawMessage(`"en"`)},
+	})
+	if err != nil {
+		t.Fatalf("ReplaceUserSettings: %v", err)
+	}
+	if len(replaced) != 1 || replaced[0].Key != "language" {
+		t.Fatalf("ReplaceUserSettings: unexpected result %+v", replaced)
+	}
+	// The omitted "region" key must be gone, not merely untouched — that is
+	// exactly what distinguishes this from PutUserSettings' patch semantics.
+	assertRowCountWhere(t, pool, ctxWrite, "user_settings",
+		"tenant_id = $1 AND user_id = $2 AND module_id = $3", 1, tenantWrite, userWrite, prefsModule)
+	assertRowCountWhere(t, pool, ctxWrite, "user_settings",
+		"tenant_id = $1 AND user_id = $2 AND module_id = $3 AND key = $4", 0, tenantWrite, userWrite, prefsModule, "region")
+	assertRowCountWhere(t, pool, ctxOther, "user_settings",
+		"tenant_id = $1 AND user_id = $2 AND module_id = $3", 0, tenantWrite, userWrite, prefsModule)
+
+	// ------------------------------------------------------------------
 	// tenant_module_activations — SetModuleActivation
 	// ------------------------------------------------------------------
 	if err := repo.SetModuleActivation(ctxWrite, tenantWrite, moduleID, true, &adminWrite); err != nil {

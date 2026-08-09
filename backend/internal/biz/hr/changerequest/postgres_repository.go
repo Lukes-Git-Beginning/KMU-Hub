@@ -21,8 +21,8 @@ const selectColumns = `
 	cr.id, cr.tenant_id, cr.user_id, cr.drawer, cr.field, cr.field_label,
 	cr.old_value, cr.new_value, cr.status, cr.reason,
 	cr.created_at, cr.decided_at, cr.decided_by,
-	COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
-	COALESCE(NULLIF(CONCAT_WS(' ', d.first_name, d.last_name), ''), d.email, '') AS decided_by_name`
+	COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, '') AS user_name,
+	COALESCE(NULLIF(TRIM(CONCAT_WS(' ', d.first_name, d.last_name)), ''), d.email, '') AS decided_by_name`
 
 const fromClause = `
 	FROM hr_profile_change_requests cr

@@ -518,6 +518,9 @@ type KPI struct {
 	Unit          string                 `protobuf:"bytes,4,opt,name=unit,proto3" json:"unit,omitempty"`
 	ChangePercent *float64               `protobuf:"fixed64,5,opt,name=change_percent,json=changePercent,proto3,oneof" json:"change_percent,omitempty"`
 	ModuleId      string                 `protobuf:"bytes,6,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	// Last up to eight calendar-month periods, oldest first. Empty for KPIs
+	// with no historical state (e.g. stock warnings, mutated in place).
+	Series        []*KPISeriesPoint `protobuf:"bytes,7,rep,name=series,proto3" json:"series,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -594,6 +597,65 @@ func (x *KPI) GetModuleId() string {
 	return ""
 }
 
+func (x *KPI) GetSeries() []*KPISeriesPoint {
+	if x != nil {
+		return x.Series
+	}
+	return nil
+}
+
+type KPISeriesPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeriodStart   *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"` // rendered value, same convention as KPI.value
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KPISeriesPoint) Reset() {
+	*x = KPISeriesPoint{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KPISeriesPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KPISeriesPoint) ProtoMessage() {}
+
+func (x *KPISeriesPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KPISeriesPoint.ProtoReflect.Descriptor instead.
+func (*KPISeriesPoint) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *KPISeriesPoint) GetPeriodStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return nil
+}
+
+func (x *KPISeriesPoint) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
 type CreateDefinitionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -611,7 +673,7 @@ type CreateDefinitionRequest struct {
 
 func (x *CreateDefinitionRequest) Reset() {
 	*x = CreateDefinitionRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[5]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -623,7 +685,7 @@ func (x *CreateDefinitionRequest) String() string {
 func (*CreateDefinitionRequest) ProtoMessage() {}
 
 func (x *CreateDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[5]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -636,7 +698,7 @@ func (x *CreateDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*CreateDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{5}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CreateDefinitionRequest) GetTenantId() string {
@@ -712,7 +774,7 @@ type GetDefinitionRequest struct {
 
 func (x *GetDefinitionRequest) Reset() {
 	*x = GetDefinitionRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[6]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +786,7 @@ func (x *GetDefinitionRequest) String() string {
 func (*GetDefinitionRequest) ProtoMessage() {}
 
 func (x *GetDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[6]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +799,7 @@ func (x *GetDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*GetDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{6}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetDefinitionRequest) GetTenantId() string {
@@ -771,7 +833,7 @@ type UpdateDefinitionRequest struct {
 
 func (x *UpdateDefinitionRequest) Reset() {
 	*x = UpdateDefinitionRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[7]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -783,7 +845,7 @@ func (x *UpdateDefinitionRequest) String() string {
 func (*UpdateDefinitionRequest) ProtoMessage() {}
 
 func (x *UpdateDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[7]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -796,7 +858,7 @@ func (x *UpdateDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{7}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateDefinitionRequest) GetTenantId() string {
@@ -872,7 +934,7 @@ type DeleteDefinitionRequest struct {
 
 func (x *DeleteDefinitionRequest) Reset() {
 	*x = DeleteDefinitionRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[8]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -884,7 +946,7 @@ func (x *DeleteDefinitionRequest) String() string {
 func (*DeleteDefinitionRequest) ProtoMessage() {}
 
 func (x *DeleteDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[8]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -897,7 +959,7 @@ func (x *DeleteDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{8}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteDefinitionRequest) GetTenantId() string {
@@ -922,7 +984,7 @@ type DeleteDefinitionResponse struct {
 
 func (x *DeleteDefinitionResponse) Reset() {
 	*x = DeleteDefinitionResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[9]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -934,7 +996,7 @@ func (x *DeleteDefinitionResponse) String() string {
 func (*DeleteDefinitionResponse) ProtoMessage() {}
 
 func (x *DeleteDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[9]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -947,7 +1009,7 @@ func (x *DeleteDefinitionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{9}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{10}
 }
 
 type DefinitionResponse struct {
@@ -959,7 +1021,7 @@ type DefinitionResponse struct {
 
 func (x *DefinitionResponse) Reset() {
 	*x = DefinitionResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[10]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -971,7 +1033,7 @@ func (x *DefinitionResponse) String() string {
 func (*DefinitionResponse) ProtoMessage() {}
 
 func (x *DefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[10]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -984,7 +1046,7 @@ func (x *DefinitionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DefinitionResponse.ProtoReflect.Descriptor instead.
 func (*DefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{10}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DefinitionResponse) GetDefinition() *Definition {
@@ -1011,7 +1073,7 @@ type ListDefinitionsRequest struct {
 
 func (x *ListDefinitionsRequest) Reset() {
 	*x = ListDefinitionsRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[11]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1023,7 +1085,7 @@ func (x *ListDefinitionsRequest) String() string {
 func (*ListDefinitionsRequest) ProtoMessage() {}
 
 func (x *ListDefinitionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[11]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1036,7 +1098,7 @@ func (x *ListDefinitionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDefinitionsRequest.ProtoReflect.Descriptor instead.
 func (*ListDefinitionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{11}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListDefinitionsRequest) GetTenantId() string {
@@ -1112,7 +1174,7 @@ type ListDefinitionsResponse struct {
 
 func (x *ListDefinitionsResponse) Reset() {
 	*x = ListDefinitionsResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[12]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1186,7 @@ func (x *ListDefinitionsResponse) String() string {
 func (*ListDefinitionsResponse) ProtoMessage() {}
 
 func (x *ListDefinitionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[12]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1137,7 +1199,7 @@ func (x *ListDefinitionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDefinitionsResponse.ProtoReflect.Descriptor instead.
 func (*ListDefinitionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{12}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListDefinitionsResponse) GetDefinitions() []*Definition {
@@ -1167,7 +1229,7 @@ type RunReportRequest struct {
 
 func (x *RunReportRequest) Reset() {
 	*x = RunReportRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[13]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1179,7 +1241,7 @@ func (x *RunReportRequest) String() string {
 func (*RunReportRequest) ProtoMessage() {}
 
 func (x *RunReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[13]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1192,7 +1254,7 @@ func (x *RunReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunReportRequest.ProtoReflect.Descriptor instead.
 func (*RunReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{13}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RunReportRequest) GetTenantId() string {
@@ -1240,7 +1302,7 @@ type RunReportResponse struct {
 
 func (x *RunReportResponse) Reset() {
 	*x = RunReportResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[14]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1252,7 +1314,7 @@ func (x *RunReportResponse) String() string {
 func (*RunReportResponse) ProtoMessage() {}
 
 func (x *RunReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[14]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1265,7 +1327,7 @@ func (x *RunReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunReportResponse.ProtoReflect.Descriptor instead.
 func (*RunReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{14}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RunReportResponse) GetResult() *ReportResult {
@@ -1293,7 +1355,7 @@ type GetCachedResultRequest struct {
 
 func (x *GetCachedResultRequest) Reset() {
 	*x = GetCachedResultRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[15]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1305,7 +1367,7 @@ func (x *GetCachedResultRequest) String() string {
 func (*GetCachedResultRequest) ProtoMessage() {}
 
 func (x *GetCachedResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[15]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1318,7 +1380,7 @@ func (x *GetCachedResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCachedResultRequest.ProtoReflect.Descriptor instead.
 func (*GetCachedResultRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{15}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetCachedResultRequest) GetTenantId() string {
@@ -1352,7 +1414,7 @@ type InvalidateCacheRequest struct {
 
 func (x *InvalidateCacheRequest) Reset() {
 	*x = InvalidateCacheRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[16]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1364,7 +1426,7 @@ func (x *InvalidateCacheRequest) String() string {
 func (*InvalidateCacheRequest) ProtoMessage() {}
 
 func (x *InvalidateCacheRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[16]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1377,7 +1439,7 @@ func (x *InvalidateCacheRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvalidateCacheRequest.ProtoReflect.Descriptor instead.
 func (*InvalidateCacheRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{16}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *InvalidateCacheRequest) GetTenantId() string {
@@ -1403,7 +1465,7 @@ type InvalidateCacheResponse struct {
 
 func (x *InvalidateCacheResponse) Reset() {
 	*x = InvalidateCacheResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[17]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1415,7 +1477,7 @@ func (x *InvalidateCacheResponse) String() string {
 func (*InvalidateCacheResponse) ProtoMessage() {}
 
 func (x *InvalidateCacheResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[17]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1428,7 +1490,7 @@ func (x *InvalidateCacheResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvalidateCacheResponse.ProtoReflect.Descriptor instead.
 func (*InvalidateCacheResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{17}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *InvalidateCacheResponse) GetEvicted() int32 {
@@ -1450,7 +1512,7 @@ type ExportReportRequest struct {
 
 func (x *ExportReportRequest) Reset() {
 	*x = ExportReportRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[18]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1462,7 +1524,7 @@ func (x *ExportReportRequest) String() string {
 func (*ExportReportRequest) ProtoMessage() {}
 
 func (x *ExportReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[18]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1475,7 +1537,7 @@ func (x *ExportReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportReportRequest.ProtoReflect.Descriptor instead.
 func (*ExportReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{18}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ExportReportRequest) GetTenantId() string {
@@ -1517,7 +1579,7 @@ type ExportReportResponse struct {
 
 func (x *ExportReportResponse) Reset() {
 	*x = ExportReportResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[19]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1591,7 @@ func (x *ExportReportResponse) String() string {
 func (*ExportReportResponse) ProtoMessage() {}
 
 func (x *ExportReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[19]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +1604,7 @@ func (x *ExportReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportReportResponse.ProtoReflect.Descriptor instead.
 func (*ExportReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{19}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ExportReportResponse) GetPayload() []byte {
@@ -1583,7 +1645,7 @@ type CreateScheduleRequest struct {
 
 func (x *CreateScheduleRequest) Reset() {
 	*x = CreateScheduleRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[20]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1657,7 @@ func (x *CreateScheduleRequest) String() string {
 func (*CreateScheduleRequest) ProtoMessage() {}
 
 func (x *CreateScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[20]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1608,7 +1670,7 @@ func (x *CreateScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScheduleRequest.ProtoReflect.Descriptor instead.
 func (*CreateScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{20}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreateScheduleRequest) GetTenantId() string {
@@ -1691,7 +1753,7 @@ type UpdateScheduleRequest struct {
 
 func (x *UpdateScheduleRequest) Reset() {
 	*x = UpdateScheduleRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[21]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1703,7 +1765,7 @@ func (x *UpdateScheduleRequest) String() string {
 func (*UpdateScheduleRequest) ProtoMessage() {}
 
 func (x *UpdateScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[21]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1716,7 +1778,7 @@ func (x *UpdateScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateScheduleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{21}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateScheduleRequest) GetTenantId() string {
@@ -1792,7 +1854,7 @@ type DeleteScheduleRequest struct {
 
 func (x *DeleteScheduleRequest) Reset() {
 	*x = DeleteScheduleRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[22]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1804,7 +1866,7 @@ func (x *DeleteScheduleRequest) String() string {
 func (*DeleteScheduleRequest) ProtoMessage() {}
 
 func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[22]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1817,7 +1879,7 @@ func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{22}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteScheduleRequest) GetTenantId() string {
@@ -1842,7 +1904,7 @@ type DeleteScheduleResponse struct {
 
 func (x *DeleteScheduleResponse) Reset() {
 	*x = DeleteScheduleResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[23]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1854,7 +1916,7 @@ func (x *DeleteScheduleResponse) String() string {
 func (*DeleteScheduleResponse) ProtoMessage() {}
 
 func (x *DeleteScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[23]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1867,7 +1929,7 @@ func (x *DeleteScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{23}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{24}
 }
 
 type ScheduleResponse struct {
@@ -1879,7 +1941,7 @@ type ScheduleResponse struct {
 
 func (x *ScheduleResponse) Reset() {
 	*x = ScheduleResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[24]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1891,7 +1953,7 @@ func (x *ScheduleResponse) String() string {
 func (*ScheduleResponse) ProtoMessage() {}
 
 func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[24]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1904,7 +1966,7 @@ func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleResponse.ProtoReflect.Descriptor instead.
 func (*ScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{24}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ScheduleResponse) GetSchedule() *Schedule {
@@ -1927,7 +1989,7 @@ type ListSchedulesRequest struct {
 
 func (x *ListSchedulesRequest) Reset() {
 	*x = ListSchedulesRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[25]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1939,7 +2001,7 @@ func (x *ListSchedulesRequest) String() string {
 func (*ListSchedulesRequest) ProtoMessage() {}
 
 func (x *ListSchedulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[25]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1952,7 +2014,7 @@ func (x *ListSchedulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSchedulesRequest.ProtoReflect.Descriptor instead.
 func (*ListSchedulesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{25}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListSchedulesRequest) GetTenantId() string {
@@ -2000,7 +2062,7 @@ type ListSchedulesResponse struct {
 
 func (x *ListSchedulesResponse) Reset() {
 	*x = ListSchedulesResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[26]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2012,7 +2074,7 @@ func (x *ListSchedulesResponse) String() string {
 func (*ListSchedulesResponse) ProtoMessage() {}
 
 func (x *ListSchedulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[26]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2025,7 +2087,7 @@ func (x *ListSchedulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSchedulesResponse.ProtoReflect.Descriptor instead.
 func (*ListSchedulesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{26}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListSchedulesResponse) GetSchedules() []*Schedule {
@@ -2053,7 +2115,7 @@ type ToggleScheduleRequest struct {
 
 func (x *ToggleScheduleRequest) Reset() {
 	*x = ToggleScheduleRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[27]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2065,7 +2127,7 @@ func (x *ToggleScheduleRequest) String() string {
 func (*ToggleScheduleRequest) ProtoMessage() {}
 
 func (x *ToggleScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[27]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2078,7 +2140,7 @@ func (x *ToggleScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToggleScheduleRequest.ProtoReflect.Descriptor instead.
 func (*ToggleScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{27}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ToggleScheduleRequest) GetTenantId() string {
@@ -2112,7 +2174,7 @@ type DashboardKPIsRequest struct {
 
 func (x *DashboardKPIsRequest) Reset() {
 	*x = DashboardKPIsRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[28]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2124,7 +2186,7 @@ func (x *DashboardKPIsRequest) String() string {
 func (*DashboardKPIsRequest) ProtoMessage() {}
 
 func (x *DashboardKPIsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[28]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2137,7 +2199,7 @@ func (x *DashboardKPIsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardKPIsRequest.ProtoReflect.Descriptor instead.
 func (*DashboardKPIsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{28}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DashboardKPIsRequest) GetTenantId() string {
@@ -2164,7 +2226,7 @@ type DashboardKPIsResponse struct {
 
 func (x *DashboardKPIsResponse) Reset() {
 	*x = DashboardKPIsResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[29]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2176,7 +2238,7 @@ func (x *DashboardKPIsResponse) String() string {
 func (*DashboardKPIsResponse) ProtoMessage() {}
 
 func (x *DashboardKPIsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[29]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2189,7 +2251,7 @@ func (x *DashboardKPIsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardKPIsResponse.ProtoReflect.Descriptor instead.
 func (*DashboardKPIsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{29}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DashboardKPIsResponse) GetKpis() []*KPI {
@@ -2227,7 +2289,7 @@ type Document struct {
 
 func (x *Document) Reset() {
 	*x = Document{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2239,7 +2301,7 @@ func (x *Document) String() string {
 func (*Document) ProtoMessage() {}
 
 func (x *Document) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2252,7 +2314,7 @@ func (x *Document) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Document.ProtoReflect.Descriptor instead.
 func (*Document) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{30}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Document) GetId() string {
@@ -2362,7 +2424,7 @@ type CreateDocumentRequest struct {
 
 func (x *CreateDocumentRequest) Reset() {
 	*x = CreateDocumentRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2374,7 +2436,7 @@ func (x *CreateDocumentRequest) String() string {
 func (*CreateDocumentRequest) ProtoMessage() {}
 
 func (x *CreateDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2387,7 +2449,7 @@ func (x *CreateDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDocumentRequest.ProtoReflect.Descriptor instead.
 func (*CreateDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{31}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CreateDocumentRequest) GetTenantId() string {
@@ -2456,7 +2518,7 @@ type GetDocumentRequest struct {
 
 func (x *GetDocumentRequest) Reset() {
 	*x = GetDocumentRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2468,7 +2530,7 @@ func (x *GetDocumentRequest) String() string {
 func (*GetDocumentRequest) ProtoMessage() {}
 
 func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2481,7 +2543,7 @@ func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentRequest.ProtoReflect.Descriptor instead.
 func (*GetDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{32}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetDocumentRequest) GetTenantId() string {
@@ -2514,7 +2576,7 @@ type UpdateDocumentRequest struct {
 
 func (x *UpdateDocumentRequest) Reset() {
 	*x = UpdateDocumentRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2526,7 +2588,7 @@ func (x *UpdateDocumentRequest) String() string {
 func (*UpdateDocumentRequest) ProtoMessage() {}
 
 func (x *UpdateDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2539,7 +2601,7 @@ func (x *UpdateDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDocumentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{33}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UpdateDocumentRequest) GetTenantId() string {
@@ -2608,7 +2670,7 @@ type DeleteDocumentRequest struct {
 
 func (x *DeleteDocumentRequest) Reset() {
 	*x = DeleteDocumentRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2620,7 +2682,7 @@ func (x *DeleteDocumentRequest) String() string {
 func (*DeleteDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2633,7 +2695,7 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{34}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteDocumentRequest) GetTenantId() string {
@@ -2658,7 +2720,7 @@ type DeleteDocumentResponse struct {
 
 func (x *DeleteDocumentResponse) Reset() {
 	*x = DeleteDocumentResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2670,7 +2732,7 @@ func (x *DeleteDocumentResponse) String() string {
 func (*DeleteDocumentResponse) ProtoMessage() {}
 
 func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2683,7 +2745,7 @@ func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{35}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{36}
 }
 
 type DocumentResponse struct {
@@ -2695,7 +2757,7 @@ type DocumentResponse struct {
 
 func (x *DocumentResponse) Reset() {
 	*x = DocumentResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2707,7 +2769,7 @@ func (x *DocumentResponse) String() string {
 func (*DocumentResponse) ProtoMessage() {}
 
 func (x *DocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2720,7 +2782,7 @@ func (x *DocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentResponse.ProtoReflect.Descriptor instead.
 func (*DocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{36}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *DocumentResponse) GetDocument() *Document {
@@ -2744,7 +2806,7 @@ type ListDocumentsRequest struct {
 
 func (x *ListDocumentsRequest) Reset() {
 	*x = ListDocumentsRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2756,7 +2818,7 @@ func (x *ListDocumentsRequest) String() string {
 func (*ListDocumentsRequest) ProtoMessage() {}
 
 func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2769,7 +2831,7 @@ func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{37}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListDocumentsRequest) GetTenantId() string {
@@ -2824,7 +2886,7 @@ type ListDocumentsResponse struct {
 
 func (x *ListDocumentsResponse) Reset() {
 	*x = ListDocumentsResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2836,7 +2898,7 @@ func (x *ListDocumentsResponse) String() string {
 func (*ListDocumentsResponse) ProtoMessage() {}
 
 func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2849,7 +2911,7 @@ func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{38}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListDocumentsResponse) GetDocuments() []*Document {
@@ -2876,7 +2938,7 @@ type ExportDocumentPDFRequest struct {
 
 func (x *ExportDocumentPDFRequest) Reset() {
 	*x = ExportDocumentPDFRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[39]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2888,7 +2950,7 @@ func (x *ExportDocumentPDFRequest) String() string {
 func (*ExportDocumentPDFRequest) ProtoMessage() {}
 
 func (x *ExportDocumentPDFRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[39]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2901,7 +2963,7 @@ func (x *ExportDocumentPDFRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportDocumentPDFRequest.ProtoReflect.Descriptor instead.
 func (*ExportDocumentPDFRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{39}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ExportDocumentPDFRequest) GetTenantId() string {
@@ -2928,7 +2990,7 @@ type ExportDocumentPDFResponse struct {
 
 func (x *ExportDocumentPDFResponse) Reset() {
 	*x = ExportDocumentPDFResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[40]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2940,7 +3002,7 @@ func (x *ExportDocumentPDFResponse) String() string {
 func (*ExportDocumentPDFResponse) ProtoMessage() {}
 
 func (x *ExportDocumentPDFResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[40]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2953,7 +3015,7 @@ func (x *ExportDocumentPDFResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportDocumentPDFResponse.ProtoReflect.Descriptor instead.
 func (*ExportDocumentPDFResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{40}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ExportDocumentPDFResponse) GetPdfData() []byte {
@@ -2985,7 +3047,7 @@ type Template struct {
 
 func (x *Template) Reset() {
 	*x = Template{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[41]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2997,7 +3059,7 @@ func (x *Template) String() string {
 func (*Template) ProtoMessage() {}
 
 func (x *Template) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[41]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3010,7 +3072,7 @@ func (x *Template) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Template.ProtoReflect.Descriptor instead.
 func (*Template) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{41}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Template) GetId() string {
@@ -3070,7 +3132,7 @@ type ListTemplatesRequest struct {
 
 func (x *ListTemplatesRequest) Reset() {
 	*x = ListTemplatesRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3082,7 +3144,7 @@ func (x *ListTemplatesRequest) String() string {
 func (*ListTemplatesRequest) ProtoMessage() {}
 
 func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3095,7 +3157,7 @@ func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListTemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{42}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{43}
 }
 
 type ListTemplatesResponse struct {
@@ -3107,7 +3169,7 @@ type ListTemplatesResponse struct {
 
 func (x *ListTemplatesResponse) Reset() {
 	*x = ListTemplatesResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3119,7 +3181,7 @@ func (x *ListTemplatesResponse) String() string {
 func (*ListTemplatesResponse) ProtoMessage() {}
 
 func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3132,7 +3194,7 @@ func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListTemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{43}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListTemplatesResponse) GetTemplates() []*Template {
@@ -3159,7 +3221,7 @@ type ShareToken struct {
 
 func (x *ShareToken) Reset() {
 	*x = ShareToken{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3171,7 +3233,7 @@ func (x *ShareToken) String() string {
 func (*ShareToken) ProtoMessage() {}
 
 func (x *ShareToken) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3184,7 +3246,7 @@ func (x *ShareToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareToken.ProtoReflect.Descriptor instead.
 func (*ShareToken) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{44}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ShareToken) GetId() string {
@@ -3249,7 +3311,7 @@ type CreateShareTokenRequest struct {
 
 func (x *CreateShareTokenRequest) Reset() {
 	*x = CreateShareTokenRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3261,7 +3323,7 @@ func (x *CreateShareTokenRequest) String() string {
 func (*CreateShareTokenRequest) ProtoMessage() {}
 
 func (x *CreateShareTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3274,7 +3336,7 @@ func (x *CreateShareTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateShareTokenRequest.ProtoReflect.Descriptor instead.
 func (*CreateShareTokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{45}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CreateShareTokenRequest) GetTenantId() string {
@@ -3322,7 +3384,7 @@ type ListShareTokensRequest struct {
 
 func (x *ListShareTokensRequest) Reset() {
 	*x = ListShareTokensRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3334,7 +3396,7 @@ func (x *ListShareTokensRequest) String() string {
 func (*ListShareTokensRequest) ProtoMessage() {}
 
 func (x *ListShareTokensRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3347,7 +3409,7 @@ func (x *ListShareTokensRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShareTokensRequest.ProtoReflect.Descriptor instead.
 func (*ListShareTokensRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{46}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListShareTokensRequest) GetTenantId() string {
@@ -3373,7 +3435,7 @@ type ListShareTokensResponse struct {
 
 func (x *ListShareTokensResponse) Reset() {
 	*x = ListShareTokensResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3385,7 +3447,7 @@ func (x *ListShareTokensResponse) String() string {
 func (*ListShareTokensResponse) ProtoMessage() {}
 
 func (x *ListShareTokensResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3398,7 +3460,7 @@ func (x *ListShareTokensResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShareTokensResponse.ProtoReflect.Descriptor instead.
 func (*ListShareTokensResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{47}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListShareTokensResponse) GetTokens() []*ShareToken {
@@ -3418,7 +3480,7 @@ type RevokeShareTokenRequest struct {
 
 func (x *RevokeShareTokenRequest) Reset() {
 	*x = RevokeShareTokenRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3430,7 +3492,7 @@ func (x *RevokeShareTokenRequest) String() string {
 func (*RevokeShareTokenRequest) ProtoMessage() {}
 
 func (x *RevokeShareTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3443,7 +3505,7 @@ func (x *RevokeShareTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeShareTokenRequest.ProtoReflect.Descriptor instead.
 func (*RevokeShareTokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{48}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RevokeShareTokenRequest) GetTenantId() string {
@@ -3468,7 +3530,7 @@ type RevokeShareTokenResponse struct {
 
 func (x *RevokeShareTokenResponse) Reset() {
 	*x = RevokeShareTokenResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3480,7 +3542,7 @@ func (x *RevokeShareTokenResponse) String() string {
 func (*RevokeShareTokenResponse) ProtoMessage() {}
 
 func (x *RevokeShareTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3493,7 +3555,7 @@ func (x *RevokeShareTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeShareTokenResponse.ProtoReflect.Descriptor instead.
 func (*RevokeShareTokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{49}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{50}
 }
 
 type ShareTokenResponse struct {
@@ -3505,7 +3567,7 @@ type ShareTokenResponse struct {
 
 func (x *ShareTokenResponse) Reset() {
 	*x = ShareTokenResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3517,7 +3579,7 @@ func (x *ShareTokenResponse) String() string {
 func (*ShareTokenResponse) ProtoMessage() {}
 
 func (x *ShareTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3530,7 +3592,7 @@ func (x *ShareTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareTokenResponse.ProtoReflect.Descriptor instead.
 func (*ShareTokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{50}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ShareTokenResponse) GetShare() *ShareToken {
@@ -3550,7 +3612,7 @@ type GetSharedDocumentRequest struct {
 
 func (x *GetSharedDocumentRequest) Reset() {
 	*x = GetSharedDocumentRequest{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[51]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3562,7 +3624,7 @@ func (x *GetSharedDocumentRequest) String() string {
 func (*GetSharedDocumentRequest) ProtoMessage() {}
 
 func (x *GetSharedDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[51]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3575,7 +3637,7 @@ func (x *GetSharedDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSharedDocumentRequest.ProtoReflect.Descriptor instead.
 func (*GetSharedDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{51}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GetSharedDocumentRequest) GetToken() string {
@@ -3601,7 +3663,7 @@ type GetSharedDocumentResponse struct {
 
 func (x *GetSharedDocumentResponse) Reset() {
 	*x = GetSharedDocumentResponse{}
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[52]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3613,7 +3675,7 @@ func (x *GetSharedDocumentResponse) String() string {
 func (*GetSharedDocumentResponse) ProtoMessage() {}
 
 func (x *GetSharedDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[52]
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3626,7 +3688,7 @@ func (x *GetSharedDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSharedDocumentResponse.ProtoReflect.Descriptor instead.
 func (*GetSharedDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{52}
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetSharedDocumentResponse) GetDocument() *Document {
@@ -3714,15 +3776,19 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\trow_count\x18\x02 \x01(\x05R\browCount\x12=\n" +
 	"\fgenerated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x12\x1d\n" +
 	"\n" +
-	"from_cache\x18\x04 \x01(\bR\tfromCache\"\xb1\x01\n" +
+	"from_cache\x18\x04 \x01(\bR\tfromCache\"\xe6\x01\n" +
 	"\x03KPI\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12\x12\n" +
 	"\x04unit\x18\x04 \x01(\tR\x04unit\x12*\n" +
 	"\x0echange_percent\x18\x05 \x01(\x01H\x00R\rchangePercent\x88\x01\x01\x12\x1b\n" +
-	"\tmodule_id\x18\x06 \x01(\tR\bmoduleIdB\x11\n" +
-	"\x0f_change_percent\"\xb8\x02\n" +
+	"\tmodule_id\x18\x06 \x01(\tR\bmoduleId\x123\n" +
+	"\x06series\x18\a \x03(\v2\x1b.berichte.v1.KPISeriesPointR\x06seriesB\x11\n" +
+	"\x0f_change_percent\"e\n" +
+	"\x0eKPISeriesPoint\x12=\n" +
+	"\fperiod_start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\vperiodStart\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xb8\x02\n" +
 	"\x17CreateDefinitionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -4039,148 +4105,151 @@ func file_proto_berichte_v1_berichte_proto_rawDescGZIP() []byte {
 	return file_proto_berichte_v1_berichte_proto_rawDescData
 }
 
-var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_proto_berichte_v1_berichte_proto_goTypes = []any{
 	(*Definition)(nil),                // 0: berichte.v1.Definition
 	(*Schedule)(nil),                  // 1: berichte.v1.Schedule
 	(*Run)(nil),                       // 2: berichte.v1.Run
 	(*ReportResult)(nil),              // 3: berichte.v1.ReportResult
 	(*KPI)(nil),                       // 4: berichte.v1.KPI
-	(*CreateDefinitionRequest)(nil),   // 5: berichte.v1.CreateDefinitionRequest
-	(*GetDefinitionRequest)(nil),      // 6: berichte.v1.GetDefinitionRequest
-	(*UpdateDefinitionRequest)(nil),   // 7: berichte.v1.UpdateDefinitionRequest
-	(*DeleteDefinitionRequest)(nil),   // 8: berichte.v1.DeleteDefinitionRequest
-	(*DeleteDefinitionResponse)(nil),  // 9: berichte.v1.DeleteDefinitionResponse
-	(*DefinitionResponse)(nil),        // 10: berichte.v1.DefinitionResponse
-	(*ListDefinitionsRequest)(nil),    // 11: berichte.v1.ListDefinitionsRequest
-	(*ListDefinitionsResponse)(nil),   // 12: berichte.v1.ListDefinitionsResponse
-	(*RunReportRequest)(nil),          // 13: berichte.v1.RunReportRequest
-	(*RunReportResponse)(nil),         // 14: berichte.v1.RunReportResponse
-	(*GetCachedResultRequest)(nil),    // 15: berichte.v1.GetCachedResultRequest
-	(*InvalidateCacheRequest)(nil),    // 16: berichte.v1.InvalidateCacheRequest
-	(*InvalidateCacheResponse)(nil),   // 17: berichte.v1.InvalidateCacheResponse
-	(*ExportReportRequest)(nil),       // 18: berichte.v1.ExportReportRequest
-	(*ExportReportResponse)(nil),      // 19: berichte.v1.ExportReportResponse
-	(*CreateScheduleRequest)(nil),     // 20: berichte.v1.CreateScheduleRequest
-	(*UpdateScheduleRequest)(nil),     // 21: berichte.v1.UpdateScheduleRequest
-	(*DeleteScheduleRequest)(nil),     // 22: berichte.v1.DeleteScheduleRequest
-	(*DeleteScheduleResponse)(nil),    // 23: berichte.v1.DeleteScheduleResponse
-	(*ScheduleResponse)(nil),          // 24: berichte.v1.ScheduleResponse
-	(*ListSchedulesRequest)(nil),      // 25: berichte.v1.ListSchedulesRequest
-	(*ListSchedulesResponse)(nil),     // 26: berichte.v1.ListSchedulesResponse
-	(*ToggleScheduleRequest)(nil),     // 27: berichte.v1.ToggleScheduleRequest
-	(*DashboardKPIsRequest)(nil),      // 28: berichte.v1.DashboardKPIsRequest
-	(*DashboardKPIsResponse)(nil),     // 29: berichte.v1.DashboardKPIsResponse
-	(*Document)(nil),                  // 30: berichte.v1.Document
-	(*CreateDocumentRequest)(nil),     // 31: berichte.v1.CreateDocumentRequest
-	(*GetDocumentRequest)(nil),        // 32: berichte.v1.GetDocumentRequest
-	(*UpdateDocumentRequest)(nil),     // 33: berichte.v1.UpdateDocumentRequest
-	(*DeleteDocumentRequest)(nil),     // 34: berichte.v1.DeleteDocumentRequest
-	(*DeleteDocumentResponse)(nil),    // 35: berichte.v1.DeleteDocumentResponse
-	(*DocumentResponse)(nil),          // 36: berichte.v1.DocumentResponse
-	(*ListDocumentsRequest)(nil),      // 37: berichte.v1.ListDocumentsRequest
-	(*ListDocumentsResponse)(nil),     // 38: berichte.v1.ListDocumentsResponse
-	(*ExportDocumentPDFRequest)(nil),  // 39: berichte.v1.ExportDocumentPDFRequest
-	(*ExportDocumentPDFResponse)(nil), // 40: berichte.v1.ExportDocumentPDFResponse
-	(*Template)(nil),                  // 41: berichte.v1.Template
-	(*ListTemplatesRequest)(nil),      // 42: berichte.v1.ListTemplatesRequest
-	(*ListTemplatesResponse)(nil),     // 43: berichte.v1.ListTemplatesResponse
-	(*ShareToken)(nil),                // 44: berichte.v1.ShareToken
-	(*CreateShareTokenRequest)(nil),   // 45: berichte.v1.CreateShareTokenRequest
-	(*ListShareTokensRequest)(nil),    // 46: berichte.v1.ListShareTokensRequest
-	(*ListShareTokensResponse)(nil),   // 47: berichte.v1.ListShareTokensResponse
-	(*RevokeShareTokenRequest)(nil),   // 48: berichte.v1.RevokeShareTokenRequest
-	(*RevokeShareTokenResponse)(nil),  // 49: berichte.v1.RevokeShareTokenResponse
-	(*ShareTokenResponse)(nil),        // 50: berichte.v1.ShareTokenResponse
-	(*GetSharedDocumentRequest)(nil),  // 51: berichte.v1.GetSharedDocumentRequest
-	(*GetSharedDocumentResponse)(nil), // 52: berichte.v1.GetSharedDocumentResponse
-	(*timestamppb.Timestamp)(nil),     // 53: google.protobuf.Timestamp
+	(*KPISeriesPoint)(nil),            // 5: berichte.v1.KPISeriesPoint
+	(*CreateDefinitionRequest)(nil),   // 6: berichte.v1.CreateDefinitionRequest
+	(*GetDefinitionRequest)(nil),      // 7: berichte.v1.GetDefinitionRequest
+	(*UpdateDefinitionRequest)(nil),   // 8: berichte.v1.UpdateDefinitionRequest
+	(*DeleteDefinitionRequest)(nil),   // 9: berichte.v1.DeleteDefinitionRequest
+	(*DeleteDefinitionResponse)(nil),  // 10: berichte.v1.DeleteDefinitionResponse
+	(*DefinitionResponse)(nil),        // 11: berichte.v1.DefinitionResponse
+	(*ListDefinitionsRequest)(nil),    // 12: berichte.v1.ListDefinitionsRequest
+	(*ListDefinitionsResponse)(nil),   // 13: berichte.v1.ListDefinitionsResponse
+	(*RunReportRequest)(nil),          // 14: berichte.v1.RunReportRequest
+	(*RunReportResponse)(nil),         // 15: berichte.v1.RunReportResponse
+	(*GetCachedResultRequest)(nil),    // 16: berichte.v1.GetCachedResultRequest
+	(*InvalidateCacheRequest)(nil),    // 17: berichte.v1.InvalidateCacheRequest
+	(*InvalidateCacheResponse)(nil),   // 18: berichte.v1.InvalidateCacheResponse
+	(*ExportReportRequest)(nil),       // 19: berichte.v1.ExportReportRequest
+	(*ExportReportResponse)(nil),      // 20: berichte.v1.ExportReportResponse
+	(*CreateScheduleRequest)(nil),     // 21: berichte.v1.CreateScheduleRequest
+	(*UpdateScheduleRequest)(nil),     // 22: berichte.v1.UpdateScheduleRequest
+	(*DeleteScheduleRequest)(nil),     // 23: berichte.v1.DeleteScheduleRequest
+	(*DeleteScheduleResponse)(nil),    // 24: berichte.v1.DeleteScheduleResponse
+	(*ScheduleResponse)(nil),          // 25: berichte.v1.ScheduleResponse
+	(*ListSchedulesRequest)(nil),      // 26: berichte.v1.ListSchedulesRequest
+	(*ListSchedulesResponse)(nil),     // 27: berichte.v1.ListSchedulesResponse
+	(*ToggleScheduleRequest)(nil),     // 28: berichte.v1.ToggleScheduleRequest
+	(*DashboardKPIsRequest)(nil),      // 29: berichte.v1.DashboardKPIsRequest
+	(*DashboardKPIsResponse)(nil),     // 30: berichte.v1.DashboardKPIsResponse
+	(*Document)(nil),                  // 31: berichte.v1.Document
+	(*CreateDocumentRequest)(nil),     // 32: berichte.v1.CreateDocumentRequest
+	(*GetDocumentRequest)(nil),        // 33: berichte.v1.GetDocumentRequest
+	(*UpdateDocumentRequest)(nil),     // 34: berichte.v1.UpdateDocumentRequest
+	(*DeleteDocumentRequest)(nil),     // 35: berichte.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil),    // 36: berichte.v1.DeleteDocumentResponse
+	(*DocumentResponse)(nil),          // 37: berichte.v1.DocumentResponse
+	(*ListDocumentsRequest)(nil),      // 38: berichte.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),     // 39: berichte.v1.ListDocumentsResponse
+	(*ExportDocumentPDFRequest)(nil),  // 40: berichte.v1.ExportDocumentPDFRequest
+	(*ExportDocumentPDFResponse)(nil), // 41: berichte.v1.ExportDocumentPDFResponse
+	(*Template)(nil),                  // 42: berichte.v1.Template
+	(*ListTemplatesRequest)(nil),      // 43: berichte.v1.ListTemplatesRequest
+	(*ListTemplatesResponse)(nil),     // 44: berichte.v1.ListTemplatesResponse
+	(*ShareToken)(nil),                // 45: berichte.v1.ShareToken
+	(*CreateShareTokenRequest)(nil),   // 46: berichte.v1.CreateShareTokenRequest
+	(*ListShareTokensRequest)(nil),    // 47: berichte.v1.ListShareTokensRequest
+	(*ListShareTokensResponse)(nil),   // 48: berichte.v1.ListShareTokensResponse
+	(*RevokeShareTokenRequest)(nil),   // 49: berichte.v1.RevokeShareTokenRequest
+	(*RevokeShareTokenResponse)(nil),  // 50: berichte.v1.RevokeShareTokenResponse
+	(*ShareTokenResponse)(nil),        // 51: berichte.v1.ShareTokenResponse
+	(*GetSharedDocumentRequest)(nil),  // 52: berichte.v1.GetSharedDocumentRequest
+	(*GetSharedDocumentResponse)(nil), // 53: berichte.v1.GetSharedDocumentResponse
+	(*timestamppb.Timestamp)(nil),     // 54: google.protobuf.Timestamp
 }
 var file_proto_berichte_v1_berichte_proto_depIdxs = []int32{
-	53, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
-	53, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
-	53, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
-	53, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
-	53, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
-	53, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
-	0,  // 8: berichte.v1.DefinitionResponse.definition:type_name -> berichte.v1.Definition
-	0,  // 9: berichte.v1.ListDefinitionsResponse.definitions:type_name -> berichte.v1.Definition
-	3,  // 10: berichte.v1.RunReportResponse.result:type_name -> berichte.v1.ReportResult
-	2,  // 11: berichte.v1.RunReportResponse.run:type_name -> berichte.v1.Run
-	1,  // 12: berichte.v1.ScheduleResponse.schedule:type_name -> berichte.v1.Schedule
-	1,  // 13: berichte.v1.ListSchedulesResponse.schedules:type_name -> berichte.v1.Schedule
-	4,  // 14: berichte.v1.DashboardKPIsResponse.kpis:type_name -> berichte.v1.KPI
-	53, // 15: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
-	53, // 16: berichte.v1.Document.created_at:type_name -> google.protobuf.Timestamp
-	53, // 17: berichte.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 18: berichte.v1.Document.released_at:type_name -> google.protobuf.Timestamp
-	30, // 19: berichte.v1.DocumentResponse.document:type_name -> berichte.v1.Document
-	30, // 20: berichte.v1.ListDocumentsResponse.documents:type_name -> berichte.v1.Document
-	41, // 21: berichte.v1.ListTemplatesResponse.templates:type_name -> berichte.v1.Template
-	53, // 22: berichte.v1.ShareToken.expires_at:type_name -> google.protobuf.Timestamp
-	53, // 23: berichte.v1.ShareToken.created_at:type_name -> google.protobuf.Timestamp
-	44, // 24: berichte.v1.ListShareTokensResponse.tokens:type_name -> berichte.v1.ShareToken
-	44, // 25: berichte.v1.ShareTokenResponse.share:type_name -> berichte.v1.ShareToken
-	30, // 26: berichte.v1.GetSharedDocumentResponse.document:type_name -> berichte.v1.Document
-	5,  // 27: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
-	6,  // 28: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
-	7,  // 29: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
-	8,  // 30: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
-	11, // 31: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
-	13, // 32: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
-	15, // 33: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
-	16, // 34: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
-	18, // 35: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
-	20, // 36: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
-	21, // 37: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
-	22, // 38: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
-	25, // 39: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
-	27, // 40: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
-	28, // 41: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
-	31, // 42: berichte.v1.BerichteService.CreateDocument:input_type -> berichte.v1.CreateDocumentRequest
-	32, // 43: berichte.v1.BerichteService.GetDocument:input_type -> berichte.v1.GetDocumentRequest
-	33, // 44: berichte.v1.BerichteService.UpdateDocument:input_type -> berichte.v1.UpdateDocumentRequest
-	34, // 45: berichte.v1.BerichteService.DeleteDocument:input_type -> berichte.v1.DeleteDocumentRequest
-	37, // 46: berichte.v1.BerichteService.ListDocuments:input_type -> berichte.v1.ListDocumentsRequest
-	39, // 47: berichte.v1.BerichteService.ExportDocumentPDF:input_type -> berichte.v1.ExportDocumentPDFRequest
-	42, // 48: berichte.v1.BerichteService.ListTemplates:input_type -> berichte.v1.ListTemplatesRequest
-	45, // 49: berichte.v1.BerichteService.CreateShareToken:input_type -> berichte.v1.CreateShareTokenRequest
-	46, // 50: berichte.v1.BerichteService.ListShareTokens:input_type -> berichte.v1.ListShareTokensRequest
-	48, // 51: berichte.v1.BerichteService.RevokeShareToken:input_type -> berichte.v1.RevokeShareTokenRequest
-	51, // 52: berichte.v1.BerichteService.GetSharedDocument:input_type -> berichte.v1.GetSharedDocumentRequest
-	10, // 53: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 54: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 55: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
-	9,  // 56: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
-	12, // 57: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
-	14, // 58: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
-	14, // 59: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
-	17, // 60: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
-	19, // 61: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
-	24, // 62: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
-	24, // 63: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
-	23, // 64: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
-	26, // 65: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
-	24, // 66: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
-	29, // 67: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
-	36, // 68: berichte.v1.BerichteService.CreateDocument:output_type -> berichte.v1.DocumentResponse
-	36, // 69: berichte.v1.BerichteService.GetDocument:output_type -> berichte.v1.DocumentResponse
-	36, // 70: berichte.v1.BerichteService.UpdateDocument:output_type -> berichte.v1.DocumentResponse
-	35, // 71: berichte.v1.BerichteService.DeleteDocument:output_type -> berichte.v1.DeleteDocumentResponse
-	38, // 72: berichte.v1.BerichteService.ListDocuments:output_type -> berichte.v1.ListDocumentsResponse
-	40, // 73: berichte.v1.BerichteService.ExportDocumentPDF:output_type -> berichte.v1.ExportDocumentPDFResponse
-	43, // 74: berichte.v1.BerichteService.ListTemplates:output_type -> berichte.v1.ListTemplatesResponse
-	50, // 75: berichte.v1.BerichteService.CreateShareToken:output_type -> berichte.v1.ShareTokenResponse
-	47, // 76: berichte.v1.BerichteService.ListShareTokens:output_type -> berichte.v1.ListShareTokensResponse
-	49, // 77: berichte.v1.BerichteService.RevokeShareToken:output_type -> berichte.v1.RevokeShareTokenResponse
-	52, // 78: berichte.v1.BerichteService.GetSharedDocument:output_type -> berichte.v1.GetSharedDocumentResponse
-	53, // [53:79] is the sub-list for method output_type
-	27, // [27:53] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	54, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
+	54, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
+	54, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
+	54, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
+	54, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
+	54, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
+	54, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
+	54, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
+	5,  // 8: berichte.v1.KPI.series:type_name -> berichte.v1.KPISeriesPoint
+	54, // 9: berichte.v1.KPISeriesPoint.period_start:type_name -> google.protobuf.Timestamp
+	0,  // 10: berichte.v1.DefinitionResponse.definition:type_name -> berichte.v1.Definition
+	0,  // 11: berichte.v1.ListDefinitionsResponse.definitions:type_name -> berichte.v1.Definition
+	3,  // 12: berichte.v1.RunReportResponse.result:type_name -> berichte.v1.ReportResult
+	2,  // 13: berichte.v1.RunReportResponse.run:type_name -> berichte.v1.Run
+	1,  // 14: berichte.v1.ScheduleResponse.schedule:type_name -> berichte.v1.Schedule
+	1,  // 15: berichte.v1.ListSchedulesResponse.schedules:type_name -> berichte.v1.Schedule
+	4,  // 16: berichte.v1.DashboardKPIsResponse.kpis:type_name -> berichte.v1.KPI
+	54, // 17: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
+	54, // 18: berichte.v1.Document.created_at:type_name -> google.protobuf.Timestamp
+	54, // 19: berichte.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
+	54, // 20: berichte.v1.Document.released_at:type_name -> google.protobuf.Timestamp
+	31, // 21: berichte.v1.DocumentResponse.document:type_name -> berichte.v1.Document
+	31, // 22: berichte.v1.ListDocumentsResponse.documents:type_name -> berichte.v1.Document
+	42, // 23: berichte.v1.ListTemplatesResponse.templates:type_name -> berichte.v1.Template
+	54, // 24: berichte.v1.ShareToken.expires_at:type_name -> google.protobuf.Timestamp
+	54, // 25: berichte.v1.ShareToken.created_at:type_name -> google.protobuf.Timestamp
+	45, // 26: berichte.v1.ListShareTokensResponse.tokens:type_name -> berichte.v1.ShareToken
+	45, // 27: berichte.v1.ShareTokenResponse.share:type_name -> berichte.v1.ShareToken
+	31, // 28: berichte.v1.GetSharedDocumentResponse.document:type_name -> berichte.v1.Document
+	6,  // 29: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
+	7,  // 30: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
+	8,  // 31: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
+	9,  // 32: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
+	12, // 33: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
+	14, // 34: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
+	16, // 35: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
+	17, // 36: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
+	19, // 37: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
+	21, // 38: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
+	22, // 39: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
+	23, // 40: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
+	26, // 41: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
+	28, // 42: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
+	29, // 43: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
+	32, // 44: berichte.v1.BerichteService.CreateDocument:input_type -> berichte.v1.CreateDocumentRequest
+	33, // 45: berichte.v1.BerichteService.GetDocument:input_type -> berichte.v1.GetDocumentRequest
+	34, // 46: berichte.v1.BerichteService.UpdateDocument:input_type -> berichte.v1.UpdateDocumentRequest
+	35, // 47: berichte.v1.BerichteService.DeleteDocument:input_type -> berichte.v1.DeleteDocumentRequest
+	38, // 48: berichte.v1.BerichteService.ListDocuments:input_type -> berichte.v1.ListDocumentsRequest
+	40, // 49: berichte.v1.BerichteService.ExportDocumentPDF:input_type -> berichte.v1.ExportDocumentPDFRequest
+	43, // 50: berichte.v1.BerichteService.ListTemplates:input_type -> berichte.v1.ListTemplatesRequest
+	46, // 51: berichte.v1.BerichteService.CreateShareToken:input_type -> berichte.v1.CreateShareTokenRequest
+	47, // 52: berichte.v1.BerichteService.ListShareTokens:input_type -> berichte.v1.ListShareTokensRequest
+	49, // 53: berichte.v1.BerichteService.RevokeShareToken:input_type -> berichte.v1.RevokeShareTokenRequest
+	52, // 54: berichte.v1.BerichteService.GetSharedDocument:input_type -> berichte.v1.GetSharedDocumentRequest
+	11, // 55: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
+	11, // 56: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
+	11, // 57: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
+	10, // 58: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
+	13, // 59: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
+	15, // 60: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
+	15, // 61: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
+	18, // 62: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
+	20, // 63: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
+	25, // 64: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
+	25, // 65: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
+	24, // 66: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
+	27, // 67: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
+	25, // 68: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
+	30, // 69: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
+	37, // 70: berichte.v1.BerichteService.CreateDocument:output_type -> berichte.v1.DocumentResponse
+	37, // 71: berichte.v1.BerichteService.GetDocument:output_type -> berichte.v1.DocumentResponse
+	37, // 72: berichte.v1.BerichteService.UpdateDocument:output_type -> berichte.v1.DocumentResponse
+	36, // 73: berichte.v1.BerichteService.DeleteDocument:output_type -> berichte.v1.DeleteDocumentResponse
+	39, // 74: berichte.v1.BerichteService.ListDocuments:output_type -> berichte.v1.ListDocumentsResponse
+	41, // 75: berichte.v1.BerichteService.ExportDocumentPDF:output_type -> berichte.v1.ExportDocumentPDFResponse
+	44, // 76: berichte.v1.BerichteService.ListTemplates:output_type -> berichte.v1.ListTemplatesResponse
+	51, // 77: berichte.v1.BerichteService.CreateShareToken:output_type -> berichte.v1.ShareTokenResponse
+	48, // 78: berichte.v1.BerichteService.ListShareTokens:output_type -> berichte.v1.ListShareTokensResponse
+	50, // 79: berichte.v1.BerichteService.RevokeShareToken:output_type -> berichte.v1.RevokeShareTokenResponse
+	53, // 80: berichte.v1.BerichteService.GetSharedDocument:output_type -> berichte.v1.GetSharedDocumentResponse
+	55, // [55:81] is the sub-list for method output_type
+	29, // [29:55] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_proto_berichte_v1_berichte_proto_init() }
@@ -4192,27 +4261,27 @@ func file_proto_berichte_v1_berichte_proto_init() {
 	file_proto_berichte_v1_berichte_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[7].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[20].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[8].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[21].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[25].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[22].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[26].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[31].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[33].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[37].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[41].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[44].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[34].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[42].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[45].OneofWrappers = []any{}
-	file_proto_berichte_v1_berichte_proto_msgTypes[51].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[46].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[52].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_berichte_v1_berichte_proto_rawDesc), len(file_proto_berichte_v1_berichte_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   53,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

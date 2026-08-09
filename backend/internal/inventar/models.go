@@ -44,6 +44,15 @@ const (
 	InventurStatusCompleted InventurStatus = "completed"
 )
 
+// PickingStatus represents the lifecycle of a picking list.
+type PickingStatus string
+
+const (
+	PickingStatusOpen      PickingStatus = "open"
+	PickingStatusPicking   PickingStatus = "picking"
+	PickingStatusCompleted PickingStatus = "completed"
+)
+
 // Item represents a stock-keeping unit in the inventory.
 type Item struct {
 	ID                  uuid.UUID  `json:"id"`
@@ -133,6 +142,34 @@ type ItemAttachment struct {
 	FileType  string    `json:"file_type"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PickingList is the head of a picking order: what has to be pulled from
+// stock, by whom, and how far along it is.
+type PickingList struct {
+	ID         uuid.UUID         `json:"id"`
+	TenantID   uuid.UUID         `json:"tenant_id"`
+	Reference  string            `json:"reference"`
+	Status     PickingStatus     `json:"status"`
+	AssignedTo *uuid.UUID        `json:"assigned_to,omitempty"`
+	CreatedBy  *uuid.UUID        `json:"created_by,omitempty"`
+	Items      []PickingListItem `json:"items,omitempty"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
+}
+
+// PickingListItem is one position of a picking list: the requested quantity
+// and how much of it was actually pulled.
+type PickingListItem struct {
+	ID                uuid.UUID `json:"id"`
+	TenantID          uuid.UUID `json:"tenant_id"`
+	PickingListID     uuid.UUID `json:"picking_list_id"`
+	ItemID            uuid.UUID `json:"item_id"`
+	QuantityRequested int64     `json:"quantity_requested"`
+	QuantityPicked    int64     `json:"quantity_picked"`
+	Location          *string   `json:"location,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 // InventurCount represents one item's count within an inventory session.

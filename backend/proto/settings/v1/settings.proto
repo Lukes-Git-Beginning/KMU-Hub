@@ -38,6 +38,10 @@ service SettingsService {
   // User-scope settings (own user only)
   rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse);
   rpc PutUserSettings(PutUserSettingsRequest) returns (PutUserSettingsResponse);
+  // Full-replace semantics: entries not included are deleted rather than left
+  // untouched. Backs /api/v1/users/preferences, whose client always sends the
+  // complete preference set.
+  rpc ReplaceUserSettings(ReplaceUserSettingsRequest) returns (ReplaceUserSettingsResponse);
 
   // Tenant-wide branding (name, logo/icon, accent color). Backed by
   // tenant_settings under module_id="branding" — no dedicated table. Write is
@@ -238,6 +242,18 @@ message PutUserSettingsRequest {
 }
 
 message PutUserSettingsResponse {
+  repeated SettingEntry entries = 1;
+}
+
+message ReplaceUserSettingsRequest {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string module_id  = 3;
+  // Full-replace semantics: entries not included here are deleted.
+  repeated SettingEntry entries = 4;
+}
+
+message ReplaceUserSettingsResponse {
   repeated SettingEntry entries = 1;
 }
 

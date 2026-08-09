@@ -2,6 +2,7 @@ package schichten
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -23,8 +24,12 @@ type mockRepository struct {
 	// per-employee latest shift end (for ArbZG check)
 	employeeLatestEnd map[uuid.UUID]*time.Time
 
+	// per-(tenant, employee) minor flag (for the JArbSchG check)
+	minorEmployees map[string]bool
+
 	createShiftErr      error
 	createAssignmentErr error
+	isMinorErr          error
 }
 
 func newMockRepository() *mockRepository {
@@ -34,6 +39,7 @@ func newMockRepository() *mockRepository {
 		templates:         make(map[uuid.UUID]*ShiftTemplate),
 		swapRequests:      make(map[uuid.UUID]*SwapRequest),
 		employeeLatestEnd: make(map[uuid.UUID]*time.Time),
+		minorEmployees:    make(map[string]bool),
 	}
 }
 
@@ -189,6 +195,17 @@ func (m *mockRepository) EarliestShiftStartAfterForEmployee(ctx context.Context,
 		}
 	}
 	return earliest, nil
+}
+
+func (m *mockRepository) IsMinorEmployee(ctx context.Context, tenantID, employeeID uuid.UUID) (bool, error) {
+	if m.isMinorErr != nil {
+		return false, m.isMinorErr
+	}
+	return m.minorEmployees[minorKey(tenantID, employeeID)], nil
+}
+
+func minorKey(tenantID, employeeID uuid.UUID) string {
+	return tenantID.String() + ":" + employeeID.String()
 }
 
 func (m *mockRepository) ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error) {
@@ -982,6 +999,151 @@ func TestService_CheckArbzgCompliance_Violation(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, compliant)
 	assert.NotEmpty(t, reason)
+}
+
+// ============================================================================
+// JArbSchG (minor protection) Tests
+//
+// All timestamps are UTC; Europe/Berlin runs at UTC+2 in May, so 06:00Z is
+// 08:00 local. The hour limits are evaluated in local time, which is the whole
+// point of the conversion — comparing UTC hours would let a 21:00 local night
+// shift pass as 19:00.
+// ============================================================================
+
+// markMinor flags the employee and returns a Monday morning shift that breaks
+// none of the three rules, so each test only has to move the one dimension it
+// is about.
+func markMinor(repo *mockRepository, tenantID, employeeID uuid.UUID) (start, end time.Time) {
+	repo.minorEmployees[minorKey(tenantID, employeeID)] = true
+	// Monday 08:00–14:00 local
+	return mustTime("2026-05-04T06:00:00Z"), mustTime("2026-05-04T12:00:00Z")
+}
+
+func TestService_CheckArbzgCompliance_Minor_Compliant(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+	start, end := markMinor(repo, tenantID, employeeID)
+
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, end)
+
+	require.NoError(t, err)
+	assert.True(t, compliant)
+	assert.Empty(t, reason)
+}
+
+func TestService_CheckArbzgCompliance_Minor_NightWork(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+	markMinor(repo, tenantID, employeeID)
+
+	// Monday 20:00–24:00 local — starts exactly at the §14 boundary and runs
+	// past it.
+	start := mustTime("2026-05-04T18:00:00Z")
+	end := mustTime("2026-05-04T22:00:00Z")
+
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, end)
+
+	require.NoError(t, err)
+	assert.False(t, compliant)
+	assert.Equal(t, ErrJArbSchGNightWork.Error(), reason)
+}
+
+func TestService_CheckArbzgCompliance_Minor_DailyHours(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+	markMinor(repo, tenantID, employeeID)
+
+	// Monday 08:00–17:00 local: inside the day window, but nine hours long.
+	start := mustTime("2026-05-04T06:00:00Z")
+	end := mustTime("2026-05-04T15:00:00Z")
+
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, end)
+
+	require.NoError(t, err)
+	assert.False(t, compliant)
+	assert.Equal(t, ErrJArbSchGDailyHours.Error(), reason)
+}
+
+func TestService_CheckArbzgCompliance_Minor_Weekend(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+	markMinor(repo, tenantID, employeeID)
+
+	// Saturday 10:00–14:00 local: legal on any weekday, forbidden here.
+	start := mustTime("2026-05-02T08:00:00Z")
+	end := mustTime("2026-05-02T12:00:00Z")
+
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, end)
+
+	require.NoError(t, err)
+	assert.False(t, compliant)
+	assert.Equal(t, ErrJArbSchGWeekend.Error(), reason)
+}
+
+// The flag is what makes the difference: the exact same shift is fine for an
+// adult. Without this the three tests above would also pass if the check
+// simply applied to everyone.
+func TestService_CheckArbzgCompliance_Adult_NightShiftAllowed(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+
+	start := mustTime("2026-05-04T18:00:00Z")
+	end := mustTime("2026-05-04T22:00:00Z")
+
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, end)
+
+	require.NoError(t, err)
+	assert.True(t, compliant)
+	assert.Empty(t, reason)
+}
+
+// A failed lookup must surface as an error, not as a clean "not compliant"
+// verdict with an empty reason.
+func TestService_CheckArbzgCompliance_MinorLookupFails(t *testing.T) {
+	repo := newMockRepository()
+	repo.isMinorErr = errors.New("connection refused")
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+
+	start := mustTime("2026-05-04T06:00:00Z")
+	compliant, reason, err := svc.CheckArbzgCompliance(context.Background(), tenantID, employeeID, start, start.Add(6*time.Hour))
+
+	require.Error(t, err)
+	assert.False(t, compliant)
+	assert.Empty(t, reason)
+}
+
+// The compliance endpoint reporting a violation is not enough on its own — the
+// assignment that creates it has to be refused as well.
+func TestService_AssignEmployee_MinorNightShiftRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, employeeID := uuid.New(), uuid.New()
+	markMinor(repo, tenantID, employeeID)
+
+	shift := &Shift{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		Title:     "Late shift",
+		StartTime: mustTime("2026-05-04T18:00:00Z"), // 20:00 local
+		EndTime:   mustTime("2026-05-04T22:00:00Z"), // 24:00 local
+		Status:    ShiftStatusDraft,
+	}
+	repo.shifts[shift.ID] = shift
+
+	_, err := svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID:   tenantID,
+		ShiftID:    shift.ID,
+		EmployeeID: employeeID,
+	})
+
+	require.ErrorIs(t, err, ErrJArbSchGNightWork)
+	assert.Empty(t, repo.assignments)
 }
 
 // Bug #5: ArbZG bidirectional check — new shift sandwiched between two close shifts

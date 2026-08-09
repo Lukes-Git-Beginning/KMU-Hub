@@ -9,6 +9,7 @@ package vertraegev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -327,6 +328,103 @@ func (x *ContractParty) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// ContractEvent is one entry of a contract's append-only audit trail.
+type ContractEvent struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	Action     string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"` // created|updated|terminated|signed|party_added|party_removed
+	// Absent when the change had no caller (reminder worker, auto-expiry) or the
+	// acting account has since been deleted.
+	UserId *string `protobuf:"bytes,5,opt,name=user_id,json=userId,proto3,oneof" json:"user_id,omitempty"`
+	// Per-action facts, never a fixed schema: {"fields":[...]} for an update,
+	// {"party_id":...} for a party change.
+	Payload       *structpb.Struct       `protobuf:"bytes,6,opt,name=payload,proto3" json:"payload,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContractEvent) Reset() {
+	*x = ContractEvent{}
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContractEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContractEvent) ProtoMessage() {}
+
+func (x *ContractEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContractEvent.ProtoReflect.Descriptor instead.
+func (*ContractEvent) Descriptor() ([]byte, []int) {
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ContractEvent) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ContractEvent) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ContractEvent) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *ContractEvent) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *ContractEvent) GetUserId() string {
+	if x != nil && x.UserId != nil {
+		return *x.UserId
+	}
+	return ""
+}
+
+func (x *ContractEvent) GetPayload() *structpb.Struct {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *ContractEvent) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
 type ContractReminder struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -345,7 +443,7 @@ type ContractReminder struct {
 
 func (x *ContractReminder) Reset() {
 	*x = ContractReminder{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[2]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -357,7 +455,7 @@ func (x *ContractReminder) String() string {
 func (*ContractReminder) ProtoMessage() {}
 
 func (x *ContractReminder) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[2]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -370,7 +468,7 @@ func (x *ContractReminder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContractReminder.ProtoReflect.Descriptor instead.
 func (*ContractReminder) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{2}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ContractReminder) GetId() string {
@@ -460,7 +558,7 @@ type CreateContractRequest struct {
 
 func (x *CreateContractRequest) Reset() {
 	*x = CreateContractRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[3]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -472,7 +570,7 @@ func (x *CreateContractRequest) String() string {
 func (*CreateContractRequest) ProtoMessage() {}
 
 func (x *CreateContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[3]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -485,7 +583,7 @@ func (x *CreateContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContractRequest.ProtoReflect.Descriptor instead.
 func (*CreateContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{3}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateContractRequest) GetTenantId() string {
@@ -569,7 +667,7 @@ type UpdateContractRequest struct {
 
 func (x *UpdateContractRequest) Reset() {
 	*x = UpdateContractRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[4]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -581,7 +679,7 @@ func (x *UpdateContractRequest) String() string {
 func (*UpdateContractRequest) ProtoMessage() {}
 
 func (x *UpdateContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[4]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -594,7 +692,7 @@ func (x *UpdateContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContractRequest.ProtoReflect.Descriptor instead.
 func (*UpdateContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{4}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateContractRequest) GetTenantId() string {
@@ -677,7 +775,7 @@ type DeleteContractRequest struct {
 
 func (x *DeleteContractRequest) Reset() {
 	*x = DeleteContractRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[5]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -689,7 +787,7 @@ func (x *DeleteContractRequest) String() string {
 func (*DeleteContractRequest) ProtoMessage() {}
 
 func (x *DeleteContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[5]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -702,7 +800,7 @@ func (x *DeleteContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContractRequest.ProtoReflect.Descriptor instead.
 func (*DeleteContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{5}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteContractRequest) GetTenantId() string {
@@ -727,7 +825,7 @@ type DeleteContractResponse struct {
 
 func (x *DeleteContractResponse) Reset() {
 	*x = DeleteContractResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[6]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -739,7 +837,7 @@ func (x *DeleteContractResponse) String() string {
 func (*DeleteContractResponse) ProtoMessage() {}
 
 func (x *DeleteContractResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[6]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -752,7 +850,7 @@ func (x *DeleteContractResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContractResponse.ProtoReflect.Descriptor instead.
 func (*DeleteContractResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{6}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{7}
 }
 
 type GetContractRequest struct {
@@ -765,7 +863,7 @@ type GetContractRequest struct {
 
 func (x *GetContractRequest) Reset() {
 	*x = GetContractRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[7]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +875,7 @@ func (x *GetContractRequest) String() string {
 func (*GetContractRequest) ProtoMessage() {}
 
 func (x *GetContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[7]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +888,7 @@ func (x *GetContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContractRequest.ProtoReflect.Descriptor instead.
 func (*GetContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{7}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetContractRequest) GetTenantId() string {
@@ -816,7 +914,7 @@ type ContractResponse struct {
 
 func (x *ContractResponse) Reset() {
 	*x = ContractResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[8]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +926,7 @@ func (x *ContractResponse) String() string {
 func (*ContractResponse) ProtoMessage() {}
 
 func (x *ContractResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[8]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +939,7 @@ func (x *ContractResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContractResponse.ProtoReflect.Descriptor instead.
 func (*ContractResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{8}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ContractResponse) GetContract() *Contract {
@@ -870,7 +968,7 @@ type ListContractsRequest struct {
 
 func (x *ListContractsRequest) Reset() {
 	*x = ListContractsRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[9]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +980,7 @@ func (x *ListContractsRequest) String() string {
 func (*ListContractsRequest) ProtoMessage() {}
 
 func (x *ListContractsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[9]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +993,7 @@ func (x *ListContractsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContractsRequest.ProtoReflect.Descriptor instead.
 func (*ListContractsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{9}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListContractsRequest) GetTenantId() string {
@@ -978,7 +1076,7 @@ type ListContractsResponse struct {
 
 func (x *ListContractsResponse) Reset() {
 	*x = ListContractsResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[10]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -990,7 +1088,7 @@ func (x *ListContractsResponse) String() string {
 func (*ListContractsResponse) ProtoMessage() {}
 
 func (x *ListContractsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[10]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1003,7 +1101,7 @@ func (x *ListContractsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContractsResponse.ProtoReflect.Descriptor instead.
 func (*ListContractsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{10}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListContractsResponse) GetContracts() []*Contract {
@@ -1036,7 +1134,7 @@ type AddPartyRequest struct {
 
 func (x *AddPartyRequest) Reset() {
 	*x = AddPartyRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[11]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1048,7 +1146,7 @@ func (x *AddPartyRequest) String() string {
 func (*AddPartyRequest) ProtoMessage() {}
 
 func (x *AddPartyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[11]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1061,7 +1159,7 @@ func (x *AddPartyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPartyRequest.ProtoReflect.Descriptor instead.
 func (*AddPartyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{11}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AddPartyRequest) GetTenantId() string {
@@ -1130,7 +1228,7 @@ type RemovePartyRequest struct {
 
 func (x *RemovePartyRequest) Reset() {
 	*x = RemovePartyRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[12]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1142,7 +1240,7 @@ func (x *RemovePartyRequest) String() string {
 func (*RemovePartyRequest) ProtoMessage() {}
 
 func (x *RemovePartyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[12]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1253,7 @@ func (x *RemovePartyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemovePartyRequest.ProtoReflect.Descriptor instead.
 func (*RemovePartyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{12}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RemovePartyRequest) GetTenantId() string {
@@ -1180,7 +1278,7 @@ type RemovePartyResponse struct {
 
 func (x *RemovePartyResponse) Reset() {
 	*x = RemovePartyResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[13]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1192,7 +1290,7 @@ func (x *RemovePartyResponse) String() string {
 func (*RemovePartyResponse) ProtoMessage() {}
 
 func (x *RemovePartyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[13]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1205,7 +1303,7 @@ func (x *RemovePartyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemovePartyResponse.ProtoReflect.Descriptor instead.
 func (*RemovePartyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{13}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{14}
 }
 
 type ListPartiesRequest struct {
@@ -1218,7 +1316,7 @@ type ListPartiesRequest struct {
 
 func (x *ListPartiesRequest) Reset() {
 	*x = ListPartiesRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[14]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1328,7 @@ func (x *ListPartiesRequest) String() string {
 func (*ListPartiesRequest) ProtoMessage() {}
 
 func (x *ListPartiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[14]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1341,7 @@ func (x *ListPartiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPartiesRequest.ProtoReflect.Descriptor instead.
 func (*ListPartiesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{14}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListPartiesRequest) GetTenantId() string {
@@ -1269,7 +1367,7 @@ type PartyResponse struct {
 
 func (x *PartyResponse) Reset() {
 	*x = PartyResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[15]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1281,7 +1379,7 @@ func (x *PartyResponse) String() string {
 func (*PartyResponse) ProtoMessage() {}
 
 func (x *PartyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[15]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1294,7 +1392,7 @@ func (x *PartyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartyResponse.ProtoReflect.Descriptor instead.
 func (*PartyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{15}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PartyResponse) GetParty() *ContractParty {
@@ -1313,7 +1411,7 @@ type ListPartiesResponse struct {
 
 func (x *ListPartiesResponse) Reset() {
 	*x = ListPartiesResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[16]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1325,7 +1423,7 @@ func (x *ListPartiesResponse) String() string {
 func (*ListPartiesResponse) ProtoMessage() {}
 
 func (x *ListPartiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[16]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1338,7 +1436,7 @@ func (x *ListPartiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPartiesResponse.ProtoReflect.Descriptor instead.
 func (*ListPartiesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{16}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListPartiesResponse) GetParties() []*ContractParty {
@@ -1346,6 +1444,126 @@ func (x *ListPartiesResponse) GetParties() []*ContractParty {
 		return x.Parties
 	}
 	return nil
+}
+
+type ListContractEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContractEventsRequest) Reset() {
+	*x = ListContractEventsRequest{}
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContractEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContractEventsRequest) ProtoMessage() {}
+
+func (x *ListContractEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContractEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListContractEventsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListContractEventsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListContractEventsRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *ListContractEventsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListContractEventsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListContractEventsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*ContractEvent       `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContractEventsResponse) Reset() {
+	*x = ListContractEventsResponse{}
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContractEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContractEventsResponse) ProtoMessage() {}
+
+func (x *ListContractEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContractEventsResponse.ProtoReflect.Descriptor instead.
+func (*ListContractEventsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListContractEventsResponse) GetItems() []*ContractEvent {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListContractEventsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
 }
 
 type CreateReminderRequest struct {
@@ -1362,7 +1580,7 @@ type CreateReminderRequest struct {
 
 func (x *CreateReminderRequest) Reset() {
 	*x = CreateReminderRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[17]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1374,7 +1592,7 @@ func (x *CreateReminderRequest) String() string {
 func (*CreateReminderRequest) ProtoMessage() {}
 
 func (x *CreateReminderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[17]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1605,7 @@ func (x *CreateReminderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReminderRequest.ProtoReflect.Descriptor instead.
 func (*CreateReminderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{17}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateReminderRequest) GetTenantId() string {
@@ -1447,7 +1665,7 @@ type UpdateReminderRequest struct {
 
 func (x *UpdateReminderRequest) Reset() {
 	*x = UpdateReminderRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[18]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1459,7 +1677,7 @@ func (x *UpdateReminderRequest) String() string {
 func (*UpdateReminderRequest) ProtoMessage() {}
 
 func (x *UpdateReminderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[18]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1472,7 +1690,7 @@ func (x *UpdateReminderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateReminderRequest.ProtoReflect.Descriptor instead.
 func (*UpdateReminderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{18}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateReminderRequest) GetTenantId() string {
@@ -1534,7 +1752,7 @@ type DeleteReminderRequest struct {
 
 func (x *DeleteReminderRequest) Reset() {
 	*x = DeleteReminderRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[19]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1546,7 +1764,7 @@ func (x *DeleteReminderRequest) String() string {
 func (*DeleteReminderRequest) ProtoMessage() {}
 
 func (x *DeleteReminderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[19]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1559,7 +1777,7 @@ func (x *DeleteReminderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReminderRequest.ProtoReflect.Descriptor instead.
 func (*DeleteReminderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{19}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteReminderRequest) GetTenantId() string {
@@ -1584,7 +1802,7 @@ type DeleteReminderResponse struct {
 
 func (x *DeleteReminderResponse) Reset() {
 	*x = DeleteReminderResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[20]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1596,7 +1814,7 @@ func (x *DeleteReminderResponse) String() string {
 func (*DeleteReminderResponse) ProtoMessage() {}
 
 func (x *DeleteReminderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[20]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1609,7 +1827,7 @@ func (x *DeleteReminderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReminderResponse.ProtoReflect.Descriptor instead.
 func (*DeleteReminderResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{20}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{23}
 }
 
 type ListRemindersRequest struct {
@@ -1623,7 +1841,7 @@ type ListRemindersRequest struct {
 
 func (x *ListRemindersRequest) Reset() {
 	*x = ListRemindersRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[21]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1635,7 +1853,7 @@ func (x *ListRemindersRequest) String() string {
 func (*ListRemindersRequest) ProtoMessage() {}
 
 func (x *ListRemindersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[21]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1648,7 +1866,7 @@ func (x *ListRemindersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRemindersRequest.ProtoReflect.Descriptor instead.
 func (*ListRemindersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{21}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListRemindersRequest) GetTenantId() string {
@@ -1681,7 +1899,7 @@ type ReminderResponse struct {
 
 func (x *ReminderResponse) Reset() {
 	*x = ReminderResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[22]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1693,7 +1911,7 @@ func (x *ReminderResponse) String() string {
 func (*ReminderResponse) ProtoMessage() {}
 
 func (x *ReminderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[22]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1706,7 +1924,7 @@ func (x *ReminderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReminderResponse.ProtoReflect.Descriptor instead.
 func (*ReminderResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{22}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ReminderResponse) GetReminder() *ContractReminder {
@@ -1725,7 +1943,7 @@ type ListRemindersResponse struct {
 
 func (x *ListRemindersResponse) Reset() {
 	*x = ListRemindersResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[23]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1737,7 +1955,7 @@ func (x *ListRemindersResponse) String() string {
 func (*ListRemindersResponse) ProtoMessage() {}
 
 func (x *ListRemindersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[23]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1750,7 +1968,7 @@ func (x *ListRemindersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRemindersResponse.ProtoReflect.Descriptor instead.
 func (*ListRemindersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{23}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListRemindersResponse) GetReminders() []*ContractReminder {
@@ -1760,6 +1978,7 @@ func (x *ListRemindersResponse) GetReminders() []*ContractReminder {
 	return nil
 }
 
+// Deprecated: client-side presign flow replaces this RPC. See route_files.go.
 type UploadDocumentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1770,7 +1989,7 @@ type UploadDocumentRequest struct {
 
 func (x *UploadDocumentRequest) Reset() {
 	*x = UploadDocumentRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[24]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1782,7 +2001,7 @@ func (x *UploadDocumentRequest) String() string {
 func (*UploadDocumentRequest) ProtoMessage() {}
 
 func (x *UploadDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[24]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1795,7 +2014,7 @@ func (x *UploadDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadDocumentRequest.ProtoReflect.Descriptor instead.
 func (*UploadDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{24}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UploadDocumentRequest) GetTenantId() string {
@@ -1812,6 +2031,7 @@ func (x *UploadDocumentRequest) GetContractId() string {
 	return ""
 }
 
+// Deprecated: client-side presign flow replaces this RPC. See route_files.go.
 type UploadDocumentResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Signed upload URL (stub; Sprint 3 wires MinIO presign).
@@ -1822,7 +2042,7 @@ type UploadDocumentResponse struct {
 
 func (x *UploadDocumentResponse) Reset() {
 	*x = UploadDocumentResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[25]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1834,7 +2054,7 @@ func (x *UploadDocumentResponse) String() string {
 func (*UploadDocumentResponse) ProtoMessage() {}
 
 func (x *UploadDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[25]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +2067,7 @@ func (x *UploadDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadDocumentResponse.ProtoReflect.Descriptor instead.
 func (*UploadDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{25}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *UploadDocumentResponse) GetUploadUrl() string {
@@ -1867,7 +2087,7 @@ type ExportContractRequest struct {
 
 func (x *ExportContractRequest) Reset() {
 	*x = ExportContractRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[26]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1879,7 +2099,7 @@ func (x *ExportContractRequest) String() string {
 func (*ExportContractRequest) ProtoMessage() {}
 
 func (x *ExportContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[26]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1892,7 +2112,7 @@ func (x *ExportContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportContractRequest.ProtoReflect.Descriptor instead.
 func (*ExportContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{26}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ExportContractRequest) GetTenantId() string {
@@ -1921,7 +2141,7 @@ type ExportContractResponse struct {
 
 func (x *ExportContractResponse) Reset() {
 	*x = ExportContractResponse{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[27]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1933,7 +2153,7 @@ func (x *ExportContractResponse) String() string {
 func (*ExportContractResponse) ProtoMessage() {}
 
 func (x *ExportContractResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[27]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1946,7 +2166,7 @@ func (x *ExportContractResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportContractResponse.ProtoReflect.Descriptor instead.
 func (*ExportContractResponse) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{27}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ExportContractResponse) GetPayload() []byte {
@@ -1982,7 +2202,7 @@ type SaveContractSignatureRequest struct {
 
 func (x *SaveContractSignatureRequest) Reset() {
 	*x = SaveContractSignatureRequest{}
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1994,7 +2214,7 @@ func (x *SaveContractSignatureRequest) String() string {
 func (*SaveContractSignatureRequest) ProtoMessage() {}
 
 func (x *SaveContractSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2007,7 +2227,7 @@ func (x *SaveContractSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveContractSignatureRequest.ProtoReflect.Descriptor instead.
 func (*SaveContractSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{28}
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SaveContractSignatureRequest) GetTenantId() string {
@@ -2042,7 +2262,7 @@ var File_proto_vertraege_v1_vertraege_proto protoreflect.FileDescriptor
 
 const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\n" +
-	"\"proto/vertraege/v1/vertraege.proto\x12\fvertraege.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfa\x06\n" +
+	"\"proto/vertraege/v1/vertraege.proto\x12\fvertraege.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfa\x06\n" +
 	"\bContract\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12'\n" +
@@ -2095,7 +2315,19 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\v_company_idB\x10\n" +
 	"\x0e_external_nameB\f\n" +
 	"\n" +
-	"_signed_on\"\x8b\x03\n" +
+	"_signed_on\"\x8d\x02\n" +
+	"\rContractEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12\x1c\n" +
+	"\auser_id\x18\x05 \x01(\tH\x00R\x06userId\x88\x01\x01\x121\n" +
+	"\apayload\x18\x06 \x01(\v2\x17.google.protobuf.StructR\apayload\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\n" +
+	"\n" +
+	"\b_user_id\"\x8b\x03\n" +
 	"\x10ContractReminder\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
@@ -2214,7 +2446,16 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\rPartyResponse\x121\n" +
 	"\x05party\x18\x01 \x01(\v2\x1b.vertraege.v1.ContractPartyR\x05party\"L\n" +
 	"\x13ListPartiesResponse\x125\n" +
-	"\aparties\x18\x01 \x03(\v2\x1b.vertraege.v1.ContractPartyR\aparties\"\xe7\x01\n" +
+	"\aparties\x18\x01 \x03(\v2\x1b.vertraege.v1.ContractPartyR\aparties\"\x8a\x01\n" +
+	"\x19ListContractEventsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"e\n" +
+	"\x1aListContractEventsResponse\x121\n" +
+	"\x05items\x18\x01 \x03(\v2\x1b.vertraege.v1.ContractEventR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe7\x01\n" +
 	"\x15CreateReminderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vcontract_id\x18\x02 \x01(\tR\n" +
@@ -2274,8 +2515,7 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\vcontract_id\x18\x02 \x01(\tR\n" +
 	"contractId\x12%\n" +
 	"\x0esignature_data\x18\x03 \x01(\tR\rsignatureData\x12\x1b\n" +
-	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy2\xb4\n" +
-	"\n" +
+	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy2\x9d\v\n" +
 	"\x10VertraegeService\x12U\n" +
 	"\x0eCreateContract\x12#.vertraege.v1.CreateContractRequest\x1a\x1e.vertraege.v1.ContractResponse\x12U\n" +
 	"\x0eUpdateContract\x12#.vertraege.v1.UpdateContractRequest\x1a\x1e.vertraege.v1.ContractResponse\x12[\n" +
@@ -2291,7 +2531,8 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\rListReminders\x12\".vertraege.v1.ListRemindersRequest\x1a#.vertraege.v1.ListRemindersResponse\x12[\n" +
 	"\x0eUploadDocument\x12#.vertraege.v1.UploadDocumentRequest\x1a$.vertraege.v1.UploadDocumentResponse\x12[\n" +
 	"\x0eExportContract\x12#.vertraege.v1.ExportContractRequest\x1a$.vertraege.v1.ExportContractResponse\x12[\n" +
-	"\rSaveSignature\x12*.vertraege.v1.SaveContractSignatureRequest\x1a\x1e.vertraege.v1.ContractResponseB9Z7github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1b\x06proto3"
+	"\rSaveSignature\x12*.vertraege.v1.SaveContractSignatureRequest\x1a\x1e.vertraege.v1.ContractResponse\x12g\n" +
+	"\x12ListContractEvents\x12'.vertraege.v1.ListContractEventsRequest\x1a(.vertraege.v1.ListContractEventsResponseB9Z7github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1b\x06proto3"
 
 var (
 	file_proto_vertraege_v1_vertraege_proto_rawDescOnce sync.Once
@@ -2305,104 +2546,113 @@ func file_proto_vertraege_v1_vertraege_proto_rawDescGZIP() []byte {
 	return file_proto_vertraege_v1_vertraege_proto_rawDescData
 }
 
-var file_proto_vertraege_v1_vertraege_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_proto_vertraege_v1_vertraege_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_proto_vertraege_v1_vertraege_proto_goTypes = []any{
 	(*Contract)(nil),                     // 0: vertraege.v1.Contract
 	(*ContractParty)(nil),                // 1: vertraege.v1.ContractParty
-	(*ContractReminder)(nil),             // 2: vertraege.v1.ContractReminder
-	(*CreateContractRequest)(nil),        // 3: vertraege.v1.CreateContractRequest
-	(*UpdateContractRequest)(nil),        // 4: vertraege.v1.UpdateContractRequest
-	(*DeleteContractRequest)(nil),        // 5: vertraege.v1.DeleteContractRequest
-	(*DeleteContractResponse)(nil),       // 6: vertraege.v1.DeleteContractResponse
-	(*GetContractRequest)(nil),           // 7: vertraege.v1.GetContractRequest
-	(*ContractResponse)(nil),             // 8: vertraege.v1.ContractResponse
-	(*ListContractsRequest)(nil),         // 9: vertraege.v1.ListContractsRequest
-	(*ListContractsResponse)(nil),        // 10: vertraege.v1.ListContractsResponse
-	(*AddPartyRequest)(nil),              // 11: vertraege.v1.AddPartyRequest
-	(*RemovePartyRequest)(nil),           // 12: vertraege.v1.RemovePartyRequest
-	(*RemovePartyResponse)(nil),          // 13: vertraege.v1.RemovePartyResponse
-	(*ListPartiesRequest)(nil),           // 14: vertraege.v1.ListPartiesRequest
-	(*PartyResponse)(nil),                // 15: vertraege.v1.PartyResponse
-	(*ListPartiesResponse)(nil),          // 16: vertraege.v1.ListPartiesResponse
-	(*CreateReminderRequest)(nil),        // 17: vertraege.v1.CreateReminderRequest
-	(*UpdateReminderRequest)(nil),        // 18: vertraege.v1.UpdateReminderRequest
-	(*DeleteReminderRequest)(nil),        // 19: vertraege.v1.DeleteReminderRequest
-	(*DeleteReminderResponse)(nil),       // 20: vertraege.v1.DeleteReminderResponse
-	(*ListRemindersRequest)(nil),         // 21: vertraege.v1.ListRemindersRequest
-	(*ReminderResponse)(nil),             // 22: vertraege.v1.ReminderResponse
-	(*ListRemindersResponse)(nil),        // 23: vertraege.v1.ListRemindersResponse
-	(*UploadDocumentRequest)(nil),        // 24: vertraege.v1.UploadDocumentRequest
-	(*UploadDocumentResponse)(nil),       // 25: vertraege.v1.UploadDocumentResponse
-	(*ExportContractRequest)(nil),        // 26: vertraege.v1.ExportContractRequest
-	(*ExportContractResponse)(nil),       // 27: vertraege.v1.ExportContractResponse
-	(*SaveContractSignatureRequest)(nil), // 28: vertraege.v1.SaveContractSignatureRequest
-	(*timestamppb.Timestamp)(nil),        // 29: google.protobuf.Timestamp
+	(*ContractEvent)(nil),                // 2: vertraege.v1.ContractEvent
+	(*ContractReminder)(nil),             // 3: vertraege.v1.ContractReminder
+	(*CreateContractRequest)(nil),        // 4: vertraege.v1.CreateContractRequest
+	(*UpdateContractRequest)(nil),        // 5: vertraege.v1.UpdateContractRequest
+	(*DeleteContractRequest)(nil),        // 6: vertraege.v1.DeleteContractRequest
+	(*DeleteContractResponse)(nil),       // 7: vertraege.v1.DeleteContractResponse
+	(*GetContractRequest)(nil),           // 8: vertraege.v1.GetContractRequest
+	(*ContractResponse)(nil),             // 9: vertraege.v1.ContractResponse
+	(*ListContractsRequest)(nil),         // 10: vertraege.v1.ListContractsRequest
+	(*ListContractsResponse)(nil),        // 11: vertraege.v1.ListContractsResponse
+	(*AddPartyRequest)(nil),              // 12: vertraege.v1.AddPartyRequest
+	(*RemovePartyRequest)(nil),           // 13: vertraege.v1.RemovePartyRequest
+	(*RemovePartyResponse)(nil),          // 14: vertraege.v1.RemovePartyResponse
+	(*ListPartiesRequest)(nil),           // 15: vertraege.v1.ListPartiesRequest
+	(*PartyResponse)(nil),                // 16: vertraege.v1.PartyResponse
+	(*ListPartiesResponse)(nil),          // 17: vertraege.v1.ListPartiesResponse
+	(*ListContractEventsRequest)(nil),    // 18: vertraege.v1.ListContractEventsRequest
+	(*ListContractEventsResponse)(nil),   // 19: vertraege.v1.ListContractEventsResponse
+	(*CreateReminderRequest)(nil),        // 20: vertraege.v1.CreateReminderRequest
+	(*UpdateReminderRequest)(nil),        // 21: vertraege.v1.UpdateReminderRequest
+	(*DeleteReminderRequest)(nil),        // 22: vertraege.v1.DeleteReminderRequest
+	(*DeleteReminderResponse)(nil),       // 23: vertraege.v1.DeleteReminderResponse
+	(*ListRemindersRequest)(nil),         // 24: vertraege.v1.ListRemindersRequest
+	(*ReminderResponse)(nil),             // 25: vertraege.v1.ReminderResponse
+	(*ListRemindersResponse)(nil),        // 26: vertraege.v1.ListRemindersResponse
+	(*UploadDocumentRequest)(nil),        // 27: vertraege.v1.UploadDocumentRequest
+	(*UploadDocumentResponse)(nil),       // 28: vertraege.v1.UploadDocumentResponse
+	(*ExportContractRequest)(nil),        // 29: vertraege.v1.ExportContractRequest
+	(*ExportContractResponse)(nil),       // 30: vertraege.v1.ExportContractResponse
+	(*SaveContractSignatureRequest)(nil), // 31: vertraege.v1.SaveContractSignatureRequest
+	(*timestamppb.Timestamp)(nil),        // 32: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),              // 33: google.protobuf.Struct
 }
 var file_proto_vertraege_v1_vertraege_proto_depIdxs = []int32{
-	29, // 0: vertraege.v1.Contract.starts_on:type_name -> google.protobuf.Timestamp
-	29, // 1: vertraege.v1.Contract.ends_on:type_name -> google.protobuf.Timestamp
-	29, // 2: vertraege.v1.Contract.created_at:type_name -> google.protobuf.Timestamp
-	29, // 3: vertraege.v1.Contract.updated_at:type_name -> google.protobuf.Timestamp
+	32, // 0: vertraege.v1.Contract.starts_on:type_name -> google.protobuf.Timestamp
+	32, // 1: vertraege.v1.Contract.ends_on:type_name -> google.protobuf.Timestamp
+	32, // 2: vertraege.v1.Contract.created_at:type_name -> google.protobuf.Timestamp
+	32, // 3: vertraege.v1.Contract.updated_at:type_name -> google.protobuf.Timestamp
 	1,  // 4: vertraege.v1.Contract.parties:type_name -> vertraege.v1.ContractParty
-	2,  // 5: vertraege.v1.Contract.reminders:type_name -> vertraege.v1.ContractReminder
-	29, // 6: vertraege.v1.Contract.signed_at:type_name -> google.protobuf.Timestamp
-	29, // 7: vertraege.v1.ContractParty.signed_on:type_name -> google.protobuf.Timestamp
-	29, // 8: vertraege.v1.ContractParty.created_at:type_name -> google.protobuf.Timestamp
-	29, // 9: vertraege.v1.ContractReminder.remind_at:type_name -> google.protobuf.Timestamp
-	29, // 10: vertraege.v1.ContractReminder.created_at:type_name -> google.protobuf.Timestamp
-	29, // 11: vertraege.v1.ContractReminder.sent_at:type_name -> google.protobuf.Timestamp
-	29, // 12: vertraege.v1.CreateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
-	29, // 13: vertraege.v1.CreateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
-	29, // 14: vertraege.v1.UpdateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
-	29, // 15: vertraege.v1.UpdateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
-	0,  // 16: vertraege.v1.ContractResponse.contract:type_name -> vertraege.v1.Contract
-	29, // 17: vertraege.v1.ListContractsRequest.starts_after:type_name -> google.protobuf.Timestamp
-	29, // 18: vertraege.v1.ListContractsRequest.starts_before:type_name -> google.protobuf.Timestamp
-	29, // 19: vertraege.v1.ListContractsRequest.ends_after:type_name -> google.protobuf.Timestamp
-	29, // 20: vertraege.v1.ListContractsRequest.ends_before:type_name -> google.protobuf.Timestamp
-	0,  // 21: vertraege.v1.ListContractsResponse.contracts:type_name -> vertraege.v1.Contract
-	29, // 22: vertraege.v1.AddPartyRequest.signed_on:type_name -> google.protobuf.Timestamp
-	1,  // 23: vertraege.v1.PartyResponse.party:type_name -> vertraege.v1.ContractParty
-	1,  // 24: vertraege.v1.ListPartiesResponse.parties:type_name -> vertraege.v1.ContractParty
-	29, // 25: vertraege.v1.CreateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
-	29, // 26: vertraege.v1.UpdateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
-	2,  // 27: vertraege.v1.ReminderResponse.reminder:type_name -> vertraege.v1.ContractReminder
-	2,  // 28: vertraege.v1.ListRemindersResponse.reminders:type_name -> vertraege.v1.ContractReminder
-	3,  // 29: vertraege.v1.VertraegeService.CreateContract:input_type -> vertraege.v1.CreateContractRequest
-	4,  // 30: vertraege.v1.VertraegeService.UpdateContract:input_type -> vertraege.v1.UpdateContractRequest
-	5,  // 31: vertraege.v1.VertraegeService.DeleteContract:input_type -> vertraege.v1.DeleteContractRequest
-	7,  // 32: vertraege.v1.VertraegeService.GetContract:input_type -> vertraege.v1.GetContractRequest
-	9,  // 33: vertraege.v1.VertraegeService.ListContracts:input_type -> vertraege.v1.ListContractsRequest
-	11, // 34: vertraege.v1.VertraegeService.AddParty:input_type -> vertraege.v1.AddPartyRequest
-	12, // 35: vertraege.v1.VertraegeService.RemoveParty:input_type -> vertraege.v1.RemovePartyRequest
-	14, // 36: vertraege.v1.VertraegeService.ListParties:input_type -> vertraege.v1.ListPartiesRequest
-	17, // 37: vertraege.v1.VertraegeService.CreateReminder:input_type -> vertraege.v1.CreateReminderRequest
-	18, // 38: vertraege.v1.VertraegeService.UpdateReminder:input_type -> vertraege.v1.UpdateReminderRequest
-	19, // 39: vertraege.v1.VertraegeService.DeleteReminder:input_type -> vertraege.v1.DeleteReminderRequest
-	21, // 40: vertraege.v1.VertraegeService.ListReminders:input_type -> vertraege.v1.ListRemindersRequest
-	24, // 41: vertraege.v1.VertraegeService.UploadDocument:input_type -> vertraege.v1.UploadDocumentRequest
-	26, // 42: vertraege.v1.VertraegeService.ExportContract:input_type -> vertraege.v1.ExportContractRequest
-	28, // 43: vertraege.v1.VertraegeService.SaveSignature:input_type -> vertraege.v1.SaveContractSignatureRequest
-	8,  // 44: vertraege.v1.VertraegeService.CreateContract:output_type -> vertraege.v1.ContractResponse
-	8,  // 45: vertraege.v1.VertraegeService.UpdateContract:output_type -> vertraege.v1.ContractResponse
-	6,  // 46: vertraege.v1.VertraegeService.DeleteContract:output_type -> vertraege.v1.DeleteContractResponse
-	8,  // 47: vertraege.v1.VertraegeService.GetContract:output_type -> vertraege.v1.ContractResponse
-	10, // 48: vertraege.v1.VertraegeService.ListContracts:output_type -> vertraege.v1.ListContractsResponse
-	15, // 49: vertraege.v1.VertraegeService.AddParty:output_type -> vertraege.v1.PartyResponse
-	13, // 50: vertraege.v1.VertraegeService.RemoveParty:output_type -> vertraege.v1.RemovePartyResponse
-	16, // 51: vertraege.v1.VertraegeService.ListParties:output_type -> vertraege.v1.ListPartiesResponse
-	22, // 52: vertraege.v1.VertraegeService.CreateReminder:output_type -> vertraege.v1.ReminderResponse
-	22, // 53: vertraege.v1.VertraegeService.UpdateReminder:output_type -> vertraege.v1.ReminderResponse
-	20, // 54: vertraege.v1.VertraegeService.DeleteReminder:output_type -> vertraege.v1.DeleteReminderResponse
-	23, // 55: vertraege.v1.VertraegeService.ListReminders:output_type -> vertraege.v1.ListRemindersResponse
-	25, // 56: vertraege.v1.VertraegeService.UploadDocument:output_type -> vertraege.v1.UploadDocumentResponse
-	27, // 57: vertraege.v1.VertraegeService.ExportContract:output_type -> vertraege.v1.ExportContractResponse
-	8,  // 58: vertraege.v1.VertraegeService.SaveSignature:output_type -> vertraege.v1.ContractResponse
-	44, // [44:59] is the sub-list for method output_type
-	29, // [29:44] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	3,  // 5: vertraege.v1.Contract.reminders:type_name -> vertraege.v1.ContractReminder
+	32, // 6: vertraege.v1.Contract.signed_at:type_name -> google.protobuf.Timestamp
+	32, // 7: vertraege.v1.ContractParty.signed_on:type_name -> google.protobuf.Timestamp
+	32, // 8: vertraege.v1.ContractParty.created_at:type_name -> google.protobuf.Timestamp
+	33, // 9: vertraege.v1.ContractEvent.payload:type_name -> google.protobuf.Struct
+	32, // 10: vertraege.v1.ContractEvent.created_at:type_name -> google.protobuf.Timestamp
+	32, // 11: vertraege.v1.ContractReminder.remind_at:type_name -> google.protobuf.Timestamp
+	32, // 12: vertraege.v1.ContractReminder.created_at:type_name -> google.protobuf.Timestamp
+	32, // 13: vertraege.v1.ContractReminder.sent_at:type_name -> google.protobuf.Timestamp
+	32, // 14: vertraege.v1.CreateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
+	32, // 15: vertraege.v1.CreateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
+	32, // 16: vertraege.v1.UpdateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
+	32, // 17: vertraege.v1.UpdateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
+	0,  // 18: vertraege.v1.ContractResponse.contract:type_name -> vertraege.v1.Contract
+	32, // 19: vertraege.v1.ListContractsRequest.starts_after:type_name -> google.protobuf.Timestamp
+	32, // 20: vertraege.v1.ListContractsRequest.starts_before:type_name -> google.protobuf.Timestamp
+	32, // 21: vertraege.v1.ListContractsRequest.ends_after:type_name -> google.protobuf.Timestamp
+	32, // 22: vertraege.v1.ListContractsRequest.ends_before:type_name -> google.protobuf.Timestamp
+	0,  // 23: vertraege.v1.ListContractsResponse.contracts:type_name -> vertraege.v1.Contract
+	32, // 24: vertraege.v1.AddPartyRequest.signed_on:type_name -> google.protobuf.Timestamp
+	1,  // 25: vertraege.v1.PartyResponse.party:type_name -> vertraege.v1.ContractParty
+	1,  // 26: vertraege.v1.ListPartiesResponse.parties:type_name -> vertraege.v1.ContractParty
+	2,  // 27: vertraege.v1.ListContractEventsResponse.items:type_name -> vertraege.v1.ContractEvent
+	32, // 28: vertraege.v1.CreateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
+	32, // 29: vertraege.v1.UpdateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
+	3,  // 30: vertraege.v1.ReminderResponse.reminder:type_name -> vertraege.v1.ContractReminder
+	3,  // 31: vertraege.v1.ListRemindersResponse.reminders:type_name -> vertraege.v1.ContractReminder
+	4,  // 32: vertraege.v1.VertraegeService.CreateContract:input_type -> vertraege.v1.CreateContractRequest
+	5,  // 33: vertraege.v1.VertraegeService.UpdateContract:input_type -> vertraege.v1.UpdateContractRequest
+	6,  // 34: vertraege.v1.VertraegeService.DeleteContract:input_type -> vertraege.v1.DeleteContractRequest
+	8,  // 35: vertraege.v1.VertraegeService.GetContract:input_type -> vertraege.v1.GetContractRequest
+	10, // 36: vertraege.v1.VertraegeService.ListContracts:input_type -> vertraege.v1.ListContractsRequest
+	12, // 37: vertraege.v1.VertraegeService.AddParty:input_type -> vertraege.v1.AddPartyRequest
+	13, // 38: vertraege.v1.VertraegeService.RemoveParty:input_type -> vertraege.v1.RemovePartyRequest
+	15, // 39: vertraege.v1.VertraegeService.ListParties:input_type -> vertraege.v1.ListPartiesRequest
+	20, // 40: vertraege.v1.VertraegeService.CreateReminder:input_type -> vertraege.v1.CreateReminderRequest
+	21, // 41: vertraege.v1.VertraegeService.UpdateReminder:input_type -> vertraege.v1.UpdateReminderRequest
+	22, // 42: vertraege.v1.VertraegeService.DeleteReminder:input_type -> vertraege.v1.DeleteReminderRequest
+	24, // 43: vertraege.v1.VertraegeService.ListReminders:input_type -> vertraege.v1.ListRemindersRequest
+	27, // 44: vertraege.v1.VertraegeService.UploadDocument:input_type -> vertraege.v1.UploadDocumentRequest
+	29, // 45: vertraege.v1.VertraegeService.ExportContract:input_type -> vertraege.v1.ExportContractRequest
+	31, // 46: vertraege.v1.VertraegeService.SaveSignature:input_type -> vertraege.v1.SaveContractSignatureRequest
+	18, // 47: vertraege.v1.VertraegeService.ListContractEvents:input_type -> vertraege.v1.ListContractEventsRequest
+	9,  // 48: vertraege.v1.VertraegeService.CreateContract:output_type -> vertraege.v1.ContractResponse
+	9,  // 49: vertraege.v1.VertraegeService.UpdateContract:output_type -> vertraege.v1.ContractResponse
+	7,  // 50: vertraege.v1.VertraegeService.DeleteContract:output_type -> vertraege.v1.DeleteContractResponse
+	9,  // 51: vertraege.v1.VertraegeService.GetContract:output_type -> vertraege.v1.ContractResponse
+	11, // 52: vertraege.v1.VertraegeService.ListContracts:output_type -> vertraege.v1.ListContractsResponse
+	16, // 53: vertraege.v1.VertraegeService.AddParty:output_type -> vertraege.v1.PartyResponse
+	14, // 54: vertraege.v1.VertraegeService.RemoveParty:output_type -> vertraege.v1.RemovePartyResponse
+	17, // 55: vertraege.v1.VertraegeService.ListParties:output_type -> vertraege.v1.ListPartiesResponse
+	25, // 56: vertraege.v1.VertraegeService.CreateReminder:output_type -> vertraege.v1.ReminderResponse
+	25, // 57: vertraege.v1.VertraegeService.UpdateReminder:output_type -> vertraege.v1.ReminderResponse
+	23, // 58: vertraege.v1.VertraegeService.DeleteReminder:output_type -> vertraege.v1.DeleteReminderResponse
+	26, // 59: vertraege.v1.VertraegeService.ListReminders:output_type -> vertraege.v1.ListRemindersResponse
+	28, // 60: vertraege.v1.VertraegeService.UploadDocument:output_type -> vertraege.v1.UploadDocumentResponse
+	30, // 61: vertraege.v1.VertraegeService.ExportContract:output_type -> vertraege.v1.ExportContractResponse
+	9,  // 62: vertraege.v1.VertraegeService.SaveSignature:output_type -> vertraege.v1.ContractResponse
+	19, // 63: vertraege.v1.VertraegeService.ListContractEvents:output_type -> vertraege.v1.ListContractEventsResponse
+	48, // [48:64] is the sub-list for method output_type
+	32, // [32:48] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_proto_vertraege_v1_vertraege_proto_init() }
@@ -2415,16 +2665,17 @@ func file_proto_vertraege_v1_vertraege_proto_init() {
 	file_proto_vertraege_v1_vertraege_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_vertraege_v1_vertraege_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_vertraege_v1_vertraege_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_vertraege_v1_vertraege_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_vertraege_v1_vertraege_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_vertraege_v1_vertraege_proto_msgTypes[18].OneofWrappers = []any{}
+	file_proto_vertraege_v1_vertraege_proto_msgTypes[5].OneofWrappers = []any{}
+	file_proto_vertraege_v1_vertraege_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_vertraege_v1_vertraege_proto_msgTypes[12].OneofWrappers = []any{}
+	file_proto_vertraege_v1_vertraege_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_vertraege_v1_vertraege_proto_rawDesc), len(file_proto_vertraege_v1_vertraege_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   29,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

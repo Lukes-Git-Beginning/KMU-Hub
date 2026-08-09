@@ -717,5 +717,36 @@ func (r *PostgresRepository) scanTemplateFromRows(rows pgx.Rows) (*ShiftTemplate
 	return &t, nil
 }
 
+// IsMinorEmployee reports whether the employee's HR profile carries the
+// JArbSchG minor flag. No row means no profile, which is not a claim about the
+// employee's age — the check stays out of the way rather than blocking a shift
+// on missing HR data.
+//
+// The query reads an HR table directly for the same reason
+// PostgresEmployeeRepo.CountOtherActiveRoleAdmins reads an auth table: there is
+// no service-to-service gRPC in this repository. RLS covers the read, and the
+// tenant predicate stays explicit as defense in depth.
+//
+// lean: matches the profile id and the user id, because shift_assignments
+// .employee_id has no foreign key and the desktop grid feeds it profile ids
+// while the swap payload calls the same value a user id. Narrow this to one
+// column once that column gets a foreign key.
+func (r *PostgresRepository) IsMinorEmployee(ctx context.Context, tenantID, employeeID uuid.UUID) (bool, error) {
+	var isMinor bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT is_minor FROM hr_employee_profiles
+		 WHERE tenant_id = $1 AND (id = $2 OR user_id = $2)
+		 LIMIT 1`,
+		tenantID, employeeID,
+	).Scan(&isMinor)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("look up minor flag: %w", err)
+	}
+	return isMinor, nil
+}
+
 // compile-time interface check
 var _ Repository = (*PostgresRepository)(nil)

@@ -323,6 +323,74 @@ func (s *Service) ConvertLead(ctx context.Context, id uuid.UUID, tenantID uuid.U
 	return converted, nil
 }
 
+// PromoteFromDialerCallback lifts a contact into the lead funnel when a
+// dialer call outcome carries a callback request. It never moves a contact
+// backwards: one already at "qualified" or "customer" is returned unchanged
+// -- a callback request is a data point, not grounds to undo a stage the
+// contact already earned (existing contacts default to "customer" at
+// creation, see models.Contact; this guard also protects those). The score
+// recompute is an absolute SET rather than an increment, so replaying the
+// same outcome twice leaves lifecycle_stage/lead_source/lead_score
+// unchanged the second time.
+func (s *Service) PromoteFromDialerCallback(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+
+	current, err := s.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	if current.LifecycleStage == LifecycleQualified || current.LifecycleStage == LifecycleCustomer {
+		return current, nil
+	}
+
+	company := ""
+	if current.LeadCompany != nil {
+		company = *current.LeadCompany
+	} else if current.CompanyName != nil {
+		company = *current.CompanyName
+	}
+	email := ""
+	if current.Email != nil {
+		email = *current.Email
+	}
+	phone := ""
+	if current.Phone != nil {
+		phone = *current.Phone
+	}
+	notes := ""
+	if current.Notes != nil {
+		notes = *current.Notes
+	}
+
+	score := ComputeLeadScore(LeadScoreInput{
+		Source:  LeadSourceDialer,
+		Email:   email,
+		Phone:   phone,
+		Company: company,
+		Notes:   notes,
+	})
+	source := LeadSourceDialer
+	stage := LifecycleLead
+
+	updated, err := s.repo.UpdateLead(ctx, id, tenantID, LeadPatch{
+		Stage:  &stage,
+		Source: &source,
+		Score:  &score,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("contact promoted to lead from dialer callback",
+		"contact_id", id,
+		"score", score,
+	)
+	return updated, nil
+}
+
 func optionalString(s string) *string {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {

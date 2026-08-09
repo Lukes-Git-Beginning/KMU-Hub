@@ -242,12 +242,22 @@ func (r *PostgresRepository) AddParty(ctx context.Context, p *ContractParty) err
 	return err
 }
 
-func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2`,
+func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
+	var contractID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 RETURNING contract_id`,
 		partyID, tenantID,
-	)
-	return err
+	).Scan(&contractID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Nothing matched — either the party is already gone or it belongs to
+		// another tenant. Both were a silent no-op before RETURNING was added
+		// and stay one; the caller just has no contract to file an entry against.
+		return uuid.Nil, nil
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return contractID, nil
 }
 
 func (r *PostgresRepository) ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error) {
@@ -447,4 +457,62 @@ func (r *PostgresRepository) scanReminder(rows pgx.Rows) (*ContractReminder, err
 		return nil, fmt.Errorf("scan reminder row: %w", err)
 	}
 	return &rem, nil
+}
+
+// ============================================================================
+// Contract events (append-only)
+// ============================================================================
+
+func (r *PostgresRepository) CreateContractEvent(ctx context.Context, e *ContractEvent) error {
+	payload := e.Payload
+	if payload == nil {
+		// The column is NOT NULL DEFAULT '{}' — pgx would encode a nil map as
+		// SQL NULL and violate it, so an event without extra facts still
+		// carries an empty object.
+		payload = map[string]any{}
+	}
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO contract_events
+		    (id, tenant_id, contract_id, action, user_id, payload, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		e.ID, e.TenantID, e.ContractID, string(e.Action), e.UserID, payload, e.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListContractEvents(ctx context.Context, tenantID, contractID uuid.UUID, offset, limit int) ([]*ContractEvent, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM contract_events WHERE tenant_id=$1 AND contract_id=$2`,
+		tenantID, contractID,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count contract events: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, tenant_id, contract_id, action, user_id, payload, created_at
+		FROM contract_events
+		WHERE tenant_id=$1 AND contract_id=$2
+		ORDER BY created_at DESC, id DESC
+		LIMIT $3 OFFSET $4`,
+		tenantID, contractID, limit, offset,
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list contract events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]*ContractEvent, 0, limit)
+	for rows.Next() {
+		var e ContractEvent
+		var action string
+		if scanErr := rows.Scan(
+			&e.ID, &e.TenantID, &e.ContractID, &action, &e.UserID, &e.Payload, &e.CreatedAt,
+		); scanErr != nil {
+			return nil, 0, fmt.Errorf("scan contract event row: %w", scanErr)
+		}
+		e.Action = ContractEventAction(action)
+		events = append(events, &e)
+	}
+	return events, total, rows.Err()
 }

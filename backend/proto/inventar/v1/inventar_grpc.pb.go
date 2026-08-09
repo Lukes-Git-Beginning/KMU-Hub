@@ -47,6 +47,14 @@ const (
 	InventarService_ListInventurSessions_FullMethodName        = "/inventar.v1.InventarService/ListInventurSessions"
 	InventarService_UpsertInventurCount_FullMethodName         = "/inventar.v1.InventarService/UpsertInventurCount"
 	InventarService_BookInventurDifferences_FullMethodName     = "/inventar.v1.InventarService/BookInventurDifferences"
+	InventarService_CreatePickingList_FullMethodName           = "/inventar.v1.InventarService/CreatePickingList"
+	InventarService_GetPickingList_FullMethodName              = "/inventar.v1.InventarService/GetPickingList"
+	InventarService_UpdatePickingList_FullMethodName           = "/inventar.v1.InventarService/UpdatePickingList"
+	InventarService_DeletePickingList_FullMethodName           = "/inventar.v1.InventarService/DeletePickingList"
+	InventarService_ListPickingLists_FullMethodName            = "/inventar.v1.InventarService/ListPickingLists"
+	InventarService_UpsertPickingListItem_FullMethodName       = "/inventar.v1.InventarService/UpsertPickingListItem"
+	InventarService_DeletePickingListItem_FullMethodName       = "/inventar.v1.InventarService/DeletePickingListItem"
+	InventarService_BookPickingList_FullMethodName             = "/inventar.v1.InventarService/BookPickingList"
 	InventarService_CreateItemAttachment_FullMethodName        = "/inventar.v1.InventarService/CreateItemAttachment"
 	InventarService_ListItemAttachments_FullMethodName         = "/inventar.v1.InventarService/ListItemAttachments"
 	InventarService_DeleteItemAttachment_FullMethodName        = "/inventar.v1.InventarService/DeleteItemAttachment"
@@ -90,6 +98,15 @@ type InventarServiceClient interface {
 	ListInventurSessions(ctx context.Context, in *ListInventurSessionsRequest, opts ...grpc.CallOption) (*ListInventurSessionsResponse, error)
 	UpsertInventurCount(ctx context.Context, in *UpsertInventurCountRequest, opts ...grpc.CallOption) (*InventurCountResponse, error)
 	BookInventurDifferences(ctx context.Context, in *BookInventurDifferencesRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
+	// Picking lists
+	CreatePickingList(ctx context.Context, in *CreatePickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error)
+	GetPickingList(ctx context.Context, in *GetPickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error)
+	UpdatePickingList(ctx context.Context, in *UpdatePickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error)
+	DeletePickingList(ctx context.Context, in *DeletePickingListRequest, opts ...grpc.CallOption) (*DeletePickingListResponse, error)
+	ListPickingLists(ctx context.Context, in *ListPickingListsRequest, opts ...grpc.CallOption) (*ListPickingListsResponse, error)
+	UpsertPickingListItem(ctx context.Context, in *UpsertPickingListItemRequest, opts ...grpc.CallOption) (*PickingListItemResponse, error)
+	DeletePickingListItem(ctx context.Context, in *DeletePickingListItemRequest, opts ...grpc.CallOption) (*DeletePickingListItemResponse, error)
+	BookPickingList(ctx context.Context, in *BookPickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error)
 	// Item attachments
 	CreateItemAttachment(ctx context.Context, in *CreateItemAttachmentRequest, opts ...grpc.CallOption) (*ItemAttachmentResponse, error)
 	ListItemAttachments(ctx context.Context, in *ListItemAttachmentsRequest, opts ...grpc.CallOption) (*ListItemAttachmentsResponse, error)
@@ -384,6 +401,86 @@ func (c *inventarServiceClient) BookInventurDifferences(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *inventarServiceClient) CreatePickingList(ctx context.Context, in *CreatePickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PickingListResponse)
+	err := c.cc.Invoke(ctx, InventarService_CreatePickingList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) GetPickingList(ctx context.Context, in *GetPickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PickingListResponse)
+	err := c.cc.Invoke(ctx, InventarService_GetPickingList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) UpdatePickingList(ctx context.Context, in *UpdatePickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PickingListResponse)
+	err := c.cc.Invoke(ctx, InventarService_UpdatePickingList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) DeletePickingList(ctx context.Context, in *DeletePickingListRequest, opts ...grpc.CallOption) (*DeletePickingListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeletePickingListResponse)
+	err := c.cc.Invoke(ctx, InventarService_DeletePickingList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) ListPickingLists(ctx context.Context, in *ListPickingListsRequest, opts ...grpc.CallOption) (*ListPickingListsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPickingListsResponse)
+	err := c.cc.Invoke(ctx, InventarService_ListPickingLists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) UpsertPickingListItem(ctx context.Context, in *UpsertPickingListItemRequest, opts ...grpc.CallOption) (*PickingListItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PickingListItemResponse)
+	err := c.cc.Invoke(ctx, InventarService_UpsertPickingListItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) DeletePickingListItem(ctx context.Context, in *DeletePickingListItemRequest, opts ...grpc.CallOption) (*DeletePickingListItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeletePickingListItemResponse)
+	err := c.cc.Invoke(ctx, InventarService_DeletePickingListItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) BookPickingList(ctx context.Context, in *BookPickingListRequest, opts ...grpc.CallOption) (*PickingListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PickingListResponse)
+	err := c.cc.Invoke(ctx, InventarService_BookPickingList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *inventarServiceClient) CreateItemAttachment(ctx context.Context, in *CreateItemAttachmentRequest, opts ...grpc.CallOption) (*ItemAttachmentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ItemAttachmentResponse)
@@ -452,6 +549,15 @@ type InventarServiceServer interface {
 	ListInventurSessions(context.Context, *ListInventurSessionsRequest) (*ListInventurSessionsResponse, error)
 	UpsertInventurCount(context.Context, *UpsertInventurCountRequest) (*InventurCountResponse, error)
 	BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error)
+	// Picking lists
+	CreatePickingList(context.Context, *CreatePickingListRequest) (*PickingListResponse, error)
+	GetPickingList(context.Context, *GetPickingListRequest) (*PickingListResponse, error)
+	UpdatePickingList(context.Context, *UpdatePickingListRequest) (*PickingListResponse, error)
+	DeletePickingList(context.Context, *DeletePickingListRequest) (*DeletePickingListResponse, error)
+	ListPickingLists(context.Context, *ListPickingListsRequest) (*ListPickingListsResponse, error)
+	UpsertPickingListItem(context.Context, *UpsertPickingListItemRequest) (*PickingListItemResponse, error)
+	DeletePickingListItem(context.Context, *DeletePickingListItemRequest) (*DeletePickingListItemResponse, error)
+	BookPickingList(context.Context, *BookPickingListRequest) (*PickingListResponse, error)
 	// Item attachments
 	CreateItemAttachment(context.Context, *CreateItemAttachmentRequest) (*ItemAttachmentResponse, error)
 	ListItemAttachments(context.Context, *ListItemAttachmentsRequest) (*ListItemAttachmentsResponse, error)
@@ -549,6 +655,30 @@ func (UnimplementedInventarServiceServer) UpsertInventurCount(context.Context, *
 }
 func (UnimplementedInventarServiceServer) BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BookInventurDifferences not implemented")
+}
+func (UnimplementedInventarServiceServer) CreatePickingList(context.Context, *CreatePickingListRequest) (*PickingListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePickingList not implemented")
+}
+func (UnimplementedInventarServiceServer) GetPickingList(context.Context, *GetPickingListRequest) (*PickingListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPickingList not implemented")
+}
+func (UnimplementedInventarServiceServer) UpdatePickingList(context.Context, *UpdatePickingListRequest) (*PickingListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePickingList not implemented")
+}
+func (UnimplementedInventarServiceServer) DeletePickingList(context.Context, *DeletePickingListRequest) (*DeletePickingListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePickingList not implemented")
+}
+func (UnimplementedInventarServiceServer) ListPickingLists(context.Context, *ListPickingListsRequest) (*ListPickingListsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPickingLists not implemented")
+}
+func (UnimplementedInventarServiceServer) UpsertPickingListItem(context.Context, *UpsertPickingListItemRequest) (*PickingListItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertPickingListItem not implemented")
+}
+func (UnimplementedInventarServiceServer) DeletePickingListItem(context.Context, *DeletePickingListItemRequest) (*DeletePickingListItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePickingListItem not implemented")
+}
+func (UnimplementedInventarServiceServer) BookPickingList(context.Context, *BookPickingListRequest) (*PickingListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BookPickingList not implemented")
 }
 func (UnimplementedInventarServiceServer) CreateItemAttachment(context.Context, *CreateItemAttachmentRequest) (*ItemAttachmentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateItemAttachment not implemented")
@@ -1084,6 +1214,150 @@ func _InventarService_BookInventurDifferences_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventarService_CreatePickingList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePickingListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).CreatePickingList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_CreatePickingList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).CreatePickingList(ctx, req.(*CreatePickingListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_GetPickingList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPickingListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).GetPickingList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_GetPickingList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).GetPickingList(ctx, req.(*GetPickingListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_UpdatePickingList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePickingListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).UpdatePickingList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_UpdatePickingList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).UpdatePickingList(ctx, req.(*UpdatePickingListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_DeletePickingList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePickingListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).DeletePickingList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_DeletePickingList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).DeletePickingList(ctx, req.(*DeletePickingListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_ListPickingLists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPickingListsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).ListPickingLists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_ListPickingLists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).ListPickingLists(ctx, req.(*ListPickingListsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_UpsertPickingListItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertPickingListItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).UpsertPickingListItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_UpsertPickingListItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).UpsertPickingListItem(ctx, req.(*UpsertPickingListItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_DeletePickingListItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePickingListItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).DeletePickingListItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_DeletePickingListItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).DeletePickingListItem(ctx, req.(*DeletePickingListItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_BookPickingList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BookPickingListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).BookPickingList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_BookPickingList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).BookPickingList(ctx, req.(*BookPickingListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _InventarService_CreateItemAttachment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateItemAttachmentRequest)
 	if err := dec(in); err != nil {
@@ -1256,6 +1530,38 @@ var InventarService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BookInventurDifferences",
 			Handler:    _InventarService_BookInventurDifferences_Handler,
+		},
+		{
+			MethodName: "CreatePickingList",
+			Handler:    _InventarService_CreatePickingList_Handler,
+		},
+		{
+			MethodName: "GetPickingList",
+			Handler:    _InventarService_GetPickingList_Handler,
+		},
+		{
+			MethodName: "UpdatePickingList",
+			Handler:    _InventarService_UpdatePickingList_Handler,
+		},
+		{
+			MethodName: "DeletePickingList",
+			Handler:    _InventarService_DeletePickingList_Handler,
+		},
+		{
+			MethodName: "ListPickingLists",
+			Handler:    _InventarService_ListPickingLists_Handler,
+		},
+		{
+			MethodName: "UpsertPickingListItem",
+			Handler:    _InventarService_UpsertPickingListItem_Handler,
+		},
+		{
+			MethodName: "DeletePickingListItem",
+			Handler:    _InventarService_DeletePickingListItem_Handler,
+		},
+		{
+			MethodName: "BookPickingList",
+			Handler:    _InventarService_BookPickingList_Handler,
 		},
 		{
 			MethodName: "CreateItemAttachment",

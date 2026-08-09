@@ -6,8 +6,8 @@
 --
 -- Design decisions:
 -- - NO UPDATE/DELETE on gobd_documents (immutability by design — service-side)
--- - retention_until = 31.12 of (archived_year + 8), giving ≥10 complete
---   calendar years of retention from the first possible archival date in that year.
+-- - retention_until = 31.12 of (archived_year + 10) — §147 AO 10-year retention,
+--   computed and persisted by the service (gobdarchive.computeRetentionUntil).
 -- - sha256: stored as CHAR(64) hex for fast integrity checks without decoding
 -- - Events log is append-only: archived, annotation, access, integrity_check
 -- - source_invoice_id: nullable, links documents to finance_invoices for traceability

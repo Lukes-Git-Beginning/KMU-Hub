@@ -268,6 +268,8 @@ type mockCRMBridge struct {
 	mu               sync.Mutex
 	lastCallActivity *CallActivityInput
 	contactDetails   map[uuid.UUID]*ContactDetails
+	promotedContacts []uuid.UUID
+	promoteToLeadErr error
 }
 
 func newMockCRMBridge() *mockCRMBridge {
@@ -293,6 +295,20 @@ func (b *mockCRMBridge) LastCallActivity() *CallActivityInput {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.lastCallActivity
+}
+func (b *mockCRMBridge) PromoteToLead(_ context.Context, contactID uuid.UUID) error {
+	if b.promoteToLeadErr != nil {
+		return b.promoteToLeadErr
+	}
+	b.mu.Lock()
+	b.promotedContacts = append(b.promotedContacts, contactID)
+	b.mu.Unlock()
+	return nil
+}
+func (b *mockCRMBridge) PromotedContacts() []uuid.UUID {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]uuid.UUID(nil), b.promotedContacts...)
 }
 
 // ---------------------------------------------------------------------------
@@ -491,6 +507,92 @@ func TestLogCallOutcome_CallbackSetsContactStatus(t *testing.T) {
 	}
 	if h.calls.lastContactCallbackAt == nil {
 		t.Error("expected callback_at to be set for a callback outcome")
+	}
+}
+
+// TestLogCallOutcome_CallbackPromotesContactToLead verifies that a callback
+// outcome signals the CRM bridge to lift the resolved contact into the lead
+// funnel, with the real contact ID (not the campaign-contact join ID).
+func TestLogCallOutcome_CallbackPromotesContactToLead(t *testing.T) {
+	h := newTestHarness()
+	sessionID := uuid.New()
+	ccID := uuid.New()
+	realContactID := uuid.New()
+	outcomeID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		CampaignContactID: ccID,
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	h.calls.events = append(h.calls.events, &CallEvent{
+		ID:                  uuid.New(),
+		DialerCallSessionID: sessionID,
+		EventType:           CallEventInitiated,
+		OccurredAt:          time.Now().Add(-10 * time.Second),
+	})
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:         outcomeID,
+		Label:      "Wiedervorlage",
+		IsCallback: true,
+	}
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: uuid.New(),
+		ContactID:  realContactID,
+	}
+
+	cbTime := time.Now().Add(24 * time.Hour)
+	if _, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, &cbTime, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := h.bridge.PromotedContacts()
+	if len(promoted) != 1 || promoted[0] != realContactID {
+		t.Errorf("expected exactly one promotion for %s, got %v", realContactID, promoted)
+	}
+}
+
+// TestLogCallOutcome_NonCallbackDoesNotPromote verifies that an ordinary
+// (non-callback) outcome never touches the CRM lead funnel.
+func TestLogCallOutcome_NonCallbackDoesNotPromote(t *testing.T) {
+	h := newTestHarness()
+	sessionID := uuid.New()
+	ccID := uuid.New()
+	outcomeID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		CampaignContactID: ccID,
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	h.calls.events = append(h.calls.events, &CallEvent{
+		ID:                  uuid.New(),
+		DialerCallSessionID: sessionID,
+		EventType:           CallEventInitiated,
+		OccurredAt:          time.Now().Add(-10 * time.Second),
+	})
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:         outcomeID,
+		Label:      "Erreicht",
+		IsPositive: true,
+	}
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: uuid.New(),
+		ContactID:  uuid.New(),
+	}
+
+	if _, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, nil, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if promoted := h.bridge.PromotedContacts(); len(promoted) != 0 {
+		t.Errorf("expected no lead promotion for a non-callback outcome, got %v", promoted)
 	}
 }
 

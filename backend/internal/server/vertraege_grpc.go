@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/vertraege"
@@ -215,6 +216,15 @@ func (s *VertraegeGRPCServer) ListContracts(ctx context.Context, req *vertraegev
 
 // UploadDocument is deprecated. Use POST /api/v1/files/presign-upload with
 // scope=vertraege instead — the client-side presign flow handles this entirely.
+//
+// The stub stays because removing the RPC would break the service contract for
+// any client still holding the old stubs; it answers Unimplemented, which is
+// the honest reply. The nolint is the cost of keeping it: the deprecation
+// markers only reached the generated code with this commit's regen (the
+// committed .pb.go predated the .proto comment), so the linter is newly right
+// about a use that was always deliberate.
+//
+//nolint:staticcheck // SA1019: intentionally implementing the deprecated RPC as an Unimplemented stub
 func (s *VertraegeGRPCServer) UploadDocument(_ context.Context, _ *vertraegev1.UploadDocumentRequest) (*vertraegev1.UploadDocumentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "use POST /api/v1/files/presign-upload with scope=vertraege instead")
 }
@@ -460,8 +470,69 @@ func (s *VertraegeGRPCServer) ListReminders(ctx context.Context, req *vertraegev
 }
 
 // ============================================================================
+// Event RPCs
+// ============================================================================
+
+func (s *VertraegeGRPCServer) ListContractEvents(ctx context.Context, req *vertraegev1.ListContractEventsRequest) (*vertraegev1.ListContractEventsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
+
+	events, total, listErr := s.svc.ListContractEvents(ctx, vertraege.ListContractEventsInput{
+		TenantID:   tenantID,
+		ContractID: contractID,
+		Page:       int(req.GetPage()),
+		PageSize:   int(req.GetPageSize()),
+	})
+	if listErr != nil {
+		return nil, mapVertraegeError(listErr)
+	}
+
+	items := make([]*vertraegev1.ContractEvent, len(events))
+	for i, e := range events {
+		items[i] = vertraegeEventToProto(e)
+	}
+	return &vertraegev1.ListContractEventsResponse{Items: items, Total: int32(total)}, nil
+}
+
+// ============================================================================
 // Conversion helpers
 // ============================================================================
+
+func vertraegeEventToProto(e *vertraege.ContractEvent) *vertraegev1.ContractEvent {
+	if e == nil {
+		return nil
+	}
+	out := &vertraegev1.ContractEvent{
+		Id:         e.ID.String(),
+		TenantId:   e.TenantID.String(),
+		ContractId: e.ContractID.String(),
+		Action:     string(e.Action),
+		CreatedAt:  timestamppb.New(e.CreatedAt),
+	}
+	if e.UserID != nil {
+		id := e.UserID.String()
+		out.UserId = &id
+	}
+	// A payload that will not convert (structpb rejects types JSON has no
+	// representation for) costs the payload, not the entry: the action, actor
+	// and timestamp are the part of the trail that has to survive.
+	if payload, err := structpb.NewStruct(e.Payload); err == nil {
+		out.Payload = payload
+	} else {
+		slog.Error("contract event payload not encodable",
+			"event_id", e.ID,
+			"contract_id", e.ContractID,
+			"error", err,
+		)
+	}
+	return out
+}
 
 func vertraegeContractToProto(c *vertraege.Contract) *vertraegev1.Contract {
 	if c == nil {

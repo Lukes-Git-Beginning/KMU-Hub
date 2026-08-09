@@ -174,10 +174,19 @@ type ReportResult struct {
 
 // KPI is a dashboard-level metric rendered on the Berichte page.
 type KPI struct {
-	ID            string   `json:"id"`
-	Label         string   `json:"label"`
-	Value         string   `json:"value"` // rendered for display flexibility
-	Unit          string   `json:"unit,omitempty"`
-	ChangePercent *float64 `json:"change_percent,omitempty"`
-	ModuleID      string   `json:"module_id"`
+	ID            string           `json:"id"`
+	Label         string           `json:"label"`
+	Value         string           `json:"value"` // rendered for display flexibility
+	Unit          string           `json:"unit,omitempty"`
+	ChangePercent *float64         `json:"change_percent,omitempty"`
+	ModuleID      string           `json:"module_id"`
+	Series        []KPISeriesPoint `json:"series,omitempty"`
+}
+
+// KPISeriesPoint is one point of a KPI's history, used to render the
+// dashboard sparklines from real data instead of a client-side synthesis of
+// the current value and change_percent.
+type KPISeriesPoint struct {
+	PeriodStart time.Time `json:"period_start"`
+	Value       string    `json:"value"` // same rendering convention as KPI.Value
 }

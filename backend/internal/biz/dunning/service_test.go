@@ -217,11 +217,18 @@ func (m *MockInvoiceReader) GetOverdue(_ context.Context, _ uuid.UUID) ([]*model
 type MockDunningCompanySettingsRepo struct {
 	settings *models.CompanySettings
 	err      error
+	// returnNil yields (nil, nil) — a tenant that simply has no company settings
+	// row. The default branch below always fabricates one, so this case needs its
+	// own switch.
+	returnNil bool
 }
 
 func (m *MockDunningCompanySettingsRepo) GetByTenantID(_ context.Context, _ uuid.UUID) (*models.CompanySettings, error) {
 	if m.err != nil {
 		return nil, m.err
+	}
+	if m.returnNil {
+		return nil, nil
 	}
 	if m.settings != nil {
 		return m.settings, nil
@@ -864,6 +871,81 @@ func TestSend_WithNoticeMailer_SendFails_StaysDraft(t *testing.T) {
 	record, getErr := repo.GetByID(context.Background(), tenantID, recordID)
 	require.NoError(t, getErr)
 	assert.Equal(t, models.DunningStatusDraft, record.Status)
+}
+
+func TestSend_WithNoticeMailer_MissingCompanySettings_StillSends(t *testing.T) {
+	// A tenant without a company settings row cannot get a rendered PDF, but that
+	// is missing master data — not a failed delivery. The send must still succeed
+	// so the record does not get stuck in draft behind a 500.
+	tenantID := uuid.New()
+	recordID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     1,
+		Status:    models.DunningStatusDraft,
+	})
+
+	invReader := NewMockInvoiceReader()
+	invReader.invoices[invoiceID] = &models.Invoice{
+		ID:            invoiceID,
+		TenantID:      tenantID,
+		InvoiceNumber: "RE-2026-0102",
+		CustomerName:  "Kunde ohne Stammdaten",
+		CustomerEmail: "kunde@example.com",
+	}
+
+	svc := NewService(repo, &MockConfigRepository{}, invReader)
+	mailer := &MockNoticeSender{}
+	svc.SetNoticeMailer(mailer, &MockDunningCompanySettingsRepo{returnNil: true})
+
+	err := svc.Send(context.Background(), tenantID, recordID, uuid.New())
+	require.NoError(t, err, "missing company settings must not fail the send")
+
+	require.Len(t, repo.updatedCalls, 1, "status must still flip to sent")
+	assert.Equal(t, models.DunningStatusSent, repo.updatedCalls[0].Status)
+	assert.NotNil(t, repo.updatedCalls[0].SentAt, "sent_at must be set")
+
+	// No PDF could be rendered, so nothing was handed to the mailer.
+	assert.Empty(t, mailer.calls, "no email can be sent without company settings")
+}
+
+func TestSend_WithNoticeMailer_SettingsLoadFails_StaysDraft(t *testing.T) {
+	// Counterpart to the test above: a *failing* settings lookup (DB down) is a
+	// real error, not a known-empty configuration, and must stay fail-closed.
+	tenantID := uuid.New()
+	recordID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     1,
+		Status:    models.DunningStatusDraft,
+	})
+
+	invReader := NewMockInvoiceReader()
+	invReader.invoices[invoiceID] = &models.Invoice{
+		ID:            invoiceID,
+		TenantID:      tenantID,
+		InvoiceNumber: "RE-2026-0103",
+		CustomerEmail: "kunde@example.com",
+	}
+
+	svc := NewService(repo, &MockConfigRepository{}, invReader)
+	mailer := &MockNoticeSender{}
+	svc.SetNoticeMailer(mailer, &MockDunningCompanySettingsRepo{err: errors.New("connection refused")})
+
+	err := svc.Send(context.Background(), tenantID, recordID, uuid.New())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "connection refused")
+	assert.Empty(t, repo.updatedCalls, "UpdateStatus must not be called when the settings lookup fails")
 }
 
 func TestSendDunningNotice_WithNoticeMailer_Success(t *testing.T) {

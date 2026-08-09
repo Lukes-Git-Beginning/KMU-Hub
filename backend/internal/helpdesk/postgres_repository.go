@@ -143,9 +143,9 @@ const ticketSelectColumns = `
 	t.ticket_number, t.contact_id, t.org_id, t.source_channel, t.source_message_id,
 	t.csat_rating, t.csat_comment,
 	t.channel, t.requester_email, t.requester_is_external, t.custom_fields,
-	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
-	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
-	         NULLIF(t.requester_name, ''), '')                                      AS requester_name
+	COALESCE(NULLIF(TRIM(CONCAT_WS(' ', a.first_name, a.last_name)), ''), a.email)         AS assignee_name,
+	COALESCE(NULLIF(TRIM(CONCAT_WS(' ', req.first_name, req.last_name)), ''), req.email,
+	         NULLIF(t.requester_name, ''), '')                                             AS requester_name
 FROM tickets t
 LEFT JOIN users a   ON t.assignee_id  = a.id
 LEFT JOIN users req ON t.requester_id = req.id`
@@ -519,7 +519,7 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 		`SELECT r.id, r.tenant_id, r.ticket_id, r.token,
 		        t.ticket_number, t.subject,
 		        COALESCE(NULLIF(t.requester_email, ''), req.email),
-		        COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email,
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', req.first_name, req.last_name)), ''), req.email,
 		                 NULLIF(t.requester_name, ''), '')
 		   FROM ticket_csat_responses r
 		   JOIN tickets t        ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id

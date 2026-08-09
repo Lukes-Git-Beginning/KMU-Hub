@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package vertraege.v1;
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1";
@@ -35,6 +36,9 @@ service VertraegeService {
 
   // Signature
   rpc SaveSignature(SaveContractSignatureRequest) returns (ContractResponse);
+
+  // Audit trail
+  rpc ListContractEvents(ListContractEventsRequest) returns (ListContractEventsResponse);
 }
 
 // ============================================================================
@@ -76,6 +80,21 @@ message ContractParty {
   string role_in_contract = 8;
   optional google.protobuf.Timestamp signed_on = 9;
   google.protobuf.Timestamp created_at = 10;
+}
+
+// ContractEvent is one entry of a contract's append-only audit trail.
+message ContractEvent {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_id = 3;
+  string action = 4; // created|updated|terminated|signed|party_added|party_removed
+  // Absent when the change had no caller (reminder worker, auto-expiry) or the
+  // acting account has since been deleted.
+  optional string user_id = 5;
+  // Per-action facts, never a fixed schema: {"fields":[...]} for an update,
+  // {"party_id":...} for a party change.
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Timestamp created_at = 7;
 }
 
 message ContractReminder {
@@ -188,6 +207,22 @@ message PartyResponse {
 
 message ListPartiesResponse {
   repeated ContractParty parties = 1;
+}
+
+// ============================================================================
+// Event Requests / Responses
+// ============================================================================
+
+message ListContractEventsRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListContractEventsResponse {
+  repeated ContractEvent items = 1;
+  int32 total = 2;
 }
 
 // ============================================================================

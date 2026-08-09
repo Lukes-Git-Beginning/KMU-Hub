@@ -843,6 +843,15 @@ func kpiToProto(k *berichte.KPI) *berichtev1.KPI {
 	if k.ChangePercent != nil {
 		proto.ChangePercent = k.ChangePercent
 	}
+	if len(k.Series) > 0 {
+		proto.Series = make([]*berichtev1.KPISeriesPoint, len(k.Series))
+		for i, p := range k.Series {
+			proto.Series[i] = &berichtev1.KPISeriesPoint{
+				PeriodStart: timestamppb.New(p.PeriodStart),
+				Value:       p.Value,
+			}
+		}
+	}
 	return proto
 }
 

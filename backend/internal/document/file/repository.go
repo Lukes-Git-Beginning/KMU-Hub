@@ -21,6 +21,10 @@ type Repository interface {
 	CreateVersion(ctx context.Context, version *models.DocumentFileVersion) error
 	ListVersions(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentFileVersion, error)
 	GetVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) (*models.DocumentFileVersion, error)
+	// GetVersionByID looks up a version by its own id, scoped to (tenantID,
+	// fileID) rather than just versionID — a version of a foreign file must
+	// not become reachable through a caller's own file id.
+	GetVersionByID(ctx context.Context, fileID, versionID, tenantID uuid.UUID) (*models.DocumentFileVersion, error)
 	UpdateCurrentVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) error
 
 	// Search content

@@ -52,6 +52,9 @@ func (m *mockWorkflowRepo) UpdateLastTriggered(_ context.Context, _ uuid.UUID, _
 func (m *mockWorkflowRepo) ClaimTimeTrigger(_ context.Context, _ uuid.UUID, _ *time.Time, _ time.Time) (bool, error) {
 	return true, nil
 }
+func (m *mockWorkflowRepo) ClaimTimeTriggerFire(_ context.Context, _, _ uuid.UUID, _ string, _ time.Time) (bool, error) {
+	return true, nil
+}
 
 // mockExecRepo satisfies workflow.ExecutionRepository with no-op stubs.
 type mockExecRepo struct{}

@@ -63,13 +63,23 @@ type Rental struct {
 
 // RentalInspection records the condition of a rental object at handover or return.
 type RentalInspection struct {
-	ID          uuid.UUID      `json:"id"`
-	TenantID    uuid.UUID      `json:"tenant_id"`
-	RentalID    uuid.UUID      `json:"rental_id"`
-	Kind        InspectionKind `json:"kind"`
-	Notes       string         `json:"notes"`
-	PhotoURLs   []string       `json:"photo_urls"`
-	PerformedBy *uuid.UUID     `json:"performed_by,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID            uuid.UUID       `json:"id"`
+	TenantID      uuid.UUID       `json:"tenant_id"`
+	RentalID      uuid.UUID       `json:"rental_id"`
+	Kind          InspectionKind  `json:"kind"`
+	Notes         string          `json:"notes"`
+	PhotoURLs     []string        `json:"photo_urls"`
+	PerformedBy   *uuid.UUID      `json:"performed_by,omitempty"`
+	SignatureData *string         `json:"signature_data,omitempty"`
+	Checklist     []ChecklistItem `json:"checklist"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+// ChecklistItem is one position of an inspection's structured condition checklist,
+// e.g. {label: "Windschutzscheibe", condition: "intakt", remark: "leichter Steinschlag"}.
+type ChecklistItem struct {
+	Label     string `json:"label"`
+	Condition string `json:"condition"`
+	Remark    string `json:"remark,omitempty"`
 }

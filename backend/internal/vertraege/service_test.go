@@ -26,8 +26,14 @@ type mockRepository struct {
 	// number -> contractID for uniqueness checks (tenant-scoped)
 	numbers map[string]uuid.UUID
 
-	createContractErr error
-	expiredCount      int64
+	// events is the audit trail in insertion order — the service writes newest
+	// last, ListContractEvents hands them back newest first.
+	events []*ContractEvent
+
+	createContractErr    error
+	createEventErr       error
+	expiredCount         int64
+	listContractEventErr error
 }
 
 func newMockRepository() *mockRepository {
@@ -138,9 +144,15 @@ func (m *mockRepository) AddParty(_ context.Context, p *ContractParty) error {
 	return nil
 }
 
-func (m *mockRepository) RemoveParty(_ context.Context, tenantID, partyID uuid.UUID) error {
+func (m *mockRepository) RemoveParty(_ context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
+	p, ok := m.parties[partyID]
+	if !ok || p.TenantID != tenantID {
+		// Mirrors the RETURNING-less no-op of the real repository: nothing
+		// matched, no error, and no contract to file an audit entry against.
+		return uuid.Nil, nil
+	}
 	delete(m.parties, partyID)
-	return nil
+	return p.ContractID, nil
 }
 
 func (m *mockRepository) ListParties(_ context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error) {
@@ -202,6 +214,49 @@ func (m *mockRepository) ClaimDueReminders(_ context.Context) ([]*ContractRemind
 		}
 	}
 	return due, nil
+}
+
+func (m *mockRepository) CreateContractEvent(_ context.Context, e *ContractEvent) error {
+	if m.createEventErr != nil {
+		return m.createEventErr
+	}
+	m.events = append(m.events, e)
+	return nil
+}
+
+func (m *mockRepository) ListContractEvents(_ context.Context, tenantID, contractID uuid.UUID, offset, limit int) ([]*ContractEvent, int, error) {
+	if m.listContractEventErr != nil {
+		return nil, 0, m.listContractEventErr
+	}
+	var matching []*ContractEvent
+	// Newest first, i.e. reverse insertion order.
+	for i := len(m.events) - 1; i >= 0; i-- {
+		e := m.events[i]
+		if e.TenantID == tenantID && e.ContractID == contractID {
+			matching = append(matching, e)
+		}
+	}
+	total := len(matching)
+	if offset >= total {
+		return []*ContractEvent{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return matching[offset:end], total, nil
+}
+
+// eventsFor returns the recorded actions for one contract in insertion order —
+// the shape assertions read most clearly in.
+func (m *mockRepository) eventsFor(contractID uuid.UUID) []*ContractEvent {
+	var out []*ContractEvent
+	for _, e := range m.events {
+		if e.ContractID == contractID {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func (m *mockRepository) MarkReminderSent(_ context.Context, reminderID uuid.UUID, sentAt time.Time) error {

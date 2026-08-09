@@ -189,7 +189,7 @@ func (s *VideoGRPCServer) ListActiveCalls(ctx context.Context, req *videov1.List
 		return nil, mapVideoError(err)
 	}
 
-	var protos []*videov1.CallSession
+	protos := make([]*videov1.CallSession, 0, len(calls))
 	for _, c := range calls {
 		protos = append(protos, callSessionToProto(&c, nil))
 	}
@@ -373,7 +373,7 @@ func (s *VideoGRPCServer) GetRecordingConsent(ctx context.Context, req *videov1.
 		return nil, mapRecordingError(err)
 	}
 
-	var protoConsents []*videov1.RecordingConsent
+	protoConsents := make([]*videov1.RecordingConsent, 0, len(consents))
 	for _, c := range consents {
 		protoConsents = append(protoConsents, recordingConsentToProto(&c))
 	}
@@ -419,7 +419,7 @@ func (s *VideoGRPCServer) ListRecordings(ctx context.Context, req *videov1.ListR
 		return nil, mapRecordingError(err)
 	}
 
-	var protos []*videov1.Recording
+	protos := make([]*videov1.Recording, 0, len(recordings))
 	for _, r := range recordings {
 		protos = append(protos, recordingToProto(&r))
 	}
@@ -468,7 +468,7 @@ func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1
 		return nil, mapRecordingError(err)
 	}
 
-	var protoConsents []*videov1.RecordingConsent
+	protoConsents := make([]*videov1.RecordingConsent, 0, len(cs.Consents))
 	for _, c := range cs.Consents {
 		protoConsents = append(protoConsents, &videov1.RecordingConsent{
 			RecordingId: c.RecordingID.String(),
@@ -561,7 +561,7 @@ func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *vide
 		return nil, mapRecordingError(err)
 	}
 
-	var protos []*videov1.Recording
+	protos := make([]*videov1.Recording, 0, len(recordings))
 	for _, r := range recordings {
 		protos = append(protos, recordingToProto(&r))
 	}
@@ -847,7 +847,7 @@ func (s *VideoGRPCServer) ListMeetings(ctx context.Context, req *videov1.ListMee
 		return nil, mapMeetingError(err)
 	}
 
-	var protos []*videov1.Meeting
+	protos := make([]*videov1.Meeting, 0, len(meetings))
 	for _, m := range meetings {
 		protos = append(protos, meetingToProto(&m))
 	}
@@ -1101,17 +1101,62 @@ func (s *VideoGRPCServer) GetPreviousMeetingNotes(ctx context.Context, req *vide
 	return meetingNotesToProto(notes), nil
 }
 
+// ListMeetingOccurrences expands the series of a recurring meeting inside the
+// requested window. The rule lives on the linked calendar event; occurrences
+// are computed on read and never stored.
+func (s *VideoGRPCServer) ListMeetingOccurrences(ctx context.Context, req *videov1.ListMeetingOccurrencesRequest) (*videov1.ListMeetingOccurrencesResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	if req.Start == nil || req.End == nil {
+		return nil, status.Error(codes.InvalidArgument, "start and end are required")
+	}
+
+	occurrences, truncated, err := s.meetingService.ListOccurrences(ctx, meetingID, tenantID, req.Start.AsTime(), req.End.AsTime())
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	items := make([]*videov1.MeetingOccurrence, 0, len(occurrences))
+	for _, o := range occurrences {
+		items = append(items, &videov1.MeetingOccurrence{
+			MeetingId:       o.MeetingID.String(),
+			CalendarEventId: o.CalendarEventID.String(),
+			Start:           timestamppb.New(o.Start),
+			End:             timestamppb.New(o.End),
+		})
+	}
+
+	return &videov1.ListMeetingOccurrencesResponse{
+		Items:     items,
+		Total:     int32(len(items)),
+		Truncated: truncated,
+	}, nil
+}
+
 // ============================================================================
 // Action Items
 // ============================================================================
 
 func (s *VideoGRPCServer) CreateActionItem(ctx context.Context, req *videov1.CreateActionItemRequest) (*videov1.ActionItem, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
 	input := meeting.CreateActionItemInput{
+		TenantID:    tenantID,
 		MeetingID:   meetingID,
 		Description: req.Description,
 	}
@@ -1207,7 +1252,7 @@ func (s *VideoGRPCServer) ListActionItems(ctx context.Context, req *videov1.List
 		return nil, mapMeetingError(err)
 	}
 
-	var protos []*videov1.ActionItem
+	protos := make([]*videov1.ActionItem, 0, len(items))
 	for _, item := range items {
 		protos = append(protos, actionItemToProto(&item))
 	}
@@ -1244,7 +1289,7 @@ func (s *VideoGRPCServer) ConvertActionItemsToTasks(ctx context.Context, req *vi
 
 	// For each action item, create a task and link them
 	convertedCount := 0
-	var resultItems []*videov1.ActionItem
+	resultItems := make([]*videov1.ActionItem, 0, len(itemIDs))
 
 	for _, itemID := range itemIDs {
 		// Resolve the meeting ID for this action item via the meeting service.
@@ -1328,7 +1373,7 @@ func (s *VideoGRPCServer) GetBulkPresence(ctx context.Context, req *videov1.GetB
 		return nil, mapPresenceError(err)
 	}
 
-	var protos []*videov1.PresenceStatus
+	protos := make([]*videov1.PresenceStatus, 0, len(result))
 	for _, p := range result {
 		protos = append(protos, presenceToProto(p))
 	}
@@ -1871,6 +1916,14 @@ func mapVideoError(err error) error {
 }
 
 func mapRecordingError(err error) error {
+	// Service.GetRecordingDownloadURL builds well-formed gRPC status errors directly
+	// (codes.FailedPrecondition/PermissionDenied/Internal) instead of sentinel errors.
+	// Without this passthrough, none of the errors.Is cases below match and the switch
+	// falls to default, flattening a correct FailedPrecondition/PermissionDenied into a
+	// generic Internal — silently discarding the real cause.
+	if st, ok := status.FromError(err); ok {
+		return st.Err()
+	}
 	switch {
 	case errors.Is(err, recording.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
@@ -1928,6 +1981,10 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, meeting.ErrNoPreviousNotes):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, meeting.ErrInvalidRecurrence):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, meeting.ErrSeriesUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, meeting.ErrNoAttendeesProvided):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrInvalidRSVP):
@@ -2099,7 +2156,7 @@ func (s *VideoGRPCServer) ListCoHosts(ctx context.Context, req *videov1.ListCoHo
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
-	var protoCoHosts []*videov1.MeetingCoHost
+	protoCoHosts := make([]*videov1.MeetingCoHost, 0, len(cohosts))
 	for _, ch := range cohosts {
 		protoCoHosts = append(protoCoHosts, meetingCoHostToProto(&ch))
 	}

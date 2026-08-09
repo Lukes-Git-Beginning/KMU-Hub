@@ -38,6 +38,7 @@ const (
 	CRMService_RemoveContactTags_FullMethodName           = "/crm.v1.CRMService/RemoveContactTags"
 	CRMService_ImportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ImportContactsCSV"
 	CRMService_ImportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ImportContactsVCard"
+	CRMService_ImportContactsXLSX_FullMethodName          = "/crm.v1.CRMService/ImportContactsXLSX"
 	CRMService_ExportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ExportContactsCSV"
 	CRMService_ExportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ExportContactsVCard"
 	CRMService_PreviewImportCSV_FullMethodName            = "/crm.v1.CRMService/PreviewImportCSV"
@@ -98,6 +99,7 @@ const (
 	CRMService_CreateLead_FullMethodName                  = "/crm.v1.CRMService/CreateLead"
 	CRMService_UpdateLead_FullMethodName                  = "/crm.v1.CRMService/UpdateLead"
 	CRMService_ConvertLead_FullMethodName                 = "/crm.v1.CRMService/ConvertLead"
+	CRMService_PromoteContactToLead_FullMethodName        = "/crm.v1.CRMService/PromoteContactToLead"
 )
 
 // CRMServiceClient is the client API for CRMService service.
@@ -127,6 +129,7 @@ type CRMServiceClient interface {
 	// Contact Import/Export (Phase 10)
 	ImportContactsCSV(ctx context.Context, in *ImportContactsCSVRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
 	ImportContactsVCard(ctx context.Context, in *ImportContactsVCardRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
+	ImportContactsXLSX(ctx context.Context, in *ImportContactsXLSXRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
 	ExportContactsCSV(ctx context.Context, in *ExportContactsCSVRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
 	ExportContactsVCard(ctx context.Context, in *ExportContactsVCardRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
 	PreviewImportCSV(ctx context.Context, in *PreviewImportCSVRequest, opts ...grpc.CallOption) (*PreviewImportCSVResponse, error)
@@ -199,6 +202,7 @@ type CRMServiceClient interface {
 	CreateLead(ctx context.Context, in *CreateLeadRequest, opts ...grpc.CallOption) (*CreateLeadResponse, error)
 	UpdateLead(ctx context.Context, in *UpdateLeadRequest, opts ...grpc.CallOption) (*UpdateLeadResponse, error)
 	ConvertLead(ctx context.Context, in *ConvertLeadRequest, opts ...grpc.CallOption) (*ConvertLeadResponse, error)
+	PromoteContactToLead(ctx context.Context, in *PromoteContactToLeadRequest, opts ...grpc.CallOption) (*PromoteContactToLeadResponse, error)
 }
 
 type cRMServiceClient struct {
@@ -393,6 +397,16 @@ func (c *cRMServiceClient) ImportContactsVCard(ctx context.Context, in *ImportCo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ImportContactsResponse)
 	err := c.cc.Invoke(ctx, CRMService_ImportContactsVCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ImportContactsXLSX(ctx context.Context, in *ImportContactsXLSXRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ImportContactsXLSX_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -999,6 +1013,16 @@ func (c *cRMServiceClient) ConvertLead(ctx context.Context, in *ConvertLeadReque
 	return out, nil
 }
 
+func (c *cRMServiceClient) PromoteContactToLead(ctx context.Context, in *PromoteContactToLeadRequest, opts ...grpc.CallOption) (*PromoteContactToLeadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromoteContactToLeadResponse)
+	err := c.cc.Invoke(ctx, CRMService_PromoteContactToLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CRMServiceServer is the server API for CRMService service.
 // All implementations must embed UnimplementedCRMServiceServer
 // for forward compatibility.
@@ -1026,6 +1050,7 @@ type CRMServiceServer interface {
 	// Contact Import/Export (Phase 10)
 	ImportContactsCSV(context.Context, *ImportContactsCSVRequest) (*ImportContactsResponse, error)
 	ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error)
+	ImportContactsXLSX(context.Context, *ImportContactsXLSXRequest) (*ImportContactsResponse, error)
 	ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error)
 	ExportContactsVCard(context.Context, *ExportContactsVCardRequest) (*ExportContactsResponse, error)
 	PreviewImportCSV(context.Context, *PreviewImportCSVRequest) (*PreviewImportCSVResponse, error)
@@ -1098,6 +1123,7 @@ type CRMServiceServer interface {
 	CreateLead(context.Context, *CreateLeadRequest) (*CreateLeadResponse, error)
 	UpdateLead(context.Context, *UpdateLeadRequest) (*UpdateLeadResponse, error)
 	ConvertLead(context.Context, *ConvertLeadRequest) (*ConvertLeadResponse, error)
+	PromoteContactToLead(context.Context, *PromoteContactToLeadRequest) (*PromoteContactToLeadResponse, error)
 	mustEmbedUnimplementedCRMServiceServer()
 }
 
@@ -1164,6 +1190,9 @@ func (UnimplementedCRMServiceServer) ImportContactsCSV(context.Context, *ImportC
 }
 func (UnimplementedCRMServiceServer) ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ImportContactsVCard not implemented")
+}
+func (UnimplementedCRMServiceServer) ImportContactsXLSX(context.Context, *ImportContactsXLSXRequest) (*ImportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportContactsXLSX not implemented")
 }
 func (UnimplementedCRMServiceServer) ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportContactsCSV not implemented")
@@ -1344,6 +1373,9 @@ func (UnimplementedCRMServiceServer) UpdateLead(context.Context, *UpdateLeadRequ
 }
 func (UnimplementedCRMServiceServer) ConvertLead(context.Context, *ConvertLeadRequest) (*ConvertLeadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConvertLead not implemented")
+}
+func (UnimplementedCRMServiceServer) PromoteContactToLead(context.Context, *PromoteContactToLeadRequest) (*PromoteContactToLeadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PromoteContactToLead not implemented")
 }
 func (UnimplementedCRMServiceServer) mustEmbedUnimplementedCRMServiceServer() {}
 func (UnimplementedCRMServiceServer) testEmbeddedByValue()                    {}
@@ -1704,6 +1736,24 @@ func _CRMService_ImportContactsVCard_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CRMServiceServer).ImportContactsVCard(ctx, req.(*ImportContactsVCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ImportContactsXLSX_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportContactsXLSXRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ImportContactsXLSX(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ImportContactsXLSX_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ImportContactsXLSX(ctx, req.(*ImportContactsXLSXRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2788,6 +2838,24 @@ func _CRMService_ConvertLead_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_PromoteContactToLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PromoteContactToLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).PromoteContactToLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_PromoteContactToLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).PromoteContactToLead(ctx, req.(*PromoteContactToLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CRMService_ServiceDesc is the grpc.ServiceDesc for CRMService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2870,6 +2938,10 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ImportContactsVCard",
 			Handler:    _CRMService_ImportContactsVCard_Handler,
+		},
+		{
+			MethodName: "ImportContactsXLSX",
+			Handler:    _CRMService_ImportContactsXLSX_Handler,
 		},
 		{
 			MethodName: "ExportContactsCSV",
@@ -3110,6 +3182,10 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConvertLead",
 			Handler:    _CRMService_ConvertLead_Handler,
+		},
+		{
+			MethodName: "PromoteContactToLead",
+			Handler:    _CRMService_PromoteContactToLead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -245,6 +245,12 @@ func (m *MockRepository) UpdateLead(_ context.Context, id uuid.UUID, tenantID uu
 	if patch.Status != nil {
 		c.LeadStatus = patch.Status
 	}
+	if patch.Source != nil {
+		c.LeadSource = patch.Source
+	}
+	if patch.Score != nil {
+		c.LeadScore = patch.Score
+	}
 	switch {
 	case patch.ClearTemperature:
 		c.LeadTemperature = nil

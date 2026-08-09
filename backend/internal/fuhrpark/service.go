@@ -1,13 +1,19 @@
 package fuhrpark
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/export"
 )
 
 // Service handles fuhrpark business logic.
@@ -725,6 +731,70 @@ func (s *Service) DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) err
 	return s.repo.DeleteTripLog(ctx, tenantID, id)
 }
 
+// tripLogExportColumns mirrors the mandatory fields of a Fahrtenbuch entry
+// (Section 6 EStG): a gap-free running number, date, driver, route, purpose,
+// business partner and both odometer readings.
+var tripLogExportColumns = []berichte.Column{
+	{Name: "no", Label: "Lfd. Nr.", Kind: "number"},
+	{Name: "date", Label: "Datum", Kind: "date"},
+	{Name: "driver_name", Label: "Fahrer", Kind: "string"},
+	{Name: "start_location", Label: "Start", Kind: "string"},
+	{Name: "end_location", Label: "Ziel", Kind: "string"},
+	{Name: "purpose", Label: "Zweck", Kind: "string"},
+	{Name: "business_partner", Label: "Geschaeftspartner", Kind: "string"},
+	{Name: "start_km", Label: "KM Beginn", Kind: "number"},
+	{Name: "end_km", Label: "KM Ende", Kind: "number"},
+	{Name: "km", Label: "Gefahrene KM", Kind: "number"},
+}
+
+// ExportTripLogs renders the trip logs matching params as a Finanzamt-ready
+// Fahrtenbuch document. Ordering and row numbering come from
+// ListTripLogsForExport (chronological, so "row N" never skips a trip); an
+// empty match returns a valid, empty document rather than an error.
+func (s *Service) ExportTripLogs(ctx context.Context, params ExportTripLogsParams, format string) ([]byte, string, string, error) {
+	logs, err := s.repo.ListTripLogsForExport(ctx, params)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	rows := make([]map[string]any, 0, len(logs))
+	for i, l := range logs {
+		rows = append(rows, map[string]any{
+			"no":               i + 1,
+			"date":             l.Date.Format("2006-01-02"),
+			"driver_name":      l.DriverName,
+			"start_location":   l.StartLocation,
+			"end_location":     l.EndLocation,
+			"purpose":          l.Purpose,
+			"business_partner": l.BusinessPartner,
+			"start_km":         l.StartKm,
+			"end_km":           l.EndKm,
+			"km":               l.Km,
+		})
+	}
+	result := &berichte.ReportResult{Columns: tripLogExportColumns, Rows: rows}
+
+	var exporter interface {
+		Export(*berichte.ReportResult, io.Writer) error
+		ContentType() string
+		FileExtension() string
+	}
+	switch format {
+	case "pdf":
+		exporter = &export.PDFExporter{}
+	default:
+		exporter = &export.CSVExporter{}
+	}
+
+	var buf bytes.Buffer
+	if err := exporter.Export(result, &buf); err != nil {
+		return nil, "", "", fmt.Errorf("export trip logs: %w", err)
+	}
+
+	filename := "fahrtenbuch-" + time.Now().Format("2006-01-02") + exporter.FileExtension()
+	return buf.Bytes(), exporter.ContentType(), filename, nil
+}
+
 // ============================================================================
 // Vehicle Documents
 // ============================================================================
@@ -816,4 +886,164 @@ func (s *Service) GetVehicleHistory(ctx context.Context, input GetVehicleHistory
 	}
 	offset := (input.Page - 1) * input.PageSize
 	return s.repo.GetVehicleHistory(ctx, input.TenantID, input.VehicleID, offset, input.PageSize)
+}
+
+// ============================================================================
+// Bookings
+// ============================================================================
+
+// CreateBookingInput holds data to reserve a vehicle.
+type CreateBookingInput struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID
+	UserID    uuid.UUID
+	StartsAt  time.Time
+	EndsAt    time.Time
+	Purpose   string
+	CreatedBy *uuid.UUID
+}
+
+// UpdateBookingInput holds the mutable fields of a booking. Nil means unchanged.
+type UpdateBookingInput struct {
+	TenantID  uuid.UUID
+	BookingID uuid.UUID
+	StartsAt  *time.Time
+	EndsAt    *time.Time
+	Purpose   *string
+	Status    *BookingStatus
+}
+
+// validBookingStatus reports whether the status is one the table accepts. The
+// CHECK constraint would catch the rest, but as a 500 rather than a 400.
+func validBookingStatus(s BookingStatus) bool {
+	switch s {
+	case BookingStatusBooked, BookingStatusInUse, BookingStatusCompleted, BookingStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// CreateVehicleBooking reserves a vehicle, rejecting overlaps with an existing
+// active booking of the same vehicle.
+//
+// The conflict check and the insert happen in one locked transaction
+// (CreateBookingWithLock). Checking first and inserting afterwards would leave
+// the window in which two concurrent requests both see a free vehicle -- the
+// exact race produktion closed for machine bookings.
+func (s *Service) CreateVehicleBooking(ctx context.Context, input CreateBookingInput) (*VehicleBooking, error) {
+	if input.UserID == uuid.Nil {
+		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidInput)
+	}
+	if !input.EndsAt.After(input.StartsAt) {
+		return nil, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalidInput)
+	}
+	// Verify the vehicle belongs to the tenant, so an unknown id is a 404 and
+	// not a foreign-key violation surfacing as a 500.
+	if _, err := s.repo.GetVehicle(ctx, input.TenantID, input.VehicleID); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	booking := &VehicleBooking{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		VehicleID: input.VehicleID,
+		UserID:    input.UserID,
+		StartsAt:  input.StartsAt,
+		EndsAt:    input.EndsAt,
+		Purpose:   strings.TrimSpace(input.Purpose),
+		Status:    BookingStatusBooked,
+		CreatedBy: input.CreatedBy,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	conflictID, err := s.repo.CreateBookingWithLock(ctx, booking)
+	if err != nil {
+		return nil, err
+	}
+	if conflictID != nil {
+		return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, *conflictID)
+	}
+
+	slog.Info("vehicle booked",
+		"booking_id", booking.ID,
+		"vehicle_id", booking.VehicleID,
+		"user_id", booking.UserID,
+		"starts_at", booking.StartsAt,
+		"ends_at", booking.EndsAt,
+	)
+	return booking, nil
+}
+
+// UpdateVehicleBooking changes an existing booking, re-checking for conflicts
+// whenever the interval moves or a released booking becomes active again.
+func (s *Service) UpdateVehicleBooking(ctx context.Context, input UpdateBookingInput) (*VehicleBooking, error) {
+	booking, err := s.repo.GetBooking(ctx, input.TenantID, input.BookingID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.StartsAt != nil {
+		booking.StartsAt = *input.StartsAt
+	}
+	if input.EndsAt != nil {
+		booking.EndsAt = *input.EndsAt
+	}
+	if !booking.EndsAt.After(booking.StartsAt) {
+		return nil, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalidInput)
+	}
+	if input.Purpose != nil {
+		booking.Purpose = strings.TrimSpace(*input.Purpose)
+	}
+	if input.Status != nil {
+		if !validBookingStatus(*input.Status) {
+			return nil, fmt.Errorf("%w: unknown booking status %q", ErrInvalidInput, *input.Status)
+		}
+		booking.Status = *input.Status
+	}
+
+	// Only an active booking occupies the vehicle. Cancelling one must never
+	// fail on a conflict -- it is what frees the slot in the first place.
+	if isActiveBookingStatus(booking.Status) {
+		conflictID, findErr := s.repo.FindConflictingBooking(
+			ctx, booking.TenantID, booking.VehicleID, booking.StartsAt, booking.EndsAt, &booking.ID,
+		)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if conflictID != nil {
+			return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, *conflictID)
+		}
+	}
+
+	booking.UpdatedAt = time.Now()
+	if updateErr := s.repo.UpdateBooking(ctx, booking); updateErr != nil {
+		return nil, updateErr
+	}
+	return booking, nil
+}
+
+func isActiveBookingStatus(s BookingStatus) bool {
+	return slices.Contains(ActiveBookingStatuses, s)
+}
+
+// DeleteVehicleBooking removes a booking.
+func (s *Service) DeleteVehicleBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error {
+	return s.repo.DeleteBooking(ctx, tenantID, bookingID)
+}
+
+// ListVehicleBookings returns bookings with optional filtering and pagination.
+func (s *Service) ListVehicleBookings(ctx context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error) {
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 || params.PageSize > 200 {
+		params.PageSize = 50
+	}
+	if params.Status != nil && !validBookingStatus(*params.Status) {
+		return nil, 0, fmt.Errorf("%w: unknown booking status %q", ErrInvalidInput, *params.Status)
+	}
+	return s.repo.ListBookings(ctx, params)
 }

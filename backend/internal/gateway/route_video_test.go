@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,9 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
@@ -191,4 +194,253 @@ func TestHandleGetBulkPresence_EmptyUserIDs(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleGetBulkPresence(rec, req)
 	assertValidationError(t, rec, "user_ids")
+}
+
+// ============================================================================
+// Caller identity resolution for the call.incoming broadcast
+// ============================================================================
+
+// TestCallerDisplayName covers the fallback chain: first+last name, either
+// alone, and the email fallback when neither name is set. Mirrors the SQL
+// COALESCE(NULLIF(CONCAT_WS(...))) pattern used throughout the HR read paths.
+func TestCallerDisplayName(t *testing.T) {
+	tests := []struct {
+		name string
+		user *authv1.UserInfo
+		want string
+	}{
+		{
+			name: "first and last name set",
+			user: &authv1.UserInfo{FirstName: "Ada", LastName: "Lovelace", Email: "ada@example.com"},
+			want: "Ada Lovelace",
+		},
+		{
+			name: "only first name set",
+			user: &authv1.UserInfo{FirstName: "Ada", Email: "ada@example.com"},
+			want: "Ada",
+		},
+		{
+			name: "only last name set",
+			user: &authv1.UserInfo{LastName: "Lovelace", Email: "ada@example.com"},
+			want: "Lovelace",
+		},
+		{
+			name: "no name falls back to email",
+			user: &authv1.UserInfo{Email: "ada@example.com"},
+			want: "ada@example.com",
+		},
+		{
+			name: "blank name fields fall back to email",
+			user: &authv1.UserInfo{FirstName: "  ", LastName: "", Email: "ada@example.com"},
+			want: "ada@example.com",
+		},
+		{
+			name: "nil user yields empty string",
+			user: nil,
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := callerDisplayName(tt.user); got != tt.want {
+				t.Errorf("callerDisplayName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestResolveCallerIdentity_AuthClientUnavailable_ReturnsEmpty covers the case
+// where the auth service is not registered at all (dev without the service
+// wired up). The call must not panic or propagate an error to the caller.
+func TestResolveCallerIdentity_AuthClientUnavailable_ReturnsEmpty(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	name, avatar := routes.resolveCallerIdentity(context.Background(), uuid.New().String())
+	if name != "" || avatar != "" {
+		t.Errorf("resolveCallerIdentity() = (%q, %q), want (\"\", \"\") when auth client is unavailable", name, avatar)
+	}
+}
+
+// TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError belongs to
+// a-video-caller-identity's third done_when criterion: a failed lookup (here,
+// the RPC itself fails because "auth" resolves to a dummy unreachable address)
+// must not abort the call -- the broadcast proceeds without a name.
+func TestResolveCallerIdentity_LookupFailure_ReturnsEmptyWithoutError(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("auth"), "", "")
+	name, avatar := routes.resolveCallerIdentity(context.Background(), uuid.New().String())
+	if name != "" || avatar != "" {
+		t.Errorf("resolveCallerIdentity() = (%q, %q), want (\"\", \"\") on RPC failure", name, avatar)
+	}
+}
+
+// captureBroadcaster records every call.incoming push, including the context it
+// arrived on, so tests can assert what the broadcast goroutine carries.
+type captureBroadcaster struct {
+	contexts []context.Context
+	targets  []string
+	payloads []map[string]interface{}
+}
+
+func (c *captureBroadcaster) BroadcastRecordingStarted(context.Context, string, string, string) {}
+
+func (c *captureBroadcaster) BroadcastCallIncoming(ctx context.Context, targetUserID string, callData map[string]interface{}) {
+	c.contexts = append(c.contexts, ctx)
+	c.targets = append(c.targets, targetUserID)
+	c.payloads = append(c.payloads, callData)
+}
+
+// TestBroadcastCallIncoming_PropagatesTenantContext guards the regression this
+// unit fixes: the broadcast used to run on context.Background(), which strips
+// tenant and user. TenantOutboundUnaryInterceptor reads both off the context to
+// set x-tenant-id/x-user-id, and without them the auth service rejects the
+// caller lookup with Unauthenticated -- so the name silently stayed empty on
+// every call. Asserting the tenant survives all the way to the hub catches a
+// relapse to Background at either send site.
+func TestBroadcastCallIncoming_PropagatesTenantContext(t *testing.T) {
+	tenantID := uuid.New()
+	callerID := uuid.New().String()
+	participants := []string{uuid.New().String(), uuid.New().String()}
+
+	hub := &captureBroadcaster{}
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	routes.SetWSHub(hub)
+
+	// WithoutCancel over an already-cancelled parent mirrors production: the
+	// HTTP handler has returned by the time the goroutine runs.
+	reqCtx, cancel := context.WithCancel(context.Background())
+	reqCtx = context.WithValue(reqCtx, middleware.TenantIDKey, tenantID.String())
+	reqCtx = context.WithValue(reqCtx, middleware.UserIDKey, callerID)
+	cancel()
+
+	routes.broadcastCallIncoming(context.WithoutCancel(reqCtx), "call-1", "group", callerID, participants)
+
+	if len(hub.contexts) != len(participants) {
+		t.Fatalf("BroadcastCallIncoming called %d times, want %d", len(hub.contexts), len(participants))
+	}
+
+	for i, ctx := range hub.contexts {
+		got, err := middleware.GetTenantID(ctx)
+		if err != nil {
+			t.Fatalf("broadcast %d: GetTenantID() error = %v, want the request tenant", i, err)
+		}
+		if got != tenantID {
+			t.Errorf("broadcast %d: tenant = %s, want %s", i, got, tenantID)
+		}
+		if uid := middleware.GetUserID(ctx); uid != callerID {
+			t.Errorf("broadcast %d: user = %q, want %q", i, uid, callerID)
+		}
+		if err := ctx.Err(); err != nil {
+			t.Errorf("broadcast %d: ctx.Err() = %v, want nil -- the goroutine must outlive the request", i, err)
+		}
+	}
+
+	if hub.targets[0] != participants[0] || hub.targets[1] != participants[1] {
+		t.Errorf("broadcast targets = %v, want %v", hub.targets, participants)
+	}
+	if got := hub.payloads[0]["caller_id"]; got != callerID {
+		t.Errorf("payload caller_id = %v, want %s", got, callerID)
+	}
+	// The registry knows no "auth" service here, so resolution fails and the
+	// name falls back to empty -- the best-effort contract, not an error.
+	if got := hub.payloads[0]["caller_name"]; got != "" {
+		t.Errorf("payload caller_name = %v, want empty on failed resolution", got)
+	}
+}
+
+// ============================================================================
+// Recurring meeting occurrences
+// ============================================================================
+
+// TestHandleListMeetingOccurrences_ServiceUnavailable verifies 503 when the
+// work service is not registered.
+func TestHandleListMeetingOccurrences_ServiceUnavailable(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/meetings/"+uuid.New().String()+"/occurrences?start=2026-09-01T00:00:00Z&end=2026-10-01T00:00:00Z", nil)
+	req = withAuth(req, uuid.New().String(), testTenantID)
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleListMeetingOccurrences(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListMeetingOccurrences_Validation covers the parameter checks that
+// run before the RPC. Each case must be rejected at the gateway -- forwarding
+// an unbounded or unparseable window would push the cost onto the service.
+func TestHandleListMeetingOccurrences_Validation(t *testing.T) {
+	meetingID := uuid.New().String()
+
+	cases := []struct {
+		name    string
+		id      string
+		query   string
+		wantMsg string
+	}{
+		{"invalid meeting id", "not-a-uuid", "?start=2026-09-01T00:00:00Z&end=2026-10-01T00:00:00Z", ""},
+		{"missing both", meetingID, "", "start and end query parameters are required"},
+		{"missing end", meetingID, "?start=2026-09-01T00:00:00Z", "start and end query parameters are required"},
+		{"missing start", meetingID, "?end=2026-10-01T00:00:00Z", "start and end query parameters are required"},
+		{"unparseable start", meetingID, "?start=yesterday&end=2026-10-01T00:00:00Z", "invalid start time format"},
+		{"unparseable end", meetingID, "?start=2026-09-01T00:00:00Z&end=whenever", "invalid end time format"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			routes := NewVideoRoutes(registryWithService("work"), "", "")
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/api/v1/meetings/"+tc.id+"/occurrences"+tc.query, nil)
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			req = withChiURLParam(req, "id", tc.id)
+			routes.HandleListMeetingOccurrences(rec, req)
+
+			assertStatus(t, rec, http.StatusBadRequest)
+			if tc.wantMsg != "" {
+				assertErrorContains(t, rec, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// TestProtoMeetingOccurrences_WireShape locks the shape the frontend reads:
+// a wrapped list under items with snake_case keys and RFC3339 timestamps, and
+// an empty list that serialises as [] rather than null.
+func TestProtoMeetingOccurrences_WireShape(t *testing.T) {
+	meetingID := uuid.New().String()
+	eventID := uuid.New().String()
+	start := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	rec := httptest.NewRecorder()
+	response.Proto(rec, http.StatusOK, &videov1.ListMeetingOccurrencesResponse{
+		Items: []*videov1.MeetingOccurrence{{
+			MeetingId:       meetingID,
+			CalendarEventId: eventID,
+			Start:           timestamppb.New(start),
+			End:             timestamppb.New(start.Add(30 * time.Minute)),
+		}},
+		Total:     1,
+		Truncated: true,
+	})
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`"items"`, `"meeting_id":"` + meetingID + `"`, `"calendar_event_id":"` + eventID + `"`,
+		`"start":"2026-09-01T10:00:00Z"`, `"end":"2026-09-01T10:30:00Z"`,
+		`"total":1`, `"truncated":true`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body missing %s, got: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `"seconds"`) {
+		t.Errorf("Timestamp leaked {seconds,nanos} shape into body: %s", body)
+	}
+
+	empty := httptest.NewRecorder()
+	response.Proto(empty, http.StatusOK, &videov1.ListMeetingOccurrencesResponse{Items: []*videov1.MeetingOccurrence{}})
+	var sink map[string]any
+	if err := json.Unmarshal(empty.Body.Bytes(), &sink); err != nil {
+		t.Fatalf("empty response is not valid JSON: %v", err)
+	}
+	if items, ok := sink["items"]; ok && items == nil {
+		t.Errorf("empty items serialised as null, want [] or omitted; body: %s", empty.Body.String())
+	}
 }

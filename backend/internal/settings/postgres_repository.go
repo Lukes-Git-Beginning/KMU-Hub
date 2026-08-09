@@ -400,6 +400,40 @@ func (r *PostgresRepository) PutUserSettings(ctx context.Context, tenantID, user
 	return r.GetUserSettings(ctx, tenantID, userID, moduleID)
 }
 
+// ReplaceUserSettings overwrites the entire entry set for a user/module pair
+// in one transaction: existing rows are deleted first, then the given entries
+// are inserted. Mirrors the delete-then-insert pattern in
+// auth.PostgresRepository.SetUserOverrides.
+func (r *PostgresRepository) ReplaceUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM user_settings WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3
+	`, tenantID, userID, moduleID); err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	for _, e := range entries {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO user_settings (tenant_id, user_id, module_id, key, value, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, tenantID, userID, moduleID, e.Key, e.Value, now); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetUserSettings(ctx, tenantID, userID, moduleID)
+}
+
 // ============================================================================
 // Licensing
 // ============================================================================

@@ -660,6 +660,12 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, schichten.ErrArbzgViolation):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// JArbSchG violations are the same class of answer as the ArbZG one: the
+	// request is well-formed, the plan is not allowed.
+	case errors.Is(err, schichten.ErrJArbSchGNightWork),
+		errors.Is(err, schichten.ErrJArbSchGDailyHours),
+		errors.Is(err, schichten.ErrJArbSchGWeekend):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:

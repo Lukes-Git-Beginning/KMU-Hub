@@ -4,7 +4,7 @@
 // Key invariants:
 //   - Documents are NEVER modified or deleted after archival.
 //   - SHA-256 is computed via io.TeeReader during upload — content and hash are always consistent.
-//   - Retention = 31.12 of (archivedAt.Year + 8) UTC, covering ≥10 complete years.
+//   - Retention = 31.12 of (archivedAt.Year + 10) UTC (§147 AO: 10-year retention).
 //   - ArchiveInvoice only accepts invoices with LockedAt set (GoBD: finalize before archive).
 package gobdarchive
 

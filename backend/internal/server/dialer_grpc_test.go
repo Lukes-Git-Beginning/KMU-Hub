@@ -219,6 +219,7 @@ func (b *stubCRMBridge) GetContactDetails(_ context.Context, id uuid.UUID) (*dia
 func (b *stubCRMBridge) ResolveFilterContacts(_ context.Context, _ uuid.UUID) ([]dialer.ContactImport, error) {
 	return nil, nil
 }
+func (b *stubCRMBridge) PromoteToLead(_ context.Context, _ uuid.UUID) error { return nil }
 
 // newDialerTestServer builds a DialerGRPCServer backed by in-memory stubs.
 // Returns the server plus the underlying repos for state assertions.

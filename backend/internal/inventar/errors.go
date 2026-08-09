@@ -14,4 +14,7 @@ var (
 	ErrInventurCountNotFound    = errors.New("inventur count not found")
 	ErrInventurAlreadyCompleted = errors.New("inventur session is already completed")
 	ErrAttachmentNotFound       = errors.New("inventory item attachment not found")
+	ErrPickingListNotFound      = errors.New("picking list not found")
+	ErrPickingListItemNotFound  = errors.New("picking list item not found")
+	ErrPickingListAlreadyBooked = errors.New("picking list is already booked")
 )

@@ -278,6 +278,22 @@ func (s *Service) PutUserSettings(ctx context.Context, tenantID, userID uuid.UUI
 	return s.repo.PutUserSettings(ctx, tenantID, userID, moduleID, entries)
 }
 
+// ReplaceUserSettings overwrites the entire user-scope entry set for a
+// module: keys not present in entries are deleted. A user may only replace
+// their own settings — the gateway enforces callerID == targetUserID before
+// invoking this method, same as PutUserSettings.
+func (s *Service) ReplaceUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error) {
+	if moduleID == "" {
+		return nil, ErrInvalidModuleID
+	}
+	for _, e := range entries {
+		if e.Key == "" {
+			return nil, ErrInvalidKey
+		}
+	}
+	return s.repo.ReplaceUserSettings(ctx, tenantID, userID, moduleID, entries)
+}
+
 // ============================================================================
 // Internal helpers
 // ============================================================================

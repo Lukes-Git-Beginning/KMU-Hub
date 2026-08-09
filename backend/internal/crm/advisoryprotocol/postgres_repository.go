@@ -26,9 +26,9 @@ func (r *PostgresRepository) Create(ctx context.Context, p *Protocol) error {
 	if err != nil {
 		return err
 	}
-	knownClasses := nullableTextArray(p.KnownAssetClasses)
-	purposes := nullableTextArray(p.InvestmentPurpose)
-	warnings := nullableTextArray(p.WarningsGiven)
+	knownClasses := textArrayOrEmpty(p.KnownAssetClasses)
+	purposes := textArrayOrEmpty(p.InvestmentPurpose)
+	warnings := textArrayOrEmpty(p.WarningsGiven)
 
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO advisory_protocols (
@@ -74,7 +74,7 @@ func (r *PostgresRepository) Create(ctx context.Context, p *Protocol) error {
 		p.MaritalStatus, p.TaxStatus,
 		knownClasses, p.PastTransactions, p.FinancialEducation, p.ProfessionalExperience, p.SelfAssessment,
 		p.RealEstate, p.ExistingInsurance,
-		purposes, emptyToNil(p.Horizon), p.RiskTolerance, p.RiskCapacity, p.RiskClass,
+		purposes, p.Horizon, p.RiskTolerance, p.RiskCapacity, p.RiskClass,
 		p.EsgPreference, p.EsgDetails,
 		productsJSON,
 		p.RecommendationSummary, p.SuitabilityReasoning, p.GoalReference, p.Alternatives, p.NotRecommended,
@@ -94,8 +94,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID
 	row := r.pool.QueryRow(ctx,
 		`SELECT
 			id, tenant_id, contact_id, created_by, status, handed_over_at,
-			date, time_from, time_to, location, advisor, occasion, occasion_note, customer_category,
-			birth_date, marital_status, tax_status,
+			date::text, time_from::text, time_to::text, location, advisor, occasion, occasion_note, customer_category,
+			birth_date::text, marital_status, tax_status,
 			known_asset_classes, past_transactions, financial_education, professional_experience, self_assessment,
 			monthly_net_income, recurring_liabilities, liquid_assets, current_investments,
 			real_estate, existing_insurance, max_loss_capacity_abs, max_loss_capacity_pct,
@@ -103,8 +103,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID
 			esg_preference, esg_details, one_time_amount, monthly_savings,
 			products,
 			recommendation_summary, suitability_reasoning, goal_reference, alternatives, not_recommended,
-			main_concerns, warnings_given, document_delivered, document_delivered_date, delivery_form,
-			advisor_signature, customer_confirmation, document_waiver, followup_date, internal_notes,
+			main_concerns, warnings_given, document_delivered, document_delivered_date::text, delivery_form,
+			advisor_signature, customer_confirmation, document_waiver, followup_date::text, internal_notes,
 			created_at, updated_at
 		FROM advisory_protocols WHERE id = $1 AND tenant_id = $2`,
 		id, tenantID,
@@ -116,8 +116,8 @@ func (r *PostgresRepository) ListByContact(ctx context.Context, contactID, tenan
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 			id, tenant_id, contact_id, created_by, status, handed_over_at,
-			date, time_from, time_to, location, advisor, occasion, occasion_note, customer_category,
-			birth_date, marital_status, tax_status,
+			date::text, time_from::text, time_to::text, location, advisor, occasion, occasion_note, customer_category,
+			birth_date::text, marital_status, tax_status,
 			known_asset_classes, past_transactions, financial_education, professional_experience, self_assessment,
 			monthly_net_income, recurring_liabilities, liquid_assets, current_investments,
 			real_estate, existing_insurance, max_loss_capacity_abs, max_loss_capacity_pct,
@@ -125,8 +125,8 @@ func (r *PostgresRepository) ListByContact(ctx context.Context, contactID, tenan
 			esg_preference, esg_details, one_time_amount, monthly_savings,
 			products,
 			recommendation_summary, suitability_reasoning, goal_reference, alternatives, not_recommended,
-			main_concerns, warnings_given, document_delivered, document_delivered_date, delivery_form,
-			advisor_signature, customer_confirmation, document_waiver, followup_date, internal_notes,
+			main_concerns, warnings_given, document_delivered, document_delivered_date::text, delivery_form,
+			advisor_signature, customer_confirmation, document_waiver, followup_date::text, internal_notes,
 			created_at, updated_at
 		FROM advisory_protocols
 		WHERE contact_id = $1 AND tenant_id = $2
@@ -155,7 +155,7 @@ func (r *PostgresRepository) Update(ctx context.Context, p *Protocol) error {
 		return err
 	}
 
-	_, err = r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE advisory_protocols SET
 			date=$3, time_from=$4, time_to=$5, location=$6, advisor=$7, occasion=$8,
 			occasion_note=$9, customer_category=$10,
@@ -180,31 +180,50 @@ func (r *PostgresRepository) Update(ctx context.Context, p *Protocol) error {
 		p.Date, emptyToNil(p.TimeFrom), emptyToNil(p.TimeTo), emptyToNil(p.Location), p.Advisor,
 		emptyToNil(p.Occasion), p.OccasionNote, emptyToNil(p.CustomerCategory),
 		p.BirthDate, p.MaritalStatus, p.TaxStatus,
-		nullableTextArray(p.KnownAssetClasses), p.PastTransactions, p.FinancialEducation,
+		textArrayOrEmpty(p.KnownAssetClasses), p.PastTransactions, p.FinancialEducation,
 		p.ProfessionalExperience, p.SelfAssessment,
 		p.MonthlyNetIncome, p.RecurringLiabilities, p.LiquidAssets,
 		p.CurrentInvestments, p.RealEstate, p.ExistingInsurance,
 		p.MaxLossCapacityAbs, p.MaxLossCapacityPct,
-		nullableTextArray(p.InvestmentPurpose), emptyToNil(p.Horizon), p.RiskTolerance, p.RiskCapacity,
+		textArrayOrEmpty(p.InvestmentPurpose), p.Horizon, p.RiskTolerance, p.RiskCapacity,
 		p.RiskClass, p.EsgPreference, p.EsgDetails,
 		p.OneTimeAmount, p.MonthlySavings,
 		productsJSON,
 		p.RecommendationSummary, p.SuitabilityReasoning, p.GoalReference,
 		p.Alternatives, p.NotRecommended,
-		p.MainConcerns, nullableTextArray(p.WarningsGiven), p.DocumentDelivered,
-		p.DocumentDeliveredDate, emptyToNil(p.DeliveryForm), p.AdvisorSignature,
+		p.MainConcerns, textArrayOrEmpty(p.WarningsGiven), p.DocumentDelivered,
+		p.DocumentDeliveredDate, p.DeliveryForm, p.AdvisorSignature,
 		p.CustomerConfirmation, p.DocumentWaiver, p.FollowupDate,
 		p.InternalNotes, p.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// The status='draft' clause silently matches zero rows once a protocol is
+	// finalized (e.g. a concurrent HandOver between the service's precondition
+	// check and this write) — surface that race as ErrProtocolFinalized instead
+	// of reporting success on a write that changed nothing.
+	if tag.RowsAffected() == 0 {
+		return ErrProtocolFinalized
+	}
+	return nil
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`DELETE FROM advisory_protocols WHERE id=$1 AND tenant_id=$2 AND status='draft'`,
 		id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// Same race backstop as Update: a concurrent HandOver between the
+	// service's precondition check and this DELETE must not look like a
+	// successful delete of a now-finalized, ten-year-retention record.
+	if tag.RowsAffected() == 0 {
+		return ErrProtocolFinalized
+	}
+	return nil
 }
 
 func (r *PostgresRepository) HandOver(ctx context.Context, id, tenantID uuid.UUID, at time.Time) error {
@@ -269,10 +288,15 @@ func scanProtocol(row scannable) (*Protocol, error) {
 	var p Protocol
 	var productsJSON []byte
 	var knownClasses, investmentPurpose, warningsGiven []string
+	// time_from/time_to/location/occasion/customer_category are NULLable
+	// columns backed by non-pointer string fields on Protocol — scan into
+	// local nullable vars first and default to "" instead of erroring on the
+	// very common case of an unset field (e.g. every freshly created draft).
+	var timeFrom, timeTo, location, occasion, customerCategory *string
 
 	err := row.Scan(
 		&p.ID, &p.TenantID, &p.ContactID, &p.CreatedBy, &p.Status, &p.HandedOverAt,
-		&p.Date, &p.TimeFrom, &p.TimeTo, &p.Location, &p.Advisor, &p.Occasion, &p.OccasionNote, &p.CustomerCategory,
+		&p.Date, &timeFrom, &timeTo, &location, &p.Advisor, &occasion, &p.OccasionNote, &customerCategory,
 		&p.BirthDate, &p.MaritalStatus, &p.TaxStatus,
 		&knownClasses, &p.PastTransactions, &p.FinancialEducation, &p.ProfessionalExperience, &p.SelfAssessment,
 		&p.MonthlyNetIncome, &p.RecurringLiabilities, &p.LiquidAssets, &p.CurrentInvestments,
@@ -295,6 +319,11 @@ func scanProtocol(row scannable) (*Protocol, error) {
 	p.KnownAssetClasses = orEmpty(knownClasses)
 	p.InvestmentPurpose = orEmpty(investmentPurpose)
 	p.WarningsGiven = orEmpty(warningsGiven)
+	p.TimeFrom = strOrEmpty(timeFrom)
+	p.TimeTo = strOrEmpty(timeTo)
+	p.Location = strOrEmpty(location)
+	p.Occasion = strOrEmpty(occasion)
+	p.CustomerCategory = strOrEmpty(customerCategory)
 
 	if len(productsJSON) > 0 {
 		if err := json.Unmarshal(productsJSON, &p.Products); err != nil {
@@ -308,10 +337,14 @@ func scanProtocol(row scannable) (*Protocol, error) {
 	return &p, nil
 }
 
-// nullableTextArray converts []string to nil when empty so pgx stores NULL.
-func nullableTextArray(ss []string) interface{} {
-	if len(ss) == 0 {
-		return nil
+// textArrayOrEmpty guards against a nil slice, which pgx encodes as SQL NULL
+// for array columns — known_asset_classes/investment_purpose/warnings_given
+// are all NOT NULL DEFAULT '{}', and every fresh draft starts with unset
+// arrays, so a nil slice here previously violated the NOT NULL constraint on
+// literally every Create call.
+func textArrayOrEmpty(ss []string) []string {
+	if ss == nil {
+		return []string{}
 	}
 	return ss
 }
@@ -329,4 +362,12 @@ func orEmpty(ss []string) []string {
 		return []string{}
 	}
 	return ss
+}
+
+// strOrEmpty dereferences a nullable scan target, defaulting to "" for NULL.
+func strOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

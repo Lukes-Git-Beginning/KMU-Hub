@@ -23,14 +23,14 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) GetEventTypePreference(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
 	query := `
-		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, email, sms, sound, created_at, updated_at
 		FROM notification_preferences
 		WHERE tenant_id = $1 AND user_id = $2 AND event_type_key = $3`
 
 	pref := &models.NotificationPreference{}
 	err := r.pool.QueryRow(ctx, query, tenantID, userID, eventTypeKey).Scan(
 		&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
-		&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
+		&pref.InApp, &pref.DesktopPush, &pref.Email, &pref.SMS, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrPreferenceNotFound
@@ -40,14 +40,14 @@ func (r *PostgresRepository) GetEventTypePreference(ctx context.Context, tenantI
 
 func (r *PostgresRepository) GetModuleDefault(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
 	query := `
-		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, email, sms, sound, created_at, updated_at
 		FROM notification_preferences
 		WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND event_type_key IS NULL`
 
 	pref := &models.NotificationPreference{}
 	err := r.pool.QueryRow(ctx, query, tenantID, userID, moduleID).Scan(
 		&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
-		&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
+		&pref.InApp, &pref.DesktopPush, &pref.Email, &pref.SMS, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrPreferenceNotFound
@@ -66,7 +66,7 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, tenantID uuid.
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, email, sms, sound, created_at, updated_at
 		FROM notification_preferences %s
 		ORDER BY module_id, event_type_key NULLS FIRST`, where)
 
@@ -81,7 +81,7 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, tenantID uuid.
 		pref := &models.NotificationPreference{}
 		err := rows.Scan(
 			&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
-			&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
+			&pref.InApp, &pref.DesktopPush, &pref.Email, &pref.SMS, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -94,14 +94,14 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, tenantID uuid.
 
 func (r *PostgresRepository) UpsertPreference(ctx context.Context, pref *models.NotificationPreference) error {
 	query := `
-		INSERT INTO notification_preferences (id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO notification_preferences (id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, email, sms, sound, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS NOT NULL
-		DO UPDATE SET in_app = $6, desktop_push = $7, sound = $8, updated_at = $10`
+		DO UPDATE SET in_app = $6, desktop_push = $7, email = $8, sms = $9, sound = $10, updated_at = $12`
 
 	_, err := r.pool.Exec(ctx, query,
 		pref.ID, pref.TenantID, pref.UserID, pref.EventTypeKey, pref.ModuleID,
-		pref.InApp, pref.DesktopPush, pref.Sound, pref.CreatedAt, pref.UpdatedAt,
+		pref.InApp, pref.DesktopPush, pref.Email, pref.SMS, pref.Sound, pref.CreatedAt, pref.UpdatedAt,
 	)
 	return err
 }

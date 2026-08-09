@@ -311,3 +311,305 @@ func TestArchiveInvoiceDocument_InvoiceNotLocked(t *testing.T) {
 	_, err := svc.ArchiveInvoiceDocument(context.Background(), uuid.New(), uuid.New(), uuid.New(), []byte("pdf"))
 	assert.ErrorIs(t, err, ErrInvoiceNotLocked)
 }
+
+// ============================================================================
+// ArchiveInvoiceDocument — no invoice reader configured
+// ============================================================================
+
+func TestArchiveInvoiceDocument_NoInvoiceReaderConfigured(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := newTestService() // NewService(repo, store, nil)
+
+	_, err := svc.ArchiveInvoiceDocument(context.Background(), uuid.New(), uuid.New(), uuid.New(), []byte("pdf"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invoice reader not configured")
+}
+
+// ============================================================================
+// ArchiveInvoiceDocument — invoice lookup failure propagates
+// ============================================================================
+
+func TestArchiveInvoiceDocument_InvoiceLookupErrorPropagates(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	store := newMockFileStore()
+	lookupErr := errors.New("invoice service unavailable")
+	invReader := &mockInvoiceReader{err: lookupErr}
+	svc := NewService(repo, store, invReader)
+
+	_, err := svc.ArchiveInvoiceDocument(context.Background(), uuid.New(), uuid.New(), uuid.New(), []byte("pdf"))
+	assert.ErrorIs(t, err, lookupErr)
+	assert.Empty(t, repo.docs, "no document must be persisted when the invoice lookup fails")
+}
+
+// ============================================================================
+// ArchiveInvoiceDocument — filename derivation
+// ============================================================================
+
+func TestArchiveInvoiceDocument_FilenameUsesInvoiceNumberWhenPresent(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	store := newMockFileStore()
+	invID := uuid.New()
+	locked := time.Now().UTC()
+	invReader := &mockInvoiceReader{
+		inv: &models.Invoice{ID: invID, InvoiceNumber: "RE-2026-0042", LockedAt: &locked},
+	}
+	svc := NewService(repo, store, invReader)
+
+	doc, err := svc.ArchiveInvoiceDocument(context.Background(), uuid.New(), invID, uuid.New(), []byte("pdf-bytes"))
+	require.NoError(t, err)
+	assert.Equal(t, "invoice-RE-2026-0042.pdf", doc.OriginalFilename)
+	assert.Equal(t, models.GobdDocTypeInvoice, doc.DocType)
+	require.NotNil(t, doc.SourceInvoiceID)
+	assert.Equal(t, invID, *doc.SourceInvoiceID)
+}
+
+func TestArchiveInvoiceDocument_FilenameFallsBackToIDWhenNumberBlank(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	store := newMockFileStore()
+	invID := uuid.New()
+	locked := time.Now().UTC()
+	invReader := &mockInvoiceReader{
+		inv: &models.Invoice{ID: invID, InvoiceNumber: "", LockedAt: &locked},
+	}
+	svc := NewService(repo, store, invReader)
+
+	doc, err := svc.ArchiveInvoiceDocument(context.Background(), uuid.New(), invID, uuid.New(), []byte("pdf-bytes"))
+	require.NoError(t, err)
+	assert.Equal(t, "invoice-"+invID.String()+".pdf", doc.OriginalFilename)
+}
+
+// ============================================================================
+// ArchiveDocument — upload failure propagates, nothing is persisted
+// ============================================================================
+
+func TestArchiveDocument_UploadFailurePropagatesAndSkipsCreate(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	store := newMockFileStore()
+	store.uploadErr = errors.New("minio unreachable")
+	svc := NewService(repo, store, nil)
+
+	_, err := svc.ArchiveDocument(context.Background(), ArchiveInput{
+		TenantID:         uuid.New(),
+		DocType:          models.GobdDocTypeOther,
+		OriginalFilename: "file.pdf",
+		MimeType:         "application/pdf",
+		Content:          strings.NewReader("data"),
+		Size:             4,
+		ArchivedBy:       uuid.New(),
+	})
+	require.Error(t, err)
+	assert.Empty(t, repo.docs, "a failed upload must never produce a persisted document record")
+}
+
+// ============================================================================
+// ArchiveDocument — repository Create failure propagates
+// ============================================================================
+
+func TestArchiveDocument_RepositoryCreateFailurePropagates(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	repo.createErr = errors.New("db unavailable")
+	store := newMockFileStore()
+	svc := NewService(repo, store, nil)
+
+	_, err := svc.ArchiveDocument(context.Background(), ArchiveInput{
+		TenantID:         uuid.New(),
+		DocType:          models.GobdDocTypeOther,
+		OriginalFilename: "file.pdf",
+		MimeType:         "application/pdf",
+		Content:          strings.NewReader("data"),
+		Size:             4,
+		ArchivedBy:       uuid.New(),
+	})
+	require.Error(t, err)
+}
+
+// ============================================================================
+// ArchiveDocument — the recorded checksum reflects exactly the bytes that
+// were streamed to storage, so any later divergence between stored bytes and
+// SHA256 (e.g. storage-layer corruption or tampering) becomes detectable by
+// recomputing the hash from storage and comparing it to the immutable
+// doc.SHA256 on record.
+// ============================================================================
+
+func TestArchiveDocument_ChecksumDetectsStorageCorruption(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+
+	content := []byte("original, unmodified invoice content")
+	doc, err := svc.ArchiveDocument(context.Background(), ArchiveInput{
+		TenantID:         uuid.New(),
+		DocType:          models.GobdDocTypeReceipt,
+		OriginalFilename: "receipt.pdf",
+		MimeType:         "application/pdf",
+		Content:          bytes.NewReader(content),
+		Size:             int64(len(content)),
+		ArchivedBy:       uuid.New(),
+	})
+	require.NoError(t, err)
+
+	// The checksum recorded at archival time matches exactly what was streamed to storage.
+	storedHash := sha256.Sum256(store.uploaded[doc.StorageKey])
+	assert.Equal(t, doc.SHA256, hex.EncodeToString(storedHash[:]))
+
+	// Simulate the stored object being tampered with after archival (e.g. a
+	// compromised storage backend). The archive record's checksum is
+	// immutable — recomputing the hash from the (now corrupted) stored bytes
+	// no longer matches, which is precisely how tampering becomes visible.
+	store.uploaded[doc.StorageKey] = []byte("tampered content, different from the original")
+	corruptedHash := sha256.Sum256(store.uploaded[doc.StorageKey])
+	assert.NotEqual(t, doc.SHA256, hex.EncodeToString(corruptedHash[:]))
+	assert.Equal(t, doc.SHA256, repo.docs[doc.ID].SHA256, "the persisted record's checksum must never change")
+}
+
+// ============================================================================
+// GetByID — passthrough with tenant scoping delegated to the repository
+// ============================================================================
+
+func TestService_GetByID_Success(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
+
+	doc, err := svc.GetByID(context.Background(), tenantID, docID)
+	require.NoError(t, err)
+	assert.Equal(t, docID, doc.ID)
+}
+
+func TestService_GetByID_NotFound(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := newTestService()
+
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrDocumentNotFound)
+}
+
+// ============================================================================
+// List — passthrough
+// ============================================================================
+
+func TestService_List_Passthrough(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	tenantID := uuid.New()
+	repo.docs[uuid.New()] = &models.GobdDocument{ID: uuid.New(), TenantID: tenantID}
+	repo.docs[uuid.New()] = &models.GobdDocument{ID: uuid.New(), TenantID: tenantID}
+
+	docs, total, err := svc.List(context.Background(), ListFilter{TenantID: tenantID})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+	assert.Len(t, docs, 2)
+}
+
+// ============================================================================
+// GetDownloadURL
+// ============================================================================
+
+func TestService_GetDownloadURL_Success_AppendsAccessEvent(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID, StorageKey: "gobd/x/y/z.pdf"}
+
+	url, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	require.NoError(t, err)
+	assert.Equal(t, "https://presigned.example.com/test", url)
+
+	require.Len(t, repo.events, 1)
+	assert.Equal(t, models.GobdEventTypeAccess, repo.events[0].EventType)
+	assert.Equal(t, docID, repo.events[0].DocumentID)
+}
+
+func TestService_GetDownloadURL_DocumentNotFound(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := newTestService()
+
+	_, err := svc.GetDownloadURL(context.Background(), uuid.New(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrDocumentNotFound)
+}
+
+type erroringFileStore struct {
+	*mockFileStore
+	presignErr error
+}
+
+func (m *erroringFileStore) GetPresignedURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", m.presignErr
+}
+
+func TestService_GetDownloadURL_PresignErrorPropagates(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
+	store := &erroringFileStore{mockFileStore: newMockFileStore(), presignErr: errors.New("s3 down")}
+	svc := NewService(repo, store, nil)
+
+	_, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	require.Error(t, err)
+	assert.Empty(t, repo.events, "no access event must be recorded when the presign call itself fails")
+}
+
+func TestService_GetDownloadURL_AccessEventAppendFailureIsNonFatal(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
+	repo.appendEventErr = errors.New("events table unavailable")
+	store := newMockFileStore()
+	svc := NewService(repo, store, nil)
+
+	url, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	require.NoError(t, err, "a failed access-log append must not fail the download itself")
+	assert.NotEmpty(t, url)
+}
+
+// ============================================================================
+// AddAnnotation — repository append failure propagates
+// ============================================================================
+
+func TestAddAnnotation_AppendEventFailurePropagates(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepository()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
+	repo.appendEventErr = errors.New("events table unavailable")
+	store := newMockFileStore()
+	svc := NewService(repo, store, nil)
+
+	err := svc.AddAnnotation(context.Background(), tenantID, docID, uuid.New(), "note")
+	require.Error(t, err)
+}
+
+// ============================================================================
+// ListEvents
+// ============================================================================
+
+func TestService_ListEvents_DocumentNotFound(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := newTestService()
+
+	_, err := svc.ListEvents(context.Background(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrDocumentNotFound)
+}
+
+func TestService_ListEvents_Success(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
+	repo.events = append(repo.events,
+		&models.GobdDocumentEvent{ID: uuid.New(), DocumentID: docID, EventType: models.GobdEventTypeArchived},
+		&models.GobdDocumentEvent{ID: uuid.New(), DocumentID: uuid.New(), EventType: models.GobdEventTypeArchived}, // other document
+	)
+
+	events, err := svc.ListEvents(context.Background(), tenantID, docID)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.Equal(t, docID, events[0].DocumentID)
+}

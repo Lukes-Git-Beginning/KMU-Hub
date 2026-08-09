@@ -602,6 +602,38 @@ func (s *DocumentGRPCServer) GetFileDownloadURL(ctx context.Context, req *docume
 	}, nil
 }
 
+func (s *DocumentGRPCServer) GetFileVersionDownloadURL(ctx context.Context, req *documentv1.GetFileVersionDownloadURLRequest) (*documentv1.GetFileVersionDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file id")
+	}
+	versionID, err := uuid.Parse(req.VersionId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid version id")
+	}
+
+	url, filename, contentType, fileSize, err := s.fileService.GetVersionDownloadURL(ctx, fileID, versionID, tenantID)
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	if actorID, actorErr := actorIDFromContext(ctx); actorErr == nil {
+		s.fileService.LogDownload(ctx, fileID, tenantID, actorID)
+	}
+
+	return &documentv1.GetFileVersionDownloadURLResponse{
+		DownloadUrl: url,
+		Filename:    filename,
+		ContentType: contentType,
+		FileSize:    fileSize,
+	}, nil
+}
+
 func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documentv1.CreateFileVersionRequest) (*documentv1.CreateFileVersionResponse, error) {
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
@@ -1475,6 +1507,7 @@ func toProtoFile(f *models.DocumentFile) *documentv1.DocumentFile {
 	if f.ThumbnailKey != nil {
 		pf.ThumbnailKey = *f.ThumbnailKey
 	}
+	pf.Tags = make([]*documentv1.DocumentTag, 0, len(f.Tags))
 	for _, t := range f.Tags {
 		pf.Tags = append(pf.Tags, toProtoTag(&t))
 	}
@@ -1752,7 +1785,8 @@ func mapDocumentError(err error) error {
 		errors.Is(err, file.ErrFilenameTooLong),
 		errors.Is(err, file.ErrFileSizeZero),
 		errors.Is(err, file.ErrFileTooLarge),
-		errors.Is(err, file.ErrInvalidEntityType):
+		errors.Is(err, file.ErrInvalidEntityType),
+		errors.Is(err, file.ErrStorageKeyMissing):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, file.ErrVersionConflict):
 		return status.Error(codes.AlreadyExists, err.Error())

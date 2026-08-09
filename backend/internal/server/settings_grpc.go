@@ -387,6 +387,38 @@ func (s *SettingsGRPCServer) PutUserSettings(ctx context.Context, req *settingsv
 	}, nil
 }
 
+func (s *SettingsGRPCServer) ReplaceUserSettings(ctx context.Context, req *settingsv1.ReplaceUserSettingsRequest) (*settingsv1.ReplaceUserSettingsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
+	}
+
+	domainEntries, err := protoToEntries(req.GetEntries())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid setting entry: %v", err)
+	}
+
+	updated, err := s.svc.ReplaceUserSettings(ctx, tenantID, userID, req.GetModuleId(), domainEntries)
+	if err != nil {
+		if errors.Is(err, settings.ErrInvalidModuleID) {
+			return nil, status.Errorf(codes.InvalidArgument, "module_id must not be empty")
+		}
+		if errors.Is(err, settings.ErrInvalidKey) {
+			return nil, status.Errorf(codes.InvalidArgument, "setting key must not be empty")
+		}
+		slog.Error("ReplaceUserSettings failed", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to replace user settings")
+	}
+
+	return &settingsv1.ReplaceUserSettingsResponse{
+		Entries: entriesToProto(updated),
+	}, nil
+}
+
 // ============================================================================
 // Conversion helpers
 // ============================================================================

@@ -171,7 +171,8 @@ func main() {
 	// =========================================================================
 	// Time-based trigger poller
 	// =========================================================================
-	timeTriggerPoller := trigger.NewTimeTriggerPoller(repo, workflowEngine, pool, triggerReg)
+	dueResolver := trigger.NewPostgresDueResolver(pool)
+	timeTriggerPoller := trigger.NewTimeTriggerPoller(repo, workflowEngine, dueResolver, triggerReg)
 	go timeTriggerPoller.Start(ctx)
 
 	// =========================================================================

@@ -106,6 +106,7 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		// Import/Export
 		r.With(contactImport).Post("/import/csv", c.HandleImportContactsCSV)
 		r.With(contactImport).Post("/import/vcard", c.HandleImportContactsVCard)
+		r.With(contactImport).Post("/import/xlsx", c.HandleImportContactsXLSX)
 		r.With(contactImport).Post("/import/preview", c.HandlePreviewImportCSV)
 		r.With(contactExport).Post("/export/csv", c.HandleExportContactsCSV)
 		r.With(contactExport).Post("/export/vcard", c.HandleExportContactsVCard)

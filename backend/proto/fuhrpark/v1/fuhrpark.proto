@@ -44,6 +44,7 @@ service FuhrparkService {
   rpc CreateTripLog(CreateTripLogRequest)       returns (CreateTripLogResponse);
   rpc UpdateTripLog(UpdateTripLogRequest)       returns (UpdateTripLogResponse);
   rpc DeleteTripLog(DeleteTripLogRequest)       returns (DeleteTripLogResponse);
+  rpc ExportTripLogs(ExportTripLogsRequest)     returns (ExportTripLogsResponse);
 
   // Vehicle documents
   rpc ListVehicleDocuments(ListVehicleDocumentsRequest)     returns (ListVehicleDocumentsResponse);
@@ -60,6 +61,12 @@ service FuhrparkService {
   rpc CreateDriverLicense(CreateDriverLicenseRequest) returns (CreateDriverLicenseResponse);
   rpc UpdateDriverLicense(UpdateDriverLicenseRequest) returns (UpdateDriverLicenseResponse);
   rpc DeleteDriverLicense(DeleteDriverLicenseRequest) returns (DeleteDriverLicenseResponse);
+
+  // Bookings (Poolfahrzeug-Reservierung)
+  rpc ListVehicleBookings(ListVehicleBookingsRequest)   returns (ListVehicleBookingsResponse);
+  rpc CreateVehicleBooking(CreateVehicleBookingRequest) returns (VehicleBookingResponse);
+  rpc UpdateVehicleBooking(UpdateVehicleBookingRequest) returns (VehicleBookingResponse);
+  rpc DeleteVehicleBooking(DeleteVehicleBookingRequest) returns (DeleteVehicleBookingResponse);
 }
 
 // ============================================================================
@@ -404,21 +411,22 @@ message DeleteFuelLogResponse {}
 // ============================================================================
 
 message TripLog {
-  string id             = 1;
-  string tenant_id      = 2;
-  string vehicle_id     = 3;
-  string date           = 4;
-  string start_location = 5;
-  string end_location   = 6;
-  string purpose        = 7;
-  int64  start_km       = 8;
-  int64  end_km         = 9;
-  int64  km             = 10; // computed: end_km - start_km
-  bool   is_private     = 11;
-  string driver_name    = 12;
-  string notes          = 13;
-  string created_at     = 14;
-  string updated_at     = 15;
+  string id                = 1;
+  string tenant_id         = 2;
+  string vehicle_id        = 3;
+  string date               = 4;
+  string start_location     = 5;
+  string end_location       = 6;
+  string purpose             = 7;
+  int64  start_km           = 8;
+  int64  end_km             = 9;
+  int64  km                 = 10; // computed: end_km - start_km
+  bool   is_private         = 11;
+  string driver_name        = 12;
+  string notes               = 13;
+  string created_at          = 14;
+  string updated_at          = 15;
+  string business_partner    = 16; // Geschaeftspartner (Fahrtenbuch Pflichtangabe)
 }
 message ListTripLogsRequest {
   string vehicle_id = 1;
@@ -430,33 +438,48 @@ message ListTripLogsResponse {
   int32 total = 2;
 }
 message CreateTripLogRequest {
-  string vehicle_id     = 1;
-  string date           = 2;
-  string start_location = 3;
-  string end_location   = 4;
-  string purpose        = 5;
-  int64  start_km       = 6;
-  int64  end_km         = 7;
-  bool   is_private     = 8;
-  string driver_name    = 9;
-  string notes          = 10;
+  string vehicle_id       = 1;
+  string date              = 2;
+  string start_location    = 3;
+  string end_location      = 4;
+  string purpose            = 5;
+  int64  start_km          = 6;
+  int64  end_km            = 7;
+  bool   is_private        = 8;
+  string driver_name       = 9;
+  string notes              = 10;
+  string business_partner   = 11;
 }
 message CreateTripLogResponse { TripLog trip_log = 1; }
 message UpdateTripLogRequest {
-  string id             = 1;
-  string date           = 2;
-  string start_location = 3;
-  string end_location   = 4;
-  string purpose        = 5;
-  int64  start_km       = 6;
-  int64  end_km         = 7;
-  bool   is_private     = 8;
-  string driver_name    = 9;
-  string notes          = 10;
+  string id                = 1;
+  string date              = 2;
+  string start_location    = 3;
+  string end_location      = 4;
+  string purpose            = 5;
+  int64  start_km          = 6;
+  int64  end_km            = 7;
+  bool   is_private        = 8;
+  string driver_name       = 9;
+  string notes              = 10;
+  string business_partner   = 11;
 }
 message UpdateTripLogResponse { TripLog trip_log = 1; }
 message DeleteTripLogRequest  { string id = 1; }
 message DeleteTripLogResponse {}
+
+message ExportTripLogsRequest {
+  string tenant_id  = 1;
+  string vehicle_id = 2; // optional filter
+  string from       = 3; // optional ISO date, inclusive
+  string to         = 4; // optional ISO date, inclusive
+  string format     = 5; // csv|pdf
+}
+message ExportTripLogsResponse {
+  bytes  payload      = 1;
+  string content_type = 2;
+  string filename     = 3;
+}
 
 // ============================================================================
 // Vehicle Documents
@@ -583,3 +606,52 @@ message UpdateDriverLicenseRequest {
 message UpdateDriverLicenseResponse { DriverLicense license = 1; }
 message DeleteDriverLicenseRequest  { string id = 1; }
 message DeleteDriverLicenseResponse {}
+
+// ============================================================================
+// Vehicle Bookings
+// ============================================================================
+
+message VehicleBooking {
+  string id         = 1;
+  string tenant_id  = 2;
+  string vehicle_id = 3;
+  string user_id    = 4;
+  string starts_at  = 5; // RFC3339
+  string ends_at    = 6; // RFC3339
+  string purpose    = 7;
+  string status     = 8; // booked|in_use|completed|cancelled
+  string created_by = 9; // empty when the booking has no known creator
+  string created_at = 10;
+  string updated_at = 11;
+}
+message ListVehicleBookingsRequest {
+  string vehicle_id = 1; // optional filter
+  string user_id    = 2; // optional filter
+  string status     = 3; // optional filter
+  string from       = 4; // optional RFC3339 window start
+  string to         = 5; // optional RFC3339 window end
+  int32  page       = 6;
+  int32  page_size  = 7;
+}
+message ListVehicleBookingsResponse {
+  repeated VehicleBooking bookings = 1;
+  int32 total = 2;
+}
+message CreateVehicleBookingRequest {
+  string vehicle_id = 1;
+  string user_id    = 2;
+  string starts_at  = 3; // RFC3339
+  string ends_at    = 4; // RFC3339
+  string purpose    = 5;
+}
+// Optional so an omitted field stays untouched instead of being cleared.
+message UpdateVehicleBookingRequest {
+  string id                  = 1;
+  optional string starts_at  = 2;
+  optional string ends_at    = 3;
+  optional string purpose    = 4;
+  optional string status     = 5;
+}
+message VehicleBookingResponse { VehicleBooking booking = 1; }
+message DeleteVehicleBookingRequest  { string id = 1; }
+message DeleteVehicleBookingResponse {}

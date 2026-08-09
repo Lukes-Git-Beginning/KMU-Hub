@@ -337,10 +337,10 @@ func (r *PostgresRepository) HasOverlap(ctx context.Context, tenantID, objectID 
 func (r *PostgresRepository) CreateInspection(ctx context.Context, ins *RentalInspection) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO rental_inspections
-		    (id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		    (id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, signature_data, checklist, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		ins.ID, ins.TenantID, ins.RentalID, ins.Kind, ins.Notes,
-		ins.PhotoURLs, ins.PerformedBy, ins.CreatedAt, ins.UpdatedAt,
+		ins.PhotoURLs, ins.PerformedBy, ins.SignatureData, ins.Checklist, ins.CreatedAt, ins.UpdatedAt,
 	)
 	return err
 }
@@ -348,9 +348,9 @@ func (r *PostgresRepository) CreateInspection(ctx context.Context, ins *RentalIn
 func (r *PostgresRepository) UpdateInspection(ctx context.Context, ins *RentalInspection) error {
 	ct, err := r.pool.Exec(ctx,
 		`UPDATE rental_inspections
-		 SET notes = $1, photo_urls = $2, updated_at = $3
-		 WHERE id = $4 AND tenant_id = $5`,
-		ins.Notes, ins.PhotoURLs, ins.UpdatedAt, ins.ID, ins.TenantID,
+		 SET notes = $1, photo_urls = $2, signature_data = $3, checklist = $4, updated_at = $5
+		 WHERE id = $6 AND tenant_id = $7`,
+		ins.Notes, ins.PhotoURLs, ins.SignatureData, ins.Checklist, ins.UpdatedAt, ins.ID, ins.TenantID,
 	)
 	if err != nil {
 		return err
@@ -364,12 +364,12 @@ func (r *PostgresRepository) UpdateInspection(ctx context.Context, ins *RentalIn
 func (r *PostgresRepository) GetInspection(ctx context.Context, tenantID, inspectionID uuid.UUID) (*RentalInspection, error) {
 	var ins RentalInspection
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, created_at, updated_at
+		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, signature_data, checklist, created_at, updated_at
 		 FROM rental_inspections WHERE id = $1 AND tenant_id = $2`,
 		inspectionID, tenantID,
 	).Scan(
 		&ins.ID, &ins.TenantID, &ins.RentalID, &ins.Kind, &ins.Notes,
-		&ins.PhotoURLs, &ins.PerformedBy, &ins.CreatedAt, &ins.UpdatedAt,
+		&ins.PhotoURLs, &ins.PerformedBy, &ins.SignatureData, &ins.Checklist, &ins.CreatedAt, &ins.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInspectionNotFound
@@ -390,7 +390,7 @@ func (r *PostgresRepository) ListInspections(ctx context.Context, tenantID, rent
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, created_at, updated_at
+		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, signature_data, checklist, created_at, updated_at
 		 FROM rental_inspections
 		 WHERE tenant_id = $1 AND rental_id = $2
 		 ORDER BY created_at ASC
@@ -419,12 +419,12 @@ func (r *PostgresRepository) ListInspections(ctx context.Context, tenantID, rent
 func (r *PostgresRepository) GetInspectionByKind(ctx context.Context, tenantID, rentalID uuid.UUID, kind InspectionKind) (*RentalInspection, error) {
 	var ins RentalInspection
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, created_at, updated_at
+		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, signature_data, checklist, created_at, updated_at
 		 FROM rental_inspections WHERE tenant_id = $1 AND rental_id = $2 AND kind = $3`,
 		tenantID, rentalID, kind,
 	).Scan(
 		&ins.ID, &ins.TenantID, &ins.RentalID, &ins.Kind, &ins.Notes,
-		&ins.PhotoURLs, &ins.PerformedBy, &ins.CreatedAt, &ins.UpdatedAt,
+		&ins.PhotoURLs, &ins.PerformedBy, &ins.SignatureData, &ins.Checklist, &ins.CreatedAt, &ins.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInspectionNotFound
@@ -470,7 +470,7 @@ func (r *PostgresRepository) scanInspectionFromRows(rows pgx.Rows) (*RentalInspe
 	var ins RentalInspection
 	err := rows.Scan(
 		&ins.ID, &ins.TenantID, &ins.RentalID, &ins.Kind, &ins.Notes,
-		&ins.PhotoURLs, &ins.PerformedBy, &ins.CreatedAt, &ins.UpdatedAt,
+		&ins.PhotoURLs, &ins.PerformedBy, &ins.SignatureData, &ins.Checklist, &ins.CreatedAt, &ins.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan rental inspection row: %w", err)

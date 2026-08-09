@@ -119,21 +119,22 @@ type FuelLog struct {
 
 // TripLog represents a single trip/logbook entry.
 type TripLog struct {
-	ID            uuid.UUID `json:"id"`
-	TenantID      uuid.UUID `json:"tenant_id"`
-	VehicleID     uuid.UUID `json:"vehicle_id"`
-	Date          time.Time `json:"date"`
-	StartLocation string    `json:"start_location"`
-	EndLocation   string    `json:"end_location"`
-	Purpose       string    `json:"purpose"`
-	StartKm       int64     `json:"start_km"`
-	EndKm         int64     `json:"end_km"`
-	Km            int64     `json:"km"` // computed column
-	IsPrivate     bool      `json:"is_private"`
-	DriverName    string    `json:"driver_name"`
-	Notes         string    `json:"notes"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID               uuid.UUID `json:"id"`
+	TenantID         uuid.UUID `json:"tenant_id"`
+	VehicleID        uuid.UUID `json:"vehicle_id"`
+	Date             time.Time `json:"date"`
+	StartLocation    string    `json:"start_location"`
+	EndLocation      string    `json:"end_location"`
+	Purpose          string    `json:"purpose"`
+	StartKm          int64     `json:"start_km"`
+	EndKm            int64     `json:"end_km"`
+	Km               int64     `json:"km"` // computed column
+	IsPrivate        bool      `json:"is_private"`
+	DriverName       string    `json:"driver_name"`
+	BusinessPartner  string    `json:"business_partner"`
+	Notes            string    `json:"notes"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // VehicleDocument represents a document attached to a vehicle.
@@ -204,6 +205,16 @@ type ListTripLogsParams struct {
 	PageSize  int32
 }
 
+// ExportTripLogsParams holds filtering for the trip log export. Unlike
+// ListTripLogsParams it has no pagination -- an export is the full matching
+// range, capped server-side, not one page of it.
+type ExportTripLogsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID  // zero value = no filter
+	From      *time.Time // nil = no lower bound
+	To        *time.Time // nil = no upper bound
+}
+
 // ListVehicleDocumentsParams holds filtering and pagination for vehicle document queries.
 type ListVehicleDocumentsParams struct {
 	TenantID  uuid.UUID
@@ -235,4 +246,47 @@ type GetGpsPositionsParams struct {
 	From      time.Time
 	To        time.Time
 	Limit     int32
+}
+
+// BookingStatus represents the lifecycle state of a vehicle booking.
+// Vocabulary matches machine_bookings so a reservation means the same thing
+// across modules.
+type BookingStatus string
+
+const (
+	BookingStatusBooked    BookingStatus = "booked"
+	BookingStatusInUse     BookingStatus = "in_use"
+	BookingStatusCompleted BookingStatus = "completed"
+	BookingStatusCancelled BookingStatus = "cancelled"
+)
+
+// ActiveBookingStatuses are the states that block the vehicle for the booked
+// interval. Cancelled and completed bookings free it again.
+var ActiveBookingStatuses = []BookingStatus{BookingStatusBooked, BookingStatusInUse}
+
+// VehicleBooking reserves a pool vehicle for a user over a time interval.
+type VehicleBooking struct {
+	ID        uuid.UUID     `json:"id"`
+	TenantID  uuid.UUID     `json:"tenant_id"`
+	VehicleID uuid.UUID     `json:"vehicle_id"`
+	UserID    uuid.UUID     `json:"user_id"`
+	StartsAt  time.Time     `json:"starts_at"`
+	EndsAt    time.Time     `json:"ends_at"`
+	Purpose   string        `json:"purpose"`
+	Status    BookingStatus `json:"status"`
+	CreatedBy *uuid.UUID    `json:"created_by"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// ListVehicleBookingsParams holds filtering and pagination for booking queries.
+type ListVehicleBookingsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID      // zero value = no filter
+	UserID    uuid.UUID      // zero value = no filter
+	Status    *BookingStatus // nil = no filter
+	From      *time.Time     // nil = no lower bound on ends_at
+	To        *time.Time     // nil = no upper bound on starts_at
+	Page      int32
+	PageSize  int32
 }

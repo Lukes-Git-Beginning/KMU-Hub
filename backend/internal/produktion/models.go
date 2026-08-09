@@ -52,6 +52,7 @@ type ProductionOrder struct {
 	CreatedBy    *uuid.UUID  `json:"created_by,omitempty"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
+	BomID        *uuid.UUID  `json:"bom_id,omitempty"`
 }
 
 // MachineBooking represents a time-slot reservation on a machine for a production order.

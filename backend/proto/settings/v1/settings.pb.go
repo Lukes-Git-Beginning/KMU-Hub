@@ -1573,6 +1573,119 @@ func (x *PutUserSettingsResponse) GetEntries() []*SettingEntry {
 	return nil
 }
 
+type ReplaceUserSettingsRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	UserId   string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ModuleId string                 `protobuf:"bytes,3,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	// Full-replace semantics: entries not included here are deleted.
+	Entries       []*SettingEntry `protobuf:"bytes,4,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceUserSettingsRequest) Reset() {
+	*x = ReplaceUserSettingsRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceUserSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceUserSettingsRequest) ProtoMessage() {}
+
+func (x *ReplaceUserSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceUserSettingsRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceUserSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ReplaceUserSettingsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ReplaceUserSettingsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ReplaceUserSettingsRequest) GetModuleId() string {
+	if x != nil {
+		return x.ModuleId
+	}
+	return ""
+}
+
+func (x *ReplaceUserSettingsRequest) GetEntries() []*SettingEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type ReplaceUserSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*SettingEntry        `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceUserSettingsResponse) Reset() {
+	*x = ReplaceUserSettingsResponse{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceUserSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceUserSettingsResponse) ProtoMessage() {}
+
+func (x *ReplaceUserSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceUserSettingsResponse.ProtoReflect.Descriptor instead.
+func (*ReplaceUserSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ReplaceUserSettingsResponse) GetEntries() []*SettingEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
 // Branding is a tenant's workspace branding. Logo/icon are stored as MinIO
 // object keys, never full URLs — the frontend resolves an object key to a
 // downloadable URL via POST /api/v1/files/presign-download, the same pattern
@@ -1591,7 +1704,7 @@ type Branding struct {
 
 func (x *Branding) Reset() {
 	*x = Branding{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1603,7 +1716,7 @@ func (x *Branding) String() string {
 func (*Branding) ProtoMessage() {}
 
 func (x *Branding) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1616,7 +1729,7 @@ func (x *Branding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Branding.ProtoReflect.Descriptor instead.
 func (*Branding) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{28}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Branding) GetName() string {
@@ -1656,7 +1769,7 @@ type GetBrandingRequest struct {
 
 func (x *GetBrandingRequest) Reset() {
 	*x = GetBrandingRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1668,7 +1781,7 @@ func (x *GetBrandingRequest) String() string {
 func (*GetBrandingRequest) ProtoMessage() {}
 
 func (x *GetBrandingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1681,7 +1794,7 @@ func (x *GetBrandingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBrandingRequest.ProtoReflect.Descriptor instead.
 func (*GetBrandingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{29}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetBrandingRequest) GetTenantId() string {
@@ -1700,7 +1813,7 @@ type GetBrandingResponse struct {
 
 func (x *GetBrandingResponse) Reset() {
 	*x = GetBrandingResponse{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1712,7 +1825,7 @@ func (x *GetBrandingResponse) String() string {
 func (*GetBrandingResponse) ProtoMessage() {}
 
 func (x *GetBrandingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +1838,7 @@ func (x *GetBrandingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBrandingResponse.ProtoReflect.Descriptor instead.
 func (*GetBrandingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{30}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetBrandingResponse) GetBranding() *Branding {
@@ -1746,7 +1859,7 @@ type PutBrandingRequest struct {
 
 func (x *PutBrandingRequest) Reset() {
 	*x = PutBrandingRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1758,7 +1871,7 @@ func (x *PutBrandingRequest) String() string {
 func (*PutBrandingRequest) ProtoMessage() {}
 
 func (x *PutBrandingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1771,7 +1884,7 @@ func (x *PutBrandingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutBrandingRequest.ProtoReflect.Descriptor instead.
 func (*PutBrandingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{31}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *PutBrandingRequest) GetTenantId() string {
@@ -1804,7 +1917,7 @@ type PutBrandingResponse struct {
 
 func (x *PutBrandingResponse) Reset() {
 	*x = PutBrandingResponse{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1816,7 +1929,7 @@ func (x *PutBrandingResponse) String() string {
 func (*PutBrandingResponse) ProtoMessage() {}
 
 func (x *PutBrandingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1829,7 +1942,7 @@ func (x *PutBrandingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutBrandingResponse.ProtoReflect.Descriptor instead.
 func (*PutBrandingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{32}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PutBrandingResponse) GetBranding() *Branding {
@@ -1856,7 +1969,7 @@ type TenantModule struct {
 
 func (x *TenantModule) Reset() {
 	*x = TenantModule{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1868,7 +1981,7 @@ func (x *TenantModule) String() string {
 func (*TenantModule) ProtoMessage() {}
 
 func (x *TenantModule) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1881,7 +1994,7 @@ func (x *TenantModule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TenantModule.ProtoReflect.Descriptor instead.
 func (*TenantModule) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{33}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *TenantModule) GetModuleId() string {
@@ -1928,7 +2041,7 @@ type GetTenantLicenseRequest struct {
 
 func (x *GetTenantLicenseRequest) Reset() {
 	*x = GetTenantLicenseRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[34]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1940,7 +2053,7 @@ func (x *GetTenantLicenseRequest) String() string {
 func (*GetTenantLicenseRequest) ProtoMessage() {}
 
 func (x *GetTenantLicenseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[34]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1953,7 +2066,7 @@ func (x *GetTenantLicenseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTenantLicenseRequest.ProtoReflect.Descriptor instead.
 func (*GetTenantLicenseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{34}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GetTenantLicenseRequest) GetTenantId() string {
@@ -1972,7 +2085,7 @@ type GetTenantLicenseResponse struct {
 
 func (x *GetTenantLicenseResponse) Reset() {
 	*x = GetTenantLicenseResponse{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[35]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1984,7 +2097,7 @@ func (x *GetTenantLicenseResponse) String() string {
 func (*GetTenantLicenseResponse) ProtoMessage() {}
 
 func (x *GetTenantLicenseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[35]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1997,7 +2110,7 @@ func (x *GetTenantLicenseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTenantLicenseResponse.ProtoReflect.Descriptor instead.
 func (*GetTenantLicenseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{35}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetTenantLicenseResponse) GetModules() []*TenantModule {
@@ -2020,7 +2133,7 @@ type SetTenantModuleActiveRequest struct {
 
 func (x *SetTenantModuleActiveRequest) Reset() {
 	*x = SetTenantModuleActiveRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[36]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2032,7 +2145,7 @@ func (x *SetTenantModuleActiveRequest) String() string {
 func (*SetTenantModuleActiveRequest) ProtoMessage() {}
 
 func (x *SetTenantModuleActiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[36]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2045,7 +2158,7 @@ func (x *SetTenantModuleActiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTenantModuleActiveRequest.ProtoReflect.Descriptor instead.
 func (*SetTenantModuleActiveRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{36}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SetTenantModuleActiveRequest) GetTenantId() string {
@@ -2085,7 +2198,7 @@ type GetTenantSubscriptionRequest struct {
 
 func (x *GetTenantSubscriptionRequest) Reset() {
 	*x = GetTenantSubscriptionRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[37]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2097,7 +2210,7 @@ func (x *GetTenantSubscriptionRequest) String() string {
 func (*GetTenantSubscriptionRequest) ProtoMessage() {}
 
 func (x *GetTenantSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[37]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2110,7 +2223,7 @@ func (x *GetTenantSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTenantSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*GetTenantSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{37}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *GetTenantSubscriptionRequest) GetTenantId() string {
@@ -2137,7 +2250,7 @@ type TenantSubscription struct {
 
 func (x *TenantSubscription) Reset() {
 	*x = TenantSubscription{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[38]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2149,7 +2262,7 @@ func (x *TenantSubscription) String() string {
 func (*TenantSubscription) ProtoMessage() {}
 
 func (x *TenantSubscription) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[38]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2162,7 +2275,7 @@ func (x *TenantSubscription) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TenantSubscription.ProtoReflect.Descriptor instead.
 func (*TenantSubscription) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{38}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TenantSubscription) GetPlanType() string {
@@ -2217,7 +2330,7 @@ type ValueSetOption struct {
 
 func (x *ValueSetOption) Reset() {
 	*x = ValueSetOption{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2229,7 +2342,7 @@ func (x *ValueSetOption) String() string {
 func (*ValueSetOption) ProtoMessage() {}
 
 func (x *ValueSetOption) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[39]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2242,7 +2355,7 @@ func (x *ValueSetOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValueSetOption.ProtoReflect.Descriptor instead.
 func (*ValueSetOption) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{39}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ValueSetOption) GetKey() string {
@@ -2305,7 +2418,7 @@ type ValueSet struct {
 
 func (x *ValueSet) Reset() {
 	*x = ValueSet{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2317,7 +2430,7 @@ func (x *ValueSet) String() string {
 func (*ValueSet) ProtoMessage() {}
 
 func (x *ValueSet) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[40]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2330,7 +2443,7 @@ func (x *ValueSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValueSet.ProtoReflect.Descriptor instead.
 func (*ValueSet) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{40}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ValueSet) GetKey() string {
@@ -2380,7 +2493,7 @@ type ListValueSetsRequest struct {
 
 func (x *ListValueSetsRequest) Reset() {
 	*x = ListValueSetsRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2392,7 +2505,7 @@ func (x *ListValueSetsRequest) String() string {
 func (*ListValueSetsRequest) ProtoMessage() {}
 
 func (x *ListValueSetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[41]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2405,7 +2518,7 @@ func (x *ListValueSetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListValueSetsRequest.ProtoReflect.Descriptor instead.
 func (*ListValueSetsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{41}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListValueSetsRequest) GetTenantId() string {
@@ -2431,7 +2544,7 @@ type ListValueSetsResponse struct {
 
 func (x *ListValueSetsResponse) Reset() {
 	*x = ListValueSetsResponse{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2443,7 +2556,7 @@ func (x *ListValueSetsResponse) String() string {
 func (*ListValueSetsResponse) ProtoMessage() {}
 
 func (x *ListValueSetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[42]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2456,7 +2569,7 @@ func (x *ListValueSetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListValueSetsResponse.ProtoReflect.Descriptor instead.
 func (*ListValueSetsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{42}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListValueSetsResponse) GetValueSets() []*ValueSet {
@@ -2477,7 +2590,7 @@ type GetValueSetRequest struct {
 
 func (x *GetValueSetRequest) Reset() {
 	*x = GetValueSetRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2489,7 +2602,7 @@ func (x *GetValueSetRequest) String() string {
 func (*GetValueSetRequest) ProtoMessage() {}
 
 func (x *GetValueSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[43]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2502,7 +2615,7 @@ func (x *GetValueSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetValueSetRequest.ProtoReflect.Descriptor instead.
 func (*GetValueSetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{43}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetValueSetRequest) GetTenantId() string {
@@ -2539,7 +2652,7 @@ type UpsertValueSetRequest struct {
 
 func (x *UpsertValueSetRequest) Reset() {
 	*x = UpsertValueSetRequest{}
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2551,7 +2664,7 @@ func (x *UpsertValueSetRequest) String() string {
 func (*UpsertValueSetRequest) ProtoMessage() {}
 
 func (x *UpsertValueSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_settings_v1_settings_proto_msgTypes[44]
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2564,7 +2677,7 @@ func (x *UpsertValueSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertValueSetRequest.ProtoReflect.Descriptor instead.
 func (*UpsertValueSetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{44}
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *UpsertValueSetRequest) GetTenantId() string {
@@ -2704,6 +2817,13 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\tmodule_id\x18\x03 \x01(\tR\bmoduleId\x123\n" +
 	"\aentries\x18\x04 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"N\n" +
 	"\x17PutUserSettingsResponse\x123\n" +
+	"\aentries\x18\x01 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"\xa4\x01\n" +
+	"\x1aReplaceUserSettingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tmodule_id\x18\x03 \x01(\tR\bmoduleId\x123\n" +
+	"\aentries\x18\x04 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"R\n" +
+	"\x1bReplaceUserSettingsResponse\x123\n" +
 	"\aentries\x18\x01 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"\x91\x01\n" +
 	"\bBranding\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
@@ -2779,7 +2899,7 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
 	"updated_by\x18\x02 \x01(\tR\tupdatedBy\x122\n" +
-	"\tvalue_set\x18\x03 \x01(\v2\x15.settings.v1.ValueSetR\bvalueSet2\xba\x0f\n" +
+	"\tvalue_set\x18\x03 \x01(\v2\x15.settings.v1.ValueSetR\bvalueSet2\xa4\x10\n" +
 	"\x0fSettingsService\x12\\\n" +
 	"\x0fListModuleLeads\x12#.settings.v1.ListModuleLeadsRequest\x1a$.settings.v1.ListModuleLeadsResponse\x12O\n" +
 	"\x0fGrantModuleLead\x12#.settings.v1.GrantModuleLeadRequest\x1a\x17.settings.v1.ModuleLead\x12_\n" +
@@ -2793,7 +2913,8 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\x11GetTenantSettings\x12%.settings.v1.GetTenantSettingsRequest\x1a&.settings.v1.GetTenantSettingsResponse\x12b\n" +
 	"\x11PutTenantSettings\x12%.settings.v1.PutTenantSettingsRequest\x1a&.settings.v1.PutTenantSettingsResponse\x12\\\n" +
 	"\x0fGetUserSettings\x12#.settings.v1.GetUserSettingsRequest\x1a$.settings.v1.GetUserSettingsResponse\x12\\\n" +
-	"\x0fPutUserSettings\x12#.settings.v1.PutUserSettingsRequest\x1a$.settings.v1.PutUserSettingsResponse\x12P\n" +
+	"\x0fPutUserSettings\x12#.settings.v1.PutUserSettingsRequest\x1a$.settings.v1.PutUserSettingsResponse\x12h\n" +
+	"\x13ReplaceUserSettings\x12'.settings.v1.ReplaceUserSettingsRequest\x1a(.settings.v1.ReplaceUserSettingsResponse\x12P\n" +
 	"\vGetBranding\x12\x1f.settings.v1.GetBrandingRequest\x1a .settings.v1.GetBrandingResponse\x12P\n" +
 	"\vPutBranding\x12\x1f.settings.v1.PutBrandingRequest\x1a .settings.v1.PutBrandingResponse\x12_\n" +
 	"\x10GetTenantLicense\x12$.settings.v1.GetTenantLicenseRequest\x1a%.settings.v1.GetTenantLicenseResponse\x12]\n" +
@@ -2815,7 +2936,7 @@ func file_proto_settings_v1_settings_proto_rawDescGZIP() []byte {
 	return file_proto_settings_v1_settings_proto_rawDescData
 }
 
-var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*ModuleLead)(nil),                     // 0: settings.v1.ModuleLead
 	(*SettingEntry)(nil),                   // 1: settings.v1.SettingEntry
@@ -2845,32 +2966,34 @@ var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*GetUserSettingsResponse)(nil),        // 25: settings.v1.GetUserSettingsResponse
 	(*PutUserSettingsRequest)(nil),         // 26: settings.v1.PutUserSettingsRequest
 	(*PutUserSettingsResponse)(nil),        // 27: settings.v1.PutUserSettingsResponse
-	(*Branding)(nil),                       // 28: settings.v1.Branding
-	(*GetBrandingRequest)(nil),             // 29: settings.v1.GetBrandingRequest
-	(*GetBrandingResponse)(nil),            // 30: settings.v1.GetBrandingResponse
-	(*PutBrandingRequest)(nil),             // 31: settings.v1.PutBrandingRequest
-	(*PutBrandingResponse)(nil),            // 32: settings.v1.PutBrandingResponse
-	(*TenantModule)(nil),                   // 33: settings.v1.TenantModule
-	(*GetTenantLicenseRequest)(nil),        // 34: settings.v1.GetTenantLicenseRequest
-	(*GetTenantLicenseResponse)(nil),       // 35: settings.v1.GetTenantLicenseResponse
-	(*SetTenantModuleActiveRequest)(nil),   // 36: settings.v1.SetTenantModuleActiveRequest
-	(*GetTenantSubscriptionRequest)(nil),   // 37: settings.v1.GetTenantSubscriptionRequest
-	(*TenantSubscription)(nil),             // 38: settings.v1.TenantSubscription
-	(*ValueSetOption)(nil),                 // 39: settings.v1.ValueSetOption
-	(*ValueSet)(nil),                       // 40: settings.v1.ValueSet
-	(*ListValueSetsRequest)(nil),           // 41: settings.v1.ListValueSetsRequest
-	(*ListValueSetsResponse)(nil),          // 42: settings.v1.ListValueSetsResponse
-	(*GetValueSetRequest)(nil),             // 43: settings.v1.GetValueSetRequest
-	(*UpsertValueSetRequest)(nil),          // 44: settings.v1.UpsertValueSetRequest
-	(*timestamppb.Timestamp)(nil),          // 45: google.protobuf.Timestamp
-	(*structpb.Value)(nil),                 // 46: google.protobuf.Value
+	(*ReplaceUserSettingsRequest)(nil),     // 28: settings.v1.ReplaceUserSettingsRequest
+	(*ReplaceUserSettingsResponse)(nil),    // 29: settings.v1.ReplaceUserSettingsResponse
+	(*Branding)(nil),                       // 30: settings.v1.Branding
+	(*GetBrandingRequest)(nil),             // 31: settings.v1.GetBrandingRequest
+	(*GetBrandingResponse)(nil),            // 32: settings.v1.GetBrandingResponse
+	(*PutBrandingRequest)(nil),             // 33: settings.v1.PutBrandingRequest
+	(*PutBrandingResponse)(nil),            // 34: settings.v1.PutBrandingResponse
+	(*TenantModule)(nil),                   // 35: settings.v1.TenantModule
+	(*GetTenantLicenseRequest)(nil),        // 36: settings.v1.GetTenantLicenseRequest
+	(*GetTenantLicenseResponse)(nil),       // 37: settings.v1.GetTenantLicenseResponse
+	(*SetTenantModuleActiveRequest)(nil),   // 38: settings.v1.SetTenantModuleActiveRequest
+	(*GetTenantSubscriptionRequest)(nil),   // 39: settings.v1.GetTenantSubscriptionRequest
+	(*TenantSubscription)(nil),             // 40: settings.v1.TenantSubscription
+	(*ValueSetOption)(nil),                 // 41: settings.v1.ValueSetOption
+	(*ValueSet)(nil),                       // 42: settings.v1.ValueSet
+	(*ListValueSetsRequest)(nil),           // 43: settings.v1.ListValueSetsRequest
+	(*ListValueSetsResponse)(nil),          // 44: settings.v1.ListValueSetsResponse
+	(*GetValueSetRequest)(nil),             // 45: settings.v1.GetValueSetRequest
+	(*UpsertValueSetRequest)(nil),          // 46: settings.v1.UpsertValueSetRequest
+	(*timestamppb.Timestamp)(nil),          // 47: google.protobuf.Timestamp
+	(*structpb.Value)(nil),                 // 48: google.protobuf.Value
 }
 var file_proto_settings_v1_settings_proto_depIdxs = []int32{
-	45, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
-	46, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
+	47, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
+	48, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
 	0,  // 2: settings.v1.ListModuleLeadsResponse.leads:type_name -> settings.v1.ModuleLead
-	45, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
-	45, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
+	47, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
+	47, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
 	9,  // 5: settings.v1.ListModuleGrantsResponse.grants:type_name -> settings.v1.UserModuleGrant
 	15, // 6: settings.v1.BulkRevokeModuleAccessRequest.refs:type_name -> settings.v1.ModuleGrantRef
 	1,  // 7: settings.v1.GetResolvedSettingsResponse.entries:type_name -> settings.v1.SettingEntry
@@ -2880,60 +3003,64 @@ var file_proto_settings_v1_settings_proto_depIdxs = []int32{
 	1,  // 11: settings.v1.GetUserSettingsResponse.entries:type_name -> settings.v1.SettingEntry
 	1,  // 12: settings.v1.PutUserSettingsRequest.entries:type_name -> settings.v1.SettingEntry
 	1,  // 13: settings.v1.PutUserSettingsResponse.entries:type_name -> settings.v1.SettingEntry
-	28, // 14: settings.v1.GetBrandingResponse.branding:type_name -> settings.v1.Branding
-	28, // 15: settings.v1.PutBrandingRequest.branding:type_name -> settings.v1.Branding
-	28, // 16: settings.v1.PutBrandingResponse.branding:type_name -> settings.v1.Branding
-	33, // 17: settings.v1.GetTenantLicenseResponse.modules:type_name -> settings.v1.TenantModule
-	39, // 18: settings.v1.ValueSet.options:type_name -> settings.v1.ValueSetOption
-	40, // 19: settings.v1.ListValueSetsResponse.value_sets:type_name -> settings.v1.ValueSet
-	40, // 20: settings.v1.UpsertValueSetRequest.value_set:type_name -> settings.v1.ValueSet
-	2,  // 21: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
-	4,  // 22: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
-	5,  // 23: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
-	7,  // 24: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
-	10, // 25: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
-	12, // 26: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
-	13, // 27: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
-	16, // 28: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
-	18, // 29: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
-	20, // 30: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
-	22, // 31: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
-	24, // 32: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
-	26, // 33: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
-	29, // 34: settings.v1.SettingsService.GetBranding:input_type -> settings.v1.GetBrandingRequest
-	31, // 35: settings.v1.SettingsService.PutBranding:input_type -> settings.v1.PutBrandingRequest
-	34, // 36: settings.v1.SettingsService.GetTenantLicense:input_type -> settings.v1.GetTenantLicenseRequest
-	36, // 37: settings.v1.SettingsService.SetTenantModuleActive:input_type -> settings.v1.SetTenantModuleActiveRequest
-	37, // 38: settings.v1.SettingsService.GetTenantSubscription:input_type -> settings.v1.GetTenantSubscriptionRequest
-	41, // 39: settings.v1.SettingsService.ListValueSets:input_type -> settings.v1.ListValueSetsRequest
-	43, // 40: settings.v1.SettingsService.GetValueSet:input_type -> settings.v1.GetValueSetRequest
-	44, // 41: settings.v1.SettingsService.UpsertValueSet:input_type -> settings.v1.UpsertValueSetRequest
-	3,  // 42: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
-	0,  // 43: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
-	6,  // 44: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
-	8,  // 45: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
-	11, // 46: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
-	9,  // 47: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
-	14, // 48: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
-	17, // 49: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
-	19, // 50: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
-	21, // 51: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
-	23, // 52: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
-	25, // 53: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
-	27, // 54: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
-	30, // 55: settings.v1.SettingsService.GetBranding:output_type -> settings.v1.GetBrandingResponse
-	32, // 56: settings.v1.SettingsService.PutBranding:output_type -> settings.v1.PutBrandingResponse
-	35, // 57: settings.v1.SettingsService.GetTenantLicense:output_type -> settings.v1.GetTenantLicenseResponse
-	33, // 58: settings.v1.SettingsService.SetTenantModuleActive:output_type -> settings.v1.TenantModule
-	38, // 59: settings.v1.SettingsService.GetTenantSubscription:output_type -> settings.v1.TenantSubscription
-	42, // 60: settings.v1.SettingsService.ListValueSets:output_type -> settings.v1.ListValueSetsResponse
-	40, // 61: settings.v1.SettingsService.GetValueSet:output_type -> settings.v1.ValueSet
-	40, // 62: settings.v1.SettingsService.UpsertValueSet:output_type -> settings.v1.ValueSet
-	42, // [42:63] is the sub-list for method output_type
-	21, // [21:42] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	1,  // 14: settings.v1.ReplaceUserSettingsRequest.entries:type_name -> settings.v1.SettingEntry
+	1,  // 15: settings.v1.ReplaceUserSettingsResponse.entries:type_name -> settings.v1.SettingEntry
+	30, // 16: settings.v1.GetBrandingResponse.branding:type_name -> settings.v1.Branding
+	30, // 17: settings.v1.PutBrandingRequest.branding:type_name -> settings.v1.Branding
+	30, // 18: settings.v1.PutBrandingResponse.branding:type_name -> settings.v1.Branding
+	35, // 19: settings.v1.GetTenantLicenseResponse.modules:type_name -> settings.v1.TenantModule
+	41, // 20: settings.v1.ValueSet.options:type_name -> settings.v1.ValueSetOption
+	42, // 21: settings.v1.ListValueSetsResponse.value_sets:type_name -> settings.v1.ValueSet
+	42, // 22: settings.v1.UpsertValueSetRequest.value_set:type_name -> settings.v1.ValueSet
+	2,  // 23: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
+	4,  // 24: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
+	5,  // 25: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
+	7,  // 26: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
+	10, // 27: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
+	12, // 28: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
+	13, // 29: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
+	16, // 30: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
+	18, // 31: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
+	20, // 32: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
+	22, // 33: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
+	24, // 34: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
+	26, // 35: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
+	28, // 36: settings.v1.SettingsService.ReplaceUserSettings:input_type -> settings.v1.ReplaceUserSettingsRequest
+	31, // 37: settings.v1.SettingsService.GetBranding:input_type -> settings.v1.GetBrandingRequest
+	33, // 38: settings.v1.SettingsService.PutBranding:input_type -> settings.v1.PutBrandingRequest
+	36, // 39: settings.v1.SettingsService.GetTenantLicense:input_type -> settings.v1.GetTenantLicenseRequest
+	38, // 40: settings.v1.SettingsService.SetTenantModuleActive:input_type -> settings.v1.SetTenantModuleActiveRequest
+	39, // 41: settings.v1.SettingsService.GetTenantSubscription:input_type -> settings.v1.GetTenantSubscriptionRequest
+	43, // 42: settings.v1.SettingsService.ListValueSets:input_type -> settings.v1.ListValueSetsRequest
+	45, // 43: settings.v1.SettingsService.GetValueSet:input_type -> settings.v1.GetValueSetRequest
+	46, // 44: settings.v1.SettingsService.UpsertValueSet:input_type -> settings.v1.UpsertValueSetRequest
+	3,  // 45: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
+	0,  // 46: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
+	6,  // 47: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
+	8,  // 48: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
+	11, // 49: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
+	9,  // 50: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
+	14, // 51: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
+	17, // 52: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
+	19, // 53: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
+	21, // 54: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
+	23, // 55: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
+	25, // 56: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
+	27, // 57: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
+	29, // 58: settings.v1.SettingsService.ReplaceUserSettings:output_type -> settings.v1.ReplaceUserSettingsResponse
+	32, // 59: settings.v1.SettingsService.GetBranding:output_type -> settings.v1.GetBrandingResponse
+	34, // 60: settings.v1.SettingsService.PutBranding:output_type -> settings.v1.PutBrandingResponse
+	37, // 61: settings.v1.SettingsService.GetTenantLicense:output_type -> settings.v1.GetTenantLicenseResponse
+	35, // 62: settings.v1.SettingsService.SetTenantModuleActive:output_type -> settings.v1.TenantModule
+	40, // 63: settings.v1.SettingsService.GetTenantSubscription:output_type -> settings.v1.TenantSubscription
+	44, // 64: settings.v1.SettingsService.ListValueSets:output_type -> settings.v1.ListValueSetsResponse
+	42, // 65: settings.v1.SettingsService.GetValueSet:output_type -> settings.v1.ValueSet
+	42, // 66: settings.v1.SettingsService.UpsertValueSet:output_type -> settings.v1.ValueSet
+	45, // [45:67] is the sub-list for method output_type
+	23, // [23:45] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_proto_settings_v1_settings_proto_init() }
@@ -2944,14 +3071,14 @@ func file_proto_settings_v1_settings_proto_init() {
 	file_proto_settings_v1_settings_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_settings_v1_settings_proto_msgTypes[9].OneofWrappers = []any{}
 	file_proto_settings_v1_settings_proto_msgTypes[10].OneofWrappers = []any{}
-	file_proto_settings_v1_settings_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_settings_v1_settings_proto_msgTypes[40].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_settings_v1_settings_proto_rawDesc), len(file_proto_settings_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   45,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

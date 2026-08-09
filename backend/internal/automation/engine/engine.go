@@ -336,6 +336,16 @@ func buildEnvFromPayload(evt models.EventPayload) map[string]any {
 		"timestamp":   evt.Timestamp.Format(time.RFC3339),
 	}
 
+	// Shipped templates address the tenant as {{tenant_id}} (see
+	// template.templates "invoice-overdue-dunning", whose biz.create_dunning
+	// action passes it straight through), but nothing ever put it in the
+	// environment. Only set it when the event actually carries one -- a
+	// zero UUID rendered as a string is worse than an unresolved placeholder,
+	// because it looks like a real tenant downstream.
+	if evt.TenantID != uuid.Nil {
+		env["tenant_id"] = evt.TenantID.String()
+	}
+
 	// Parse additional fields from the event payload JSON
 	if evt.Payload != nil {
 		var extra map[string]any

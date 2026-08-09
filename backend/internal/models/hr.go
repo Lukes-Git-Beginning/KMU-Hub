@@ -104,6 +104,11 @@ type EmployeeProfile struct {
 	CreatedAt             time.Time        `json:"created_at"`
 	UpdatedAt             time.Time        `json:"updated_at"`
 
+	// IsMinor marks an employee as under 18. The schichten compliance check
+	// applies the stricter JArbSchG limits (no night work, max 8 hours a day,
+	// no weekend shifts) to everyone carrying this flag.
+	IsMinor bool `json:"is_minor"`
+
 	// Offboarding state. Status is active until the employee leaves; the exit
 	// fields are only set together with an inactive status (enforced by
 	// chk_hr_employee_exit_complete).

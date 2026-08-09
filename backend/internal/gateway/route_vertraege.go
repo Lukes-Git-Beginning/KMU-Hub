@@ -67,6 +67,9 @@ func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 				r.With(contractDelete).Delete("/", vr.HandleDeleteContract)
 
 				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/export", vr.HandleExportContract)
+				// The audit trail is part of reading the contract — no key of
+				// its own, so no seed migration is needed for it.
+				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/events", vr.HandleListContractEvents)
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Put("/signature", vr.HandleSaveContractSignature)
 
 				// Parties
@@ -375,6 +378,48 @@ func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Disposition", "attachment; filename="+formatFilename(filename))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(resp.GetPayload())
+}
+
+// ============================================================================
+// Event Handler
+// ============================================================================
+
+// HandleListContractEvents returns one contract's audit trail, newest first.
+// ProtoListWrapped rather than Proto: protojson drops an empty repeated field
+// entirely, and the frontend must see `items: []` for a contract without a
+// trail — not a missing key.
+func (vr *VertraegeRoutes) HandleListContractEvents(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := vr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 20)
+
+	resp, err := client.ListContractEvents(r.Context(), &vertraegev1.ListContractEventsRequest{
+		TenantId:   tenantID.String(),
+		ContractId: id,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.ProtoListWrapped(w, http.StatusOK, "items", resp.GetItems(), map[string]any{
+		"total": resp.GetTotal(),
+	})
 }
 
 // ============================================================================

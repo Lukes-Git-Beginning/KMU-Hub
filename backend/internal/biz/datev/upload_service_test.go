@@ -43,10 +43,14 @@ func (s *invoicePagerStub) ListForDATEVExport(_ context.Context, tenantID uuid.U
 type creditNotePagerStub struct {
 	pages      [][]*models.CreditNote
 	callTenant []uuid.UUID
+	err        error
 }
 
 func (s *creditNotePagerStub) ListForDATEVExport(_ context.Context, tenantID uuid.UUID, _, _ time.Time,
 	_ *time.Time, _ *uuid.UUID, _ int) ([]*models.CreditNote, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	idx := len(s.callTenant)
 	s.callTenant = append(s.callTenant, tenantID)
 	if idx >= len(s.pages) {

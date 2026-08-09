@@ -655,7 +655,7 @@ func (r *PostgresRepository) ListTripLogs(ctx context.Context, params ListTripLo
 	if params.VehicleID != zeroID {
 		rows, queryErr := r.pool.Query(ctx, `
 			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-			       start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+			       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
 			FROM trip_logs
 			WHERE tenant_id=$1 AND vehicle_id=$2
 			ORDER BY date DESC, created_at DESC
@@ -674,7 +674,7 @@ func (r *PostgresRepository) ListTripLogs(ctx context.Context, params ListTripLo
 	} else {
 		rows, queryErr := r.pool.Query(ctx, `
 			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-			       start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+			       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
 			FROM trip_logs
 			WHERE tenant_id=$1
 			ORDER BY date DESC, created_at DESC
@@ -704,11 +704,11 @@ func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (Tr
 	log.UpdatedAt = now
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO trip_logs (id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		                       start_km, end_km, is_private, driver_name, notes, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		                       start_km, end_km, is_private, driver_name, business_partner, notes, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		log.ID, log.TenantID, log.VehicleID, log.Date, log.StartLocation, log.EndLocation,
-		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName, log.Notes,
-		log.CreatedAt, log.UpdatedAt)
+		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName, log.BusinessPartner,
+		log.Notes, log.CreatedAt, log.UpdatedAt)
 	if err != nil {
 		return TripLog{}, err
 	}
@@ -716,13 +716,13 @@ func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (Tr
 	var created TripLog
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		        start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+		        start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
 		 FROM trip_logs WHERE id=$1`,
 		log.ID).Scan(
 		&created.ID, &created.TenantID, &created.VehicleID, &created.Date,
 		&created.StartLocation, &created.EndLocation, &created.Purpose,
 		&created.StartKm, &created.EndKm, &created.Km,
-		&created.IsPrivate, &created.DriverName, &created.Notes,
+		&created.IsPrivate, &created.DriverName, &created.BusinessPartner, &created.Notes,
 		&created.CreatedAt, &created.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TripLog{}, ErrTripLogNotFound
@@ -738,11 +738,11 @@ func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (Tr
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE trip_logs SET
 			date=$3, start_location=$4, end_location=$5, purpose=$6,
-			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, notes=$11, updated_at=$12
+			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, business_partner=$11, notes=$12, updated_at=$13
 		WHERE id=$1 AND tenant_id=$2`,
 		log.ID, log.TenantID, log.Date, log.StartLocation, log.EndLocation,
 		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName,
-		log.Notes, log.UpdatedAt)
+		log.BusinessPartner, log.Notes, log.UpdatedAt)
 	if err != nil {
 		return TripLog{}, err
 	}
@@ -752,13 +752,13 @@ func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (Tr
 	var updated TripLog
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		        start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+		        start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
 		 FROM trip_logs WHERE id=$1 AND tenant_id=$2`,
 		log.ID, log.TenantID).Scan(
 		&updated.ID, &updated.TenantID, &updated.VehicleID, &updated.Date,
 		&updated.StartLocation, &updated.EndLocation, &updated.Purpose,
 		&updated.StartKm, &updated.EndKm, &updated.Km,
-		&updated.IsPrivate, &updated.DriverName, &updated.Notes,
+		&updated.IsPrivate, &updated.DriverName, &updated.BusinessPartner, &updated.Notes,
 		&updated.CreatedAt, &updated.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TripLog{}, ErrTripLogNotFound
@@ -1167,7 +1167,7 @@ func scanTripLogs(rows pgx.Rows) ([]TripLog, error) {
 			&l.ID, &l.TenantID, &l.VehicleID, &l.Date,
 			&l.StartLocation, &l.EndLocation, &l.Purpose,
 			&l.StartKm, &l.EndKm, &l.Km,
-			&l.IsPrivate, &l.DriverName, &l.Notes,
+			&l.IsPrivate, &l.DriverName, &l.BusinessPartner, &l.Notes,
 			&l.CreatedAt, &l.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan trip log row: %w", err)
@@ -1175,6 +1175,48 @@ func scanTripLogs(rows pgx.Rows) ([]TripLog, error) {
 		logs = append(logs, l)
 	}
 	return logs, rows.Err()
+}
+
+// exportTripLogsCap bounds a single export so an unfiltered request for a
+// tenant with years of history cannot exhaust memory in one call. Same
+// reasoning as ExportVehicleReport's PageSize:10000 -- a hard number here
+// rather than a config knob, lean: raise it (or paginate the export) if a
+// tenant genuinely produces more trips than this between exports.
+const exportTripLogsCap = 5000
+
+// ListTripLogsForExport returns trip logs for a tenant, optionally scoped to
+// one vehicle and/or a date range, ordered chronologically (oldest first) so
+// the caller can number rows 1..N without gaps -- a Fahrtenbuch must read as
+// an unbroken sequence, and only ascending insertion order guarantees that.
+func (r *PostgresRepository) ListTripLogsForExport(ctx context.Context, params ExportTripLogsParams) ([]TripLog, error) {
+	query := `
+		SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+		       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+		FROM trip_logs
+		WHERE tenant_id=$1`
+	args := []any{params.TenantID}
+
+	zeroID := uuid.UUID{}
+	if params.VehicleID != zeroID {
+		args = append(args, params.VehicleID)
+		query += fmt.Sprintf(" AND vehicle_id=$%d", len(args))
+	}
+	if params.From != nil {
+		args = append(args, *params.From)
+		query += fmt.Sprintf(" AND date >= $%d", len(args))
+	}
+	if params.To != nil {
+		args = append(args, *params.To)
+		query += fmt.Sprintf(" AND date <= $%d", len(args))
+	}
+	args = append(args, exportTripLogsCap)
+	query += fmt.Sprintf(" ORDER BY date ASC, created_at ASC LIMIT $%d", len(args))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list trip logs for export: %w", err)
+	}
+	return scanTripLogs(rows)
 }
 
 func scanVehicleDocuments(rows pgx.Rows) ([]VehicleDocument, error) {
@@ -1207,4 +1249,237 @@ func scanGpsPositions(rows pgx.Rows) ([]GpsPosition, error) {
 		positions = append(positions, p)
 	}
 	return positions, rows.Err()
+}
+
+// ============================================================================
+// Bookings
+// ============================================================================
+
+// bookingColumns is the single source of truth for the SELECT list, so a new
+// column cannot land in one read and be forgotten in the other.
+const bookingColumns = `id, tenant_id, vehicle_id, user_id, starts_at, ends_at,
+	       purpose, status, created_by, created_at, updated_at`
+
+// activeBookingStatusSQL is the set of states that occupy the vehicle.
+// Completed and cancelled bookings release it again.
+const activeBookingStatusSQL = `('booked', 'in_use')`
+
+// bookingOverlapPredicate is the half-open [starts_at, ends_at) test: A overlaps
+// B iff A.starts_at < B.ends_at AND A.ends_at > B.starts_at. Two bookings that
+// only touch at the boundary (ends_at == starts_at) do NOT overlap -- handing
+// the keys over at 12:00 has to stay possible. Same reasoning as
+// produktion.FindConflictingBooking, which also explains why this is arithmetic
+// rather than tstzrange && : btree_gist is not guaranteed to be installed in
+// every deployment target.
+//
+// Placeholders are fixed at $3 = startsAt, $4 = endsAt in both callers.
+const bookingOverlapPredicate = `starts_at < $4 AND ends_at > $3`
+
+func (r *PostgresRepository) CreateBookingWithLock(ctx context.Context, b *VehicleBooking) (*uuid.UUID, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin booking tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	// Serialises concurrent bookings of the same vehicle. Without it two
+	// requests can both pass the conflict check and both insert.
+	lockKey := b.TenantID.String() + ":" + b.VehicleID.String()
+	if _, lockErr := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); lockErr != nil {
+		return nil, fmt.Errorf("acquire booking lock: %w", lockErr)
+	}
+
+	var conflictID uuid.UUID
+	scanErr := tx.QueryRow(ctx,
+		`SELECT id FROM vehicle_bookings
+		 WHERE tenant_id = $1
+		   AND vehicle_id = $2
+		   AND status IN `+activeBookingStatusSQL+`
+		   AND `+bookingOverlapPredicate+`
+		 LIMIT 1`,
+		b.TenantID, b.VehicleID, b.StartsAt, b.EndsAt,
+	).Scan(&conflictID)
+	if scanErr != nil && !errors.Is(scanErr, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("booking conflict check: %w", scanErr)
+	}
+	if scanErr == nil {
+		id := conflictID
+		return &id, nil
+	}
+
+	// INSERT ... SELECT FROM users is the guard CreateDriverLicense already
+	// uses: it refuses to book a vehicle for a user who is not visible in the
+	// calling tenant, which the plain FK on users would happily allow.
+	ct, insertErr := tx.Exec(ctx,
+		`INSERT INTO vehicle_bookings
+		    (id, tenant_id, vehicle_id, user_id, starts_at, ends_at, purpose, status,
+		     created_by, created_at, updated_at)
+		 SELECT $1, $2, $3, u.id, $5, $6, $7, $8, $9, $10, $11
+		 FROM users u
+		 WHERE u.id = $4 AND u.tenant_id = $2`,
+		b.ID, b.TenantID, b.VehicleID, b.UserID, b.StartsAt, b.EndsAt,
+		b.Purpose, string(b.Status), b.CreatedBy, b.CreatedAt, b.UpdatedAt,
+	)
+	if insertErr != nil {
+		return nil, fmt.Errorf("insert booking: %w", insertErr)
+	}
+	if ct.RowsAffected() == 0 {
+		return nil, ErrDriverNotFound
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, fmt.Errorf("commit booking tx: %w", commitErr)
+	}
+	return nil, nil
+}
+
+func (r *PostgresRepository) FindConflictingBooking(ctx context.Context, tenantID, vehicleID uuid.UUID, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error) {
+	query := `SELECT id FROM vehicle_bookings
+		 WHERE tenant_id = $1
+		   AND vehicle_id = $2
+		   AND status IN ` + activeBookingStatusSQL + `
+		   AND ` + bookingOverlapPredicate
+	args := []any{tenantID, vehicleID, startsAt, endsAt}
+	// Separate branches instead of a zero-UUID sentinel: substituting
+	// uuid.UUID{} would silently exclude a row that happens to carry it.
+	if excludeID != nil {
+		query += ` AND id <> $5`
+		args = append(args, *excludeID)
+	}
+	query += ` LIMIT 1`
+
+	var conflictID uuid.UUID
+	err := r.pool.QueryRow(ctx, query, args...).Scan(&conflictID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find conflicting booking: %w", err)
+	}
+	return &conflictID, nil
+}
+
+func (r *PostgresRepository) UpdateBooking(ctx context.Context, b *VehicleBooking) error {
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE vehicle_bookings
+		SET starts_at = $3, ends_at = $4, purpose = $5, status = $6, updated_at = $7
+		WHERE id = $1 AND tenant_id = $2`,
+		b.ID, b.TenantID, b.StartsAt, b.EndsAt, b.Purpose, string(b.Status), b.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("update booking: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrBookingNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM vehicle_bookings WHERE id = $1 AND tenant_id = $2`,
+		bookingID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete booking: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrBookingNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetBooking(ctx context.Context, tenantID, bookingID uuid.UUID) (*VehicleBooking, error) {
+	var b VehicleBooking
+	err := r.pool.QueryRow(ctx,
+		`SELECT `+bookingColumns+`
+		 FROM vehicle_bookings WHERE id = $1 AND tenant_id = $2`,
+		bookingID, tenantID,
+	).Scan(
+		&b.ID, &b.TenantID, &b.VehicleID, &b.UserID, &b.StartsAt, &b.EndsAt,
+		&b.Purpose, &b.Status, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrBookingNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get booking: %w", err)
+	}
+	return &b, nil
+}
+
+func (r *PostgresRepository) ListBookings(ctx context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error) {
+	where := []string{"tenant_id = $1"}
+	args := []any{params.TenantID}
+	argNum := 2
+
+	if params.VehicleID != uuid.Nil {
+		where = append(where, fmt.Sprintf("vehicle_id = $%d", argNum))
+		args = append(args, params.VehicleID)
+		argNum++
+	}
+	if params.UserID != uuid.Nil {
+		where = append(where, fmt.Sprintf("user_id = $%d", argNum))
+		args = append(args, params.UserID)
+		argNum++
+	}
+	if params.Status != nil {
+		where = append(where, fmt.Sprintf("status = $%d", argNum))
+		args = append(args, string(*params.Status))
+		argNum++
+	}
+	// Window filter on the interval, not on starts_at alone: a booking that
+	// began before `from` and is still running belongs in the window.
+	if params.From != nil {
+		where = append(where, fmt.Sprintf("ends_at > $%d", argNum))
+		args = append(args, *params.From)
+		argNum++
+	}
+	if params.To != nil {
+		where = append(where, fmt.Sprintf("starts_at < $%d", argNum))
+		args = append(args, *params.To)
+		argNum++
+	}
+	whereClause := "WHERE " + strings.Join(where, " AND ")
+
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM vehicle_bookings "+whereClause, args...,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count bookings: %w", err)
+	}
+
+	pageSize := params.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	page := params.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+
+	query := fmt.Sprintf(`SELECT %s FROM vehicle_bookings %s
+		ORDER BY starts_at ASC
+		LIMIT $%d OFFSET $%d`, bookingColumns, whereClause, argNum, argNum+1)
+	args = append(args, pageSize, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list bookings: %w", err)
+	}
+	defer rows.Close()
+
+	bookings := make([]*VehicleBooking, 0)
+	for rows.Next() {
+		var b VehicleBooking
+		if scanErr := rows.Scan(
+			&b.ID, &b.TenantID, &b.VehicleID, &b.UserID, &b.StartsAt, &b.EndsAt,
+			&b.Purpose, &b.Status, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+		); scanErr != nil {
+			return nil, 0, fmt.Errorf("scan booking row: %w", scanErr)
+		}
+		bookings = append(bookings, &b)
+	}
+	return bookings, total, rows.Err()
 }

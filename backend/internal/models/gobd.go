@@ -13,7 +13,7 @@ import (
 
 // GobdDocument represents an immutable archived document in the GoBD-compliant
 // archive. Once created, the record must NEVER be modified or deleted.
-// Retention is calculated as 31.12 of (archivedAt.Year + 8) UTC.
+// Retention is calculated as 31.12 of (archivedAt.Year + 10) UTC (§147 AO).
 type GobdDocument struct {
 	ID               uuid.UUID  `json:"id"                 db:"id"`
 	TenantID         uuid.UUID  `json:"tenant_id"          db:"tenant_id"`

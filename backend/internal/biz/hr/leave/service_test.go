@@ -635,3 +635,236 @@ func TestCancelLeaveRequest_RestoresBalance(t *testing.T) {
 	balanceAfterCancel := balanceRepo.balances[key]
 	assert.True(t, balanceAfterCancel.Used.LessThan(usedAfterApprove))
 }
+
+// ============================================================================
+// getOrCreateBalance idempotency — the highest-damage-potential gap per the
+// backlog notes: a doubly-credited carryover only surfaces the following
+// year. The actual guard against it is the early "existing != nil" return in
+// getOrCreateBalance; without it, every repeat lookup would recompute the
+// balance from scratch (Used always starts at 0 in the compliance calc),
+// silently re-crediting whatever had already been deducted.
+// ============================================================================
+
+func TestGetOrCreateBalance_SecondCallDoesNotRecomputeOrDoubleBalance(t *testing.T) {
+	svc, _, balanceRepo, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	first, err := svc.GetLeaveBalance(ctx, testTenantID, testEmployeeID)
+	require.NoError(t, err)
+
+	// Simulate leave taken since the balance was first created — same
+	// mutation deductBalance performs, applied directly against the stored
+	// row so the test is independent of CreateLeaveRequest/ApproveLeaveRequest.
+	key := balanceKey(testTenantID, testEmployeeID, time.Now().Year())
+	stored := balanceRepo.balances[key]
+	stored.Used = stored.Used.Add(decimal.NewFromInt(5))
+	stored.Remaining = stored.Remaining.Sub(decimal.NewFromInt(5))
+	balanceRepo.balances[key] = stored
+
+	// A second, unrelated lookup (e.g. triggered by another CreateLeaveRequest)
+	// must return the persisted balance untouched, not recompute it — that
+	// would reset Used to 0 and double-credit the 5 already-used days back
+	// into Remaining.
+	second, err := svc.GetLeaveBalance(ctx, testTenantID, testEmployeeID)
+	require.NoError(t, err)
+	assert.True(t, second.Used.Equal(stored.Used),
+		"Used: got %s, want %s (must not reset on repeat lookup)", second.Used, stored.Used)
+	assert.True(t, second.Remaining.Equal(stored.Remaining),
+		"Remaining: got %s, want %s (must not double-credit on repeat lookup)", second.Remaining, stored.Remaining)
+	assert.Equal(t, first.ID, second.ID, "second lookup created a new balance row instead of reusing the existing one")
+}
+
+// TestGetLeaveBalance_PartTimeNonIntegerEntitlement covers a non-integer
+// part-time pro-rata result (27 * 3/5 = 16.2), the fractional case
+// calculateRemainingMonths-free arithmetic was previously only exercised at
+// whole-number boundaries.
+func TestGetLeaveBalance_PartTimeNonIntegerEntitlement(t *testing.T) {
+	svc, _, _, _, _, employeeRepo := setupTestService()
+	ctx := context.Background()
+
+	employeeRepo.employees[testEmployeeID].WorkDaysPerWeek = 3
+	employeeRepo.employees[testEmployeeID].AnnualLeaveDays = 27
+
+	balance, err := svc.GetLeaveBalance(ctx, testTenantID, testEmployeeID)
+	require.NoError(t, err)
+	assert.True(t, decimal.NewFromFloat(16.2).Equal(balance.Entitlement),
+		"Entitlement: got %s, want 16.2 (27 annual days * 3/5 contract days, part-time pro-rata)", balance.Entitlement)
+}
+
+func TestGetLeaveBalance_EmployeeNotFound(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	unknownEmployee := uuid.MustParse("70000000-0000-0000-0000-000000000099")
+	_, err := svc.GetLeaveBalance(ctx, testTenantID, unknownEmployee)
+	assert.Error(t, err)
+}
+
+// ============================================================================
+// verifyApprover HR fallback — an employee with no manager assigned can be
+// approved by any authenticated caller (the gRPC layer enforces the HR role
+// separately). This branch was previously untested.
+// ============================================================================
+
+func TestApproveLeaveRequest_NoManagerAssignedAllowsAnyApprover(t *testing.T) {
+	svc, leaveRepo, _, _, _, employeeRepo := setupTestService()
+	ctx := context.Background()
+
+	employeeRepo.employees[testEmployeeID].ManagerUserID = nil
+
+	result, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+		StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+		Reason:      "No manager, HR fallback",
+	})
+	require.NoError(t, err)
+
+	randomApprover := uuid.MustParse("90000000-0000-0000-0000-000000000042")
+	approveResult, err := svc.ApproveLeaveRequest(ctx, result.Request.ID, randomApprover, "HR fallback approve")
+	require.NoError(t, err)
+	assert.Equal(t, models.LeaveStatusApproved, approveResult.Request.Status)
+
+	stored := leaveRepo.requests[result.Request.ID]
+	assert.Equal(t, models.LeaveStatusApproved, stored.Status)
+}
+
+// ============================================================================
+// Error paths that were previously untested per mutating function.
+// ============================================================================
+
+func TestCreateLeaveRequest_LeaveTypeNotFound(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	_, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-0000000000ff"),
+		StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+		Reason:      "Unknown type",
+	})
+	assert.ErrorIs(t, err, ErrLeaveTypeNotFound)
+}
+
+func TestApproveLeaveRequest_NotFound(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	_, err := svc.ApproveLeaveRequest(ctx, uuid.New(), testManagerID, "")
+	assert.ErrorIs(t, err, ErrLeaveRequestNotFound)
+}
+
+func TestApproveLeaveRequest_AlreadyApprovedDenied(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	result, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+		StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+		Reason:      "Double approve",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.ApproveLeaveRequest(ctx, result.Request.ID, testManagerID, "First")
+	require.NoError(t, err)
+
+	_, err = svc.ApproveLeaveRequest(ctx, result.Request.ID, testManagerID, "Second")
+	assert.ErrorIs(t, err, ErrInvalidTransition)
+}
+
+func TestRejectLeaveRequest_NotFound(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	err := svc.RejectLeaveRequest(ctx, uuid.New(), testManagerID, "")
+	assert.ErrorIs(t, err, ErrLeaveRequestNotFound)
+}
+
+func TestRejectLeaveRequest_AlreadyRejectedDenied(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	result, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+		StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+		Reason:      "Double reject",
+	})
+	require.NoError(t, err)
+
+	err = svc.RejectLeaveRequest(ctx, result.Request.ID, testManagerID, "First")
+	require.NoError(t, err)
+
+	err = svc.RejectLeaveRequest(ctx, result.Request.ID, testManagerID, "Second")
+	assert.ErrorIs(t, err, ErrInvalidTransition)
+}
+
+func TestCancelLeaveRequest_NotFound(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	err := svc.CancelLeaveRequest(ctx, uuid.New(), testEmployeeID)
+	assert.ErrorIs(t, err, ErrLeaveRequestNotFound)
+}
+
+func TestCancelLeaveRequest_AlreadyCancelledDenied(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	result, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+		StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+		Reason:      "Double cancel",
+	})
+	require.NoError(t, err)
+
+	err = svc.CancelLeaveRequest(ctx, result.Request.ID, testEmployeeID)
+	require.NoError(t, err)
+
+	err = svc.CancelLeaveRequest(ctx, result.Request.ID, testEmployeeID)
+	assert.ErrorIs(t, err, ErrInvalidTransition)
+}
+
+func TestCancelLeaveRequest_ApprovedAfterStartDateDenied(t *testing.T) {
+	svc, _, _, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	// Start date in the past relative to "now" so the approved-leave-already-
+	// started guard trips.
+	result, err := svc.CreateLeaveRequest(ctx, testTenantID, testEmployeeID, CreateLeaveInput{
+		LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+		StartDate:   time.Now().AddDate(0, 0, -5),
+		EndDate:     time.Now().AddDate(0, 0, -1),
+		Reason:      "Already started",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.ApproveLeaveRequest(ctx, result.Request.ID, testManagerID, "OK")
+	require.NoError(t, err)
+
+	err = svc.CancelLeaveRequest(ctx, result.Request.ID, testEmployeeID)
+	assert.ErrorIs(t, err, ErrCannotCancelPastLeave)
+}
+
+func TestRecordSickLeave_LeaveTypeNotFound(t *testing.T) {
+	leaveRepo := newMockLeaveRequestRepo()
+	balanceRepo := newMockLeaveBalanceRepo()
+	typeRepo := newMockLeaveTypeRepo() // no "krank" type registered
+	settingsRepo := newMockHRSettingsRepo()
+	employeeRepo := newMockEmployeeRepo()
+	employeeRepo.employees[testEmployeeID] = &models.EmployeeProfile{
+		ID: uuid.New(), UserID: testEmployeeID, WorkDaysPerWeek: 5, AnnualLeaveDays: 30,
+		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+	svc := NewService(leaveRepo, balanceRepo, typeRepo, settingsRepo, employeeRepo)
+	ctx := context.Background()
+
+	_, err := svc.RecordSickLeave(ctx, testTenantID, testEmployeeID, SickLeaveInput{
+		StartDate: time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2026, 3, 11, 0, 0, 0, 0, time.UTC),
+		Reason:    "No krank type configured",
+	})
+	assert.ErrorIs(t, err, ErrLeaveTypeNotFound)
+}

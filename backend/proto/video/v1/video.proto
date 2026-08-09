@@ -44,6 +44,7 @@ service VideoService {
   rpc SaveMeetingNotes(SaveMeetingNotesRequest) returns (MeetingNotes);
   rpc GetMeetingNotes(GetMeetingNotesRequest) returns (MeetingNotes);
   rpc GetPreviousMeetingNotes(GetPreviousMeetingNotesRequest) returns (MeetingNotes);
+  rpc ListMeetingOccurrences(ListMeetingOccurrencesRequest) returns (ListMeetingOccurrencesResponse);
   rpc CreateActionItem(CreateActionItemRequest) returns (ActionItem);
   rpc UpdateActionItem(UpdateActionItemRequest) returns (ActionItem);
   rpc DeleteActionItem(DeleteActionItemRequest) returns (google.protobuf.Empty);
@@ -495,6 +496,31 @@ message GetPreviousMeetingNotesRequest {
   string recurring_meeting_id = 1;
   string current_meeting_id = 2;
   string user_id = 3;
+}
+
+// MeetingOccurrence is one dated instance of a recurring meeting. Occurrences
+// are expanded on read from the RRULE of the calendar event the meeting is
+// linked to (meetings.calendar_event_id) -- they are not stored and therefore
+// carry no id of their own, only the id of the meeting that repeats.
+message MeetingOccurrence {
+  string meeting_id = 1;
+  string calendar_event_id = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+}
+
+message ListMeetingOccurrencesRequest {
+  string meeting_id = 1;
+  google.protobuf.Timestamp start = 2;
+  google.protobuf.Timestamp end = 3;
+}
+
+message ListMeetingOccurrencesResponse {
+  repeated MeetingOccurrence items = 1;
+  int32 total = 2;
+  // truncated is true when the window held more occurrences than the server
+  // returns at once. Narrow the window to reach the remainder.
+  bool truncated = 3;
 }
 
 message CreateActionItemRequest {

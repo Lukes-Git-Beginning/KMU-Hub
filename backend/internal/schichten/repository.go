@@ -44,6 +44,10 @@ type Repository interface {
 	EarliestShiftStartAfterForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, after time.Time) (*time.Time, error)
 	// ShiftExistsForTemplate checks for an identical shift (idempotency for ApplyTemplate)
 	ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error)
+	// JArbSchG: whether the employee's HR profile is flagged as a minor. False
+	// for employees without a profile — the flag is opt-in, an absent profile
+	// is not a claim about age.
+	IsMinorEmployee(ctx context.Context, tenantID, employeeID uuid.UUID) (bool, error)
 
 	// Templates
 	CreateTemplate(ctx context.Context, t *ShiftTemplate) error

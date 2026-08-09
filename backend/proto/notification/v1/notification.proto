@@ -189,6 +189,8 @@ message NotificationPreferenceInfo {
   string sound = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  bool email = 10;
+  bool sms = 11;
 }
 
 message GetNotificationPreferencesRequest {
@@ -207,6 +209,8 @@ message UpdateNotificationPreferenceRequest {
   bool in_app = 4;
   bool desktop_push = 5;
   string sound = 6;
+  bool email = 7;
+  bool sms = 8;
 }
 
 message UpdateNotificationPreferenceResponse {

@@ -32,6 +32,7 @@ const (
 	SettingsService_PutTenantSettings_FullMethodName      = "/settings.v1.SettingsService/PutTenantSettings"
 	SettingsService_GetUserSettings_FullMethodName        = "/settings.v1.SettingsService/GetUserSettings"
 	SettingsService_PutUserSettings_FullMethodName        = "/settings.v1.SettingsService/PutUserSettings"
+	SettingsService_ReplaceUserSettings_FullMethodName    = "/settings.v1.SettingsService/ReplaceUserSettings"
 	SettingsService_GetBranding_FullMethodName            = "/settings.v1.SettingsService/GetBranding"
 	SettingsService_PutBranding_FullMethodName            = "/settings.v1.SettingsService/PutBranding"
 	SettingsService_GetTenantLicense_FullMethodName       = "/settings.v1.SettingsService/GetTenantLicense"
@@ -74,6 +75,10 @@ type SettingsServiceClient interface {
 	// User-scope settings (own user only)
 	GetUserSettings(ctx context.Context, in *GetUserSettingsRequest, opts ...grpc.CallOption) (*GetUserSettingsResponse, error)
 	PutUserSettings(ctx context.Context, in *PutUserSettingsRequest, opts ...grpc.CallOption) (*PutUserSettingsResponse, error)
+	// Full-replace semantics: entries not included are deleted rather than left
+	// untouched. Backs /api/v1/users/preferences, whose client always sends the
+	// complete preference set.
+	ReplaceUserSettings(ctx context.Context, in *ReplaceUserSettingsRequest, opts ...grpc.CallOption) (*ReplaceUserSettingsResponse, error)
 	// Tenant-wide branding (name, logo/icon, accent color). Backed by
 	// tenant_settings under module_id="branding" — no dedicated table. Write is
 	// admin-or-module-lead like PutTenantSettings; in practice admin-only, since
@@ -234,6 +239,16 @@ func (c *settingsServiceClient) PutUserSettings(ctx context.Context, in *PutUser
 	return out, nil
 }
 
+func (c *settingsServiceClient) ReplaceUserSettings(ctx context.Context, in *ReplaceUserSettingsRequest, opts ...grpc.CallOption) (*ReplaceUserSettingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplaceUserSettingsResponse)
+	err := c.cc.Invoke(ctx, SettingsService_ReplaceUserSettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *settingsServiceClient) GetBranding(ctx context.Context, in *GetBrandingRequest, opts ...grpc.CallOption) (*GetBrandingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBrandingResponse)
@@ -346,6 +361,10 @@ type SettingsServiceServer interface {
 	// User-scope settings (own user only)
 	GetUserSettings(context.Context, *GetUserSettingsRequest) (*GetUserSettingsResponse, error)
 	PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error)
+	// Full-replace semantics: entries not included are deleted rather than left
+	// untouched. Backs /api/v1/users/preferences, whose client always sends the
+	// complete preference set.
+	ReplaceUserSettings(context.Context, *ReplaceUserSettingsRequest) (*ReplaceUserSettingsResponse, error)
 	// Tenant-wide branding (name, logo/icon, accent color). Backed by
 	// tenant_settings under module_id="branding" — no dedicated table. Write is
 	// admin-or-module-lead like PutTenantSettings; in practice admin-only, since
@@ -414,6 +433,9 @@ func (UnimplementedSettingsServiceServer) GetUserSettings(context.Context, *GetU
 }
 func (UnimplementedSettingsServiceServer) PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PutUserSettings not implemented")
+}
+func (UnimplementedSettingsServiceServer) ReplaceUserSettings(context.Context, *ReplaceUserSettingsRequest) (*ReplaceUserSettingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceUserSettings not implemented")
 }
 func (UnimplementedSettingsServiceServer) GetBranding(context.Context, *GetBrandingRequest) (*GetBrandingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBranding not implemented")
@@ -694,6 +716,24 @@ func _SettingsService_PutUserSettings_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SettingsService_ReplaceUserSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceUserSettingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).ReplaceUserSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_ReplaceUserSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).ReplaceUserSettings(ctx, req.(*ReplaceUserSettingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SettingsService_GetBranding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetBrandingRequest)
 	if err := dec(in); err != nil {
@@ -896,6 +936,10 @@ var SettingsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PutUserSettings",
 			Handler:    _SettingsService_PutUserSettings_Handler,
+		},
+		{
+			MethodName: "ReplaceUserSettings",
+			Handler:    _SettingsService_ReplaceUserSettings_Handler,
 		},
 		{
 			MethodName: "GetBranding",

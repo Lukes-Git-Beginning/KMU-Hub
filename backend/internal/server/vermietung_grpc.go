@@ -247,10 +247,10 @@ func (s *VermietungGRPCServer) UpdateRental(ctx context.Context, req *vermietung
 	}
 
 	input := vermietung.UpdateRentalInput{
-		TenantID:    tenantID,
-		RentalID:    rentalID,
-		RenterName:  req.RenterName,
-		Notes:       req.Notes,
+		TenantID:   tenantID,
+		RentalID:   rentalID,
+		RenterName: req.RenterName,
+		Notes:      req.Notes,
 	}
 	if req.StartDate != nil {
 		t := req.StartDate.AsTime()
@@ -406,6 +406,7 @@ func (s *VermietungGRPCServer) CreateInspection(ctx context.Context, req *vermie
 		Kind:      vermietung.InspectionKind(req.GetKind()),
 		Notes:     req.GetNotes(),
 		PhotoURLs: req.GetPhotoUrls(),
+		Checklist: checklistFromProto(req.GetChecklist()),
 	}
 	if req.PerformedBy != nil {
 		id, parseErr := uuid.Parse(*req.PerformedBy)
@@ -440,6 +441,11 @@ func (s *VermietungGRPCServer) UpdateInspection(ctx context.Context, req *vermie
 		// by sending replace_photos=true with an empty photo_urls array.
 		ReplacePhotos: req.GetReplacePhotos(),
 		PhotoURLs:     req.GetPhotoUrls(),
+		// Same convention for checklist: replace_checklist distinguishes "not
+		// provided" from "provided empty" the way a bare repeated field can't.
+		ReplaceChecklist: req.GetReplaceChecklist(),
+		Checklist:        checklistFromProto(req.GetChecklist()),
+		SignatureData:    req.SignatureData,
 	}
 
 	ins, err := s.svc.UpdateInspection(ctx, input)
@@ -671,20 +677,55 @@ func inspectionToProto(ins *vermietung.RentalInspection) *vermietungv1.RentalIns
 		return nil
 	}
 	proto := &vermietungv1.RentalInspection{
-		Id:        ins.ID.String(),
-		TenantId:  ins.TenantID.String(),
-		RentalId:  ins.RentalID.String(),
-		Kind:      string(ins.Kind),
-		Notes:     ins.Notes,
-		PhotoUrls: ins.PhotoURLs,
-		CreatedAt: timestamppb.New(ins.CreatedAt),
-		UpdatedAt: timestamppb.New(ins.UpdatedAt),
+		Id:            ins.ID.String(),
+		TenantId:      ins.TenantID.String(),
+		RentalId:      ins.RentalID.String(),
+		Kind:          string(ins.Kind),
+		Notes:         ins.Notes,
+		PhotoUrls:     ins.PhotoURLs,
+		Checklist:     checklistToProto(ins.Checklist),
+		SignatureData: ins.SignatureData,
+		CreatedAt:     timestamppb.New(ins.CreatedAt),
+		UpdatedAt:     timestamppb.New(ins.UpdatedAt),
 	}
 	if ins.PerformedBy != nil {
 		s := ins.PerformedBy.String()
 		proto.PerformedBy = &s
 	}
 	return proto
+}
+
+// checklistToProto converts inspection checklist items to their wire form.
+// A nil/empty input becomes an empty (non-nil) slice so the field never
+// serializes as JSON null.
+func checklistToProto(items []vermietung.ChecklistItem) []*vermietungv1.ChecklistItem {
+	out := make([]*vermietungv1.ChecklistItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, &vermietungv1.ChecklistItem{
+			Label:     item.Label,
+			Condition: item.Condition,
+			Remark:    item.Remark,
+		})
+	}
+	return out
+}
+
+// checklistFromProto converts wire checklist items back to the domain type.
+// Returns nil for an empty input so service-layer nil-checks ("was a
+// checklist provided at all") keep working.
+func checklistFromProto(items []*vermietungv1.ChecklistItem) []vermietung.ChecklistItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]vermietung.ChecklistItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, vermietung.ChecklistItem{
+			Label:     item.GetLabel(),
+			Condition: item.GetCondition(),
+			Remark:    item.GetRemark(),
+		})
+	}
+	return out
 }
 
 // ============================================================================

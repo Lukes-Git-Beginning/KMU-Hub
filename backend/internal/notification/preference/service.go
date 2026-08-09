@@ -13,10 +13,17 @@ import (
 
 // DeliveryDecision represents the result of evaluating a user's preferences
 // for a specific event.
+//
+// lean: Email/SMS are carried through from the user's preference but no
+// dispatcher callback consumes them yet -- only in_app/desktop_push are
+// actually delivered (see internal/notification/delivery/dispatcher.go).
+// Upgrade when a callback sends real email/SMS off these fields.
 type DeliveryDecision struct {
 	Deliver     bool   `json:"deliver"`
 	InApp       bool   `json:"in_app"`
 	DesktopPush bool   `json:"desktop_push"`
+	Email       bool   `json:"email"`
+	SMS         bool   `json:"sms"`
 	Sound       string `json:"sound"`
 	Reason      string `json:"reason"`
 }
@@ -80,6 +87,8 @@ func (s *Service) Evaluate(ctx context.Context, tenantID uuid.UUID, userID uuid.
 		Deliver:     true,
 		InApp:       true,
 		DesktopPush: true,
+		Email:       true,
+		SMS:         false,
 		Sound:       "default",
 		Reason:      "system default",
 	}
@@ -87,11 +96,13 @@ func (s *Service) Evaluate(ctx context.Context, tenantID uuid.UUID, userID uuid.
 	if pref != nil {
 		decision.InApp = pref.InApp
 		decision.DesktopPush = pref.DesktopPush
+		decision.Email = pref.Email
+		decision.SMS = pref.SMS
 		decision.Sound = pref.Sound
 		decision.Reason = "user preference"
 
 		// If user explicitly disabled all delivery channels
-		if !pref.InApp && !pref.DesktopPush {
+		if !pref.InApp && !pref.DesktopPush && !pref.Email && !pref.SMS {
 			decision.Deliver = false
 			decision.Reason = "all delivery channels disabled by preference"
 			return decision, nil

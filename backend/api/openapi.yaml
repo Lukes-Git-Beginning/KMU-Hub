@@ -8401,6 +8401,84 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/meetings/{id}/occurrences:
+    get:
+      summary: List the dated instances of a recurring meeting
+      description: >
+        Expands the recurrence rule of the calendar event this meeting is linked
+        to (meetings.calendar_event_id) into concrete occurrences inside the
+        requested window. Occurrences are computed on read and never stored, so
+        they carry no id of their own -- only the id of the meeting that repeats.
+        Cancelled occurrences are omitted and moved occurrences report their
+        moved start. Returns 409 when the meeting is not linked to a recurring
+        event or the stored rule is unusable.
+      tags: [meetings]
+      operationId: listMeetingOccurrences
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: start
+          in: query
+          required: true
+          description: Window start (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          description: Window end (RFC3339), must be after start
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Occurrences inside the window
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        meeting_id:
+                          type: string
+                          format: uuid
+                        calendar_event_id:
+                          type: string
+                          format: uuid
+                        start:
+                          type: string
+                          format: date-time
+                        end:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+                  truncated:
+                    type: boolean
+                    description: >
+                      True when the window held more occurrences than the server
+                      returns at once. Narrow the window to reach the remainder.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Meeting is not part of a recurring series, or its rule is unusable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   # ===========================================================================
   # Action Items
   # ===========================================================================
@@ -13224,6 +13302,50 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/users/preferences:
+    get:
+      summary: Get the caller's user-wide preferences (language, theme, region)
+      description: >
+        Thin, fixed-key wrapper over the same user_settings table as
+        GET /settings/{module_id}/user (module_id "profile") — no dedicated
+        table.
+      operationId: getUserPreferences
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Replace the caller's user-wide preferences
+      description: >
+        Full-replace semantics — keys omitted from the request are deleted,
+        not left untouched (unlike PUT /settings/{module_id}/user, which
+        patches). Only the known preference keys (language, theme, region)
+        are accepted; any other key is rejected with 400. Any user_id in the
+        body is ignored — the target is always the authenticated caller.
+      operationId: putUserPreferences
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutUserPreferencesRequest" }
+      responses:
+        "200":
+          description: Updated user preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/customization/labels:
     get:
       summary: Get resolved tenant label overrides for a locale
@@ -15978,6 +16100,7 @@ paths:
                 planned_end: { type: string, format: date-time }
                 priority: { type: integer }
                 notes: { type: string }
+                bom_id: { type: string, format: uuid }
       responses:
         "201":
           description: Order created
@@ -16023,6 +16146,7 @@ paths:
                 planned_end: { type: string, format: date-time }
                 priority: { type: integer }
                 notes: { type: string }
+                bom_id: { type: string, format: uuid }
       responses:
         "200":
           description: Order updated
@@ -16095,6 +16219,28 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/orders/{id}/material-availability:
+    get:
+      summary: Check BOM material availability against inventar stock for a production order
+      tags: [produktion]
+      operationId: getProductionOrderMaterialAvailability
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Per-material required/available/shortfall quantities. available_quantity and shortfall_quantity are omitted for a material that could not be matched against inventar (unknown availability, not zero stock).
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Order has no linked BOM
+          content:
+            application/json:
+              schema: { type: object }
 
   /api/v1/produktion/bookings:
     get:
@@ -16664,6 +16810,7 @@ paths:
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
                 driver_name: { type: string }
+                business_partner: { type: string }
                 notes: { type: string }
       responses:
         "201":
@@ -17057,6 +17204,26 @@ paths:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/fuhrpark/trip-logs/export:
+    get:
+      summary: Export a Fahrtenbuch-compliant trip log report (CSV or PDF)
+      tags: [fuhrpark]
+      operationId: exportTripLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, pdf], default: csv } }
+      responses:
+        "200":
+          description: Trip log report file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/v1/fuhrpark/trip-logs/{id}:
     patch:
       summary: Update a trip log entry
@@ -17080,6 +17247,7 @@ paths:
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
                 driver_name: { type: string }
+                business_partner: { type: string }
                 notes: { type: string }
       responses:
         "200":
@@ -17098,6 +17266,128 @@ paths:
       summary: Delete a trip log entry
       tags: [fuhrpark]
       operationId: deleteTripLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/bookings:
+    get:
+      summary: List vehicle bookings (tenant-wide, optionally filtered)
+      tags: [fuhrpark]
+      operationId: listVehicleBookings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: user_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [booked, in_use, completed, cancelled] } }
+        - name: from
+          in: query
+          description: Lower bound of the window (RFC3339); a booking still running at this time is included.
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          description: Upper bound of the window (RFC3339).
+          schema: { type: string, format: date-time }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Booking list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkVehicleBooking'
+                  total:
+                    type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Book a pool vehicle for a time interval
+      description: >
+        Rejects the request with 409 when the interval overlaps an active
+        booking (booked, in_use) of the same vehicle. Intervals are half-open:
+        a booking starting exactly when another ends is accepted.
+      tags: [fuhrpark]
+      operationId: createVehicleBooking
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_id, user_id, starts_at, ends_at]
+              properties:
+                vehicle_id: { type: string, format: uuid }
+                user_id: { type: string, format: uuid }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                purpose: { type: string }
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/FuhrparkVehicleBooking'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/fuhrpark/bookings/{id}:
+    patch:
+      summary: Update a vehicle booking
+      description: >
+        Re-checks for conflicts whenever the booking stays active. Releasing a
+        booking (status completed or cancelled) never conflicts.
+      tags: [fuhrpark]
+      operationId: updateVehicleBooking
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                purpose: { type: string }
+                status: { type: string, enum: [booked, in_use, completed, cancelled] }
+      responses:
+        "200":
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/FuhrparkVehicleBooking'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      summary: Delete a vehicle booking
+      tags: [fuhrpark]
+      operationId: deleteVehicleBooking
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -20971,6 +21261,38 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/vertraege/contracts/{id}/events:
+    get:
+      summary: List a contract's audit trail (newest first)
+      description: >
+        Append-only history of one contract: creation, updates, termination,
+        signature and party changes. Requires vertraege:contract read — the
+        trail is part of reading the contract, not a separate capability.
+      tags: [vertraege]
+      operationId: listContractEvents
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Audit trail page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/VertraegeContractEvent" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/vertraege/contracts/{id}/signature:
     put:
       summary: Save a digital signature on a contract
@@ -23432,6 +23754,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/inventar/items/{id}/movements:
     get:
@@ -23545,6 +23868,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/inventar/warnings:
     get:
@@ -23844,6 +24168,245 @@ paths:
       responses:
         "204":
           description: Location deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/picking:
+    get:
+      summary: List picking lists
+      tags: [inventar]
+      operationId: listPickingLists
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, picking, completed]
+          description: "Filter by picking list status"
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated picking list overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  picking_lists:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarPickingList" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a picking list
+      tags: [inventar]
+      operationId: createPickingList
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              properties:
+                reference: { type: string }
+                assigned_to: { type: string, format: uuid }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [item_id, quantity_requested]
+                    properties:
+                      item_id: { type: string, format: uuid }
+                      quantity_requested: { type: integer, format: int64, minimum: 1 }
+                      quantity_picked: { type: integer, format: int64, minimum: 0 }
+                      location: { type: string }
+      responses:
+        "201":
+          description: Picking list created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  picking_list: { $ref: "#/components/schemas/InventarPickingList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/picking/{id}:
+    get:
+      summary: Get a picking list by ID
+      tags: [inventar]
+      operationId: getPickingList
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Picking list including its positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  picking_list: { $ref: "#/components/schemas/InventarPickingList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update picking list head data
+      tags: [inventar]
+      operationId: updatePickingList
+      description: >
+        Status accepts open and picking. completed is reached by booking the
+        list — setting it by hand would mark the stock as moved without moving
+        it and is rejected with 400.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reference: { type: string }
+                status:
+                  type: string
+                  enum: [open, picking, completed]
+                assigned_to: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Updated picking list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  picking_list: { $ref: "#/components/schemas/InventarPickingList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      summary: Delete a picking list
+      tags: [inventar]
+      operationId: deletePickingList
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Picking list deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/picking/{id}/items:
+    post:
+      summary: Upsert a picking list position
+      tags: [inventar]
+      operationId: upsertPickingListItem
+      description: >
+        Keyed by (picking list, item): a second call for the same item updates
+        the position instead of adding a duplicate. The first recorded pick
+        moves the list from open to picking.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id, quantity_requested]
+              properties:
+                item_id: { type: string, format: uuid }
+                quantity_requested: { type: integer, format: int64, minimum: 1 }
+                quantity_picked: { type: integer, format: int64, minimum: 0 }
+                location: { type: string }
+      responses:
+        "200":
+          description: Position stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/InventarPickingListItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/inventar/picking/{id}/book:
+    post:
+      summary: Book picked quantities out of stock
+      tags: [inventar]
+      operationId: bookPickingList
+      description: >
+        Writes one outbound stock movement per picked position and completes
+        the list. Booking the same list twice answers 409 and does not move
+        stock a second time. If any position exceeds available stock, nothing
+        is booked at all.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                booked_by:
+                  type: string
+                  format: uuid
+                  description: "Defaults to the authenticated user"
+      responses:
+        "200":
+          description: Picking list after booking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  picking_list: { $ref: "#/components/schemas/InventarPickingList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/inventar/picking-items/{id}:
+    delete:
+      summary: Delete a picking list position
+      tags: [inventar]
+      operationId: deletePickingListItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Position deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -24443,6 +25006,9 @@ paths:
                   type: array
                   items: { type: string, format: uri }
                 performed_by: { type: string, format: uuid }
+                checklist:
+                  type: array
+                  items: { $ref: "#/components/schemas/VermietungChecklistItem" }
       responses:
         "201":
           description: Inspection created
@@ -24495,6 +25061,15 @@ paths:
                 photo_urls:
                   type: array
                   items: { type: string, format: uri }
+                checklist:
+                  type: array
+                  items: { $ref: "#/components/schemas/VermietungChecklistItem" }
+                replace_checklist:
+                  type: boolean
+                  description: When true, checklist replaces the existing list (even if empty). When false/omitted, checklist is ignored.
+                signature_data:
+                  type: string
+                  description: "data:image/png;base64,... or data:image/svg+xml;base64,..., max 1 MiB"
       responses:
         "200":
           description: Inspection updated
@@ -26320,6 +26895,35 @@ paths:
                 properties:
                   version: { $ref: "#/components/schemas/DocumentFile" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/documents/files/{id}/versions/{versionId}/download:
+    get:
+      summary: Get a download URL for one past version of a document file
+      description: >-
+        Requires documents:read or documents:file:download permission. A version id that does not
+        belong to this file (foreign or unknown) returns 404, same as an unknown file id — the two
+        are not told apart.
+      tags: [documents]
+      operationId: getDocumentFileVersionDownloadUrl
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Presigned download URL and file metadata for the version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url: { type: string, format: uri }
+                  filename: { type: string }
+                  content_type: { type: string }
+                  file_size: { type: integer, format: int64 }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -32224,6 +32828,37 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/contacts/import/xlsx:
+    post:
+      summary: Import contacts from an XLSX workbook (multipart upload)
+      description: >-
+        Only the first worksheet is read; the first row is treated as the
+        header. Row count is capped server-side; rows beyond the cap are
+        silently skipped, not erred.
+      tags: [contacts]
+      operationId: importCRMContactsXLSX
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ContactsImportXLSXForm"
+      responses:
+        "200":
+          description: Import result with counts and per-row errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/contacts/import/preview:
     post:
       summary: Preview a CSV file's columns and sample rows before import
@@ -34915,6 +35550,17 @@ components:
           type: boolean
         desktop_push:
           type: boolean
+        email:
+          type: boolean
+          description: >
+            Whether this preference selects email as a delivery channel. Carried
+            through for the user's choice; actual email delivery is not wired to
+            the dispatcher yet.
+        sms:
+          type: boolean
+          description: >
+            Whether this preference selects SMS as a delivery channel. Carried
+            through for the user's choice; no SMS provider is configured.
         sound:
           type: string
 
@@ -34930,6 +35576,10 @@ components:
         in_app:
           type: boolean
         desktop_push:
+          type: boolean
+        email:
+          type: boolean
+        sms:
           type: boolean
         sound:
           type: string
@@ -38713,6 +39363,13 @@ components:
         exit_date: { type: string, format: date }
         exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
         exit_reason: { type: string }
+        is_minor:
+          type: boolean
+          description: >-
+            Under 18. Shift compliance applies the stricter JArbSchG limits (no
+            work before 06:00 or after 20:00, at most 8 hours per shift, no
+            weekend shifts) to everyone carrying this flag, and refuses shift
+            assignments that break them. Settable by HR only.
 
     OffboardEmployeeInput:
       type: object
@@ -38740,6 +39397,12 @@ components:
         annual_leave_days: { type: integer }
         manager_user_id: { type: string, format: uuid }
         start_date: { type: string, format: date }
+        is_minor:
+          type: boolean
+          description: >-
+            Omit to leave the flag untouched; send false to clear it. Not part
+            of UpdateSelfProfileInput — an employee must not be able to clear
+            it on themselves.
 
     UpdateSelfProfileInput:
       type: object
@@ -39217,6 +39880,20 @@ components:
           workStartHour: 8
           payroll.beraterNr: "12345"
           payroll.mandantNr: "67890"
+
+    PutUserPreferencesRequest:
+      type: object
+      description: >
+        Full-replace semantics — the given keys become the caller's complete
+        preference set. Only language, theme and region are accepted; any
+        other key is rejected with 400.
+      properties:
+        preferences:
+          type: object
+          additionalProperties: true
+          description: 'Subset of {language, theme, region}. Example: {"language": "de", "theme": "dark"}'
+      required: [preferences]
+
     ResolvedLabel:
       type: object
       properties:
@@ -40614,6 +41291,33 @@ components:
     # -----------------------------------------------------------------------
     # Modul: vertraege
     # -----------------------------------------------------------------------
+
+    VertraegeContractEvent:
+      type: object
+      description: One entry of a contract's append-only audit trail.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [created, updated, terminated, signed, party_added, party_removed]
+        user_id:
+          type: string
+          format: uuid
+          description: "Absent when the change had no caller (reminder worker, auto-expiry) or the acting account was deleted"
+        payload:
+          type: object
+          additionalProperties: true
+          description: "Per-action facts, no fixed schema: {\"fields\":[...]} for an update, {\"party_id\":...} for a party change"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
 
     VertraegeContract:
       type: object
@@ -42280,6 +42984,72 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    InventarPickingList:
+      type: object
+      description: A picking list — what has to be pulled from stock for one order.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        reference:
+          type: string
+          description: "Order or delivery note reference this pick belongs to"
+        status:
+          type: string
+          enum: [open, picking, completed]
+          description: "completed means the picked quantities were booked out of stock"
+        assigned_to:
+          type: string
+          format: uuid
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        items:
+          type: array
+          description: "Positions of this picking list"
+          items: { $ref: "#/components/schemas/InventarPickingListItem" }
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarPickingListItem:
+      type: object
+      description: One position of a picking list.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        picking_list_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        quantity_requested:
+          type: integer
+          format: int64
+        quantity_picked:
+          type: integer
+          format: int64
+          description: "Actually pulled quantity; this is what booking moves out of stock"
+        location:
+          type: string
+          nullable: true
+          description: "Free-text pick location hint (bin, shelf)"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
     InventarInventurSession:
       type: object
       description: An Inventur (physical stocktake) session.
@@ -42451,10 +43221,29 @@ components:
         performed_by:
           type: string
           format: uuid
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/VermietungChecklistItem"
+        signature_data:
+          type: string
+          description: "data:image/png;base64,... or data:image/svg+xml;base64,... — absent when unsigned"
         created_at:
           $ref: "#/components/schemas/ProtoTimestamp"
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+
+    VermietungChecklistItem:
+      type: object
+      description: One structured position of an inspection's condition checklist.
+      required: [label]
+      properties:
+        label:
+          type: string
+        condition:
+          type: string
+        remark:
+          type: string
 
     VermietungCalendarEntry:
       type: object
@@ -43377,6 +44166,44 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    FuhrparkVehicleBooking:
+      type: object
+      description: A pool vehicle reservation (proto VehicleBooking).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: The user the vehicle is reserved for.
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        purpose:
+          type: string
+        status:
+          type: string
+          enum: [booked, in_use, completed, cancelled]
+        created_by:
+          type: string
+          description: Empty when the booking has no known creator.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
     FuhrparkTripLog:
       type: object
       description: A vehicle trip (Fahrtenbuch) entry (proto TripLog).
@@ -43413,6 +44240,9 @@ components:
           type: boolean
         driver_name:
           type: string
+        business_partner:
+          type: string
+          description: "Geschaeftspartner (Fahrtenbuch Pflichtangabe)"
         notes:
           type: string
         created_at:
@@ -43800,6 +44630,25 @@ components:
           format: double
         module_id:
           type: string
+        series:
+          type: array
+          description: >-
+            Last up to eight calendar-month periods, oldest first. Omitted (not an
+            empty array) for KPIs with no historical state, e.g. stock warnings,
+            whose rows are mutated in place.
+          items:
+            $ref: "#/components/schemas/BerichtKPISeriesPoint"
+
+    BerichtKPISeriesPoint:
+      type: object
+      description: One point of a BerichtKPI's history, for dashboard sparklines.
+      properties:
+        period_start:
+          type: string
+          format: date-time
+        value:
+          type: string
+          description: Rendered value, same convention as BerichtKPI.value
 
     # === openapi-drift sweep: documents ===
     DocumentFolder:
@@ -46220,6 +47069,27 @@ components:
         merge_by_email:
           type: string
           enum: ["true", "false"]
+
+    ContactsImportXLSXForm:
+      type: object
+      required: [file]
+      description: >-
+        multipart/form-data. Additional dynamic fields named map_<column>
+        (form value = target CRM field name) configure the worksheet-column-
+        to-CRM-field mapping; not enumerable as a fixed schema property.
+      properties:
+        file:
+          type: string
+          format: binary
+          description: XLSX workbook to import
+        visibility:
+          type: string
+          enum: [shared, personal]
+          default: shared
+        merge_by_email:
+          type: string
+          enum: ["true", "false"]
+          description: Merge with existing contacts sharing the same email
 
     ContactsPreviewImportForm:
       type: object

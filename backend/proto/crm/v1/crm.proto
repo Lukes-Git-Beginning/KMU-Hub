@@ -31,6 +31,7 @@ service CRMService {
   // Contact Import/Export (Phase 10)
   rpc ImportContactsCSV(ImportContactsCSVRequest) returns (ImportContactsResponse);
   rpc ImportContactsVCard(ImportContactsVCardRequest) returns (ImportContactsResponse);
+  rpc ImportContactsXLSX(ImportContactsXLSXRequest) returns (ImportContactsResponse);
   rpc ExportContactsCSV(ExportContactsCSVRequest) returns (ExportContactsResponse);
   rpc ExportContactsVCard(ExportContactsVCardRequest) returns (ExportContactsResponse);
   rpc PreviewImportCSV(PreviewImportCSVRequest) returns (PreviewImportCSVResponse);
@@ -115,6 +116,7 @@ service CRMService {
   rpc CreateLead(CreateLeadRequest) returns (CreateLeadResponse);
   rpc UpdateLead(UpdateLeadRequest) returns (UpdateLeadResponse);
   rpc ConvertLead(ConvertLeadRequest) returns (ConvertLeadResponse);
+  rpc PromoteContactToLead(PromoteContactToLeadRequest) returns (PromoteContactToLeadResponse);
 }
 
 // ============================================================================
@@ -375,6 +377,14 @@ message ImportContactsVCardRequest {
   string visibility = 2;
   bool merge_by_email = 3;
   string user_id = 4;
+}
+
+message ImportContactsXLSXRequest {
+  bytes file_content = 1;
+  map<string, string> field_mapping = 2;  // worksheet column -> CRM field
+  string visibility = 3;                  // "shared" or "personal"
+  bool merge_by_email = 4;
+  string user_id = 5;
 }
 
 message ImportContactsResponse {
@@ -1308,5 +1318,18 @@ message ConvertLeadRequest {
 }
 
 message ConvertLeadResponse {
+  LeadInfo lead = 1;
+}
+
+// PromoteContactToLead lifts a contact into the lead funnel when a dialer
+// call outcome carries a callback request. It never moves a contact
+// backwards: a contact already at "qualified" or "customer" is returned
+// unchanged. Called service-to-service by the dialer, never over the HTTP
+// gateway.
+message PromoteContactToLeadRequest {
+  string contact_id = 1;
+}
+
+message PromoteContactToLeadResponse {
   LeadInfo lead = 1;
 }

@@ -82,6 +82,8 @@ func TestEvaluateEventTypePreference(t *testing.T) {
 			EventTypeKey: &eventKey,
 			InApp:        true,
 			DesktopPush:  false,
+			Email:        false,
+			SMS:          true,
 			Sound:        "subtle",
 		},
 	}
@@ -91,6 +93,8 @@ func TestEvaluateEventTypePreference(t *testing.T) {
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
 	assert.False(t, decision.DesktopPush)
+	assert.False(t, decision.Email)
+	assert.True(t, decision.SMS)
 	assert.Equal(t, "subtle", decision.Sound)
 }
 
@@ -142,6 +146,8 @@ func TestEvaluateSystemDefaultWhenNoPrefs(t *testing.T) {
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
 	assert.True(t, decision.DesktopPush)
+	assert.True(t, decision.Email)
+	assert.False(t, decision.SMS)
 	assert.Equal(t, "default", decision.Sound)
 	assert.Equal(t, "system default", decision.Reason)
 }
@@ -213,6 +219,71 @@ func TestEvaluateAllChannelsDisabled(t *testing.T) {
 			EventTypeKey: &eventKey,
 			InApp:        false,
 			DesktopPush:  false,
+			Sound:        "",
+		},
+	}
+
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
+	require.NoError(t, err)
+	assert.False(t, decision.Deliver)
+	assert.Contains(t, decision.Reason, "all delivery channels disabled")
+}
+
+func TestEvaluateEmailOnlyChannelStillDelivers(t *testing.T) {
+	repo := newMockPrefRepo()
+	svc := NewService(repo)
+
+	userID := uuid.New()
+	eventKey := "chat.channel.message"
+	event := models.EventPayload{
+		Type:     eventKey,
+		Priority: models.PriorityNormal,
+		ModuleID: "chat",
+	}
+
+	// User turned off in_app and desktop_push but kept email on -- the
+	// notification must still be marked deliverable so a future email
+	// callback is not silently suppressed by this decision.
+	repo.prefs = []models.NotificationPreference{
+		{
+			UserID:       userID,
+			EventTypeKey: &eventKey,
+			InApp:        false,
+			DesktopPush:  false,
+			Email:        true,
+			SMS:          false,
+			Sound:        "",
+		},
+	}
+
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
+	require.NoError(t, err)
+	assert.True(t, decision.Deliver)
+	assert.True(t, decision.Email)
+}
+
+func TestEvaluateAllChannelsIncludingEmailSMSDisabled(t *testing.T) {
+	repo := newMockPrefRepo()
+	svc := NewService(repo)
+
+	userID := uuid.New()
+	eventKey := "chat.channel.message"
+	event := models.EventPayload{
+		Type:     eventKey,
+		Priority: models.PriorityNormal,
+		ModuleID: "chat",
+	}
+
+	// Only email/sms explicitly set true would previously have been ignored --
+	// disabling every channel including the new ones must still suppress delivery.
+	repo.prefs = []models.NotificationPreference{
+		{
+			UserID:       userID,
+			EventTypeKey: &eventKey,
+			InApp:        false,
+			DesktopPush:  false,
+			Email:        false,
+			SMS:          false,
 			Sound:        "",
 		},
 	}

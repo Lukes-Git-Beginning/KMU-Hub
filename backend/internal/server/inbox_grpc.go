@@ -108,7 +108,7 @@ func (s *InboxGRPCServer) ListMessages(ctx context.Context, req *inboxv1.ListMes
 		return nil, mapInboxError(err)
 	}
 
-	var infos []*inboxv1.InboxMessageInfo
+	infos := make([]*inboxv1.InboxMessageInfo, 0, len(msgs))
 	for _, m := range msgs {
 		infos = append(infos, toInboxMessageInfo(m))
 	}
@@ -642,7 +642,7 @@ func (s *InboxGRPCServer) GetUnreadCount(ctx context.Context, req *inboxv1.GetUn
 	}
 
 	var total int32
-	var byChannel []*inboxv1.UnreadCountByChannel
+	byChannel := make([]*inboxv1.UnreadCountByChannel, 0, len(counts))
 	for _, c := range counts {
 		total += int32(c.Count)
 		byChannel = append(byChannel, &inboxv1.UnreadCountByChannel{
@@ -825,7 +825,7 @@ func (s *InboxGRPCServer) ListTeamInboxes(ctx context.Context, req *inboxv1.List
 		return nil, mapInboxError(err)
 	}
 
-	var infos []*inboxv1.TeamInboxInfo
+	infos := make([]*inboxv1.TeamInboxInfo, 0, len(inboxes))
 	for _, ib := range inboxes {
 		infos = append(infos, toTeamInboxInfo(ib))
 	}
@@ -890,7 +890,7 @@ func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.List
 		return nil, mapInboxError(err)
 	}
 
-	var infos []*inboxv1.TeamMemberInfo
+	infos := make([]*inboxv1.TeamMemberInfo, 0, len(members))
 	for _, m := range members {
 		infos = append(infos, toTeamMemberInfo(m))
 	}
@@ -1072,7 +1072,7 @@ func (s *InboxGRPCServer) ListRoutingRules(ctx context.Context, req *inboxv1.Lis
 		return nil, mapInboxError(err)
 	}
 
-	var infos []*inboxv1.RoutingRuleInfo
+	infos := make([]*inboxv1.RoutingRuleInfo, 0, len(rules))
 	for _, r := range rules {
 		infos = append(infos, toRoutingRuleInfo(r))
 	}

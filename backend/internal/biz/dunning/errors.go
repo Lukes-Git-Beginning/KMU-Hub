@@ -11,4 +11,10 @@ var (
 	ErrDunningMaxLevel = errors.New("maximum dunning level (3) already reached for this invoice")
 	// ErrConfigNotFound is returned when no dunning configuration exists.
 	ErrConfigNotFound = errors.New("dunning configuration not found")
+	// ErrCompanySettingsMissing is returned by emailNotice when the tenant has no
+	// company settings row, so the dunning PDF cannot be rendered. This is a
+	// configuration gap, not a delivery failure: sendAndNotify treats it as
+	// non-fatal (status still flips to sent, the miss is logged) while a genuine
+	// SMTP/PDF error stays fail-closed.
+	ErrCompanySettingsMissing = errors.New("no company settings configured for tenant")
 )

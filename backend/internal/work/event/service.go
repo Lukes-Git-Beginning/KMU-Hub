@@ -523,6 +523,15 @@ func (s *Service) ListReminders(ctx context.Context, eventID uuid.UUID) ([]model
 	return s.repo.ListReminders(ctx, eventID)
 }
 
+// ListExceptions lists the per-occurrence exceptions (cancellations and
+// overrides) of a recurring event inside a window. Exposed on the service so
+// other domains that expand this event's series -- the meeting service, which
+// reads the series a meeting is linked to -- can honour the same exceptions
+// ListEventsInRange applies, instead of reaching for the repository.
+func (s *Service) ListExceptions(ctx context.Context, eventID uuid.UUID, start, end time.Time) ([]models.EventException, error) {
+	return s.repo.ListExceptions(ctx, eventID, start, end)
+}
+
 // ListEventsInRange returns all events (expanded recurring + non-recurring) in a time window
 func (s *Service) ListEventsInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID, tenantID uuid.UUID) ([]models.ExpandedEvent, error) {
 	// Get non-recurring events from repo

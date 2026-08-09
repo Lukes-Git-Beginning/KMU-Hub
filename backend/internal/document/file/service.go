@@ -781,6 +781,31 @@ func (s *Service) GetDownloadURL(ctx context.Context, fileID uuid.UUID, tenantID
 	return s.store.GetPresignedURL(ctx, file.StorageKey, 1*time.Hour)
 }
 
+// GetVersionDownloadURL returns a presigned URL for a specific past version of
+// a file (1-hour expiry). Filename and content type come from the file record,
+// not the version — both are file-level properties that a version's content
+// doesn't change.
+func (s *Service) GetVersionDownloadURL(ctx context.Context, fileID, versionID, tenantID uuid.UUID) (url, filename, contentType string, fileSize int64, err error) {
+	f, err := s.repo.GetByID(ctx, fileID, tenantID)
+	if err != nil {
+		return "", "", "", 0, err
+	}
+	if f.IsDeleted {
+		return "", "", "", 0, ErrFileDeleted
+	}
+
+	v, err := s.repo.GetVersionByID(ctx, fileID, versionID, tenantID)
+	if err != nil {
+		return "", "", "", 0, err
+	}
+
+	url, err = s.store.GetPresignedURL(ctx, v.StorageKey, 1*time.Hour)
+	if err != nil {
+		return "", "", "", 0, err
+	}
+	return url, f.Filename, f.MimeType, v.FileSize, nil
+}
+
 // VersionInput contains the data needed to create a new file version.
 type VersionInput struct {
 	Reader   io.Reader

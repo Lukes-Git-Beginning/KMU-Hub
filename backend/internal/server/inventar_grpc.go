@@ -791,6 +791,206 @@ func (s *InventarGRPCServer) BookInventurDifferences(ctx context.Context, req *i
 }
 
 // ============================================================================
+// Picking List RPCs
+// ============================================================================
+
+func (s *InventarGRPCServer) CreatePickingList(ctx context.Context, req *inventarv1.CreatePickingListRequest) (*inventarv1.PickingListResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	input := inventar.CreatePickingListInput{
+		TenantID:  tenantID,
+		Reference: req.GetReference(),
+	}
+	if req.AssignedTo != nil {
+		id, parseErr := uuid.Parse(*req.AssignedTo)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid assigned_to: %v", parseErr)
+		}
+		input.AssignedTo = &id
+	}
+	if req.CreatedBy != nil {
+		id, parseErr := uuid.Parse(*req.CreatedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+	for _, raw := range req.GetItems() {
+		itemID, parseErr := uuid.Parse(raw.GetItemId())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid item_id %q: %v", raw.GetItemId(), parseErr)
+		}
+		input.Items = append(input.Items, inventar.PickingListItemInput{
+			ItemID:            itemID,
+			QuantityRequested: raw.GetQuantityRequested(),
+			QuantityPicked:    raw.GetQuantityPicked(),
+			Location:          raw.Location,
+		})
+	}
+	list, err := s.svc.CreatePickingList(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.PickingListResponse{PickingList: pickingListToProto(list)}, nil
+}
+
+func (s *InventarGRPCServer) GetPickingList(ctx context.Context, req *inventarv1.GetPickingListRequest) (*inventarv1.PickingListResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	listID, err := uuid.Parse(req.GetPickingListId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_id: %v", err)
+	}
+	list, err := s.svc.GetPickingList(ctx, tenantID, listID)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.PickingListResponse{PickingList: pickingListToProto(list)}, nil
+}
+
+func (s *InventarGRPCServer) UpdatePickingList(ctx context.Context, req *inventarv1.UpdatePickingListRequest) (*inventarv1.PickingListResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	listID, err := uuid.Parse(req.GetPickingListId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_id: %v", err)
+	}
+	input := inventar.UpdatePickingListInput{
+		TenantID:  tenantID,
+		ListID:    listID,
+		Reference: req.Reference,
+	}
+	if req.Status != nil {
+		st := inventar.PickingStatus(*req.Status)
+		input.Status = &st
+	}
+	if req.AssignedTo != nil {
+		id, parseErr := uuid.Parse(*req.AssignedTo)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid assigned_to: %v", parseErr)
+		}
+		input.AssignedTo = &id
+	}
+	list, err := s.svc.UpdatePickingList(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.PickingListResponse{PickingList: pickingListToProto(list)}, nil
+}
+
+func (s *InventarGRPCServer) DeletePickingList(ctx context.Context, req *inventarv1.DeletePickingListRequest) (*inventarv1.DeletePickingListResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	listID, err := uuid.Parse(req.GetPickingListId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_id: %v", err)
+	}
+	if err := s.svc.DeletePickingList(ctx, tenantID, listID); err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.DeletePickingListResponse{}, nil
+}
+
+func (s *InventarGRPCServer) ListPickingLists(ctx context.Context, req *inventarv1.ListPickingListsRequest) (*inventarv1.ListPickingListsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	input := inventar.ListPickingListsInput{
+		TenantID: tenantID,
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	}
+	if req.Status != nil {
+		st := inventar.PickingStatus(*req.Status)
+		input.Status = &st
+	}
+	lists, total, err := s.svc.ListPickingLists(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	protoLists := make([]*inventarv1.PickingList, len(lists))
+	for i, l := range lists {
+		protoLists[i] = pickingListToProto(l)
+	}
+	return &inventarv1.ListPickingListsResponse{PickingLists: protoLists, Total: int32(total)}, nil
+}
+
+func (s *InventarGRPCServer) UpsertPickingListItem(ctx context.Context, req *inventarv1.UpsertPickingListItemRequest) (*inventarv1.PickingListItemResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	listID, err := uuid.Parse(req.GetPickingListId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_id: %v", err)
+	}
+	itemID, err := uuid.Parse(req.GetItemId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
+	}
+	row, err := s.svc.UpsertPickingListItem(ctx, inventar.UpsertPickingListItemInput{
+		TenantID:          tenantID,
+		ListID:            listID,
+		ItemID:            itemID,
+		QuantityRequested: req.GetQuantityRequested(),
+		QuantityPicked:    req.GetQuantityPicked(),
+		Location:          req.Location,
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.PickingListItemResponse{Item: pickingListItemToProto(row)}, nil
+}
+
+func (s *InventarGRPCServer) DeletePickingListItem(ctx context.Context, req *inventarv1.DeletePickingListItemRequest) (*inventarv1.DeletePickingListItemResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	rowID, err := uuid.Parse(req.GetPickingListItemId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_item_id: %v", err)
+	}
+	if err := s.svc.DeletePickingListItem(ctx, tenantID, rowID); err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.DeletePickingListItemResponse{}, nil
+}
+
+func (s *InventarGRPCServer) BookPickingList(ctx context.Context, req *inventarv1.BookPickingListRequest) (*inventarv1.PickingListResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	listID, err := uuid.Parse(req.GetPickingListId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid picking_list_id: %v", err)
+	}
+	input := inventar.BookPickingListInput{TenantID: tenantID, ListID: listID}
+	if req.BookedBy != nil {
+		id, parseErr := uuid.Parse(*req.BookedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid booked_by: %v", parseErr)
+		}
+		input.BookedBy = &id
+	}
+	list, err := s.svc.BookPickingList(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.PickingListResponse{PickingList: pickingListToProto(list)}, nil
+}
+
+// ============================================================================
 // Item Attachment RPCs
 // ============================================================================
 
@@ -1011,6 +1211,50 @@ func inventurSessionToProto(sess *inventar.InventurSession) *inventarv1.Inventur
 	return proto
 }
 
+func pickingListItemToProto(it *inventar.PickingListItem) *inventarv1.PickingListItem {
+	if it == nil {
+		return nil
+	}
+	return &inventarv1.PickingListItem{
+		Id:                it.ID.String(),
+		TenantId:          it.TenantID.String(),
+		PickingListId:     it.PickingListID.String(),
+		ItemId:            it.ItemID.String(),
+		QuantityRequested: it.QuantityRequested,
+		QuantityPicked:    it.QuantityPicked,
+		Location:          it.Location,
+		CreatedAt:         timestamppb.New(it.CreatedAt),
+		UpdatedAt:         timestamppb.New(it.UpdatedAt),
+	}
+}
+
+func pickingListToProto(list *inventar.PickingList) *inventarv1.PickingList {
+	if list == nil {
+		return nil
+	}
+	proto := &inventarv1.PickingList{
+		Id:        list.ID.String(),
+		TenantId:  list.TenantID.String(),
+		Reference: list.Reference,
+		Status:    string(list.Status),
+		Items:     []*inventarv1.PickingListItem{},
+		CreatedAt: timestamppb.New(list.CreatedAt),
+		UpdatedAt: timestamppb.New(list.UpdatedAt),
+	}
+	if list.AssignedTo != nil {
+		s := list.AssignedTo.String()
+		proto.AssignedTo = &s
+	}
+	if list.CreatedBy != nil {
+		s := list.CreatedBy.String()
+		proto.CreatedBy = &s
+	}
+	for i := range list.Items {
+		proto.Items = append(proto.Items, pickingListItemToProto(&list.Items[i]))
+	}
+	return proto
+}
+
 // ============================================================================
 // Error mapping
 // ============================================================================
@@ -1034,7 +1278,18 @@ func mapInventarError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, inventar.ErrAttachmentNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrPickingListNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrPickingListItemNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, inventar.ErrInventurAlreadyCompleted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, inventar.ErrPickingListAlreadyBooked):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	// Insufficient stock used to fall through to Internal (HTTP 500) — it is a
+	// caller-visible precondition, not a server fault, and booking a picking
+	// list is the first path that returns it routinely.
+	case errors.Is(err, inventar.ErrInsufficientStock):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, inventar.ErrSKUTaken):
 		return status.Error(codes.AlreadyExists, err.Error())

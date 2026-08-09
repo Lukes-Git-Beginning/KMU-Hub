@@ -71,6 +71,8 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 				r.With(orderStart).Post("/start", pr.HandleStartOrder)
 				r.With(orderComplete).Post("/complete", pr.HandleCompleteOrder)
 				r.With(orderCancel).Post("/cancel", pr.HandleCancelOrder)
+
+				r.With(middleware.RequirePermission("produktion:order", "read")).Get("/material-availability", pr.HandleGetMaterialAvailability)
 			})
 
 			// Work Steps (per order) — see route_produktion_ext.go
@@ -110,13 +112,14 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 // ============================================================================
 
 type createOrderRequest struct {
-	OrderNumber  string `json:"order_number"   validate:"required"`
-	ProductName  string `json:"product_name"   validate:"required"`
-	Quantity     int    `json:"quantity"       validate:"gt=0"`
-	PlannedStart string `json:"planned_start"  validate:"required"` // RFC3339
-	PlannedEnd   string `json:"planned_end"    validate:"required"` // RFC3339
-	Priority     int    `json:"priority"`
-	Notes        string `json:"notes,omitempty"`
+	OrderNumber  string  `json:"order_number"   validate:"required"`
+	ProductName  string  `json:"product_name"   validate:"required"`
+	Quantity     int     `json:"quantity"       validate:"gt=0"`
+	PlannedStart string  `json:"planned_start"  validate:"required"` // RFC3339
+	PlannedEnd   string  `json:"planned_end"    validate:"required"` // RFC3339
+	Priority     int     `json:"priority"`
+	Notes        string  `json:"notes,omitempty"`
+	BomID        *string `json:"bom_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateOrderRequest struct {
@@ -126,6 +129,7 @@ type updateOrderRequest struct {
 	PlannedEnd   *string `json:"planned_end,omitempty"`
 	Priority     *int    `json:"priority,omitempty"`
 	Notes        *string `json:"notes,omitempty"`
+	BomID        *string `json:"bom_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type createBookingRequest struct {
@@ -255,6 +259,7 @@ func (pr *ProduktionRoutes) HandleCreateOrder(w http.ResponseWriter, r *http.Req
 		Priority:     int32(req.Priority),
 		Notes:        req.Notes,
 		CreatedBy:    &userID,
+		BomId:        req.BomID,
 	}
 
 	resp, err := client.CreateOrder(r.Context(), grpcReq)
@@ -340,6 +345,9 @@ func (pr *ProduktionRoutes) HandleUpdateOrder(w http.ResponseWriter, r *http.Req
 		if t, parseErr := time.Parse(time.RFC3339, *req.PlannedEnd); parseErr == nil {
 			grpcReq.PlannedEnd = timestamppb.New(t)
 		}
+	}
+	if req.BomID != nil {
+		grpcReq.BomId = req.BomID
 	}
 
 	resp, err := client.UpdateOrder(r.Context(), grpcReq)
@@ -446,6 +454,32 @@ func (pr *ProduktionRoutes) HandleCancelOrder(w http.ResponseWriter, r *http.Req
 		return
 	}
 	resp, err := client.CancelOrder(r.Context(), &produktionv1.OrderActionRequest{
+		TenantId: tenantID.String(),
+		OrderId:  id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (pr *ProduktionRoutes) HandleGetMaterialAvailability(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := pr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, pr.ServiceName())
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	resp, err := client.GetMaterialAvailability(r.Context(), &produktionv1.GetMaterialAvailabilityRequest{
 		TenantId: tenantID.String(),
 		OrderId:  id,
 	})

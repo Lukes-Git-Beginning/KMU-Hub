@@ -48,6 +48,9 @@ type UpdateEmployeeInput struct {
 	AnnualLeaveDays *int
 	ManagerUserID   *uuid.UUID
 	StartDate       *time.Time
+	// IsMinor drives the JArbSchG limits in the shift compliance check, so it
+	// is an HR field — an employee must not be able to clear it on themselves.
+	IsMinor *bool
 
 	// Self-service fields (employee can update)
 	EmergencyContactName  *string
@@ -86,6 +89,7 @@ type CreateEmployeeInput struct {
 	AddressCity           string
 	AddressPostalCode     string
 	AddressCountry        string
+	IsMinor               bool
 }
 
 // UploadDocumentInput contains the data needed to link an HR document.
@@ -167,6 +171,7 @@ func (s *Service) CreateEmployee(ctx context.Context, input CreateEmployeeInput)
 		AddressCity:           input.AddressCity,
 		AddressPostalCode:     input.AddressPostalCode,
 		AddressCountry:        input.AddressCountry,
+		IsMinor:               input.IsMinor,
 		CreatedAt:             now,
 		UpdatedAt:             now,
 	}
@@ -222,6 +227,9 @@ func (s *Service) UpdateEmployee(ctx context.Context, id uuid.UUID, input Update
 	}
 	if input.StartDate != nil {
 		profile.StartDate = *input.StartDate
+	}
+	if input.IsMinor != nil {
+		profile.IsMinor = *input.IsMinor
 	}
 	if input.EmergencyContactName != nil {
 		profile.EmergencyContactName = *input.EmergencyContactName
@@ -546,5 +554,6 @@ func hasRestrictedFields(input UpdateEmployeeInput) bool {
 		input.WorkDaysPerWeek != nil ||
 		input.AnnualLeaveDays != nil ||
 		input.ManagerUserID != nil ||
-		input.StartDate != nil
+		input.StartDate != nil ||
+		input.IsMinor != nil
 }

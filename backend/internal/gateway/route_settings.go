@@ -104,6 +104,12 @@ func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequirePermission("settings", "read")).Get("/user", sr.HandleGetUserSettings)
 		r.With(middleware.RequirePermission("settings", "write")).Put("/user", sr.HandlePutUserSettings)
 	})
+
+	r.Route("/api/v1/users/preferences", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("settings", "read")).Get("/", sr.HandleGetUserPreferences)
+		r.With(middleware.RequirePermission("settings", "write")).Put("/", sr.HandlePutUserPreferences)
+	})
 }
 
 // ============================================================================
@@ -618,6 +624,119 @@ func (sr *SettingsRoutes) HandlePutUserSettings(w http.ResponseWriter, r *http.R
 		TenantId: tenantID.String(),
 		UserId:   userID,
 		ModuleId: moduleID,
+		Entries:  entries,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// User preferences handlers
+// ============================================================================
+//
+// GET/PUT /api/v1/users/preferences is a thin, fixed-key wrapper around the
+// existing user_settings table (migration 000138) — no dedicated table, no
+// new endpoint family. It differs from GET/PUT /settings/{module_id}/user in
+// two ways: it is scoped to the fixed module_id "profile", and it rejects
+// unknown keys instead of accepting arbitrary JSONB.
+
+// userPreferencesModuleID is the fixed module_id user_settings rows are
+// stored under for this endpoint.
+const userPreferencesModuleID = "profile"
+
+// userPreferenceKeys is the allowlist for PUT /users/preferences.
+var userPreferenceKeys = map[string]bool{
+	"language": true,
+	"theme":    true,
+	"region":   true,
+}
+
+// HandleGetUserPreferences returns the caller's user-wide preferences
+// (language/theme/region), stored under module_id "profile".
+func (sr *SettingsRoutes) HandleGetUserPreferences(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := client.GetUserSettings(r.Context(), &settingsv1.GetUserSettingsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+		ModuleId: userPreferencesModuleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// putUserPreferencesRequest is the HTTP body for PUT /users/preferences.
+// Full-replace semantics: whatever keys are present become the caller's
+// complete preference set — a previously stored key absent here is deleted,
+// not left untouched (unlike PUT /settings/{module_id}/user).
+type putUserPreferencesRequest struct {
+	Preferences map[string]json.RawMessage `json:"preferences" validate:"required"`
+}
+
+// HandlePutUserPreferences replaces the caller's user-wide preferences.
+// Any user_id present in the body is ignored — the target is always the
+// caller from the auth context, never a body-supplied value.
+func (sr *SettingsRoutes) HandlePutUserPreferences(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	req, ok := decodeAndValidate[putUserPreferencesRequest](w, r)
+	if !ok {
+		return
+	}
+
+	for key := range req.Preferences {
+		if !userPreferenceKeys[key] {
+			response.Error(w, http.StatusBadRequest, "unknown preference key: "+key)
+			return
+		}
+	}
+
+	entries, err := rawMapToSettingEntries(req.Preferences)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid preference value: "+err.Error())
+		return
+	}
+
+	resp, err := client.ReplaceUserSettings(r.Context(), &settingsv1.ReplaceUserSettingsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+		ModuleId: userPreferencesModuleID,
 		Entries:  entries,
 	})
 	if err != nil {

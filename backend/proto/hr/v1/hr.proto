@@ -241,6 +241,9 @@ message EmployeeProfile {
   string exit_date = 23;             // YYYY-MM-DD
   string exit_type = 24;
   string exit_reason = 25;
+  // Under 18. Drives the stricter JArbSchG limits in the shift compliance
+  // check (no night work, max 8 hours a day, no weekend shifts).
+  bool is_minor = 26;
 }
 
 message HRDocumentCategory {
@@ -618,6 +621,10 @@ message UpdateEmployeeReq {
   int32 annual_leave_days = 7;
   string manager_user_id = 8;
   string start_date = 9;               // YYYY-MM-DD
+  // optional, because a plain bool cannot tell "set to false" apart from
+  // "not part of this update" — every other field here uses its zero value
+  // for the latter.
+  optional bool is_minor = 10;
 }
 
 message UpdateEmployeeResp {
@@ -763,6 +770,7 @@ message CreateEmployeeReq {
   string address_city = 13;
   string address_postal_code = 14;
   string address_country = 15;
+  bool is_minor = 16;
 }
 
 message CreateEmployeeResp {
