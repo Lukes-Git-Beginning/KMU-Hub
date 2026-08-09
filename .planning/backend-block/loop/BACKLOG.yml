@@ -542,7 +542,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_work_projects.go` - 591 Zeilen, 19 Handler, keine Testdatei.
     sources:

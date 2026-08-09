@@ -795,3 +795,51 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: `fix-notification-markallread-empty-body-rejected` im Backlog fuer Lauf 8 angelegt
   (echter Produktionsbug, kein Test-Diff). Fremde-Nutzerkennung- und Antwortform-Punkte aus dem
   Backlog-`done_when` sind erfuellt, kein weiterer Fund offen fuer diese Datei.
+
+## Iteration 12 — b-cov-gateway-work-projects — done — 2026-08-09 21:15
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_work_projects_test.go` fuer `route_work_projects.go` (19 Handler).
+  `HandleCreateProject`/`HandleGetProject`/`HandleListProjects` hatten ueber `route_work_test.go`
+  bereits einen Baseline-Grundstock (ServiceUnavailable, NoUserID, InvalidJSON, MissingFields,
+  InvalidUUID) - dort nichts gedoppelt, nur die fehlenden Pfade ergaenzt (ValidRequestReachesRPC
+  je Handler). Alle 19 Handler liegen laut `go tool cover -func` zwischen 90,0 % und 95,7 % -
+  keiner unter 90 %. Vorlagenfilter `templates_only` in `TestHandleListProjects_FilterCombinations`
+  in beiden Stellungen (true/false) getestet, zusammen mit include_archived/search/pagination/
+  Kombinationen. `HandleDeleteProject` (neuester Handler der Datei, laut Backlog-Notiz noch ohne
+  Test) bekam drei eigene Faelle: ServiceUnavailable, InvalidUUID, und eine wohlgeformte aber
+  nicht-existente UUID die die RPC-Ebene erreicht (503) - echtes NotFound-Mapping kann diese Datei
+  strukturell nicht beweisen, da kein Fake-`WorkServiceClient`/bufconn-Stub im Paket existiert
+  (wie in jeder vorigen Gateway-Unit dieses Laufs), das Grepping dazu erneut bestaetigt (0 Treffer
+  `bufconn` in `backend/`). Restliche Handler nach demselben Muster: je ein Validierungspfad wo
+  vorhanden (`decodeAndValidate`-Pflichtfelder, `oneof`-Rollen bei Members, `dive,uuid` bei
+  Statuses-Reorder inkl. Element-Index `status_ids[0]`), sonst ReachesRPC.
+- befund fehlende-id-validierung: 10 von 19 Handlern lesen ihre Pfad-ID(s) direkt per
+  `chi.URLParam(r, "id")` (bzw. `"userId"`) OHNE `validateUUIDParam` -
+  `HandleRemoveProjectMember`, `HandleListProjectMembers`, `HandleUpdateProjectMemberRole`,
+  `HandleSaveProjectAsTemplate`, `HandleCreateProjectStatus`, `HandleUpdateProjectStatus`,
+  `HandleDeleteProjectStatus`, `HandleReorderProjectStatuses`, `HandleListProjectStatuses`,
+  `HandleGetUserProjectPreference`, `HandleSetUserProjectPreference` (11 gezaehlt, korrigiert).
+  Nur `HandleGetProject`, `HandleUpdateProject`, `HandleArchiveProject`, `HandleDeleteProject` und
+  `HandleAddProjectMember` validieren ihre `id` vor dem RPC-Aufruf. Die restlichen reichen eine
+  beliebige Zeichenkette unveraendert an den gRPC-Client durch - kein 400 an der Gateway-Grenze,
+  die Validierung faellt komplett auf den Service zurueck. Kein Datenverlust- oder RLS-Risiko
+  (der Service validiert ohnehin serverseitig), aber inkonsistent zum Rest der Datei und zur
+  in `CLAUDE.md` festgehaltenen "Input-Validierung an der Grenze"-Regel. NICHT gefixt (Aenderung
+  an neun weiteren Handlern ist kein Coverage-Diff mehr) - keine eigene Backlog-Unit angelegt, da
+  der Service-Layer die Luecke bereits abfaengt und kein beobachtbarer Bug vorliegt, nur eine
+  Stil-Abweichung; im Journal dokumentiert falls spaeter jemand die Konsistenz herstellen will.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`, 0 issues)
+  | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt, durchgehend gruen,
+  0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `876c9649` (b-cov-gateway-notification) geprueft: `git show --stat`
+  zeigt nur `route_notification_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required,min=1,dive,uuid"` auf `StatusIDs` in
+  `reorderStatusesRequest` (route_work_projects.go:470) zu `validate:"dive,uuid"` verkuerzt (Pflicht
+  entfernt) → `TestHandleReorderProjectStatuses_EmptyIDs` wurde rot (503 statt 400/
+  "validation_failed"/Feld "status_ids"). Zurueckgedreht, `git diff --stat` auf die
+  Produktionsdatei zeigt keine Restaenderung, volle Suite danach dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: kein neuer Fund fuer Lauf 8 - der Id-Validierungs-Befund ist dokumentiert, aber bewusst
+  ohne Folge-Unit, siehe oben.
