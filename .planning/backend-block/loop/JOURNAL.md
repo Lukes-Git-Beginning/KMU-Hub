@@ -315,7 +315,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   im urspruenglichen Fund vermerkt) — der Fix behebt den Bug unabhaengig davon.
 
 ## Iteration 5 — c-cov-biz-recurring — done — 2026-08-09 20:02
-- commit: (siehe unten)
+- commit: b965ba93
 - gebaut: `internal/biz/recurring` Coverage von 52,4 % auf 88,1 % (Ziel >85 % erreicht).
   Zwei Bloecke: (1) `service_test.go` um 21 neue Tests erweitert — schliesst
   `Get`/`List`/`Delete`/`IsNotFound` (waren 0 %), `SetStatus` unbekannter Status
