@@ -71,7 +71,7 @@ import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } f
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields, useEditorFocusEffect, useEditorContextReport, useFieldOptions, useModuleColumnLayout, orderColumns, columnWidthStyle } from '@/components/customization/EditorSurface'
 import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
 import { useFormSchema } from '@/api/hooks/useFormulare'
 import type { FormField } from '@/api/formulare-types'
@@ -388,6 +388,14 @@ export default function HelpdeskPage() {
     spalten: () => { setSelectedTicketId(null); setTab('tickets') },
     'kanäle': () => { setSelectedTicketId(null); setTab('tickets') },
   })
+
+  // …and the way back (Darien 2026-08-06): clicking the Statistik tab in the preview
+  // moves the rail and the properties panel with it. Only the two unambiguous places
+  // report — the plain ticket list is where Begriffe, Wertelisten, Bereiche AND
+  // Spalten are all judged, so it reports nothing and leaves the rail alone.
+  useEditorContextReport(
+    tab === 'statistik' ? 'statistik' : selectedTicketId ? 'felder' : null,
+  )
 
   const filteredTickets = useMemo(() => {
     return baseTickets.filter((t) => {

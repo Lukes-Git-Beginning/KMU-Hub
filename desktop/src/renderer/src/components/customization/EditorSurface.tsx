@@ -62,6 +62,12 @@ export interface EditorSurfaceValue {
   focusSection: EditorFocusSection | null
   /** Bumped on every rail click, so re-selecting the same section re-focuses the preview. */
   focusNonce: number
+  /**
+   * The other direction: the module reports where the user now IS, so the rail and
+   * the properties panel follow the preview (see useEditorContextReport). No-op
+   * outside the sandbox.
+   */
+  reportContext: (section: EditorFocusSection | null) => void
 }
 
 const noop = (): void => {}
@@ -77,6 +83,7 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   customFields: {},
   focusSection: null,
   focusNonce: 0,
+  reportContext: noop,
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -430,10 +437,47 @@ export function useEditorFocusEffect(
   useEffect(() => {
     latest.current = handlers
   })
+  // Same for the section: the rail bumps `focusNonce` on EVERY click, so the nonce
+  // alone is the complete "the rail asked for something" signal. Depending on
+  // `focusSection` as well would misfire since useEditorContextReport (below) also
+  // moves it — a module reporting "I am on Felder now" would re-run the felder
+  // handler and yank the preview back to its first record.
+  const section = useRef(focusSection)
   useEffect(() => {
-    if (!editing || !focusSection) return
-    latest.current[focusSection]?.()
-  }, [editing, focusSection, focusNonce])
+    section.current = focusSection
+  })
+  useEffect(() => {
+    if (!editing || !section.current) return
+    latest.current[section.current]?.()
+  }, [editing, focusNonce])
+}
+
+/**
+ * The counterpart to useEditorFocusEffect (Darien 2026-08-06): the coupling used
+ * to be one-way — the rail moved the preview, but walking the module by hand left
+ * rail and properties panel behind ("wenn ich im Modul auf Statistik klicke,
+ * wechselt das Menü links und rechts nicht").
+ *
+ * A module reports the section that its CURRENT view is about:
+ *
+ *   useEditorContextReport(tab === 'statistik' ? 'statistik' : detailOpen ? 'felder' : null)
+ *
+ * Only report places that mean exactly one section. A plain list is home to
+ * Begriffe, Wertelisten, Bereiche AND Spalten at once → report `null` there, which
+ * leaves the rail alone (and only clears it if it was showing a place the user has
+ * now left). That rule is what keeps the two directions from fighting each other.
+ *
+ * No-op outside the sandbox — safe to leave in a live module.
+ */
+export function useEditorContextReport(section: EditorFocusSection | null): void {
+  const { editing, reportContext } = useEditorSurface()
+  // Report on change only — a module re-renders constantly, the rail must not.
+  const last = useRef<EditorFocusSection | null>(null)
+  useEffect(() => {
+    if (!editing || last.current === section) return
+    last.current = section
+    reportContext(section)
+  }, [editing, section, reportContext])
 }
 
 export function useModuleCustomFields(entity: CustomFieldEntity): CustomFieldDefinition[] {
