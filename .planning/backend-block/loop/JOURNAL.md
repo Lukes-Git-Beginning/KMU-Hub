@@ -1644,3 +1644,73 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Artikelinhalt-Formen). `go test ./internal/gateway/` nicht gelaufen -
   diese Iteration hat keine Route-/Gateway-Datei angefasst, laut Schritt 5
   daher nicht Pflicht.
+
+## Iteration 25 — b-cov-server-wiki — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- gebaut: neue Datei `internal/server/wiki_grpc_test.go` fuer
+  `wiki_grpc.go` (699 Zeilen, 20 RPC-Methoden ueber `WikiGRPCServer`,
+  vorher 0 % Coverage, keine Testdatei). Eigener In-Memory-Stub
+  `stubWikiRepo` fuer `wiki.Repository` (23 Methoden, `sync.Mutex`-
+  geschuetzte Maps, `forceErr` fuer die generische Internal-Fallback-
+  Verzweigung — analog zum Muster aus `settings_grpc_test.go`/
+  `formulare_grpc_test.go`). `newTestWikiServer()` liefert einen
+  Nil-Service-Server fuer die 44 UUID-Validierungsfaelle (ein
+  Tabellentest ueber alle Handler, die vor dem Service-Aufruf
+  abbrechen), `newWikiServerWithRepo(repo)` fuer die Happy-Path- und
+  Fehlerpfad-Cluster. Kernstueck laut Scope: `RedeemShareToken` -
+  widerrufener, abgelaufener, ohne-Read-Berechtigung und unbekannter
+  Token liefern denselben `codes.NotFound` MIT identischer
+  `err.Error()`-Nachricht (per String-Vergleich explizit geprueft, nicht
+  nur derselbe Code — ein Existenz-Orakel koennte sonst ueber die
+  Fehlermeldung selbst durchsickern). Ebenso ein unveroeffentlichter
+  Artikel hinter einem gueltigen Token - dieselbe Antwort. Beide
+  Inhaltsformen (TipTap-Block-JSON-Objekt `{"type":"doc",...}` und
+  Alt-HTML als JSON-String-Literal `"<p>...</p>"` - beides besteht
+  `json.Valid`, da ein zitierter String ebenfalls gueltiges JSON ist)
+  ueber `CreateArticle` -> `GetArticle`-Rundlauf verifiziert. Ausserdem
+  abgedeckt: Versionierung (Update legt Snapshot mit dem
+  VOR-Update-Inhalt an, `RestoreVersion` stellt ihn wieder her),
+  Kategorie-/Artikel-Elternteil-Leerung ueber leeren String im
+  `optional string`-Feld, Slug-Konflikt -> `AlreadyExists`,
+  Attachment-Upload/List/Delete inkl. doppeltem Delete ->
+  `NotFound`, `RevokeShareToken` zweimal hintereinander ist idempotent
+  und bewegt den ersten `revoked_at`-Zeitstempel nicht,
+  `mapWikiError` als Tabellentest ueber alle sieben Sentinels plus
+  Default-Internal-Zweig. `SearchArticles`/`ListCategories` initial nur
+  ueber den Validierungspfad getroffen (30 %) - zwei Happy-Path-Tests
+  nachgezogen, beide jetzt bei 90 %. `go tool cover -func`: keine
+  Methode in `wiki_grpc.go` bleibt bei 0 % (Spanne 57,1 % bis 100 %,
+  `attachmentToProto`/`shareTokenToProto` am niedrigsten wegen
+  ihrer nicht separat injizierten Nil-Uploader/Nil-CreatedBy-Aeste,
+  die aber schon durch die Upload-ohne-uploaded_by- bzw.
+  Redeem-Tests indirekt mitlaufen).
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/wiki/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/wiki/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/... ./internal/wiki/...`, 0 issues —
+  ein erster Lauf meldete `unusedparams` fuer den ungenutzten
+  `repo`-Parameter in einem Test-Helfer und einen `minmax`-Hinweis in
+  der `ListArticles`-Offset-Klammerung im Stub-Repo, beide behoben) |
+  test ok (`go test -count=3 ./internal/server/... ./internal/wiki/...`,
+  dreimal wiederholt, durchgehend gruen) | migration n.a. (reine
+  Test-Coverage, keine Tabelle angefasst) | rls-smoke n.a. (Stub-Repo,
+  kein DB-Zugriff durch die neuen Tests)
+- verify vorgaenger: sauber — `b7cbb428` (b-cov-server-settings) geprueft:
+  `git show --stat` zeigt nur `settings_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- mutations-probe: in `internal/wiki/share.go`, `ShareToken.Usable`
+  die Widerrufs-Pruefung testweise auf `if false && t.RevokedAt != nil`
+  entschaerft → `TestRedeemShareToken_RevokedAndUnknownProduceTheSameAnswer`
+  wurde rot (`expected error with code NotFound, got nil` — der
+  widerrufene Token wurde still eingeloest statt abgelehnt), alle
+  anderen Tests blieben unberuehrt (isolierter Lauf). Zurueckgedreht,
+  `git diff --stat internal/wiki/share.go` zeigt keine Restaenderung
+  (leerer Diff bestaetigt), `go test -count=3 ./internal/server/...
+  ./internal/wiki/...` danach wieder vollstaendig gruen.
+- db-tests: 0 — `wiki.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: siebte von zwoelf Units in Block B-Server erledigt (7/12).
+  Naechste laut Reihenfolge: `b-cov-server-schichten`. `go test
+  ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
+  Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
