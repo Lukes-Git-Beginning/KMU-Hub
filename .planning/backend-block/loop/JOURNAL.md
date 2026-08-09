@@ -1813,3 +1813,80 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `fix-schichten-swaprequests-no-own-scope`. `go test
   ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
   Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 27 — b-cov-server-vermietung — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `a43e25d3` (b-cov-server-schichten) geprueft:
+  `git show --stat` zeigt nur `schichten_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- gebaut: neue Datei `internal/server/vermietung_grpc_test.go` fuer
+  `vermietung_grpc.go` (757 Zeilen, 20 RPC-Methoden ueber
+  `VermietungGRPCServer`, vorher 0 % Coverage, keine Testdatei). Eigener
+  In-Memory-Stub `stubVermietungRepo` fuer `vermietung.Repository` (16
+  Methoden — Objects, Rentals, Inspections — inklusive einer echten
+  Intervall-Ueberlappungspruefung in `HasOverlap`, nicht nur eines
+  Force-Flags, damit Konflikt-/Verfuegbarkeitstests etwas Reales pruefen).
+  `newTestVermietungServer()` liefert einen Nil-Service-Server fuer 38
+  UUID-/Pflichtfeld-Validierungsfaelle als Tabellentest,
+  `newVermietungServerWithRepo(repo)` fuer Happy-Path- und Fehlerpfad-
+  Cluster. Kernstueck laut Scope: Ruecknahme (EndRental) vor Uebergabe
+  (StartRental) scheitert mit `FailedPrecondition`
+  (`TestVermietung_RentalLifecycle_ReturnBeforeHandoverFails`, deckt
+  zusaetzlich Start-nach-Start und End-nach-End ab), Buchungskonflikt bei
+  ueberlappenden Datumsbereichen (`AlreadyExists`, sowohl bei CreateRental
+  als auch beim Datums-Update einer bestehenden Reservierung),
+  `mapVermietungError` als Tabellentest ueber alle sechs Sentinels plus
+  Default-Internal-Zweig. `go tool cover -func`: keine Methode bleibt
+  unter 69 % (Spanne 69,0 % bis 100 %) — UpdateRental/ListRentals/
+  DeleteRental/GetRental lagen im ersten Durchlauf bei 26–90 %, drei
+  zusaetzliche Tests (Update mit allen Feldern, Datums-Update-Konflikt,
+  Filter+Pagination bei ListRentals, NotFound bei Get/Delete/Update) haben
+  das auf durchgehend ueber 69 % gehoben.
+- befund rentaltoproto-signature-drop: `rentalToProto`
+  (vermietung_grpc.go:650) mappt `SignatureData`/`SignedAt`/`SignedBy`
+  nie auf das Wire-`Rental`, obwohl das Proto alle drei Felder traegt und
+  `Service.SaveSignature` sie korrekt auf dem Domain-Modell persistiert.
+  Jede RPC, die einen Rental zurueckgibt — inklusive der Antwort von
+  `SaveSignature` selbst — liefert die gerade gespeicherte Signatur nie
+  an den Aufrufer zurueck. Verifiziert als reiner Proto-Mapping-Fehler,
+  nicht als Repository-/Service-Luecke: `TestVermietung_SaveSignature`
+  prueft zusaetzlich direkt im Stub-Repo, dass `SignatureData`/`SignedBy`
+  dort gesetzt sind, waehrend die gRPC-Antwort leer bleibt. Neue
+  Backlog-Unit fuer Lauf 8: `fix-vermietung-rentaltoproto-drops-signature`.
+- befund error-mapping-luecke: `mapVermietungError` hat keinen Fall fuer
+  `vermietung.ErrInspectionKindExists` (zurueckgegeben von
+  `CreateInspection`, wenn fuer eine Reservierung bereits eine Inspektion
+  derselben Art existiert) — faellt auf den Default-Internal-Zweig,
+  obwohl es strukturell identisch zu `ErrRentalConflict` ist (dort
+  korrekt auf `AlreadyExists` gemappt). Alle anderen fuenf Sentinels aus
+  errors.go sind vertreten, nur dieser fehlt. Belegt durch
+  `TestMapVermietungError_Table/inspection_kind_exists_documents_current_gap`
+  (Tabellentest) UND `TestVermietung_CreateInspection_DuplicateKind_MapsToInternal`
+  (End-to-End durch den echten Handler). Neue Backlog-Unit fuer Lauf 8:
+  `fix-vermietung-error-mapping-inspectionkindexists-gap`.
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/vermietung/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/vermietung/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/...`, 0 issues) | test ok (`go test
+  -count=3 ./internal/server/...`, dreimal wiederholt, durchgehend
+  gruen) | migration n.a. (reine Test-Coverage, keine Tabelle
+  angefasst) | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff durch die
+  neuen Tests)
+- mutations-probe: in `internal/server/vermietung_grpc.go`,
+  `mapVermietungError` den `ErrInvalidStateTransition`-Fall testweise auf
+  `codes.Internal` statt `codes.FailedPrecondition` entschaerft → sowohl
+  `TestMapVermietungError_Table/invalid_state_transition` als auch
+  `TestVermietung_RentalLifecycle_ReturnBeforeHandoverFails` wurden rot
+  (erwarteter Code FailedPrecondition, bekommen Internal). Zurueckgedreht,
+  `git diff --stat internal/server/vermietung_grpc.go` zeigt keine
+  Restaenderung (leerer Diff bestaetigt), `go test -count=3
+  ./internal/server/...` danach wieder vollstaendig gruen.
+- db-tests: 0 — `vermietung.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: neunte von zwoelf Units in Block B-Server erledigt (9/12).
+  Naechste laut Reihenfolge: `b-cov-server-einkauf`. Zwei neue Fix-Units
+  fuer Lauf 8 im Backlog: `fix-vermietung-rentaltoproto-drops-signature`,
+  `fix-vermietung-error-mapping-inspectionkindexists-gap`. `go test
+  ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
+  Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.

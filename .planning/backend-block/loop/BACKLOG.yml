@@ -572,6 +572,88 @@ units:
         das neue Verhalten aktualisiert
       - go test -count=1 ./internal/server/... ./internal/schichten/... ./internal/gateway/... gruen
 
+  - id: fix-vermietung-rentaltoproto-drops-signature
+    phase: 3
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `rentalToProto` (internal/server/vermietung_grpc.go:650) never maps `Rental.SignatureData`,
+      `Rental.SignedAt`, or `Rental.SignedBy` onto the wire `vermietungv1.Rental` message, even
+      though the proto (`vermietung.proto`) carries all three fields (`signature_data`,
+      `signed_at`, `signed_by`) and `Service.SaveSignature` (service.go:663) correctly persists
+      them on the domain model via `Repository.SaveSignature`. Every RPC that returns a `Rental` -
+      `SaveSignature`'s own response, `GetRental`, `ListRentals`, `StartRental`, `EndRental`,
+      `UpdateRental` - silently drops the signature the caller just saved. The gap is proto-mapping
+      only, not a repository or service bug: confirmed in
+      `TestVermietung_SaveSignature` (internal/server/vermietung_grpc_test.go, built during
+      `b-cov-server-vermietung`, Lauf 7) by asserting the stub repository's stored `*Rental` DOES
+      carry `SignatureData`/`SignedBy` right after the same call whose gRPC response comes back
+      empty for both fields.
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/vermietung/service.go
+      - backend/internal/server/vermietung_grpc_test.go
+      - backend/proto/vermietung/v1/vermietung.proto
+    notes: >
+      Gefunden waehrend b-cov-server-vermietung (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (Wire-Antwort bekommt neue, bisher fehlende Felder), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: in `rentalToProto`
+      drei Zeilen ergaenzen - `proto.SignatureData = r.SignatureData`-Analogon (Vorsicht: Proto-Feld
+      `SignatureData`/`SignedBy` sind auf `Rental` NICHT `optional` im .proto, also plain `string`,
+      nil-Pointer-Dereferenz vermeiden mit `if r.SignatureData != nil { proto.SignatureData =
+      *r.SignatureData }` analog fuer SignedBy), und `proto.SignedAt = timestamppb.New(*r.SignedAt)`
+      hinter einem `if r.SignedAt != nil`-Guard (SignedAt ist `optional` im .proto). Nach dem Fix
+      die "documents current gap"-Assertions in `TestVermietung_SaveSignature` auf die tatsaechlich
+      erwarteten Werte umstellen (das Repository-Bypass-Assert kann dann entfallen, da der
+      gRPC-Response-Weg wieder aussagekraeftig ist).
+    done_when:
+      - rentalToProto mappt SignatureData, SignedAt und SignedBy auf das Wire-Rental
+      - TestVermietung_SaveSignature in vermietung_grpc_test.go auf das neue (korrekte) Verhalten
+        aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
+
+  - id: fix-vermietung-error-mapping-inspectionkindexists-gap
+    phase: 3
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `mapVermietungError` (internal/server/vermietung_grpc.go:735) has no case for
+      `vermietung.ErrInspectionKindExists` (errors.go:12, returned by
+      `Service.CreateInspection` when a second inspection of the same kind - e.g. a
+      second "handover" - is attempted for the same rental, service.go:513). It falls
+      through to the generic default branch and is answered as `codes.Internal`, even
+      though it is exactly the same shape of error as `ErrRentalConflict` (which DOES
+      have a case, mapped to `codes.AlreadyExists`) - a well-formed, client-actionable
+      conflict, not a server fault. Every other sentinel in errors.go is represented in
+      `mapVermietungError`; this is the only exception. Belegt durch
+      `TestMapVermietungError_Table/inspection_kind_exists_documents_current_gap` and
+      `TestVermietung_CreateInspection_DuplicateKind_MapsToInternal` in
+      `internal/server/vermietung_grpc_test.go` (both carry a "documents current gap"
+      comment).
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/vermietung/errors.go
+      - backend/internal/vermietung/service.go
+      - backend/internal/server/vermietung_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-vermietung (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (500 -> 409 fuer einen konkreten Fall), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: einen Fall
+      `case errors.Is(err, vermietung.ErrInspectionKindExists): return
+      status.Error(codes.AlreadyExists, err.Error())` ergaenzen (gleiches Muster wie
+      ErrRentalConflict). Danach die beiden "documents current gap"-Testfaelle in
+      vermietung_grpc_test.go auf den neuen erwarteten Code umstellen.
+    done_when:
+      - ErrInspectionKindExists hat einen eigenen Fall in mapVermietungError
+        (AlreadyExists), nicht mehr Internal
+      - Die beiden "documents current gap"-Testfaelle in vermietung_grpc_test.go auf den
+        neuen erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -1291,7 +1373,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/vermietung_grpc.go` - 715 Zeilen, 25 Methoden, keine Testdatei.
     sources:
