@@ -610,7 +610,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_biz_invoices.go` - 397 Zeilen, 10 Handler, keine eigene
       Testdatei. Zahlungspfad.

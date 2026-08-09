@@ -942,3 +942,51 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Iterationsbeginn gestoppt (`docker-postgres-1: Exited`) - fuer diese reine Gateway-Unit nicht
   noetig, nicht neu gestartet; Luke sollte das vor der naechsten DB-Unit (Block B-Server oder C2)
   wieder hochfahren.
+
+## Iteration 15 — b-cov-gateway-biz-invoices — done — 2026-08-10 00:05
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_biz_invoices_test.go` fuer `route_biz_invoices.go` (10 Handler,
+  vorher nur teilweise durch `route_biz_test.go` mitabgedeckt: Create/List/Get nur
+  ServiceUnavailable, GenerateEInvoice nur Format-Validierung). Neu abgedeckt:
+  HandleUpdateInvoice, HandleSendInvoice, HandleMarkInvoicePaid, HandleCancelInvoice,
+  HandleGenerateInvoicePDF inkl. des ZUGFeRD-Formatzweigs (`handleZUGFeRDInvoicePDF` war zuerst
+  bei 0 % - kein Test erreichte ihn, da immer vorher an Registry/Tenant scheiterte; ein Test mit
+  registrierter Service + gesetztem Tenant + `format=zugferd` behoben das strukturell), die
+  `contact_id`/`recurring_id`-Filter in HandleListInvoices, und der Dezimal-als-String-Vertrag
+  der `LineItem`-Felder direkt gegen `decodeAndValidate` geprueft (kein Umweg ueber float64).
+  `go tool cover -func` zeigt alle 10 Handler zwischen 28,6 % (`HandleGetInvoice`, traegt
+  weiterhin nur den ServiceUnavailable-Test aus der Nachbardatei) und 92,9 %
+  (`HandleMarkInvoicePaid`). Gateway-Gesamtcoverage 33,2 % laut `go test -coverprofile`
+  (vorher 32,9 % nach Iteration 14).
+- befund mark-paid-idempotenz: `MarkInvoicePaidRequest` traegt laut Proto nur `{id, tenant_id}`,
+  keinen Betrag und keinen Idempotency-Key. Die im Backlog verlangte Pruefung "zweiter Aufruf
+  verdoppelt nichts" ist damit vollstaendig serverseitige Zustandslogik (Rechnung bereits
+  bezahlt -> Fehler oder No-Op), im Gateway strukturell nicht beobachtbar - dieselbe Grenze wie
+  in jeder vorigen Gateway-Unit dieses Laufs (kein Fake-`FinanceServiceClient` im Paket). Statt
+  der unbeweisbaren Behauptung "verdoppelt nicht" belegt ein Test, dass der Handler bei
+  wiederholtem Aufruf keinen eigenen Zustand haelt (identische Anfrageform, identisches
+  Fehlverhalten ohne echten Server). Kein Fund, der eine neue Unit braucht - die eigentliche
+  Zustandslogik gehoert (falls ungetestet) in eine `internal/server`- oder `internal/biz`-Unit.
+- befund status-filter: `invoiceStatusToProto` (route_biz.go:443) hat keinen Default-Reject-Zweig
+  - ein unbekannter `?status=`-Wert wird still zu `INVOICE_STATUS_UNSPECIFIED` (kein Filter)
+  statt eines 400. Gegengeprueft: dasselbe Muster gilt fuer `quoteStatusToProto`/
+  `dunningStatusToProto` in derselben Datei - konsistentes Verhalten im ganzen Paket, kein
+  Einzelfall und damit kein neuer Fund, nur als Test festgeschrieben statt uebersehen.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt,
+  durchgehend gruen, 0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `a9a0b1e2` (b-cov-gateway-crm-pipeline) geprueft: `git show --stat`
+  zeigt nur `route_crm_pipeline_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `uuid.Parse(cid)`-Fehlerpruefung in `HandleListInvoices`
+  (route_biz_invoices.go:99) von `parseErr != nil` auf `parseErr == nil` invertiert →
+  `TestHandleListInvoices_InvalidContactID` wurde rot (503 statt 400, Fehlertext "connection
+  error" statt "invalid contact_id") UND `TestHandleListInvoices_ValidContactID_ReachesRPC`
+  wurde rot (400 statt 503) - beide Tests wie erwartet symmetrisch betroffen. Zurueckgedreht,
+  `git diff --stat` auf die Produktionsdatei zeigt keine Restaenderung, volle Suite danach
+  dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: kein neuer Fund fuer Lauf 8. Docker/Postgres weiterhin nicht benoetigt fuer diese
+  Unit, Status ungeprueft gelassen (letzter bekannter Stand: gestoppt) - vor der naechsten
+  DB-Unit (Block B-Server oder C2) pruefen/hochfahren.
