@@ -25,6 +25,7 @@ import type {
   ResolvedValueSet,
   ResolvedValueSetOption,
   ValueSet,
+  ValueSetMigrations,
   ValueSetOption,
 } from '@/api/customization-types'
 import { writeAuditEvent } from './audit-events'
@@ -500,6 +501,25 @@ const vendorModuleAreas: ModuleAreasOverlay = {}
 const tenantModuleAreas: ModuleAreasOverlay = {}
 
 /**
+ * Where records go whose value-set option was removed (R4b), per tenant:
+ * setId → removedOptionId → targetOptionId.
+ *
+ * The editor stages this while previewing a removal; on deploy it lands here and
+ * STAYS. That is what makes the promise the removal dialog gives ("Bestehende
+ * Einträge werden geändert auf: X") true after "Übernehmen" too — until now the
+ * preview remapped and the deployed module fell back to the removed value
+ * (Darien 2026-08-06, "die Wertelisten gehen nicht zu 100 %"). The real record
+ * UPDATE is the backend's job; this table is the frontend's source of truth for
+ * what a stored value now means, and it is what the backend gets handed.
+ */
+const tenantValueSetMigrations: ValueSetMigrations = {}
+
+/** Where records of this set have been moved to (empty when nothing was removed). */
+export function resolveValueSetMigrations(setId: string): Record<string, string> {
+  return tenantValueSetMigrations[setId] ?? {}
+}
+
+/**
  * Merge two area settings for the SAME key across layers. Objects merge field by
  * field so a draft that only moves a column does not wipe the width the tenant
  * layer already stored; a boolean coming from a higher layer means "just the
@@ -598,6 +618,7 @@ export function clearAllCustomization(layer: ConfigLayer): void {
     for (const k of Object.keys(tenantLabels)) delete tenantLabels[k]
     for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
     for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
+    for (const k of Object.keys(tenantValueSetMigrations)) delete tenantValueSetMigrations[k]
   }
 }
 
@@ -608,6 +629,8 @@ export interface TenantSnapshot {
   labels: LocaleLabelMap
   valueSets: Record<string, ValueSet>
   moduleAreas: ModuleAreasOverlay
+  /** Optional so snapshots taken before R4b still restore (they just had none). */
+  valueSetMigrations?: ValueSetMigrations
 }
 
 /** Snapshot the current tenant layer (call BEFORE promoting a draft, for rollback). */
@@ -616,6 +639,7 @@ export function snapshotTenant(): TenantSnapshot {
     labels: structuredClone(tenantLabels),
     valueSets: structuredClone(tenantValueSets),
     moduleAreas: structuredClone(tenantModuleAreas),
+    valueSetMigrations: structuredClone(tenantValueSetMigrations),
   }
 }
 
@@ -627,6 +651,10 @@ export function restoreTenant(snap: TenantSnapshot): void {
   Object.assign(tenantValueSets, structuredClone(snap.valueSets))
   for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
   Object.assign(tenantModuleAreas, structuredClone(snap.moduleAreas ?? {}))
+  // Rolling back a removal has to bring the records back too: the option
+  // reappears, so the redirect that pointed away from it must go.
+  for (const k of Object.keys(tenantValueSetMigrations)) delete tenantValueSetMigrations[k]
+  Object.assign(tenantValueSetMigrations, structuredClone(snap.valueSetMigrations ?? {}))
 }
 
 /**
@@ -639,6 +667,7 @@ export function applyDraftToTenant(payload: {
   labels: LocaleLabelMap
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
   moduleAreas?: ModuleAreasOverlay
+  valueSetMigrations?: ValueSetMigrations
 }): { labelCount: number; valueSetCount: number; areaCount: number } {
   let labelCount = 0
   for (const [locale, map] of Object.entries(payload.labels)) {
@@ -654,6 +683,21 @@ export function applyDraftToTenant(payload: {
   for (const [id, set] of Object.entries(payload.valueSets)) {
     tenantValueSets[id] = { ...set, layer: 'tenant' }
     valueSetCount += 1
+  }
+
+  // Removals: keep the redirect, so records keep landing where the removal dialog
+  // promised. Chains are collapsed — if "Mittel → Hoch" is already live and this
+  // draft removes "Hoch" in favour of "Dringend", then Mittel must go to Dringend
+  // as well, otherwise it would point at an option that no longer exists.
+  for (const [setId, moves] of Object.entries(payload.valueSetMigrations ?? {})) {
+    const target = { ...(tenantValueSetMigrations[setId] ?? {}) }
+    for (const [removed, to] of Object.entries(moves)) {
+      target[removed] = to
+      for (const [earlier, earlierTo] of Object.entries(target)) {
+        if (earlierTo === removed) target[earlier] = to
+      }
+    }
+    tenantValueSetMigrations[setId] = target
   }
 
   let areaCount = 0

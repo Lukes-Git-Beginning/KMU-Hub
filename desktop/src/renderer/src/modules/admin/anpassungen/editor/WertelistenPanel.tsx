@@ -16,14 +16,18 @@ import type { ResolvedValueSet, ValueSetOption } from '@/api/customization-types
 import { getEditorModule } from './editorModules'
 import { useDraftConfig } from './DraftConfigProvider'
 
-/** Cosmi status palette (HSL) — the swatches offered for option colors. */
-const SWATCHES = [
-  'hsl(215 16% 47%)',
-  'hsl(217 91% 60%)',
-  'hsl(38 92% 50%)',
-  'hsl(25 95% 53%)',
-  'hsl(142 71% 45%)',
-  'hsl(0 72% 51%)',
+/**
+ * Cosmi status palette (HSL) — the swatches offered for option colors. Each
+ * carries a name: six identically-labelled circles are indistinguishable to a
+ * screenreader (and to a test), so the name goes into the button's label.
+ */
+const SWATCHES: { value: string; nameKey: string }[] = [
+  { value: 'hsl(215 16% 47%)', nameKey: 'customization.editor.wertelisten.color.gray' },
+  { value: 'hsl(217 91% 60%)', nameKey: 'customization.editor.wertelisten.color.blue' },
+  { value: 'hsl(38 92% 50%)', nameKey: 'customization.editor.wertelisten.color.amber' },
+  { value: 'hsl(25 95% 53%)', nameKey: 'customization.editor.wertelisten.color.orange' },
+  { value: 'hsl(142 71% 45%)', nameKey: 'customization.editor.wertelisten.color.green' },
+  { value: 'hsl(0 72% 51%)', nameKey: 'customization.editor.wertelisten.color.red' },
 ]
 
 const PROVENANCE_STYLE: Record<string, string> = {
@@ -113,7 +117,7 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
       ...editable,
       options: [
         ...editable.options,
-        { id, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1], order, active: true },
+        { id, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1].value, order, active: true },
       ],
     })
   }
@@ -215,13 +219,16 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
               <input
                 value={opt.label}
                 onChange={(e) => patchOption(opt.id, { label: e.target.value })}
+                // Ohne Namen sind sechs Eingabefelder in einer Liste nicht
+                // unterscheidbar — weder für einen Screenreader noch für die QA.
+                aria-label={t('customization.editor.wertelisten.optionNameLabel', { option: opt.label })}
                 className={`h-7 min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 text-sm outline-none focus:border-border focus:bg-background ${opt.active ? '' : 'text-muted-foreground line-through'}`}
               />
               <button
                 type="button"
                 onClick={() => patchOption(opt.id, { active: !opt.active })}
                 aria-pressed={!opt.active}
-                aria-label={t('customization.editor.wertelisten.toggleHidden')}
+                aria-label={t('customization.editor.wertelisten.toggleHiddenFor', { option: opt.label })}
                 title={t(opt.active ? 'customization.editor.wertelisten.optionActive' : 'customization.editor.wertelisten.optionHidden')}
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-secondary ${opt.active ? 'text-muted-foreground/50' : 'text-amber-600 dark:text-amber-400'}`}
               >
@@ -241,12 +248,16 @@ function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean })
             <div className="mt-1.5 flex items-center gap-1 pl-5">
               {SWATCHES.map((c) => (
                 <button
-                  key={c}
+                  key={c.value}
                   type="button"
-                  onClick={() => patchOption(opt.id, { color: c })}
-                  aria-label={t('customization.editor.wertelisten.colorLabel')}
-                  className={`h-4 w-4 rounded-full border transition-transform hover:scale-110 ${opt.color === c ? 'ring-2 ring-foreground/40 ring-offset-1 ring-offset-background' : ''}`}
-                  style={{ backgroundColor: c }}
+                  onClick={() => patchOption(opt.id, { color: c.value })}
+                  aria-label={t('customization.editor.wertelisten.colorLabelFor', {
+                    color: t(c.nameKey),
+                    option: opt.label,
+                  })}
+                  aria-pressed={opt.color === c.value}
+                  className={`h-4 w-4 rounded-full border transition-transform hover:scale-110 ${opt.color === c.value ? 'ring-2 ring-foreground/40 ring-offset-1 ring-offset-background' : ''}`}
+                  style={{ backgroundColor: c.value }}
                 />
               ))}
             </div>
@@ -331,7 +342,7 @@ export function WertelistenPanel({ moduleKey }: { moduleKey: string }): React.Re
       id: setId,
       name: t('customization.editor.wertelisten.newSetName'),
       options: [
-        { id: `opt-${stamp}`, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1], order: 0, active: true },
+        { id: `opt-${stamp}`, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1].value, order: 0, active: true },
       ],
     })
   }

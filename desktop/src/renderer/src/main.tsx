@@ -14,9 +14,14 @@ import { initStartupLaunch } from './stores/launch'
 // engine as an import side effect, so the form builder can bind a form to a
 // module record without the modules importing each other.
 import './modules/helpdesk/intake/register-intake'
+// Deployed customization (renamed terms, value lists, hidden areas) lives in
+// shared storage. Making it effective used to depend on someone opening the
+// Anpassungen page; a module opened directly showed stock values instead.
+import { hydrateCustomization } from './mocks/data/customization-drafts'
 
 // Clear stale query cache in demo mode.
 startDemoMode()
+hydrateCustomization()
 
 // Configure TanStack Query's online manager to use browser online/offline events.
 // When offline, TanStack Query automatically pauses queries and mutations.

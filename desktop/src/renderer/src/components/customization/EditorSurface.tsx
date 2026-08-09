@@ -19,7 +19,12 @@ import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
-import { resolveValueSet, resolveModuleAreas, resolveModuleAreaLayout } from '@/mocks/data/customization'
+import {
+  resolveValueSet,
+  resolveModuleAreas,
+  resolveModuleAreaLayout,
+  resolveValueSetMigrations,
+} from '@/mocks/data/customization'
 import { useCustomFields } from '@/api/hooks/useCustomFields'
 import type { ModuleAreaLayout, ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
 import type { CustomFieldDefinition, CustomFieldEntity, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
@@ -351,15 +356,25 @@ export function columnWidthStyle(
 }
 
 /**
- * The staged record-migration map for one value-set (R4b): removedOptionId →
- * targetOptionId. Only populated inside the editor sandbox; a module remaps record
- * values through it so deleting-with-reassign previews live. Empty in the live app
- * (the real migration runs on deploy in the backend).
+ * Where records of one value-set have been moved (R4b): removedOptionId →
+ * targetOptionId. A module remaps its record values through this, so an option
+ * that was removed-with-reassign shows its new value.
+ *
+ * Live app: the deployed tenant table — the removal dialog promised "Bestehende
+ * Einträge werden geändert auf: X", and that has to hold after "Übernehmen", not
+ * only in the preview (Darien 2026-08-06). Editor: the staged draft on top, so a
+ * removal previews before it is deployed. The actual record UPDATE remains the
+ * backend's job; this is what a stored value means until it has run.
  */
 const EMPTY_MIGRATION: Record<string, string> = {}
 export function useValueSetMigration(setId: string): Record<string, string> {
   const { editing, valueSetMigrations } = useEditorSurface()
-  return editing ? (valueSetMigrations[setId] ?? EMPTY_MIGRATION) : EMPTY_MIGRATION
+  const draft = editing ? valueSetMigrations[setId] : undefined
+  return useMemo(() => {
+    const live = resolveValueSetMigrations(setId)
+    if (!draft) return Object.keys(live).length === 0 ? EMPTY_MIGRATION : live
+    return { ...live, ...draft }
+  }, [setId, draft])
 }
 
 /**
