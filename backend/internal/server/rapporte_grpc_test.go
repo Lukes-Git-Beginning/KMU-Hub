@@ -919,9 +919,21 @@ func TestRapporteStateMachineHandlers(t *testing.T) {
 		repo.seedReport(rep)
 		s := newRapporteTestServer(repo)
 		_, err := s.RejectReport(rapporteCtxWithTenant(tenantID), &rapportev1.RejectReportRequest{
-			ReportId: rep.ID.String(), ReviewerId: uuid.New().String(),
+			ReportId: rep.ID.String(), ReviewerId: uuid.New().String(), ReviewNote: "Fehlende Belege",
 		})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
+	})
+
+	t.Run("RejectReport without a reason is rejected as invalid argument", func(t *testing.T) {
+		repo := newStubRapporteRepo()
+		rep := newDraftReport(tenantID)
+		rep.Status = rapporte.StatusSubmitted
+		repo.seedReport(rep)
+		s := newRapporteTestServer(repo)
+		_, err := s.RejectReport(rapporteCtxWithTenant(tenantID), &rapportev1.RejectReportRequest{
+			ReportId: rep.ID.String(), ReviewerId: uuid.New().String(), ReviewNote: "   ",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 }
 

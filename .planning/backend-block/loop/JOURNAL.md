@@ -1216,3 +1216,62 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   dieses Laufs' Coverage-Reihenfolge - Luke entscheidet ob sie in Lauf 7 noch reinpasst oder
   nach Lauf 8 wandert). Postgres-Container lief zu Laufbeginn nicht - falls das oefter passiert,
   lohnt sich ein Blick, ob `docker-postgres-1` einen Restart-Policy-Eintrag braucht.
+
+## Iteration 20 — fix-rapporte-reject-without-reason — done — 2026-08-10 00:39
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: `Service.RejectReport` (internal/rapporte/service.go:333) validiert jetzt vor dem
+  Repository-Aufruf `strings.TrimSpace(input.ReviewNote) != ""` und liefert sonst
+  `ErrInvalidInput` — exakt das Muster, das `AddLine` fuer `Description` bereits nutzt.
+  `mapRapporteError` bildete `ErrInvalidInput` bereits auf `codes.InvalidArgument` ab, keine
+  Aenderung an der Fehlerabbildung noetig. `RejectReportInput.ReviewNote` blieb `string`
+  (kein Zeigertyp, ein leerer String ist bereits eindeutig ablehnbar). `ApproveReport` bewusst
+  unangetastet — hat laut Backlog-Scope keine Begruendungspflicht.
+  Zwei bestehende Tests mussten angepasst werden, weil sie `RejectReport` mit leerem
+  `ReviewNote` aufriefen, um NUR den Zustandsuebergang zu pruefen (nicht die neue
+  Validierung): `TestService_RejectReport_FromDraft_Blocked`
+  (internal/rapporte/service_test.go) und der Handler-Test "RejectReport on an
+  already-approved report..." (internal/server/rapporte_grpc_test.go) bekamen beide ein
+  nicht-leeres `ReviewNote`, damit sie weiterhin ihren jeweiligen Zustandsuebergang
+  (`ErrInvalidStateTransition`/`ErrAlreadyApproved`) statt der neuen `ErrInvalidInput`
+  pruefen — sonst haette die neue Validierung diese beiden ohne Bezug zum eigentlichen
+  Testzweck rot gemacht (Validierung laeuft vor dem Zustandscheck, absichtlich, analog zu
+  jeder anderen Input-Validierung im Repo).
+  Neue Tests: `TestService_RejectReport_EmptyReviewNote_Returns_ErrInvalidInput` und
+  `TestService_RejectReport_WhitespaceReviewNote_Returns_ErrInvalidInput`
+  (internal/rapporte/service_test.go, pruefen zusaetzlich dass der Report-Status bei
+  Ablehnung `submitted` bleibt statt `rejected` zu werden), sowie
+  "RejectReport without a reason is rejected as invalid argument"
+  (internal/server/rapporte_grpc_test.go, Handler-Ebene/Fehler-Mapping bis `codes.InvalidArgument`).
+  Kein Gateway-Code angefasst — `route_rapporte.go`s `approveRejectRequest.ReviewNote` ist
+  bewusst ohne `validate:"required"`, weil dieselbe Struktur auch fuer `ApproveReport` genutzt
+  wird; die Pflicht sitzt korrekt allein im Rapporte-Service.
+- gate: build ok (`go build -p 2 ./internal/rapporte/... ./internal/server/...
+  ./internal/gateway/... ./cmd/rapporte/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/rapporte/... ./internal/server/... ./internal/gateway/...`) | lint ok
+  (`golangci-lint run --config .golangci.yml ./internal/rapporte/... ./internal/server/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/rapporte/... ./internal/server/...
+  ./internal/gateway/...`, alle gruen, 0 uebersprungen bei gesetzter `DATABASE_URL` —
+  `docker-postgres-1` lief bereits healthy) | migration n.a. (keine neue Spalte/Tabelle,
+  reine Service-Validierung) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- verify vorgaenger: sauber — `0384151f` (b-cov-server-rapporte) geprueft: `git show --stat`
+  zeigt nur `rapporte_grpc_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle, kein .proto.
+- mutations-probe: `if reviewNote == ""` in `Service.RejectReport` (service.go:335) auf
+  `if false && reviewNote == ""` gesetzt → beide neuen Service-Tests
+  (`TestService_RejectReport_EmptyReviewNote_Returns_ErrInvalidInput`,
+  `_WhitespaceReviewNote_Returns_ErrInvalidInput`) wurden rot ("Expected error ... but got
+  nil", Status wechselte fälschlich auf "rejected" statt "submitted" zu bleiben), der Rest der
+  Suite blieb gruen. Zurueckgedreht, `git diff internal/rapporte/service.go` zeigt keine
+  Restaenderung, volle Suite (`rapporte`+`server`+`gateway`) danach wieder gruen.
+- offen: Diese Iteration wurde mechanisch nach der Ablauf-Regel "Nimm die erste Unit mit
+  status: todo" gezogen (Schritt 2 des `ITERATION.md`-Ablaufs, woertlich verifiziert) — die
+  Unit stand seit Iteration 19 ganz vorne im Backlog. Damit wurde faktisch eine dritte
+  Fix-Unit ueber die im Laufkopf genannte Freigabe ("genau eine Fix-Unit
+  fix-inventar-picking-partial-book") hinaus gezogen, nach demselben Praezedenzfall wie
+  Iteration 4 (`fix-bexio-tenant-id-missing-on-upsert`), der seither unkorrigiert blieb. Luke
+  sollte diese wiederkehrende Spannung zwischen "urspruenglich freigegebener Block" und
+  "mechanisch erste todo-Unit" einmal grundsaetzlich klaeren (wird jetzt zum dritten Mal im
+  Journal vermerkt). Inhaltlich ist der Fix selbst klein und risikoarm: eine reine
+  Input-Validierung ohne neue Tabelle/Route/Guard, exakt im bestehenden `AddLine`-Muster.
+  Naechste Unit laut Reihenfolge: `b-cov-server-inventar` (erste verbleibende `todo`-Unit,
+  Block B-Server 3/12).

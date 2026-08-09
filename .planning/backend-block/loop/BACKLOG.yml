@@ -147,7 +147,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `RejectReport` (internal/rapporte/service.go:333) validiert nirgends, dass `ReviewNote`
       nicht leer ist, obwohl der Backlog-Scope von `b-cov-server-rapporte` selbst "Ablehnen

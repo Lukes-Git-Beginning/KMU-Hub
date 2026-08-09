@@ -563,9 +563,45 @@ func TestService_RejectReport_FromDraft_Blocked(t *testing.T) {
 		TenantID:   tenantID,
 		ReportID:   rep.ID,
 		ReviewerID: uuid.New(),
+		ReviewNote: "Fehlende Belege",
 	})
 
 	assert.ErrorIs(t, err, ErrInvalidStateTransition)
+}
+
+func TestService_RejectReport_EmptyReviewNote_Returns_ErrInvalidInput(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	rep := addReport(repo, tenantID, "Dacharbeit", StatusSubmitted)
+
+	_, err := svc.RejectReport(context.Background(), RejectReportInput{
+		TenantID:   tenantID,
+		ReportID:   rep.ID,
+		ReviewerID: uuid.New(),
+		ReviewNote: "",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+	assert.Equal(t, StatusSubmitted, repo.reports[rep.ID].Status, "report must stay submitted when rejection is refused")
+}
+
+func TestService_RejectReport_WhitespaceReviewNote_Returns_ErrInvalidInput(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	rep := addReport(repo, tenantID, "Dacharbeit", StatusSubmitted)
+
+	_, err := svc.RejectReport(context.Background(), RejectReportInput{
+		TenantID:   tenantID,
+		ReportID:   rep.ID,
+		ReviewerID: uuid.New(),
+		ReviewNote: "   \t\n",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
 }
 
 // ============================================================================
