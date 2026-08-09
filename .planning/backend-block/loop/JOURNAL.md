@@ -661,3 +661,67 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `WorkServiceClient` existiert. Beide own-scope- und id-Validierungs-Befunde oben sind fuer
   Lauf 8 vorgemerkt, nicht in dieser Unit gefixt (Backlog-Regel: Coverage-Units bauen keine
   Fixes nebenbei).
+
+## Iteration 10 — b-cov-gateway-automation — done — 2026-08-09 20:52
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_automation_test.go` fuer `route_automation.go` (21 Handler plus
+  `RegisterPublicRoutes`-Webhook, keine bestehende Testdatei vorher). Abgedeckt: ServiceUnavailable
+  fuer alle 17 direkt aufrufbaren Handler (RegisterRoutes/ServiceName/NewAutomationRoutes/getClient
+  liefen bereits mit ueber die vorhandene `route_capability_guard_test.go`); Validierungspfade fuer
+  HandleCreateAutomation (InvalidJSON, MissingName, MissingTriggerType, InvalidScope-oneof, plus ein
+  Fall der beweist, dass ein JSON-Array als trigger_config still verworfen statt 400 wird);
+  HandleUpdateAutomation (InvalidUUID, InvalidJSON, leerer Body und Body mit allen Feldern erreichen
+  beide die RPC-Schicht); HandleDeleteAutomation/HandleEnableAutomation/HandleDisableAutomation/
+  HandleGetAutomation (InvalidUUID); HandleListExecutions/HandleGetExecution (InvalidUUID fuer id
+  bzw. executionId, Statusfilter erreicht RPC); HandleCreateFromTemplate (InvalidJSON, MissingName);
+  HandleTestCondition (InvalidJSON, leerer Body, Condition+SampleEnv erreichen RPC); HandleDryRun
+  (InvalidJSON, MissingAutomationID und InvalidAutomationIDFormat ueber dieselbe
+  `validate:"required,uuid"`-Regel auf automation_id, gueltiger Fall erreicht RPC);
+  HandleListAutomations bekam eine Tabellen-Testreihe (owner_id, limit/offset inkl. nicht-numerisch,
+  scope in allen drei gueltigen Werten plus unbekanntem Wert, trigger_type, is_active in allen drei
+  Auspraegungen, alle Filter zusammen, leere Kombination) — 14 Faelle, alle reichen bis zur RPC-Schicht
+  durch. HandleTriggerWebhook (der einzige unauthentifizierte Pfad, ueber `RegisterPublicRoutes`
+  angebunden): InvalidAutomationID (400), PayloadTooLarge (Body ueber `maxWebhookBodyBytes` = 256 KiB,
+  413), gueltige Nutzlast mit Signatur- und Idempotency-Key-Header sowie leerer Body erreichen beide
+  die RPC-Schicht. Die drei reinen Helferfunktionen `parseAutomationScope`, `parseExecutionStatus` und
+  `rawJSONToAutomationStruct` direkt als Tabellentests (inkl. Default-Zweig, nicht-Objekt-JSON-Wurzel,
+  kaputtes JSON). Kein Handler bleibt bei 0 % (vorher 15 von 21 bei 0 %, `getClient` bei 75 %); Gateway-
+  Gesamtcoverage 28,3 % -> 29,2 %, `route_automation.go` je Handler 44,4-100 % (Rest ist wie in den
+  vorigen Gateway-Units der unerreichbare Erfolgspfad ohne Fake-`AutomationServiceClient`;
+  HandleListTriggers/HandleListActions/HandleGetStats bleiben bei 44,4 %, weil sie ausser dem
+  Client-Check und einem parameterlosen RPC-Aufruf keine Logik zum Testen haben).
+- befund berechtigungs-abbildung: bereits vollstaendig getestet — `route_capability_guard_test.go`
+  deckt seit einer frueheren Iteration die komplette `RequirePermissionAny`-Matrix fuer
+  `route_automation.go` ab (Zeilen 691-721: create/list/update/delete/enable/disable/executions/
+  templates/dry-run/stats, jeweils legacy- und Katalog-Schluessel getrennt getestet). Kein neuer Test
+  noetig, im Backlog-`done_when` "falls das Gateway eine vornimmt" bereits erfuellt.
+- befund webhook-validierung: Groessenbegrenzung (`http.MaxBytesReader` + `maxWebhookBodyBytes`) und
+  UUID-Validierung des `automationId`-Pfadparameters sind vorhanden und getestet. Eine tiefere
+  Payload-Struktur- oder Content-Type-Pruefung findet im Gateway nicht statt (bewusst laut
+  Doc-Kommentar — Signaturpruefung passiert downstream in `workflow.Service.TriggerWebhook`); kein
+  SSRF-Risiko im Gateway selbst, da der Handler keine ausgehende Anfrage anhand von Nutzereingaben
+  staged (anders als die im Backlog fuer `b-cov-server-automation` vermerkte HTTP-Aktion, die die
+  ausgehende Seite betrifft). Kein Fund, der einen Fix braucht.
+- befund scope-default: `parseAutomationScope` faellt bei unbekanntem oder leerem String still auf
+  `SCOPE_PERSONAL` zurueck (route_automation.go:706-717) statt auf `SCOPE_UNSPECIFIED` oder eine
+  Ablehnung — ein Tippfehler in `?scope=` filtert die Liste also stillschweigend auf "personal" statt
+  ignoriert zu werden oder einen 400 zu liefern. `parseExecutionStatus` (gleiche Datei, Zeile 719)
+  macht es anders und faellt korrekt auf `UNSPECIFIED` zurueck. Als Test `TestParseAutomationScope`
+  festgeschrieben (dokumentiert das IST-Verhalten), nicht gefixt — Verhaltensaenderung, kein
+  Test-Diff, gehoert in eine eigene Unit falls gewuenscht.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`, 0 issues)
+  | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt, durchgehend gruen,
+  0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `db747fae` (b-cov-gateway-work-tasks) geprueft: `git show --stat`
+  zeigt nur `route_work_tasks_test.go` (neu, 738 Zeilen) plus Journal/Backlog, kein Produktionscode,
+  keine neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required"` vom `Name`-Feld in `createAutomationRequest`
+  (route_automation.go:132) entfernt → `TestHandleCreateAutomation_MissingName` wurde rot (503 statt
+  400/"validation_failed"/Feld "name"), alle anderen Tests des neuen Files blieben unberuehrt.
+  Zurueckgedreht, `git diff` auf die Produktionsdatei zeigt keine Restaenderung, volle Suite danach
+  dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: keins fuer diese Datei — jeder Handler hat mindestens einen Validierungs- oder
+  ID-Pruefpfad-Test, die drei reinen Helferfunktionen sind bei 100 %. Der Scope-Default-Befund ist
+  fuer eine kuenftige Unit vorgemerkt, nicht Teil dieser.

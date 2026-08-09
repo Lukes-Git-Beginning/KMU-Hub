@@ -496,7 +496,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_automation.go` - 745 Zeilen, 25 Handler, keine Testdatei.
     sources:
