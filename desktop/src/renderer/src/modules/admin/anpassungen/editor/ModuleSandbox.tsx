@@ -18,7 +18,7 @@
  * Labels update live because the module reads t() from the shared i18n instance,
  * which the DraftConfigProvider re-overlays on every draft change (ICU-Live-Fix).
  */
-import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -55,7 +55,6 @@ export function ModuleSandbox({
   focusSection = null,
   focusNonce = 0,
   onContextChange,
-  fitToWidth = true,
 }: {
   module: EditorModuleDef
   /** Left-rail section the user selected — the module navigates itself there. */
@@ -63,14 +62,6 @@ export function ModuleSandbox({
   focusNonce?: number
   /** The module reporting where the user now is — the rail follows it back. */
   onContextChange?: (section: EditorFocusSection | null) => void
-  /**
-   * Shrink the preview until it fits the canvas (Darien 2026-08-09: „Zugewiesen
-   * an, SLA und Erstellt am sieht man gar nicht" — the list was wider than the
-   * canvas and scrolled off to the right, which is the worst place to hide
-   * columns while someone is configuring columns). Off = the module renders at
-   * its true size and the canvas scrolls.
-   */
-  fitToWidth?: boolean
 }): ReactNode {
   const { t } = useTranslation()
   const {
@@ -135,60 +126,12 @@ export function ModuleSandbox({
     </div>
   )
 
-  // How much the preview has to shrink to fit. Measured, not guessed: the module
-  // decides its own minimum width (a wide table, a fixed sidebar), and that
-  // changes when columns are toggled.
-  const canvasRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-  useEffect(() => {
-    if (!fitToWidth) {
-      setScale(1)
-      return
-    }
-    const canvas = canvasRef.current
-    const content = contentRef.current
-    if (!canvas || !content) return
-    const measure = (): void => {
-      const available = canvas.clientWidth
-      // `transform: scale` does not change layout, so scrollWidth stays the
-      // module's natural width no matter what the current scale is — which keeps
-      // this measurement from chasing its own tail.
-      const needed = content.scrollWidth
-      if (available <= 0 || needed <= 0) return
-      // Never shrink below 60%: past that it stops being a preview you can judge.
-      const next = Math.min(1, Math.max(0.6, available / needed))
-      // Ignore sub-pixel noise, otherwise the observer keeps re-triggering.
-      if (Math.abs(next - scale) > 0.01) setScale(next)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(canvas)
-    observer.observe(content)
-    return () => observer.disconnect()
-  }, [fitToWidth, scale])
 
   return (
-    <div ref={canvasRef} className="relative h-full w-full overflow-auto bg-muted/20">
+    <div className="relative h-full w-full overflow-auto bg-muted/20">
       {/* The window chrome (title "Sandbox-Vorschau · nicht live" + amber banner)
           already frames this as a preview, so no in-canvas label is needed. */}
-      <div
-        ref={contentRef}
-        // w-max + min-w-full: the module lays itself out at its natural width
-        // (that is what gets measured), never narrower than the canvas.
-        className="min-h-full w-max min-w-full"
-        style={
-          scale < 1
-            ? {
-                // transform, not width/zoom: GPU-composited, and every ratio the
-                // module measures itself (column drags read pixel shares) stays
-                // proportional, so nothing shifts meaning.
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-              }
-            : undefined
-        }
-      >
+      <div className="min-h-full">
         {/* Navigable preview: you walk the real module (state-based tabs + detail
             modals work) and edit EditableText elements in place. */}
         <SandboxErrorBoundary fallback={fallback}>

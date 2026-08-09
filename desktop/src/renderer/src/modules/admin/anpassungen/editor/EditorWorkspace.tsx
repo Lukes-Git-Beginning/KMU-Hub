@@ -16,7 +16,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
-import { X, Undo2, Redo2, Wand2, ChevronDown, Scan } from 'lucide-react'
+import { X, Undo2, Redo2, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DetailModal } from '@/components/shared/DetailModal'
 import { cn } from '@/lib'
@@ -92,8 +92,6 @@ function EditorLayout({
   // form is part of configuring the module, so the builder takes over the preview
   // area instead of navigating out of the editor.
   const [formEditId, setFormEditId] = useState<string | null>(null)
-  // Vorschau einpassen (Standard) oder in echter Größe zeigen.
-  const [fitToWidth, setFitToWidth] = useState(true)
 
   const selectSection = (section: EditorSection): void => {
     setActiveSection(section)
@@ -257,20 +255,6 @@ function EditorLayout({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {/* Fit vs. actual size: a list wider than the canvas used to scroll its
-              last columns out of sight — while those columns were the thing being
-              configured. */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', fitToWidth && 'bg-secondary text-foreground')}
-            onClick={() => setFitToWidth((v) => !v)}
-            aria-pressed={fitToWidth}
-            aria-label={t('customization.editor.fitToWidth')}
-            title={t(fitToWidth ? 'customization.editor.fitToWidthOn' : 'customization.editor.fitToWidthOff')}
-          >
-            <Scan className="h-4 w-4" aria-hidden="true" />
-          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canUndo} onClick={undo} aria-label={t('customization.editor.undo')}>
             <Undo2 className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -318,7 +302,6 @@ function EditorLayout({
               focusSection={activeSection}
               focusNonce={focusNonce}
               onContextChange={reportContext}
-              fitToWidth={fitToWidth}
             />
           )}
         </div>

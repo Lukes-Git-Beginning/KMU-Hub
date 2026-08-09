@@ -858,12 +858,13 @@ export default function HelpdeskPage() {
           </div>
 
           {/* Ticket table */}
-          {/* Im Editor darf die Liste NICHT in ihren eigenen Scroll-Container
-              kapseln: dort entscheidet man über Spalten, und was rechts
-              weggescrollt ist, sieht man beim Entscheiden nicht. Offen gelegt
-              misst die Vorschau die echte Breite und passt sie ein. */}
-          <div className={`rounded-lg border border-border bg-card ${columnLayout.editing ? '' : 'overflow-hidden'}`}>
-            <div className={columnLayout.editing ? '' : 'overflow-x-auto'}>
+          {/* Die Liste behält ihren eigenen Scroll-Container — auch im Editor.
+              Ein Versuch, sie dort offenzulegen (damit die Vorschau sie
+              einpassen kann), ließ die Tabelle zusammen mit den Prozent-
+              Spaltenbreiten ins Uferlose wachsen: eine Spalte über die ganze
+              Breite, der Rest unerreichbar (Darien 2026-08-09). */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
               <table
                 ref={ticketTableRef}
                 className="w-full text-sm"
