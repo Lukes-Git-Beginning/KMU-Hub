@@ -1,82 +1,110 @@
-# Nächste Runde (Darien, 2026-08-06): Wertelisten + Fokus-Kopplung
+# Wertelisten + Fokus-Kopplung — Stand 2026-08-09 (abgearbeitet)
 
 > Dariens Wortlaut am Session-Ende 05.08.: *„als nächstes müssen wir uns an die
 > Wertelisten setzen, die gehen noch nicht zu 100 Prozent. Und wenn ich im
 > Modul-Editor im Modul auf Statistik klicke, wechselt das Menü links und rechts
 > nicht."*
+>
+> **09.08.:** Darien wollte die konkreten Werteliste-Symptome noch nachschauen —
+> bis dahin habe ich die Prüfliste W1–W11 selbst durchgespielt (echte Electron-QA,
+> nicht Browser). Dabei sind **vier echte Defekte** aufgefallen und behoben.
+> Was Darien konkret meinte, kann trotzdem noch etwas anderes sein → siehe
+> „Was noch offen ist".
 
 ---
 
-## W · Wertelisten „gehen nicht zu 100 %"
+## F · Fokus-Kopplung — erledigt (Commit a927b37f)
 
-**Was zuerst passieren muss:** Darien fragen, welche Stellen konkret hakten. Die
-Aussage ist bewusst grob — nicht raten, sondern die Symptome einsammeln und dann
-gezielt reparieren. Bis dahin unten die Prüfliste, mit der ich das Modul ohnehin
-systematisch durchgehe.
+Das Modul meldet jetzt zurück, wo der Nutzer steht; Leiste und rechtes Panel
+folgen. Klick auf den Statistik-Reiter im Modul → Leiste steht auf „Statistik",
+rechts der Statistik-Katalog. Ticket öffnen → „Zusatzfelder".
 
-**Prüfliste (jede Zeile = ein Durchstich bis ins Modul UND bis nach „Übernehmen"):**
+**Zwei Regeln, die das stabil halten:**
 
-| # | Fall | Erwartung |
+1. Nur eindeutige Orte melden. Die blanke Liste ist gleichzeitig Heimat von
+   Begriffen, Wertelisten, Bereichen und Spalten → sie meldet `null` und lässt
+   die Leiste in Ruhe. Nur ein Ort mit eigenem Reiter/Detail setzt die Auswahl.
+2. `useEditorFocusEffect` hängt jetzt **nur** am `focusNonce`, nicht mehr an der
+   Section. Sonst hätte die Rückmeldung den Fokus-Handler erneut ausgelöst — beim
+   Öffnen eines Tickets wäre die Vorschau auf das *erste* Ticket zurückgesprungen.
+
+**Rollout in weitere Module:** eine Zeile, analog zu `useEditorFocusEffect`:
+
+```tsx
+useEditorContextReport(tab === 'statistik' ? 'statistik' : detailOffen ? 'felder' : null)
+```
+
+QA: `desktop/scripts/qa-editor-fokus-m.mjs` — 12/12, echtes Electron-Fenster.
+
+---
+
+## W · Wertelisten — vier Defekte gefunden und behoben
+
+| # | Fall | Ergebnis |
 |---|---|---|
-| W1 | Neue Werteliste anlegen | erscheint im Panel, im Spalten-Block „ohne Spalte", im Statistik-Katalog |
-| W2 | Option umbenennen | wirkt in Datensatz, Liste, Chips, Statistik-Aufschlüsselung |
-| W3 | Option-Farbe ändern | Chip-Farbe folgt überall (Liste + Detail + Statistik) |
-| W4 | Option hinzufügen | sofort in allen gebundenen Auswahlfeldern wählbar |
-| W5 | Option deaktivieren | verschwindet aus der Auswahl, bestehende Datensätze behalten den Wert |
-| W6 | Option löschen (in Benutzung) | Umzugs-Dialog (`valueSetMigrations`), Vorschau remappt live, Deploy zieht die Datensätze mit |
-| W7 | Liste an ein Feld binden | `valueSetId` + `useFieldOptions` — Labels/Farben aus der Liste |
-| W8 | Liste umbenennen | Listenname ≠ Spaltenüberschrift (zwei Speicher, in R1 geklärt) — beides muss stimmen |
-| W9 | Reihenfolge der Optionen | Sortierung wirkt in Auswahl + Statistik |
-| W10 | Übernehmen | alles oben überlebt den Deploy (die Whitelist-Falle der Spalten prüfen: gilt sie auch für Value-Sets?) |
-| W11 | Zurückrollen | Liste kehrt auf den Vorzustand zurück, Datensätze bleiben heil |
+| W1 | Neue Liste anlegen | ✅ — **war kaputt:** nach dem Übernehmen fiel die Liste aus dem Panel (gehörte zu keinem Modul). Listen tragen jetzt ihr Modul (Commit 3f3c5767) |
+| W2 | Option umbenennen | ✅ Liste, Chips, Filter, Statistik |
+| W3 | Option-Farbe ändern | ✅ bis in den Chip der Tabelle |
+| W4 | Option hinzufügen | ✅ sofort in allen gebundenen Auswahlfeldern |
+| W5 | Option deaktivieren | ✅ raus aus der Auswahl, Datensätze behalten den Wert |
+| W6 | Option löschen (in Benutzung) | ✅ Vorschau — **aber der Deploy zog nicht mit** (siehe unten, Commit 98377fbe) |
+| W7 | Liste an ein Feld binden | ✅ Labels/Farben/Reihenfolge kommen aus der Liste |
+| W8 | Liste umbenennen | ✅ Listenname und Spaltenüberschrift bleiben getrennt (R1) |
+| W9 | Reihenfolge der Optionen | ✅ — **gab es gar nicht:** `order` wurde sortiert, war aber nicht änderbar. Jetzt Zieh-Griffe wie bei den Spalten (Commit 2e05e9ed) |
+| W10 | Übernehmen | ✅ — **war kaputt:** siehe Hydration unten |
+| W11 | Zurückrollen | ✅ inkl. der Umzüge |
 
-**Bekannte Verdachtsmomente aus dem Code (vor der Reparatur verifizieren):**
+### Die zwei schwerwiegenden Funde (beide Commit 98377fbe)
 
-- **Vordefinierte vs. selbst angelegte Listen.** Die Kachel-/Panel-Logik kennt
-  `EditorModuleDef.valueSetIds` als „gehört zum Modul". Eine im Editor NEU angelegte
-  Liste hat keine Modul-Zuordnung — sie wird nur über ein gebundenes Feld sichtbar
-  (so zählt sie seit R7 auch in den Kachel-Zahlen). Löst der Kunde die Bindung,
-  ist die Liste faktisch heimatlos. **Braucht wahrscheinlich ein `moduleKey` am
-  Value-Set.**
-- **Migrations-Pfad W6** ist der komplexeste Teil und bisher am wenigsten
-  hands-on geprüft (`valueSetMigrations` + Deploy-Anwendung).
-- **Deploy-Filter:** bei Labels war `LABEL_WHITELIST` die stille Falle (Spalten-
-  Runde). Für Value-Sets denselben Pfad einmal explizit durchspielen.
+**1. Anpassungen wurden erst „lebendig", wenn jemand die Anpassungen-Seite öffnete.**
+Die Hydration hing am Lesen der Entwurfs-Liste — und die liest nur diese eine
+Seite. App starten, direkt ins Helpdesk: Original-Wertelisten. Ein Rollout, der
+seit Wochen live war, sah aus, als hätte es ihn nie gegeben — und kam zurück,
+sobald man einmal auf Anpassungen war. Jetzt beim Start, in jedem Fenster.
 
----
+**2. „Bestehende Einträge werden geändert auf: X" galt nur in der Vorschau.**
+Die Umzugs-Tabelle lebte im Editor. Nach dem Übernehmen fielen die Datensätze
+auf die entfernte Option zurück. Die Tabelle ist jetzt Teil der Mandanten-Ebene:
+sie wird deployt, rollt mit dem Snapshot zurück, und Ketten werden aufgelöst
+(Mittel→Hoch, dann Hoch→Dringend ⇒ Mittel zeigt auf Dringend, nie auf etwas
+Entferntes).
 
-## F · Fokus-Kopplung ist einseitig
+QA: `qa-editor-wertelisten-n.mjs` 16/16 (jede Änderung bis ins Modul),
+`qa-editor-wertelisten-o.mjs` 7/7 (übernehmen → echtes Modul → zurückrollen),
+`qa-editor-wertelisten-p.mjs` 3/3 (eigene Liste überlebt den Deploy).
 
-**Symptom:** Im Editor auf den **Statistik-Reiter im Modul** klicken → linke Leiste
-und rechtes Panel bleiben stehen, wo sie waren.
+### Nebenbei mitgenommen
 
-**Warum:** `useEditorFocusEffect` (EditorSurface) koppelt nur **Leiste → Vorschau**:
-die Leiste setzt `focusSection`, das Modul reagiert (`statistik: () => setTab('statistik')`).
-Die Gegenrichtung existiert nicht — das Modul meldet seinen Kontext nirgends.
-
-**Vorgeschlagener Weg:**
-
-1. `EditorSurfaceValue` um `reportContext(section: EditorFocusSection | null)`
-   erweitern (no-op außerhalb der Sandbox, wie `setLabel`/`setAreaLayout`).
-2. Modul meldet beim Tab-Wechsel: `useEditorContextReport(tab === 'statistik' ? 'statistik' : null)`
-   — ein kleiner Hook, der nur bei Änderung meldet.
-3. `EditorWorkspace` setzt daraufhin `activeSection` — **ohne** `focusNonce` zu
-   erhöhen, sonst schiebt die Leiste die Vorschau zurück und es entsteht eine
-   Schleife (Leiste → Vorschau → Leiste → …). Guard: nur setzen, wenn `!==` aktuelle
-   Section.
-4. Rollout-Muster: dieselben drei Zeilen wie `useEditorFocusEffect` in jedem Modul —
-   gehört mit in die Editor-Dokumentation.
-
-**QA:** in der Electron-Suite (`qa-editor-electron-l.mjs`) oder einer neuen:
-Modul-Tab „Statistik" klicken → Leiste zeigt „Statistik" aktiv, rechtes Panel zeigt
-den Statistik-Katalog. Und die Gegenprobe: Leiste klicken → Vorschau folgt weiterhin
-(keine Regression an R1).
+- Optionszeilen haben Namen bekommen (sechs identische „Sichtbarkeit umschalten"-
+  Buttons und sechs namenlose Eingabefelder pro Liste), Farbfelder sagen ihre Farbe.
+- `fix(helpdesk)` 71f13dd1: Ticket-Nummern waren eine Quersumme der ID — fünf von
+  vierzehn Demo-Tickets teilten sich eine Nummer mit einem anderen. Und eine
+  Nummer bricht nicht mehr dreizeilig um.
 
 ---
 
-## Reihenfolge morgen
+## Was noch offen ist
 
-1. Symptome der Wertelisten von Darien einsammeln → W-Prüfliste abarbeiten.
-2. F (Fokus-Kopplung) — kleiner, klar umrissen, kann dazwischen laufen.
-3. Danach steht weiterhin die **Editor-Dokumentation** als Rollout-Vorlage an
-   (offen seit #32); Spalten-, Fokus- und Wertelisten-Erkenntnisse gehören hinein.
+1. **Dariens eigentliche Symptome.** Er wollte nachschauen, wo es hakte. Die vier
+   Funde oben decken die Prüfliste ab — sie müssen nicht dasselbe sein.
+2. **Panel zeigt bereits deployte Umzüge nicht.** Öffnet man den Editor erneut,
+   steht die entfernte Option nur als „ausgeblendet" da, ohne „→ Ziel" und ohne
+   „Wiederherstellen". Dafür bräuchte der Entwurf ein „Umzug aufheben".
+3. **Vorschau schneidet die Liste rechts ab.** Im Editor-Canvas sind „Zugewiesen
+   an", SLA und „Erstellt am" nicht sichtbar — gerade beim Konfigurieren von
+   Spalten unpraktisch.
+4. **Editor-Dokumentation** als Rollout-Vorlage (offen seit #32): Spalten, Fokus
+   (beide Richtungen!), Wertelisten gehören hinein.
+
+## QA-Regeln, die diese Runde bestätigt/erweitert hat
+
+- **Alles Fenster-/IPC-Nahe mit echtem Electron testen** (`_electron.launch`) —
+  Browser-Suiten sehen das zweite Fenster nicht.
+- **Nach Code-Änderungen den Dev-Server neu starten, bevor die Electron-QA läuft.**
+  Zweimal in dieser Runde ist der Editor mit „useDraftConfig must be used within a
+  DraftConfigProvider" gestorben — reiner HMR-Zustand, kein echter Fehler, kostet
+  aber jedes Mal einen Debug-Umweg.
+- **Die Suiten einzeln fahren.** Drei Electron-Starts hintereinander in einem
+  Befehl haben O reproduzierbar wacklig gemacht (einzeln 7/7, im Block 4/7).
+- **`innerText` sieht keine Eingabefelder und liefert CSS-Großschreibung** — zwei
+  falsche FAILs kamen daher; Werte über `evaluateAll(el => el.value)` prüfen.

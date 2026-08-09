@@ -1,11 +1,19 @@
-# RESUME — nächster Einstieg (Stand 2026-08-06, Session #35 abgeschlossen + GEPUSHT)
+# RESUME — nächster Einstieg (Stand 2026-08-09, Session #36)
 
-> **★★★★★ MORGEN ZUERST (Dariens Ansage am Session-Ende):**
->   1. **Wertelisten „gehen noch nicht zu 100 %"** — Symptome sind bewusst grob genannt, also **zuerst bei Darien einsammeln**, welche Stellen hakten. Prüfliste W1–W11 (anlegen, umbenennen, Farbe, Option hinzufügen/deaktivieren/löschen-mit-Umzug, binden, Reihenfolge, Übernehmen, Zurückrollen) + Verdachtsmomente liegen fertig in **`.planning/wertelisten-und-fokus-naechste-runde.md`**.
->   2. **Fokus-Kopplung ist einseitig** — Klick auf den Statistik-Reiter IM Modul lässt Leiste und rechtes Panel stehen. `useEditorFocusEffect` koppelt nur Leiste → Vorschau; die Gegenrichtung fehlt. Lösungsweg (inkl. Schleifen-Guard) steht im selben Paket unter F.
+> **★★★★★ ZUERST:**
+>   1. **Dariens Werteliste-Symptome einsammeln.** Er wollte nachschauen, wo es konkret hakte. Ich habe die Prüfliste W1–W11 in der Zwischenzeit selbst durchgespielt und **vier echte Defekte** behoben (unten) — das muss nicht dasselbe sein, was ihm aufgefallen ist.
+>   2. **Editor-Dokumentation** als Rollout-Vorlage (offen seit #32): Spalten, Fokus **in beiden Richtungen**, Wertelisten.
 >
-> **★ Stand:** Session #35 komplett gepusht (Spalten R4 + drei Review-Runden R5/R6/R7). Auto-Deploy auf Hetzner läuft damit an (cd.yml scharf).
-> **★ Offene Kleinigkeit aus R7:** eine auf 40 % gezogene Spalte lässt im schmalen Editor-Fenster wenig für den Rest — Darien fragen, ob eine Untergrenze gewünscht ist.
+> **★ Session #36 — alles gepusht, jede Änderung mit echter Electron-QA belegt:**
+> - **Fokus-Kopplung beidseitig** (`a927b37f`): das Modul meldet seinen Ort zurück, Leiste + rechtes Panel folgen. Zwei Regeln halten das stabil — nur *eindeutige* Orte melden (die blanke Liste ist Heimat von vier Sektionen → meldet nichts), und `useEditorFocusEffect` hängt nur noch am `focusNonce`, sonst hätte die Rückmeldung den Fokus-Handler erneut ausgelöst und die Vorschau aufs erste Ticket zurückgeworfen. QA `qa-editor-fokus-m.mjs` 12/12.
+> - **⚠⚠ Anpassungen wurden erst wirksam, wenn jemand die Anpassungen-Seite öffnete** (`98377fbe`): App starten → direkt ins Helpdesk → Original-Wertelisten. Ein seit Wochen live geschalteter Rollout sah aus, als hätte es ihn nie gegeben. Hydration läuft jetzt beim Start, in jedem Fenster.
+> - **⚠⚠ „Bestehende Einträge werden geändert auf: X" galt nur in der Vorschau** (`98377fbe`): die Umzugs-Tabelle lebte im Editor, nach dem Übernehmen fielen die Datensätze auf die entfernte Option zurück. Sie ist jetzt Teil der Mandanten-Ebene (deployt, rollt zurück, Ketten werden aufgelöst).
+> - **Optionen ließen sich nicht umsortieren** (`2e05e9ed`): `order` wurde sortiert, war aber nie änderbar — eine später ergänzte Option klebte in jedem Menü unten. Jetzt Zieh-Griffe wie bei den Spalten (inkl. Tastatur).
+> - **Eigene Werteliste verschwand nach dem Übernehmen aus dem Panel** (`3f3c5767`): sie gehörte zu keinem Modul. Listen tragen jetzt ihr Modul.
+> - **Ticket-Nummern waren doppelt** (`71f13dd1`): die laufende Nummer war eine Quersumme der ID, `hd-tk-001` und `hd-tk-010` ergaben dieselbe — fünf von vierzehn Demo-Tickets betroffen.
+>
+> **★ QA-Regeln, neu bestätigt:** echtes Electron für alles Fenster-/IPC-Nahe · **Dev-Server nach Code-Änderungen neu starten**, sonst stirbt der Editor an einem HMR-Zustand („useDraftConfig must be used within a DraftConfigProvider") · Suiten **einzeln** fahren (drei Electron-Starts in einem Befehl machten O wacklig) · `innerText` sieht keine Eingabefelder und liefert CSS-Großschreibung.
+> **★ Offen:** Panel zeigt bereits deployte Umzüge ohne „→ Ziel"/„Wiederherstellen" · Editor-Vorschau schneidet die Liste rechts ab (SLA/Zugewiesen an/Erstellt am nicht sichtbar) · Spalten-Untergrenze aus R7 weiterhin ungeklärt. Details: `.planning/wertelisten-und-fokus-naechste-runde.md`.
 >
 > ---
 
