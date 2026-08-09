@@ -858,8 +858,12 @@ export default function HelpdeskPage() {
           </div>
 
           {/* Ticket table */}
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
+          {/* Im Editor darf die Liste NICHT in ihren eigenen Scroll-Container
+              kapseln: dort entscheidet man über Spalten, und was rechts
+              weggescrollt ist, sieht man beim Entscheiden nicht. Offen gelegt
+              misst die Vorschau die echte Breite und passt sie ein. */}
+          <div className={`rounded-lg border border-border bg-card ${columnLayout.editing ? '' : 'overflow-hidden'}`}>
+            <div className={columnLayout.editing ? '' : 'overflow-x-auto'}>
               <table
                 ref={ticketTableRef}
                 className="w-full text-sm"
@@ -1073,13 +1077,24 @@ export default function HelpdeskPage() {
           showStat('ticketsPerDay') && (
             <div key="tpd" className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-sm font-medium text-foreground mb-4"><EditableText as="span" dkey="helpdesk.stats.ticketsPerDay" /></h3>
-              <div className="flex items-end gap-3 h-40">
+              {/* Die Balken brauchen einen Elternteil mit ECHTER Höhe: eine
+                  Prozent-Höhe an einem Container, der sich nach seinem Inhalt
+                  richtet, rechnet der Browser zu null — deshalb war das Diagramm
+                  leer, während Achse und Zahlen dastanden. Die Spalte erbt jetzt
+                  die 160px der Zeile, und der mittlere Bereich (flex-1) ist die
+                  Bezugsgröße für den Balken. */}
+              <div className="flex h-40 items-end gap-3">
                 {stats.weekly_breakdown.map((day) => {
                   const maxCount = Math.max(...stats.weekly_breakdown.map((d) => d.count), 1)
                   return (
-                    <div key={day.label} className="flex-1 flex flex-col items-center gap-1">
+                    <div key={day.label} className="flex h-full flex-1 flex-col items-center gap-1">
                       <span className="text-xs text-muted-foreground">{day.count}</span>
-                      <div className="w-full rounded-t bg-primary/80 transition-all" style={{ height: `${Math.max(8, (day.count / maxCount) * 100)}%` }} />
+                      <div className="flex w-full min-h-0 flex-1 items-end">
+                        <div
+                          className="w-full rounded-t bg-primary/80"
+                          style={{ height: `${Math.max(4, (day.count / maxCount) * 100)}%` }}
+                        />
+                      </div>
                       <span className="text-[10px] text-muted-foreground">{day.label}</span>
                     </div>
                   )

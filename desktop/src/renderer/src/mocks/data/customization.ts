@@ -705,6 +705,12 @@ export function applyDraftToTenant(payload: {
   for (const [setId, moves] of Object.entries(payload.valueSetMigrations ?? {})) {
     const target = { ...(tenantValueSetMigrations[setId] ?? {}) }
     for (const [removed, to] of Object.entries(moves)) {
+      // Empty target = "undo this move": the option was restored in the editor,
+      // so records stop being redirected away from it.
+      if (!to) {
+        delete target[removed]
+        continue
+      }
       target[removed] = to
       for (const [earlier, earlierTo] of Object.entries(target)) {
         if (earlierTo === removed) target[earlier] = to
