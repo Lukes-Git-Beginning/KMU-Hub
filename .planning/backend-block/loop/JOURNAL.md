@@ -64,3 +64,30 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - **Nummer und Zeitstempel nicht raten.** Beides steht ab diesem Lauf im Laufkontext-Block am
   Ende deines Prompts, vom Treiber gesetzt.
 - **Ausgerollte Migrationen sind tabu — auch ihre Kommentare.**
+
+## Iteration 1 — fix-inventar-picking-partial-book — done — 2026-08-09 19:10
+- commit: 06700605
+- gebaut: `BookPickingList` und `BookInventurDifferences` liefen bisher pro Position einen
+  eigenen `AdjustStock`-Call und loggten einen Fehschlag nur — die Liste/Session blieb
+  trotzdem `completed`, ein Teil des Bestands unbewegt. Beide teilen sich jetzt
+  `Repository.applyMovementsInTx`: Claim/Complete und jede Bestandsbewegung laufen in EINER
+  Postgres-Transaktion (`BookPickingListTx`, `CompleteInventurSessionTx`). `CompletePickingList`
+  ist entfallen (war nur noch Totcode). `movementTypeForDelta` als geteilter Helfer, auch von
+  `AdjustStock` genutzt (Dedup).
+- gate: build ok | vet ok | lint ok (golangci-lint 0 issues) | test ok | migration n.a. (keine
+  neue Migration) | rls-smoke n.a.
+- verify vorgaenger: n.a. — erste Iteration von Lauf 7, kein Vorgaenger-Commit in diesem Lauf.
+- offen: Nichts Blockierendes. Zur Kenntnis: `applyMovementsInTx` verwendet `SELECT ... FOR
+  UPDATE` statt Advisory-Lock (anders als `produktion`/`fuhrpark`s Booking-Pattern) — passend,
+  weil hier direkt die existierende Item-Zeile gesperrt wird, nicht auf eine noch nicht
+  existierende Zeile geprueft wird. `AdjustStock` selbst (manuelle Einzel-Anpassung) blieb
+  unangetastet, nur die Movement-Type-Klassifikation wurde in den geteilten Helfer gezogen.
+- mutations-probe: `it.Quantity+mv.Delta < 0`-Check in `applyMovementsInTx`
+  (`postgres_repository.go`) auf `false && ...` gesetzt → `TestBookPickingListTx_
+  PartialFailureRollsBackClaimAndStock` (DB-Test) wurde rot ("expected ErrInsufficientStock,
+  got <nil>"), zurueckgedreht, Suite wieder gruen.
+- db-tests: 2 echte DB-Tests neu (`picking_booking_tx_test.go`, gegen lokale DB via
+  `docker-postgres-1`/`kmuhub_app` verifiziert: ON-CONFLICT-Upsert, Claim-UPDATE, atomarer
+  Rollback bei Teilfehler), 0 Skips bei gesetzter `DATABASE_URL`. Docker Desktop war zu
+  Laufbeginn nicht gestartet — musste hochgefahren und `docker-compose up -d postgres` erneut
+  laufen lassen, bevor die DB-Tests liefen; danach `docker-postgres-1` wieder healthy.

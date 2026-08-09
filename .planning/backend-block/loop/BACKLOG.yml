@@ -189,7 +189,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `BookPickingList` (internal/inventar/service.go, ~Zeile 1143) haelt die Zusage aus
       seinem eigenen Doc-Kommentar nicht: "a list that cannot be booked in full must not
