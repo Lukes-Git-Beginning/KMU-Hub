@@ -1163,3 +1163,56 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `internal/server`-Coverage-Units in diesem Lauf (formulare, work_*, work_comment etc.).
 - offen: erste von zwoelf Units in Block B-Server erledigt (1/12). Naechste laut Reihenfolge:
   `b-cov-server-rapporte` (Genehmigungsfluss, ebenfalls kein DB-Zugriff noetig laut Scope).
+
+## Iteration 19 — b-cov-server-rapporte — done — 2026-08-10 00:32
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `rapporte_grpc_test.go` fuer `rapporte_grpc.go` (34 Methoden, vorher 0 %).
+  In-Memory-Stub `stubRapporteRepo` implementiert `rapporte.Repository` (23 Methoden) mit
+  echten Status-Uebergaengen fuer Reports (nicht nur Fehler-Injektion) - `AtomicApproveReport`/
+  `AtomicRejectReport` respektieren den TOCTOU-sicheren "nur aus submitted"-Vertrag der echten
+  Implementierung, damit der volle Zustandsautomat ueber den echten `rapporte.Service` laeuft,
+  nicht nur ueber gemockte Sentinel-Fehler. Abgedeckt je Handler-Gruppe: Report (CRUD,
+  Tenant-aus-Kontext-Beweis analog Lauf-6-Fuhrpark-Vorlage), State Machine (submit/approve/
+  reject inkl. Doppel-Approve -> already-approved, Reject-nach-Approved -> already-approved statt
+  generischem invalid-transition), Line, Attachment (inkl. Objekt-Key-Tenant-Praefix-Pruefung),
+  Signature, Stats/Export (inkl. PDF-Payload/Filename), Worker, Measurement, Template.
+  `go tool cover -func` zeigt alle 34 Handler-Methoden zwischen 68,8 % (`UpdateLine`) und 100 %
+  (`GetReport`, `mapRapporteError`, Konstruktor), keine 0-%-Reste; die acht Proto-Mapper liegen
+  zwischen 41,7 % und 66,7 %. `internal/server`-Gesamtcoverage 30,5 % laut
+  `go test -coverprofile` (vorher 27,9 % nach Iteration 18s Fuhrpark-Lauf).
+- fund-echte-luecke: `RejectReport` validiert nirgends (Service, Handler, Repository), dass
+  `ReviewNote` nicht leer ist - der Backlog-Scope dieser Unit selbst fordert aber "Ablehnen ohne
+  Begruendung muss scheitern". Verifiziert durch Lesen von service.go (RejectReport prueft nur
+  TenantID/ReportID), rapporte_grpc.go (reicht ReviewNote ungeprueft durch) und
+  postgres_repository.go (kein NOT-NULL/Laengen-Constraint). Nach Backlog-Regel ("NEUE ROUTEN...
+  wer eine echte Luecke findet, notiert sie im Journal und legt eine Unit fuer Lauf 8 an, statt
+  sie nebenbei zu bauen") nicht inline gefixt, sondern `fix-rapporte-reject-without-reason` ganz
+  vorne im Backlog angelegt (todo). Die Coverage-Tests selbst pruefen deshalb nur die IST-Logik
+  (leeres ReviewNote wird aktuell angenommen, nicht abgelehnt) und behaupten nichts anderes.
+- gate: build ok (`go build -p 2 ./internal/server/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/server/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/server/...`, gruen, 0 uebersprungen - Postgres-Container `docker-postgres-1` war zu
+  Laufbeginn gestoppt, per `docker start` reaktiviert und Healthcheck abgewartet, danach voller
+  Lauf gruen inkl. aller DB-Tests) | migration n.a. (keine Migration angefasst) | rls-smoke n.a.
+  (Stub-Repo, kein DB-Zugriff durch die neuen Tests selbst) | `go build ./...` Repo-weit nicht
+  versucht (bekannte lokale RAM-Grenze beim Linken aller 24 Microservice-Binaries, siehe
+  Iteration 18) - `internal/server` allein baut, vettet, lintet und testet sauber.
+- verify vorgaenger: sauber — `a90372fd` (b-cov-server-fuhrpark) geprueft: `git show --stat`
+  zeigt nur `fuhrpark_grpc_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine neue
+  Route, kein RequirePermission, keine Tabelle, kein .proto.
+- mutations-probe: in `mapRapporteError` (rapporte_grpc.go:1056) die Zuordnung fuer
+  `ErrAlreadyApproved` von `codes.FailedPrecondition` auf `codes.Internal` geaendert →
+  `TestMapRapporteError/already_approved` sowie
+  `TestRapporteStateMachineHandlers/ApproveReport_twice_fails_the_second_time_with_already-approved`
+  und `.../RejectReport_on_an_already-approved_report_fails_with_already-approved,_not_a_generic_
+  invalid_transition` wurden alle drei rot (erwarteter Code FailedPrecondition, erhalten
+  Internal), der Rest der Suite blieb gruen. Zurueckgedreht, `git diff --stat` auf
+  `rapporte_grpc.go` zeigt keine Restaenderung, volle Suite danach wieder gruen.
+- db-tests: 0 — reines gRPC-Handler-Paket ohne DB-Zugriff, wie bei allen bisherigen
+  `internal/server`-Coverage-Units in diesem Lauf.
+- offen: zweite von zwoelf Units in Block B-Server erledigt (2/12). Naechste laut Reihenfolge:
+  `b-cov-server-inventar` (Bestandsbewegungen, Zu-/Abgang getrennt pruefen). Neue Fix-Unit
+  `fix-rapporte-reject-without-reason` steht jetzt ganz vorne im Backlog (todo, nicht Teil
+  dieses Laufs' Coverage-Reihenfolge - Luke entscheidet ob sie in Lauf 7 noch reinpasst oder
+  nach Lauf 8 wandert). Postgres-Container lief zu Laufbeginn nicht - falls das oefter passiert,
+  lohnt sich ein Blick, ob `docker-postgres-1` einen Restart-Policy-Eintrag braucht.

@@ -142,6 +142,51 @@
 
 units:
 
+  - id: fix-rapporte-reject-without-reason
+    phase: 3
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `RejectReport` (internal/rapporte/service.go:333) validiert nirgends, dass `ReviewNote`
+      nicht leer ist, obwohl der Backlog-Scope von `b-cov-server-rapporte` selbst "Ablehnen
+      ohne Begruendung muss scheitern" fordert. Verifiziert ueber den gesamten Pfad: der
+      gRPC-Handler `RejectReport` (internal/server/rapporte_grpc.go:224) reicht
+      `req.GetReviewNote()` ungeprueft durch, der Service validiert nur `TenantID`/`ReportID`
+      via UUID-Parse und ruft direkt `s.repo.AtomicRejectReport(...)` auf, und das Repository
+      (`postgres_repository.go`, `AtomicRejectReport`) schreibt `review_note` als beliebigen
+      String ohne NOT-NULL- oder Laengen-Constraint (Migration, in der `report_workflow`-Spalten
+      angelegt wurden, hat keine CHECK-Klausel dafuer). Ein leerer oder reiner Whitespace-String
+      wird also klaglos als Ablehnungsgrund akzeptiert. `ApproveReport` hat dasselbe Feld
+      (`ReviewNote`), aber dort ist eine leere Begruendung fachlich unproblematisch - nur
+      `RejectReport` hat laut Scope die explizite Anforderung.
+    sources:
+      - backend/internal/rapporte/service.go
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/errors.go
+    notes: >
+      Gefunden waehrend b-cov-server-rapporte (Lauf 7, Iteration 19) - im Backlog-Scope selbst
+      als done_when-Kriterium benannt ("Ablehnen ohne Begruendung scheitert"), beim Lesen von
+      service.go/rapporte_grpc.go/postgres_repository.go bestaetigt statt nur vermutet. Nicht in
+      der Coverage-Unit gefixt - echte Verhaltensaenderung (neue Validierung), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: in
+      `Service.RejectReport` (service.go:333) vor dem Repository-Aufruf pruefen, dass
+      `strings.TrimSpace(input.ReviewNote) != ""`, sonst `ErrInvalidInput` zurueckgeben - exakt
+      das Muster, das `AddLine`/`UpdateLine` schon fuer `Description` verwenden (Trim + Leer-Check
+      -> ErrInvalidInput). `mapRapporteError` bildet `ErrInvalidInput` bereits auf
+      `codes.InvalidArgument` ab, keine neue Fehlerklasse noetig. `RejectReportInput.ReviewNote`
+      bleibt `string` (kein Zeigertyp noetig, ein leerer String ist bereits eindeutig ablehnbar).
+    done_when:
+      - RejectReport mit leerem oder reinem Whitespace-ReviewNote liefert ErrInvalidInput /
+        codes.InvalidArgument statt die Ablehnung anzunehmen
+      - RejectReport mit nicht-leerem ReviewNote funktioniert unveraendert
+      - ApproveReport bleibt bewusst ohne diese Pflicht (nicht Teil des Scopes)
+      - Test fuer den leeren Fall in internal/rapporte (Service-Ebene) und internal/server
+        (Handler-Ebene, Fehler-Mapping) ergaenzt
+      - go test -count=1 ./internal/rapporte/... ./internal/server/... gruen
+
   - id: fix-einkauf-contract-call-no-value-check
     phase: 3
     service: einkauf
@@ -741,7 +786,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/rapporte_grpc.go` - 1.066 Zeilen, 34 Methoden, keine Testdatei.
     sources:
