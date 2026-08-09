@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/stores/notifications.ts",
+    "src/renderer/src/modules/notifications/NotificationCenter.tsx",
+    "src/renderer/src/modules/notifications/NotificationToast.tsx",
+    "src/renderer/src/modules/notifications/NotificationBell.tsx",
+    "src/renderer/src/modules/settings/tabs/NotificationSettingsTab.tsx",
+    "src/renderer/src/lib/notification-sound.ts"
+  ]
+}

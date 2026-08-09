@@ -52,7 +52,13 @@ export interface Notification {
 interface NotificationsState {
   notifications: Notification[]
   isDropdownOpen: boolean
+  /** Chime on a new notification. Off by default (Darien 2026-08-09). */
   soundEnabled: boolean
+  /**
+   * Silence everything: no toast, no chime. The bell keeps collecting, so
+   * nothing is lost — this is "leave me alone", not "stop notifying me".
+   */
+  muteAll: boolean
 
   // Computed-like
   unreadCount: () => number
@@ -74,6 +80,7 @@ interface NotificationsState {
   closeDropdown: () => void
   snoozeNotification: (id: string, until: string) => void
   toggleSound: () => void
+  toggleMuteAll: () => void
   handleNotificationAction: (notificationId: string, actionKey: string) => void
 }
 
@@ -223,7 +230,11 @@ export const useNotificationsStore = create<NotificationsState>()(
     (set, get) => ({
       notifications: mockNotifications,
       isDropdownOpen: false,
-      soundEnabled: true,
+      // Sound is opt-in: a chime that plays without being asked for is the kind
+      // of thing people turn off for good (Darien 2026-08-09 — the demo pinged on
+      // every app start). The switch sits in Einstellungen → Benachrichtigungen.
+      soundEnabled: false,
+      muteAll: false,
 
       unreadCount: () => get().notifications.filter((n) => !n.isRead).length,
 
@@ -279,6 +290,9 @@ export const useNotificationsStore = create<NotificationsState>()(
       toggleSound: () =>
         set((state) => ({ soundEnabled: !state.soundEnabled })),
 
+      toggleMuteAll: () =>
+        set((state) => ({ muteAll: !state.muteAll })),
+
       handleNotificationAction: (notificationId, actionKey) => {
         // Mark the notification as read when any action is taken
         set((state) => ({
@@ -292,6 +306,15 @@ export const useNotificationsStore = create<NotificationsState>()(
     }),
     {
       name: 'cosmi-notifications',
+      // v1: the chime used to default to ON and was persisted that way, so a
+      // changed default alone would not reach anyone who had already started the
+      // app. This turns it off once; whoever wants it back flips the switch.
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<NotificationsState>
+        if (version < 1) return { ...state, soundEnabled: false, muteAll: false }
+        return state
+      },
     },
   ),
 )

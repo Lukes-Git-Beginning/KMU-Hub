@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall, Pin, PinOff, EyeOff, ArrowRight, AlarmClock } from 'lucide-react'
+import { Bell, BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall, Pin, PinOff, EyeOff, ArrowRight, AlarmClock } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -46,6 +46,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { navItems, moduleHsl } from '@/components/layout/sidebar/nav-items'
+import { useNotificationsStore } from '@/stores/notifications'
 
 // Priority ordering for the sort control (highest first when descending).
 const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, normal: 1, low: 0 }
@@ -97,6 +98,8 @@ function getInitials(name: string): string {
 export default function NotificationCenter() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const muteAll = useNotificationsStore((s) => s.muteAll)
+  const toggleMuteAll = useNotificationsStore((s) => s.toggleMuteAll)
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
   const [page, setPage] = useState(1)
   const [showPreferences, setShowPreferences] = useState(false)
@@ -224,6 +227,18 @@ export default function NotificationCenter() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Quiet now, without a trip into the settings — the state is visible
+                on the button itself, so nobody wonders why it stays silent. */}
+            <Button
+              variant={muteAll ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={toggleMuteAll}
+              aria-pressed={muteAll}
+              title={t('settings.notifications.mute.desc')}
+            >
+              {muteAll ? <BellOff className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}
+              {muteAll ? t('settings.notifications.mute.active') : t('settings.notifications.mute.label')}
+            </Button>
             {unreadCount > 0 && (
               <Button
                 variant="outline"
