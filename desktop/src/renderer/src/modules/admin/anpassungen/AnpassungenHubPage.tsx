@@ -27,6 +27,7 @@ import { resolveLabelOverrides } from '@/mocks/data/customization'
 import { listCustomFields } from '@/mocks/data/custom-fields'
 import {
   listDrafts,
+  getDraft,
   rollbackDeploy,
   canRollback,
   deleteDraft,
@@ -34,12 +35,14 @@ import {
   setDraftSchedule,
   clearDraftSchedule,
   setDraftAnnouncement,
+  renameDraft,
   getDeploySnapshot,
 } from '@/mocks/data/customization-drafts'
 import type { CustomizationDraft, DraftStatus } from '@/api/customization-types'
 import { EDITOR_MODULES, type EditorModuleDef } from './editor/editorModules'
 import {
   stashDraftForEditor,
+  clearStashedDraft,
   publishDraftMirror,
   publishCustomizationDeploy,
 } from './editor/customization-sync'
@@ -80,10 +83,23 @@ export default function AnpassungenTab() {
     })
   }
 
-  // Open the editor in its own OS window (web fallback: same-window route).
-  const openEditor = (key: string): void => {
+  /**
+   * Open the editor in its own OS window (web fallback: same-window route).
+   *
+   * `handedOver` says a draft was just stashed for the window that is about to
+   * boot. Only one editor window exists per module, so a click that merely
+   * focuses an open one must take that note back — otherwise it sits in storage
+   * and the NEXT launch opens a state from two saves ago (Darien 2026-08-09).
+   * That window gets the draft through the channel instead.
+   */
+  const openEditor = (key: string, handedOver = false): void => {
     if (window.electronAPI?.editor) {
-      void window.electronAPI.editor.openWindow(key)
+      void window.electronAPI.editor.openWindow(key).then((created) => {
+        // Only an explicit "no window was created" clears the note. An older main
+        // process answers undefined — clearing then would delete the handover out
+        // from under the window that is booting to read it.
+        if (handedOver && created === false) clearStashedDraft()
+      })
     } else {
       navigate(`/editor-window?module=${encodeURIComponent(key)}`)
     }
@@ -97,9 +113,13 @@ export default function AnpassungenTab() {
    * discarded. The editor says which draft it loaded and offers a fresh start.
    */
   const openModule = (key: string): void => {
-    const pending = drafts.find((d) => d.moduleKey === key && d.status === 'draft')
+    // Read the store, not the query cache. The cache is filled by a broadcast from
+    // the editor window, and if that has not landed yet the tile would hand over
+    // nothing — which is what "manchmal öffnet er es so wie es aktuell ist" was
+    // (Darien 2026-08-09). listDrafts() re-reads shared storage every call.
+    const pending = listDrafts(key).find((d) => d.status === 'draft')
     if (pending) stashDraftForEditor(pending)
-    openEditor(key)
+    openEditor(key, Boolean(pending))
   }
 
   const handleRollback = (draft: CustomizationDraft): void => {
@@ -123,9 +143,11 @@ export default function AnpassungenTab() {
    * the draft is handed over through storage both windows share.
    */
   const continueDraft = (draft: CustomizationDraft): void => {
-    stashDraftForEditor(draft)
+    // Same reason as openModule: hand over what is stored right now, not the copy
+    // this list was rendered from.
+    stashDraftForEditor(getDraft(draft.id) ?? draft)
     setDetailId(null)
-    openEditor(draft.moduleKey)
+    openEditor(draft.moduleKey, true)
   }
 
   const handleDeployNow = (draft: CustomizationDraft): void => {
@@ -154,6 +176,14 @@ export default function AnpassungenTab() {
     publishDraftMirror(updated)
     refresh()
     toast.success(t('customization.rollout.unscheduled'))
+  }
+
+  const handleRename = (draft: CustomizationDraft, name: string): void => {
+    const updated = renameDraft(draft.id, name)
+    if (!updated) return
+    publishDraftMirror(updated)
+    refresh()
+    toast.success(t('customization.editor.toast.renamed', { name: updated.name }))
   }
 
   const handleAnnouncement = (draft: CustomizationDraft, text: string): void => {
@@ -298,6 +328,7 @@ export default function AnpassungenTab() {
           onSchedule={(at) => handleSchedule(detail, at)}
           onUnschedule={() => handleUnschedule(detail)}
           onAnnouncementChange={(text) => handleAnnouncement(detail, text)}
+          onRename={(name) => handleRename(detail, name)}
           onRollback={() => {
             handleRollback(detail)
             setDetailId(null)

@@ -127,6 +127,20 @@ export function hydrateCustomization(): void {
   hydrateOnce()
 }
 
+/**
+ * Read the shared state before changing it (Darien 2026-08-09: „manchmal öffnet er
+ * den Entwurf so wie es aktuell ist, oder die Version von vor zwei Mal Speichern").
+ *
+ * `persist()` writes this window's WHOLE list. The editor window and the hub each
+ * hold their own copy, so an editor that had been open for a while wrote back a
+ * list from before everything the hub had done since — quietly reverting records
+ * to an earlier state. Every mutation now starts from what is actually stored.
+ */
+function beforeMutation(): void {
+  hydrateOnce()
+  syncFromStorage()
+}
+
 function newId(): string {
   draftSeq += 1
   return `draft-${String(draftSeq).padStart(3, '0')}`
@@ -194,6 +208,7 @@ export function getDeploySnapshot(id: string): DeploySnapshot | undefined {
  * window already did those; this only makes the record visible/rollback-able here.
  */
 export function ingestRemoteDraft(draft: CustomizationDraft, snapshot?: DeploySnapshot): void {
+  beforeMutation()
   const idx = drafts.findIndex((d) => d.id === draft.id)
   if (idx >= 0) drafts[idx] = draft
   else drafts.unshift(draft)
@@ -210,6 +225,7 @@ export function ingestRemoteDraft(draft: CustomizationDraft, snapshot?: DeploySn
 
 /** Upsert a draft in status 'draft'. No tenant mutation, no user impact. */
 export function saveDraft(input: SaveDraftInput): CustomizationDraft {
+  beforeMutation()
   const now = new Date().toISOString()
   const existing = input.id ? drafts.find((d) => d.id === input.id) : undefined
 
@@ -249,6 +265,7 @@ export function saveDraft(input: SaveDraftInput): CustomizationDraft {
 }
 
 export function deleteDraft(id: string): void {
+  beforeMutation()
   const idx = drafts.findIndex((d) => d.id === id)
   if (idx < 0) return
   const [removed] = drafts.splice(idx, 1)
@@ -350,7 +367,28 @@ export function deployDraft(input: DeployDraftInput): CustomizationDraft {
 // editor: move a scheduled date, take it off the calendar, edit the announcement.
 
 /** Rewrite the announcement of an existing draft/rollout. Empty string clears it. */
+/** Rename a draft/rollout — same record, new label in the list. */
+export function renameDraft(id: string, name: string): CustomizationDraft | undefined {
+  beforeMutation()
+  const draft = drafts.find((d) => d.id === id)
+  const next = name.trim()
+  if (!draft || !next || next === draft.name) return undefined
+  const previous = draft.name
+  draft.name = next
+  draft.updatedAt = new Date().toISOString()
+  writeAuditEvent({
+    action: 'customization.draft_renamed',
+    target: next,
+    targetType: 'customization_draft',
+    oldValue: { name: previous },
+    newValue: { name: next, moduleKey: draft.moduleKey },
+  })
+  persist()
+  return draft
+}
+
 export function setDraftAnnouncement(id: string, announcement: string): CustomizationDraft | undefined {
+  beforeMutation()
   const draft = drafts.find((d) => d.id === id)
   if (!draft) return undefined
   draft.announcement = announcement.trim() || undefined
@@ -401,6 +439,7 @@ export function clearDraftSchedule(id: string): CustomizationDraft | undefined {
 
 /** Promote an existing draft/scheduled rollout right now (from the rollout list). */
 export function promoteDraftById(id: string): CustomizationDraft | undefined {
+  beforeMutation()
   const draft = drafts.find((d) => d.id === id)
   if (!draft || draft.status === 'live') return undefined
   promote(draft)
@@ -435,6 +474,7 @@ export function canRollback(id: string): boolean {
  * whole-tenant (acceptable for the single-draft-at-a-time demo flow).
  */
 export function rollbackDeploy(id: string): void {
+  beforeMutation()
   const draft = drafts.find((d) => d.id === id)
   const snap = rollbackSnapshots[id]
   if (!draft || !snap) return
