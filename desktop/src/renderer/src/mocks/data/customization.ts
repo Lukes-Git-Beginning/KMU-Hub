@@ -88,6 +88,35 @@ export const LABEL_WHITELIST: string[] = [
   'helpdesk.table.assignedTo',
   'helpdesk.table.sla',
   'helpdesk.table.createdAt',
+  // Der Rest der Helpdesk-Instrumentierung (2026-08-10). Diese Beschriftungen waren
+  // seit R4 im Editor umbenennbar, standen aber nicht hier — die Umbenennung war in
+  // der Vorschau zu sehen und wurde beim Übernehmen still verworfen. Aufgefallen
+  // erst durch den Wächter in `__tests__/label-whitelist.test.ts`, der jeden
+  // instrumentierten dkey gegen diese Liste prüft.
+  // Tabs (umbenennbar via `EditableText … interactive`):
+  'helpdesk.tabs.ticketsLabel',
+  'helpdesk.tabs.knowledgeBase',
+  'helpdesk.tabs.statistics',
+  // Statistik-Kacheln und -Diagramme:
+  'helpdesk.stats.openTickets',
+  'helpdesk.stats.avgResponseTime',
+  'helpdesk.stats.resolvedThisWeek',
+  'helpdesk.stats.customerSatisfaction',
+  'helpdesk.stats.ticketsPerDay',
+  'helpdesk.stats.byStatus',
+  'helpdesk.stats.byPriority',
+  // Abschnitts-Überschriften im Ticket-Fenster:
+  'helpdesk.ticket.description',
+  'helpdesk.ticket.customFields',
+  'helpdesk.ticket.contact',
+  'helpdesk.ticket.assignedTo',
+  'helpdesk.ticket.created',
+  'helpdesk.ticket.updated',
+  'helpdesk.ticket.actions',
+  'helpdesk.ticket.changeStatus',
+  // Zustands-Chips der Wissensdatenbank:
+  'helpdesk.kb.published',
+  'helpdesk.kb.draft',
 ]
 
 // LocaleLabelMap (locale → key → value) is defined in customization-types.ts.

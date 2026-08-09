@@ -28,6 +28,7 @@
                     "src/renderer/src/modules/admin/anpassungen/RolloutDetailModal.tsx",
                     "src/renderer/src/components/customization/RolloutAnnouncement.tsx",
                     "src/renderer/src/components/shared/PageHeader.tsx",
+                    "src/renderer/src/components/shared/VsChip.tsx",
                     "src/renderer/src/mocks/data/customization-drafts.ts",
                     "src/renderer/src/modules/admin/anpassungen/editor/customization-sync.ts",
                     "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx"
