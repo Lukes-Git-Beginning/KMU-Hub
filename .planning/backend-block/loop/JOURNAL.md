@@ -170,7 +170,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   bleibt.
 
 ## Iteration 3 — fix-lexware-tenant-id-missing-on-upsert — done — 2026-08-09 19:52
-- commit: -
+- commit: 5b847267
 - gebaut: Die vier `models.Lexware*`-Structs (`LexwareSyncConfig`,
   `LexwareEntityMapping`, `LexwareFieldMapping`, `LexwareSyncLog`) tragen
   jetzt `TenantID`. Alle fuenf betroffenen `PostgresRepository`-Methoden
