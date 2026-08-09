@@ -1109,3 +1109,57 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   hochgefahren, fuer diese und alle folgenden Server-Units pruefen ob DB-Zugriff noetig ist
   (fuhrpark-Scope nennt GPS-Lesepfade + Tenant, ggf. reine gRPC-Handler-Tests ohne DB analog
   zum `formulare_grpc_test.go`-Muster ausreichend).
+
+## Iteration 18 — b-cov-server-fuhrpark — done — 2026-08-10 01:10
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `fuhrpark_grpc_test.go` fuer `fuhrpark_grpc.go` (36 Methoden, vorher 0 %).
+  Kein DB-Zugriff noetig - analog zum `formulare_grpc_test.go`-Muster reicht ein
+  In-Memory-Stub (`stubFuhrparkRepo`), der `fuhrpark.Repository` (33 Methoden) implementiert,
+  weil `FuhrparkGRPCServer.svc` ein konkretes `*fuhrpark.Service` ist (kein Interface) und ein
+  echtes `fuhrpark.NewService(repo)` mit Stub-Repo dahinter braucht, statt eines nilbaren Feldes
+  wie bei formulare. Der Stub gibt bei `r.err == nil` plausible Default-Objekte zurueck (IDs aus
+  der Anfrage gespiegelt), sonst `r.err` - damit laufen Validierungs-, Fehlerabbildungs- und
+  Happy-Pfade ueber denselben Stub. Abgedeckt je Handler-Gruppe: Vehicle, Service, Damage,
+  History/Report (inkl. `ExportVehicleReport`-CSV-Header-Pruefung), FuelLog, TripLog (inkl.
+  `ExportTripLogs`), VehicleBooking (inkl. dem Kommentar-belegten Fall, dass `CreatedBy` aus dem
+  Auth-Kontext kommt, nie aus dem Body - per Stub-Capture bewiesen), VehicleDocument,
+  DriverLicense, GPS. `go tool cover -func` zeigt fuer alle 36 Handler-Methoden zwischen 30 %
+  (`ListUpcomingServices`) und 100 % (`mapFuhrparkError`, Konstruktor); auch alle acht
+  Proto-Mapper-Helfer (`serviceToProto`, `damageToProto`, `fuelLogToProto`, `tripLogToProto`,
+  `vehicleDocumentToProto`, `driverLicenseToProto`, `gpsPositionToProto`,
+  `vehicleRouteToProto`) liegen nach zusaetzlichen Happy-Path-Tests zwischen 50 % und 100 %,
+  keine 0-%-Reste mehr in der Datei. Server-Gesamtcoverage 27,9 % laut
+  `go test -coverprofile` (vorher 27,6 % nach Iteration 17s Bexio-Lauf, jeweils fuer das
+  `internal/server`-Paket allein - die Lauf-6-Zahl von 26,0 % war Repo-weit gewichtet und daher
+  nicht direkt vergleichbar).
+- gps-tenant-befund: GPS ist personenbezogene Bewegungsdaten (Backlog-Auflage). Alle drei
+  GPS-Handler (`IngestGpsPositions`, `GetVehicleRoutes`, `GetGpsPositions`) nehmen den Tenant
+  ausschliesslich aus `middleware.GetTenantID(ctx)`, nicht aus dem Request-Body - es gibt in
+  keinem der drei Proto-Requests ueberhaupt ein `tenant_id`-Feld, ein Client kann den Tenant
+  also strukturell nicht faelschen. Per Stub-Capture (`lastIngestTenantID`, `lastRoutesParams`,
+  `lastGpsParams`) bewiesen, dass der tatsaechlich an den Service durchgereichte Tenant der
+  Kontext-Tenant ist. Zusaetzlich getestet: `GetVehicleRoutes` faellt bei leerem Datumsfilter
+  auf ein 7-Tage-Fenster zurueck, `GetGpsPositions` auf 24 Stunden - beide im Handler
+  hartkodiert (Zeilen 1371-1376 bzw. 1409-1416), als Test festgeschrieben.
+- gate: build ok (`go build ./internal/server/...`) | vet ok (`go vet ./internal/server/...`)
+  | lint ok (`golangci-lint run ./internal/server/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/server/...`, gruen, 0 uebersprungen) | migration n.a. (keine
+  Migration angefasst) | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff) | `go build ./...`
+  Repo-weit bricht lokal mit `fatal error: runtime: cannot allocate memory` beim Linken von
+  `cmd/crm` ab (24 Microservice-Binaries gleichzeitig linken sprengt den lokalen RAM) - das ist
+  eine Umgebungsgrenze dieser Maschine, keine Regression durch diese Unit; `internal/server`
+  allein baut, vettet und testet sauber, das ist der in `done_when` geforderte Gate.
+- verify vorgaenger: sauber — `c6134991` (b-cov-gateway-bexio, letzte Unit in Block B-Gateway)
+  geprueft: `git show --stat` zeigt nur `route_bexio_test.go` (neu) plus Journal/Backlog, kein
+  Produktionscode, keine neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: in `IngestGpsPositions` (fuhrpark_grpc.go:1357) den durchgereichten
+  `tenantID` direkt vor dem Service-Aufruf auf `uuid.Nil` ueberschrieben (Tenant-Scoping
+  gebrochen, Variable bleibt benutzt, damit der Build nicht schon am unused-var scheitert) →
+  `TestFuhrparkGpsHandlers/IngestGpsPositions_scopes_the_write_to_the_context_tenant,_not_a_
+  client-suppliable_value` wurde rot (erwarteter Tenant ungleich `uuid.Nil`), alle anderen
+  zehn Subtests der Gruppe blieben gruen. Zurueckgedreht, `git diff --stat` auf
+  `fuhrpark_grpc.go` zeigt keine Restaenderung, volle Suite danach wieder gruen.
+- db-tests: 0 — reines gRPC-Handler-Paket ohne DB-Zugriff, analog zu allen bisherigen
+  `internal/server`-Coverage-Units in diesem Lauf (formulare, work_*, work_comment etc.).
+- offen: erste von zwoelf Units in Block B-Server erledigt (1/12). Naechste laut Reihenfolge:
+  `b-cov-server-rapporte` (Genehmigungsfluss, ebenfalls kein DB-Zugriff noetig laut Scope).

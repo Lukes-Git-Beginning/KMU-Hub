@@ -719,7 +719,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/fuhrpark_grpc.go` - 1.376 Zeilen, 36 Methoden, keine Testdatei.
     sources:
