@@ -2192,7 +2192,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   nicht nur ein visueller Diff-Blick.
   Naechste Unit im Backlog: `c-cov-biz-invoice-repo`.
 
-## Iteration 28 — c-cov-biz-invoice-repo — done — 2026-08-08 21:40
+## Iteration 27 — c-cov-biz-invoice-repo — done — 2026-08-08 21:40
 - commit: f22ac820
 - gebaut: `internal/biz/invoice` war bei 47,7 % (mit `-tags=integration`) bzw.
   30,9 % ohne DB. Der bestehende `integration_test.go` (587 Zeilen) deckt
@@ -2269,7 +2269,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   raten.
   Naechste Unit im Backlog: `c-cov-biz-quote`.
 
-## Iteration 29 — c-cov-biz-quote — done — 2026-08-08 21:55
+## Iteration 28 — c-cov-biz-quote — done — 2026-08-08 21:55
 - commit: 7ead6260
 - praemisse widerlegt: Backlog behauptete 33,3 % Coverage fuer
   `internal/biz/quote`; gemessen waren 62,8 % (`-tags=integration`, testcontainers-
@@ -2353,7 +2353,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   anderen beiden Pakete ab, falls dort noch Coverage-Units offen sind.
   Naechste Unit im Backlog: `c-cov-crm-company`.
 
-## Iteration 30 — c-cov-crm-company — done — 2026-08-08 21:05
+## Iteration 29 — c-cov-crm-company — done — 2026-08-08 21:05
 - commit: a05208e2
 - verify vorgaenger: sauber (7ead6260 ist ein reiner Testdatei-Commit, keine
   der sechs Fehlerklassen betroffen — kein Gateway/Route/Proto/Guard/Tabelle
@@ -2428,7 +2428,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   entstanden.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-crm-activity`.
 
-## Iteration 31 — c-cov-crm-activity — done — 2026-08-08 22:10
+## Iteration 30 — c-cov-crm-activity — done — 2026-08-08 22:10
 - commit: 259ab227
 - verify vorgaenger: sauber (a05208e2 aendert nur die Testdatei plus einen
   gezielten 7-Zeilen-Fix in MergeInto's Tag-Merge-INSERT, exakt wie im
@@ -2521,7 +2521,7 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
   Differenz.
 - offen: Kein DB-Gate-Ausfall. Naechste Unit im Backlog: `c-cov-biz-datev`.
 
-## Iteration 32 — c-cov-biz-datev — done — 2026-08-08 21:35
+## Iteration 31 — c-cov-biz-datev — done — 2026-08-08 21:35
 - commit: 95650432
 - verify vorgaenger: sauber. `259ab227` (c-cov-crm-activity) ist ein reiner
   Test-Commit (neue Datei `postgres_repository_db_test.go` + Backlog/Journal),
@@ -4151,3 +4151,15 @@ ausserhalb des 15-Minuten-Fensters und bereits begonnener Termin ebenso.
 - offen: keiner. `HandlePlatformWebhook` (separate Datei,
   `notification_webhook.go`) und `TestIntegrationConfig` waren bereits
   abgedeckt und wurden nicht angefasst.
+
+## CI nach Lauf 6 (nachgetragen 2026-08-09)
+- run: 31282724353, sha: fc7c6e5c, ergebnis: success — 7.940 PASS / 0 SKIP / 0 FAIL
+- danach zwei Review-Korrekturen: `d902f3a1` (Finanz-/HR-Integrationstests gaten jetzt ueber
+  einen eigenen blockierenden `integration`-Job in `ci.yml`), `0f5a8bc2` (CONCAT_WS-TRIM an
+  vier Reststellen in hr/changerequest, helpdesk, inbox), plus `79651386` (Backlog Lauf 7)
+- run: 31306374635 auf `0f5a8bc2` — 7.944 PASS / 0 SKIP / 0 FAIL, Integration-Job 344 Tests /
+  0 FAIL, Coverage 36,3 %
+- PR #19 gemergt → `main` `1e68b7dc`, CD `31307275850` success, Prod-Migrationskopf 308 clean
+- Hinweis: der Treiber hat diesen Block in Lauf 6 nicht selbst geschrieben — seine
+  CI-Erkennung lieferte ein Falsch-Negativ (PS-5.1-Quoting am `--jq`-Argument). In der
+  Vorbereitung zu Lauf 7 gefixt.

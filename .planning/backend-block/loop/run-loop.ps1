@@ -27,9 +27,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Die claude-CLI schreibt UTF-8. Ohne das dekodiert PowerShell ihre Ausgabe mit
-# der OEM-Codepage (CP850) und in den iter-*.json landet Mojibake ("gr├╝n",
-# "ÔÇö") - der JSON-Rahmen bleibt zwar parsebar, der Ergebnistext wird aber
-# unlesbar.
+# der OEM-Codepage (CP850) und in den iter-*.json landet Mojibake (verstuemmelte
+# Umlaute und Sonderzeichen) - der JSON-Rahmen bleibt zwar parsebar, der
+# Ergebnistext wird aber unlesbar.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Native Kommandos sicher aufrufen ----------------------------------------
@@ -198,6 +198,29 @@ $i = 0
 $consecutiveFailures = 0
 $rateLimitBackoffs = 0
 
+# Iterationsnummer und Startzeit sind dem Modell sonst nicht bekannt - es raet.
+# Ab Treiber-Iteration 27 schrieb es "## Iteration 28" ins Journal, seitdem lief
+# die Zaehlung durchgehend um eins vor (eine Nummer doppelt, eine fehlte), und
+# die Journal-Zeitstempel waren frei erfunden (Treiber 18:22, Journal "19:35").
+# Der Treiber leitet seine Fortschrittsanzeige aus der hoechsten
+# Journal-Iterationsnummer ab (siehe unten) - das ist also nicht kosmetisch.
+#
+# Einfach gequotetes Here-String (@'...'@), nicht doppelt gequotet: ein
+# doppelt gequotetes wuerde den Backtick als Escape-Zeichen lesen. Einsetzen
+# ueber den -f-Formatoperator, nicht ueber Interpolation.
+$CtxTemplate = @'
+
+---
+
+## Laufkontext (vom Treiber gesetzt - nicht raten, nicht ableiten)
+
+- Deine Iterationsnummer ist **{0}**.
+- Startzeit dieser Iteration: **{1}**.
+
+Beides gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe Schritt 6 oben).
+Leite die Nummer nicht aus dem Journal ab und schaetze die Uhrzeit nicht.
+'@
+
 Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Effort" "Green"
 
 while ($i -lt $MaxIterations) {
@@ -214,8 +237,11 @@ while ($i -lt $MaxIterations) {
 
     Write-Line "--- Iteration $i / $MaxIterations  (Modell: $model, offen: $open) ---" "Cyan"
 
+    $iterPrompt = $promptText + ($CtxTemplate -f $i, (Get-Date -Format "yyyy-MM-dd HH:mm"))
+
     if ($DryRun) {
         Write-Line "DryRun: wuerde starten mit Modell $model, Log $logFile" "Yellow"
+        Write-Line "DryRun: Laufkontext waere Iteration $i, Startzeit $(Get-Date -Format 'yyyy-MM-dd HH:mm')" "Yellow"
         break
     }
 
@@ -232,7 +258,7 @@ while ($i -lt $MaxIterations) {
     $errFile = Join-Path $LogDir ("iter-{0:d3}.stderr.log" -f $i)
 
     Invoke-Native {
-        & claude -p $promptText `
+        & claude -p $iterPrompt `
             --model $model `
             --permission-mode bypassPermissions `
             --settings $Settings `
@@ -282,7 +308,31 @@ while ($i -lt $MaxIterations) {
 
     if ($exitCode -ne 0) {
         $consecutiveFailures++
-        Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures)" "Red"
+
+        # Fehlerursache maschinenlesbar aus dem JSON-Body ziehen, statt nur Exit-
+        # Code und Laufzeit zu loggen. Iteration 18 von Lauf 6 lief in den 12-USD-
+        # Deckel (subtype "error_max_budget_usd", terminal_reason
+        # "budget_exhausted") - im Log stand bisher nur "endete mit Exit 1 nach N
+        # min", die eigentliche Ursache nur in der rohen iter-018.json.
+        $subtype = "unbekannt"
+        if ($body -match '"subtype"\s*:\s*"([^"]+)"')        { $subtype = $Matches[1] }
+        $reason = "unbekannt"
+        if ($body -match '"terminal_reason"\s*:\s*"([^"]+)"') { $reason = $Matches[1] }
+        Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures, subtype=$subtype, terminal_reason=$reason)" "Red"
+
+        # Jede fehlgeschlagene Iteration kann eine Unit auf in_progress
+        # zurueckgelassen haben. Get-NextUnitModel und der Iterations-Prompt
+        # ziehen ausschliesslich 'todo' - eine verwaiste in_progress-Unit waere
+        # fuer den Rest des Laufs unsichtbar und bliebe liegen. Kein Set-Content:
+        # BACKLOG.yml enthaelt zwar keine Umlaute, aber Set-Content wuerde
+        # trotzdem eine BOM setzen, die den YAML-Parser stoert.
+        $txt = [System.IO.File]::ReadAllText($Backlog)
+        $new = [regex]::Replace($txt, '(?m)^(\s*status:\s*)in_progress\s*$', '${1}todo')
+        if ($new -ne $txt) {
+            [System.IO.File]::WriteAllText($Backlog, $new, (New-Object System.Text.UTF8Encoding($false)))
+            Write-Line "  Haengende in_progress-Unit auf todo zurueckgesetzt." "Yellow"
+        }
+
         if ($consecutiveFailures -ge 3) {
             Write-Line "Drei Fehlschlaege in Folge - Lauf beendet. Siehe $LogDir." "Red"
             break
@@ -374,10 +424,38 @@ if (-not $DryRun) {
                 while ($waited -lt 2100) {
                     Start-Sleep -Seconds 60
                     $waited += 60
-                    $runId = Invoke-Native { & gh run list --branch backend-loop --workflow=ci.yml --limit 10 --json databaseId,headSha --jq "[.[] | select(.headSha==\"$sha\")][0].databaseId" 2>$null }
+                    # Kein --jq mit eingebetteten Quotes ueber die Native-Grenze: PS 5.1
+                    # frisst beim Weiterreichen an die native Exe das oeffnende \",
+                    # schiebt ein Leerzeichen ein und macht aus dem schliessenden \" ein
+                    # \) - jq bricht mit "invalid escape sequence" ab. Reproduziert in
+                    # Lauf 6: der Treiber meldete "kein CI-Lauf fuer diese SHA", obwohl
+                    # der Lauf 14 Sekunden nach dem Push existierte und gruen wurde.
+                    # Deshalb hier das rohe JSON holen und selbst mit ConvertFrom-Json
+                    # filtern (die drei anderen --jq-Aufrufe unten haben keine
+                    # eingebetteten Quotes und sind davon nicht betroffen).
+                    $runsJson = Invoke-Native { & gh run list --branch backend-loop --workflow ci.yml --limit 10 --json databaseId,headSha }
+                    $runId = ""
+                    if (-not [string]::IsNullOrWhiteSpace($runsJson)) {
+                        # $runsJson kann ein String-Array sein (PS zerlegt mehrzeilige
+                        # native Ausgabe in einzelne Zeilen) - vor ConvertFrom-Json mit
+                        # -join zusammenfuegen, sonst bricht der Parser bei mehrzeiliger
+                        # gh-Ausgabe.
+                        #
+                        # ConvertFrom-Json MUSS in einer eigenen Anweisung stehen, getrennt
+                        # von Where-Object. Verifiziert (2026-08-09, PS 5.1): in EINER
+                        # Pipeline verkettet (".. | ConvertFrom-Json | Where-Object {...}")
+                        # reicht ConvertFrom-Json das komplette Array als EIN Pipeline-Objekt
+                        # durch, statt es zu entrollen - Where-Object sieht dann in $_ das
+                        # ganze Array. Die member-enumerierte Auswertung "$_.headSha -eq $sha"
+                        # liefert dabei ein Array-Ergebnis statt Bool, ist damit immer
+                        # wahr(-ig), und die komplette Liste rutscht ungefiltert durch.
+                        $parsedRuns = ($runsJson -join "") | ConvertFrom-Json
+                        $match = $parsedRuns | Where-Object { $_.headSha -eq $sha } | Select-Object -First 1
+                        if ($match) { $runId = $match.databaseId }
+                    }
                     if ([string]::IsNullOrWhiteSpace($runId)) {
                         if ($waited -ge 300) {
-                            Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - vermutlich paths-Filter (nur Nicht-Backend-Dateien geaendert)." "Yellow"
+                            Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - paths-Filter (nur Nicht-Backend-Dateien geaendert) oder Lauf noch nicht sichtbar." "Yellow"
                             break
                         }
                         continue
