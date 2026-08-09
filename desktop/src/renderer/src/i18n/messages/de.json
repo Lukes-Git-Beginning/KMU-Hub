@@ -11852,6 +11852,7 @@
   "customization.editor.wertelisten.renameInModule": "Im Modul per Klick umbenennen",
   "customization.editor.wertelisten.toggleHidden": "Sichtbarkeit umschalten",
   "customization.editor.wertelisten.optionNameLabel": "Option „{option}\" umbenennen",
+  "customization.editor.wertelisten.reorder": "Option {option} verschieben",
   "customization.editor.wertelisten.toggleHiddenFor": "„{option}\" ein- oder ausblenden",
   "customization.editor.wertelisten.optionActive": "Sichtbar",
   "customization.editor.wertelisten.optionHidden": "Ausgeblendet — bestehende Daten bleiben erhalten",

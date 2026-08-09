@@ -144,8 +144,11 @@ try {
   const dialogVisible = (await bodyText(editor)).includes('Bestehende Einträge mit diesem Wert')
   check('W6a Löschen einer benutzten Option fragt nach einem Umzugsziel', dialogVisible)
   if (dialogVisible) {
-    // Ziel bewusst wählen: „Dringend" (die umbenannte Option).
-    await editor.locator('select').filter({ hasText: 'Dringend' }).first().selectOption({ label: 'Dringend' }).catch(() => {})
+    // Ziel bewusst wählen: „Dringend" (die umbenannte Option). Der Auswahlkasten
+    // des Dialogs ist der LETZTE im Fenster — die davor sind die Filter des
+    // Moduls, und einen davon zu verstellen würde die Liste filtern statt
+    // umzuziehen (dann sagt die Prüfung darunter nichts mehr aus).
+    await editor.locator('select').last().selectOption({ label: 'Dringend' })
     await editor.getByRole('button', { name: 'Entfernen' }).first().click()
     await wait(editor, 2000)
     await shot(editor, 'n7-umgezogen.png')
@@ -160,6 +163,33 @@ try {
     check('W6d Die entfernte Option ist nicht mehr wählbar', !choices4.includes('Mittel'),
       choices4.join(', ').slice(0, 140))
   }
+
+  // ── W9 · Reihenfolge der Optionen ────────────────────────────────────────
+  // Über die Tastatur, weil der Zieh-Griff das auch können muss (dnd-kit:
+  // Leertaste greift, Pfeil bewegt, Leertaste legt ab).
+  const orderBefore = await editor.getByLabel(/^Option .* umbenennen$/).evaluateAll((els) => els.map((e) => e.value))
+  const rowsBefore = orderBefore.slice(0, 3)
+  await editor.getByRole('button', { name: new RegExp(`Option ${rowsBefore[0]} verschieben`) }).first().focus()
+  await editor.keyboard.press('Space')
+  await wait(editor, 400)
+  await editor.keyboard.press('ArrowDown')
+  await wait(editor, 400)
+  await editor.keyboard.press('Space')
+  await wait(editor, 1500)
+  await shot(editor, 'n7b-reihenfolge.png')
+  const orderAfter = await editor.getByLabel(/^Option .* umbenennen$/).evaluateAll((els) => els.map((e) => e.value))
+  check('W9a Optionen lassen sich umsortieren',
+    orderAfter[0] === rowsBefore[1] && orderAfter[1] === rowsBefore[0],
+    `${rowsBefore.join(' → ')}  wurde  ${orderAfter.slice(0, 3).join(' → ')}`)
+  // Die nach oben geschobene Option muss im Prioritäts-Menü ganz vorne stehen —
+  // direkt hinter „Alle Prioritäten". (Die vorher ausgeblendete taucht dort
+  // zurecht nicht mehr auf, deshalb wird sie nicht mitverglichen.)
+  const choicesOrder = await selectChoices(editor)
+  const menuStart = choicesOrder.indexOf('Alle Prioritäten')
+  const firstInMenu = choicesOrder[menuStart + 1]
+  const movedUp = orderAfter.find((label) => choicesOrder.includes(label))
+  check('W9b Die neue Reihenfolge wirkt in der Auswahl im Modul', firstInMenu === movedUp,
+    `Panel: ${movedUp} · Menü: ${firstInMenu}`)
 
   // ── W1 · Neue Werteliste anlegen ─────────────────────────────────────────
   await editor.getByRole('button', { name: 'Neue Werteliste' }).first().click()

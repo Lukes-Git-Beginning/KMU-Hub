@@ -11818,6 +11818,7 @@
   "customization.editor.wertelisten.renameInModule": "Renomme-la en cliquant dans le module",
   "customization.editor.wertelisten.toggleHidden": "Basculer la visibilité",
   "customization.editor.wertelisten.optionNameLabel": "Renommer l’option « {option} »",
+  "customization.editor.wertelisten.reorder": "Déplacer l’option {option}",
   "customization.editor.wertelisten.toggleHiddenFor": "Afficher ou masquer « {option} »",
   "customization.editor.wertelisten.optionActive": "Visible",
   "customization.editor.wertelisten.optionHidden": "Masqué — les données existantes sont conservées",
