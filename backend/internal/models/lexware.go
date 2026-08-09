@@ -9,6 +9,7 @@ import (
 // LexwareSyncConfig holds per-tenant Lexware sync configuration.
 type LexwareSyncConfig struct {
 	ID                       uuid.UUID  `json:"id"`
+	TenantID                 uuid.UUID  `json:"tenant_id"`
 	ConfigID                 uuid.UUID  `json:"config_id"`
 	ContactSyncEnabled       bool       `json:"contact_sync_enabled"`
 	ContactSyncIntervalMin   int        `json:"contact_sync_interval_minutes"`
@@ -24,6 +25,7 @@ type LexwareSyncConfig struct {
 // Lexware uses UUID strings (not integers like Bexio).
 type LexwareEntityMapping struct {
 	ID               uuid.UUID  `json:"id"`
+	TenantID         uuid.UUID  `json:"tenant_id"`
 	ConfigID         uuid.UUID  `json:"config_id"`
 	EntityType       string     `json:"entity_type"`
 	KmuhubID         uuid.UUID  `json:"kmuhub_id"`
@@ -40,6 +42,7 @@ type LexwareEntityMapping struct {
 // LexwareFieldMapping holds configurable field mapping for one entity type.
 type LexwareFieldMapping struct {
 	ID         uuid.UUID                 `json:"id"`
+	TenantID   uuid.UUID                 `json:"tenant_id"`
 	ConfigID   uuid.UUID                 `json:"config_id"`
 	EntityType string                    `json:"entity_type"`
 	Mappings   []LexwareFieldMappingEntry `json:"mappings"`
@@ -58,6 +61,7 @@ type LexwareFieldMappingEntry struct {
 // LexwareSyncLog records a single sync operation for audit purposes.
 type LexwareSyncLog struct {
 	ID             uuid.UUID      `json:"id"`
+	TenantID       uuid.UUID      `json:"tenant_id"`
 	ConfigID       uuid.UUID      `json:"config_id"`
 	SyncType       string         `json:"sync_type"`
 	Status         string         `json:"status"`

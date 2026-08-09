@@ -93,7 +93,7 @@ func TestServiceUpdateFieldMappings_InvalidMappingRejectedBeforeConfigLookup(t *
 	cr := &mockConfigRepo{}
 	svc := newTestService(&mockRepository{}, cr, &mockVaultService{})
 
-	err := svc.UpdateFieldMappings(context.Background(), "contact", []models.LexwareFieldMappingEntry{
+	err := svc.UpdateFieldMappings(context.Background(), uuid.New(), "contact", []models.LexwareFieldMappingEntry{
 		{KmuhubField: "", LexwareField: "person.firstName", Direction: "both"},
 	})
 	require.Error(t, err)
@@ -119,9 +119,11 @@ func TestServiceUpdateFieldMappings_Success(t *testing.T) {
 	mappings := []models.LexwareFieldMappingEntry{
 		{KmuhubField: "first_name", LexwareField: "person.firstName", Direction: "both"},
 	}
-	err := svc.UpdateFieldMappings(context.Background(), "contact", mappings)
+	tenantID := uuid.New()
+	err := svc.UpdateFieldMappings(context.Background(), tenantID, "contact", mappings)
 	require.NoError(t, err)
 	require.NotNil(t, saved)
+	assert.Equal(t, tenantID, saved.TenantID)
 	assert.Equal(t, configID, saved.ConfigID)
 	assert.Equal(t, "contact", saved.EntityType)
 	assert.Equal(t, mappings, saved.Mappings)

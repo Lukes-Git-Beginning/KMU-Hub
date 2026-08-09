@@ -139,7 +139,7 @@ type trackingWebhookRepo struct {
 	onDelete func(id uuid.UUID)
 }
 
-func (r *trackingWebhookRepo) UpsertWebhookSubscription(_ context.Context, _ uuid.UUID, subscriptionID, eventType, _ string) error {
+func (r *trackingWebhookRepo) UpsertWebhookSubscription(_ context.Context, _, _ uuid.UUID, subscriptionID, eventType, _ string) error {
 	if r.onUpsert != nil {
 		r.onUpsert(subscriptionID, eventType)
 	}

@@ -195,8 +195,9 @@ func (s *LexwareGRPCServer) GetLexwareFieldMappings(ctx context.Context, req *bi
 
 // UpdateLexwareFieldMappings validates and saves field mappings.
 func (s *LexwareGRPCServer) UpdateLexwareFieldMappings(ctx context.Context, req *bizv1.UpdateLexwareFieldMappingsRequest) (*bizv1.UpdateLexwareFieldMappingsResponse, error) {
-	if req.GetTenantId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 	if req.GetEntityType() == "" {
 		return nil, status.Error(codes.InvalidArgument, "entity_type is required")
@@ -212,7 +213,7 @@ func (s *LexwareGRPCServer) UpdateLexwareFieldMappings(ctx context.Context, req 
 		})
 	}
 
-	if err := s.lexwareService.UpdateFieldMappings(ctx, req.GetEntityType(), mappings); err != nil {
+	if err := s.lexwareService.UpdateFieldMappings(ctx, tenantID, req.GetEntityType(), mappings); err != nil {
 		return nil, mapLexwareError(err)
 	}
 

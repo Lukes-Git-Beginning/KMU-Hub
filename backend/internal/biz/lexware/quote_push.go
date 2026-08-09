@@ -86,6 +86,7 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 		}
 
 		newMapping := &models.LexwareEntityMapping{
+			TenantID:        tenantID,
 			ConfigID:        configID,
 			EntityType:      "quote",
 			KmuhubID:        quoteID,
@@ -101,6 +102,7 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 	}
 
 	syncLog := &models.LexwareSyncLog{
+		TenantID:       tenantID,
 		ConfigID:       configID,
 		SyncType:       "quote_push",
 		Status:         "completed",

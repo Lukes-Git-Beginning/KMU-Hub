@@ -65,6 +65,7 @@ func (cs *ContactSyncer) SyncContacts(ctx context.Context, configID, tenantID uu
 	}
 
 	syncLog := &models.LexwareSyncLog{
+		TenantID:  tenantID,
 		ConfigID:  configID,
 		SyncType:  "contact_delta",
 		Status:    "running",
@@ -166,7 +167,7 @@ func (cs *ContactSyncer) SyncContactByLexwareID(ctx context.Context, configID, t
 	}
 
 	result := &SyncResult{}
-	cs.upsertInboundContact(ctx, configID, lc, mappings, result)
+	cs.upsertInboundContact(ctx, configID, tenantID, lc, mappings, result)
 
 	if result.ItemsFailed > 0 {
 		return result, fmt.Errorf("contact sync: lexware contact %s failed: %s", lexwareID, strings.Join(result.Errors, "; "))
@@ -193,7 +194,7 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 		}
 
 		for i := range listResp.Content {
-			cs.upsertInboundContact(ctx, configID, &listResp.Content[i], mappings, result)
+			cs.upsertInboundContact(ctx, configID, tenantID, &listResp.Content[i], mappings, result)
 		}
 
 		if listResp.Last {
@@ -209,7 +210,7 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 // bulk sync keeps going past a single bad record.
 func (cs *ContactSyncer) upsertInboundContact(
 	ctx context.Context,
-	configID uuid.UUID,
+	configID, tenantID uuid.UUID,
 	lc *LexwareContact,
 	mappings []models.LexwareFieldMappingEntry,
 	result *SyncResult,
@@ -262,6 +263,7 @@ func (cs *ContactSyncer) upsertInboundContact(
 	}
 
 	newMapping := &models.LexwareEntityMapping{
+		TenantID:         tenantID,
 		ConfigID:         configID,
 		EntityType:       "contact",
 		KmuhubID:         kmuhubID,
@@ -354,6 +356,7 @@ func (cs *ContactSyncer) syncOutbound(ctx context.Context, configID, tenantID uu
 			}
 
 			newMapping := &models.LexwareEntityMapping{
+				TenantID:        tenantID,
 				ConfigID:        configID,
 				EntityType:      "contact",
 				KmuhubID:        contact.ID,

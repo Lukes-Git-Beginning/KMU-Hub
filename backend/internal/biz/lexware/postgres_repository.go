@@ -47,11 +47,11 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO lexware_sync_configs (
-			id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
+			id, tenant_id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
 			invoice_push_enabled, quote_push_enabled, webhook_enabled,
 			last_contact_sync_at,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (config_id) DO UPDATE SET
 			contact_sync_enabled = EXCLUDED.contact_sync_enabled,
 			contact_sync_interval_minutes = EXCLUDED.contact_sync_interval_minutes,
@@ -59,7 +59,7 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 			quote_push_enabled = EXCLUDED.quote_push_enabled,
 			webhook_enabled = EXCLUDED.webhook_enabled,
 			updated_at = EXCLUDED.updated_at`,
-		config.ID, config.ConfigID, config.ContactSyncEnabled, config.ContactSyncIntervalMin,
+		config.ID, config.TenantID, config.ConfigID, config.ContactSyncEnabled, config.ContactSyncIntervalMin,
 		config.InvoicePushEnabled, config.QuotePushEnabled, config.WebhookEnabled,
 		config.LastContactSyncAt,
 		config.CreatedAt, config.UpdatedAt,
@@ -135,10 +135,10 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO lexware_entity_mappings (
-			id, config_id, entity_type, kmuhub_id, lexware_id, lexware_version,
+			id, tenant_id, config_id, entity_type, kmuhub_id, lexware_id, lexware_version,
 			last_synced_at, lexware_updated_at, kmuhub_updated_at, sync_direction,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (config_id, entity_type, kmuhub_id) DO UPDATE SET
 			lexware_id = EXCLUDED.lexware_id,
 			lexware_version = EXCLUDED.lexware_version,
@@ -147,7 +147,7 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 			kmuhub_updated_at = EXCLUDED.kmuhub_updated_at,
 			sync_direction = EXCLUDED.sync_direction,
 			updated_at = EXCLUDED.updated_at`,
-		mapping.ID, mapping.ConfigID, mapping.EntityType, mapping.KmuhubID,
+		mapping.ID, mapping.TenantID, mapping.ConfigID, mapping.EntityType, mapping.KmuhubID,
 		mapping.LexwareID, mapping.LexwareVersion,
 		mapping.LastSyncedAt, mapping.LexwareUpdatedAt, mapping.KmuhubUpdatedAt, mapping.SyncDirection,
 		mapping.CreatedAt, mapping.UpdatedAt,
@@ -249,12 +249,12 @@ func (r *PostgresRepository) UpsertFieldMappings(ctx context.Context, mapping *m
 	}
 
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO lexware_field_mappings (id, config_id, entity_type, mappings, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO lexware_field_mappings (id, tenant_id, config_id, entity_type, mappings, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (config_id, entity_type) DO UPDATE SET
 			mappings = EXCLUDED.mappings,
 			updated_at = EXCLUDED.updated_at`,
-		mapping.ID, mapping.ConfigID, mapping.EntityType, mappingsJSON,
+		mapping.ID, mapping.TenantID, mapping.ConfigID, mapping.EntityType, mappingsJSON,
 		mapping.CreatedAt, mapping.UpdatedAt,
 	)
 	return err
@@ -274,11 +274,11 @@ func (r *PostgresRepository) CreateSyncLog(ctx context.Context, log *models.Lexw
 
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO lexware_sync_log (
-			id, config_id, sync_type, status,
+			id, tenant_id, config_id, sync_type, status,
 			items_processed, items_created, items_updated, items_failed,
 			error_message, started_at, completed_at, metadata
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		log.ID, log.ConfigID, log.SyncType, log.Status,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		log.ID, log.TenantID, log.ConfigID, log.SyncType, log.Status,
 		log.ItemsProcessed, log.ItemsCreated, log.ItemsUpdated, log.ItemsFailed,
 		log.ErrorMessage, log.StartedAt, log.CompletedAt, metadataJSON,
 	)
@@ -395,20 +395,24 @@ func (r *PostgresRepository) scanSyncLogFromRows(rows pgx.Rows) (*models.Lexware
 
 // --- Webhook Subscriptions ---
 
-func (r *PostgresRepository) UpsertWebhookSubscription(ctx context.Context, configID uuid.UUID, subscriptionID, eventType, callbackURL string) error {
+func (r *PostgresRepository) UpsertWebhookSubscription(ctx context.Context, tenantID, configID uuid.UUID, subscriptionID, eventType, callbackURL string) error {
 	id := uuid.New()
 	now := time.Now().UTC()
 
+	// ON CONFLICT targets (config_id, event_type): that is the table's only
+	// unique constraint (migration 000056), not (config_id, subscription_id) —
+	// there is no such constraint, so subscription_id must be part of the
+	// UPDATE SET instead of the conflict target.
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO lexware_webhook_subscriptions (
-			id, config_id, subscription_id, event_type, callback_url, is_active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, true, $6, $7)
-		ON CONFLICT (config_id, subscription_id) DO UPDATE SET
-			event_type = EXCLUDED.event_type,
+			id, tenant_id, config_id, subscription_id, event_type, callback_url, is_active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8)
+		ON CONFLICT (config_id, event_type) DO UPDATE SET
+			subscription_id = EXCLUDED.subscription_id,
 			callback_url = EXCLUDED.callback_url,
 			is_active = true,
 			updated_at = EXCLUDED.updated_at`,
-		id, configID, subscriptionID, eventType, callbackURL, now, now,
+		id, tenantID, configID, subscriptionID, eventType, callbackURL, now, now,
 	)
 	return err
 }

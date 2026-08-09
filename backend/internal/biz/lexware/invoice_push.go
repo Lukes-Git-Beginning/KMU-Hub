@@ -86,6 +86,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 		}
 
 		newMapping := &models.LexwareEntityMapping{
+			TenantID:        tenantID,
 			ConfigID:        configID,
 			EntityType:      "invoice",
 			KmuhubID:        invoiceID,
@@ -101,6 +102,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 	}
 
 	syncLog := &models.LexwareSyncLog{
+		TenantID:       tenantID,
 		ConfigID:       configID,
 		SyncType:       "invoice_push",
 		Status:         "completed",

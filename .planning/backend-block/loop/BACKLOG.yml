@@ -147,7 +147,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/biz/lexware/postgres_repository.go`: `UpsertSyncConfig`,
       `UpsertEntityMapping`, `UpsertFieldMappings`, `CreateSyncLog`, and
@@ -207,6 +207,60 @@ units:
         end-to-end against the real schema, replacing today's
         SeedRow-bypasses-Upsert workaround in postgres_repository_db_test.go
       - go test -count=1 ./internal/biz/lexware/... green with DATABASE_URL set, 0 skips
+
+  - id: fix-bexio-tenant-id-missing-on-upsert
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Same bug as fix-lexware-tenant-id-missing-on-upsert (fixed in Lauf 7), same shape, sister
+      module. `internal/biz/bexio/postgres_repository.go`: `UpsertSyncConfig`, `UpsertEntityMapping`,
+      `UpsertFieldMappings`, and `CreateSyncLog` build their INSERT statements without a `tenant_id`
+      column. All four target tables (`bexio_sync_configs`, `bexio_entity_mappings`,
+      `bexio_field_mappings`, `bexio_sync_log`) have `tenant_id UUID NOT NULL` with no default and no
+      populating trigger (confirmed via migrations 000115 and 000125 - `bexio_sync_configs` is the
+      Welle-4-deferred one, backfilled only via a one-time UPDATE JOIN on `config_id`, exactly the
+      lexware pattern). The four `models.Bexio*` structs do not carry a TenantID field either. Every
+      call to these four methods fails on a real database with a not-null-violation. bexio has no
+      webhook-subscriptions table (OAuth-based, not webhook-based), so this is four methods, not five -
+      otherwise identical in shape to the lexware fix.
+    sources:
+      - backend/internal/biz/bexio/postgres_repository.go
+      - backend/internal/models/bexio.go
+      - backend/internal/biz/bexio/repository.go
+      - backend/internal/biz/bexio/service.go
+      - backend/internal/biz/bexio/contact_sync.go
+      - backend/internal/biz/bexio/invoice_push.go
+      - backend/internal/biz/bexio/invoice_pull.go
+      - backend/internal/biz/bexio/quote_push.go
+      - backend/internal/biz/bexio/payment_poll.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/migrations/000125_rls_welle4_integration_configs_constraint.up.sql
+    notes: >
+      Found while building fix-lexware-tenant-id-missing-on-upsert (Lauf 7, this iteration) - the
+      lexware unit's own notes flagged bexio as unchecked, so it was grepped as part of this fix and
+      confirmed to have the identical gap. Fix shape: copy the lexware fix exactly - add TenantID to
+      the four models.Bexio* structs, thread tenantID through the four Repository methods and their
+      INSERT statements, update every call site (contact_sync.go, invoice_push.go, invoice_pull.go,
+      quote_push.go, payment_poll.go all build sync-log/entity-mapping literals) and the bexio
+      mockRepository test double. Check payment_poll.go and invoice_pull.go specifically - lexware has
+      no equivalent of either, so their call sites were not part of the lexware fix and need fresh
+      review. While in postgres_repository.go, also check every ON CONFLICT target against the actual
+      unique constraints in the migrations that created bexio_sync_configs/bexio_entity_mappings/
+      bexio_field_mappings/bexio_sync_log - the lexware fix uncovered a second, independent bug in
+      lexware_webhook_subscriptions this way (ON CONFLICT named a column pair with no matching unique
+      constraint at all, 42P10 on the very first real INSERT), so the same class of bug is plausible
+      here too and worth a real-schema DB test either way, not just a grep.
+    done_when:
+      - The four models.Bexio* structs carry TenantID
+      - All four Repository Upsert/Create methods write tenant_id in their INSERT
+      - Every ON CONFLICT target checked against the migration that created the unique constraint it names
+      - Every call site and mock/test double updated to match the new signature
+      - A DB test proves at least one of the four methods succeeds end-to-end against the real schema
+      - go test -count=1 ./internal/biz/bexio/... green with DATABASE_URL set, 0 skips
 
   - id: a-inbox-sla
     phase: 3

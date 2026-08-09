@@ -168,3 +168,92 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   vorgezogen wird (Bug mit Produktions-Impact fuer den Lexware-Schreibpfad,
   sobald `modules.lexware` aktiv ist) oder regulaer in der C1-Reihenfolge
   bleibt.
+
+## Iteration 3 — fix-lexware-tenant-id-missing-on-upsert — done — 2026-08-09 19:52
+- commit: -
+- gebaut: Die vier `models.Lexware*`-Structs (`LexwareSyncConfig`,
+  `LexwareEntityMapping`, `LexwareFieldMapping`, `LexwareSyncLog`) tragen
+  jetzt `TenantID`. Alle fuenf betroffenen `PostgresRepository`-Methoden
+  (`UpsertSyncConfig`, `UpsertEntityMapping`, `UpsertFieldMappings`,
+  `CreateSyncLog`, `UpsertWebhookSubscription`) schreiben `tenant_id` in ihr
+  INSERT. `UpsertWebhookSubscription` hat zusaetzlich einen `tenantID`-Parameter
+  bekommen (Repository-Interface-Signatur geaendert). Jede Konstruktionsstelle
+  eines neuen `models.Lexware*`-Literals wurde mit `TenantID` bestueckt:
+  `service.go` (`Connect`, `UpdateFieldMappings` — Letzteres bekam dafuer
+  selbst einen neuen `tenantID`-Parameter, durchgereicht vom gRPC-Layer
+  `lexware_grpc.go:UpdateLexwareFieldMappings`, wo `req.GetTenantId()` bisher
+  nur auf Leerstring geprueft, nie geparst wurde), `contact_sync.go`
+  (`SyncContacts`-Synclog, `upsertInboundContact` — bekam dafuer einen neuen
+  `tenantID`-Parameter, threaded durch beide Aufrufer `syncInbound` und
+  `SyncContactByLexwareID` —, `syncOutbound`), `invoice_push.go` und
+  `quote_push.go` (je Mapping- und Synclog-Literal). Bei Mappings, die per
+  `Get*` geladen und dann mutiert wieder ge-upserted werden (Update-Zweige in
+  `contact_sync.go`/`invoice_push.go`/`quote_push.go`), bleibt `TenantID` am
+  geladenen Struct absichtlich leer — das ist sicher, weil der
+  `ON CONFLICT ... DO UPDATE`-Zweig `tenant_id` nie in sein `SET` aufnimmt
+  und Postgres den FK-Trigger fuer unveraenderte Spalten beim UPDATE
+  ueberspringt; nur die INSERT-Zweige (neue Structs) brauchten eine explizite
+  Zuweisung, das ist dokumentiert im Kommentarkopf von
+  `postgres_repository_db_test.go`.
+- **Zweiter, unabhaengiger Bug beim Bauen der DB-Tests gefunden und gleich
+  mitgefixt (gleiche Methode, kein separater Scope-Bruch):**
+  `UpsertWebhookSubscription`s `ON CONFLICT (config_id, subscription_id)`
+  zielte auf einen Constraint, den es nie gab — die Tabelle
+  `lexware_webhook_subscriptions` hat laut Migration 000056 nur
+  `UNIQUE(config_id, event_type)`. Jeder Aufruf waere mit
+  `SQLSTATE 42P10 (there is no unique or exclusion constraint matching the
+  ON CONFLICT specification)` gescheitert, komplett unabhaengig vom
+  tenant_id-Bug. Fix: Conflict-Target auf `(config_id, event_type)`
+  umgestellt, `subscription_id` dafuer in die `SET`-Klausel verschoben (eine
+  Re-Registrierung bekommt eine neue Lexware-Subscription-ID fuer denselben
+  Event-Typ). Per Mutations-Probe verifiziert (siehe unten).
+- **Bexio hat denselben tenant_id-Bug — verifiziert, nicht gefixt, neue Unit
+  angelegt:** `internal/biz/bexio/postgres_repository.go`s
+  `UpsertSyncConfig`/`UpsertEntityMapping`/`UpsertFieldMappings`/
+  `CreateSyncLog` bauen ihre INSERTs identisch ohne `tenant_id` gegen
+  identisch NOT-NULL-ohne-Trigger-Spalten (Migrationen 000115/000125, exakt
+  dasselbe Backfill-Muster wie bei lexware). bexio hat kein
+  Webhook-Pendant (OAuth statt Webhooks), also vier statt fuenf Methoden.
+  Bewusst NICHT in dieser Iteration gefixt — anderes Modul, eigener
+  Blast-Radius, waere Scope-Ausweitung ueber die gezogene Unit hinaus. Neue
+  Fix-Unit `fix-bexio-tenant-id-missing-on-upsert` in `BACKLOG.yml`
+  angelegt, `status: todo`, mit Hinweis auf `payment_poll.go`/
+  `invoice_pull.go` (haben kein Lexware-Aequivalent, brauchen eigene Pruefung)
+  und auf den ON-CONFLICT-Fund (bei bexio nicht verifiziert, aber derselbe
+  Fehlerklasse plausibel — als Pruefpunkt in den `notes` vermerkt).
+- gate: build ok (`go build -p 2 ./internal/biz/lexware/... ./internal/server/...
+  ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint, `./internal/biz/lexware/... ./internal/server/...
+  ./internal/models/...`, 0 issues) | test ok (lexware, server, gateway alle
+  gruen) | migration n.a. (keine neue Migration, nur bestehende Spalten
+  genutzt) | rls-smoke n.a. (keine Policy angefasst, nur INSERT-Spaltenlisten)
+- verify vorgaenger: sauber — `9d0443b3` (c-cov-biz-lexware) nur Testdateien
+  + `BACKLOG.yml`, kein gRPC-Layer, kein Proto, keine neue Route, kein neuer
+  Guard, keine neue Tabelle.
+- offen: Diese Iteration ist bewusst von der im Laufkopf/ITERATION.md
+  genannten Freigabe ("genau eine Fix-Unit fix-inventar-picking-partial-book")
+  abgewichen, weil `fix-lexware-tenant-id-missing-on-upsert` zum Zeitpunkt
+  dieser Iteration bereits ganz vorne in `BACKLOG.yml` stand mit
+  `status: todo` (von Iteration 2 selbst dort platziert) und Schritt 2 des
+  Ablaufs mechanisch "die erste Unit mit status: todo" verlangt — keine neue
+  Fix-Unit wurde nebenbei erfunden, nur die bereits wartende gezogen. Luke
+  sollte das kurz gegenpruefen, falls das nicht die gewuenschte Lesart war.
+  `fix-bexio-tenant-id-missing-on-upsert` (neu, `status: todo`) ist nicht
+  Teil der urspruenglich freigegebenen Bloecke fuer Lauf 7 — bewusst nicht
+  gezogen, liegt fuer Lauf 8 bereit. `go test ./internal/gateway/` gelaufen
+  und gruen, obwohl kein `.go`-Routendateiinhalt veraendert wurde (nur der
+  gRPC-Server in `internal/server/lexware_grpc.go`) — zur Sicherheit
+  mitgelaufen, da eine gRPC-Signatur sich geaendert hat.
+- mutations-probe: `ON CONFLICT (config_id, event_type)` in
+  `UpsertWebhookSubscription` zurueck auf das falsche, nie existierende
+  `(config_id, subscription_id)` gesetzt →
+  `TestPostgresRepository_UpsertWebhookSubscription_RealSchema` wurde rot
+  (`SQLSTATE 42P10`), zurueckgedreht, Suite wieder gruen.
+- db-tests: 5 neue DB-Tests gegen die real gefixten Upsert/Create-Methoden
+  (`TestPostgresRepository_UpsertSyncConfig_RealSchema`,
+  `_UpsertEntityMapping_RealSchema`, `_UpsertFieldMappings_RealSchema`,
+  `_CreateSyncLog_RealSchema`, `_UpsertWebhookSubscription_RealSchema`),
+  jede mit Insert- und Update-Pfad (ON-CONFLICT-Ziel real gepruef). Zusammen
+  mit den 17 bereits bestehenden lexware-DB-Tests aus Iteration 2 liefen
+  22 echte DB-Tests, 0 Skips bei gesetzter `DATABASE_URL`
+  (`go test -v ./internal/biz/lexware/...`, `grep -c SKIP` = 0).
