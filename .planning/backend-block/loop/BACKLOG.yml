@@ -225,6 +225,106 @@ units:
       - DB-Test gegen das reale Schema fuer den Ablehnungsfall
       - go test -count=1 ./internal/einkauf/... gruen
 
+  - id: fix-plugin-error-mapping-gaps
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `mapPluginError` (internal/server/plugin_grpc.go:829) hat zwei getrennte Luecken,
+      beide durch die neue Tabellentest-Suite `TestMapPluginError` in
+      `internal/server/plugin_grpc_test.go` belegt (Faelle mit Kommentar "documents current
+      gap"). Erstens vergleichen `isNotFound`/`isAlreadyExists`/`isInvalidArgument` (Zeilen
+      847-868) mit einfachem `==` statt `errors.Is` - jeder Sentinel, den `Service` mit
+      `fmt.Errorf("%w: ...", ...)` wrapped, wird nie erkannt. Betroffen:
+      `ApprovePermissions` (wrapped `ErrPermissionNotDeclared`, service.go:324) und
+      `UpdatePluginSettings` (wrapped `ErrInvalidSettings`, service.go:392) - beide liefern
+      heute `codes.Internal` statt `codes.InvalidArgument`. Zweitens hat `mapPluginError`
+      ueberhaupt keinen Fall fuer `ErrPluginHasInstallations` (von
+      `Service.DeleteManifest` zurueckgegeben, service.go:165) - der faellt auf den
+      generischen Internal-Zweig, obwohl `FailedPrecondition` der naheliegende Code waere.
+      Alle sieben anderen Sentinels in `errors.go` werden korrekt gemappt, weil `Service`
+      sie unwrapped zurueckgibt - nur diese drei Stellen sind betroffen. Jedes andere
+      `map<X>Error` in diesem Repo (fuhrpark, rapporte, inventar) nutzt bereits
+      `errors.Is` - `mapPluginError` ist die einzige Ausnahme.
+    sources:
+      - backend/internal/server/plugin_grpc.go
+      - backend/internal/plugin/service.go
+      - backend/internal/plugin/errors.go
+      - backend/internal/server/plugin_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-plugin (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (aus 500 wird 400/409 fuer drei konkrete Faelle), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: die drei
+      Helfer `isNotFound`/`isAlreadyExists`/`isInvalidArgument` von `err ==` auf
+      `errors.Is(err, ...)` umstellen (mechanisch, gleiche Fallliste), und einen vierten
+      Fall `case errors.Is(err, plugin.ErrPluginHasInstallations): return
+      status.Error(codes.FailedPrecondition, err.Error())` ergaenzen. Nach dem Fix muessen
+      die drei als "documents current gap" markierten Testfaelle in
+      `plugin_grpc_test.go` (TestMapPluginError zwei Faelle, TestPluginApprovePermissions/
+      undeclared_permission, TestPluginDeleteManifest/has_active_installations,
+      TestPluginSettings/schema_mismatch) auf den jetzt korrekten Code aktualisiert werden -
+      sie pruefen bewusst nur den IST-Zustand.
+    done_when:
+      - isNotFound/isAlreadyExists/isInvalidArgument nutzen errors.Is statt ==
+      - ErrPluginHasInstallations hat einen eigenen Fall in mapPluginError (FailedPrecondition
+        oder gleichwertig client-actionable)
+      - ApprovePermissions mit nicht deklarierter Permission liefert InvalidArgument
+      - UpdatePluginSettings mit Schema-Verstoss liefert InvalidArgument
+      - DeleteManifest mit aktiven Installationen liefert nicht mehr Internal
+      - Die "documents current gap"-Testfaelle in plugin_grpc_test.go auf den neuen
+        erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/plugin/... gruen
+
+  - id: fix-plugin-nil-manifest-panic-on-orphaned-installation
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Drei Methoden in `internal/plugin/service.go` laden eine Installation, dann per
+      `s.manifests.GetByID(ctx, inst.ManifestID)` das zugehoerige Manifest, und greifen
+      danach ungeprueft auf das Ergebnis zu, obwohl `GetByID` bei einer nicht gefundenen
+      Zeile `nil, nil` liefert (siehe `ManifestRepo.GetByID`-Vertrag, den auch
+      `Service.GetManifest` selbst explizit gegen nil prueft): `ApprovePermissions`
+      (`for _, p := range manifest.Permissions`, Zeile ~319), `UpdatePluginSettings`
+      (`s.schemaValidator.Validate(manifest.SettingsSchema, ...)`, Zeile ~390) und
+      `GetPluginSettingsSchema` (`return manifest.SettingsSchema, nil`, Zeile ~412). Ein
+      Manifest kann eine Installation ueberleben: `DeleteManifest` blockt nur bei
+      `HasActiveInstallations` (die per Definition nur nicht-uninstallte Installationen
+      zaehlt), also bleibt eine `uninstalled`-Installation mit ihrer alten `ManifestID`
+      nach dem Loeschen des Manifests bestehen. Jeder der drei Aufrufe auf diese
+      verwaiste Installation loest eine Nil-Pointer-Dereferenzierung aus. Reproduziert
+      und belegt in `internal/server/plugin_grpc_test.go` per `require.Panics` in drei
+      Testfaellen ("orphaned installation (deleted manifest) panics..."). `cmd/plugin/main.go`
+      registriert `middleware.RecoveryUnaryInterceptor()`, der Panic wird also in
+      Produktion zu einem opaken `codes.Internal` statt den Prozess abzuschiessen - aber
+      es bleibt ein Panic bei jedem Treffer, kein behandelter Fehlerpfad.
+    sources:
+      - backend/internal/plugin/service.go
+      - backend/internal/plugin/repository_interfaces.go
+      - backend/internal/server/plugin_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-plugin (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: an allen drei Stellen nach dem `manifests.GetByID`-Aufruf denselben
+      `if manifest == nil { return ..., ErrManifestNotFound }`-Wächter einbauen, den
+      `Service.GetManifest` bereits nutzt (ErrManifestNotFound mapped bereits sauber auf
+      NotFound). Nach dem Fix muessen die drei `require.Panics`-Testfaelle in
+      `plugin_grpc_test.go` durch normale `requireGRPCCode(t, err, codes.NotFound)`-Faelle
+      ersetzt werden - sie pruefen bewusst nur den IST-Zustand (Panic), nicht das
+      gewuenschte Verhalten.
+    done_when:
+      - ApprovePermissions, UpdatePluginSettings und GetPluginSettingsSchema pruefen das
+        Manifest-Lookup-Ergebnis auf nil, bevor sie es dereferenzieren
+      - Alle drei liefern bei verwaistem Manifest ErrManifestNotFound / codes.NotFound statt
+        zu paniken
+      - Die drei require.Panics-Testfaelle in plugin_grpc_test.go durch
+        requireGRPCCode(..., codes.NotFound)-Faelle ersetzt
+      - go test -count=1 ./internal/server/... ./internal/plugin/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -830,7 +930,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/plugin_grpc.go` - 868 Zeilen, 32 Methoden, keine Testdatei.
     sources:

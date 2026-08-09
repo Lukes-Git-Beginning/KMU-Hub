@@ -1348,3 +1348,86 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   laut Reihenfolge: `b-cov-server-plugin` (WASM-Feature-Flag AUS, Build-Tag
   `no_wasm` beachten - siehe Notiz an der Unit selbst). Kein neuer Befund,
   der eine Fix-Unit rechtfertigt (siehe Randbefund oben - kein echter Bug).
+
+## Iteration 22 — b-cov-server-plugin — done — 2026-08-10 01:05
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: `internal/server/plugin_grpc_test.go` (neu, 0 → alle 32 Methoden von
+  `PluginGRPCServer`). Acht kleine Stub-Repos statt eines kombinierten Stubs -
+  `plugin.NewService` nimmt acht getrennte Repository-Interfaces
+  (ManifestRepo, InstallationRepo, PermissionRepo, KVStoreRepo,
+  ExecutionLogRepo, ValidationRuleRepo, WorkflowRuleRepo,
+  IndustryTemplateRepo), und mehrere davon haben gleichnamige Methoden
+  (`Create`, `GetByID`, `List`, `Delete`) mit unterschiedlichen Signaturen -
+  ein einzelner Go-Typ kann nicht alle acht gleichzeitig implementieren (kein
+  Overloading). Die unexported Mocks in `internal/plugin/service_test.go`
+  loesen genau das schon fuer `package plugin`, sind aber aus `package
+  server` nicht erreichbar - deshalb acht neue, schlankere Stub-Typen
+  (`stubPluginManifestRepo` etc.), gebuendelt in `pluginTestRepos`. Kein
+  Build-Tag `no_wasm` noetig fuer die Tests selbst - sie rufen nur
+  Verwaltungs-/Validierungspfade des echten `plugin.Service` auf Stubs auf,
+  keine WASM-Ausfuehrung. `TestMapPluginError` deckt alle 15 Sentinel-Faelle
+  als Tabellentest ab, davon zwei Faelle die bewusst eine Luecke
+  dokumentieren (siehe unten). Jede der 32 Methoden hat mindestens einen
+  Validierungsfall (ungueltige UUID) und wo zutreffend Erfolg/Nicht-gefunden/
+  Konflikt. `go tool cover -func` zeigt alle 32 Handler zwischen 75 % und
+  100 %, keine 0-%-Reste; `internal/server`-Gesamtcoverage 34,3 % laut
+  `go test -coverprofile` (vorher 30,5 % nach Iteration 21s Inventar-Lauf).
+- fund-echte-luecke (zwei getrennte Bug-Klassen, beide durch Tests belegt,
+  beide NICHT inline gefixt, zwei neue Fix-Units ganz vorne im Backlog
+  angelegt):
+  1. `fix-plugin-error-mapping-gaps`: `mapPluginError`
+     (plugin_grpc.go:829) ist die einzige `map<X>Error`-Funktion im Repo, die
+     mit `==` statt `errors.Is` vergleicht (fuhrpark/rapporte/inventar nutzen
+     alle bereits `errors.Is`). Jeder von `Service` gewrappte Sentinel wird
+     dadurch nie erkannt: `ApprovePermissions` (undeklarierte Permission,
+     service.go:324) und `UpdatePluginSettings` (Schema-Verstoss,
+     service.go:392) liefern beide Internal statt InvalidArgument. Zusaetzlich
+     hat `mapPluginError` ueberhaupt keinen Fall fuer `ErrPluginHasInstallations`
+     (DeleteManifest, service.go:165) - faellt auch auf Internal.
+  2. `fix-plugin-nil-manifest-panic-on-orphaned-installation`: `ApprovePermissions`,
+     `UpdatePluginSettings` und `GetPluginSettingsSchema` laden per
+     `manifests.GetByID` ein Manifest und dereferenzieren es ungeprueft auf
+     nil - anders als `Service.GetManifest`, das denselben nil-Fall explizit
+     abfaengt. Da `DeleteManifest`s `HasActiveInstallations`-Check nur
+     nicht-uninstallte Installationen zaehlt, kann eine `uninstalled`-
+     Installation ihr geloeschtes Manifest ueberleben; jeder Aufruf einer der
+     drei Methoden auf diese Installation loest eine Nil-Pointer-
+     Dereferenzierung aus. `cmd/plugin/main.go` haengt
+     `middleware.RecoveryUnaryInterceptor()` ein, also wird daraus in
+     Produktion ein opaker Internal-Fehler statt eines Prozessabsturzes -
+     aber es bleibt ein Panic bei jedem Treffer.
+  Beide Funde per `require.Panics`/Code-Erwartung in `plugin_grpc_test.go`
+  reproduziert und als "documents current gap" markiert (IST-Zustand, keine
+  Behauptung ueber gewuenschtes Verhalten). Nach Fix muessen fuenf Testfaelle
+  auf den dann korrekten Code/das dann korrekte Verhalten aktualisiert werden
+  - in den beiden neuen Fix-Units selbst benannt.
+- gate: build ok (`go build -p 2 ./internal/plugin/... ./internal/server/...
+  ./cmd/plugin/... ./cmd/gateway/...`) | vet ok (`go vet ./internal/plugin/...
+  ./internal/server/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/server/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/server/...`, gruen; `go test -count=1 ./internal/gateway/...
+  ./internal/plugin/...` zusaetzlich gruen, Pflichtlauf obwohl diese Iteration
+  dort nichts aendert) | migration n.a. (reine Test-Coverage) | rls-smoke n.a.
+  (Stub-Repos, kein DB-Zugriff durch die neuen Tests)
+- verify vorgaenger: sauber — `3d97b397` (b-cov-server-inventar) geprueft:
+  `git show --stat` zeigt nur `inventar_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  RequirePermission, keine Tabelle, kein .proto.
+- mutations-probe: in `mapPluginError` (plugin_grpc.go, Zeile
+  `case isNotFound(err): return status.Error(codes.NotFound, ...)`) den Code
+  testweise auf `codes.Unavailable` geaendert → 19 Subtests wurden rot
+  (`TestMapPluginError` sechs NotFound-Faelle plus 13 Handler-Tests, die auf
+  NotFound pruefen, u. a. `TestPluginGetManifest/not_found`,
+  `TestPluginDeleteManifest/not_found`, `TestPluginApprovePermissions/
+  installation_not_found`), alle anderen Subtests blieben gruen.
+  Zurueckgedreht, `git diff --stat internal/server/plugin_grpc.go` zeigt
+  keine Restaenderung (leerer Diff bestaetigt), volle Suite danach wieder
+  gruen.
+- offen: vierte von zwoelf Units in Block B-Server erledigt (4/12). Naechste
+  laut Reihenfolge: `b-cov-server-automation` (SSRF-Pruefung der
+  HTTP-Aktion als Befund pruefen, unbekannter Ausloeser-/Aktionstyp muss
+  abgelehnt werden). Zwei neue Fix-Units (`fix-plugin-error-mapping-gaps`,
+  `fix-plugin-nil-manifest-panic-on-orphaned-installation`) stehen jetzt todo
+  im Backlog, beide klein und risikoarm (Fehler-Mapping-Tabelle bzw.
+  Nil-Guard nach bestehendem Muster aus Service.GetManifest) - Luke
+  entscheidet ob sie noch in Lauf 7 reinpassen.
