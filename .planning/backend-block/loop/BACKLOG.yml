@@ -564,7 +564,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_crm_contacts.go` - 541 Zeilen, 13 Handler, keine eigene
       Testdatei. Enthaelt den Import-/Export-Pfad.

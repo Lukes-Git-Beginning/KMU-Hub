@@ -843,3 +843,54 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
 - offen: kein neuer Fund fuer Lauf 8 - der Id-Validierungs-Befund ist dokumentiert, aber bewusst
   ohne Folge-Unit, siehe oben.
+
+
+## Iteration 13 — b-cov-gateway-crm-contacts — done — 2026-08-09 23:45
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_crm_contacts_test.go` fuer `route_crm_contacts.go` (14 Handler:
+  Create/Get/List/Update/DeleteContact, Add/RemoveContactTags, Import CSV/VCard/XLSX,
+  PreviewImportCSV, Export CSV/VCard, UpdateContactVisibility). `route_crm_test.go` deckte
+  Create/Get/List/Delete bereits mit einem Grundstock ab (ServiceUnavailable, NoUserID,
+  InvalidJSON, MissingFields, InvalidEmail, InvalidCompanyID, InvalidUUID) - dort nichts
+  gedoppelt, nur fehlende Pfade ergaenzt (InvalidPhone, InvalidTagID, ValidRequestReachesRPC je
+  Handler). `go tool cover -func` zeigt alle 14 Handler zwischen 76,5 % (die beiden Export-
+  Handler, deren Erfolgspfad - Header setzen + `resp.FileContent` schreiben - ohne Fake-
+  `CRMServiceClient` strukturell nicht erreichbar ist, wie in jeder vorigen Gateway-Unit dieses
+  Laufs) und 95,2 %. Fuer die drei Import-Handler und `HandlePreviewImportCSV` (alle nutzen
+  `r.ParseMultipartForm`/`r.FormFile`) wurde ein eigener `multipartBody`-Testhelfer gebaut
+  (`multipart.NewWriter` gegen einen `bytes.Buffer`, Content-Type inkl. Boundary zurueckgegeben) -
+  kein Aequivalent existierte im Paket, `testutil_test.go` hat bisher nur `jsonBody`/`invalidJSON`
+  fuer JSON-Bodies.
+- befund map_-vertrag: `HandleImportContactsCSV` und `HandleImportContactsXLSX` lesen die
+  Spalten-Zuordnung identisch aus `r.MultipartForm.Value` per `key[:4] == "map_"`-Praefixpruefung
+  (route_crm_contacts.go:322 bzw. :425 - Code ist woertlich dupliziert zwischen beiden Handlern).
+  `TestHandleImportContactsCSV_FieldMappingContract` und das XLSX-Pendant schreiben fest, dass ein
+  realistischer Multi-Feld-Payload (drei `map_`-Felder plus `visibility`/`merge_by_email` als
+  Nicht-Mapping-Felder) die Parse-Schleife ohne Panic durchlaeuft und die RPC-Ebene erreicht (503).
+  Der ausgehende Proto-Request selbst ist strukturell nicht beobachtbar (kein Fake-
+  `CRMServiceClient`, kein bufconn-Stub im Paket - dieselbe Grenze wie in jeder vorigen
+  Gateway-Unit dieses Laufs), also kann kein Test beweisen, dass genau die drei erwarteten
+  Schluessel (`first_name`, `last_name`, `email`) mit den richtigen Werten in der Map landen -
+  nur dass das Parsen selbst robust ist. `TestHandleImportContactsCSV_NoMappingNoFile` deckt den
+  in den `done_when` explizit genannten Fall "ohne Zuordnung" ab: eine wohlgeformte Multipart-
+  Anfrage ohne `map_`-Felder und ohne Datei liefert 400 "file is required" (die fehlende Datei
+  greift zuerst, ein leeres Mapping allein loest keinen eigenen Fehlerpfad aus - im Code gibt es
+  keine Validierung, die ein leeres Mapping ablehnt).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`, 0
+  issues) | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt, durchgehend
+  gruen, 0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `d35c50b5` (b-cov-gateway-work-projects) geprueft: `git show --stat`
+  zeigt nur `route_work_projects_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `required` von `Visibility` in `updateContactVisibilityRequest`
+  (route_crm_contacts.go:562) auf `omitempty` verkuerzt →
+  `TestHandleUpdateContactVisibility_MissingVisibility` wurde rot (503/connection-error statt
+  400/"validation_failed"/Feld "visibility"), die uebrigen Visibility-Tests blieben unberuehrt.
+  Zurueckgedreht, `git diff --stat` auf die Produktionsdatei zeigt keine Restaenderung, volle
+  Suite danach dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: kein neuer Fund fuer Lauf 8. `map_`-Vertrag ist jetzt gegen Panics und den
+  Kein-Mapping/kein-Datei-Fall abgesichert, aber die genaue Schluessel-Zuordnung bleibt bis zu
+  einem echten Fake-`CRMServiceClient` im Paket unbewiesen - dieselbe strukturelle Luecke, die
+  jede vorige Gateway-Unit dieses Laufs schon dokumentiert hat, keine neue Erkenntnis.
