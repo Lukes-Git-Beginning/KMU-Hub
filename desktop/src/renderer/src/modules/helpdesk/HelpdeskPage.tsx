@@ -546,7 +546,9 @@ export default function HelpdeskPage() {
   // for free). Built-ins default to ON, custom-field columns to OFF — otherwise
   // every new field would silently widen the table.
   const columnDefs: { key: string; header: React.ReactNode; cell: (tk: DisplayTicket) => React.ReactNode; optIn?: boolean }[] = [
-    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="font-mono text-xs text-muted-foreground">{tk.ticketNr}</span> },
+    // whitespace-nowrap: eine Ticket-Nr ist eine Einheit. In einer schmalen Spalte
+    // (Editor-Vorschau, konfigurierte Breite) brach sie sonst in drei Zeilen um.
+    { key: 'ticketNr', header: <EditableText as="span" dkey="helpdesk.table.ticketNr" />, cell: (tk) => <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">{tk.ticketNr}</span> },
     {
       key: 'subject',
       header: <EditableText as="span" dkey="helpdesk.table.subject" />,
