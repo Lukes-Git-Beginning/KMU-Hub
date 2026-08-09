@@ -4,8 +4,15 @@
 > ein Modul braucht — offen ist nur noch, ihn auf die übrigen Module zu zeigen.
 > Diese Datei beschreibt, wie das geht, und welche Fallen dabei Zeit gekostet haben.
 >
-> Referenz-Modul ist **Helpdesk** (`desktop/src/renderer/src/modules/helpdesk/HelpdeskPage.tsx`).
-> Jeder Schritt unten nennt die Stelle, an der er dort steht.
+> Zwei Referenz-Module, beide fertig instrumentiert:
+> **Helpdesk** (`modules/helpdesk/HelpdeskPage.tsx`) — alle sieben Dimensionen an
+> einem Modul mit zustandsgeführten Tabs. Jeder Schritt unten nennt die Stelle, an
+> der er dort steht.
+> **Kontakte** (`modules/kontakte/KontakteLayout.tsx`) — wie ein Modul mit **eigener
+> Navigation** dazukommt, ohne dass Deep-Links brechen (Abschnitt 6).
+>
+> Wer ein Modul neu aufnimmt, fängt bei **Abschnitt 0** an: dort steht, welche
+> Funktionen es bekommen muss, in welcher Reihenfolge, und wann es fertig ist.
 
 ## Worum es geht
 
@@ -19,6 +26,62 @@ Ein Modul wird dafür **instrumentiert**: statt fester Beschriftungen und harter
 liest es seine Texte, Chips, Felder und Spalten aus den Hooks in
 `components/customization/EditorSurface.tsx`. Alle Hooks sind außerhalb der Sandbox
 No-Ops — instrumentierter Code läuft in der Live-App unverändert.
+
+---
+
+## 0 · Was jedes Modul bekommen muss
+
+Damit der Editor bei allen 32 Modulen gleich funktioniert und nicht jedes Modul seine
+eigene Teilmenge kann, gilt: **jede Dimension, die auf ein Modul zutrifft, wird auch
+gebaut.** Nicht jede trifft auf jedes Modul zu — hier die Regel, wann welche fällig ist.
+
+| Dimension | Fällig, wenn das Modul … | Nicht fällig, wenn … |
+|---|---|---|
+| **Begriffe** | überhaupt Überschriften, Tab- oder Abschnittsnamen hat → **trifft immer zu** | — |
+| **Wertelisten** | einen Status, eine Priorität, eine Art/Kategorie o. Ä. als festen Enum rendert | das Modul nur freie Texte und Zahlen zeigt |
+| **Felder** | Datensätze mit Detail-Ansicht führt (Kunde, Beleg, Gerät, Vertrag …) | es reine Auswertung ohne eigene Datensätze ist |
+| **Bereiche** | mehr als eine Ansicht unter einem Modul-Dach hat (Tabs, Sub-Navigation) | es genau eine Ansicht ist |
+| **Statistik** | eine Kennzahlen-/Auswertungsansicht hat | keine Kennzahlen vorkommen |
+| **Spalten** | eine Tabelle oder Liste mit mehreren Spalten hat | es Kacheln/Board/Kalender ohne Spalten ist |
+| **Kanäle** | Datensätze von außen entgegennimmt (Formular, Portal, E-Mail) | alles intern angelegt wird |
+
+**Immer und ohne Ausnahme dazu** — das ist kein „je nach Modul", sondern der
+Grundstock, an dem sich anfühlt, ob der Editor ein Werkzeug ist oder ein Formular:
+
+- `useEditorGuard` um jede verändernde Aktion,
+- `useEditorFocusEffect` **und** `useEditorContextReport` (beide Richtungen),
+- jeder `dkey` in `LABEL_WHITELIST`.
+
+### Reihenfolge der Arbeit pro Modul
+
+Immer dieselbe, damit zwei Leute an zwei Modulen dasselbe Ergebnis bauen:
+
+1. **Zuschnitt** — Tabelle oben durchgehen, festhalten welche Dimensionen zutreffen.
+   Bei „trifft nicht zu" kurz **begründen** (im Registry-Kommentar), sonst sieht es
+   später aus wie vergessen.
+2. **Registry-Eintrag** anlegen (Abschnitt 1) — er ist die Absichtserklärung.
+3. **Instrumentieren** in der Reihenfolge aus Abschnitt 2: Begriffe → Wertelisten →
+   Bereiche → Felder → Spalten → Statistik → Kanäle. Begriffe zuerst, weil der Rest
+   auf denselben Beschriftungen aufsetzt.
+4. **Whitelist** nachtragen und `vitest run …/label-whitelist.test.ts` fahren.
+5. **Fokus beidseitig** verdrahten (der Schritt, der am ehesten liegen bleibt).
+6. **QA-Suite** nach Vorlage schreiben und die Screenshots ansehen (Abschnitt 4).
+7. Ein Commit, ein Push.
+
+### Wann ist ein Modul fertig?
+
+Abnahme-Checkliste — alles davon, sonst gilt es als angefangen, nicht als fertig:
+
+- [ ] Registry-Eintrag vollständig, „trifft nicht zu"-Fälle begründet
+- [ ] jede zutreffende Dimension instrumentiert
+- [ ] `label-whitelist.test.ts` grün
+- [ ] verändernde Aktionen laufen durch `useEditorGuard`, Tab-Wechsel **nicht**
+- [ ] beide Fokus-Richtungen verdrahtet, die blanke Liste meldet `null`
+- [ ] eigene QA-Suite, **echtes Electron**, alle Prüfungen grün
+- [ ] eine Umbenennung und eine Bereichs-Abschaltung sind **nach dem Übernehmen im
+      echten Modul** nachgewiesen — nicht nur in der Vorschau
+- [ ] Screenshots angesehen: keine rohen Schlüssel, kein zerlegtes Layout, keine
+      leeren Zustände
 
 ---
 
@@ -274,34 +337,38 @@ inhaltlich richtig, kein Mangel.
 URL etwas Sinnvolles zeigt. Hat ein Modul eine eigene Bereichs-Leiste, muss diese
 zustandsgeführt sein (Kontakte-Muster); hat es keine, nimmt man die Seite selbst.
 
-## 6 · Offen: der Kontakte-Sonderweg
+## 6 · Module mit eigener Navigation (das Kontakte-Muster)
 
-Kontakte hat router-basierte Sub-Tabs: `KontakteLayout` rendert sechs `NavLink`s und
-einen `<Outlet/>`, die sechs Bereiche sind Child-Routen in `App.tsx` (dazu drei
-Detail-Routen mit `:id`). Deshalb steht im Registry-Eintrag `areas: []` — keine
-schaltbaren Bereiche. Helpdesk konnte alles, weil seine Tabs Zustand sind.
+Erledigt am 2026-08-10 — hier steht, weil dasselbe bei jedem Modul mit eigener
+Bereichs-Leiste wiederkommt.
 
-Registriert ist außerdem `KontaktePage`, nicht `KontakteLayout` — die Sandbox zeigt
-also die reine Kontakt-Liste, die Tab-Leiste kommt gar nicht vor.
+**Das Problem:** Kontakte navigierte seine sechs Bereiche über `NavLink` + `<Outlet/>`,
+also über den Router. Die Sandbox hat aber keine passende URL — der Inhalt bliebe leer.
+Einen eigenen Router darf sie auch nicht aufmachen: `#/editor-window` ist selbst eine
+Route des globalen `createHashRouter` (`App.tsx`), ein `MemoryRouter` darin wäre
+verschachtelt, und react-router 7.17 verbietet das. (Der Kommentarkopf in
+`ModuleSandbox.tsx` verspricht hier mehr, als stimmt — er nennt den MemoryRouter „the
+path for the future real-window mode". Das eigene Fenster gibt es inzwischen, es hilft
+aber nicht. Der Weg kostet einen eigenen React-Root, nicht nur einen Wrapper.)
 
-**Nachgeprüft (2026-08-10), weil der Kommentarkopf in `ModuleSandbox.tsx` mehr
-verspricht, als heute stimmt:** dort steht, ein `MemoryRouter` sei zwar im Overlay
-unmöglich, bleibe aber „the path for the future real-window mode". Das eigene Fenster
-gibt es inzwischen — es hilft hier aber nicht: `#/editor-window` ist selbst eine Route
-des globalen `createHashRouter` (`App.tsx:262/431`), ein `MemoryRouter` darin wäre
-also weiterhin verschachtelt, und react-router 7.17 verbietet das genauso wie v6. Der
-Weg (b) kostet damit einen eigenen React-Root für das Editor-Fenster, nicht nur einen
-Router-Wrapper.
+**Die Lösung, die jetzt steht** — nachbauen, wenn das nächste Modul eine eigene
+Bereichs-Leiste hat:
 
-Drei Wege, Entscheidung offen:
+1. Der aktive Bereich wird **Zustand** im Layout, die Bereichs-Seiten lädt das Layout
+   selbst per `lazy()` + `<Suspense>`.
+2. Die Routen bleiben als **Einstieg** stehen, ohne eigenes `element` — beide
+   Richtungen verdrahten:
+   - **URL → Zustand** per Effekt auf `location.pathname` (Deep-Link, Zurück-Button).
+   - **Zustand → URL** beim Klick (`navigate`), damit Links teilbar bleiben.
+   - Im Editor entfällt nur der zweite Teil: `if (!editing) navigate(path)`.
+3. **Detail-Seiten bleiben echte Routen** und rendern weiter über `<Outlet/>`. Das
+   Layout entscheidet per `matchPath`, ob es den Outlet oder den Bereich zeigt.
+4. Der Pfad-Vergleich muss **Präfix** sein, längster gewinnt — sonst leuchtet auf
+   jeder Detail-Seite der erste Bereich statt dem, aus dem sie kommt. Genau das taten
+   die `NavLink`s mit `end: false`, und genau das ging beim ersten Versuch verloren.
+5. Registry zeigt danach auf das **Layout**, nicht auf die Listenseite, und `areas`
+   listet die Bereiche.
 
-- **(a) Tabs auf Zustand umstellen, Routen als Einstieg behalten** — `KontakteLayout`
-  schaltet per Zustand, die bestehenden Routen setzen beim Aufruf nur den Anfangs-Tab.
-  Deckungsgleich mit Helpdesk, Deep-Links auf `/kontakte/firmen` bleiben heil.
-  Eingriff in ein Kern-Modul.
-- **(b) Eigener React-Root für das Editor-Fenster** — teurer als gedacht (siehe oben),
-  zahlt aber auf jede künftige Sandbox mit eigener Navigation ein.
-- **(c) Kontakte ohne Bereiche lassen** — Begriffe, Wertelisten, Felder und Spalten
-  gehen dort auch heute; nur das Ein-/Ausschalten von Sub-Tabs fehlt. Das ist zuerst
-  eine Produktfrage: RBAC blendet diese Bereiche bereits pro Berechtigung aus
-  (`capKey` je Navigationspunkt), ein zweiter Schalter im Editor wäre teils doppelt.
+Muster: `modules/kontakte/KontakteLayout.tsx`. Abnahme: `scripts/qa-kontakte-bereiche-t.mjs`
+prüft beide Hälften — Live-Routing (Klick, URL, Deep-Link, Zurück, Detail) und Editor
+(Leiste sichtbar, Bereich abschalten, Ergebnis im echten Modul).
