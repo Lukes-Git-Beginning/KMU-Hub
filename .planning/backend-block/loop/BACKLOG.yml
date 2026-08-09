@@ -520,7 +520,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/gateway/route_notification.go` - 677 Zeilen, 24 Handler, keine Testdatei.
     sources:
@@ -1786,3 +1786,41 @@ units:
       - CleanupExpired entfernt nur abgelaufene Subscriptions
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-notification-markallread-empty-body-rejected
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `HandleMarkAllRead` (internal/gateway/route_notification.go, ~Zeile 280) haelt sein
+      eigenes Kommentarversprechen nicht ein: "Body is optional for mark-all-read". Der Code
+      prueft `if r.Body != nil` und decodiert nur dann - das schuetzt vor einem *nil* Body,
+      aber ein echter net/http-Server liefert Handlern NIE einen nil Body: laut Go-Doku ist
+      `Request.Body` bei Server-Requests immer non-nil und liefert bei fehlendem Body sofort
+      EOF. Ein Client, der POST /read-all wirklich ohne Body sendet (kein `{}`, kein
+      Content-Length: 0 mit leerem JSON), bekommt also `json.Decode` -> `io.EOF` -> 400
+      "invalid request body" statt des beabsichtigten "alle Module als gelesen markieren".
+      Gefunden und als IST-Verhalten in `TestHandleMarkAllRead_NoBodyIsRejected`
+      (route_notification_test.go) festgeschrieben waehrend b-cov-gateway-notification
+      (Lauf 7) - bewusst NICHT gefixt, da Verhaltensaenderung und damit ausserhalb einer
+      reinen Coverage-Unit.
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/gateway/route_notification_test.go
+    notes: >
+      Naheliegender Fix: `json.NewDecoder(r.Body).Decode(&body)`-Fehler nur dann als 400
+      behandeln, wenn er NICHT `io.EOF` ist (`errors.Is(err, io.EOF)` durchlassen), statt auf
+      `r.Body != nil` zu pruefen - das behandelt "kein Body" und "leerer Body" gleich und laesst
+      echtes kaputtes JSON weiterhin scheitern. `TestHandleMarkAllRead_NoBodyIsRejected` muss
+      nach dem Fix von "erwartet 400" auf "erreicht die RPC-Schicht" (503 im Testaufbau)
+      umgedreht werden. Kurz pruefen, ob dasselbe `r.Body != nil`-Muster anderswo im Gateway
+      vorkommt (grep `r.Body != nil` ueber `internal/gateway`) - falls ja, gleiche Ursache,
+      gleicher Fix, nicht mehrfach einzeln.
+    done_when:
+      - Ein echter bodyloser POST /read-all markiert alle Module als gelesen statt 400 zu liefern
+      - Echtes kaputtes JSON liefert weiterhin 400 "invalid request body"
+      - TestHandleMarkAllRead_NoBodyIsRejected auf das neue Verhalten umgestellt
+      - Andere Fundstellen des gleichen r.Body-!=-nil-Musters im Gateway prueft und ggf. mitgefixt
+      - go test -count=1 ./internal/gateway/ gruen

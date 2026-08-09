@@ -725,3 +725,73 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins fuer diese Datei — jeder Handler hat mindestens einen Validierungs- oder
   ID-Pruefpfad-Test, die drei reinen Helferfunktionen sind bei 100 %. Der Scope-Default-Befund ist
   fuer eine kuenftige Unit vorgemerkt, nicht Teil dieser.
+
+## Iteration 11 — b-cov-gateway-notification — done — 2026-08-09 21:05
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `route_notification_test.go` fuer `route_notification.go` (19 Handler,
+  keine bestehende Testdatei vorher). ServiceUnavailable fuer alle 19 Handler in einer
+  Tabellen-Testreihe. Validierungspfade: HandleMarkRead/HandlePin/HandleUnpin/HandleDismiss
+  teilen sich InvalidUUID + ValidUUID-erreicht-RPC als Tabellentest ueber alle vier;
+  HandleSnooze (InvalidUUID vor Body-Parse, InvalidJSON, Until in der Vergangenheit -> 422,
+  Until in der Zukunft erreicht RPC); HandleMarkAllRead (siehe Befund unten);
+  HandleUpdatePreference (InvalidJSON, gueltiger Body erreicht RPC — die Struct traegt keine
+  `validate`-Tags, jedes Feld ist optional); HandleMuteResource (MissingModuleID/
+  MissingResourceID als strukturierte Validierungsfehler gegen das JSON-Tag `module_id`/
+  `resource_id`, nicht den Go-Feldnamen — erster Testlauf schlug genau daran fehl, korrigiert);
+  HandleUnmuteResource (InvalidUUID auf `muteId`); HandleUpdateQuietHours (InvalidJSON, Tage
+  besetzt und leer, beide erreichen RPC — die `int`->`int32`-Konvertierungsschleife mitgetestet);
+  HandleToggleDND (InvalidJSON, ungueltiges `until`-Zeitformat -> 400, mit und ohne `until`
+  erreichen RPC). Filter-Kombinationen fuer HandleListNotifications und
+  HandleListMutedResources (module_id, is_read, Pagination inkl. nicht-numerisch) als
+  Tabellentests. `dndStatusFromQuietHours` (die eine handgebaute Wire-Shape-Funktion der Datei)
+  direkt als vier Unit-Tests: nil, disabled ohne until, enabled mit until (RFC3339-Format
+  geprueft), enabled ohne until — deckt exakt das FE-`DNDStatus`-Interface
+  (`desktop/src/renderer/src/api/notification-client.ts:21-23`, `{is_active: boolean,
+  expires_at?: string}`) ab, `expires_at` muss beim Fehlen ABWESEND sein, nicht `null` oder
+  leerer String. Kein Handler bleibt unter 90 % (`HandleGetUnreadCount` war im ersten Lauf bei
+  40 %, weil nur im ServiceUnavailable-Sammeltest erfasst — eigener Reach-RPC-Test ergaenzt,
+  jetzt 90 %); Rest ist wie in den vorigen Gateway-Units der unerreichbare Erfolgspfad ohne
+  Fake-`NotificationServiceClient`.
+- befund fremde-nutzerkennung: `TestHandleListNotifications_UserFromContextNotQuery` bestaetigt
+  das Backlog-Notiz-Risiko als NICHT vorhanden — kein Handler in der Datei liest `user_id` (oder
+  irgendeine andere Identitaet) aus der Query-String oder dem Body, alle 19 nehmen sie
+  ausschliesslich ueber `middleware.GetUserID(r.Context())`. Grep ueber die ganze Datei nach
+  `Query().Get` bestaetigt: nur `module_id`, `is_read`, `page`, `page_size` werden gelesen, nie
+  ein Identitaetsfeld. Es gibt in diesem Paket keinen Stub-gRPC-Client, der das tatsaechlich
+  gesendete Proto-Feld abfangen koennte (kein bufconn-Muster im ganzen Repo - gegengeprueft per
+  Grep `bufconn` ueber `backend/`, 0 Treffer) - der Test pinnt deshalb, dass ein Query-Parameter
+  `user_id` das Handler-Verhalten nicht veraendert (identischer Statuscode, kein Sonderzweig),
+  gestuetzt durch die Code-Lektuere. Kein Fund, der einen Fix braucht.
+- befund markallread-body: `HandleMarkAllRead` haelt sein Kommentarversprechen "Body is optional"
+  nicht ein. Die Pruefung `if r.Body != nil` schuetzt nur vor einem *nil* `Request.Body` - laut
+  Go-Doku ist der bei echten Server-Requests NIE nil, ein Body-loser Request liefert stattdessen
+  sofort `io.EOF` beim Lesen. `json.Decode` auf einem leeren Body liefert also einen echten
+  Decode-Fehler -> 400 "invalid request body", nicht das beabsichtigte "alle Module als gelesen
+  markieren". `TestHandleMarkAllRead_NoBodyIsRejected` schreibt dieses IST-Verhalten fest,
+  `TestHandleMarkAllRead_EmptyObjectBodyReachesRPC` zeigt, dass ein Client den Bug nur durch
+  explizites Senden von `{}` umgeht. Grep `r.Body != nil` ueber `internal/gateway` bestaetigt:
+  einzige Fundstelle im ganzen Paket, kein Wiederholungsmuster anderswo. NICHT gefixt (echte
+  Verhaltensaenderung, gehoert nicht in eine Coverage-Unit) - als Unit
+  `fix-notification-markallread-empty-body-rejected` fuer Lauf 8 im Backlog angelegt, inkl.
+  Fix-Vorschlag (`errors.Is(err, io.EOF)` durchlassen statt auf `r.Body != nil` zu pruefen).
+- befund antwortformen: `dndStatusFromQuietHours` ist die einzige handgebaute Wire-Shape-Stelle
+  der Datei (alle anderen Handler geben `response.Proto` direkt durch) und stimmt mit dem
+  FE-Typ `DNDStatus` exakt ueberein, siehe oben. Alle anderen Handler liefern das generierte
+  Proto-JSON unveraendert durch - keine eigene Wire-Shape-Pruefung noetig, das ist Vertragssache
+  der `.proto`-Definition, nicht dieser Datei.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`, 0 issues)
+  | test ok (`go test -count=1 ./internal/gateway/...`, dreimal wiederholt, durchgehend gruen,
+  0 uebersprungen) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff)
+- verify vorgaenger: sauber — `83e6e616` (b-cov-gateway-automation) geprueft: `git show --stat`
+  zeigt nur `route_automation_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein RequirePermission, keine Tabelle.
+- mutations-probe: `validate:"required"` vom `ModuleID`-Feld in `muteResourceRequest`
+  (route_notification.go:429) entfernt → `TestHandleMuteResource_MissingModuleID` wurde rot
+  (503 "connection error" statt 400/"validation_failed"/Feld "module_id"), die beiden anderen
+  Mute-Tests blieben unberuehrt. Zurueckgedreht, `git diff` auf die Produktionsdatei zeigt keine
+  Restaenderung, volle Suite danach dreimal gruen.
+- db-tests: 0 — `internal/gateway` ist reines HTTP-Handler-Paket ohne DB-Zugriff.
+- offen: `fix-notification-markallread-empty-body-rejected` im Backlog fuer Lauf 8 angelegt
+  (echter Produktionsbug, kein Test-Diff). Fremde-Nutzerkennung- und Antwortform-Punkte aus dem
+  Backlog-`done_when` sind erfuellt, kein weiterer Fund offen fuer diese Datei.
