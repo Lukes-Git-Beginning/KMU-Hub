@@ -377,7 +377,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/biz/recurring` - 269 Statements, 52,4 % gedeckt, 128 ungedeckt.
       Wiederkehrende Rechnungen: Terminberechnung und Ausloese-Logik.

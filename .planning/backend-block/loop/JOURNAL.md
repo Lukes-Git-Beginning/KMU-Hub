@@ -313,3 +313,70 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   ist der Fix selbst risikoarm und eng am bereits gepruegten lexware-Muster.
   `modules.bexio`s Aktivierungsstatus wurde nicht separat geprueft (wie schon
   im urspruenglichen Fund vermerkt) — der Fix behebt den Bug unabhaengig davon.
+
+## Iteration 5 — c-cov-biz-recurring — done — 2026-08-09 20:02
+- commit: (siehe unten)
+- gebaut: `internal/biz/recurring` Coverage von 52,4 % auf 88,1 % (Ziel >85 % erreicht).
+  Zwei Bloecke: (1) `service_test.go` um 21 neue Tests erweitert — schliesst
+  `Get`/`List`/`Delete`/`IsNotFound` (waren 0 %), `SetStatus` unbekannter Status
+  und den Resume-eines-exhausted-Schedules-Zweig, `Generate`s defensiven
+  `ErrScheduleExhausted`-Pfad (Periode bereits nach EndDate, direkt ueber
+  Repo-State erzwungen wie im bestehenden Idempotenz-Test), `Create`s
+  Title-Fallback auf CustomerName, `CreatedBy`-Zweig, StartDate-Default auf
+  heute, `Update`s bislang unerreichte Felder (Customer/Currency/PaymentTerms/
+  Notes/LineItems/ClearEndDate/EndDate-Set/EndDate-vor-StartDate-Fehler),
+  ReverseCharge- und Kleinunternehmer-Steuermodus (beide zuvor nie ueber den
+  eigenen Zweig gelaufen, nur ueber den Standard-Default), und
+  `addMonthsClamped`s negativer-Monate-Zweig (in `nextRunFor` heute
+  unerreichbar, da periods>=0 geclampt wird — direkt aufgerufen, um die
+  Arithmetik fuer einen kuenftigen rueckwaerts-Aufruf zu sichern).
+  (2) neue Datei `postgres_repository_db_test.go` — neun DB-Tests gegen das
+  reale Schema (`finance_recurring_invoices`/`finance_recurring_runs`,
+  Migration 000246): Create+GetByID, GetByID NotFound (unbekannte ID UND
+  falscher Tenant-Filter), List (Status-Filter, Limit->200-Clamp,
+  negativer Offset, fremder Tenant liefert leeres `[]` nicht `null`),
+  Update (Treffer + NotFound bei RowsAffected=0), Delete (Treffer +
+  NotFound), ClaimPeriod-Replay (ON CONFLICT DO NOTHING liefert dieselbe
+  Run-ID zurueck, kein zweiter Datensatz), AttachInvoice, und ReleasePeriod
+  (unattached wird geloescht und freigegeben, attached bleibt stehen —
+  genau der Schutz aus dem Doc-Kommentar des Repositories). Jeder Schreib-
+  und jeder legitime Lesezugriff laeuft ueber `testutil.WithTenantCtx`, da
+  beide Tabellen FORCE ROW LEVEL SECURITY tragen (erst ohne das versucht,
+  `insert ... violates row-level security policy`, dann korrigiert).
+- fehlerpfade: pro getesteter Funktion mindestens ein Fehlerfall — Get/Delete/
+  Update NotFound, Create-Validierung (bereits vorhanden), SetStatus
+  ErrInvalidStatus, Generate ErrScheduleExhausted/ErrNotActive, Update
+  ErrInvalidDateRange/ErrInvalidInterval.
+- mutations-probe: `ReleasePeriod`s `AND invoice_id IS NULL`-Guard aus dem
+  DELETE-Statement entfernt (`internal/biz/recurring/postgres_repository.go`,
+  vorher: `WHERE tenant_id = $1 AND id = $2 AND invoice_id IS NULL`). Damit
+  wurde `TestPostgresRepository_ReleasePeriod` rot ("releasing an attached
+  run must not delete it", Run-ID und Invoice-ID wichen ab) — der Test faengt
+  also genau den Bug, den der Doc-Kommentar des Repositories beschreibt
+  (ein geloeschter attached Run wuerde eine zweite Rechnung fuer dieselbe
+  Periode ermoeglichen). Zurueckgedreht, Suite wieder gruen.
+- gate: build ok (`go build -p 2 ./internal/biz/recurring/... ./cmd/biz/...`) |
+  vet ok | lint ok (golangci-lint, 0 issues) | test ok
+  (`go test -count=1 ./internal/biz/recurring/...`, 40 Top-Level-Tests + Sub-
+  tests, 0 Fails, 0 Skips bei gesetzter `DATABASE_URL` — 9 echte DB-Tests
+  liefen real) | migration n.a. (keine neue Migration) | rls-smoke n.a.
+  (keine neue Tabelle/Policy, nur Tests gegen bestehende) | route n.a. (kein
+  Gateway-Handler angefasst, `go test ./internal/gateway/` deshalb nicht
+  Pflicht gemaess Schritt 5 und nicht separat gelaufen)
+- verify vorgaenger: sauber — `8118db67` (fix-bexio-tenant-id-missing-on-upsert)
+  gegen alle acht Fehlerklassen geprueft (vollstaendiger Diff gelesen): kein
+  gRPC-Bypass, kein Stub, kein Proto-Drift, kein neuer Guard ohne Seed, keine
+  neue Tabelle/RLS, Wire-Shape unveraendert, keine neue Route, kein
+  Guard-Alt-Key-Verlust. ON-CONFLICT-Targets waren bereits gegen Migration
+  000055 verifiziert (Iteration-4-eigene Notiz).
+- offen: Backlog-Notiz "Ausloese-Pfad mit und ohne faelligen Termin" aus dem
+  `done_when` wurde als Generate-Aufruf mit faelliger vs. bereits abgelaufener
+  Periode interpretiert (`ErrScheduleExhausted`), NICHT als Scheduler/Cron —
+  ein solcher existiert nicht; Migration 000246 kommentiert den Index
+  `idx_finance_recurring_tenant_due` explizit als "Due-schedule scan for a
+  future scheduler pass", also noch ungebaut. Kein Befund, nur Klarstellung
+  fuer den Fall, dass ein Leser das anders erwartet hatte. Iteration 4 hat
+  eine Grundsatzfrage offengelassen (erste `todo`-Unit vs. urspruenglich
+  freigegebener Block bei Widerspruch) — diese Iteration war davon nicht
+  betroffen, da `c-cov-biz-recurring` sowohl die erste `todo`-Unit als auch
+  Teil des urspruenglich freigegebenen Blocks C1 ist.
