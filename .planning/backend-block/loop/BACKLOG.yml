@@ -325,6 +325,113 @@ units:
         requireGRPCCode(..., codes.NotFound)-Faelle ersetzt
       - go test -count=1 ./internal/server/... ./internal/plugin/... gruen
 
+  - id: fix-automation-actions-struct-cannot-represent-array
+    phase: 3
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `automation.proto` deklariert `actions` (auf CreateAutomationRequest, UpdateAutomationRequest
+      und AutomationInfo) als `google.protobuf.Struct` - ein Wire-Typ, der ausschliesslich ein
+      JSON-*Objekt* (`{...}`) transportieren kann (Struct <-> JSON-Objekt ist die kanonische
+      Well-Known-Type-Abbildung, siehe `google.golang.org/protobuf/types/known/structpb`). Die
+      Domain-Seite verlangt aber ein JSON-*Array*: `workflow.Service.validateAutomation`
+      (internal/automation/workflow/service.go:433) und `Service.DryRun` unmarshaln `auto.Actions`
+      unconditional in `[]models.ActionConfig`. `automation_grpc.go`s `automationStructToJSON`
+      wandelt einen `*structpb.Struct` per `s.MarshalJSON()` zurueck - das Ergebnis beginnt
+      strukturell IMMER mit `{`, nie mit `[`. Jeder nicht-nil `Actions`-Wert - selbst ein leeres
+      `{}` - schlaegt deshalb beim Unmarshal in `[]models.ActionConfig` fehl
+      (`json: cannot unmarshal object into Go value of type []models.ActionConfig`), was
+      `mapDomainError` auf `codes.InvalidArgument` abbildet. Ergebnis: `CreateAutomation` und
+      `UpdateAutomation` lassen sich mit KEINER einzigen echten Aktion konfigurieren - die einzige
+      Automation, die sich je erstellen laesst, ist eine ganz ohne Actions (Feld nil/omitted).
+      Bewiesen durch `TestCreateAutomation_ActionsStructCannotCarryAnArray` in
+      `internal/server/automation_grpc_test.go` (gebaut waehrend `b-cov-server-automation`, Lauf 7):
+      ein einzelnes, sonst gueltiges `{"type":"send_email"}` als Actions-Struct fuehrt zu
+      `codes.InvalidArgument`. Gateway-seitig (`route_automation.go`, `rawJSONToAutomationStruct`)
+      ist der Fehler noch unauffaelliger: ein echtes JSON-Array im Request-Body
+      (`s.UnmarshalJSON(data)` auf einem `*structpb.Struct`) schlaegt beim Parsen fehl, der Fehler
+      wird verschluckt (`if s, sErr := ...; sErr == nil { grpcReq.Actions = s }`), das Feld bleibt
+      einfach nil - der Client bekommt 200 OK, seine konfigurierten Aktionen wurden aber nie
+      gesetzt. `b-cov-gateway-automation` (Lauf 7, Iteration 10) hat exakt dieses Symptom bereits
+      fuer `trigger_config` als Testfall festgeschrieben, ohne die Ursache (Struct-vs-Array) oder
+      die Tragweite fuer `actions` speziell zu benennen. `modules.automation` ist in
+      `backend/internal/featureflag/` nicht als Flag gefuehrt (kein Gate), der Pfad ist also ohne
+      Feature-Flag erreichbar.
+    sources:
+      - backend/proto/automation/v1/automation.proto
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/server/automation_grpc_test.go
+      - backend/internal/automation/workflow/service.go
+      - backend/internal/gateway/route_automation.go
+    notes: >
+      Gefunden waehrend b-cov-server-automation (Lauf 7). Nicht inline gefixt - echte
+      Wire-Vertrags-Aenderung (Proto-Feldtyp), keine Coverage-Aenderung, nach Backlog-Regel eine
+      eigene Unit. Fix-Vorschlag: `actions` im .proto von `google.protobuf.Struct` auf
+      `google.protobuf.ListValue` (oder `repeated ActionConfigProto` als eigene Message, falls das
+      Team strukturierte statt opaquer Actions bevorzugt) umstellen - das ist ein Breaking Change
+      am Wire-Format auf allen drei betroffenen Messages (CreateAutomationRequest,
+      UpdateAutomationRequest, AutomationInfo) und erfordert `protoc`-Neugenerierung
+      (`C:/Users/Luke/AppData/Local/Microsoft/WinGet/Packages/Google.Protobuf_Microsoft.Winget.
+      Source_8wekyb3d8bbwe/bin/protoc.exe`), Anpassung von `automationStructToJSON`/
+      `automationJSONToStruct` auf ListValue-Konvertierung, Anpassung von
+      `rawJSONToAutomationStruct` im Gateway (arrayJSON -> `structpb.NewList`), und Korrektur der
+      "documents current gap"-Tests in `automation_grpc_test.go`
+      (`TestCreateAutomation_ActionsStructCannotCarryAnArray`) auf das dann gewuenschte Verhalten.
+      Da kein einziges Frontend-Modul automation.actions aktuell erfolgreich schreiben kann, lohnt
+      sich vor dem Fix ein kurzer Griff in den FE-Code (`desktop/src/renderer/src/api/
+      automation*`), um zu pruefen, ob die FE bereits (fehlerhaft) ein Array sendet oder das
+      Feature dort noch gar nicht verdrahtet ist - das aendert nur die Dringlichkeit, nicht den Fix.
+    done_when:
+      - actions kann ueber CreateAutomation/UpdateAutomation mit mindestens einer echten Aktion
+        erfolgreich gesetzt und ueber GetAutomation/AutomationInfo wieder ausgelesen werden
+      - Bestehende TestCreateAutomation_ActionsStructCannotCarryAnArray auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - rawJSONToAutomationStruct im Gateway wandelt ein echtes JSON-Array verlustfrei durch
+      - go test -count=1 ./internal/server/... ./internal/automation/... ./internal/gateway/... gruen
+      - protoc-Neugenerierung im selben Commit, kein manuell editiertes .pb.go
+
+  - id: fix-automation-testcondition-omitted-conditions-error
+    phase: 3
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `AutomationGRPCServer.TestCondition` (internal/server/automation_grpc.go:412) ruft
+      `automationStructToJSON(req.GetConditions())` unconditional auf und reicht das Ergebnis an
+      `workflow.Service.TestCondition` durch, das direkt `json.Unmarshal(conditionJSON, &config)`
+      macht - ohne die Laengenpruefung, die `Service.DryRun` fuer denselben Fall hat
+      (`if len(auto.Conditions) > 0 { unmarshal } `, sonst bleibt `condConfig` der Nullwert und
+      matched immer). Ein Client, der "Automation ohne Bedingungen testen" meint (ein normaler
+      Fall - die Automation soll bei jedem Trigger feuern) und deshalb `conditions` im Request
+      weglaesst, bekommt `automationStructToJSON(nil) == nil` -> `json.Unmarshal(nil, &config)` ->
+      `"unexpected end of JSON input"` als `TestConditionResponse.ErrorMessage` mit
+      `Matches: false`, statt des erwarteten `Matches: true`. Bewiesen durch
+      `TestTestCondition_OmittedConditionsSurfacesAsError` in `automation_grpc_test.go` (Lauf 7).
+      Kleinere Inkonsistenz als der Actions/Struct-Fund (kein Datenverlust, nur eine verwirrende
+      Fehlermeldung im "Bedingung testen"-UI-Feature), aber dieselbe Codebasis, dieselbe Iteration
+      gefunden - deshalb als eigene, kleine Unit statt in die groessere Actions-Unit gemischt.
+    sources:
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/automation/workflow/service.go
+      - backend/internal/server/automation_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-automation (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: in `workflow.Service.TestCondition` (service.go:346) dieselbe
+      `if len(conditionJSON) > 0 { unmarshal }`-Wächter wie in `DryRun` einziehen, sonst bei der
+      Nullwert-`ConditionConfig{}` bleiben (Mode "" matched laut `condEvaluator.Evaluate` bereits
+      immer alles - das ist exakt das gewuenschte Verhalten, kein neuer Code fuer den Match-Teil
+      noetig). Nach dem Fix `TestTestCondition_OmittedConditionsSurfacesAsError` auf
+      `Matches: true` und leere `ErrorMessage` aktualisieren.
+    done_when:
+      - TestCondition mit weggelassenem conditions-Feld liefert Matches:true statt eines
+        Unmarshal-Fehlers, symmetrisch zu DryRun
+      - TestTestCondition_OmittedConditionsSurfacesAsError auf das neue Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/automation/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -953,7 +1060,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/automation_grpc.go` - 834 Zeilen, 17 Methoden, keine Testdatei.
     sources:

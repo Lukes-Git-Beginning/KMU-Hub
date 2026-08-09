@@ -1431,3 +1431,136 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   im Backlog, beide klein und risikoarm (Fehler-Mapping-Tabelle bzw.
   Nil-Guard nach bestehendem Muster aus Service.GetManifest) - Luke
   entscheidet ob sie noch in Lauf 7 reinpassen.
+
+## Iteration 23 — b-cov-server-automation — done — 2026-08-10 01:20
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: neue Datei `internal/server/automation_grpc_test.go` fuer
+  `automation_grpc.go` (834 Zeilen, 17 RPC-Methoden, vorher keine Testdatei,
+  0 % auf allen Handlern). `AutomationGRPCServer.svc` ist ein konkretes
+  `*workflow.Service`, kein Interface - wie bei Plugin/Rapporte gibt es keinen
+  Weg, die RPC-Schicht direkt zu faken; stattdessen `stubAutomationRepo`/
+  `stubAutomationExecRepo`/`stubAutomationTemplateRepo` (implementieren
+  `workflow.Repository`/`ExecutionRepository`/`TemplateRepository`) plus
+  No-Op-Stubs fuer `idempotency.Repository` und `workflow.Executor` (nur zum
+  Durchreichen an `workflow.NewService`, keine der Tests laeuft tiefer als
+  der Automation-Lookup in TriggerWebhook), und lokale Trigger-/Action-Catalog-
+  Fakes (`automationTriggerGet/-All`, `automationActionGet/-AllDefs`) mit
+  echten `trigger.TriggerDefinition`/`action.ActionDefinition`-Werten, um die
+  `triggerDefToProto`/`actionDefToProto`-JSON-Roundtrip-Konvertierung sinnvoll
+  zu pruefen statt nur mit Strings zu faken. Alle 17 Methoden mindestens mit
+  einem Validierungs- oder Not-Found-Pfad plus Erfolgspfad abgedeckt: Create/
+  Update/Delete/GetAutomation (fehlender Tenant, ungueltige ID, unbekannter
+  Trigger-/Aktionstyp -> InvalidArgument, Not-Found, Erfolg inkl. Scope- und
+  TriggerConfig-Konvertierung); UpdateAutomation zusaetzlich mit einem Test,
+  der beweist, dass ein Teil-Update (nur `Name` gesetzt) `Description`
+  unangetastet laesst; ListAutomations/ListExecutions je mit einem Test, der
+  eine unparsebare Owner-/Automation-ID *ignoriert statt ablehnt* (Filter
+  bleibt leer, kein Fehler - Code-Pfad `if err == nil { filter.X = &x }`);
+  Enable/DisableAutomation (Not-Found via SetActive, Erfolg inkl. Re-Fetch);
+  GetExecution (ungueltige ID, Erfolg); ListTriggerDefinitions/
+  ListActionDefinitions (Katalog-Konvertierung inkl. Type/Module/Name/
+  Description); ListTemplates (Kategorie-Filter durchgereicht);
+  CreateFromTemplate (fehlender Tenant, ungueltige Owner-ID, Template nicht
+  gefunden, Erfolg inkl. `IsActive:false`-Default); TestCondition (siehe
+  Befund unten); DryRunAutomation (fehlender Tenant, ungueltige ID, Not-Found
+  als *weicher* Fehler statt gRPC-Fehler, Erfolg mit zwei simulierten
+  Schritten - einer registriert, einer nicht, beide im Response sichtbar);
+  GetAutomationStats (fehlender Tenant, Erfolg mit korrekt aufsummierten
+  Execution-Zaehlern); TriggerWebhook (ungueltige ID, unbekannte Automation
+  ueber die volle Handler->Service->mapDomainError-Kette bis NotFound - der
+  einzige RPC ohne `middleware.GetTenantID`, siehe Doc-Kommentar im
+  Produktionscode). `mapDomainError` als eigener Tabellentest ueber alle
+  12 Sentinels plus den generischen Internal-Zweig plus `nil` -> `nil`.
+- befund ssrf-pruefung (im Scope explizit gefordert): bereits vollstaendig
+  vorhanden und getestet, eine Ebene tiefer als `automation_grpc.go`.
+  `internal/automation/action/http_actions.go` (`HTTPRequestAction`) nutzt
+  `safehttp.New()` als Default-Client (nie ein ungeschuetzter `http.Client`,
+  `NewHTTPRequestAction` ersetzt `nil` automatisch) und ruft vor jedem Request
+  `safehttp.CheckURL(target)` auf; eigene Testdatei `http_actions_test.go`
+  existiert bereits. `automation_grpc.go` selbst staged keine ausgehende
+  Anfrage - die HTTP-Aktion laeuft ausschliesslich ueber den `engine`/
+  `action`-Ausfuehrungspfad, den `automation_grpc.go` nie direkt beruehrt
+  (DryRun simuliert nur, ruft keine echten Actions auf). Kein Fund, der einen
+  neuen Test in dieser Datei braucht.
+- befund unbekannter trigger-/aktionstyp (im Scope explizit gefordert):
+  bereits auf Service-Ebene erzwungen (`workflow.Service.validateAutomation`,
+  `service.go:426`, mit eigener Testabdeckung in `service_test.go` seit
+  laengerem: `TestCreate_UnknownTriggerType`/`TestCreate_UnknownActionType`).
+  Auf Handler-Ebene per `TestCreateAutomation_UnknownTriggerType` erneut
+  bestaetigt (voller Pfad Handler -> Service -> `mapDomainError` ->
+  `codes.InvalidArgument`), kein separater Test fuer unbekannte Aktionstypen
+  ueber den Handler noetig - siehe naechster Befund, der genau diesen Pfad
+  strukturell verhindert.
+- befund actions-wire-shape (schwerwiegend, NICHT gefixt, siehe unten):
+  `actions` ist im .proto als `google.protobuf.Struct` deklariert (JSON-Objekt
+  -only), aber `workflow.Service.validateAutomation`/`DryRun` unmarshaln
+  `auto.Actions` unconditional in `[]models.ActionConfig` (JSON-Array). Eine
+  `*structpb.Struct` marshalt strukturell IMMER zu `{...}`, nie zu `[...]` -
+  jeder nicht-nil Actions-Wert, selbst `{}`, schlaegt beim Unmarshal in eine
+  Go-Slice fehl und liefert `codes.InvalidArgument`. Es gibt also aktuell
+  KEINEN Weg, ueber CreateAutomation/UpdateAutomation eine Automation mit
+  auch nur einer echten Aktion zu erstellen - nur eine ganz ohne Actions
+  (Feld weggelassen) geht durch. Gateway-seitig (`route_automation.go`,
+  `rawJSONToAutomationStruct`) verschaerft sich das noch: ein echtes
+  JSON-Array im Request-Body laesst `s.UnmarshalJSON(data)` auf einem
+  `*structpb.Struct` scheitern, der Fehler wird verschluckt und das Feld
+  bleibt nil - 200 OK, aber die vom Client konfigurierten Aktionen wurden nie
+  gesetzt. `b-cov-gateway-automation` (Iteration 10) hatte das exakt gleiche
+  Symptom bereits fuer `trigger_config` als Testfall notiert, ohne Ursache
+  oder Tragweite fuer `actions` zu benennen. `modules.automation` ist in
+  `internal/featureflag/` nicht gefuehrt - kein Feature-Flag-Gate, der Pfad
+  ist erreichbar. Bewiesen durch
+  `TestCreateAutomation_ActionsStructCannotCarryAnArray`. NICHT gefixt -
+  Proto-Wire-Vertragsaenderung mit `protoc`-Neugenerierung an drei Messages,
+  keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit:
+  `fix-automation-actions-struct-cannot-represent-array` (todo, neu im
+  Backlog).
+- befund testcondition-inkonsistenz (kleiner, NICHT gefixt): `TestCondition`
+  hat - anders als `DryRun` fuer denselben Fall - keine Laengenpruefung vor
+  dem Unmarshal von `conditions`; ein Client, der "ohne Bedingungen testen"
+  meint und das Feld weglaesst, bekommt `Matches:false` mit
+  `"unexpected end of JSON input"` statt des von `DryRun` her erwarteten
+  `Matches:true`. Bewiesen durch
+  `TestTestCondition_OmittedConditionsSurfacesAsError`. Eigene, kleine Unit:
+  `fix-automation-testcondition-omitted-conditions-error` (todo, neu im
+  Backlog) - bewusst nicht in die Actions-Unit gemischt, da unabhaengiger
+  Root Cause und unabhaengiger Fix.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/automation/...
+  ./cmd/automation/... ./cmd/gateway/...`) | vet ok (`go vet
+  ./internal/server/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/server/...`, 0 issues) | test ok (`go test -count=3
+  ./internal/server/...`, dreimal wiederholt, durchgehend gruen, 0
+  uebersprungen)
+  | migration n.a. (reine Test-Coverage, keine Tabelle angefasst) | rls-smoke
+  n.a. (Stub-Repos, kein DB-Zugriff durch die neuen Tests)
+- coverage: `automation_grpc.go` von 0 % auf alle 17 RPC-Methoden zwischen
+  66,7 % und 100 % (Mittel ueber alle 32 benannten Funktionen inkl. Converter/
+  Enum-Helfer: 80,4 %), keine Methode bleibt bei 0 %. `internal/server`
+  gesamt (laut `go tool cover -func`) bei 34,9 % (Block-B-Server-Ausgangslage
+  war 26,0 % vor Iteration 18).
+- verify vorgaenger: sauber — `3a1c38b7` (b-cov-server-plugin) geprueft:
+  `git show --stat` zeigt nur `plugin_grpc_test.go` (neu) plus Journal/
+  Backlog, kein Produktionscode, keine neue Route, kein RequirePermission,
+  keine Tabelle, kein .proto.
+- mutations-probe: in `mapDomainError` (automation_grpc.go, Zeile
+  `case errors.Is(err, workflow.ErrAutomationNotFound): return
+  status.Error(codes.NotFound, ...)`) den Code testweise auf
+  `codes.Unavailable` geaendert → vier Tests wurden rot
+  (`TestMapDomainError_Table/automation_not_found`,
+  `TestUpdateAutomation_NotFound`, `TestGetAutomation_NotFound`,
+  `TestEnableAutomation_NotFound`), alle anderen blieben gruen.
+  Zurueckgedreht, `git diff --stat internal/server/automation_grpc.go` zeigt
+  keine Restaenderung (leerer Diff bestaetigt), `go test -count=1
+  ./internal/server/...` danach wieder vollstaendig gruen.
+- db-tests: 0 — Repository-Interfaces sind vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: fuenfte von zwoelf Units in Block B-Server erledigt (5/12). Naechste
+  laut Reihenfolge: `b-cov-server-settings` (dreistufige Aufloesung Tenant/
+  Modul-Leiter/persoenlich, Schreibzugriff ohne Recht muss scheitern). Zwei
+  neue Fix-Units aus dieser Iteration (`fix-automation-actions-struct-
+  cannot-represent-array`, `fix-automation-testcondition-omitted-conditions-
+  error`) stehen todo im Backlog, plus die vier bereits laufenden aus
+  frueheren Iterationen (`fix-einkauf-contract-call-no-value-check`,
+  `fix-plugin-error-mapping-gaps`,
+  `fix-plugin-nil-manifest-panic-on-orphaned-installation`) - Luke
+  entscheidet welche noch in Lauf 7 reinpassen.
