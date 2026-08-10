@@ -1670,3 +1670,74 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 25) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 23:11).
+
+## Iteration 27 — b-cov-server-websocket-helpers-ratelimit — done — 2026-08-10 23:21
+
+- unit: b-cov-server-websocket-helpers-ratelimit (Block B, Coverage
+  internal/server)
+- scope: die zehn im Backlog genannten reinen Helfer-/
+  Verbindungsverwaltungs-Funktionen in backend/internal/server/websocket.go
+  ohne vollen Hub-Aufbau (chatClient, tokenMaker): msgRateLimiter.allow,
+  extractToken, ValidateChannelID, wsSubscriptionKey, mustMarshal,
+  cacheUserName/getUserName, cleanupPresenceSubscriptions,
+  registerConnection/unregisterConnection,
+  registerGuestConnection/unregisterGuestConnection.
+- was: neue Datei internal/server/websocket_helpers_test.go, 26 Testfaelle,
+  je Funktion Normalfall + mindestens ein Grenzfall (Rate-Limit erschoepft,
+  Header nur mit Marker ohne Query-Fallback-Wert, ungueltige Channel-ID,
+  nicht marshalbarer Kanal-Wert, unbekannter User bei getUserName, User ohne
+  jegliche Presence-Subscription, zweite von zwei Verbindungen bleibt nach
+  Teil-Unregister erhalten). newTestHub aus websocket_redis_test.go
+  wiederverwendet statt eines eigenen Konstruktors.
+  Neuer Helper newConnectedWSConnPair(t) baut ein echtes *websocket.Conn-Paar
+  ueber httptest.NewServer + coder/websocket (Muster aus
+  websocket_revalidate_test.go), weil registerConnection/unregisterConnection
+  und die Guest-Pendants echte *websocket.Conn als Map-Key brauchen und
+  unregisterConnection intern conn.Close() aufruft. Beide Seiten fahren einen
+  passiven Read-Loop (Server: mirrorartig zu handleConnection; Client:
+  gleiches Muster) und Cleanup schliesst ueber CloseNow() -- sonst blockiert
+  entweder der server- oder der clientseitige Close-Aufruf bis zu
+  coder/websockets Default-Close-Handshake-Timeout (in einer ersten Fassung
+  ohne Client-Read-Loop 5-10s pro Test, insgesamt ~40s fuer die
+  Register/Unregister-Tests; mit Read-Loop + CloseNow < 1s).
+- gate: build n.a. (vollstaendiges `go build ./...` scheitert auf diesem
+  Windows-Rechner an einem Linker-OOM beim cmd/auth-Binary -- reproduzierbar,
+  unabhaengig von dieser Aenderung, siehe offen; stattdessen `go build
+  ./internal/server/...` ok + `go vet ./...` (deckt das gesamte Modul ohne
+  Linking ab) ok) | vet ok | lint ok (golangci-lint run ./internal/server/...
+  -- 0 issues) | test ok (go test -count=1 ./internal/server/... gruen,
+  internal/server + internal/server/response, 0 SKIP) | migration n.a.
+  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  go test ./internal/gateway/ bewusst nicht separat gelaufen (keine
+  Route/kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 66,2 % (lokal gemessen per
+  `go test -coverprofile`; Iteration 26 hatte 65,8 % notiert, die kleine
+  Differenz stammt allein aus dieser Unit)
+- mutations-probe: in websocket.go msgRateLimiter.allow() die Bedingung
+  `rl.tokens < 1` auf `rl.tokens < 0` geaendert (Off-by-one: ein Aufruf mit
+  exakt 0 Tokens waere danach faelschlich noch erlaubt) ->
+  TestMsgRateLimiter_Allow_ExceedsLimit rot (erwartete false, bekam true),
+  TestMsgRateLimiter_Allow_WithinLimit und
+  TestMsgRateLimiter_Allow_RefillsOverElapsedTime blieben gruen. Zurueckgedreht,
+  `git diff --stat internal/server/websocket.go` zeigt keinen Rest.
+- verify vorgaenger: sauber. Commit 08836376 (Iteration 26) aendert nur den
+  BACKLOG.yml-Status und den Journal-Eintrag von Iteration 26 selbst (Meta-
+  Commit "record commit hash") -- keine Produktionscode-Datei, kein neues
+  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: `go build ./...` bricht auf diesem Rechner reproduzierbar mit
+  einem Linker-Fehler ab ("runtime: cannot allocate memory" waehrend
+  cmd/link DWARF-Generierung fuer cmd/auth) -- kein Go-Compile-Fehler,
+  sondern ein Speicher-/Ressourcenlimit des Linker-Prozesses auf diesem
+  Windows-Host. `go vet ./...` (kein Linking) und paketweise `go build
+  ./internal/...`-Aufrufe laufen dagegen sauber durch. Falls kuenftige
+  Iterationen einen echten Full-Binary-Build brauchen: pruefen, ob mehr
+  Swap/RAM hilft oder ob einzelne cmd/*-Pakete separat gebaut werden
+  koennen, um den Linker-Speicherbedarf zu verteilen.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-26 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 26) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 23:21).
