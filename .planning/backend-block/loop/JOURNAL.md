@@ -3155,3 +3155,69 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-work-meeting-repo` (`status: todo`, Teilnehmerverwaltung/Serientermin-Ausnahmen/Listen-
   pfade in `internal/work/meeting/postgres_repository.go`).
+
+## Iteration 52 — c-cov-work-meeting-repo — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `778d030e` (c-cov-work-task-repo) geprueft: `git show --stat` zeigt
+  nur `internal/work/task/postgres_repository_db_test.go` (neu) plus Backlog-/Journal-Dateien,
+  deckt sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. `git merge origin/main` lief
+  als "Already up to date" — kein Divergenzrisiko, keine STOP-Datei.
+- gebaut: `internal/work/meeting/postgres_repository_db_test.go` (neu, 10 Testfunktionen) fuer
+  den im Scope benannten groessten unabgedeckten Repository-Block des work-Pakets: Attendee-CRUD
+  inkl. RSVP und ON-CONFLICT-Idempotenz (`TestAttendees_...`), Listen-/Filterpfade von
+  `ListMeetings` (Organizer/Attendee-EXISTS/Status/Zeitfenster/Pagination) plus expliziter
+  Cross-Tenant-Nachweis, dass RLS auch dann blockt, wenn `filter.TenantID` selbst das Opfer-Tenant
+  benennt (`TestListMeetings_FiltersAndCrossTenant`), `GetMeetingByRoomName`/`ListStaleMeetings`
+  unter System-Kontext, die Serientermin-Isolation (drei Meetings mit gemeinsamem
+  `recurring_meeting_id`, `UpdateMeeting` auf einer Instanz beruehrt die Geschwister nicht) plus
+  `GetPreviousMeetingNotes` ueber die Serie (`TestNotes_SeriesIsolationAndSaveNotesConflictGap`),
+  Action-Items (CRUD + `UpdateActionItemTaskID` + alle Not-Found-Pfade), Chat-Messages (Limit-Clamp
+  <=0/>500 -> 100, expliziter Tenant-Parameter), Co-Hosts (Add/Remove-Idempotenz, IsCoHost, List)
+  und die komplette Breakout-Room-/Assignment-Kette (Create/List/Get/CloseAll,
+  Upsert-Reassign/Get/List/Clear/ClearAll) sowie `SetLocked`/`UpdateAISummary` mit Not-Found-Pfad.
+- fund: **echter Bug, nicht inline gefixt** — `SaveNotes`
+  (internal/work/meeting/postgres_repository.go:308) hat ein `ON CONFLICT (meeting_id, author_id)
+  WHERE is_private = $5`-Ziel, fuer das auf `meeting_notes` KEIN passender Unique-/Exclusion-Index
+  existiert (verifiziert per `\d meeting_notes` auf docker-postgres-1: nur PK auf `id` plus zwei
+  einfache btree-Indizes, und per Grep aller Migrationen — 000037 legt die Tabelle ohne
+  entsprechenden Constraint an, 000109/000124 aendern nur `tenant_id`/RLS). Jeder einzige Aufruf
+  von `SaveNotes` schlaegt fehl — kein Teilfall, sondern eine 100-%-Fehlerrate auf einer
+  Kernfunktion. Empirisch per direktem `psql`-INSERT gegen docker-postgres-1 reproduziert (exakter
+  Fehler: "there is no unique or exclusion constraint matching the ON CONFLICT specification"),
+  danach `TestNotes_SeriesIsolationAndSaveNotesConflictGap` gebaut, die genau diesen Fehler
+  assertet, und fuer die uebrigen Notes-Fixtures (GetNotes/GetAllNotes/GetPreviousMeetingNotes,
+  alle drei funktionieren korrekt) auf `testutil.SeedRow` statt `repo.SaveNotes` umgestellt. Neue
+  Fix-Unit `fix-meeting-savenotes-onconflict-no-matching-constraint` im Backlog angelegt
+  (Produktfrage vorab: soll je Autor nur eine private Notiz erlaubt sein, oder mehrere Scratch-
+  Notizen? — beeinflusst, ob ein oder zwei partielle Unique-Indizes noetig sind).
+- gate: build ok (`go build -p 2 ./internal/work/meeting/...`) | vet ok
+  (`go vet ./internal/work/meeting/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/meeting/...`, 0 issues, ein `rangeint`-Hinweis waehrend der Entwicklung sofort
+  auf `for i := range 3` umgestellt) | test ok (`go test -count=1 ./internal/work/meeting/...` mit
+  gesetztem `DATABASE_URL`, komplettes Paket gruen inkl. aller bestehenden Service-/RLS-Tests,
+  0 Skips) | migration n.a. (keine neue Migration in dieser Coverage-Unit — der gefundene Bug wird
+  in der neuen Fix-Unit behoben) | rls-smoke n.a. (bestehende Tenant-Isolation-Suite lief in
+  derselben Runde mit) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `GetPreviousMeetingNotes` (postgres_repository.go:373) `ORDER BY
+  m.scheduled_start DESC, mn.created_at ASC` auf `ASC, mn.created_at ASC` gesetzt.
+  `TestNotes_SeriesIsolationAndSaveNotesConflictGap` wurde sofort rot (Sub-Case "after both":
+  erwartete die Notiz von Woche 2 als juengste, erhielt stattdessen die von Woche 1) — exakt der
+  erwartete Fehlschlag, direkt an der im Scope geforderten Serientermin-Faehigkeit. Zurueckgedreht,
+  `git diff --stat internal/work/meeting/postgres_repository.go` liefert keine Ausgabe (identisch
+  zur Ausgangslage), volle Suite danach wieder gruen (`go test -count=1
+  ./internal/work/meeting/...`).
+- db-tests: 10 neu, alle gegen das reale Schema (0 Skips) —
+  `TestAttendees_AddUpdateRemoveAndGet`, `TestListMeetings_FiltersAndCrossTenant`,
+  `TestGetMeetingByRoomName_And_ListStaleMeetings`,
+  `TestNotes_SeriesIsolationAndSaveNotesConflictGap`, `TestActionItems_CRUDAndTaskIDLink`,
+  `TestChatMessages_SaveListLimitAndCrossTenant`, `TestCoHosts_AddIsListRemoveIdempotent`,
+  `TestBreakoutRoomsAndAssignments_FullLifecycle`, `TestSetLocked_And_UpdateAISummary_ErrorPaths`.
+- coverage: `internal/work/meeting` Paketcoverage nach dieser Unit 72,0 % (Vorwert nicht separat
+  gemessen — Service-/RLS-Tests liefen bereits vorher, diese Unit schliesst gezielt die im Scope
+  benannte Repository-Luecke). Die zwei verbleibenden 0-%-Zeilen laut `go tool cover -func`
+  (`ReturnToMainRoom`, `CloseBreakoutRooms` in service.go) sind Service-Ebene, nicht Teil dieses
+  Repository-Scopes.
+- offen: `fix-meeting-savenotes-onconflict-no-matching-constraint` (neu, `status: todo`) —
+  Produktentscheidung zu privaten Notizen vor dem Fix noetig. `done_when` dieser Coverage-Unit
+  vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-dialer-repo`
+  (`status: todo`, Listen-/Such-/Reporting-Methoden in `internal/dialer/postgres_repository.go`).

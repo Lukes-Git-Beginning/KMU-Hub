@@ -1030,6 +1030,76 @@ units:
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/inventar/... gruen
 
+  - id: fix-meeting-savenotes-onconflict-no-matching-constraint
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `PostgresRepository.SaveNotes` (internal/work/meeting/postgres_repository.go:308)
+      builds `INSERT INTO meeting_notes (...) VALUES (...) ON CONFLICT (meeting_id,
+      author_id) WHERE is_private = $5 DO UPDATE SET content = EXCLUDED.content,
+      updated_at = EXCLUDED.updated_at`. There is no unique or exclusion constraint on
+      `meeting_notes` matching that column list and predicate - verified against the live
+      schema (`\d meeting_notes` on docker-postgres-1: only `meeting_notes_pkey` on `id`
+      plus two plain btree indexes on `meeting_id`/`tenant_id`, nothing else) and by
+      grepping every migration touching `meeting_notes`
+      (000037_create_meetings.up.sql creates the table with no such constraint;
+      000109/000124 only add `tenant_id`/RLS, no index changes). PostgreSQL requires an
+      ON CONFLICT target to name an existing unique/exclusion constraint or index -
+      without one, the statement fails outright with "there is no unique or exclusion
+      constraint matching the ON CONFLICT specification". This is not a partial-coverage
+      edge case: EVERY call to SaveNotes fails, unconditionally - confirmed empirically
+      by running the literal INSERT by hand against docker-postgres-1 (exit 1, exact
+      error text above) and by `TestNotes_SeriesIsolationAndSaveNotesConflictGap`
+      (internal/work/meeting/postgres_repository_db_test.go, built during
+      c-cov-work-meeting-repo, Lauf 7) which asserts `repo.SaveNotes(...)` returns
+      exactly that error. The entire meeting-notes-writing feature - both public notes
+      and private per-author scratch notes, the read side of which (`GetNotes`,
+      `GetAllNotes`, `GetPreviousMeetingNotes`) works fine and is fully tested - has
+      never successfully written a single row through this code path on a real database.
+    sources:
+      - backend/internal/work/meeting/postgres_repository.go
+      - backend/internal/work/meeting/models.go
+      - backend/internal/work/meeting/service.go
+      - backend/internal/work/meeting/postgres_repository_db_test.go
+      - backend/migrations/000037_create_meetings.up.sql
+    notes: >
+      Gefunden waehrend c-cov-work-meeting-repo (Lauf 7) - beim Bau eines Fixtures fuer
+      GetPreviousMeetingNotes ueber SaveNotes schlug der Aufruf sofort mit dem exakten
+      Postgres-Fehler fehl; per direktem `psql`-INSERT gegen docker-postgres-1
+      reproduziert statt nur vermutet, danach auf `testutil.SeedRow` fuer die
+      Notes-Fixtures umgestellt (siehe Kommentar im Testfile). Nicht inline gefixt -
+      echte Verhaltensaenderung (heute: 100 % Fehlerrate auf einer Kernfunktion; nach dem
+      Fix: funktionierend), keine Coverage-Aenderung, nach Backlog-Regel eine eigene
+      Unit - und dringlicher als eine normale Coverage-Iteration, weil es ein Totalausfall
+      einer bestehenden Funktion ist, nicht nur eine Luecke. Fix-Vorschlag: eine partielle
+      Unique-Index-Migration ergaenzen, die exakt zum ON-CONFLICT-Ziel passt -
+      `CREATE UNIQUE INDEX meeting_notes_meeting_author_public_unique ON
+      meeting_notes(meeting_id, author_id) WHERE is_private = false` deckt den
+      dokumentierten Anwendungsfall (ein einzelner "the" public note pro Autor und
+      Meeting, mehrere private Notizen pro Autor bleiben moeglich) - genauer pruefen, ob
+      private Notizen ebenfalls nur eine pro Autor sein sollen (dann zusaetzlich
+      `WHERE is_private = true`, zwei partielle Indizes) oder ob mehrere private
+      Scratch-Notizen pro Autor gewuenscht sind (dann bleibt es bei einem Index); das ist
+      eine Produktfrage zum Notizen-Feature, keine rein technische. `make migrate-create
+      name=meeting_notes_unique_index`, danach
+      `TestNotes_SeriesIsolationAndSaveNotesConflictGap` auf das neue (korrekte)
+      Verhalten umstellen (SaveNotes erfolgreich, Upsert-Verhalten pruefen: zweiter
+      SaveNotes-Call fuer denselben Autor/dieselbe Sichtbarkeit muss UPDATE statt neuer
+      Zeile sein).
+    done_when:
+      - Eine Migration ergaenzt einen partiellen Unique-Index auf meeting_notes, der zum
+        ON-CONFLICT-Ziel in SaveNotes passt (Produktfrage zu privaten Notizen vorher
+        geklaert)
+      - SaveNotes gelingt fuer eine neue (meeting_id, author_id, is_private)-Kombination
+      - Ein zweiter SaveNotes-Call fuer dieselbe Kombination aktualisiert die bestehende
+        Zeile (DO UPDATE), erzeugt keine zweite
+      - TestNotes_SeriesIsolationAndSaveNotesConflictGap auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/work/meeting/... gruen
+
   - id: c-cov-biz-lexware
     phase: 3
     service: biz
@@ -2063,7 +2133,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/work/meeting/postgres_repository.go` - 777 Zeilen, 38 Methoden, keine
       dedizierte Repository-Testdatei (nur `service_test.go` mit 2.088 Zeilen Mock-Ebene und
