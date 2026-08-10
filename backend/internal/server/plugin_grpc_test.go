@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin"
+	"github.com/kmuhub/kmuhub/internal/plugin/repository"
 	pluginv1 "github.com/kmuhub/kmuhub/proto/plugin/v1"
 )
 
@@ -1727,6 +1728,23 @@ func TestPluginKVStore(t *testing.T) {
 		requireGRPCCode(t, err, codes.Internal)
 		_, err = srv.KVList(context.Background(), &pluginv1.KVListRequest{InstallationId: instID})
 		requireGRPCCode(t, err, codes.Internal)
+	})
+
+	t.Run("set against unresolvable installation is NotFound, not Success:true", func(t *testing.T) {
+		// Reproduces fix-plugin-kvset-silent-noop-unknown-installation: the
+		// real repository returns repository.ErrInstallationNotFound when its
+		// INSERT...SELECT-from-installations subquery matches zero rows.
+		// Service.KVSet translates that into plugin.ErrInstallationNotFound,
+		// and mapPluginError (now used by the KVSet handler instead of a
+		// hardcoded Internal) turns it into codes.NotFound.
+		repos := newPluginTestRepos()
+		repos.kv.setErr = repository.ErrInstallationNotFound
+		srv := newPluginTestServer(repos)
+
+		_, err := srv.KVSet(context.Background(), &pluginv1.KVSetRequest{
+			InstallationId: uuid.New().String(), Key: "k", Value: `{"v":1}`,
+		})
+		requireGRPCCode(t, err, codes.NotFound)
 	})
 }
 

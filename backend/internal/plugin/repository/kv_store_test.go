@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -104,17 +105,16 @@ func TestKVStore_IsolatedByInstallation(t *testing.T) {
 	}
 }
 
-// TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap: Set derives
-// tenant_id via a subquery on plugin_installations (see kv_store.go comment).
-// When the installation_id does not resolve under the caller's RLS scope
-// (deleted, foreign tenant, or simply made up), the subquery returns zero
-// rows, the INSERT affects zero rows, and Set returns nil — not an error and
-// not sql.ErrNoRows. The gRPC handler (plugin_grpc.go KVSet) answers such a
-// call with Success: true even though nothing was stored, which is the gap:
-// no ownership check happens above this layer either. Documented here rather
-// than fixed — this is a coverage unit, a behavior change is a separate
-// backlog entry (see fix-plugin-kvset-silent-noop-unknown-installation).
-func TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap(t *testing.T) {
+// TestKVStore_Set_UnknownInstallation_ReturnsError: Set derives tenant_id via
+// a subquery on plugin_installations (see kv_store.go comment). When the
+// installation_id does not resolve under the caller's RLS scope (deleted,
+// foreign tenant, or simply made up), the subquery returns zero rows, the
+// INSERT affects zero rows, and Set now returns ErrInstallationNotFound
+// instead of silently reporting success (fixed in
+// fix-plugin-kvset-silent-noop-unknown-installation — previously this
+// documented the gap: Set returned nil and the gRPC handler answered
+// Success: true even though nothing was stored).
+func TestKVStore_Set_UnknownInstallation_ReturnsError(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	defer pool.Close()
@@ -127,8 +127,9 @@ func TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap(t *testing.T) {
 	ctx := testutil.WithTenantCtx(context.Background(), tenant)
 
 	unknownInstallationID := uuid.New()
-	if err := repo.Set(ctx, unknownInstallationID, "x", json.RawMessage(`1`)); err != nil {
-		t.Fatalf("Set against an unknown installation returned an error instead of silently no-op'ing: %v", err)
+	err := repo.Set(ctx, unknownInstallationID, "x", json.RawMessage(`1`))
+	if !errors.Is(err, repository.ErrInstallationNotFound) {
+		t.Fatalf("expected ErrInstallationNotFound for an unresolvable installation, got %v", err)
 	}
 	if _, ok, err := repo.Get(ctx, unknownInstallationID, "x"); err != nil || ok {
 		t.Fatalf("expected no row stored for the unknown installation, got ok=%v err=%v", ok, err)

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin/config"
+	"github.com/kmuhub/kmuhub/internal/plugin/repository"
 )
 
 // Service handles plugin business logic
@@ -639,7 +641,13 @@ func (s *Service) KVGet(ctx context.Context, installationID uuid.UUID, key strin
 
 // KVSet stores a value in the plugin KV store
 func (s *Service) KVSet(ctx context.Context, installationID uuid.UUID, key string, value json.RawMessage) error {
-	return s.kvStore.Set(ctx, installationID, key, value)
+	if err := s.kvStore.Set(ctx, installationID, key, value); err != nil {
+		if errors.Is(err, repository.ErrInstallationNotFound) {
+			return ErrInstallationNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 // KVDelete removes a value from the plugin KV store
@@ -656,11 +664,20 @@ func (s *Service) KVList(ctx context.Context, installationID uuid.UUID, keyPrefi
 // Execution Logs
 // ============================================================================
 
-// LogExecution logs a hook execution
+// LogExecution logs a hook execution. Callers that treat logging as
+// best-effort (the hook dispatcher) should not abort hook execution on
+// ErrInstallationNotFound, but MAY warn - the installation was uninstalled or
+// belongs to a different tenant between the hook firing and the log write.
 func (s *Service) LogExecution(ctx context.Context, log *models.PluginExecutionLog) error {
 	log.ID = uuid.New()
 	log.CreatedAt = time.Now()
-	return s.executionLog.Create(ctx, log)
+	if err := s.executionLog.Create(ctx, log); err != nil {
+		if errors.Is(err, repository.ErrInstallationNotFound) {
+			return ErrInstallationNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 // ListExecutionLogs retrieves execution logs

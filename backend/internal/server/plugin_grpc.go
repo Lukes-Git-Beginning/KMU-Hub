@@ -574,7 +574,7 @@ func (s *PluginGRPCServer) KVSet(ctx context.Context, req *pluginv1.KVSetRequest
 	}
 
 	if err := s.svc.KVSet(ctx, installationID, req.GetKey(), json.RawMessage(req.GetValue())); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapPluginError(err)
 	}
 	return &pluginv1.KVSetResponse{Success: true}, nil
 }

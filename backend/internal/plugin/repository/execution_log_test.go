@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -69,14 +70,15 @@ func TestExecutionLog_ListWithInstallationFilterAndLimit(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "plugin_execution_log", entryTwoID)
 
-	// Create against an installation the RLS-scoped subquery cannot see
-	// (made up id) inserts nothing and reports no error — same silent
-	// no-op shape as KVStoreRepository.Set for the identical subquery
-	// pattern; documented, not a crash.
-	if err := repo.Create(ctx, &models.PluginExecutionLog{
+	// Create against an installation the RLS-scoped subquery cannot see (made
+	// up id) returns ErrInstallationNotFound instead of silently inserting
+	// nothing — same fix and shape as KVStoreRepository.Set for the identical
+	// subquery pattern (fix-plugin-kvset-silent-noop-unknown-installation).
+	unknownErr := repo.Create(ctx, &models.PluginExecutionLog{
 		ID: uuid.New(), InstallationID: uuid.New(), HookType: "x", Module: "y", EntityType: "z", CreatedAt: base,
-	}); err != nil {
-		t.Fatalf("create against unknown installation returned an error instead of silently no-op'ing: %v", err)
+	})
+	if !errors.Is(unknownErr, repository.ErrInstallationNotFound) {
+		t.Fatalf("expected ErrInstallationNotFound for an unresolvable installation, got %v", unknownErr)
 	}
 
 	all, err := repo.List(ctx, tenant, nil, 0)

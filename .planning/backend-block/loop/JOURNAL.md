@@ -3623,3 +3623,72 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Naechste Unit im Backlog laut Datei-Reihenfolge:
   `fix-plugin-kvset-silent-noop-unknown-installation` (neu, `status: todo`) — danach
   `c-cov-work-event-repo`.
+
+## Iteration 59 — fix-plugin-kvset-silent-noop-unknown-installation — done — 2026-08-10 (Lauf 7)
+- commit: (folgt)
+- verify vorgaenger: sauber — `4df032e4` (c-cov-plugin-repository-gaps, Iteration 58) und
+  `1481874f` (Folge-Commit, traegt nur den Commit-Hash in den Journal-Eintrag von Iteration 58
+  nach) geprueft: `git show --stat 4df032e4` zeigt vier neue Testdateien in
+  `internal/plugin/repository/` plus BACKLOG.yml/JOURNAL.md — deckt sich 1:1 mit dem
+  Journal-Eintrag. Kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Route.
+  `git merge origin/main` lief als "Already up to date", kein Konflikt.
+- gefixt: `KVStoreRepository.Set` (kv_store.go) und `ExecutionLogRepository.Create`
+  (execution_log.go) pruefen jetzt `pgconn.CommandTag.RowsAffected()` nach ihrem
+  INSERT-...-SELECT-FROM-plugin_installations und liefern das neue Sentinel
+  `repository.ErrInstallationNotFound` (neue Datei `internal/plugin/repository/errors.go`),
+  wenn die Subquery keine Installation findet — statt wie bisher still 0 Zeilen zu schreiben
+  und `nil` zurueckzugeben. `Service.KVSet`/`Service.LogExecution` (internal/plugin/service.go)
+  mappen das Repository-Sentinel per `errors.Is` auf `plugin.ErrInstallationNotFound` (bereits
+  bestehender Sentinel, `isNotFound` in `mapPluginError` deckt ihn seit Lauf 7 Iteration 58 ab).
+  Der `KVSet`-gRPC-Handler (internal/server/plugin_grpc.go) rief bisher nicht `mapPluginError`
+  auf, sondern haerte JEDEN Fehler hart auf `codes.Internal` — umgestellt auf `mapPluginError`,
+  damit das neue Sentinel als `codes.NotFound` durchkommt statt als opaker 500er (`KVGet`/
+  `KVDelete`/`KVList` unveraendert, die haben kein installation-abgeleitetes Schreiben und
+  bleiben bewusst bei Internal fuer generische Fehler).
+- entscheidung KVDelete/execution-log-Aequivalente (laut done_when explizit gefordert):
+  `KVStoreRepository.Delete` bleibt No-op fuer eine unbekannte installation_id/key-Kombination
+  — anders als Set hat der Aufrufer bei Delete keine Erwartung, dass "loeschen, was nicht da
+  ist" anders behandelt wird als "loeschen, was es nie gab" (idempotente Delete-Semantik, Kommentar
+  im Code ergaenzt). `ExecutionLogRepository.Create` bekommt dieselbe Behandlung wie
+  `KVStoreRepository.Set` (identisches Subquery-Muster) — der einzige Aufrufer ist aber
+  `internal/plugin/hook/dispatcher.go`, der das Ergebnis von `LogExecution` bisher komplett
+  verwarf (`_ = d.service.LogExecution(...)`, zweimal). Hook-Ausfuehrung darf durch einen
+  fehlgeschlagenen Log-Write nicht abbrechen (Execution-Logging ist Best-Effort) — deshalb kein
+  `return`/Propagate an den Hook-Aufrufer, aber die beiden Stellen protokollieren den Fehler
+  jetzt per `slog.Warn` statt ihn stillschweigend zu verschlucken.
+- test: `TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap` in kv_store_test.go auf
+  `TestKVStore_Set_UnknownInstallation_ReturnsError` umbenannt (nicht geloescht) und die
+  Assertion von "kein Fehler erwartet" auf `errors.Is(err, repository.ErrInstallationNotFound)`
+  gedreht. Dasselbe Analogon in execution_log_test.go (Teil von
+  `TestExecutionLog_ListWithInstallationFilterAndLimit`) umgestellt. Neuer Subtest
+  `TestPluginKVStore/set_against_unresolvable_installation_is_NotFound,_not_Success:true` in
+  `internal/server/plugin_grpc_test.go`, der den Stub-Repo-Fehler
+  `repository.ErrInstallationNotFound` injiziert und `codes.NotFound` am `KVSet`-Handler
+  erwartet (bestehender Subtest "repository errors surface as Internal" bleibt unveraendert
+  gueltig fuer generische Fehler, da `mapPluginError`s Default-Zweig weiterhin Internal liefert).
+- gate: build ok (`go build -p 2 ./internal/plugin/... ./internal/server/...`) | vet ok
+  (`go vet ./internal/plugin/... ./internal/server/...`) | lint ok (`golangci-lint run
+  --config .golangci.yml ./internal/plugin/... ./internal/server/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/plugin/... ./internal/server/...`, beide Pakete gruen inkl.
+  aller DB-Tests — 0 uebersprungen, `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:
+  5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app` verifiziert) | migration n.a. (keine
+  Schemaaenderung) | rls-smoke n.a. (kein neues Schreibmuster, nur Fehlerbehandlung eines
+  bestehenden) | route n.a. (KVSet-Route existiert bereits, kein neuer Pfad) | openapi n.a. |
+  protoc n.a.
+- mutations-probe: in beiden Repositories die neue Bedingung von `if tag.RowsAffected() == 0`
+  auf `if false && tag.RowsAffected() == 0` gesetzt (Fix faktisch deaktiviert, Rest intakt).
+  `TestKVStore_Set_UnknownInstallation_ReturnsError` sofort rot ("expected
+  ErrInstallationNotFound for an unresolvable installation, got <nil>"),
+  `TestExecutionLog_ListWithInstallationFilterAndLimit` sofort rot (identische Fehlermeldung
+  am `unknownErr`-Assert) — beide exakt am Pfad, den `done_when` fordert. Danach in beiden
+  Dateien zurueckgedreht (`git diff --stat internal/plugin/repository/kv_store.go
+  internal/plugin/repository/execution_log.go` zeigt wieder nur die urspruengliche
+  Drei-Zeilen-Ergaenzung je Datei), `go build`/`go vet`/`golangci-lint`/
+  `go test -count=1 ./internal/plugin/... ./internal/server/...` erneut komplett gruen.
+- offen: keine neue Unit angelegt. `done_when` dieser Unit vollstaendig erfuellt (Set/Create
+  liefern erkennbaren Fehler statt still 0 Zeilen zu schreiben, Service-/gRPC-Ebene mappen auf
+  NotFound statt Success:true, KVDelete/execution-log-Entscheidung dokumentiert, beide
+  "documents current gap"-Tests auf das neue Verhalten aktualisiert statt geloescht,
+  Mutations-Probe im Journal belegt, beide Pakete gruen 0 Skips). Naechste Unit im Backlog
+  laut Datei-Reihenfolge: `c-cov-work-event-repo` (deps `c-cov-work-event-rrule` bereits
+  `status: done`, also frei).

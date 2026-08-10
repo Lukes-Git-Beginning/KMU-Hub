@@ -2307,7 +2307,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `KVStoreRepository.Set` (internal/plugin/repository/kv_store.go:42) writes
       `INSERT INTO plugin_kv_store (...) SELECT $1, $2, pi.tenant_id, ... FROM
