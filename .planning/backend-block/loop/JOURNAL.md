@@ -2355,7 +2355,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 00:30).
 
 ## Iteration 37 — c-cov-gateway-auth-reset-invitations — done — 2026-08-11 00:36
-- commit: (folgt nach diesem Eintrag)
+- commit: 4b1e2918
 - gebaut: neue Datei `route_auth_reset_invitations_test.go` mit 26 Testfunktionen fuer die
   neun im Scope genannten Pfade in `route_auth.go`: HandleForgotPassword,
   HandleResetPassword, HandleUpdateProfile, HandleUpdateUser, HandleProvisionTenant,
