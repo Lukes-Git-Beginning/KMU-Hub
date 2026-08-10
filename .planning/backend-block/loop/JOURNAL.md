@@ -3504,7 +3504,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   eingefuegt, `status: todo`) — danach `c-cov-plugin-repository-gaps`.
 
 ## Iteration 57 — fix-work-calendar-listbrowsable-broken-query — done — 2026-08-10 (Lauf 7)
-- commit: siehe unten (wird nach diesem Eintrag erstellt)
+- commit: `c398d17c`
 - verify vorgaenger: sauber — `3aafe2a5` (c-cov-work-calendar-repo, Iteration 56) und
   `74d774bf` (Folge-Commit, traegt nur den Commit-Hash in den Journal-Eintrag von Iteration
   56 nach) geprueft: `git show --stat 3aafe2a5` zeigt `repository_gaps_test.go` (neu, reine
