@@ -197,8 +197,14 @@ func (r *stubOutcomeRepo) GetByID(_ context.Context, id, _ uuid.UUID) (*dialer.C
 }
 func (r *stubOutcomeRepo) List(_ context.Context, _ uuid.UUID, _ bool) ([]*dialer.CallOutcome, error) { return nil, nil }
 func (r *stubOutcomeRepo) Update(_ context.Context, _ *dialer.CallOutcome) error { return nil }
-func (r *stubOutcomeRepo) Delete(_ context.Context, _, _ uuid.UUID) error        { return nil }
-func (r *stubOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error   { return nil }
+func (r *stubOutcomeRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
+	if _, ok := r.outcomes[id]; !ok {
+		return dialer.ErrOutcomeNotFound
+	}
+	delete(r.outcomes, id)
+	return nil
+}
+func (r *stubOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error { return nil }
 
 type stubAgentStatusRepo struct{}
 

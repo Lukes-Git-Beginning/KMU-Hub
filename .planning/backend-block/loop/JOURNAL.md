@@ -1585,3 +1585,88 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 24) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 19:18).
+
+## Iteration 26 — b-cov-server-dialer-agents-outcomes-dashboards — done — 2026-08-10 23:11
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: neue Testdatei dialer_grpc_agents_outcomes_dashboards_test.go deckt
+  alle 13 Methoden aus dem Scope ab (SaveCallNotes, CompleteWrapUp,
+  SetAgentStatus, GetAgentStatus, GetCampaignAgents, ListCallOutcomes,
+  CreateCallOutcome, UpdateCallOutcome, DeleteCallOutcome,
+  GetCampaignDashboard, GetAgentDashboard, GetSupervisorOverview,
+  GetContactCalls) je mit Happy-Path- und mindestens einem Fehlerpfad-Test.
+  Neuer Helper newDialerTestServerWithAgentStore(t) baut den Service mit
+  einem echten *dialer.AgentStatusStore auf miniredis (Muster aus
+  internal/cache/cache_test.go) statt des bisherigen nil-Stores, weil
+  agentStore ein konkreter Typ ist (kein Interface) und
+  SetAgentStatus/GetAgentStatus/GetCampaignAgents ihn direkt dereferenzieren
+  -- gegen nil waere das ein Panic gewesen. GetSupervisorOverview_Happy laeuft
+  bewusst weiter ueber den alten nil-Store-Helper: die
+  Active-Agents-Liste ist dort leer, die Schleife, die sonst den Store
+  dereferenziert, laeuft also gar nicht an.
+  stubOutcomeRepo.Delete (dialer_grpc_test.go) erweitert: loeschte bisher
+  nichts wirklich aus der Map, jetzt echtes delete() plus ErrOutcomeNotFound
+  bei fehlendem Eintrag -- Grundlage fuer den Happy-Test und den echten
+  Fehlerpfad von DeleteCallOutcome.
+  ZWEI Abweichungen vom Scope-Text dokumentiert statt stillschweigend
+  geaendert:
+  (1) "DeleteCallOutcome prueft den Fehlerpfad fuer ein noch referenziertes
+      Outcome" trifft nicht mehr zu: Migration 000130 hat fk_dcc_outcome und
+      fk_dcs_outcome bewusst auf ON DELETE SET NULL gesetzt (Kommentar in der
+      Migration: Outcome-Labels sind tenant-konfigurierbar und muessen loeschbar
+      bleiben, ohne Business-/Audit-Daten zu kaskadieren). Ein referenziertes
+      Outcome zu loeschen ist also by design erfolgreich, kein Fehlerpfad.
+      Getestet ist stattdessen der reale Fehlerpfad: fehlendes/bereits
+      geloeschtes Outcome -> NotFound.
+  (2) Beim Bauen der SetAgentStatus-Tests gefunden: dialer.ErrInvalidTransition
+      (redis_agent_store.go) hat keinen Case in mapDialerError und faellt auf
+      codes.Internal mit der generischen Meldung "internal error" -- ein Agent,
+      der z. B. von offline direkt auf wrap_up springt, bekommt also einen
+      Server-Fehler statt einer FailedPrecondition mit Klartext. Analog zu den
+      Fix-Units aus Block A (falscher Code fuer einen unbehandelten Sentinel).
+      TestSetAgentStatus_InvalidTransition dokumentiert das aktuelle (falsche)
+      Verhalten mit Kommentar im Test -- nicht gefixt, Coverage-Units aendern
+      kein Verhalten. Kandidat fuer eine Fix-Unit in Lauf 9.
+- gate: build ok (internal/server, internal/gateway, cmd/dialer, cmd/gateway)
+  | vet ok | lint ok (0 issues) | test ok (kompletter internal/server-Lauf
+  gruen, 0 SKIP, nach Neustart von docker-postgres-1/docker-redis-1 -- siehe
+  offen) | internal/server/response ok | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test
+  ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/kein
+  Gateway-Code angefasst, Build oben deckt ihn ab)
+- coverage: internal/server 47,7 % -> 65,8 %
+- mutations-probe: in dialer_grpc_test.go stubOutcomeRepo.Delete das
+  `delete(r.outcomes, id)` entfernt (Stub raeumt dann nichts mehr aus der
+  Map) -> TestDeleteCallOutcome_Happy rot (erwartete Outcome entfernt,
+  bekam es weiterhin im Store), alle anderen Delete-Tests blieben gruen.
+  Zurueckgedreht, `git diff --stat` auf der Datei zeigt nur den
+  beabsichtigten Netto-Diff (echtes Delete + ErrOutcomeNotFound-Zweig),
+  kein Rest.
+- verify vorgaenger: sauber. Commit e1c6ab1f (Iteration 25) aendert nur
+  dialer_grpc_campaigns_queue_test.go (neue Testdatei) plus
+  dialer_grpc_test.go (Stub-Erweiterung um nextPending) und
+  BACKLOG.yml/JOURNAL.md -- keine Produktionscode-Datei, kein neues Proto,
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue Tabelle.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: docker-postgres-1 und docker-redis-1 liefen zu Beginn dieser
+  Iteration NICHT (Docker Desktop war komplett aus) -- Docker Desktop
+  gestartet, beide Container per `docker start` reaktiviert, Postgres-Health
+  vor dem Gate abgewartet. Danach lief das komplette Gate wie gewohnt gegen
+  die lokale kmuhub_app-DB. Falls das oefter passiert: pruefen, ob Docker
+  Desktop bei diesem Rechner automatisch mit Windows startet.
+  Finding (2) oben (dialer.ErrInvalidTransition -> codes.Internal statt
+  FailedPrecondition) ist ein Kandidat fuer eine Fix-Unit in Lauf 9, analog
+  zu fix-plugin-createmanifest-missing-tenant-wrong-code aus Block A.
+  Ausserdem beim Lesen von GetAgentStatus aufgefallen (nicht getestet, um
+  keinen Panic im Testbinary auszuloesen): AgentStatusStore.GetStatus gibt
+  bei fehlendem Redis-Key (nil, nil) zurueck, und agentStatusToProto(nil)
+  dereferenziert a.UserID ungeprueft -- ein Agent, der noch nie einen Status
+  gesetzt hat, loest also einen Nil-Pointer-Panic aus. In Produktion faengt
+  der RecoveryUnaryInterceptor das ab (codes.Internal statt Prozessabsturz),
+  trotzdem ein zweiter Kandidat fuer Lauf 9.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-25 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 25) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 23:11).
