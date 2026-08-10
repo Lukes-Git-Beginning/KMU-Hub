@@ -2566,7 +2566,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 00:49).
 
 ## Iteration 40 — c-cov-gdpr-dsar-search — done — 2026-08-11 00:56
-- commit: <pending>
+- commit: 1090bd9e
 - gebaut: `backend/internal/security/gdpr/dsar_search_test.go` (neu, 448 Zeilen, kein
   Produktionscode veraendert). Vier reine Table-Tests fuer `joinName`, `initials`,
   `boolLabel`, `fieldValueRecord` inklusive der Platzhalter-Kanten (`joinName("","")` -> `—`,
