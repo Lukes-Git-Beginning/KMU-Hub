@@ -2535,7 +2535,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   gefordert, keine eigene Regel dafuer gebaut, da nicht Teil dieses Scopes.
 
 ## Iteration 40 — fix-vermietung-rentaltoproto-drops-signature — done — 2026-08-10 03:29
-- commit: (dieser Commit)
+- commit: 7dbcc892
 - verify vorgaenger: sauber — 126c40f6 (own-Scope fuer ListSwapRequests) geprueft: Diff auf
   route_schichten.go/postgres_repository.go/repository.go/service.go/schichten_grpc.go zeigt
   exakt das im Journal beschriebene Muster (`ownerFilterForScope` im Gateway, OR-Filter VOR
