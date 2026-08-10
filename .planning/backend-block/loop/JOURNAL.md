@@ -2640,7 +2640,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:56).
 
 ## Iteration 41 — c-cov-audit-password-policy — done — 2026-08-11 01:17
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 64b0f27b
 - gebaut: Drei neue Testdateien. `internal/security/password/policy_test.go` (Mock-Repository,
   keine DB): Service.ValidatePassword deckt MinLength/MinEntropy/alle vier Complexity-Flags je
   Fail- und Pass-Fall plus die volle Kombination, Service.CheckPasswordHistory deckt den
