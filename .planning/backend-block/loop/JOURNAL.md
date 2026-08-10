@@ -1474,7 +1474,7 @@ Frühere Läufe liegen vollständig im Archiv:
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:00).
 
 ## Iteration 24 — b-cov-server-chat-files-search-reactions — done — 2026-08-10 19:10
-- commit: -
+- commit: 1193d990
 - gebaut: neue Testdatei chat_grpc_files_search_reactions_test.go. Anders als bei den
   vorigen Chat-Units sind fileService/searchService/reactionService/bookmarkService als
   konkrete `*file.Service`/`*search.Service`/`*reaction.Service`/`*bookmark.Service`
