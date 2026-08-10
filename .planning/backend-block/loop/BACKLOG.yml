@@ -626,7 +626,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `mapVermietungError` (internal/server/vermietung_grpc.go:735) has no case for
       `vermietung.ErrInspectionKindExists` (errors.go:12, returned by

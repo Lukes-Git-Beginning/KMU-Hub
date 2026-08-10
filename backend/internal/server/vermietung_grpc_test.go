@@ -840,14 +840,7 @@ func TestVermietung_InspectionCRUDAndList(t *testing.T) {
 	assert.Equal(t, int32(1), listResp.GetTotal())
 }
 
-func TestVermietung_CreateInspection_DuplicateKind_MapsToInternal(t *testing.T) {
-	// documents current gap: vermietung.ErrInspectionKindExists (returned by
-	// Service.CreateInspection when a second inspection of the same kind is
-	// attempted for a rental) has no case in mapVermietungError and falls
-	// through to the generic Internal branch — a duplicate-kind attempt
-	// surfaces as a 500 instead of a client-actionable 4xx (AlreadyExists
-	// would match the sibling ErrRentalConflict pattern). See the JOURNAL
-	// entry for this iteration for the resulting Lauf-8 backlog unit.
+func TestVermietung_CreateInspection_DuplicateKind_MapsToAlreadyExists(t *testing.T) {
 	repo := newStubVermietungRepo()
 	srv := newVermietungServerWithRepo(repo)
 	ctx := context.Background()
@@ -865,7 +858,7 @@ func TestVermietung_CreateInspection_DuplicateKind_MapsToInternal(t *testing.T) 
 	require.NoError(t, err)
 
 	_, err = srv.CreateInspection(ctx, &vermietungv1.CreateInspectionRequest{TenantId: tenantID, RentalId: rentalID, Kind: "handover"})
-	requireGRPCCode(t, err, codes.Internal)
+	requireGRPCCode(t, err, codes.AlreadyExists)
 }
 
 func TestVermietung_CreateInspection_InvalidKind(t *testing.T) {
@@ -1021,8 +1014,7 @@ func TestMapVermietungError_Table(t *testing.T) {
 		{"invalid_state_transition", vermietung.ErrInvalidStateTransition, codes.FailedPrecondition},
 		{"invalid_input", vermietung.ErrInvalidInput, codes.InvalidArgument},
 		{"generic_fallback", errStubVermietungFailure, codes.Internal},
-		// documents current gap: see TestVermietung_CreateInspection_DuplicateKind_MapsToInternal.
-		{"inspection_kind_exists_documents_current_gap", vermietung.ErrInspectionKindExists, codes.Internal},
+		{"inspection_kind_exists", vermietung.ErrInspectionKindExists, codes.AlreadyExists},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

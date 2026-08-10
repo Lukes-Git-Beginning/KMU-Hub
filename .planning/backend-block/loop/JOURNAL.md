@@ -2571,3 +2571,39 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins. Die parallele Signatur-Luecke bei `vertraegeContractToProto`
   (`fix-vertraege-contracttoproto-drops-signature`, weiter unten im Backlog) ist NICHT Teil
   dieser Unit — dort ist zusaetzlich eine Liste-vs-Detail-Unterscheidung gefordert, hier nicht.
+
+## Iteration 41 — fix-vermietung-error-mapping-inspectionkindexists-gap — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — 7dbcc892 (Signatur-Mapping bei rentalToProto) geprueft: Diff auf
+  vermietung_grpc.go zeigt exakt die drei im Journal beschriebenen nil-geguardeten Zeilen
+  (SignatureData/SignedBy als string, SignedAt als *time.Time -> timestamppb.New), Feldtypen
+  gegen models.go verifiziert (alle drei *string/*time.Time), keine Befunde.
+- gebaut: `mapVermietungError` (internal/server/vermietung_grpc.go:744) hatte keinen Fall fuer
+  `vermietung.ErrInspectionKindExists` und fiel auf den generischen Internal-Zweig, obwohl der
+  Fehler dieselbe Form wie `ErrRentalConflict` hat (bereits auf AlreadyExists gemappt). Case
+  `case errors.Is(err, vermietung.ErrInspectionKindExists): return status.Error(codes.AlreadyExists, err.Error())`
+  direkt nach dem ErrRentalConflict-Case ergaenzt (identisches Muster). Die beiden
+  "documents current gap"-Testfaelle in vermietung_grpc_test.go aktualisiert:
+  `TestVermietung_CreateInspection_DuplicateKind_MapsToInternal` in
+  `TestVermietung_CreateInspection_DuplicateKind_MapsToAlreadyExists` umbenannt, Assert auf
+  `codes.AlreadyExists`; Tabellenfall `inspection_kind_exists_documents_current_gap` in
+  `inspection_kind_exists` umbenannt, erwarteter Code auf `codes.AlreadyExists`. Kommentarblock
+  ueber dem Testfall (der den Gap beschrieb) entfernt, da der Gap nun geschlossen ist.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/vermietung/...`) | vet ok
+  (`go vet ./internal/server/... ./internal/vermietung/...`) | lint ok (`golangci-lint run
+  --config .golangci.yml ./internal/server/... ./internal/vermietung/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/server/... ./internal/vermietung/...` mit gesetzter
+  `DATABASE_URL`, durchgehend gruen) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a.
+  | route n.a. (keine neue Route, reines Error-Mapping in bestehenden RPCs) | openapi n.a.
+  (kein Wire-Vertrags-Wechsel, nur HTTP-Status ueber gRPC-Code-Mapping in der Gateway-Uebersetzung)
+  | protoc n.a. (keine .proto-Aenderung).
+- mutations-probe: den neuen Case in `mapVermietungError` auf
+  `case false && errors.Is(err, vermietung.ErrInspectionKindExists):` gesetzt →
+  `TestVermietung_CreateInspection_DuplicateKind_MapsToAlreadyExists` und
+  `TestMapVermietungError_Table/inspection_kind_exists` wurden beide rot (erwartet
+  AlreadyExists, bekamen Internal), zurueckgedreht, `diff` gegen die Sicherungskopie
+  bestaetigt eine identische Datei, volle Suite (server+vermietung) danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — reine Error-Mapping-Logik (Stub-Repo), done_when verlangt hier keine DB-Tests.
+- offen: keins. Die parallele Unit `fix-vertraege-contracttoproto-drops-signature` (naechste
+  im Backlog) ist unabhaengig und noch offen.

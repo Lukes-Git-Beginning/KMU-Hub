@@ -754,6 +754,8 @@ func mapVermietungError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, vermietung.ErrRentalConflict):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, vermietung.ErrInspectionKindExists):
+		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, vermietung.ErrInvalidStateTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, vermietung.ErrInvalidInput):
