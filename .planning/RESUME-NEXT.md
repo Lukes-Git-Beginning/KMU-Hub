@@ -1,4 +1,33 @@
-# RESUME — nächster Einstieg (Stand 2026-08-09, Session #36 abgeschlossen + GEPUSHT)
+# RESUME — nächster Einstieg (Stand 2026-08-10, Session #37 abgeschlossen + GEPUSHT)
+
+> **★★★★★ MORGEN STARTET DER ROLLOUT — `.planning/editor-rollout-paket.md`**
+>   Darien am Session-Ende: *„ne rollout machen wir erst morgen"* → *„speicher alles ab bitte wir hören auf"*.
+>   Paket C ist vollständig abgearbeitet. **Erstes Modul: `finanzen`**, nach der Vorlage in `docs/EDITOR-MODULE-ROLLOUT.md`.
+>   Vor dem Bauen: **Abschnitt 0** der Doku lesen — Zuschnitt-Tabelle, Arbeitsreihenfolge, Abnahme-Checkliste. Nicht mit der Instrumentierung anfangen.
+>
+> **★ Die Doku ist ab jetzt die Single Source of Truth für Editor-Arbeit:** `docs/EDITOR-MODULE-ROLLOUT.md`.
+>   Sie trägt Registry-Felder, jeden Instrumentierungs-Handgriff mit Beispiel, die fünf Fallen, die QA-Regeln und **Abschnitt 0** (welche der sieben Dimensionen für welches Modul fällig ist, feste Arbeitsreihenfolge, Abnahme-Checkliste). Darien hat sie ausdrücklich als Grundlage für gleiche Herangehensweise über alle Module bestellt.
+>
+> **★ Session #37 — Paket C komplett, 5 Commits, alles mit echter Electron-QA belegt:**
+> - **⚠⚠ 20 Beschriftungen wurden beim Übernehmen still verworfen** (`7d6f2eb6`): `applyDraftToTenant` schreibt nur Labels aus `LABEL_WHITELIST` — dort fehlten **alle** Statistik-Kacheln, **alle** Überschriften im Ticket-Fenster, die drei Tabs und die KB-Chips. Ein Drittel der Helpdesk-Instrumentierung war betroffen, nicht nur die Spalten aus #35. Im Editor sah alles richtig aus, im Modul kam nichts an.
+>   → **Wächter gebaut:** `mocks/data/__tests__/label-whitelist.test.ts` scannt jeden `<EditableText dkey>` im Quellcode **und** jeden umbenennbaren Registry-Key gegen die Liste. Neue dynamische Stelle (`dkey={ausdruck}`) muss in `KNOWN_DYNAMIC_SOURCES`. Er hat die 20 gefunden.
+>   → **Gegenprobe gefahren** (der eigentliche Beweis): nimmt man Keys wieder raus, bleiben die **Vorschau**-Prüfungen grün und nur die **Modul**-Prüfungen fallen um. Genau diese Kombination machte den Fehler so teuer. QA `qa-editor-begriffe-s.mjs` 8/8.
+> - **`VsChip` nach `components/shared/`** (`7d6f2eb6`): lag in `HelpdeskPage.tsx` und wäre beim Rollout achtmal kopiert worden. Jetzt die eine Stelle für Chip-Form und Farb-Rückfall.
+> - **Editor-Dokumentation** (`30f8114f`, erweitert in `7879ccc2`): offen seit #32, siehe oben.
+> - **Kontakte hat schaltbare Bereiche** (`139fde20`) — **Dariens Entscheidung: Tabs auf Zustand** (Option a von drei). `KontakteLayout` führt den Bereich per Zustand und lädt die Bereichs-Seiten selbst; die Routen bleiben als Einstieg, beide Richtungen verdrahtet (URL→Zustand für Deep-Link/Zurück, Zustand→URL beim Klick, im Editor nur Zustand). Detail-Seiten bleiben echte Routen im `<Outlet/>`. QA `qa-kontakte-bereiche-t.mjs` **11/11 über beide Hälften** — Live-Routing UND Editor.
+>   → **⚠ Der Screenshot fing, was die Prüfung übersah:** auf der Firmen-Detailseite leuchtete „Kontakte" statt „Unternehmen", weil ein exakter Pfad-Vergleich das ersetzte, was `NavLink` mit `end: false` tat. Fix = Präfix-Match, längster gewinnt. Prüfung T5b nachgezogen. **Merksatz: „Leiste ist da" ist nicht „richtiger Eintrag ist aktiv".**
+> - **⚠ Korrektur zu `work`** (`33d3e9d3`): ich hatte es Darien als zweiten Router-Fall genannt — falsch, zu schnell aus der Routen-Tabelle geschlossen. Es hat verschachtelte `<Routes>`, aber **gar keine Bereichs-Leiste** (Navigation läuft über die Haupt-Sidebar), die inneren Routen sind Detail-Ansichten. Für den Editor registriert man dort `projects/ProjectsListPage` statt `WorkLayout`. Kein Umbau nötig.
+>   → **Regel daraus, steht in der Doku:** registriert wird die Komponente, die **ohne passende URL** etwas Sinnvolles zeigt.
+>
+> **★ Korrigierter Irrtum im Code-Kommentar:** der Kopf von `ModuleSandbox.tsx` verspricht, ein `MemoryRouter` sei „the path for the future real-window mode". Das eigene Fenster gibt es inzwischen — es hilft nicht: `#/editor-window` ist selbst eine Route des globalen `createHashRouter`, ein `MemoryRouter` darin bliebe verschachtelt (react-router 7.17 verbietet das wie v6). Dieser Weg kostet einen **eigenen React-Root**, nicht nur einen Wrapper. In der Doku festgehalten.
+>
+> **★ Neue QA-Suiten:** `qa-editor-begriffe-s.mjs` (Umbenennen → Übernehmen → echtes Modul) 8/8 · `qa-kontakte-bereiche-t.mjs` (Live-Routing + Editor) 11/11.
+> **★ Neue tsconfig-Scopes:** `tsconfig.kontakte-areas.json`; `tsconfig.editorcheck.json` um `VsChip` erweitert.
+> **★ Bestätigt:** `.gitignore data/` schluckt weiterhin alles unter `mocks/data/` → `git add -f` (betraf den neuen Test). Sprachbundles sind **flach** (`"a.b.c": "…"`, kein Nesting) mit **BOM + CRLF** — beim Ergänzen byte-treu einfügen, sonst schreibt man 19 000 Zeilen Diff für einen Key.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-08-09, Session #36 abgeschlossen + GEPUSHT)
 
 > **★★★★★ NEUES TERMINAL STARTET HIER: Paket C — `.planning/editor-doku-und-rollout-paket.md`**
 >   Darien am Session-Ende: *„speicher alles ab, wir machen das in nem neuen Terminal weiter."*

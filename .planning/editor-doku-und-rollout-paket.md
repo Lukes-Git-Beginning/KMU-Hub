@@ -1,5 +1,24 @@
 # Editor: Dokumentation + Rollout-Vorbereitung (Paket C)
 
+> ## ✅ ABGEARBEITET in Session #37 (2026-08-10)
+>
+> Alle vier Punkte erledigt und gepusst. Was daraus geworden ist:
+>
+> | | Ergebnis |
+> |---|---|
+> | **C1** `VsChip` | `components/shared/VsChip.tsx` (`7d6f2eb6`) |
+> | **C2** LABEL_WHITELIST | Wächter-Test gebaut, fand **20 still verworfene Keys** (`7d6f2eb6`) |
+> | **C3** Kontakte | Dariens Entscheidung: Tabs auf Zustand, gebaut (`139fde20`), QA 11/11 |
+> | **C4** Dokumentation | **`docs/EDITOR-MODULE-ROLLOUT.md`** (`30f8114f` + `7879ccc2`) |
+>
+> **Weiter geht es mit `.planning/editor-rollout-paket.md`** (Paket D, erstes Modul
+> `finanzen`). Die Inhalte dieser Datei sind in die Doku übergegangen — sie bleibt nur
+> als Beleg stehen, wonach gearbeitet wurde.
+>
+> Der Text unten ist der **ursprüngliche Auftrag**, unverändert.
+
+---
+
 > Übergabe aus Session #36 (2026-08-09). A und B sind abgearbeitet, C ist der
 > nächste Block — Darien: *„speicher alles ab, wir machen das in nem neuen Terminal
 > weiter."*
