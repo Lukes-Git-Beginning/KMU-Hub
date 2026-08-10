@@ -506,3 +506,70 @@ Frühere Läufe liegen vollständig im Archiv:
   Platzhaltertext ist NICHT eindeutig, mehrere frueherere Eintraege tragen ihn bis heute (sie
   haben ihren Hash nie nachgetragen). Den Hash mit dem Edit-Tool oder einer zeilengebundenen
   Ersetzung eintragen, nie mit einem globalen `sed`.
+
+## Iteration 10 — b-cov-server-crm-fields-tags-contacts — done — 2026-08-10 16:26
+- commit: (siehe unten, wird nach `git commit` mit dem Edit-Tool eingetragen)
+- gebaut: neue Datei `backend/internal/server/crm_grpc_fields_tags_contacts_test.go` mit
+  Server-Package-Kopien der Repository-Stubs fuer `customfield`, `tag`, `contact`
+  (`stubCustomFieldRepo`, `stubTagRepo`, `stubContactRepo` — die echten `MockRepository`-Typen
+  liegen in den `_test.go`-Dateien der jeweiligen internal-Pakete und sind von hier aus nicht
+  importierbar, gleiches Muster wie `stubFormulareRepo` in `formulare_grpc_test.go`) plus
+  `newTestCRMServer()`/`newCRMServerWith<X>Repo()`-Konstruktoren. 51 neue Tests decken alle 17
+  genannten Methoden ab: CustomFields (Create/Get/List/Update/Delete), Tags
+  (Create/Get/List/Update/Delete, inkl. `DeleteTag_InUse`) und Contacts
+  (Create/Get/List/Update/Delete/AddContactTags/RemoveContactTags, inkl. `..._InUse` und
+  `AddContactTags_UnknownTag`). Jede Methode hat mindestens einen Validierungs- oder
+  Happy-Path-Test UND mindestens einen Fehlerpfad (ungueltige UUID, fehlender Tenant,
+  Downstream-Fehler wie NotFound/FailedPrecondition). `mapCRMError` selbst blieb unangetastet
+  (laut Scope bereits vollstaendig getestet).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/server/`
+  gruen, 1006 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als `kmuhub_app`; zusaetzlich
+  `./internal/server/...` inkl. `response`-Unterpaket gruen) | migration n.a. (keine) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst, reine gRPC-Server-Schicht mit In-Memory-Stubs)
+- coverage: internal/server 47,7 % -> 48,8 % (`go tool cover -func=/tmp/cov.out | tail -1`,
+  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md)
+- mutations-probe: drei Proben, alle rot, alle zurueckgedreht, `git diff` gegen den finalen
+  Baum restfrei:
+  (1) `backend/internal/server/crm_grpc.go`, `CreateCustomField`: den `uuid.Parse(req.CreatedBy)`-
+  Fehlerpfad auf `_` verkuerzt (Check komplett entfernt) -> `TestCreateCustomField_InvalidCreatedBy`
+  wurde NICHT rot, weil der Test urspruenglich ein leeres `EntityType` mitschickte und die
+  Service-eigene `ErrInvalidEntityType`-Pruefung denselben `codes.InvalidArgument` zufaellig
+  reproduzierte. Test korrigiert: jetzt ueber einen Repo-gestuetzten Server mit vollstaendig
+  gueltigen Uebrigen Feldern, damit ausschliesslich der `created_by`-Pfad getroffen wird. Danach
+  bei derselben Mutation tatsaechlich rot (Feld wurde erstellt statt `InvalidArgument`),
+  zurueckgedreht, gruen. Das ist die Probe, die zaehlt: sie hat eine echte Testluecke in der
+  ersten Fassung gefunden, nicht nur eine Zeile im Produktcode.
+  (2) `backend/internal/crm/tag/service.go`, `Delete`: `if inUse` zu `if false && inUse`
+  -> `TestDeleteTag_InUse` rot (Delete erfolgreich statt `FailedPrecondition`), zurueckgedreht.
+  (3) `backend/internal/crm/contact/service.go`, `AddTags`: `if !exists` zu `if false && !exists`
+  -> `TestAddContactTags_UnknownTag` rot (kein Fehler statt `NotFound`), zurueckgedreht.
+- verify vorgaenger: sauber — `ef8dec17` geprueft gegen alle acht Fehlerklassen: Handler geht
+  ueber `client.ListEmployeeDocuments` (gRPC-Client, kein Service-Bypass), keine
+  `codes.Unimplemented`/Stub-Rueckgabe, kein `.proto` angefasst, kein neuer
+  `RequirePermission`-Key (additive Wiederverwendung von `hrDocumentCategoriesGuard`), keine
+  neue Tabelle, Wire-Shape gewrappt (`{documents: [...]}`), `backend/api/openapi.yaml` im
+  selben Commit ergaenzt, kein Alt-Guard ersetzt. Details siehe `openapi.yaml`-Diff im Commit.
+- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensaenderungen): `ListContacts`, `ListCustomFields` und `ListTags` in
+  `backend/internal/server/crm_grpc.go` lassen `var infos []*crmv1.<X>Info` bei einem leeren
+  Ergebnis als `nil`-Slice stehen statt mit `make([]*T, 0, len(...))` vorzubelegen — exakt die
+  Wire-Shape-Klasse, die fuer `document_grpc.go`s `toProtoFile` in Lauf 7 (Commit `c3f0c46f`)
+  bereits als Bug gefunden UND direkt gefixt wurde (2-Zeilen-Diff). Fuer `ListContacts` liegt
+  die eigentliche Nil-Quelle sogar noch eine Ebene tiefer:
+  `contact.Service.enrichWithRelationsBatch` gibt bei `len(contacts) == 0` explizit `nil, nil`
+  zurueck (`internal/crm/contact/service.go:401-403), bevor `crm_grpc.go` ueberhaupt eine Slice
+  zum Iterieren bekommt. Alle drei Faelle sind mit
+  `TestList<X>Fields_EmptyIsNilNotEmptySlice`-Tests dokumentiert (assert `!= nil` wuerde aktuell
+  fehlschlagen; die Tests pruefen bewusst die HEUTIGE, nicht die gewuenschte Form und tragen
+  einen Kommentar, der beim Fix umzudrehen ist). Empfehlung fuer Lauf 9: eine kleine,
+  risikoarme Fix-Unit analog zu `c3f0c46f`, die alle drei Stellen in einem Commit vorbelegt und
+  die drei Tests auf `require.NotNil` umstellt. `swagger-cli`/`TestOpenAPIRouteDrift` sind hier
+  nicht betroffen (kein Routen- oder Spec-Aenderungsbedarf, reine JSON-Feldform).
+  Sonst nichts offen — kein DB-Gate noetig (reine In-Memory-Stubs), kein Proto-Regen, keine
+  Route registriert.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  `-StartNotBefore`-Diff wie in den Iterationen 6-9 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 9) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
