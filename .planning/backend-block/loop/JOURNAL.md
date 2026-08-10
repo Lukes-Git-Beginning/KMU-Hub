@@ -1231,3 +1231,60 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 18) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
   ermittelt (2026-08-10 18:13).
+
+## Iteration 20 — b-cov-server-email-error-map-accounts-sync — done — 2026-08-10 18:15
+- commit: <wird nach dem Commit unten ergaenzt>
+- gebaut: neue Testdatei email_grpc_accounts_sync_test.go mit stubAccountRepo
+  (implementiert account.Repository), fakeVaultEncryptor (implementiert
+  account.VaultEncryptor reversibel ohne echte Kryptografie) und
+  stubFolderRepo (implementiert message.FolderRepository). newTestEmailAccounts-
+  Server() verdrahtet einen echten account.Service und message.Service gegen
+  diese Stubs sowie einen echten emailsync.Engine (MessageSyncer/FolderSyncer/
+  AttachmentStorer bewusst nil, weil TriggerSync/GetStatus/StopWorker -- die
+  einzigen in dieser Unit erreichten Engine-Methoden -- sie nie anfassen;
+  StartWorker/Run wird in keinem Testfall ausgeloest, SyncEnabled steht in den
+  Fixtures durchweg auf false). mapEmailError vollstaendig tabellengetrieben
+  getestet, jedes der 33 Sentinels einzeln gegen den erwarteten gRPC-Code, plus
+  nil- und Default-Fall. Je ein Happy-Path- und mindestens ein Fehlerpfad-Test
+  fuer alle 12 Scope-Methoden: CreateEmailAccount, GetEmailAccount,
+  ListEmailAccounts (inkl. Wire-Shape-Check leere Liste [] statt null),
+  UpdateEmailAccount, DeleteEmailAccount, SetDefaultEmailAccount,
+  TestEmailConnection (Fehlerpfad ueber echten TCP-Connect-Refused auf
+  127.0.0.1:1, kein Netzwerk-Mock noetig), ListFolders, GetFolder, SyncFolders,
+  TriggerSync, GetSyncStatus.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (1352 PASS, 0 SKIP) |
+  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | go test ./internal/gateway/ bewusst nicht gelaufen (keine
+  Route/kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 59,8 % (kumulativ ueber alle Iterationen
+  dieses Laufs, nicht allein durch diese Unit)
+- mutations-probe: `codes.NotFound` fuer `account.ErrAccountNotFound` in
+  mapEmailError (internal/server/email_grpc.go:1432-1433) auf `codes.Internal`
+  gedreht -> TestMapEmailError, TestGetEmailAccount_NotFound,
+  TestDeleteEmailAccount, TestDeleteEmailAccount_NotFound und
+  TestSetDefaultEmailAccount_NotFound alle rot. Zurueckgedreht, `git diff`
+  zeigt keinen Rest-Diff mehr auf der Datei, Tests wieder gruen.
+- verify vorgaenger: sauber. Commit 9dff16aa (Iteration 19) aendert nur die
+  neue Testdatei calendar_grpc_resources_bookingpages_test.go, eine bestehende
+  Testdatei und BACKLOG.yml/JOURNAL.md — keine Produktionscode-Datei, kein
+  neues Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber
+  diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries — nichts,
+  was Luke morgens nachfahren muss. Waehrend der Recherche aufgefallen:
+  ListFolders/GetFolder/SyncFolders in email_grpc.go lesen accountID/folderID
+  ohne middleware.GetTenantID(ctx)-Aufruf und ohne tenantID an den Service
+  durchzureichen -- anders als fast jeder andere Handler in dieser Datei. Der
+  zugrundeliegende PostgresFolderRepository filtert in GetByID/ListByAccount
+  ebenfalls nicht nach tenant_id in der WHERE-Klausel (postgres_repository.go:
+  344-393) und verlaesst sich vollstaendig auf RLS. Da `knownRLSGaps` leer ist
+  und der Standing-Guard das haelt, ist das kein Fund, sondern das erwartete
+  Muster dieses Repos -- trotzdem hier vermerkt, falls eine spaetere Iteration
+  denselben Code liest und sich wundert, warum kein tenantID-Parameter da ist.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-19 vermerkt -- nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 19) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
+  ermittelt (2026-08-10 18:15).
