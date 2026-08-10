@@ -2796,3 +2796,55 @@ Frühere Läufe liegen vollständig im Archiv:
   war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 41) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
   ermittelt (2026-08-11 01:25).
+
+## Iteration 43 — d-cov-gateway-hr-leave — done — 2026-08-11 01:33
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Neue Testdatei `backend/internal/gateway/route_hr_leave_test.go` (33 Tests) fuer
+  die acht in der Unit genannten Leave-Handler in `route_hr.go`: HandleCreateLeaveRequest
+  (ServiceUnavailable, MissingTenant, InvalidJSON, InvalidLeaveTypeID/UUID-Tag,
+  InvalidHalfDayPeriod/oneof-Tag, ValidRequestReachesRPC), HandleListLeaveRequests
+  (ServiceUnavailable, MissingTenant, sechs Query-Filter-Kombinationen ueber Subtests),
+  HandleGetLeaveRequest (ServiceUnavailable, ReachesRPC), HandleApproveLeaveRequest/
+  HandleRejectLeaveRequest/HandleCancelLeaveRequest (je ServiceUnavailable, ReachesRPC,
+  Approve/Reject zusaetzlich InvalidJSON, alle drei zusaetzlich MissingIDReachesRPC),
+  HandleGetLeaveBalance und HandleListLeaveTypes (je ServiceUnavailable, MissingTenant,
+  ReachesRPC). Dazu zwei direkte Unit-Tests fuer `hrMarshalSlice` (Wire-Shape: leeres Ergebnis
+  ist `[]json.RawMessage{}`, nicht `nil` — protojson wuerde sonst `null` statt `[]` emittieren;
+  plus Rundlauf ueber zwei Elemente).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ komplett gruen, -v gezaehlt: 0 SKIP, 1332 PASS) |
+  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | TestOpenAPIRouteDrift lief separat gruen (834 Routen gegen 836 Spec-Pfade,
+  unveraendert — keine neue Route in dieser Unit) | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 36,3 % (go test -coverprofile + go tool cover -func,
+  einziger Lauf noetig — Ausgangswert deckt sich mit coverage_start der Unit)
+- mutations-probe: drei Proben, alle gefangen. (1) In `hrMarshalSlice` `parts :=
+  make([]json.RawMessage, 0, len(msgs))` zu `var parts []json.RawMessage` geaendert ->
+  TestHrMarshalSlice_EmptyResultIsNotNil rot ("result is nil"). (2) Im `validate`-Tag von
+  `createLeaveRequestHTTPReq.LeaveTypeID` `omitempty,uuid` entfernt ->
+  TestHandleCreateLeaveRequest_InvalidLeaveTypeID rot (503 statt 400, kein
+  validation_failed mehr). (3) In HandleCreateLeaveRequest den `getTenantID`-Fehlerpfad
+  stillgelegt (`tenantID, _ := getTenantID(r)`, kein 401-Return mehr) ->
+  TestHandleCreateLeaveRequest_MissingTenant rot (503 statt 401). Alle drei per Edit
+  zurueckgedreht, `git diff --stat backend/internal/gateway/route_hr.go` danach leer,
+  build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 2f7053f6 (Iteration 42) fuegt ausschliesslich zwei
+  Testdateien plus Journal/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein
+  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: HandleApproveLeaveRequest,
+  HandleRejectLeaveRequest und HandleCancelLeaveRequest validieren die Leave-Request-ID aus
+  chi.URLParam(r, "id") lokal nicht als UUID (kein validateUUIDParam-Aufruf, anders als in
+  route_automation.go oder route_crm.go) — eine leere oder offensichtlich falsche ID reicht
+  unveraendert bis zur gRPC-Schicht durch und erzeugt dort erst einen Fehler. Betrifft
+  ausschliesslich diese drei Handler in route_hr.go, nicht die uebrigen HR-Routen.
+  `createLeaveRequestHTTPReq` hat zudem keine `required`-Tags auf StartDate/EndDate — das im
+  urspruenglichen done_when erwartete "fehlende Pflichtfelder"-Testszenario existiert im Code
+  nicht, getestet wurden stattdessen die real vorhandenen Validierungspfade (UUID- und
+  oneof-Tag). `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-42 vermerkt — nicht meine Datei,
+  nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 42)
+  fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:33).
