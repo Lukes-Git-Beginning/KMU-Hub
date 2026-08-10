@@ -776,7 +776,7 @@ Frühere Läufe liegen vollständig im Archiv:
   vorigen Iterationen.
 
 ## Iteration 14 — b-cov-server-biz-error-map-settings-quotes — done — 2026-08-10 17:07
-- commit: <wird nach dem Commit ergänzt>
+- commit: 0a5e5e55
 - gebaut: neue Datei `backend/internal/server/biz_grpc_errormap_settings_quotes_test.go`.
   `TestMapBizError` deckt jedes der 32 Sentinels in `mapBizError` (biz_grpc.go:2611)
   einzeln gegen den erwarteten gRPC-Code ab (Quote, Recurring, Offene-Posten,
