@@ -644,7 +644,7 @@ Frühere Läufe liegen vollständig im Archiv:
   vorigen Iterationen.
 
 ## Iteration 12 — b-cov-server-crm-pipelines-deals — done — 2026-08-10 16:47
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 23c06ac4
 - gebaut: neue Datei `backend/internal/server/crm_grpc_pipelines_deals_test.go` mit
   `stubPipelineStageRepo` (implementiert `pipelinestage.Repository`) und `stubDealRepo`
   (implementiert `deal.Repository`), je über `newCRMServerWithPipelineStageRepo`/
