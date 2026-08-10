@@ -3841,3 +3841,74 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   faelligen Zeilen inkl. Mutations-Probe, List-Methoden tenant-gescopt mit Cross-Tenant-Fall,
   Paket gruen 0 Skips). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-email-message-repo`
   (deps: [], frei).
+
+## Iteration 62 — c-cov-email-message-repo — done — 2026-08-10 (Lauf 7)
+- commit: -
+- verify vorgaenger: sauber — `951dc45f` (c-cov-notification-integration-repo, Iteration 61)
+  gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich eine neue
+  Testdatei (`internal/notification/integration/postgres_repository_test.go`) plus
+  Loop-Buchhaltung — kein Produktionscode angefasst, also kein gRPC-Bypass, kein Stub, kein
+  `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle, kein Wire-Shape-Wechsel,
+  keine neue Route, kein Guard-Alt-Key ersetzt. `git merge origin/main` lief als
+  "Already up to date", kein Konflikt.
+- gebaut: neue Datei `internal/email/message/postgres_repository_test.go` (11 Test-Funktionen)
+  gegen `internal/email/message/postgres_repository.go` (529 Z., `PostgresRepository` fuer
+  Nachrichten + `PostgresFolderRepository` fuer Ordner) — bisher nur ueber die Mock-Ebene
+  (`service_test.go`) getestet. Kein Produktionscode geaendert — reine Coverage-Unit.
+  - `TestPostgresRepository_CreateAndGetByID`: echtes `repo.Create` (alle 27 Spalten inkl.
+    JSONB-Adresslisten) statt `testutil.SeedRow`, `GetByID` roundtrippt To/Cc/Bcc-Adressen,
+    leere `LabelIDs` (Spaltendefault `'{}'`), tenant-gescopt (fremder Tenant -> `ErrMessageNotFound`,
+    das ist ein expliziter SQL-Filter, keine reine RLS-Frage), unbekannte ID -> `ErrMessageNotFound`.
+  - `TestPostgresRepository_ListByFolderPaginationAndSort`: drei Nachrichten, `Page`/`PerPage`
+    ueber zwei Seiten, `total` bleibt korrekt, `SortDir=ASC` kehrt die Standard-DESC-Reihenfolge um.
+  - `TestPostgresRepository_ListByThread`: zwei Nachrichten mit gemeinsamer `thread_id`, eine
+    ohne — nur die beiden werden zurueckgegeben, aufsteigend nach `date`.
+  - `TestPostgresRepository_UpdateFlags`: `isRead`-only, `isStarred`-only, und `nil,nil` als
+    echtes No-op (kein Fehler, `len(setClauses)==0`-Fruehausstieg in der Produktionsfunktion).
+  - `TestPostgresRepository_UpdateThreadIDMoveDeleteAndCount`: `UpdateThreadID`/`MoveToFolder`
+    ueber `GetByID` verifiziert, `CountUnreadByFolder` zaehlt nur ungelesene, `Delete`/
+    `DeleteByFolder` beide ueber Not-Found-Nachweis nach dem Loeschen.
+  - `TestPostgresRepository_GetHighestUID`: **das explizit im Scope geforderte Kriterium** —
+    leerer Ordner liefert `0, nil` (nicht -1, nicht Fehler — der `uid == nil`-Zweig in
+    `GetHighestUID` faengt `MAX()` auf einer leeren Menge ab), danach drei Nachrichten mit
+    UIDs 5/12/3 liefern korrekt 12.
+  - `TestPostgresRepository_GetByFolderUIDAndMessageIDHeader`: gefunden/nicht gefunden fuer
+    beide Methoden, zwei Nachrichten mit identischem `message_id`-Header zeigen
+    `GetByMessageIDHeader`s `ORDER BY date DESC LIMIT 1` (neueste gewinnt).
+  - `TestPostgresRepository_FindThreadByReferences`: **das zweite explizit geforderte
+    Kriterium** — InReplyTo-Treffer gewinnt vor References, References werden nachweislich
+    RUECKWAERTS durchsucht (letztes Element zuerst — Test baut zwei Referenzen mit
+    unterschiedlichen Threads und bestaetigt, dass die *letzte* gewinnt), eine Referenz auf
+    eine Nachricht OHNE `thread_id` wird uebersprungen statt hart zu scheitern, kein Treffer
+    liefert `ErrThreadNotFound` (Fallback auf neuen Thread).
+  - `TestPostgresRepository_FindBySubjectAndParticipants`: **das dritte Kriterium** —
+    Betreffs-Substring + `from_email`-Treffer, Treffer ueber `to_addresses` (Antwortrichtung),
+    eine Nachricht ohne `thread_id` ist nie ein Fallback-Treffer (harte Bedingung in der Query),
+    ausserhalb des Datumsfensters kein Treffer.
+  - `TestPostgresFolderRepository_CRUD`: `Create`/`GetByID`/`GetByIMAPName`/`GetByAccountAndType`
+    gefunden+nicht gefunden (`ErrFolderNotFound`), `ListByAccount` sortiert nach `sort_order`,
+    `UpdateCounts`/`UpdateUIDValidity` persistieren, `DeleteMessagesByFolder` raeumt alle
+    Nachrichten eines Ordners weg (ueber `PostgresRepository.GetByID` verifiziert).
+  - Kollision entdeckt und geloest: `service_test.go` deklariert bereits ein `newTestMessage`
+    (Mock-Ebene, andere Signatur) — DB-Testhelfer auf `newTestDBMessage` umbenannt statt die
+    bestehende Funktion anzufassen.
+- gate: build ok (`go build -p 2 ./...`, komplettes Repo) | vet ok (`go vet
+  ./internal/email/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/email/message/...`, 0 issues) | test ok (`go test -count=1 ./internal/email/...`,
+  alle zwoelf Pakete gruen, `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/
+  kmuhub?sslmode=disable`, Rolle `kmuhub_app`) | migration n.a. (keine Schemaaenderung) |
+  rls-smoke ok (im Test selbst: `GetByID` Cross-Tenant-Fall) | route n.a. (kein
+  Gateway-Handler/Route beruehrt) | openapi n.a. | protoc n.a.
+- mutations-probe: in `GetByID` (postgres_repository.go) den Tenant-Filter von
+  `AND tenant_id = $2` auf `AND (tenant_id = $2 OR true)` aufgeweicht (Parameteranzahl bewusst
+  gleich gehalten, damit nur die Filterlogik bricht, nicht die Query selbst). Test sofort rot:
+  `TestPostgresRepository_CreateAndGetByID/GetByID_is_tenant-scoped` —
+  "Expected error with email message not found in chain but got nil" — waehrend alle anderen
+  Subtests unveraendert gruen blieben (praezise Probe, kein Kollateralschaden). Zeile
+  zurueckgedreht, `git diff --stat internal/email/message/postgres_repository.go` zeigt wieder
+  keinen Unterschied zum Ausgangsstand. `go build ./...`/`go test -count=1
+  ./internal/email/...` danach erneut komplett gruen (siehe gate oben).
+- offen: `done_when` dieser Unit vollstaendig erfuellt (FindThreadByReferences inkl.
+  Rueckwaerts-Suche und Neu-Thread-Fallback, FindBySubjectAndParticipants als Fallback,
+  GetHighestUID liefert 0 bei leerem Ordner, Mutations-Probe belegt, Paket gruen 0 Skips).
+  Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-document-wopi` (deps: [], frei).

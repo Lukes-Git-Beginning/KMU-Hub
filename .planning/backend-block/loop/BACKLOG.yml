@@ -2416,7 +2416,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/email/message/postgres_repository.go` - 529 Zeilen, groesste ungetestete
       Repository-Datei im email-Paket (im Unterschied zu `rule`/`label`/`template`, die schon
