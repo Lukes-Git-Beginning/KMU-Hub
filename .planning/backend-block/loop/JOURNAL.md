@@ -2902,7 +2902,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:39).
 
 ## Iteration 45 — d-cov-gateway-fuhrpark-vehicles-services — done — 2026-08-11 01:42
-- commit: -
+- commit: f4441cfa
 - gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_crud_test.go` (37 Tests)
   fuer die neun in der Unit genannten Fahrzeug- und Service-Handler in route_fuhrpark.go:
   HandleListVehicles (ServiceUnavailable, MissingTenant, ReachesRPC mit Query-Filtern),
