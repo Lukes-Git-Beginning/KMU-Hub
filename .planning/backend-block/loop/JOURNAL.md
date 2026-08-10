@@ -106,7 +106,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - commits: 2
 
 ## Iteration 3 — fix-einkauf-contract-call-cap — done — 2026-08-10 15:00
-- commit: (folgt direkt nach diesem Eintrag)
+- commit: de885fc4
 - gebaut: `PostgresRepository.CreateContractCall` ist jetzt transaktional und der einzige
   Schreiber von `used_value`: Contract-Zeile `FOR UPDATE` sperren → Status prüfen (nur `active`,
   sonst `ErrContractNotActive` mit Status im Text) → Restwert aus **frisch gerechnetem
