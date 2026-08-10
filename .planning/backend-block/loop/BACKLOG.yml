@@ -1589,7 +1589,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Testet die Zeiterfassungs-Kernaktionen in route_hr.go: HandleClockIn,

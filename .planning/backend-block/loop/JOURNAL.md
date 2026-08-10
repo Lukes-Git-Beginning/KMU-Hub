@@ -2848,3 +2848,55 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 42)
   fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:33).
+
+## Iteration 44 — d-cov-gateway-hr-worktime — done — 2026-08-11 01:39
+- commit: PENDING
+- gebaut: Neue Testdatei `backend/internal/gateway/route_hr_worktime_test.go` (30 Tests) fuer
+  die neun in der Unit genannten Zeiterfassungs-Handler in `route_hr.go`: HandleClockIn/
+  HandleClockOut (je ServiceUnavailable, MissingTenant, ReachesRPC), HandleBreakStart/
+  HandleBreakEnd/HandleGetActiveShift (je ServiceUnavailable, ReachesRPC — kein
+  MissingTenant-Fall, siehe offen), HandleSubmitWeek (ServiceUnavailable, MissingTenant,
+  MissingWeekStart, InvalidJSON, ValidRequestReachesRPC) sowie HandleApproveWeek/
+  HandleRejectWeek/HandleReopenWeek (je ServiceUnavailable, MissingTenant, InvalidJSON,
+  InvalidEmployeeID, ValidRequestReachesRPC; HandleApproveWeek zusaetzlich MissingWeekStart).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1365 PASS, 0 SKIP, 0 FAIL) |
+  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion — TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit,
+  unveraendert gruen
+- coverage: internal/gateway 34,9 % -> 36,8 % (go test -coverprofile + go tool cover -func;
+  der unmittelbare Vorwert nach Iteration 43 lag bei 36,3 % — der coverage_start-Bezugswert
+  der Unit bleibt ueber den ganzen Lauf 34,9 %, siehe BACKLOG.yml-Kopf)
+- mutations-probe: drei Proben, alle gefangen. (1) In `approveWeekHTTPReq.EmployeeID` das
+  `uuid`-Validate-Tag entfernt (nur noch `required`) -> TestHandleApproveWeek_InvalidEmployeeID
+  rot mit 503 statt 400, kein validation_failed mehr. (2) In HandleClockIn den
+  `getTenantID`-Fehlerpfad stillgelegt (`tenantID, _ := getTenantID(r)`, kein 401-Return
+  mehr) -> TestHandleClockIn_MissingTenant rot mit 503 statt 401. (3) In
+  `submitWeekHTTPReq.WeekStart` das `required`-Validate-Tag entfernt ->
+  TestHandleSubmitWeek_MissingWeekStart rot mit 503 statt 400, kein validation_failed mehr.
+  Alle drei per Edit zurueckgedreht, `git diff --stat backend/internal/gateway/route_hr.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (1365 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit aa2a8663 (Iteration 43 Journal-Hash-Nachtrag) sowie der
+  vorangehende cce98f88 (Iteration 43 selbst) fuegen ausschliesslich eine Testdatei plus
+  Journal-/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein Proto, keine Route,
+  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: HandleBreakStart,
+  HandleBreakEnd und HandleGetActiveShift (route_hr.go:631-720) rufen `getTenantID` an
+  keiner Stelle auf — nur ClockIn/ClockOut und der Week-Workflow tun das. Ein Request ohne
+  Tenant-Kontext erreicht bei diesen drei Handlern unveraendert die RPC-Schicht statt eines
+  401. Heute latent, weil `authMiddleware` auf der ganzen `/api/v1/hr/time`-Gruppe sitzt
+  (route_hr.go:101-102) und Tenant/User immer gemeinsam gesetzt werden — anders als beim in
+  Iteration 40 gefixten `own`-Scope-Bug ist hier kein bekannter Weg bekannt, wie ein
+  Aufrufer legitim ohne Tenant durchkommt, deshalb keine eigene Fix-Unit vorgeschlagen,
+  nur hier vermerkt. Die Nil-Entry/Nil-ActiveBreak-Wire-Shape-Verzweigung in
+  HandleGetActiveShift (route_hr.go:688-717) ist wie schon bei `hrMarshalSlice` in
+  Iteration 43 nur ueber einen echten RPC-Response beobachtbar — kein bufconn-Stub fuer den
+  HR-Service in diesem Paket, deshalb nur ReachesRPC statt Wire-Shape-Assertion getestet.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-43 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 43) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:39).
