@@ -47,7 +47,7 @@ Frühere Läufe liegen vollständig im Archiv:
 ---
 
 ## Iteration 1 — fix-work-tasks-listtasks-no-own-scope — done — 2026-08-10 13:27
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: `ownerFilterForScopeAny` (helpers.go) als Pendant zu `ownerFilterForScope` für Routen
   hinter `RequirePermissionAny` über zwei Schlüssel — narrower key wins (ein Treffer auf `own`
   filtert, egal was der andere Schlüssel liefert, weil ein nicht vergebener Schlüssel per
@@ -191,7 +191,7 @@ Frühere Läufe liegen vollständig im Archiv:
   gewünscht ist, wäre ein Repo-weiter 401-vs-400-Entscheid eine eigene Unit für Lauf 9.
 
 ## Iteration 5 — fix-automation-scope-filter-silent-default — done — 2026-08-10 15:26
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: `parseAutomationScope` (route_automation.go) liefert jetzt `(automationv1.AutomationScope,
   bool)` statt eines nackten Enums. Leer bleibt beim historischen Default `SCOPE_PERSONAL` (kein
   Verhaltenswechsel fuer Aufrufer, die das Feld nicht schicken), ein NICHT-leerer unbekannter Wert
@@ -238,7 +238,7 @@ Frühere Läufe liegen vollständig im Archiv:
   abweicht, bitte pruefen.
 
 ## Iteration 6 — fix-gateway-id-validation-consistency — done — 2026-08-10 15:28
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: Alle elf `chi.URLParam(r, "id")`-Stellen in `route_biz_billing.go`
   (HandleGetCreditNote, HandleSendCreditNote, HandleGenerateCreditNotePDF, HandleRecordPayment,
   HandleListPayments, HandleDeletePayment, HandleSendDunning, HandleGenerateDunningPDF,
@@ -308,7 +308,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Unit).
 
 ## Iteration 7 — fix-email-sync-imap-connect-no-timeout — done — 2026-08-10 15:52
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: `IMAPClient.Connect` (imap_client.go) macht jetzt den TCP-Dial (und beim direkten
   TLS-Pfad Port 993 den TLS-Handshake) selbst über `net.Dialer{Timeout: imapDialTimeout}` bzw.
   `tls.DialWithDialer` statt `imapclient.DialTLS`/`DialStartTLS(addr, nil)`. Neuer Helper
@@ -364,7 +364,7 @@ Frühere Läufe liegen vollständig im Archiv:
   über Dial UND Handshake).
 
 ## Iteration 8 — hr-salary-document-category — done — 2026-08-10 15:58
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: Migration `000310_hr_salary_document_category` seedet die System-Dokumentenkategorie
   `gehaltsabrechnung` (`hr_document_categories`, `tenant_id` = Zero-UUID, `visibility='employee'`,
   `is_system=TRUE`, `sort_order=15`) nach exakt dem Muster von 000046/000294 —
@@ -415,7 +415,7 @@ Frühere Läufe liegen vollständig im Archiv:
   dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
 
 ## Iteration 9 — hr-salary-self-service-route — done — 2026-08-10 16:00
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ef8dec17
 - gebaut: VORPRUEFUNG ERGAB "NEIN" (Belege unter `offen:`), deshalb Schritt 2 der Unit gebaut:
   neue Route `GET /api/v1/hr/employees/me/documents` (`route_hr.go`, registriert VOR
   `/{id}/documents`, Guard ist der bestehende `hrDocumentCategoriesGuard` =
