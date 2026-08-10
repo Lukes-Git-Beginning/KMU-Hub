@@ -2879,3 +2879,72 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Verhalten aktualisiert statt geloescht, `go test -count=1 ./internal/email/send/...` gruen.
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-notification-forwarder`
   (`status: todo`, `internal/notification/integration/forwarder.go`).
+
+## Iteration 47 — c-cov-notification-forwarder — done — 2026-08-10 04:20
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `e89ea594` (fix-email-mime-attachment-boundary-mismatch) geprueft:
+  `git show --stat` zeigt nur `mime_builder.go` (Fix) plus Test-/Journal-/Backlog-Dateien, deckt
+  sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. Ausserdem lag ein rein
+  zeilenenden-bedingtes `M backend/internal/work/event/rrule.go` im Arbeitsverzeichnis
+  (leerer `git diff`, `git diff --raw` und `wc -l` bestaetigten 0 inhaltliche Aenderung) —
+  per `git checkout --` zurueckgesetzt, kein Zusammenhang mit dieser Iteration.
+- gebaut: `internal/notification/integration/forwarder_test.go` (neu, ~370 Zeilen) fuer das bisher
+  ungetestete `forwarder.go` (384 Zeilen, 0 Tests vorher). Aufbau: `fakeRepository` implementiert
+  das volle `Repository`-Interface in-memory (nur `ListConfigs`/`ListMappingsByConfig`/
+  `UpdateMapping`/`LogDelivery` mit echtem Verhalten, Rest Leerimplementierung fuer die
+  Interface-Erfuellung), `fakePoster` implementiert `PlatformPoster` skriptbar
+  (Result/Error). Abgedeckt: `TestSelectMostSpecific` (Exact-schlaegt-Wildcard, Fallback auf
+  Wildcard, Dedup mehrerer Exact-Treffer auf demselben Kanal, kein Treffer), `TestBuildActionSet`
+  (alle vier Praefix-Zweige + Default per Tabellentest), `TestForwarder_TrackFailure_
+  DisablesAfterThreshold` (10x kein Disable, 11. Fehlschlag disabled + genau ein
+  `UpdateMapping`-Call + Counter-Reset), `TestForwarder_ResetFailures_ClearsCounter`,
+  `TestForwarder_DispatchToMapping` (vier Subtests: Erfolg resettet Failures + loggt „sent" mit
+  PlatformMessageID, Plattformfehler loggt „failed" + trackt Failure, nicht konfigurierte
+  Plattform ist ein stiller No-Op statt Panic, Rate-Limit loggt „rate_limited" ohne
+  `PostNotification`-Aufruf), `TestMappingCache_TTLRefresh` (echtes `time.Sleep` ueber eine
+  30ms-TTL: vor Ablauf liefert der Cache den alten Wert trotz geaenderter Repo-Daten, nach
+  Ablauf den neuen), `TestMappingCache_SkipsInactiveConfigsAndMappings`,
+  `TestMappingCache_RefreshPropagatesListConfigsError`.
+- fund: beim Schreiben von `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap`
+  bestaetigt, dass ein Wildcard-Channel-Mapping (leeres `Modules`-Feld — "an dieses Modul jede
+  Notification weiterleiten") in `MappingCache.refresh` unter dem Literal-Key `"*"` abgelegt wird
+  (forwarder.go:370), `GetMappingsForModule` aber NIE `c.modules["*"]` liest (nur den echten
+  `moduleID`) — der Kommentar "we'll handle this at query time" ist ein Versprechen, das der Code
+  nie einloest. Ein Wildcard-Mapping wird also geladen und dann fuer JEDES Modul als leere Liste
+  zurueckgegeben — die einfachste denkbare Admin-Konfiguration ("alles an diesen Slack-Kanal")
+  ist von Anfang an tot, ohne Fehler, ohne Log. `ListActiveMappingsForModule` (Repository-
+  Interface + Postgres-Impl) ist per Grep bestaetigt toter Code (0 Call-Sites) und würde das
+  Problem auch nicht loesen (SQL `modules @> $1::jsonb` matched ebenfalls keine leere Liste).
+  Nicht inline gefixt — echte Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel
+  eine eigene Unit: neue Fix-Unit `fix-notification-wildcard-mapping-never-delivered` (phase 3,
+  status: todo) im Backlog angelegt, direkt nach `fix-bexio-tenant-id-missing-on-upsert`
+  eingefuegt (gleiche Gruppierung wie alle anderen waehrend Coverage-Arbeit gefundenen Fix-Units).
+- gate: build ok (`go build -p 2 ./internal/notification/...`) | vet ok
+  (`go vet ./internal/notification/...`) | lint ok (golangci-lint --config .golangci.yml
+  ./internal/notification/integration/..., 0 issues, nach Behebung zweier Modernize-Hinweise —
+  ungenutztes `tc := tc`-Shadowing entfernt, `for i := 0; i < 10; i++` auf `for range 10`
+  umgestellt) | test ok (`go test -count=3 ./internal/notification/integration/...`, dreimal
+  wiederholt durchgehend gruen, keine Flakiness trotz echtem `time.Sleep` im TTL-Test) | `-race`
+  in dieser Umgebung nicht verfuegbar (`CGO_ENABLED=0`, keine cgo-Toolchain) — stattdessen
+  `-count=3` als Ersatzbeleg gegen Datenrennen in den lock-geschuetzten Feldern (`failureMu`,
+  `MappingCache.mu`) | migration n.a. (keine Tabelle beruehrt) | rls-smoke n.a. (keine Tabelle/
+  Policy angefasst) | route n.a. (kein Gateway/Server-Handler angefasst) | openapi n.a. |
+  protoc n.a. | mit `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub` erneut
+  `go test -count=1 -v ./internal/notification/integration/...` gefahren (Rolle `kmuhub_app`,
+  nicht `kmuhub`): alle 12 Testfunktionen inkl. der drei vorbestehenden DB-Tests
+  (`TestTenantIsolation_Integration_DB`, `TestIntegrationWrites_RefuseWithoutTenant`,
+  `TestIntegrationWrites_LandInCallerTenant`) real gelaufen und gruen, 0 Skips.
+- mutations-probe: `count > 10` in `trackFailure` (forwarder.go:182) auf `count > 100` gesetzt.
+  `TestForwarder_TrackFailure_DisablesAfterThreshold` wurde rot ("want mapping disabled after 11
+  consecutive failures"), exakt der erwartete Fehlschlag. Zurueckgedreht, `git diff --stat`
+  bestaetigt eine zur Ausgangslage identische Produktionsdatei (0 Zeilen Diff), volle Suite
+  danach wieder gruen (`go test -count=1 ./internal/notification/...`).
+- db-tests: 3 real gelaufen (0 Skips, siehe gate) — alle drei vorbestehend, nicht Teil dieser
+  Unit. Diese Unit selbst fuegt keine DB-Tests hinzu: `done_when` verlangt hier keine (reine
+  In-Memory-Logik hinter Interfaces, analog zur Email-MIME-Unit), Coverage-Ziel bereits ueber
+  Fakes erreichbar.
+- coverage: `internal/notification/integration` Paketcoverage nach dieser Unit 35,7 % (`slack`
+  35,0 %, `teams` 11,0 % — beide unveraendert, nicht Teil dieser Unit).
+- offen: neue Fix-Unit `fix-notification-wildcard-mapping-never-delivered` (phase 3,
+  status: todo) im Backlog fuer den Wildcard-Bug. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-caldav-vcard-vtimezone` (`status: todo`, `internal/caldav` vCard/VTIMEZONE-Pfade).

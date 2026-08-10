@@ -897,6 +897,56 @@ units:
       - A DB test proves at least one of the four methods succeeds end-to-end against the real schema
       - go test -count=1 ./internal/biz/bexio/... green with DATABASE_URL set, 0 skips
 
+  - id: fix-notification-wildcard-mapping-never-delivered
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `MappingCache.refresh` (internal/notification/integration/forwarder.go:332) loads every
+      active channel mapping and, for a wildcard mapping (`len(m.Modules) == 0`, meaning "forward
+      every module's notifications to this channel" - the simplest possible admin setup), files it
+      under the literal cache key `"*"` (`newModules["*"] = append(...)`, line 370) with a comment
+      promising "we'll handle this at query time in GetMappingsForModule". `GetMappingsForModule`
+      (line 290) never keeps that promise: both the fast-path read (`c.modules[moduleID]`, line
+      293) and the post-refresh read (line 306) look up only the literal `moduleID` key, never
+      merge in `c.modules["*"]`. The result: a wildcard channel mapping is loaded into memory on
+      every cache refresh and then never returned for any real module lookup, so
+      `Forwarder.HandleNotification` (line 49, the only caller of `GetMappingsForModule`) never
+      selects it and no notification is ever forwarded through it - a silently dead integration
+      from the moment it is configured, for every tenant that sets one up. `ListActiveMappingsForModule`
+      (repository.go:23, postgres_repository.go:265) is unused dead code (grepped, zero call sites)
+      and would not fix this either - its SQL (`m.modules @> $1::jsonb`) also fails to match a
+      wildcard's empty `modules` array.
+    sources:
+      - backend/internal/notification/integration/forwarder.go
+      - backend/internal/notification/integration/repository.go
+      - backend/internal/notification/integration/postgres_repository.go
+      - backend/internal/notification/integration/forwarder_test.go
+    notes: >
+      Gefunden waehrend c-cov-notification-forwarder (Lauf 7) - beim Nachvollziehen von
+      `MappingCache.refresh`/`GetMappingsForModule` bestaetigt (nicht nur vermutet):
+      `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap` in
+      `forwarder_test.go` beweist es direkt (Wildcard-Mapping in den Fake-Repo geladen, Cache
+      befuellt, `GetMappingsForModule(ctx, "crm")` liefert eine leere Liste). Nicht inline
+      gefixt - echte Verhaltensaenderung (bisher tote Mappings wuerden ploetzlich Nachrichten
+      verschicken), keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag:
+      in `GetMappingsForModule` nach dem Read von `c.modules[moduleID]` zusaetzlich
+      `c.modules["*"]` lesen und beide Listen zusammenfuehren (dedupe by ChannelID analog zu
+      `selectMostSpecific`s Vorgehen, oder die Merge-Verantwortung ganz `selectMostSpecific`
+      ueberlassen und `GetMappingsForModule` einfach beide Slices zurueckgeben lassen - dort
+      existiert die Wildcard-vs-exact-Logik bereits und wuerde sie unveraendert korrekt anwenden).
+      Nach dem Fix `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap` auf das
+      neue (korrekte) Verhalten aktualisieren, nicht loeschen.
+    done_when:
+      - Ein Wildcard-Mapping (leeres Modules-Feld) wird von GetMappingsForModule fuer JEDES
+        Modul zurueckgegeben, sofern kein spezifischeres exaktes Mapping vorhanden ist
+      - selectMostSpecifics bestehendes Exact-schlaegt-Wildcard-Verhalten bleibt unveraendert
+      - TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap in forwarder_test.go
+        auf das neue erwartete Verhalten aktualisiert
+      - go test -count=1 ./internal/notification/... gruen
+
   - id: a-inbox-sla
     phase: 3
     service: inbox
@@ -1868,7 +1918,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/notification/integration/forwarder.go` - 384 Zeilen, keine Testdatei. Teil der
       bei 36,5 % gemessenen `internal/notification`-Coverage. Leitet Notifications an
