@@ -2798,7 +2798,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-11 01:25).
 
 ## Iteration 43 — d-cov-gateway-hr-leave — done — 2026-08-11 01:33
-- commit: <wird nach dem Commit ergaenzt>
+- commit: cce98f88
 - gebaut: Neue Testdatei `backend/internal/gateway/route_hr_leave_test.go` (33 Tests) fuer
   die acht in der Unit genannten Leave-Handler in `route_hr.go`: HandleCreateLeaveRequest
   (ServiceUnavailable, MissingTenant, InvalidJSON, InvalidLeaveTypeID/UUID-Tag,
