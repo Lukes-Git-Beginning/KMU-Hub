@@ -1418,7 +1418,7 @@ units:
     service: security
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security 47,9 %"
     scope: >
       CRMErasureHandler (PreviewErasure + ExecuteErasure) und ChatErasureHandler (PreviewErasure
@@ -3319,3 +3319,51 @@ units:
       - Die beiden dokumentierenden Tests aus Iteration 21 sind auf das korrekte Verhalten
         umgestellt statt gelöscht
       - go test -count=1 ./internal/server/ grün
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 39 (c-cov-gdpr-erasure-handlers) --
+# nicht gebaut, nur dokumentiert (Coverage-Units aendern kein Verhalten). Fuer Lauf 9.
+# ==========================================================================================
+
+  - id: fix-crm-erasure-double-count
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 48,0 % (Stand nach Iteration 39)"
+    scope: >
+      `CRMErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go:197) zaehlt jede
+      Aktivitaet doppelt, die der Betroffene sowohl erstellt als auch sich selbst zugewiesen
+      hatte. Das erste UPDATE setzt `assigned_to = NULL` (WHERE assigned_to = $1); das zweite
+      UPDATE laeuft danach mit `WHERE created_by = $1 AND (assigned_to IS NULL OR assigned_to
+      != $1)` und trifft genau diese Zeile ein zweites Mal, weil ihr `assigned_to` inzwischen
+      NULL ist. Die Daten sind danach korrekt (idempotenter Anonymisierungs-UPDATE), nur die
+      zurueckgegebene Zahl ist zu hoch. Sie landet ueber `Service.ExecuteErasure` als
+      "anonymize: N records" im `modules_affected` des `GDPRErasureLog` und geht in den
+      SHA-256-Confirmation-Hash ein — also in den Art.-17-Loeschnachweis, den der Betroffene
+      bekommt. Kein Datenleck, aber eine falsche Zahl in einem Compliance-Beleg.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/erasure_crm_chat_test.go
+      - backend/internal/security/gdpr/service.go
+    notes: >
+      Gefunden UND reproduziert beim Bau der Coverage-Unit c-cov-gdpr-erasure-handlers
+      (Lauf 8, Iteration 39): TestCRMErasureHandler_ExecuteErasure_Integration erwartet
+      aktuell 5 statt der sachlich richtigen 4, TestCRMErasureHandler_ExecuteErasure_IgnoresAction
+      erwartet 3 statt 2 — beide mit Kommentar auf diese Unit. Sauberster Fix: das zweite
+      UPDATE um `AND NOT (assigned_to IS NULL AND updated_at = ...)` zu ergaenzen ist fragil;
+      besser die beiden UPDATEs zu einem einzigen mit
+      `WHERE assigned_to = $1 OR created_by = $1` zusammenziehen und `assigned_to` per
+      `CASE WHEN assigned_to = $1 THEN NULL ELSE assigned_to END` setzen — dann ist die
+      Zeilenzahl per Konstruktion die Zahl der beruehrten Aktivitaeten. Die beiden Tests
+      muessen nach dem Fix auf die korrekte Zahl umgestellt werden, nicht geloescht.
+    done_when:
+      - Eine Aktivitaet, die der Betroffene erstellt und sich selbst zugewiesen hat, zaehlt
+        genau einmal
+      - assigned_to wird weiterhin nur fuer die dem Betroffenen zugewiesenen Aktivitaeten
+        geleert, description fuer beide Faelle
+      - Aktivitaeten Dritter bleiben unveraendert
+      - Die beiden dokumentierenden Tests aus Iteration 39 sind auf das korrekte Verhalten
+        umgestellt statt geloescht
+      - go test -count=1 ./internal/security/gdpr/ gruen

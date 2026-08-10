@@ -2483,3 +2483,84 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 37) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 00:42).
+
+## Iteration 39 — c-cov-gdpr-erasure-handlers — done — 2026-08-11 00:49
+- commit: <PENDING>
+- gebaut: neue Datei `backend/internal/security/gdpr/erasure_crm_chat_test.go` mit sieben Tests
+  fuer die vier bis dahin voellig ungetesteten Erasure-Methoden.
+  `TestCRMErasureHandler_PreviewErasure_Integration`: Contact + Company + Activity in einem
+  frischen Tenant -> `RecordCount == 3`, `ModuleName "crm"`, `Action "anonymize"`; danach
+  Re-Read der Activity als Beweis, dass Preview **nicht schreibt** (`assigned_to` und
+  `description` unveraendert); dazu Fremd-Tenant (0 — die COUNT-Queries tragen kein
+  Tenant-Praedikat, die Grenze ist allein RLS) und unbekannter User (0).
+  `TestCRMErasureHandler_ExecuteErasure_Integration`: drei Aktivitaeten (dem Subjekt
+  zugewiesen / vom Subjekt erstellt aber einem Kollegen zugewiesen / komplett fremd) plus
+  Contact und Company; prueft per direkter DB-Abfrage, dass die erste `assigned_to` UND
+  `description` verliert, die zweite ihren Assignee **behaelt** und nur die `description`
+  verliert, die dritte voellig unberuehrt bleibt, und dass Contact/Company bewusst erhalten
+  bleiben (NOT-NULL-FK auf den anonymisierten User).
+  `TestCRMErasureHandler_ExecuteErasure_IgnoresAction`: pinnt, dass `ErasureDelete` nichts
+  loescht — beide Handler ignorieren ihren `action`-Parameter vollstaendig und anonymisieren
+  immer. Harmlos, solange `Service.ExecuteErasure` die Action aus `PreviewErasure` ableitet
+  (`erasure.go` hartkodiert dort "anonymize"), aber eine Falle fuer den naechsten, der einem
+  Modul eine echte Delete-Action geben will.
+  `TestChatErasureHandler_PreviewErasure_Integration` analog (Message + Membership -> 2,
+  Preview schreibt nicht, Fremd-Tenant 0, unbekannter User 0).
+  `TestChatErasureHandler_ExecuteErasure_Integration`: Message des Subjekts wird zu
+  `"[<Label>]"` mit `is_deleted = true` und gestempeltem `edited_at`, die Message des Kollegen
+  im selben Channel bleibt woertlich erhalten, und von zwei Memberships verschwindet genau die
+  des Subjekts. `TestCRMErasureHandler_DeadPool` / `TestChatErasureHandler_DeadPool` decken je
+  beide Fehlerpfade ab: `PreviewErasure` **schluckt** den DB-Fehler und meldet einen leeren,
+  erfolgreichen Preview (`RecordCount 0`), `ExecuteErasure` reicht ihn mit Modul-Praefix
+  (`crm erasure:` / `chat erasure:`) durch. Kein Produktionscode veraendert.
+- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
+  ./internal/security/...`) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/security/... -- 0 issues) | test ok (`go test -count=1 ./internal/security/gdpr/`
+  gruen, 49 Tests, davon **0 SKIP** per `-v` gezaehlt, also alle DB-Integrationstests real
+  gelaufen; `go test -count=1 ./internal/security/...` alle sieben Pakete gruen) | migration
+  n.a. (keine Migration) | rls-smoke n.a. als eigener Schritt — die Tenant-Isolation ist hier
+  direkt Testgegenstand: beide Fremd-Tenant-Previews laufen als `kmuhub_app` (NOSUPERUSER
+  NOBYPASSRLS) und liefern nachweislich 0 | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/security/gdpr 42,9 % -> 48,0 % (beides lokal per `go test -coverprofile`
+  + `go tool cover -func` gemessen, Ausgangswert durch temporaeres Herausnehmen der neuen
+  Testdatei). Per Funktion: CRM `PreviewErasure` 0,0 -> 100,0 %, CRM `ExecuteErasure`
+  0,0 -> 82,6 %, Chat `PreviewErasure` 0,0 -> 100,0 %, Chat `ExecuteErasure` 0,0 -> 78,9 %.
+  Hinweis wie in Iteration 38: das Feld `coverage_start:` der Unit nennt "internal/security
+  47,9 %" — das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem
+  CI-Artefakt, nicht der des hier geaenderten Pakets.
+- mutations-probe: zwei Proben, beide gefangen. (1) In `ChatErasureHandler.ExecuteErasure` das
+  Autor-Scoping des Message-UPDATE (`WHERE created_by = $1`) durch `WHERE created_by IS NOT
+  NULL` ersetzt -> `TestChatErasureHandler_ExecuteErasure_Integration` rot. (2) In
+  `CRMErasureHandler.ExecuteErasure` im zweiten UPDATE das `description = NULL` gestrichen ->
+  `TestCRMErasureHandler_ExecuteErasure_Integration` rot mit genau der zugehoerigen
+  Assertion ("personal description must be cleared for activities created by the subject").
+  Beide per `git checkout -- backend/internal/security/gdpr/erasure.go` zurueckgedreht,
+  `git status backend/` zeigt danach nur noch die neue Testdatei als untracked, erneuter Lauf
+  `go test -count=1 ./internal/security/gdpr/` gruen.
+- verify vorgaenger: sauber. Commit 48f7b1ee (Iteration 38) fuegt ausschliesslich
+  `backend/internal/security/gdpr/export_crm_chat_test.go` plus Journal/Backlog-Metadaten
+  hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard,
+  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: **Realer Bug gefunden, dokumentiert statt gefixt** (Coverage-Unit aendert kein
+  Verhalten) — neue Unit `fix-crm-erasure-double-count` am Ende von `BACKLOG.yml` fuer Lauf 9.
+  `CRMErasureHandler.ExecuteErasure` zaehlt jede Aktivitaet **doppelt**, die der Betroffene
+  sowohl erstellt als auch sich selbst zugewiesen hatte: das erste UPDATE setzt
+  `assigned_to = NULL`, das zweite trifft dieselbe Zeile daraufhin ueber seinen
+  `assigned_to IS NULL`-Zweig erneut. Die Daten sind danach korrekt (der Anonymisierungs-UPDATE
+  ist idempotent) — falsch ist nur die zurueckgegebene Zahl, und die landet ueber
+  `Service.ExecuteErasure` als "anonymize: N records" im `modules_affected` des
+  `GDPRErasureLog` und geht in den SHA-256-Confirmation-Hash ein, also in den
+  Art.-17-Loeschnachweis fuer den Betroffenen. Kein Datenleck, aber eine falsche Zahl in einem
+  Compliance-Beleg. Die beiden betroffenen Tests erwarten bewusst das **Ist**-Verhalten (5
+  statt 4 bzw. 3 statt 2), jeweils mit Kommentar auf diese Journal-Nummer — beim Fix umstellen,
+  nicht loeschen. Zweiter, kleinerer Befund ohne eigene Unit: beide Handler ignorieren ihren
+  `action`-Parameter komplett (`ErasureDelete` anonymisiert genauso wie `ErasureAnonymize`);
+  aktuell folgenlos, weil `PreviewErasure` fuer beide Module "anonymize" hartkodiert, aber es
+  gibt keinen Test und keine Assertion, die das absichert, falls jemand die Preview-Action
+  aendert. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
+  `-StartNotBefore`-Diff (wie in den Iterationen 6-38 vermerkt) — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 38) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 00:49).
