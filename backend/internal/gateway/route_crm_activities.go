@@ -517,6 +517,9 @@ func (c *CRMRoutes) HandleGetPipelineReport(w http.ResponseWriter, r *http.Reque
 		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
 		return
 	}
+	if !validateDateParam(w, "start_date", startDate) || !validateDateParam(w, "end_date", endDate) {
+		return
+	}
 
 	grpcReq := &crmv1.GetPipelineReportRequest{
 		StartDate: startDate,
@@ -549,6 +552,9 @@ func (c *CRMRoutes) HandleGetConversionReport(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
 		return
 	}
+	if !validateDateParam(w, "start_date", startDate) || !validateDateParam(w, "end_date", endDate) {
+		return
+	}
 
 	resp, err := client.GetConversionReport(r.Context(), &crmv1.GetConversionReportRequest{
 		StartDate: startDate,
@@ -575,6 +581,9 @@ func (c *CRMRoutes) HandleGetActivityReport(w http.ResponseWriter, r *http.Reque
 
 	if startDate == "" || endDate == "" {
 		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+	if !validateDateParam(w, "start_date", startDate) || !validateDateParam(w, "end_date", endDate) {
 		return
 	}
 

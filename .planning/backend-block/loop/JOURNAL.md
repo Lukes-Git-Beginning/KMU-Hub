@@ -67,3 +67,34 @@ Frühere Läufe liegen vollständig im Archiv:
   demselben Muster (nicht gesucht — Scope der Unit war ausdrücklich nur `HandleListTasks`). DB-Gate
   lief real (lokale `docker-postgres-1`, `DATABASE_URL` gesetzt, `kmuhub_app`); keine Migration in
   dieser Unit, daher kein RLS-Smoke nötig.
+
+## Iteration 2 — fix-crm-reports-invalid-date-not-rejected — done — 2026-08-10 13:41
+- commit: 755dadf4
+- gebaut: `validateDateParam` (helpers.go) prüft einen bereits extrahierten Query-Wert gegen
+  `dateParamFormats` (`YYYY-MM-DD`, `time.RFC3339` — dieselben Layouts wie `parseDate` in
+  `internal/server/crm_grpc.go`, dort im Kommentar so verlinkt) und schreibt bei Fehlschlag ein
+  400 mit dem erwarteten Format in der Meldung. `HandleGetPipelineReport`,
+  `HandleGetConversionReport` und `HandleGetActivityReport` rufen ihn nach der bestehenden
+  Required-Prüfung für beide Felder auf — ein unbrauchbares Datum erreicht die RPC jetzt nicht
+  mehr. Die drei alten `TestHandle*Report_MalformedDateNoPanic`-Tests sind auf
+  `TestHandle*Report_MalformedDateRejected` umgestellt (erwarten jetzt 400 + Format-Meldung statt
+  503), plus je ein neuer `ValidDatesReachClient`-Test, der belegt, dass gültige Daten
+  unverändert bis zum (in den Tests absichtlich nicht erreichbaren) gRPC-Client durchlaufen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped) | migration n.a. (keine
+  Migration) | rls-smoke n.a.
+- coverage: internal/gateway 34,9 % -> 35,0 %
+- mutations-probe: `validateDateParam` auf `return true` nach der Format-Schleife gedreht (jedes
+  Datum gilt als gültig) -> `TestHandleGetPipelineReport_MalformedDateRejected`,
+  `TestHandleGetConversionReport_MalformedDateRejected` und
+  `TestHandleGetActivityReport_MalformedDateRejected` alle drei rot (503 statt erwarteter 400,
+  weil der Request jetzt bis zum nicht erreichbaren gRPC-Client durchläuft), zurückgedreht,
+  `git diff --stat` zeigt nur die beabsichtigten 22 Zeilen in helpers.go.
+- verify vorgaenger: sauber — Commit 7e932ec1 geprüft: Handler geht über `grpcReq`/den
+  gRPC-Client (kein Bypass), keine neue Route, kein neuer `RequirePermission`-Key, kein `.proto`
+  geändert, keine neue Tabelle.
+- offen: `route_hr.go:298-299, 791-792, 969-970` (`HandleListLeaveRequests` und zwei weitere)
+  reichen `start_date`/`end_date` ebenfalls ungeprüft an den gRPC-Request durch — dort aber als
+  **optionale** Listenfilter, nicht als Pflichtfeld wie bei den CRM-Reports, also ein anderes
+  Risikoprofil (leerer Filter statt 400 auf Garbage). Nicht in dieser Unit gefixt (Scope war
+  ausdrücklich die drei Report-Handler); Kandidat für eine eigene Lauf-9-Unit, falls das
+  gewünscht ist. Kein PR/Push, lokal committet.

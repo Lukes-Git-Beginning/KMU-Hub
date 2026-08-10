@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -16,6 +17,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	"github.com/kmuhub/kmuhub/internal/validation"
 )
+
+// dateParamFormats are the layouts a date/time query parameter is accepted
+// in. Mirrors parseDate in internal/server/crm_grpc.go, the only consumer of
+// these values downstream — keep the two in sync.
+var dateParamFormats = []string{"2006-01-02", time.RFC3339}
 
 // respondGRPCError translates a gRPC error into an appropriate HTTP error response.
 // If the error is a gRPC Unavailable error (service down), it returns 503.
@@ -118,6 +124,22 @@ func validateUUIDParam(w http.ResponseWriter, r *http.Request, param string) (st
 		return "", false
 	}
 	return raw, true
+}
+
+// validateDateParam checks that value (already extracted from a query
+// parameter named param) parses as one of dateParamFormats. Returns true on
+// success. On failure it writes a 400 naming the accepted formats and
+// returns false — the caller must return immediately without reaching the
+// gRPC call, so a client sees the same error whether it forgot the field or
+// sent a syntactically unusable one.
+func validateDateParam(w http.ResponseWriter, param, value string) bool {
+	for _, layout := range dateParamFormats {
+		if _, err := time.Parse(layout, value); err == nil {
+			return true
+		}
+	}
+	response.Error(w, http.StatusBadRequest, param+" must be YYYY-MM-DD or RFC3339, got: "+value)
+	return false
 }
 
 // ownerFilterForScope resolves the data scope of one permission into a list
