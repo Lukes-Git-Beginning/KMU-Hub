@@ -922,3 +922,82 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
   (Iteration 14) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 17:22).
+
+## Iteration 16 — b-cov-server-biz-dunning-dashboard-exports — done — 2026-08-10 17:33
+- commit: <wird nach dem Commit ergänzt>
+- gebaut: neue Datei `backend/internal/server/biz_grpc_dunning_dashboard_exports_test.go`.
+  Deckt alle 11 im Backlog genannten Methoden ab: Mahnwesen (ListDunnings,
+  CreateDunning, EscalateDunning, GetDunningConfig, UpdateDunningConfig,
+  UpdateDunningStatus, SendDunningNotice, GenerateDunningPDF), Dashboard
+  (GetFinanceDashboard) und Exporte (ExportDATEV, GenerateGoBDExport).
+  EscalateDunning prüft explizit die Eskalations-Obergrenze (bestehender
+  Level-3-sent-Datensatz -> `EscalateDunning` liefert FailedPrecondition, kein
+  Level-4-Draft). Neue Stubs: `stubDunningRecordRepo` (volles
+  `dunning.Repository`, konfigurierbar für List/Create/UpdateStatus-Fehlerpfade,
+  bewusst getrennt vom minimalen `stubDunningRepo` aus
+  `biz_grpc_dunning_test.go`, der nur SendDunning bedient), `stubDunningConfigRepo`
+  (`dunning.ConfigRepository`), `stubDunningInvoiceReader` (`dunning.InvoiceReader`,
+  nur GetOverdue/GetByID real befüllt), `stubDashboardRepo` (`dashboard.Repository`,
+  ein Methode), `stubInvoicePager`/`stubCreditNotePager`
+  (`datev.InvoicePager`/`datev.CreditNotePager` für den echten
+  `datev.BuchungsstapelBuilder` mit `datev.NewExporter()`, kein Mock des
+  Exporters selbst). `stubCompanySettingsRepo` aus der Quote/Settings-Iteration
+  wiederverwendet (implementiert zusätzlich `datev.CompanySettingsReader`).
+  GenerateGoBDExport nur mit den drei Validierungspfaden (invalid tenant_id/
+  from_date/to_date) — Details siehe „offen".
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
+  reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route
+  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
+  gelaufen)
+- coverage: internal/server 47,7 % -> 55,8 % (`go tool cover -func=/tmp/cov.out
+  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
+  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
+  Iteration 15 war 55,0 %)
+- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
+  gegen `backend/internal/biz/dunning/service.go` restfrei (leer):
+  (1) `UpdateDunningConfig`: `input.Level1DaysAfterDue = &days` durch `_ = days`
+  ersetzt -> `TestUpdateDunningConfig/happy_path_updates_level_days_and_fees`
+  rot (erwartete 21, bekam 14 aus dem unveränderten Default-Config), zurückgedreht.
+  (2) `sendAndNotify` (`service.go`): `if record.Status != models.DunningStatusDraft`
+  auf `if false && record.Status != models.DunningStatusDraft` gedreht ->
+  `TestSendDunningNotice/not_draft` rot ("An error is expected but got nil"),
+  zurückgedreht.
+- verify vorgaenger: sauber — `e994ddf5` geprüft gegen alle acht
+  Fehlerklassen: reine neue Testdatei
+  (`biz_grpc_invoices_creditnotes_payments_test.go`), kein `.proto` angefasst,
+  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
+  angefasst. `origin/main` war bereits vollständig in `backend-loop` gemergt
+  (kein neuer Merge nötig).
+- offen: `GenerateGoBDExport` ist nur mit den drei Validierungspfaden
+  (invalid tenant_id/from_date/to_date) abgedeckt, kein Happy Path — der
+  Handler ruft direkt `s.invoiceService.ListForDATEVExport` und
+  `s.creditNoteService.ListForDATEVExport` auf konkreten
+  `*invoice.Service`/`*creditnote.Service`-Feldern (keine Interfaces), nicht
+  über die schlanken `datev.InvoicePager`/`CreditNotePager`-Interfaces wie
+  `ExportDATEV`. Ein voller Test bräuchte dieselbe schwere
+  Service-Konstruktion, die bereits bei `CreateInvoiceFromTimeEntries` und
+  `CreateQuoteFromDeal` als out-of-scope markiert wurde. Für Lauf 9: entweder
+  ein minimaler `stubInvoiceService`/`stubCreditNoteService`, der nur
+  `ListForDATEVExport` implementiert (falls die Felder testweise auf
+  Interfaces umgestellt würden — das wäre selbst ein Produktivcode-Umbau,
+  keine reine Test-Unit), oder Akzeptanz, dass GoBD-Export-Happy-Path nur via
+  Integrationstest mit echter DB abgedeckt wird.
+  `GetDunningConfig`/`UpdateDunningConfig` testen nur den expliziten
+  Fehlerfall über `configRepo.getErr`; den impliziten Auto-Create-Default-Pfad
+  (configRepo.Get liefert `nil, nil` -> Service legt Default an und ruft
+  Upsert) habe ich nicht separat getestet, weil `GetDunningConfig`/
+  `TestCreateDunning`/`TestEscalateDunning` diesen Pfad bereits indirekt über
+  `defaultDunningConfig` umgehen (Config immer vorbelegt) — echte
+  Auto-Create-Assertion wäre ein zusätzlicher, in dieser Iteration nicht
+  eingeplanter Testfall.
+  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
+  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-15 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
+  (Iteration 15) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 17:33).
