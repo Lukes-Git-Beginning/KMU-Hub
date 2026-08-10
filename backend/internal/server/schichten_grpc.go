@@ -271,7 +271,7 @@ func (s *SchichtenGRPCServer) CreateTemplate(ctx context.Context, req *schichten
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
 
-	tmpl, err := s.svc.CreateTemplate(ctx, schichten.CreateTemplateInput{
+	input := schichten.CreateTemplateInput{
 		TenantID:        tenantID,
 		Name:            req.GetName(),
 		Description:     req.GetDescription(),
@@ -279,7 +279,12 @@ func (s *SchichtenGRPCServer) CreateTemplate(ctx context.Context, req *schichten
 		StartHour:       int(req.GetStartHour()),
 		StartMinute:     int(req.GetStartMinute()),
 		DurationMinutes: int(req.GetDurationMinutes()),
-	})
+	}
+	if l := req.GetLocation(); l != "" {
+		input.Location = &l
+	}
+
+	tmpl, err := s.svc.CreateTemplate(ctx, input)
 	if err != nil {
 		return nil, mapSchichtenError(err)
 	}

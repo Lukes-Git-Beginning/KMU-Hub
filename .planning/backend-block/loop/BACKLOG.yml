@@ -444,7 +444,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `SchichtenGRPCServer.CreateTemplate` (internal/server/schichten_grpc.go:268) parses
       `tenant_id` and then builds `schichten.CreateTemplateInput` from `req.GetName()`,

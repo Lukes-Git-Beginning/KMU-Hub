@@ -828,12 +828,8 @@ func TestSchichten_TemplateCRUDAndList(t *testing.T) {
 		TenantId: tenantID, Name: "Montags", DayOfWeek: 1, StartHour: 8, StartMinute: 0, DurationMinutes: 480, Location: &loc,
 	})
 	require.NoError(t, err)
-	// documents current gap: CreateTemplate (schichten_grpc.go ~274) never reads
-	// req.GetLocation() and never sets it on schichten.CreateTemplateInput, so a
-	// Location sent on create is silently dropped even though the domain model,
-	// CreateTemplateInput and UpdateTemplate all support it. See the JOURNAL
-	// entry for this iteration for the resulting Lauf-8 backlog unit.
-	assert.Nil(t, createResp.Template.Location)
+	require.NotNil(t, createResp.Template.Location)
+	assert.Equal(t, loc, *createResp.Template.Location)
 
 	templateID := createResp.Template.Id
 	newName := "Montags neu"
