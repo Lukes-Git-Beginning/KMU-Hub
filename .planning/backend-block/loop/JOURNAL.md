@@ -4073,3 +4073,44 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `cmd/gateway/main.go`s eigener WOPI-Wiring — ausserhalb des Scopes dieser Fix-Unit nicht
   aufgeraeumt. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-einkauf-repository-extended`
   (deps: [], frei).
+
+## Iteration 65 — c-cov-einkauf-repository-extended — done — 2026-08-10 (Lauf 7)
+
+- gebaut: `internal/einkauf/postgres_repository_extended_test.go` (neu, 562-Zeilen-Datei zuvor
+  ohne jede Testabdeckung). Sieben Tests nach dem Muster aus `tenant_write_test.go`
+  (foreign-ctx-dann-own-ctx, echte Repository-Aufrufe statt `testutil.SeedRow`):
+  `TestCatalogItemCRUD_TenantScoped` (Create/Get/Update/Delete/List inkl. Filter
+  SupplierID/Category/Search/Available), `TestSupplierRatingCRUD_TenantScoped` (inkl.
+  `ErrDuplicateRating` fuer denselben Tenant/Supplier/Category und Beweis, dass derselbe
+  Kategorie-Wert bei einem ANDEREN Tenant nicht kollidiert),
+  `TestFrameworkContractCRUD_TenantScoped` (Create/Get/GetWithItems/Update/List/Delete),
+  `TestFrameworkContract_ContractNrExists_TenantScoped` (Kernstueck: derselbe `contract_nr`
+  existiert fuer tenantOther nicht, obwohl tenantOwn ihn schon hat; danach legt tenantOther
+  denselben `contract_nr` erfolgreich an — keine globale Uniqueness; `excludeID` gegen sich
+  selbst separat geprueft), `TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls`
+  (zwei `CreateContractCall` + je ein `UpdateContractUsedValue`-Aufruf dazwischen, beweist
+  `1200.5000` dann `1500.7500` — Summe, nicht Ueberschreiben), `TestFrameworkContractItems_CRUD_
+  TenantScoped` (Create/QueryRowContractItem/Update/List/Delete). Insert-Pfade zusaetzlich per
+  WITH-CHECK-Verletzung geprueft: `CreateCatalogItem` mit `item.TenantID = tenantOwn` aus einem
+  `ctxOther`-Kontext schlaegt fehl (RLS blockt den Insert selbst, nicht nur die WHERE-Klausel).
+  Alle 23 Methoden aus `postgres_repository_extended.go` sind damit mindestens einmal ueber
+  einen echten Repository-Aufruf abgedeckt (vorher: keine einzige).
+- gate: build ok (`go build ./internal/einkauf/... ./cmd/einkauf/...` — voller Repo-Build ist
+  auf dieser Maschine gerade OOM-instabil, unabhaengig von dieser Aenderung, siehe `cmd/wiki`-
+  Absturz im Linker; gezielter Package-Build stattdessen) | vet ok (`go vet ./internal/einkauf/
+  ...`) | lint ok (`golangci-lint run --config .golangci.yml ./internal/einkauf/...`, 0 issues) |
+  test ok (`go test -count=1 ./internal/einkauf/...`, `DATABASE_URL=postgres://kmuhub_app:
+  app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips) | migration n.a.
+  (keine Schemaaenderung, alle fuenf Zieltabellen tragen bereits `tenant_id NOT NULL` + erzwungene
+  RLS) | rls-smoke ok (im Testlauf selbst: Cross-Tenant-Reads/-Writes ueber alle fuenf Tabellen
+  belegt) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `UpdateContractUsedValue` (postgres_repository_extended.go) `COALESCE(
+  SUM(amount), 0)` zu `COALESCE(MAX(amount), 0)` mutiert (Akkumulation durch Maximum ersetzt).
+  Sofort rot: `TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls` — erwartet
+  `1500.7500` (Summe aus zwei Calls), bekommt `1200.5000` (Maximum des ersten Calls). Zeile
+  zurueckgedreht, `git diff --stat internal/einkauf/postgres_repository_extended.go` zeigt danach
+  keinen Diff mehr. `go test -count=1 ./internal/einkauf/...` danach erneut komplett gruen
+  (siehe gate oben).
+- offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
+  am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
+  Datei-Reihenfolge: `c-cov-document-folder-repo` (deps: [], frei).

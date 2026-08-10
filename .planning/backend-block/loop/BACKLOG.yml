@@ -2564,7 +2564,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/einkauf/postgres_repository_extended.go` - 562 Zeilen, 23 Methoden.
       CatalogItems, SupplierRatings und FrameworkContracts (inkl. ContractItems/
