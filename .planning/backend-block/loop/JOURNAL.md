@@ -2293,7 +2293,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 00:24).
 
 ## Iteration 36 — c-cov-gateway-auth-2fa-sessions — done — 2026-08-11 00:30
-- commit: (folgt)
+- commit: 5a27f354
 - gebaut: neue Datei `route_auth_2fa_sessions_test.go` mit 24 Testfunktionen (davon 2 mit
   Subtests) fuer alle zwoelf bislang komplett ungetesteten 2FA-/Session-Handler in
   `route_auth.go`: Setup2FA, Verify2FA, Validate2FALogin, Disable2FA,
