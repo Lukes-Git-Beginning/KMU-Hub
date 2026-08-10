@@ -1875,7 +1875,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 23:39).
 
 ## Iteration 30 — b-cov-server-inbox-message-state-transitions — done — 2026-08-10 23:45
-- commit: <siehe unten>
+- commit: a8fc540d
 - unit: b-cov-server-inbox-message-state-transitions (Block B, Coverage
   internal/server)
 - scope: die 12 im Backlog genannten ungetesteten inbox_grpc.go-Methoden:
