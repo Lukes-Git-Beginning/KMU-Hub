@@ -158,7 +158,6 @@ func TestHandleListAutomations_FilterCombinations(t *testing.T) {
 		{"scope_personal", "?scope=personal"},
 		{"scope_team", "?scope=team"},
 		{"scope_organization", "?scope=organization"},
-		{"scope_unknown_defaults_personal", "?scope=galactic"},
 		{"trigger_type_only", "?trigger_type=contact.created"},
 		{"is_active_true", "?is_active=true"},
 		{"is_active_false", "?is_active=false"},
@@ -176,6 +175,21 @@ func TestHandleListAutomations_FilterCombinations(t *testing.T) {
 			assertStatus(t, rec, http.StatusServiceUnavailable)
 		})
 	}
+}
+
+// TestHandleListAutomations_UnknownScopeRejected used to expect the request
+// to reach the RPC with the filter silently narrowed to SCOPE_PERSONAL — a
+// typo like "?scope=organisation" looked like a valid, plausible filter
+// instead of surfacing as an error. It now gets a 400 naming the accepted
+// values, matching the guard added to parseAutomationScope.
+func TestHandleListAutomations_UnknownScopeRejected(t *testing.T) {
+	routes := NewAutomationRoutes(registryWithService("automation"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/automations/?scope=galactic", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListAutomations(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "scope")
 }
 
 // ============================================================================
@@ -233,6 +247,25 @@ func TestHandleUpdateAutomation_EmptyBodyReachesRPC(t *testing.T) {
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleUpdateAutomation(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleUpdateAutomation_InvalidScope proves the same rejection applies
+// on the update path, which — unlike create — never went through
+// decodeAndValidate's oneof tag: it decodes the body with a raw
+// json.NewDecoder, so parseAutomationScope's ok=false was previously the
+// only thing standing between an unknown scope and a silent rescope to
+// personal on an existing automation.
+func TestHandleUpdateAutomation_InvalidScope(t *testing.T) {
+	routes := NewAutomationRoutes(registryWithService("automation"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/automations/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
+		"scope": "galactic",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateAutomation(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "scope")
 }
 
 func TestHandleUpdateAutomation_AllFieldsReachesRPC(t *testing.T) {
@@ -515,23 +548,27 @@ func TestHandleTriggerWebhook_EmptyBodyReachesRPC(t *testing.T) {
 
 func TestParseAutomationScope(t *testing.T) {
 	tests := []struct {
-		in   string
-		want automationv1.AutomationScope
+		in     string
+		want   automationv1.AutomationScope
+		wantOk bool
 	}{
-		{"personal", automationv1.AutomationScope_SCOPE_PERSONAL},
-		{"team", automationv1.AutomationScope_SCOPE_TEAM},
-		{"organization", automationv1.AutomationScope_SCOPE_ORGANIZATION},
-		// Unknown input silently falls back to SCOPE_PERSONAL rather than
-		// SCOPE_UNSPECIFIED — a typo in a filter query narrows to "personal"
-		// instead of surfacing as a 400 or being ignored. Documented as a
-		// finding in the journal for this unit, not fixed here.
-		{"unknown-garbage", automationv1.AutomationScope_SCOPE_PERSONAL},
-		{"", automationv1.AutomationScope_SCOPE_PERSONAL},
+		{"personal", automationv1.AutomationScope_SCOPE_PERSONAL, true},
+		{"team", automationv1.AutomationScope_SCOPE_TEAM, true},
+		{"organization", automationv1.AutomationScope_SCOPE_ORGANIZATION, true},
+		// Empty keeps the historical default so omitting the field never
+		// changes behavior. A non-empty unknown value is now rejected
+		// (ok=false) instead of silently narrowing to personal — a typo like
+		// "organisation" used to turn into a plausible-looking wrong answer
+		// instead of a visible error.
+		{"", automationv1.AutomationScope_SCOPE_PERSONAL, true},
+		{"unknown-garbage", automationv1.AutomationScope_SCOPE_PERSONAL, false},
+		{"organisation", automationv1.AutomationScope_SCOPE_PERSONAL, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			if got := parseAutomationScope(tt.in); got != tt.want {
-				t.Errorf("parseAutomationScope(%q) = %v, want %v", tt.in, got, tt.want)
+			got, ok := parseAutomationScope(tt.in)
+			if got != tt.want || ok != tt.wantOk {
+				t.Errorf("parseAutomationScope(%q) = (%v, %v), want (%v, %v)", tt.in, got, ok, tt.want, tt.wantOk)
 			}
 		})
 	}

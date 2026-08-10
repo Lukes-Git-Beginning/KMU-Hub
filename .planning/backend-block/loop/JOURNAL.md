@@ -189,3 +189,50 @@ Frühere Läufe liegen vollständig im Archiv:
   Unit), nicht dem Kommentar — der Kommentar ist vermutlich selbst veraltet. Nicht in dieser
   Unit korrigiert (Scope war ausdrücklich nur `CreateManifest`/`mapPluginError`); falls das
   gewünscht ist, wäre ein Repo-weiter 401-vs-400-Entscheid eine eigene Unit für Lauf 9.
+
+## Iteration 5 — fix-automation-scope-filter-silent-default — done — 2026-08-10 15:26
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `parseAutomationScope` (route_automation.go) liefert jetzt `(automationv1.AutomationScope,
+  bool)` statt eines nackten Enums. Leer bleibt beim historischen Default `SCOPE_PERSONAL` (kein
+  Verhaltenswechsel fuer Aufrufer, die das Feld nicht schicken), ein NICHT-leerer unbekannter Wert
+  liefert `ok=false` — Variante (a) aus der Unit-Notiz, vertragserhaltend. Alle drei Call-Sites
+  (`HandleCreateAutomation`, `HandleListAutomations`-Filter, `HandleUpdateAutomation`) pruefen `ok`
+  und schreiben bei `false` ein 400 mit den erlaubten Werten in der Meldung, statt den Request mit
+  einem still auf `personal` verengten Scope weiterzureichen. `HandleUpdateAutomation` war der
+  eigentlich scharfe Fund: es dekodiert den Body ueber ein rohes `json.NewDecoder` ohne
+  `decodeAndValidate`/`oneof`-Tag, ein Tippfehler haette dort einen bestehenden Automation-Scope
+  (z. B. `organization`) still auf `personal` zurueckgestuft. `HandleCreateAutomation` hat den
+  `oneof=personal team organization`-Tag bereits vorher gehabt (`TestHandleCreateAutomation_
+  InvalidScope` bestand schon vor dieser Unit) — der neue `ok`-Check dort ist Verteidigung an
+  derselben gemeinsamen Stelle, nicht der eigentliche Fund.
+  `parseExecutionStatus` direkt darunter geprueft (Notiz-Auflage): KEIN gleiches Muster. Ein
+  unbekannter Status faellt auf `EXECUTION_STATUS_UNSPECIFIED`, und der Server
+  (`automation_grpc.go:287`) behandelt `UNSPECIFIED` explizit als "kein Filter gesetzt" (skip),
+  nicht als einen spezifischen falschen Status wie bei Scope. Ein Tippfehler zeigt dort also alle
+  Ausfuehrungen statt einer plausibel falschen Teilmenge — anderes Risikoprofil, nicht angefasst.
+  Tests: `TestParseAutomationScope` um die `ok`-Dimension erweitert (inkl. `organisation`-Tippfehler
+  als eigener Fall), `TestHandleListAutomations_FilterCombinations` verliert den
+  `scope_unknown_defaults_personal`-Fall (Verhalten geaendert), dafuer neuer
+  `TestHandleListAutomations_UnknownScopeRejected` (400). Neuer
+  `TestHandleUpdateAutomation_InvalidScope` (400) fuer den zuvor ungeschuetzten Pfad.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
+  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  route n.a. (keine neue Route, nur bestehende Handler geaendert)
+- coverage: internal/gateway 34,9 % -> 35,0 %
+- mutations-probe: `return automationv1.AutomationScope_SCOPE_PERSONAL, false` im `default`-Zweig
+  auf `, true` gedreht -> `TestParseAutomationScope/unknown-garbage`,
+  `TestParseAutomationScope/organisation`, `TestHandleListAutomations_UnknownScopeRejected` und
+  `TestHandleUpdateAutomation_InvalidScope` alle vier rot (Scope wurde wieder still auf
+  `SCOPE_PERSONAL` mit `ok=true` verengt, Requests erreichten 503 statt 400), zurueckgedreht,
+  `git diff` zeigt exakt die urspruenglich beabsichtigten Zeilen.
+- verify vorgaenger: sauber — `1f476fda` geprueft: neuer `errors.Is`-Case in `mapPluginError`
+  (kein `==`-Vergleich), kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Key, keine Tabelle, keine Route, dokumentierender Test auf korrektes
+  Verhalten umgestellt statt geloescht.
+- offen: `route_automation.go` hat an mehreren Stellen (Zeile ~590, ~621) `interface{}` statt `any`
+  im bestehenden Code — golangci-lint meldet das als reinen Stil-Hinweis (kein Fehler, `0 issues`
+  im Lint-Gate), nicht in dieser Unit angefasst, da ausserhalb ihres Scopes. Laufkontext-Block
+  (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der
+  letzten Journal-Ueberschrift (Iteration 4) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt statt aus dem Block uebernommen; falls das vom Treiber-Mechanismus
+  abweicht, bitte pruefen.
