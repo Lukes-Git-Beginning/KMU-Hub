@@ -2162,7 +2162,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/dialer/postgres_repository.go` - 1.184 Zeilen, 39 Methoden. Contact-/Campaign-
       CRUD (Create, Update, Delete, GetByID, UpdateContactStatus, SetContactCallback,

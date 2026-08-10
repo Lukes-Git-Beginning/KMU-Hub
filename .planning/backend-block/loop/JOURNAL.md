@@ -3328,3 +3328,84 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Datei-Reihenfolge (per `grep -n "^  - id:\|status:"` verifiziert, nicht nur der vorigen
   Journal-Notiz vertraut — die nannte faelschlich `c-cov-biz-lexware`, das laut Backlog bereits
   `status: done` ist): `c-cov-dialer-repo` (Zeile ~2160, `status: todo`).
+
+## Iteration 55 — c-cov-dialer-repo — done — 2026-08-10 (Lauf 7)
+- commit: `8760b26e`
+- verify vorgaenger: sauber — `3572424f` (fix-meeting-savenotes-onconflict-no-matching-constraint)
+  geprueft: `git show --stat` zeigt nur die Migration 000309 (up/down), den DB-Test in
+  `internal/work/meeting/postgres_repository_db_test.go` sowie Backlog-/Journal-Dateien, deckt
+  sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. Kein `.proto` beruehrt, kein neuer
+  `RequirePermission`-Guard, keine neue Route, kein Wire-Shape-Wechsel — keine der acht
+  Fehlerklassen einschlaegig. `git merge origin/main` lief als "Already up to date".
+- gebaut: `internal/dialer/queue_and_list_test.go` (neu, 901 Zeilen) — 13 neue Testfunktionen
+  gegen das reale Schema, decken den laut Backlog-Scope groessten unabgedeckten Repository-Block
+  ab: `CampaignRepository.List`/`ListContacts` (Status-Filter, Pagination, Tenant-gescopte
+  Gesamtzahl, negative-OFFSET-Fehlerpfad), `AddContacts` (Duplikat-Skip via ON CONFLICT,
+  Leer-Input-Kurzschluss, Fehlerpfad bei falscher `tenantID` — Subquery liefert NULL, NOT-NULL-
+  Constraint schlaegt zu), `GetNextPendingContact` (Claim in `position ASC`, nicht
+  Einfuegereihenfolge, `ErrNoContactsAvailable` bei leerer Queue), `GetCampaignStats` (volle
+  Aggregation inkl. Outcome-Breakdown und Avg-Dauer) + `UpdateCampaignCounts`,
+  `CallRepository`s komplette Session-Lifecycle (`CreateSession`/`GetSessionByID`/`UpdateSession`
+  inkl. Not-Found-Pfade), die atomare `UpdateSessionWithEventAndContact`-Transaktion (Erfolgspfad
+  UND ein echter Rollback-Beweis: eine Session-Notiz-Aenderung + ein absichtlich auf eine
+  nicht-existente Session-ID gesetztes Event fuehren dazu, dass der Event-Insert an der
+  NOT-NULL-Spalte scheitert und die Notiz-Aenderung sichtbar zurueckrollt), `AppendEvent`/
+  `ListEventsBySession`, die Today-Counts (`GetTenantCallsTodayCount`,
+  `GetTenantAppointmentsTodayCount`, `GetAgentCallsTodayCount`, `GetAgentAvgDurationToday`),
+  `GetRecentCallsForTenant`/`ListCallsByContact` (inkl. Cross-Tenant-Leerpruefung),
+  `OutcomeRepository.List`/`EnsureDefaults` (Idempotenz-Beweis: zweiter Call dupliziert nicht)
+  und `AgentStatusRepository.GetActiveAgentIDsForTenant`/`GetUserDisplayNames` (stille
+  Missing-User-Omission, Leer-Input-Kurzschluss). `tenant_write_test.go` (Campaign-/
+  Contact-CRUD-Writes, Outcome-Writes, `GetAgentStats`) und `rls_test.go` (rohe RLS-Zeilenzahl)
+  nicht dupliziert.
+- fixture-lehre: erste Fassung nutzte statische E-Mail-Strings (`"dialer-list@test.local"` etc.)
+  fuer `seedDialerUser` — kollidierte beim zweiten Lauf mit `idx_users_email` (UNIQUE), weil
+  `t.Cleanup`-registrierte Aufraeumung durch ein `defer pool.Close()` VOR den `t.Cleanup`-Calls
+  unwirksam gemacht wurde (Go raeumt erst alle `defer`s der Testfunktion ab, danach erst die
+  `t.Cleanup`-Kette — bei einem plain `defer pool.Close()` ist der Pool also schon zu, wenn
+  `CleanupRow` laeuft). Fix: `defer pool.Close()` durchgaengig zu
+  `t.Cleanup(func() { pool.Close() })` gemacht (registriert vor allen Fixture-Helpern, laeuft
+  dadurch unter LIFO NACH ihnen) und `seedDialerUser` auf `emailPrefix + "-" + uuid.New()`
+  umgestellt. Zweiter Fund beim Nachpruefen der lokalen DB nach dem ersten gruenen vollen Lauf:
+  `TestCampaignRepository_AddContacts_SkipsDuplicatesAndRejectsForeignTenant` liess trotzdem zwei
+  `users`-Zeilen zurueck — die zweite `AddContacts`-Charge legt einen `dialer_campaign_contacts`-
+  Join ausserhalb von `SeedRow` an, dessen `t.Cleanup` nur fuer die ERSTE Charge registriert war;
+  beim Abraeumen versuchte `CleanupRow` den zugehoerigen Kontakt zu loeschen, waehrend der Join
+  noch existierte (`contact_id`-FK ohne CASCADE) — `CleanupRow` loggt Fehler nur (`t.Logf`), faellt
+  also nicht auf, ohne die Zeile danach explizit zu pruefen. Fix: ein einzelner
+  Sweep-Cleanup (`DELETE FROM dialer_campaign_contacts WHERE campaign_id = $1`) **als letzte**
+  Registrierung nach allen Kontakt-Fixtures, laeuft dadurch unter LIFO vor jeder Kontakt-
+  Aufraeumung. Beide Fixes committed als Teil dieser Unit, keine Nacharbeit noetig — beide
+  Bugs waren reine Test-Hygiene (lokale Docker-DB), keine Produktionslogik.
+- gate: build ok (`go build -p 2 ./internal/dialer/... ./cmd/dialer/...`) | vet ok (`go vet
+  ./internal/dialer/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/dialer/...`, 0 issues) | test ok (`go test -count=1 ./internal/dialer/...`, volles
+  Paket gruen — 0 uebersprungen, `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/
+  kmuhub?sslmode=disable` gesetzt, Rolle `kmuhub_app` verifiziert; dreifach mit `-count=3` gegen
+  die neue `AddContacts`-Testfunktion wiederholt, um die Cleanup-Fixes zu erhaerten) | migration
+  n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy, nur Lesepfade auf
+  bestehenden RLS-Tabellen) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: zwei unabhaengige Proben, beide zurueckgedreht (`git diff --stat
+  internal/dialer/postgres_repository.go` danach leer). (1) `CampaignRepository.List`s
+  `countQuery` von `WHERE tenant_id = $1%s` auf `WHERE true%s` geaendert (Tenant-Bedingung aus der
+  Gesamtzahl entfernt) — `TestCampaignRepository_List_FiltersPaginatesAndScopesTotal` sofort rot
+  ("expected 0 arguments, got 1"), exakt am Pfad, den `done_when` explizit verlangt ("Gesamtzahl
+  traegt dieselbe Tenant-Bedingung wie die Seite"). (2) In
+  `UpdateSessionWithEventAndContact` den ersten `tx.Exec` (Session-Update) auf `r.pool.Exec`
+  umgestellt — damit laeuft dieser Schritt AUSSERHALB der Transaktion. Anschliessender
+  `TestCallRepository_UpdateSessionWithEventAndContact_Atomic` sofort rot ("session update was
+  not rolled back") — der absichtlich herbeigefuehrte Fehlerpfad (Event mit nicht-existenter
+  `DialerCallSessionID`) rollt die Transaktion zurueck, aber die ausserhalb liegende
+  Session-Notiz-Aenderung bleibt sichtbar committed, genau der Bug-Typ, den der Docstring-
+  Kommentar des Codes ("A failure in any step rolls back all three") verspricht zu verhindern.
+  Beide Male zurueckgedreht, danach `go build`/`go vet`/`golangci-lint`/`go test -count=1
+  ./internal/dialer/...` erneut komplett gruen.
+- offen: nicht ALLE 39 Repository-Methoden sind jetzt einzeln getestet — bewusst nicht mitgenommen
+  (kein natuerlicher Fehlerpfad, reine Aggregat-SELECTs ohne Konstante/Constraint zum Brechen):
+  keine. Alle in `postgres_repository.go` definierten Methoden sind jetzt in mindestens einem
+  Test aufgerufen (verifiziert per `grep -c '\.<Methode>('` ueber alle `*_test.go` vor Abschluss
+  dieser Unit — 0 Treffer fuer keine der 26 zuvor unabgedeckten Methoden mehr). `done_when`
+  vollstaendig erfuellt (Listen-/Queue-Filterkombinationen, Pagination-Tenant-Bedingung,
+  Fehlerpfad pro getesteter Funktion, Mutations-Probe im Journal belegt, Paket gruen 0 Skips).
+  Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-work-calendar-repo` (Zeile ~2189,
+  `status: todo`).
