@@ -2485,7 +2485,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 00:42).
 
 ## Iteration 39 — c-cov-gdpr-erasure-handlers — done — 2026-08-11 00:49
-- commit: <PENDING>
+- commit: c1b0ec90
 - gebaut: neue Datei `backend/internal/security/gdpr/erasure_crm_chat_test.go` mit sieben Tests
   fuer die vier bis dahin voellig ungetesteten Erasure-Methoden.
   `TestCRMErasureHandler_PreviewErasure_Integration`: Contact + Company + Activity in einem
