@@ -3272,3 +3272,59 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Datei-Reihenfolge: `fix-meeting-savenotes-onconflict-no-matching-constraint` (`status: todo`,
   Zeile ~1033 — Produktentscheidung zu privaten Notizen vorab noetig, siehe Notes der Unit),
   danach `c-cov-dialer-repo`.
+
+## Iteration 54 — fix-meeting-savenotes-onconflict-no-matching-constraint — done — 2026-08-10 (Lauf 7)
+- commit: `7e39b615`
+- verify vorgaenger: sauber — `18906e8c` (fix-notification-wildcard-mapping-never-delivered)
+  geprueft: `git show --stat` zeigt nur `internal/notification/integration/forwarder.go` und
+  `forwarder_test.go` plus Backlog-/Journal-Dateien, deckt sich 1:1 mit dem Journal-Eintrag
+  der Vorgaenger-Iteration. `git merge origin/main` lief als "Already up to date" — kein
+  Divergenzrisiko, keine STOP-Datei.
+- produktentscheidung (Vorbedingung der Unit): die Unit verlangte vorab zu klaeren, ob private
+  Notizen ebenfalls auf eine pro Autor/Meeting begrenzt sein sollen. Gegen den bestehenden Code
+  entschieden statt geraten: `GetNotes` (postgres_repository.go:323) liest ohne
+  `is_private`-Filter mit `LIMIT 1` je `(meeting_id, author_id)`, und `SaveNotes`s eigenes
+  `ON CONFLICT (meeting_id, author_id) WHERE is_private = $5` parametrisiert die Eindeutigkeit
+  bereits ueber `is_private` — beides zusammen legt zwingend ein Modell von genau einer
+  oeffentlichen und einer privaten Notiz pro Autor/Meeting fest; "mehrere private Scratch-Notizen"
+  haette eine komplett andere SaveNotes-Persistenz (Insert statt Upsert) erfordert, die nirgends
+  im Code (Service/Handler) angelegt ist. Keine Eskalation noetig, keine Annahme jenseits des
+  bereits geschriebenen Codes.
+- gebaut/gefixt: `backend/migrations/000309_meeting_notes_unique_index.{up,down}.sql` — zwei
+  partielle Unique-Indizes auf `meeting_notes(meeting_id, author_id)`, einer `WHERE is_private =
+  false`, einer `WHERE is_private = true`, exakt passend zum ON-CONFLICT-Ziel in `SaveNotes`.
+  Migration lokal angewendet: `migrate -path backend/migrations -database
+  "postgres://kmuhub:kmuhub_dev@localhost:5432/kmuhub?sslmode=disable" up` (Docker-Hostname
+  `postgres` aus `MIGRATION_DATABASE_URL` funktioniert vom Host aus nicht, auf `localhost`
+  umgebogen), Ergebnis `309/u meeting_notes_unique_index`. `\d meeting_notes` gegen
+  `docker-postgres-1` bestaetigt beide Indizes final passend zur Migration.
+- test: `internal/work/meeting/postgres_repository_db_test.go` —
+  `TestNotes_SeriesIsolationAndSaveNotesConflictGap` umbenannt zu
+  `TestNotes_SeriesIsolationAndSaveNotesUpsert`, der bisherige "SaveNotes gap"-Block (erwartete
+  den Postgres-Fehler) ersetzt durch drei echte Assertions: (1) `SaveNotes` legt eine neue
+  oeffentliche Notiz an, (2) ein zweiter `SaveNotes`-Call fuer dieselbe
+  `(meeting_id, author_id, is_private)`-Kombination aktualisiert dieselbe Zeile (`DO UPDATE`,
+  `GetAllNotes` liefert danach weiterhin genau eine Zeile mit dem neuen Inhalt, nicht zwei), (3)
+  eine private Notiz fuer denselben Autor/dasselbe Meeting entsteht als eigene, separate Zeile und
+  taucht nicht in `GetAllNotes` (public-only) auf. Ungenutzten `strings`-Import entfernt (war nur
+  fuer die alte Fehlertext-Pruefung noetig). Datei-Kopfkommentar (Zeile 3-7) von "genuine ON
+  CONFLICT gap ... documents rather than fixes" auf den jetzt korrekten Zustand aktualisiert.
+- gate: build ok (`go build -p 2 ./internal/work/... ./cmd/work/...`) | vet ok (`go vet
+  ./internal/work/...`) | lint ok (`golangci-lint run --config .golangci.yml ./internal/work/...`,
+  0 issues) | test ok (`go test -count=1 ./internal/work/meeting/...`, volles Paket gruen — 0
+  uebersprungen, `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`
+  gesetzt, Rolle `kmuhub_app` verifiziert) | migration ok (siehe oben) | rls-smoke n.a. (keine neue
+  Tabelle/Policy, nur Indizes auf bestehender RLS-Tabelle) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: `meeting_notes_meeting_author_private_unique`-Index live per `psql` (Rolle
+  `kmuhub`) `DROP`ped, `go test -run TestNotes_ -v ./internal/work/meeting/...` sofort rot —
+  `SaveNotes (create private): ... no unique or exclusion constraint matching the ON CONFLICT
+  specification (SQLSTATE 42P10)`, exakt am gefixten Pfad (dem privaten Zweig). Index per
+  identischem `CREATE UNIQUE INDEX ... WHERE is_private = true` zurueckgedreht, Test danach wieder
+  gruen, `\d meeting_notes` final gegen die Migration abgeglichen (beide Indizes vorhanden,
+  identisch benannt).
+- offen: keins. `done_when` vollstaendig erfuellt (Migration passt exakt zum ON-CONFLICT-Ziel,
+  SaveNotes gelingt fuer neue Kombinationen, zweiter Call aktualisiert statt dupliziert, Test auf
+  neues Verhalten umgestellt statt geloescht, Paket gruen). Naechste Unit im Backlog laut
+  Datei-Reihenfolge (per `grep -n "^  - id:\|status:"` verifiziert, nicht nur der vorigen
+  Journal-Notiz vertraut — die nannte faelschlich `c-cov-biz-lexware`, das laut Backlog bereits
+  `status: done` ist): `c-cov-dialer-repo` (Zeile ~2160, `status: todo`).

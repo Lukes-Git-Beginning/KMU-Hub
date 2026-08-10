@@ -1035,7 +1035,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `PostgresRepository.SaveNotes` (internal/work/meeting/postgres_repository.go:308)
       builds `INSERT INTO meeting_notes (...) VALUES (...) ON CONFLICT (meeting_id,

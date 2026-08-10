@@ -1,8 +1,7 @@
 package meeting
 
 // Covers the repository surface tenant_write_test.go/tenant_isolation_phase2_test.go
-// leave open: attendee management, notes (including a genuine ON CONFLICT gap this
-// unit found and documents rather than fixes), recurring-series instance isolation,
+// leave open: attendee management, notes, recurring-series instance isolation,
 // action items, chat, co-hosts, and breakout rooms/assignments — against the real
 // schema, not mocks. See BACKLOG.yml unit c-cov-work-meeting-repo (Lauf 7).
 
@@ -10,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -301,24 +299,20 @@ func TestGetMeetingByRoomName_And_ListStaleMeetings(t *testing.T) {
 	}
 }
 
-// TestNotes_SeriesIsolationAndSaveNotesConflictGap is the "Serientermin-
-// Ausnahme" case: it builds a three-meeting recurring series (one anchor, two
-// dated instances sharing recurring_meeting_id), proves that mutating a single
+// TestNotes_SeriesIsolationAndSaveNotesUpsert is the "Serientermin-Ausnahme"
+// case: it builds a three-meeting recurring series (one anchor, two dated
+// instances sharing recurring_meeting_id), proves that mutating a single
 // instance via UpdateMeeting leaves its siblings untouched, and exercises
 // GetPreviousMeetingNotes' date-scoped lookup across the series.
 //
-// It also documents a genuine bug found while building this fixture:
-// SaveNotes' `ON CONFLICT (meeting_id, author_id) WHERE is_private = $5`
-// clause has no matching unique/exclusion constraint on meeting_notes (verified
-// against the live schema — only a plain btree index on meeting_id exists, no
-// unique index at all). Every SaveNotes call therefore fails with a Postgres
-// error, not just an edge case — the whole notes-writing feature is dead on a
-// real database. Read fixtures below are seeded directly via testutil.SeedRow
-// to work around this and still exercise GetNotes/GetAllNotes/
-// GetPreviousMeetingNotes. Not fixed here — see BACKLOG.yml unit
-// fix-meeting-savenotes-onconflict-no-matching-constraint (new unit, this
-// iteration).
-func TestNotes_SeriesIsolationAndSaveNotesConflictGap(t *testing.T) {
+// It also exercises SaveNotes' upsert behavior against the partial unique
+// indexes added in migration 000309 (meeting_notes_meeting_author_public_unique/
+// _private_unique, matching SaveNotes' `ON CONFLICT (meeting_id, author_id)
+// WHERE is_private = $5` target): a first call creates the row, a second call
+// for the same (meeting_id, author_id, is_private) updates it in place instead
+// of erroring or duplicating, and a public and a private note for the same
+// meeting/author coexist as two separate rows.
+func TestNotes_SeriesIsolationAndSaveNotesUpsert(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -343,21 +337,62 @@ func TestNotes_SeriesIsolationAndSaveNotesConflictGap(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "meetings", anchor.ID)
 
-	// SaveNotes gap: assert the exact Postgres failure, not just "an error".
-	err := repo.SaveNotes(ctxOwn, &MeetingNotes{
-		ID:        uuid.New(),
+	// SaveNotes upsert: first call creates the public note.
+	publicNoteID := uuid.New()
+	if err := repo.SaveNotes(ctxOwn, &MeetingNotes{
+		ID:        publicNoteID,
 		MeetingID: anchor.ID,
 		AuthorID:  organizerOwn,
-		Content:   "should never persist",
+		Content:   "first draft",
 		IsPrivate: false,
 		CreatedAt: base,
 		UpdatedAt: base,
-	})
-	if err == nil {
-		t.Fatalf("SaveNotes: expected the ON CONFLICT constraint-mismatch error, got nil — has the schema been fixed? Update this test and BACKLOG.yml if so")
+	}); err != nil {
+		t.Fatalf("SaveNotes (create public): %v", err)
 	}
-	if !strings.Contains(err.Error(), "no unique or exclusion constraint") {
-		t.Fatalf("SaveNotes: expected a 'no unique or exclusion constraint' failure, got: %v", err)
+	defer testutil.CleanupRow(t, pool, "meeting_notes", publicNoteID)
+
+	// Second call for the same (meeting_id, author_id, is_private) updates the
+	// existing row in place — new ID is ignored, content is overwritten, no
+	// duplicate row is created.
+	if err := repo.SaveNotes(ctxOwn, &MeetingNotes{
+		ID:        uuid.New(),
+		MeetingID: anchor.ID,
+		AuthorID:  organizerOwn,
+		Content:   "revised draft",
+		IsPrivate: false,
+		CreatedAt: base,
+		UpdatedAt: base.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("SaveNotes (update public): %v", err)
+	}
+	anchorNotes, err := repo.GetAllNotes(ctxOwn, anchor.ID)
+	if err != nil {
+		t.Fatalf("GetAllNotes (anchor after upsert): %v", err)
+	}
+	if len(anchorNotes) != 1 || anchorNotes[0].ID != publicNoteID || anchorNotes[0].Content != "revised draft" {
+		t.Fatalf("SaveNotes: expected exactly one updated public row, got %+v", anchorNotes)
+	}
+
+	// A private note for the same meeting/author is a distinct row, not a
+	// conflict with the public one (separate partial unique index).
+	privateAnchorNoteID := uuid.New()
+	if err := repo.SaveNotes(ctxOwn, &MeetingNotes{
+		ID:        privateAnchorNoteID,
+		MeetingID: anchor.ID,
+		AuthorID:  organizerOwn,
+		Content:   "private scratch",
+		IsPrivate: true,
+		CreatedAt: base,
+		UpdatedAt: base,
+	}); err != nil {
+		t.Fatalf("SaveNotes (create private): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "meeting_notes", privateAnchorNoteID)
+	if anchorNotes, err = repo.GetAllNotes(ctxOwn, anchor.ID); err != nil {
+		t.Fatalf("GetAllNotes (anchor after private save): %v", err)
+	} else if len(anchorNotes) != 1 || anchorNotes[0].ID != publicNoteID {
+		t.Fatalf("GetAllNotes: private note must not appear in the public listing, got %+v", anchorNotes)
 	}
 
 	inst1 := newTestMeeting(tenantOwn, organizerOwn, "Weekly Sync — Week 1", base.Add(7*24*time.Hour))
