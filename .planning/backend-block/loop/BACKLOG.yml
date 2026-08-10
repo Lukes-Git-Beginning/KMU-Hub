@@ -1420,7 +1420,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/produktion_grpc.go` und `produktion_grpc_ext.go` - zusammen 1.189
       Zeilen, 43 Methoden, keine Testdatei.

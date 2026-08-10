@@ -1959,3 +1959,105 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Naechste laut Reihenfolge: `b-cov-server-produktion`. `go test
   ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
   Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 29 — b-cov-server-produktion — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `9ff75f1d` (b-cov-server-einkauf) geprueft:
+  `git show --stat` zeigt nur `einkauf_grpc_test.go` (neu, 1777 Zeilen)
+  plus Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- gebaut: neue Datei `internal/server/produktion_grpc_test.go` fuer
+  `produktion_grpc.go` + `produktion_grpc_ext.go` (zusammen 1.189 Zeilen,
+  43 Methoden ueber `ProduktionGRPCServer`, vorher 0 % Coverage, keine
+  Testdatei). Eigener In-Memory-Stub `stubProduktionRepo`, der das
+  vollstaendige `produktion.Repository`-Interface (Orders, Bookings,
+  Plans, Capacity, BOMs, WorkSteps, Machines, QualityChecks) bedient.
+  `newTestProduktionServer()` liefert einen Nil-Service-Server fuer 60
+  UUID-/Pflichtfeld-Validierungsfaelle als Tabellentest (jede der 30
+  RPCs mindestens einmal), `newProduktionServerWithRepo(repo)` fuer
+  Happy-Path- und Fehlerpfad-Cluster je Domain.
+- kernstueck laut scope (booking conflict): `CreateMachineBooking`/
+  `UpdateMachineBooking` nutzen `CreateBookingWithLock`/
+  `FindConflictingBooking` mit halboffenem Intervall
+  (`existing.starts_at < new.ends_at AND existing.ends_at >
+  new.starts_at`, siehe `postgres_repository.go:299`). Der Stub bildet
+  exakt diese Arithmetik nach (`findConflict`), nicht nur ein
+  Force-Flag, damit die beiden done_when-Kriterien etwas Reales pruefen:
+  `TestProduktion_CreateMachineBooking_ConflictMapsToFailedPrecondition`
+  belegt, dass ein Ueberlapp `codes.FailedPrecondition` liefert statt
+  `codes.Internal`; `TestProduktion_CreateMachineBooking_AdjacentIsNotAConflict`
+  belegt, dass eine Buchung, die exakt beim Ende der vorherigen beginnt,
+  KEIN Konflikt ist (plus: andere `machine_id` ist nie ein Konflikt,
+  auch im exakt gleichen Slot). `TestProduktion_UpdateMachineBooking_
+  ConflictAndNotFound` deckt zusaetzlich Update-in-Konflikt und
+  Update-auf-den-eigenen-unveraenderten-Slot (kein Selbst-Konflikt) ab.
+- stub-aliasing-bug im eigenen Code gefunden und behoben, bevor er in den
+  Commit ging: `GetOrder`/`GetBooking`/`GetPlan`/`GetBOM`/`GetWorkStep`/
+  `GetMachine`/`GetQualityCheck` gaben zunaechst den Live-Pointer aus der
+  Map zurueck statt einer Kopie. Die `Update*`-Methoden im Service
+  mutieren das geladene Objekt in-place, bevor sie eine Konflikt-/
+  Validierungspruefung machen — bei einem fehlschlagenden Update blieb
+  die Mutation trotzdem im Stub haengen (Update von Buchung B auf einen
+  Konflikt-Slot veraenderte B im Stub dauerhaft, obwohl der Aufruf einen
+  Fehler zurueckgab). `TestProduktion_UpdateMachineBooking_
+  ConflictAndNotFound` deckte das beim ersten Lauf auf (dritter Schritt
+  schlug mit einem falschen Konflikt fehl). Fix: alle sieben `Get*`-
+  Methoden im Stub geben jetzt eine flache Kopie zurueck, wie es
+  `PostgresRepository` durch einen frischen `SELECT` ohnehin tut — kein
+  Produktionscode betroffen, reiner Test-Stub-Bug.
+- weitere abgedeckte Cluster: Order-Lifecycle (Create/Get/Update/Delete,
+  Duplikat-Bestellnummer -> `AlreadyExists`, nicht existente `bom_id` ->
+  `NotFound`, StartOrder/CompleteOrder/CancelOrder-Statusuebergaenge inkl.
+  aller ungueltigen Uebergaenge -> `FailedPrecondition`, DeleteOrder auf
+  nicht-planned -> `FailedPrecondition`), ListOrders-Pagination+Total,
+  Plans (Create/Update/Get, GetPlan-NotFound), GetCapacityOverview
+  (leere `machine_id` -> `InvalidArgument` auf Service-Ebene), BOMs
+  (Duplikat-SKU -> `AlreadyExists` ueber `ErrBOMSKUTaken`, Items-
+  Sort-Order wird vom Service aus dem Insertions-Index neu vergeben, nicht
+  durchgereicht — bewusst als Verhalten dokumentiert, kein Bug), WorkSteps,
+  Machines, QualityChecks (je Create/Get/Update/List/Delete plus leeres
+  Pflichtfeld -> `InvalidArgument`), GetMaterialAvailability (Order ohne
+  BOM -> `ErrOrderHasNoBOM` -> `FailedPrecondition` nicht Internal; mit
+  BOM und ohne konfiguriertes `InventarLookup` bleibt Verfuegbarkeit
+  bewusst `nil` statt `0` — Graceful-Degradation-Pfad aus dem
+  Doc-Kommentar direkt verifiziert). `mapProduktionError`/
+  `mapProduktionExtError` je als vollstaendiger Tabellentest ueber alle
+  Sentinels plus Default-Internal-Zweig; `mapProduktionExtError` faellt
+  fuer den Basissatz korrekt an `mapProduktionError` durch (eigener
+  Testfall). `toProto*`-Konvertierungen: alle sieben nil-Empfaenger ->
+  nil, `orderToProto` mit und ohne optionale Zeiger-Felder
+  (ActualStart/ActualEnd/CreatedBy/BomId),
+  `materialAvailabilityToProto` mit aufgeloester und unaufgeloester
+  Zeile (Available/Shortfall nil vs. gesetzt).
+- go tool cover -func: keine der 30 RPC-Handler-Methoden bleibt unter
+  60,9 % (ListOrders), die meisten zwischen 78–100 %; alle vorher 0 %.
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/produktion/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/produktion/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/...`, 0 issues) | test ok (`go test
+  -count=3 ./internal/server/...`, dreimal wiederholt, durchgehend
+  gruen) | migration n.a. (reine Test-Coverage, keine Tabelle angefasst)
+  | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff durch die neuen Tests)
+- mutations-probe: in `internal/server/produktion_grpc.go`,
+  `mapProduktionError` den `ErrBookingConflict`-Fall testweise auf
+  `codes.Internal` statt `codes.FailedPrecondition` entschaerft → vier
+  Tests wurden rot (`TestMapProduktionError_Table/booking_conflict`,
+  `TestMapProduktionExtError_Table/falls_through_booking_conflict`,
+  `TestProduktion_CreateMachineBooking_ConflictMapsToFailedPrecondition`,
+  `TestProduktion_UpdateMachineBooking_ConflictAndNotFound`).
+  Zurueckgedreht, `git diff --stat internal/server/produktion_grpc.go`
+  zeigt keine Restaenderung (leerer Diff bestaetigt), `go test -count=3
+  ./internal/server/...` danach wieder vollstaendig gruen.
+- db-tests: 0 — `produktion.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- kein neuer Fund: Proto-RPC-Liste gegen die Implementierung geprueft
+  (`grep "^  rpc " produktion.proto`), alle 30 deklarierten RPCs sind
+  implementiert und ueber `mapProduktionError`/`mapProduktionExtError`
+  vollstaendig abgedeckt — anders als bei den letzten Iterationen
+  (schichten, vermietung, automation) kein Wire-/Error-Mapping-/
+  Nil-Dereferenz-Fund, der eine eigene Fix-Unit rechtfertigt.
+- offen: elfte von zwoelf Units in Block B-Server erledigt (11/12).
+  Naechste laut Reihenfolge: `b-cov-server-vertraege` (letzte Unit in
+  Block B-Server, danach Block C2). `go test ./internal/gateway/` nicht
+  gelaufen - diese Iteration hat keine Route-/Gateway-Datei angefasst,
+  laut Schritt 5 daher nicht Pflicht.
