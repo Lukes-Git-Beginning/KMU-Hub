@@ -1617,7 +1617,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Testet die restlichen Fahrzeug- und Service-CRUD-Handler in route_fuhrpark.go:

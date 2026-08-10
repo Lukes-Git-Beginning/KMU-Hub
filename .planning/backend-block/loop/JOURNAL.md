@@ -2900,3 +2900,62 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 43) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:39).
+
+## Iteration 45 — d-cov-gateway-fuhrpark-vehicles-services — done — 2026-08-11 01:42
+- commit: -
+- gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_crud_test.go` (37 Tests)
+  fuer die neun in der Unit genannten Fahrzeug- und Service-Handler in route_fuhrpark.go:
+  HandleListVehicles (ServiceUnavailable, MissingTenant, ReachesRPC mit Query-Filtern),
+  HandleGetVehicle/HandleUpdateVehicle/HandleDeleteVehicle (je ServiceUnavailable,
+  MissingTenant, InvalidIDUUID, ReachesRPC; UpdateVehicle zusaetzlich InvalidFuelType als
+  echter Validierungsfehlerpfad), HandleGetVehicleHistory (ServiceUnavailable,
+  MissingTenant, InvalidIDUUID, ReachesRPC mit Pagination), HandleListVehicleServices
+  (MissingTenant, InvalidIDUUID, ServiceUnavailable, ReachesRPC), HandleUpdateService
+  (ServiceUnavailable, MissingTenant, InvalidServiceIDUUID, InvalidJSON,
+  ReachesRPCWithArbitraryStatus), HandleCompleteService (ServiceUnavailable,
+  MissingTenant, InvalidServiceIDUUID, InvalidJSON, ReachesRPC) und HandleCheckTuevDue
+  (ServiceUnavailable, MissingTenant, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1402 PASS, 0 SKIP, 0 FAIL) |
+  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit, unveraendert
+  gruen (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 37,3 % (go test -coverprofile + go tool cover -func,
+  einziger Lauf noetig — Ausgangswert deckt sich mit coverage_start der Unit)
+- mutations-probe: drei Proben, alle gefangen. (1) In `updateVehicleRequest.FuelType` das
+  `validate:"omitempty,oneof=..."`-Tag entfernt -> TestHandleUpdateVehicle_InvalidFuelType
+  rot (503 statt 400, kein validation_failed mehr). (2) In HandleGetVehicle
+  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
+  TestHandleGetVehicle_InvalidIDUUID rot (503 statt 400, "connection error" statt
+  "invalid id"). (3) In HandleUpdateService den `getTenantID`-Fehlerpfad stillgelegt
+  (`tenantID, _ := middleware.GetTenantID(r.Context())`, kein 401-Return mehr) ->
+  TestHandleUpdateService_MissingTenant rot (503 statt 401). Alle drei per Python-Skript
+  gesetzt und zurueckgedreht (Backup-Datei vor jeder Probe), `git diff --stat
+  backend/internal/gateway/route_fuhrpark.go` danach leer, build/vet/lint/test erneut
+  komplett gruen (1402 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit 13bc5141 (Iteration 44) sowie der Metadaten-Commit
+  23826442 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker:
+  `updateServiceRequest.Status` und `completeServiceRequest` (route_fuhrpark.go:220-235)
+  tragen keine `validate`-Tags — anders als `createVehicleRequest`/`updateVehicleRequest`
+  wird ein beliebiger Status-String am Gateway nicht abgelehnt; ein ungueltiger
+  Statusuebergang kann nur die fuhrpark-Service-Schicht selbst zurueckweisen. Ohne
+  bufconn-Stub fuer den fuhrpark-Service in diesem Paket war das nicht als lokaler
+  400-Fehlerpfad zu testen (dieselbe Grenze wie in jeder bisherigen
+  Gateway-Coverage-Unit dieses Laufs), deshalb stattdessen
+  TestHandleUpdateService_ReachesRPCWithArbitraryStatus: belegt, dass der Request bis zur
+  RPC-Schicht durchlaeuft statt lokal zu scheitern. Aus demselben Grund testet
+  HandleCheckTuevDue nur ReachesRPC statt der im Backlog gewuenschten
+  Wire-Shape-Assertion — der Handler reicht die RPC-Antwort unveraendert an
+  `response.Proto` durch (route_fuhrpark.go:968-975), es gibt keine gateway-eigene
+  Marshaling-Logik wie `hrMarshalSlice` und keinen Fake-Server, an dem eine leere
+  Faelligkeitsliste beobachtbar waere. `.planning/backend-block/loop/run-loop.ps1` traegt
+  weiterhin denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-44 vermerkt —
+  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 44) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt
+  (2026-08-11 01:42).
