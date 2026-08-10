@@ -1184,7 +1184,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 17:59).
 
 ## Iteration 19 — b-cov-server-calendar-resources-bookingpages-public — done — 2026-08-10 18:13
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 9dff16aa
 - gebaut: neue Testdatei calendar_grpc_resources_bookingpages_test.go mit
   stubResourceRepo (implementiert resource.Repository vollstaendig),
   stubHolidayRepo (implementiert holiday.Repository) und stubBookingRepo
