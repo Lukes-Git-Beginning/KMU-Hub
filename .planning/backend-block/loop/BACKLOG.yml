@@ -2681,7 +2681,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/dialer/redis_agent_store.go` - 255 Zeilen. `redis_agent_store_test.go`
       (133 Z.) testet bisher ausschliesslich die reine Zustandsuebergangstabelle

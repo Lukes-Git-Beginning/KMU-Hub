@@ -4248,3 +4248,51 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration ausser der oben dokumentierten Klarstellung
   (kein Bug). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-dialer-redis-store`
   (deps: [], frei).
+
+## Iteration 69 — c-cov-dialer-redis-store — done — 2026-08-10 (Lauf 7)
+
+- commit: (folgt im chore-Commit)
+- gebaut: `internal/dialer/redis_agent_store_io_test.go` (neu, miniredis-backed). Acht
+  Testfunktionen fuer `AgentStatusStore`s Redis-I/O (`SetStatus`, `GetStatus`,
+  `GetCampaignAgents`, `GetAvailableAgents`, `RemoveFromCampaign`), bisher nur ueber die reine
+  `ValidateTransition`-Tabelle abgedeckt:
+  `TestSetStatus_InvalidTransition_RejectsWithoutWriting` (offline -> on_call ist laut Tabelle
+  unzulaessig, GetStatus danach liefert weiterhin nil — nichts wurde geschrieben, bevor die
+  Transition geprueft wurde), `TestSetStatus_ValidTransition_WritesWithTTL` (offline ->
+  available schreibt den Status-Key mit TTL == agentStatusTTL, per miniredis.TTL belegt),
+  `TestSetStatus_CampaignSwitch_MovesAgentBetweenSets` (Kampagnenwechsel bei einer gueltigen
+  Transition entfernt den Agenten aus dem alten SADD-Set und fuegt ihn dem neuen hinzu, geprueft
+  ueber SMEMBERS per echtem redis.Client statt miniredis-Go-API — dazu unten mehr),
+  `TestGetAvailableAgents_IgnoresExpiredTTL` (zwei Agenten gesetzt, per miniredis.FastForward
+  ueber die 8h-TTL hinaus vorgespult, nur einer erneut aktualisiert — GetCampaignAgents und
+  GetAvailableAgents liefern danach nur noch den frischen Agenten, obwohl das Campaign-Set
+  beide Mitgliedschaften weiterhin fuehrt, da SADD keine TTL traegt),
+  `TestGetAvailableAgents_ExcludesNonAvailableStatus` (on_call-Agent taucht nicht in
+  GetAvailableAgents auf), `TestRemoveFromCampaign_RemovesAgentFromSet` (Entfernen aus dem Set
+  belegt, zweiter Aufruf auf bereits entfernten Agenten liefert keinen Fehler),
+  `TestGetCampaignAgents_EmptyCampaign` und `TestGetStatus_UnknownAgent_ReturnsNilWithoutError`
+  (beide Leerfaelle liefern nil/leer ohne Fehler).
+- stolperstein: miniredis' direkte Go-API (`(*miniredis.Miniredis).SMembers`) liefert bei einem
+  inzwischen leeren und damit geloeschten Set einen Fehler ("ERR no such key") statt eines
+  leeren Slices — anders als das echte Redis-SMEMBERS-Kommando, das fuer einen fehlenden Key
+  eine leere Liste zurueckgibt. Betraf `TestSetStatus_CampaignSwitch_MovesAgentBetweenSets` (nach
+  dem SREM auf das letzte Mitglied ist campaignA's Set weg) und
+  `TestRemoveFromCampaign_RemovesAgentFromSet` (gleicher Fall). Behoben durch einen
+  `campaignMembers`-Helfer, der ueber den echten `*redis.Client` (SMEMBERS-Protokollkommando)
+  liest statt ueber `mr.SMembers` — dort verhaelt sich miniredis redis-kompatibel.
+  `setupAgentStatusStore` gibt seither zusaetzlich den `*redis.Client` zurueck.
+- gate: build ok (`go build ./internal/dialer/...`) | vet ok (`go vet ./internal/dialer/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/dialer/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/dialer/...`, miniredis, kein DATABASE_URL noetig, 0 Skips,
+  ganzes Paket gruen inkl. der acht neuen Testfunktionen) | migration n.a. (kein Schema-Zugriff,
+  reines Redis) | rls-smoke n.a. (kein Postgres-Pfad in dieser Unit) | route n.a. | openapi n.a.
+  | protoc n.a.
+- mutations-probe: in `SetStatus` (redis_agent_store.go:96) `if !ValidateTransition(...)` zu
+  `if ValidateTransition(...)` invertiert (Transitions-Guard komplett umgedreht). Sofort rot:
+  `TestSetStatus_InvalidTransition_RejectsWithoutWriting` (erwartete Ablehnung der
+  offline->on_call-Transition, bekam Erfolg). Zeile zurueckgedreht,
+  `git diff --stat internal/dialer/redis_agent_store.go` zeigt danach keinen Diff mehr.
+  `go test -count=1 ./internal/dialer/...` danach erneut komplett gruen (siehe gate oben).
+- offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
+  am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
+  Datei-Reihenfolge: `c-cov-caldav-push` (deps: [], frei).
