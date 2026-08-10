@@ -3544,3 +3544,82 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   42P18 mehr, alle drei Browsable-Faelle mit einem Test belegt, bestehender Testname
   aktualisiert statt geloescht, Mutations-Probe im Journal belegt, Paket gruen 0 Skips).
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-plugin-repository-gaps`.
+
+## Iteration 58 — c-cov-plugin-repository-gaps — done — 2026-08-10 (Lauf 7)
+- commit: (folgt)
+- verify vorgaenger: sauber — `c398d17c` (fix-work-calendar-listbrowsable-broken-query,
+  Iteration 57) geprueft: `git show --stat` zeigt nur `postgres_repository.go` (2-Zeilen-Fix),
+  `repository_gaps_test.go` (Test aktualisiert statt geloescht) plus BACKLOG.yml/JOURNAL.md.
+  Kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Route. Branch-Merge mit
+  origin/main lief als "Already up to date", kein Konflikt.
+- gebaut: vier neue Testdateien fuer die vier bisher ungetesteten Repositories in
+  `internal/plugin/repository/` (432 Zeilen Produktionscode ohne Testdatei, siehe
+  Backlog-Scope):
+  - `installation_test.go`: `TestInstallation_Lifecycle` (Create, UNIQUE(tenant_id,
+    manifest_id)-Verstoss abgelehnt, GetByID/GetByTenantAndManifest je mit Treffer- und
+    Nicht-Treffer-Fall, List mit Status-Filter vor/nach Aktivierung, UpdateStatus inkl.
+    ErrorMessage-Set-und-Clear, UpdateSettings) und `TestInstallation_ListActiveByHook`
+    (zwei Installationen mit identischer Hook-Registrierung, nur die aktive erscheint —
+    beweist Filterung auf Hook-Match UND Status gemeinsam, nicht nur Zufall durch die
+    einzige vorhandene Installation).
+  - `kv_store_test.go`: `TestKVStore_IsolatedByInstallation` (zwei Installationen mit
+    identischem Key "config:theme" halten unabhaengige Werte — Isolation nach
+    installation_id, nicht nur nach Tenant, wie im Backlog-Scope gefordert — plus
+    Missing-Key, Upsert-Overwrite, Praefix-Filter, Delete) und
+    `TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap`.
+  - `execution_log_test.go`: `TestExecutionLog_ListWithInstallationFilterAndLimit` (Create
+    fuer zwei Installationen, List ohne Filter, List mit installation_id-Filter, List mit
+    Limit=1 gegen ORDER BY created_at DESC, plus derselbe Silent-No-Op-Fund wie bei KVStore
+    fuer Create gegen eine unbekannte installation_id).
+  - `industry_template_test.go`: `TestIndustryTemplate_CreateGetListBySlug` (Create,
+    ON-CONFLICT(slug)-Upsert, GetByID/GetBySlug je mit Treffer- und
+    Nicht-Treffer-Fall, List mit Industry-Filter — eigener Industry-Wert gewaehlt, der in
+    keiner der von Migration 000058 geseedeten Zeilen vorkommt, damit die
+    Count-Assertion exakt bleibt).
+  Alle vier folgen dem in `manifest_rls_test.go` etablierten Muster (Paket
+  `repository_test`, `testutil.PoolFromEnv`/`SeedRow`/`EnsureTenant`/`WithTenantCtx`,
+  eigene Tenants/Slugs statt geteilter Fixtures).
+- fund (dokumentiert, nicht gefixt): `KVStoreRepository.Set` UND `ExecutionLogRepository.
+  Create` leiten `tenant_id` per `INSERT ... SELECT ... FROM plugin_installations pi WHERE
+  pi.id = $2` aus der Installation ab. Findet die SELECT-Subquery keine Zeile (erfundene
+  ID, geloeschte Installation, oder RLS blockt eine fremde Tenant-Installation), fuegt die
+  INSERT...SELECT-Form 0 Zeilen ein und `Exec` meldet KEINEN Fehler — `Service.KVSet`/der
+  gRPC-Handler `KVSet` reichen das unveraendert durch, der Aufrufer bekommt
+  `Success: true`, obwohl nichts gespeichert wurde. Kein Sicherheitsproblem (RLS verhindert
+  Schreiben/Lesen fremder Daten), aber ein irrefuehrender Erfolgsstatus. Neue Unit
+  `fix-plugin-kvset-silent-noop-unknown-installation` fuer Lauf 8 angelegt (vor
+  `c-cov-work-event-repo` eingefuegt, `status: todo`), mit Fix-Vorschlag
+  (CommandTag.RowsAffected() pruefen, eigenen Sentinel zurueckgeben).
+- gate: build ok (`go build -p 2 ./internal/plugin/...`) | vet ok (`go vet
+  ./internal/plugin/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/plugin/repository/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/plugin/repository/...`, volles Paket gruen inkl. bestehender RLS-/
+  Tenant-Isolation-Tests — 0 uebersprungen, `DATABASE_URL=
+  postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`
+  verifiziert) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue
+  Tabelle/Policy) | route n.a. | openapi n.a. | protoc n.a.
+- notiz: `UpdateSettings`-Assertion mit rohem String-Vergleich
+  (`string(afterSettings.Settings) != string(newSettings)`) schlug zunaechst fehl — Postgres
+  normalisiert JSONB beim Round-Trip auf `{"theme": "dark"}` (Leerzeichen nach dem Doppelpunkt),
+  waehrend der eingesetzte Literal-String `{"theme":"dark"}` keins hatte. Kein Bug, reine
+  Testannahme-Korrektur: auf `json.Unmarshal` + Map-Zugriff umgestellt statt Byte-fuer-Byte-
+  Vergleich.
+- mutations-probe: drei unabhaengige Proben, alle zurueckgedreht (Diff-Stat der drei
+  betroffenen Dateien danach leer). (1) `InstallationRepository.List`s Status-Filter-
+  Bedingung `if status != ""` auf `if false && status != ""` gesetzt —
+  `TestInstallation_Lifecycle` sofort rot ("list status=active before activation: got 1"),
+  exakt am Pfad, den `done_when` fordert. (2) `KVStoreRepository.List`s Praefix-Filter
+  ebenso auf `if false && keyPrefix != ""` gesetzt — `TestKVStore_IsolatedByInstallation`
+  sofort rot ("list with prefix filter: got 2"). (3) `ExecutionLogRepository.List`s
+  Installation-Filter auf `if false && installationID != nil` gesetzt —
+  `TestExecutionLog_ListWithInstallationFilterAndLimit` sofort rot ("list filtered by
+  installation: got [... 2 Eintraege ...]"). Alle drei Male zurueckgedreht, danach
+  `go build`/`go vet`/`golangci-lint`/`go test -count=1 ./internal/plugin/repository/...`
+  erneut komplett gruen.
+- offen: `fix-plugin-kvset-silent-noop-unknown-installation` (neu, siehe oben) fuer Lauf 8.
+  `done_when` dieser Unit vollstaendig erfuellt (Installation-Lifecycle inkl. UpdateStatus/
+  UpdateSettings, KVStore-Isolation nach installation_id belegt, ExecutionLog.List mit
+  Limit und Installation-Filter, drei Mutations-Proben im Journal, Paket gruen 0 Skips).
+  Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `fix-plugin-kvset-silent-noop-unknown-installation` (neu, `status: todo`) — danach
+  `c-cov-work-event-repo`.

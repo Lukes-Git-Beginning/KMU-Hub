@@ -2274,7 +2274,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/plugin/repository/installation.go` (154 Z.), `industry_template.go` (102 Z.),
       `kv_store.go` (90 Z.) und `execution_log.go` (86 Z.), zusammen 432 Zeilen, keine
@@ -2301,6 +2301,60 @@ units:
       - ExecutionLog.List mit Limit und optionalem Installation-Filter
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/plugin/repository/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-plugin-kvset-silent-noop-unknown-installation
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `KVStoreRepository.Set` (internal/plugin/repository/kv_store.go:42) writes
+      `INSERT INTO plugin_kv_store (...) SELECT $1, $2, pi.tenant_id, ... FROM
+      plugin_installations pi WHERE pi.id = $2` to derive `tenant_id` from the owning
+      installation without changing the method's signature. When that SELECT matches zero
+      rows - installation_id does not exist, was uninstalled and its row is gone, or (since
+      `plugin_installations` itself carries RLS) simply belongs to a different tenant than
+      the caller's context - the INSERT ... SELECT inserts zero rows and `Exec` reports no
+      error. `Service.KVSet` (service.go:641) and the gRPC handler
+      `PluginGRPCServer.KVSet` (server/plugin_grpc.go:570) both pass the error straight
+      through unchanged; neither checks `pgconn.CommandTag.RowsAffected()`. The caller gets
+      `KVSetResponse{Success: true}` even though nothing was stored. `ExecutionLogRepository.
+      Create` (execution_log.go:25) uses the identical INSERT...SELECT-from-installations
+      pattern and has the same gap.
+    sources:
+      - backend/internal/plugin/repository/kv_store.go
+      - backend/internal/plugin/repository/execution_log.go
+      - backend/internal/plugin/service.go
+      - backend/internal/server/plugin_grpc.go
+    notes: >
+      Gefunden waehrend c-cov-plugin-repository-gaps (Lauf 7) -
+      TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap in
+      internal/plugin/repository/kv_store_test.go beweist das Verhalten konkret (Set gegen
+      eine erfundene installation_id liefert nil-Fehler, ein nachfolgendes Get findet
+      nichts). Kein Sicherheitsproblem - RLS auf plugin_installations verhindert, dass ein
+      Tenant fremde Daten schreibt oder liest, der Effekt ist rein ein irrefuehrendes
+      Success:true statt eines clientseitig verwertbaren Fehlers. Nicht inline gefixt - echte
+      Verhaltensaenderung (neuer Fehlerpfad), keine Coverage-Aenderung, nach Backlog-Regel
+      eine eigene Unit. Fix-Vorschlag: `Set`/`Create` auf `pool.Exec` -> `CommandTag` pruefen
+      umstellen (`tag.RowsAffected() == 0` -> eigenen Sentinel wie
+      `ErrInstallationNotFound` zurueckgeben), Service- und gRPC-Ebene auf den neuen
+      Sentinel mappen (NotFound statt stillem Erfolg). `KVDelete`/`Delete` hat denselben
+      Shape (DELETE ohne WHERE-Existenzpruefung liefert ebenfalls keinen Fehler bei 0
+      betroffenen Zeilen) - beim Fix mitpruefen, ob das dieselbe Behandlung verdient oder ob
+      "loeschen, was nicht da ist" als No-op gewuenscht bleibt (anders als Set/Create, wo der
+      Aufrufer explizit erwartet, dass etwas geschrieben wurde).
+    done_when:
+      - KVStoreRepository.Set und ExecutionLogRepository.Create liefern einen erkennbaren
+        Fehler (nicht nil), wenn die installation_id nicht aufloest, statt still 0 Zeilen zu
+        schreiben
+      - Service- und gRPC-Ebene (KVSet-Handler) mappen diesen Fall auf einen client-actionablen
+        Code statt Success:true
+      - Entscheidung zu KVDelete/execution log-Aequivalenten dokumentiert (gleiche Behandlung
+        oder bewusst als No-op belassen)
+      - TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap und das Analogon in
+        execution_log_test.go auf das neue (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/plugin/... ./internal/server/... gruen
 
   - id: c-cov-work-event-repo
     phase: 3
