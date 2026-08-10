@@ -1941,7 +1941,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 23:45).
 
 ## Iteration 31 — b-cov-server-hr-leave-lifecycle — done — 2026-08-10 23:53
-- commit: <siehe unten>
+- commit: 73690839
 - unit: b-cov-server-hr-leave-lifecycle (Block B, Coverage internal/server)
 - scope: die 10 im Backlog genannten Happy-Path-Luecken des
   Urlaubsantrag-Lebenszyklus in hr_grpc.go: CreateLeaveRequest,
