@@ -3843,7 +3843,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (deps: [], frei).
 
 ## Iteration 62 — c-cov-email-message-repo — done — 2026-08-10 (Lauf 7)
-- commit: -
+- commit: `80f9e6e6`
 - verify vorgaenger: sauber — `951dc45f` (c-cov-notification-integration-repo, Iteration 61)
   gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich eine neue
   Testdatei (`internal/notification/integration/postgres_repository_test.go`) plus
