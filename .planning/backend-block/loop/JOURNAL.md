@@ -2412,7 +2412,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 00:36).
 
 ## Iteration 38 — c-cov-gdpr-export-handlers — done — 2026-08-11 00:42
-- commit: <pending>
+- commit: 48f7b1ee
 - gebaut: neue Datei `backend/internal/security/gdpr/export_crm_chat_test.go` mit vier Tests
   fuer die beiden groessten bis dahin voellig ungetesteten Export-Handler.
   `TestCRMExportHandler_ExportUserData_Integration`: seedet je eine Contact-, Company- und
