@@ -1288,3 +1288,76 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 19) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
   ermittelt (2026-08-10 18:15).
+
+## Iteration 21 — b-cov-server-email-messages-send-attachments — done — 2026-08-10 18:39
+- commit: (folgt in diesem Eintrag unten, siehe naechste chore-Iteration fuer den Hash)
+- gebaut: neue Testdatei email_grpc_messages_send_test.go mit stubEmailMessageRepo
+  (implementiert message.Repository), stubAttachmentRepo/stubObjectStore (implementieren
+  attachment.Repository/attachment.ObjectStore), stubLinkRepo (implementiert
+  EmailContactLinkRepository) und stubSendAccountProvider (implementiert
+  send.AccountProvider). newEmailMessagesFixture() verdrahtet einen echten message.Service,
+  send.Service und attachment.Service gegen diese Stubs. Fuer SendEmail/ReplyEmail/
+  ForwardEmail zusaetzlich ein minimaler Fake-SMTP-Server (startFakeSMTPServer/
+  serveFakeSMTP, 127.0.0.1:0, keine STARTTLS-Ankuendigung, AUTH PLAIN pauschal akzeptiert),
+  damit die Happy-Path-Tests wirklich durch MIME-Bau + SMTP-Dial laufen statt an der
+  Credential-Abfrage zu stoppen.
+  Je ein Validierungs- oder Happy-Path-Test PLUS mindestens ein Fehlerpfad fuer alle 20
+  Methoden aus dem Scope: ListMessages, GetMessage, GetThreadMessages, MarkRead, MarkUnread,
+  ToggleStar, MoveToFolder, DeleteMessage, BulkMessageAction, SendEmail, SaveDraft,
+  ReplyEmail, ForwardEmail, UploadAttachment, GetAttachmentDownloadURL,
+  GetEmailContactLinks, LinkEmailToContact, UnlinkEmailFromContact, GetContactEmails,
+  SetReadFlag. BulkMessageAction deckt den geforderten Teilfehler-Fall ab (eine von drei
+  IDs existiert nicht, die anderen beiden werden verarbeitet, Affected=2). Wire-Shape
+  (leere Liste [] statt null) fuer ListMessages/GetEmailContactLinks/GetContactEmails
+  geprueft.
+  ZWEI echte Produktionsbugs gefunden und NICHT gefixt (Coverage-Units aendern kein
+  Verhalten), stattdessen als neue Fix-Units fuer Lauf 9 ans Ende von BACKLOG.yml gehaengt
+  (fix-email-send-missing-tenant-id, fix-email-attachment-download-metadata-wrong-message-id)
+  und mit je einem dokumentierenden Test hier belegt:
+  1) send.Service.Send/SaveDraft (internal/email/send/service.go, ~Z. 203-215 bzw.
+     305-318) setzen TenantID nie auf dem gespeicherten models.EmailMessage, obwohl
+     SendInput.TenantID/DraftInput.TenantID vorhanden sind. message.PostgresRepository.Create
+     schreibt msg.TenantID direkt in die INSERT-Query (postgres_repository.go:41) -- jede
+     gesendete/entworfene Mail landet mit tenant_id = Nulluuid in der DB. Bei scharfer RLS
+     vermutlich ein fehlschlagender INSERT, sonst ein fuer den Absender unauffindbarer
+     Datensatz.
+  2) EmailGRPCServer.GetAttachmentDownloadURL (email_grpc.go, ~Z. 1131) laedt die
+     Metadaten (filename/content_type/size_bytes) ueber
+     attachmentService.GetByMessage(ctx, uuid.Nil, tenantID) -- fest verdrahtetes uuid.Nil
+     statt der echten MessageID des Anhangs. Fuer jeden Anhang an einer echten Nachricht
+     bleiben die Metadaten leer; nur Pre-Send-Uploads (die UploadAttachment absichtlich mit
+     MessageID=uuid.Nil anlegt) funktionieren zufaellig.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (1431 PASS, 0 SKIP in
+  internal/server, inkl. internal/server/response) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst
+  nicht gelaufen (keine Route/kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 61,2 % (kumulativ ueber alle Iterationen dieses
+  Laufs, nicht allein durch diese Unit)
+- mutations-probe: `!bulkActions[action]` in internal/email/message/service.go:161
+  (BulkAction) auf `bulkActions[action]` gedreht (Negation entfernt) ->
+  TestBulkMessageAction_UnknownAction, TestBulkMessageAction_MoveRequiresTarget und
+  TestBulkMessageAction_PartialFailureSkipsMissing alle drei rot (der erste akzeptiert
+  jetzt eine unbekannte Action, die anderen beiden lehnen gueltige Actions ab).
+  Zurueckgedreht, `git diff --stat` zeigt keinen Rest-Diff mehr auf der Datei, alle fuenf
+  BulkMessageAction-Tests wieder gruen.
+- verify vorgaenger: sauber. Commit 89b98a85 (Iteration 20) aendert nur die neue Testdatei
+  email_grpc_accounts_sync_test.go plus BACKLOG.yml/JOURNAL.md -- keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit ist
+  reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
+  nachfahren muss (ein breiter `go test ./internal/...`-Lauf zeigte zwei FAILs in
+  internal/biz/recurring wegen "too many clients"/erschoepftem Connection-Pool durch die
+  hohe Parallelitaet des Gesamtlaufs -- isoliert mit `go test ./internal/biz/recurring/...`
+  sofort gruen, also kein Fund dieser Iteration und nicht mein Paket).
+  ZWEI neue Fix-Units fuer Lauf 9 ans Ende von BACKLOG.yml gehaengt, siehe oben unter
+  "gebaut" -- beide mit Fundstelle, Reproduktion (Test) und done_when versehen.
+  hr-salary-document-category und hr-salary-self-service-route (Block A) stehen im
+  Backlog weiterhin auf `done`, aber ohne dass ich sie in dieser Iteration angefasst
+  haette -- nur zur Einordnung erwaehnt, kein Handlungsbedarf.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-20 vermerkt) -- nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 20) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:39).

@@ -878,7 +878,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       Nachrichten (ListMessages, GetMessage, GetThreadMessages, MarkRead, MarkUnread,
@@ -3237,3 +3237,85 @@ units:
       - Mutations-Probe durchgeführt und im Journal belegt
       - coverage:-Zeile im Journal mit gemessenem Wert
       - go test -count=1 ./internal/vertraege/ grün
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 21 (b-cov-server-email-messages-send-attachments) --
+# nicht gebaut, nur dokumentiert (Coverage-Units aendern kein Verhalten). Fuer Lauf 9.
+# ==========================================================================================
+
+  - id: fix-email-send-missing-tenant-id
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (internal/email/send ist kein Tracked-Coverage-Paket)"
+    scope: >
+      `send.Service.Send` und `send.Service.SaveDraft` (internal/email/send/service.go, im
+      Send-Fall um Zeile 203-215, im SaveDraft-Fall um Zeile 305-318) konstruieren das
+      gespeicherte `models.EmailMessage` OHNE `TenantID` zu setzen, obwohl
+      `SendInput.TenantID`/`DraftInput.TenantID` beide vorhanden sind und an keiner Stelle
+      verwendet werden. `message.PostgresRepository.Create`
+      (internal/email/message/postgres_repository.go:41) schreibt `msg.TenantID` direkt in die
+      INSERT-Query. Jede gesendete oder als Entwurf gespeicherte E-Mail landet damit mit
+      `tenant_id = 00000000-0000-0000-0000-000000000000` in der DB statt mit dem echten Tenant.
+    sources:
+      - backend/internal/email/send/service.go
+      - backend/internal/email/message/postgres_repository.go
+      - backend/internal/server/email_grpc_messages_send_test.go
+    notes: >
+      Gefunden beim Bau der Coverage-Unit b-cov-server-email-messages-send-attachments
+      (Lauf 8, Iteration 21) — TestSendEmail dort speichert bewusst NICHT gegen die
+      tenant-gescopte GetByID, weil genau das an dieser Lücke scheitern würde.
+      Bei scharfer RLS (`COSMI_ENV=production`, produktiv seit 2026-06-05) prüft die
+      INSERT-Policy vermutlich `tenant_id = current_setting(...)`WITH CHECK` — dann schlägt
+      das Senden schlicht fehl. Ist die Policy lockerer, landet die Mail unter dem
+      Nulltenant und ist für den Absender über keinen tenant-gescopten Read mehr erreichbar
+      (Phantom-Verlust der eigenen gesendeten Mail).
+      Root-Cause-Regel: EIN Fix an der gemeinsamen Stelle in `Send`/`SaveDraft`, nicht an
+      jedem Aufrufer im Gateway.
+    done_when:
+      - Send und SaveDraft setzen TenantID auf dem konstruierten models.EmailMessage aus
+        input.TenantID, bevor messageCreator.Create aufgerufen wird
+      - Ein Test beweist, dass eine gesendete/entworfene Nachricht über einen
+        tenant-gescopten GetByID mit dem Tenant des Senders auffindbar ist
+      - RLS-Smoke erneut geprüft, falls INSERT-Policy betroffen ist
+      - go test -count=1 ./internal/email/... ./internal/server/ grün
+
+  - id: fix-email-attachment-download-metadata-wrong-message-id
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 61,2 %"
+    scope: >
+      `EmailGRPCServer.GetAttachmentDownloadURL` (internal/server/email_grpc.go, um Zeile 1131)
+      lädt die Anhang-Metadaten für die Antwort über
+      `s.attachmentService.GetByMessage(ctx, uuid.Nil, tenantID)` — mit fest verdrahtetem
+      `uuid.Nil` statt der tatsächlichen `MessageID` des Anhangs. `UploadAttachment` legt
+      Pre-Send-Uploads absichtlich mit `MessageID = uuid.Nil` an ("No message yet"); für jeden
+      Anhang, der zu einer echten (gesendeten/empfangenen) Nachricht gehört, liefert dieser
+      Lookup deshalb nichts. Die presignte Download-URL selbst wird korrekt aufgelöst (die
+      läuft über `GetMinIOKeyByID` mit der richtigen Attachment-ID), aber
+      `filename`/`content_type`/`size_bytes` in der Antwort bleiben leer bzw. 0.
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/email/attachment/repository.go
+      - backend/internal/server/email_grpc_messages_send_test.go
+    notes: >
+      Gefunden UND reproduziert beim Bau der Coverage-Unit
+      b-cov-server-email-messages-send-attachments (Lauf 8, Iteration 21):
+      TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment belegt das aktuelle
+      (fehlerhafte) Verhalten exakt, TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment
+      zeigt den einzigen Fall, in dem es zufällig funktioniert.
+      Sauberster Fix vermutlich: `attachment.Repository` um einen `GetByID`-Zugriff auf ein
+      einzelnes Attachment erweitern (statt über `GetByMessage` mit falscher ID zu gehen) und
+      den Handler darauf umstellen. Die beiden oben genannten Tests müssen nach dem Fix auf
+      das KORREKTE Verhalten umgestellt werden, nicht gelöscht.
+    done_when:
+      - filename/content_type/size_bytes sind für Anhänge an echten Nachrichten korrekt befüllt
+      - Das bestehende Pre-Send-Upload-Verhalten bleibt unverändert
+      - Die beiden dokumentierenden Tests aus Iteration 21 sind auf das korrekte Verhalten
+        umgestellt statt gelöscht
+      - go test -count=1 ./internal/server/ grün
