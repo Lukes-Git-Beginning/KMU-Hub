@@ -514,7 +514,7 @@ func TestMappingCache_RefreshPropagatesListConfigsError(t *testing.T) {
 // notification to this Slack channel" - is loaded into the cache and then
 // never handed to any real module lookup. See the new backlog fix unit
 // `fix-notification-wildcard-mapping-never-delivered`.
-func TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap(t *testing.T) {
+func TestMappingCache_WildcardMappingReturnedForAnyModule(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
@@ -529,7 +529,49 @@ func TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap(t *testin
 	if err != nil {
 		t.Fatalf("GetMappingsForModule: %v", err)
 	}
-	if len(got) != 0 {
-		t.Fatalf("documents current gap: expected the wildcard mapping to be lost, got %+v (bug fixed? update this test and the backlog unit)", got)
+	if len(got) != 1 || got[0].ChannelID != wildcard.ChannelID {
+		t.Fatalf("expected the wildcard mapping to be returned for module %q, got %+v", "crm", got)
+	}
+
+	// A second, unrelated module lookup must return the same wildcard mapping too.
+	got2, err := cache.GetMappingsForModule(context.Background(), "biz")
+	if err != nil {
+		t.Fatalf("GetMappingsForModule: %v", err)
+	}
+	if len(got2) != 1 || got2[0].ChannelID != wildcard.ChannelID {
+		t.Fatalf("expected the wildcard mapping to be returned for module %q, got %+v", "biz", got2)
+	}
+}
+
+func TestMappingCache_ExactMappingWinsOverWildcard(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepository()
+	cfg := &IntegrationConfig{ID: uuid.New(), Platform: PlatformSlack, IsActive: true}
+	repo.configs = []*IntegrationConfig{cfg}
+	wildcard := newTestMapping("C-everything", nil)
+	exact := newTestMapping("C-crm-only", []string{"crm"})
+	repo.mappingsByConfig[cfg.ID] = []*ChannelMapping{wildcard, exact}
+
+	cache := NewMappingCache(repo, time.Minute)
+
+	mappings, err := cache.GetMappingsForModule(context.Background(), "crm")
+	if err != nil {
+		t.Fatalf("GetMappingsForModule: %v", err)
+	}
+
+	selected := selectMostSpecific(mappings, "crm")
+	if len(selected) != 1 || selected[0].ChannelID != exact.ChannelID {
+		t.Fatalf("expected only the exact mapping to win over the wildcard, got %+v", selected)
+	}
+
+	// A module the exact mapping doesn't cover still falls back to the wildcard.
+	otherMappings, err := cache.GetMappingsForModule(context.Background(), "biz")
+	if err != nil {
+		t.Fatalf("GetMappingsForModule: %v", err)
+	}
+	otherSelected := selectMostSpecific(otherMappings, "biz")
+	if len(otherSelected) != 1 || otherSelected[0].ChannelID != wildcard.ChannelID {
+		t.Fatalf("expected the wildcard mapping to be selected for module %q, got %+v", "biz", otherSelected)
 	}
 }

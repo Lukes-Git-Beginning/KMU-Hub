@@ -902,7 +902,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `MappingCache.refresh` (internal/notification/integration/forwarder.go:332) loads every
       active channel mapping and, for a wildcard mapping (`len(m.Modules) == 0`, meaning "forward

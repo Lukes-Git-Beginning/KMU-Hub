@@ -3221,3 +3221,54 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Produktentscheidung zu privaten Notizen vor dem Fix noetig. `done_when` dieser Coverage-Unit
   vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-dialer-repo`
   (`status: todo`, Listen-/Such-/Reporting-Methoden in `internal/dialer/postgres_repository.go`).
+
+## Iteration 53 — fix-notification-wildcard-mapping-never-delivered — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `b70814aa` (c-cov-work-meeting-repo) geprueft: `git show --stat`
+  zeigt nur `internal/work/meeting/postgres_repository_db_test.go` (neu) plus Backlog-/
+  Journal-Dateien, deckt sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration.
+  `git merge origin/main` lief als "Already up to date" — kein Divergenzrisiko, keine STOP-Datei.
+- korrektur zur Vorgaenger-Notiz: der Journal-Eintrag von Iteration 52 nannte `c-cov-dialer-repo`
+  als naechste Unit (Datei-Reihenfolge ab dem eigenen Fundpunkt weitergelesen). Tatsaechlich
+  liegt `fix-notification-wildcard-mapping-never-delivered` (Zeile 900, aus Iteration ~44/
+  c-cov-notification-forwarder gefunden) weiter vorne in der Datei und war seit deren Anlage
+  `status: todo` geblieben — per `grep -n "^  - id:\|status:"` bestaetigt: erster
+  `status: todo`-Treffer nach dem Datei-Kopf. Diese Iteration hat die Datei-Reihenfolge
+  massgeblich genommen, nicht die Journal-Vermutung.
+- gebaut/gefixt: `internal/notification/integration/forwarder.go` —
+  `MappingCache.GetMappingsForModule` liest jetzt zusaetzlich zum exakten Modul-Key auch
+  `c.modules["*"]` (Wildcard-Mappings) und fuehrt beide Slices ueber die neue Hilfsfunktion
+  `mergeModuleMappings` zusammen (leerer Slice -> anderer Slice direkt zurueckgegeben, sonst
+  neu allokiert und beide angehaengt). Die Exact-vs-Wildcard-Praezedenz bleibt unveraendert
+  in `selectMostSpecific` (unberuehrt) — die Funktion bekommt jetzt einfach beide Kandidaten
+  statt nur der (fehlenden) Wildcard-Haelfte.
+- test: `forwarder_test.go` — `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap`
+  ersetzt durch zwei Tests auf das neue Verhalten:
+  `TestMappingCache_WildcardMappingReturnedForAnyModule` (Wildcard-Mapping wird fuer zwei
+  verschiedene, im Mapping selbst gar nicht genannte Module zurueckgegeben) und
+  `TestMappingCache_ExactMappingWinsOverWildcard` (Wildcard + ein exaktes `crm`-Mapping im
+  selben Cache: `crm`-Anfrage liefert nur das exakte, `biz`-Anfrage faellt auf die Wildcard
+  zurueck — End-to-End durch `GetMappingsForModule` + `selectMostSpecific`, nicht nur die reine
+  Merge-Funktion isoliert).
+- gate: build ok (`go build -p 2 ./internal/notification/...`) | vet ok (`go vet
+  ./internal/notification/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/notification/...`, 0 issues — ein vorbestehender `slicescontains`-Hinweis in
+  `selectMostSpecific` Zeile 221 ist ausserhalb des Scopes dieser Fix-Unit, nicht angefasst)
+  | test ok (`go test -count=1 ./internal/notification/...`, alle sieben Unterpakete gruen,
+  kein DATABASE_URL noetig — reine In-Memory-Cache-Logik) | migration n.a. | rls-smoke n.a.
+  | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `mergeModuleMappings` den ersten Zweig `if len(exact) == 0 { return
+  wildcard }` auf `return nil` gesetzt. Beide neuen Tests wurden sofort rot —
+  `TestMappingCache_WildcardMappingReturnedForAnyModule` ("expected the wildcard mapping to
+  be returned for module crm, got []") und `TestMappingCache_ExactMappingWinsOverWildcard`
+  ("expected the wildcard mapping to be selected for module biz, got []") — exakt der
+  erwartete Fehlschlag am genau gefixten Pfad. Zurueckgedreht, `git diff --stat
+  internal/notification/integration/forwarder.go` zeigt danach nur noch den beabsichtigten
+  Fix (19 Einfuegungen/3 Loeschungen ggue. dem Ausgangsstand), volle Suite danach wieder gruen
+  (`go build`/`go vet`/`go test -count=1 ./internal/notification/...`).
+- offen: keins. `done_when` vollstaendig erfuellt (Wildcard-Mapping wird fuer jedes Modul ohne
+  spezifischeres exaktes Mapping zurueckgegeben, Exact-schlaegt-Wildcard unveraendert, Test auf
+  neues Verhalten aktualisiert statt geloescht, Paket gruen). Naechste Unit im Backlog laut
+  Datei-Reihenfolge: `fix-meeting-savenotes-onconflict-no-matching-constraint` (`status: todo`,
+  Zeile ~1033 — Produktentscheidung zu privaten Notizen vorab noetig, siehe Notes der Unit),
+  danach `c-cov-dialer-repo`.
