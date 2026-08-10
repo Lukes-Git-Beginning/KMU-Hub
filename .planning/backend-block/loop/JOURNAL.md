@@ -1939,3 +1939,85 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 29) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 23:45).
+
+## Iteration 31 — b-cov-server-hr-leave-lifecycle — done — 2026-08-10 23:53
+- commit: <siehe unten>
+- unit: b-cov-server-hr-leave-lifecycle (Block B, Coverage internal/server)
+- scope: die 10 im Backlog genannten Happy-Path-Luecken des
+  Urlaubsantrag-Lebenszyklus in hr_grpc.go: CreateLeaveRequest,
+  GetLeaveRequest, ListLeaveRequests, ApproveLeaveRequest,
+  RejectLeaveRequest, CancelLeaveRequest, GetLeaveBalance,
+  GetEmployeeLeaveBalance, ListLeaveTypes, RecordSickLeave.
+- was: neue Datei internal/server/hr_leave_lifecycle_test.go. Da fuer
+  leave.Service noch kein Stub-Repository existierte, fuenf neue Stubs nach
+  dem Muster von stubFormulareRepo/newFormulareServerWithRepo gebaut:
+  stubLeaveRequestRepo (leave.LeaveRequestRepository), stubLeaveBalanceRepo
+  (leave.LeaveBalanceRepository -- GetByEmployeeYear liefert bewusst
+  (nil, nil) bei Miss, das spiegelt PostgresLeaveBalanceRepo.GetByEmployeeYear
+  exakt, dort ist "kein Datensatz" explizit kein Fehler), stubLeaveTypeRepo
+  (leave.LeaveTypeRepository), stubLeaveEmployeeRepo (leave.EmployeeRepository,
+  liefert employee.ErrEmployeeNotFound bei Miss). Alle vier plus ein
+  leave.NewService(...) mit settingsRepo=nil (kein einziger im Test gesetzter
+  LeaveType setzt RequiresAUDocument, der Zweig der settingsRepo braucht, wird
+  also nie erreicht) sind in newLeaveTestFixtures() gebuendelt, das einen
+  echten NewHRGRPCServer(svc, nil, nil, nil, nil, nil) liefert -- die anderen
+  vier HR-Services bleiben nil wie in newTestHRServer(), da diese Unit nur den
+  Leave-Cluster testet. seedEmployee() setzt StartDate zwei Jahre in die
+  Vergangenheit, damit BUrlG-ProRata immer den vollen Jahresanspruch liefert
+  (30 Tage) und Balance-Assertions ohne Pro-Rata-Sonderfaelle auskommen.
+  22 Testfaelle: pro Methode mindestens ein Happy-Path, zusaetzlich
+  CreateLeaveRequest/InvalidDateRange, ListLeaveRequests/MissingTenant,
+  ApproveLeaveRequest+RejectLeaveRequest je /AlreadyDecided (bereits
+  entschiedener Antrag -> FailedPrecondition, wie im Backlog gefordert),
+  CancelLeaveRequest/NotOwner, GetLeaveBalance/InvalidUserID,
+  RecordSickLeave/LeaveTypeNotFound. Beim Schreiben zwei falsche Annahmen
+  in den Testerwartungen korrigiert, nachdem der erste Testlauf sie aufdeckte:
+  ErrInvalidDateRange mappt in mapHRError auf InvalidArgument, nicht
+  FailedPrecondition; und ErrLeaveTypeNotFound hat in mapHRError ueberhaupt
+  keinen eigenen case (faellt auf den default codes.Internal-Zweig) --
+  RecordSickLeave_LeaveTypeNotFound erwartet jetzt Internal, mit Kommentar im
+  Test, dass das eine bestehende Luecke in mapHRError ist, keine Regression
+  dieser Unit.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
+  | vet ok (`go vet ./internal/server/...`) | lint ok (golangci-lint run
+  --config .golangci.yml ./internal/server/... -- 0 issues) | test ok
+  (`go test -count=1 ./internal/server/` gruen) | migration n.a. (keine
+  Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue
+  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-
+  Assertion
+- coverage: internal/server 67,4 % -> 67,6 % (lokal gemessen per
+  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
+  `go tool cover -func`; Basiswert selbst nachgemessen durch kurzzeitiges
+  Verschieben der neuen Testdatei, da der in Iteration 30 notierte Wert
+  68,1 % beim Nachmessen auf demselben Basis-Commit a8fc540d nicht
+  reproduzierbar war -- 67,4 % gemessen. Vermutlich Mess-Rauschen zwischen
+  Iterationen, kein Befund dieser Unit. Der Zugewinn faellt klein aus, weil
+  hr_grpc.go mit 2000+ Zeilen einer der groessten Handler ist und diese Unit
+  gezielt nur den Leave-Cluster (10 von >60 Methoden) abdeckt.)
+- mutations-probe: in internal/biz/hr/leave/service.go ApproveLeaveRequest()
+  die Bedingung `if req.Status != models.LeaveStatusPending` durch `if false`
+  ersetzt (der Statuscheck vor der Genehmigung waere dann wirkungslos, ein
+  bereits entschiedener Antrag liesse sich beliebig oft erneut genehmigen) ->
+  TestApproveLeaveRequest_AlreadyDecided rot ("expected error with code
+  FailedPrecondition, got nil"). Zurueckgedreht, `git diff --stat
+  internal/biz/hr/leave/service.go` zeigt keinen Rest.
+- verify vorgaenger: sauber. Commit a8fc540d (Iteration 30) fuegt
+  ausschliesslich internal/server/inbox_grpc_test.go (Erweiterung),
+  internal/server/inbox_message_state_test.go plus Journal/Backlog-Metadaten
+  hinzu -- keine Produktionscode-Datei, kein neues Proto, keine neue Route,
+  kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: `go build ./...` wurde in dieser Iteration nicht erneut probiert
+  (siehe Iterationen 25-30, reproduzierbarer Linker-OOM auf diesem Rechner,
+  unabhaengig von dieser Aenderung) -- stattdessen paketweise
+  `go build ./internal/.../...` genutzt. mapHRError kennt weder
+  leave.ErrLeaveTypeNotFound noch leave.ErrSettingsNotFound (beide fallen auf
+  den default Internal-Zweig statt NotFound) -- fuer Lauf 9 als kleine
+  Nacharbeit vormerken, kein RequirePermission-/Route-/Migrations-Thema, also
+  kein Blocker fuer diesen Lauf. .planning/backend-block/loop/run-loop.ps1
+  traegt weiterhin einen unstaged -StartNotBefore-Diff (wie in den
+  Iterationen 6-30 vermerkt) -- nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 30) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-10 23:53).
