@@ -110,23 +110,26 @@ type stubCalendarRepo struct {
 	members    map[uuid.UUID]map[uuid.UUID]*models.CalendarMember
 	browsable  []models.Calendar
 	categories map[uuid.UUID]*models.EventCategory
+	prefs      map[uuid.UUID]*models.UserCalendarPreferences
 
-	createErr          error
-	getByIDErr         error
-	listByUserErr      error
-	updateErr          error
-	deleteErr          error
-	addMemberErr       error
-	removeMemberErr    error
-	listMembersErr     error
-	getMemberErr       error
-	updateMemPermErr   error
-	listBrowsableErr   error
-	subscribeErr       error
-	unsubscribeErr     error
-	ensurePersonalErr  error
-	createCategoryErr  error
-	listCategoriesErr  error
+	createErr            error
+	getByIDErr           error
+	listByUserErr        error
+	updateErr            error
+	deleteErr            error
+	addMemberErr         error
+	removeMemberErr      error
+	listMembersErr       error
+	getMemberErr         error
+	updateMemPermErr     error
+	listBrowsableErr     error
+	subscribeErr         error
+	unsubscribeErr       error
+	ensurePersonalErr    error
+	createCategoryErr    error
+	listCategoriesErr    error
+	getPreferencesErr    error
+	upsertPreferencesErr error
 }
 
 func newStubCalendarRepo() *stubCalendarRepo {
@@ -134,6 +137,7 @@ func newStubCalendarRepo() *stubCalendarRepo {
 		calendars:  make(map[uuid.UUID]*models.Calendar),
 		members:    make(map[uuid.UUID]map[uuid.UUID]*models.CalendarMember),
 		categories: make(map[uuid.UUID]*models.EventCategory),
+		prefs:      make(map[uuid.UUID]*models.UserCalendarPreferences),
 	}
 }
 
@@ -296,11 +300,21 @@ func (r *stubCalendarRepo) DeleteCategory(_ context.Context, categoryID, userID,
 	return nil
 }
 
-func (r *stubCalendarRepo) GetPreferences(_ context.Context, _ uuid.UUID) (*models.UserCalendarPreferences, error) {
-	return nil, nil
+func (r *stubCalendarRepo) GetPreferences(_ context.Context, userID uuid.UUID) (*models.UserCalendarPreferences, error) {
+	if r.getPreferencesErr != nil {
+		return nil, r.getPreferencesErr
+	}
+	return r.prefs[userID], nil
 }
 
-func (r *stubCalendarRepo) UpsertPreferences(_ context.Context, _ *models.UserCalendarPreferences) error {
+func (r *stubCalendarRepo) UpsertPreferences(_ context.Context, prefs *models.UserCalendarPreferences) error {
+	if r.upsertPreferencesErr != nil {
+		return r.upsertPreferencesErr
+	}
+	if r.prefs == nil {
+		r.prefs = make(map[uuid.UUID]*models.UserCalendarPreferences)
+	}
+	r.prefs[prefs.UserID] = prefs
 	return nil
 }
 

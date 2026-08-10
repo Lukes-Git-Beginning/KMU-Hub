@@ -1182,3 +1182,52 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 17) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
   ermittelt (2026-08-10 17:59).
+
+## Iteration 19 — b-cov-server-calendar-resources-bookingpages-public — done — 2026-08-10 18:13
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Testdatei calendar_grpc_resources_bookingpages_test.go mit
+  stubResourceRepo (implementiert resource.Repository vollstaendig),
+  stubHolidayRepo (implementiert holiday.Repository) und stubBookingRepo
+  (implementiert calendar.BookingRepository ueber Interface-Embedding —
+  GetCalendarEventsInRange/GetBookedSlotsForPage bleiben unimplementiert,
+  weil ihr Rueckgabetyp calendar.eventSlot unexported ist und von diesem
+  Package aus nicht benennbar ist; alle Testfaelle kehren vor dem ersten
+  Aufruf dieser beiden Methoden zurueck, siehe Kommentar im Code). Je ein
+  Happy-Path- und mindestens ein Fehlerpfad-Test fuer alle 20 Scope-Methoden:
+  CreateResource, GetResource, ListResources, UpdateResource, DeleteResource,
+  ListResourceAvailability, BookResource (inkl. Konflikt-mit-Alternativen-Pfad),
+  ListResourceBookings, ListHolidays, SeedHolidays, GetCalendarPreferences,
+  UpdateCalendarPreferences, CreateBookingPage (inkl. bookingService==nil ->
+  Unimplemented), GetBookingPage, ListBookingPages, UpdateBookingPage,
+  DeleteBookingPage, GetPublicBookingPage, GetAvailability (Validierungs- und
+  Page-not-found-Pfad, bewusst ohne Happy-Path wegen der eventSlot-Sperre),
+  CreatePublicBooking (Customer-fehlt-, Page-not-found- und der geforderte
+  Zeitfenster-Fehlerpfad ErrBookingSlotInPast). stubCalendarRepo (aus
+  Iteration 17/18) um ein `prefs`-Feld plus echte GetPreferences/
+  UpsertPreferences-Implementierung erweitert (war zuvor No-Op `return nil, nil`
+  bzw. `return nil`).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a.
+  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 47,7 % -> 59,1 % (kumulativ ueber alle Iterationen
+  dieses Laufs, nicht allein durch diese Unit)
+- mutations-probe: `!models.ValidResourceTypes[input.ResourceType]` in
+  internal/work/resource/service.go:50 auf `models.ValidResourceTypes[...]`
+  gedreht (Negation entfernt) -> TestCreateResource_Success UND
+  TestCreateResource_InvalidResourceType beide rot (erster lehnt einen
+  gueltigen Typ ab, zweiter akzeptiert einen ungueltigen). Zurueckgedreht,
+  `git status` zeigt keinen Diff mehr auf der Datei, Tests wieder gruen.
+- verify vorgaenger: sauber. Commit 78685fc7 (Iteration 18) aendert nur
+  Testdateien plus BACKLOG.yml/JOURNAL.md — keine Produktionscode-Datei,
+  kein neues Proto, keine neue Route, kein neuer RequirePermission-Guard,
+  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt),
+  aber diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries —
+  nichts, was Luke morgens nachfahren muss. `go test ./internal/gateway/`
+  bewusst nicht gelaufen, da keine Route/kein Gateway-Code angefasst wurde.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-18 vermerkt --
+  nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 18) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
+  ermittelt (2026-08-10 18:13).
