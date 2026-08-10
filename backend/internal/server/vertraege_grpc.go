@@ -69,7 +69,7 @@ func (s *VertraegeGRPCServer) CreateContract(ctx context.Context, req *vertraege
 	if createErr != nil {
 		return nil, mapVertraegeError(createErr)
 	}
-	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c)}, nil
+	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c, false)}, nil
 }
 
 func (s *VertraegeGRPCServer) UpdateContract(ctx context.Context, req *vertraegev1.UpdateContractRequest) (*vertraegev1.ContractResponse, error) {
@@ -120,7 +120,7 @@ func (s *VertraegeGRPCServer) UpdateContract(ctx context.Context, req *vertraege
 	if updateErr != nil {
 		return nil, mapVertraegeError(updateErr)
 	}
-	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c)}, nil
+	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c, false)}, nil
 }
 
 func (s *VertraegeGRPCServer) DeleteContract(ctx context.Context, req *vertraegev1.DeleteContractRequest) (*vertraegev1.DeleteContractResponse, error) {
@@ -153,7 +153,7 @@ func (s *VertraegeGRPCServer) GetContract(ctx context.Context, req *vertraegev1.
 	if getErr != nil {
 		return nil, mapVertraegeError(getErr)
 	}
-	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c)}, nil
+	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(c, true)}, nil
 }
 
 func (s *VertraegeGRPCServer) ListContracts(ctx context.Context, req *vertraegev1.ListContractsRequest) (*vertraegev1.ListContractsResponse, error) {
@@ -206,7 +206,7 @@ func (s *VertraegeGRPCServer) ListContracts(ctx context.Context, req *vertraegev
 
 	protoContracts := make([]*vertraegev1.Contract, len(contracts))
 	for i, c := range contracts {
-		protoContracts[i] = vertraegeContractToProto(c)
+		protoContracts[i] = vertraegeContractToProto(c, false)
 	}
 	return &vertraegev1.ListContractsResponse{
 		Contracts: protoContracts,
@@ -269,7 +269,7 @@ func (s *VertraegeGRPCServer) SaveSignature(ctx context.Context, req *vertraegev
 	if err != nil {
 		return nil, mapVertraegeError(err)
 	}
-	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(contract)}, nil
+	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(contract, true)}, nil
 }
 
 // ============================================================================
@@ -534,7 +534,13 @@ func vertraegeEventToProto(e *vertraege.ContractEvent) *vertraegev1.ContractEven
 	return out
 }
 
-func vertraegeContractToProto(c *vertraege.Contract) *vertraegev1.Contract {
+// vertraegeContractToProto converts a domain Contract to its wire form.
+// includeSignature controls whether signature_data/signed_at/signed_by are
+// populated — per the proto comment, they are "Populated only by GetContract"
+// (and by SaveSignature, whose response is a freshly signed Contract).
+// ListContracts/CreateContract/UpdateContract must pass false so a saved
+// signature never leaks into a list or write response.
+func vertraegeContractToProto(c *vertraege.Contract, includeSignature bool) *vertraegev1.Contract {
 	if c == nil {
 		return nil
 	}
@@ -562,6 +568,17 @@ func vertraegeContractToProto(c *vertraege.Contract) *vertraegev1.Contract {
 	}
 	if c.SignatureProvider != nil {
 		proto.SignatureProvider = c.SignatureProvider
+	}
+	if includeSignature {
+		if c.SignatureData != nil {
+			proto.SignatureData = *c.SignatureData
+		}
+		if c.SignedBy != nil {
+			proto.SignedBy = *c.SignedBy
+		}
+		if c.SignedAt != nil {
+			proto.SignedAt = timestamppb.New(*c.SignedAt)
+		}
 	}
 
 	for _, p := range c.Parties {

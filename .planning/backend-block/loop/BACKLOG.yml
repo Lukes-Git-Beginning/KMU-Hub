@@ -666,7 +666,7 @@ units:
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `vertraegeContractToProto` (internal/server/vertraege_grpc.go:537) never sets
       `signature_data`, `signed_at`, or `signed_by` on the wire `Contract` message,

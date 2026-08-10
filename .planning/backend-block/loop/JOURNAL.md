@@ -2607,3 +2607,58 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - db-tests: 0 — reine Error-Mapping-Logik (Stub-Repo), done_when verlangt hier keine DB-Tests.
 - offen: keins. Die parallele Unit `fix-vertraege-contracttoproto-drops-signature` (naechste
   im Backlog) ist unabhaengig und noch offen.
+
+## Iteration 42 — fix-vertraege-contracttoproto-drops-signature — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — 71d0a5db (ErrInspectionKindExists -> AlreadyExists bei vermietung)
+  geprueft: Diff auf vermietung_grpc.go/vermietung_grpc_test.go zeigt exakt den im Journal
+  beschriebenen zusaetzlichen case-Zweig plus die zwei umbenannten/aktualisierten Testfaelle,
+  ErrInspectionKindExists in errors.go/service.go gegengeprueft, build/vet/test (server+vermietung,
+  DATABASE_URL gesetzt) gruen. Keine Befunde.
+- gebaut: `vertraegeContractToProto` (internal/server/vertraege_grpc.go:537) setzte
+  `SignatureData`/`SignedAt`/`SignedBy` nie auf das Wire-Contract, obwohl der Proto-Kommentar
+  (vertraege.proto:64-69) "Populated only by GetContract" verspricht und `Service.SaveSignature`
+  die Felder korrekt persistiert - jede der fuenf Aufrufstellen (Create/Update/Get/List/
+  SaveSignature-Response) nutzte dieselbe Funktion und liess die Signatur verschwinden, auch
+  beim expliziten Detail-Abruf. Anders als bei `fix-vermietung-rentaltoproto-drops-signature`
+  (Iteration 40, wo alle RPCs die Signatur zeigen sollen) verlangt der Scope hier eine bewusste
+  Liste-vs-Detail-Trennung. Fix: `vertraegeContractToProto` um einen `includeSignature bool`-
+  Parameter erweitert (nil-Guard vor Dereferenzierung, da `SignatureData`/`SignedBy` im Proto
+  als `string` nicht `optional string` deklariert sind, `SignedAt` als `optional Timestamp`).
+  CreateContract/UpdateContract/ListContracts rufen mit `false` (Signatur bleibt unsichtbar,
+  wie von `TestVertraege_SaveSignature_NotInListResponse` bereits fuer die Liste gefordert),
+  GetContract/SaveSignature mit `true`. Die drei direkten Testaufrufe
+  (`TestVertraege_ToProtoNilSafety`, `TestVertraege_ContractToProto_OptionalFields`) auf die neue
+  Signatur angepasst; `TestVertraege_ContractToProto_OptionalFields` zusaetzlich um einen
+  echten includeSignature=true/false-Vergleich erweitert (vorher testete er Signatur ueberhaupt
+  nicht). Der "documents current gap"-Assert in `TestVertraege_SaveSignature_NotInListResponse`
+  (GetContract liefert leere SignatureData) durch einen Assert auf die jetzt korrekt gesetzten
+  Werte ersetzt, inklusive Erweiterung der SaveSignature-Response-Assertion selbst (die vorher
+  nur require.NotNil auf das Contract pruefte, nicht die Signaturfelder). Keine Proto-Aenderung
+  noetig (alle drei Felder existierten bereits im generierten Code), keine Repository-Aenderung
+  (persistiert schon korrekt), reiner Mapping-Fix in einer einzigen Funktion plus deren fuenf
+  Aufrufstellen.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/vertraege/...`) | vet ok
+  (`go vet ./internal/server/... ./internal/vertraege/...`) | lint ok (`golangci-lint run
+  --config .golangci.yml ./internal/server/... ./internal/vertraege/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/server/... ./internal/vertraege/...` mit gesetzter
+  `DATABASE_URL`, durchgehend gruen) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a.
+  | route n.a. (keine neue Route, nur Wire-Mapping in bestehenden Responses) | openapi n.a.
+  (keine neue/geaenderte Route) | protoc n.a. (keine .proto-Aenderung, alle drei Felder
+  existierten bereits im generierten Code).
+- mutations-probe: `if includeSignature` in `vertraegeContractToProto` auf
+  `if false && includeSignature` gesetzt → `TestVertraege_SaveSignature_NotInListResponse` UND
+  `TestVertraege_ContractToProto_OptionalFields` wurden beide rot (erwartete SignatureData/
+  SignedBy/SignedAt, bekamen leere Werte bzw. nil), zurueckgedreht, `diff` gegen die
+  Sicherungskopie bestaetigt eine identische Datei, volle Suite (server+vertraege) danach
+  wieder vollstaendig gruen.
+- db-tests: 0 — reine Proto-Mapping-Logik (Stub-Repo), done_when verlangt hier keine DB-Tests.
+- offen: keins. Naechste offene Unit im Backlog ist Block C1 (`c-cov-work-event-rrule`, Zeile
+  ~1720). Korrektur zur vorherigen Annahme: Phase 3 ist NICHT vollstaendig abgearbeitet — es
+  gibt noch eine offene Fix-Unit `fix-notification-markallread-empty-body-rejected` (Zeile
+  ~2362, vermutlich waehrend einer spaeteren Coverage-Unit gefunden und angehaengt), die beim
+  ersten Backlog-Scan uebersehen wurde. Fuer Iteration 43 gilt weiterhin die im Backlog-Kopf
+  festgelegte Reihenfolge (C1 vor B-Gateway vor B-Server vor C2) — diese eine Fix-Unit steht
+  nicht am Anfang der Datei und war deshalb nicht die naechste in Zeilen-Reihenfolge; wer als
+  naechstes den Scan macht, sollte trotzdem grep -n "status: todo" laufen lassen statt nur die
+  Zeilenreihenfolge zu vertrauen.

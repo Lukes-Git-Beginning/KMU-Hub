@@ -711,10 +711,10 @@ func TestVertraege_SaveSignature_NotInListResponse(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, saveResp.Contract)
+	assert.Equal(t, "data:image/png;base64,aGVsbG8=", saveResp.Contract.SignatureData, "SaveSignature's own response must surface the signature it just saved")
+	assert.Equal(t, "Max Mustermann", saveResp.Contract.SignedBy)
+	assert.NotNil(t, saveResp.Contract.SignedAt)
 
-	// The domain record now carries the signature (verified against the repo
-	// directly, since vertraegeContractToProto never surfaces it — see the
-	// journal entry for this unit).
 	stored, err := repo.GetContract(context.Background(), tenantID, c.ID)
 	require.NoError(t, err)
 	require.NotNil(t, stored.SignatureData)
@@ -730,17 +730,16 @@ func TestVertraege_SaveSignature_NotInListResponse(t *testing.T) {
 	assert.Empty(t, listResp.Contracts[0].SignedBy, "signed_by must never appear in a list response")
 	assert.Nil(t, listResp.Contracts[0].SignedAt, "signed_at must never appear in a list response")
 
-	// Also true of GetContract today — vertraegeContractToProto omits the
-	// signature fields unconditionally, not just for the list path. That is a
-	// real gap (the proto documents signature_data as "Populated only by
-	// GetContract"), tracked separately rather than fixed in this coverage-only
-	// unit; this assertion documents the current behaviour.
+	// GetContract is the wire-documented home for the signature ("Populated
+	// only by GetContract") and must surface it, unlike List/Create/Update.
 	getResp, err := srv.GetContract(context.Background(), &vertraegev1.GetContractRequest{
 		TenantId:   tenantID.String(),
 		ContractId: c.ID.String(),
 	})
 	require.NoError(t, err)
-	assert.Empty(t, getResp.Contract.SignatureData, "documents current gap: GetContract also drops signature data")
+	assert.Equal(t, "data:image/png;base64,aGVsbG8=", getResp.Contract.SignatureData)
+	assert.Equal(t, "Max Mustermann", getResp.Contract.SignedBy)
+	assert.NotNil(t, getResp.Contract.SignedAt)
 }
 
 func TestVertraege_SaveSignature_InvalidInput(t *testing.T) {
@@ -911,7 +910,7 @@ func TestVertraege_ExportContract(t *testing.T) {
 // ============================================================================
 
 func TestVertraege_ToProtoNilSafety(t *testing.T) {
-	assert.Nil(t, vertraegeContractToProto(nil))
+	assert.Nil(t, vertraegeContractToProto(nil, false))
 	assert.Nil(t, vertraegePartyToProto(nil))
 	assert.Nil(t, vertraegeReminderToProto(nil))
 	assert.Nil(t, vertraegeEventToProto(nil))
@@ -930,7 +929,7 @@ func TestVertraege_ContractToProto_OptionalFields(t *testing.T) {
 		UpdatedAt:      time.Now(),
 	}
 	// No optional fields set.
-	proto := vertraegeContractToProto(c)
+	proto := vertraegeContractToProto(c, false)
 	assert.Nil(t, proto.EndsOn)
 	assert.Nil(t, proto.DocumentUrl)
 	assert.Nil(t, proto.CreatedBy)
@@ -942,14 +941,22 @@ func TestVertraege_ContractToProto_OptionalFields(t *testing.T) {
 	docURL := "https://example.com/doc.pdf"
 	createdBy := uuid.New()
 	sigProvider := "skribble"
+	sigData := "data:image/png;base64,aGVsbG8="
+	signedAt := time.Now()
+	signedBy := "Max Mustermann"
 	c.EndsOn = &endsOn
 	c.DocumentURL = &docURL
 	c.CreatedBy = &createdBy
 	c.SignatureProvider = &sigProvider
+	c.SignatureData = &sigData
+	c.SignedAt = &signedAt
+	c.SignedBy = &signedBy
 	c.Parties = []*vertraege.ContractParty{{ID: uuid.New(), TenantID: c.TenantID, ContractID: c.ID}}
 	c.Reminders = []*vertraege.ContractReminder{{ID: uuid.New(), TenantID: c.TenantID, ContractID: c.ID}}
 
-	proto = vertraegeContractToProto(c)
+	// includeSignature=false: signed contract, but a caller that must not leak
+	// the signature (ListContracts/CreateContract/UpdateContract) still gets none.
+	proto = vertraegeContractToProto(c, false)
 	require.NotNil(t, proto.EndsOn)
 	require.NotNil(t, proto.DocumentUrl)
 	assert.Equal(t, docURL, *proto.DocumentUrl)
@@ -959,6 +966,16 @@ func TestVertraege_ContractToProto_OptionalFields(t *testing.T) {
 	assert.Equal(t, sigProvider, *proto.SignatureProvider)
 	assert.Len(t, proto.Parties, 1)
 	assert.Len(t, proto.Reminders, 1)
+	assert.Empty(t, proto.SignatureData)
+	assert.Empty(t, proto.SignedBy)
+	assert.Nil(t, proto.SignedAt)
+
+	// includeSignature=true: GetContract/SaveSignature must surface it.
+	proto = vertraegeContractToProto(c, true)
+	assert.Equal(t, sigData, proto.SignatureData)
+	assert.Equal(t, signedBy, proto.SignedBy)
+	require.NotNil(t, proto.SignedAt)
+	assert.WithinDuration(t, signedAt, proto.SignedAt.AsTime(), time.Second)
 }
 
 func TestVertraege_PartyToProto_OptionalFields(t *testing.T) {
