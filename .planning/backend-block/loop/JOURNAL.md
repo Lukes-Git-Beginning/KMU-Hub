@@ -704,7 +704,7 @@ Frühere Läufe liegen vollständig im Archiv:
   vorigen Iterationen.
 
 ## Iteration 13 — b-cov-server-crm-activities-reports-consent — done — 2026-08-10 16:58
-- commit: (folgt nach diesem Eintrag)
+- commit: 0dc8bd4b
 - gebaut: neue Datei `backend/internal/server/crm_grpc_activities_reports_consent_test.go`
   mit fünf Stub-Repositories (`stubActivityRepo`, `stubSavedFilterRepo`, `stubSearchRepo`,
   `stubReportRepo`, `stubConsentRepo`, je über `newCRMServerWithActivityRepo`/
@@ -774,3 +774,78 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Überschrift (Iteration 12) fortgezählt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:58), wie in den
   vorigen Iterationen.
+
+## Iteration 14 — b-cov-server-biz-error-map-settings-quotes — done — 2026-08-10 17:07
+- commit: <wird nach dem Commit ergänzt>
+- gebaut: neue Datei `backend/internal/server/biz_grpc_errormap_settings_quotes_test.go`.
+  `TestMapBizError` deckt jedes der 32 Sentinels in `mapBizError` (biz_grpc.go:2611)
+  einzeln gegen den erwarteten gRPC-Code ab (Quote, Recurring, Offene-Posten,
+  Invoice, CreditNote, E-Invoice, Payment, Dunning) plus `nil`- und
+  Fallback-Pfad (`unknown error` -> `Internal`, separat `TestMapBizError_Nil`).
+  Dazu je mindestens ein Validierungs- und ein Happy-Path-Test für die 12
+  genannten Quote/Settings-Methoden: GetCompanySettings, UpdateCompanySettings
+  (inkl. `settings is required` und `invalid basiszinssatz`), CreateQuote
+  (invalid tenant_id/created_by/valid_until/deal_id, `ErrNoLineItems` ->
+  InvalidArgument, Happy Path), GetQuote (invalid id, NotFound-Mapping, Happy
+  Path), ListQuotes, UpdateQuote (`ErrQuoteNotDraft` -> FailedPrecondition),
+  DeleteQuote (dito), SendQuote (atomare Nummernvergabe über einen
+  `fakeTxBeginner`/`fakeTx` — echtes `Send` inkl. Statuswechsel auf `sent` und
+  zugewiesener Quote-Nummer), AcceptQuote/RejectQuote (`ErrQuoteNotSent` ->
+  FailedPrecondition), ExpireQuote (invalid tenant_id, leerer Bulk-Lauf),
+  ConvertQuoteToInvoice (Validierungspfad — kein voller `invoice.Service`
+  aufgebaut, siehe offen), CreateQuoteFromDeal (deal_id required, invalid
+  tenant_id, `crmClient == nil` -> Unavailable). Zusätzlich
+  `TestGenerateQuotePDF_QuoteNotFound` als kleiner Bonus für den PDF-Pfad
+  (nicht in den 12 genannten Methoden, aber selber Fehlerpfad). Neue Stubs:
+  `stubCompanySettingsRepo` (erfüllt sowohl `server.CompanySettingsRepository`
+  als auch `quote.CompanySettingsRepo` strukturell), `stubQuoteRepo` (volles
+  `quote.Repository`), `stubNumberSeqRepo`, `fakeTxBeginner`/`fakeTx` (eigene
+  Kopie des unexported `quote.txBeginner`-Musters aus `service_test.go`, weil
+  der Typ dort nicht exportiert ist).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; zusätzlich `./internal/server/...` inkl. `response`-Unterpaket
+  grün) | migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst — reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a.
+  (keine Route angefasst, `go test ./internal/gateway/` daher nicht Pflicht
+  und nicht gelaufen)
+- coverage: internal/server 47,7 % -> 53,7 % (`go tool cover -func=/tmp/cov.out
+  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
+  Ausgangswert aus `coverage_start:` der Unit, nicht aus dem tatsächlichen
+  Vorgängerstand 52,7 % aus Iteration 13 — wie in ITERATION.md Schritt 6
+  vorgeschrieben)
+- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
+  gegen den finalen Baum restfrei (leer):
+  (1) `mapBizError` Case `quote.ErrQuoteNotDraft`: `codes.FailedPrecondition`
+  auf `codes.Internal` gedreht -> `TestMapBizError/quote_not_draft` rot
+  (erwartet FailedPrecondition, bekam Internal), zurückgedreht.
+  (2) `UpdateCompanySettings`: `if ps == nil {` auf `if false && ps == nil {`
+  gedreht -> `TestUpdateCompanySettings/settings_required` rot ("An error is
+  expected but got nil"), zurückgedreht.
+- verify vorgaenger: sauber — `0dc8bd4b` geprüft gegen alle acht
+  Fehlerklassen: reine neue Testdatei
+  (`crm_grpc_activities_reports_consent_test.go`), kein `.proto` angefasst,
+  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
+  angefasst.
+- offen: `ConvertQuoteToInvoice` ist nur mit dem Validierungspfad
+  (`invalid tenant_id`/`invalid id` über `parseTenantAndID`) abgedeckt, nicht
+  mit einem Happy Path — ein voller `invoice.Service` (5 Konstruktor-Parameter,
+  eigener `quoteReader`/`numberSeqRepo`/Pool) hätte den Scope dieser Iteration
+  gesprengt. `mapBizError` deckt `invoice.ErrQuoteNotAccepted` bereits einzeln
+  ab, das ist der einzige service-eigene Fehlerpfad dieser Methode. Ebenso
+  `CreateQuoteFromDeal` nur mit drei Validierungsfällen (deal_id required,
+  invalid tenant_id, `crmClient == nil`), kein Happy Path — bräuchte einen
+  vollständigen Fake für `crmv1.CRMServiceClient` (großes Interface), den es
+  im `server`-Package noch nicht gibt. Für Lauf 9, falls an
+  `CreateQuoteFromDeal` weitergearbeitet wird: ein minimaler
+  `fakeCRMServiceClient` (nur `GetDeal`/`GetContact`/`GetCompany` implementiert,
+  Rest `Unimplemented`) würde den Happy Path und die Enrichment-Logik
+  (Firma/Kontakt-Fallback für `customerName`) freischalten.
+  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
+  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-13 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
+  (Iteration 13) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 17:07), wie in den vorigen Iterationen.

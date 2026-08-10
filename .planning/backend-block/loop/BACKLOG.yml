@@ -684,7 +684,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       mapBizError (backend/internal/server/biz_grpc.go, Zeile ~2611) ist trotz über 20
