@@ -2710,7 +2710,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/caldav/push_subscription.go` (190 Z.) und `push_notifier.go` (162 Z.),
       zusammen 352 Zeilen. `Subscribe` ist bereits ueber `tenant_write_test.go` getestet -
@@ -2734,6 +2734,58 @@ units:
       - Ein fehlschlagender Subscriber blockiert die Benachrichtigung der anderen nicht
       - CleanupExpired entfernt nur abgelaufene Subscriptions
       - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-caldav-push-410-unsubscribe-no-tenant-context
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `PushNotifier.sendNotification` (internal/caldav/push_notifier.go:138) reacts to a
+      subscriber endpoint returning 410 Gone by calling
+      `n.subscriptions.UnsubscribeByURL(removeCtx, sub.PushURL)` with `removeCtx :=
+      context.WithTimeout(context.Background(), 5*time.Second)` - a bare context, carrying
+      neither `middleware.TenantIDKey` nor `sysctx.With`. Per
+      `internal/database.TestPrepareConn_NoTenantNoSystem` (postgres_hook_test.go:100-134,
+      doc comment: "the safe default for accidentally-unwrapped paths"), a connection
+      acquired under such a context gets `app.tenant_id=''`/`app.role=''`, and RLS on
+      `caldav_push_subscriptions` (FORCE ROW LEVEL SECURITY since migration 000122) then
+      admits zero rows - the DELETE silently affects nothing. Confirmed empirically, not
+      just read: `TestPushNotifier_NotifyCollectionChanged_410Gone_
+      DocumentsMissingContextOnRemoval` (internal/caldav/push_subscription_test.go, built
+      during `c-cov-caldav-push`, Lauf 7) creates a subscription, drives a real 410 response
+      through `NotifyCollectionChanged`, waits for the removal goroutine, and asserts the row
+      is STILL present - which it is. Effect in production: every macOS-Calendar push
+      subscriber that unregisters (or whose endpoint goes away, hence 410) is never actually
+      removed from `caldav_push_subscriptions` - `NotifyCollectionChanged` keeps POSTing to
+      the dead URL on every future change, forever, until `CleanupExpired`'s 7-day TTL
+      eventually catches it (and only if the subscription isn't renewed by another client in
+      the meantime).
+    sources:
+      - backend/internal/caldav/push_notifier.go
+      - backend/internal/caldav/push_subscription.go
+      - backend/internal/database/postgres_hook_test.go
+      - backend/internal/caldav/push_subscription_test.go
+    notes: >
+      Gefunden waehrend c-cov-caldav-push (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (die DELETE muesste tatsaechlich greifen), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: `removeCtx` mit `sysctx.With(...)`
+      wrappen, genau das Muster, das `tenant_write_test.go` fuer
+      `FindActiveByUser`/`UpdateLastUsed` dokumentiert (CalDAV-Vorgaenge ohne JWT sind der
+      sanktionierte "identity not yet known"-Bypass-Fall) - `UnsubscribeByURL` matched ohnehin
+      global auf `push_url`, keine Tenant-Filterung noetig, sysctx ist also nicht nur sicher
+      sondern das einzig korrekte Verhalten hier. Nach dem Fix
+      `TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval`
+      umbenennen und auf `AssertRowCount(..., 0)` umstellen (Test heisst dann nicht mehr
+      "DocumentsMissingContextOnRemoval", sondern beschreibt das korrekte Verhalten).
+    done_when:
+      - UnsubscribeByURL im 410-Gone-Pfad von sendNotification laeuft unter einem Context, der
+        RLS tatsaechlich passiert (sysctx.With oder aequivalent)
+      - Eine reale 410-Gone-Antwort entfernt die Subscription tatsaechlich aus der DB
+      - TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval auf
+        das neue (korrekte) Verhalten aktualisiert, nicht geloescht
       - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
 
   - id: fix-notification-markallread-empty-body-rejected

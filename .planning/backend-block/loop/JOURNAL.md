@@ -4296,3 +4296,57 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
   am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
   Datei-Reihenfolge: `c-cov-caldav-push` (deps: [], frei).
+
+## Iteration 70 — c-cov-caldav-push — done — 2026-08-10 (Lauf 7)
+
+- commit: (folgt in der naechsten chore-Iteration)
+- gebaut: `internal/caldav/push_subscription_test.go` (neu). Fuenf Testfunktionen fuer
+  `push_subscription.go` (352 Z. mit `push_notifier.go`, bisher nur `Subscribe` ueber
+  `tenant_write_test.go` gedeckt):
+  `TestPushSubscriptionService_UnsubscribeAndGetForCollection` (zwei Subs auf derselben
+  Collection, `GetSubscriptionsForCollection` liefert beide; `Unsubscribe` mit
+  nicht-passender push_url ist No-Op, mit passender entfernt genau eine),
+  `TestPushSubscriptionService_UnsubscribeByURLAndExpiryFiltering` (eine aktive und eine per
+  direktem UPDATE zurueckdatierte Subscription — `GetSubscriptionsForCollection` liefert nur
+  die aktive; `UnsubscribeByURL` matched global auf push_url ohne User-/Collection-Scope),
+  `TestPushSubscriptionService_CleanupExpired` (aktive bleibt, abgelaufene wird entfernt),
+  `TestPushNotifier_NotifyCollectionChanged_DeliversPayloadAndSkipsFailingSubscriber`
+  (`httptest.NewServer` als Fake-Subscriber, zweiter Subscriber zeigt auf `127.0.0.1:1`
+  — Connection Refused statt Timeout, damit der Test schnell bleibt — beweist per Channel,
+  dass der fehlschlagende Subscriber den guten nicht blockiert, und dekodiert die empfangene
+  `pushMessage`-XML direkt, da Test im selben Package liegt), und
+  `TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval` (siehe
+  Fund unten).
+- fund: `PushNotifier.sendNotification`s 410-Gone-Zweig (push_notifier.go:138) ruft
+  `UnsubscribeByURL` mit `context.WithTimeout(context.Background(), 5*time.Second)` auf — ein
+  nackter Context ohne Tenant und ohne `sysctx.With`. Laut
+  `internal/database.TestPrepareConn_NoTenantNoSystem` ist genau das der bewusste "sichere
+  Default fuer versehentlich unverpackte Pfade": RLS laesst dann keine Zeile durch, das DELETE
+  loescht also still gar nichts. Empirisch bestaetigt (nicht nur gelesen): der neue Test baut
+  eine echte 410-Antwort, wartet auf den Removal-Goroutine und findet die Subscription danach
+  weiterhin in der DB. Production-Effekt: ein 410-meldender Push-Endpunkt wird nie wirklich
+  entfernt, `NotifyCollectionChanged` postet bei jeder Aenderung weiter ins Leere, bis
+  `CleanupExpired`s 7-Tage-TTL irgendwann greift. Nicht inline gefixt (echte
+  Verhaltensaenderung, kein Coverage-Delta) — neue Unit
+  `fix-caldav-push-410-unsubscribe-no-tenant-context` im Backlog angelegt (todo, phase 3,
+  deps: []).
+- gate: build ok (`go build ./internal/caldav/...`) | vet ok (`go vet ./internal/caldav/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/caldav/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/caldav/...`, `DATABASE_URL=postgres://kmuhub_app:app_dev@
+  localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips, ganzes Paket gruen
+  inkl. der fuenf neuen Testfunktionen) | migration n.a. (keine Schemaaenderung) | rls-smoke
+  n.a. (Tenant-Isolation fuer `caldav_push_subscriptions` bereits durch tenant_write_test.go
+  belegt; diese Unit deckt Service-Logik und den Notifier, nicht Cross-Tenant-SELECT) | route
+  n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `CleanupExpired` (push_subscription.go:166) `expires_at < NOW()` zu
+  `expires_at > NOW()` invertiert (loescht dann aktive statt abgelaufene Subscriptions).
+  Sofort rot: `TestPushSubscriptionService_CleanupExpired` (`AssertRowCount` fuer die aktive
+  Subscription erwartete 1, bekam 0 — die eigentlich unberuehrbare aktive Zeile war weg).
+  Zeile zurueckgedreht, `git diff --stat internal/caldav/push_subscription.go` zeigt danach
+  keinen Diff mehr. `go test -count=1 ./internal/caldav/...` danach erneut komplett gruen
+  (siehe gate oben).
+- offen: ein neuer Fund oben dokumentiert und als eigene Unit angelegt (nicht in dieser
+  Iteration gefixt, siehe Backlog-Regel). Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `fix-notification-markallread-empty-body-rejected` (deps: [], frei) oder
+  `fix-caldav-push-410-unsubscribe-no-tenant-context` (neu, deps: [], frei) — beide offen,
+  Reihenfolge in BACKLOG.yml entscheidet.
