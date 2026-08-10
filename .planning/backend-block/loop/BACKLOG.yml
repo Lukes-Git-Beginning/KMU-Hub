@@ -2003,7 +2003,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die reinen Konvertierungs-/Parsing-Helfer aus `internal/email/sync/worker.go` und
       `imap_client.go`, die KEINE echte IMAP-Verbindung brauchen: `DetectFolderType`,

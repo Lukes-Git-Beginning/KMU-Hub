@@ -3059,3 +3059,50 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-email-sync-helpers` (`status: todo`, `DetectFolderType`/`envelopeToMessage`/
   `imapAddressesToModel`/`parseEnvelopeDate`/`firstInReplyTo` in `internal/email/sync`).
+
+## Iteration 50 — c-cov-email-sync-helpers — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `248ace02` (c-cov-caldav-backend-helpers) geprueft: `git show --stat`
+  zeigt nur `caldav_backend_test.go`/`carddav_backend_test.go` (neu) plus Backlog-/Journal-Dateien,
+  deckt sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. `git merge origin/main` lief als
+  "Already up to date" — kein Divergenzrisiko, keine STOP-Datei.
+- gebaut: `internal/email/sync/helpers_test.go` (neu) fuer die reinen Helferfunktionen, die laut
+  Scope KEINE echte IMAP-Verbindung brauchen: `DetectFolderType` (Tabellentest ueber alle Eintraege
+  aus `folderTypeMap` inkl. Gross-/Kleinschreibung, Umlaut- vs. ASCII-Variante von "Entwürfe", plus
+  unbekannter/leerer Name -> `FolderTypeCustom`), `parseEnvelopeDate` (gueltiges RFC-5322-artiges
+  Datum mit `Z` und mit `+02:00`-Offset parst exakt, kaputter String und leerer String fallen beide
+  auf `time.Now().UTC()` zurueck statt eines ungepruesten Zero-Values — belegt mit
+  `assert.WithinDuration`, da ein exakter Zeitwert hier naturgemaess nicht erwartbar ist),
+  `firstInReplyTo` (leere/nil Liste -> `""`, erstes Element getrimmt zurueckgegeben), sowie das im
+  selben Paket lebende `imapAddressesToModel` (nil/leer -> nil, populierte Liste mappt
+  `Name`/`Addr()` korrekt inkl. leerem Namen). `envelopeToMessage` (Methode auf `*Worker`) per
+  Struct-Literal-`Worker{account: &models.EmailAccount{...}}` instanziiert (gleiches Package, keine
+  Service-Abhaengigkeiten noetig fuer diese reine Konvertierung) — deckt Adress-/Flag-Mapping
+  (Seen/Flagged/Draft), `InReplyTo`/`References`-Uebernahme, leeren From-Fall, und die
+  200-Zeichen-Preview-Truncation (Grenzfall exakt 250 Zeichen Subject -> 200 Zeichen Preview).
+- fund: keiner — alle fuenf Funktionen verhalten sich wie im Scope beschrieben, keine neue Fix-Unit
+  noetig. Die Methoden, die wirklich gegen einen IMAP-Server sprechen (Connect/Login/Fetch* in
+  `imap_client.go`, Run/syncCycle/syncFolder/idleLoop/pollLoop in `worker.go`), sind wie im Scope
+  festgelegt bewusst nicht Teil dieser Unit geblieben.
+- gate: build ok (`go build -p 2 ./internal/email/sync/...`) | vet ok
+  (`go vet ./internal/email/sync/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/email/sync/...`, 0 issues) | test ok (`go test -count=1 ./internal/email/sync/...`,
+  komplettes Paket gruen) | migration n.a. | rls-smoke n.a. | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `parseEnvelopeDate` (worker.go:494-499) den Erfolgsfall von `return t` auf
+  `return t.Add(24 * time.Hour)` gesetzt. `TestParseEnvelopeDate/valid_RFC3339_date_parses_exactly`
+  und `.../valid_date_with_offset_parses_exactly` wurden beide rot (erwartet 2026-03-05, erhalten
+  2026-03-06), die beiden Fallback-Subtests blieben gruen (praezise auf die zwei veraenderten
+  Erfolgsfaelle isoliert) — exakt der erwartete Fehlschlag. Zurueckgedreht, `git diff --stat
+  internal/email/sync/worker.go` liefert keine Ausgabe (identisch zur Ausgangslage), volle Suite
+  danach wieder gruen (`go test -count=1 ./internal/email/sync/...`).
+- db-tests: 0 — alle fuenf Funktionen sind reine In-Memory-Parsing/-Konvertierungs-Helfer ohne
+  DB-Zugriff, `done_when` verlangt hier keine.
+- coverage: `internal/email/sync` Paketcoverage nach dieser Unit 10,9 % (vorher 0 %, kein Testfile
+  existierte). Bewusst niedrig trotz vollstaendig gedeckter Scope-Funktionen: `Run`/`syncCycle`/
+  `syncFolders`/`syncFolder`/`idleLoop`/`pollLoop` sowie fast der gesamte `imap_client.go`-Inhalt
+  (Connect/Login/Select/Fetch*/Idle/Noop/ListFolders) bleiben ungetestet, weil sie einen echten
+  IMAP-Server brauchen (go.mod hat kein Test-Server-Paket dafuer) — exakt wie im Scope begruendet
+  ausgeschlossen.
+- offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-work-task-repo` (`status: todo`, `List`/`Search`/`GetSubtasks`/`GetParentChain`/
+  `GetDepth`/`HasCycle` in `internal/work/task/postgres_repository.go`).
