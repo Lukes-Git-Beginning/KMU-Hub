@@ -3546,7 +3546,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-plugin-repository-gaps`.
 
 ## Iteration 58 — c-cov-plugin-repository-gaps — done — 2026-08-10 (Lauf 7)
-- commit: (folgt)
+- commit: `4df032e4`
 - verify vorgaenger: sauber — `c398d17c` (fix-work-calendar-listbrowsable-broken-query,
   Iteration 57) geprueft: `git show --stat` zeigt nur `postgres_repository.go` (2-Zeilen-Fix),
   `repository_gaps_test.go` (Test aktualisiert statt geloescht) plus BACKLOG.yml/JOURNAL.md.
