@@ -661,6 +661,69 @@ units:
         neuen erwarteten Code aktualisiert
       - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
 
+  - id: fix-email-mime-attachment-boundary-mismatch
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `MIMEBuilder.buildWithAttachments` (internal/email/send/mime_builder.go:129) declares the
+      nested text/html body part's Content-Type boundary from one throwaway `multipart.Writer`
+      ("just for the boundary", e.g. `relatedWriter`/`altWriter` at lines 137/160) but then writes
+      the actual text/html content through a SECOND, independently-created `multipart.Writer`
+      (`innerRelated`/`innerAlt`, lines 144/167) wrapping the same `bodyPart` io.Writer. Each
+      `multipart.NewWriter` call generates its own random boundary
+      (`multipart.randomBoundary()`/crypto rand under the hood) - the two never match. Both
+      branches (`hasInline` true and false) share this exact pattern. Result: every email built
+      with at least one attachment (inline or not) is malformed per RFC 2046 SS5.1.1 - a
+      spec-compliant MIME parser reading the nested body part strictly against its OWN declared
+      Content-Type boundary finds zero parts (immediate EOF) and cannot recover the text/plain or
+      text/html body at all. The message still "sends" (SMTP layer doesn't care about MIME
+      structure) and the ATTACHMENTS themselves ARE still recoverable (they're direct, correctly
+      un-nested children of the outer multipart/mixed writer, which does not have this bug - only
+      the inner alternative/related wrapper does). Proven concretely (not just asserted) by
+      `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` in
+      `internal/email/send/mime_builder_test.go` (built during `c-cov-email-send-mime`, Lauf 7):
+      parses the declared boundary out of the nested part's own Content-Type header, then feeds
+      that exact boundary plus the nested part's actual bytes into `multipart.NewReader`, and
+      shows `NextPart()` returns `io.EOF` immediately - i.e. no client, however compliant, can
+      parse it. `TestMIMEBuilder_MultipleAttachments`/`TestMIMEBuilder_AttachmentWithoutFilename`
+      (same file) already work around the bug by asserting only on the outer mixed-level parts and
+      explicitly NOT decoding the broken nested body part.
+    sources:
+      - backend/internal/email/send/mime_builder.go
+      - backend/internal/email/send/mime_builder_test.go
+    notes: >
+      Gefunden waehrend c-cov-email-send-mime (Lauf 7, Iteration 45). Nicht inline gefixt - echte
+      Verhaltensaenderung an einer viel benutzten Kernfunktion (jede ausgehende Mail mit Anhang),
+      keine reine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit - und ausserdem
+      risikoreicher als eine typische Coverage-Iteration, daher besser mit vollem Fokus statt
+      nebenbei. Fix-Vorschlag: in beiden Zweigen von `buildWithAttachments` die throwaway-Writer
+      (`relatedWriter`/`altWriter`, nur fuer `.Boundary()` gebraucht) STREICHEN und stattdessen den
+      bereits fuer den Inhalt erzeugten Writer (`innerRelated`/`innerAlt`) zuerst instanziieren und
+      dessen `.Boundary()` in den Header schreiben - Reihenfolge dreht sich einfach um: erst
+      `innerAlt := multipart.NewWriter(bodyPart)` (oder aequivalent mit einem
+      `bytes.Buffer`-Zwischenschritt, falls `bodyPart` erst nach dem Header-Write existiert - dann
+      Header ueber `innerAlt.Boundary()` VOR `mixedWriter.CreatePart(bodyHeader)` befuellen, das
+      erfordert vermutlich einen kleinen Umbau der Schreibreihenfolge, siehe Kommentar im Code
+      "Override boundary to match the one in the header" bei `caldav_backend`-artigen Mustern
+      dieses Repos als Referenz, falls vorhanden). Nach dem Fix
+      `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` durch einen
+      echten Roundtrip-Test ersetzen (Boundary MUSS jetzt matchen, Text/HTML MUESSEN decodierbar
+      sein) und `TestMIMEBuilder_MultipleAttachments`/`TestMIMEBuilder_AttachmentWithoutFilename`
+      auf vollen rekursiven Parse (statt Shallow-Parse an der Mixed-Ebene) umstellen.
+    done_when:
+      - Der im Content-Type-Header deklarierte Boundary-Wert des nested text/html-Bodyparts
+        stimmt mit dem tatsaechlich verwendeten Boundary ueberein, in BEIDEN Zweigen (hasInline
+        true und false)
+      - Ein echter rekursiver MIME-Parse (net/mail + verschachteltes mime/multipart, keine
+        Shallow-Workarounds) liefert Text- und HTML-Body korrekt zurueck fuer eine Mail mit
+        mindestens einem Anhang
+      - TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap auf das neue
+        (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/email/send/... gruen
+
   - id: fix-vertraege-contracttoproto-drops-signature
     phase: 3
     service: vertraege
@@ -1777,7 +1840,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/email/send/mime_builder.go` - 279 Zeilen, keine Testdatei, trotz drei
       bestehender Testdateien im Paket (service_test.go, consent_test.go,

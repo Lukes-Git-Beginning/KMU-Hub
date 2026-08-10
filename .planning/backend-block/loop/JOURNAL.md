@@ -2771,3 +2771,62 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   liefen unveraendert mit, 0 Skips bei gesetzter `DATABASE_URL`.
 - offen: keins. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-email-send-mime`
   (`status: todo`, Zeile ~1775, MIME-Nachrichtenerzeugung `internal/email/send/mime_builder.go`).
+
+## Iteration 45 — c-cov-email-send-mime — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `0bfa4012` (c-cov-caldav-ical) geprueft: Diff enthaelt nur zwei neue
+  Testdateien (`ical_converter_test.go`, `etag_test.go`), kein Produktionscode angefasst, kein
+  gRPC-Layer, kein Proto, keine neue Route, kein neuer Guard, keine neue Tabelle.
+- gebaut: neue Testdatei `internal/email/send/mime_builder_test.go` fuer
+  `internal/email/send/mime_builder.go` (279 Zeilen, vorher nur indirekt per
+  `strings.Contains`-Assertions in `service_test.go` beruehrt, kein echter Parse-Rueckwaerts-Test).
+  Roundtrip via `net/mail.ReadMessage` + `mime/multipart` (eigener rekursions-/shallow-faehiger
+  Parser, da das Paket selbst keinen bietet): `TestMIMEBuilder_ParseBack_PlainAndHTML` (Text+HTML
+  ohne Anhang, echter Decode inkl. Quoted-Printable), `TestMIMEBuilder_SubjectRFC2047_Umlauts`
+  (echte Umlaute+Emoji im Betreff, beweist RFC-2047-Kodierung ueber den rohen Header-Wert
+  `=?utf-8?...?=` UND per `mime.WordDecoder` zurueckdekodiert exakt gleich dem Original — die
+  bisherige `TestMIMEBuilder_UnicodeSubject` in service_test.go nutzte gar keine echten Umlaute
+  und pruefte nur `NotEmpty`), `TestMIMEBuilder_MultipleAttachments` (zwei Anhaenge, Base64-Decode
+  gegen Originalbytes, Content-Disposition/Dateiname), `TestMIMEBuilder_AttachmentWithoutFilename`
+  (leerer Dateiname, `Content-Disposition: attachment; filename=""` parst sauber). Fehlerpfad:
+  `TestMIMEBuilder_AttachmentReadError` (Anhang-`io.Reader` liefert Fehler, `Build` gibt ihn durch
+  statt zu verschlucken).
+- FUND (nicht gefixt, eigene Unit `fix-email-mime-attachment-boundary-mismatch` im Backlog
+  angelegt, status: todo): `buildWithAttachments` (mime_builder.go:129) deklariert den Boundary
+  des verschachtelten Text/HTML-Bodyparts ueber einen Wegwerf-`multipart.Writer`
+  ("just for the boundary", Zeile 137/160), schreibt den tatsaechlichen Inhalt aber ueber einen
+  ZWEITEN, unabhaengig erzeugten `multipart.Writer` mit eigenem Zufalls-Boundary (Zeile 144/167).
+  Beide Boundaries matchen nie — jede Mail mit mindestens einem Anhang (inline oder nicht, beide
+  Zweige betroffen) ist fuer einen RFC-2046-konformen Client strukturell unlesbar; der
+  Text/HTML-Body ist nicht wiederherstellbar (Anhaenge selbst sind nicht betroffen, die haengen
+  unverschachtelt am aeusseren mixed-Writer). Nicht vermutet, sondern konkret bewiesen: erst
+  scheiterte der naive rekursive Parser mit `multipart: NextPart: EOF` beim Versuch, den
+  verschachtelten Bodypart zu decodieren; danach per Rohdump verifiziert (deklarierter vs.
+  tatsaechlicher Boundary-String im Klartext verschieden), und als eigener, selbsterklaerender
+  Test `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` festgehalten
+  (parst den deklarierten Boundary aus dem Header, fuettert ihn zusammen mit den tatsaechlichen
+  Bytes in einen frischen `multipart.Reader`, zeigt `NextPart()` liefert sofort `io.EOF`). Die
+  beiden Anhang-Tests umschiffen den Bug bewusst durch einen Shallow-Parse nur auf der aeusseren
+  mixed-Ebene (Anhaenge selbst bleiben pruefbar), ohne den kaputten inneren Bodypart zu decodieren.
+- gate: build ok (`go build ./internal/email/send/...`) | vet ok
+  (`go vet ./internal/email/send/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/email/send/...`, 0 issues) | test ok (`go test -count=3 ./internal/email/send/...`,
+  dreimal wiederholt, durchgehend gruen, 0 Fails, inkl. der 6 bereits bestehenden
+  MIMEBuilder-Tests aus service_test.go) | migration n.a. | rls-smoke n.a. (kein DB-Zugriff im
+  Paket) | route n.a. (kein Gateway/Server-Handler angefasst) | openapi n.a. | protoc n.a.
+- mutations-probe: `mime.QEncoding.Encode("utf-8", input.Subject)` in `Build` (mime_builder.go:90)
+  auf reines `input.Subject` (ohne Encoding) gesetzt → `TestMIMEBuilder_SubjectRFC2047_Umlauts`
+  wurde rot ("expected RFC 2047 encoded-word, got \"Grüße äöü ß und Emoji 😀 Test\""),
+  zurueckgedreht, `git diff` auf die Produktionsdatei bestaetigt eine identische Datei (leerer
+  Diff), volle Suite danach wieder gruen.
+- db-tests: 0 — reine In-Memory-MIME-Erzeugung ohne DB-Zugriff, `done_when` verlangt hier keine
+  DB-Tests.
+- coverage: `internal/email/send` Paketcoverage nach dieser Unit 58,4 %; `mime_builder.go` selbst
+  95,8 % (`Build`), 70,0-92,9 % je Helferfunktion (`buildAlternative`/`buildWithAttachments`/
+  `writeTextPart`/`writeHTMLPart`/`writeAlternativePart`/`writeAttachmentPart`), 100 % fuer
+  `String`/`NewMIMEBuilder`/`writeHeader`/`formatAddressList`.
+- offen: neue Fix-Unit `fix-email-mime-attachment-boundary-mismatch` (phase 3, status: todo) im
+  Backlog fuer den Boundary-Bug — als eigenstaendige, risikoreichere Iteration vorgesehen, nicht
+  nebenbei in dieser Coverage-Unit gefixt. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-notification-forwarder` (`status: todo`, Zeile ~1803 vor Einfuegen der neuen Fix-Unit,
+  `internal/notification/integration/forwarder.go`).
