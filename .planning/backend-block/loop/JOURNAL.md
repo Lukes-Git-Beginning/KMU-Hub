@@ -306,3 +306,59 @@ Frühere Läufe liegen vollständig im Archiv:
   (neuer `-StartNotBefore`-Parameter), der schon zu Beginn dieser Iteration vorhanden war und zu
   keiner Backlog-Unit gehört — nicht angefasst, nicht committet (nicht meine Datei für diese
   Unit).
+
+## Iteration 7 — fix-email-sync-imap-connect-no-timeout — done — 2026-08-10 15:52
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `IMAPClient.Connect` (imap_client.go) macht jetzt den TCP-Dial (und beim direkten
+  TLS-Pfad Port 993 den TLS-Handshake) selbst über `net.Dialer{Timeout: imapDialTimeout}` bzw.
+  `tls.DialWithDialer` statt `imapclient.DialTLS`/`DialStartTLS(addr, nil)`. Neuer Helper
+  `newIMAPProtocolClient(conn, direct)`: fürs direkte TLS reicht `imapclient.New(conn, nil)`
+  (blockiert laut Quellcode nicht — spawnt nur die interne Read-Goroutine), für STARTTLS läuft
+  `imapclient.NewStartTLS(conn, nil)` in einer eigenen Goroutine, geract gegen
+  `time.After(imapHandshakeDeadline)`; bei Timeout schließt der Aufrufer `conn`, was den
+  blockierten Read in der verwaisten Goroutine entriegelt statt sie fuer immer haengen zu lassen.
+  `imapDialTimeout = 10s`, `imapHandshakeDeadline = 30s` — dieselben Werte wie
+  `email/send`s `smtpDialTimeout`/`smtpExchangeDeadline` (package-lokale Vars, nicht importiert —
+  `internal/email/systemmail` hat exakt dasselbe Muster kopiert, das ist hier Konvention, kein
+  Versehen). `addr` jetzt über `net.JoinHostPort` statt `fmt.Sprintf("%s:%d", ...)` (Linter
+  `hostport`, IPv6-Adressen brechen sonst).
+  **Wichtiger Fund gegen die Backlog-Notiz:** die Vermutung "go-imap v2 hat gar keinen
+  Read-Timeout" stimmt nicht ganz — es gibt einen internen `respReadTimeout` (30s, hartkodiert),
+  der aber bei jedem Leseversuch neu gesetzt wird und daher gegen einen Server, der komplett
+  schweigt, nie wirklich ablaeuft (empirisch verifiziert: `imapclient.DialStartTLS(addr, nil)`
+  gegen einen Fake-Server, der annimmt und dann für immer schweigt, kehrte auch nach >35s nicht
+  zurück). Ein zusätzliches `conn.SetDeadline(...)` von außen half NICHT — es wird vom
+  internen Read-Loop sofort wieder überschrieben (das war mein erster, verworfener Versuch,
+  siehe unten). Nur das Race mit eigenem Timer + `conn.Close()` bei Ablauf entriegelt den
+  blockierten Aufruf zuverlässig. `worker.go:148` ruft `client.Connect(...)` ohne eigenen
+  Kontext/Deadline auf (wie in der Notiz zu prüfen aufgetragen) — der Fix hier ist die einzige
+  Absicherung, es gibt keine doppelte.
+  Neuer Test `imap_timeout_test.go` (`TestConnect_HandshakeDeadline`), nach dem Muster von
+  `smtp_timeout_test.go`: TCP-Fake-Server nimmt an und schweigt für immer, Timeouts für den Test
+  auf 2s/200ms geschrumpft, `Connect` muss `ErrIMAPConnectionLost` liefern statt zu haengen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
+  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | route n.a. (keine Route angefasst, `go test ./internal/gateway/` daher nicht
+  Pflicht und nicht gelaufen)
+- coverage: internal/email/sync 10,9 % -> 16,0 %
+- mutations-probe: `time.After(imapHandshakeDeadline)` in `newIMAPProtocolClient` auf
+  `time.After(imapHandshakeDeadline * 100)` gedreht (simuliert "Timeout wirkt nicht") ->
+  `TestConnect_HandshakeDeadline` rot (Connect kehrte nicht innerhalb der 3s-Testgrenze zurück),
+  zurückgedreht, `gofmt`-normalisierter Diff zeigt exakt die urspruenglich beabsichtigte Aenderung
+  (73 Insertions/5 Deletions in imap_client.go, reiner Neubau in imap_timeout_test.go).
+- verify vorgaenger: sauber — `e545d33c` geprüft: alle 13 Handler nutzen `validateUUIDParam`
+  statt rohem `chi.URLParam`, kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Key, keine Tabelle, keine neue Route (nur bestehende Handler geändert,
+  `TestOpenAPIRouteDrift` unberührt), Testfallout (fehlende `withChiURLParam`-IDs in
+  Bestandstests) korrekt nachgezogen statt Assertions geschwächt.
+- offen: Der Fix deckt laut Scope nur `Connect()` ab. `Login()`/`Select()`/`Fetch()` usw. hängen
+  weiterhin am selben potenziell nie ablaufenden internen `respReadTimeout` — ein Postfach-Server,
+  der nach erfolgreichem Connect+Login beim ersten `SELECT` verstummt, würde denselben
+  unbegrenzten Hang zeigen. Nicht in dieser Unit behoben (Scope war ausdrücklich nur Connect),
+  aber real genug, um als eigene Folge-Unit für Lauf 9 vorzumerken (`newIMAPProtocolClient`s
+  Race-Pattern ließe sich grundsätzlich auf die anderen blockierenden Calls übertragen, wäre aber
+  eine größere Änderung — jeder Call bräuchte eine eigene Goroutine+Race oder einen zentralen
+  Wrapper). Für Port 993 (direktes TLS) bleibt das Restrisiko kleiner, da `imapclient.New`
+  nicht blockiert und der TLS-Handshake selbst über `net.Dialer.Timeout` bereits gebunden ist
+  (per `crypto/tls`-Quellcode verifiziert: `tls.DialWithDialer` spannt einen `context.WithTimeout`
+  über Dial UND Handshake).

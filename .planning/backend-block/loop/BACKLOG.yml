@@ -442,7 +442,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/sync 10,9 %"
     scope: >
       `IMAPClient.Connect` (internal/email/sync/imap_client.go) ruft
