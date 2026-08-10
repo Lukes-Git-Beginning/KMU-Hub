@@ -4201,7 +4201,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 68 — c-cov-caldav-app-password — done — 2026-08-10 (Lauf 7)
 
-- commit: `<siehe naechster chore-Commit>`
+- commit: `8b7ed889`
 - gebaut: `internal/caldav/app_password_db_test.go` (neu, DB-backed). Sechs Testfunktionen fuer
   `AppPasswordService` (`Validate`, `Revoke`, `List`, `IsOrgEnabled`/`SetOrgEnabled`) und
   `PostgresUserPreferenceRepository` (`GetCalDAVEnabled`/`SetCalDAVEnabled`, `ListCalDAVUsers`,
