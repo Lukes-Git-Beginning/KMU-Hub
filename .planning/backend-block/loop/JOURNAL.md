@@ -1802,7 +1802,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 23:28).
 
 ## Iteration 29 — b-cov-server-work-search-links-preferences — done — 2026-08-10 23:39
-- commit: (folgt im naechsten Meta-Commit)
+- commit: c9a33570
 - unit: b-cov-server-work-search-links-preferences (Block B, Coverage
   internal/server)
 - scope: die 12 im Backlog genannten ungetesteten work_grpc.go-Methoden:
