@@ -2959,3 +2959,58 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 44) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt
   (2026-08-11 01:42).
+
+## Iteration 46 — d-cov-gateway-fuhrpark-fuel-trip-bookings — done — 2026-08-11 01:53
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_logs_test.go` (36 Tests)
+  fuer die neun in der Unit genannten Handler in route_fuhrpark.go: HandleCreateFuelLog
+  (ServiceUnavailable, MissingTenant, MissingLiters, MissingDate, InvalidVehicleIDUUID,
+  DefaultFuelTypeReachesRPC), HandleUpdateFuelLog (ServiceUnavailable, MissingTenant,
+  InvalidIDUUID, InvalidLiters, ReachesRPC), HandleDeleteFuelLog (ServiceUnavailable,
+  MissingTenant, InvalidIDUUID, ReachesRPC), HandleCreateTripLog (ServiceUnavailable,
+  MissingTenant, MissingDate, MissingDriverName, InvalidVehicleIDUUID, ReachesRPC),
+  HandleUpdateTripLog (ServiceUnavailable, MissingTenant, InvalidIDUUID, InvalidStartKm,
+  ReachesRPC), HandleDeleteTripLog (ServiceUnavailable, MissingTenant, InvalidIDUUID,
+  ReachesRPC), HandleCreateVehicleBooking (ServiceUnavailable, MissingTenant,
+  MissingEndsAt, InvalidVehicleID, ReversedPeriodReachesRPC), HandleUpdateVehicleBooking
+  (ServiceUnavailable, MissingTenant, InvalidIDUUID, InvalidStatus,
+  ReversedPeriodReachesRPC) und HandleDeleteVehicleBooking (ServiceUnavailable,
+  MissingTenant, InvalidIDUUID, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1446 PASS, 0 SKIP, 0 FAIL) |
+  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit, unveraendert
+  gruen (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 38,0 % (go test -coverprofile + go tool cover -func,
+  einziger Lauf noetig)
+- mutations-probe: drei Proben, alle gefangen. (1) In HandleDeleteFuelLog
+  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
+  TestHandleDeleteFuelLog_InvalidIDUUID rot (503 statt 400, "connection error" statt
+  "invalid id"). (2) In `updateTripLogRequest.StartKm` das `validate:"omitempty,gte=0"`-Tag
+  entfernt -> TestHandleUpdateTripLog_InvalidStartKm rot (503 statt 400, kein
+  validation_failed mehr, Feld "start_km" fehlt in den Details). (3) In
+  HandleCreateVehicleBooking den `GetTenantID`-Fehlerpfad stillgelegt (`_, _ :=
+  middleware.GetTenantID(r.Context())`, kein 401-Return mehr) ->
+  TestHandleCreateVehicleBooking_MissingTenant rot (503 statt 401). Alle drei per Edit-Tool
+  gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_fuhrpark.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (1446 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit f4441cfa (Iteration 45) sowie der Metadaten-Commit
+  74b73729 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: weder
+  `createVehicleBookingRequest` noch `updateVehicleBookingRequest`
+  (route_fuhrpark.go:1736-1749) validieren, dass `starts_at` vor `ends_at` liegt — beide
+  Felder tragen nur `validate:"required"` bzw. gar kein Tag, ein umgekehrter Buchungszeitraum
+  wird am Gateway nicht abgelehnt und erreicht ungeprueft die RPC-Schicht (siehe
+  TestHandleCreateVehicleBooking_ReversedPeriodReachesRPC /
+  TestHandleUpdateVehicleBooking_ReversedPeriodReachesRPC). Ob der fuhrpark-Service das
+  serverseitig ablehnt, war ohne bufconn-Stub fuer den Service in diesem Paket nicht lokal
+  zu pruefen — dieselbe Grenze wie in jeder bisherigen Gateway-Coverage-Unit dieses Laufs.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-45 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 45) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:53).
