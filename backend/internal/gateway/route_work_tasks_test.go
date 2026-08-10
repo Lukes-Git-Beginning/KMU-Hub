@@ -125,6 +125,34 @@ func TestHandleListTasks_InvalidDueTo(t *testing.T) {
 	assertErrorContains(t, rec, "invalid due_to format")
 }
 
+// TestHandleListTasks_ScopeOwnWithoutUserRejected proves the scope check runs
+// before the request reaches the RPC layer: a caller narrowed to "own" (on
+// either permission key of the route's RequirePermissionAny guard) without a
+// user id in the token is refused outright, not handed the unfiltered list.
+func TestHandleListTasks_ScopeOwnWithoutUserRejected(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/tasks", nil)
+	req = withTenantID(req, testTenantID)
+	req = withScopes(req, map[string]string{"work:task:read": "own"})
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+	assertErrorContains(t, rec, "missing user in token")
+}
+
+// TestHandleListTasks_ScopeOwnValidUserReachesRPC proves a caller narrowed to
+// "own" with a valid user id still reaches the RPC layer (their own
+// assignee_id filter is not a rejection).
+func TestHandleListTasks_ScopeOwnValidUserReachesRPC(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/tasks?assignee_id=550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withScopes(req, map[string]string{"tasks:read": "own"})
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
 // TestHandleListTasks_FilterCombinations exercises the filter-parsing branches
 // (project_id, assignee_id, status_id, priority, parent_task_id, label_ids,
 // due_from/due_to, sort, include_completed) including the empty combination.

@@ -157,6 +157,35 @@ func ownerFilterForScope(w http.ResponseWriter, r *http.Request, resource, actio
 	return &userID, true
 }
 
+// ownerFilterForScopeAny is ownerFilterForScope for a route guarded by
+// middleware.RequirePermissionAny across more than one resource:action pair.
+// That guard grants access if EITHER key is present, so a caller can be
+// narrowed to "own" under one key while the other key was never assigned to
+// them — and an unassigned key resolves to auth.ScopeAll (see
+// middleware.PermissionScope), not "unknown". Treating that as "wide open"
+// would let the caller escape a scope their own grant deliberately set, so
+// the narrower of the pairs always wins: any pair at ScopeOwn filters the
+// list, regardless of what the other pairs resolve to.
+func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]string) (*string, bool) {
+	narrowed := false
+	for _, p := range pairs {
+		if middleware.PermissionScope(r.Context(), p[0], p[1]) == auth.ScopeOwn {
+			narrowed = true
+			break
+		}
+	}
+	if !narrowed {
+		return nil, true
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return nil, false
+	}
+	return &userID, true
+}
+
 // decodeAndValidate decodes the JSON request body into a value of type T and
 // validates it against its `validate` struct tags via the shared validation
 // package. On a decode error it writes a 400 with the contract-stable

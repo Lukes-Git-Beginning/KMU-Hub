@@ -70,3 +70,69 @@ func TestOwnerFilterForScope_OwnWithoutUserIsRejected(t *testing.T) {
 	assert.Nil(t, got)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
+
+// ownerFilterForScopeAny backs routes guarded by middleware.RequirePermissionAny
+// across a legacy coarse key ("tasks", "read") and a fine key
+// ("work:task", "read") — see route_work_tasks.go HandleListTasks. The guard
+// grants access if EITHER key is present, so a caller narrowed under one key
+// must not escape that narrowing just because the other key was never
+// assigned to them (an unassigned key resolves to auth.ScopeAll, not
+// "unknown" — see middleware.PermissionScope).
+
+var taskPermissionPairs = [][2]string{{"tasks", "read"}, {"work:task", "read"}}
+
+func TestOwnerFilterForScopeAny_OwnOnFirstKeyNarrows(t *testing.T) {
+	userID := uuid.NewString()
+	rec := httptest.NewRecorder()
+
+	got, ok := ownerFilterForScopeAny(rec, requestWithScope(userID, map[string]string{
+		"tasks:read": auth.ScopeOwn,
+		// "work:task:read" intentionally absent -> resolves to ScopeAll alone.
+	}), taskPermissionPairs...)
+
+	require.True(t, ok)
+	require.NotNil(t, got)
+	assert.Equal(t, userID, *got)
+}
+
+func TestOwnerFilterForScopeAny_OwnOnSecondKeyNarrows(t *testing.T) {
+	userID := uuid.NewString()
+	rec := httptest.NewRecorder()
+
+	got, ok := ownerFilterForScopeAny(rec, requestWithScope(userID, map[string]string{
+		"work:task:read": auth.ScopeOwn,
+		// "tasks:read" intentionally absent -> resolves to ScopeAll alone.
+	}), taskPermissionPairs...)
+
+	require.True(t, ok)
+	require.NotNil(t, got)
+	assert.Equal(t, userID, *got)
+}
+
+func TestOwnerFilterForScopeAny_WiderScopesDoNotFilter(t *testing.T) {
+	for name, scopes := range map[string]map[string]string{
+		"both all":     {"tasks:read": auth.ScopeAll, "work:task:read": auth.ScopeAll},
+		"both absent":  nil,
+		"team on fine": {"work:task:read": auth.ScopeTeam},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			got, ok := ownerFilterForScopeAny(rec, requestWithScope(uuid.NewString(), scopes), taskPermissionPairs...)
+
+			require.True(t, ok)
+			assert.Nil(t, got, "no pair at own must not narrow the list")
+		})
+	}
+}
+
+func TestOwnerFilterForScopeAny_OwnWithoutUserIsRejected(t *testing.T) {
+	rec := httptest.NewRecorder()
+
+	got, ok := ownerFilterForScopeAny(rec, requestWithScope("", map[string]string{
+		"work:task:read": auth.ScopeOwn,
+	}), taskPermissionPairs...)
+
+	assert.False(t, ok)
+	assert.Nil(t, got)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}

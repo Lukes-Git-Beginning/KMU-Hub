@@ -137,6 +137,11 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, ok := ownerFilterForScopeAny(wr, r, [2]string{"tasks", "read"}, [2]string{"work:task", "read"})
+	if !ok {
+		return
+	}
+
 	q := r.URL.Query()
 	page, pageSize := parsePagination(r, 1, 20)
 
@@ -154,6 +159,11 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	}
 	if aid := q.Get("assignee_id"); aid != "" {
 		grpcReq.AssigneeId = &aid
+	}
+	if ownerID != nil {
+		// Overrides any client-supplied assignee_id — a scope of "own" is a
+		// boundary, not a suggestion the caller can widen with a query param.
+		grpcReq.AssigneeId = ownerID
 	}
 	if sid := q.Get("status_id"); sid != "" {
 		grpcReq.StatusId = &sid

@@ -60,6 +60,15 @@ func withAuth(r *http.Request, userID string, tenantID uuid.UUID) *http.Request 
 	return withTenantID(withUserID(r, userID), tenantID)
 }
 
+// withScopes adds a resource:action -> scope map to the request context, as
+// the auth middleware does after decoding an access token's scopes claim.
+// Use it together with withAuth/withTenantID to test middleware.PermissionScope
+// and ownerFilterForScope(Any) call sites.
+func withScopes(r *http.Request, scopes map[string]string) *http.Request {
+	ctx := context.WithValue(r.Context(), middleware.UserScopesKey, scopes)
+	return r.WithContext(ctx)
+}
+
 // withRoles creates a request with a role list in the context, as the auth
 // middleware does after decoding an access token. Use it to satisfy
 // middleware.RequireRole in router-level tests.
