@@ -212,26 +212,6 @@ func (m *mockRepositoryExtended) ContractNrExists(_ context.Context, tenantID uu
 	return true, nil
 }
 
-func (m *mockRepositoryExtended) UpdateContractUsedValue(_ context.Context, tenantID, contractID uuid.UUID) error {
-	fc, ok := m.contracts[contractID]
-	if !ok {
-		return ErrContractNotFound
-	}
-	// Sum all call amounts for this contract.
-	var total float64
-	for _, call := range m.contractCalls {
-		if call.TenantID != tenantID || call.ContractID != contractID {
-			continue
-		}
-		v, err := strconv.ParseFloat(call.Amount, 64)
-		if err == nil {
-			total += v
-		}
-	}
-	fc.UsedValue = fmt.Sprintf("%g", total)
-	return nil
-}
-
 // -------------------------------------------------------------------------
 // Framework Contract Items
 // -------------------------------------------------------------------------
@@ -275,9 +255,45 @@ func (m *mockRepositoryExtended) QueryRowContractItem(_ context.Context, tenantI
 // Framework Contract Calls
 // -------------------------------------------------------------------------
 
+// CreateContractCall mirrors the guarantees the Postgres implementation gives
+// inside its transaction: existence, status, remaining value, and the
+// used_value recompute. The SQL itself is proven against a real database in
+// postgres_repository_extended_test.go — this double exists so the service
+// tests can observe which of those rejections the service surfaces.
 func (m *mockRepositoryExtended) CreateContractCall(_ context.Context, call *FrameworkContractCall) error {
+	fc, ok := m.contracts[call.ContractID]
+	if !ok || fc.TenantID != call.TenantID {
+		return ErrContractNotFound
+	}
+	if fc.Status != ContractStatusActive {
+		return fmt.Errorf("contract is in status %q: %w", fc.Status, ErrContractNotActive)
+	}
+
+	used := m.sumContractCalls(call.TenantID, call.ContractID)
+	total, _ := strconv.ParseFloat(fc.TotalValue, 64)
+	amount, _ := strconv.ParseFloat(call.Amount, 64)
+	remaining := total - used
+	if amount > remaining {
+		return fmt.Errorf("call-off of %s, remaining %s: %w",
+			call.Amount, strconv.FormatFloat(remaining, 'f', -1, 64), ErrContractBudgetExceeded)
+	}
+
 	m.contractCalls[call.ID] = call
+	fc.UsedValue = strconv.FormatFloat(used+amount, 'f', -1, 64)
 	return nil
+}
+
+func (m *mockRepositoryExtended) sumContractCalls(tenantID, contractID uuid.UUID) float64 {
+	var total float64
+	for _, c := range m.contractCalls {
+		if c.TenantID != tenantID || c.ContractID != contractID {
+			continue
+		}
+		if v, err := strconv.ParseFloat(c.Amount, 64); err == nil {
+			total += v
+		}
+	}
+	return total
 }
 
 func (m *mockRepositoryExtended) ListContractCalls(_ context.Context, tenantID, contractID uuid.UUID) ([]*FrameworkContractCall, error) {
@@ -554,9 +570,97 @@ func TestExtended_CreateContractCall_UpdatesUsedValue(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, call.ID)
 	assert.Equal(t, "1500", call.Amount)
 
-	// After CreateContractCall the service calls UpdateContractUsedValue.
-	// Verify that used_value was updated on the in-memory contract.
+	// used_value is written by the same repository call that inserts the
+	// call-off, not by a separate follow-up the service could lose.
 	updatedFC := repo.contracts[fc.ID]
 	assert.NotEqual(t, "0", updatedFC.UsedValue,
 		"used_value must be non-zero after a call-off of 1500")
+}
+
+// The framework contract's total_value was a decoration until 2026-08-10: the
+// service loaded the contract only to prove it existed and never compared the
+// amount against it, so a 10.000-EUR frame could be called off without limit.
+func TestExtended_CreateContractCall_ExceedingRemainingIsRejected(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
+
+	tenantID, supplierID := uuid.New(), uuid.New()
+	fc := addFrameworkContract(repo, tenantID, supplierID, "Capped Frame", "FC-CAP", ContractStatusActive)
+
+	// 8000 of 10000 are already called off.
+	_, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "8000",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "2000.01",
+	})
+	require.ErrorIs(t, err, ErrContractBudgetExceeded)
+	assert.Contains(t, err.Error(), "remaining 2000",
+		"the message must name the remaining value, or the buyer cannot tell what would still fit")
+
+	// The rejected call must not have been persisted.
+	calls, listErr := svc.ListContractCalls(context.Background(), tenantID, fc.ID)
+	require.NoError(t, listErr)
+	assert.Len(t, calls, 1)
+}
+
+func TestExtended_CreateContractCall_ExactRemainingIsAccepted(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
+
+	tenantID, supplierID := uuid.New(), uuid.New()
+	fc := addFrameworkContract(repo, tenantID, supplierID, "Exhausted Frame", "FC-EXACT", ContractStatusActive)
+
+	_, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "7500",
+	})
+	require.NoError(t, err)
+
+	// Exactly the remaining 2500 still fits — the cap is inclusive.
+	_, err = svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "2500",
+	})
+	require.NoError(t, err)
+
+	// One cent beyond it does not.
+	_, err = svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "0.01",
+	})
+	require.ErrorIs(t, err, ErrContractBudgetExceeded)
+}
+
+func TestExtended_CreateContractCall_InactiveContractIsRejected(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status ContractStatus
+	}{
+		{"draft", ContractStatusDraft},
+		{"expired", ContractStatusExpired},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMockRepositoryExtended()
+			svc := NewServiceExtended(repo)
+
+			tenantID, supplierID := uuid.New(), uuid.New()
+			fc := addFrameworkContract(repo, tenantID, supplierID, "Inactive Frame", "FC-"+tc.name, tc.status)
+
+			_, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+				TenantID: tenantID, ContractID: fc.ID, Amount: "10",
+			})
+			require.ErrorIs(t, err, ErrContractNotActive)
+			assert.Contains(t, err.Error(), string(tc.status))
+		})
+	}
+}
+
+func TestExtended_CreateContractCall_UnknownContractIsNotFound(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
+
+	_, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: uuid.New(), ContractID: uuid.New(), Amount: "10",
+	})
+	require.ErrorIs(t, err, ErrContractNotFound)
 }

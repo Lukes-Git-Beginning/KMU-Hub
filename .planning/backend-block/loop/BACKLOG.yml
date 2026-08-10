@@ -281,7 +281,7 @@ units:
     service: einkauf
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/einkauf 63,3 %"
     scope: >
       `Service.CreateContractCall` (internal/einkauf/service_extended.go:611-614) validiert

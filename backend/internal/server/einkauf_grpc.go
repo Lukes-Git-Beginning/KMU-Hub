@@ -654,6 +654,14 @@ func mapEinkaufError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, einkauf.ErrContractCallNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// Both reject a well-formed request because of the contract's current
+	// state, and both become valid again once that state changes (activate
+	// the contract, raise its total value) — FailedPrecondition, not
+	// InvalidArgument. The gateway renders it as 409.
+	case errors.Is(err, einkauf.ErrContractNotActive):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, einkauf.ErrContractBudgetExceeded):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled einkauf service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

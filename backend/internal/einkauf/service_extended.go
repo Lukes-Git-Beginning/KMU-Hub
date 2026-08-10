@@ -605,8 +605,12 @@ func (s *Service) DeleteContractItem(ctx context.Context, tenantID, itemID uuid.
 // Framework Contract Call methods
 // ============================================================================
 
-// CreateContractCall records a call-off against a framework contract and
-// recalculates the contract's used_value.
+// CreateContractCall records a call-off against a framework contract.
+//
+// Only the shape of the amount is checked here. Whether the contract exists,
+// is active, and still has room for this amount is decided by the repository
+// inside the same transaction as the INSERT — checking it here would race
+// with a concurrent call-off and let both pass a cap only one of them fits.
 func (s *Service) CreateContractCall(ctx context.Context, input CreateContractCallInput) (*FrameworkContractCall, error) {
 	amount := strings.TrimSpace(input.Amount)
 	if amount == "" {
@@ -614,11 +618,6 @@ func (s *Service) CreateContractCall(ctx context.Context, input CreateContractCa
 	}
 	if v, err := strconv.ParseFloat(amount, 64); err != nil || v < 0 {
 		return nil, fmt.Errorf("contract call amount: %w", ErrInvalidInput)
-	}
-
-	// Verify contract exists
-	if _, err := s.repoExt.GetFrameworkContract(ctx, input.TenantID, input.ContractID); err != nil {
-		return nil, err
 	}
 
 	currency := strings.TrimSpace(input.Currency)
@@ -642,16 +641,6 @@ func (s *Service) CreateContractCall(ctx context.Context, input CreateContractCa
 
 	if err := s.repoExt.CreateContractCall(ctx, call); err != nil {
 		return nil, fmt.Errorf("create contract call: %w", err)
-	}
-
-	// Recompute used_value on the contract
-	if err := s.repoExt.UpdateContractUsedValue(ctx, input.TenantID, input.ContractID); err != nil {
-		slog.Error("einkauf failed to update contract used_value after call",
-			"contract_id", input.ContractID,
-			"call_id", call.ID,
-			"error", err,
-		)
-		// Non-fatal: the call is persisted; the aggregate will self-correct on next call.
 	}
 
 	slog.Info("einkauf contract call created",

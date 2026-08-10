@@ -9,6 +9,8 @@ package einkauf
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -404,7 +406,7 @@ func TestFrameworkContract_ContractNrExists_TenantScoped(t *testing.T) {
 	}
 }
 
-func TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls(t *testing.T) {
+func TestFrameworkContract_CreateContractCall_AccumulatesUsedValue(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -442,15 +444,14 @@ func TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls(t *tes
 	}
 	defer testutil.CleanupRow(t, pool, "framework_contract_calls", call1.ID)
 
-	if err := repo.UpdateContractUsedValue(ctxOwn, tenantOwn, fc.ID); err != nil {
-		t.Fatalf("UpdateContractUsedValue (after call 1): %v", err)
-	}
+	// used_value is written by CreateContractCall's own transaction — there is
+	// no second statement that could be lost and let the cap drift open.
 	got, err := repo.GetFrameworkContract(ctxOwn, tenantOwn, fc.ID)
 	if err != nil {
 		t.Fatalf("GetFrameworkContract (after call 1): %v", err)
 	}
 	if got.UsedValue != "1200.5000" {
-		t.Fatalf("UpdateContractUsedValue (after call 1): expected 1200.5000, got %q", got.UsedValue)
+		t.Fatalf("used_value (after call 1): expected 1200.5000, got %q", got.UsedValue)
 	}
 
 	// A second call must ADD to the running total, not overwrite it.
@@ -464,15 +465,12 @@ func TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls(t *tes
 	}
 	defer testutil.CleanupRow(t, pool, "framework_contract_calls", call2.ID)
 
-	if err := repo.UpdateContractUsedValue(ctxOwn, tenantOwn, fc.ID); err != nil {
-		t.Fatalf("UpdateContractUsedValue (after call 2): %v", err)
-	}
 	got, err = repo.GetFrameworkContract(ctxOwn, tenantOwn, fc.ID)
 	if err != nil {
 		t.Fatalf("GetFrameworkContract (after call 2): %v", err)
 	}
 	if got.UsedValue != "1500.7500" {
-		t.Fatalf("UpdateContractUsedValue (after call 2): expected 1500.7500 (sum, not overwrite), got %q", got.UsedValue)
+		t.Fatalf("used_value (after call 2): expected 1500.7500 (sum, not overwrite), got %q", got.UsedValue)
 	}
 
 	calls, err := repo.ListContractCalls(ctxOwn, tenantOwn, fc.ID)
@@ -481,6 +479,145 @@ func TestFrameworkContract_UpdateContractUsedValue_AccumulatesAcrossCalls(t *tes
 	}
 	if len(calls) != 2 {
 		t.Fatalf("ListContractCalls: expected 2 calls, got %d", len(calls))
+	}
+}
+
+// The cap lives in SQL (numeric comparison against a freshly summed
+// SUM(amount) under a FOR UPDATE lock), so it has to be proven against a real
+// database — the in-memory double in service_extended_test.go can only show
+// that the service surfaces the rejection, not that the statement computes it.
+func TestFrameworkContract_CreateContractCall_EnforcesRemainingValue(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Einkauf Contract Cap Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	now := time.Now().UTC()
+
+	supplier := newEinkaufExtendedTestSupplier(t, repo, ctxOwn, tenantOwn, "Cap Supplier")
+	defer testutil.CleanupRow(t, pool, "suppliers", supplier.ID)
+
+	fc := &FrameworkContract{
+		ID: uuid.New(), TenantID: tenantOwn, SupplierID: supplier.ID,
+		Title: "Capped Contract", ContractNr: "FC-CAP-" + uuid.New().String()[:8],
+		TotalValue: "1000.0000", UsedValue: "0.0000", Currency: "EUR",
+		Status: ContractStatusActive, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateFrameworkContract(ctxOwn, fc); err != nil {
+		t.Fatalf("CreateFrameworkContract: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contracts", fc.ID)
+
+	newCall := func(amount string) *FrameworkContractCall {
+		return &FrameworkContractCall{
+			ID: uuid.New(), TenantID: tenantOwn, ContractID: fc.ID,
+			Amount: amount, Currency: "EUR", CalledAt: now,
+			CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	first := newCall("600.0000")
+	if err := repo.CreateContractCall(ctxOwn, first); err != nil {
+		t.Fatalf("CreateContractCall (600 of 1000): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contract_calls", first.ID)
+
+	// 500 of a remaining 400 must be refused, with the remainder in the message.
+	err := repo.CreateContractCall(ctxOwn, newCall("500.0000"))
+	if !errors.Is(err, ErrContractBudgetExceeded) {
+		t.Fatalf("CreateContractCall (500 of remaining 400): expected ErrContractBudgetExceeded, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "400.0000") {
+		t.Fatalf("CreateContractCall (over cap): message must name the remaining value, got %q", err.Error())
+	}
+
+	// Exactly the remaining 400 still fits.
+	exact := newCall("400.0000")
+	if err := repo.CreateContractCall(ctxOwn, exact); err != nil {
+		t.Fatalf("CreateContractCall (exactly the remaining 400): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contract_calls", exact.ID)
+
+	// A tenth of a cent beyond the exhausted contract does not.
+	if err := repo.CreateContractCall(ctxOwn, newCall("0.0001")); !errors.Is(err, ErrContractBudgetExceeded) {
+		t.Fatalf("CreateContractCall (0.0001 on an exhausted contract): expected ErrContractBudgetExceeded, got %v", err)
+	}
+
+	// Neither rejection may have written a row, and used_value must equal the
+	// sum of the two accepted calls.
+	calls, err := repo.ListContractCalls(ctxOwn, tenantOwn, fc.ID)
+	if err != nil {
+		t.Fatalf("ListContractCalls: %v", err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("ListContractCalls: expected 2 persisted calls, got %d", len(calls))
+	}
+	got, err := repo.GetFrameworkContract(ctxOwn, tenantOwn, fc.ID)
+	if err != nil {
+		t.Fatalf("GetFrameworkContract: %v", err)
+	}
+	if got.UsedValue != "1000.0000" {
+		t.Fatalf("used_value: expected 1000.0000, got %q", got.UsedValue)
+	}
+}
+
+func TestFrameworkContract_CreateContractCall_RejectsInactiveAndUnknown(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Einkauf Contract Status Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	now := time.Now().UTC()
+
+	supplier := newEinkaufExtendedTestSupplier(t, repo, ctxOwn, tenantOwn, "Status Supplier")
+	defer testutil.CleanupRow(t, pool, "suppliers", supplier.ID)
+
+	for _, contractStatus := range []ContractStatus{ContractStatusDraft, ContractStatusExpired} {
+		fc := &FrameworkContract{
+			ID: uuid.New(), TenantID: tenantOwn, SupplierID: supplier.ID,
+			Title: "Inactive Contract", ContractNr: "FC-ST-" + uuid.New().String()[:8],
+			TotalValue: "1000.0000", UsedValue: "0.0000", Currency: "EUR",
+			Status: contractStatus, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.CreateFrameworkContract(ctxOwn, fc); err != nil {
+			t.Fatalf("CreateFrameworkContract (%s): %v", contractStatus, err)
+		}
+		defer testutil.CleanupRow(t, pool, "framework_contracts", fc.ID)
+
+		err := repo.CreateContractCall(ctxOwn, &FrameworkContractCall{
+			ID: uuid.New(), TenantID: tenantOwn, ContractID: fc.ID,
+			Amount: "10.0000", Currency: "EUR", CalledAt: now,
+			CreatedAt: now, UpdatedAt: now,
+		})
+		if !errors.Is(err, ErrContractNotActive) {
+			t.Fatalf("CreateContractCall on a %s contract: expected ErrContractNotActive, got %v", contractStatus, err)
+		}
+		if !strings.Contains(err.Error(), string(contractStatus)) {
+			t.Fatalf("CreateContractCall on a %s contract: message must name the status, got %q", contractStatus, err.Error())
+		}
+	}
+
+	// An unknown contract id must not fall through to the INSERT — a
+	// call-off without a contract would be an orphan the cap can never see.
+	err := repo.CreateContractCall(ctxOwn, &FrameworkContractCall{
+		ID: uuid.New(), TenantID: tenantOwn, ContractID: uuid.New(),
+		Amount: "10.0000", Currency: "EUR", CalledAt: now,
+		CreatedAt: now, UpdatedAt: now,
+	})
+	if !errors.Is(err, ErrContractNotFound) {
+		t.Fatalf("CreateContractCall on an unknown contract: expected ErrContractNotFound, got %v", err)
 	}
 }
 

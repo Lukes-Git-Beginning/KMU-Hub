@@ -98,3 +98,56 @@ Frühere Läufe liegen vollständig im Archiv:
   Risikoprofil (leerer Filter statt 400 auf Garbage). Nicht in dieser Unit gefixt (Scope war
   ausdrücklich die drei Report-Handler); Kandidat für eine eigene Lauf-9-Unit, falls das
   gewünscht ist. Kein PR/Push, lokal committet.
+
+## CI nach Lauf (2026-08-10 13:53)
+- run: 31384710707
+- sha: 668e4f0ef301d0dd418c3a57a7621bc8e5708dcf
+- ergebnis: success
+- commits: 2
+
+## Iteration 3 — fix-einkauf-contract-call-cap — done — 2026-08-10 15:00
+- commit: (folgt direkt nach diesem Eintrag)
+- gebaut: `PostgresRepository.CreateContractCall` ist jetzt transaktional und der einzige
+  Schreiber von `used_value`: Contract-Zeile `FOR UPDATE` sperren → Status prüfen (nur `active`,
+  sonst `ErrContractNotActive` mit Status im Text) → Restwert aus **frisch gerechnetem
+  `SUM(amount)`** gegen `total_value` in **numeric** vergleichen (nicht gegen die gecachte
+  `used_value`-Spalte, nicht in Go-float) → bei Überschreitung `ErrContractBudgetExceeded` mit
+  Restwert in der Meldung → INSERT → `used_value`-Recompute, alles in derselben Transaktion.
+  Der Service prüft nur noch die Betragsform; der Vorab-`GetFrameworkContract` ist raus (die
+  Existenz liefert jetzt die Transaktion als `ErrContractNotFound`). `mapEinkaufError` bildet
+  beide neuen Fehler auf `FailedPrecondition` ab → Gateway 409, in `openapi.yaml` beim POST
+  `/api/v1/einkauf/contracts/{id}/calls` dokumentiert.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (einkauf 0 skipped, 73 PASS inkl. aller
+  DB-Tests; server + gateway grün) | migration n.a. (keine Migration — der Cap sitzt im Code,
+  ein CHECK könnte den Cross-Table-Vergleich nicht ausdrücken) | rls-smoke n.a. (keine Tabelle/
+  Policy angefasst; die neue Transaktion erbt die Session-GUCs aus `PrepareConn`, die DB-Tests
+  laufen unverändert unter `kmuhub_app`) | swagger-cli validate ok
+- coverage: internal/einkauf 63,3 % -> 63,9 %
+- mutations-probe: zwei Proben am Produktionscode, beide gefangen. (1) im SQL `$2::numeric <=`
+  auf `>=` gedreht -> `TestFrameworkContract_CreateContractCall_EnforcesRemainingValue` und
+  `..._AccumulatesUsedValue` rot ("call-off of 600.0000, remaining 1000.0000" statt Annahme),
+  zurückgedreht. (2) `if contractStatus != string(ContractStatusActive)` auf `if false && …`
+  -> `TestFrameworkContract_CreateContractCall_RejectsInactiveAndUnknown` rot (draft-Vertrag
+  lieferte `<nil>` statt `ErrContractNotActive`), zurückgedreht. `git diff` danach exakt die
+  beabsichtigten Zeilen (geprüft: kein `TRUE`/`false &&`-Rest im Diff). Erste Fassung von
+  Probe 1 (`TRUE` statt der Vergleichsspalte) war unbrauchbar — sie nahm `$2` aus dem Statement
+  und Postgres brach mit 42P18 ab, statt die Schranke wirklich zu öffnen; deshalb der
+  Operator-Flip.
+- verify vorgaenger: sauber — `668e4f0e` geprüft: `validateDateParam` + drei Report-Handler,
+  kein gRPC-Bypass (die Handler laufen weiter über `client.Get*Report`), kein Stub, kein
+  `.proto`, keine neue Route, kein neuer Permission-Key, keine Tabelle, Wire-Shape unverändert
+  (400 über `response.Error` wie bei den Nachbarn).
+- offen: **Eine Entscheidung gehört Luke.** `total_value` ist beim Anlegen optional und
+  defaultet auf `0` (Migration 000207 Z. 14, `createFrameworkContractRequest.TotalValue` ist
+  `omitempty`). Mit der strikten Variante ist ein Rahmenvertrag ohne eingetragenen Gesamtwert ab
+  sofort **gar nicht mehr abrufbar** (409, "remaining 0.0000"). Das ist die wörtliche Umsetzung
+  der Entscheidung vom 2026-08-10 und lässt nirgends Budget durch; die Alternative wäre
+  „`total_value = 0` heißt unbegrenzt" — ein Einzeiler in `CreateContractCall`
+  (`if totalValue != "0.0000" { … }`), aber eine implizite Sonderregel. Bewusst nicht selbst
+  entschieden. — Weiter: `UpdateContractUsedValue` ist ganz raus (Interface, Postgres-Impl,
+  Mock, Server-Stub), weil sie nach dem Umbau keinen Produktions-Aufrufer mehr hatte und genau
+  der non-fatale Aufruf war, über den die Spalte nach unten driften konnte; der DB-Test dazu
+  heißt jetzt `TestFrameworkContract_CreateContractCall_AccumulatesUsedValue` und beweist
+  dieselben Summen über den neuen Pfad. Kein Push, lokal committet. Für das FE: 409 ist auf
+  dieser Route neu.
+

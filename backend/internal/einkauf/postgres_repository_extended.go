@@ -400,20 +400,6 @@ func (r *PostgresRepository) ContractNrExists(ctx context.Context, tenantID uuid
 	return exists, err
 }
 
-func (r *PostgresRepository) UpdateContractUsedValue(ctx context.Context, tenantID, contractID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE framework_contracts
-		 SET used_value = (
-		     SELECT COALESCE(SUM(amount), 0)
-		     FROM framework_contract_calls
-		     WHERE contract_id = $1 AND tenant_id = $2
-		 ), updated_at = NOW()
-		 WHERE id = $1 AND tenant_id = $2`,
-		contractID, tenantID,
-	)
-	return err
-}
-
 // ============================================================================
 // Framework Contract Items
 // ============================================================================
@@ -514,16 +500,87 @@ func (r *PostgresRepository) ListContractItems(ctx context.Context, tenantID, co
 // Framework Contract Calls
 // ============================================================================
 
+// CreateContractCall records a call-off, enforces the contract's status and
+// remaining value, and recomputes used_value — all inside one transaction.
+//
+// The contract row is locked FOR UPDATE before the budget is computed, so two
+// concurrent call-offs cannot both pass a check that only one of them fits.
+// The remaining value is derived from a fresh SUM(amount) over the existing
+// calls, never from the stored used_value column: that column is a cache, and
+// trusting it would let the cap drift open whenever a recompute was lost. For
+// the same reason the recompute happens here rather than in a follow-up
+// statement the caller could skip or fail.
 func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *FrameworkContractCall) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin contract call tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var contractStatus, totalValue string
+	err = tx.QueryRow(ctx,
+		`SELECT status, total_value::text
+		 FROM framework_contracts
+		 WHERE id = $1 AND tenant_id = $2
+		 FOR UPDATE`,
+		call.ContractID, call.TenantID,
+	).Scan(&contractStatus, &totalValue)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrContractNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock framework contract: %w", err)
+	}
+	if contractStatus != string(ContractStatusActive) {
+		return fmt.Errorf("contract is in status %q: %w", contractStatus, ErrContractNotActive)
+	}
+
+	// Comparison and remaining value are computed by Postgres in numeric, not
+	// in Go float64 — money must not round through binary floating point.
+	var remaining string
+	var fits bool
+	err = tx.QueryRow(ctx,
+		`SELECT ($1::numeric - COALESCE(SUM(amount), 0))::text,
+		        $2::numeric <= $1::numeric - COALESCE(SUM(amount), 0)
+		 FROM framework_contract_calls
+		 WHERE contract_id = $3 AND tenant_id = $4`,
+		totalValue, call.Amount, call.ContractID, call.TenantID,
+	).Scan(&remaining, &fits)
+	if err != nil {
+		return fmt.Errorf("compute remaining contract value: %w", err)
+	}
+	if !fits {
+		return fmt.Errorf("call-off of %s, remaining %s: %w", call.Amount, remaining, ErrContractBudgetExceeded)
+	}
+
+	if _, err = tx.Exec(ctx,
 		`INSERT INTO framework_contract_calls
 		    (id, tenant_id, contract_id, po_id, amount, currency, called_at, notes, created_at, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		call.ID, call.TenantID, call.ContractID, call.POID,
 		call.Amount, call.Currency, call.CalledAt, call.Notes,
 		call.CreatedAt, call.UpdatedAt,
-	)
-	return err
+	); err != nil {
+		return fmt.Errorf("insert contract call: %w", err)
+	}
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE framework_contracts
+		 SET used_value = (
+		     SELECT COALESCE(SUM(amount), 0)
+		     FROM framework_contract_calls
+		     WHERE contract_id = $1 AND tenant_id = $2
+		 ), updated_at = NOW()
+		 WHERE id = $1 AND tenant_id = $2`,
+		call.ContractID, call.TenantID,
+	); err != nil {
+		return fmt.Errorf("update contract used_value: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit contract call: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) ListContractCalls(ctx context.Context, tenantID, contractID uuid.UUID) ([]*FrameworkContractCall, error) {
