@@ -1274,7 +1274,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       Zwei komplett ungetestete 0,0-%-Dateien ohne jeden Stub. Bankabgleich in

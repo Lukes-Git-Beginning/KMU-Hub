@@ -2223,3 +2223,71 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
   Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 33)
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:17).
+
+## Iteration 35 — b-cov-server-biz-banking-bexio — done — 2026-08-11 00:24
+- commit: PENDING
+- gebaut: neue Datei `biz_grpc_banking_bexio_test.go` mit 21 Testfunktionen fuer die zwei
+  komplett ungetesteten 0,0-%-Dateien `biz_grpc_banking.go` (7 Methoden) und `bexio_grpc.go`
+  (12 Methoden plus `mapBexioError`). `TestBankingError` und `TestMapBexioError` testen jedes
+  Sentinel der jeweiligen Fehler-Tabelle einzeln gegen den erwarteten gRPC-Code (inkl. je einem
+  unmapped-Default-Fall -> Internal, und `mapBexioError(nil)` -> nil). Fuer die 7 Banking-Methoden
+  und 12 Bexio-Methoden je mindestens ein Validierungspfad (ungueltige tenant_id/id/user_id/
+  invoice_id/statement_id/quote_id/entity_type/code) plus fuer Banking zusaetzlich der
+  `requireBanking()`-Nil-Guard (Unimplemented). Bewusst lean gehalten wie im Scope-Text
+  vorgezeichnet ("bei Zeitdruck zuerst beide Fehler-Tabellen und die Validierungspfade abdecken"):
+  `bankingSvc` ist `*banking.Service`, konkret ueber ein `Repository`-Interface verdrahtet — jede
+  getestete Validierung schlaegt VOR dem ersten Repository-Zugriff fehl, also reicht
+  `banking.NewService(nil, nil, nil, nil)` als Stand-in, ohne ein Fake-Repository zu bauen.
+  Gleiches Muster bei `bexioService *bexio.Service` (zehn Konstruktor-Parameter, u. a. Client,
+  Repo, ConfigRepo, Vault) — alle 12 getesteten Validierungen greifen, bevor der Handler
+  `s.bexioService` ueberhaupt dereferenziert, deshalb reicht ein Zero-Value `BexioGRPCServer{}`
+  (nil Service) ohne den kompletten Dependency-Graph aufzubauen. Tiefe Happy-Path-Abdeckung pro
+  Methode bleibt wie im Scope vorgemerkt Kandidat fuer Lauf 9. Zusaetzlich `TestParseOptionalUUID`
+  fuer den kleinen Helfer (leer -> Nil ohne Fehler, ungueltig -> Fehler, gueltig -> Roundtrip).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`) | vet ok
+  (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint run --config
+  .golangci.yml ./internal/server/... -- 0 issues) | test ok (`go test -count=1 ./internal/server/`
+  und `./internal/server/... ./internal/gateway/...` beide gruen, 9 SKIPs sind vorbestehende
+  `_DB`-Integrationstests ohne `DATABASE_URL`, 0 sonst uebersprungen per -v-Grep auf SKIP) |
+  migration n.a. (keine Migration) | rls-smoke n.a. (kein echtes Repository/keine Tabelle/Policy
+  angefasst — reine Validierungspfade vor jedem Repo-Zugriff) | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/server 47,7 % -> 69,3 % (lokal per `go test -coverprofile=/tmp/cov.out
+  ./internal/server/` + `go tool cover -func`; Bezugswert 47,7 % ist der Lauf-Startwert aus
+  `coverage_start:`, nicht der Zwischenwert aus Iteration 34 — beide paket-eigen und vergleichbar,
+  der Sprung ist die Summe aller Iterationen seit Lauf-Start. Pro-Funktion in
+  `biz_grpc_banking.go`: `requireBanking` 100 %, `bankingError` 100 %, `parseOptionalUUID` 100 %,
+  die 7 RPC-Methoden zwischen 35,7 % (ListBankStatements) und 77,8 % (ReconcileBankTransaction) —
+  alle vorher 0,0 %. Pro-Funktion in `bexio_grpc.go`: `mapBexioError` 100 %, die 12 RPC-Methoden
+  zwischen 16,7 % (ListBexioSyncLogs) und 66,7 % (PushInvoiceToBexio/PushQuoteToBexio) — alle
+  vorher 0,0 %. Proto-Konverter (`bankStatementToProto`, `bankTransactionToProto`,
+  `bankTransactionsToProto`, `syncStatusToProto`, `syncLogToProto`) und `NewBexioGRPCServer`
+  bleiben bei 0,0 % — sie werden nur auf dem Happy-Path erreicht, der bewusst fuer Lauf 9
+  zurueckgestellt ist)
+- mutations-probe: zwei Proben, beide gefangen. (1) in `ReconcileBankTransaction` die Bedingung
+  `if err != nil` nach `parseOptionalUUID(req.GetInvoiceId())` durch `if err == nil` ersetzt (eine
+  gueltige invoice_id wuerde dann abgelehnt, eine ungueltige durchgereicht bis zum Service-Call)
+  -> `TestReconcileBankTransaction_Validation/invalid_invoice_id` rot (erwartete InvalidArgument,
+  bekam Internal — die ungueltige ID lief bis zum nil-Repository durch und `bankingError` fing den
+  Panic-freien Fehler im Default-Zweig ab), zurueckgedreht. (2) in `mapBexioError` den
+  `bexio.ErrBexioUnauthorized`-Fall von `codes.Unauthenticated` auf `codes.PermissionDenied`
+  gedreht -> `TestMapBexioError/unauthorized` rot (erwartete Unauthenticated, bekam
+  PermissionDenied), alle anderen Sentinels blieben gruen (eigene Case-Zweige unberuehrt),
+  zurueckgedreht. `git diff --stat internal/server/biz_grpc_banking.go internal/server/bexio_grpc.go`
+  zeigt nach beiden Rueckdrehungen keinen Rest, erneuter Testlauf gruen.
+- verify vorgaenger: sauber. Commit 93905c3c (Iteration 34) fuegt ausschliesslich
+  `crm_grpc_advisory_test.go` plus Journal/Backlog-Metadaten hinzu; der direkt folgende
+  Metadaten-Commit 454f2aa4 aendert nur `JOURNAL.md`. Keine Produktionscode-Datei, kein neues
+  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: keine neuen Produktionsbefunde in dieser Iteration — Banking- und Bexio-Handler
+  validieren wie erwartet vor jedem Service-/Repo-Zugriff. Die im Scope selbst vorgezeichnete
+  Luecke bleibt bestehen: tiefe Happy-Path-Abdeckung fuer beide Domaenen (inkl. der fuenf
+  Proto-Konverter und `NewBexioGRPCServer`) braucht ein Fake-`banking.Repository` bzw. einen
+  vollstaendig verdrahteten `bexio.Service` — guter Zuschnitt fuer eine eigene Unit in Lauf 9, wie
+  im Scope-Text bereits vermerkt. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-34 vermerkt) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 34) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 00:24).
