@@ -2225,7 +2225,7 @@ Frühere Läufe liegen vollständig im Archiv:
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:17).
 
 ## Iteration 35 — b-cov-server-biz-banking-bexio — done — 2026-08-11 00:24
-- commit: PENDING
+- commit: 99120f18
 - gebaut: neue Datei `biz_grpc_banking_bexio_test.go` mit 21 Testfunktionen fuer die zwei
   komplett ungetesteten 0,0-%-Dateien `biz_grpc_banking.go` (7 Methoden) und `bexio_grpc.go`
   (12 Methoden plus `mapBexioError`). `TestBankingError` und `TestMapBexioError` testen jedes
