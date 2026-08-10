@@ -1537,3 +1537,51 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
   mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 23)
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:10).
+
+## Iteration 25 — b-cov-server-dialer-campaigns-queue — done — 2026-08-10 19:18
+- commit: <wird nach Commit ergaenzt>
+- gebaut: neue Testdatei dialer_grpc_campaigns_queue_test.go deckt alle 12
+  Methoden aus dem Scope ab (CreateCampaign, GetCampaign, ListCampaigns,
+  UpdateCampaign, StartCampaign, PauseCampaign, ArchiveCampaign,
+  AddContactsToCampaign, GetNextContact, SkipContact, RequeueContact,
+  ListCampaignContacts) je mit Happy-Path- und mindestens einem Fehlerpfad-
+  Test (ungueltige UUID, fehlender Tenant/Caller, ungueltiger Status-
+  Uebergang). StartCampaign/PauseCampaign decken den ErrCampaignNotDraft/
+  ErrInvalidStatusTransition-Pfad ab, ArchiveCampaign den
+  ErrInvalidStatusTransition-Pfad von draft aus. Wire-Shape von
+  ListCampaigns/ListCampaignContacts explizit geprueft (leere Liste [],
+  nicht nil).
+  stubCampaignRepo (dialer_grpc_test.go) um ein `nextPending`-Feld erweitert,
+  damit GetNextPendingContact einen seedbaren Happy-Path liefert statt immer
+  ErrNoContactsAvailable — Muster aus Iteration 24 (bestehenden Stub
+  erweitern statt neu bauen) fortgesetzt.
+- gate: build ok (internal/server, internal/gateway, cmd/gateway) | vet ok |
+  lint ok (0 issues) | test ok (1552 PASS, 0 SKIP, 0 FAIL in internal/server;
+  internal/server/response ebenfalls ok) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test
+  ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/kein
+  Gateway-Code angefasst, aber Build oben deckt ihn ab)
+- coverage: internal/server 47,7 % -> 65,1 %
+- mutations-probe: in internal/dialer/service.go:226 die Statusprüfung in
+  StartCampaign von `if c.Status != CampaignStatusDraft` zu
+  `if c.Status == CampaignStatusDraft` invertiert ->
+  TestStartCampaign_Happy UND TestStartCampaign_NotDraft beide rot (erste
+  erwartete nil, bekam FailedPrecondition; zweite erwartete
+  FailedPrecondition, bekam nil). Zurueckgedreht, `git diff --stat` auf der
+  Datei zeigt keinen Rest-Diff mehr, beide Tests wieder gruen.
+- verify vorgaenger: sauber. Commit 1193d990 (Iteration 24) aendert nur die
+  neue Testdatei chat_grpc_files_search_reactions_test.go plus
+  testhelpers_test.go (Stub-Erweiterung) und BACKLOG.yml/JOURNAL.md — keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber
+  diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries —
+  nichts, was Luke morgens nachfahren muss.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-24 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 24) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 19:18).

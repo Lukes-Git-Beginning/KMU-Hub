@@ -68,12 +68,16 @@ func TestMapDialerError_AllSentinels(t *testing.T) {
 type stubCampaignRepo struct {
 	campaigns map[uuid.UUID]*dialer.Campaign
 	contacts  map[uuid.UUID]*dialer.CampaignContact
+	// nextPending keys the next pending queue entry per campaign, consulted by
+	// GetNextPendingContact before falling back to ErrNoContactsAvailable.
+	nextPending map[uuid.UUID]*dialer.CampaignContact
 }
 
 func newStubCampaignRepo() *stubCampaignRepo {
 	return &stubCampaignRepo{
-		campaigns: make(map[uuid.UUID]*dialer.Campaign),
-		contacts:  make(map[uuid.UUID]*dialer.CampaignContact),
+		campaigns:   make(map[uuid.UUID]*dialer.Campaign),
+		contacts:    make(map[uuid.UUID]*dialer.CampaignContact),
+		nextPending: make(map[uuid.UUID]*dialer.CampaignContact),
 	}
 }
 
@@ -91,7 +95,10 @@ func (r *stubCampaignRepo) Delete(_ context.Context, _, _ uuid.UUID) error      
 func (r *stubCampaignRepo) AddContacts(_ context.Context, _, _ uuid.UUID, contacts []dialer.CampaignContact) (int, int, error) {
 	return len(contacts), 0, nil
 }
-func (r *stubCampaignRepo) GetNextPendingContact(_ context.Context, _ uuid.UUID) (*dialer.CampaignContact, error) {
+func (r *stubCampaignRepo) GetNextPendingContact(_ context.Context, campaignID uuid.UUID) (*dialer.CampaignContact, error) {
+	if cc, ok := r.nextPending[campaignID]; ok {
+		return cc, nil
+	}
 	return nil, dialer.ErrNoContactsAvailable
 }
 func (r *stubCampaignRepo) ListContacts(_ context.Context, _, _ uuid.UUID, _ *string, _, _ int) ([]*dialer.CampaignContact, int, error) {
