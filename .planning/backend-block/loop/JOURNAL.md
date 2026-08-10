@@ -1065,3 +1065,120 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
   (Iteration 16) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 17:36).
+
+## Iteration 18 — b-cov-server-calendar-events-categories-reminders — done — 2026-08-10 17:59
+- commit: (folgt)
+- gebaut: neue Testdatei calendar_grpc_events_categories_reminders_test.go
+  mit stubEventRepo (implementiert event.Repository vollstaendig) und
+  newTestCalendarServerWithEvents/disabledLiveKit/enabledLiveKit-Helfern.
+  Je ein Validierungs- und/oder Happy-Path-Test plus mindestens ein Fehlerpfad
+  fuer alle 15 Scope-Methoden: CreateEvent, GetEvent, ListEventsInRange,
+  UpdateEvent, DeleteEvent, UpdateRecurringEvent (inkl. Scope-Fehlerpfad
+  "event not recurring"), RSVPToEvent, ListEventAttendees, CreateEventCategory,
+  ListEventCategories, DeleteEventCategory, SetEventReminders,
+  ListEventReminders, ListTaskDeadlinesInRange, GenerateJoinToken.
+  Zusaetzlich stubCalendarRepo (aus Iteration 17,
+  calendar_grpc_errormap_calendars_members_test.go) erweitert: die
+  Category-Methoden (CreateCategory/ListCategories/DeleteCategory) waren dort
+  bewusst No-Ops "fuer eine spaetere Unit" -- jetzt echte Map-basierte
+  Implementierung inkl. DeleteCategory-Semantik, die exakt
+  postgres_repository.go:337-349 nachbildet (0 rows affected ->
+  ErrCategoryNotFound). Iteration 17 selbst bleibt unangetastet gruen, da ihre
+  Tests die Category-Methoden nie erreichen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (go test -count=1
+  ./internal/server/ gruen, 0 SKIP bei gesetzter DATABASE_URL als
+  kmuhub_app) | ./internal/server/... gruen in zwei separaten Laeufen; ein
+  dritter Lauf waehrend der Entwicklung zeigte ein einzelnes FAIL in einem
+  Timer/Duration-Test (zeitabhaengig, nicht in meinen Dateien, in zwei
+  Wiederholungen nicht reproduzierbar -- vorbestehende Flakiness, nicht
+  Gegenstand dieser Unit) | migration n.a. (keine) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | route n.a. (keine Route angefasst, go test
+  ./internal/gateway/ daher nicht Pflicht und nicht gelaufen)
+- coverage: internal/server 47,7 % -> 57,8 % (go tool cover -func=/tmp/cov.out
+  | tail -1, Paket ./internal/server/ exakt wie in GATE-COMMANDS.md;
+  Ausgangswert aus coverage_start: der Unit, tatsaechlicher Vorgaengerstand aus
+  Iteration 17 war 56,6 %)
+- mutations-probe: zwei Proben, beide rot, beide zurueckgedreht, git diff
+  gegen internal/work/event/service.go restfrei (leer):
+  (1) Service.SetReminders (event/service.go:487): Limit-Check von
+  len(minutesBefore) > 3 auf > 4 gedreht ->
+  TestSetEventReminders/reminder_limit_exceeded rot (InvalidArgument
+  erwartet, NotFound bekommen -- der 4-Item-Request rutschte durch den
+  entschaerften Limit-Check und traf danach auf ein nicht existierendes
+  Event), zurueckgedreht.
+  (2) Service.UpdateRecurringEvent (event/service.go:231): die
+  Not-Recurring-Pruefung evt.RRule == nil || *evt.RRule == "" mit
+  false && (...) deaktiviert ->
+  TestUpdateRecurringEvent/event_not_recurring_(scope_error_path) rot (Fehler
+  erwartet, nil bekommen -- der Edit lief auf einem nicht-wiederkehrenden
+  Event unbemerkt durch), zurueckgedreht.
+- verify vorgaenger: sauber -- 52e07376 geprueft gegen alle acht
+  Fehlerklassen: reine neue Testdatei
+  (calendar_grpc_errormap_calendars_members_test.go), kein .proto
+  angefasst, keine Route, kein neuer RequirePermission-Key, keine neue
+  Tabelle, kein gRPC-Bypass, kein Stub im Produktionscode, keine bestehende
+  Migration angefasst. origin/main war bereits vollstaendig in backend-loop
+  gemergt (kein neuer Merge noetig, verifiziert per
+  git merge-base --is-ancestor origin/main HEAD).
+- offen: WICHTIGER FUND, NICHT Teil dieser Unit -- Kandidat fuer eine
+  Fix-Unit in Lauf 9, hohe Prioritaet. Zwei getrennte, jeweils verifizierte
+  Bugs in backend/internal/server/calendar_grpc.go:
+  (A) CreateEvent threadet den Tenant nie durch. CreateEvent
+  (calendar_grpc.go:391-459) ruft middleware.GetTenantID(ctx) an keiner
+  Stelle auf -- anders als praktisch jeder andere Handler in dieser Datei.
+  event.CreateInput.TenantID bleibt dadurch die Nullwert-UUID, und
+  event.Service.Create (service.go:77) laedt den Kalender ueber
+  s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID) -- die
+  Postgres-Query filtert explizit WHERE id=$1 AND tenant_id=$2
+  (calendar/postgres_repository.go:41). Fuer jeden echten (Nicht-Null-)Tenant
+  kann das nie einen Treffer liefern. TestCreateEvent/"calendar not found
+  (missing tenant scoping)" belegt das direkt: derselbe Tenant im ctx und auf
+  dem Kalender-Datensatz fuehrt trotzdem zu NotFound. Der Gateway-Handler
+  (route_calendar.go:649, HandleCreateEvent) reicht r.Context() unveraendert
+  durch -- es fehlt schlicht der middleware.GetTenantID(ctx)-Aufruf plus
+  input.TenantID = tenantID in CreateEvent. Wirkung in Produktion: JEDES
+  Erstellen eines Kalenderereignisses ueber den normalen API-Pfad scheitert an
+  "calendar not found", ausser ein Kalender traegt zufaellig die Tenant-ID
+  00000000-0000-0000-0000-000000000000.
+  (B) Acht RPCs mit hart verdrahtetem uuid.Nil-Actor, alle vom selben
+  Muster. Kommentar "Gateway handles auth; use uuid.Nil as actorID/userID"
+  an calendar_grpc.go:165, 201, 229, 253, 303 (UpdateCalendar, DeleteCalendar,
+  AddCalendarMember, RemoveCalendarMember, UpdateCalendarMemberPermission --
+  alle in Iteration 17 getestet) sowie :598, :791, :820 (DeleteEvent,
+  DeleteEventCategory, SetEventReminders -- in dieser Unit getestet). Die
+  jeweilige Service-Methode prueft aber cal.OwnerID != actorID bzw.
+  evt.CreatedBy != actorID und verlangt bei Ungleichheit eine
+  Member-/Edit-Berechtigung fuer GENAU diesen Actor
+  (calendar/service.go:133-137, 180-182, 215-218, 257-260, 293-296;
+  event/service.go:398-400, 503-507; calendar/postgres_repository.go:337-349
+  fuer die category-Delete-Query). Da der Actor immer uuid.Nil ist und ein
+  echter Owner/Creator/User nie diese UUID hat, schlagen alle acht RPCs fuer
+  jeden echten Datensatz fehl (PermissionDenied bzw. NotFound je nach
+  Pruefpfad) -- ausser der Aufrufer setzt den Owner/Creator explizit auf
+  uuid.Nil, was in echten Daten nie vorkommt.
+  middleware.GetUserID(ctx) liefert den echten Actor bereits serverseitig
+  (middleware/auth.go:66, vom gRPC-Tenant-Interceptor gesetzt,
+  middleware/grpc_tenant.go:83) und wird an keiner der acht Stellen gelesen.
+  TestDeleteEvent/"real creator denied (uuid.Nil actor bug)",
+  TestDeleteEventCategory/"real owner denied (uuid.Nil actor bug)" und
+  TestSetEventReminders/"real creator denied (uuid.Nil actor bug)" belegen
+  das direkt. Iteration 17s Happy-Path-Tests fuer die fuenf Calendar/Member-RPCs
+  setzen durchweg OwnerID: uuid.Nil auf den Test-Kalendern -- das ist ein
+  Workaround um genau diesen Bug, kein Beleg, dass die RPCs fuer echte Owner
+  funktionieren; das war beim Schreiben dieser Unit nicht sofort ersichtlich
+  und sollte bei kuenftigen Coverage-Units auf derselben Datei ebenfalls
+  geprueft werden, bevor "OwnerID: uuid.Nil" unkommentiert als Fixture-Default
+  weiterkopiert wird.
+  Root Cause fuer beide Funde ist strukturell identisch: die
+  gRPC-Handler-Schicht sollte den Actor/Tenant aus dem Kontext lesen (wie es
+  die Mehrheit der anderen Handler in dieser Datei tut) statt ihn zu ignorieren
+  bzw. hart auf uuid.Nil zu setzen. Bewusst NICHT in dieser Unit gefixt
+  (Coverage-Units bauen keine Verhaltensaenderungen); beide Funde sind reale,
+  mit Tests reproduzierte Befunde, keine Vermutungen.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-17 vermerkt -- nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 17) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
+  ermittelt (2026-08-10 17:59).

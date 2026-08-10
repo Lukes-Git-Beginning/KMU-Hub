@@ -106,30 +106,34 @@ func TestMapCalendarError(t *testing.T) {
 // ============================================================================
 
 type stubCalendarRepo struct {
-	calendars map[uuid.UUID]*models.Calendar
-	members   map[uuid.UUID]map[uuid.UUID]*models.CalendarMember
-	browsable []models.Calendar
+	calendars  map[uuid.UUID]*models.Calendar
+	members    map[uuid.UUID]map[uuid.UUID]*models.CalendarMember
+	browsable  []models.Calendar
+	categories map[uuid.UUID]*models.EventCategory
 
-	createErr         error
-	getByIDErr        error
-	listByUserErr     error
-	updateErr         error
-	deleteErr         error
-	addMemberErr      error
-	removeMemberErr   error
-	listMembersErr    error
-	getMemberErr      error
-	updateMemPermErr  error
-	listBrowsableErr  error
-	subscribeErr      error
-	unsubscribeErr    error
-	ensurePersonalErr error
+	createErr          error
+	getByIDErr         error
+	listByUserErr      error
+	updateErr          error
+	deleteErr          error
+	addMemberErr       error
+	removeMemberErr    error
+	listMembersErr     error
+	getMemberErr       error
+	updateMemPermErr   error
+	listBrowsableErr   error
+	subscribeErr       error
+	unsubscribeErr     error
+	ensurePersonalErr  error
+	createCategoryErr  error
+	listCategoriesErr  error
 }
 
 func newStubCalendarRepo() *stubCalendarRepo {
 	return &stubCalendarRepo{
-		calendars: make(map[uuid.UUID]*models.Calendar),
-		members:   make(map[uuid.UUID]map[uuid.UUID]*models.CalendarMember),
+		calendars:  make(map[uuid.UUID]*models.Calendar),
+		members:    make(map[uuid.UUID]map[uuid.UUID]*models.CalendarMember),
+		categories: make(map[uuid.UUID]*models.EventCategory),
 	}
 }
 
@@ -258,15 +262,37 @@ func (r *stubCalendarRepo) Unsubscribe(_ context.Context, _, _ uuid.UUID) error 
 	return r.unsubscribeErr
 }
 
-func (r *stubCalendarRepo) CreateCategory(_ context.Context, _ *models.EventCategory) error {
+func (r *stubCalendarRepo) CreateCategory(_ context.Context, c *models.EventCategory) error {
+	if r.createCategoryErr != nil {
+		return r.createCategoryErr
+	}
+	r.categories[c.ID] = c
 	return nil
 }
 
-func (r *stubCalendarRepo) ListCategories(_ context.Context, _, _ uuid.UUID) ([]models.EventCategory, error) {
-	return nil, nil
+func (r *stubCalendarRepo) ListCategories(_ context.Context, userID, tenantID uuid.UUID) ([]models.EventCategory, error) {
+	if r.listCategoriesErr != nil {
+		return nil, r.listCategoriesErr
+	}
+	var out []models.EventCategory
+	for _, c := range r.categories {
+		if c.UserID == userID && c.TenantID == tenantID {
+			out = append(out, *c)
+		}
+	}
+	return out, nil
 }
 
-func (r *stubCalendarRepo) DeleteCategory(_ context.Context, _, _, _ uuid.UUID) error {
+// DeleteCategory mirrors PostgresRepository.DeleteCategory (postgres_repository.go:337-349):
+// a DELETE ... WHERE id=$1 AND user_id=$2 AND tenant_id=$3 that maps zero rows affected to
+// ErrCategoryNotFound. That 0-row semantics is exactly what exposes the DeleteEventCategory
+// gateway-auth bug below (calendar_grpc.go:791-792 passes uuid.Nil as userID).
+func (r *stubCalendarRepo) DeleteCategory(_ context.Context, categoryID, userID, tenantID uuid.UUID) error {
+	c, ok := r.categories[categoryID]
+	if !ok || c.UserID != userID || c.TenantID != tenantID {
+		return calendar.ErrCategoryNotFound
+	}
+	delete(r.categories, categoryID)
 	return nil
 }
 
