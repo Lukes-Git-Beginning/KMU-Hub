@@ -654,6 +654,59 @@ units:
         neuen erwarteten Code aktualisiert
       - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
 
+  - id: fix-vertraege-contracttoproto-drops-signature
+    phase: 3
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `vertraegeContractToProto` (internal/server/vertraege_grpc.go:537) never sets
+      `signature_data`, `signed_at`, or `signed_by` on the wire `Contract` message,
+      even though the proto (vertraege.proto:67-69) declares all three and comments
+      `signature_data` as "Populated only by GetContract". `Contract.SignatureData`/
+      `SignedAt`/`SignedBy` are correctly persisted by `Service.SaveSignature`
+      (service.go:543) via `Repository.SaveSignature`, and the domain struct
+      (models.go:99-101) carries the fields - but the ONE conversion function used by
+      every RPC that returns a `Contract` (CreateContract, UpdateContract, GetContract,
+      ListContracts, SaveSignature's own response) unconditionally omits them. The
+      effect is not "list leaks detail data" (the opposite, harmless direction) but the
+      reverse and actually broken one: a signature saved via `SaveSignature` can never
+      be read back through ANY RPC, including `GetContract` - the field the proto
+      comment says should carry it. The frontend has no way to display or verify a
+      contract's signature after saving it.
+    sources:
+      - backend/internal/server/vertraege_grpc.go
+      - backend/proto/vertraege/v1/vertraege.proto
+      - backend/internal/vertraege/models.go
+      - backend/internal/vertraege/service.go
+      - backend/internal/server/vertraege_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-vertraege (Lauf 7) - beim Bau von
+      `TestVertraege_SaveSignature_NotInListResponse` (Nachweis, dass Signaturdaten
+      nicht in Listen-Antworten auftauchen sollen) faellt auf, dass sie auch in
+      GetContract fehlen, was der Proto-Kommentar "Populated only by GetContract"
+      explizit anders vorsieht. Der Test dokumentiert den IST-Zustand
+      ("documents current gap"-Kommentar am GetContract-Assert), aendert ihn aber
+      nicht - echte Wire-Vertrags-Verhaltensaenderung, keine Coverage-Aenderung, nach
+      Backlog-Regel eine eigene Unit. Fix-Vorschlag: in `vertraegeContractToProto` nur
+      dann `SignatureData`/`SignedAt`/`SignedBy` setzen, wenn der Aufrufer `GetContract`
+      (oder `SaveSignature`, dessen Response ohnehin ein frisch signiertes Contract
+      zurueckgibt) ist - z. B. per zusaetzlichem `includeSignature bool`-Parameter, den
+      `ListContracts`/`CreateContract`/`UpdateContract` mit `false` aufrufen. Danach den
+      "documents current gap"-Assert in
+      `TestVertraege_SaveSignature_NotInListResponse` auf das neue (korrekte)
+      GetContract-Verhalten umstellen.
+    done_when:
+      - GetContract und SaveSignature liefern signature_data/signed_at/signed_by, wenn
+        das Contract signiert ist
+      - ListContracts/CreateContract/UpdateContract liefern diese Felder weiterhin
+        NICHT (bewusste Trennung Liste vs. Detail bleibt bestehen)
+      - Der "documents current gap"-Assert in
+        TestVertraege_SaveSignature_NotInListResponse auf das neue Verhalten
+        aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/vertraege/... gruen
+
   - id: fix-lexware-tenant-id-missing-on-upsert
     phase: 3
     service: biz
@@ -1445,7 +1498,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/vertraege_grpc.go` - 580 Zeilen, 15 Methoden, keine Testdatei.
     sources:

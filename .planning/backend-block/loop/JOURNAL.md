@@ -2061,3 +2061,95 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Block B-Server, danach Block C2). `go test ./internal/gateway/` nicht
   gelaufen - diese Iteration hat keine Route-/Gateway-Datei angefasst,
   laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 30 — b-cov-server-vertraege — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `c116bd86` (b-cov-server-produktion) geprueft:
+  `git show --stat` zeigt nur `produktion_grpc_test.go` (neu, 1596 Zeilen)
+  plus Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- gebaut: neue Datei `internal/server/vertraege_grpc_test.go` fuer
+  `vertraege_grpc.go` (580 Zeilen, 16 Methoden inkl. des deprecated
+  `UploadDocument`-Stubs, vorher 0 % Coverage, keine Testdatei). Eigener
+  In-Memory-Stub `stubVertraegeRepo`, der das vollstaendige
+  `vertraege.Repository`-Interface bedient (`svc *vertraege.Service` ist
+  ein konkreter Typ, kein Interface — der Server laesst sich also nur
+  ueber einen echten `vertraege.NewService(repo)` testen, nicht per
+  Nil-Service-Repo-Swap wie bei formulare/produktion). `newTestVertraegeServer()`
+  liefert einen Nil-Service-Server fuer die 30 UUID-Validierungsfaelle
+  (Tabellentest ueber alle 15 nicht-deprecated RPCs plus den
+  Unimplemented-Fall von UploadDocument), `newVertraegeServerWithRepo(repo)`
+  fuer Happy-Path- und Fehlerpfad-Cluster.
+- kernstueck laut scope (Datums-Grenzfaelle): `TestVertraege_ListContracts_
+  DateBoundaries` prueft ein Vertragspaar mit `StartsOn` exakt an der letzten
+  Sekunde 2025 und der ersten Sekunde 2026 gegen `StartsAfter`/`StartsBefore`
+  — beide muessen im weiten Fenster auftauchen, und `StartsAfter` auf die
+  exakte Jahreswechsel-Instanz gesetzt muss den Treffer strikt ausschliessen
+  (`time.After` ist exklusiv, kein Off-by-one). `TestVertraege_CreateReminder_
+  LeapDayAndYearEnd` deckt zusaetzlich einen Schalttag (2028-02-29) und eine
+  Erinnerung an der letzten Sekunde eines Jahres ab — beide muessen
+  verlustfrei durch `timestamppb.New(...).AsTime()` round-trippen.
+- kernstueck laut scope (Signaturdaten nicht in Listen-Antworten):
+  `TestVertraege_SaveSignature_NotInListResponse` speichert eine Signatur,
+  prueft direkt am Repository, dass sie dort ankommt, und dann, dass
+  `ListContracts` weder `signature_data` noch `signed_by` noch `signed_at`
+  zurueckgibt. Beim Bau des Tests fiel ein zweiter, groesserer Fund auf:
+  `vertraegeContractToProto` setzt diese drei Felder UEBERHAUPT NIE — auch
+  nicht bei `GetContract`, obwohl der Proto-Kommentar
+  (vertraege.proto:64-69) exakt das als Vertrag dokumentiert ("Populated
+  only by GetContract"). Eine gespeicherte Signatur ist damit ueber KEINE
+  RPC lesbar. Nicht inline gefixt (echte Wire-Verhaltensaenderung, keine
+  Coverage-Aenderung) — eigene Fix-Unit `fix-vertraege-contracttoproto-
+  drops-signature` im Backlog angelegt, der GetContract-Assert im Test
+  traegt einen "documents current gap"-Kommentar.
+- weitere abgedeckte Cluster: Contract-Lifecycle (Create inkl. Duplikat-
+  Nummer -> AlreadyExists und leerer Titel -> InvalidArgument,
+  Update-NotFound, Update mit `ClearEndsOn` — belegt, dass ein gleichzeitig
+  gesetztes `EndsOn` bei `ClearEndsOn=true` ignoriert wird, Delete nur im
+  Draft-Status inkl. FailedPrecondition fuer Active und NotFound fuer
+  unbekannte ID, Get ueber Tenant-Grenze -> NotFound statt Leak), Party-
+  Lifecycle (external Party ohne `external_name` -> InvalidArgument, sonst
+  Add/List/Remove), Reminder-Lifecycle (Create/Update/Delete/List,
+  Update auf unbekannte ID -> NotFound), ListContractEvents (unbekannter
+  Contract -> NotFound statt leerer Liste — Service-Kommentar dazu direkt
+  verifiziert; CreateReminder emittiert bewusst kein Event, leere Trail
+  bestaetigt), ExportContract (PDF-Bytes nicht leer, NotFound fuer
+  unbekannte ID). `toProto*`-Konvertierungen: alle vier nil-Empfaenger ->
+  nil, `vertraegeContractToProto`/`vertraegePartyToProto`/
+  `vertraegeReminderToProto` je mit und ohne optionale Zeiger-Felder,
+  `vertraegeEventToProto` mit gesetzter und fehlender `UserID` sowie ein
+  Payload, das `structpb.NewStruct` nicht kodieren kann (ein Channel-Wert)
+  — belegt, dass der Eintrag trotzdem durchkommt, nur der Payload entfaellt
+  (Doc-Kommentar im Code direkt verifiziert). `mapVertraegeError` als
+  vollstaendiger Tabellentest ueber alle sechs Sentinels plus
+  Default-Internal-Zweig.
+- go tool cover -func: keine der 16 RPC-Handler-Methoden bleibt unter
+  58,1 % (UpdateContract — die ungetesteten Zweige sind die uebrigen
+  optionalen Feld-Setter Title/ContractType/Status/StartsOn/DocumentURL/
+  Notes, keine Fehlerpfade), die meisten zwischen 76–100 %; alle
+  Konvertierungs- und Fehler-Mapping-Funktionen 100 %; vorher 0 %.
+- gate: build ok (`go build -p 2 ./internal/server/...`) | vet ok
+  (`go vet ./internal/server/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/...`, 0 issues — ein `ineffassign` auf
+  eine ungelesene Zwischenvariable im eigenen Testcode gefunden und vor
+  dem Commit behoben) | test ok (`go test -count=3
+  ./internal/server/...`, dreimal wiederholt, durchgehend gruen) |
+  migration n.a. (reine Test-Coverage, keine Tabelle angefasst) |
+  rls-smoke n.a. (Stub-Repo, kein DB-Zugriff durch die neuen Tests)
+- mutations-probe: in `internal/server/vertraege_grpc.go`,
+  `mapVertraegeError` den `ErrDeleteNonDraft`-Fall testweise auf
+  `codes.Internal` statt `codes.FailedPrecondition` entschaerft → zwei
+  Tests wurden rot (`TestMapVertraegeError_Table/delete_non_draft`,
+  `TestVertraege_DeleteContract`). Zurueckgedreht, `git diff --stat
+  internal/server/vertraege_grpc.go` zeigt keine Restaenderung (leerer
+  Diff bestaetigt), `go test -count=1 ./internal/server/...` danach
+  wieder vollstaendig gruen.
+- db-tests: 0 — `vertraege.Repository` ist vollstaendig gestubbt, kein
+  Postgres-Zugriff in dieser Unit.
+- offen: **Block B-Server ist mit dieser Unit vollstaendig (12/12)**.
+  Naechste laut Reihenfolge im Backlog-Kopf: Block C2 (23 Service-Paket-
+  Coverage-Units, beginnend mit `c-cov-plugin-config`). Neue Fix-Unit
+  `fix-vertraege-contracttoproto-drops-signature` fuer Lauf 8 angelegt
+  (Signatur nie lesbar, auch nicht ueber GetContract). `go test
+  ./internal/gateway/` nicht gelaufen — diese Iteration hat keine
+  Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
