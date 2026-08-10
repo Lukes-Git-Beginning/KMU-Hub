@@ -2173,7 +2173,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Loop-Rechner ermittelt (2026-08-11 00:10).
 
 ## Iteration 34 — b-cov-server-crm-advisory-protocols — done — 2026-08-11 00:17
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 93905c3c
 - gebaut: neue Datei `crm_grpc_advisory_test.go` mit einem In-Memory-Fake fuer
   `advisoryprotocol.Repository` (echter `advisoryprotocol.Service` via `NewService(repo)`, kein
   Handler-Mock) und 38 Subtests fuer alle acht Advisory-Methoden aus `crm_grpc_advisory.go`: Create
