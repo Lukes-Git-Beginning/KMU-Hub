@@ -400,7 +400,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       `internal/gateway/route_biz_billing.go` liest an elf Stellen `chi.URLParam(r, "id")`

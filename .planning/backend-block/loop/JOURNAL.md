@@ -236,3 +236,73 @@ Frühere Läufe liegen vollständig im Archiv:
   letzten Journal-Ueberschrift (Iteration 4) fortgezaehlt, Zeitstempel per `date` auf dem
   Loop-Rechner ermittelt statt aus dem Block uebernommen; falls das vom Treiber-Mechanismus
   abweicht, bitte pruefen.
+
+## Iteration 6 — fix-gateway-id-validation-consistency — done — 2026-08-10 15:28
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: Alle elf `chi.URLParam(r, "id")`-Stellen in `route_biz_billing.go`
+  (HandleGetCreditNote, HandleSendCreditNote, HandleGenerateCreditNotePDF, HandleRecordPayment,
+  HandleListPayments, HandleDeletePayment, HandleSendDunning, HandleGenerateDunningPDF,
+  HandleLockInvoice, HandleUpdateDunningStatus, HandleSendDunningNotice) laufen jetzt über
+  `validateUUIDParam` statt den rohen chi-Wert direkt ins Proto zu reichen — eine
+  strukturell/syntaktisch unbrauchbare ID liefert jetzt 400 an der Grenze statt eines
+  Downstream-Fehlers vom (unerreichbaren Dummy-)Backend. Ungenutzter `chi`-Import in der Datei
+  entfernt. Ebenso `HandleDeleteTask` und `HandleMoveTask` in `route_work_tasks.go` (Task-ID ist
+  laut `moveTaskRequest.StatusID` (`validate:"required,uuid"`) im selben Handler-Set durchgängig
+  UUID). Alle elf Handler in route_biz_billing.go geprüft: jede der IDs ist eine
+  Entity-Primary-Key-UUID (Credit-Note-, Payment-, Dunning-, Invoice-ID), keine Slugs/Composite-Keys
+  — keine Ausnahme nötig.
+  Test-Fallout: vier Bestandstests (`TestHandleRecordPayment_InvalidJSON/MissingAmount/
+  InvalidPaymentDate/InvalidMethod` in route_biz_test.go, zwei weitere in
+  route_biz_billing_test.go, zwei in route_biz_billing_test.go für UpdateDunningStatus) riefen die
+  Handler ohne `withChiURLParam` auf und hätten die Body-Validierung jetzt nie erreicht (leere ID
+  bricht zuerst ab) — allen eine gültige `withChiURLParam(req, "id", "550e8400-…")` ergänzt.
+  `TestHandleDeleteTask_InvalidIDReachesRPCNotLocalValidation` in route_work_tasks_test.go
+  dokumentierte explizit die alte Lücke ("no local UUID check... reaches RPC, 503") — auf
+  `TestHandleDeleteTask_InvalidUUID` (400 + "invalid id") umgestellt, der erklärende
+  Kommentarblock darüber (der die Lücke als "stilistische Inkonsistenz, keine Sicherheitslücke"
+  beschrieb) entfernt, da er die neue Realität nicht mehr beschreibt. Neuer
+  `TestBizBillingRoutes_InvalidUUID` (Table-Test, alle elf Handler, ein Aufruf pro Handler) und
+  `TestHandleMoveTask_InvalidUUID` ergänzt.
+  Gateway-weite Bestandsaufnahme (Auflage aus der Unit-Notiz, Schwelle "~20"): `grep -rn
+  'chi\.URLParam(r, "id")' backend/internal/gateway/*.go` (ohne Tests) findet **174** Rohstellen
+  über **26** Dateien — deutlich über der Schwelle, deshalb bewusst NICHT alles in dieser Unit
+  umgebaut (Budget-Deckel-Risiko). Nach dieser Unit bleiben **161** Rohstellen über 24 Dateien
+  offen: route_auth.go, route_biz_bank_accounts.go, route_biz_bank_transactions.go,
+  route_biz_banking.go, route_biz_einvoice.go, route_biz_expenses.go,
+  route_biz_gobd_archive.go, route_biz_invoices.go, route_biz_quotes.go,
+  route_biz_recurring.go, route_biz_transactions.go, route_caldav.go, route_calendar.go,
+  route_crm_ext.go, route_customization.go, route_document.go, route_email.go, route_hr.go,
+  route_hr_changerequest.go, route_lexware.go, route_security.go, route_work_labels.go,
+  route_work_projects.go, route_work_time.go (route_auth.go und route_work_tasks.go haben
+  daneben bereits validierte Stellen — die 161 zählen nur die verbleibenden rohen). Kandidat für
+  eine eigene Folge-Unit (oder mehrere, nach Datei/Domäne gebündelt) in Lauf 9 — nicht selbst
+  angelegt, siehe `offen:` unten.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
+  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | route n.a. (keine neue Route, TestOpenAPIRouteDrift +
+  TestOpenAPIRouteDriftParserSanity grün)
+- coverage: internal/gateway 34,9 % -> 35,1 %
+- mutations-probe: `if !ok { return }` in `HandleDeleteTask` (route_work_tasks.go, neuer Zweig)
+  auf `if ok { return }` gedreht -> `TestHandleDeleteTask_InvalidUUID` rot (ServiceUnavailable-
+  und übrige Tasks-Tests blieben grün), zurückgedreht, `git diff --stat` auf die Datei zeigt exakt
+  wieder 8 Insertions/2 Deletions (die ursprünglich beabsichtigte Änderung, kein Rest).
+- verify vorgaenger: sauber — `be847c52` geprüft: `parseAutomationScope` liefert `(scope, bool)`,
+  alle drei Call-Sites (Create/List/Update) prüfen `ok` und antworten 400 bei unbekanntem,
+  nicht-leerem Wert; leerer Wert bleibt beim historischen `SCOPE_PERSONAL`-Default (kein
+  Verhaltensbruch für bestehende Aufrufer); kein gRPC-Bypass, kein Stub, kein `.proto` geändert,
+  kein neuer `RequirePermission`-Key, keine Tabelle, keine neue Route (nur bestehende Handler
+  geändert), `parseExecutionStatus` wie in der Notiz gefordert geprüft und im Commit-Text
+  begründet, warum es NICHT denselben Fix braucht (UNSPECIFIED wird vom Server explizit als
+  "kein Filter" behandelt, kein plausibel-falscher Zustand wie bei Scope).
+- offen: Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt wieder nicht
+  sichtbar mitgeliefert (wie schon in Iteration 5 vermerkt) — Nummer aus der letzten
+  Journal-Überschrift (Iteration 5) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt. Falls der Treiber-Mechanismus das abweichend behandelt, bitte prüfen.
+  Die 161 verbleibenden rohen `chi.URLParam(r, "id")`-Stellen aus 24 Dateien (Liste oben unter
+  "gebaut") sind NICHT als Backlog-Unit angelegt — analog zum Vorgehen in Iteration 5 nur hier im
+  Journal dokumentiert, damit Luke entscheidet, ob/wie das für Lauf 9 gebündelt wird (eine Unit
+  je Datei wäre zu granular, ein Rundumschlag zu groß für eine Iteration).
+  `.planning/backend-block/loop/run-loop.ps1` hat im Arbeitsverzeichnis einen unstaged Diff
+  (neuer `-StartNotBefore`-Parameter), der schon zu Beginn dieser Iteration vorhanden war und zu
+  keiner Backlog-Unit gehört — nicht angefasst, nicht committet (nicht meine Datei für diese
+  Unit).

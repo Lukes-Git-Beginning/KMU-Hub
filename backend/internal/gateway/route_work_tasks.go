@@ -290,7 +290,10 @@ func (w *WorkRoutes) HandleDeleteTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := chi.URLParam(r, "id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
 	_, err = client.DeleteTask(r.Context(), &workv1.DeleteTaskRequest{Id: taskID})
 	if err != nil {
 		respondGRPCError(wr, err)
@@ -313,7 +316,10 @@ func (w *WorkRoutes) HandleMoveTask(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	taskID := chi.URLParam(r, "id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[moveTaskRequest](wr, r)
 	if !ok {

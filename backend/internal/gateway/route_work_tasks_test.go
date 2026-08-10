@@ -306,13 +306,6 @@ func TestHandleUpdateTask_EmptyBodyReachesRPC(t *testing.T) {
 }
 
 // --- Tasks: HandleDeleteTask ---
-//
-// HandleDeleteTask reads the id straight off chi.URLParam without running it
-// through validateUUIDParam first (unlike HandleGetTask/HandleUpdateTask in
-// this same file). An invalid id therefore reaches the RPC layer instead of
-// being rejected locally with 400 — a stylistic inconsistency, not a security
-// gap (the service still validates), documented here rather than fixed: see
-// journal entry for this unit.
 
 func TestHandleDeleteTask_ServiceUnavailable(t *testing.T) {
 	routes := NewWorkRoutes(emptyRegistry())
@@ -323,15 +316,14 @@ func TestHandleDeleteTask_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
-func TestHandleDeleteTask_InvalidIDReachesRPCNotLocalValidation(t *testing.T) {
+func TestHandleDeleteTask_InvalidUUID(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/v1/tasks/not-a-uuid", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleDeleteTask(rec, req)
-	// Documents current behaviour: no local UUID check, so this reaches the
-	// (unreachable) RPC layer and comes back 503, not 400.
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Tasks: HandleMoveTask ---
@@ -348,6 +340,20 @@ func TestHandleMoveTask_InvalidJSON(t *testing.T) {
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleMoveTask(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleMoveTask_InvalidUUID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/tasks/not-a-uuid/move", jsonBody(t, map[string]interface{}{
+		"status_id":  "660e8400-e29b-41d4-a716-446655440000",
+		"sort_order": 3.5,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleMoveTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleMoveTask_ValidRequestReachesRPC(t *testing.T) {
