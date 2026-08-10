@@ -1539,7 +1539,7 @@ Frühere Läufe liegen vollständig im Archiv:
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:10).
 
 ## Iteration 25 — b-cov-server-dialer-campaigns-queue — done — 2026-08-10 19:18
-- commit: <wird nach Commit ergaenzt>
+- commit: e1c6ab1f
 - gebaut: neue Testdatei dialer_grpc_campaigns_queue_test.go deckt alle 12
   Methoden aus dem Scope ab (CreateCampaign, GetCampaign, ListCampaigns,
   UpdateCampaign, StartCampaign, PauseCampaign, ArchiveCampaign,
