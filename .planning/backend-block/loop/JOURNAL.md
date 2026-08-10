@@ -575,7 +575,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
 
 ## Iteration 11 — b-cov-server-crm-companies-dedupe-import — done — 2026-08-10 16:28
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 73dba136
 - gebaut: neue Datei `backend/internal/server/crm_grpc_companies_dedupe_import_test.go`
   mit `stubCompanyRepo` (Server-Package-Kopie, gleiches Muster wie `stubContactRepo` aus
   Iteration 10) plus `newCRMServerWithCompanyRepo`/`newCRMServerWithContactAndCompanyRepo`/
