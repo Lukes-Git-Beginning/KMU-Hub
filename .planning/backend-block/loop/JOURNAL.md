@@ -362,3 +362,54 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht blockiert und der TLS-Handshake selbst über `net.Dialer.Timeout` bereits gebunden ist
   (per `crypto/tls`-Quellcode verifiziert: `tls.DialWithDialer` spannt einen `context.WithTimeout`
   über Dial UND Handshake).
+
+## Iteration 8 — hr-salary-document-category — done — 2026-08-10 15:58
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: Migration `000310_hr_salary_document_category` seedet die System-Dokumentenkategorie
+  `gehaltsabrechnung` (`hr_document_categories`, `tenant_id` = Zero-UUID, `visibility='employee'`,
+  `is_system=TRUE`, `sort_order=15`) nach exakt dem Muster von 000046/000294 —
+  `ON CONFLICT (tenant_id, key) DO NOTHING`, idempotent gegen `uq_hr_doc_category_key`. `.down.sql`
+  entfernt genau diese eine Zeile (`DELETE ... WHERE tenant_id = zero AND key = 'gehaltsabrechnung'`),
+  nichts sonst. Kein Payroll-Datenmodell, kein Brutto/Netto — Gehaltsabrechnungen laufen als PDF
+  über die bestehende `hr_employee_documents`-Infrastruktur, wie von Luke am 2026-08-10 entschieden.
+  Neuer Test `salary_document_category_test.go` (Package `hr`, wie `personnel_documents_read_test.go`
+  danebenliegend): `TestSalaryDocumentCategory_SeedRow_DB` liest die reale Seed-Zeile und prüft
+  `visibility='employee'`/`is_system=true`; `TestSalaryDocumentCategory_VisibleToEmployee_NotHROnly_DB`
+  seedet ein Dokument unter der echten `gehaltsabrechnung`-Kategorie plus eines unter einer ad-hoc
+  `hr_only`-Kategorie und belegt über `employee.PostgresEmployeeDocRepo.ListByTenant`: der Mitarbeiter
+  sieht seine eigene Gehaltsabrechnung, nicht das hr_only-Dokument; ein Kollege ohne HR-Rolle sieht
+  keines von beiden; `hr_admin` sieht beide. Kein neuer RLS-Test nötig — die Sichtbarkeitslogik selbst
+  ist bereits durch `hr_document_access` (Migration 000127/000128) und `TestHRRoleBased_DocumentAccess_DB`
+  bewiesen, hier wird nur die neue Zeile gegen genau diese Logik durchgespielt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt, kmuhub_app,
+  `internal/biz/hr/...` + `internal/gateway/` grün) | migration ok (000310 angewendet, Kopf 310, dirty=false) |
+  rls-smoke n.a. (keine neue Tabelle/Policy, nur eine Seed-Zeile in einer bereits RLS-gesicherten Tabelle) |
+  route n.a. (keine Route angefasst)
+- coverage: internal/biz/hr 72,8 % -> 72,8 % (aggregiert über `internal/biz/hr/...`, siehe `offen:` —
+  das Zielpaket `internal/biz/hr` selbst hat keine Nicht-Test-Datei/keine Statements, der neue Test
+  deckt bereits getestete Zeilen in `internal/biz/hr/employee` erneut ab statt neue aufzudecken)
+- mutations-probe: `visibility` der Seed-Zeile in der laufenden DB per `UPDATE hr_document_categories
+  SET visibility='hr_only' WHERE key='gehaltsabrechnung' ...` gedreht (Migration selbst ist idempotent
+  und würde eine SQL-Änderung nicht neu anwenden, deshalb direkt am DB-Zustand simuliert) ->
+  `TestSalaryDocumentCategory_SeedRow_DB` und der Subtest
+  `.../the_employee_sees_their_own_salary_statement` beide rot, zurückgedreht (`UPDATE ... SET
+  visibility='employee' ...`), `go test ./internal/biz/hr/...` wieder vollständig grün.
+- verify vorgaenger: sauber — `d5b71104` geprüft: `Connect` dialt jetzt über `net.Dialer{Timeout:
+  imapDialTimeout}`/`tls.DialWithDialer`, STARTTLS-Handshake läuft in eigener Goroutine gegen
+  `imapHandshakeDeadline` gerannt, kein gRPC-Bypass, kein Stub, kein `.proto`, keine Tabelle, keine
+  Route, kein neuer `RequirePermission`-Key, dokumentierter Restrisiko-Hinweis (Login/Select/Fetch
+  bleiben ungebunden) korrekt unter `offen:` vermerkt statt verschwiegen.
+- offen: `coverage_start: "internal/biz/hr 72,8 %"` in der Unit ist nur über `./internal/biz/hr/...`
+  (den ganzen Unterbaum) reproduzierbar, nicht über das nackte `./internal/biz/hr/`-Paket — das hat
+  keine Nicht-Test-Datei und meldet `[no statements]`. Damit weicht diese Unit von der in
+  GATE-COMMANDS.md verbindlich gemachten Regel "genau ein Paket, ohne `...`" begründet ab; für Pakete
+  mit Unterpaketen und ohne eigenen Code gehört das dort ergänzt, ist hier nicht nachgezogen (nicht
+  Scope dieser Unit).
+  `hr-salary-self-service-route` (deps: [hr-salary-document-category]) ist jetzt entsperrt und die
+  nächste Unit im Backlog — ihre eigene Vorpruefung entscheidet, ob sie ueberhaupt eine neue Route
+  braucht.
+  `.planning/backend-block/loop/run-loop.ps1` hat weiterhin denselben unstaged `-StartNotBefore`-Diff
+  wie in Iteration 6/7 vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 7) fortgezaehlt, Zeitstempel per `date` auf
+  dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.

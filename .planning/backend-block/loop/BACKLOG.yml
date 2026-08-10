@@ -482,7 +482,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/hr 72,8 %"
     scope: >
       Seed-Kategorie "Gehaltsabrechnung" in `hr_document_categories` (Migration 000046:159-170)
