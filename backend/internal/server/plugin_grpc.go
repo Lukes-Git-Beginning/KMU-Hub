@@ -841,6 +841,13 @@ func mapPluginError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, plugin.ErrPluginHasInstallations):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// CreateManifest resolves the tenant inside Service.CreateManifest and
+	// wraps middleware's sentinel with fmt.Errorf; errors.Is sees through
+	// that wrap. Every other tenant-less request in this file gets
+	// InvalidArgument via ruleTenant() (see below) — this keeps the two
+	// paths consistent instead of one of them falling through to Internal.
+	case errors.Is(err, middleware.ErrMissingTenantID):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled plugin service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

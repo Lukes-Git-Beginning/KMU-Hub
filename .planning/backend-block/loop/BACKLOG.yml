@@ -333,7 +333,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       `CreateManifest` (internal/server/plugin_grpc.go) liefert bei fehlendem Tenant-Kontext

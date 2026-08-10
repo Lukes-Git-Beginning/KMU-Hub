@@ -521,6 +521,8 @@ func TestMapPluginError(t *testing.T) {
 		{"generic unmapped error", errors.New("boom"), codes.Internal},
 		{"plugin has installations", plugin.ErrPluginHasInstallations, codes.FailedPrecondition},
 		{"wrapped invalid-argument sentinel (errors.Is sees through fmt.Errorf wrap)", fmt.Errorf("wrap: %w", plugin.ErrPermissionNotDeclared), codes.InvalidArgument},
+		{"missing tenant id", middleware.ErrMissingTenantID, codes.InvalidArgument},
+		{"wrapped missing tenant id (matches CreateManifest's fmt.Errorf wrap)", fmt.Errorf("create manifest: %w", middleware.ErrMissingTenantID), codes.InvalidArgument},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -636,22 +638,23 @@ func TestPluginCreateManifest(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	// Finding: unlike CreateValidationRule/CreateWorkflowRule (which resolve
-	// the tenant via ruleTenant() and return an explicit InvalidArgument
+	// Unlike CreateValidationRule/CreateWorkflowRule (which resolve the
+	// tenant via ruleTenant() and return an explicit InvalidArgument
 	// status.Error before ever reaching the service), CreateManifest resolves
-	// the tenant inside Service.CreateManifest and wraps middleware's sentinel
-	// with fmt.Errorf("create manifest: %w", err). Because mapPluginError
-	// compares with == (see TestMapPluginError gap #2), that wrapped error is
-	// never recognized and this request gets Internal instead of the
-	// InvalidArgument every other tenant-less request in this file gets.
-	t.Run("missing tenant context maps to Internal, not InvalidArgument (documents current gap)", func(t *testing.T) {
+	// the tenant inside Service.CreateManifest and wraps middleware's
+	// sentinel with fmt.Errorf("create manifest: %w", err). mapPluginError
+	// now has an explicit errors.Is case for middleware.ErrMissingTenantID,
+	// so that wrapped error maps to the same InvalidArgument every other
+	// tenant-less request in this file gets, instead of falling through to
+	// the default Internal branch.
+	t.Run("missing tenant context is rejected as InvalidArgument", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 
 		_, err := srv.CreateManifest(context.Background(), &pluginv1.CreateManifestRequest{
 			Slug: "no-tenant", Name: "No Tenant", PluginType: "config",
 		})
-		requireGRPCCode(t, err, codes.Internal)
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 }
 
