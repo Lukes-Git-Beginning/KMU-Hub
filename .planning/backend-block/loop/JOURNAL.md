@@ -3411,7 +3411,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `status: todo`).
 
 ## Iteration 56 — c-cov-work-calendar-repo — done — 2026-08-10 (Lauf 7)
-- commit: siehe unten (wird nach diesem Eintrag erstellt)
+- commit: `3aafe2a5`
 - verify vorgaenger: sauber — `8760b26e`/`48fd85b2` (c-cov-dialer-repo, Iteration 55) geprueft:
   `git show --stat 48fd85b2` zeigt `queue_and_list_test.go` (neu, 901 Zeilen, reine
   Test-Datei) plus BACKLOG.yml/JOURNAL.md — deckt sich 1:1 mit dem Journal-Eintrag der
