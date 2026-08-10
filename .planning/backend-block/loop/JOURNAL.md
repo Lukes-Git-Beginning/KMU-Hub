@@ -3761,3 +3761,83 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Mutations-Probe im Journal belegt inkl. der korrigierten Fixture-Falle, Paket gruen 0 Skips).
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-notification-integration-repo`
   (deps: [], frei).
+
+## Iteration 61 — c-cov-notification-integration-repo — done — 2026-08-10 05:46 (Lauf 7)
+- commit: -
+- verify vorgaenger: sauber — `c200333a` (c-cov-work-event-repo, Iteration 60) gegen alle acht
+  Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich eine neue Testdatei
+  (`internal/work/event/postgres_repository_test.go`) plus Loop-Buchhaltung
+  (`BACKLOG.yml`/`JOURNAL.md`) — kein Produktionscode angefasst, also kein gRPC-Bypass, kein
+  Stub, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle, kein
+  Wire-Shape-Wechsel, keine neue Route, kein Guard-Alt-Key ersetzt. `457c326f` traegt nur den
+  Commit-Hash nach. `git merge origin/main` lief als "Already up to date", kein Konflikt.
+- gebaut: neue Datei `internal/notification/integration/postgres_repository_test.go` (6 Tests)
+  gegen die bisher nur ueber die vier `Create*`-Methoden getestete `PostgresRepository` (550 Z.,
+  23 Methoden) in `internal/notification/integration/postgres_repository.go`. Kein
+  Produktionscode geaendert — reine Coverage-Unit.
+  - `TestPostgresRepository_ConfigCRUD`: `GetConfigByPlatform`/`ListConfigs` tenant-gescopt
+    (zwei unabhaengige Tenants, je eigene Configs, Cross-Tenant-Fall belegt beide Methoden
+    sehen nur die eigenen Zeilen), `ListConfigs`-Sortierung nach `platform ASC` geprueft,
+    `UpdateConfig`/`DeleteConfig` Erfolgs- und Not-Found-Pfad.
+  - `TestPostgresRepository_MappingCRUD`: `GetMapping`/`ListMappingsByConfig` (Sortierung nach
+    `channel_name`), `ListActiveMappingsForModule` beweist den Zwei-Tabellen-Join —
+    ein aktives Mapping auf einem INAKTIVEN Config wird korrekt ausgeschlossen (`c.is_active =
+    true`-Bedingung), ein inaktives Mapping auf aktivem Config ebenso, `UpdateMapping`/
+    `DeleteMapping` Erfolgs- und Not-Found-Pfad.
+  - `TestPostgresRepository_AccountLinks`: `GetAccountLink`/`GetAccountLinkByKMUHubUser`
+    gefunden/nicht gefunden, `DeleteAccountLink` Erfolg + Not-Found beim zweiten Aufruf.
+  - `TestPostgresRepository_LinkTokens`: `GetLinkTokenByHash` filtert bereits verbrauchte Tokens
+    aus (Query traegt `AND NOT used`), `MarkLinkTokenUsed` Erfolg + Not-Found bei
+    Doppelaufruf/unbekannter ID, `CleanupExpiredTokens` loescht nur abgelaufene UND
+    unverbrauchte Zeilen — ein abgelaufenes aber bereits verbrauchtes Token bleibt bewusst
+    stehen, ein nicht abgelaufenes Token bleibt stehen, ein abgelaufenes Token eines FREMDEN
+    Tenants bleibt von `CleanupExpiredTokens(ctxA)` unberuehrt (Tenant-Isolation des DELETE
+    selbst, nicht nur der Reads).
+  - `TestPostgresRepository_DeliveryLog`: `GetRecentFailures` schliesst `status=sent` aus,
+    sortiert absteigend nach `created_at`, haelt das `limit` ein; `CleanupOldLogs` loescht nur
+    Zeilen aelter als der Cutoff.
+  - `TestPostgresRepository_ResolveTenant`: sieben Faelle — aktiver Slack-Workspace aufgeloest,
+    aktiver Teams-Workspace aufgeloest, unbekannter Workspace liefert `ErrTenantUnresolved`,
+    leere `workspaceID` liefert `ErrTenantUnresolved`, unbekannte Plattform liefert
+    `ErrInvalidPlatform`, ein INAKTIVER Config mit sonst passendem Workspace wird nicht
+    aufgeloest (`ErrTenantUnresolved`, nicht faelschlich erfolgreich), zwei Tenants mit
+    identischem `(platform, metadata->>key)` liefern `ErrTenantAmbiguous` statt eine
+    Tie-Break-Vermutung.
+- gate: build ok (`go build -p 2 ./internal/notification/... ./internal/gateway/...
+  ./cmd/notification/... ./cmd/gateway/...`) | vet ok (`go vet ./internal/notification/...
+  ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/notification/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/notification/...`, alle sieben Pakete gruen inkl. `integration`/`integration/slack`/
+  `integration/teams`, 0 uebersprungen laut `-v`-Lauf,
+  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle
+  `kmuhub_app` verifiziert) | migration n.a. (keine Schemaaenderung) | rls-smoke ok (im Test
+  selbst: Cross-Tenant-Faelle fuer `ListConfigs`, `CleanupExpiredTokens` und den
+  System-Context-Read in `ResolveTenant`) | route n.a. (kein Gateway-Handler/Route beruehrt,
+  `go test ./internal/gateway/` daher nicht Pflicht fuer diese Unit) | openapi n.a. | protoc n.a.
+- mutations-probe: in `CleanupExpiredTokens` (postgres_repository.go) das `AND NOT used` aus dem
+  DELETE-Statement entfernt. Test sofort rot
+  (`CleanupExpiredTokens: deleted 2 rows, want 1 (only expiredUnused)` — das bereits abgelaufene,
+  aber verbrauchte Token wurde mitgeloescht). Zeile zurueckgedreht, `git diff --stat
+  internal/notification/integration/postgres_repository.go` zeigt wieder keinen Unterschied zum
+  Ausgangsstand. `go build`/`go vet`/`golangci-lint`/`go test -count=1
+  ./internal/notification/...` danach erneut komplett gruen (siehe gate oben).
+- eigener Testfehler gefunden und korrigiert (kein Produktionsbug): die ersten beiden Testlaeufe
+  scheiterten an `cannot scan NULL into *string` fuer `external_display_name`/
+  `platform_message_id`/`error_message`, weil `testutil.SeedRow`-Fixtures diese NULLABLE Spalten
+  ausliessen (SQL-DEFAULT ist NULL), waehrend die echten `Create*`-Repository-Methoden diese
+  Felder immer als (ggf. leeren) String schreiben, nie als NULL — Fixtures um explizite
+  Leerwerte ergaenzt. Zusaetzlich ein echter Bug im eigenen Testcode gefunden: `defer
+  pool.Close()` in Kombination mit `t.Cleanup(...)` fuer Row-Deletes schloss den Pool VOR den
+  Zeilen-Cleanups (Go fuehrt Funktions-`defer`s vor `t.Cleanup`-Callbacks aus), wodurch
+  fehlgeschlagene Testlaeufe ihre Fixtures (u. a. `integration_configs`-Zeilen mit
+  `metadata->>'team_id' = 'TSLACK111'`/`'TDUPLICATE'`) nicht aufraeumten und der naechste Lauf
+  von `TestPostgresRepository_ResolveTenant` durch die Altlast faelschlich `ErrTenantAmbiguous`
+  bekam. Fix: `pool.Close()` selbst ueber `t.Cleanup(...)` registriert (zuerst registriert, laeuft
+  dank LIFO-Reihenfolge zuletzt) statt per `defer`. Zehn verwaiste `integration_configs`-Zeilen
+  manuell aus der lokalen DB entfernt (`DELETE ... WHERE id IN (...)`), damit der naechste
+  Testlauf sauber startet — die neue Cleanup-Reihenfolge verhindert eine Wiederholung.
+- offen: `done_when` dieser Unit vollstaendig erfuellt (ResolveTenant mit unbekanntem Workspace
+  definierter Fehler, CleanupExpiredTokens/CleanupOldLogs loeschen nachweislich nur die
+  faelligen Zeilen inkl. Mutations-Probe, List-Methoden tenant-gescopt mit Cross-Tenant-Fall,
+  Paket gruen 0 Skips). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-email-message-repo`
+  (deps: [], frei).

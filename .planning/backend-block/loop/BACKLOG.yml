@@ -2388,7 +2388,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/notification/integration/postgres_repository.go` - 550 Zeilen, 23 Methoden.
       Nur die vier `Create*`-Methoden sind ueber `tenant_write_test.go` (173 Z.) gegen echtes
