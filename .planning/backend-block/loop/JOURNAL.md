@@ -1290,7 +1290,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 18:15).
 
 ## Iteration 21 — b-cov-server-email-messages-send-attachments — done — 2026-08-10 18:39
-- commit: (folgt in diesem Eintrag unten, siehe naechste chore-Iteration fuer den Hash)
+- commit: ee2d0cab
 - gebaut: neue Testdatei email_grpc_messages_send_test.go mit stubEmailMessageRepo
   (implementiert message.Repository), stubAttachmentRepo/stubObjectStore (implementieren
   attachment.Repository/attachment.ObjectStore), stubLinkRepo (implementiert
