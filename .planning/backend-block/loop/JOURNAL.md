@@ -2115,3 +2115,59 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten Journal-
   Ueberschrift (Iteration 31) fortgezaehlt, Zeitstempel per `date` auf dem
   Loop-Rechner ermittelt (2026-08-11 00:02).
+
+## Iteration 33 — b-cov-server-video-egress-callbacks — done — 2026-08-11 00:10
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Datei `video_egress_meetingnotes_test.go` mit 10 Tests fuer die drei laut
+  Backlog per grep bestaetigten komplett ungetesteten Methoden aus video_grpc.go:
+  `CompleteRecordingByEgress`/`FailRecordingByEgress` (LiveKit-Egress-Webhook, System-
+  Kontext ohne Tenant) je mit bekannter Egress-ID (Repo-Update auf completed/failed
+  geprueft), unbekannter Egress-ID (NotFound) und leerer Egress-ID (InvalidArgument) —
+  ueber `newTestVideoCallServer()`/`recordingMockRepo` aus video_call_grpc_test.go, kein
+  neuer Stub noetig. `GetMeetingNotes` mit 5 Tests inkl. einem echten Fund: die Methode
+  ruft `meetingService.SaveNotes(ctx, meetingID, userID, tenantID, "", false)` auf, um
+  Notizen zu "lesen" (der Service exponiert kein GetNotes direkt) — `SaveNotes` lehnt
+  leeren Content aber IMMER ab (`ErrNotesContentRequired`, service.go:679-681), und zwar
+  VOR jeder Existenzpruefung des Aufrufers. Der Handler faengt jeden Fehler in denselben
+  Fallback (leerer `MeetingNotes`-Stub, `nil`-Error) — dadurch liefert GetMeetingNotes
+  fuer ein existierendes Meeting mit gespeicherten Notizen GENAU DASSELBE leere Ergebnis
+  wie fuer eine komplett unbekannte meeting_id: 200 OK mit leerem Stub statt NotFound.
+  Die Tests pinnen dieses tatsaechliche Verhalten (Kommentarblock im Testfile erklaert es),
+  fixen es nicht — reine Coverage-Unit, keine Verhaltensaenderung erlaubt.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`) | vet ok
+  (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint run
+  --config .golangci.yml ./internal/server/... -- 0 issues) | test ok (`go test -count=1
+  ./internal/server/` und `./internal/server/...` beide gruen, 0 uebersprungene Tests per
+  -v-Grep auf SKIP verifiziert) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine
+  neue config.RequireX-Assertion
+- coverage: internal/server 47,7 % -> 68,7 % (lokal per `go test
+  -coverprofile=/tmp/cov.out ./internal/server/` + `go tool cover -func`; Bezugswert
+  47,7 % ist der Lauf-Startwert aus `coverage_start:`, nicht der Zwischenwert aus
+  Iteration 32 — beide paket-eigen und vergleichbar, der Sprung ist die Summe aller
+  Iterationen seit Lauf-Start)
+- mutations-probe: zwei Proben, beide gefangen. (1) in `CompleteRecordingByEgress` die
+  Bedingung `if req.EgressId == ""` durch `if false` ersetzt (leere Egress-ID wuerde dann
+  bis zum Service durchgereicht) -> `TestCompleteRecordingByEgress_EmptyEgressID_
+  InvalidArgument` rot (erwartete InvalidArgument, bekam NotFound), zurueckgedreht. (2) in
+  `GetMeetingNotes` `if tenantErr != nil` auf `if tenantErr == nil` gedreht (Tenant-Guard
+  invertiert) -> alle 5 neuen GetMeetingNotes-Tests rot (drei erwarteten Erfolg bekamen
+  Unauthenticated, zwei erwarteten spezifische Fehlercodes bekamen Unauthenticated, einer
+  erwartete Unauthenticated bekam nil), zurueckgedreht. `git diff --stat
+  backend/internal/server/video_grpc.go` zeigt nach beiden Rueckdrehungen keinen Rest.
+- verify vorgaenger: sauber. Commit 069e8ed9 (Iteration 32) fuegt ausschliesslich
+  `document_folders_test.go` plus Journal/Backlog-Metadaten hinzu — keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: der GetMeetingNotes-Fund oben (unbekannte meeting_id liefert 200 mit leerem
+  Stub statt NotFound, und ein existierendes Meeting mit echten Notizen liefert
+  ununterscheidbar denselben leeren Stub) ist ein Kandidat fuer eine Fix-Unit in Lauf 9 —
+  entweder `meeting.Service` um ein echtes `GetNotes` erweitern oder den Handler auf
+  `repo.GetNotes`/eine neue Service-Methode umstellen, dann `SaveNotes("")` nicht mehr
+  missbrauchen. Kein Blocker fuer diesen Lauf, kein RequirePermission-/Route-/
+  Migrations-Thema. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen
+  unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-32 vermerkt) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/
+  Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 32) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt (2026-08-11 00:10).

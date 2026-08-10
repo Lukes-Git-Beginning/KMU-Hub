@@ -1215,7 +1215,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       video_grpc.go ist mit 73,0 % die am stärksten abgedeckte 1-Unit-Datei
