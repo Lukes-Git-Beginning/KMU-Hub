@@ -2434,7 +2434,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins.
 
 ## Iteration 38 — fix-schichten-error-mapping-shiftfull-gap — done — 2026-08-10 03:08
-- commit: (pending)
+- commit: 1ff79225
 - verify vorgaenger: sauber — 1b78eb51 (CreateTemplate Location) geprueft: kein Proto-/Route-/
   Guard-/Tabellen-Bezug, exakt das dokumentierte Muster von UpdateTemplate uebernommen (`if l :=
   req.GetLocation(); l != "" { input.Location = &l }`), Testfall in TestSchichten_TemplateCRUDAndList
