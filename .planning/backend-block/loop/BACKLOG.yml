@@ -1751,7 +1751,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/caldav/ical_converter.go` - 392 Zeilen, keine Testdatei. Teil der bei 7,2 %
       gemessenen `internal/caldav`-Coverage. Reine Konvertierung zwischen KMU-Hub-Kalenderevents

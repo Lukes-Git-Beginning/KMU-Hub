@@ -2721,3 +2721,53 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   die Datei selbst war schon vor dieser Iteration groesstenteils abgedeckt, siehe Praemissen-
   Korrektur oben). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-caldav-ical`
   (`status: todo`, Zeile ~1749).
+
+## Iteration 44 — c-cov-caldav-ical — done — 2026-08-10 03:45
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `665a1641` (c-cov-work-event-rrule) geprueft: Diff enthaelt nur
+  `rrule_test.go` (neu) und zwei ergaenzte Assertions in `service_test.go`, kein
+  Produktionscode angefasst (`rrule.go` selbst zeigt lokal einen reinen CRLF/LF-Normalisierungs-
+  Artefakt ohne inhaltliche Aenderung — `git diff`/`git diff --ignore-all-space` beide leer,
+  unbedenklich liegen gelassen), kein gRPC-Layer, kein Proto, keine neue Route, kein neuer
+  Guard, keine neue Tabelle.
+- gebaut: zwei neue Testdateien fuer `internal/caldav` (vorher 7,2 % Paketcoverage, keine
+  Testdatei fuer `ical_converter.go`/`etag.go`): `ical_converter_test.go` (17 Tests) und
+  `etag_test.go` (4 Tests). Kernstueck sind Roundtrip-Tests `EventToICal` -> echte ICS-Bytes
+  (`ical.NewEncoder`) -> `ical.NewDecoder` -> `ICalToEventInput`, nicht nur In-Memory-Struct-
+  Vergleich: normales Event (Titel/Beschreibung/Ort/Zeiten), ganztaegiges Event (VALUE=DATE),
+  wiederkehrendes Event (RRULE-Property), Event mit abweichender Zeitzone (America/New_York
+  statt Default Europe/Berlin), leere Beschreibung/Ort (muss als `nil` zurueckkommen, nicht als
+  Pointer auf Leerstring — `EventToICal` schreibt sie ja gar nicht erst). Exceptions getrennt
+  fuer beide Zweige: EXDATE (stornierter Termin, `IsCancelled: true`) und RECURRENCE-ID
+  (ueberschriebener Termin mit eigenem Titel/Zeiten). Attendees separat getestet, da
+  `ICalToEventInput`/`parseVEvent` das ATTENDEE-Property gar nicht in `CalEventInput`
+  zurueckspiegelt (kein Feld dafuer) — Test prueft stattdessen direkt auf der dekodierten
+  `ical.Calendar`, dass CN und PARTSTAT beide Attendees ueberleben. `rsvpToPartStat` zusaetzlich
+  als eigener Tabellentest (inkl. unbekannter/leerer RSVP-Wert -> Default `NEEDS-ACTION`).
+  Fehlerpfade: kein VEVENT im Kalender, fehlendes DTSTART, syntaktisch kaputter ICS-Block direkt
+  am `ical.Decoder` (Zufallsbytes inkl. Null-Byte) und ein VEVENT, das nach `BEGIN:VEVENT` ohne
+  `END:` abbricht — beide in `assert.NotPanics` gewrappt, wie im `done_when` gefordert ("keinen
+  Panic"). `etag_test.go` deckt `GenerateETag` (deterministisch bei gleicher ID+Timestamp,
+  aendert sich bei 1ns Differenz, aendert sich bei anderer ID, Quoted-Hex-Format) und
+  `GenerateCTag` (Format inkl. negativem Wert) ab — beide waren zuvor komplett ungetestet und
+  standen mit im `sources`-Block dieser Unit. `internal/caldav`-Paketcoverage: 29,1 % (von
+  7,2 %). Zielfunktionen: `EventToICal` 88,6 %, `ICalToEventInput` 93,4 %, `parseVEvent` 92,5 %,
+  `setEventTimes`/`rsvpToPartStat` 100 %, `GenerateETag`/`GenerateCTag` 100 %.
+- gate: build ok (`go build ./internal/caldav/...`) | vet ok (`go vet ./internal/caldav/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/caldav/...`, 0 issues) | test ok
+  (`go test -count=3 ./internal/caldav/...` mit gesetzter `DATABASE_URL`, durchgehend gruen,
+  inklusive der drei bestehenden DB-Tests des Pakets) | migration n.a. (keine Schema-Aenderung)
+  | rls-smoke n.a. (kein DB-Zugriff im neuen Testcode, reine In-Memory-Konvertierung) | route
+  n.a. (kein Gateway/Server-Handler angefasst, `go test ./internal/gateway/` deshalb nicht
+  Pflicht und nicht separat gelaufen) | openapi n.a. | protoc n.a.
+- mutations-probe: `IsCancelled: true` im EXDATE-Parsing-Zweig von `ICalToEventInput`
+  (`ical_converter.go:214`) auf `IsCancelled: false` gesetzt →
+  `TestEventToICal_RoundTrip_CancelledException` wurde rot ("Should be true"), zurueckgedreht,
+  `git diff` auf die Produktionsdatei bestaetigt eine identische Datei (leerer Diff), volle
+  Suite danach dreimal in Folge wieder gruen.
+- db-tests: 0 neue — `ical_converter.go`/`etag.go` sind reine In-Memory-Konvertierungslogik ohne
+  DB-Zugriff, `done_when` verlangt hier keine DB-Tests. Die drei bereits bestehenden DB-Tests
+  des Pakets (`app_password_test.go`, `tenant_isolation_phase2_test.go`, `tenant_write_test.go`)
+  liefen unveraendert mit, 0 Skips bei gesetzter `DATABASE_URL`.
+- offen: keins. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-email-send-mime`
+  (`status: todo`, Zeile ~1775, MIME-Nachrichtenerzeugung `internal/email/send/mime_builder.go`).
