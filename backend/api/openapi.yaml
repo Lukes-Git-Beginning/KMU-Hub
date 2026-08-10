@@ -11585,6 +11585,43 @@ paths:
         "409":
           description: Change request is no longer pending
 
+  /api/v1/hr/employees/me/documents:
+    get:
+      summary: List the caller's own personnel documents
+      description: >
+        Self-service view of the caller's own Akte. The employee id is taken
+        from the JWT (hr_employee_documents.employee_id references users.id),
+        never from the request, so no caller can reach a colleague's documents
+        through this route. Which categories are returned still follows RLS
+        policy hr_document_access — for the employee themselves that is the
+        'employee' tier, which includes salary statements (category key
+        gehaltsabrechnung, migration 000310). Optional category filter narrows
+        to one hr_document_categories.key. Requires hr:read or
+        team:documents:view.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string, maxLength: 50 }
+          description: "hr_document_categories.key, e.g. gehaltsabrechnung"
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeDocument"
+        "401": { description: Missing user context }
+        "403": { description: Missing hr:read / team:documents:view }
+        "503": { description: HR service unavailable }
+
   /api/v1/hr/employees/{id}/documents:
     get:
       summary: List employee documents

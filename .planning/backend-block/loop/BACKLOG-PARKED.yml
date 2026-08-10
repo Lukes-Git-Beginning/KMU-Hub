@@ -24,6 +24,35 @@ units:
   # GEPARKT — Frontend-Arbeit
   # ==========================================================================================
 
+  - id: fe-salary-statements-endpoint
+    service: desktop
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      Reiner Frontend-Fix, Backend-Anteil ist erledigt. Der Loop hat in Lauf 8
+      (`hr-salary-self-service-route`) `GET /api/v1/hr/employees/me/documents` gebaut
+      (`backend/internal/gateway/route_hr.go`, `HandleListOwnDocuments`, Spec-Eintrag in
+      `backend/api/openapi.yaml`). Damit steht die Selbstzugriffs-Route bereit, die das FE
+      heute nur als MSW-Mock kennt.
+    scope: >
+      `desktop/src/renderer/src/modules/team/SelfServiceView.tsx:130-141` ruft
+      `GET /api/v1/hr/employees/me/salary-statements` und erwartet
+      `{ statements: SalaryStatement[] }`. Diesen Pfad gibt es im Backend nicht und wird es
+      auch nicht geben — Cosmi rechnet kein Brutto/Netto (Entscheidung Luke, 2026-08-10),
+      Gehaltsabrechnungen sind PDFs in der Personalakte. Umzustellen auf
+      `GET /api/v1/hr/employees/me/documents?category=gehaltsabrechnung`, Antwort
+      `{ documents: EmployeeDocument[] }`.
+    notes: >
+      Der FE-Typ `SalaryStatement` (Brutto/Netto/Zeitraum) hat im Backend keine Entsprechung
+      und muss durch die Dokument-Felder ersetzt werden: `title`, `file_name`, `file_size`,
+      `created_at`, `file_id` (zum Download), `category_key`. Die Kategorie
+      `gehaltsabrechnung` legt Migration 000310 als System-Kategorie mit
+      `visibility='employee'` an; RLS-Policy `hr_document_access` sorgt dafuer, dass ein
+      Mitarbeiter nur seine eigene sieht. `TIME_ACCOUNTS` in derselben Datei (Zeile 103-108)
+      ist weiterhin hartkodiert und braucht eine eigene Entscheidung — nicht Teil dieses Fixes.
+    target: >
+      Frontend-Session, `.planning/nico-block/`.
+
   - id: fe-helpdesk-ticket-number
     service: desktop
     status: parked

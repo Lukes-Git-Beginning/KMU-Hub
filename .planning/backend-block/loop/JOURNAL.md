@@ -413,3 +413,87 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert —
   Nummer aus der letzten Journal-Ueberschrift (Iteration 7) fortgezaehlt, Zeitstempel per `date` auf
   dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
+
+## Iteration 9 — hr-salary-self-service-route — done — 2026-08-10 16:00
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: VORPRUEFUNG ERGAB "NEIN" (Belege unter `offen:`), deshalb Schritt 2 der Unit gebaut:
+  neue Route `GET /api/v1/hr/employees/me/documents` (`route_hr.go`, registriert VOR
+  `/{id}/documents`, Guard ist der bestehende `hrDocumentCategoriesGuard` =
+  `RequirePermissionAny(hr:read, team:documents:view)` — kein neuer Permission-Key, keine
+  Seed-Migration). Handler `HandleListOwnDocuments` nimmt die Employee-ID ausschliesslich aus
+  dem JWT (`middleware.GetUserID`), nie aus dem Request: `hr_employee_documents.employee_id`
+  referenziert `users(id)` (Migration 000046:178), die User-ID IST also die Employee-ID, und
+  ein Aufrufer kann ueber diese Route keine fremde Akte adressieren. Kein Proto-Change und
+  kein Service-Change noetig — die RPC `ListEmployeeDocuments(employee_id)` existiert bereits
+  und geht regulaer ueber den gRPC-Client. Optionaler `?category=<key>`-Filter ueber die neue
+  Hilfsfunktion `filterDocumentsByCategory` (mit `lean:`-Marker: filtert die Antwort, weil die
+  Liste eines Mitarbeiters vollstaendig und unpaginiert ist; Upgrade-Trigger = sobald diese
+  Liste Pagination bekommt, gehoert der Key in die RPC). Antwort gewrappt als
+  `{documents: [...]}` wie `/hr/personnel-documents`, nicht als nacktes Array wie
+  `/{id}/documents` — bewusst, weil das FE ohnehin neu geschrieben wird und die
+  Architektur-Regel gewrappte Listen fordert. Spec-Eintrag in `backend/api/openapi.yaml` im
+  selben Commit, inkl. 401/403/503. Neue Testdatei `route_hr_self_documents_test.go` mit
+  6 Tests: Pfad-Match mit `team:documents:view` (503 = Handler erreicht, nicht 404),
+  Legacy-Key `hr:read` erreicht die Route ebenfalls, ohne Key 403, fehlender User-Kontext 401,
+  Tabellentest fuer den Kategorie-Filter (6 Faelle inkl. Whitespace-Trim, Teilstring-Nichttreffer,
+  unbekannter Key) und ein Wire-Shape-Test (leeres Ergebnis ist `[]`, nicht `nil`/`null`).
+  DAZU der wichtigste Test: `TestListEmployeeDocuments_StillAdminOnly` haelt fest, dass die
+  neue Route die ALTE nicht aufgeweicht hat — `team:documents:view` allein bekommt auf einer
+  fremden `{id}` weiterhin 403.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/gateway/`
+  gruen, 2164 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als `kmuhub_app`) |
+  `TestOpenAPIRouteDrift` gruen (im Paket enthalten) | `swagger-cli validate` gruen (Pflicht nach
+  jeder `openapi.yaml`-Aenderung, nicht nur der Drift-Test) | migration n.a. (keine) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/gateway 34,9 % -> 35,1 % (`go tool cover -func`, genau das Paket
+  `./internal/gateway/`)
+- mutations-probe: drei Proben, alle rot, alle zurueckgedreht, Diff danach restfrei
+  (`git diff` gegen den finalen Tree geprueft):
+  (1) Guard der neuen Route von `hrDocumentCategoriesGuard` auf
+  `RequirePermission("hr","read")` verengt -> `TestHandleListOwnDocuments_MatchesFrontendPath`
+  rot (403 statt 503). Das ist die Probe, die zaehlt: sie beweist, dass der Test genau den
+  Fehler faengt, der die Route fuer jeden Nicht-Admin nutzlos machen wuerde.
+  (2) `if userID == ""`-Guard entfernt -> `TestHandleListOwnDocuments_MissingUserContext` rot
+  (503 statt 401).
+  (3) `d.GetCategoryKey() == key` durch `strings.HasPrefix(...)` ersetzt ->
+  `TestFilterDocumentsByCategory/partial_key_does_not_match` rot (2 statt 0 Dokumente).
+- verify vorgaenger: sauber — `6b42ef16` geprueft: Migration 000310 legt keine Tabelle an,
+  sondern seedet eine Zeile in der bereits RLS-gesicherten `hr_document_categories`, idempotent
+  per `ON CONFLICT (tenant_id, key) DO NOTHING`; `.down.sql` loescht exakt diese eine Zeile
+  (tenant_id + key im WHERE), nichts sonst. Kein gRPC-Bypass, kein Stub, kein `.proto`, keine
+  Route, kein neuer `RequirePermission`-Key, keine bereits ausgerollte Migration angefasst.
+- offen: VORPRUEFUNGS-BELEGE (Schritt 1 der Unit, das war die eigentliche Frage):
+  (a) `GET /api/v1/hr/employees/{id}/documents` ist mit `RequirePermission("hr","read")`
+      geguardet (`route_hr.go:168`). `hr:read` wird in Migration 000129 **ausschliesslich an
+      `admin`** vergeben (Block ab Z. 49 `WHERE r.name = 'admin'`, Key in Z. 63) und taucht in
+      Migration 000256 gar nicht auf. Ein `member` kann seine eigene Akte ueber diese Route
+      also NICHT lesen — er bekommt 403, unabhaengig von der employee_id. Antwort auf Schritt 1
+      ist damit klar NEIN.
+  (b) `GET /api/v1/hr/personnel-documents` waere fuer einen `member` zwar erreichbar
+      (`team:documents:view` auf Scope `own`, Migration 000256 Z. 465) und die RLS-Policy
+      `hr_document_access` (000128) zeigt ihm dort tatsaechlich nur seine eigenen
+      employee-sichtbaren Dokumente. Als Self-Service-Quelle ist die Route trotzdem falsch:
+      dieselbe Policy gibt einem `manager` alle Dokumente der Stufen `manager` UND `employee`
+      **aller** Mitarbeiter — ein Manager, der seine eigene Self-Service-Ansicht oeffnet,
+      bekaeme also die Gehaltsabrechnungen seiner Kollegen mitgeliefert und muesste im FE
+      wieder herausgefiltert werden. Serverseitig auf die eigene employee_id einzuschraenken
+      ist die einzige Variante, bei der fremde Gehaltsdaten den Prozess gar nicht erst
+      verlassen.
+  FRONTEND-FOLGEARBEIT ist als `fe-salary-statements-endpoint` in `BACKLOG-PARKED.yml`
+  eingetragen (Ziel: `.planning/nico-block/`): `SelfServiceView.tsx:130-141` ruft weiterhin
+  `/me/salary-statements` (existiert nicht, nur MSW-Mock) und muss auf
+  `/me/documents?category=gehaltsabrechnung` mit `{documents: [...]}` umgestellt werden; der
+  FE-Typ `SalaryStatement` (Brutto/Netto) hat keine Backend-Entsprechung und wird durch die
+  Dokument-Felder ersetzt. Bis dahin ist die neue Route im Produkt unbenutzt — sie ist
+  getestet und spezifiziert, aber ohne den FE-Teil sieht der Mitarbeiter nichts.
+  NICHT VERIFIZIERBAR IM UNIT-TEST: dass der HR-Service die Rollen des Aufrufers ueber die
+  gRPC-Grenze in die `app.user_roles`-GUC bekommt (`database/postgres.go:74-85` setzt sie aus
+  `middleware.GetUserRoles(ctx)`). Fuer diese Route ist das unkritisch — sie filtert per
+  `WHERE d.employee_id = $1` auf die eigene ID, RLS ist hier zweite Verteidigungslinie, nicht
+  die erste. Fuer `/hr/personnel-documents` ist es dagegen die einzige Grenze; ein
+  End-to-End-Beleg dafuer fehlt im Repo weiterhin und waere eine eigene Unit wert.
+  `.planning/backend-block/loop/run-loop.ps1` hat weiterhin denselben unstaged
+  `-StartNotBefore`-Diff wie in Iteration 6-8 vermerkt — nicht meine Datei, nicht angefasst.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 8) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -165,6 +166,12 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		// team:employee:offboard is in the catalogue since 000256 and assigned
 		// to admin and hr_admin, so no seed migration is needed here.
 		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/offboard", h.HandleOffboardEmployee)
+		// Self-service: an employee reaching their OWN Akte. Needed because
+		// /{id}/documents below is guarded by "hr:read", which migration 000129
+		// assigns to admin alone — a member could never open their own file
+		// through it. Same additive guard as the categories route, so no new
+		// permission key and no seed migration.
+		r.With(hrDocumentCategoriesGuard).Get("/me/documents", h.HandleListOwnDocuments)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
 		// Additive guard: the legacy "hr:read" key stays valid AND the
@@ -1194,6 +1201,70 @@ func (h *HRRoutes) HandleUpdateSelfProfile(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.Proto(w, http.StatusOK, resp.Employee)
+}
+
+// HandleListOwnDocuments serves an employee their own personnel documents —
+// the self-service counterpart to the Personalakte views.
+//
+// hr_employee_documents.employee_id references users(id) (migration
+// 000046:178), so the caller's user id from the JWT IS their employee id. No
+// lookup is needed and, more importantly, no client-supplied id can widen the
+// selection: the caller cannot ask for someone else's file through this route.
+//
+// Neither existing route covers this. /{id}/documents is guarded by "hr:read"
+// (admin-only, migration 000129). /hr/personnel-documents returns every row
+// the caller's RLS tier permits, so a manager opening their own self-service
+// view would receive their colleagues' employee-tier documents as well —
+// correct for the Personalakte tab, wrong here.
+//
+// Optional ?category=<key> narrows to one hr_document_categories.key, e.g.
+// "gehaltsabrechnung" for salary statements.
+func (h *HRRoutes) HandleListOwnDocuments(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user context")
+		return
+	}
+
+	resp, err := client.ListEmployeeDocuments(r.Context(), &hrv1.ListEmployeeDocumentsReq{
+		EmployeeId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	docs := filterDocumentsByCategory(resp.Documents, r.URL.Query().Get("category"))
+
+	response.ProtoListWrapped(w, http.StatusOK, "documents", docs, nil)
+}
+
+// filterDocumentsByCategory narrows a document list to one
+// hr_document_categories.key. An empty key means "no filter" and returns the
+// list untouched.
+//
+// lean: filtering the response is safe here because ListEmployeeDocuments
+// returns one employee's complete, unpaginated list — there is no page
+// boundary or total the filter could shift out of step. Push the key down into
+// the RPC as soon as that list gets pagination.
+func filterDocumentsByCategory(docs []*hrv1.EmployeeDocument, category string) []*hrv1.EmployeeDocument {
+	key := strings.TrimSpace(category)
+	if key == "" {
+		return docs
+	}
+	filtered := make([]*hrv1.EmployeeDocument, 0, len(docs))
+	for _, d := range docs {
+		if d.GetCategoryKey() == key {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered
 }
 
 func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Request) {
