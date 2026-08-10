@@ -485,7 +485,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `mapSchichtenError` (internal/server/schichten_grpc.go:647) hat keinen Fall fuer
       `schichten.ErrShiftFull` (errors.go:12, zurueckgegeben von `Service.AssignEmployee`s

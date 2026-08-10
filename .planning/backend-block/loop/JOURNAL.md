@@ -2432,3 +2432,38 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - db-tests: 0 — reine Handler-/In-Memory-Logik (Stub-Repo), done_when verlangt hier keine
   DB-Tests.
 - offen: keins.
+
+## Iteration 38 — fix-schichten-error-mapping-shiftfull-gap — done — 2026-08-10 03:08
+- commit: (pending)
+- verify vorgaenger: sauber — 1b78eb51 (CreateTemplate Location) geprueft: kein Proto-/Route-/
+  Guard-/Tabellen-Bezug, exakt das dokumentierte Muster von UpdateTemplate uebernommen (`if l :=
+  req.GetLocation(); l != "" { input.Location = &l }`), Testfall in TestSchichten_TemplateCRUDAndList
+  entsprechend von "documents current gap" auf require.NotNil + Wertvergleich umgestellt statt
+  geloescht. Keine Befunde.
+- gebaut: `mapSchichtenError` (internal/server/schichten_grpc.go:652) hatte keinen Fall fuer
+  `schichten.ErrShiftFull` — jeder andere Sentinel aus errors.go war vertreten, dieser eine fehlte,
+  fiel auf den generischen Internal-Zweig statt eines client-actionable 4xx. Fall
+  `case errors.Is(err, schichten.ErrShiftFull): return status.Error(codes.FailedPrecondition,
+  err.Error())` ergaenzt (FailedPrecondition passt zum bestehenden Muster fuer Kapazitaets-/
+  Regel-Verstoesse in derselben Funktion — ArbZG/JArbSchG nutzen denselben Code). Die beiden
+  "documents current gap"-Testfaelle in schichten_grpc_test.go auf den neuen erwarteten Code
+  umgestellt: `TestMapSchichtenError_Table/shift_full_documents_current_gap` →
+  `shift_full` mit codes.FailedPrecondition, `TestSchichten_AssignEmployee_CapacityExceeded_
+  MapsToInternal` → `TestSchichten_AssignEmployee_CapacityExceeded_MapsToFailedPrecondition`
+  mit requireGRPCCode(..., codes.FailedPrecondition).
+- gate: build ok (`go build -p 2 ./internal/schichten/... ./internal/server/...
+  ./cmd/schichten/... ./cmd/gateway/...`) | vet ok (`go vet ./internal/schichten/...
+  ./internal/server/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/schichten/... ./internal/server/...`, 0 issues) | test ok (`go test -count=3
+  ./internal/schichten/... ./internal/server/...`, dreimal wiederholt, durchgehend gruen) |
+  migration n.a. (kein Schema-Zugriff) | rls-smoke n.a. | route n.a. (keine neue Route, nur ein
+  zusaetzlicher Fall in bestehendem Error-Mapping) | openapi n.a.
+- mutations-probe: den neuen Case auf `case false && errors.Is(err, schichten.ErrShiftFull):`
+  gesetzt → beide betroffenen Tests wurden rot (`TestMapSchichtenError_Table/shift_full`:
+  erwartet FailedPrecondition, bekam Internal; `TestSchichten_AssignEmployee_CapacityExceeded_
+  MapsToFailedPrecondition`: dieselbe Abweichung end-to-end durch den echten Handler), zurueckgedreht,
+  `git diff --stat` auf schichten_grpc.go zeigt danach nur die beabsichtigten 2 Zeilen, Suite
+  dreimal in Folge wieder vollstaendig gruen.
+- db-tests: 0 — reine Handler-/In-Memory-Logik (Stub-Repo), done_when verlangt hier keine
+  DB-Tests.
+- offen: keins.

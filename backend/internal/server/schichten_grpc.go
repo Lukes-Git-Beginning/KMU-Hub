@@ -673,6 +673,8 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrShiftFull):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled schichten service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

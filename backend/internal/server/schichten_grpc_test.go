@@ -1116,13 +1116,7 @@ func TestMapSchichtenError_Table(t *testing.T) {
 		{"jarbschg_weekend", schichten.ErrJArbSchGWeekend, codes.FailedPrecondition},
 		{"swap_already_processed", schichten.ErrSwapAlreadyProcessed, codes.FailedPrecondition},
 		{"generic_fallback", errStubSchichtenFailure, codes.Internal},
-		// documents current gap: ErrShiftFull (returned by AssignEmployee when
-		// a shift's capacity is reached, see service.go's Guard 1) has no case
-		// in mapSchichtenError and falls through to the generic Internal
-		// branch — a capacity-full assignment attempt surfaces as a 500
-		// instead of a client-actionable 4xx. See the JOURNAL entry for this
-		// iteration for the resulting Lauf-8 backlog unit.
-		{"shift_full_documents_current_gap", schichten.ErrShiftFull, codes.Internal},
+		{"shift_full", schichten.ErrShiftFull, codes.FailedPrecondition},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1131,9 +1125,8 @@ func TestMapSchichtenError_Table(t *testing.T) {
 	}
 }
 
-func TestSchichten_AssignEmployee_CapacityExceeded_MapsToInternal(t *testing.T) {
-	// End-to-end confirmation of the mapSchichtenError gap documented above:
-	// exercised through the real handler, not just the table test.
+func TestSchichten_AssignEmployee_CapacityExceeded_MapsToFailedPrecondition(t *testing.T) {
+	// End-to-end confirmation, exercised through the real handler, not just the table test.
 	repo := newStubSchichtenRepo()
 	srv := newSchichtenServerWithRepo(repo)
 	ctx := context.Background()
@@ -1153,7 +1146,7 @@ func TestSchichten_AssignEmployee_CapacityExceeded_MapsToInternal(t *testing.T) 
 	_, err := srv.AssignEmployee(ctx, &schichtenv1.AssignEmployeeRequest{
 		TenantId: tenantID, ShiftId: shift.ID.String(), EmployeeId: uuid.New().String(),
 	})
-	requireGRPCCode(t, err, codes.Internal)
+	requireGRPCCode(t, err, codes.FailedPrecondition)
 }
 
 // ---------------------------------------------------------------------------
