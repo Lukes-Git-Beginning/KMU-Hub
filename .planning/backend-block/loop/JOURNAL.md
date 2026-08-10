@@ -2850,7 +2850,7 @@ Frühere Läufe liegen vollständig im Archiv:
   fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:33).
 
 ## Iteration 44 — d-cov-gateway-hr-worktime — done — 2026-08-11 01:39
-- commit: PENDING
+- commit: 13bc5141
 - gebaut: Neue Testdatei `backend/internal/gateway/route_hr_worktime_test.go` (30 Tests) fuer
   die neun in der Unit genannten Zeiterfassungs-Handler in `route_hr.go`: HandleClockIn/
   HandleClockOut (je ServiceUnavailable, MissingTenant, ReachesRPC), HandleBreakStart/
