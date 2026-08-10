@@ -1353,7 +1353,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Neun weitere ungetestete Pfade in route_auth.go: der Passwort-Reset-Flow

@@ -2353,3 +2353,60 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 35) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 00:30).
+
+## Iteration 37 — c-cov-gateway-auth-reset-invitations — done — 2026-08-11 00:36
+- commit: (folgt nach diesem Eintrag)
+- gebaut: neue Datei `route_auth_reset_invitations_test.go` mit 26 Testfunktionen fuer die
+  neun im Scope genannten Pfade in `route_auth.go`: HandleForgotPassword,
+  HandleResetPassword, HandleUpdateProfile, HandleUpdateUser, HandleProvisionTenant,
+  HandleListInvitations, HandleAcceptInvitation, HandleCancelInvitation, sowie
+  `allowForgotAttempt` direkt als White-Box-Methode. Rate-Limiter: fuenf Versuche im Fenster
+  erlaubt, sechster abgelehnt (`TestAllowForgotAttempt_RateLimit`), Gross-/Kleinschreibung
+  und Leerzeichen teilen sich einen Bucket (`TestAllowForgotAttempt_Normalization`, `User@X.de`
+  vs. ` user@x.de `), abgelaufenes Fenster resettet den Zaehler auf 1
+  (`TestAllowForgotAttempt_WindowReset`, Bucket direkt ueber `forgotLimiter.Load` manipuliert).
+  HandleForgotPassword zusaetzlich: ServiceUnavailable, InvalidJSON, MissingEmail (400
+  Validierung), RateLimited (429 mit `Retry-After: 600`), AlwaysOK (200 trotz RPC-Fehler des
+  Dummy-Clients — enumeration-safe). HandleResetPassword: ServiceUnavailable, InvalidJSON,
+  MissingToken, ShortPassword. HandleUpdateProfile: ServiceUnavailable, AvatarURLTooLong
+  (max=512). HandleUpdateUser: ServiceUnavailable, InvalidUUID (vor decodeAndValidate).
+  HandleProvisionTenant: ServiceUnavailable, MissingAdminEmail, InvalidSeatLimit
+  (seat_limit=0 gegen `omitempty,min=1`). HandleListInvitations: ServiceUnavailable.
+  HandleAcceptInvitation: ServiceUnavailable, MissingToken (400 "token is required" vor
+  decodeAndValidate), MissingPassword. HandleCancelInvitation: ServiceUnavailable,
+  InvalidUUID. Kein Happy-Path getestet — gleiche Grenze wie in den Vorgaenger-Iterationen zu
+  `route_auth.go` (Dummy-Client auf `localhost:0`, echter RPC-Erfolg im Testmuster nicht
+  erreichbar).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1 ./internal/gateway/`
+  gruen, 0 SKIPs per `-v | grep -c "^--- SKIP"`; `go test -count=1 ./internal/gateway/...`
+  fuer alle Unterpakete ebenfalls gruen) | migration n.a. (keine Migration) | rls-smoke n.a.
+  (keine Tabelle/Policy angefasst) | keine neue Route (TestOpenAPIRouteDrift lief mit,
+  834 Routen gegen 836 Pfade, unveraendert gegenueber Iteration 36), kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 35,8 % (lokal per `go test -coverprofile=/tmp/cov.out
+  ./internal/gateway/` + `go tool cover -func`; Bezugswert 34,9 % ist der Lauf-Startwert aus
+  `coverage_start:`)
+- mutations-probe: eine Probe, gefangen. In `allowForgotAttempt` die Rueckgabe
+  `return b.count <= forgotRateLimitMax` (beide Vorkommen — Reset-Zweig und Zaehl-Zweig,
+  letzterer trug die Bedingung) durch `return true` ersetzt (Ratenlimit wirkungslos) ->
+  `TestAllowForgotAttempt_RateLimit`, `TestAllowForgotAttempt_Normalization`,
+  `TestAllowForgotAttempt_WindowReset` und `TestHandleForgotPassword_RateLimited` alle vier
+  rot (erwarteten `false`/429, bekamen `true`/200), zurueckgedreht. `git diff
+  backend/internal/gateway/route_auth.go` zeigt danach keinen Rest, erneuter Testlauf
+  (`go test -count=1 ./internal/gateway/`) gruen, 0 SKIPs.
+- verify vorgaenger: sauber. Commit 5a27f354 (Iteration 36) fuegt ausschliesslich
+  `route_auth_2fa_sessions_test.go` plus Journal/Backlog-Metadaten hinzu — keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: keine neuen Produktionsbefunde in dieser Iteration — alle acht Handler und der
+  Rate-Limiter verhalten sich wie im Scope beschrieben. `route_auth.go` hat damit ab dieser
+  Iteration keine ungetesteten Handler mehr in den Bloecken "2FA/Sessions" und
+  "Reset/Invitations"; verbleibende Luecken (falls vorhanden) liegen ausserhalb des Scopes
+  dieser beiden Units. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen
+  unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-36 vermerkt) — nicht meine Datei,
+  nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in
+  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 36) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 00:36).
