@@ -4299,7 +4299,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 70 — c-cov-caldav-push — done — 2026-08-10 (Lauf 7)
 
-- commit: (folgt in der naechsten chore-Iteration)
+- commit: `76540cb5`
 - gebaut: `internal/caldav/push_subscription_test.go` (neu). Fuenf Testfunktionen fuer
   `push_subscription.go` (352 Z. mit `push_notifier.go`, bisher nur `Subscribe` ueber
   `tenant_write_test.go` gedeckt):
