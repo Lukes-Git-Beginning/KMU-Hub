@@ -4251,7 +4251,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 69 — c-cov-dialer-redis-store — done — 2026-08-10 (Lauf 7)
 
-- commit: (folgt im chore-Commit)
+- commit: `d52521d7`
 - gebaut: `internal/dialer/redis_agent_store_io_test.go` (neu, miniredis-backed). Acht
   Testfunktionen fuer `AgentStatusStore`s Redis-I/O (`SetStatus`, `GetStatus`,
   `GetCampaignAgents`, `GetAvailableAgents`, `RemoveFromCampaign`), bisher nur ueber die reine
