@@ -1973,7 +1973,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Die reinen Helferfunktionen aus `caldav_backend.go` und `carddav_backend.go`, die KEINEN
       gRPC-Client und KEINEN DB-Pool brauchen: Pfad-Parsing, Proto-zu-Model-Konvertierung und

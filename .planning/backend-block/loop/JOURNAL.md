@@ -2998,3 +2998,64 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-caldav-backend-helpers` (`status: todo`, Pfad-Parser/Proto-Konvertierung/Fehler-Mapping
   in `caldav_backend.go`/`carddav_backend.go`).
+
+## Iteration 49 — c-cov-caldav-backend-helpers — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `f9991767` (c-cov-caldav-vcard-vtimezone) geprueft: `git show --stat`
+  zeigt nur `vcard_converter_test.go`/`vtimezone_test.go` (neu) plus Backlog-/Journal-Dateien,
+  deckt sich 1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. `git merge origin/main` lief
+  als "Already up to date" — kein Divergenzrisiko, keine STOP-Datei.
+- gebaut: `internal/caldav/caldav_backend_test.go` (neu) und `internal/caldav/carddav_backend_test.go`
+  (neu) fuer die reinen Helferfunktionen aus `caldav_backend.go`/`carddav_backend.go`, die weder
+  gRPC-Client noch DB-Pool brauchen. caldav_backend.go-Seite: `calendarIDFromPath` (gueltiger Pfad,
+  fehlendes "calendars"-Segment, "calendars" als letztes Segment, ungueltige UUID),
+  `eventUIDFromPath` (gueltiger `.ics`-Pfad, komplett leerer Pfad als Fehlerfall),
+  `protoEventToModel` (alle Felder gesetzt inkl. aller optionalen Pointer, sowie Minimalfall mit
+  allen optionalen Pointern nil — Ergebnis-Model behaelt dort ebenfalls nil statt zu crashen),
+  `protoAttendeesToModels` (nil-Response -> nil, leere Attendee-Liste -> nicht-nil leeres Slice,
+  volle Liste inkl. eines Attendees ohne `RespondedAt`), `grpcToWebDAVError` als Tabellentest ueber
+  NotFound/PermissionDenied/Unauthenticated/InvalidArgument/Unavailable/Internal/Unknown (die
+  letzten beiden dokumentieren denselben Default-Zweig -> 500), plus nil-Input -> nil und ein
+  Nicht-gRPC-Fehler, der unveraendert (per `assert.Same`) durchgereicht wird. Da
+  `webdav.NewHTTPError` einen `*internal.HTTPError` aus dem (fuer dieses Modul nicht importierbaren)
+  `go-webdav/internal`-Paket zurueckgibt, extrahiert ein kleiner Test-Helfer `webdavStatusCode` den
+  Code aus dem dokumentierten `Error()`-Format (`"<code> <statustext>[: <cause>]"`, verifiziert direkt
+  am go-webdav-Quelltext in `internal/internal.go`), statt den Typ zu importieren.
+  carddav_backend.go-Seite: `addressBookTypeFromPath` (personal/company/fehlendes Segment/unbekannter
+  Typ — letzte beide Faelle fallen beide auf den "personal"-Default), `contactIDFromPath` (gueltige
+  `.vcf`-UUID, ungueltige UUID, komplett leerer Pfad), `syncCollectionIDForAddressBook`
+  (deterministisch fuer gleiche User+Typ-Kombination, unterschiedlich je Typ und je User — beweist
+  den SHA1-Namespace-Ansatz), `contactInfoToVCard` (volle Felder inkl. Firma via
+  `vcardEncodeDecode`-Wire-Roundtrip aus `vcard_converter_test.go` wiederverwendet, fehlende
+  optionale Felder ohne Crash, Name-Fallback auf "Unnamed Contact" bei leerem Vor-/Nachnamen),
+  `parseContactUpdatedAt` (gueltiges RFC3339, nicht parsebarer String und leerer String fallen
+  beide auf `time.Now()` zurueck — belegt mit `assert.WithinDuration`, da ein exakter Zeitwert
+  hier naturgemaess nicht erwartbar ist). `strPtr`/`baseContact`/`vcardEncodeDecode` aus
+  `vcard_converter_test.go` wiederverwendet statt neu erfunden (gleiches Package), eigene
+  `baseContactInfo()`-Fixture fuer den abweichenden `crmv1.ContactInfo`-Typ ergaenzt.
+- fund: keiner — beide Dateien verhalten sich wie im Scope beschrieben. `eventUIDFromPath`s
+  `uid == last && strings.Contains(last, "/")`-Bedingung ist faktisch totes Wrap (ein per `/`
+  gesplitteter Abschnitt kann nie selbst ein `/` enthalten) und die Funktion akzeptiert Pfade ohne
+  `.ics`-Endung klaglos (liefert das letzte Segment unveraendert zurueck) — beides ein
+  Code-Geruch, aber kein beobachtbarer Fehlverhalten mit Produktauswirkung (die Route-Ebene
+  reicht ohnehin nur `.ics`-Pfade durch), deshalb keine neue Fix-Unit angelegt, nur hier notiert.
+- gate: build ok (`go build -p 2 ./internal/caldav/...`) | vet ok (`go vet ./internal/caldav/...`)
+  | lint ok (`golangci-lint run --config .golangci.yml ./internal/caldav/...`, 0 issues) | test ok
+  mit gesetztem `DATABASE_URL` (`postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`,
+  `go test -count=1 ./internal/caldav/...`, komplettes Paket inkl. bestehender DB-/RLS-Tests real
+  gelaufen, 0 Skips) | migration n.a. | rls-smoke n.a. | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: `codes.NotFound`-Fall in `grpcToWebDAVError` (caldav_backend.go) von
+  `http.StatusNotFound` auf `http.StatusTeapot` gesetzt. `TestGrpcToWebDAVError_CodeMapping/not_found`
+  wurde rot (`expected: 404, actual: 418`), alle anderen Subtests blieben gruen (praezise auf den
+  einen veraenderten Fall isoliert), exakt der erwartete Fehlschlag. Zurueckgedreht,
+  `git diff --stat internal/caldav/caldav_backend.go` liefert keine Ausgabe (identisch zur
+  Ausgangslage), volle Suite danach wieder gruen (`go test -count=1 ./internal/caldav/...` mit
+  gesetztem `DATABASE_URL`).
+- db-tests: 3 real gelaufen (0 Skips, siehe gate) — alle drei vorbestehend, nicht Teil dieser Unit.
+  Diese Unit selbst fuegt keine DB-Tests hinzu: reine In-Memory-Pfad-Parser/Proto-Konvertierung/
+  Fehler-Mapping, `done_when` verlangt hier keine.
+- coverage: `internal/caldav` Paketcoverage nach dieser Unit 41,5 % (vorher 26,7 %, siehe Iteration
+  48).
+- offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-email-sync-helpers` (`status: todo`, `DetectFolderType`/`envelopeToMessage`/
+  `imapAddressesToModel`/`parseEnvelopeDate`/`firstInReplyTo` in `internal/email/sync`).
