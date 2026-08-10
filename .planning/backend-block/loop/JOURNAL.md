@@ -1233,7 +1233,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 18:13).
 
 ## Iteration 20 — b-cov-server-email-error-map-accounts-sync — done — 2026-08-10 18:15
-- commit: <wird nach dem Commit unten ergaenzt>
+- commit: 89b98a85
 - gebaut: neue Testdatei email_grpc_accounts_sync_test.go mit stubAccountRepo
   (implementiert account.Repository), fakeVaultEncryptor (implementiert
   account.VaultEncryptor reversibel ohne echte Kryptografie) und
