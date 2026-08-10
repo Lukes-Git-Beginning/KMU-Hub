@@ -326,7 +326,11 @@ func (r *stubContactRepo) FindDuplicateCandidates(_ context.Context, _, _ uuid.U
 	return nil, nil
 }
 
-func (r *stubContactRepo) MergeInto(_ context.Context, _, _, _ uuid.UUID) error {
+func (r *stubContactRepo) MergeInto(_ context.Context, primaryID, duplicateID, _ uuid.UUID) error {
+	if dup, ok := r.contacts[duplicateID]; ok {
+		mergedInto := primaryID
+		dup.MergedIntoID = &mergedInto
+	}
 	return nil
 }
 

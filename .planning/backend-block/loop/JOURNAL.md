@@ -573,3 +573,72 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 9) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
+
+## Iteration 11 — b-cov-server-crm-companies-dedupe-import — done — 2026-08-10 16:28
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Datei `backend/internal/server/crm_grpc_companies_dedupe_import_test.go`
+  mit `stubCompanyRepo` (Server-Package-Kopie, gleiches Muster wie `stubContactRepo` aus
+  Iteration 10) plus `newCRMServerWithCompanyRepo`/`newCRMServerWithContactAndCompanyRepo`/
+  `newCRMServerWithImportExport`-Konstruktoren. 60 neue Tests decken alle 17 genannten
+  Methoden ab: Companies CRUD (Create/Get/List/Update/Delete/GetCompanyContacts),
+  UpdateContactVisibility (inkl. dediziertem Test fuer den `visibilityService==nil`-
+  Fallback-Zweig, der direkt `contactService.UpdateVisibility` aufruft — das ist der in
+  Produktion heute aktive Pfad, solange Welle 1b `visibilityService` fuer einen Tenant
+  nicht verdrahtet), Dedupe/Merge (FindContactDuplicates, MergeContacts,
+  FindCompanyDuplicates, MergeCompanies — je mit Self-Merge- UND Already-Merged-
+  Fehlerpfad wie im `done_when` gefordert) sowie Import/Export
+  (ImportContactsCSV/VCard/XLSX, ExportContactsCSV/VCard, PreviewImportCSV). Fuer die
+  Import/Export-Happy-Paths laufen echte Datei-Bytes durch den Handler (CSV-Text,
+  eine per `excelize.NewFile()` erzeugte echte XLSX-Datei, ein minimales vCard) statt
+  gemockter Parser-Ergebnisse — der Handler baut fuer den eigentlichen Import/Export
+  ohnehin einen lokalen `emailcontact`-Service aus `contactService`/`companyService`
+  (`NewTenantScopedAdapter`), das injizierte `importService`/`exportService`-Feld dient
+  nur als "konfiguriert"-Flag (Ausnahme: `PreviewImportCSV` ruft es direkt auf, dort
+  reicht ein `nil`-Provider, weil `PreviewCSV` nur CSV-Bytes parst, keinen Provider
+  beruehrt). `stubContactRepo.MergeInto` (aus der Iteration-10-Datei) war bislang ein
+  No-Op und liess `MergedIntoID` unveraendert — `TestMergeContacts_HappyPath` deckte das
+  auf (Assertion auf die gesetzte `MergedIntoID` schlug fehl, obwohl der Handler `nil`
+  als Fehler zurueckgab); auf das gleiche Set-Pattern wie `stubCompanyRepo.MergeInto`
+  umgestellt, damit der Stub den echten Repository-Vertrag (Duplicate wird auf den
+  Primary gemerged) tatsaechlich abbildet.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` gruen, 1188 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; zusaetzlich `./internal/server/...` inkl. `response`-Unterpaket gruen) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine
+  gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route angefasst,
+  `go test ./internal/gateway/` daher nicht Pflicht und nicht gelaufen)
+- coverage: internal/server 47,7 % -> 50,0 % (`go tool cover -func=/tmp/cov.out | tail -1`,
+  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md)
+- mutations-probe: zwei Proben in `backend/internal/crm/company/service.go`, beide rot,
+  beide zurueckgedreht, `git diff` gegen den finalen Baum restfrei (leer):
+  (1) `Delete`: `if hasContacts {` auf `if false && hasContacts {` gedreht ->
+  `TestDeleteCompany_InUse` rot ("An error is expected but got nil" statt
+  `FailedPrecondition`), zurueckgedreht.
+  (2) `MergeCompanies`: `if dup.MergedIntoID != nil {` (Already-Merged-Guard) auf
+  `if false && dup.MergedIntoID != nil {` gedreht -> `TestMergeCompanies_AlreadyMerged`
+  rot (Merge lief durch statt `FailedPrecondition`), zurueckgedreht.
+- verify vorgaenger: sauber — `1fde576f` geprueft gegen alle acht Fehlerklassen: reine
+  neue Testdatei (`crm_grpc_fields_tags_contacts_test.go`), kein `.proto` angefasst,
+  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration angefasst.
+- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensaenderungen) — erweitert den Iteration-10-Fund um vier weitere Stellen mit
+  derselben Wire-Shape-Klasse (`var x []*T` bleibt bei leerem Ergebnis `nil` statt `[]`):
+  `ListCompanies` (crm_grpc.go, `var infos []*crmv1.CompanyInfo`), `GetCompanyContacts`
+  (`var infos []*crmv1.ContactInfo`), `FindContactDuplicates` und
+  `FindCompanyDuplicates` (`var results []*crmv1.Duplicate*Candidate`). Zusammen mit den
+  drei Stellen aus Iteration 10 (ListContacts/ListCustomFields/ListTags) sind das jetzt
+  sieben bekannte Stellen fuer dieselbe Lauf-9-Kandidat-Fix-Unit (analog `c3f0c46f` aus
+  Lauf 7) — nicht einzeln neu vermerkt, siehe Iteration-10-Eintrag fuer die ersten drei.
+  `stubContactRepo.MergeInto` wurde in dieser Iteration geaendert (siehe `gebaut:` oben)
+  — das ist eine Aenderung an einer Datei aus Iteration 10, nicht an meiner eigenen neuen
+  Datei; sie gehoert trotzdem in diesen Commit, weil sie der Stub-Korrektheit dient, die
+  mein neuer Test aufgedeckt hat, und ohne sie `TestMergeContacts_HappyPath` nicht gruen
+  wird.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  `-StartNotBefore`-Diff wie in den Iterationen 6-10 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 10) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:28), wie in den
+  vorigen Iterationen.
