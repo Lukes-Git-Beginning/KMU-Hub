@@ -961,7 +961,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       Dateien (GetFileDownloadURL, GetFileThumbnailURL, ListChannelFiles, DeleteFile), Suche

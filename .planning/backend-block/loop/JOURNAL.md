@@ -1472,3 +1472,68 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
   mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 22)
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:00).
+
+## Iteration 24 — b-cov-server-chat-files-search-reactions — done — 2026-08-10 19:10
+- commit: -
+- gebaut: neue Testdatei chat_grpc_files_search_reactions_test.go. Anders als bei den
+  vorigen Chat-Units sind fileService/searchService/reactionService/bookmarkService als
+  konkrete `*file.Service`/`*search.Service`/`*reaction.Service`/`*bookmark.Service`
+  typisiert (keine Interfaces am ChatGRPCServer) -- also vier neue In-Memory-Stubs gegen
+  die jeweiligen Repository-Interfaces gebaut: stubChatSearchRepo (chatsearch.Repository,
+  umbenannt gegen Kollision mit dem bereits existierenden stubSearchRepo aus
+  crm_grpc_activities_reports_consent_test.go) + stubChatDetector (search.Detector),
+  stubReactionRepo (reaction.Repository) mit einer summarizeReactions-Hilfsfunktion fuer
+  die Aggregation, stubMessageReader (bookmark.MessageReader, structural interface das
+  *message.Service strukturell erfuellt) und stubBookmarkRepo (bookmark.Repository).
+  fileService laeuft ueber den bereits vorhandenen fileMockRepo aus testhelpers_test.go
+  (bislang nur fuer den Upload-Handler-Test genutzt) -- dessen ListChannelFiles-Stub gab
+  bislang immer nil,0,nil zurueck; erweitert auf eine echte Filterung nach ChannelID plus
+  Uploader-Lookup, weil ListChannelFiles sonst nie eine gefuellte Antwort haette liefern
+  koennen. Kein bestehender Test ruft ListChannelFiles auf (nur der Upload-Test nutzt
+  fileMockRepo), also kein Rueckwirkungsrisiko.
+  Alle 10 Methoden aus dem Scope abgedeckt: GetFileDownloadURL, GetFileThumbnailURL,
+  ListChannelFiles, DeleteFile (uploader-darf-loeschen, Nicht-Uploader-ohne-Moderationsrolle
+  wird abgelehnt, Channel-Admin-darf-fremde-Datei-loeschen), SearchChat (inkl.
+  ErrQueryTooShort -> InvalidArgument -- dieser Sentinel fehlte bislang auch in
+  TestMapChatError, ist jetzt indirekt mitgetestet), ToggleReaction (inkl. leeres Emoji ->
+  reaction.ErrEmojiRequired -> InvalidArgument, ebenfalls bislang ungetesteter
+  mapChatError-Zweig), ListReactions, GetReactionSummary, ToggleBookmark,
+  ListBookmarks (inkl. Skip-Verhalten fuer ein Bookmark, dessen Message durch
+  bookmark.Service.List uebersprungen wird, wenn der MessageReader
+  message.ErrNotChannelMember liefert -- reales Verhalten bei entzogener
+  Channel-Mitgliedschaft nach dem Bookmarken).
+  toChatSearchResultProto direkt getestet: "nil-Eingabe" aus dem done_when waere ein
+  Nil-Pointer-Panic (keine Nil-Guard in der Funktion, kein Aufrufer uebergibt je nil) --
+  stattdessen ein volltstaendig gefuellter File-Treffer und ein Message-Treffer mit
+  ausschliesslich Pflichtfeldern getestet, um die optionalen Zeiger-Felder in beiden
+  Richtungen zu pruefen. toProtoMentionType direkt mit allen drei MentionType-Werten plus
+  unbekanntem Fallback-Wert getestet.
+- gate: build ok (internal/server, cmd/gateway) | vet ok | lint ok (0 issues) | test ok
+  (1521 PASS, 0 SKIP, 0 FAIL in internal/server) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst
+  nicht gelaufen (keine Route/kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 63,5 % (kumulativ ueber alle Iterationen dieses
+  Laufs; `go tool cover -func` zeigt denselben Ein-Dezimalstellen-Wert wie Iteration 23,
+  da der Zuwachs dieser Unit innerhalb der Rundungsschwelle von 0,1 Prozentpunkten liegt)
+- mutations-probe: in internal/chat/file/service.go:309 die Moderations-Pruefung
+  `if !role.CanModerate()` zu `if role.CanModerate()` invertiert ->
+  TestChatDeleteFile/non-uploader_without_moderate_role_is_denied UND
+  TestChatDeleteFile/channel_admin_can_delete_another_member's_file beide rot (erste
+  erwartete PermissionDenied, bekam nil; zweite erwartete nil, bekam PermissionDenied).
+  Zurueckgedreht, `git diff --stat` auf der Datei zeigt keinen Rest-Diff mehr, beide Tests
+  wieder gruen.
+- verify vorgaenger: sauber. Commit de864446 (Iteration 23) aendert nur die neue
+  Testdatei chat_grpc_channels_messages_test.go plus BACKLOG.yml/JOURNAL.md -- keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+  (56e64e49 direkt davor ist nur der Chore-Commit, der den Commit-Hash im Journal
+  nachtraegt.)
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit
+  ist reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
+  nachfahren muss.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-23 vermerkt) -- nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 23)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:10).
