@@ -151,3 +151,41 @@ Frühere Läufe liegen vollständig im Archiv:
   dieselben Summen über den neuen Pfad. Kein Push, lokal committet. Für das FE: 409 ist auf
   dieser Route neu.
 
+
+## Iteration 4 — fix-plugin-createmanifest-missing-tenant-wrong-code — done — 2026-08-10 15:19
+- commit: 1f476fda
+- gebaut: `mapPluginError` (plugin_grpc.go) hat jetzt einen expliziten `errors.Is(err,
+  middleware.ErrMissingTenantID)`-Fall -> `codes.InvalidArgument`, statt den von
+  `Service.CreateManifest` per `fmt.Errorf("create manifest: %w", err)` gewrappten Sentinel
+  ungefangen in den `default`-Zweig (`codes.Internal`) durchfallen zu lassen. Einziger Aufrufer
+  von `middleware.GetTenantID` im Paket `internal/plugin` ist `Service.CreateManifest`
+  (service.go:90) — keine weitere RPC im Paket reicht denselben Sentinel durch. Der
+  dokumentierende Test in plugin_grpc_test.go ("missing tenant context maps to Internal, not
+  InvalidArgument (documents current gap)") ist auf das korrekte Verhalten umgestellt
+  ("... is rejected as InvalidArgument", erwartet jetzt `codes.InvalidArgument`), nicht
+  gelöscht; sein alter Kommentar behauptete zusätzlich fälschlich, `mapPluginError` vergleiche
+  mit `==` und verwies auf ein nicht existierendes "TestMapPluginError gap #2" — beides beim
+  Verify-First nicht bestätigt, der Kommentar ist entsprechend korrigiert. `TestMapPluginError`
+  um zwei Fälle ergänzt (roher Sentinel + gewrappt wie in CreateManifest).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
+  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | route n.a. (keine Route angefasst, TestOpenAPIRouteDrift nicht betroffen)
+- coverage: internal/server 47,7 % -> 47,7 % (Fix ist ein einzelner neuer `case`, kein
+  Coverage-Ziel dieser Unit)
+- mutations-probe: neuen `case`-Zweig von `codes.InvalidArgument` auf `codes.Internal` gedreht
+  -> `TestMapPluginError/missing_tenant_id`, `.../wrapped_missing_tenant_id_...` und
+  `TestPluginCreateManifest/missing_tenant_context_is_rejected_as_InvalidArgument` alle drei
+  rot, zurückgedreht, `git diff` zeigt exakt die eine beabsichtigte Zeile.
+- verify vorgaenger: sauber — `de885fc4` geprüft: `mapEinkaufError` bildet beide neuen
+  Sentinels über `errors.Is` ab (kein `==`-Vergleich), kein gRPC-Bypass (Repository-Methode
+  läuft weiter über den bestehenden Service-Aufruf), kein Stub, kein `.proto` geändert, kein
+  neuer `RequirePermission`-Key, keine neue Tabelle, keine neue Route (openapi.yaml ergänzt nur
+  den 409-Code einer bestehenden Route), Wire-Shape unverändert.
+- offen: Der Doc-Kommentar auf `middleware.GetTenantID` sagt explizit "Callers must respond
+  with 401 on error — never substitute a default tenant" — der gesamte Rest des Repos
+  (automation_grpc.go, calendar_grpc.go, `ruleTenant()` in plugin_grpc.go selbst, u. v. a.)
+  bildet den fehlenden Tenant aber durchgängig auf `InvalidArgument` (400) ab, nicht auf
+  `Unauthenticated`/401. Diese Unit folgt der real gelebten Konvention (und dem `done_when` der
+  Unit), nicht dem Kommentar — der Kommentar ist vermutlich selbst veraltet. Nicht in dieser
+  Unit korrigiert (Scope war ausdrücklich nur `CreateManifest`/`mapPluginError`); falls das
+  gewünscht ist, wäre ein Repo-weiter 401-vs-400-Entscheid eine eigene Unit für Lauf 9.
