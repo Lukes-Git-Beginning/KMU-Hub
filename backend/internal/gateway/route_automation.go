@@ -173,8 +173,8 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 		}
 	}
 	if body.Actions != nil {
-		if s, sErr := rawJSONToAutomationStruct(body.Actions); sErr == nil {
-			grpcReq.Actions = s
+		if l, lErr := rawJSONToAutomationList(body.Actions); lErr == nil {
+			grpcReq.Actions = l
 		}
 	}
 
@@ -309,8 +309,8 @@ func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *htt
 		}
 	}
 	if body.Actions != nil {
-		if s, sErr := rawJSONToAutomationStruct(*body.Actions); sErr == nil {
-			grpcReq.Actions = s
+		if l, lErr := rawJSONToAutomationList(*body.Actions); lErr == nil {
+			grpcReq.Actions = l
 		}
 	}
 	if body.MaxSteps != nil {
@@ -742,4 +742,18 @@ func rawJSONToAutomationStruct(data json.RawMessage) (*structpb.Struct, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// rawJSONToAutomationList parses the actions field, which carries a JSON
+// array (see models.ActionConfig on the server side), unlike trigger_config/
+// conditions which carry a JSON object and go through rawJSONToAutomationStruct.
+func rawJSONToAutomationList(data json.RawMessage) (*structpb.ListValue, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	l := &structpb.ListValue{}
+	if err := l.UnmarshalJSON(data); err != nil {
+		return nil, err
+	}
+	return l, nil
 }

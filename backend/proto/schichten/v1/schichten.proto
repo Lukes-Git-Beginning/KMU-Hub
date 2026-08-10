@@ -305,6 +305,11 @@ message ListSwapRequestsRequest {
   optional string status = 3; // pending|approved|rejected
   int32 page = 4;
   int32 page_size = 5;
+  // Server-injected when the caller's grant is scoped to "own" (see
+  // middleware.PermissionScope) — narrows to swap requests where the
+  // caller is the requester or the swap partner. Never set by clients
+  // directly; the gateway derives it from the authenticated user.
+  optional string own_employee_id = 6;
 }
 
 message ListSwapRequestsResponse {

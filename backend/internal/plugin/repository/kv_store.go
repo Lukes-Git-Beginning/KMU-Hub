@@ -39,8 +39,11 @@ func (r *KVStoreRepository) Get(ctx context.Context, installationID uuid.UUID, k
 // Set inserts or updates a key-value pair. tenant_id is derived from the
 // owning plugin installation via subquery so RLS (mig 000126) and the caller
 // signature stay decoupled — the installation already encodes the tenancy.
+// If installationID does not resolve under the subquery (unknown, deleted, or
+// foreign-tenant installation), the INSERT affects zero rows and Set returns
+// ErrInstallationNotFound instead of silently no-op'ing.
 func (r *KVStoreRepository) Set(ctx context.Context, installationID uuid.UUID, key string, value json.RawMessage) error {
-	_, err := r.pool.Exec(ctx, `
+	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO plugin_kv_store (id, installation_id, tenant_id, key, value, created_at, updated_at)
 		SELECT $1, $2, pi.tenant_id, $3, $4, NOW(), NOW()
 		FROM plugin_installations pi
@@ -49,10 +52,19 @@ func (r *KVStoreRepository) Set(ctx context.Context, installationID uuid.UUID, k
 		DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
 		uuid.New(), installationID, key, value,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrInstallationNotFound
+	}
+	return nil
 }
 
-// Delete removes a key-value pair
+// Delete removes a key-value pair. Deleting a key that does not exist (unknown
+// installation or unknown key) is intentionally left as a no-op — unlike Set,
+// the caller has no expectation that a delete of an absent entry must succeed
+// differently from a delete of an entry that was never there.
 func (r *KVStoreRepository) Delete(ctx context.Context, installationID uuid.UUID, key string) error {
 	_, err := r.pool.Exec(ctx, `
 		DELETE FROM plugin_kv_store WHERE installation_id = $1 AND key = $2`, installationID, key,

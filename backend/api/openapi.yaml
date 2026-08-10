@@ -39619,7 +39619,7 @@ components:
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { type: object } }
         is_active: { type: boolean }
         max_steps: { type: integer }
         template_id: { type: string, nullable: true }
@@ -39637,7 +39637,7 @@ components:
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { type: object } }
         max_steps: { type: integer, default: 10 }
 
     UpdateAutomationRequest:
@@ -39649,7 +39649,7 @@ components:
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { type: object } }
         max_steps: { type: integer }
 
     AutomationExecution:
@@ -39706,7 +39706,7 @@ components:
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { type: object } }
         created_at: { type: string, format: date-time }
 
     DryRunStep:

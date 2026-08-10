@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 const (
@@ -67,7 +69,7 @@ func (n *PushNotifier) NotifyCollectionChanged(ctx context.Context, collectionTy
 
 	// Clean up expired subscriptions opportunistically
 	go func() {
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cleanupCtx, cancel := context.WithTimeout(sysctx.With(context.Background()), 10*time.Second)
 		defer cancel()
 		if _, cleanupErr := n.subscriptions.CleanupExpired(cleanupCtx); cleanupErr != nil {
 			slog.Warn("failed to cleanup expired push subscriptions", "error", cleanupErr)
@@ -135,7 +137,7 @@ func (n *PushNotifier) sendNotification(ctx context.Context, sub *PushSubscripti
 			"subscription_id", sub.ID,
 			"push_url", sub.PushURL,
 		)
-		removeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		removeCtx, cancel := context.WithTimeout(sysctx.With(context.Background()), 5*time.Second)
 		defer cancel()
 		if removeErr := n.subscriptions.UnsubscribeByURL(removeCtx, sub.PushURL); removeErr != nil {
 			slog.Warn("failed to remove subscription after 410 Gone",

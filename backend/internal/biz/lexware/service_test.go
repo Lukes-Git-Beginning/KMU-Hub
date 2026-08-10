@@ -127,7 +127,7 @@ func (m *mockRepository) GetLatestSyncLog(ctx context.Context, configID uuid.UUI
 	return nil, nil
 }
 
-func (m *mockRepository) UpsertWebhookSubscription(context.Context, uuid.UUID, string, string, string) error {
+func (m *mockRepository) UpsertWebhookSubscription(context.Context, uuid.UUID, uuid.UUID, string, string, string) error {
 	return nil
 }
 

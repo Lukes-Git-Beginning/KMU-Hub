@@ -559,6 +559,12 @@ func (r *PostgresRepository) ListSwapRequests(ctx context.Context, tenantID uuid
 		args = append(args, *filter.Status)
 		argNum++
 	}
+	if filter.OwnEmployeeID != nil {
+		conditions = append(conditions, fmt.Sprintf(
+			"(requested_by_employee_id = $%d OR swap_with_employee_id = $%d)", argNum, argNum))
+		args = append(args, *filter.OwnEmployeeID)
+		argNum++
+	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 

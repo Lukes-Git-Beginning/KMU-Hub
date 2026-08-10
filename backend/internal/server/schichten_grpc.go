@@ -271,7 +271,7 @@ func (s *SchichtenGRPCServer) CreateTemplate(ctx context.Context, req *schichten
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
 
-	tmpl, err := s.svc.CreateTemplate(ctx, schichten.CreateTemplateInput{
+	input := schichten.CreateTemplateInput{
 		TenantID:        tenantID,
 		Name:            req.GetName(),
 		Description:     req.GetDescription(),
@@ -279,7 +279,12 @@ func (s *SchichtenGRPCServer) CreateTemplate(ctx context.Context, req *schichten
 		StartHour:       int(req.GetStartHour()),
 		StartMinute:     int(req.GetStartMinute()),
 		DurationMinutes: int(req.GetDurationMinutes()),
-	})
+	}
+	if l := req.GetLocation(); l != "" {
+		input.Location = &l
+	}
+
+	tmpl, err := s.svc.CreateTemplate(ctx, input)
 	if err != nil {
 		return nil, mapSchichtenError(err)
 	}
@@ -521,6 +526,13 @@ func (s *SchichtenGRPCServer) ListSwapRequests(ctx context.Context, req *schicht
 		ss := schichten.SwapRequestStatus(st)
 		input.Status = &ss
 	}
+	if oid := req.GetOwnEmployeeId(); oid != "" {
+		id, parseErr := uuid.Parse(oid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid own_employee_id: %v", parseErr)
+		}
+		input.OwnEmployeeID = &id
+	}
 
 	results, total, err := s.svc.ListSwapRequests(ctx, input)
 	if err != nil {
@@ -667,6 +679,8 @@ func mapSchichtenError(err error) error {
 		errors.Is(err, schichten.ErrJArbSchGWeekend):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrShiftFull):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled schichten service error", "error", err)

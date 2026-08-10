@@ -235,7 +235,7 @@ func (r *PostgresRepository) ListBrowsable(ctx context.Context, userID, tenantID
 		`SELECT c.id, c.tenant_id, c.name, c.description, c.calendar_type, c.color, c.owner_id,
 		        c.is_default, c.timezone, c.created_at, c.updated_at
 		 FROM calendars c
-		 WHERE c.tenant_id = $3
+		 WHERE c.tenant_id = $2
 		   AND c.calendar_type = 'shared'
 		   AND c.owner_id != $1
 		   AND NOT EXISTS (
@@ -243,7 +243,7 @@ func (r *PostgresRepository) ListBrowsable(ctx context.Context, userID, tenantID
 		       WHERE cm.calendar_id = c.id AND cm.user_id = $1
 		   )
 		 ORDER BY c.name ASC`,
-		userID, userID, tenantID,
+		userID, tenantID,
 	)
 	if err != nil {
 		return nil, err

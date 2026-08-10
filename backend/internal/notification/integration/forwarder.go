@@ -286,11 +286,13 @@ func NewMappingCache(repo Repository, ttl time.Duration) *MappingCache {
 	}
 }
 
-// GetMappingsForModule returns active channel mappings for a module.
+// GetMappingsForModule returns active channel mappings for a module, including
+// wildcard mappings (empty Modules list). selectMostSpecific resolves exact-vs-
+// wildcard precedence on the combined result.
 func (c *MappingCache) GetMappingsForModule(ctx context.Context, moduleID string) ([]*ChannelMapping, error) {
 	c.mu.RLock()
 	if time.Since(c.lastRefresh) < c.ttl {
-		mappings := c.modules[moduleID]
+		mappings := mergeModuleMappings(c.modules[moduleID], c.modules["*"])
 		c.mu.RUnlock()
 		return mappings, nil
 	}
@@ -303,7 +305,21 @@ func (c *MappingCache) GetMappingsForModule(ctx context.Context, moduleID string
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.modules[moduleID], nil
+	return mergeModuleMappings(c.modules[moduleID], c.modules["*"]), nil
+}
+
+// mergeModuleMappings combines exact and wildcard mapping slices for a module lookup.
+func mergeModuleMappings(exact, wildcard []*ChannelMapping) []*ChannelMapping {
+	if len(exact) == 0 {
+		return wildcard
+	}
+	if len(wildcard) == 0 {
+		return exact
+	}
+	merged := make([]*ChannelMapping, 0, len(exact)+len(wildcard))
+	merged = append(merged, exact...)
+	merged = append(merged, wildcard...)
+	return merged
 }
 
 // GetConfigForMapping returns the integration config for a channel mapping.

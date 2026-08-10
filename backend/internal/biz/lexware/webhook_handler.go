@@ -105,7 +105,7 @@ func (wh *WebhookHandler) RegisterWebhooks(ctx context.Context, configID, tenant
 			continue
 		}
 
-		if err := wh.repo.UpsertWebhookSubscription(ctx, configID, result.ID, eventType, callbackURL); err != nil {
+		if err := wh.repo.UpsertWebhookSubscription(ctx, tenantID, configID, result.ID, eventType, callbackURL); err != nil {
 			slog.Error("lexware: failed to persist webhook subscription",
 				"event_type", eventType,
 				"error", err,

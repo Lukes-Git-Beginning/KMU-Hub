@@ -319,6 +319,7 @@ func TestGetFieldMappings_Success(t *testing.T) {
 
 func TestUpdateFieldMappings_Success(t *testing.T) {
 	configID := uuid.New()
+	tenantID := uuid.New()
 	mappings := []models.BexioFieldMappingEntry{
 		{KmuhubField: "first_name", BexioField: "name_1", Direction: "both", Required: true},
 		{KmuhubField: "email", BexioField: "mail", Direction: "both", Required: false},
@@ -338,10 +339,11 @@ func TestUpdateFieldMappings_Success(t *testing.T) {
 	}
 	svc := newTestService(repo, cr, nil)
 
-	err := svc.UpdateFieldMappings(context.Background(), "contact", mappings)
+	err := svc.UpdateFieldMappings(context.Background(), tenantID, "contact", mappings)
 
 	require.NoError(t, err)
 	require.NotNil(t, savedMapping)
+	assert.Equal(t, tenantID, savedMapping.TenantID)
 	assert.Equal(t, configID, savedMapping.ConfigID)
 	assert.Equal(t, "contact", savedMapping.EntityType)
 	assert.Len(t, savedMapping.Mappings, 2)
@@ -355,7 +357,7 @@ func TestUpdateFieldMappings_InvalidEntityType(t *testing.T) {
 
 	svc := newTestService(nil, nil, nil)
 
-	err := svc.UpdateFieldMappings(context.Background(), "contact", mappings)
+	err := svc.UpdateFieldMappings(context.Background(), uuid.New(), "contact", mappings)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidFieldMapping)

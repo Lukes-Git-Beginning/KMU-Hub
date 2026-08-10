@@ -602,6 +602,9 @@ type ListSwapRequestsInput struct {
 	Status   *SwapRequestStatus
 	Page     int
 	PageSize int
+	// OwnEmployeeID, when set, narrows to swap requests where this employee
+	// is the requester or the swap partner.
+	OwnEmployeeID *uuid.UUID
 }
 
 // ============================================================================
@@ -665,8 +668,9 @@ func (s *Service) ListSwapRequests(ctx context.Context, input ListSwapRequestsIn
 	}
 	offset := (input.Page - 1) * input.PageSize
 	filter := SwapRequestFilter{
-		ShiftID: input.ShiftID,
-		Status:  input.Status,
+		ShiftID:       input.ShiftID,
+		Status:        input.Status,
+		OwnEmployeeID: input.OwnEmployeeID,
 	}
 	return s.repo.ListSwapRequests(ctx, input.TenantID, filter, offset, input.PageSize)
 }

@@ -8,6 +8,7 @@
 # Aufruf (aus dem Repo-Root):
 #   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -MaxIterations 2
 #   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "07:30"
+#   powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "10:00" -PauseFrom "20:30" -PauseTo "22:30"
 #
 # Abbrechen: Datei .planning\backend-block\loop\STOP anlegen (der Loop beendet
 # nach der laufenden Iteration) oder Strg+C.
@@ -17,7 +18,11 @@
 [CmdletBinding()]
 param(
     [int]    $MaxIterations = 100,
+    [int]    $StartAt       = 1,         # Iterationsnummer, bei der die Zaehlung beginnt
     [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
+    [string] $PauseFrom     = "",        # "HH:mm" - einmaliges Pausenfenster, Beginn
+    [string] $PauseTo       = "",        # "HH:mm" - Ende (naechstes Auftreten nach PauseFrom)
+    [int]    $PauseGuard    = 15,        # Minuten vor PauseFrom, ab denen keine Iteration mehr startet
     [double] $BudgetUsd     = 12,        # Deckel pro Iteration
     [string] $Effort        = "high",
     [string] $ForceModel    = "",        # ueberschreibt das Modell aus BACKLOG.yml
@@ -27,9 +32,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Die claude-CLI schreibt UTF-8. Ohne das dekodiert PowerShell ihre Ausgabe mit
-# der OEM-Codepage (CP850) und in den iter-*.json landet Mojibake ("gr├╝n",
-# "ÔÇö") - der JSON-Rahmen bleibt zwar parsebar, der Ergebnistext wird aber
-# unlesbar.
+# der OEM-Codepage (CP850) und in den iter-*.json landet Mojibake (verstuemmelte
+# Umlaute und Sonderzeichen) - der JSON-Rahmen bleibt zwar parsebar, der
+# Ergebnistext wird aber unlesbar.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Native Kommandos sicher aufrufen ----------------------------------------
@@ -147,6 +152,35 @@ if ($UntilTime -ne "") {
     Write-Line ("Deadline: {0}" -f $Deadline.ToString("yyyy-MM-dd HH:mm")) "Cyan"
 }
 
+# --- Pausenfenster (einmalig) ------------------------------------------------
+# Damit sich ein Nachtlauf abends ein paar Stunden aus dem Weg gehen kann (der
+# Rechner wird gebraucht), ohne dafuer in zwei Laeufe zerlegt zu werden - zwei
+# Laeufe heissen zwei Pushes, zwei CI-Laeufe und einen manuellen Neustart mitten
+# am Abend.
+#
+# Bewusst EINMALIG statt taeglich wiederkehrend: die Grenzen werden hier zu
+# absoluten Zeitpunkten aufgeloest, und das Fenster verbraucht sich, sobald es
+# einmal gegriffen hat. Damit gibt es kein Mitternachts-Rollover zu behandeln und
+# keinen Fall, in dem ein 14-Stunden-Lauf zweimal in dieselbe Pause faellt.
+$PauseStart = [DateTime]::MaxValue
+$PauseEnd   = [DateTime]::MaxValue
+if (($PauseFrom -eq "") -xor ($PauseTo -eq "")) {
+    Write-Line "ABBRUCH: -PauseFrom und -PauseTo gibt es nur zusammen." "Red"
+    exit 1
+}
+if ($PauseFrom -ne "") {
+    $PauseStart = [DateTime]::ParseExact($PauseFrom, "HH:mm", $null)
+    if ($PauseStart -le (Get-Date)) { $PauseStart = $PauseStart.AddDays(1) }
+    $PauseEnd = [DateTime]::ParseExact($PauseTo, "HH:mm", $null)
+    while ($PauseEnd -le $PauseStart) { $PauseEnd = $PauseEnd.AddDays(1) }
+    if ($PauseEnd -ge $Deadline) {
+        Write-Line "ABBRUCH: Pausenende liegt auf oder hinter der Deadline - nach der Pause bliebe keine Arbeitszeit." "Red"
+        exit 1
+    }
+    Write-Line ("Pause: {0} bis {1} (ab {2} min davor startet nichts Neues mehr)" -f `
+        $PauseStart.ToString("yyyy-MM-dd HH:mm"), $PauseEnd.ToString("yyyy-MM-dd HH:mm"), $PauseGuard) "Cyan"
+}
+
 # --- Schlafsperre ------------------------------------------------------------
 # Ohne das schickt Windows die Maschine mitten im Lauf in den Standby. Der Treiber
 # und seine claude-Kindprozesse ueberleben das zwar (verifiziert 2026-08-01: der
@@ -194,9 +228,37 @@ function Get-OpenUnitCount {
 
 # --- Hauptschleife -----------------------------------------------------------
 $promptText = Get-Content $Prompt -Raw
-$i = 0
+# Muss ein abgebrochener Lauf am selben Abend fortgesetzt werden (geaenderte
+# Parameter, Rechnerneustart), zaehlt -StartAt weiter statt wieder bei 1 zu
+# beginnen. Sonst ueberschreibt der zweite Lauf die iter-NNN.json des ersten und
+# das JOURNAL.md fuehrt eine Nummer doppelt - genau der Fall, der die
+# Fortschrittsanzeige unten (hoechste Journal-Nummer) schon einmal einfrieren liess.
+$i = $StartAt - 1
 $consecutiveFailures = 0
 $rateLimitBackoffs = 0
+
+# Iterationsnummer und Startzeit sind dem Modell sonst nicht bekannt - es raet.
+# Ab Treiber-Iteration 27 schrieb es "## Iteration 28" ins Journal, seitdem lief
+# die Zaehlung durchgehend um eins vor (eine Nummer doppelt, eine fehlte), und
+# die Journal-Zeitstempel waren frei erfunden (Treiber 18:22, Journal "19:35").
+# Der Treiber leitet seine Fortschrittsanzeige aus der hoechsten
+# Journal-Iterationsnummer ab (siehe unten) - das ist also nicht kosmetisch.
+#
+# Einfach gequotetes Here-String (@'...'@), nicht doppelt gequotet: ein
+# doppelt gequotetes wuerde den Backtick als Escape-Zeichen lesen. Einsetzen
+# ueber den -f-Formatoperator, nicht ueber Interpolation.
+$CtxTemplate = @'
+
+---
+
+## Laufkontext (vom Treiber gesetzt - nicht raten, nicht ableiten)
+
+- Deine Iterationsnummer ist **{0}**.
+- Startzeit dieser Iteration: **{1}**.
+
+Beides gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe Schritt 6 oben).
+Leite die Nummer nicht aus dem Journal ab und schaetze die Uhrzeit nicht.
+'@
 
 Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Effort" "Green"
 
@@ -208,14 +270,36 @@ while ($i -lt $MaxIterations) {
     $open = Get-OpenUnitCount
     if ($open -eq 0) { Write-Line "Keine offenen Units mehr im Backlog - Lauf beendet." "Green"; break }
 
+    # Pausenfenster. Steht hinter dem Open-Count (sonst wuerde der Loop zwei
+    # Stunden schlafen, obwohl der Backlog leer ist) und vor $i++ (die Pause ist
+    # keine Iteration). Der Guard verhindert, dass kurz vor Pausenbeginn noch
+    # eine ~15-min-Iteration losgeschickt wird und in die Pause hineinlaeuft -
+    # eine laufende Iteration wird naemlich nicht abgebrochen.
+    if ((Get-Date).AddMinutes($PauseGuard) -ge $PauseStart) {
+        Write-Line ("Pause bis {0} - keine neue Iteration." -f $PauseEnd.ToString("HH:mm")) "Yellow"
+        # In Minutenschritten schlafen, damit die STOP-Datei auch waehrend der
+        # Pause wirkt - ein einzelnes Start-Sleep ueber zwei Stunden waere von
+        # aussen nur noch per Strg+C zu beenden.
+        while (((Get-Date) -lt $PauseEnd) -and (-not (Test-Path $StopFile))) {
+            Start-Sleep -Seconds 60
+        }
+        $PauseStart = [DateTime]::MaxValue   # Fenster verbraucht
+        $PauseEnd   = [DateTime]::MaxValue
+        Write-Line "Pause vorbei." "Green"
+        continue                              # STOP und Deadline oben neu pruefen
+    }
+
     $i++
     $model = Get-NextUnitModel
     $logFile = Join-Path $LogDir ("iter-{0:d3}.json" -f $i)
 
     Write-Line "--- Iteration $i / $MaxIterations  (Modell: $model, offen: $open) ---" "Cyan"
 
+    $iterPrompt = $promptText + ($CtxTemplate -f $i, (Get-Date -Format "yyyy-MM-dd HH:mm"))
+
     if ($DryRun) {
         Write-Line "DryRun: wuerde starten mit Modell $model, Log $logFile" "Yellow"
+        Write-Line "DryRun: Laufkontext waere Iteration $i, Startzeit $(Get-Date -Format 'yyyy-MM-dd HH:mm')" "Yellow"
         break
     }
 
@@ -232,7 +316,7 @@ while ($i -lt $MaxIterations) {
     $errFile = Join-Path $LogDir ("iter-{0:d3}.stderr.log" -f $i)
 
     Invoke-Native {
-        & claude -p $promptText `
+        & claude -p $iterPrompt `
             --model $model `
             --permission-mode bypassPermissions `
             --settings $Settings `
@@ -282,7 +366,31 @@ while ($i -lt $MaxIterations) {
 
     if ($exitCode -ne 0) {
         $consecutiveFailures++
-        Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures)" "Red"
+
+        # Fehlerursache maschinenlesbar aus dem JSON-Body ziehen, statt nur Exit-
+        # Code und Laufzeit zu loggen. Iteration 18 von Lauf 6 lief in den 12-USD-
+        # Deckel (subtype "error_max_budget_usd", terminal_reason
+        # "budget_exhausted") - im Log stand bisher nur "endete mit Exit 1 nach N
+        # min", die eigentliche Ursache nur in der rohen iter-018.json.
+        $subtype = "unbekannt"
+        if ($body -match '"subtype"\s*:\s*"([^"]+)"')        { $subtype = $Matches[1] }
+        $reason = "unbekannt"
+        if ($body -match '"terminal_reason"\s*:\s*"([^"]+)"') { $reason = $Matches[1] }
+        Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures, subtype=$subtype, terminal_reason=$reason)" "Red"
+
+        # Jede fehlgeschlagene Iteration kann eine Unit auf in_progress
+        # zurueckgelassen haben. Get-NextUnitModel und der Iterations-Prompt
+        # ziehen ausschliesslich 'todo' - eine verwaiste in_progress-Unit waere
+        # fuer den Rest des Laufs unsichtbar und bliebe liegen. Kein Set-Content:
+        # BACKLOG.yml enthaelt zwar keine Umlaute, aber Set-Content wuerde
+        # trotzdem eine BOM setzen, die den YAML-Parser stoert.
+        $txt = [System.IO.File]::ReadAllText($Backlog)
+        $new = [regex]::Replace($txt, '(?m)^(\s*status:\s*)in_progress\s*$', '${1}todo')
+        if ($new -ne $txt) {
+            [System.IO.File]::WriteAllText($Backlog, $new, (New-Object System.Text.UTF8Encoding($false)))
+            Write-Line "  Haengende in_progress-Unit auf todo zurueckgesetzt." "Yellow"
+        }
+
         if ($consecutiveFailures -ge 3) {
             Write-Line "Drei Fehlschlaege in Folge - Lauf beendet. Siehe $LogDir." "Red"
             break
@@ -374,10 +482,38 @@ if (-not $DryRun) {
                 while ($waited -lt 2100) {
                     Start-Sleep -Seconds 60
                     $waited += 60
-                    $runId = Invoke-Native { & gh run list --branch backend-loop --workflow=ci.yml --limit 10 --json databaseId,headSha --jq "[.[] | select(.headSha==\"$sha\")][0].databaseId" 2>$null }
+                    # Kein --jq mit eingebetteten Quotes ueber die Native-Grenze: PS 5.1
+                    # frisst beim Weiterreichen an die native Exe das oeffnende \",
+                    # schiebt ein Leerzeichen ein und macht aus dem schliessenden \" ein
+                    # \) - jq bricht mit "invalid escape sequence" ab. Reproduziert in
+                    # Lauf 6: der Treiber meldete "kein CI-Lauf fuer diese SHA", obwohl
+                    # der Lauf 14 Sekunden nach dem Push existierte und gruen wurde.
+                    # Deshalb hier das rohe JSON holen und selbst mit ConvertFrom-Json
+                    # filtern (die drei anderen --jq-Aufrufe unten haben keine
+                    # eingebetteten Quotes und sind davon nicht betroffen).
+                    $runsJson = Invoke-Native { & gh run list --branch backend-loop --workflow ci.yml --limit 10 --json databaseId,headSha }
+                    $runId = ""
+                    if (-not [string]::IsNullOrWhiteSpace($runsJson)) {
+                        # $runsJson kann ein String-Array sein (PS zerlegt mehrzeilige
+                        # native Ausgabe in einzelne Zeilen) - vor ConvertFrom-Json mit
+                        # -join zusammenfuegen, sonst bricht der Parser bei mehrzeiliger
+                        # gh-Ausgabe.
+                        #
+                        # ConvertFrom-Json MUSS in einer eigenen Anweisung stehen, getrennt
+                        # von Where-Object. Verifiziert (2026-08-09, PS 5.1): in EINER
+                        # Pipeline verkettet (".. | ConvertFrom-Json | Where-Object {...}")
+                        # reicht ConvertFrom-Json das komplette Array als EIN Pipeline-Objekt
+                        # durch, statt es zu entrollen - Where-Object sieht dann in $_ das
+                        # ganze Array. Die member-enumerierte Auswertung "$_.headSha -eq $sha"
+                        # liefert dabei ein Array-Ergebnis statt Bool, ist damit immer
+                        # wahr(-ig), und die komplette Liste rutscht ungefiltert durch.
+                        $parsedRuns = ($runsJson -join "") | ConvertFrom-Json
+                        $match = $parsedRuns | Where-Object { $_.headSha -eq $sha } | Select-Object -First 1
+                        if ($match) { $runId = $match.databaseId }
+                    }
                     if ([string]::IsNullOrWhiteSpace($runId)) {
                         if ($waited -ge 300) {
-                            Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - vermutlich paths-Filter (nur Nicht-Backend-Dateien geaendert)." "Yellow"
+                            Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - paths-Filter (nur Nicht-Backend-Dateien geaendert) oder Lauf noch nicht sichtbar." "Yellow"
                             break
                         }
                         continue

@@ -17,6 +17,11 @@ powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.p
 
 # Nachtlauf bis 07:30
 powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "07:30"
+
+# Nachtlauf bis 10:00, aber von 20:30 bis 22:30 still (einmaliges Pausenfenster,
+# ein Prozess, ein Push, ein CI-Lauf). Ab 15 min vor Pausenbeginn startet keine
+# neue Iteration mehr - steuerbar ueber -PauseGuard.
+powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "10:00" -PauseFrom "20:30" -PauseTo "22:30"
 ```
 
 Der Treiber bricht vor dem ersten Start ab, wenn der Guard-Test rot ist oder der Branch nicht

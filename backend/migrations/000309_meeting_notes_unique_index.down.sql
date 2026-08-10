@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS meeting_notes_meeting_author_private_unique;
+DROP INDEX IF EXISTS meeting_notes_meeting_author_public_unique;

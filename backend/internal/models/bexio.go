@@ -9,6 +9,7 @@ import (
 // BexioSyncConfig holds per-tenant Bexio sync configuration.
 type BexioSyncConfig struct {
 	ID                       uuid.UUID  `json:"id"`
+	TenantID                 uuid.UUID  `json:"tenant_id"`
 	ConfigID                 uuid.UUID  `json:"config_id"`
 	ContactSyncEnabled       bool       `json:"contact_sync_enabled"`
 	ContactSyncIntervalMin   int        `json:"contact_sync_interval_minutes"`
@@ -28,6 +29,7 @@ type BexioSyncConfig struct {
 // BexioEntityMapping tracks KMU Hub ID <-> Bexio ID pairs.
 type BexioEntityMapping struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	ConfigID        uuid.UUID  `json:"config_id"`
 	EntityType      string     `json:"entity_type"`
 	KmuhubID        uuid.UUID  `json:"kmuhub_id"`
@@ -43,6 +45,7 @@ type BexioEntityMapping struct {
 // BexioFieldMapping holds configurable field mapping for one entity type.
 type BexioFieldMapping struct {
 	ID         uuid.UUID              `json:"id"`
+	TenantID   uuid.UUID              `json:"tenant_id"`
 	ConfigID   uuid.UUID              `json:"config_id"`
 	EntityType string                 `json:"entity_type"`
 	Mappings   []BexioFieldMappingEntry `json:"mappings"`
@@ -61,6 +64,7 @@ type BexioFieldMappingEntry struct {
 // BexioSyncLog records a single sync operation for audit purposes.
 type BexioSyncLog struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	ConfigID       uuid.UUID  `json:"config_id"`
 	SyncType       string     `json:"sync_type"`
 	Status         string     `json:"status"`

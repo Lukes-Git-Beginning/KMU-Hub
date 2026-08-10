@@ -96,6 +96,7 @@ func (s *Service) Connect(ctx context.Context, tenantID uuid.UUID, apiKey string
 
 	// Create default sync config
 	syncConfig := &models.LexwareSyncConfig{
+		TenantID:               tenantID,
 		ConfigID:               config.ID,
 		ContactSyncEnabled:     true,
 		ContactSyncIntervalMin: 15,
@@ -353,7 +354,7 @@ func (s *Service) GetFieldMappings(ctx context.Context, entityType string) (*mod
 }
 
 // UpdateFieldMappings validates and saves field mappings.
-func (s *Service) UpdateFieldMappings(ctx context.Context, entityType string, mappings []models.LexwareFieldMappingEntry) error {
+func (s *Service) UpdateFieldMappings(ctx context.Context, tenantID uuid.UUID, entityType string, mappings []models.LexwareFieldMappingEntry) error {
 	if err := ValidateFieldMappings(entityType, mappings); err != nil {
 		return err
 	}
@@ -364,6 +365,7 @@ func (s *Service) UpdateFieldMappings(ctx context.Context, entityType string, ma
 	}
 
 	fm := &models.LexwareFieldMapping{
+		TenantID:   tenantID,
 		ConfigID:   configID,
 		EntityType: entityType,
 		Mappings:   mappings,

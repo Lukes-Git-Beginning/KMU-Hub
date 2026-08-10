@@ -103,6 +103,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 		}
 
 		newMapping := &models.BexioEntityMapping{
+			TenantID:        tenantID,
 			ConfigID:        configID,
 			EntityType:      "invoice",
 			KmuhubID:        invoiceID,
@@ -118,6 +119,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 
 	// Log sync
 	syncLog := &models.BexioSyncLog{
+		TenantID:       tenantID,
 		ConfigID:       configID,
 		SyncType:       "invoice_push",
 		Status:         "completed",

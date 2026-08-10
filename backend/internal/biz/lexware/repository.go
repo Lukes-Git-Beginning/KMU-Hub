@@ -34,7 +34,7 @@ type Repository interface {
 	GetLatestSyncLog(ctx context.Context, configID uuid.UUID, syncType string) (*models.LexwareSyncLog, error)
 
 	// Webhook Subscriptions
-	UpsertWebhookSubscription(ctx context.Context, configID uuid.UUID, subscriptionID, eventType, callbackURL string) error
+	UpsertWebhookSubscription(ctx context.Context, tenantID, configID uuid.UUID, subscriptionID, eventType, callbackURL string) error
 	ListWebhookSubscriptions(ctx context.Context, configID uuid.UUID) ([]WebhookSubscriptionRecord, error)
 	DeleteWebhookSubscription(ctx context.Context, id uuid.UUID) error
 }

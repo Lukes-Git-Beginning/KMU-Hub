@@ -331,6 +331,11 @@ func (s *Service) ApproveReport(ctx context.Context, input ApproveReportInput) (
 // RejectReport transitions a report from Submitted → Rejected atomically.
 // Uses atomic UPDATE WHERE status='submitted' to close the TOCTOU race window.
 func (s *Service) RejectReport(ctx context.Context, input RejectReportInput) (*WorkReport, error) {
+	reviewNote := strings.TrimSpace(input.ReviewNote)
+	if reviewNote == "" {
+		return nil, ErrInvalidInput
+	}
+
 	affected, err := s.repo.AtomicRejectReport(ctx, input.TenantID, input.ReportID, input.ReviewerID, input.ReviewNote)
 	if err != nil {
 		return nil, fmt.Errorf("reject work report: %w", err)

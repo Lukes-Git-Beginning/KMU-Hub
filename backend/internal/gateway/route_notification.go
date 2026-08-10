@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -291,12 +293,12 @@ func (n *NotificationRoutes) HandleMarkAllRead(w http.ResponseWriter, r *http.Re
 	}
 
 	var body markAllReadBody
-	// Body is optional for mark-all-read
-	if r.Body != nil {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			response.Error(w, http.StatusBadRequest, "invalid request body")
-			return
-		}
+	// Body is optional for mark-all-read. A request sent with no body at all
+	// decodes to io.EOF (net/http never hands handlers a nil Body), which must
+	// not be treated as malformed JSON.
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
 	}
 
 	grpcReq := &notificationv1.MarkAllNotificationsReadRequest{

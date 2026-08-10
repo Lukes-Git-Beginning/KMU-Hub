@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -573,7 +574,7 @@ func (s *PluginGRPCServer) KVSet(ctx context.Context, req *pluginv1.KVSetRequest
 	}
 
 	if err := s.svc.KVSet(ctx, installationID, req.GetKey(), json.RawMessage(req.GetValue())); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapPluginError(err)
 	}
 	return &pluginv1.KVSetResponse{Success: true}, nil
 }
@@ -836,8 +837,10 @@ func mapPluginError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case isInvalidArgument(err):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case err == plugin.ErrManifestImmutable:
+	case errors.Is(err, plugin.ErrManifestImmutable):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, plugin.ErrPluginHasInstallations):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled plugin service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
@@ -845,24 +848,24 @@ func mapPluginError(err error) error {
 }
 
 func isNotFound(err error) bool {
-	return err == plugin.ErrManifestNotFound ||
-		err == plugin.ErrInstallationNotFound ||
-		err == plugin.ErrValidationRuleNotFound ||
-		err == plugin.ErrWorkflowRuleNotFound ||
-		err == plugin.ErrTemplateNotFound ||
-		err == plugin.ErrKVKeyNotFound
+	return errors.Is(err, plugin.ErrManifestNotFound) ||
+		errors.Is(err, plugin.ErrInstallationNotFound) ||
+		errors.Is(err, plugin.ErrValidationRuleNotFound) ||
+		errors.Is(err, plugin.ErrWorkflowRuleNotFound) ||
+		errors.Is(err, plugin.ErrTemplateNotFound) ||
+		errors.Is(err, plugin.ErrKVKeyNotFound)
 }
 
 func isAlreadyExists(err error) bool {
-	return err == plugin.ErrManifestSlugExists ||
-		err == plugin.ErrAlreadyInstalled
+	return errors.Is(err, plugin.ErrManifestSlugExists) ||
+		errors.Is(err, plugin.ErrAlreadyInstalled)
 }
 
 func isInvalidArgument(err error) bool {
-	return err == plugin.ErrInvalidSettings ||
-		err == plugin.ErrInvalidSettingsSchema ||
-		err == plugin.ErrInvalidRuleConfig ||
-		err == plugin.ErrPermissionNotDeclared ||
-		err == plugin.ErrWASMBinaryRequired ||
-		err == plugin.ErrWASMBinaryNotAllowed
+	return errors.Is(err, plugin.ErrInvalidSettings) ||
+		errors.Is(err, plugin.ErrInvalidSettingsSchema) ||
+		errors.Is(err, plugin.ErrInvalidRuleConfig) ||
+		errors.Is(err, plugin.ErrPermissionNotDeclared) ||
+		errors.Is(err, plugin.ErrWASMBinaryRequired) ||
+		errors.Is(err, plugin.ErrWASMBinaryNotAllowed)
 }

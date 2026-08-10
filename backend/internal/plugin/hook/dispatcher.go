@@ -83,7 +83,9 @@ func (d *Dispatcher) ExecuteBeforeHooks(ctx context.Context, tenantID uuid.UUID,
 
 			resp, logEntry, execErr := d.executor.ExecuteHook(ctx, manifest, inst, hookReq)
 			if logEntry != nil {
-				_ = d.service.LogExecution(ctx, logEntry)
+				if logErr := d.service.LogExecution(ctx, logEntry); logErr != nil {
+					slog.Warn("plugin execution log write failed", "plugin", manifest.Slug, "hook", hookType, "error", logErr)
+				}
 			}
 			if execErr != nil {
 				slog.Warn("plugin hook execution failed",
@@ -150,7 +152,9 @@ func (d *Dispatcher) ExecuteAfterHooks(ctx context.Context, tenantID uuid.UUID, 
 
 				_, logEntry, execErr := d.executor.ExecuteHook(ctx, manifest, inst, hookReq)
 				if logEntry != nil {
-					_ = d.service.LogExecution(ctx, logEntry)
+					if logErr := d.service.LogExecution(ctx, logEntry); logErr != nil {
+						slog.Warn("plugin execution log write failed", "plugin", manifest.Slug, "hook", hookType, "error", logErr)
+					}
 				}
 				if execErr != nil {
 					slog.Warn("after hook execution failed",

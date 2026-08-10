@@ -21,17 +21,18 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **RBAC Phase 1 (Welle 1a und 1b) ist ABGESCHLOSSEN** — Datenmodell, Seed, Resolver,
   `/auth/me/permissions`, Rollen-CRUD, Guardrails, Audit-Events, Per-User-Overrides und
   Vendor-Access sind in Lauf 4 gebaut. In diesem Lauf ist kein RBAC-Nachbau vorgesehen.
-- **Freigegeben in diesem Lauf** (Lauf 5, Stand 2026-08-05): Helpdesk-CSAT von Grund auf,
-  der Helpdesk-Intake-Contract, Formular-Intake inklusive oeffentlicher Einreichung,
-  `hr/personnel-documents`, der Wiki-Token-Einloeseendpunkt, das Entfernen des toten
-  Vermietung-RPCs, Wertelisten (Value-Sets) und die Dependency-Bumps aus Block D.
-- **Oeffentliche Routen sind in diesem Lauf ein Schwerpunkt** (drei Stueck: CSAT-Antwort,
-  Formular-Einreichung, Wiki-Einloesung). Die Referenz ist
-  `POST /api/v1/public/berichte/reports/{token}` aus Lauf 4 — das Muster steht ausfuehrlich im
-  Kopf von `BACKLOG.yml` und ist zu **uebernehmen, nicht neu zu entwerfen**. Die beiden Fallen,
-  an denen man sich dort verbaut: den System-Kontext ueber den Token-Lookup hinaus mitschleifen
-  (= Tenant-Bypass statt Ausnahme fuer eine Zeile), und unterscheidbare Fehlermeldungen liefern
-  (abgelaufen, widerrufen, unbekannt und missgebildet muessen **alle** dieselbe 404 ergeben).
+- **Freigegeben in diesem Lauf** (Lauf 7, Stand 2026-08-09): reine Test-Coverage in
+  `internal/gateway`, `internal/server` und den Service-Paketen (caldav, plugin, einkauf,
+  document, dialer, notification, email, work, biz/lexware, biz/recurring), plus genau eine
+  Fix-Unit `fix-inventar-picking-partial-book` (Transaktions-Fix in
+  `internal/inventar/service.go` samt DB-Test gegen das reale Schema).
+- **Schwerpunkt dieses Laufs ist Coverage**, in dieser Reihenfolge: zuerst Gateway, dann
+  `internal/server`, dann die Service-Pakete. Grund fuer die Reihenfolge: in Lauf 6 ist die
+  Gateway-Coverage von 27,2 % auf 24,2 % gefallen, weil Block A vierzehn neue OpenAPI-Pfade
+  anlegte, ohne Handler-Tests dazu — der Nenner wuchs, der Zaehler nicht. Die zwoelf
+  `b-cov-gateway-*`-Units sind die Gegenmassnahme. Zeilen-Abdeckung allein ist wertlos, wenn
+  sie nichts beweist — jede Coverage-Unit muss ihre Mutations-Probe belegen (Details im Kopf
+  von `BACKLOG.yml`).
 - **Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz sind GESPERRT.** Ihr
   FE-Vertrag wechselt gerade (Spalten-Panel: `boolean` wird zu `{visible, order, width}`).
   Freigegeben ist aus dieser Flaeche nur, was in Block E steht.
@@ -92,7 +93,7 @@ Lies `.planning/backend-block/loop/BACKLOG.yml` und die letzten ~40 Zeilen `JOUR
 ### 1 · Verify-Vorspann (ueberspringen ist der haeufigste Fehler)
 
 Steht im Journal ein Commit der vorigen Iteration, pruef **diesen Commit** (`git show --stat <sha>` und
-gezielt die geaenderten Dateien) gegen die sechs Fehlerklassen. "Build war gruen" ist kein Beweis —
+gezielt die geaenderten Dateien) gegen die acht Fehlerklassen. "Build war gruen" ist kein Beweis —
 jede dieser Klassen ist in diesem Repo schon real passiert:
 
 1. **gRPC-Layer-Umgehung** — ruft ein neuer Gateway-Handler eine Service-Instanz direkt statt
@@ -143,6 +144,13 @@ cd backend && make migrate-create name=<kurzer_snake_case_name>
 
 Die Nummer wird **zur Laufzeit** ermittelt, nie aus dem Backlog uebernommen — Luke migriert parallel.
 Forward-only: bestehende Migrationen nie aendern. Immer `.up.sql` **und** `.down.sql` fuellen.
+
+An einer bereits **ausgerollten** Migration wird **gar nichts** mehr angefasst — auch kein
+SQL-Kommentar. Korrekturen gehoeren in eine neue Migration oder an den Code. Anlass: in Lauf 6
+wurde `backend/migrations/000139_gobd_belegarchiv.up.sql` kosmetisch geaendert (Retention-Jahr im
+Kommentar von +8 auf +10; der Code rechnet nachweislich +10, `gobdarchive/service.go:272`).
+Wirkungslos, weil golang-migrate nichts neu anwendet — aber die Regel gilt trotzdem, weil sonst
+Repo-Stand und ausgerollter Stand auseinanderlaufen.
 
 Aenderst du ein `.proto`, regenerier im selben Commit:
 
@@ -226,6 +234,13 @@ Die naechste Iteration nimmt die naechste Unit.
 - verify vorgaenger: <sauber | Befund + angelegte Fix-Unit>
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
+
+**Nummer und Zeitstempel stehen im Laufkontext-Block am Ende dieses Prompts (siehe unten) und
+werden woertlich uebernommen — nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat
+das Modell ab Iteration 27 "## Iteration 28" geschrieben; seitdem lief die Nummerierung um eins
+vor, eine Nummer existierte doppelt und eine gar nicht. Der Treiber leitet seine
+Fortschrittsanzeige aus der hoechsten Journal-Nummer ab — eine falsche Nummer verfaelscht sie
+direkt.
 
 **Ans Dateiende anhaengen, nicht einsortieren.** Das Journal ist chronologisch, nicht sortiert —
 ein Eintrag gehoert unter den letzten, nie darueber. Am 2026-08-02 hat eine Iteration ihren Block

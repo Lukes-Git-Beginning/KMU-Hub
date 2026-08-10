@@ -13,6 +13,17 @@ type ListItemsFilter struct {
 	LowStock bool // only items where quantity <= min_quantity
 }
 
+// StockMovementInput is one quantity delta to apply to an item, paired with
+// the movement record that documents it. Delta is signed: negative for
+// outbound picks, positive for inbound counts.
+type StockMovementInput struct {
+	ItemID       uuid.UUID
+	Delta        int64
+	MovementType MovementType
+	PerformedBy  *uuid.UUID
+	Reason       string
+}
+
 // Repository defines the persistence interface for the inventar module.
 type Repository interface {
 	// Items
@@ -48,6 +59,11 @@ type Repository interface {
 	DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error
 	GetInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) (*InventurSession, error)
 	ListInventurSessions(ctx context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventurSession, int, error)
+	// CompleteInventurSessionTx applies every movement and marks the session
+	// completed in one transaction. If any movement fails (unknown item,
+	// insufficient stock), nothing is applied and the session stays as it was
+	// — a partial count booking must not leave half the stock moved.
+	CompleteInventurSessionTx(ctx context.Context, tenantID, sessionID uuid.UUID, movements []StockMovementInput) ([]*Item, error)
 
 	// Inventur Counts
 	UpsertInventurCount(ctx context.Context, count *InventurCount) error
@@ -56,10 +72,13 @@ type Repository interface {
 	// Picking Lists
 	CreatePickingList(ctx context.Context, list *PickingList) error
 	UpdatePickingList(ctx context.Context, list *PickingList) error
-	// CompletePickingList flips the list to completed only if it is not
-	// completed yet and reports whether it did. That conditional UPDATE is what
-	// makes booking idempotent under concurrent callers.
-	CompletePickingList(ctx context.Context, tenantID, listID uuid.UUID) (bool, error)
+	// BookPickingListTx claims the list (completed only if it was not
+	// completed yet, making booking idempotent under concurrent callers) and
+	// applies every movement in the same transaction. claimed is false when
+	// another caller already booked the list — in that case nothing else was
+	// touched. A movement failure rolls back the claim too, so a list that
+	// cannot be booked in full is never left half-booked.
+	BookPickingListTx(ctx context.Context, tenantID, listID uuid.UUID, movements []StockMovementInput) (claimed bool, items []*Item, err error)
 	DeletePickingList(ctx context.Context, tenantID, listID uuid.UUID) error
 	GetPickingList(ctx context.Context, tenantID, listID uuid.UUID) (*PickingList, error)
 	ListPickingLists(ctx context.Context, tenantID uuid.UUID, status *PickingStatus, offset, limit int) ([]*PickingList, int, error)

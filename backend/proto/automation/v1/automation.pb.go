@@ -195,7 +195,7 @@ type AutomationInfo struct {
 	TriggerType     string                 `protobuf:"bytes,6,opt,name=trigger_type,json=triggerType,proto3" json:"trigger_type,omitempty"`
 	TriggerConfig   *structpb.Struct       `protobuf:"bytes,7,opt,name=trigger_config,json=triggerConfig,proto3" json:"trigger_config,omitempty"`
 	Conditions      *structpb.Struct       `protobuf:"bytes,8,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions         *structpb.Struct       `protobuf:"bytes,9,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions         *structpb.ListValue    `protobuf:"bytes,9,opt,name=actions,proto3" json:"actions,omitempty"`
 	IsActive        bool                   `protobuf:"varint,10,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	MaxSteps        int32                  `protobuf:"varint,11,opt,name=max_steps,json=maxSteps,proto3" json:"max_steps,omitempty"`
 	TemplateId      *string                `protobuf:"bytes,12,opt,name=template_id,json=templateId,proto3,oneof" json:"template_id,omitempty"`
@@ -292,7 +292,7 @@ func (x *AutomationInfo) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *AutomationInfo) GetActions() *structpb.Struct {
+func (x *AutomationInfo) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -551,7 +551,7 @@ type AutomationTemplateInfo struct {
 	TriggerType   string                 `protobuf:"bytes,6,opt,name=trigger_type,json=triggerType,proto3" json:"trigger_type,omitempty"`
 	TriggerConfig *structpb.Struct       `protobuf:"bytes,7,opt,name=trigger_config,json=triggerConfig,proto3" json:"trigger_config,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,8,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,9,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,9,opt,name=actions,proto3" json:"actions,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -643,7 +643,7 @@ func (x *AutomationTemplateInfo) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *AutomationTemplateInfo) GetActions() *structpb.Struct {
+func (x *AutomationTemplateInfo) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -978,7 +978,7 @@ type CreateAutomationRequest struct {
 	TriggerType   string                 `protobuf:"bytes,5,opt,name=trigger_type,json=triggerType,proto3" json:"trigger_type,omitempty"`
 	TriggerConfig *structpb.Struct       `protobuf:"bytes,6,opt,name=trigger_config,json=triggerConfig,proto3" json:"trigger_config,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,7,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,8,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,8,opt,name=actions,proto3" json:"actions,omitempty"`
 	MaxSteps      int32                  `protobuf:"varint,9,opt,name=max_steps,json=maxSteps,proto3" json:"max_steps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1063,7 +1063,7 @@ func (x *CreateAutomationRequest) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *CreateAutomationRequest) GetActions() *structpb.Struct {
+func (x *CreateAutomationRequest) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -1131,7 +1131,7 @@ type UpdateAutomationRequest struct {
 	TriggerType   *string                `protobuf:"bytes,6,opt,name=trigger_type,json=triggerType,proto3,oneof" json:"trigger_type,omitempty"`
 	TriggerConfig *structpb.Struct       `protobuf:"bytes,7,opt,name=trigger_config,json=triggerConfig,proto3,oneof" json:"trigger_config,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,8,opt,name=conditions,proto3,oneof" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,9,opt,name=actions,proto3,oneof" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,9,opt,name=actions,proto3,oneof" json:"actions,omitempty"`
 	MaxSteps      *int32                 `protobuf:"varint,10,opt,name=max_steps,json=maxSteps,proto3,oneof" json:"max_steps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1223,7 +1223,7 @@ func (x *UpdateAutomationRequest) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *UpdateAutomationRequest) GetActions() *structpb.Struct {
+func (x *UpdateAutomationRequest) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -2911,7 +2911,7 @@ var File_proto_automation_v1_automation_proto protoreflect.FileDescriptor
 
 const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\n" +
-	"$proto/automation/v1/automation.proto\x12\rautomation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xbf\x05\n" +
+	"$proto/automation/v1/automation.proto\x12\rautomation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xc2\x05\n" +
 	"\x0eAutomationInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2922,8 +2922,8 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x0etrigger_config\x18\a \x01(\v2\x17.google.protobuf.StructR\rtriggerConfig\x127\n" +
 	"\n" +
 	"conditions\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
-	"conditions\x121\n" +
-	"\aactions\x18\t \x01(\v2\x17.google.protobuf.StructR\aactions\x12\x1b\n" +
+	"conditions\x124\n" +
+	"\aactions\x18\t \x01(\v2\x1a.google.protobuf.ListValueR\aactions\x12\x1b\n" +
 	"\tis_active\x18\n" +
 	" \x01(\bR\bisActive\x12\x1b\n" +
 	"\tmax_steps\x18\v \x01(\x05R\bmaxSteps\x12$\n" +
@@ -2960,7 +2960,7 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x06output\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x06output\x12\x14\n" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12\x1f\n" +
 	"\vduration_ms\x18\x05 \x01(\x05R\n" +
-	"durationMs\"\xc7\x03\n" +
+	"durationMs\"\xca\x03\n" +
 	"\x16AutomationTemplateInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2973,8 +2973,8 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x0etrigger_config\x18\a \x01(\v2\x17.google.protobuf.StructR\rtriggerConfig\x127\n" +
 	"\n" +
 	"conditions\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
-	"conditions\x121\n" +
-	"\aactions\x18\t \x01(\v2\x17.google.protobuf.StructR\aactions\x129\n" +
+	"conditions\x124\n" +
+	"\aactions\x18\t \x01(\v2\x1a.google.protobuf.ListValueR\aactions\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x8d\x02\n" +
@@ -3003,7 +3003,7 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x122\n" +
 	"\x06params\x18\x05 \x03(\v2\x1a.automation.v1.ConfigParamR\x06params\x12C\n" +
-	"\routput_fields\x18\x06 \x03(\v2\x1e.automation.v1.FieldDefinitionR\foutputFields\"\x8c\x03\n" +
+	"\routput_fields\x18\x06 \x03(\v2\x1e.automation.v1.FieldDefinitionR\foutputFields\"\x8f\x03\n" +
 	"\x17CreateAutomationRequest\x12\x19\n" +
 	"\bowner_id\x18\x01 \x01(\tR\aownerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -3013,13 +3013,13 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x0etrigger_config\x18\x06 \x01(\v2\x17.google.protobuf.StructR\rtriggerConfig\x127\n" +
 	"\n" +
 	"conditions\x18\a \x01(\v2\x17.google.protobuf.StructR\n" +
-	"conditions\x121\n" +
-	"\aactions\x18\b \x01(\v2\x17.google.protobuf.StructR\aactions\x12\x1b\n" +
+	"conditions\x124\n" +
+	"\aactions\x18\b \x01(\v2\x1a.google.protobuf.ListValueR\aactions\x12\x1b\n" +
 	"\tmax_steps\x18\t \x01(\x05R\bmaxSteps\"Y\n" +
 	"\x18CreateAutomationResponse\x12=\n" +
 	"\n" +
 	"automation\x18\x01 \x01(\v2\x1d.automation.v1.AutomationInfoR\n" +
-	"automation\"\xc9\x04\n" +
+	"automation\"\xcc\x04\n" +
 	"\x17UpdateAutomationRequest\x12#\n" +
 	"\rautomation_id\x18\x01 \x01(\tR\fautomationId\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12\x17\n" +
@@ -3030,8 +3030,8 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\x0etrigger_config\x18\a \x01(\v2\x17.google.protobuf.StructH\x04R\rtriggerConfig\x88\x01\x01\x12<\n" +
 	"\n" +
 	"conditions\x18\b \x01(\v2\x17.google.protobuf.StructH\x05R\n" +
-	"conditions\x88\x01\x01\x126\n" +
-	"\aactions\x18\t \x01(\v2\x17.google.protobuf.StructH\x06R\aactions\x88\x01\x01\x12 \n" +
+	"conditions\x88\x01\x01\x129\n" +
+	"\aactions\x18\t \x01(\v2\x1a.google.protobuf.ListValueH\x06R\aactions\x88\x01\x01\x12 \n" +
 	"\tmax_steps\x18\n" +
 	" \x01(\x05H\aR\bmaxSteps\x88\x01\x01B\a\n" +
 	"\x05_nameB\x0e\n" +
@@ -3273,28 +3273,29 @@ var file_proto_automation_v1_automation_proto_goTypes = []any{
 	(*TriggerWebhookRequest)(nil),          // 43: automation.v1.TriggerWebhookRequest
 	(*TriggerWebhookResponse)(nil),         // 44: automation.v1.TriggerWebhookResponse
 	(*structpb.Struct)(nil),                // 45: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),          // 46: google.protobuf.Timestamp
+	(*structpb.ListValue)(nil),             // 46: google.protobuf.ListValue
+	(*timestamppb.Timestamp)(nil),          // 47: google.protobuf.Timestamp
 }
 var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	0,  // 0: automation.v1.AutomationInfo.scope:type_name -> automation.v1.AutomationScope
 	45, // 1: automation.v1.AutomationInfo.trigger_config:type_name -> google.protobuf.Struct
 	45, // 2: automation.v1.AutomationInfo.conditions:type_name -> google.protobuf.Struct
-	45, // 3: automation.v1.AutomationInfo.actions:type_name -> google.protobuf.Struct
-	46, // 4: automation.v1.AutomationInfo.last_triggered_at:type_name -> google.protobuf.Timestamp
-	46, // 5: automation.v1.AutomationInfo.created_at:type_name -> google.protobuf.Timestamp
-	46, // 6: automation.v1.AutomationInfo.updated_at:type_name -> google.protobuf.Timestamp
+	46, // 3: automation.v1.AutomationInfo.actions:type_name -> google.protobuf.ListValue
+	47, // 4: automation.v1.AutomationInfo.last_triggered_at:type_name -> google.protobuf.Timestamp
+	47, // 5: automation.v1.AutomationInfo.created_at:type_name -> google.protobuf.Timestamp
+	47, // 6: automation.v1.AutomationInfo.updated_at:type_name -> google.protobuf.Timestamp
 	45, // 7: automation.v1.AutomationExecutionInfo.trigger_event:type_name -> google.protobuf.Struct
 	1,  // 8: automation.v1.AutomationExecutionInfo.status:type_name -> automation.v1.ExecutionStatus
 	5,  // 9: automation.v1.AutomationExecutionInfo.steps:type_name -> automation.v1.ExecutionStepInfo
-	46, // 10: automation.v1.AutomationExecutionInfo.started_at:type_name -> google.protobuf.Timestamp
-	46, // 11: automation.v1.AutomationExecutionInfo.completed_at:type_name -> google.protobuf.Timestamp
+	47, // 10: automation.v1.AutomationExecutionInfo.started_at:type_name -> google.protobuf.Timestamp
+	47, // 11: automation.v1.AutomationExecutionInfo.completed_at:type_name -> google.protobuf.Timestamp
 	45, // 12: automation.v1.ExecutionStepInfo.input:type_name -> google.protobuf.Struct
 	45, // 13: automation.v1.ExecutionStepInfo.output:type_name -> google.protobuf.Struct
 	2,  // 14: automation.v1.AutomationTemplateInfo.complexity:type_name -> automation.v1.TemplateComplexity
 	45, // 15: automation.v1.AutomationTemplateInfo.trigger_config:type_name -> google.protobuf.Struct
 	45, // 16: automation.v1.AutomationTemplateInfo.conditions:type_name -> google.protobuf.Struct
-	45, // 17: automation.v1.AutomationTemplateInfo.actions:type_name -> google.protobuf.Struct
-	46, // 18: automation.v1.AutomationTemplateInfo.created_at:type_name -> google.protobuf.Timestamp
+	46, // 17: automation.v1.AutomationTemplateInfo.actions:type_name -> google.protobuf.ListValue
+	47, // 18: automation.v1.AutomationTemplateInfo.created_at:type_name -> google.protobuf.Timestamp
 	8,  // 19: automation.v1.TriggerDefinition.fields:type_name -> automation.v1.FieldDefinition
 	9,  // 20: automation.v1.TriggerDefinition.config_params:type_name -> automation.v1.ConfigParam
 	9,  // 21: automation.v1.ActionDefinition.params:type_name -> automation.v1.ConfigParam
@@ -3302,12 +3303,12 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	0,  // 23: automation.v1.CreateAutomationRequest.scope:type_name -> automation.v1.AutomationScope
 	45, // 24: automation.v1.CreateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
 	45, // 25: automation.v1.CreateAutomationRequest.conditions:type_name -> google.protobuf.Struct
-	45, // 26: automation.v1.CreateAutomationRequest.actions:type_name -> google.protobuf.Struct
+	46, // 26: automation.v1.CreateAutomationRequest.actions:type_name -> google.protobuf.ListValue
 	3,  // 27: automation.v1.CreateAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	0,  // 28: automation.v1.UpdateAutomationRequest.scope:type_name -> automation.v1.AutomationScope
 	45, // 29: automation.v1.UpdateAutomationRequest.trigger_config:type_name -> google.protobuf.Struct
 	45, // 30: automation.v1.UpdateAutomationRequest.conditions:type_name -> google.protobuf.Struct
-	45, // 31: automation.v1.UpdateAutomationRequest.actions:type_name -> google.protobuf.Struct
+	46, // 31: automation.v1.UpdateAutomationRequest.actions:type_name -> google.protobuf.ListValue
 	3,  // 32: automation.v1.UpdateAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	3,  // 33: automation.v1.GetAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	0,  // 34: automation.v1.ListAutomationsRequest.scope:type_name -> automation.v1.AutomationScope
@@ -3315,8 +3316,8 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	3,  // 36: automation.v1.EnableAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	3,  // 37: automation.v1.DisableAutomationResponse.automation:type_name -> automation.v1.AutomationInfo
 	1,  // 38: automation.v1.ListExecutionsRequest.status:type_name -> automation.v1.ExecutionStatus
-	46, // 39: automation.v1.ListExecutionsRequest.started_after:type_name -> google.protobuf.Timestamp
-	46, // 40: automation.v1.ListExecutionsRequest.started_before:type_name -> google.protobuf.Timestamp
+	47, // 39: automation.v1.ListExecutionsRequest.started_after:type_name -> google.protobuf.Timestamp
+	47, // 40: automation.v1.ListExecutionsRequest.started_before:type_name -> google.protobuf.Timestamp
 	4,  // 41: automation.v1.ListExecutionsResponse.executions:type_name -> automation.v1.AutomationExecutionInfo
 	4,  // 42: automation.v1.GetExecutionResponse.execution:type_name -> automation.v1.AutomationExecutionInfo
 	7,  // 43: automation.v1.ListTriggerDefinitionsResponse.triggers:type_name -> automation.v1.TriggerDefinition
@@ -3328,7 +3329,7 @@ var file_proto_automation_v1_automation_proto_depIdxs = []int32{
 	45, // 49: automation.v1.TestConditionRequest.sample_event:type_name -> google.protobuf.Struct
 	45, // 50: automation.v1.DryRunAutomationRequest.sample_event:type_name -> google.protobuf.Struct
 	5,  // 51: automation.v1.DryRunAutomationResponse.simulated_steps:type_name -> automation.v1.ExecutionStepInfo
-	46, // 52: automation.v1.GetAutomationStatsRequest.since:type_name -> google.protobuf.Timestamp
+	47, // 52: automation.v1.GetAutomationStatsRequest.since:type_name -> google.protobuf.Timestamp
 	11, // 53: automation.v1.AutomationService.CreateAutomation:input_type -> automation.v1.CreateAutomationRequest
 	13, // 54: automation.v1.AutomationService.UpdateAutomation:input_type -> automation.v1.UpdateAutomationRequest
 	15, // 55: automation.v1.AutomationService.DeleteAutomation:input_type -> automation.v1.DeleteAutomationRequest

@@ -41,14 +41,24 @@ func (m *mockRepository) UpdatePickingList(_ context.Context, list *PickingList)
 	return nil
 }
 
-func (m *mockRepository) CompletePickingList(_ context.Context, tenantID, listID uuid.UUID) (bool, error) {
+// BookPickingListTx mirrors PostgresRepository.BookPickingListTx: the list is
+// claimed only if it is not completed yet, movements apply all-or-nothing via
+// applyMovements, and a failing movement leaves the claim itself undone too
+// (the mock never marks the list completed before applyMovements succeeds).
+func (m *mockRepository) BookPickingListTx(_ context.Context, tenantID, listID uuid.UUID, movements []StockMovementInput) (bool, []*Item, error) {
 	m.ensurePicking()
 	stored, ok := m.pickingLists[listID]
 	if !ok || stored.TenantID != tenantID || stored.Status == PickingStatusCompleted {
-		return false, nil
+		return false, nil, nil
 	}
+
+	items, err := m.applyMovements(tenantID, movements)
+	if err != nil {
+		return false, nil, err
+	}
+
 	stored.Status = PickingStatusCompleted
-	return true, nil
+	return true, items, nil
 }
 
 func (m *mockRepository) DeletePickingList(_ context.Context, tenantID, listID uuid.UUID) error {

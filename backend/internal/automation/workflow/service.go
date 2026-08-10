@@ -345,8 +345,10 @@ func (s *Service) GetStats(ctx context.Context, tenantID uuid.UUID) (*Automation
 // TestCondition evaluates a condition against sample data without executing actions.
 func (s *Service) TestCondition(ctx context.Context, conditionJSON json.RawMessage, sampleEnv map[string]any) (bool, error) {
 	var config models.ConditionConfig
-	if err := json.Unmarshal(conditionJSON, &config); err != nil {
-		return false, fmt.Errorf("invalid condition config: %w", err)
+	if len(conditionJSON) > 0 {
+		if err := json.Unmarshal(conditionJSON, &config); err != nil {
+			return false, fmt.Errorf("invalid condition config: %w", err)
+		}
 	}
 
 	return s.condEvaluator.Evaluate(ctx, config, sampleEnv)

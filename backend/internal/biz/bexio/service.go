@@ -320,7 +320,7 @@ func (s *Service) GetFieldMappings(ctx context.Context, entityType string) (*mod
 }
 
 // UpdateFieldMappings validates and saves field mappings.
-func (s *Service) UpdateFieldMappings(ctx context.Context, entityType string, mappings []models.BexioFieldMappingEntry) error {
+func (s *Service) UpdateFieldMappings(ctx context.Context, tenantID uuid.UUID, entityType string, mappings []models.BexioFieldMappingEntry) error {
 	if err := ValidateFieldMappings(entityType, mappings); err != nil {
 		return err
 	}
@@ -331,6 +331,7 @@ func (s *Service) UpdateFieldMappings(ctx context.Context, entityType string, ma
 	}
 
 	fm := &models.BexioFieldMapping{
+		TenantID:   tenantID,
 		ConfigID:   configID,
 		EntityType: entityType,
 		Mappings:   mappings,

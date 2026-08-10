@@ -2,6 +2,7 @@ package inventar
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,6 +28,10 @@ type mockRepository struct {
 	// picking_service_test.go so newMockRepository stays untouched.
 	pickingLists map[uuid.UUID]*PickingList
 	pickingItems map[uuid.UUID][]*PickingListItem
+
+	// inventur state; lazily created by ensureInventur, same reason.
+	inventurSessions map[uuid.UUID]*InventurSession
+	inventurCounts   map[uuid.UUID][]*InventurCount
 
 	createItemErr    error
 	updateItemErr    error
@@ -222,32 +227,165 @@ func (m *mockRepository) ListLocations(_ context.Context, tenantID uuid.UUID, of
 // Inventur Session mock methods
 // ============================================================================
 
+func (m *mockRepository) ensureInventur() {
+	if m.inventurSessions == nil {
+		m.inventurSessions = make(map[uuid.UUID]*InventurSession)
+	}
+	if m.inventurCounts == nil {
+		m.inventurCounts = make(map[uuid.UUID][]*InventurCount)
+	}
+}
+
 func (m *mockRepository) CreateInventurSession(_ context.Context, session *InventurSession) error {
+	m.ensureInventur()
+	cp := *session
+	m.inventurSessions[session.ID] = &cp
 	return nil
 }
 
 func (m *mockRepository) UpdateInventurSession(_ context.Context, session *InventurSession) error {
+	m.ensureInventur()
+	stored, ok := m.inventurSessions[session.ID]
+	if !ok || stored.TenantID != session.TenantID {
+		return ErrInventurSessionNotFound
+	}
+	cp := *session
+	cp.Counts = nil
+	m.inventurSessions[session.ID] = &cp
 	return nil
 }
 
 func (m *mockRepository) DeleteInventurSession(_ context.Context, tenantID, sessionID uuid.UUID) error {
+	m.ensureInventur()
+	stored, ok := m.inventurSessions[sessionID]
+	if !ok || stored.TenantID != tenantID {
+		return ErrInventurSessionNotFound
+	}
+	delete(m.inventurSessions, sessionID)
+	delete(m.inventurCounts, sessionID)
 	return nil
 }
 
 func (m *mockRepository) GetInventurSession(_ context.Context, tenantID, sessionID uuid.UUID) (*InventurSession, error) {
-	return nil, ErrInventurSessionNotFound
+	m.ensureInventur()
+	stored, ok := m.inventurSessions[sessionID]
+	if !ok || stored.TenantID != tenantID {
+		return nil, ErrInventurSessionNotFound
+	}
+	cp := *stored
+	cp.Counts = nil
+	for _, c := range m.inventurCounts[sessionID] {
+		cp.Counts = append(cp.Counts, *c)
+	}
+	return &cp, nil
 }
 
 func (m *mockRepository) ListInventurSessions(_ context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventurSession, int, error) {
-	return nil, 0, nil
+	m.ensureInventur()
+	var all []*InventurSession
+	for _, s := range m.inventurSessions {
+		if s.TenantID != tenantID {
+			continue
+		}
+		cp := *s
+		all = append(all, &cp)
+	}
+	total := len(all)
+	if offset >= total {
+		return []*InventurSession{}, total, nil
+	}
+	return all[offset:min(offset+limit, total)], total, nil
 }
 
 func (m *mockRepository) UpsertInventurCount(_ context.Context, count *InventurCount) error {
+	m.ensureInventur()
+	for _, existing := range m.inventurCounts[count.SessionID] {
+		if existing.ItemID == count.ItemID {
+			existing.Expected = count.Expected
+			existing.Counted = count.Counted
+			existing.CountedAt = count.CountedAt
+			count.ID = existing.ID
+			return nil
+		}
+	}
+	cp := *count
+	m.inventurCounts[count.SessionID] = append(m.inventurCounts[count.SessionID], &cp)
 	return nil
 }
 
 func (m *mockRepository) ListInventurCounts(_ context.Context, tenantID, sessionID uuid.UUID) ([]*InventurCount, error) {
-	return nil, nil
+	m.ensureInventur()
+	var out []*InventurCount
+	for _, c := range m.inventurCounts[sessionID] {
+		if c.TenantID == tenantID {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// CompleteInventurSessionTx mirrors PostgresRepository.CompleteInventurSessionTx:
+// movements apply all-or-nothing via applyMovements, and the session is only
+// marked completed once every movement succeeded.
+func (m *mockRepository) CompleteInventurSessionTx(_ context.Context, tenantID, sessionID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	m.ensureInventur()
+	stored, ok := m.inventurSessions[sessionID]
+	if !ok || stored.TenantID != tenantID {
+		return nil, ErrInventurSessionNotFound
+	}
+
+	items, err := m.applyMovements(tenantID, movements)
+	if err != nil {
+		return nil, err
+	}
+
+	stored.Status = InventurStatusCompleted
+	return items, nil
+}
+
+// applyMovements mirrors PostgresRepository.applyMovementsInTx: it validates
+// every movement against a scratch copy of the affected quantities first and
+// only mutates items/movements once all of them check out, giving the mock
+// the same all-or-nothing guarantee the real transaction provides.
+func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	scratch := make(map[uuid.UUID]int64, len(movements))
+	for _, mv := range movements {
+		item, ok := m.items[mv.ItemID]
+		if !ok || item.TenantID != tenantID || item.DeletedAt != nil {
+			return nil, ErrItemNotFound
+		}
+		qty, seen := scratch[mv.ItemID]
+		if !seen {
+			qty = item.Quantity
+		}
+		qty += mv.Delta
+		if qty < 0 {
+			return nil, fmt.Errorf("%w: item %s has %d, requested %d",
+				ErrInsufficientStock, mv.ItemID, item.Quantity, -mv.Delta)
+		}
+		scratch[mv.ItemID] = qty
+	}
+
+	items := make([]*Item, 0, len(movements))
+	for _, mv := range movements {
+		item := m.items[mv.ItemID]
+		item.Quantity = scratch[mv.ItemID]
+		item.UpdatedAt = time.Now()
+
+		mvRow := &Movement{
+			ID:           uuid.New(),
+			TenantID:     tenantID,
+			ItemID:       mv.ItemID,
+			MovementType: mv.MovementType,
+			Quantity:     mv.Delta,
+			PerformedBy:  mv.PerformedBy,
+			Reason:       mv.Reason,
+			CreatedAt:    time.Now(),
+		}
+		m.movements[mvRow.ID] = mvRow
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 // compile-time interface check

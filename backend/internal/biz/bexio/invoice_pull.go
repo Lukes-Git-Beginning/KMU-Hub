@@ -90,6 +90,7 @@ func (ip *InvoicePuller) PullInvoices(ctx context.Context, configID, tenantID uu
 	}
 
 	syncLog := &models.BexioSyncLog{
+		TenantID:  tenantID,
 		ConfigID:  configID,
 		SyncType:  "invoice_pull",
 		Status:    "running",
@@ -171,6 +172,7 @@ func (ip *InvoicePuller) PullInvoices(ctx context.Context, configID, tenantID uu
 		wasCreate := mapping == nil
 		if mapping == nil {
 			mapping = &models.BexioEntityMapping{
+				TenantID:      tenantID,
 				ConfigID:      configID,
 				EntityType:    "invoice",
 				KmuhubID:      imported.ID,

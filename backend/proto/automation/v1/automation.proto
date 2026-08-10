@@ -98,7 +98,7 @@ message AutomationInfo {
   string trigger_type = 6;
   google.protobuf.Struct trigger_config = 7;
   google.protobuf.Struct conditions = 8;
-  google.protobuf.Struct actions = 9;
+  google.protobuf.ListValue actions = 9;
   bool is_active = 10;
   int32 max_steps = 11;
   optional string template_id = 12;
@@ -138,7 +138,7 @@ message AutomationTemplateInfo {
   string trigger_type = 6;
   google.protobuf.Struct trigger_config = 7;
   google.protobuf.Struct conditions = 8;
-  google.protobuf.Struct actions = 9;
+  google.protobuf.ListValue actions = 9;
   google.protobuf.Timestamp created_at = 10;
 }
 
@@ -187,7 +187,7 @@ message CreateAutomationRequest {
   string trigger_type = 5;
   google.protobuf.Struct trigger_config = 6;
   google.protobuf.Struct conditions = 7;
-  google.protobuf.Struct actions = 8;
+  google.protobuf.ListValue actions = 8;
   int32 max_steps = 9;
 }
 
@@ -204,7 +204,7 @@ message UpdateAutomationRequest {
   optional string trigger_type = 6;
   optional google.protobuf.Struct trigger_config = 7;
   optional google.protobuf.Struct conditions = 8;
-  optional google.protobuf.Struct actions = 9;
+  optional google.protobuf.ListValue actions = 9;
   optional int32 max_steps = 10;
 }
 
