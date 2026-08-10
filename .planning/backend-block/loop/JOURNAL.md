@@ -3985,7 +3985,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   eingefuegt).
 
 ## Iteration 64 — fix-document-wopi-lock-table-name-mismatch — done — 2026-08-10 06:18 (Lauf 7)
-- commit: `<siehe naechster chore-Commit>`
+- commit: `01824f12`
 - verify vorgaenger: sauber — `3fa30ebd` (c-cov-document-wopi, Iteration 63) gegen alle acht
   Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich drei neue Testdateien
   (`token_test.go`, `handler_test.go`, `lock_test.go` in `internal/document/wopi`) plus
