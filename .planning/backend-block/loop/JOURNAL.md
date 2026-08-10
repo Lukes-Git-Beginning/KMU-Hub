@@ -2410,3 +2410,76 @@ Frühere Läufe liegen vollständig im Archiv:
   diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 36) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 00:36).
+
+## Iteration 38 — c-cov-gdpr-export-handlers — done — 2026-08-11 00:42
+- commit: <pending>
+- gebaut: neue Datei `backend/internal/security/gdpr/export_crm_chat_test.go` mit vier Tests
+  fuer die beiden groessten bis dahin voellig ungetesteten Export-Handler.
+  `TestCRMExportHandler_ExportUserData_Integration`: seedet je eine Contact-, Company- und
+  Activity-Zeile (`assigned_to` + `created_by` = Subject, gesetztes `due_date`) in einem
+  frischen Tenant und prueft, dass alle drei Listen im JSON erscheinen, dass
+  `activity_type::text` als `"call"` und nicht als Enum-OID rendert und dass das nullable
+  `due_date` den Scan ueberlebt; danach derselbe Export unter Fremd-Tenant-Kontext (alle drei
+  Listen leer, zusaetzlich Substring-Assertion, dass keine der drei UUIDs im Payload steht)
+  und ein nicht existierender User. `TestChatExportHandler_ExportUserData_Integration`:
+  Channel + eigene Message + Message eines Kollegen im selben Channel/Tenant +
+  Channel-Membership (`role='owner'`, `last_read_at` gesetzt); prueft, dass genau die eigene
+  Message exportiert wird (Datensparsamkeit — die Kollegen-Message darf nicht im Payload
+  auftauchen), dass die Membership ueber `channels.name` gejoint ist, plus Fremd-Tenant- und
+  Unknown-User-Fall. `TestCRMExportHandler_QueryError` und `TestChatExportHandler_QueryError`
+  decken den Fehlerzweig ab (geschlossener Pool -> Query schlaegt fehl, Fehler traegt das
+  Modul-Praefix `crm export:` bzw. `chat export:`) — vorher lief in beiden Handlern kein
+  einziger `if err != nil`-Zweig durch einen Test. Zwei Test-Helper: `seedExportUser` und
+  `seedChannelMembership` (Letzterer noetig, weil `channel_memberships` einen
+  Composite-PK ohne `id`-Spalte hat und `testutil.SeedRow` auf `RETURNING id` besteht).
+  Kein Produktionscode veraendert.
+- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
+  ./internal/security/...`) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/security/... -- 0 issues) | test ok (`go test -count=1
+  ./internal/security/gdpr/` gruen, 42 PASS / 0 SKIP / 0 FAIL per `-v`, also alle
+  DB-Integrationstests real gelaufen; `go test -count=1 ./internal/security/...` alle sieben
+  Pakete gruen) | migration n.a. (keine Migration) | rls-smoke n.a. als eigener Schritt —
+  die Tenant-Isolation ist hier direkt Testgegenstand: der Fremd-Tenant-Export laeuft als
+  `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) und liefert nachweislich 0 Zeilen | keine neue
+  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/security/gdpr 35,9 % -> 42,9 % (beides lokal per `go test
+  -coverprofile` + `go tool cover -func` gemessen; der Ausgangswert durch temporaeres
+  Herausnehmen der neuen Testdatei ermittelt). Hinweis: das Feld `coverage_start:` der Unit
+  nennt "internal/security 47,9 %" — das ist der Aggregat-Wert ueber alle sieben
+  security-Unterpakete aus dem CI-Artefakt, nicht der des hier geaenderten Pakets
+  `internal/security/gdpr`. Die 35,9 % sind der paket-eigene Bezugspunkt.
+- mutations-probe: zwei Proben, beide gefangen. (1) In `ChatExportHandler.ExportUserData`
+  die Message-Bedingung `WHERE m.created_by = $1` durch `WHERE m.created_by IS NOT NULL`
+  ersetzt (Autor-Scoping weg) -> `TestChatExportHandler_ExportUserData_Integration` rot
+  ("should have 1 item(s), but has 2", die Kollegen-Message war mit drin). (2) In
+  `CRMExportHandler.ExportUserData` das `out.CreatedCompanies = append(...)` durch `_ = co`
+  ersetzt -> `TestCRMExportHandler_ExportUserData_Integration` rot ("[] should have 1
+  item(s), but has 0"). Beide per `git checkout -- backend/internal/security/gdpr/export.go`
+  zurueckgedreht, `git status` zeigt export.go danach unveraendert, erneuter Lauf `go test
+  -count=1 ./internal/security/gdpr/` gruen.
+- verify vorgaenger: sauber. Commit 4b1e2918 (Iteration 37) fuegt ausschliesslich
+  `backend/internal/gateway/route_auth_reset_invitations_test.go` plus Journal/Backlog-
+  Metadaten hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: **Befund fuer Lauf 9 (Verhaltens-Divergenz, kein Sicherheitsleck).** Das
+  `done_when` dieser Unit erwartete, dass ein nicht existierender User "einen definierten
+  Fehler statt eines leeren, aber erfolgreichen Exports" liefert (so haelt es
+  `AuthExportHandler` ueber sein `QueryRow` -> `ErrNoRows`). CRM und Chat verhalten sich
+  anders: beide scopen ueber `JOIN users u ON u.id = $1`, der bei unbekanntem oder
+  RLS-unsichtbarem User schlicht nichts matcht — der Export ist dann leer und **erfolgreich**.
+  Ich habe das Ist-Verhalten gepinnt statt es umzubiegen (Coverage-Unit, kein Umbau). Folge in
+  Produktion: `ExecuteExport` toleriert Handler-Fehler ohnehin (schreibt `<modul>/_error.txt`
+  in die ZIP und macht weiter), d. h. bei einem unbekannten User bekaeme man heute
+  `auth/_error.txt` neben leeren `crm/data.json` und `chat/data.json`. Kein Datenleck — der
+  Fremd-Tenant-Fall liefert nachweislich 0 Zeilen —, aber inkonsistent. Entscheidung gehoert
+  Luke: entweder alle sechs Handler auf "Fehler bei unbekanntem User" vereinheitlichen (dann
+  `SELECT 1 FROM users WHERE id=$1`-Vorabpruefung je Handler) oder die Auth-Variante
+  angleichen und leere Exporte als Normalfall dokumentieren. Vier der sechs
+  ExportUserData-Methoden (work, calendar, sessions, notifications) sind weiterhin ungetestet
+  — dafuer existiert im Backlog noch keine Unit.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
+  `-StartNotBefore`-Diff (wie in den Iterationen 6-37 vermerkt) — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 37) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 00:42).

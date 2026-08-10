@@ -1390,7 +1390,7 @@ units:
     service: security
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security 47,9 %"
     scope: >
       CRMExportHandler.ExportUserData (Contacts/Companies/Activities, created_by-gescopt über
