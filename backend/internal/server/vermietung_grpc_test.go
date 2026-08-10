@@ -892,16 +892,6 @@ func TestVermietung_CreateInspection_InvalidKind(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestVermietung_SaveSignature(t *testing.T) {
-	// documents current gap: rentalToProto (internal/server/vermietung_grpc.go)
-	// never maps Rental.SignatureData/SignedAt/SignedBy onto the wire Rental
-	// message, even though the proto carries all three fields and
-	// Service.SaveSignature persists them on the domain model. Every RPC that
-	// returns a Rental — including SaveSignature's own response — silently
-	// drops the signature the caller just saved. Confirmed at the repo level:
-	// the stub repository below does set SignatureData/SignedBy/SignedAt on
-	// the returned *vermietung.Rental, so this failure is proto-mapping only,
-	// not a repository gap. See the JOURNAL entry for this iteration for the
-	// resulting Lauf-8 backlog unit.
 	repo := newStubVermietungRepo()
 	srv := newVermietungServerWithRepo(repo)
 	ctx := context.Background()
@@ -920,12 +910,10 @@ func TestVermietung_SaveSignature(t *testing.T) {
 		SignatureData: "data:image/png;base64,AAAA", SignedBy: "Max Muster",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp.GetRental().GetSignatureData(), "documents current gap — rentalToProto drops SignatureData")
-	assert.Empty(t, resp.GetRental().GetSignedBy(), "documents current gap — rentalToProto drops SignedBy")
-	assert.Nil(t, resp.GetRental().GetSignedAt(), "documents current gap — rentalToProto drops SignedAt")
+	assert.Equal(t, "data:image/png;base64,AAAA", resp.GetRental().GetSignatureData())
+	assert.Equal(t, "Max Muster", resp.GetRental().GetSignedBy())
+	require.NotNil(t, resp.GetRental().GetSignedAt())
 
-	// Prove the repository layer actually has the signature — the gap is
-	// strictly in rentalToProto, not in Service.SaveSignature or the repo.
 	stored := repo.rentals[uuid.MustParse(rentalID)]
 	require.NotNil(t, stored.SignatureData)
 	assert.Equal(t, "data:image/png;base64,AAAA", *stored.SignatureData)

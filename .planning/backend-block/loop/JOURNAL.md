@@ -2533,3 +2533,41 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: Nichts Blockierendes. `ApproveSwapRequest`/`RejectSwapRequest` bewusst unveraendert
   gelassen (bleiben tenant-weit fuer die genehmigende Rolle) — exakt wie in den Backlog-`done_when`
   gefordert, keine eigene Regel dafuer gebaut, da nicht Teil dieses Scopes.
+
+## Iteration 40 — fix-vermietung-rentaltoproto-drops-signature — done — 2026-08-10 03:29
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — 126c40f6 (own-Scope fuer ListSwapRequests) geprueft: Diff auf
+  route_schichten.go/postgres_repository.go/repository.go/service.go/schichten_grpc.go zeigt
+  exakt das im Journal beschriebene Muster (`ownerFilterForScope` im Gateway, OR-Filter VOR
+  COUNT/LIMIT im Repository, server-injiziertes Feld statt Client-Query-Parameter). Keine Befunde.
+- gebaut: `rentalToProto` (internal/server/vermietung_grpc.go:650) mappte `Rental.SignatureData`/
+  `SignedAt`/`SignedBy` nie auf das Wire-`Rental`, obwohl `Service.SaveSignature` sie korrekt
+  persistiert — jede RPC, die ein Rental zurueckgibt (inklusive `SaveSignature`s eigene Antwort),
+  liess die gerade gespeicherte Signatur verschwinden. Anders als bei der parallelen
+  `fix-vertraege-contracttoproto-drops-signature`-Unit gibt es hier laut done_when KEINE
+  Liste-vs-Detail-Unterscheidung zu bauen — der Proto-Kommentar auf `vermietung.proto` traegt
+  keine "nur GetContract"-Einschraenkung wie bei vertraege, `rentalToProto` ist die einzige
+  Konvertierungsfunktion fuer alle Rental-RPCs. Drei Zeilen ergaenzt, alle drei Proto-Felder sind
+  `string`/`optional Timestamp` nicht `optional string` (verifiziert gegen vermietung.proto:76-78),
+  also nil-Guard vor Dereferenzierung statt direktem Pointer-Copy: `if r.SignatureData != nil { ... }`,
+  `if r.SignedBy != nil { ... }`, `if r.SignedAt != nil { proto.SignedAt = timestamppb.New(*r.SignedAt) }`.
+  Kein Proto-Aenderung noetig (Felder existierten schon), keine Repository-Aenderung (persistiert
+  schon korrekt), reiner Mapping-Fix in einer einzigen Funktion.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/vermietung/...
+  ./cmd/vermietung/... ./cmd/gateway/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/vermietung/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/server/... ./internal/vermietung/...`, 0 issues) | test ok (`go test -count=2
+  ./internal/server/... ./internal/vermietung/...` mit gesetzter `DATABASE_URL`, zweimal
+  wiederholt, durchgehend gruen) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. |
+  route n.a. (keine neue Route, nur Wire-Mapping in bestehenden Responses) | openapi n.a. (keine
+  neue/geaenderte Route) | protoc n.a. (keine .proto-Aenderung, alle drei Felder existierten
+  bereits im generierten Code).
+- mutations-probe: `if r.SignatureData != nil` in `rentalToProto` auf
+  `if false && r.SignatureData != nil` gesetzt → `TestVermietung_SaveSignature` wurde rot
+  (erwartet `"data:image/png;base64,AAAA"`, bekam `""`), zurueckgedreht, `diff` gegen die
+  Sicherungskopie bestaetigt eine identische Datei, Suite (server+vermietung) danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — reine Proto-Mapping-Logik (Stub-Repo), done_when verlangt hier keine DB-Tests.
+- offen: keins. Die parallele Signatur-Luecke bei `vertraegeContractToProto`
+  (`fix-vertraege-contracttoproto-drops-signature`, weiter unten im Backlog) ist NICHT Teil
+  dieser Unit — dort ist zusaetzlich eine Liste-vs-Detail-Unterscheidung gefordert, hier nicht.

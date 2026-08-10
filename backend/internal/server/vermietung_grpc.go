@@ -669,6 +669,15 @@ func rentalToProto(r *vermietung.Rental) *vermietungv1.Rental {
 		s := r.ContactID.String()
 		proto.ContactId = &s
 	}
+	if r.SignatureData != nil {
+		proto.SignatureData = *r.SignatureData
+	}
+	if r.SignedBy != nil {
+		proto.SignedBy = *r.SignedBy
+	}
+	if r.SignedAt != nil {
+		proto.SignedAt = timestamppb.New(*r.SignedAt)
+	}
 	return proto
 }
 

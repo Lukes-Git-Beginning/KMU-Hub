@@ -584,7 +584,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `rentalToProto` (internal/server/vermietung_grpc.go:650) never maps `Rental.SignatureData`,
       `Rental.SignedAt`, or `Rental.SignedBy` onto the wire `vermietungv1.Rental` message, even
