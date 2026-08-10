@@ -1321,7 +1321,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Die zwölf 2FA- und Session-Handler in route_auth.go sind komplett ungetestet:

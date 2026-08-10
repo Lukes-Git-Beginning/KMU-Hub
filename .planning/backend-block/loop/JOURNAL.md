@@ -2291,3 +2291,65 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 34) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 00:24).
+
+## Iteration 36 — c-cov-gateway-auth-2fa-sessions — done — 2026-08-11 00:30
+- commit: (folgt)
+- gebaut: neue Datei `route_auth_2fa_sessions_test.go` mit 24 Testfunktionen (davon 2 mit
+  Subtests) fuer alle zwoelf bislang komplett ungetesteten 2FA-/Session-Handler in
+  `route_auth.go`: Setup2FA, Verify2FA, Validate2FALogin, Disable2FA,
+  RegenerateRecoveryCodes, AdminReset2FA, GetTwoFactorPolicy, UpdateTwoFactorPolicy,
+  ListSessions, ListAllSessions, TerminateSession, TerminateAllSessions. Jeder Handler hat
+  einen ServiceUnavailable-Testfall (leere Registry). Verify2FA/Disable2FA/
+  RegenerateRecoveryCodes zusaetzlich InvalidJSON und MissingCode, Verify2FA zusaetzlich
+  WrongCodeLength (5-stelliger Code gegen `validate:"required,len=6"`). Validate2FALogin
+  zusaetzlich InvalidJSON, MissingPendingToken, MissingCode. AdminReset2FA zusaetzlich
+  NoAdminID (401 vor dem RPC-Versuch, direkter Handler-Aufruf ohne withUserID — der Guard
+  liegt inline im Handler, keine Middleware noetig), InvalidJSON und drei Validierungsfaelle
+  (fehlende/ungueltige user_id, fehlender reason). UpdateTwoFactorPolicy zusaetzlich
+  NoAdminID sowie GracePeriodDays ausserhalb 0-365 (negativ und > 365 als zwei Subtests) und
+  RoleName ausserhalb des oneof. ListAllSessions zusaetzlich MissingUserID (400 vor dem
+  RPC-Aufruf). TerminateSession zusaetzlich InvalidUUID ueber `validateUUIDParam`. Kein
+  Happy-Path getestet — Registry-Client zeigt auf `localhost:0`, ein echter RPC-Erfolg ist in
+  diesem Testmuster nicht erreichbar (Vorbild: der Rest von `route_auth_test.go` haelt sich
+  an dieselbe Grenze).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1 ./internal/gateway/`
+  gruen, 0 SKIPs per `-v | grep -c "^--- SKIP"`) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue Route (TestOpenAPIRouteDrift
+  lief mit, unberuehrt), kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 35,5 % (lokal per `go test -coverprofile=/tmp/cov.out
+  ./internal/gateway/` + `go tool cover -func`; Bezugswert 34,9 % ist der Lauf-Startwert aus
+  `coverage_start:`. Pro-Funktion: HandleSetup2FA 40,0 %, HandleVerify2FA 61,5 %,
+  HandleValidate2FALogin 58,3 %, HandleDisable2FA 61,5 %, HandleRegenerateRecoveryCodes
+  61,5 %, HandleAdminReset2FA 68,8 %, HandleGetTwoFactorPolicy 40,0 %,
+  HandleUpdateTwoFactorPolicy 68,8 %, HandleListSessions 40,0 %, HandleListAllSessions
+  61,5 %, HandleTerminateSession 61,5 %, HandleTerminateAllSessions 36,4 % — alle vorher
+  0,0 %. Rest bis 100 % ist durchgehend der unerreichte Happy-Path nach dem `client.<RPC>`-
+  Aufruf, siehe "gebaut" oben)
+- mutations-probe: zwei Proben, beide gefangen. (1) in `HandleAdminReset2FA` die Bedingung
+  `if adminID == ""` durch `if false` ersetzt (fehlende adminID wuerde dann bis zum
+  RPC-Aufruf durchgereicht) -> `TestHandleAdminReset2FA_NoAdminID` rot (erwartete 401, bekam
+  503 — der Request lief bis zum dummy-`localhost:0`-Client durch und scheiterte dort an der
+  Verbindung statt am Guard), zurueckgedreht. (2) in `updateTwoFactorPolicyRequest` das
+  `GracePeriodDays`-Tag von `lte=365` auf `lte=999999` gesetzt -> `TestHandleUpdateTwoFactor
+  Policy_InvalidGracePeriod/over_max` rot (erwartete 400/validation_failed/grace_period_days,
+  bekam 503 vom selben dummy-Client-Effekt), `.../negative` blieb gruen (eigener
+  `gte=0`-Zweig unberuehrt), zurueckgedreht. `git diff --stat internal/gateway/
+  route_auth.go` zeigt nach beiden Rueckdrehungen keinen Rest, erneuter Testlauf
+  (`go test -count=1 ./internal/gateway/`) gruen.
+- verify vorgaenger: sauber. Commit 99120f18 (Iteration 35) fuegt ausschliesslich
+  `biz_grpc_banking_bexio_test.go` plus Journal/Backlog-Metadaten hinzu — keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: keine neuen Produktionsbefunde in dieser Iteration — alle zwoelf Handler verhalten
+  sich wie im Scope beschrieben. Die neun weiteren ungetesteten Pfade in `route_auth.go`
+  (Forgot/Reset-Password, Profile/User-Update, Provisioning, Invitations) sind die naechste
+  Unit `c-cov-gateway-auth-reset-invitations`, bereits im Backlog vorbereitet.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
+  `-StartNotBefore`-Diff (wie in den Iterationen 6-35 vermerkt) — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 35) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 00:30).
