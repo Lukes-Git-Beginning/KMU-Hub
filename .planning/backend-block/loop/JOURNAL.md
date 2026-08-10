@@ -4162,3 +4162,39 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
   am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
   Datei-Reihenfolge: `c-cov-einkauf-repository-lists` (deps: [], frei).
+
+## Iteration 67 — c-cov-einkauf-repository-lists — done — 2026-08-10 (Lauf 7)
+
+- commit: PENDING
+- gebaut: `internal/einkauf/postgres_repository_lists_test.go` (neu). Vier Tests fuer die
+  Lese-/Listenpfade, die `tenant_write_test.go` (CRUD) nicht abdeckt:
+  `TestPONumberExists_TenantScopedAndExcludeID` (existierende Nummer true, excludeID=eigene
+  ID blendet sich selbst aus, excludeID einer fremden PO blendet den echten Treffer nicht aus,
+  fremder Ctx mit explizit demselben tenantID-Parameter sieht die Nummer trotzdem nicht — RLS
+  blockt unabhaengig vom expliziten Parameter, unbekannte Nummer liefert false),
+  `TestListSuppliers_FilterAndTenantScopedTotal` (Gesamtzahl zaehlt nur den eigenen Tenant,
+  nie den fremden trotz gleichem Namensmuster "Alpha", Search-Filter grenzt korrekt ein,
+  Soft-Delete faellt aus Seite UND Total raus), `TestListPOs_FilterCombinationsAndTenantScopedTotal`
+  (SupplierID-, Status-, Datumsbereich- und kombinierter Filter je einzeln geprueft, Kernstueck:
+  fremder Ctx mit explizit demselben tenantID-Parameter liefert 0/0 — beweist, dass die COUNT-Query
+  dieselbe Tenant-Bedingung traegt wie die Seiten-Query, nicht nur eine von beiden),
+  `TestGetPOWithLines_HeaderAndLinesConsistent` (Kopf-Felder korrekt, zwei Zeilen absichtlich in
+  umgekehrter Positions-Reihenfolge angelegt und dann als line_position-sortiert zurueckerwartet,
+  PO ohne Zeilen liefert Lines mit len 0, unbekannte PO-ID liefert ErrPONotFound statt generischem
+  Fehler).
+- gate: build ok (`go build ./internal/einkauf/...`) | vet ok (`go vet ./internal/einkauf/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/einkauf/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/einkauf/...`, `DATABASE_URL=postgres://kmuhub_app:app_dev@
+  localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips, alle Tests des Pakets inkl.
+  der vier neuen gruen) | migration n.a. (keine Schemaaenderung) | rls-smoke ok (im Testlauf selbst:
+  PONumberExists/ListPOs/ListSuppliers je einmal aus fremdem Ctx mit explizitem eigenem-Tenant-
+  Parameter belegt, RLS blockt trotzdem) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `ListPOLines` (postgres_repository.go) `ORDER BY line_position ASC` zu
+  `ORDER BY line_position DESC` mutiert. Sofort rot: `TestGetPOWithLines_HeaderAndLinesConsistent`
+  — erwartet Reihenfolge [First Line, Second Line], bekommt [Second Line, First Line]. Zeile
+  zurueckgedreht, `git diff --stat internal/einkauf/postgres_repository.go` zeigt danach keinen
+  Diff mehr. `go test -count=1 ./internal/einkauf/...` danach erneut komplett gruen (siehe gate
+  oben).
+- offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung am
+  Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut Datei-
+  Reihenfolge: `c-cov-caldav-app-password` (deps: [], frei).

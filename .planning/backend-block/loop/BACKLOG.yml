@@ -2621,7 +2621,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/einkauf/postgres_repository.go` - die Listen-/Filterpfade, die
       `tenant_write_test.go` (272 Z.) NICHT abdeckt: `ListSuppliers`, `ListPOs`,
