@@ -2741,3 +2741,58 @@ Frühere Läufe liegen vollständig im Archiv:
   committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 40)
   fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:17).
+
+## Iteration 42 — c-cov-vault-gdpr-repo — done — 2026-08-11 01:25
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Zwei geaenderte/neue Testdateien. `internal/security/vault/service_test.go`: fuenf
+  neue Tests fuer `Service.DeleteByKeyName` (Erfolgsfall, No-Op wenn der Key nicht existiert,
+  leerer Key-Name, Get-Repo-Fehler, Delete-Repo-Fehler) plus zwei GetTenantID-Fehlerpfad-Tests
+  (`GetSecret`/`SetSecret` gegen `context.Background()` ohne Tenant-ID, beide erwarten
+  `middleware.ErrMissingTenantID`, kein Panic/stiller Fallback). `internal/security/gdpr/
+  erasure_log_test.go` (neu, DB-Integrationstest): `PostgresRepository.CreateErasureLog`
+  ueber drei Faelle — Tenant-Ableitung aus `original_user_id` schlaegt fuer einen fremden
+  Tenant-Caller per RLS WITH-CHECK fehl (analog zum bestehenden Muster in
+  tenant_write_test.go), eigener Tenant-Caller landet real (per direkter SELECT-Abfrage auf
+  `anonymized_label`/`confirmation_hash`/`modules_affected` nachgewiesen, inkl. JSONB-
+  Rundlauf des `map[string]string`-Felds ohne expliziten json.Marshal-Aufruf im Repo-Code —
+  pgx v5 kodiert das automatisch), unbekannter `original_user_id` schlaegt fehl (NOT-NULL auf
+  dem subselect-abgeleiteten `tenant_id`, `executed_by` bewusst auf einen echten User gesetzt
+  damit der Fehler eindeutig dem richtigen Pfad zuzuordnen ist). `PostgresRepository.
+  GetNextAnonymizedLabel` per zwei aufeinanderfolgenden Aufrufen in frischem Tenant: erster
+  liefert exakt "Geloeschter Benutzer #1", zweiter nach einem zwischenzeitlichen
+  CreateErasureLog-Insert exakt "#2" — sowohl aufsteigend als auch tenant-eindeutig belegt
+  (COUNT(*) ist RLS-gescoped, kein expliziter WHERE-tenant_id-Filter im Code noetig).
+- gate: build ok (go build -p 2 ./internal/security/...) | vet ok | lint ok (golangci-lint
+  run --config .golangci.yml ./internal/security/... -- 0 issues) | test ok (go test -count=1
+  ./internal/security/... komplett gruen, ./internal/security/vault/ und ./internal/security/
+  gdpr/ -v gezaehlt: 0 SKIP, alle DB-Integrationstests liefen real gegen die lokale Postgres
+  als kmuhub_app) | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke ueber die
+  Repo-Tests selbst erbracht (Cross-Tenant-INSERT/-SELECT-Faelle oben) | keine neue Route,
+  kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/security/vault 70,6 % -> 80,0 % | internal/security/gdpr 59,8 % -> 60,6 %
+  (beide lokal per go test -coverprofile + go tool cover -func, Ausgangswert durch
+  temporaeres Herausnehmen der neuen/geaenderten Testdateien gemessen, danach wiederhergestellt
+  und alle drei Gates erneut gruen). Das Feld coverage_start: der Unit nennt "internal/security
+  47,9 %" — das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem
+  CI-Artefakt, nicht der der beiden hier geaenderten Pakete.
+- mutations-probe: drei Proben, alle gefangen. (1) In vault.Service.DeleteByKeyName die
+  No-Op-Kurzschluss-Zeile `if errors.Is(err, ErrSecretNotFound) { return nil }` zu `return err`
+  geaendert -> TestDeleteByKeyName_NoOpWhenMissing rot mit "vault: secret not found" statt
+  nil. (2) In gdpr.PostgresRepository.GetNextAnonymizedLabel `count+1` zu `count` geaendert ->
+  TestGetNextAnonymizedLabel_IncrementsPerCall rot mit "Geloeschter Benutzer #0" statt "#1".
+  (3) In gdpr.PostgresRepository.CreateErasureLog den `(SELECT tenant_id FROM users WHERE id =
+  $2)`-Subselect durch eine hartkodierte fremde Tenant-UUID ersetzt ->
+  TestCreateErasureLog_TenantDerivedFromUser rot mit "new row violates row-level security
+  policy for table gdpr_erasure_log" im eigentlich erfolgreichen Own-Ctx-Pfad. Alle drei per
+  git checkout -- <datei> zurueckgedreht, git status backend/ zeigt danach nur noch die
+  geaenderte/neue Testdatei, build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 64b0f27b (Iteration 41) fuegt ausschliesslich drei
+  Testdateien plus Journal/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein Proto,
+  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig.
+- offen: keine neuen Befunde. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-41 vermerkt — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel)
+  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 41) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
+  ermittelt (2026-08-11 01:25).

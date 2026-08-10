@@ -1519,7 +1519,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security 47,9 %"
     scope: >
       vault.Service.DeleteByKeyName hat keinen dedizierten Test (GetSecret/SetSecret/
