@@ -1421,3 +1421,54 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
   mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 21) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:41).
+
+## Iteration 23 — b-cov-server-chat-channels-messages — done — 2026-08-10 19:00
+- commit: -
+- gebaut: neue Testdatei chat_grpc_channels_messages_test.go mit stubChannelRepo
+  (channel.Repository) und stubChatMessageRepo (message.Repository, umbenannt gegen
+  Kollision mit dem bereits existierenden stubMessageRepo aus inbox_grpc_test.go),
+  beide adaptiert von den geprueften MockRepository-Implementierungen aus
+  internal/chat/channel/service_test.go bzw. internal/chat/message/service_test.go.
+  chatChannelsMessagesFixture verdrahtet echte channel.Service/message.Service dagegen
+  (NewChatGRPCServer mit nil fileService/searchService/reactionService/bookmarkService,
+  da ausserhalb des Scopes). seedChannel/addMemberBoth/addUserBoth halten beide Repos
+  konsistent, weil Channel- und Message-Service in Produktion unabhaengige Repos sind.
+  mapChatError war laut Scope bereits vollstaendig getestet (TestMapChatError) -- hier
+  ausschliesslich Validierungs-/Happy-Path plus mindestens ein Fehlerpfad pro Methode
+  fuer alle 20 Methoden aus dem Scope: CreateChannel, GetChannel, ListChannels,
+  UpdateChannel, DeleteChannel, ArchiveChannel, JoinChannel, LeaveChannel,
+  GetChannelMembers, UpdateMemberRole (inkl. done_when "Demotion des letzten Owners":
+  UpdateMemberRole blockt JEDE Rollenaenderung eines Owner-Targets ueber
+  ErrCannotChangeOwner/FailedPrecondition, unabhaengig davon ob weitere Owner existieren
+  -- der Test macht das im Kommentar explizit, da der Service keine "letzter Owner"-
+  Zaehlung kennt), SendMessage, GetMessages, UpdateMessage, DeleteMessage, GetOrCreateDM,
+  ListDMs, GetThreadReplies, MarkChannelRead, GetUnreadCounts, GetUserMentions.
+  Testfunktionen mit "Chat"-Praefix benannt (TestChatCreateChannel etc.), weil
+  TestDeleteMessage bereits in email_grpc_messages_send_test.go existiert.
+- gate: build ok (internal/server, cmd/gateway) | vet ok | lint ok (0 issues) | test ok
+  (1497 PASS, 0 SKIP, 0 FAIL in internal/server; internal/chat/... komplett gruen) |
+  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  go test ./internal/gateway/ bewusst nicht gelaufen (keine Route/kein Gateway-Code
+  angefasst)
+- coverage: internal/server 47,7 % -> 63,5 % (kumulativ ueber alle Iterationen dieses
+  Laufs, nicht allein durch diese Unit)
+- mutations-probe: in internal/chat/channel/service.go:349 die Owner-Leave-Sperre
+  `if membership.Role == models.ChannelRoleOwner` durch `if false && ...` entschaerft ->
+  TestChatLeaveChannel/owner_cannot_leave rot (erwartete FailedPrecondition, bekam nil).
+  Zurueckgedreht, `git diff --stat` auf der Datei zeigt keinen Rest-Diff mehr, Test
+  wieder gruen.
+- verify vorgaenger: sauber. Commit cfb6bd47 (Iteration 22) aendert nur die neue
+  Testdatei email_grpc_signatures_rules_labels_templates_test.go plus
+  BACKLOG.yml/JOURNAL.md -- keine Produktionscode-Datei, kein neues Proto, keine neue
+  Route, kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
+  Fehlerklassen einschlaegig. (56e64e49 direkt danach ist nur der Chore-Commit, der den
+  Commit-Hash im Journal nachtraegt.)
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit
+  ist reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
+  nachfahren muss.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-22 vermerkt) -- nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 22)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:00).
