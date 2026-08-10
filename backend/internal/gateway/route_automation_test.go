@@ -245,7 +245,7 @@ func TestHandleUpdateAutomation_AllFieldsReachesRPC(t *testing.T) {
 		"trigger_type":   "deal.won",
 		"trigger_config": map[string]interface{}{"a": 1},
 		"conditions":     map[string]interface{}{"op": "eq"},
-		"actions":        map[string]interface{}{"type": "notify"},
+		"actions":        []interface{}{map[string]interface{}{"type": "notify"}},
 		"max_steps":      5,
 	}))
 	req = withAuth(req, "user-123", testTenantID)

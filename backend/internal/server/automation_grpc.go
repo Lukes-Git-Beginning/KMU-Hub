@@ -61,7 +61,7 @@ func (s *AutomationGRPCServer) CreateAutomation(ctx context.Context, req *automa
 		auto.Conditions = automationStructToJSON(req.GetConditions())
 	}
 	if req.GetActions() != nil {
-		auto.Actions = automationStructToJSON(req.GetActions())
+		auto.Actions = automationListToJSON(req.GetActions())
 	}
 
 	if err := s.svc.Create(ctx, auto); err != nil {
@@ -108,7 +108,7 @@ func (s *AutomationGRPCServer) UpdateAutomation(ctx context.Context, req *automa
 		auto.Conditions = automationStructToJSON(req.GetConditions())
 	}
 	if req.GetActions() != nil {
-		auto.Actions = automationStructToJSON(req.GetActions())
+		auto.Actions = automationListToJSON(req.GetActions())
 	}
 	if req.MaxSteps != nil {
 		auto.MaxSteps = int(*req.MaxSteps)
@@ -538,7 +538,7 @@ func automationToProto(a *models.Automation) *automationv1.AutomationInfo {
 		info.Conditions = automationJSONToStruct(a.Conditions)
 	}
 	if a.Actions != nil {
-		info.Actions = automationJSONToStruct(a.Actions)
+		info.Actions = automationJSONToList(a.Actions)
 	}
 	if a.TemplateID != nil {
 		info.TemplateId = a.TemplateID
@@ -616,7 +616,7 @@ func templateToProto(t *models.AutomationTemplate) *automationv1.AutomationTempl
 		info.Conditions = automationJSONToStruct(t.Conditions)
 	}
 	if t.Actions != nil {
-		info.Actions = automationJSONToStruct(t.Actions)
+		info.Actions = automationJSONToList(t.Actions)
 	}
 
 	return info
@@ -784,6 +784,31 @@ func automationJSONToStruct(data json.RawMessage) *structpb.Struct {
 		return nil
 	}
 	return s
+}
+
+// automationListToJSON converts the actions field, which carries a JSON
+// array (see models.ActionConfig), unlike trigger_config/conditions which
+// carry a JSON object and stay google.protobuf.Struct.
+func automationListToJSON(l *structpb.ListValue) json.RawMessage {
+	if l == nil {
+		return nil
+	}
+	data, err := l.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+func automationJSONToList(data json.RawMessage) *structpb.ListValue {
+	if len(data) == 0 {
+		return nil
+	}
+	l := &structpb.ListValue{}
+	if err := l.UnmarshalJSON(data); err != nil {
+		return nil
+	}
+	return l
 }
 
 func automationStructToMap(s *structpb.Struct) map[string]any {

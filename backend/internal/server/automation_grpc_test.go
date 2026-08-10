@@ -250,6 +250,13 @@ func automationStruct(t *testing.T, v map[string]any) *structpb.Struct {
 	return s
 }
 
+func automationList(t *testing.T, v []any) *structpb.ListValue {
+	t.Helper()
+	l, err := structpb.NewList(v)
+	require.NoError(t, err)
+	return l
+}
+
 // ============================================================================
 // mapDomainError
 // ============================================================================
@@ -307,24 +314,36 @@ func TestCreateAutomation_UnknownTriggerType(t *testing.T) {
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
-// TestCreateAutomation_ActionsStructCannotCarryAnArray documents a wire-shape
-// defect (see JOURNAL.md, this unit): automation.proto declares `actions` as
+// TestCreateAutomation_ActionsStructCannotCarryAnArray documents the fix for
+// a wire-shape defect (see JOURNAL.md, fix-automation-actions-struct-cannot-
+// represent-array): automation.proto used to declare `actions` as
 // google.protobuf.Struct (JSON-object-only), but workflow.Service.validateAutomation
 // unmarshals auto.Actions into []models.ActionConfig -- a JSON array. A
-// structpb.Struct can only ever marshal to `{...}`, never `[...]`, so any
-// non-nil Actions payload -- even a single, otherwise-valid action -- is
-// rejected as ErrInvalidAction. This pins the CURRENT (broken) behavior; it is
-// not a claim about the desired one.
+// structpb.Struct can only ever marshal to `{...}`, never `[...]`, so every
+// non-nil Actions payload -- even a single, otherwise-valid action -- was
+// rejected as ErrInvalidAction. `actions` is now google.protobuf.ListValue,
+// so a real action list round-trips instead of being rejected.
 func TestCreateAutomation_ActionsStructCannotCarryAnArray(t *testing.T) {
-	s := newAutomationTestServer(nil, nil, nil)
+	var captured *models.Automation
+	repo := &stubAutomationRepo{
+		createFn: func(_ context.Context, a *models.Automation) error {
+			captured = a
+			return nil
+		},
+	}
+	s := newAutomationTestServer(repo, nil, nil)
 	req := &automationv1.CreateAutomationRequest{
 		OwnerId:     uuid.NewString(),
 		Name:        "Would-be valid automation",
 		TriggerType: "event",
-		Actions:     automationStruct(t, map[string]any{"type": "send_email"}),
+		Actions:     automationList(t, []any{map[string]any{"type": "send_email"}}),
 	}
-	_, err := s.CreateAutomation(automationCtxWithTenant(uuid.New()), req)
-	requireGRPCCode(t, err, codes.InvalidArgument)
+	resp, err := s.CreateAutomation(automationCtxWithTenant(uuid.New()), req)
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	require.JSONEq(t, `[{"type":"send_email"}]`, string(captured.Actions))
+	require.NotNil(t, resp.GetAutomation().GetActions())
+	require.Len(t, resp.GetAutomation().GetActions().GetValues(), 1)
 }
 
 func TestCreateAutomation_Success(t *testing.T) {

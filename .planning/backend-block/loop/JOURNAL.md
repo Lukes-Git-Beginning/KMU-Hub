@@ -2310,3 +2310,68 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde. Alle drei `done_when`-Punkte der Unit erfuellt: die drei Methoden
   pruefen jetzt auf nil, liefern `ErrManifestNotFound`/`codes.NotFound` statt zu paniken, die
   drei `require.Panics`-Faelle sind ersetzt.
+
+## Iteration 35 — fix-automation-actions-struct-cannot-represent-array — done — 2026-08-10 02:51
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `e1294ff9` (fix-plugin-nil-manifest-panic-on-orphaned-installation)
+  geprueft: `git show --stat` zeigt ausschliesslich `internal/plugin/service.go` (Produktionscode)
+  + `internal/server/plugin_grpc_test.go` + Journal/Backlog. Diff gelesen: drei neue Nil-Checks
+  nach `s.manifests.GetByID`, kein gRPC-Bypass, kein Stub, kein `.proto` beruehrt, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, kein Wire-Shape-Wechsel, keine neue Route.
+- gebaut: `actions` in `automation.proto` von `google.protobuf.Struct` auf
+  `google.protobuf.ListValue` umgestellt (vier Stellen: `AutomationInfo`,
+  `AutomationTemplateInfo`, `CreateAutomationRequest`, `UpdateAutomationRequest` — alle vier, nicht
+  nur die drei im Scope-Text genannten, weil `AutomationTemplateInfo.actions` denselben
+  `automationJSONToStruct`-Konverter durchlaeuft und `internal/automation/template/templates.go`
+  seine `Actions` ausnahmslos als `mustJSON([]models.ActionConfig{...})` befuellt — ein JSON-Array,
+  exakt derselbe Fehler, waere der vierte Ort unangetastet geblieben). `protoc --go_out=.
+  --go-grpc_out=.` fuer `proto/automation/v1/automation.proto` neu generiert (kein manueller
+  .pb.go-Edit). `internal/server/automation_grpc.go`: neue Helfer `automationListToJSON`/
+  `automationJSONToList` (ListValue<->JSON-Array, Pendant zu den bestehenden
+  `automationStructToJSON`/`automationJSONToStruct` fuer trigger_config/conditions), an allen vier
+  Call-Sites eingesetzt (`CreateAutomation`, `UpdateAutomation`, `automationToProto`,
+  `templateToProto`). `internal/gateway/route_automation.go`: neuer Helfer
+  `rawJSONToAutomationList`, ersetzt `rawJSONToAutomationStruct` fuer `body.Actions` in
+  `HandleCreateAutomation`/`HandleUpdateAutomation` (Verhalten bei Parse-Fehler unveraendert:
+  Feld bleibt still nil, identisch zum bestehenden trigger_config/conditions-Muster — das
+  Verschlucken selbst ist ein separat dokumentierter, nicht in dieser Unit behobener Befund aus
+  `b-cov-gateway-automation`). `openapi.yaml`: die vier `actions: { type: object }`-Schemas
+  (`Automation`, `CreateAutomationRequest`, `UpdateAutomationRequest`, `AutomationTemplate`) auf
+  `actions: { type: array, items: { type: object } }` korrigiert — dokumentierten vorher
+  fälschlich ein JSON-Objekt statt eines Arrays; `swagger-cli validate` danach gruen.
+  `TestCreateAutomation_ActionsStructCannotCarryAnArray` (Server-Test) von "pinnt das kaputte
+  Verhalten" auf "ein echtes Actions-Array wird angenommen, im Repository als JSON-Array
+  gespeichert und in der Response wieder als `ListValue` mit einem Eintrag ausgelesen" umgestellt
+  (nicht geloescht, wie done_when verlangt) — neuer Helfer `automationList(t, []any{...})` neben
+  dem bestehenden `automationStruct`. Gateway-Test `TestHandleUpdateAutomation_AllFieldsReachesRPC`
+  hatte `actions` bisher als JSON-*Objekt* im Body (`map[string]interface{}{"type": "notify"}`) —
+  war zufaellig gueltig, solange das Proto-Feld Struct war; auf ein Array umgestellt, sonst waere
+  der Test nach dem Fix ein (harmloser, weil eh nur auf 503 pruefender) Fall des
+  Malformed-Silently-Ignored-Pfads statt tatsaechlich alle Felder gueltig zu befuellen.
+  FE-Gegenprobe (`desktop/src/renderer/src/api/automation-client.ts`,
+  `automation-types.ts`): das Frontend sendet `actions` bereits als `unknown[]`/`ActionConfig[]` —
+  der Bug war produktiv wirksam, nicht nur theoretisch: keine einzige Automation mit echten
+  Aktionen liess sich je erfolgreich anlegen.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/automation/...
+  ./internal/gateway/... ./cmd/...`) | vet ok (`go vet ./internal/server/... ./internal/automation/...
+  ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/server/... ./internal/automation/... ./internal/gateway/... ./proto/...`, 0 issues) |
+  test ok (`go test -count=3 ./internal/server/... ./internal/automation/... ./internal/gateway/...`,
+  dreimal wiederholt, durchgehend gruen) | migration n.a. (kein Schema-Zugriff) | rls-smoke n.a. |
+  route n.a. (keine neue Route, nur ein bestehendes Feld auf allen bestehenden Routen) |
+  openapi: `npx swagger-cli validate api/openapi.yaml` gruen, `TestOpenAPIRouteDrift` gruen |
+  protoc: Neugenerierung im selben Commit, `git diff` zeigt nur generierte Aenderungen (Actions-Feldtyp
+  + Nachbar-Typnummern-Verschiebung durch das neue `ListValue`-Symbol im Descriptor), kein Handedit.
+- mutations-probe: in `CreateAutomation` die Bedingung `if req.GetActions() != nil` auf
+  `if false && req.GetActions() != nil` gesetzt → `TestCreateAutomation_ActionsStructCannotCarryAnArray`
+  wurde rot (`captured.Actions` blieb leer statt `[{"type":"send_email"}]`), zurueckgedreht,
+  `git diff --stat` auf `automation_grpc.go` zeigt danach nur noch die beabsichtigten Aenderungen,
+  Suite dreimal in Folge wieder vollstaendig gruen.
+- db-tests: 0 — reine Proto-/Konverter-/Handler-Logik ohne DB-Zugriff, done_when verlangt hier
+  keine DB-Tests.
+- offen: `fix-automation-testcondition-omitted-conditions-error` (naechste Unit im Backlog, selbe
+  Datei/Domain) ist davon unberuehrt — betrifft `conditions`, nicht `actions`, bleibt bei
+  `google.protobuf.Struct`. `AutomationTemplateInfo.actions` wurde mitgezogen, obwohl der
+  Scope-Text nur die drei anderen Messages nannte — Begruendung siehe oben (gebaut); falls Luke
+  das als Scope-Ueberschreitung werten will, ist der Diff dafuer isoliert (ein zusaetzlicher
+  proto-Feldtyp, ein zusaetzlicher Call-Site-Swap in `templateToProto`).

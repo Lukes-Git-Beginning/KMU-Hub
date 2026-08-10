@@ -337,7 +337,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `automation.proto` deklariert `actions` (auf CreateAutomationRequest, UpdateAutomationRequest
       und AutomationInfo) als `google.protobuf.Struct` - ein Wire-Typ, der ausschliesslich ein
