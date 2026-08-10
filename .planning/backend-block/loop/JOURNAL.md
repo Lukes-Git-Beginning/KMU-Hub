@@ -1800,3 +1800,76 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 27) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 23:28).
+
+## Iteration 29 — b-cov-server-work-search-links-preferences — done — 2026-08-10 23:39
+- commit: (folgt im naechsten Meta-Commit)
+- unit: b-cov-server-work-search-links-preferences (Block B, Coverage
+  internal/server)
+- scope: die 12 im Backlog genannten ungetesteten work_grpc.go-Methoden:
+  SearchTasks, GetUserProjectPreference, SetUserProjectPreference,
+  AttachFileToTask, RemoveTaskFile, ListTaskFiles, LinkEntityToTask,
+  UnlinkEntityFromTask, ListTaskEntityLinks, ListEntityTasks,
+  SetTaskCustomFieldValues, GetTaskCustomFieldValues, ListTaskActivities.
+- was: `workTaskMockRepo` in work_label_test.go von reinen No-Op-Stubs auf
+  echte In-Memory-Implementierungen umgebaut (entityLinks/files/
+  customFieldVals/activities als Maps, Search filtert jetzt tatsaechlich
+  nach ProjectIDs/AssigneeIDs statt leer zurueckzugeben) und um ein
+  `forceErr`-Feld ergaenzt (Muster aus wiki_grpc_test.go/
+  errStubWikiRepoFailure uebernommen), damit sowohl die mapWorkError-Pfade
+  (Link/Unlink/AttachFile/RemoveFile/SetCustomFieldValues/Preferences) als
+  auch die direkten status.Error(Internal)-Pfade (List*, GetCustomFieldValues)
+  echte Fehlerfaelle durchlaufen statt nur Happy-Path-Stubs zu treffen. Neue
+  Datei work_search_links_test.go, 44 Testfaelle: pro Methode mindestens ein
+  Validierungs-/Fehlerpfad (ungueltige UUID, fehlender Tenant, Repo-Fehler,
+  Not-Found bei Unlink/RemoveFile) plus Happy Path. SearchTasks deckt die
+  geforderte Filterkombination ProjectIds+AssigneeIds (drei Tasks geseedet:
+  Treffer, falsches Projekt, kein Assignee -> genau 1 Ergebnis) sowie beide
+  Fehlerpfade fuer ungueltige IDs in der Liste. SetUserProjectPreference
+  deckt zusaetzlich den Backfill-Zweig (bestehende Preference mit
+  TenantID==uuid.Nil bekommt die Tenant-ID aus dem Context nachgetragen).
+  golangci-lint schlug fuer die Mock-Erweiterung zwei Simplify-Hinweise vor
+  (maps.Copy statt Kopier-Loop, slices.Contains statt Vergleichs-Loop in
+  Search) -- beide uebernommen, dadurch 0 Lint-Issues.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
+  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/server/... -- 0
+  issues) | test ok (`go test -count=1 ./internal/server/` gruen, 0 SKIP) |
+  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | go test ./internal/gateway/ bewusst nicht separat gelaufen
+  (keine Route/kein Gateway-Code angefasst, nur die bereits erlaubte
+  Ausnahme hr-salary-self-service-route betraf Block A, nicht diese Unit)
+- coverage: internal/server 47,7 % -> 67,5 % (lokal gemessen per
+  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
+  `go tool cover -func`; Iteration 28 hatte 66,6 % notiert)
+- mutations-probe: in work_grpc.go SearchTasks() die Zeile
+  `filters.ProjectIDs = append(filters.ProjectIDs, id)` durch `_ = id`
+  ersetzt (Project-ID-Filter waere dann wirkungslos, SearchTasks liefert
+  ungefiltert nach Projekt) -> TestSearchTasks_FiltersByProjectAndAssignee
+  rot (2 statt 1 Ergebnis: der Task aus dem falschen Projekt blieb drin).
+  Zurueckgedreht, `git diff --stat internal/server/work_grpc.go` zeigt
+  keinen Rest.
+- verify vorgaenger: sauber. Commit 02c6fc61 (Iteration 28) fuegt
+  ausschliesslich internal/server/websocket_broadcast_test.go plus
+  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
+  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: waehrend eines vollen `go test -count=1 ./internal/server/ -v`-Laufs
+  (8 Wiederholungen zur Flakiness-Pruefung dieser Unit) ist EINMAL
+  `TestGDPRExportRPCs_HappyPathAndDomainErrors` in security_grpc_test.go mit
+  "stub: export request not found" -> codes.Internal statt NoError
+  fehlgeschlagen (7/8 Laeufe gruen). Auf dem unveraenderten Basis-Commit
+  3efc3da6 liefen 3/3 Wiederholungen durch, das ist also keine Regression
+  dieser Unit, sondern ein vorbestehender Flake in der GDPR-Export-Testsuite
+  (vermutlich zeit-/reihenfolgeabhaengiger Zustand im dortigen Stub-Repo).
+  Nicht Teil dieser Unit (kein GDPR-/security-Code angefasst) -- fuer Lauf 9
+  als eigene Beobachtung vormerken, falls es sich wiederholt.
+  `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar mit
+  einem Linker-OOM ab (siehe Iterationen 25-28) -- unabhaengig von dieser
+  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-28 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 28) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 23:39).

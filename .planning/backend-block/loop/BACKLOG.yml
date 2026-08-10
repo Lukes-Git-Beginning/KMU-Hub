@@ -1098,7 +1098,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       work_grpc.go ist mit 65,2 % bereits gut abgedeckt (work_project_task_test.go,

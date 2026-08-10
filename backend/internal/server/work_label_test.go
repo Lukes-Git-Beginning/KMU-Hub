@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -248,9 +250,16 @@ func (m *labelMockRepo) GetTaskLabelIDs(_ context.Context, _, taskID string) ([]
 // ============================================================================
 
 type workTaskMockRepo struct {
-	tasks          map[uuid.UUID]*models.TaskWithRelations
-	lastListFilter task.TaskFilters
-	dependencies   []models.TaskDependency
+	tasks            map[uuid.UUID]*models.TaskWithRelations
+	lastListFilter   task.TaskFilters
+	dependencies     []models.TaskDependency
+	entityLinks      map[uuid.UUID]models.TaskEntityLink
+	files            map[uuid.UUID]models.TaskFile
+	customFieldVals  map[uuid.UUID]map[uuid.UUID]any
+	activities       []models.TaskActivity
+	lastSearchQuery  string
+	lastSearchFilter task.TaskSearchFilters
+	forceErr         error
 }
 
 func newWorkTaskMockRepo() *workTaskMockRepo {
@@ -308,33 +317,160 @@ func (r *workTaskMockRepo) ListDependencies(_ context.Context, sourceTaskID uuid
 func (r *workTaskMockRepo) HasCycle(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
 }
-func (r *workTaskMockRepo) CreateActivity(_ context.Context, _ *models.TaskActivity) error {
+func (r *workTaskMockRepo) CreateActivity(_ context.Context, a *models.TaskActivity) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	r.activities = append(r.activities, *a)
 	return nil
 }
-func (r *workTaskMockRepo) ListActivities(_ context.Context, _ uuid.UUID, _, _ int) ([]models.TaskActivity, int, error) {
-	return nil, 0, nil
+func (r *workTaskMockRepo) ListActivities(_ context.Context, taskID uuid.UUID, _, _ int) ([]models.TaskActivity, int, error) {
+	if r.forceErr != nil {
+		return nil, 0, r.forceErr
+	}
+	var out []models.TaskActivity
+	for _, a := range r.activities {
+		if a.TaskID == taskID {
+			out = append(out, a)
+		}
+	}
+	return out, len(out), nil
 }
-func (r *workTaskMockRepo) LinkEntity(_ context.Context, _ *models.TaskEntityLink) error { return nil }
-func (r *workTaskMockRepo) UnlinkEntity(_ context.Context, _, _ uuid.UUID) error         { return nil }
-func (r *workTaskMockRepo) ListEntityLinks(_ context.Context, _ uuid.UUID) ([]models.TaskEntityLink, error) {
-	return nil, nil
-}
-func (r *workTaskMockRepo) ListTasksForEntity(_ context.Context, _ string, _ uuid.UUID) ([]models.TaskWithRelations, error) {
-	return nil, nil
-}
-func (r *workTaskMockRepo) AttachFile(_ context.Context, _ *models.TaskFile) error { return nil }
-func (r *workTaskMockRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error     { return nil }
-func (r *workTaskMockRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
-	return nil, nil
-}
-func (r *workTaskMockRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ map[uuid.UUID]any) error {
+func (r *workTaskMockRepo) LinkEntity(_ context.Context, l *models.TaskEntityLink) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	if r.entityLinks == nil {
+		r.entityLinks = make(map[uuid.UUID]models.TaskEntityLink)
+	}
+	r.entityLinks[l.ID] = *l
 	return nil
 }
-func (r *workTaskMockRepo) GetCustomFieldValues(_ context.Context, _ uuid.UUID) (map[string]any, error) {
-	return nil, nil
+func (r *workTaskMockRepo) UnlinkEntity(_ context.Context, _, id uuid.UUID) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	if _, ok := r.entityLinks[id]; !ok {
+		return task.ErrNotFound
+	}
+	delete(r.entityLinks, id)
+	return nil
 }
-func (r *workTaskMockRepo) Search(_ context.Context, _ uuid.UUID, _ string, _ task.TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
-	return nil, 0, nil
+func (r *workTaskMockRepo) ListEntityLinks(_ context.Context, taskID uuid.UUID) ([]models.TaskEntityLink, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	var out []models.TaskEntityLink
+	for _, l := range r.entityLinks {
+		if l.TaskID == taskID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+func (r *workTaskMockRepo) ListTasksForEntity(_ context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	var out []models.TaskWithRelations
+	for _, l := range r.entityLinks {
+		if l.EntityType != entityType || l.EntityID != entityID {
+			continue
+		}
+		if tw, ok := r.tasks[l.TaskID]; ok {
+			out = append(out, *tw)
+		}
+	}
+	return out, nil
+}
+func (r *workTaskMockRepo) AttachFile(_ context.Context, f *models.TaskFile) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	if r.files == nil {
+		r.files = make(map[uuid.UUID]models.TaskFile)
+	}
+	r.files[f.ID] = *f
+	return nil
+}
+func (r *workTaskMockRepo) RemoveFile(_ context.Context, _, id uuid.UUID) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	if _, ok := r.files[id]; !ok {
+		return task.ErrNotFound
+	}
+	delete(r.files, id)
+	return nil
+}
+func (r *workTaskMockRepo) ListFiles(_ context.Context, taskID uuid.UUID) ([]models.TaskFile, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	var out []models.TaskFile
+	for _, f := range r.files {
+		if f.TaskID == taskID {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+func (r *workTaskMockRepo) SetCustomFieldValues(_ context.Context, taskID, _ uuid.UUID, values map[uuid.UUID]any) error {
+	if r.forceErr != nil {
+		return r.forceErr
+	}
+	if r.customFieldVals == nil {
+		r.customFieldVals = make(map[uuid.UUID]map[uuid.UUID]any)
+	}
+	if r.customFieldVals[taskID] == nil {
+		r.customFieldVals[taskID] = make(map[uuid.UUID]any)
+	}
+	maps.Copy(r.customFieldVals[taskID], values)
+	return nil
+}
+func (r *workTaskMockRepo) GetCustomFieldValues(_ context.Context, taskID uuid.UUID) (map[string]any, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	out := make(map[string]any)
+	for k, v := range r.customFieldVals[taskID] {
+		out[k.String()] = v
+	}
+	return out, nil
+}
+func (r *workTaskMockRepo) Search(_ context.Context, _ uuid.UUID, query string, filters task.TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
+	if r.forceErr != nil {
+		return nil, 0, r.forceErr
+	}
+	r.lastSearchQuery = query
+	r.lastSearchFilter = filters
+
+	matchesProject := func(tw *models.TaskWithRelations) bool {
+		if len(filters.ProjectIDs) == 0 {
+			return true
+		}
+		if tw.ProjectID == nil {
+			return false
+		}
+		return slices.Contains(filters.ProjectIDs, *tw.ProjectID)
+	}
+	matchesAssignee := func(tw *models.TaskWithRelations) bool {
+		if len(filters.AssigneeIDs) == 0 {
+			return true
+		}
+		if tw.AssigneeID == nil {
+			return false
+		}
+		return slices.Contains(filters.AssigneeIDs, *tw.AssigneeID)
+	}
+
+	var out []models.TaskWithRelations
+	for _, tw := range r.tasks {
+		if matchesProject(tw) && matchesAssignee(tw) {
+			out = append(out, *tw)
+		}
+	}
+	return out, len(out), nil
 }
 func (r *workTaskMockRepo) ListByProject(_ context.Context, _ uuid.UUID) ([]models.Task, error) {
 	return nil, nil
