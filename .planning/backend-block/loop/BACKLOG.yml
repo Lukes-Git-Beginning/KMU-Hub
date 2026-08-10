@@ -2191,7 +2191,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/work/calendar/postgres_repository.go` (432 Z., 21 Methoden) und
       `booking_postgres_repository.go` (266 Z., 11 Methoden), zusammen 698 Zeilen. Nur
@@ -2216,6 +2216,58 @@ units:
       - Cross-Tenant-Fall an mindestens einem Lesepfad
       - Mutations-Probe durchgefuehrt und im Journal belegt
       - go test -count=1 ./internal/work/calendar/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-work-calendar-listbrowsable-broken-query
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `PostgresRepository.ListBrowsable` (internal/work/calendar/postgres_repository.go:233)
+      binds three query arguments (`userID, userID, tenantID`) for a SQL statement that only
+      references placeholders `$1` (twice: `c.owner_id != $1` and `cm.user_id = $1` in the
+      NOT EXISTS subquery) and `$3` (`c.tenant_id = $3`) - `$2` never appears anywhere in the
+      SQL text. Postgres's extended query protocol (which pgx uses by default, Parse/Bind/
+      Describe) must determine a type for every parameter position it parses; a position the
+      statement never references cannot be typed, so EVERY call fails with
+      `ERROR: could not determine data type of parameter $2 (SQLSTATE 42P18)`, regardless of
+      tenant, user, or fixture state. This is not an RLS issue and not a data issue - the
+      query is malformed independent of what's in the database. Proven by
+      `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` in
+      `internal/work/calendar/repository_gaps_test.go` (built during `c-cov-work-calendar-repo`,
+      Lauf 7): asserts the exact SQLSTATE 42P18 on every call. Net effect: the shared-calendar
+      discovery/browse feature (find calendars you can subscribe to) is completely dead -
+      `ListBrowsable` has presumably never returned successfully in any environment running a
+      normal pgx pool, since nothing before this unit ever tested or (per the "documents
+      current gap" proof) could have exercised this path successfully.
+    sources:
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/work/calendar/repository_gaps_test.go
+      - backend/internal/work/calendar/booking_repository.go
+    notes: >
+      Gefunden waehrend c-cov-work-calendar-repo (Lauf 7) - kein einziger bestehender Test
+      rief ListBrowsable vorher auf (weder tenant_write_test.go noch
+      tenant_isolation_phase2_test.go), die Luecke war komplett unentdeckt. Nicht inline
+      gefixt - echte Verhaltensaenderung (Query-Text/Argumentliste), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: die duplizierte `userID`-Bindung
+      streichen und die Query-Platzhalter durchnummerieren - `r.pool.Query(ctx, query, userID,
+      tenantID)` (zwei Argumente) mit `c.tenant_id = $2` statt `$3` im SQL-Text (beide
+      `$1`-Referenzen bleiben unveraendert, da `userID` weiterhin an Position 1 steht). Nach
+      dem Fix `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` durch einen
+      echten Verhaltenstest ersetzen (nicht loeschen): shared calendar owned by someone else
+      ist browsable, personal calendar nie, bereits abonnierte Kalender werden ueber die
+      NOT EXISTS-Klausel ausgeschlossen - alles Assertions, die in
+      `TestCalendarDiscovery_ListBrowsableAndSubscription` (Vorentwurf dieser Iteration,
+      verworfen weil die Query nie erfolgreich zurueckkehrte) bereits vorbereitet waren, siehe
+      Git-Historie dieser Datei fuer die verworfene Fassung als Vorlage.
+    done_when:
+      - ListBrowsable gibt bei gueltigen Argumenten keinen 42P18-Fehler mehr zurueck
+      - Shared calendar eines anderen Owners ist browsable, personal calendar nie, bereits
+        abonnierte Kalender werden ausgeschlossen - alle drei Faelle mit einem Test belegt
+      - TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/work/calendar/... gruen
 
   - id: c-cov-plugin-repository-gaps
     phase: 3

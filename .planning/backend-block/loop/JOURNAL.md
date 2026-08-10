@@ -3409,3 +3409,96 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Fehlerpfad pro getesteter Funktion, Mutations-Probe im Journal belegt, Paket gruen 0 Skips).
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-work-calendar-repo` (Zeile ~2189,
   `status: todo`).
+
+## Iteration 56 — c-cov-work-calendar-repo — done — 2026-08-10 (Lauf 7)
+- commit: siehe unten (wird nach diesem Eintrag erstellt)
+- verify vorgaenger: sauber — `8760b26e`/`48fd85b2` (c-cov-dialer-repo, Iteration 55) geprueft:
+  `git show --stat 48fd85b2` zeigt `queue_and_list_test.go` (neu, 901 Zeilen, reine
+  Test-Datei) plus BACKLOG.yml/JOURNAL.md — deckt sich 1:1 mit dem Journal-Eintrag der
+  Vorgaenger-Iteration. `8760b26e` (Zwischen-Commit derselben Aenderung ohne Backlog/
+  Journal-Diff) ist kein Ancestor von `48fd85b2`, weil die Iteration ihn per Amend um die
+  Backlog-/Journal-Datei erweitert hat — inhaltlich identisch, kein Grund zur Sorge. Kein
+  `.proto` beruehrt, kein neuer `RequirePermission`-Guard, keine neue Route, kein
+  Wire-Shape-Wechsel. `git merge origin/main` lief als "Already up to date".
+- gebaut: `internal/work/calendar/repository_gaps_test.go` (neu, 10 Testfunktionen) —
+  schliesst die Luecke in `postgres_repository.go` (432 Z., 21 Methoden) und
+  `booking_postgres_repository.go` (266 Z., 11 Methoden), die zuvor nur duenn durch
+  `tenant_write_test.go` (Create/Update/Delete), `tenant_isolation_phase2_test.go`
+  (SeedRow-basierte RLS-Zeilenzahl) und `booking_slug_unique_test.go` (globaler
+  Active-Slug-Index) abgedeckt waren. Neu: `TestCalendarMembers_PermissionAndVisibility
+  Lifecycle` (AddMember/GetMember/ListMembers/UpdateMemberPermission/
+  UpdateMemberVisibility/UpdateMemberColorOverride/RemoveMember, UND der Beweis, dass eine
+  Mitgliedschaftsaenderung `ListByUser` tatsaechlich beeinflusst — Backlog-Prioritaet 1),
+  `TestCalendarGetByID_CrossTenantNotFound` (RLS blockt selbst wenn der echte Opfer-Tenant
+  als Methodenargument mitgegeben wird), `TestListBrowsable_UnusedSecondParameter_
+  DocumentsCurrentGap` + `TestCalendarSubscription_SubscribeAndUnsubscribe` (siehe Fund
+  unten), `TestEventCategories_CreateListDelete` (Case-insensitive Unique-Index,
+  fremder-User-Delete → NotFound), `TestUserCalendarPreferences_UpsertAndGet` (nil-bei-
+  fehlender-Zeile-Vertrag, ON-CONFLICT-Update), `TestEnsurePersonalCalendar_
+  IdempotentAndCreates` (zweiter Call liefert dieselbe Calendar-ID, kein Duplikat),
+  `TestBookingPages_CRUDAndListFiltering` (Create/Get/Update/Delete/List inkl.
+  includeInactive-Filter, inaktive Seite verschwindet aus dem Slug-Lookup, Fremd-Tenant-
+  Update/Delete → NotFound), `TestPublicBookings_CreateAndGetBookedSlots`
+  (GetBookedSlotsForPage schliesst `status='cancelled'` aus, UpdatePublicBookingCalendar
+  EventID schreibt zurueck), `TestGetCalendarEventsInRange_OverlapBoundaryAndCrossTenant`
+  (Backlog-Prioritaet 2: ein Slot, der exakt an einer bestehenden Buchung endet, ist frei,
+  ein ueberlappender ist belegt — UND Cross-Tenant-Lesepfad, da diese eine Methode gar
+  keinen expliziten `tenant_id`-Parameter hat und komplett auf RLS angewiesen ist).
+- fund (nicht gefixt, eigene Unit `fix-work-calendar-listbrowsable-broken-query` angelegt):
+  `ListBrowsable` (postgres_repository.go:233) bindet drei Argumente (`userID, userID,
+  tenantID`) fuer eine Query, die nur `$1` (zweimal) und `$3` referenziert — `$2` kommt im
+  SQL-Text nirgends vor. pgx nutzt per Default das Extended-Query-Protocol (Parse/Bind/
+  Describe); fuer einen Platzhalter, den die Query nie referenziert, kann Postgres keinen
+  Typ ermitteln → JEDER Aufruf schlaegt mit `ERROR: could not determine data type of
+  parameter $2 (SQLSTATE 42P18)` fehl, unabhaengig von Tenant/User/Fixture-Daten. Kein
+  RLS-Thema, kein Datenproblem — die Query ist strukturell kaputt. Erste Testfassung
+  (`TestCalendarDiscovery_ListBrowsableAndSubscription`, wollte Subscribe/Unsubscribe UND
+  Browsable-Filterlogik gemeinsam pruefen) schlug am `ListBrowsable`-Call selbst fehl, bevor
+  irgendeine Filterlogik ueberhaupt getestet werden konnte — kein Fixture-Fehler auf meiner
+  Seite, sondern der Beweis, dass die Methode nie funktioniert hat (kein vorheriger Test hat
+  sie je aufgerufen). Aufgeteilt in `TestListBrowsable_UnusedSecondParameter_
+  DocumentsCurrentGap` (dokumentiert 42P18 explizit) und
+  `TestCalendarSubscription_SubscribeAndUnsubscribe` (prueft Subscribe/Unsubscribe direkt
+  ueber GetMember, unabhaengig von der kaputten Methode). Fix-Vorschlag im Backlog-Eintrag:
+  das doppelte `userID`-Argument streichen, `$3`→`$2` im SQL-Text fuer `tenant_id`.
+- eigene test-hygiene-lehre: erste Fassung von `seedCalendarWithOwner`-Aufrufstellen
+  registrierte `defer CleanupRow(..., "calendars", ...)` VOR `defer CleanupRow(...,
+  "users", ...)` — unter LIFO laeuft der User-Cleanup dann ZUERST, wodurch
+  `calendars_owner_id_fkey` verletzt wird (Calendar referenziert den User noch). Fix: an
+  allen sieben Aufrufstellen die Reihenfolge getauscht (User-Cleanup zuerst registrieren,
+  Calendar-Cleanup danach — LIFO raeumt dann Calendar vor User ab), exakt das Muster aus
+  `tenant_write_test.go`. Zweiter Fund: `UpsertPreferences`/`GetPreferences` mit
+  `context.Background()` statt `testutil.WithTenantCtx(...)` aufgerufen — das INSERT
+  ermittelt `tenant_id` zwar per Subquery aus `users`, aber die RLS-`WITH CHECK`-Klausel
+  wertet weiterhin `app.tenant_id` aus dem Connection-Kontext aus; ohne gesetzten Tenant im
+  ctx schlaegt der Insert mit "new row violates row-level security policy" fehl. Fix: ctx
+  mit `WithTenantCtx` durchgaengig verwendet. Beide Fixes sind reine Test-Hygiene, keine
+  Produktionslogik veraendert.
+- gate: build ok (`go build -p 2 ./internal/work/calendar/...`) | vet ok (`go vet
+  ./internal/work/calendar/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/calendar/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/work/calendar/...`, volles Paket gruen — 0 uebersprungen, `DATABASE_URL=
+  postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`
+  verifiziert) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue
+  Tabelle/Policy) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: zwei unabhaengige Proben, beide zurueckgedreht (`git diff --stat
+  internal/work/calendar/postgres_repository.go internal/work/calendar/
+  booking_postgres_repository.go` danach leer). (1)
+  `GetCalendarEventsInRange`s Bedingung von `start_time < $3 AND end_time > $2` auf
+  `start_time <= $3 AND end_time >= $2` geaendert (strikt → nicht-strikt) —
+  `TestGetCalendarEventsInRange_OverlapBoundaryAndCrossTenant` sofort rot ("should have 1
+  item(s), but has 2" — der angrenzende Termin zaehlt jetzt faelschlich als Konflikt),
+  exakt am Pfad, den `done_when` explizit verlangt ("Angrenzender Slot gilt als frei"). (2)
+  `ListByUser`s Sichtbarkeitsbedingung von `(c.owner_id = $1 OR cm.user_id = $1)` auf
+  `(c.owner_id = $1)` verkuerzt (Member-Zweig entfernt) —
+  `TestCalendarMembers_PermissionAndVisibilityLifecycle` sofort rot ("calendar must be
+  visible via ListByUser after membership was granted"), exakt am Pfad, den `done_when`
+  explizit verlangt ("Member-Berechtigungsaenderung wirkt sich auf die Sichtbarkeit aus").
+  Beide Male zurueckgedreht, danach `go build`/`go vet`/`golangci-lint`/`go test -count=1
+  ./internal/work/calendar/...` erneut komplett gruen.
+- offen: `fix-work-calendar-listbrowsable-broken-query` (neu im Backlog, vor
+  `c-cov-plugin-repository-gaps` eingefuegt) fixt den 42P18-Fund. `done_when` dieser Unit
+  vollstaendig erfuellt (Member-Sichtbarkeit belegt, Slot-Grenzfall belegt, Cross-Tenant-
+  Lesepfad belegt, zwei Mutations-Proben im Journal, Paket gruen 0 Skips). Naechste Unit im
+  Backlog laut Datei-Reihenfolge: `fix-work-calendar-listbrowsable-broken-query` (neu
+  eingefuegt, `status: todo`) — danach `c-cov-plugin-repository-gaps`.
