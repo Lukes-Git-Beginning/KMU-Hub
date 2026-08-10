@@ -1363,7 +1363,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:39).
 
 ## Iteration 22 — b-cov-server-email-signatures-rules-labels-templates — done — 2026-08-10 18:41
-- commit: (folgt im Anschluss)
+- commit: cfb6bd47
 - gebaut: neue Testdatei email_grpc_signatures_rules_labels_templates_test.go mit
   stubSignatureRepo (signature.Repository), stubRuleRepo (rule.Repository, folder/label
   Membership tenant-gescopt wie das Repo-Vorbild internal/email/rule/service_test.go),
