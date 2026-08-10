@@ -3694,7 +3694,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `status: done`, also frei).
 
 ## Iteration 60 — c-cov-work-event-repo — done — 2026-08-10 (Lauf 7)
-- commit: -
+- commit: `c200333a`
 - verify vorgaenger: sauber — `a4ef2ee2` (fix-plugin-kvset-silent-noop-unknown-installation,
   Iteration 59) gegen alle acht Fehlerklassen geprueft: kein gRPC-Bypass (KVSet-Handler ruft
   weiterhin `s.svc.KVSet` ueber den Service, nur das Error-Mapping wechselt von hartem
