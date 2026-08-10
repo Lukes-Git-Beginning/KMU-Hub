@@ -1672,7 +1672,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 23:11).
 
 ## Iteration 27 — b-cov-server-websocket-helpers-ratelimit — done — 2026-08-10 23:21
-
+- commit: 96664cc1
 - unit: b-cov-server-websocket-helpers-ratelimit (Block B, Coverage
   internal/server)
 - scope: die zehn im Backlog genannten reinen Helfer-/
