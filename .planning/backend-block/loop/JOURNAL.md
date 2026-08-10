@@ -2469,7 +2469,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins.
 
 ## Iteration 39 — fix-schichten-swaprequests-no-own-scope — done — 2026-08-10 03:20
-- commit: (siehe unten)
+- commit: 126c40f6
 - verify vorgaenger: sauber — 1ff79225 (ErrShiftFull FailedPrecondition) geprueft: einzelner
   zusaetzlicher `case`-Zweig in `mapSchichtenError`, exakt dem Muster der Nachbarfaelle
   (ArbZG/JArbSchG) folgend, beide betroffenen "documents current gap"-Testfaelle korrekt auf
