@@ -3502,3 +3502,45 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Lesepfad belegt, zwei Mutations-Proben im Journal, Paket gruen 0 Skips). Naechste Unit im
   Backlog laut Datei-Reihenfolge: `fix-work-calendar-listbrowsable-broken-query` (neu
   eingefuegt, `status: todo`) — danach `c-cov-plugin-repository-gaps`.
+
+## Iteration 57 — fix-work-calendar-listbrowsable-broken-query — done — 2026-08-10 (Lauf 7)
+- commit: siehe unten (wird nach diesem Eintrag erstellt)
+- verify vorgaenger: sauber — `3aafe2a5` (c-cov-work-calendar-repo, Iteration 56) und
+  `74d774bf` (Folge-Commit, traegt nur den Commit-Hash in den Journal-Eintrag von Iteration
+  56 nach) geprueft: `git show --stat 3aafe2a5` zeigt `repository_gaps_test.go` (neu, reine
+  Test-Datei) plus BACKLOG.yml/JOURNAL.md — deckt sich 1:1 mit dem Journal-Eintrag. Kein
+  `.proto` beruehrt, kein neuer `RequirePermission`-Guard, keine neue Route, kein
+  Wire-Shape-Wechsel. `git merge origin/main` lief als "Already up to date", kein Konflikt.
+- gefixt: `PostgresRepository.ListBrowsable` (internal/work/calendar/postgres_repository.go:
+  233) band drei Argumente (`userID, userID, tenantID`) fuer eine Query, die im SQL-Text nur
+  `$1` (zweimal) und `$3` referenzierte — `$2` kam nirgends vor, jeder Aufruf schlug mit
+  SQLSTATE 42P18 fehl. Fix: doppelte `userID`-Bindung gestrichen (`userID, tenantID` statt
+  `userID, userID, tenantID`), Platzhalter im SQL-Text von `$3` auf `$2` fuer `tenant_id`
+  umnummeriert — reiner 2-Zeilen-Diff, keine Logikaenderung an der WHERE-Klausel selbst.
+- test: `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` in
+  `internal/work/calendar/repository_gaps_test.go` von einem reinen Fehler-Beweis (assert auf
+  "42P18") auf einen echten Verhaltenstest umgestellt, Testname bewusst NICHT geloescht
+  (done_when-Vorgabe). Deckt alle drei geforderten Faelle in einem Testlauf: ein shared
+  Calendar eines fremden Owners ist browsable, ein personal Calendar nie (dritter, eigens
+  dafuer geseedeter Kalender), ein bereits per `Subscribe` abonnierter shared Calendar wird
+  ueber die NOT-EXISTS-Klausel ausgeschlossen. Nutzt den bestehenden
+  `seedCalendarWithOwner`-Helper aus derselben Datei (Iteration 56) fuer alle drei Kalender.
+- gate: build ok (`go build -p 2 ./internal/work/calendar/...`) | vet ok (`go vet
+  ./internal/work/calendar/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/calendar/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/work/calendar/...`, volles Paket gruen — 0 uebersprungen, `DATABASE_URL=
+  postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`
+  verifiziert) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue
+  Tabelle/Policy) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: NOT-EXISTS-Subquery-Klausel testweise aus der Query entfernt (Fix
+  bleibt intakt, nur die Filterlogik zurueckgebaut) —
+  `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` sofort rot ("Should be
+  false" / "already-subscribed shared calendar must be excluded"), exakt am Pfad, den
+  `done_when` explizit verlangt ("bereits abonnierte Kalender werden ausgeschlossen").
+  Danach zurueckgedreht (`git diff --stat internal/work/calendar/postgres_repository.go`
+  zeigt wieder nur den urspruenglichen 2-Zeilen-Fix), `go build`/`go vet`/`golangci-lint`/
+  `go test -count=1 ./internal/work/calendar/...` erneut komplett gruen.
+- offen: keine neue Unit angelegt. `done_when` dieser Unit vollstaendig erfuellt (kein
+  42P18 mehr, alle drei Browsable-Faelle mit einem Test belegt, bestehender Testname
+  aktualisiert statt geloescht, Mutations-Probe im Journal belegt, Paket gruen 0 Skips).
+  Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-plugin-repository-gaps`.

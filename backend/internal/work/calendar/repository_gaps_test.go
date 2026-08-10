@@ -170,15 +170,13 @@ func TestCalendarGetByID_CrossTenantNotFound(t *testing.T) {
 	assert.Equal(t, calID, got.ID)
 }
 
-// TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap proves
-// ListBrowsable is unconditionally broken: its query binds three arguments
-// (userID, userID, tenantID) for placeholders $1 and $3, but $2 never
-// appears anywhere in the SQL text. Postgres's extended query protocol
-// cannot infer a type for a parameter the statement never references, so
-// EVERY call fails with SQLSTATE 42P18 regardless of input — this has
-// nothing to do with RLS or fixture data. Not fixed here — a real behavior
-// change is out of scope for a coverage unit; filed as
-// fix-work-calendar-listbrowsable-broken-query in BACKLOG.yml.
+// TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap proved
+// ListBrowsable was unconditionally broken (SQLSTATE 42P18: the query bound
+// three arguments for a statement that only referenced two placeholders).
+// Fixed in fix-work-calendar-listbrowsable-broken-query — this now asserts
+// the intended behavior: a shared calendar owned by someone else is
+// browsable, a personal calendar never is, and an already-subscribed shared
+// calendar is excluded via the NOT EXISTS clause.
 func TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
@@ -193,13 +191,33 @@ func TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap(t *testing.T) {
 	seeker := seedCalendarUser(t, pool, tenant)
 	defer testutil.CleanupRow(t, pool, "users", seeker)
 
+	browsableID, browsableOwnerID := seedCalendarWithOwner(t, pool, tenant, models.CalendarTypeShared)
+	defer testutil.CleanupRow(t, pool, "users", browsableOwnerID)
+	defer testutil.CleanupRow(t, pool, "calendars", browsableID)
+
+	subscribedID, subscribedOwnerID := seedCalendarWithOwner(t, pool, tenant, models.CalendarTypeShared)
+	defer testutil.CleanupRow(t, pool, "users", subscribedOwnerID)
+	defer testutil.CleanupRow(t, pool, "calendars", subscribedID)
+
+	personalID, personalOwnerID := seedCalendarWithOwner(t, pool, tenant, models.CalendarTypePersonal)
+	defer testutil.CleanupRow(t, pool, "users", personalOwnerID)
+	defer testutil.CleanupRow(t, pool, "calendars", personalID)
+
 	repo := NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenant)
 
-	_, err := repo.ListBrowsable(ctx, seeker, tenant)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "42P18",
-		"ListBrowsable binds 3 params (userID, userID, tenantID) but the query only references $1 and $3 — $2 is always unused")
+	require.NoError(t, repo.Subscribe(ctx, subscribedID, seeker))
+
+	calendars, err := repo.ListBrowsable(ctx, seeker, tenant)
+	require.NoError(t, err)
+
+	ids := make(map[uuid.UUID]bool, len(calendars))
+	for _, c := range calendars {
+		ids[c.ID] = true
+	}
+	assert.True(t, ids[browsableID], "shared calendar owned by someone else must be browsable")
+	assert.False(t, ids[subscribedID], "already-subscribed shared calendar must be excluded")
+	assert.False(t, ids[personalID], "personal calendar must never be browsable")
 }
 
 // TestCalendarSubscription_SubscribeAndUnsubscribe covers Subscribe and

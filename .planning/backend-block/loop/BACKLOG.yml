@@ -2222,7 +2222,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `PostgresRepository.ListBrowsable` (internal/work/calendar/postgres_repository.go:233)
       binds three query arguments (`userID, userID, tenantID`) for a SQL statement that only
