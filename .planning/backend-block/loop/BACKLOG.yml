@@ -2593,7 +2593,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/document/folder/postgres_repository.go` - 288 Zeilen, 9 oeffentliche
       Methoden. Nur `service_test.go` (397 Z., Mock-Repository-Ebene) und ein duenner

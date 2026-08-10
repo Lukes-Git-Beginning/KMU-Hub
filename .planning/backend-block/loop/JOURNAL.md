@@ -4115,3 +4115,50 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
   am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
   Datei-Reihenfolge: `c-cov-document-folder-repo` (deps: [], frei).
+
+## Iteration 66 — c-cov-document-folder-repo — done — 2026-08-10 (Lauf 7)
+
+- commit: (siehe naechste Iteration)
+- gebaut: `internal/document/folder/postgres_repository_test.go` (neu, zuvor keine
+  Repository-Implementation-Coverage — `service_test.go` deckt nur die Mock-Repository-Ebene,
+  `tenant_isolation_phase2_test.go` seedet ausschliesslich per `testutil.SeedRow`). Sechs Tests
+  nach dem Muster aus `internal/document/tag/tenant_write_test.go` (foreign-ctx-mit-echter-
+  TenantID-dann-own-ctx, echte Repository-Aufrufe): `TestFolderCRUD_TenantScoped` (Create ueber
+  RLS WITH CHECK abgelehnt/angenommen, GetByID/Update/Delete alle mit dem Muster "Angreifer kennt
+  die echte TenantID, nur RLS haelt ihn auf", inkl. No-Op-Update mit leerem `UpdateInput`),
+  `TestFolderList_TenantScopedPagination` (ParentID-Filter liefert nur die Kinder, SpaceType ohne
+  ParentID liefert nur Root-Ordner via `parent_id IS NULL`-Zweig, fremder Ctx mit echter TenantID
+  sieht 0 trotz expliziter WHERE-Bedingung), `TestGetPath_FourLevelHierarchy` (vier Ebenen
+  Root→Leaf, Reihenfolge UND IDs pro Segment geprueft, plus unbekannte ID liefert
+  `ErrFolderNotFound`), `TestIsDescendant` (Tabellentest: direktes Kind, transitiver Enkel,
+  Rueckrichtung false, unverwandter Ordner false — der Zyklus-Schutz, den `GetPath` ohne ihn in
+  eine Endlosschleife laufen liesse), `TestGetChildren_TenantScoped` (eigener Ctx sieht das
+  direkte Kind, nicht den Enkel; fremder Ctx mit echter TenantID sieht nichts),
+  `TestCountFiles` (zaehlt nur nicht-geloeschte Dateien, `is_deleted=true`-Zeile ausgeschlossen).
+  Kleiner Cleanup-Reihenfolge-Fallstrick unterwegs gefunden und selbst behoben: ein
+  `seedFolderUser`-Helfer, der `t.Cleanup` fuer die User-Zeile nutzt, feuert erst NACH allen
+  regulaeren `defer`s des Testkoerpers (also nach der Tenant-Loeschung) — FK-Verletzung
+  (`fk_users_tenant`) beim ersten Lauf sichtbar in `t.Logf`-Zeilen (kein Testfehler, da
+  `CleanupRow` Fehler nur loggt, nicht `Fatalf`t). Behoben durch Umstellung auf einen expliziten
+  `defer testutil.CleanupRow(t, pool, "users", userOwn)` direkt nach dem Seed-Aufruf, damit die
+  LIFO-Reihenfolge der `defer`s stimmt (User vor Tenant geloescht) — exakt das Muster, das
+  `tenant_write_test.go` in anderen Paketen bereits nutzt.
+- gate: build ok (`go build ./internal/document/folder/...`) | vet ok (`go vet
+  ./internal/document/folder/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/document/folder/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/document/folder/...`, `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/
+  kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips, alle 21 Tests des Pakets inkl. der sechs
+  neuen gruen) | migration n.a. (keine Schemaaenderung, `document_folders`/`document_files` tragen
+  bereits `tenant_id NOT NULL` + erzwungene RLS seit Migration 000114/000122) | rls-smoke ok (im
+  Testlauf selbst: Cross-Tenant-Reads/-Writes fuer Create/GetByID/Update/Delete/List/GetChildren
+  belegt) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `GetPath` (postgres_repository.go) `ORDER BY depth DESC` zu
+  `ORDER BY depth ASC` mutiert (Breadcrumb-Reihenfolge umgedreht). Sofort rot:
+  `TestGetPath_FourLevelHierarchy` — erwartet Segment 0 = Root, bekommt Segment 0 = Leaf
+  (`postgres_repository_test.go:276`, Fehlermeldung zeigt die vertauschten IDs). Zeile
+  zurueckgedreht, `git diff --stat internal/document/folder/postgres_repository.go` zeigt danach
+  keinen Diff mehr. `go test -count=1 ./internal/document/folder/...` danach erneut komplett
+  gruen (siehe gate oben).
+- offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung
+  am Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut
+  Datei-Reihenfolge: `c-cov-einkauf-repository-lists` (deps: [], frei).
