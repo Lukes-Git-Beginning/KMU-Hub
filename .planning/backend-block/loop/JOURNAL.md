@@ -508,7 +508,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Ersetzung eintragen, nie mit einem globalen `sed`.
 
 ## Iteration 10 — b-cov-server-crm-fields-tags-contacts — done — 2026-08-10 16:26
-- commit: (siehe unten, wird nach `git commit` mit dem Edit-Tool eingetragen)
+- commit: 1fde576f
 - gebaut: neue Datei `backend/internal/server/crm_grpc_fields_tags_contacts_test.go` mit
   Server-Package-Kopien der Repository-Stubs fuer `customfield`, `tag`, `contact`
   (`stubCustomFieldRepo`, `stubTagRepo`, `stubContactRepo` — die echten `MockRepository`-Typen
