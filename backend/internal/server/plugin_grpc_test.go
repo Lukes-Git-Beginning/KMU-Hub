@@ -1049,27 +1049,21 @@ func TestPluginApprovePermissions(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	// Finding: ApprovePermissions dereferences the manifest it looks up
-	// (service.go: `for _, p := range manifest.Permissions`) without checking
-	// it for nil first. An installation whose manifest has since been deleted
-	// - possible because DeleteManifest's HasActiveInstallations check only
-	// counts non-uninstalled installations, so an uninstalled installation
-	// row can outlive its manifest - makes this panic. cmd/plugin/main.go
-	// wires middleware.RecoveryUnaryInterceptor(), so in production this
-	// becomes an opaque Internal instead of crashing the process, but it is
-	// still a panic on every such call, not a handled error path.
-	t.Run("orphaned installation (deleted manifest) panics (documents current gap)", func(t *testing.T) {
+	// An installation whose manifest has since been deleted - possible because
+	// DeleteManifest's HasActiveInstallations check only counts non-uninstalled
+	// installations, so an uninstalled installation row can outlive its
+	// manifest - now returns NotFound instead of dereferencing a nil manifest.
+	t.Run("orphaned installation (deleted manifest) returns not found", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		tenantID := uuid.New()
 		orphanManifestID := uuid.New() // never stored in repos.manifests
 		inst := seedInstallation(repos, tenantID, orphanManifestID, models.InstallationStatusPendingApproval)
 
-		require.Panics(t, func() {
-			_, _ = srv.ApprovePermissions(context.Background(), &pluginv1.ApprovePermissionsRequest{
-				InstallationId: inst.ID.String(), Permissions: []string{"crm:read"}, GrantedBy: uuid.New().String(),
-			})
+		_, err := srv.ApprovePermissions(context.Background(), &pluginv1.ApprovePermissionsRequest{
+			InstallationId: inst.ID.String(), Permissions: []string{"crm:read"}, GrantedBy: uuid.New().String(),
 		})
+		requireGRPCCode(t, err, codes.NotFound)
 	})
 }
 
@@ -1185,19 +1179,17 @@ func TestPluginSettings(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	// Finding: same nil-manifest-dereference class as ApprovePermissions -
-	// UpdatePluginSettings calls schemaValidator.Validate(manifest.SettingsSchema, ...)
-	// without a nil check on manifest.
-	t.Run("orphaned installation (deleted manifest) panics on update (documents current gap)", func(t *testing.T) {
+	// Same orphaned-manifest case as ApprovePermissions - now returns NotFound
+	// instead of dereferencing a nil manifest.
+	t.Run("orphaned installation (deleted manifest) returns not found on update", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		inst := seedInstallation(repos, uuid.New(), uuid.New(), models.InstallationStatusActive)
 
-		require.Panics(t, func() {
-			_, _ = srv.UpdatePluginSettings(context.Background(), &pluginv1.UpdatePluginSettingsRequest{
-				InstallationId: inst.ID.String(), Settings: `{}`,
-			})
+		_, err := srv.UpdatePluginSettings(context.Background(), &pluginv1.UpdatePluginSettingsRequest{
+			InstallationId: inst.ID.String(), Settings: `{}`,
 		})
+		requireGRPCCode(t, err, codes.NotFound)
 	})
 
 	t.Run("schema success", func(t *testing.T) {
@@ -1227,16 +1219,15 @@ func TestPluginSettings(t *testing.T) {
 		requireGRPCCode(t, err, codes.NotFound)
 	})
 
-	// Finding: same nil-manifest-dereference class again, this time on
-	// `return manifest.SettingsSchema, nil`.
-	t.Run("orphaned installation (deleted manifest) panics on schema lookup (documents current gap)", func(t *testing.T) {
+	// Same orphaned-manifest case again, this time on GetPluginSettingsSchema -
+	// now returns NotFound instead of dereferencing a nil manifest.
+	t.Run("orphaned installation (deleted manifest) returns not found on schema lookup", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		inst := seedInstallation(repos, uuid.New(), uuid.New(), models.InstallationStatusActive)
 
-		require.Panics(t, func() {
-			_, _ = srv.GetPluginSettingsSchema(context.Background(), &pluginv1.GetPluginSettingsSchemaRequest{InstallationId: inst.ID.String()})
-		})
+		_, err := srv.GetPluginSettingsSchema(context.Background(), &pluginv1.GetPluginSettingsSchemaRequest{InstallationId: inst.ID.String()})
+		requireGRPCCode(t, err, codes.NotFound)
 	})
 }
 

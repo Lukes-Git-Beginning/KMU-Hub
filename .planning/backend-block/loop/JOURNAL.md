@@ -2266,3 +2266,47 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde. `TestPluginCreateManifest/missing_tenant_context...` bleibt
   bewusst als eigener, unveraenderter Gap stehen (nicht Teil dieser Unit-Scope) — falls
   relevant, eigene Fix-Unit in einem kommenden Lauf.
+
+## Iteration 34 — fix-plugin-nil-manifest-panic-on-orphaned-installation — done — 2026-08-10 02:41
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `e33bcdf6` (fix-plugin-error-mapping-gaps) geprueft: `git show
+  --stat` zeigt nur `plugin_grpc.go` (Produktionscode) + `plugin_grpc_test.go` +
+  Journal/Backlog. Diff gelesen: reine `==` → `errors.Is`-Umstellung plus ein neuer
+  `FailedPrecondition`-Case fuer `ErrPluginHasInstallations`, kein gRPC-Bypass, kein Stub, kein
+  `.proto` beruehrt, kein neuer `RequirePermission`-Guard, keine neue Tabelle, kein
+  Wire-Shape-Wechsel, keine neue Route, kein Guard-Alt-Key verloren.
+- gebaut: `ApprovePermissions`, `UpdatePluginSettings` und `GetPluginSettingsSchema`
+  (internal/plugin/service.go) pruefen jetzt das Ergebnis von `s.manifests.GetByID(ctx,
+  inst.ManifestID)` auf `nil`, bevor sie es dereferenzieren — derselbe Waechter, den
+  `Service.GetManifest` schon fuer denselben Fall nutzt (`if manifest == nil { return
+  ErrManifestNotFound }`). Alle drei lieferten bei einer verwaisten Installation (Manifest
+  geloescht, `uninstalled`-Installation ueberlebt, weil `DeleteManifest`s
+  `HasActiveInstallations`-Check nur nicht-uninstallte Installationen zaehlt) bisher einen
+  Nil-Pointer-Panic — `mapPluginError` bekommt den Fehler nie zu Gesicht, weil der Prozess vorher
+  paniert (in Produktion von `middleware.RecoveryUnaryInterceptor()` zu einem opaken Internal
+  abgefangen, aber ohne den erwarteten NotFound). `ErrManifestNotFound` war in `mapPluginError`
+  bereits ueber `isNotFound`/`errors.Is` korrekt auf `codes.NotFound` gemappt (Iteration 33),
+  hier war also keine Aenderung an der Fehler-Zuordnung noetig, nur an den drei fehlenden
+  Nil-Checks selbst. Die drei `require.Panics`-Testfaelle in `plugin_grpc_test.go`
+  (`TestPluginApprovePermissions`, zwei in `TestPluginSettings`) auf normale
+  `requireGRPCCode(t, err, codes.NotFound)`-Faelle umgestellt, "documents current gap"-Kommentare
+  entfernt.
+- gate: build ok (`go build -p 2 ./internal/plugin/... ./internal/server/... ./cmd/plugin/...
+  ./cmd/gateway/...`) | vet ok (`go vet ./internal/plugin/... ./internal/server/...`) | lint ok
+  (`golangci-lint run --config .golangci.yml ./internal/plugin/... ./internal/server/...`, 0
+  issues) | test ok (`go test -count=3 ./internal/plugin/... ./internal/server/...`, dreimal
+  wiederholt, durchgehend gruen, 0 Skips bei gesetzter `DATABASE_URL`) | migration n.a. (kein
+  Schema-Zugriff) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | route n.a. (kein
+  Gateway-Handler, keine Route angefasst — `go test ./internal/gateway/` deshalb nicht Pflicht
+  gemaess Schritt 5)
+- mutations-probe: den neuen Nil-Guard in `ApprovePermissions`
+  (`internal/plugin/service.go`) auf `if false && manifest == nil { ... }` gesetzt →
+  `TestPluginApprovePermissions/orphaned_installation_(deleted_manifest)_returns_not_found` wurde
+  rot (Panic: "invalid memory address or nil pointer dereference" statt NotFound-Response),
+  zurueckgedreht, `git diff --stat` auf `service.go` zeigt danach nur noch die drei
+  beabsichtigten Nil-Checks, Suite dreimal in Folge wieder vollstaendig gruen.
+- db-tests: 0 — reine Service-Logik ohne DB-Zugriff (Repos sind In-Memory-Stubs in den
+  Tests), done_when verlangt hier keine DB-Tests.
+- offen: keine neuen Funde. Alle drei `done_when`-Punkte der Unit erfuellt: die drei Methoden
+  pruefen jetzt auf nil, liefern `ErrManifestNotFound`/`codes.NotFound` statt zu paniken, die
+  drei `require.Panics`-Faelle sind ersetzt.

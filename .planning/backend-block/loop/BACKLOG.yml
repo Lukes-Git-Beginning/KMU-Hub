@@ -289,7 +289,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Drei Methoden in `internal/plugin/service.go` laden eine Installation, dann per
       `s.manifests.GetByID(ctx, inst.ManifestID)` das zugehoerige Manifest, und greifen

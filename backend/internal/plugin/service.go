@@ -315,6 +315,9 @@ func (s *Service) ApprovePermissions(ctx context.Context, installationID uuid.UU
 	if err != nil {
 		return err
 	}
+	if manifest == nil {
+		return ErrManifestNotFound
+	}
 	declared := make(map[string]bool)
 	for _, p := range manifest.Permissions {
 		declared[p] = true
@@ -387,6 +390,9 @@ func (s *Service) UpdatePluginSettings(ctx context.Context, installationID uuid.
 	if err != nil {
 		return err
 	}
+	if manifest == nil {
+		return ErrManifestNotFound
+	}
 	result := s.schemaValidator.Validate(manifest.SettingsSchema, settings)
 	if !result.Valid {
 		return fmt.Errorf("%w: %v", ErrInvalidSettings, result.Errors)
@@ -408,6 +414,9 @@ func (s *Service) GetPluginSettingsSchema(ctx context.Context, installationID uu
 	manifest, err := s.manifests.GetByID(ctx, inst.ManifestID)
 	if err != nil {
 		return nil, err
+	}
+	if manifest == nil {
+		return nil, ErrManifestNotFound
 	}
 	return manifest.SettingsSchema, nil
 }
