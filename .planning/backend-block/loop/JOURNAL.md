@@ -1001,3 +1001,67 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
   (Iteration 15) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 17:33).
+
+## Iteration 17 — b-cov-server-calendar-error-map-calendars-members — done — 2026-08-10 17:36
+- commit: (folgt nach diesem Eintrag)
+- gebaut: neue Testdatei
+  `calendar_grpc_errormap_calendars_members_test.go` mit `TestMapCalendarError`
+  (alle 52 Sentinel-Fälle aus `mapCalendarError` — calendar/event/resource/
+  holiday/livekit/booking-page — einzeln gegen den erwarteten gRPC-Code, plus
+  Fallback auf `codes.Internal`) und `stubCalendarRepo` (implementiert
+  `calendar.Repository` vollständig; Category/Preference/Visibility-Methoden
+  sind No-Ops, weil sie zu einer späteren Unit gehören und hier nie erreicht
+  werden). Je ein Happy-Path- und ein Fehlerpfad-Test für alle 12 im Scope
+  genannten RPCs: CreateCalendar, GetCalendar, ListCalendars, UpdateCalendar,
+  DeleteCalendar, AddCalendarMember, RemoveCalendarMember, ListCalendarMembers,
+  UpdateCalendarMemberPermission, ListBrowsableCalendars, SubscribeToCalendar,
+  UnsubscribeFromCalendar.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
+  reine gRPC-Server-Schicht mit In-Memory-Stub) | route n.a. (keine Route
+  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
+  gelaufen)
+- coverage: internal/server 47,7 % -> 56,6 % (`go tool cover -func=/tmp/cov.out
+  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
+  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
+  Iteration 16 war 55,8 %)
+- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
+  gegen beide betroffenen Dateien restfrei (leer):
+  (1) `mapCalendarError` (`calendar_grpc.go`): `calendar.ErrCannotDeleteDefaultCalendar`
+  von `codes.FailedPrecondition` auf `codes.Internal` gedreht ->
+  `TestMapCalendarError/cannot_delete_default_calendar` UND
+  `TestDeleteCalendar/cannot_delete_default_calendar` beide rot (0x9 erwartet,
+  0xd bekommen), zurückgedreht.
+  (2) `calendar.Service.AddMember` (`internal/work/calendar/service.go`):
+  `if cal.OwnerID == targetUserID` auf `if false && cal.OwnerID == targetUserID`
+  gedreht -> `TestAddCalendarMember/owner_cannot_be_added` rot (InvalidArgument
+  erwartet, PermissionDenied bekommen — der Owner rutschte in den
+  Admin-Permission-Check statt der Guard-Klausel), zurückgedreht.
+- verify vorgaenger: sauber — `1b4039f5` geprüft gegen alle acht
+  Fehlerklassen: reine neue Testdatei
+  (`biz_grpc_dunning_dashboard_exports_test.go`), kein `.proto` angefasst,
+  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
+  angefasst. `origin/main` war bereits vollständig in `backend-loop` gemergt
+  (kein neuer Merge nötig).
+- offen: `mapCalendarError` behandelt einige im Code definierte Sentinels
+  nicht (z. B. `event.ErrExceptionNotFound`, `event.ErrExceptionAlreadyExists`,
+  `holiday.ErrHolidayNotFound`, `holiday.ErrSeedFailed`) — das ist keine Lücke
+  dieser Unit, diese Fehler laufen laut `errors.go`-Kommentaren über andere
+  Pfade oder werden dort noch gar nicht produziert; nicht weiter untersucht,
+  da außerhalb des Scopes „jedes Sentinel IN mapCalendarError".
+  Events/Categories/Reminders (`b-cov-server-calendar-events-categories-
+  reminders`) und Resources/BookingPages/Public
+  (`b-cov-server-calendar-resources-bookingpages-public`) bleiben unverändert
+  bei ihrem alten Coverage-Stand — dieselbe `stubCalendarRepo` kann für beide
+  wiederverwendet werden (No-Op-Methoden für Category/Preferences ggf. dann
+  ausbauen).
+  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
+  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-16 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
+  (Iteration 16) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 17:36).

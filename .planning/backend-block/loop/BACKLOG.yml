@@ -768,7 +768,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       mapCalendarError (backend/internal/server/calendar_grpc.go, Zeile ~1572) ist komplett
