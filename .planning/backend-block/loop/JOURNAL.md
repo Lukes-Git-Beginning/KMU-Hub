@@ -4076,6 +4076,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 65 — c-cov-einkauf-repository-extended — done — 2026-08-10 (Lauf 7)
 
+- commit: `4d6df7f9`
 - gebaut: `internal/einkauf/postgres_repository_extended_test.go` (neu, 562-Zeilen-Datei zuvor
   ohne jede Testabdeckung). Sieben Tests nach dem Muster aus `tenant_write_test.go`
   (foreign-ctx-dann-own-ctx, echte Repository-Aufrufe statt `testutil.SeedRow`):
