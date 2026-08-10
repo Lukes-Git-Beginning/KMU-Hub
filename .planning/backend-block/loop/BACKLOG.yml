@@ -2033,7 +2033,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/work/task/postgres_repository.go` - 823 Zeilen, 30 Methoden. CRUD (Create,
       Update, Delete, GetByID, MoveTask) ist bereits durch `tenant_write_test.go` gegen echtes

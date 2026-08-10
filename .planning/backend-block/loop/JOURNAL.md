@@ -3106,3 +3106,52 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-work-task-repo` (`status: todo`, `List`/`Search`/`GetSubtasks`/`GetParentChain`/
   `GetDepth`/`HasCycle` in `internal/work/task/postgres_repository.go`).
+
+## Iteration 51 — c-cov-work-task-repo — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `829156e9` (c-cov-email-sync-helpers) geprueft: `git show --stat`
+  zeigt nur `internal/email/sync/helpers_test.go` (neu) plus Backlog-/Journal-Dateien, deckt sich
+  1:1 mit dem Journal-Eintrag der Vorgaenger-Iteration. `git merge origin/main` lief als
+  "Already up to date" — kein Divergenzrisiko, keine STOP-Datei.
+- gebaut: `internal/work/task/postgres_repository_db_test.go` (neu) fuer die im Scope benannte
+  Luecke: `List` (Filterkombinationen Priority/AssigneeID/StatusID/IsStandalone/Search plus
+  Pagination), `Search` (Volltextsuche gegen `search_vector`, kombiniert mit Priority-Filter,
+  Null-Treffer-Fall), `GetSubtasks`/`GetParentChain` (dreistufige Verschachtelung
+  Parent->2 Children->1 Grandchild, inkl. `maxDepth`-Cutoff-Test), `GetDepth` (Kette bis
+  `MaxNestingDepth-1` plus `ErrNotFound`-Pfad) und `HasCycle` (direkter Zyklus B->A blockt A->B,
+  transitiver Zyklus C->B->A blockt A->C, unbeteiligtes Task-Paar bleibt unauffaellig). `List`/
+  `Search` pruefen explizit, dass ein fremdtenant-Task mit identischem Titel-Substring/Volltext-
+  Token weder in den Zeilen noch in `total` auftaucht (COUNT(*) traegt dieselbe WHERE wie die
+  Seite) — genau das vom Scope geforderte Kriterium.
+- fund: keiner an der getesteten Business-Logik selbst. EIN echtes API-Missverstaendnis beim
+  Bauen aufgedeckt und sofort korrigiert (kein Fix-Unit-Fall, kein Verhaltensbug): `GetSubtasks`/
+  `GetParentChain`/`GetDepth`/`HasCycle` nehmen anders als `List`/`Search` KEIN `tenantID`-Argument
+  entgegen — die Isolation laeuft ausschliesslich ueber die RLS-Session im `ctx`. Erste Testversion
+  rief sie mit nacktem `context.Background()` auf und bekam durchgaengig 0 Zeilen / `ErrNotFound`
+  zurueck (RLS ohne gesetztes `app.tenant_id` sieht nichts) — auf `testutil.WithTenantCtx(...,
+  tenantOwn)` umgestellt, danach alle fuenf gruen. Kein Bug im Produktionscode, nur ein
+  Testaufbau-Fehler.
+- gate: build ok (`go build -p 2 ./internal/work/task/...`) | vet ok
+  (`go vet ./internal/work/task/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/task/...`, 0 issues) | test ok (`go test -count=1 ./internal/work/task/...` mit
+  gesetztem `DATABASE_URL`, komplettes Paket gruen, 0 Skips) | migration n.a. | rls-smoke n.a.
+  (bestehende `rls_test.go`-Suite lief in derselben Runde mit) | route n.a. | openapi n.a. |
+  protoc n.a.
+- mutations-probe: in `HasCycle` (postgres_repository.go:425) `WHERE task_id = $1` auf
+  `WHERE task_id = $2` gesetzt. `TestHasCycle_DirectAndTransitiveDetection` wurde sofort rot
+  (Postgres verweigert die Query: "could not determine data type of parameter $1", weil der
+  Parameter durch die Aenderung nirgends mehr referenziert wird) — ein noch haerterer Fehlschlag
+  als ein falscher Bool-Wert, aber exakt der erwartete Fehlschlag: der Test haette jede Aenderung
+  an dieser Zeile aufgedeckt. Alle anderen Tests des Pakets blieben von der Aenderung unberuehrt.
+  Zurueckgedreht, `git diff --stat internal/work/task/postgres_repository.go` liefert keine
+  Ausgabe (identisch zur Ausgangslage), volle Suite danach wieder gruen
+  (`go test -count=1 ./internal/work/task/...`).
+- db-tests: 5 neu, alle gegen das reale Schema (0 Skips) — `TestList_FiltersAndTenantScopedTotal`,
+  `TestSearch_FullTextAndTenantScopedTotal`, `TestGetSubtasksAndGetParentChain_MultiLevelOrder`,
+  `TestGetDepth_DeepChainAndNotFound`, `TestHasCycle_DirectAndTransitiveDetection`.
+- coverage: `internal/work/task` Paketcoverage nach dieser Unit 63,5 % (Vorwert nicht separat
+  gemessen — CRUD/RLS/Service-Tests liefen bereits vorher, diese Unit schliesst gezielt die im
+  Scope benannte Luecke in List/Search/Baum-Navigation/Zyklenerkennung).
+- offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-work-meeting-repo` (`status: todo`, Teilnehmerverwaltung/Serientermin-Ausnahmen/Listen-
+  pfade in `internal/work/meeting/postgres_repository.go`).
