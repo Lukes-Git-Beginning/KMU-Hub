@@ -2650,7 +2650,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/caldav/app_password.go` (194 Z., Service-Ebene) und
       `internal/caldav/user_preferences.go` (141 Z.), zusammen 335 Zeilen.

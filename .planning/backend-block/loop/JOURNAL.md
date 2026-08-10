@@ -4198,3 +4198,53 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration — reine Coverage-Unit, keine Verhaltensaenderung am
   Produktionscode (die Mutation wurde zurueckgedreht). Naechste Unit im Backlog laut Datei-
   Reihenfolge: `c-cov-caldav-app-password` (deps: [], frei).
+
+## Iteration 68 — c-cov-caldav-app-password — done — 2026-08-10 (Lauf 7)
+
+- commit: `<siehe naechster chore-Commit>`
+- gebaut: `internal/caldav/app_password_db_test.go` (neu, DB-backed). Sechs Testfunktionen fuer
+  `AppPasswordService` (`Validate`, `Revoke`, `List`, `IsOrgEnabled`/`SetOrgEnabled`) und
+  `PostgresUserPreferenceRepository` (`GetCalDAVEnabled`/`SetCalDAVEnabled`, `ListCalDAVUsers`,
+  `RevokeAllUserPasswords`):
+  `TestAppPasswordService_Validate_DBBacked` (Org-Toggle disabled -> ErrCalDAVDisabled bevor
+  irgendein Credential-Check laeuft, Nicht-UUID-Username -> ErrInvalidCredentials, unbekannter
+  User ohne Passwoerter -> ErrInvalidCredentials, falsches Passwort -> ErrInvalidCredentials,
+  korrektes Passwort -> userID + `last_used_at` wird gesetzt, widerrufenes Passwort danach ->
+  ErrInvalidCredentials), `TestAppPasswordService_Revoke_List_ErrorPaths` (Revoke einer
+  unbekannten ID und Revoke mit falscher Owner-User-ID liefern beide ErrPasswordNotFound, List
+  sortiert nach created_at DESC und zeigt widerrufene Eintraege weiterhin mit gesetztem
+  RevokedAt), `TestAppPasswordService_OrgEnabledToggle_Roundtrip` (true/false-Roundtrip direkt),
+  `TestUserPreferenceRepository_GetSetCalDAVEnabled_Roundtrip` (Default false, Roundtrip auf
+  true/false, unbekannter User liefert Fehler, ListCalDAVUsers enthaelt den frisch aktivierten
+  User), `TestUserPreferenceRepository_RevokeAllUserPasswords_InvalidatesValidate` (zwei
+  Passwoerter funktionieren vor dem Aufruf, RevokeAllUserPasswords meldet `affected=2`, danach
+  scheitern beide ueber Validate, ein zweiter Aufruf ist idempotent mit `affected=0`).
+- befund (kein Fix, nur Klarstellung): `AppSpecificPassword` hat in Schema (Migrationen
+  000049/000050) und Modell (`internal/models/caldav.go`) kein Ablaufdatum-Feld — App-Passwoerter
+  gelten bis zum expliziten Widerruf, analog zu GitHub Personal Access Tokens ohne Ablaufdatum.
+  Der Backlog-Scope forderte einen Test fuer "abgelaufenes Passwort"; dafuer gibt es keinen
+  Zustand im Code. Kein Bug, keine neue Fix-Unit — im Testfile-Header dokumentiert, "widerrufen"
+  deckt die naechstliegende und tatsaechlich vorhandene Sicherheitseigenschaft ab.
+- stolperstein: `t.Cleanup`-Callbacks (Row-/Setting-Cleanup) liefen zunaechst gegen einen
+  bereits geschlossenen Pool, weil `defer pool.Close()` beim Return der Testfunktion laeuft,
+  `t.Cleanup`-Callbacks aber erst danach. Behoben durch `t.Cleanup(func() { pool.Close() })`
+  als ERSTE Registrierung in jeder Testfunktion (LIFO: schliesst dadurch zuletzt, nach allen
+  Row-/Setting-Cleanups) statt `defer pool.Close()`.
+- gate: build ok (`go build ./internal/caldav/...`) | vet ok (`go vet ./internal/caldav/...`) |
+  lint ok (`golangci-lint run --config .golangci.yml ./internal/caldav/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/caldav/...`, `DATABASE_URL=postgres://kmuhub_app:app_dev@
+  localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips, ganzes Paket gruen
+  inkl. der sechs neuen Testfunktionen) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a.
+  (app_specific_passwords-RLS bereits durch tenant_write_test.go belegt; diese Unit testet
+  Service-/Repository-Logik, nicht Tenant-Isolation) | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: in `AppPasswordService.Validate` (app_password.go) den bcrypt-Vergleich
+  `bcrypt.CompareHashAndPassword(...) == nil` zu `!= nil` invertiert. Sofort rot:
+  `TestAppPasswordService_Validate_DBBacked/wrong_password_rejected` (erwartet
+  ErrInvalidCredentials, bekam nil — jedes falsche Passwort waere jetzt gueltig) und
+  `.../correct_password_accepted_and_updates_last_used_at` (erwartet Erfolg, bekam
+  ErrInvalidCredentials — das eigene korrekte Passwort haette nicht mehr funktioniert). Zeile
+  zurueckgedreht, `git diff --stat internal/caldav/app_password.go` zeigt danach keinen Diff
+  mehr. `go test -count=1 ./internal/caldav/...` danach erneut komplett gruen (siehe gate oben).
+- offen: keine neuen Funde in dieser Iteration ausser der oben dokumentierten Klarstellung
+  (kein Bug). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-dialer-redis-store`
+  (deps: [], frei).
