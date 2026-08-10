@@ -4440,3 +4440,107 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   sollte pruefen, ob noch `blocked`-Units einer Entscheidung von Luke harren
   (`fix-einkauf-contract-call-no-value-check`, Rahmenvertrags-Kappungsfrage) und sonst
   `ALLE UNITS ABGEARBEITET` ins Journal schreiben und `STOP` anlegen.
+
+## CI nach Lauf (2026-08-10 07:17)
+- run: 31357549450
+- sha: efff3670dad800016088e5afa2160ea5594d8937
+- ergebnis: success
+- commits: 103
+
+
+---
+
+## Lauf 7 — Abschluss (2026-08-10, Review durch Luke)
+
+**Ergebnis:** 71 Iterationen, 71 Units `done`, 0 `todo`, 1 neu `blocked`
+(`fix-einkauf-contract-call-no-value-check`, Produktfrage). Kein Exit ≠ 0, kein Rate-Limit-Backoff,
+kein Merge-Konflikt, keine hängende `in_progress`-Unit. Kosten 287,69 USD, Ø 8,0 min/Iteration
+(4–20 min). 111 Commits vor `origin/main`, CI Run 31357549450 auf `efff3670` grün (5 Jobs, echte
+Step-Counts — keine Billing-Wall). 68 neue Testdateien / 38.432 Testzeilen, 54 Produktionsdateien /
+~686 Insertions, genau eine Migration (`000309`).
+
+### Coverage-Endstand (gemessen, nicht geschätzt)
+
+Beide Zahlenreihen stammen aus den `coverage-report`-Artefakten der jeweiligen Abschluss-CI-Läufe
+(Lauf 6: Run 31306831739, Lauf 7: Run 31357549450), identisch gefiltert wie das CI-Gate
+(`grep -v proto/`). Damit sind sie erstmals direkt vergleichbar.
+
+| Paket | Lauf 6 | Lauf 7 | Delta |
+|---|---:|---:|---:|
+| **gesamt (CI-Gate)** | **36,3 %** | **47,7 %** | **+11,4** |
+| `internal/server` | 26,0 % | 47,7 % | +21,7 |
+| `internal/gateway` | 24,2 % | 34,9 % | +10,8 |
+| `internal/caldav` | 7,2 % | 54,2 % | +47,0 |
+| `internal/einkauf` | 33,2 % | 63,3 % | +30,1 |
+| `internal/plugin` | 23,8 % | 53,3 % | +29,5 |
+| `internal/dialer` | 36,7 % | 65,9 % | +29,2 |
+| `internal/document` | 40,3 % | 61,1 % | +20,8 |
+| `internal/notification` | 36,6 % | 56,0 % | +19,4 |
+| `internal/work` | 47,9 % | 59,9 % | +12,0 |
+| `internal/inventar` | 33,4 % | 44,2 % | +10,7 |
+| `internal/email` | 50,2 % | 58,9 % | +8,7 |
+| `internal/biz` | 54,9 % | **60,4 %** | +5,5 |
+| `internal/crm` | 69,5 % | 69,5 % | ±0 |
+
+Der Gateway-Rückgang aus Lauf 6 (27,2 → 24,2 %) ist damit nicht nur aufgeholt, sondern überholt.
+`internal/biz` erreicht erstmals das 60-%-Ziel für kritische Pfade.
+
+### Unabhängige Gegenprüfung vor dem Merge
+
+- Proto-Regen echt: die Descriptor-Rohbytes in `automation.pb.go` sind konsistent nachgezogen
+  (Längenpräfixe verschoben) — kein Handedit.
+- FE-Vertrag stimmt: `desktop/src/renderer/src/api/automation-types.ts` deklariert
+  `actions: ActionConfig[]`; `Struct` → `ListValue` bringt BE und FE erstmals zur Deckung.
+- Keine neue `RequirePermission` (also kein fehlender Seed), keine neue `config.RequireX`.
+- Die neuen DB-Tests gaten wirklich: kein `//go:build`-Tag auf einer der 68 Dateien, CI-Test-Job
+  setzt `DATABASE_URL` mit Rolle `kmuhub_app` (`ci.yml:107`) — die 135 `SkipIfNoDB`-Tests laufen.
+- `wopi_locks`-PK ist `file_id` (Migration 000044) → `ON CONFLICT (file_id)` im Fix ist gültig.
+- WOPI-Tenant stammt aus dem signierten Token, nicht aus Client-Input; Alt-Tokens ohne Tenant-Claim
+  fallen geschlossen aus.
+- Prod-Vorabcheck für Migration 309: `meeting_notes` ist leer (0 Zeilen), keine Duplikate auf
+  `(meeting_id, author_id, is_private)`, `schema_migrations` = 308 clean. Der `CREATE UNIQUE INDEX`
+  kann nicht an Bestandsdaten scheitern.
+
+### Was gut lief
+
+1. **Mutations-Probe 71/71** — jede Iteration hat ihren Test mutativ belegt und die Mutation
+   nachweislich zurückgedreht. Das war die zentrale Neuerung dieses Laufs, und genau daraus sind
+   zwölf echte Produktionsbugs gefallen (WOPI-Locking gegen eine nie existierende Tabelle,
+   bexio/lexware-INSERTs ohne `tenant_id` gegen `NOT NULL`-Spalten, `SaveNotes` ohne passenden
+   ON-CONFLICT-Index, `actions` als Struct statt Array, `ListBrowsable` mit `$3` bei zwei
+   Parametern u. a.). Reine Zeilen-Coverage hätte keinen davon gefunden.
+2. Bugs bekamen **eigene Fix-Units** statt Inline-Pfusch — der Coverage-Test dokumentiert erst den
+   Bug, die Folge-Unit fixt ihn und stellt denselben Test auf das korrekte Verhalten um.
+3. **Verify-Vorspann konsequent** über alle Iterationen, mit Befund im Journal.
+4. **Ehrliches `blocked`** bei der einzigen echten Produktfrage statt geratenem Fix.
+5. Alle Treiber-Verbesserungen haben gegriffen: Pausenfenster, `-StartAt`, Laufkontext-Block,
+   `in_progress`-Recovery, `subtype`/`terminal_reason` im Fehler-Log — und vor allem die
+   **CI-Erkennung ohne `--jq`-Quoting** (K5 aus Lauf 6): "CI GRUEN" wurde korrekt erkannt.
+
+### Was schwach war (Massnahmen fuer Lauf 8)
+
+1. **Coverage wurde im Lauf nicht mitgeschrieben.** Nur 8 von 71 Iterationen (11 %) haben eine
+   `coverage:`-Zeile — die Zeile fehlt schlicht im Journal-Template (`ITERATION.md` Schritt 6). Der
+   Endstand oben musste nachträglich aus dem CI-Artefakt rekonstruiert werden.
+   → Template um eine Pflicht-`coverage:`-Zeile ergänzen, mit fester Definition (paket-eigen via
+   `go test -coverprofile ./internal/<pkg>/`).
+2. **Zeitstempel-Disziplin:** 32 von 72 Journal-Überschriften tragen „(Lauf 7)" oder
+   „(siehe Commit-Zeit)" statt der Uhrzeit, die der Treiber im Laufkontext-Block mitliefert.
+   → Vorgabe auf „**exakt** der Wert aus dem Laufkontext-Block" verschärfen und im Treiber warnen,
+   wenn die neue Überschrift die gelieferte Uhrzeit nicht enthält.
+3. **Off-by-one Journal ↔ Treiber besteht weiter:** 71 Treiber-Iterationen, 72 Journal-Einträge; die
+   `iter-NNN.json` sind nicht 1:1 auf die Journal-Nummern abbildbar.
+   → Treiber prüft nach jeder Iteration die höchste Journal-Nummer gegen `$i` und loggt Abweichungen.
+4. **Coverage-Metrik war über Läufe nicht vergleichbar** (Lauf 6 repo-weit gewichtet, Lauf 7
+   paket-eigen; Iteration 18 hat das selbst bemerkt).
+   → Definition einmal in `GATE-COMMANDS.md` festschreiben; die Tabelle oben ist ab jetzt die
+   Referenzmethode (CI-Artefakt, `grep -v proto/`).
+5. `STOP` wurde nie angelegt — der Treiber beendete zuerst über seinen eigenen Backlog-Count. Der im
+   Prompt beschriebene Abschlusspfad ist damit toter Code.
+
+### Offen fuer Luke
+
+Neun `blocked`-Units im Backlog, davon fünf echte Produktfragen (`fix-einkauf-contract-call-no-
+value-check` — Kappung von Rahmenvertrags-Abrufen; `g-hr-salary-statements`; `g-admin-billing`;
+`fe-projects-guest-overview`; `g-decode-disallow-unknown-fields`). Entscheidungsrunde vor dem
+Backlog-Bau für Lauf 8.
