@@ -4165,7 +4165,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 67 — c-cov-einkauf-repository-lists — done — 2026-08-10 (Lauf 7)
 
-- commit: PENDING
+- commit: `88424e57`
 - gebaut: `internal/einkauf/postgres_repository_lists_test.go` (neu). Vier Tests fuer die
   Lese-/Listenpfade, die `tenant_write_test.go` (CRUD) nicht abdeckt:
   `TestPONumberExists_TenantScopedAndExcludeID` (existierende Nummer true, excludeID=eigene
