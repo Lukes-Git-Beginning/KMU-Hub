@@ -2363,12 +2363,17 @@ func (x *SwapRequestResponse) GetSwapRequest() *SwapRequest {
 }
 
 type ListSwapRequestsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ShiftId       *string                `protobuf:"bytes,2,opt,name=shift_id,json=shiftId,proto3,oneof" json:"shift_id,omitempty"`
-	Status        *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"` // pending|approved|rejected
-	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ShiftId  *string                `protobuf:"bytes,2,opt,name=shift_id,json=shiftId,proto3,oneof" json:"shift_id,omitempty"`
+	Status   *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"` // pending|approved|rejected
+	Page     int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Server-injected when the caller's grant is scoped to "own" (see
+	// middleware.PermissionScope) — narrows to swap requests where the
+	// caller is the requester or the swap partner. Never set by clients
+	// directly; the gateway derives it from the authenticated user.
+	OwnEmployeeId *string `protobuf:"bytes,6,opt,name=own_employee_id,json=ownEmployeeId,proto3,oneof" json:"own_employee_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2436,6 +2441,13 @@ func (x *ListSwapRequestsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListSwapRequestsRequest) GetOwnEmployeeId() string {
+	if x != nil && x.OwnEmployeeId != nil {
+		return *x.OwnEmployeeId
+	}
+	return ""
 }
 
 type ListSwapRequestsResponse struct {
@@ -2825,15 +2837,17 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"\x06reason\x18\x06 \x01(\tR\x06reason\x12'\n" +
 	"\x0fidempotency_key\x18\a \x01(\tR\x0eidempotencyKey\"S\n" +
 	"\x13SwapRequestResponse\x12<\n" +
-	"\fswap_request\x18\x01 \x01(\v2\x19.schichten.v1.SwapRequestR\vswapRequest\"\xbc\x01\n" +
+	"\fswap_request\x18\x01 \x01(\v2\x19.schichten.v1.SwapRequestR\vswapRequest\"\xfd\x01\n" +
 	"\x17ListSwapRequestsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1e\n" +
 	"\bshift_id\x18\x02 \x01(\tH\x00R\ashiftId\x88\x01\x01\x12\x1b\n" +
 	"\x06status\x18\x03 \x01(\tH\x01R\x06status\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x05 \x01(\x05R\bpageSizeB\v\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12+\n" +
+	"\x0fown_employee_id\x18\x06 \x01(\tH\x02R\rownEmployeeId\x88\x01\x01B\v\n" +
 	"\t_shift_idB\t\n" +
-	"\a_status\"p\n" +
+	"\a_statusB\x12\n" +
+	"\x10_own_employee_id\"p\n" +
 	"\x18ListSwapRequestsResponse\x12>\n" +
 	"\rswap_requests\x18\x01 \x03(\v2\x19.schichten.v1.SwapRequestR\fswapRequests\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"W\n" +

@@ -526,6 +526,13 @@ func (s *SchichtenGRPCServer) ListSwapRequests(ctx context.Context, req *schicht
 		ss := schichten.SwapRequestStatus(st)
 		input.Status = &ss
 	}
+	if oid := req.GetOwnEmployeeId(); oid != "" {
+		id, parseErr := uuid.Parse(oid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid own_employee_id: %v", parseErr)
+		}
+		input.OwnEmployeeID = &id
+	}
 
 	results, total, err := s.svc.ListSwapRequests(ctx, input)
 	if err != nil {

@@ -18,6 +18,9 @@ type ListShiftsFilter struct {
 type SwapRequestFilter struct {
 	ShiftID *uuid.UUID
 	Status  *SwapRequestStatus
+	// OwnEmployeeID, when set, narrows to swap requests where this employee
+	// is the requester or the swap partner (matched against both fields).
+	OwnEmployeeID *uuid.UUID
 }
 
 // Repository defines the persistence interface for the schichten module.

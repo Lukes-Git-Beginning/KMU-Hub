@@ -526,7 +526,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Es gibt keine own-Scope-Filterung fuer Tauschantraege - an keiner Stelle im Stack.
       `schichten.SwapRequestFilter` (repository.go:18) traegt nur `ShiftID`/`Status`,

@@ -836,6 +836,17 @@ func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http
 		grpcReq.Status = &st
 	}
 
+	// A grant scoped to "own" overrides the query and narrows to swap
+	// requests where the caller is the requester or the swap partner —
+	// same pattern as HandleListReports in route_rapporte.go.
+	ownerID, ok := ownerFilterForScope(w, r, "schichten:swap", "read")
+	if !ok {
+		return
+	}
+	if ownerID != nil {
+		grpcReq.OwnEmployeeId = ownerID
+	}
+
 	resp, err := client.ListSwapRequests(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)

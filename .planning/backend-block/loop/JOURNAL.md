@@ -2467,3 +2467,69 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - db-tests: 0 — reine Handler-/In-Memory-Logik (Stub-Repo), done_when verlangt hier keine
   DB-Tests.
 - offen: keins.
+
+## Iteration 39 — fix-schichten-swaprequests-no-own-scope — done — 2026-08-10 03:20
+- commit: (siehe unten)
+- verify vorgaenger: sauber — 1ff79225 (ErrShiftFull FailedPrecondition) geprueft: einzelner
+  zusaetzlicher `case`-Zweig in `mapSchichtenError`, exakt dem Muster der Nachbarfaelle
+  (ArbZG/JArbSchG) folgend, beide betroffenen "documents current gap"-Testfaelle korrekt auf
+  den neuen erwarteten Code umgestellt statt geloescht. `go build`/`go test` gegen
+  `internal/schichten`+`internal/server` erneut gruen. Keine Befunde.
+- gebaut: own-Scope fuer `ListSwapRequests`, matched gegen BEIDE Mitarbeiterfelder. Produktfrage
+  aus dem Backlog-Eintrag war bereits beantwortet (own-Scope gilt nur fuers Lesen, Genehmigen/
+  Ablehnen bleiben unveraendert tenant-weit) — nicht neu zu klaeren. Neue Erkenntnis beim Bauen:
+  in diesem Repo IST `employee_id` durchgehend dieselbe ID wie `users.id` (verifiziert per Grep
+  ueber alle Migrationen: `hr_*`-Tabellen referenzieren `employee_id UUID NOT NULL REFERENCES
+  users(id)`, `hr_employee_profiles` loest sogar explizit `id = $2 OR user_id = $2` auf) — es gibt
+  keine separate "Mitarbeiter"-Entitaet, gegen die erst aufgeloest werden muesste. Das macht das
+  bereits bestehende `ownerFilterForScope`-Helper (internal/gateway/helpers.go, liest
+  `middleware.PermissionScope`+`middleware.GetUserID`, exakt das Muster aus
+  `route_rapporte.go:HandleListReports`) direkt anwendbar, ohne neue Aufloese-Schicht. Die vom
+  Backlog-Eintrag vorgeschlagene `RequirePermissionAny`-Route-Umstellung war NICHT noetig — Rapporte
+  selbst nutzt fuer denselben Zweck nur die einzelne bestehende `RequirePermission("rapporte:report",
+  "read")`-Guard und filtert erst im Handler per `PermissionScope`; dasselbe fuer
+  `route_schichten.go` uebernommen, keine Guard-Aenderung. Kette: `.proto`
+  (`ListSwapRequestsRequest.own_employee_id`, Feld 6, `optional string`, protoc-neu-generiert) →
+  `schichten_grpc.go:ListSwapRequests` parst es zu `uuid.UUID` → `service.go:ListSwapRequestsInput.
+  OwnEmployeeID` → `repository.go:SwapRequestFilter.OwnEmployeeID` → `postgres_repository.go:
+  ListSwapRequests` haengt `(requested_by_employee_id = $N OR swap_with_employee_id = $N)` an die
+  WHERE-Klausel VOR dem COUNT(*) und dem LIMIT/OFFSET-Query (Zeilen UND total bleiben konsistent).
+  Gateway `HandleListSwapRequests` ruft `ownerFilterForScope(w, r, "schichten:swap", "read")` und
+  setzt `grpcReq.OwnEmployeeId` nur, wenn die Grant-Scope des Aufrufers `auth.ScopeOwn` ist — bei
+  vollem Scope bleibt das Verhalten unveraendert tenant-weit. Bisherigen Test
+  `TestSchichten_ListSwapRequests_NoOwnScopeFiltering` (dokumentierte die Luecke) ersetzt durch
+  `TestSchichten_ListSwapRequests_OwnEmployeeFilterMatchesBothFields` (End-to-End durch den echten
+  Handler: drei Swap-Requests — ich bin Requester, ich bin nur Swap-Partner, ich bin in keinem
+  Feld — unscoped sieht alle drei, scoped genau die zwei, die mich betreffen) und
+  `TestSchichten_ListSwapRequests_InvalidOwnEmployeeID` (ungueltige UUID im neuen Feld liefert
+  InvalidArgument). `newStubSchichtenRepo.ListSwapRequests` (Testdouble) um dieselbe
+  OR-Filterung ergaenzt, sonst haette der neue Handler-Test nichts geprueft. Zusaetzlich echter
+  DB-Test `internal/schichten/own_scope_list_test.go`
+  (`TestListSwapRequests_OwnScopeMatchesBothEmployeeFields`) gegen das reale Schema, nach dem
+  Muster von `internal/rapporte/own_scope_list_test.go` — beweist die SQL-Bedingung selbst, nicht
+  nur den Stub.
+- gate: build ok (`go build -p 2 ./internal/schichten/... ./internal/server/... ./internal/gateway/...
+  ./cmd/schichten/... ./cmd/gateway/...`) | vet ok (`go vet ./internal/schichten/...
+  ./internal/server/... ./internal/gateway/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/schichten/... ./internal/server/... ./internal/gateway/...`, 0 issues) |
+  test ok (`go test -count=1 ./internal/schichten/... ./internal/server/... ./internal/gateway/...`
+  mit gesetzter `DATABASE_URL`, durchgehend gruen, 0 uebersprungen) | migration n.a. (keine neue
+  Migration, nur bestehende Spalten `requested_by_employee_id`/`swap_with_employee_id` gefiltert) |
+  rls-smoke n.a. (keine Policy angefasst) | route n.a. (keine neue Route, bestehender Handler
+  bekommt einen zusaetzlichen server-injizierten Request-Parameter) | openapi n.a. (own_employee_id
+  ist server-seitig aus dem Scope abgeleitet, kein Client-Query-Parameter — analog zu rapporte's
+  `author_id`-Injection, kein neuer dokumentierter Query-Parameter) | protoc: Neugenerierung im
+  selben Commit, `git diff --stat` auf `schichten.pb.go` zeigt nur generierte Aenderungen (ein
+  neues optionales Feld + dessen Nachbar-Deskriptor-Verschiebung), kein Handedit.
+- mutations-probe: `if filter.OwnEmployeeID != nil` in `ListSwapRequests`
+  (postgres_repository.go) auf `if false && filter.OwnEmployeeID != nil` gesetzt →
+  `TestListSwapRequests_OwnScopeMatchesBothEmployeeFields` (DB-Test) wurde rot ("own scope: got 3
+  rows / total 3, want 2 / 2" — die Filterung griff nicht mehr), zurueckgedreht, `diff` gegen die
+  Sicherungskopie bestaetigt eine identische Datei, volle Suite (schichten+server+gateway) danach
+  wieder vollstaendig gruen.
+- db-tests: 1 neuer echter DB-Test (`TestListSwapRequests_OwnScopeMatchesBothEmployeeFields`),
+  0 Skips bei gesetzter `DATABASE_URL` (`docker-postgres-1` war bereits healthy, kein Docker-Start
+  noetig).
+- offen: Nichts Blockierendes. `ApproveSwapRequest`/`RejectSwapRequest` bewusst unveraendert
+  gelassen (bleiben tenant-weit fuer die genehmigende Rolle) — exakt wie in den Backlog-`done_when`
+  gefordert, keine eigene Regel dafuer gebaut, da nicht Teil dieses Scopes.

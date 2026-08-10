@@ -344,6 +344,10 @@ func (r *stubSchichtenRepo) ListSwapRequests(_ context.Context, tenantID uuid.UU
 		if filter.Status != nil && req.Status != *filter.Status {
 			continue
 		}
+		if filter.OwnEmployeeID != nil &&
+			req.RequestedByEmployeeID != *filter.OwnEmployeeID && req.SwapWithEmployeeID != *filter.OwnEmployeeID {
+			continue
+		}
 		matched = append(matched, req)
 	}
 	total := len(matched)
@@ -1061,37 +1065,69 @@ func TestSchichten_ListSwapRequests_FiltersAndPagination(t *testing.T) {
 	assert.Empty(t, emptyResp.SwapRequests)
 }
 
-// TestSchichten_ListSwapRequests_NoOwnScopeFiltering documents a verified
-// premise check for this coverage unit's "own-Scope ueber beide
-// Mitarbeiterfelder" requirement (BACKLOG.yml b-cov-server-schichten): no
-// such filtering exists anywhere in the stack. schichten.SwapRequestFilter
-// (repository.go) carries only ShiftID/Status, ListSwapRequestsInput
-// (service.go) does not accept an employee, and the gateway route
-// (route_schichten.go) guards /swap-requests with a single plain
-// "schichten:swap read" permission — no RequirePermissionAny variant scoped
-// to the caller's own employee record, unlike e.g. helpdesk/rapporte's
-// documented own-scope pattern. A caller with "schichten:swap read" sees
-// every tenant's swap request regardless of whether they are the requester
-// or the swap partner. Documented here rather than silently assumed; see the
-// JOURNAL entry for this iteration for the resulting Lauf-8 backlog unit.
-func TestSchichten_ListSwapRequests_NoOwnScopeFiltering(t *testing.T) {
+// TestSchichten_ListSwapRequests_OwnEmployeeFilterMatchesBothFields exercises
+// the own-scope filter (schichten.SwapRequestFilter.OwnEmployeeID) through
+// the real gRPC handler: a caller-scoped list must match a swap request
+// where the employee is the requester AND one where the employee is only
+// the swap partner, while excluding requests involving neither.
+func TestSchichten_ListSwapRequests_OwnEmployeeFilterMatchesBothFields(t *testing.T) {
 	repo := newStubSchichtenRepo()
 	srv := newSchichtenServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
 
-	// A request between two employees neither of which is the caller.
+	me := uuid.New().String()
+	colleague1, colleague2 := uuid.New().String(), uuid.New().String()
+
+	// I am the requester.
 	_, err := srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
 		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
-		RequestedByEmployeeId: uuid.New().String(), SwapWithEmployeeId: uuid.New().String(), IdempotencyKey: "idem-5",
+		RequestedByEmployeeId: me, SwapWithEmployeeId: colleague1, IdempotencyKey: "idem-mine-requested",
 	})
 	require.NoError(t, err)
 
-	// ListSwapRequests has no employee-scoped parameter at all — a
-	// tenant-wide read returns it regardless of caller identity.
-	listResp, err := srv.ListSwapRequests(ctx, &schichtenv1.ListSwapRequestsRequest{TenantId: tenantID})
+	// I am only the swap partner.
+	_, err = srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
+		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		RequestedByEmployeeId: colleague1, SwapWithEmployeeId: me, IdempotencyKey: "idem-mine-partner",
+	})
 	require.NoError(t, err)
-	assert.Equal(t, int32(1), listResp.Total)
+
+	// Neither field is me.
+	_, err = srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
+		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		RequestedByEmployeeId: colleague1, SwapWithEmployeeId: colleague2, IdempotencyKey: "idem-foreign",
+	})
+	require.NoError(t, err)
+
+	// Unscoped read (own_employee_id unset) sees all three.
+	all, err := srv.ListSwapRequests(ctx, &schichtenv1.ListSwapRequestsRequest{TenantId: tenantID})
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), all.Total)
+
+	// Own-scoped read sees only the two involving me, and total matches the
+	// row count (filtering happens before the offset/limit split).
+	own := me
+	scoped, err := srv.ListSwapRequests(ctx, &schichtenv1.ListSwapRequestsRequest{TenantId: tenantID, OwnEmployeeId: &own})
+	require.NoError(t, err)
+	require.Equal(t, int32(2), scoped.Total)
+	require.Len(t, scoped.SwapRequests, 2)
+	for _, sr := range scoped.SwapRequests {
+		if sr.RequestedByEmployeeId != me && sr.SwapWithEmployeeId != me {
+			t.Fatalf("own-scoped list returned a swap request involving neither employee field: %+v", sr)
+		}
+	}
+}
+
+func TestSchichten_ListSwapRequests_InvalidOwnEmployeeID(t *testing.T) {
+	repo := newStubSchichtenRepo()
+	srv := newSchichtenServerWithRepo(repo)
+	ctx := context.Background()
+	tenantID := uuid.New().String()
+
+	bad := "not-a-uuid"
+	_, err := srv.ListSwapRequests(ctx, &schichtenv1.ListSwapRequestsRequest{TenantId: tenantID, OwnEmployeeId: &bad})
+	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 // ---------------------------------------------------------------------------
