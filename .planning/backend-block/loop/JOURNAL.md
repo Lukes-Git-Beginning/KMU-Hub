@@ -1361,3 +1361,63 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
   mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 20) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:39).
+
+## Iteration 22 — b-cov-server-email-signatures-rules-labels-templates — done — 2026-08-10 18:41
+- commit: (folgt im Anschluss)
+- gebaut: neue Testdatei email_grpc_signatures_rules_labels_templates_test.go mit
+  stubSignatureRepo (signature.Repository), stubRuleRepo (rule.Repository, folder/label
+  Membership tenant-gescopt wie das Repo-Vorbild internal/email/rule/service_test.go),
+  stubLabelRepo (label.Repository) + stubLabelMessageReader (label.MessageReader) und
+  stubTemplateRepo (template.Repository, Visibility-Filter wie die echte SQL-Query).
+  newEmailSigRuleLabelTplFixture() verdrahtet echte signature.Service/rule.Service/
+  label.Service/template.Service dagegen. mapEmailError deckt alle Sentinels dieser vier
+  Pakete bereits vollstaendig ab (TestMapEmailError in email_grpc_accounts_sync_test.go,
+  gegengeprueft) -- hier ausschliesslich Validierungs-/Happy-Path pro Methode, wie im
+  Scope verlangt.
+  Je ein Validierungs- oder Happy-Path-Test PLUS mindestens ein Fehlerpfad fuer alle 22
+  Methoden aus dem Scope: CreateSignature, GetSignature, ListSignatures, UpdateSignature,
+  DeleteSignature, SetDefaultSignature, ListEmailRules, CreateEmailRule, UpdateEmailRule,
+  DeleteEmailRule, ApplyEmailRules, ListEmailLabels, CreateEmailLabel, UpdateEmailLabel,
+  DeleteEmailLabel, AssignMessageLabels, ListEmailTemplates, GetEmailTemplate,
+  CreateEmailTemplate, UpdateEmailTemplate, DeleteEmailTemplate, RenderEmailTemplate.
+  Wire-Shape (leere Liste [] statt null) fuer ListSignatures/ListEmailRules/ListEmailLabels
+  geprueft. ApplyEmailRules-Happy-Test folgt dem verifizierten Muster aus
+  rule/service_test.go (Affected/Scanned-Zaehlung ueber zwei Kandidaten, nur einer matcht).
+  BEFUND zu done_when "RenderEmailTemplate prueft einen Fehlerpfad fuer ein unbekanntes
+  Platzhalter-Feld": es gibt keinen solchen Fehlerpfad im Code. template.Service.Render
+  (internal/email/template/service.go:172-181) iteriert NUR ueber AllowedPlaceholders und
+  liest values[key] optional -- ein values-Schluessel ausserhalb der Allowlist wird
+  stillschweigend ignoriert, kein Fehler, kein Panic, per Kommentar im Quellcode so gewollt
+  ("only the fixed allow-list is ever looked up"). Kein Bug, keine neue Fix-Unit noetig --
+  stattdessen TestRenderEmailTemplate_UnknownPlaceholderKeyIgnored geschrieben, das dieses
+  tatsaechliche Verhalten dokumentiert (unbekannter Key hat keine Wirkung, {{token}} bleibt
+  im Output stehen), plus TestRenderEmailTemplate_InvalidID als der eigentliche Fehlerpfad
+  (ungueltige Template-ID -> InvalidArgument).
+- gate: build ok (internal/server, internal/gateway, cmd/email, cmd/gateway -- cmd/server
+  existiert nicht, internal/server wird von mehreren cmd/*-Binaries importiert) | vet ok |
+  lint ok (0 issues) | test ok (1477 PASS, 0 SKIP, 0 FAIL in internal/server, inkl.
+  internal/server/response) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst nicht gelaufen (keine
+  Route/kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 62,2 % (kumulativ ueber alle Iterationen dieses
+  Laufs, nicht allein durch diese Unit)
+- mutations-probe: in internal/email/template/service.go:130-131 die Zeile
+  `tpl.OwnerID = nil` (Owner-Clearing beim Wechsel auf visibility=shared) durch einen
+  Kommentar ersetzt -> TestUpdateEmailTemplate_SwitchToSharedClearsOwner rot (erwartete
+  leere OwnerId, bekam die alte User-ID). Zurueckgedreht, `git diff --stat` auf der Datei
+  zeigt keinen Rest-Diff mehr, Test wieder gruen.
+- verify vorgaenger: sauber. Commit ee2d0cab (Iteration 21) aendert nur die neue Testdatei
+  email_grpc_messages_send_test.go plus BACKLOG.yml/JOURNAL.md -- keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+  (cc649891 direkt danach ist nur der Chore-Commit, der den Commit-Hash im Journal
+  nachtraegt.)
+- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit ist
+  reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
+  nachfahren muss.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-21 vermerkt) -- nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 21) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:41).
