@@ -1587,7 +1587,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 19:18).
 
 ## Iteration 26 — b-cov-server-dialer-agents-outcomes-dashboards — done — 2026-08-10 23:11
-- commit: <wird nach dem Commit nachgetragen>
+- commit: e9978680
 - gebaut: neue Testdatei dialer_grpc_agents_outcomes_dashboards_test.go deckt
   alle 13 Methoden aus dem Scope ab (SaveCallNotes, CompleteWrapUp,
   SetAgentStatus, GetAgentStatus, GetCampaignAgents, ListCallOutcomes,
