@@ -361,31 +361,58 @@ func TestHandler_PutFile(t *testing.T) {
 		}
 	})
 
-	// documents current gap: GetLock (see lock_test.go) always fails because
-	// LockService queries a table ("document_wopi_locks") that does not
-	// exist — the real table is "wopi_locks" (migration 000044). PutFile's
-	// lock-conflict guard therefore short-circuits to "not locked" on every
-	// call, regardless of X-WOPI-Lock or the file's real lock state: this
-	// save never gets rejected for a lock mismatch. See
-	// fix-document-wopi-lock-table-name-mismatch in BACKLOG.yml.
-	t.Run("lock-conflict guard never triggers (documents current gap)", func(t *testing.T) {
+	// Real lock-conflict scenarios need a genuine wopi_locks row, which in
+	// turn needs a real document_files row for the FK — hence a seeded
+	// fixture instead of the bare fakeFileService-only fileID used above.
+	t.Run("lock-conflict guard rejects a mismatched X-WOPI-Lock", func(t *testing.T) {
+		fx := seedWopiLockFixture(t, pool, "putfile-lock-conflict")
+		seedRealWopiLock(t, pool, fx, "held-by-someone-else", time.Now().Add(30*time.Minute))
+
 		fs := &fakeFileService{
 			getByIDFn: func(ctx context.Context, id, tid uuid.UUID) (*models.DocumentFile, error) {
-				return &models.DocumentFile{ID: fileID}, nil
+				return &models.DocumentFile{ID: fx.file}, nil
+			},
+			createVersionFn: func(ctx context.Context, fID, tID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error) {
+				t.Fatal("CreateVersion must not be called on a lock conflict")
+				return nil, nil
+			},
+		}
+		h := NewHandler(tokenSvc, lockSvc, fs, nil)
+		token := mustToken(t, tokenSvc, fx.file.String(), fx.user.String(), fx.tenant.String(), true)
+
+		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fx.file.String()+"/contents?access_token="+token, strings.NewReader("x"))
+		req.Header.Set("X-WOPI-Lock", "some-other-lock")
+		rec := httptest.NewRecorder()
+		h.PutFile(rec, req, fx.file.String())
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want 409, body=%s", rec.Code, rec.Body.String())
+		}
+		if got := rec.Header().Get("X-WOPI-Lock"); got != "held-by-someone-else" {
+			t.Errorf("X-WOPI-Lock = %q, want held-by-someone-else", got)
+		}
+	})
+
+	t.Run("save succeeds when X-WOPI-Lock matches the current lock", func(t *testing.T) {
+		fx := seedWopiLockFixture(t, pool, "putfile-lock-match")
+		seedRealWopiLock(t, pool, fx, "my-lock", time.Now().Add(30*time.Minute))
+
+		fs := &fakeFileService{
+			getByIDFn: func(ctx context.Context, id, tid uuid.UUID) (*models.DocumentFile, error) {
+				return &models.DocumentFile{ID: fx.file}, nil
 			},
 			createVersionFn: func(ctx context.Context, fID, tID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error) {
 				return &models.DocumentFileVersion{ID: uuid.New()}, nil
 			},
 		}
 		h := NewHandler(tokenSvc, lockSvc, fs, nil)
-		token := mustToken(t, tokenSvc, fileID.String(), userID.String(), tenantID.String(), true)
+		token := mustToken(t, tokenSvc, fx.file.String(), fx.user.String(), fx.tenant.String(), true)
 
-		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fileID.String()+"/contents?access_token="+token, strings.NewReader("x"))
-		req.Header.Set("X-WOPI-Lock", "some-lock-nobody-can-ever-acquire")
+		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fx.file.String()+"/contents?access_token="+token, strings.NewReader("x"))
+		req.Header.Set("X-WOPI-Lock", "my-lock")
 		rec := httptest.NewRecorder()
-		h.PutFile(rec, req, fileID.String())
+		h.PutFile(rec, req, fx.file.String())
 		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (current, buggy behavior: lock check is always bypassed)", rec.Code)
+			t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
 		}
 	})
 }
@@ -399,11 +426,10 @@ func TestHandler_HandleLockOperation(t *testing.T) {
 	lockSvc := NewLockService(pool)
 
 	tokenSvc := NewTokenService("test-secret")
-	fileID := uuid.New()
-	tenantID := uuid.New()
+	fx := seedWopiLockFixture(t, pool, "handle-lock-op")
 
 	newReq := func(override, lockHeader, token string) *http.Request {
-		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fileID.String()+"?access_token="+token, nil)
+		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fx.file.String()+"?access_token="+token, nil)
 		if override != "" {
 			req.Header.Set("X-WOPI-Override", override)
 		}
@@ -414,13 +440,12 @@ func TestHandler_HandleLockOperation(t *testing.T) {
 	}
 
 	h := NewHandler(tokenSvc, lockSvc, &fakeFileService{}, nil)
-	token := mustToken(t, tokenSvc, fileID.String(), "user-1", tenantID.String(), true)
+	token := mustToken(t, tokenSvc, fx.file.String(), fx.user.String(), fx.tenant.String(), true)
 
 	t.Run("token file_id mismatch", func(t *testing.T) {
 		other := uuid.New().String()
-		otherToken := mustToken(t, tokenSvc, fileID.String(), "user-1", tenantID.String(), true)
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("LOCK", "l1", otherToken), other)
+		h.HandleLockOperation(rec, newReq("LOCK", "l1", token), other)
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("status = %d, want 403", rec.Code)
 		}
@@ -428,53 +453,89 @@ func TestHandler_HandleLockOperation(t *testing.T) {
 
 	t.Run("unsupported override", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("SOMETHING_ELSE", "l1", token), fileID.String())
+		h.HandleLockOperation(rec, newReq("SOMETHING_ELSE", "l1", token), fx.file.String())
 		if rec.Code != http.StatusNotImplemented {
 			t.Fatalf("status = %d, want 501", rec.Code)
 		}
 	})
 
-	// documents current gap: Lock/Unlock/RefreshLock all query the
-	// nonexistent "document_wopi_locks" table and return a raw Postgres
-	// error, which HandleLockOperation cannot distinguish from any other
-	// internal failure (it only special-cases *LockConflictError). Every
-	// LOCK/UNLOCK/REFRESH_LOCK request therefore answers 500, never the
-	// success/409 the WOPI spec expects. See
-	// fix-document-wopi-lock-table-name-mismatch in BACKLOG.yml.
-	t.Run("LOCK always fails (documents current gap)", func(t *testing.T) {
+	// The subtests below are a deliberate stateful sequence against the
+	// SAME file, proving a full LOCK -> conflict -> GET_LOCK -> REFRESH_LOCK
+	// -> UNLOCK round trip against the real wopi_locks table.
+
+	t.Run("LOCK acquires a new lock", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("LOCK", "l1", token), fileID.String())
-		if rec.Code != http.StatusInternalServerError {
-			t.Fatalf("status = %d, want 500 (current, buggy behavior)", rec.Code)
+		h.HandleLockOperation(rec, newReq("LOCK", "lock-a", token), fx.file.String())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
 		}
 	})
 
-	t.Run("UNLOCK always fails (documents current gap)", func(t *testing.T) {
+	t.Run("LOCK with same lockID refreshes (idempotent)", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("UNLOCK", "l1", token), fileID.String())
-		if rec.Code != http.StatusInternalServerError {
-			t.Fatalf("status = %d, want 500 (current, buggy behavior)", rec.Code)
+		h.HandleLockOperation(rec, newReq("LOCK", "lock-a", token), fx.file.String())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
 		}
 	})
 
-	t.Run("REFRESH_LOCK always fails (documents current gap)", func(t *testing.T) {
+	t.Run("LOCK with different lockID conflicts", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("REFRESH_LOCK", "l1", token), fileID.String())
-		if rec.Code != http.StatusInternalServerError {
-			t.Fatalf("status = %d, want 500 (current, buggy behavior)", rec.Code)
+		h.HandleLockOperation(rec, newReq("LOCK", "lock-b", token), fx.file.String())
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want 409, body=%s", rec.Code, rec.Body.String())
+		}
+		if got := rec.Header().Get("X-WOPI-Lock"); got != "lock-a" {
+			t.Errorf("X-WOPI-Lock = %q, want lock-a", got)
 		}
 	})
 
-	// documents current gap: GetLock swallows every query error (including
-	// "relation does not exist") into ErrLockNotFound, so GET_LOCK always
-	// reports "unlocked" — 200 with an empty X-WOPI-Lock header — even for a
-	// file that genuinely carries an active lock row in the real table
-	// (wopi_locks). See TestLockService_GetLock in lock_test.go for the
-	// direct repository-level proof, and
-	// fix-document-wopi-lock-table-name-mismatch in BACKLOG.yml.
-	t.Run("GET_LOCK always reports unlocked (documents current gap)", func(t *testing.T) {
+	t.Run("GET_LOCK reports the current lock", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.HandleLockOperation(rec, newReq("GET_LOCK", "", token), fileID.String())
+		h.HandleLockOperation(rec, newReq("GET_LOCK", "", token), fx.file.String())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", rec.Code)
+		}
+		if got := rec.Header().Get("X-WOPI-Lock"); got != "lock-a" {
+			t.Errorf("X-WOPI-Lock = %q, want lock-a", got)
+		}
+	})
+
+	t.Run("REFRESH_LOCK with wrong lockID fails", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.HandleLockOperation(rec, newReq("REFRESH_LOCK", "lock-b", token), fx.file.String())
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want 409, body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("REFRESH_LOCK with correct lockID succeeds", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.HandleLockOperation(rec, newReq("REFRESH_LOCK", "lock-a", token), fx.file.String())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("UNLOCK with wrong lockID fails", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.HandleLockOperation(rec, newReq("UNLOCK", "lock-b", token), fx.file.String())
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want 409, body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("UNLOCK with correct lockID succeeds", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.HandleLockOperation(rec, newReq("UNLOCK", "lock-a", token), fx.file.String())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("GET_LOCK after unlock reports unlocked", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.HandleLockOperation(rec, newReq("GET_LOCK", "", token), fx.file.String())
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200", rec.Code)
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -165,9 +166,12 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		return
 	}
 
+	tenantID := parseTenantIDFromClaims(claims)
+	ctx := withTenantCtx(r.Context(), claims)
+
 	// Verify lock if file is locked
 	wopiLock := r.Header.Get("X-WOPI-Lock")
-	currentLock, lockErr := h.lockService.GetLock(r.Context(), fileIDStr)
+	currentLock, lockErr := h.lockService.GetLock(ctx, fileIDStr, tenantID)
 	if lockErr == nil && currentLock != "" && currentLock != wopiLock {
 		// File is locked by a different lock
 		w.Header().Set("X-WOPI-Lock", currentLock)
@@ -182,8 +186,7 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		return
 	}
 
-	tenantID := parseTenantIDFromClaims(claims)
-	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
+	file, err := h.fileService.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
 		return
@@ -198,7 +201,7 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		UserID:   userID,
 	}
 
-	_, err = h.fileService.CreateVersion(r.Context(), fileID, tenantID, versionInput)
+	_, err = h.fileService.CreateVersion(ctx, fileID, tenantID, versionInput)
 	if err != nil {
 		slog.Error("WOPI PutFile: failed to create version", "file_id", fileIDStr, "error", err)
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
@@ -222,6 +225,9 @@ func (h *Handler) HandleLockOperation(w http.ResponseWriter, r *http.Request, fi
 		return
 	}
 
+	tenantID := parseTenantIDFromClaims(claims)
+	ctx := withTenantCtx(r.Context(), claims)
+
 	override := r.Header.Get("X-WOPI-Override")
 	lockID := r.Header.Get("X-WOPI-Lock")
 
@@ -229,7 +235,7 @@ func (h *Handler) HandleLockOperation(w http.ResponseWriter, r *http.Request, fi
 
 	switch override {
 	case "LOCK":
-		err := h.lockService.Lock(r.Context(), fileIDStr, lockID, claims.UserID)
+		err := h.lockService.Lock(ctx, fileIDStr, lockID, claims.UserID, tenantID)
 		if err != nil {
 			var conflictErr *LockConflictError
 			if errors.As(err, &conflictErr) {
@@ -244,7 +250,7 @@ func (h *Handler) HandleLockOperation(w http.ResponseWriter, r *http.Request, fi
 		w.WriteHeader(http.StatusOK)
 
 	case "UNLOCK":
-		err := h.lockService.Unlock(r.Context(), fileIDStr, lockID)
+		err := h.lockService.Unlock(ctx, fileIDStr, lockID, tenantID)
 		if err != nil {
 			if errors.Is(err, ErrLockNotFound) {
 				http.Error(w, "lock not found", http.StatusConflict)
@@ -257,7 +263,7 @@ func (h *Handler) HandleLockOperation(w http.ResponseWriter, r *http.Request, fi
 		w.WriteHeader(http.StatusOK)
 
 	case "REFRESH_LOCK":
-		err := h.lockService.RefreshLock(r.Context(), fileIDStr, lockID)
+		err := h.lockService.RefreshLock(ctx, fileIDStr, lockID, tenantID)
 		if err != nil {
 			if errors.Is(err, ErrLockNotFound) {
 				http.Error(w, "lock not found", http.StatusConflict)
@@ -270,7 +276,7 @@ func (h *Handler) HandleLockOperation(w http.ResponseWriter, r *http.Request, fi
 		w.WriteHeader(http.StatusOK)
 
 	case "GET_LOCK":
-		currentLock, err := h.lockService.GetLock(r.Context(), fileIDStr)
+		currentLock, err := h.lockService.GetLock(ctx, fileIDStr, tenantID)
 		if err != nil {
 			w.Header().Set("X-WOPI-Lock", "")
 			w.WriteHeader(http.StatusOK)
@@ -299,6 +305,15 @@ func (h *Handler) validateAccessToken(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	return claims, true
+}
+
+// withTenantCtx stamps ctx with the tenant carried in the WOPI token claims,
+// mirroring middleware.Auth's context.WithValue(ctx, TenantIDKey, claims.TenantID).
+// These routes bypass the standard app-auth middleware (see route_wopi.go), so
+// without this the RLS-aware pool's BeforeAcquire hook sees no tenant and every
+// wopi_locks query is admitted zero rows.
+func withTenantCtx(ctx context.Context, claims *WOPITokenClaims) context.Context {
+	return context.WithValue(ctx, middleware.TenantIDKey, claims.TenantID)
 }
 
 // parseTenantIDFromClaims extracts the tenant UUID from WOPI token claims.

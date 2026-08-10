@@ -3983,3 +3983,93 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Journal belegt, Paket gruen 0 Skips). Naechste Unit im Backlog laut Datei-Reihenfolge:
   `fix-document-wopi-lock-table-name-mismatch` (deps: [], frei, direkt nach dieser Unit
   eingefuegt).
+
+## Iteration 64 — fix-document-wopi-lock-table-name-mismatch — done — 2026-08-10 06:18 (Lauf 7)
+- commit: `<siehe naechster chore-Commit>`
+- verify vorgaenger: sauber — `3fa30ebd` (c-cov-document-wopi, Iteration 63) gegen alle acht
+  Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich drei neue Testdateien
+  (`token_test.go`, `handler_test.go`, `lock_test.go` in `internal/document/wopi`) plus
+  Loop-Buchhaltung — kein Produktionscode angefasst, also kein gRPC-Bypass, kein Stub, kein
+  `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle, kein Wire-Shape-Wechsel,
+  keine neue Route, kein Guard-Alt-Key ersetzt. `git merge origin/main` lief als "Already up to
+  date", kein Konflikt.
+- gebaut: mechanischer Fix war beim genaueren Hinsehen keiner — reines Umbenennen von
+  `document_wopi_locks` auf `wopi_locks` in `lock.go` haette die Round-Trip-Tests NICHT gruen
+  gemacht, weil `wopi_locks` seit Migration 000114/000122 `tenant_id NOT NULL` + erzwungene RLS
+  traegt und `lock.go` nirgends einen Tenant setzte oder filterte. Verifiziert (nicht nur
+  vermutet): `internal/database/postgres.go`s `PrepareConn`-Hook stampft `app.tenant_id` nur,
+  wenn `middleware.GetTenantID(ctx)` einen Wert liefert — und die WOPI-HTTP-Routen
+  (`internal/gateway/route_wopi.go:29`) ignorieren den `authMiddleware`-Parameter explizit
+  (`_ func(http.Handler) http.Handler`), durchlaufen also nie die Middleware, die diesen Wert
+  normalerweise setzt (`internal/middleware/auth.go:59`). Ohne das waere jede INSERT mit
+  `NOT NULL`-Verletzung auf `tenant_id` gescheitert und jede SELECT/UPDATE/DELETE von RLS auf
+  0 Zeilen gefiltert worden — der Round-Trip-Test haette das sofort gezeigt. Deshalb zusaetzlich
+  zum Rename:
+  - `LockService.Lock/Unlock/RefreshLock/GetLock` (lock.go) haben jetzt einen `tenantID
+    uuid.UUID`-Parameter, `Lock`s INSERT setzt `tenant_id` explizit, alle vier WHERE-Klauseln
+    filtern zusaetzlich per `tenant_id = $N` (Defense-in-Depth neben RLS, Muster aus
+    `internal/document/folder/postgres_repository.go` uebernommen). `CleanExpired` bleibt
+    bewusst global (raeumt ueber alle Tenants), braucht dafuer aber System-Context vom Aufrufer.
+  - `handler.go`: neuer `withTenantCtx(ctx, claims)`-Helfer stampft
+    `context.WithValue(ctx, middleware.TenantIDKey, claims.TenantID)` — exakt das Muster aus
+    `middleware.Auth` — und wird in `PutFile` und `HandleLockOperation` vor jedem
+    LockService-Aufruf angewendet, `tenantID` wird jeweils fruehzeitig aus den WOPI-Claims
+    geparst und durchgereicht.
+  - `cmd/document/main.go`: der 5-Minuten-Cleanup-Ticker lief bisher mit einem nackten
+    `context.WithCancel(context.Background())` — unter RLS haette `CleanExpired` damit weiterhin
+    dauerhaft 0 Zeilen geloescht (System-Context fehlte, nicht nur die Tabelle war falsch).
+    Jetzt `cleanupCtx := database.WithSystemContext(ctx)`, exakt das Muster aus
+    `cmd/work/main.go`s Recording-/Meeting-Cleanup-Goroutinen.
+  - `cmd/gateway/main.go` unveraendert: das ist die tatsaechlich live verdrahtete WOPI-Route
+    (eigener `wopiLockService` auf dem Gateway-Pool, `NewWOPIRoutes(wopiHandler)` registriert),
+    `cmd/document/main.go`s `lockService`/`tokenService`/`wopiFileAdapter` sind nie an HTTP-Routen
+    gebunden — nur der Cleanup-Ticker dort ist ein echter, laufender Hintergrundjob auf derselben
+    (geteilten) `wopi_locks`-Tabelle. Nicht angefasst, ausserhalb des Scopes dieser Fix-Unit;
+    als Beobachtung hier festgehalten statt stillschweigend uebergangen.
+  - `lock_test.go` komplett neu geschrieben: echte Round-Trip-Tests (Lock erwirbt/verlaengert/
+    kollidiert/uebernimmt abgelaufenes Lock, Unlock mit falscher/richtiger Lock-ID, RefreshLock
+    verlaengert `expires_at` nachweislich, GetLock findet aktives Lock, CleanExpired loescht
+    NUR die abgelaufene Zeile einer Zwei-Tenant-Mischfixture unter System-Context und laesst die
+    aktive unberuehrt). `handler_test.go`: die vier "documents current gap"-Faelle in
+    `TestHandler_HandleLockOperation` durch eine bewusst stateful zusammenhaengende Sequenz
+    ersetzt (LOCK erwerben → gleiches Lock idempotent → fremdes Lock kollidiert mit 409 +
+    korrektem `X-WOPI-Lock`-Header → GET_LOCK bestaetigt → REFRESH_LOCK falsch/richtig →
+    UNLOCK falsch/richtig → GET_LOCK zeigt wieder entsperrt), `TestHandler_PutFile`s
+    Lock-Konflikt-Test durch zwei echte DB-Faelle ersetzt (fremdes Lock lehnt mit 409 + Header ab,
+    eigenes/matching Lock speichert durch) — beide brauchen eine echte `document_files`-Zeile
+    fuer den FK auf `wopi_locks.file_id`, dafuer `seedWopiLockFixture` aus `lock_test.go`
+    wiederverwendet (gleiches Package).
+- gate: build ok (`go build -p 2 ./...`, komplettes Repo) | vet ok (`go vet
+  ./internal/document/... ./cmd/document/... ./cmd/gateway/...`) | lint ok (`golangci-lint run
+  --config .golangci.yml ./internal/document/wopi/... ./cmd/document/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/document/...`, alle sieben Pakete gruen, `DATABASE_URL=postgres://
+  kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips) |
+  migration n.a. (Zieltabelle `wopi_locks` existiert bereits vollstaendig inkl. `tenant_id`+RLS,
+  keine Schemaaenderung noetig) | rls-smoke ok (im Testlauf selbst: `CleanExpired` unter
+  System-Context loescht ueber zwei Tenants hinweg genau die abgelaufene Zeile, die aktive
+  Zeile des zweiten Tenants bleibt unberuehrt — echte Kreuz-Tenant-Sichtbarkeitspruefung) |
+  route n.a. (WOPI-Routen bereits verdrahtet, keine neue Route) | openapi n.a. (WOPI-Endpunkte
+  sind Root-Level, nicht `/api/v1/*`, `TestOpenAPIRouteDrift` betrifft sie nicht) | protoc n.a.
+- mutations-probe: in `Unlock` (lock.go) das `AND lock_id = $2`-Praedikat aus der DELETE-Query
+  entfernt (Parameterliste unveraendert gelassen, `lockID` wird also weiter als Argument
+  mitgegeben, aber von der Query nicht mehr referenziert). Sofort rot:
+  `TestLockService_Unlock/wrong_lockID_does_not_unlock` UND
+  `TestLockService_Unlock/correct_lockID_unlocks` — Postgres verweigert den ungenutzten
+  Parameter (`could not determine data type of parameter $2 (SQLSTATE 42P18)`), beide Subtests
+  schlagen fehl statt der erwarteten `ErrLockNotFound`/`nil`-Ergebnisse. Zeile zurueckgedreht,
+  `git diff --stat internal/document/wopi/lock.go` zeigt danach wieder den sauberen
+  Fix-Diff ohne Restspuren der Probe. `go test -count=1 ./internal/document/wopi/...` danach
+  erneut komplett gruen (siehe gate oben).
+- offen: `done_when` dieser Unit vollstaendig erfuellt (alle sechs Query-Ziele auf `wopi_locks`,
+  echter Round-Trip gegen die lokale DB bewiesen, CleanExpired loescht nachweislich nur
+  Abgelaufenes, HandleLockOperation liefert echten 409 mit `X-WOPI-Lock`-Header, PutFiles
+  Lock-Waechter lehnt bei Mismatch nachweislich ab, alle "documents current gap"-Tests ersetzt,
+  Paket gruen 0 Skips). Zusaetzlich ueber den urspruenglichen Scope hinaus behoben (siehe
+  "gebaut"): fehlende Tenant-Stamping auf dem WOPI-HTTP-Pfad und fehlender System-Context im
+  Cleanup-Ticker — beides war noetig, damit der Rename allein ueberhaupt etwas bewirkt, kein
+  eigenstaendiger neuer Fund. Luke sollte pruefen: `cmd/document/main.go`s unbenutzte
+  `wopiFileAdapter`/`tokenService`/`lockService`-Wiring (nur der Cleanup-Ticker ist ein echter
+  Hintergrundjob, HTTP-Routen sind nie registriert) ist vermutlich historisches Duplikat zu
+  `cmd/gateway/main.go`s eigener WOPI-Wiring — ausserhalb des Scopes dieser Fix-Unit nicht
+  aufgeraeumt. Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-einkauf-repository-extended`
+  (deps: [], frei).

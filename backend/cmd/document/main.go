@@ -112,14 +112,17 @@ func main() {
 		"max_file_size_mb", cfg.FileSizeLimitMB,
 	)
 
-	// Start WOPI lock cleanup goroutine (every 5 minutes)
+	// Start WOPI lock cleanup goroutine (every 5 minutes).
+	// wopi_locks has RLS: an unscoped context is admitted zero rows, so this
+	// must run as a system context to clean expired locks across every tenant.
 	go func() {
+		cleanupCtx := database.WithSystemContext(ctx)
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				cleaned, cleanErr := lockService.CleanExpired(ctx)
+				cleaned, cleanErr := lockService.CleanExpired(cleanupCtx)
 				if cleanErr != nil {
 					slog.Error("WOPI lock cleanup failed", "error", cleanErr)
 				} else if cleaned > 0 {

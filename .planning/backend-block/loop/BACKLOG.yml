@@ -2476,7 +2476,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Jede der sechs Queries in `internal/document/wopi/lock.go` (`Lock`, `Unlock`,
       `RefreshLock`, `GetLock`, `CleanExpired`) zielt auf eine Tabelle namens

@@ -1,16 +1,5 @@
 package wopi
 
-// LockService currently queries a table named "document_wopi_locks", but no
-// migration ever created that table — migration 000044 created "wopi_locks",
-// and every migration since (000114 tenant_id retrofit, 000122 RLS) refers to
-// that same name. Every method below therefore fails against the real
-// schema. These tests document that CURRENT (broken) behavior precisely so a
-// fix (rename the six query targets in lock.go to "wopi_locks") has a
-// red-then-green signal to work against — see
-// fix-document-wopi-lock-table-name-mismatch in BACKLOG.yml. Do not delete
-// these on a whim; replace them with real round-trip tests once the fix
-// lands.
-
 import (
 	"context"
 	"errors"
@@ -18,18 +7,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
-
-const undefinedTable = "42P01"
 
 type wopiLockFixture struct {
 	tenant uuid.UUID
 	user   uuid.UUID
 	file   uuid.UUID
+}
+
+// tenantCtx stamps ctx with the fixture's tenant, exactly like withTenantCtx
+// does from a real WOPI request — required for the RLS-aware pool to admit
+// wopi_locks rows for this tenant.
+func (fx wopiLockFixture) tenantCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, fx.tenant.String())
 }
 
 func seedWopiLockFixture(t *testing.T, pool *pgxpool.Pool, name string) wopiLockFixture {
@@ -58,10 +52,8 @@ func seedWopiLockFixture(t *testing.T, pool *pgxpool.Pool, name string) wopiLock
 	return wopiLockFixture{tenant: tenantID, user: userID, file: fileID}
 }
 
-// seedRealWopiLock inserts directly into the ACTUAL table (wopi_locks) that
-// migration 000044 created, bypassing LockService entirely — proving what a
-// genuine lock row looks like so the "always reports unlocked" gap below is
-// demonstrated against real data, not just an empty table.
+// seedRealWopiLock inserts directly into wopi_locks, bypassing LockService —
+// used to set up pre-existing lock state for conflict/expiry scenarios.
 func seedRealWopiLock(t *testing.T, pool *pgxpool.Pool, fx wopiLockFixture, lockID string, expiresAt time.Time) {
 	t.Helper()
 	ctx := testutil.WithSystemCtx(context.Background())
@@ -74,99 +66,181 @@ func seedRealWopiLock(t *testing.T, pool *pgxpool.Pool, fx wopiLockFixture, lock
 	}
 }
 
-func assertUndefinedTableErr(t *testing.T, err error) {
-	t.Helper()
-	if err == nil {
-		t.Fatal("expected an error because LockService queries a nonexistent table " +
-			"\"document_wopi_locks\" (real table is \"wopi_locks\", migration 000044) — " +
-			"if this now succeeds, the table-name bug has been fixed; replace this test " +
-			"with a real round-trip (see fix-document-wopi-lock-table-name-mismatch in BACKLOG.yml)")
-	}
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != undefinedTable {
-		t.Fatalf("expected undefined_table (42P01) error, got: %v", err)
-	}
-}
-
-func TestLockService_Lock_QueriesNonexistentTable_DocumentsCurrentGap(t *testing.T) {
+func TestLockService_Lock_AcquiresAndRefreshesAndConflicts(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewLockService(pool)
-	err := svc.Lock(context.Background(), uuid.NewString(), "lock-1", uuid.NewString())
-	assertUndefinedTableErr(t, err)
+	fx := seedWopiLockFixture(t, pool, "lock-acquire")
+	ctx := fx.tenantCtx()
+
+	if err := svc.Lock(ctx, fx.file.String(), "lock-a", fx.user.String(), fx.tenant); err != nil {
+		t.Fatalf("Lock (acquire): %v", err)
+	}
+
+	// Same lockID again -- refresh, not a conflict.
+	if err := svc.Lock(ctx, fx.file.String(), "lock-a", fx.user.String(), fx.tenant); err != nil {
+		t.Fatalf("Lock (refresh, same lockID): %v", err)
+	}
+
+	// Different lockID while "lock-a" is active and unexpired -- conflict.
+	err := svc.Lock(ctx, fx.file.String(), "lock-b", fx.user.String(), fx.tenant)
+	var conflictErr *LockConflictError
+	if !errors.As(err, &conflictErr) {
+		t.Fatalf("Lock (conflict) err = %v, want *LockConflictError", err)
+	}
+	if conflictErr.CurrentLockID != "lock-a" {
+		t.Errorf("conflictErr.CurrentLockID = %q, want lock-a", conflictErr.CurrentLockID)
+	}
 }
 
-func TestLockService_Unlock_QueriesNonexistentTable_DocumentsCurrentGap(t *testing.T) {
+func TestLockService_Lock_TakesOverExpiredLock(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewLockService(pool)
-	err := svc.Unlock(context.Background(), uuid.NewString(), "lock-1")
-	assertUndefinedTableErr(t, err)
+	fx := seedWopiLockFixture(t, pool, "lock-expired-takeover")
+	seedRealWopiLock(t, pool, fx, "stale-lock", time.Now().Add(-time.Hour))
+
+	ctx := fx.tenantCtx()
+	if err := svc.Lock(ctx, fx.file.String(), "fresh-lock", fx.user.String(), fx.tenant); err != nil {
+		t.Fatalf("Lock over expired lock: %v", err)
+	}
+
+	got, err := svc.GetLock(ctx, fx.file.String(), fx.tenant)
+	if err != nil {
+		t.Fatalf("GetLock after takeover: %v", err)
+	}
+	if got != "fresh-lock" {
+		t.Errorf("GetLock = %q, want fresh-lock", got)
+	}
 }
 
-func TestLockService_RefreshLock_QueriesNonexistentTable_DocumentsCurrentGap(t *testing.T) {
+func TestLockService_Unlock(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewLockService(pool)
-	err := svc.RefreshLock(context.Background(), uuid.NewString(), "lock-1")
-	assertUndefinedTableErr(t, err)
+	fx := seedWopiLockFixture(t, pool, "unlock")
+	ctx := fx.tenantCtx()
+
+	if err := svc.Lock(ctx, fx.file.String(), "lock-a", fx.user.String(), fx.tenant); err != nil {
+		t.Fatalf("Lock: %v", err)
+	}
+
+	t.Run("wrong lockID does not unlock", func(t *testing.T) {
+		err := svc.Unlock(ctx, fx.file.String(), "wrong-lock", fx.tenant)
+		if !errors.Is(err, ErrLockNotFound) {
+			t.Fatalf("Unlock (wrong lockID) err = %v, want ErrLockNotFound", err)
+		}
+		got, getErr := svc.GetLock(ctx, fx.file.String(), fx.tenant)
+		if getErr != nil || got != "lock-a" {
+			t.Fatalf("lock should still be held: got=%q err=%v", got, getErr)
+		}
+	})
+
+	t.Run("correct lockID unlocks", func(t *testing.T) {
+		if err := svc.Unlock(ctx, fx.file.String(), "lock-a", fx.tenant); err != nil {
+			t.Fatalf("Unlock: %v", err)
+		}
+		_, err := svc.GetLock(ctx, fx.file.String(), fx.tenant)
+		if !errors.Is(err, ErrLockNotFound) {
+			t.Fatalf("GetLock after unlock err = %v, want ErrLockNotFound", err)
+		}
+	})
 }
 
-func TestLockService_CleanExpired_QueriesNonexistentTable_DocumentsCurrentGap(t *testing.T) {
+func TestLockService_RefreshLock(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewLockService(pool)
-	fx := seedWopiLockFixture(t, pool, "clean-expired")
-	seedRealWopiLock(t, pool, fx, "expired-lock", time.Now().Add(-time.Hour))
+	fx := seedWopiLockFixture(t, pool, "refresh")
+	seedRealWopiLock(t, pool, fx, "lock-a", time.Now().Add(time.Minute))
+	ctx := fx.tenantCtx()
 
-	n, err := svc.CleanExpired(context.Background())
-	assertUndefinedTableErr(t, err)
-	if n != 0 {
-		t.Errorf("CleanExpired returned n=%d on error, want 0", n)
-	}
+	t.Run("wrong lockID fails", func(t *testing.T) {
+		err := svc.RefreshLock(ctx, fx.file.String(), "wrong-lock", fx.tenant)
+		if !errors.Is(err, ErrLockNotFound) {
+			t.Fatalf("RefreshLock (wrong lockID) err = %v, want ErrLockNotFound", err)
+		}
+	})
 
-	// The real, genuinely-expired row in wopi_locks was never touched — the
-	// 5-minute cleanup goroutine in cmd/document/main.go has been failing on
-	// every tick since this table was introduced, and expired locks
-	// accumulate in wopi_locks forever.
-	var count int
-	ctx := testutil.WithSystemCtx(context.Background())
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wopi_locks WHERE file_id = $1`, fx.file).Scan(&count); err != nil {
-		t.Fatalf("count wopi_locks: %v", err)
-	}
-	if count != 1 {
-		t.Errorf("wopi_locks row count = %d, want 1 (CleanExpired must not have deleted it)", count)
-	}
+	t.Run("correct lockID extends expiry past the original near-term value", func(t *testing.T) {
+		if err := svc.RefreshLock(ctx, fx.file.String(), "lock-a", fx.tenant); err != nil {
+			t.Fatalf("RefreshLock: %v", err)
+		}
+		var expiresAt time.Time
+		sysCtx := testutil.WithSystemCtx(context.Background())
+		if err := pool.QueryRow(sysCtx, `SELECT expires_at FROM wopi_locks WHERE file_id = $1`, fx.file).Scan(&expiresAt); err != nil {
+			t.Fatalf("query expires_at: %v", err)
+		}
+		if !expiresAt.After(time.Now().Add(20 * time.Minute)) {
+			t.Errorf("expires_at = %v, want > 20 minutes from now (RefreshLock should extend by 30m)", expiresAt)
+		}
+	})
 }
 
-// TestLockService_GetLock_AlwaysReportsUnlocked_DocumentsCurrentGap is the
-// sharpest demonstration of the impact: GetLock swallows every query error
-// (including "relation does not exist") into ErrLockNotFound, so it reports
-// "no lock" even for a file carrying a real, active, non-expired lock row
-// in wopi_locks — silently disabling every caller's lock-conflict check
-// (see TestHandler_PutFile and TestHandler_HandleLockOperation in
-// handler_test.go for the caller-level consequence).
-func TestLockService_GetLock_AlwaysReportsUnlocked_DocumentsCurrentGap(t *testing.T) {
+func TestLockService_GetLock(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewLockService(pool)
 	fx := seedWopiLockFixture(t, pool, "get-lock")
-	seedRealWopiLock(t, pool, fx, "active-lock", time.Now().Add(30*time.Minute))
+	ctx := fx.tenantCtx()
 
-	_, err := svc.GetLock(context.Background(), fx.file.String())
-	if !errors.Is(err, ErrLockNotFound) {
-		t.Fatalf("GetLock err = %v, want ErrLockNotFound (even though an active lock row exists in "+
-			"wopi_locks) — if this now finds the lock, the table-name bug has been fixed; replace "+
-			"this test with a real round-trip", err)
+	t.Run("no lock", func(t *testing.T) {
+		_, err := svc.GetLock(ctx, fx.file.String(), fx.tenant)
+		if !errors.Is(err, ErrLockNotFound) {
+			t.Fatalf("GetLock err = %v, want ErrLockNotFound", err)
+		}
+	})
+
+	t.Run("active lock", func(t *testing.T) {
+		seedRealWopiLock(t, pool, fx, "active-lock", time.Now().Add(30*time.Minute))
+		got, err := svc.GetLock(ctx, fx.file.String(), fx.tenant)
+		if err != nil {
+			t.Fatalf("GetLock: %v", err)
+		}
+		if got != "active-lock" {
+			t.Errorf("GetLock = %q, want active-lock", got)
+		}
+	})
+}
+
+func TestLockService_CleanExpired(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	svc := NewLockService(pool)
+	expiredFx := seedWopiLockFixture(t, pool, "clean-expired")
+	activeFx := seedWopiLockFixture(t, pool, "clean-active")
+	seedRealWopiLock(t, pool, expiredFx, "expired-lock", time.Now().Add(-time.Hour))
+	seedRealWopiLock(t, pool, activeFx, "active-lock", time.Now().Add(30*time.Minute))
+
+	// CleanExpired is a cross-tenant maintenance job: it must run under a
+	// system context (see cmd/document/main.go's cleanup goroutine), not a
+	// single tenant's context, or RLS admits zero rows and nothing is cleaned.
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	n, err := svc.CleanExpired(sysCtx)
+	if err != nil {
+		t.Fatalf("CleanExpired: %v", err)
+	}
+	if n < 1 {
+		t.Fatalf("CleanExpired returned n=%d, want >= 1 (the expired row)", n)
+	}
+
+	if _, err := svc.GetLock(expiredFx.tenantCtx(), expiredFx.file.String(), expiredFx.tenant); !errors.Is(err, ErrLockNotFound) {
+		t.Errorf("expired lock should be gone, GetLock err = %v", err)
+	}
+	got, err := svc.GetLock(activeFx.tenantCtx(), activeFx.file.String(), activeFx.tenant)
+	if err != nil || got != "active-lock" {
+		t.Errorf("active lock must survive CleanExpired: got=%q err=%v", got, err)
 	}
 }
