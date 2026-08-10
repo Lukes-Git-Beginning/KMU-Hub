@@ -1722,7 +1722,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/work/event/rrule.go` - 85 Zeilen, komplett ungetestet. RFC-5545-RRULE-Expansion
       fuer wiederkehrende Kalenderereignisse (`ExpandRecurrence`, `ValidateRRule`, `SetUntil`,

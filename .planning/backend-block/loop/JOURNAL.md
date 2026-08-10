@@ -2662,3 +2662,62 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   nicht am Anfang der Datei und war deshalb nicht die naechste in Zeilen-Reihenfolge; wer als
   naechstes den Scan macht, sollte trotzdem grep -n "status: todo" laufen lassen statt nur die
   Zeilenreihenfolge zu vertrauen.
+
+## Iteration 43 — c-cov-work-event-rrule — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — 1b52107d (Signatur-Mapping bei vertraegeContractToProto) geprueft:
+  Diff auf vertraege_grpc.go/vertraege_grpc_test.go zeigt exakt das im Journal beschriebene
+  `includeSignature bool`-Parameter-Muster (false bei Create/Update/List, true bei Get/
+  SaveSignature), alle drei Aufrufstellen korrekt, Nil-Guards vor Dereferenzierung passend zu den
+  Feldtypen in vertraege.proto (string/optional Timestamp), Testanpassungen decken beide
+  includeSignature-Werte ab. Keine Befunde.
+- **Backlog-Praemisse widerlegt (kein Blocker, nur Korrektur):** `internal/work/event/rrule.go`
+  war entgegen dem Scope-Text ("komplett ungetestet") bereits ueber `service_test.go` mit 14
+  Tests abgedeckt (`TestExpandRecurrence_Weekly/Daily/Monthly/InvalidRRule`,
+  `TestValidateRRule_Valid/Invalid`, `TestSetUntil_AddUntil/ReplaceUntil/RemovesCount/
+  InvalidRRule`, `TestRemoveUntil_Success/NoUntil/InvalidRRule`) — die vier Basisfunktionen
+  hatten also bereits Erfolgs- und Fehlerpfad. Was tatsaechlich fehlte, waren genau die im
+  `done_when` explizit geforderten Randfaelle: Monatsende, Schaltjahr, DST.
+- gebaut: neue Datei `internal/work/event/rrule_test.go` mit drei neuen `ExpandRecurrence`-
+  Randfall-Tests, deren erwartete Werte gegen das reale Verhalten der `rrule-go`-Bibliothek
+  verifiziert wurden (Wegwerf-Programm unter `tmp_scratch/` gebaut, Ausgabe gegenlesen, danach
+  geloescht — nicht aus der RFC hergeleitet und geraten):
+  (1) `TestExpandRecurrence_MonthEnd_SkipsShortMonths` — `FREQ=MONTHLY;BYMONTHDAY=31` ab 31. Januar
+  liefert nur Jan/Mar/Mai/Jul (Feb/Apr/Jun werden uebersprungen, nicht auf Monatsende geklemmt —
+  exakt RFC-5545-Verhalten, per Bibliotheks-Testlauf bestaetigt).
+  (2) `TestExpandRecurrence_LeapYear_Feb29OnlyFiresOnLeapYears` — `FREQ=YEARLY` ab 29.02.2024
+  liefert nur 2024 und 2028, ueberspringt 2025-2027 komplett statt auf 1. Maerz zu rollen.
+  (3) `TestExpandRecurrence_DSTSpringForward_ShiftsPastMissingHour` — woechentlich 02:30
+  Europe/Berlin ueber den Umstellungstermin 2026-03-29 (02:00->03:00 CEST): der Termin VOR der
+  Umstellung liegt bei 02:30 CET (+1h), der Termin, der in die uebersprungene Stunde faellt,
+  verschiebt sich auf 03:30 CEST (+2h) statt zu verschwinden oder bei einer nicht-existenten Zeit
+  zu bleiben.
+  Zusaetzlich zwei kleinere Ergaenzungen: `TestValidateRRule_EmptyString` (leerer String war noch
+  kein eigener Testfall) und `TestSetUntil_ReplacesExistingUntilAndRemovesCount` (deckt die
+  Kombination beider Praemissen — Regel traegt schon UNTIL und COUNT gleichzeitig, ein Fall, den
+  RFC 5545 verbietet und den keiner der bestehenden Einzeltests abdeckte). Zwei Duplikate zu
+  bereits bestehenden Tests (`TestExpandRecurrence_InvalidRRule`, `TestSetUntil_InvalidRRule`,
+  `TestRemoveUntil_InvalidRRule` waren Namenskollisionen) verworfen statt dupliziert — stattdessen
+  die zwei bestehenden `_InvalidRRule`-Tests in `service_test.go` (SetUntil/RemoveUntil) um
+  `assert.ErrorIs(t, err, ErrInvalidRRule)` ergaenzt, da sie vorher nur `assert.Error` prueften und
+  damit nicht den vom `done_when` geforderten spezifischen Fehlertyp belegten.
+- gate: build ok (`go build -p 2 ./internal/work/... ./cmd/work/...`) | vet ok
+  (`go vet ./internal/work/event/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/event/...`, 0 issues) | test ok (`go test -count=3 ./internal/work/event/...`,
+  dreimal wiederholt, durchgehend gruen, 0 Fails) | migration n.a. (keine Schema-Aenderung) |
+  rls-smoke n.a. (kein DB-Zugriff im Paket) | route n.a. (kein Gateway/Server-Handler angefasst,
+  `go test ./internal/gateway/` deshalb nicht Pflicht und nicht separat gelaufen) | openapi n.a.
+  | protoc n.a.
+- mutations-probe: `strings.HasPrefix(strings.ToUpper(part), "COUNT=")` in `SetUntil`
+  (rrule.go:55) auf `false && strings.HasPrefix(...)` gesetzt → sowohl der neue
+  `TestSetUntil_ReplacesExistingUntilAndRemovesCount` als auch der bestehende
+  `TestSetUntil_RemovesCount` wurden rot (Ergebnis enthielt weiterhin `COUNT=`), zurueckgedreht,
+  `git diff` auf die Produktionsdatei bestaetigt eine identische Datei, Suite danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — `internal/work/event/rrule.go` ist reine Terminberechnungslogik ohne DB-Zugriff
+  (Repository/DB-Tests existieren bereits separat fuer den Rest des Pakets), done_when verlangt
+  hier keine DB-Tests.
+- offen: `internal/work/event`-Paketcoverage liegt bei 54,6 % (Gesamtpaket, nicht nur rrule.go —
+  die Datei selbst war schon vor dieser Iteration groesstenteils abgedeckt, siehe Praemissen-
+  Korrektur oben). Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-caldav-ical`
+  (`status: todo`, Zeile ~1749).

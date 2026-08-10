@@ -1431,6 +1431,7 @@ func TestSetUntil_RemovesCount(t *testing.T) {
 func TestSetUntil_InvalidRRule(t *testing.T) {
 	_, err := SetUntil("INVALID", time.Now())
 	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidRRule)
 }
 
 func TestRemoveUntil_Success(t *testing.T) {
@@ -1452,6 +1453,7 @@ func TestRemoveUntil_NoUntil(t *testing.T) {
 func TestRemoveUntil_InvalidRRule(t *testing.T) {
 	_, err := RemoveUntil("INVALID")
 	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidRRule)
 }
 
 // ============================================================================
