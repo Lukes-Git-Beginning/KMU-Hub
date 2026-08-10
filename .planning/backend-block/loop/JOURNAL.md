@@ -2564,3 +2564,77 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 38) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 00:49).
+
+## Iteration 40 — c-cov-gdpr-dsar-search — done — 2026-08-11 00:56
+- commit: <pending>
+- gebaut: `backend/internal/security/gdpr/dsar_search_test.go` (neu, 448 Zeilen, kein
+  Produktionscode veraendert). Vier reine Table-Tests fuer `joinName`, `initials`,
+  `boolLabel`, `fieldValueRecord` inklusive der Platzhalter-Kanten (`joinName("","")` -> `—`,
+  `initials("","")` -> `?`) und zweier Multi-Byte-Faelle (`Ölaf`/`Ärgerlich` -> `ÖÄ`, Emoji als
+  eine Rune) — die belegen, dass `initials` ueber Runen und nicht ueber Bytes schneidet.
+  Fuenf DB-Integrationstests fuer `SearchByQuery`:
+  `TestSearchByQuery_ContactWithAllModules_Integration` seedet Kontakt + Firma + drei
+  Consent-Zeilen + zwei Dialer-Sessions und prueft die volle Ausgabe: Modul-Reihenfolge
+  (`CRM Kontakte`, `Einwilligungen`, `Anrufe`), alle sechs CRM-Felder, alle drei
+  Consent-Status-Zweige (`Erteilt` / `Verweigert` / `Widerrufen`, wobei die Widerrufs-Zeile
+  trotz `granted = true` als widerrufen gilt), das `COALESCE(granted_at, created_at)` in beiden
+  Richtungen sowie `COALESCE` auf `duration_seconds`/`notes` (NULL -> `0` und `""`). Dazu
+  Treffer per Nachnamen-, per E-Mail- und per zusammengesetztem Vollnamen-Teilstring, ein
+  Fremd-Tenant-Read (0), ein Read mit **gefaelschtem** `tenantID`-Argument unter fremdem Ctx
+  (ebenfalls 0 — beweist, dass RLS und nicht das Argument die Grenze ist) und ein Nicht-Treffer
+  (leerer, nicht-nil Slice). `TestSearchByQuery_ContactWithoutConsentOrCalls_Integration` haelt
+  die leicht zu verlierende Eigenschaft fest, dass `consentModule`/`dialerModule` **nil** und
+  nicht ein leeres Modul liefern — genau ein Modul beim Kontakt ohne Consent/Anrufe.
+  `TestSearchByQuery_MatchesUsers_Integration` deckt `matchUsers` inklusive beider
+  `boolLabel`-Zweige (aktiver + inaktiver User) und einem gleichnamigen Fremd-Tenant-User ab,
+  der unsichtbar bleiben muss. `TestSearchByQuery_NoMinimumLengthGuard_Integration` und
+  `TestSearchByQuery_DeadPool` decken die zwei Fehler-/Randpfade ab.
+- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
+  ./internal/security/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/security/...` -- 0 issues) | test ok (`go test -count=1 ./internal/security/gdpr/`
+  gruen; die neuen Tests per `-v` gezaehlt: 31 RUN/PASS-Zeilen, **0 SKIP, 0 FAIL**, also liefen
+  alle DB-Integrationstests real gegen die lokale Postgres als `kmuhub_app`; `go test -count=1
+  ./internal/security/...` alle sieben Pakete gruen) | migration n.a. | rls-smoke n.a. als
+  eigener Schritt — Tenant-Isolation ist hier direkter Testgegenstand (Fremd-Tenant-Suche und
+  gefaelschtes Tenant-Argument liefern beide 0 Zeilen unter NOSUPERUSER NOBYPASSRLS) | keine
+  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/security/gdpr 48,0 % -> 59,8 % (beides lokal per `go test -coverprofile` +
+  `go tool cover -func` gemessen, Ausgangswert durch temporaeres Herausnehmen der neuen
+  Testdatei). Per Funktion, alle vorher 0,0 %: `SearchByQuery` 87,5 %, `matchContacts` 84,6 %,
+  `matchUsers` 82,4 %, `consentModule` 87,0 %, `dialerModule` 82,4 %, `fieldValueRecord` /
+  `joinName` / `initials` / `boolLabel` je 100,0 %. Die Reste sind die Scan- und
+  `rows.Err()`-Fehlerzweige, die ohne Fault-Injection nicht erreichbar sind. Wie in den
+  Iterationen 38/39: das Feld `coverage_start:` der Unit nennt "internal/security 47,9 %" —
+  das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem CI-Artefakt, nicht
+  der des hier geaenderten Pakets.
+- mutations-probe: zwei Proben, beide gefangen. (1) In `consentModule` den Zweig
+  `if revoked != nil { status = "Widerrufen" }` entfernt -> `..._ContactWithAllModules_...`
+  rot, Diff nennt genau die fehlende `"Status": "Widerrufen"`-Zelle. (2) In `matchContacts`
+  aus der WHERE-Klausel `OR c.email ILIKE $2` gestrichen -> derselbe Test rot mit der
+  Assertion "the email substring must find the same contact". Beide per `git checkout --
+  backend/internal/security/gdpr/dsar_search.go` zurueckgedreht; `git status backend/` zeigt
+  danach nur noch die neue Testdatei als untracked, erneuter Lauf `go test -count=1
+  ./internal/security/gdpr/` gruen.
+- verify vorgaenger: sauber. Commit c1b0ec90 (Iteration 39) fuegt ausschliesslich
+  `backend/internal/security/gdpr/erasure_crm_chat_test.go` plus Journal/Backlog-Metadaten
+  hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard,
+  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: **Zwei Befunde dokumentiert statt gefixt** (Coverage-Unit aendert kein Verhalten),
+  beide ohne eigene Unit, weil sie eine Produktentscheidung brauchen. (1) `SearchByQuery`
+  interpoliert die Nutzereingabe ungeschuetzt in ein ILIKE-Pattern (`"%" + query + "%"`).
+  Keine SQL-Injection — die Query ist parametrisiert —, aber LIKE-Wildcards der Eingabe
+  bleiben wirksam: eine Suche nach `%a` oder `__` listet bis zu `dsarMaxSubjects` beliebige
+  Subjekte des eigenen Tenants auf, statt gezielt eine Person zu finden. Fuer eine
+  Art.-15-Auskunftsmaske ist das eine Enumerations-Flaeche innerhalb des eigenen Mandanten
+  (der Aufrufer ist Admin, deshalb kein Leak ueber die Tenant-Grenze). Fix waere ein
+  Escapen von `%`/`_`/`\` plus `ESCAPE '\'` — vor Launch zu entscheiden. (2) Die
+  Mindestlaenge von zwei Zeichen sitzt allein im RPC-Handler
+  (`internal/server/security_grpc.go:583`), nicht in `SearchByQuery` selbst; ein leerer Query
+  listet dort alles auf. Das ist per Test festgehalten
+  (`TestSearchByQuery_NoMinimumLengthGuard_Integration`), damit ein zweiter Aufrufer nicht
+  stillschweigend ohne Guard einsteigt. `.planning/backend-block/loop/run-loop.ps1` traegt
+  weiterhin einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-39 vermerkt) —
+  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
+  (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 39) fortgezaehlt, Zeitstempel per
+  `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:56).

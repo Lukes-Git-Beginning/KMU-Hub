@@ -1449,7 +1449,7 @@ units:
     service: security
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security 47,9 %"
     scope: >
       dsar_search.go ist komplett ungetestet (0,0 %). SearchByQuery orchestriert
