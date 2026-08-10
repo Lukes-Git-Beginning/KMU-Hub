@@ -2023,7 +2023,7 @@ Frühere Läufe liegen vollständig im Archiv:
   auf dem Loop-Rechner ermittelt (2026-08-10 23:53).
 
 ## Iteration 32 — b-cov-server-document-folders — done — 2026-08-11 00:02
-- commit: (siehe Folgeeintrag)
+- commit: 069e8ed9
 - unit: b-cov-server-document-folders (Block B, Coverage internal/server)
 - scope: die 8 im Backlog genannten Happy-Path-Luecken der Ordner-Operationen
   in document_grpc.go: CreateFolder, GetFolder, ListFolders, UpdateFolder,
