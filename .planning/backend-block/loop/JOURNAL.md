@@ -3692,3 +3692,72 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Mutations-Probe im Journal belegt, beide Pakete gruen 0 Skips). Naechste Unit im Backlog
   laut Datei-Reihenfolge: `c-cov-work-event-repo` (deps `c-cov-work-event-rrule` bereits
   `status: done`, also frei).
+
+## Iteration 60 — c-cov-work-event-repo — done — 2026-08-10 (Lauf 7)
+- commit: -
+- verify vorgaenger: sauber — `a4ef2ee2` (fix-plugin-kvset-silent-noop-unknown-installation,
+  Iteration 59) gegen alle acht Fehlerklassen geprueft: kein gRPC-Bypass (KVSet-Handler ruft
+  weiterhin `s.svc.KVSet` ueber den Service, nur das Error-Mapping wechselt von hartem
+  `codes.Internal` auf `mapPluginError`), kein Stub, kein `.proto` angefasst, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle/Tenant-Luecke, Wire-Shape unveraendert (nur
+  Fehlercode, `KVSetResponse` bleibt gleich), keine neue Route, kein Guard-Alt-Key ersetzt.
+  `c3fc75c9` traegt nur den Commit-Hash nach. `git merge origin/main` lief als "Already up to
+  date", kein Konflikt.
+- gebaut: neue Datei `internal/work/event/postgres_repository_test.go` (5 Tests) gegen die
+  bisher nur ueber Mocks getestete `PostgresRepository` (448 Z., 18 Methoden) in
+  `internal/work/event/postgres_repository.go`. Kein Produktionscode geaendert — reine
+  Coverage-Unit.
+  - `TestEvent_CRUD_RRuleRoundtripAndNotFoundPaths`: RRULE-String uebersteht Create/GetByID
+    zeichengenau, Update aendert RRULE/Title in-place, GetByID/Update/Delete liefern
+    `ErrEventNotFound` fuer eine nicht existente Zeile statt still zu erfolgen, GetByID unter
+    fremdem Tenant-Ctx liefert ebenfalls `ErrEventNotFound` (RLS).
+  - `TestEvent_ExceptionsIsolateSeriesFromInstance`: EXDATE-Exception (`CreateException`)
+    aendert die Serie (RRULE/RecurrenceEnd auf dem Parent-Event) nachweislich nicht, Duplikat
+    auf denselben `(event_id, original_date)` liefert `ErrExceptionAlreadyExists`,
+    `DeleteExceptionsAfterDate` loescht nur Ausnahmen ab dem Cutoff-Datum, eine fruehere bleibt
+    stehen.
+  - `TestEvent_ListInRange_And_ListRecurringOverlapping_MonthBoundary`: Fenster Jan25-Feb5
+    (echte Monatsgrenze). `ListInRange` liefert genau die zwei nicht-wiederkehrenden
+    In-Window-Events (je einer vor/nach der Grenze), schliesst ein wiederkehrendes Event mit
+    eigener Start/Ende-Zeile IM Fenster aus (rrule-IS-NULL-Filter, nicht nur der Zeitraum).
+    `ListRecurringOverlapping` liefert genau das eine Recurring-Event, dessen
+    `recurrence_end` nach Fensterstart liegt, schliesst eines mit `recurrence_end` vor
+    Fensterstart und eines mit `start_time` nach Fensterende aus, sowie Non-Recurring-Events.
+    Fremdmandant-Session mit explizitem Opfer-Filter (Kalender-IDs + TenantID) liefert an
+    beiden Methoden 0 Zeilen (RLS haelt trotz expliziter Parameter).
+  - `TestEvent_Attendees_Lifecycle`: Add/Remove/UpdateRSVP/List plus
+    `ListAttendeeEventIDs` inkl. `ErrNotAttendee` (Update/Remove auf Nicht-Teilnehmer) und
+    `ErrAlreadyAttendee` (Duplikat-Add, 23505-Mapping), denormalisierter Name im Join geprueft.
+  - `TestEvent_Reminders_Lifecycle`: `SetReminders` loescht-und-neu-schreibt (kein Append),
+    `ListReminders` nach `minutes_before` sortiert, `ListUpcomingReminders` (System-Ctx, keine
+    eigene Tenant-Filterung in der Query) liefert das Erinnerungs-Fenster korrekt und schliesst
+    ein wiederkehrendes Event trotz identischem Fenster aus (`e.rrule IS NULL`-Filter).
+  - `internal/work/event/rrule.go` (Expansions-Korrektheit) bewusst nicht erneut getestet —
+    das deckt `c-cov-work-event-rrule` bereits ab, laut Scope dieser Unit nicht neu erfunden.
+    `ListTaskDeadlinesInRange` ausgelassen (Cross-Modul-Abhaengigkeit auf tasks/projects,
+    ausserhalb des in `scope`/`done_when` benannten Schwerpunkts RRULE/EXDATE/Range-Query).
+- gate: build ok (`go build -p 2 ./internal/work/event/...`) | vet ok
+  (`go vet ./internal/work/event/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/work/event/...`, 0 issues) | test ok (`go test -count=1 ./internal/work/event/...`,
+  komplettes Paket gruen inkl. aller neuen und bestehenden Tests — 0 uebersprungen,
+  `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle
+  `kmuhub_app` verifiziert) | migration n.a. (keine Schemaaenderung) | rls-smoke ok (im Test
+  selbst: Fremdmandant-Session liefert 0 Zeilen bei explizitem Opfer-Filter, sowohl fuer
+  `ListInRange` als auch `ListRecurringOverlapping` sowie GetByID) | route n.a. (kein Gateway-
+  Handler/Route beruehrt, `go test ./internal/gateway/` daher nicht Pflicht fuer diese Unit) |
+  openapi n.a. | protoc n.a.
+- mutations-probe: in `ListInRange` (postgres_repository.go) die Zeile `AND e.rrule IS NULL`
+  entfernt. Vorher mit dem urspruenglichen Fixture (`recOngoing` mit Start/Ende ausserhalb des
+  Fensters) blieb der Test trotzdem gruen — false-negative-Probe erkannt, weil die eigene
+  Start/Ende-Zeile des wiederkehrenden Events schon durch den Zeitraum-Filter ausgeschlossen
+  wurde, unabhaengig vom rrule-Filter. Fixture korrigiert (`recOngoing`-Start auf `2031-01-28`
+  verschoben, liegt jetzt selbst im Abfragefenster). Probe wiederholt: Test sofort rot
+  (`ListInRange: recurring event must not be returned (rrule IS NULL filter)`), Zeile
+  zurueckgedreht, `git diff --stat internal/work/event/postgres_repository.go` zeigt wieder
+  keinen Unterschied zum Ausgangsstand. `go build`/`go vet`/`golangci-lint`/
+  `go test -count=1 ./internal/work/event/...` danach erneut komplett gruen (siehe gate oben).
+- offen: `done_when` dieser Unit vollstaendig erfuellt (RRULE-Roundtrip zeichengenau, EXDATE
+  entfernt eine Instanz ohne die Serie zu aendern, Zeitraumabfrage ueber Monatsgrenze korrekt,
+  Mutations-Probe im Journal belegt inkl. der korrigierten Fixture-Falle, Paket gruen 0 Skips).
+  Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-notification-integration-repo`
+  (deps: [], frei).

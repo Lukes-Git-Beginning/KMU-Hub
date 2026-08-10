@@ -2361,7 +2361,7 @@ units:
     service: work
     model: sonnet
     deps: [c-cov-work-event-rrule]
-    status: todo
+    status: done
     scope: >
       `internal/work/event/postgres_repository.go` - 448 Zeilen, 18 Methoden, keine
       dedizierte Repository-Testdatei (nur `service_test.go` mit 1.563 Zeilen Mock-Ebene).
