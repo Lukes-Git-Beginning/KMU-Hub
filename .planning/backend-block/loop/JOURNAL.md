@@ -2210,3 +2210,59 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: erste von 23 Units in Block C2 erledigt (1/23). Naechste laut Backlog-Reihenfolge:
   `c-cov-work-event-rrule`. `go test ./internal/gateway/` nicht gelaufen — diese Iteration
   hat keine Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 32 — fix-einkauf-contract-call-no-value-check — blocked — 2026-08-10 02:33
+- commit: -
+- verify vorgaenger: sauber — `95c3458b` (c-cov-plugin-config) geprueft: `git show --stat`
+  zeigt ausschliesslich drei neue Testdateien in `internal/plugin/config/` plus Journal/
+  Backlog, kein Produktionscode, keine `.proto`, keine neue Route, kein `RequirePermission`,
+  keine Tabelle.
+- gebaut: nichts — Unit direkt geblockt, siehe unten.
+- gate: n.a.
+- blocked_reason: Produktfrage aus der Unit selbst bestaetigt statt nur uebernommen.
+  `Service.CreateContractCall` (internal/einkauf/service_extended.go:610-644) prueft nur
+  `v < 0` auf den Abrufbetrag, laedt den Rahmenvertrag nur um seine Existenz zu pruefen
+  (Zeile 620), vergleicht `Amount` an keiner Stelle gegen `TotalValue - UsedValue`.
+  `ContractStatus` (models_extended.go:50-55) kennt `draft`/`active`/`expired`. Offene Frage
+  an Luke: (1) Soll ein Abruf abgelehnt werden, sobald `total_value - used_value`
+  ueberschritten wird, unabhaengig vom Vertragsstatus? (2) Falls ja — gilt das auch fuer
+  `draft`-Vertraege (die noch gar nicht "scharf" sind), oder nur fuer `active`? (3) Ist bei
+  `expired` ueberhaupt noch ein Abruf erlaubt, oder sollte das schon vorher (unabhaengig von
+  dieser Unit) blockiert sein? Ohne Antwort waere jeder Fix geraten — genau der Fall aus
+  "Wenn du nicht weiterkommst": Produktentscheidung gehoert Luke.
+- offen: BACKLOG.yml auf `status: blocked` mit `blocked_reason` gesetzt. Naechste Iteration
+  (bzw. dieselbe, siehe unten) nimmt die naechste Unit.
+
+## Iteration 33 — fix-plugin-error-mapping-gaps — done — 2026-08-10 02:40
+- commit: (siehe unten)
+- verify vorgaenger: n.a. — direkt im Anschluss an Iteration 32 (blockierte Unit, kein
+  Commit) innerhalb derselben Session; verify fuer den Commit davor (`95c3458b`) bereits in
+  Iteration 32 dokumentiert.
+- gebaut: `mapPluginError`/`isNotFound`/`isAlreadyExists`/`isInvalidArgument`
+  (internal/server/plugin_grpc.go) von `==`-Vergleich auf `errors.Is` umgestellt (erkennt
+  jetzt auch von Service gewrapptte Sentinels), neuer Case fuer `ErrPluginHasInstallations`
+  -> `codes.FailedPrecondition` (vorher kein Case, fiel auf Internal). Vier bestehende
+  "documents current gap"-Testfaelle in plugin_grpc_test.go auf das neue Verhalten
+  aktualisiert (TestMapPluginError zwei Faelle, TestPluginDeleteManifest/
+  has_active_installations, TestPluginApprovePermissions/undeclared_permission,
+  TestPluginSettings/schema_mismatch). Die drei "orphaned installation panics"-Testfaelle
+  (gehoeren zu fix-plugin-nil-manifest-panic-on-orphaned-installation, separate Unit) und
+  der "missing tenant context"-Testfall (anderer Root-Cause: middleware-Sentinel ist kein
+  plugin.Err*, bleibt von errors.Is unberuehrt) bewusst nicht angefasst.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/plugin/...
+  ./cmd/plugin/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/... ./internal/plugin/...`, 0 issues) | test ok
+  (`go test -count=3 ./internal/server/... ./internal/plugin/...`, durchgehend gruen) |
+  migration n.a. (kein Schema-Zugriff) | rls-smoke n.a. | route n.a. (kein Gateway-Handler,
+  keine neue Route angefasst — reines Error-Mapping im Server-Layer, `go test
+  ./internal/gateway/` deshalb nicht Pflicht)
+- mutations-probe: `ErrPluginHasInstallations`-Case testweise auf `ErrManifestSlugExists`
+  umgebogen -> `TestMapPluginError/plugin_has_installations` UND
+  `TestPluginDeleteManifest/has_active_installations_maps_to_FailedPrecondition` wurden rot
+  (erwartet FailedPrecondition, bekam Internal). Zurueckgedreht, `git diff --stat` zeigt nur
+  den beabsichtigten Diff (errors.Is-Umstellung + neuer Case), `go test -count=3
+  ./internal/server/... ./internal/plugin/...` danach wieder vollstaendig gruen.
+- db-tests: 0 — reine Error-Mapping-Logik ohne DB-Zugriff, done_when verlangt keine.
+- offen: keine neuen Funde. `TestPluginCreateManifest/missing_tenant_context...` bleibt
+  bewusst als eigener, unveraenderter Gap stehen (nicht Teil dieser Unit-Scope) — falls
+  relevant, eigene Fix-Unit in einem kommenden Lauf.

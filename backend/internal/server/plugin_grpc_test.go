@@ -518,21 +518,8 @@ func TestMapPluginError(t *testing.T) {
 		{"wasm binary not allowed", plugin.ErrWASMBinaryNotAllowed, codes.InvalidArgument},
 		{"manifest immutable", plugin.ErrManifestImmutable, codes.PermissionDenied},
 		{"generic unmapped error", errors.New("boom"), codes.Internal},
-		// Known gap #1: ErrPluginHasInstallations is a real sentinel returned by
-		// Service.DeleteManifest (service.go:165) but mapPluginError has no case
-		// for it at all - it falls through to the generic Internal branch instead
-		// of a client-actionable code such as FailedPrecondition. See
-		// TestPluginDeleteManifest/has_active_installations_maps_to_Internal
-		// (documents the same gap at the handler level) and the journal entry for
-		// this iteration.
-		{"plugin has installations (undocumented sentinel, falls through to Internal)", plugin.ErrPluginHasInstallations, codes.Internal},
-		// Known gap #2: isNotFound/isAlreadyExists/isInvalidArgument compare with
-		// a plain `==` against the sentinel, not errors.Is. Every sentinel that
-		// Service wraps with fmt.Errorf("%w: ...", ...) - ErrPermissionNotDeclared
-		// in ApprovePermissions, ErrInvalidSettings in UpdatePluginSettings - is
-		// therefore never recognized here and always falls through to Internal,
-		// even though the unwrapped sentinel maps correctly one line above.
-		{"wrapped invalid-argument sentinel (== instead of errors.Is, falls through to Internal)", fmt.Errorf("wrap: %w", plugin.ErrPermissionNotDeclared), codes.Internal},
+		{"plugin has installations", plugin.ErrPluginHasInstallations, codes.FailedPrecondition},
+		{"wrapped invalid-argument sentinel (errors.Is sees through fmt.Errorf wrap)", fmt.Errorf("wrap: %w", plugin.ErrPermissionNotDeclared), codes.InvalidArgument},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -769,11 +756,7 @@ func TestPluginDeleteManifest(t *testing.T) {
 		requireGRPCCode(t, err, codes.PermissionDenied)
 	})
 
-	// Finding: ErrPluginHasInstallations is a distinct, well-named sentinel
-	// but mapPluginError has no branch for it (see TestMapPluginError gap #1),
-	// so a client trying to delete an in-use manifest gets an opaque 500
-	// instead of a 400/409 they could act on.
-	t.Run("has active installations maps to Internal (documents current gap)", func(t *testing.T) {
+	t.Run("has active installations maps to FailedPrecondition", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		tenantID := uuid.New()
@@ -781,7 +764,7 @@ func TestPluginDeleteManifest(t *testing.T) {
 		repos.manifests.hasActiveInstalls[m.ID] = true
 
 		_, err := srv.DeleteManifest(context.Background(), &pluginv1.DeleteManifestRequest{ManifestId: m.ID.String()})
-		requireGRPCCode(t, err, codes.Internal)
+		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 }
 
@@ -1052,11 +1035,7 @@ func TestPluginApprovePermissions(t *testing.T) {
 		requireGRPCCode(t, err, codes.NotFound)
 	})
 
-	// Finding: Service.ApprovePermissions wraps ErrPermissionNotDeclared with
-	// fmt.Errorf("%w: %s", ...), so mapPluginError's == comparison never
-	// matches it (TestMapPluginError gap #2) and an undeclared-permission
-	// request gets Internal instead of InvalidArgument.
-	t.Run("undeclared permission maps to Internal, not InvalidArgument (documents current gap)", func(t *testing.T) {
+	t.Run("undeclared permission maps to InvalidArgument", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		tenantID := uuid.New()
@@ -1067,7 +1046,7 @@ func TestPluginApprovePermissions(t *testing.T) {
 		_, err := srv.ApprovePermissions(context.Background(), &pluginv1.ApprovePermissionsRequest{
 			InstallationId: inst.ID.String(), Permissions: []string{"crm:delete-everything"}, GrantedBy: uuid.New().String(),
 		})
-		requireGRPCCode(t, err, codes.Internal)
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
 	// Finding: ApprovePermissions dereferences the manifest it looks up
@@ -1192,11 +1171,7 @@ func TestPluginSettings(t *testing.T) {
 		requireGRPCCode(t, err, codes.NotFound)
 	})
 
-	// Finding: same == vs errors.Is gap as ApprovePermissions - a genuine
-	// schema mismatch (missing required field) should be InvalidArgument but
-	// UpdatePluginSettings wraps ErrInvalidSettings with fmt.Errorf("%w: %v",
-	// ...) and mapPluginError never recognizes it.
-	t.Run("schema mismatch maps to Internal, not InvalidArgument (documents current gap)", func(t *testing.T) {
+	t.Run("schema mismatch maps to InvalidArgument", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 		tenantID := uuid.New()
@@ -1207,7 +1182,7 @@ func TestPluginSettings(t *testing.T) {
 		_, err := srv.UpdatePluginSettings(context.Background(), &pluginv1.UpdatePluginSettingsRequest{
 			InstallationId: inst.ID.String(), Settings: `{}`,
 		})
-		requireGRPCCode(t, err, codes.Internal)
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
 	// Finding: same nil-manifest-dereference class as ApprovePermissions -

@@ -192,7 +192,14 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Produktentscheidung noetig, bevor der Fix geschrieben wird - siehe Frage im Journal
+      (Iteration 32): soll die Kappung nur fuer status=active gelten, oder auch fuer draft/
+      expired? Verifiziert (nicht nur vermutet): Service.CreateContractCall
+      (service_extended.go:610) prueft nur v < 0, ContractStatus (models_extended.go:50-55)
+      kennt draft/active/expired, keine Schicht vergleicht Amount gegen
+      total_value - used_value.
     scope: >
       `Service.CreateContractCall` (internal/einkauf/service_extended.go:610) validiert nur,
       dass der Abrufbetrag nicht-negativ ist (`v < 0`) - es gibt keinen Vergleich gegen
@@ -230,7 +237,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `mapPluginError` (internal/server/plugin_grpc.go:829) hat zwei getrennte Luecken,
       beide durch die neue Tabellentest-Suite `TestMapPluginError` in
