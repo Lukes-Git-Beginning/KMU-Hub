@@ -253,20 +253,18 @@ func TestPushNotifier_NotifyCollectionChanged_DeliversPayloadAndSkipsFailingSubs
 	}
 }
 
-// TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval
-// documents a real gap found while writing this coverage: sendNotification's
-// 410-Gone branch (push_notifier.go) calls UnsubscribeByURL with
-// `context.WithTimeout(context.Background(), 5*time.Second)` — bare, with
-// neither a tenant nor a system-context marker. Per
+// TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription verifies
+// the fix for a gap found while writing coverage for this package:
+// sendNotification's 410-Gone branch (push_notifier.go) used to call
+// UnsubscribeByURL under a bare `context.WithTimeout(context.Background(), ...)`
+// — neither a tenant nor a system-context marker. Per
 // internal/database.TestPrepareConn_NoTenantNoSystem, that combination is the
-// intentional "safe default for accidentally-unwrapped paths": RLS admits
-// nothing, so the DELETE silently affects zero rows. In production this means
-// a subscription whose endpoint returns 410 Gone is NEVER actually removed —
-// every future NotifyCollectionChanged keeps POSTing to a dead URL forever.
-// Not fixed inline (real behavior change, not a coverage change) — logged in
-// JOURNAL.md as a new fix-* backlog unit. This test pins the current (broken)
-// behavior so a future fix flips it red, proving the fix.
-func TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval(t *testing.T) {
+// intentional "safe default for accidentally-unwrapped paths": RLS admitted
+// nothing, so the DELETE silently affected zero rows. sendNotification (and
+// the opportunistic CleanupExpired call in NotifyCollectionChanged) now wrap
+// their background contexts with sysctx.With, matching the sanctioned bypass
+// for scheduler/poller code paths that have no per-request tenant.
+func TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
@@ -309,10 +307,9 @@ func TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnR
 		t.Fatal("410 subscriber never received the push notification")
 	}
 
-	// Give the async removal goroutine time to run (it races the assertion
-	// below, but never wins it — that's the gap).
+	// Give the async removal goroutine time to run.
 	time.Sleep(500 * time.Millisecond)
 
 	sysCtx := testutil.WithSystemCtx(context.Background())
-	testutil.AssertRowCount(t, pool, sysCtx, "caldav_push_subscriptions", sub.ID, 1)
+	testutil.AssertRowCount(t, pool, sysCtx, "caldav_push_subscriptions", sub.ID, 0)
 }

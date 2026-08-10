@@ -4350,3 +4350,54 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `fix-notification-markallread-empty-body-rejected` (deps: [], frei) oder
   `fix-caldav-push-410-unsubscribe-no-tenant-context` (neu, deps: [], frei) — beide offen,
   Reihenfolge in BACKLOG.yml entscheidet.
+
+## Iteration 71 — fix-caldav-push-410-unsubscribe-no-tenant-context — done — 2026-08-10 (Lauf 7)
+
+- commit: (folgt in der naechsten chore-Iteration)
+- verify vorgaenger: sauber. `76540cb5` (test(caldav): cover push subscription lifecycle and
+  notifier delivery) ist reiner Test-Code — kein neuer Handler, kein Gateway-Bypass, kein
+  `.proto`, kein neuer `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung,
+  keine neue Route, kein ersetzter Guard. Testdatei nutzt `SkipIfNoDB`/`WithTenantCtx`/
+  `WithSystemCtx` korrekt (Diff gegengelesen).
+- gebaut: `internal/caldav/push_notifier.go` — die beiden bare `context.Background()`-Kontexte
+  in Hintergrund-Goroutinen von `sendNotification`s 410-Gone-Zweig (`removeCtx`, ruft
+  `UnsubscribeByURL`) UND von `NotifyCollectionChanged`s opportunistischem Cleanup
+  (`cleanupCtx`, ruft `CleanupExpired`) mit `sysctx.With(...)` gewrappt — beide riefen zuvor
+  DELETE-Pfade unter einem Kontext ohne Tenant/System-Marker auf, unter dem
+  `TestPrepareConn_NoTenantNoSystem` zufolge RLS gar keine Zeilen zulaesst, die DELETEs also
+  wirkungslos blieben. Der Backlog-Scope nannte explizit nur den 410-Gone-Pfad, aber
+  `cleanupCtx` (drei Zeilen weiter oben, selbe Datei, exakt derselbe Root Cause: bare
+  Background-Context in einer Hintergrund-Goroutine gegen `PushSubscriptionService`) hat
+  denselben Fehler und `CleanupExpired`s einziger Produktions-Aufrufer ist genau diese
+  Goroutine (per Grep bestaetigt) — nach der Lean-Code-Root-Cause-Regel im selben Commit
+  mitgefixt statt eine zweite, fast identische Fix-Unit anzulegen. `sysctx.With` ist der im
+  Repo sanktionierte Bypass fuer genau diesen Fall (Paket-Doc: "schedulers, pollers,
+  audit-log inserts" ohne Anfrage-Tenant) — `UnsubscribeByURL`/`CleanupExpired` matchen
+  ohnehin global auf `push_url`/`expires_at`, keine Tenant-Filterung noetig oder gewuenscht.
+  `internal/caldav/push_subscription_test.go`:
+  `TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval` auf
+  `TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription` umbenannt, Doc-Kommentar
+  und die abschliessende Assertion von `AssertRowCount(..., 1)` (dokumentierte der Bug) auf
+  `AssertRowCount(..., 0)` (beweist den Fix) umgestellt.
+- gate: build ok (`go build -p 2 ./internal/caldav/... ./cmd/gateway/...` — caldav haengt am
+  Gateway-Binary, kein eigenes `cmd/caldav`) | vet ok | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/caldav/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/caldav/...` mit `DATABASE_URL=postgres://kmuhub_app:app_dev@localhost:5432/
+  kmuhub?sslmode=disable`, Rolle `kmuhub_app`, 0 Skips, ganzes Paket gruen inkl. der
+  umgestellten 410-Assertion) | `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`
+  ok (833 Routen gegen 835 dokumentierte Pfade, keine Route angefasst — Sicherheitscheck, weil
+  caldav ins Gateway eingebunden ist) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a.
+  (kein Policy-/Tabellen-Fix, reines Context-Wrapping fuer den bereits sanktionierten
+  System-Bypass)
+- mutations-probe: `removeCtx`s `sysctx.With(...)`-Wrap per `sed` auf den alten bare
+  `context.Background()` zurueckgedreht. Sofort rot:
+  `TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription`
+  (`push_subscription_test.go:314: table caldav_push_subscriptions id=...: expected 0 row(s),
+  got 1`) — exakt der belegte Produktionsfehler. Zeile zurueckgedreht (Edit-Tool, nicht sed,
+  um Line-Ending-Drift zu vermeiden), `git diff --stat` zeigt danach nur noch die
+  beabsichtigten vier Insert-/zwei Delete-Zeilen des eigentlichen Fixes, keinen Rest der
+  Mutation. `go test -count=1 ./internal/caldav/...` danach erneut komplett gruen (siehe gate
+  oben).
+- offen: keine neuen Funde in dieser Iteration. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `fix-notification-markallread-empty-body-rejected` (deps: [], frei) — letzte offene Unit im
+  Backlog von Lauf 7 ausser bereits `blocked` markierten.

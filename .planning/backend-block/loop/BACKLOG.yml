@@ -2741,7 +2741,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `PushNotifier.sendNotification` (internal/caldav/push_notifier.go:138) reacts to a
       subscriber endpoint returning 410 Gone by calling
