@@ -851,7 +851,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 17:07), wie in den vorigen Iterationen.
 
 ## Iteration 15 — b-cov-server-biz-invoices-creditnotes-payments — done — 2026-08-10 17:22
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: e994ddf5
 - gebaut: `biz_grpc_invoices_creditnotes_payments_test.go` — Validierungs-,
   Fehler- und Happy-Path-Tests für alle 23 im Backlog genannten Methoden
   (Rechnungen: CreateInvoice, GetInvoice, ListInvoices, UpdateInvoice,
