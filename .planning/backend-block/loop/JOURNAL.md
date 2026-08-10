@@ -2961,7 +2961,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 01:42).
 
 ## Iteration 46 — d-cov-gateway-fuhrpark-fuel-trip-bookings — done — 2026-08-11 01:53
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: d72649e2
 - gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_logs_test.go` (36 Tests)
   fuer die neun in der Unit genannten Handler in route_fuhrpark.go: HandleCreateFuelLog
   (ServiceUnavailable, MissingTenant, MissingLiters, MissingDate, InvalidVehicleIDUUID,
