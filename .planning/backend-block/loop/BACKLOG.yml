@@ -2793,7 +2793,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `HandleMarkAllRead` (internal/gateway/route_notification.go, ~Zeile 280) haelt sein
       eigenes Kommentarversprechen nicht ein: "Body is optional for mark-all-read". Der Code

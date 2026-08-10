@@ -4401,3 +4401,42 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: keine neuen Funde in dieser Iteration. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `fix-notification-markallread-empty-body-rejected` (deps: [], frei) — letzte offene Unit im
   Backlog von Lauf 7 ausser bereits `blocked` markierten.
+
+## Iteration 72 — fix-notification-markallread-empty-body-rejected — done — 2026-08-10 07:05 (Lauf 7)
+
+- commit: (folgt in der naechsten chore-Iteration)
+- verify vorgaenger: sauber. `70224d3e` (fix(caldav): run push subscription background deletes
+  under sysctx) wrapt zwei bare `context.Background()` in Hintergrund-Goroutinen mit dem
+  sanktionierten `sysctx.With(...)`-Bypass — kein Gateway-Bypass, kein Stub, kein `.proto`, kein
+  neuer `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route,
+  kein ersetzter Guard. Diff gegengelesen (`git show 70224d3e -- backend/internal/caldav/
+  push_notifier.go`), Aenderung minimal und exakt wie im Journal beschrieben.
+- gebaut: `internal/gateway/route_notification.go` — `HandleMarkAllRead` prueft nicht mehr
+  `r.Body != nil` (ein echter net/http-Server liefert Handlern nie einen nil Body, siehe
+  net/http-Doku), sondern dekodiert immer und laesst nur `io.EOF` durch
+  (`errors.Is(err, io.EOF)`) statt es als kaputtes JSON zu behandeln — echtes kaputtes JSON
+  liefert weiterhin 400. Grep `r.Body != nil` ueber `internal/gateway` zeigte keine weitere
+  Fundstelle desselben Musters, also kein Zusatzfix noetig.
+  `internal/gateway/route_notification_test.go`: `TestHandleMarkAllRead_NoBodyIsRejected` (erwartete
+  400) auf `TestHandleMarkAllRead_NoBodyReachesRPC` (erwartet 503, wie
+  `TestHandleMarkAllRead_EmptyObjectBodyReachesRPC`) umgestellt und umbenannt — bestaetigt per
+  `go doc`/Source-Lesen, dass `httptest.NewRequest` bei `nil`-Body ueber `http.ReadRequest` einen
+  echten `Body` baut, der beim Decode sofort `io.EOF` liefert, genau wie ein realer Server.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run --config .golangci.yml ./internal/gateway/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/gateway/...`, 1229 Pass, 0 Fail, 0 Skip — reine In-Memory-Handler-
+  Tests, kein DB-Zugriff in diesem Paket noetig) | `TestOpenAPIRouteDrift` ok (833 Routen gegen
+  835 dokumentierte Pfade, keine Route angefasst) | migration n.a. | rls-smoke n.a. (kein
+  Tabellen-/Policy-Fix)
+- mutations-probe: in `HandleMarkAllRead` (route_notification.go:299) `io.EOF` zu
+  `io.ErrClosedPipe` mutiert (der Guard laesst dann kein `io.EOF` mehr durch, faellt also auf den
+  alten Bug zurueck). Sofort rot: `TestHandleMarkAllRead_NoBodyReachesRPC`
+  (`status = 400, want 503; body = {"error":"invalid request body"}`) — exakt der urspruengliche
+  Bug. Zeile zurueckgedreht (Edit-Tool), `git diff backend/internal/gateway/route_notification.go`
+  zeigt danach nur noch die beabsichtigten acht Zeilen des eigentlichen Fixes. `go test -count=1
+  ./internal/gateway/...` danach erneut komplett gruen (siehe gate oben).
+- offen: keine neuen Funde in dieser Iteration. Backlog hat laut `grep -n "status: todo"
+  BACKLOG.yml` keine offene Unit mehr — Lauf 7 ist damit inhaltlich durch. Naechste Iteration
+  sollte pruefen, ob noch `blocked`-Units einer Entscheidung von Luke harren
+  (`fix-einkauf-contract-call-no-value-check`, Rahmenvertrags-Kappungsfrage) und sonst
+  `ALLE UNITS ABGEARBEITET` ins Journal schreiben und `STOP` anlegen.

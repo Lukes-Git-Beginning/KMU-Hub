@@ -232,14 +232,13 @@ func TestHandleSnooze_FutureTimeReachesRPC(t *testing.T) {
 // behaviour below — see the journal for the finding and the fix vs.
 // send-empty-object write-up.
 
-func TestHandleMarkAllRead_NoBodyIsRejected(t *testing.T) {
+func TestHandleMarkAllRead_NoBodyReachesRPC(t *testing.T) {
 	routes := newNotificationRoutesReachable()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/read-all", nil)
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleMarkAllRead(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid request body")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleMarkAllRead_EmptyObjectBodyReachesRPC(t *testing.T) {
