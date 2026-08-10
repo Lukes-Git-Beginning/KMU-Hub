@@ -1003,7 +1003,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 17:33).
 
 ## Iteration 17 — b-cov-server-calendar-error-map-calendars-members — done — 2026-08-10 17:36
-- commit: (folgt nach diesem Eintrag)
+- commit: 52e07376
 - gebaut: neue Testdatei
   `calendar_grpc_errormap_calendars_members_test.go` mit `TestMapCalendarError`
   (alle 52 Sentinel-Fälle aus `mapCalendarError` — calendar/event/resource/
