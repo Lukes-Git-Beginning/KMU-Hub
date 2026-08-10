@@ -849,3 +849,76 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
   (Iteration 13) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 17:07), wie in den vorigen Iterationen.
+
+## Iteration 15 — b-cov-server-biz-invoices-creditnotes-payments — done — 2026-08-10 17:22
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `biz_grpc_invoices_creditnotes_payments_test.go` — Validierungs-,
+  Fehler- und Happy-Path-Tests für alle 23 im Backlog genannten Methoden
+  (Rechnungen: CreateInvoice, GetInvoice, ListInvoices, UpdateInvoice,
+  SendInvoice, MarkInvoicePaid, CancelInvoice, ValidateInvoiceNumber,
+  LockInvoice, GenerateInvoicePDF, GenerateZUGFeRDInvoicePDF,
+  GenerateEInvoice, CreateInvoiceFromTimeEntries; Gutschriften:
+  CreateCreditNote, GetCreditNote, ListCreditNotes, SendCreditNote,
+  GenerateCreditNotePDF; Zahlungen: RecordPayment, ListPayments,
+  DeletePayment; GetPaymentStats, GetJournalSummary). CancelInvoice und
+  MarkInvoicePaid decken den FailedPrecondition-Pfad für bereits bezahlte
+  Rechnungen ab (`ErrInvoiceAlreadyPaid`); CancelInvoice zusätzlich den
+  bislang ungetesteten `ErrStornoUnavailable`-Pfad (versendete Rechnung ohne
+  gewirten StornoCreator -> Internal). Neue Stubs: `stubInvoiceRepo` (volles
+  `invoice.Repository`, 18 Methoden), `stubCreditNoteRepo`
+  (`creditnote.Repository`), `stubPaymentRepo` (`payment.Repository`,
+  inkl. In-Tx-Varianten über `fakeTx`), `stubInvoiceNumberSeqRepo` (eigener
+  Typ statt Erweiterung des bestehenden `stubNumberSeqRepo`, weil
+  `invoice.NumberSequenceRepo` zusätzlich `GetSequenceInfo` braucht —
+  `creditnote.NumberSequenceRepo` bleibt beim bestehenden Zwei-Methoden-Stub).
+  `newFinanceTestServer` verdrahtet alle drei Services auf denselben
+  `stubInvoiceRepo`, der strukturell sowohl `creditnote.InvoiceReader` als
+  auch `payment.InvoiceReader`/`InvoiceStatusUpdater` erfüllt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
+  reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route
+  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
+  gelaufen)
+- coverage: internal/server 47,7 % -> 55,0 % (`go tool cover -func=/tmp/cov.out
+  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
+  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
+  Iteration 14 war 53,7 %)
+- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
+  gegen `internal/biz/invoice/service_gobd.go` restfrei (leer):
+  (1) `GetJournalSummary`: `gaps := max(seq.CurrentNumber-invoiceCount, 0)`
+  auf `gaps := 0` gedreht -> `TestGetJournalSummary/gap_detected_when_issued_
+  count_trails_the_sequence` rot (erwartete 2, bekam 0), zurückgedreht.
+  (2) `ValidateInvoiceNumber`: `AlreadyUsed: used` auf `AlreadyUsed: !used`
+  gedreht -> sowohl `already_used` als auch `happy_path_canonicalizes_the_
+  number` rot (invertierte Erwartung in beide Richtungen), zurückgedreht.
+- verify vorgaenger: sauber — `0a5e5e55` geprüft gegen alle acht
+  Fehlerklassen: reine neue Testdatei
+  (`biz_grpc_errormap_settings_quotes_test.go`), kein `.proto` angefasst,
+  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
+  angefasst. `origin/main` war bereits vollständig in `backend-loop`
+  gemergt (kein neuer Merge nötig).
+- offen: `CreateInvoiceFromTimeEntries` ist nur mit den sieben
+  Validierungspfaden (inkl. `s.timetrackingRepo == nil` -> Unavailable)
+  abgedeckt, kein Happy Path — bräuchte einen vollständigen Fake für
+  `timetracking.WorkTimeRepository` (12 Methoden), den es im `server`-Package
+  noch nicht gibt. Für Lauf 9: ein minimaler `stubWorkTimeRepo` (nur
+  `AggregateWorkTimeForInvoice` sinnvoll befüllt, Rest `Unimplemented`/Zero)
+  würde den Happy Path (Stundenaggregation -> Rechnungsposition) freischalten.
+  `GenerateInvoicePDF`/`GenerateZUGFeRDInvoicePDF`/`GenerateCreditNotePDF`
+  sind nur mit ihren Fehlerpfaden (NotFound, fehlende Company-Settings)
+  getestet, kein Happy Path mit echter PDF-Generierung (maroto/v2) — gleiches
+  Muster wie `TestGenerateQuotePDF_QuoteNotFound` in Iteration 1/13, damit
+  konsistent zum Rest der Datei. `RecordPayment` mit einer Rechnung im
+  `draft`-Status mappt aktuell auf `codes.Internal` (plain `fmt.Errorf`, kein
+  Sentinel) statt `FailedPrecondition` — echtes, unverändertes Verhalten, nur
+  als Beobachtung notiert, nicht Teil des Fix-Scopes dieser Unit.
+  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
+  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-14 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
+  (Iteration 14) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 17:22).
