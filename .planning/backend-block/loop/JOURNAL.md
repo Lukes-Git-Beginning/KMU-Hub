@@ -4118,7 +4118,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 
 ## Iteration 66 — c-cov-document-folder-repo — done — 2026-08-10 (Lauf 7)
 
-- commit: (siehe naechste Iteration)
+- commit: `86df0778`
 - gebaut: `internal/document/folder/postgres_repository_test.go` (neu, zuvor keine
   Repository-Implementation-Coverage — `service_test.go` deckt nur die Mock-Repository-Ebene,
   `tenant_isolation_phase2_test.go` seedet ausschliesslich per `testutil.SeedRow`). Sechs Tests
