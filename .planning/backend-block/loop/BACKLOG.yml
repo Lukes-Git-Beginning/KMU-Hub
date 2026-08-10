@@ -666,7 +666,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `MIMEBuilder.buildWithAttachments` (internal/email/send/mime_builder.go:129) declares the
       nested text/html body part's Content-Type boundary from one throwaway `multipart.Writer`

@@ -140,6 +140,14 @@ func TestMIMEBuilder_SubjectRFC2047_Umlauts(t *testing.T) {
 	assert.Equal(t, subject, decoded)
 }
 
+// parseNestedBodyPart re-parses a shallowPart that is itself a multipart body
+// (multipart/alternative or multipart/related) using its OWN declared
+// Content-Type boundary - the only way a real MIME client would ever read it.
+func parseNestedBodyPart(t *testing.T, part shallowPart) []shallowPart {
+	t.Helper()
+	return parseOneLevel(t, part.header, part.body)
+}
+
 func TestMIMEBuilder_MultipleAttachments(t *testing.T) {
 	builder := NewMIMEBuilder()
 
@@ -162,13 +170,16 @@ func TestMIMEBuilder_MultipleAttachments(t *testing.T) {
 	require.NoError(t, err)
 
 	_, parts := parseBuiltMessage(t, raw)
-	// Top level (multipart/mixed) is unaffected by the nested-boundary bug
-	// documented in TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_
-	// DocumentsCurrentGap below: parts[0] is the (currently undecodable)
-	// text/html body, parts[1] and parts[2] are the two attachments.
+	// Top level (multipart/mixed): parts[0] is the nested text/html body,
+	// parts[1] and parts[2] are the two attachments.
 	require.Len(t, parts, 3)
 
 	assert.Contains(t, parts[0].header.Get("Content-Type"), "multipart/alternative")
+
+	bodyParts := parseNestedBodyPart(t, parts[0])
+	require.Len(t, bodyParts, 2)
+	assert.Equal(t, "see attached", string(decodeLeafBody(t, bodyParts[0])))
+	assert.Equal(t, "<p>see attached</p>", string(decodeLeafBody(t, bodyParts[1])))
 
 	assert.Contains(t, parts[1].header.Get("Content-Disposition"), "one.txt")
 	assert.Equal(t, att1, decodeLeafBody(t, parts[1]))
@@ -195,7 +206,7 @@ func TestMIMEBuilder_AttachmentWithoutFilename(t *testing.T) {
 	require.NoError(t, err)
 
 	_, parts := parseBuiltMessage(t, raw)
-	require.Len(t, parts, 2) // body part (undecodable, see gap test) + attachment
+	require.Len(t, parts, 2) // nested text/html body + attachment
 
 	_, params, err := mime.ParseMediaType(parts[1].header.Get("Content-Disposition"))
 	require.NoError(t, err)
@@ -203,47 +214,89 @@ func TestMIMEBuilder_AttachmentWithoutFilename(t *testing.T) {
 	assert.Equal(t, []byte("data"), decodeLeafBody(t, parts[1]))
 }
 
-// TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap proves
-// a real production bug rather than a test artifact: buildWithAttachments
-// (mime_builder.go) declares the nested text/html body part's boundary from one
-// throwaway multipart.Writer ("just for the boundary") but then writes the actual
-// text/html content through a SECOND, independently-created multipart.Writer with
-// its own random boundary. The declared and actual boundaries never match, so no
-// RFC-2046-compliant client can ever recover the text/html body of an email that
-// carries at least one attachment (inline or not - both branches share this
-// pattern). This is not fixed here: it is a genuine behavior change belonging to
-// its own backlog unit (see BACKLOG.yml), not this coverage unit.
-func TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap(t *testing.T) {
-	builder := NewMIMEBuilder()
+// TestMIMEBuilder_WithAttachments_NestedBodyRoundTrips proves the fix for a real
+// production bug: buildWithAttachments (mime_builder.go) used to declare the
+// nested text/html body part's boundary from one throwaway multipart.Writer
+// ("just for the boundary") but write the actual text/html content through a
+// SECOND, independently-created multipart.Writer with its own random boundary.
+// The declared and actual boundaries never matched, so no RFC-2046-compliant
+// client could recover the text/html body of an email carrying at least one
+// attachment. This asserts a full recursive parse - using the boundary the
+// nested part itself declares, exactly as a real client would - now succeeds
+// for both the "no inline images" and "has inline images" branches.
+func TestMIMEBuilder_WithAttachments_NestedBodyRoundTrips(t *testing.T) {
+	t.Run("no inline images", func(t *testing.T) {
+		builder := NewMIMEBuilder()
 
-	input := MIMEInput{
-		From:     EmailAddress{Email: "alice@example.com"},
-		To:       []EmailAddress{{Email: "bob@example.com"}},
-		Subject:  "Boundary mismatch",
-		BodyText: "text",
-		BodyHTML: "<p>text</p>",
-		Attachments: []AttachmentData{
-			{Filename: "a.txt", ContentType: "text/plain", Data: bytes.NewReader([]byte("x")), Size: 1},
-		},
-	}
+		input := MIMEInput{
+			From:     EmailAddress{Email: "alice@example.com"},
+			To:       []EmailAddress{{Email: "bob@example.com"}},
+			Subject:  "Boundary roundtrip",
+			BodyText: "text",
+			BodyHTML: "<p>text</p>",
+			Attachments: []AttachmentData{
+				{Filename: "a.txt", ContentType: "text/plain", Data: bytes.NewReader([]byte("x")), Size: 1},
+			},
+		}
 
-	raw, err := builder.Build(input)
-	require.NoError(t, err)
+		raw, err := builder.Build(input)
+		require.NoError(t, err)
 
-	_, parts := parseBuiltMessage(t, raw)
-	require.Len(t, parts, 2)
+		_, parts := parseBuiltMessage(t, raw)
+		require.Len(t, parts, 2)
 
-	bodyPart := parts[0]
-	mediaType, params, err := mime.ParseMediaType(bodyPart.header.Get("Content-Type"))
-	require.NoError(t, err)
-	require.Equal(t, "multipart/alternative", mediaType)
-	declaredBoundary := params["boundary"]
+		bodyPart := parts[0]
+		mediaType, _, err := mime.ParseMediaType(bodyPart.header.Get("Content-Type"))
+		require.NoError(t, err)
+		require.Equal(t, "multipart/alternative", mediaType)
 
-	mr := multipart.NewReader(bytes.NewReader(bodyPart.body), declaredBoundary)
-	_, err = mr.NextPart()
-	assert.ErrorIs(t, err, io.EOF, "expected the declared boundary to find zero parts (current gap) - if this now finds a part, the bug is fixed and this test should be rewritten to assert the correct roundtrip")
+		bodyParts := parseNestedBodyPart(t, bodyPart)
+		require.Len(t, bodyParts, 2)
+		assert.Equal(t, "text", string(decodeLeafBody(t, bodyParts[0])))
+		assert.Equal(t, "<p>text</p>", string(decodeLeafBody(t, bodyParts[1])))
+	})
 
-	assert.NotContains(t, string(bodyPart.body), "--"+declaredBoundary)
+	t.Run("has inline images", func(t *testing.T) {
+		builder := NewMIMEBuilder()
+
+		input := MIMEInput{
+			From:     EmailAddress{Email: "alice@example.com"},
+			To:       []EmailAddress{{Email: "bob@example.com"}},
+			Subject:  "Boundary roundtrip with inline image",
+			BodyText: "see image",
+			BodyHTML: `<p>see image <img src="cid:img001"></p>`,
+			Attachments: []AttachmentData{
+				{Filename: "logo.png", ContentType: "image/png", Data: bytes.NewReader([]byte("fake-png")), Size: 8, ContentID: "img001", IsInline: true},
+				{Filename: "report.pdf", ContentType: "application/pdf", Data: bytes.NewReader([]byte("fake-pdf")), Size: 8},
+			},
+		}
+
+		raw, err := builder.Build(input)
+		require.NoError(t, err)
+
+		_, parts := parseBuiltMessage(t, raw)
+		require.Len(t, parts, 2) // nested related body + the non-inline attachment
+
+		bodyPart := parts[0]
+		mediaType, _, err := mime.ParseMediaType(bodyPart.header.Get("Content-Type"))
+		require.NoError(t, err)
+		require.Equal(t, "multipart/related", mediaType)
+
+		// writeAlternativePart writes text and html as direct sibling parts of
+		// the related writer (not nested in their own multipart/alternative),
+		// so the related body has three flat children: text, html, inline image.
+		relatedParts := parseNestedBodyPart(t, bodyPart)
+		require.Len(t, relatedParts, 3)
+
+		assert.Equal(t, "see image", string(decodeLeafBody(t, relatedParts[0])))
+		assert.Equal(t, `<p>see image <img src="cid:img001"></p>`, string(decodeLeafBody(t, relatedParts[1])))
+
+		assert.Contains(t, relatedParts[2].header.Get("Content-Id"), "img001")
+		assert.Equal(t, []byte("fake-png"), decodeLeafBody(t, relatedParts[2]))
+
+		assert.Contains(t, parts[1].header.Get("Content-Disposition"), "report.pdf")
+		assert.Equal(t, []byte("fake-pdf"), decodeLeafBody(t, parts[1]))
+	})
 }
 
 type errReader struct{}

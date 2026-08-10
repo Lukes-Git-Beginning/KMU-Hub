@@ -131,18 +131,15 @@ func (b *MIMEBuilder) buildWithAttachments(buf *bytes.Buffer, input MIMEInput, h
 	writeHeader(buf, "Content-Type", fmt.Sprintf("multipart/mixed; boundary=%s", mixedWriter.Boundary()))
 	buf.WriteString("\r\n")
 
-	// First part: the body (alternative or related)
+	// First part: the body (alternative or related). The inner writer is built
+	// against its own buffer first so its real Boundary() - not a throwaway
+	// writer's - is what ends up in the Content-Type header written below.
+	var innerBuf bytes.Buffer
 	bodyHeader := make(textproto.MIMEHeader)
 	if hasInline {
-		relatedWriter := multipart.NewWriter(nil) // just for boundary
-		bodyHeader.Set("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", relatedWriter.Boundary()))
-		bodyPart, err := mixedWriter.CreatePart(bodyHeader)
-		if err != nil {
-			return nil, err
-		}
+		innerRelated := multipart.NewWriter(&innerBuf)
+		bodyHeader.Set("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", innerRelated.Boundary()))
 
-		innerRelated := multipart.NewWriter(bodyPart)
-		// Override boundary to match the one in the header
 		if err := writeAlternativePart(innerRelated, input.BodyText, input.BodyHTML); err != nil {
 			return nil, err
 		}
@@ -155,23 +152,30 @@ func (b *MIMEBuilder) buildWithAttachments(buf *bytes.Buffer, input MIMEInput, h
 				}
 			}
 		}
-		_ = innerRelated.Close()
-	} else {
-		altWriter := multipart.NewWriter(nil) // just for boundary
-		bodyHeader.Set("Content-Type", fmt.Sprintf("multipart/alternative; boundary=%s", altWriter.Boundary()))
-		bodyPart, err := mixedWriter.CreatePart(bodyHeader)
-		if err != nil {
+		if err := innerRelated.Close(); err != nil {
 			return nil, err
 		}
+	} else {
+		innerAlt := multipart.NewWriter(&innerBuf)
+		bodyHeader.Set("Content-Type", fmt.Sprintf("multipart/alternative; boundary=%s", innerAlt.Boundary()))
 
-		innerAlt := multipart.NewWriter(bodyPart)
 		if err := writeTextPart(innerAlt, input.BodyText); err != nil {
 			return nil, err
 		}
 		if err := writeHTMLPart(innerAlt, input.BodyHTML); err != nil {
 			return nil, err
 		}
-		_ = innerAlt.Close()
+		if err := innerAlt.Close(); err != nil {
+			return nil, err
+		}
+	}
+
+	bodyPart, err := mixedWriter.CreatePart(bodyHeader)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := bodyPart.Write(innerBuf.Bytes()); err != nil {
+		return nil, err
 	}
 
 	// Attachment parts

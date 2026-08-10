@@ -2830,3 +2830,52 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   nebenbei in dieser Coverage-Unit gefixt. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-notification-forwarder` (`status: todo`, Zeile ~1803 vor Einfuegen der neuen Fix-Unit,
   `internal/notification/integration/forwarder.go`).
+
+## Iteration 46 — fix-email-mime-attachment-boundary-mismatch — done — 2026-08-10 04:05
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `fdcc40dd` (c-cov-email-send-mime) geprueft: Diff enthaelt nur
+  `mime_builder_test.go` (neu) plus Journal/Backlog, kein Produktionscode angefasst, kein
+  gRPC-Layer, kein Proto, keine neue Route, kein neuer Guard, keine neue Tabelle.
+- gebaut: Fix des in Iteration 45 gefundenen Boundary-Mismatch-Bugs in
+  `internal/email/send/mime_builder.go:buildWithAttachments`. Beide Zweige (`hasInline` true und
+  false) deklarierten das Content-Type-Boundary des verschachtelten Body-Parts ueber einen
+  Wegwerf-`multipart.Writer(nil)` ("just for the boundary"), schrieben den tatsaechlichen Inhalt
+  aber ueber einen zweiten, unabhaengig erzeugten Writer mit eigenem Zufalls-Boundary — beide
+  matchten nie. Fix: der innere Writer wird jetzt direkt gegen einen eigenen `bytes.Buffer`
+  erzeugt (`innerRelated`/`innerAlt := multipart.NewWriter(&innerBuf)`), sein ECHTES
+  `.Boundary()` geht in den Header, und erst danach wird der fertige Puffer per
+  `bodyPart.Write(innerBuf.Bytes())` in den vom `mixedWriter` erzeugten Part geschrieben —
+  keine Wegwerf-Writer mehr. Testdatei aktualisiert:
+  `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` (dokumentierte den
+  Bug) ersetzt durch `TestMIMEBuilder_WithAttachments_NestedBodyRoundTrips` mit zwei Subtests
+  (`no inline images`, `has inline images`) — echter rekursiver Parse (eigene
+  `parseNestedBodyPart`-Hilfsfunktion, nutzt den vom Part selbst deklarierten Boundary, keine
+  Shallow-Workarounds) beweist Text- UND HTML-Body sind jetzt in beiden Zweigen decodierbar,
+  inklusive Inline-Bild (Content-ID) und dem parallel vorhandenen Nicht-Inline-Anhang. Zusaetzlich
+  `TestMIMEBuilder_MultipleAttachments`/`TestMIMEBuilder_AttachmentWithoutFilename` von
+  Shallow-Parse (nur Mixed-Ebene) auf vollen rekursiven Parse des nested Alternative-Bodyparts
+  umgestellt — genau wie im `done_when` gefordert, nicht geloescht sondern durch echten Beweis
+  ersetzt. Signatur von `Build`/`buildWithAttachments` unveraendert (kein Caller-Bruch, geprueft
+  gegen `internal/email/systemmail/sender.go` und `internal/email/send/service.go`, beide
+  unangetastet).
+- gate: build ok (`go build -p 2 ./internal/email/send/...`) | vet ok | lint ok (golangci-lint
+  --config .golangci.yml, 0 issues) | test ok (`go test -count=3 ./internal/email/send/...`,
+  dreimal wiederholt, durchgehend gruen, inkl. 6 vorbestehende MIMEBuilder-Tests aus
+  service_test.go) | migration n.a. (kein Schema beruehrt) | rls-smoke n.a. (kein DB-Zugriff im
+  Paket) | route n.a. (kein Gateway/Server-Handler angefasst, `go test ./internal/gateway/`
+  deshalb nicht Pflicht und nicht separat gelaufen) | openapi n.a. | protoc n.a.
+- mutations-probe: `bodyHeader.Set("Content-Type", ...)` im `hasInline: false`-Zweig
+  (`mime_builder.go`) zurueck auf einen hartkodierten falschen Boundary-String
+  (`mutation-probe-fake-boundary` statt `innerAlt.Boundary()`) gesetzt — genau der urspruengliche
+  Bug-Zustand fuer diesen Zweig. `TestMIMEBuilder_MultipleAttachments` und
+  `TestMIMEBuilder_WithAttachments_NestedBodyRoundTrips/no_inline_images` wurden beide rot
+  (`multipart: NextPart: EOF`), exakt der dokumentierte Fehler. Zurueckgedreht, `git diff`
+  bestaetigt eine zur Ausgangslage identische Produktionsdatei (keine Restaenderung), volle Suite
+  danach wieder gruen (`go test -count=1`).
+- db-tests: 0 — reine In-Memory-MIME-Erzeugung ohne DB-Zugriff, `done_when` verlangt hier keine
+  DB-Tests.
+- offen: keins. `done_when` vollstaendig erfuellt: Boundary stimmt in beiden Zweigen, echter
+  rekursiver Parse liefert Text/HTML-Body korrekt zurueck, der Gap-Test wurde auf das neue
+  Verhalten aktualisiert statt geloescht, `go test -count=1 ./internal/email/send/...` gruen.
+  Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-notification-forwarder`
+  (`status: todo`, `internal/notification/integration/forwarder.go`).
