@@ -2375,3 +2375,34 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Scope-Text nur die drei anderen Messages nannte — Begruendung siehe oben (gebaut); falls Luke
   das als Scope-Ueberschreitung werten will, ist der Diff dafuer isoliert (ein zusaetzlicher
   proto-Feldtyp, ein zusaetzlicher Call-Site-Swap in `templateToProto`).
+
+## Iteration 36 — fix-automation-testcondition-omitted-conditions-error — done — 2026-08-10 02:58
+- commit: 8101a0c2
+- verify vorgaenger: sauber — 6ea97f34 (actions Struct->ListValue) gegen alle acht Fehlerklassen
+  geprueft: .proto-Aenderung mit echter protoc-Regenerierung (rawDesc mitgeaendert, kein Handedit),
+  Handler bleibt gRPC-Client-Aufruf, kein neuer Guard/keine neue Route/Tabelle, openapi.yaml korrekt
+  auf `type: array` umgestellt und deckungsgleich mit dem neuen ListValue-Feld. Keine Befunde.
+- gebaut: `workflow.Service.TestCondition` (service.go:346) hatte anders als `DryRun` keine
+  Laengenpruefung vor dem `json.Unmarshal(conditionJSON, &config)` — ein weggelassenes
+  `conditions`-Feld ("Automation soll immer feuern") ergab "unexpected end of JSON input" statt
+  Matches:true. Guard `if len(conditionJSON) > 0 { unmarshal }` ergaenzt, symmetrisch zu
+  `DryRun` (service.go:384). Bestehenden Testfall `TestTestCondition_OmittedConditionsSurfacesAsError`
+  in `automation_grpc_test.go` auf `TestTestCondition_OmittedConditionsAlwaysMatches` umbenannt und
+  auf das neue (korrekte) Verhalten umgestellt, nicht geloescht. Neuen Service-Ebene-Test
+  `TestTestCondition_NilConditionJSONAlwaysTrue` in `service_test.go` ergaenzt (direkter Aufruf mit
+  `nil` statt ueber den Handler).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/automation/...
+  ./internal/gateway/... ./cmd/...`) | vet ok | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/server/... ./internal/automation/...`, 0 issues) | test ok (`go test -count=3
+  ./internal/server/... ./internal/automation/...`, dreimal wiederholt, durchgehend gruen) |
+  migration n.a. (kein Schema-Zugriff) | rls-smoke n.a. | route n.a. (keine Route angefasst,
+  `internal/gateway` nicht Pflicht) | openapi n.a.
+- mutations-probe: `if len(conditionJSON) > 0` auf `if false && len(conditionJSON) > 0` gesetzt →
+  `TestTestCondition_InvalidConfigReturnsSoftError` (internal/server) wurde rot (erwartete
+  Matches:false + nicht-leere ErrorMessage, bekam Matches:true + leere ErrorMessage, weil der
+  Unmarshal komplett uebersprungen wurde), `internal/automation/workflow`-Paket blieb dabei
+  gruen (mein neuer Test dort prueft nur den nil-Fall, den die Mutation nicht veraendert — das
+  Server-Paket ist die schaerfere Probe). Zurueckgedreht, `git diff` auf service.go zeigt danach
+  nur die beabsichtigte Zeile, Suite dreimal in Folge wieder vollstaendig gruen.
+- db-tests: 0 — reine In-Memory-Logik ohne DB-Zugriff, done_when verlangt hier keine DB-Tests.
+- offen: keins.
