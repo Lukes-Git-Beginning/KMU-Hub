@@ -2406,3 +2406,29 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   nur die beabsichtigte Zeile, Suite dreimal in Folge wieder vollstaendig gruen.
 - db-tests: 0 — reine In-Memory-Logik ohne DB-Zugriff, done_when verlangt hier keine DB-Tests.
 - offen: keins.
+
+## Iteration 37 — fix-schichten-createtemplate-drops-location — done — 2026-08-10 03:01
+- commit: 1b78eb51
+- verify vorgaenger: sauber — 8101a0c2 (TestCondition match-all) geprueft: kein Proto-/Route-/
+  Guard-/Tabellen-Bezug, reiner Service-Guard + symmetrischer Testumbau, gRPC-Layer unveraendert.
+  Keine Befunde.
+- gebaut: `SchichtenGRPCServer.CreateTemplate` (schichten_grpc.go:268) las `req.GetLocation()`
+  nie und liess `CreateTemplateInput.Location` immer nil, obwohl `UpdateTemplate` dasselbe Feld
+  schon korrekt setzt. Dieselbe `if l := req.GetLocation(); l != "" { input.Location = &l }`-Zeile
+  wie in UpdateTemplate ergaenzt. `TestSchichten_TemplateCRUDAndList` (schichten_grpc_test.go) von
+  "documents current gap" (assert.Nil) auf das neue Verhalten (require.NotNil + Wertvergleich)
+  umgestellt.
+- gate: build ok (`go build -p 2 ./internal/schichten/... ./internal/server/...
+  ./cmd/schichten/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/schichten/... ./internal/server/...`, 0 issues) | test ok (`go test
+  -count=3 ./internal/schichten/... ./internal/server/... ./internal/gateway/...`, dreimal
+  wiederholt, durchgehend gruen, 0 uebersprungen) | migration n.a. (kein Schema-Zugriff) |
+  rls-smoke n.a. | route n.a. (keine neue Route, bestehendes Feld auf bestehender RPC) |
+  openapi n.a.
+- mutations-probe: die neue Zeile auf `if l := req.GetLocation(); false && l != "" { ... }`
+  gesetzt → `TestSchichten_TemplateCRUDAndList` wurde rot ("Expected value not to be nil" auf
+  `createResp.Template.Location`), zurueckgedreht, `git diff --stat` zeigt danach nur die
+  beabsichtigten 7 Zeilen in schichten_grpc.go, Suite dreimal in Folge wieder vollstaendig gruen.
+- db-tests: 0 — reine Handler-/In-Memory-Logik (Stub-Repo), done_when verlangt hier keine
+  DB-Tests.
+- offen: keins.
