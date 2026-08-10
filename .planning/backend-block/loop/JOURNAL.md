@@ -2638,3 +2638,106 @@ Frühere Läufe liegen vollständig im Archiv:
   (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht sichtbar mitgeliefert —
   Nummer aus der letzten Journal-Ueberschrift (Iteration 39) fortgezaehlt, Zeitstempel per
   `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:56).
+
+## Iteration 41 — c-cov-audit-password-policy — done — 2026-08-11 01:17
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Drei neue Testdateien. `internal/security/password/policy_test.go` (Mock-Repository,
+  keine DB): Service.ValidatePassword deckt MinLength/MinEntropy/alle vier Complexity-Flags je
+  Fail- und Pass-Fall plus die volle Kombination, Service.CheckPasswordHistory deckt den
+  PreventReuseCount<=0-Kurzschluss (bewiesen ueber einen Repo-Fehler, der bei echtem Aufruf von
+  GetPasswordHistory durchschlagen wuerde), Reuse-Treffer per echtem bcrypt-Hash, Kein-Treffer
+  sowie alle Repo-Fehlerpfade. RecordPassword, GetPolicy, UpdatePolicy (inkl. serverseitig
+  aufgeloester ID gegen eine vorgetaeuschte Caller-ID) je mit Erfolgs- und Fehlerpfad.
+  internal/security/password/postgres_repository_test.go (DB-Integration): AddPasswordHistory/
+  GetPasswordHistory gegen echte Postgres inkl. server-seitig aufgeloestem tenant_id (direkt
+  gegen die Tabelle geprueft, nicht ueber den eigenen Lesepfad), Reihenfolge neueste-zuerst,
+  Limit, FK-Fehlerpfad bei unbekanntem User; GetPolicy-Fallback auf defaultPolicy() bei
+  fehlender Zeile mit allen Feldern geprueft. internal/security/audit/postgres_repository_test.go:
+  GetLastHash nicht-leerer Zweig echt getestet; List/VerifyChain konnten NICHT wie im
+  done_when vorgesehen getestet werden (siehe offen:) — stattdessen ein Regression-Pin-Test,
+  der den gefundenen Bug exakt reproduziert, plus ein sicherer No-Match/Pagination-Defaults-
+  Test ohne Zeilen-Scan.
+- gate: build ok (go build -p 2 ./internal/security/...) | vet ok | lint ok (golangci-lint
+  run --config .golangci.yml ./internal/security/... -- 0 issues) | test ok (go test -count=1
+  ./internal/security/audit/ und ./internal/security/password/ beide gruen, -v gezaehlt: 0
+  SKIP ueber beide Pakete, alle DB-Integrationstests liefen real gegen die lokale Postgres als
+  kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue
+  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/security/password 21,4 % -> 96,9 % | internal/security/audit 44,4 % ->
+  66,7 % (beide lokal per go test -coverprofile + go tool cover -func, Ausgangswert durch
+  temporaeres Herausnehmen der neuen Testdateien gemessen). Das Feld coverage_start: der Unit
+  nennt "internal/security 47,9 %" — das ist der Aggregat-Wert ueber alle sieben
+  security-Unterpakete aus dem CI-Artefakt, nicht der der beiden hier geaenderten Pakete.
+- mutations-probe: drei Proben, alle gefangen. (1) In password.Service.CheckPasswordHistory
+  PreventReuseCount <= 0 zu < 0 geaendert -> TestCheckPasswordHistory_ReuseDisabled_
+  ShortCircuits rot (der praeparierte historyErr schlaegt durch, weil der Kurzschluss nicht
+  mehr greift). (2) In password.PostgresRepository.GetPasswordHistory ORDER BY created_at DESC
+  zu ASC geaendert -> TestPostgresRepository_PasswordHistory rot mit der erwarteten Reihenfolge
+  [hash-newest hash-middle] gegen die tatsaechliche [hash-oldest hash-middle]. (3) In
+  audit.PostgresRepository.List den if offset < 0 { offset = 0 }-Clamp entfernt ->
+  TestPostgresRepository_List_NoMatch_PaginationDefaultsDontError rot mit "OFFSET must not be
+  negative" direkt von Postgres. Alle drei per git checkout -- <datei> zurueckgedreht, git
+  status backend/ zeigt danach nur noch die drei neuen Testdateien als untracked, alle drei
+  Gates erneut gruen.
+  Zusaetzlich validiert (kein Teil der drei Proben oben, aber derselbe Beweis-Mechanismus in
+  die andere Richtung): der unten dokumentierte ip_address-Scan-Bug wurde durch einen
+  temporaeren Fix (COALESCE(host(ip_address), '') in beiden SELECTs von
+  audit/postgres_repository.go) bestaetigt — mit dem Fix liefen die urspruenglich geplanten
+  vollen Filter-/Pagination-/Chain-Tests gruen durch, ohne ihn schlagen sie exakt mit der
+  dokumentierten Fehlermeldung fehl. Fix per git checkout --
+  backend/internal/security/audit/postgres_repository.go zurueckgedreht (Verhaltensaenderung
+  ausserhalb des Scopes dieser Coverage-Unit).
+- verify vorgaenger: sauber. Commit 1090bd9e (Iteration 40) fuegt ausschliesslich
+  backend/internal/security/gdpr/dsar_search_test.go plus Journal/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: Echter, verifizierter Produktionsbug gefunden, nicht gefixt (Coverage-Unit aendert
+  kein Verhalten): audit.PostgresRepository.List (Zeile ~170) und .VerifyChain (Zeile ~224)
+  scannen die rohe ip_address-Spalte (Typ INET) direkt in models.AuditEntry.IPAddress (string,
+  kein Pointer). pgx v5 kann weder ein NULL-INET noch ein gesetztes INET in einen Go-string
+  scannen — beide Faelle direkt gegen die lokale Postgres reproduziert ("cannot scan NULL into
+  *string" bzw. "cannot scan inet (OID 869) in binary format into *string"). Das heisst: jeder
+  Aufruf von List() oder VerifyChain(), der mindestens eine Zeile liefert, schlaegt fehl —
+  unabhaengig davon, ob die Zeile eine echte IP traegt oder keine. Betroffen sind damit
+  voraussichtlich der Audit-Log-Viewer, der CSV/JSON-Export (ExportEntries ruft intern List)
+  und die VerifyAuditChain-RPC fuer JEDEN Tenant mit realer Aktivitaet. Drei andere
+  Repositories im selben Repo loesen exakt dasselbe Problem korrekt:
+  internal/auth/postgres_repository.go mit COALESCE(host(ip_address), ''),
+  internal/crm/consent/postgres_repository.go und internal/formulare/postgres_repository.go
+  mit ip_address::text. Der Fix ist eine Ein-Zeilen-Aenderung pro Query (SELECT-Spalte casten),
+  am selben Muster wie die drei bestehenden Stellen — verifiziert per temporaerem Patch (siehe
+  mutations-probe oben) und wieder zurueckgedreht. Vorschlag fuer Lauf 9: eigene Fix-Unit in
+  Block A (fix-audit-list-verifychain-ip-address-scan), sources
+  backend/internal/security/audit/postgres_repository.go (Zeilen 170 und 224) plus
+  backend/internal/auth/postgres_repository.go (Zeilen 1574/1586/1614) als Vorlage.
+  Zusaetzlich musste die geplante Testabdeckung fuer List/VerifyChain aus genau diesem Grund
+  umgebaut werden: statt der im done_when vorgesehenen Filter-/Pagination-/Chain-Assertions
+  steht jetzt nur ein Regression-Pin-Test (TestPostgresRepository_List_IPAddressScanBug,
+  erwartet den Scan-Fehler explizit und dokumentiert im Kommentar, dass er beim Fixen ersetzt
+  werden muss) plus ein sicherer No-Match/Pagination-Test ohne Zeilen-Scan. VerifyChain hat
+  gar keinen eigenen DB-Test bekommen: audit_log ist seit Migration 000222 DB-seitig
+  append-only (BEFORE-UPDATE/DELETE-Trigger, wirkt auch unter System-Context — jeder
+  testutil.CleanupRow-Aufruf auf audit_log schlaegt seitdem erwartungsgemaess fehl und laesst
+  die Zeile stehen, das ist bereits akzeptiertes, vorbestehendes Verhalten in rls_test.go,
+  nicht neu). Ein erster Testentwurf wollte einen Kettenbruch ueber ein direktes UPDATE
+  previous_hash simulieren — das waere am Append-Only-Trigger gescheitert und wurde verworfen,
+  BEVOR es ausgefuehrt wurde (kein UPDATE hat die Tabelle je erreicht, per Log-Ausgabe der
+  fehlgeschlagenen Testlaeufe nachvollzogen). Ein zweiter Entwurf wollte eine bewusst falsch
+  verkettete Zeile per testutil.SeedRow einfuegen (INSERT ist vom Trigger nicht betroffen) —
+  auch dieser Code wurde nie erreicht (jeder Testlauf brach vorher am Scan-Bug ab), also
+  existiert keine von mir eingefuegte kaputte Zeile in audit_log. Beim Validieren mit dem
+  temporaeren Fix kam trotzdem einmal VerifyChain(intact) -> valid=false broken=2952 zurueck,
+  obwohl meine beiden Testzeilen korrekt verkettet waren: rls_test.go seedet seine Fixtures
+  ueber testutil.SeedRow mit hartkodierten entry_hash/previous_hash-Werten (z. B. "aabbcc"/
+  ""), die die echte Kette an der jeweiligen Stelle nicht respektieren — das ist
+  vorbestehendes Verhalten aus frueheren Laeufen, nicht von mir eingefuehrt, aber es bedeutet,
+  dass die globale Hash-Kette dieser lokalen Dev-DB bereits seit laengerem "gebrochen" ist,
+  sobald VerifyChain je funktionsfaehig waere. Betrifft nachweislich nur die lokale
+  Dev-Postgres, nie Produktion. Fuer die Fix-Unit in Lauf 9 gehoert das als Kontext dazu: nach
+  dem Scan-Fix wird VerifyChain vermutlich sofort einen Bruch melden, der auf diese
+  Test-Fixtures zurueckgeht, nicht auf echte Manipulation.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged -StartNotBefore-
+  Diff (wie in den Iterationen 6-40 vermerkt) — nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 40)
+  fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:17).
