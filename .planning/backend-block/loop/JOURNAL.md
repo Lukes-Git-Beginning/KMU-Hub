@@ -1890,3 +1890,72 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `fix-vermietung-error-mapping-inspectionkindexists-gap`. `go test
   ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
   Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 28 — b-cov-server-einkauf — done — 2026-08-10 (siehe Commit-Zeit)
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `2886ed02` (b-cov-server-vermietung) geprueft:
+  `git show --stat` zeigt nur `vermietung_grpc_test.go` (neu) plus
+  Journal/Backlog, kein Produktionscode, keine neue Route, kein
+  `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- gebaut: neue Datei `internal/server/einkauf_grpc_test.go` fuer
+  `einkauf_grpc.go` + `einkauf_grpc_extended.go` (zusammen 1.292 Zeilen, 36
+  RPC-Methoden ueber `EinkaufGRPCServer`, vorher 0 % Coverage, keine
+  Testdatei). Eigener In-Memory-Stub `stubEinkaufRepo`, der
+  `einkauf.RepositoryExtended` implementiert UND die unexportierte
+  `contractItemQuerier`-Schnittstelle (`QueryRowContractItem`) bedient — ohne
+  letztere faellt jedes `UpdateContractItem` auf `ErrContractItemNotFound`
+  zurueck, unabhaengig davon ob das Item existiert (siehe
+  `einkauf.getContractItemByID`, service_extended.go:685). `RecomputePOTotal`
+  im Stub rechnet wie die Postgres-Seite `sum(quantity * unit_price)`, aber
+  auf vier Nachkommastellen (numeric(15,4)) statt der zwei, die ein naiver
+  Test annehmen wuerde. `newTestEinkaufServer()` liefert einen
+  Nil-Service-Server fuer 77 UUID-Validierungsfaelle als Tabellentest
+  (`TestEinkauf_UUIDValidation`), `newEinkaufServerWithRepo(repo)` fuer
+  Happy-Path- und Fehlerpfad-Cluster je Domain (Supplier, PO-Lifecycle,
+  PO-Lines, Catalog, Supplier-Ratings, Framework-Contracts, Contract-Items,
+  Contract-Calls).
+- kopfbetrag-string-test: `TestEinkauf_PO_FullLifecycle_HappyPath` legt eine
+  Zeile mit `UnitPrice "3.3333"` an und prueft, dass `GetPO` exakt
+  `"9.9999"` liefert (nicht auf zwei Dezimalstellen gerundet) - belegt, dass
+  `poToProto` den vom Service nachgerechneten String unveraendert durchreicht
+  und keine Float-Konvertierung dazwischenliegt. `TestEinkauf_PoToProto_
+  EmbedsLinesAndOptionalFields` deckt zusaetzlich einen Wert mit vier
+  Nachkommastellen (`"1234.5678"`) direkt auf der Konvertierungsfunktion ab.
+- statusuebergaenge: `TestEinkauf_PO_Lifecycle_InvalidTransitions` deckt
+  sieben Faelle ab (SubmitPO ohne Zeilen, SubmitPO auf Nicht-Draft, CancelPO
+  auf Received, ReceiveGoods auf Draft, PartialReceive auf Draft, DeletePO
+  auf Nicht-Draft, UpdatePO auf Closed) plus PartialReceive ueber die
+  bestellte Menge hinaus (ErrExceedsOrderedQty). Alle sieben Statuspruefungen
+  aus `einkauf/service.go` sind damit vertreten.
+- gate: build ok (`go build -p 2 ./internal/server/... ./cmd/gateway/...
+  ./internal/einkauf/...`) | vet ok (`go vet ./internal/server/...
+  ./internal/einkauf/...`) | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/server/...`, 0 issues) | test ok (`go test
+  -count=3 ./internal/server/... ./internal/einkauf/...`, dreimal
+  wiederholt, durchgehend gruen) | migration n.a. (reine Test-Coverage,
+  keine Tabelle angefasst) | rls-smoke n.a. (Stub-Repo, kein DB-Zugriff
+  durch die neuen Tests)
+- mutations-probe: in `internal/server/einkauf_grpc.go`, `mapEinkaufError`
+  den `ErrPONotDraft`-Fall testweise auf `codes.Internal` statt
+  `codes.FailedPrecondition` entschaerft → vier Tests wurden rot
+  (`TestMapEinkaufError_Table/po_not_draft`,
+  `TestEinkauf_PO_Lifecycle_InvalidTransitions/SubmitPO_on_non-draft_fails`,
+  `.../DeletePO_on_non-draft_fails`, `TestEinkauf_UpdatePO_AllFields`
+  via `UpdatePO_on_closed_fails`-Pendant). Zurueckgedreht, `git diff --stat
+  internal/server/einkauf_grpc.go` zeigt keine Restaenderung (leerer Diff
+  bestaetigt), `go test -count=3 ./internal/server/...` danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — `einkauf.Repository`/`RepositoryExtended` sind vollstaendig
+  gestubbt, kein Postgres-Zugriff in dieser Unit.
+- kein neuer Fund: anders als die letzten Iterationen (schichten, vermietung,
+  automation) hat diese Coverage-Unit keine neue Verhaltensluecke
+  aufgedeckt, die eine eigene Fix-Unit rechtfertigt. Die bereits bekannte
+  Luecke `fix-einkauf-contract-call-no-value-check` (CreateContractCall
+  prueft nicht gegen `total_value - used_value`) war schon vor dieser
+  Iteration im Backlog (Lauf 7, Iteration 16) und bleibt unveraendert offen -
+  `TestEinkauf_CreateContractCall_NegativeAmount` deckt nur den bereits
+  vorhandenen Negativ-Check ab, nicht die fehlende Obergrenzenpruefung.
+- offen: zehnte von zwoelf Units in Block B-Server erledigt (10/12).
+  Naechste laut Reihenfolge: `b-cov-server-produktion`. `go test
+  ./internal/gateway/` nicht gelaufen - diese Iteration hat keine
+  Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.

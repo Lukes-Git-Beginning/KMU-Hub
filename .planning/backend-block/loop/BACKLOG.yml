@@ -1394,7 +1394,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/server/einkauf_grpc.go` und `einkauf_grpc_extended.go` - zusammen 1.292
       Zeilen, 46 Methoden, keine Testdatei.
