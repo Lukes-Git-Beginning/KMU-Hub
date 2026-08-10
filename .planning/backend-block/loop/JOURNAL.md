@@ -1067,7 +1067,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 17:36).
 
 ## Iteration 18 — b-cov-server-calendar-events-categories-reminders — done — 2026-08-10 17:59
-- commit: (folgt)
+- commit: 78685fc7
 - gebaut: neue Testdatei calendar_grpc_events_categories_reminders_test.go
   mit stubEventRepo (implementiert event.Repository vollstaendig) und
   newTestCalendarServerWithEvents/disabledLiveKit/enabledLiveKit-Helfern.
