@@ -1741,3 +1741,62 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 26) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 23:21).
+
+## Iteration 28 — b-cov-server-websocket-broadcast-notifications — done — 2026-08-10 23:28
+- commit: 02c6fc61
+- unit: b-cov-server-websocket-broadcast-notifications (Block B, Coverage
+  internal/server)
+- scope: die 13 im Backlog genannten Broadcast-/Notification-Methoden von
+  WebSocketHub in backend/internal/server/websocket.go: sendToUser,
+  broadcastToChannel, broadcastToChannelExcept, BroadcastMessageCreated/
+  Updated/Deleted, SendNotificationToUser/SendNotificationRead/
+  SendNotificationReadAll/SendNotificationUnreadCount,
+  BroadcastPresenceUpdate, BroadcastCallIncoming/BroadcastCallEnded,
+  BroadcastRecordingStarted, BroadcastReactionToggled und sendError.
+- was: neue Datei internal/server/websocket_broadcast_test.go, 20 Testfaelle
+  ueber eine echte *websocket.Conn. Neuer Helfer newBroadcastConnPair(t) ist
+  eine Variante von newConnectedWSConnPair aus websocket_helpers_test.go
+  (Iteration 27) OHNE den client-seitigen Hintergrund-Read-Loop -- der wuerde
+  genau die Nachrichten wegkonsumieren, die diese Tests pruefen muessen. Der
+  server-seitige Read-Loop bleibt (haelt den httptest-Handler und damit die
+  registrierte serverConn am Leben, bis der Client schliesst); geschrieben
+  wird in diesen Tests ausschliesslich vom Hub, nie vom Client. Wire-Shape
+  fuer drei unterschiedliche Message-Typen geprueft (chatv1.MessageInfo-JSON
+  bei BroadcastMessageCreated/-Updated: id/content snake_case aus den
+  protoc-gen-go-Struct-Tags; Notification-Payload bei
+  SendNotificationToUser: verschachteltes notification-Feld + desktop_push +
+  sound; Presence-Payload bei BroadcastPresenceUpdate: user_id + status).
+  Vier Grenzfaelle ohne Panic: sendToUser an einen nicht verbundenen User,
+  BroadcastPresenceUpdate ohne Abonnenten, BroadcastRecordingStarted ohne
+  verbundene User, broadcastToChannelExcept schliesst den ausgeschlossenen
+  User aktiv aus (assertNoWSMessage mit 100ms-Timeout-Read).
+- gate: build ok (go build -p 2 ./internal/server/... ./internal/gateway/...)
+  | vet ok | lint ok (golangci-lint run ./internal/server/... ./internal/
+  gateway/... -- 0 issues) | test ok (go test -count=1 ./internal/server/...
+  gruen, internal/server + internal/server/response, 0 SKIP) | migration
+  n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  go test ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/
+  kein Gateway-Code angefasst)
+- coverage: internal/server 47,7 % -> 66,6 % (lokal gemessen per
+  `go test -coverprofile`; Iteration 27 hatte 66,2 % notiert)
+- mutations-probe: in websocket.go broadcastToChannelExcept() die
+  Ausschluss-Bedingung `if userID != excludeUserID` entfernt (der
+  ausgeschlossene User waere dann faelschlich Empfaenger) ->
+  TestBroadcastToChannelExcept_ExcludesGivenUser rot (assertNoWSMessage
+  erhielt eine Nachricht statt eines Timeout-Fehlers). Zurueckgedreht,
+  `git diff --stat internal/server/websocket.go` zeigt keinen Rest.
+- verify vorgaenger: sauber. Commit 96664cc1 (Iteration 27) fuegt
+  ausschliesslich internal/server/websocket_helpers_test.go plus
+  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
+  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar
+  mit einem Linker-OOM ab (siehe Iterationen 25-27) -- unabhaengig von dieser
+  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-27 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 27) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 23:28).
