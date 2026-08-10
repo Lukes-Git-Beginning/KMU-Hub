@@ -702,3 +702,75 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 11) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:47), wie in den
   vorigen Iterationen.
+
+## Iteration 13 — b-cov-server-crm-activities-reports-consent — done — 2026-08-10 16:58
+- commit: (folgt nach diesem Eintrag)
+- gebaut: neue Datei `backend/internal/server/crm_grpc_activities_reports_consent_test.go`
+  mit fünf Stub-Repositories (`stubActivityRepo`, `stubSavedFilterRepo`, `stubSearchRepo`,
+  `stubReportRepo`, `stubConsentRepo`, je über `newCRMServerWithActivityRepo`/
+  `newCRMServerWithSavedFilterRepo`/`newCRMServerWithSearchRepo`/`newCRMServerWithReportRepo`/
+  `newCRMServerWithConsentRepo` verdrahtet, gleiches Muster wie `stubPipelineStageRepo` aus
+  Iteration 12). 89 neue Tests decken alle 22 Methoden im Scope ab: Activities CRUD +
+  CompleteActivity (inkl. Clear-Contact-ID-Pfad wie bei UpdateDeal in Iteration 12), Search
+  (QueryTooShort, InvalidEntityType, Happy Path mit Entity-Type-Filter), SavedFilters CRUD,
+  Reports (GetPipelineReport/GetConversionReport/GetActivityReport je mit ungültigem Datum
+  bzw. ungültiger Owner-/User-ID sowie Happy Path gegen einen fest bestückten Report-Stub),
+  GetContactTimeline (Reihenfolge InvalidContactID vor MissingTenant beachtet — der Handler
+  parst `contact_id` vor dem Tenant-Check, anders als alle übrigen Methoden in dieser Datei)
+  sowie GDPR-Consent (GetContactConsents/GrantConsent/RevokeConsent/GetConsentHistory/
+  RequestDeletion/ProcessDeletion). GrantConsent/RevokeConsent/ProcessDeletion decken je den
+  geforderten DSGVO-Fehlerpfad ab (InvalidConsentType/InvalidLegalBasis bzw. ContactNotFound
+  bzw. AlreadyComplete); `TestProcessDeletion_HappyPath` prüft zusätzlich, dass
+  `AnonymizeContact` real aufgerufen wurde (`repo.anonymized[contactID]`) und der
+  Deletion-Request-Status im Stub auf `completed` steht.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` grün, 1277 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als
+  `kmuhub_app`; zusätzlich `./internal/server/...` inkl. `response`-Unterpaket grün) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine
+  gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route angefasst,
+  `go test ./internal/gateway/` daher nicht Pflicht und nicht gelaufen)
+- coverage: internal/server 47,7 % -> 52,7 % (`go tool cover -func=/tmp/cov.out | tail -1`,
+  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md; Ausgangswert aus
+  `coverage_start:` der Unit, nicht aus dem tatsächlichen Vorgängerstand 50,9 % aus
+  Iteration 12 — wie in ITERATION.md Schritt 6 vorgeschrieben)
+- mutations-probe: zwei Proben in den echten Service-Paketen, beide rot, beide
+  zurückgedreht, `git diff` gegen den finalen Baum restfrei (leer):
+  (1) `internal/crm/activity/service.go` Create: `if !input.ActivityType.IsValid() {` auf
+  `if false && !input.ActivityType.IsValid() {` gedreht -> `TestCreateActivity_InvalidActivityType`
+  rot ("An error is expected but got nil" statt `InvalidArgument`), zurückgedreht.
+  (2) `internal/crm/consent/service.go` ProcessDeletion: `if req.Status == "completed" {` auf
+  `if false && req.Status == "completed" {` gedreht -> `TestProcessDeletion_AlreadyComplete`
+  rot (Deletion lief durch statt `AlreadyExists`), zurückgedreht.
+- verify vorgaenger: sauber — `23c06ac4` geprüft gegen alle acht Fehlerklassen: reine neue
+  Testdatei (`crm_grpc_pipelines_deals_test.go`), kein `.proto` angefasst, keine Route, kein
+  neuer `RequirePermission`-Key, keine neue Tabelle, kein gRPC-Bypass, kein Stub im
+  Produktionscode, keine bestehende Migration angefasst.
+- offen: ZWEI ECHTE BEFUNDE, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensänderungen):
+  (1) `UpdateSavedFilter`/`DeleteSavedFilter` in `crm_grpc.go` laden den Filter selbst
+  (`existingFilter, err := s.savedFilterService.GetByID(...)`) und reichen dann
+  `existingFilter.CreatedBy` als `userID`-Parameter an `Update`/`Delete` durch. Der
+  Ownership-Check in `savedfilter/service.go` (`if filter.CreatedBy != userID`) vergleicht
+  damit denselben Wert mit sich selbst — `ErrFilterNotOwned` (mapCRMError:
+  `codes.PermissionDenied`) kann über diese beiden RPCs nie auslösen, unabhängig davon, wer
+  den Request schickt. Der Service selbst ist korrekt (siehe `savedfilter/service_test.go`),
+  der Bug sitzt im Handler-Wiring. Hätte production-Auswirkung: jeder Nutzer mit gültigem
+  Tenant-Token kann fremde Saved Filters umbenennen/löschen, solange er die ID kennt.
+  Empfehlung Lauf 9: kleine Fix-Unit, die den echten Caller (aus dem Request bzw. Auth-
+  Context) statt `existingFilter.CreatedBy` durchreicht.
+  (2) `GetPipelineReport`/`GetConversionReport`/`GetActivityReport`: die Service-Sentinels
+  `ErrStartDateRequired`/`ErrEndDateRequired` (`internal/crm/report/errors.go`,
+  gemappt in `mapCRMError` auf `InvalidArgument`) sind über diese drei RPCs unerreichbar,
+  weil der Handler `parseDate(req.StartDate)`/`parseDate(req.EndDate)` bereits vorher
+  aufruft und bei leerem oder ungültigem String selbst mit `InvalidArgument "invalid
+  start_date/end_date format"` abbricht — `time.Time{}` (Zero-Value) erreicht die
+  Service-Methoden nie. Kein Bug (das Endergebnis für den Client ist in beiden Fällen
+  `InvalidArgument`), aber toter Code auf Service-Ebene — nicht als eigene Fix-Unit nötig,
+  nur zur Kenntnis für Lauf 9, falls dort an `report/service.go` gearbeitet wird.
+  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben unstaged
+  `-StartNotBefore`-Diff wie in den Iterationen 6-12 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Überschrift (Iteration 12) fortgezählt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:58), wie in den
+  vorigen Iterationen.
