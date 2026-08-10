@@ -2171,3 +2171,55 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 32) fortgezaehlt, Zeitstempel per `date` auf dem
   Loop-Rechner ermittelt (2026-08-11 00:10).
+
+## Iteration 34 — b-cov-server-crm-advisory-protocols — done — 2026-08-11 00:17
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Datei `crm_grpc_advisory_test.go` mit einem In-Memory-Fake fuer
+  `advisoryprotocol.Repository` (echter `advisoryprotocol.Service` via `NewService(repo)`, kein
+  Handler-Mock) und 38 Subtests fuer alle acht Advisory-Methoden aus `crm_grpc_advisory.go`: Create
+  (Unauthenticated x2, InvalidArgument, NotFound-via-mapCRMError, Happy), Get (InvalidArgument,
+  NotFound, fremder Tenant als NotFound, Happy), List (InvalidArgument, Tenant-/Contact-Scoping mit
+  vier Protokollen aus denen genau zwei zurueckkommen, leere Liste), Update (InvalidArgument x2 fuer
+  fehlende ID/Payload, InvalidRiskClass, FailedPrecondition fuer finalisiert, Happy mit Feldabgleich),
+  Delete (FailedPrecondition fuer finalisiert inkl. Repo-Rest-Check, Happy mit Entfernungs-Check),
+  HandOver (NotFound, idempotenter Re-Call auf bereits finalisiert, Happy mit HandedOverAt-Check),
+  GenerateAdvisoryProtocolPDF (NotFound, Happy — rendert echte PDF-Bytes ueber maroto v2 ohne
+  gewirten `contactService`, pruft nur den Best-Effort-Zweig) und GetReferralReport (Happy mit
+  Feldabgleich, leere Liste). Dazu `TestMapCRMError_AdvisoryProtocol` mit allen vier
+  advisoryprotocol-Sentinels (`ErrProtocolNotFound`, `ErrProtocolFinalized`, `ErrContactNotFound`,
+  `ErrInvalidRiskClass`) einzeln gegen `mapCRMError`, und ein expliziter
+  `TestAdvisoryProtocol_ServiceNotConfigured`-Test fuer den `s.advisoryProtocolService == nil`-Guard.
+- gate: build ok (`go build -p 2 ./internal/server/...`) | vet ok (`go vet ./internal/server/...`) |
+  lint ok (golangci-lint run --config .golangci.yml ./internal/server/... -- 0 issues) | test ok
+  (`go test -count=1 ./internal/server/` gruen, 9 SKIPs sind vorbestehende `_DB`-Integrationstests
+  ohne `DATABASE_URL`, 0 sonst uebersprungen; zusaetzlich `go test -count=1 ./internal/gateway/`
+  gruen — `TestOpenAPIRouteDrift` unberuehrt, da keine neue Route) | migration n.a. (keine Migration)
+  | rls-smoke n.a. (kein echtes Repository/keine Tabelle/Policy angefasst — reines In-Memory-Fake) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/server 47,7 % -> 68,6 % (lokal per `go test -coverprofile=/tmp/cov.out
+  ./internal/server/` + `go tool cover -func`; Bezugswert 47,7 % ist der Lauf-Startwert aus
+  `coverage_start:`, nicht der Zwischenwert aus Iteration 33 — beide paket-eigen und vergleichbar,
+  der Sprung ist die Summe aller Iterationen seit Lauf-Start. Pro-Funktion in
+  `crm_grpc_advisory.go`: CreateAdvisoryProtocol 100 %, GetAdvisoryProtocol 91,7 %,
+  ListAdvisoryProtocols 86,7 %, UpdateAdvisoryProtocol 93,3 %, DeleteAdvisoryProtocol 90,9 %,
+  HandOverAdvisoryProtocol 91,7 %, GenerateAdvisoryProtocolPDF 71,4 %, GetReferralReport 83,3 % —
+  alle vorher 0,0 %)
+- mutations-probe: in `GetAdvisoryProtocol` die Bedingung `if err != nil` (nach `uuid.Parse(req.Id)`)
+  durch `if err == nil` ersetzt (eine gueltige ID wuerde dann als InvalidArgument abgelehnt, eine
+  ungueltige durchgereicht) -> vier Subtests von `TestGetAdvisoryProtocol` rot
+  (`invalid_id` erwartete InvalidArgument bekam nil-Fortsetzung bis zum Panic-freien Fallthrough,
+  `not_found`/`wrong_tenant_is_treated_as_not_found` erwarteten NotFound bekamen InvalidArgument,
+  `happy_path` erwartete Erfolg bekam InvalidArgument), nur `missing_tenant` blieb gruen (Guard davor
+  greift zuerst). Zurueckgedreht, `git diff --stat internal/server/crm_grpc_advisory.go` zeigt
+  keinen Rest, erneuter Testlauf der betroffenen Suite gruen.
+- verify vorgaenger: sauber. Commit ae8af517 (Iteration 33) fuegt ausschliesslich
+  `video_egress_meetingnotes_test.go` plus Journal/Backlog-Metadaten hinzu — keine
+  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer RequirePermission-Guard,
+  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: keine neuen Befunde in dieser Iteration — die Advisory-Handler verhalten sich wie
+  spezifiziert (insbesondere das Immutability-Verhalten nach `HandOver` und die Idempotenz eines
+  wiederholten `HandOver`-Aufrufs). `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-33 vermerkt) — nicht meine Datei,
+  nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 33)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:17).

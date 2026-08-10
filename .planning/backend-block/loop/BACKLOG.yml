@@ -1244,7 +1244,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 47,7 %"
     scope: >
       backend/internal/server/crm_grpc_advisory.go ist mit 0,0 % komplett ungetestet:
