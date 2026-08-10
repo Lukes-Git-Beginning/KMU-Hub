@@ -642,3 +642,63 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 10) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:28), wie in den
   vorigen Iterationen.
+
+## Iteration 12 — b-cov-server-crm-pipelines-deals — done — 2026-08-10 16:47
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Datei `backend/internal/server/crm_grpc_pipelines_deals_test.go` mit
+  `stubPipelineStageRepo` (implementiert `pipelinestage.Repository`) und `stubDealRepo`
+  (implementiert `deal.Repository`), je über `newCRMServerWithPipelineStageRepo`/
+  `newCRMServerWithDealRepo` mit der echten `*Service` verdrahtet (gleiches Muster wie
+  `stubCompanyRepo`/`newCRMServerWithCompanyRepo` aus Iteration 11). 49 neue Tests decken
+  alle 12 in scope genannten Methoden ab: PipelineStages CRUD (Create/Get/List/Update/
+  Delete) je mit MissingTenant + mindestens einem Validierungs- oder Fehlerpfad
+  (NameRequired, InvalidID, NotFound, InvalidColor, StageHasDeals) plus Happy Path,
+  ReorderPipelineStages mit MissingTenant, ungueltiger Stage-ID in der Liste und
+  Anzahl-Mismatch (`ErrInvalidReorder`) sowie Happy Path mit tatsaechlich vertauschtem
+  `SortOrder`; Deals CRUD (Create/Get/List/Update/Delete) je mit MissingTenant +
+  Validierungs-/Fehlerpfad (InvalidCreatedBy, InvalidStageID, StageNotFound, InvalidID,
+  NotFound, InvalidCurrency) plus Happy Path, dazu ein dedizierter Test fuer den
+  Uuid-Nil-Clear-Pfad bei `UpdateDeal` (leerer `contact_id`-String loescht die Relation)
+  und MoveDealToStage mit MissingTenant/InvalidDealID/InvalidStageID/StageNotFound sowie
+  Happy Path, der zusaetzlich prueft, dass `closed_at` beim Wechsel in eine Won-Stage
+  gesetzt wird (Service-Logik in `deal/service.go:407-411`).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
+  ./internal/server/` gruen, 0 SKIP bei gesetzter `DATABASE_URL` als `kmuhub_app`;
+  zusaetzlich `./internal/server/...` inkl. `response`-Unterpaket gruen) | migration n.a.
+  (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine gRPC-Server-Schicht mit
+  In-Memory-Stubs) | route n.a. (keine Route angefasst, `go test ./internal/gateway/`
+  daher nicht Pflicht — trotzdem lokal `go build`/`go vet` gegen `internal/gateway/`
+  mitlaufen lassen, beides gruen)
+- coverage: internal/server 47,7 % -> 50,9 % (`go tool cover -func=/tmp/cov.out | tail -1`,
+  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md; Ausgangswert aus
+  `coverage_start:` der Unit, nicht aus dem tatsaechlichen Vorgaengerstand 50,0 % aus
+  Iteration 11 — wie in ITERATION.md Schritt 6 vorgeschrieben)
+- mutations-probe: zwei Proben in den echten Service-Paketen, beide rot, beide
+  zurueckgedreht, `git diff` gegen den finalen Baum restfrei (leer):
+  (1) `internal/crm/pipelinestage/service.go` Delete: `if hasDeals {` auf
+  `if false && hasDeals {` gedreht -> `TestDeletePipelineStage_HasDeals` rot ("An error
+  is expected but got nil" statt `FailedPrecondition`), zurueckgedreht.
+  (2) `internal/crm/deal/service.go` Update: `if !validCurrencies[currency] {` auf
+  `if false && !validCurrencies[currency] {` gedreht -> `TestUpdateDeal_InvalidCurrency`
+  rot (Update lief durch statt `InvalidArgument`), zurueckgedreht.
+- verify vorgaenger: sauber — `73dba136` geprueft gegen alle acht Fehlerklassen: reine
+  neue Testdatei plus ein Fix an einem in Iteration 11 selbst neu eingefuehrten Stub
+  (`stubContactRepo.MergeInto`), kein `.proto` angefasst, keine Route, kein neuer
+  `RequirePermission`-Key, keine neue Tabelle, kein gRPC-Bypass, kein Stub im
+  Produktionscode, keine bestehende Migration angefasst.
+- offen: `stubDealRepo.RemoveTags` ist implementiert (Interface-Pflicht), aber von keinem
+  Test in dieser Datei direkt aufgerufen — `AddTags`/`RemoveTags` auf `CRMGRPCServer`
+  existieren als eigene RPCs nicht im Scope dieser Unit (nur `Create/Get/List/Update/
+  Delete/MoveToStage` fuer Deals stehen im `crm_grpc.go`-Handler); falls eine kuenftige
+  Unit `AddTags`/`RemoveTags`-Handler auf `CRMGRPCServer` findet, kann der Stub
+  wiederverwendet werden. `ReorderPipelineStages` prueft in dieser Unit nur den
+  Anzahl-Mismatch als Reorder-Validierungsfehler (`ErrInvalidReorder` deckt sowohl
+  Anzahl- als auch Duplikat-Faelle ab, siehe `pipelinestage/service.go:238-261`) —
+  Duplikat-Fall nicht separat getestet, gleicher Codepfad, geringes Zusatzrisiko.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  `-StartNotBefore`-Diff wie in den Iterationen 6-11 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 11) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:47), wie in den
+  vorigen Iterationen.
