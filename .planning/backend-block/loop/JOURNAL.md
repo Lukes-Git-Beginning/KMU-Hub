@@ -2948,3 +2948,53 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
 - offen: neue Fix-Unit `fix-notification-wildcard-mapping-never-delivered` (phase 3,
   status: todo) im Backlog fuer den Wildcard-Bug. Naechste Unit im Backlog laut Datei-Reihenfolge:
   `c-cov-caldav-vcard-vtimezone` (`status: todo`, `internal/caldav` vCard/VTIMEZONE-Pfade).
+
+## Iteration 48 — c-cov-caldav-vcard-vtimezone — done — 2026-08-10 (Lauf 7)
+- commit: (dieser Commit)
+- verify vorgaenger: sauber — `26b3f776` (c-cov-notification-forwarder) geprueft: `git show --stat`
+  zeigt nur `forwarder_test.go` (neu) plus Backlog-/Journal-Dateien, deckt sich 1:1 mit dem
+  Journal-Eintrag der Vorgaenger-Iteration. Kein Merge-Konflikt (`git merge origin/main` lief als
+  "Already up to date" — kein Divergenzrisiko).
+- gebaut: `internal/caldav/vcard_converter_test.go` (neu, ~245 Zeilen) und
+  `internal/caldav/vtimezone_test.go` (neu, ~140 Zeilen) fuer die beiden bisher ungetesteten
+  Dateien `vcard_converter.go` (127 Z.) und `vtimezone.go` (114 Z.). vCard-Seite:
+  `TestContactToVCard_FullFields`/`_MissingOptionalFields`/`_EmptyStringFieldsAreOmitted`/
+  `_NoName_FallsBackToUnnamed`, `TestContactToVCardWithCompany_SetsOrg`/`_NilOrEmptyCompany_NoOrg`,
+  echte Text-Roundtrips (`vcardEncodeDecode` analog zu `encodeDecode` aus
+  `ical_converter_test.go` — durch den echten vCard-Encoder/Decoder, nicht nur In-Memory-Vergleich)
+  fuer vollstaendigen Kontakt und fuer "Kontakt ohne Nachname" (Firmenname im FirstName-Feld, N
+  traegt GivenName ohne FamilyName), `VCardToContactInput`-Fallback-Pfade
+  (kein N-Feld -> FN-Split mehrwortig/einwortig, weder N noch FN -> leeres Ergebnis, N hat
+  Vorrang vor FN wenn beide gesetzt), und ein Test, der direkt gegen die go-vcard-Bibliothek
+  belegt, dass mehrere EMAIL/TEL-Eintraege mit TYPE-Labels und PREF-Parameter den echten
+  Wire-Roundtrip alle ueberleben (Bibliotheksebene), waehrend `VCardToContactInput` bewusst nur
+  den bevorzugten (PREF=1) Eintrag herauszieht (Converter-Ebene) — `ContactInput` hat wie
+  `models.Contact` nur ein einzelnes Email-/Phone-Feld, kein Mehrfach-Datenverlust also kein Bug,
+  sondern dokumentiertes Verhalten. VTIMEZONE-Seite: `TestGenerateVTimezone_EuropeBerlin_...`
+  prueft TZID, beide STANDARD/DAYLIGHT-Bloecke (DTSTART, RRULE, TZOFFSETFROM/TO, TZNAME) exakt
+  gegen CET/CEST, `TestGenerateVTimezone_DACHAliases_SameShapeAsBerlin` (Tabellentest
+  Zurich/Vienna), `TestGenerateVTimezone_Minimal_FixedOffsetZone` (Asia/Tokyo — DST-frei, damit
+  das Ergebnis unabhaengig vom Testlaufzeitpunkt deterministisch ist), `_InvalidTimezone_
+  ReturnsError`, `_Caching_ReturnsSamePointer` (`assert.Same` beweist echten Cache-Hit, nicht nur
+  gleichen Wert), `TestFormatUTCOffset` (Tabellentest inkl. negativ, halbe Stunde/Indien, Null),
+  `TestBuildMinimalTimezone_MatchesRuntimeOffset` (America/New_York — DST-behaftete Zone, Erwartung
+  zur Laufzeit ueber `time.Now().In(loc).Zone()` berechnet statt hartkodiert, damit der Test
+  ganzjaehrig stabil bleibt).
+- fund: keiner — beide Dateien verhalten sich wie im Scope beschrieben, keine neue Fix-Unit noetig.
+- gate: build ok (`go build -p 2 ./internal/caldav/...`) | vet ok (`go vet ./internal/caldav/...`)
+  | lint ok (`golangci-lint run --config .golangci.yml ./internal/caldav/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/caldav/...`, komplettes Paket inkl. bestehender DB-/RLS-Tests
+  gruen) | migration n.a. | rls-smoke n.a. | route n.a. | openapi n.a. | protoc n.a.
+- mutations-probe: `TZOFFSETTO` des STANDARD-Blocks in `buildDACHTimezone` (vtimezone.go:58) von
+  `"+0100"` auf `"+0200"` gesetzt. `TestGenerateVTimezone_EuropeBerlin_StandardAndDaylightOffsets`
+  wurde rot (`expected: "+0100", actual: "+0200"`), exakt der erwartete Fehlschlag.
+  Zurueckgedreht, `git diff --stat internal/caldav/vtimezone.go` liefert keine Ausgabe (identisch
+  zur Ausgangslage), volle Suite danach wieder gruen (`go test -count=1 ./internal/caldav/...`).
+- db-tests: 0 — beide Dateien sind reine In-Memory-Konvertierung/-Erzeugung ohne DB-Zugriff,
+  `done_when` verlangt hier keine DB-Tests.
+- coverage: `internal/caldav` Paketcoverage nach dieser Unit 26,7 % (vorher 7,2 %, siehe Iteration
+  46 — `vcard_converter.go`/`vtimezone.go` beide jetzt 100 % auf Funktionsebene fuer die reinen
+  Helfer wie `formatUTCOffset`/`setPropValue`).
+- offen: keins. `done_when` vollstaendig erfuellt. Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `c-cov-caldav-backend-helpers` (`status: todo`, Pfad-Parser/Proto-Konvertierung/Fehler-Mapping
+  in `caldav_backend.go`/`carddav_backend.go`).

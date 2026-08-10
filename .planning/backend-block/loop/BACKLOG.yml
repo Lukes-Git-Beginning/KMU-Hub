@@ -1947,7 +1947,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/caldav/vcard_converter.go` (127 Z.) und `internal/caldav/vtimezone.go`
       (114 Z.), zusammen 241 Zeilen, keine Testdatei. Kontakt-zu-vCard-Konvertierung
