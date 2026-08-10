@@ -1873,3 +1873,69 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
   (Iteration 28) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-10 23:39).
+
+## Iteration 30 — b-cov-server-inbox-message-state-transitions — done — 2026-08-10 23:45
+- commit: <siehe unten>
+- unit: b-cov-server-inbox-message-state-transitions (Block B, Coverage
+  internal/server)
+- scope: die 12 im Backlog genannten ungetesteten inbox_grpc.go-Methoden:
+  MarkRead, MarkUnread, ToggleStar, ArchiveMessage, UnarchiveMessage,
+  SnoozeMessage, UnsnoozeMessage, ClaimMessage, AssignMessage,
+  GetUnreadCount, BulkMarkRead, BulkArchive.
+- gebaut: neue Datei internal/server/inbox_message_state_test.go, 40
+  Testfaelle (Praefix `TestInbox*` gewaehlt, weil `TestMarkRead_NotFound`
+  bereits in email_grpc_messages_send_test.go fuer die Email-RPC
+  gleichen Namens existierte -- Compiler-Fehler DuplicateDecl, per Rename
+  behoben). Pro Methode mindestens ein Happy-Path- und ein Fehlerpfad-Test:
+  NotFound fuer die einfachen Status-Uebergaenge, SnoozeMessage zusaetzlich
+  fehlendes snooze_until und eine Vergangenheits-Zeit (ErrInvalidSnoozeTime),
+  UnsnoozeMessage NotFound und ungueltige MessageId. ClaimMessage deckt alle
+  vier team.Err*-Sentinels ab (NotTeamMember, ManualClaimInRoundRobin ueber
+  round_robin-Assignment-Mode, message.ErrAlreadyAssigned) plus den
+  Gateway-eigenen FailedPrecondition-Zweig fuer TeamInboxId==nil. AssignMessage
+  deckt AlreadyExists (message.ErrAlreadyAssigned) und ungueltige
+  Assignee-/Message-ID. stubMessageRepo.GetUnreadCounts war bislang ein reiner
+  `return nil, nil`-Stub (nie fuer echte Zahlen genutzt) -- auf eine
+  In-Memory-Aggregation umgebaut, die die Produktionsquery in
+  postgres_repository.go:401-421 spiegelt (unread, nicht archiviert, nicht
+  aktuell snoozed, gruppiert nach Channel), damit
+  TestInboxGetUnreadCount_AggregatesByChannel echte Filterlogik prueft statt
+  eines Leerergebnisses. BulkMarkRead/BulkArchive pruefen Happy-Path (2
+  Nachrichten, UpdatedCount korrekt, Repo-Zustand tatsaechlich geaendert) und
+  den Fehlerpfad fuer eine ungueltige ID in der Liste.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
+  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/server/... -- 0
+  issues) | test ok (`go test -count=1 ./internal/server/` gruen, `-v` zeigt
+  1724 PASS / 0 SKIP / 0 FAIL) | test ok (`go test -count=1
+  ./internal/server/...` inkl. response-Unterpaket gruen) | migration n.a.
+  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | go
+  test ./internal/gateway/ zusaetzlich gelaufen (keine Route angefasst, aber
+  zur Sicherheit geprueft) -- gruen
+- coverage: internal/server 47,7 % -> 68,1 % (lokal gemessen per
+  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
+  `go tool cover -func`; Iteration 29 hatte 67,5 % notiert)
+- mutations-probe: in inbox_grpc.go ClaimMessage() die Bedingung
+  `if msg.TeamInboxID == nil` durch `if false` ersetzt (der Guard fuer
+  Nachrichten ausserhalb einer Team-Inbox waere dann wirkungslos) ->
+  TestInboxClaimMessage_NotInTeamInbox rot: statt des erwarteten
+  FailedPrecondition-Fehlers ein Nil-Pointer-Panic bei
+  `*msg.TeamInboxID` zwei Zeilen weiter (Test schlaegt trotzdem sauber als
+  FAIL fehl, testing faengt den Panic als Testfehler ab). Zurueckgedreht,
+  `git diff --stat internal/server/inbox_grpc.go` zeigt keinen Rest.
+- verify vorgaenger: sauber. Commit c9a33570 (Iteration 29) fuegt
+  ausschliesslich internal/server/work_label_test.go,
+  internal/server/work_search_links_test.go plus Journal/Backlog-Metadaten
+  hinzu -- keine Produktionscode-Datei, kein neues Proto, keine neue Route,
+  kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar
+  mit einem Linker-OOM ab (siehe Iterationen 25-29) -- unabhaengig von dieser
+  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
+  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
+  -StartNotBefore-Diff (wie in den Iterationen 6-29 vermerkt) -- nicht meine
+  Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
+  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 29) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-10 23:45).
