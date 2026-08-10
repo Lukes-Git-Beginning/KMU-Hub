@@ -3625,7 +3625,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   `c-cov-work-event-repo`.
 
 ## Iteration 59 — fix-plugin-kvset-silent-noop-unknown-installation — done — 2026-08-10 (Lauf 7)
-- commit: (folgt)
+- commit: `a4ef2ee2`
 - verify vorgaenger: sauber — `4df032e4` (c-cov-plugin-repository-gaps, Iteration 58) und
   `1481874f` (Folge-Commit, traegt nur den Commit-Hash in den Journal-Eintrag von Iteration 58
   nach) geprueft: `git show --stat 4df032e4` zeigt vier neue Testdateien in
