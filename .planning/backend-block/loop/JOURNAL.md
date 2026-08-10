@@ -2021,3 +2021,97 @@ Frühere Läufe liegen vollständig im Archiv:
   Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten
   Journal-Ueberschrift (Iteration 30) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-10 23:53).
+
+## Iteration 32 — b-cov-server-document-folders — done — 2026-08-11 00:02
+- commit: (siehe Folgeeintrag)
+- unit: b-cov-server-document-folders (Block B, Coverage internal/server)
+- scope: die 8 im Backlog genannten Happy-Path-Luecken der Ordner-Operationen
+  in document_grpc.go: CreateFolder, GetFolder, ListFolders, UpdateFolder,
+  DeleteFolder, GetFolderPath, InitializeUserSpace, InitializeTeamSpace.
+- was: neue Datei internal/server/document_folders_test.go. Da fuer
+  folder.Service noch kein Stub-Repository existierte, stubDocumentFolderRepo
+  (Interface folder.Repository, benannt mit Document-Praefix -- ein
+  stubFolderRepo/newStubFolderRepo existiert bereits fuer
+  email/message.FolderRepository in email_grpc_accounts_sync_test.go, Namens-
+  kollision beim ersten Draft vom Compiler gefunden und korrigiert) nach dem
+  Muster von stubFormulareRepo/stubLeaveRequestRepo gebaut. List() spiegelt
+  bewusst die Filter-Semantik von PostgresRepository.List
+  (postgres_repository.go:46-109): ohne ParentID werden Root-Ordner nur dann
+  gefiltert, wenn ein SpaceType-Filter gesetzt ist -- das ist der Pfad, den
+  folder.Service.Create fuer seinen Sibling-Namenskonflikt-Check nutzt, ein
+  naiverer Stub haette dort falsch-positive Konflikte oder falsche Treffer
+  geliefert. newFolderTestServer(repo) baut einen echten folder.NewService(repo)
+  in NewDocumentGRPCServer, die anderen fuenf Document-Services bleiben nil
+  wie in newTestDocumentServer(). 16 Testfaelle: pro Methode Happy-Path plus
+  Fehlerpfad -- CreateFolder/DuplicateNameInSameParent (AlreadyExists),
+  GetFolder/WrongTenantNotFound, ListFolders/RepositoryErrorMapsToInternal
+  (plus ein Leerlisten-Test, der [] statt null belegt), UpdateFolder+
+  DeleteFolder je /SystemFolderFails (FailedPrecondition),
+  GetFolderPath/RepositoryErrorMapsToInternal, InitializeUserSpace+
+  InitializeTeamSpace je /RepositoryErrorPropagates (Internal, da der
+  Sentinel-Fehler unverpackt aus dem Service durchgereicht und im default-
+  Zweig von mapDocumentError landet).
+- abweichung vom backlog: DeleteFolder hat KEINEN Fehlerpfad fuer "Ordner mit
+  noch enthaltenen Dateien/Unterordnern", wie das done_when unterstellte.
+  folder.Service.Delete (service.go:199-219) prueft ausschliesslich IsSystem;
+  PostgresRepository.Delete (postgres_repository.go:154-172) soft-deleted
+  enthaltene Dateien und verlaesst sich fuer Unterordner auf ein FK
+  ON DELETE CASCADE -- beides laeuft klaglos durch, kein Guard. Repository
+  hat dafuer CountFiles/GetChildren/IsDescendant im Interface, aber
+  Service.Delete ruft keine der drei auf (per grep in service.go verifiziert).
+  Nach der "Coverage-Units bauen keine Verhaltensaenderungen"-Regel keinen
+  Guard nachgezogen, sondern den TATSAECHLICH implementierten Fehlerpfad
+  (System-Ordner) getestet und die Abweichung hier + als Kommentarblock direkt
+  ueber den beiden Delete-Tests im Code dokumentiert. Fuer Lauf 9: falls das
+  fachlich gewollt ist (ein geloeschter Ordner mit Dateien verliert deren
+  Sichtbarkeit fuer den User, der sie an keinem "geloescht"-Status mehr findet)
+  waere das eine Fix-Unit, keine Coverage-Unit -- Luke muss entscheiden, ob
+  Kaskadieren das gewuenschte Verhalten ist.
+- weitere beobachtung, nicht gefixt: InitializeUserSpaceResponse/
+  InitializeTeamSpaceResponse tragen laut Proto ein root_folder-Feld
+  (document.proto:310-321), beide Handler geben aber immer eine leere
+  Response zurueck (document_grpc.go:256, :274) -- ein FE-Aufrufer, der den
+  neu angelegten Root-Ordner direkt aus der Response lesen wollte, bekommt
+  nichts und muesste separat ListFolders aufrufen. Kein RequirePermission-,
+  Route- oder Migrations-Thema, daher kein Blocker fuer diesen Lauf; als
+  kleine Nacharbeit fuer Lauf 9 vormerken.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
+  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/server/...
+  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1
+  ./internal/server/` und `./internal/server/...` und `./internal/gateway/`
+  alle gruen, 0 uebersprungene Tests per -v-Grep auf SKIP verifiziert) |
+  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine
+  neue config.RequireX-Assertion
+- coverage: internal/server 47,7 % -> 68,5 % (lokal gemessen per
+  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
+  `go tool cover -func`; der Bezugswert 47,7 % ist der Lauf-Startwert aus
+  `coverage_start:` der Unit, nicht der Zwischenwert 67,4-67,6 % aus
+  Iteration 31 -- beide Zahlen sind paket-eigen und damit vergleichbar, der
+  grosse Sprung seit Lauf-Start ist die Summe aller Iterationen seit
+  coverage_start, nicht allein dieser Unit.)
+- mutations-probe: in internal/document/folder/service.go Delete() die
+  Bedingung `if folder.IsSystem` durch `if false` ersetzt (der Schutz gegen
+  das Loeschen eines System-Ordners waere dann wirkungslos) ->
+  TestDeleteFolder_SystemFolderFails rot ("An error is expected but got
+  nil"). Zurueckgedreht, `git diff --stat
+  internal/document/folder/service.go` zeigt keinen Rest.
+- verify vorgaenger: sauber. Commit 73690839 (Iteration 31) fuegt
+  ausschliesslich internal/server/hr_leave_lifecycle_test.go plus
+  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
+  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  Tabelle. Keine der acht Fehlerklassen einschlaegig.
+- offen: `go build ./...` wurde in dieser Iteration nicht erneut probiert
+  (siehe Iterationen 25-31, reproduzierbarer Linker-OOM auf diesem Rechner,
+  unabhaengig von dieser Aenderung) -- stattdessen paketweise
+  `go build ./internal/.../...` genutzt. Die beiden oben genannten
+  Beobachtungen (DeleteFolder ohne Children-Guard, leere Initialize*Space-
+  Responses) sind Befunde dieser Iteration, keine Fix-Units -- fuer Lauf 9
+  vormerken, kein Blocker fuer diesen Lauf. .planning/backend-block/loop/
+  run-loop.ps1 traegt weiterhin einen unstaged -StartNotBefore-Diff (wie in
+  den Iterationen 6-31 vermerkt) -- nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
+  Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten Journal-
+  Ueberschrift (Iteration 31) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt (2026-08-11 00:02).
