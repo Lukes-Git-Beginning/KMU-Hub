@@ -21,21 +21,30 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **RBAC Phase 1 (Welle 1a und 1b) ist ABGESCHLOSSEN** — Datenmodell, Seed, Resolver,
   `/auth/me/permissions`, Rollen-CRUD, Guardrails, Audit-Events, Per-User-Overrides und
   Vendor-Access sind in Lauf 4 gebaut. In diesem Lauf ist kein RBAC-Nachbau vorgesehen.
-- **Freigegeben in diesem Lauf** (Lauf 7, Stand 2026-08-09): reine Test-Coverage in
-  `internal/gateway`, `internal/server` und den Service-Paketen (caldav, plugin, einkauf,
-  document, dialer, notification, email, work, biz/lexware, biz/recurring), plus genau eine
-  Fix-Unit `fix-inventar-picking-partial-book` (Transaktions-Fix in
-  `internal/inventar/service.go` samt DB-Test gegen das reale Schema).
-- **Schwerpunkt dieses Laufs ist Coverage**, in dieser Reihenfolge: zuerst Gateway, dann
-  `internal/server`, dann die Service-Pakete. Grund fuer die Reihenfolge: in Lauf 6 ist die
-  Gateway-Coverage von 27,2 % auf 24,2 % gefallen, weil Block A vierzehn neue OpenAPI-Pfade
-  anlegte, ohne Handler-Tests dazu — der Nenner wuchs, der Zaehler nicht. Die zwoelf
-  `b-cov-gateway-*`-Units sind die Gegenmassnahme. Zeilen-Abdeckung allein ist wertlos, wenn
-  sie nichts beweist — jede Coverage-Unit muss ihre Mutations-Probe belegen (Details im Kopf
-  von `BACKLOG.yml`).
+- **Freigegeben in diesem Lauf** (Lauf 8, Stand 2026-08-10): acht Fix- und Feature-Units aus
+  Block A, danach reine Test-Coverage in `internal/server`, `internal/security`,
+  `internal/gateway` und den schwaechsten Service-Paketen. Was freigegeben ist, steht als Unit
+  im Backlog — was nicht drinsteht, ist nicht freigegeben.
+- **Schwerpunkt dieses Laufs**, in dieser Reihenfolge (Blockfolge im `BACKLOG.yml`):
+  A Fix-Units → B `internal/server`-Kern → C sicherheitsnahe Flaechen → D Gateway-Routen →
+  E schwaechste Service-Pakete → F Reserve. Block A steht vorn, weil dort sechs verifizierte
+  Produktionsbugs liegen, die Lauf 7 gefunden, aber nicht gefixt hat. Block C steht bewusst vor
+  dem groesseren Block D: `route_auth.go` (33,4 %) und `internal/security` (47,9 %) sind
+  sicherheitsrelevant und verdienen Vorrang vor groesseren, aber harmloseren Flaechen.
+  Zeilen-Abdeckung allein ist wertlos, wenn sie nichts beweist — jede Coverage-Unit muss ihre
+  Mutations-Probe belegen (Details im Kopf von `BACKLOG.yml`).
+- **KEINE NEUEN ROUTEN — mit genau einer Ausnahme.** Freigegeben ist allein
+  `hr-salary-self-service-route` aus Block A; sie braucht ihren Pfad-Eintrag in
+  `backend/api/openapi.yaml` im selben Commit. Findest du in einer Coverage-Unit eine echte
+  Luecke, notier sie im Journal und leg eine Unit fuer Lauf 9 an, statt sie nebenbei zu bauen.
+- **CSAT bleibt gesperrt**, und der Grund steht seit dem 2026-08-10 fest: der SMTP-Passthrough
+  an `helpdesk` fehlt UND `CSAT_SURVEY_BASE_URL` zeigt auf eine Seite, die es nicht gibt. Den
+  Passthrough allein nachzuziehen waere schaedlich — dann gingen Umfragen mit totem Link an
+  echte Empfaenger. Nicht anfassen, auch nicht "nur die Config". Details in
+  `BACKLOG-PARKED.yml`.
 - **Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz sind GESPERRT.** Ihr
   FE-Vertrag wechselt gerade (Spalten-Panel: `boolean` wird zu `{visible, order, width}`).
-  Freigegeben ist aus dieser Flaeche nur, was in Block E steht.
+  In Lauf 8 steht dazu keine einzige Unit im Backlog — die Flaeche ist vollstaendig gesperrt.
 - **Phase 4 heisst: kein Neubau ganzer Branchen-Module.** Verifizierte Einzelluecken und Bugfixes
   in bereits bestehenden Branchen-Modulen (fuhrpark, inventar, vermietung, einkauf, produktion,
   schichten, rapporte) sind erlaubt und stehen als Units im Backlog — die arbeitest du normal ab.
@@ -125,7 +134,13 @@ Kein Fund → notier "Verify Vorgaenger-Commit: sauber" und geh weiter.
 Nimm die **erste** Unit mit `status: todo`, deren `deps` alle `done` sind. Setz sie auf `in_progress` und
 schreib die Datei sofort — stirbt dein Lauf, sieht die naechste Iteration, woran du warst.
 
-Keine Unit mehr offen? Schreib ins Journal `ALLE UNITS ABGEARBEITET`, leg `STOP` an, beende den Lauf.
+Findest du **keine** Unit, deren `deps` alle `done` sind, obwohl noch `todo`-Units offen sind, ist der
+Backlog verklemmt. Schreib das mit den betroffenen IDs ins Journal, leg
+`.planning/backend-block/loop/STOP` an und beende den Lauf — das loest ein Mensch auf.
+
+Das **regulaere** Laufende macht dagegen der Treiber ueber seinen eigenen Open-Count, nicht du: er
+prueft `BACKLOG.yml` vor jeder Iteration und beendet bei null offenen Units. Du bekommst einen leeren
+Backlog also gar nicht zu sehen und musst dafuer nichts vorsehen.
 
 ### 3 · Recherche
 
@@ -170,9 +185,18 @@ cd backend
 go build -p 2 ./internal/<svc>/... ./internal/gateway/... ./cmd/<svc>/... ./cmd/gateway/...
 go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
-go test -count=1 ./internal/<svc>/...
-go test -count=1 ./internal/gateway/    # PFLICHT sobald du eine Route angefasst hast
+go test -count=1 -coverprofile=/tmp/cov.out ./internal/<svc>/
+go tool cover -func=/tmp/cov.out | tail -1      # Zahl fuer die coverage:-Zeile im Journal
+go test -count=1 ./internal/<svc>/...           # restliche Unterpakete
+go test -count=1 ./internal/gateway/            # PFLICHT sobald du eine Route angefasst hast
 ```
+
+**Die Coverage-Messung ist Teil des Gates, kein Extraschritt.** `-coverprofile` aendert am
+Testlauf nichts und kostet nichts — du brauchst die Zahl fuer die Pflichtzeile `coverage:` in
+Schritt 6. Gemessen wird **genau ein Paket** (`./internal/<pkg>/`, ohne `...`), damit die Zahl
+paket-eigen und mit dem `coverage_start:`-Wert deiner Unit vergleichbar ist. `go tool cover` ist
+ein Report, kein Gate — die Pipe auf `tail` ist hier ausdruecklich erlaubt, bei den `go test`- und
+`golangci-lint`-Zeilen weiterhin nicht (der Exit-Code waere dann der der Pipe).
 
 **`DATABASE_URL` ist nicht optional.** Ohne die Variable ruft `testutil.SkipIfNoDB` in jedem
 Integrationstest `t.Skip`, und `go test` meldet `ok` fuer Pakete, deren DB-Tests gar nicht liefen. Das
@@ -227,20 +251,39 @@ Die naechste Iteration nimmt die naechste Unit.
 `BACKLOG.yml` aktualisieren (`done` bzw. `blocked`) und ans `JOURNAL.md` anhaengen:
 
 ```markdown
-## Iteration <n> — <unit-id> — <done|blocked> — <YYYY-MM-DD HH:MM>
+## Iteration <n> — <unit-id> — <done|blocked> — <exakt die Uhrzeit aus dem Laufkontext-Block>
 - commit: <sha oder ->
 - gebaut: <ein bis drei Zeilen, was real existiert>
 - gate: build ok | vet ok | lint ok | test ok | migration ok | rls-smoke ok|n.a.
+- coverage: <pkg> <coverage_start aus der Unit> % -> <jetzt gemessen> % | n.a. (kein Coverage-Ziel)
+- mutations-probe: <welche Zeile gebrochen, welcher Test wurde rot, zurueckgedreht, Diff sauber> | n.a.
 - verify vorgaenger: <sauber | Befund + angelegte Fix-Unit>
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
 
+**`coverage:` und `mutations-probe:` sind Pflichtzeilen, keine Kuer.** In Lauf 7 kam die
+Mutations-Probe 71/71, weil sie ausdruecklich gefordert war — und die Coverage-Zahl 8/71, weil sie
+nirgends stand. Das erklaerte Laufziel war damit am Ende unbelegt und musste nachtraeglich aus dem
+CI-Artefakt rekonstruiert werden. `n.a.` ist eine zulaessige Antwort, Weglassen nicht.
+
+Fuer `coverage:` gilt: den Ausgangswert nimmst du aus dem Feld `coverage_start:` deiner Unit (der
+ist einmal beim Backlog-Bau aus dem CI-Artefakt gemessen und ueber den ganzen Lauf derselbe
+Bezugspunkt), den aktuellen Wert aus `go tool cover -func` in Schritt 5. Beide Zahlen sind
+paket-eigen und damit dieselbe Groesse — die Begruendung dafuer steht in `GATE-COMMANDS.md`.
+
 **Nummer und Zeitstempel stehen im Laufkontext-Block am Ende dieses Prompts (siehe unten) und
-werden woertlich uebernommen — nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat
-das Modell ab Iteration 27 "## Iteration 28" geschrieben; seitdem lief die Nummerierung um eins
-vor, eine Nummer existierte doppelt und eine gar nicht. Der Treiber leitet seine
-Fortschrittsanzeige aus der hoechsten Journal-Nummer ab — eine falsche Nummer verfaelscht sie
-direkt.
+werden woertlich uebernommen — nicht aus dem Journal ableiten, nicht schaetzen.** Der Zeitstempel
+ist ein **Pflichtwert, kein Formatvorschlag**: es gehoert exakt die Zeichenkette in die
+Ueberschrift, die der Laufkontext-Block liefert. Ersatzangaben wie "(Lauf 8)" oder
+"(siehe Commit-Zeit)" sind ein Fehler, kein zulaessiger Platzhalter — in Lauf 7 trugen 32 von 72
+Ueberschriften so etwas, obwohl der Treiber die Uhrzeit jedes Mal mitgeliefert hat.
+
+Der Treiber prueft nach jeder Iteration, ob die neue Ueberschrift die Nummer `$i` und den
+gelieferten Zeitstempel traegt, und loggt eine gelbe `DRIFT:`-Zeile, wenn nicht. Das bricht den
+Lauf nicht ab, steht aber morgens im `run.log`. In Lauf 6 hat das Modell ab Iteration 27
+"## Iteration 28" geschrieben; seitdem lief die Nummerierung um eins vor, eine Nummer existierte
+doppelt und eine gar nicht. Der Treiber leitet seine Fortschrittsanzeige aus der hoechsten
+Journal-Nummer ab — eine falsche Nummer verfaelscht sie direkt.
 
 **Ans Dateiende anhaengen, nicht einsortieren.** Das Journal ist chronologisch, nicht sortiert —
 ein Eintrag gehoert unter den letzten, nie darueber. Am 2026-08-02 hat eine Iteration ihren Block

@@ -67,6 +67,64 @@ auf die betroffenen Pakete.
 Gate-Kommandos **nie durch eine Pipe** laufen lassen (`| head`, `| tail`): der Exit-Code ist dann der der
 Pipe und immer 0 — rote Gates werden unsichtbar. Ausgabe bei Bedarf in eine Datei umleiten und die lesen.
 
+## Coverage messen — die verbindliche Definition
+
+Zwei Zahlen, zwei Zwecke. Sie zu verwechseln ist real passiert: Lauf 6 nannte **26,0 %** für
+`internal/server`, Lauf 7 maß **27,6 %** für dasselbe Paket am selben Tag. Beide Zahlen waren
+richtig gemessen — nur eben zwei verschiedene Dinge.
+
+### 1. Innerhalb einer Iteration: paket-eigen
+
+Kein Extraschritt, das bestehende Gate-Kommando bekommt nur ein Flag:
+
+```bash
+go test -count=1 -coverprofile=/tmp/cov.out ./internal/<pkg>/
+go tool cover -func=/tmp/cov.out | tail -1
+```
+
+**Genau ein Paket, ohne `...`.** `./internal/server/...` würde `internal/server/response`
+mitzählen und die Zahl gegenüber dem Bezugswert verschieben. Der Bezugswert steht als
+`coverage_start:` an jeder Unit im `BACKLOG.yml` und bleibt über den ganzen Lauf derselbe — so
+entsteht eine monotone Kurve statt einer Kette unverbundener Deltas.
+
+`go tool cover` ist ein Report, kein Gate: die Pipe auf `tail` ist hier ausdrücklich erlaubt. Für
+`go test` und `golangci-lint` bleibt sie verboten (der Exit-Code wäre der der Pipe, siehe oben).
+
+### 2. Über Läufe hinweg: nur das CI-Artefakt
+
+```bash
+gh run download <run-id> -n coverage-report -D "$SCRATCH/cov"
+```
+
+Gefiltert wird wie das CI-Gate, aggregiert je Paketverzeichnis:
+
+```bash
+grep -v "github.com/kmuhub/kmuhub/proto/" coverage.out | awk 'NR>1{
+  split($1,a,":"); f=a[1]; sub(/^github.com\/kmuhub\/kmuhub\//,"",f); split(f,p,"/");
+  k=p[1]"/"p[2]; tot[k]+=$2; if($3>0) cov[k]+=$2; T+=$2; if($3>0) C+=$2
+} END{ printf "GESAMT %.2f%%\n", C*100/T;
+  for(k in tot) printf "%6.1f %7d %s\n", cov[k]*100/tot[k], tot[k]-cov[k], k }' | sort -k2 -rn
+```
+
+Spalten: Prozent, ungedeckte Statements, Paket. Für eine Datei-Aufschlüsselung innerhalb eines
+Pakets dasselbe awk mit `k=f` statt `k=p[1]"/"p[2]`.
+
+Verifiziertes Referenzergebnis (2026-08-10, Artefakt aus Run `31373430274`, finaler Tree von
+Lauf 7): **GESAMT 47.75 %**, `internal/gateway` 34,9 %, `internal/server` 47,7 %,
+`internal/produktion` 22,3 %.
+
+### Warum beide Zahlen dieselbe Größe sind
+
+`.github/workflows/ci.yml:111` fährt `go test ./... -coverprofile=coverage.out -covermode=atomic`
+**ohne `-coverpkg`**. Ohne dieses Flag misst jedes Paket ausschließlich sich selbst — die
+Einträge für `internal/server/*.go` im Artefakt stammen also allein aus dem
+`internal/server`-Testbinary. Ein lokales `go test -coverprofile ./internal/server/` misst
+genau dasselbe. Die Zahlen sind damit direkt vergleichbar.
+
+**Nicht** vergleichbar ist `go tool cover -func | tail -1` auf einem **repo-weiten** Profil: das
+ist der Gesamtwert über alle Pakete, keine Paketzahl. Genau diese Verwechslung erzeugte die
+26,0 % aus Lauf 6.
+
 ## Lokale Datenbank
 
 Container: `docker-postgres-1` (Custom-Image mit `pg_cron`), Port 5432, DB `kmuhub`.
@@ -95,8 +153,8 @@ migrate -path backend/migrations -database "$MIG_LOCAL" up
 migrate -path backend/migrations -database "$MIG_LOCAL" version    # Kopf pruefen
 ```
 
-Stand 2026-07-26: lokaler Kopf **243** = Repo-Kopf. Naechste freie Nummer **000244** — aber immer zur
-Laufzeit ermitteln, nie annehmen (Luke migriert parallel):
+Stand 2026-08-10: lokaler Kopf **309** (`dirty = f`) = Repo-Kopf = Produktionskopf. Naechste freie
+Nummer **000310** — aber immer zur Laufzeit ermitteln, nie annehmen (Luke migriert parallel):
 
 ```bash
 ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1
