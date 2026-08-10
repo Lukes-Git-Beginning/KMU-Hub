@@ -3914,7 +3914,7 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-document-wopi` (deps: [], frei).
 
 ## Iteration 63 — c-cov-document-wopi — done — 2026-08-10 (Lauf 7)
-- commit: <PENDING>
+- commit: `3fa30ebd`
 - verify vorgaenger: sauber — `80f9e6e6` (c-cov-email-message-repo, Iteration 62) gegen alle
   acht Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich eine neue Testdatei
   (`internal/email/message/postgres_repository_test.go`) plus Loop-Buchhaltung — kein
