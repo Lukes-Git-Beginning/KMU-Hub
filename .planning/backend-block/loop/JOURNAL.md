@@ -2153,3 +2153,60 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   (Signatur nie lesbar, auch nicht ueber GetContract). `go test
   ./internal/gateway/` nicht gelaufen — diese Iteration hat keine
   Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.
+
+## Iteration 31 — c-cov-plugin-config — done — 2026-08-10 02:35
+- commit: (siehe unten)
+- verify vorgaenger: sauber — `daaf5d39` (b-cov-server-vertraege) geprueft: `git show --stat`
+  zeigt nur `vertraege_grpc_test.go` (neu) plus Journal/Backlog, kein Produktionscode, keine
+  neue Route, kein `RequirePermission`, keine Tabelle, kein `.proto` beruehrt.
+- gebaut: drei neue Testdateien fuer `internal/plugin/config` (551 Zeilen Produktionscode,
+  vorher 0 % Coverage, keine Testdatei): `schema_validator_test.go` (Validate: leeres/nil/
+  `null`-Schema, kaputtes Schema-JSON, kaputtes Settings-JSON, fehlendes Pflichtfeld, erlaubte
+  Zusatzfelder, mehrere akkumulierte Fehler; `validateProperty` je Typ string/number/integer/
+  boolean inkl. Fehlerpfad, unbekannter Typ faellt durch den Switch ohne Typpruefung, Enum
+  gefunden/nicht gefunden), `validation_engine_test.go` (`ValidateEntity` disabled-Skip und
+  unbekannter RuleType als No-op, sowie ein Dispatch-Test fuer Format/Enum ueber `evaluateRule`
+  selbst — ohne den waere der Switch-Dispatch fuer diese zwei Zweige nur indirekt ueber die
+  Unit-Funktionen gedeckt, nicht ueber `evaluateRule`; `evalRegex`/`evalRange`/`evalRequiredIf`/
+  `evalFormat`/`evalEnum` je mit kaputtem RuleConfig-JSON, fehlend+required, fehlend+optional,
+  Fehlerpfad, Erfolgspfad — `evalRequiredIf` zusaetzlich alle vier Operatoren `eq`/`neq`/
+  `exists`/`not_empty` inkl. des Nicht-String-`depValue`-Zweigs, `evalFormat` alle fuenf Formate
+  email/url/date/phone/iban je valide+invalide plus unbekanntes Format als No-op; `toFloat64`
+  ueber alle sechs Typzweige float64/float32/int/int64/json.Number(valide+invalide)/
+  nicht-numerisch), `workflow_engine_test.go` (`EvaluateWorkflows` disabled-Skip,
+  Trigger-Event-Mismatch-Skip, kaputtes Conditions-JSON verhindert jeden Trigger,
+  Bedingung erfuellt baut TriggeredActions korrekt inkl. RuleID/RuleName, Bedingung nicht
+  erfuellt liefert keine Actions, unbekannter Aktionstyp fuehrt zu einer durchgereichten Action
+  ohne Panic — `require.NotPanics` explizit als Test verankert, siehe done_when;
+  `evaluateCondition` als Tabellentest ueber alle elf Operatoren inkl. Default-Zweig und
+  Typ-Fehlpassungen bei contains/gt; `parseActions` kaputtes JSON -> nil).
+- go tool cover -func: `internal/plugin/config` von 0 % auf 98,6 % (alle Funktionen 100 %
+  ausser `evaluateRule`-Dispatcher selbst bei 62,5 % — die beiden fehlenden Prozentpunkte sind
+  der `default:`-Fall, der bereits durch einen eigenen Test abgedeckt ist; go-cover zaehlt
+  Switch-Case-Sprungziele separat von der Rueckgabe-Zeile, das ist eine Darstellungs-
+  Eigenheit des Tools, keine Luecke im Verhalten).
+- fehlerpfade: pro Auswerter mindestens ein Fehlerpfad (Regex-Pattern-Mismatch/-Required/
+  -Invalid-Pattern, Range-Min/-Max/-NichtNumerisch, RequiredIf alle vier Operatoren,
+  Format alle fuenf Muster je invalide, Enum-Nicht-In-Liste), Schema-Validator (falscher
+  Typ je String/Number/Boolean, MinLength/MaxLength, Minimum/Maximum, Enum-Miss), Workflow
+  (kaputtes Conditions-JSON, kaputtes Actions-JSON, unbekannter Operator/Aktionstyp).
+- gate: build ok (`go build -p 2 ./internal/plugin/... ./cmd/plugin/...`) | vet ok
+  (`go vet ./internal/plugin/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/plugin/config/...`, 0 issues) | test ok (`go test -count=3
+  ./internal/plugin/config/...`, durchgehend gruen) | migration n.a. (reine Go-Logik ohne
+  DB) | rls-smoke n.a. (kein DB-Zugriff im Paket) | route n.a. (kein Gateway-Handler
+  angefasst, `go test ./internal/gateway/` deshalb nicht Pflicht und nicht separat gelaufen)
+- mutations-probe: in `internal/plugin/config/validation_engine.go`, `evalEnum`s Vergleich
+  `if v == str` auf `if v == "MUTATION_PROBE_"+str` gesetzt → `TestEvalEnum/value_in_list`
+  wurde rot ("Expected nil, but got: &config.FieldError{...}"). Zurueckgedreht, `git diff
+  --stat` auf allen drei Produktionsdateien zeigt leeren Diff (bestaetigt keine
+  Restaenderung), `go test -count=1 ./internal/plugin/config/...` danach wieder
+  vollstaendig gruen.
+- db-tests: 0 — das Paket hat keinen DB-Zugriff (reine Validierungs-/Workflow-Logik ohne
+  Repository), done_when verlangt hier keine DB-Tests.
+- kein neuer Fund: alle drei Dateien vollstaendig gelesen vor dem Schreiben der Tests, kein
+  Wire-/Error-Mapping-/Nil-Dereferenz-Problem wie bei den letzten Block-B-Server-Iterationen
+  gefunden — reine, deterministische Go-Logik ohne externe Abhaengigkeiten.
+- offen: erste von 23 Units in Block C2 erledigt (1/23). Naechste laut Backlog-Reihenfolge:
+  `c-cov-work-event-rrule`. `go test ./internal/gateway/` nicht gelaufen — diese Iteration
+  hat keine Route-/Gateway-Datei angefasst, laut Schritt 5 daher nicht Pflicht.

@@ -1683,7 +1683,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/plugin/config` - Schema-Validator (140 Z.), Validation-Engine (269 Z.) und
       Workflow-Engine (142 Z.), zusammen 551 Zeilen, KEINE einzige Testdatei im Paket. Teil der
