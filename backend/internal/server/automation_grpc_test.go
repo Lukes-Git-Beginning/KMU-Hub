@@ -833,20 +833,16 @@ func TestCreateFromTemplate_Success(t *testing.T) {
 // TestCondition
 // ============================================================================
 
-// TestTestCondition_OmittedConditionsSurfacesAsError documents an inconsistency
-// with DryRunAutomation: DryRun treats a nil/empty Conditions payload as "no
-// conditions -- always matches" (auto.Conditions len check before unmarshal,
-// service.go DryRun). TestCondition has no such guard -- it unmarshals
-// automationStructToJSON(req.GetConditions()) unconditionally, and that helper
-// returns nil for an omitted (nil) Struct, so json.Unmarshal(nil, &config)
-// fails. A caller testing "no conditions configured" (a normal case: the
-// automation always fires) gets a confusing error instead of Matches=true.
-func TestTestCondition_OmittedConditionsSurfacesAsError(t *testing.T) {
+// TestTestCondition_OmittedConditionsAlwaysMatches mirrors DryRunAutomation:
+// an omitted Conditions payload means "no conditions configured", so the
+// zero-value ConditionConfig (mode "") always matches, symmetric to the
+// auto.Conditions len check DryRun already had.
+func TestTestCondition_OmittedConditionsAlwaysMatches(t *testing.T) {
 	s := newAutomationTestServer(nil, nil, nil)
 	resp, err := s.TestCondition(context.Background(), &automationv1.TestConditionRequest{})
-	require.NoError(t, err, "unmarshal failure is a soft error, not a gRPC error")
-	assert.False(t, resp.Matches, "documents the current gap: an omitted conditions payload does not match-all like DryRun does")
-	assert.Contains(t, resp.ErrorMessage, "unexpected end of JSON input")
+	require.NoError(t, err)
+	assert.True(t, resp.Matches, "an omitted conditions payload must match-all, like DryRun does")
+	assert.Empty(t, resp.ErrorMessage)
 }
 
 func TestTestCondition_InvalidConfigReturnsSoftError(t *testing.T) {

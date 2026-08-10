@@ -404,7 +404,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `AutomationGRPCServer.TestCondition` (internal/server/automation_grpc.go:412) ruft
       `automationStructToJSON(req.GetConditions())` unconditional auf und reicht das Ergebnis an

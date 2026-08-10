@@ -848,6 +848,14 @@ func TestTestCondition_EmptyModeAlwaysTrue(t *testing.T) {
 	assert.True(t, result, "empty mode should always return true")
 }
 
+func TestTestCondition_NilConditionJSONAlwaysTrue(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	result, err := svc.TestCondition(context.Background(), nil, nil)
+	require.NoError(t, err, "an omitted conditions payload must not fail unmarshal, symmetric to DryRun")
+	assert.True(t, result, "no conditions configured should always match, like DryRun treats empty auto.Conditions")
+}
+
 func TestTestCondition_SimpleCondition(t *testing.T) {
 	svc := newTestService(nil, nil, nil)
 
