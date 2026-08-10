@@ -924,7 +924,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-10 17:22).
 
 ## Iteration 16 — b-cov-server-biz-dunning-dashboard-exports — done — 2026-08-10 17:33
-- commit: <wird nach dem Commit ergänzt>
+- commit: 1b4039f5
 - gebaut: neue Datei `backend/internal/server/biz_grpc_dunning_dashboard_exports_test.go`.
   Deckt alle 11 im Backlog genannten Methoden ab: Mahnwesen (ListDunnings,
   CreateDunning, EscalateDunning, GetDunningConfig, UpdateDunningConfig,
