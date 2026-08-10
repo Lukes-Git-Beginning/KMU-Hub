@@ -2445,7 +2445,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `internal/document/wopi` - handler.go (315 Z.), lock.go (120 Z.), token.go (89 Z.),
       zusammen 524 Zeilen, KEINE einzige Testdatei. OnlyOffice/WOPI-Integration fuer
@@ -2469,6 +2469,94 @@ units:
       - Handler-Endpunkte ueber httptest mit gefaktem FileServiceInterface getestet
       - CleanExpired entfernt nur abgelaufene Locks, belegt durch einen Test
       - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/document/wopi/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-document-wopi-lock-table-name-mismatch
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Jede der sechs Queries in `internal/document/wopi/lock.go` (`Lock`, `Unlock`,
+      `RefreshLock`, `GetLock`, `CleanExpired`) zielt auf eine Tabelle namens
+      `document_wopi_locks`. Diese Tabelle existiert in KEINER Migration. Migration
+      `000044_create_wopi_locks.up.sql` legt die Tabelle `wopi_locks` an (PK `file_id`,
+      `lock_id`, `locked_by`, `created_at`, `expires_at`), Migration
+      `000114_option_b_phase2_settings_preferences.up.sql` ergaenzt dort `tenant_id`,
+      Migration `000122_rls_phase2_long_tail.up.sql` aktiviert RLS darauf - durchgehend
+      unter dem Namen `wopi_locks`, nie `document_wopi_locks`. Verifiziert per Grep ueber
+      alle Migrationen (0 Treffer fuer `document_wopi_locks` ausserhalb von `lock.go`
+      selbst) und empirisch durch alle fuenf LockService-Methoden gegen die echte
+      lokale DB (docker-postgres-1): `Lock`/`Unlock`/`RefreshLock`/`CleanExpired` liefern
+      einen echten Postgres-Fehler `ERROR: relation "document_wopi_locks" does not
+      exist (SQLSTATE 42P01)`, `GetLock` verschluckt denselben Fehler unconditional zu
+      `ErrLockNotFound` (der `if err != nil { return "", ErrLockNotFound }`-Zweig in
+      `GetLock` behandelt JEDEN Query-Fehler als "kein Lock", nicht nur "keine Zeile
+      gefunden"). Auswirkung ueber den ganzen Stack: `HandleLockOperation`
+      (`internal/server`-Aequivalent ist hier der WOPI-HTTP-Handler selbst,
+      `internal/document/wopi/handler.go:214`) beantwortet jedes LOCK/UNLOCK/
+      REFRESH_LOCK von OnlyOffice mit 500, weil der zurueckgegebene Fehler kein
+      `*LockConflictError` ist (`errors.As` schlaegt fehl, faellt auf den generischen
+      500-Zweig). `PutFile`s Lock-Konflikt-Wächter (`handler.go:170`) ist faktisch
+      abgeschaltet: `GetLock` liefert IMMER `ErrLockNotFound`, also ist die Bedingung
+      `lockErr == nil && currentLock != "" ...` nie wahr, unabhaengig vom tatsaechlichen
+      Sperrzustand oder vom mitgeschickten `X-WOPI-Lock`-Header - jeder Speichervorgang
+      geht durch, auch wenn eine andere Session das Dokument gerade haelt. Zusaetzlich
+      laeuft in `cmd/document/main.go:116-129` ein Goroutine-Cleanup-Ticker alle 5
+      Minuten, der `CleanExpired` aufruft und dessen Fehler nur loggt
+      (`slog.Error("WOPI lock cleanup failed", ...)`) - dieser Job schlaegt seit
+      Einfuehrung der Tabelle bei JEDEM Tick fehl, abgelaufene Zeilen in `wopi_locks`
+      wachsen unbegrenzt. Netto: die komplette WOPI-Sperrfunktion (kollaboratives
+      Bearbeiten via OnlyOffice) ist funktionsunfaehig - Sperren lassen sich nie
+      erfolgreich setzen, ein bestehendes Lock wird nie erkannt, und der Aufraeumjob
+      schlaegt endlos fehl.
+    sources:
+      - backend/internal/document/wopi/lock.go
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/document/wopi/lock_test.go
+      - backend/internal/document/wopi/handler_test.go
+      - backend/cmd/document/main.go
+      - backend/migrations/000044_create_wopi_locks.up.sql
+      - backend/migrations/000114_option_b_phase2_settings_preferences.up.sql
+      - backend/migrations/000122_rls_phase2_long_tail.up.sql
+    notes: >
+      Gefunden waehrend c-cov-document-wopi (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (aus "immer 500 / Sperre wird nie erkannt" wird "funktioniert"),
+      keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit - und dringlicher als
+      eine normale Coverage-Iteration, weil es ein Totalausfall einer bestehenden Funktion
+      ist (analog `fix-meeting-savenotes-onconflict-no-matching-constraint`). Fix-Vorschlag:
+      rein mechanisch - alle sechs Vorkommen von `document_wopi_locks` in `lock.go`
+      (Zeilen 39/43/44/66/82/102/114) durch `wopi_locks` ersetzen, kein Migrations- oder
+      Schema-Aenderungsbedarf, die Zieltabelle existiert bereits korrekt inkl. `tenant_id`
+      und RLS. Nach dem Fix muessen die fuenf "documents current gap"-Tests in
+      `lock_test.go` (`TestLockService_Lock/Unlock/RefreshLock/CleanExpired_
+      QueriesNonexistentTable_DocumentsCurrentGap`, `TestLockService_GetLock_
+      AlwaysReportsUnlocked_DocumentsCurrentGap`) durch echte Round-Trip-Tests ersetzt
+      werden (Lock erfolgreich setzen, GetLock findet ihn, RefreshLock verlaengert,
+      Unlock entfernt ihn, CleanExpired loescht nur abgelaufene). Ebenso die vier
+      "documents current gap"-Faelle in `handler_test.go`
+      (`TestHandler_HandleLockOperation` LOCK/UNLOCK/REFRESH_LOCK/GET_LOCK,
+      `TestHandler_PutFile/lock-conflict_guard_never_triggers`) auf das dann korrekte
+      Verhalten umstellen (LOCK/UNLOCK/REFRESH_LOCK liefern 200 bzw. echten 409-Konflikt
+      bei fremdem Lock, GET_LOCK liefert die echte Lock-ID, PutFile lehnt bei
+      Lock-Mismatch mit 409 ab statt durchzugehen). Da `tenant_id` bereits auf der
+      Zieltabelle liegt, lohnt sich ein kurzer Blick, ob die Queries sie zukuenftig auch
+      setzen/filtern sollten (aktuell tut das keine der sechs Queries) - das ist aber ein
+      separater, kleinerer Fund und kann im selben Fix mit erledigt werden, wenn es sich
+      anbietet, sonst als eigene Notiz im Journal festhalten.
+    done_when:
+      - Alle sechs Query-Ziele in lock.go verwenden wopi_locks statt document_wopi_locks
+      - Lock/Unlock/RefreshLock/GetLock/CleanExpired funktionieren nachweislich gegen die
+        echte lokale DB (Round-Trip-Test: setzen, finden, verlaengern, entfernen)
+      - CleanExpired loescht nachweislich nur abgelaufene Zeilen (Mischfixture aus
+        abgelaufenen und aktiven Locks), Mutations-Probe im Journal belegt
+      - HandleLockOperation liefert bei echtem Fremd-Lock einen echten 409-Konflikt
+        (X-WOPI-Lock-Header mit der aktuellen Lock-ID gesetzt), nicht mehr 500
+      - PutFiles Lock-Konflikt-Wächter lehnt einen Save bei abweichendem X-WOPI-Lock
+        nachweislich ab
+      - Alle "documents current gap"-Tests in lock_test.go und handler_test.go auf das
+        neue (korrekte) Verhalten aktualisiert, nicht geloescht
       - go test -count=1 ./internal/document/wopi/... mit DATABASE_URL gruen, 0 Skips
 
   - id: c-cov-einkauf-repository-extended

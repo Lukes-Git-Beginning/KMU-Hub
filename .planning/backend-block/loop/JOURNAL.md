@@ -3912,3 +3912,74 @@ Journale der Vorlaeufe: `archive/lauf-3/JOURNAL.md`, `archive/lauf-4/JOURNAL.md`
   Rueckwaerts-Suche und Neu-Thread-Fallback, FindBySubjectAndParticipants als Fallback,
   GetHighestUID liefert 0 bei leerem Ordner, Mutations-Probe belegt, Paket gruen 0 Skips).
   Naechste Unit im Backlog laut Datei-Reihenfolge: `c-cov-document-wopi` (deps: [], frei).
+
+## Iteration 63 — c-cov-document-wopi — done — 2026-08-10 (Lauf 7)
+- commit: <PENDING>
+- verify vorgaenger: sauber — `80f9e6e6` (c-cov-email-message-repo, Iteration 62) gegen alle
+  acht Fehlerklassen geprueft: `git show --stat` zeigt ausschliesslich eine neue Testdatei
+  (`internal/email/message/postgres_repository_test.go`) plus Loop-Buchhaltung — kein
+  Produktionscode angefasst, also kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, kein Wire-Shape-Wechsel, keine neue Route,
+  kein Guard-Alt-Key ersetzt. `git merge origin/main` lief als "Already up to date", kein
+  Konflikt.
+- gebaut: drei neue Testdateien fuer `internal/document/wopi` (zuvor 0 Tests fuer 524 Zeilen
+  Produktionscode):
+  - `token_test.go` (5 Funktionen): Generate/Validate-Roundtrip inkl. TTL-Check, Ablehnung
+    von manipuliertem Token, falschem Secret, abgelaufenem Token (manuell mit
+    `ExpiresAt` in der Vergangenheit signiert) und — als sicherheitskritischster Fall — dem
+    klassischen `alg=none`-JWT-Forgery-Angriff (`jwt.SigningMethodNone` +
+    `jwt.UnsafeAllowNoneSignatureType`), der bereits korrekt abgelehnt wird (Methodencheck
+    in `Validate` greift).
+  - `handler_test.go` (5 Testfunktionen, `httptest` + `fakeFileService`/`fakeFileStore`):
+    `CheckFileInfo`/`GetFile` komplett ohne DB (lockService bewusst `nil`, wird von beiden
+    nie beruehrt), `PutFile`/`HandleLockOperation` gegen einen echten `*LockService`
+    (`testutil.PoolFromEnv`) wie in den Notizen gefordert — Erfolgspfad, alle
+    Fehlerpfade (401/403/400/404/500), plus `TestParseTenantIDFromClaims`.
+  - `lock_test.go` (5 DB-Testfunktionen + Fixture-Helfer): **entdeckte dabei einen echten
+    Produktionsbug statt nur Coverage zu schreiben** — `lock.go` fragt in allen sechs
+    Queries eine Tabelle `document_wopi_locks` ab, die in KEINER Migration existiert.
+    Migration 000044 legt `wopi_locks` an (Migration 000114 ergaenzt `tenant_id`, 000122
+    RLS) — durchgehend unter diesem Namen, nie `document_wopi_locks`. Empirisch bestaetigt
+    gegen docker-postgres-1: `Lock`/`Unlock`/`RefreshLock`/`CleanExpired` liefern
+    `ERROR: relation "document_wopi_locks" does not exist (SQLSTATE 42P01)`, `GetLock`
+    verschluckt denselben Fehler zu `ErrLockNotFound` (der Fehlerzweig behandelt JEDEN
+    Query-Fehler als "kein Lock"). Auswirkung ueber den Stack, mit Tests belegt statt nur
+    behauptet: `HandleLockOperation` beantwortet LOCK/UNLOCK/REFRESH_LOCK immer mit 500
+    (der pg-Fehler ist kein `*LockConflictError`, faellt auf den generischen Zweig);
+    `PutFile`s Lock-Konflikt-Wächter ist faktisch abgeschaltet, weil `GetLock` immer
+    `ErrLockNotFound` liefert (Test `lock-conflict guard never triggers` speichert trotz
+    `X-WOPI-Lock: some-lock-nobody-can-ever-acquire` erfolgreich, 200 statt 409); ein
+    Cleanup-Goroutine-Ticker in `cmd/document/main.go` (alle 5 Minuten) loggt seit
+    Einfuehrung der Tabelle bei jedem Tick einen Fehler, abgelaufene Zeilen in `wopi_locks`
+    wachsen unbegrenzt (per direktem Seed in die ECHTE Tabelle + Nachzaehlung bewiesen,
+    nicht nur behauptet). Nicht inline gefixt — echte Verhaltensaenderung, keine
+    Coverage-Aenderung, nach Backlog-Regel eine eigene Unit: `fix-document-
+    wopi-lock-table-name-mismatch` (status: todo) in BACKLOG.yml ergaenzt, direkt nach
+    dieser Unit, mit vollem Scope/Sources/Fix-Vorschlag/done_when.
+- gate: build ok (`go build -p 2 ./...`, komplettes Repo) | vet ok (`go vet
+  ./internal/document/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/document/wopi/...`, 0 issues) | test ok (`go test -count=1
+  ./internal/document/...`, alle sieben Pakete gruen, `DATABASE_URL=postgres://
+  kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable`, Rolle `kmuhub_app`) |
+  migration n.a. (keine Schemaaenderung, der Fund braucht einen reinen Code-Fix, keine
+  neue Migration) | rls-smoke n.a. (Handler/Lock-Ebene, keine RLS-Policy beruehrt) |
+  route n.a. (kein Gateway-Handler/Route beruehrt, WOPI-Routen sind bereits verdrahtet) |
+  openapi n.a. | protoc n.a.
+- mutations-probe: in `TokenService.Validate` (token.go:74) die Methodenpruefung invertiert
+  (`!ok` → `ok`), sodass legitime HS256-Tokens als "falsche Methode" abgelehnt werden.
+  Sofort rot: `TestTokenService_GenerateAndValidate_Roundtrip` UND vier Subtests von
+  `TestHandler_CheckFileInfo` (success/token_file_id_mismatch/non-uuid_file_id/
+  file_not_found — alle nutzen einen echten generierten Token, der jetzt an der ersten
+  Huerde scheitert). Praezise Probe, kein Kollateralschaden an den reinen Fehlerpfad-Tests
+  ohne echten Token. Zeile zurueckgedreht, `git diff --stat
+  internal/document/wopi/token.go` zeigt wieder keinen Unterschied zum Ausgangsstand.
+  `go build ./...`/`go test -count=1 ./internal/document/...` danach erneut komplett gruen
+  (siehe gate oben).
+- offen: `done_when` dieser Unit vollstaendig erfuellt (Validate lehnt manipulierten und
+  abgelaufenen Token ab, Handler-Endpunkte per httptest+Fake getestet, CleanExpired-Test
+  vorhanden — belegt allerdings den aktuellen Bug statt "entfernt nur abgelaufene Locks",
+  weil die Funktion table-name-bedingt gar nichts loescht; das ist der Grund fuer die neue
+  Fix-Unit statt eines gruenen Hakens am urspruenglichen Kriterium —, Mutations-Probe im
+  Journal belegt, Paket gruen 0 Skips). Naechste Unit im Backlog laut Datei-Reihenfolge:
+  `fix-document-wopi-lock-table-name-mismatch` (deps: [], frei, direkt nach dieser Unit
+  eingefuegt).
