@@ -113,3 +113,47 @@ Fensters.
   nur über den Test-Bypass von `Create()`, nicht über einen echten Aufrufer (der einzige
   Produktionsschreibpfad in `Create()` setzt diese Felder immer auf `""`, nie NULL). Deshalb
   keine eigene Unit, nur hier vermerkt.
+
+## Iteration 2 — fix-datev-upload-repo-missing-tenant-id — done — 2026-08-11 16:29
+- commit: 50e89714
+- gebaut: `UpsertUploadConfig` und `CreateUploadLog` in
+  `internal/biz/datev/postgres_upload_repo.go` schreiben `tenant_id` jetzt in beide INSERTs.
+  Neuer `tenantForWrite(ctx)`-Helper loest die Tenant-ID direkt aus dem Context (Vorlage:
+  `internal/notification/integration/postgres_repository.go`s gleichnamiges Muster fuer
+  denselben NOT-NULL+FORCE-RLS-Fall) — kein Modellfeld, keine Handler-Aenderung noetig, weil
+  der Interceptor jede reale gRPC-Anfrage schon mit der Tenant-ID im Context ausstattet. Neuer
+  Sentinel `ErrTenantMissing`. `UpsertUploadConfig`s `ON CONFLICT (config_id)`-Ziel war bereits
+  korrekt (echter `UNIQUE(config_id)`-Constraint aus Migration 000056), kein MUSTER-A-Fund an
+  dieser Stelle.
+- gebaut (Tests): `TestUpsertUploadConfig_FailsNotNullTenantID` und
+  `TestCreateUploadLog_FailsNotNullTenantID` sind durch
+  `TestUpsertUploadConfig_InsertsThenUpdatesOnConflict` (Insert- und ON-CONFLICT-Update-Pfad)
+  und `TestCreateUploadLog_InsertsRow` ersetzt. Neu dazu:
+  `TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant` (RLS-Nachweis nach dem
+  `AssertRowCount`-Muster aus `crm/consent/tenant_write_test.go` — eigener Tenant sieht die
+  Zeile, ein fremder Tenant nicht) sowie zwei `ErrTenantMissing`-Tests fuer den Context-ohne-
+  Tenant-Fall.
+- gate: build ok (`./internal/biz/...`) | vet ok | lint ok (0 issues) | test ok (0 Skips,
+  `DATABASE_URL` gegen `kmuhub_app`) | migration n.a. (kein Schema-Fund, reiner Repo-Fix) |
+  rls-smoke ok (neuer Test + bestehender `TestTenantIsolation_Datev_DB` beide gruen) |
+  `go test -count=1 ./internal/biz/...` gesamt gruen (alle Unterpakete)
+- coverage: internal/biz/datev 79,3 % -> 79,7 % (lokal gemessen, `go tool cover -func`)
+- mutations-probe: `tenant_id` aus Spaltenliste und VALUES von `UpsertUploadConfig`s INSERT
+  entfernt (Parameterindizes zurueckgesetzt, `tenantID` mit `_ = tenantID` totgelegt) ->
+  `TestUpsertUploadConfig_InsertsThenUpdatesOnConflict` und
+  `TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant` wurden rot, beide mit
+  `ERROR: new row violates row-level security policy for table "datev_upload_configs"
+  (SQLSTATE 42501)` — RLS greift jetzt VOR dem alten NOT-NULL-Fehler, weil `FORCE RLS`
+  (Migration 000122) bereits ein `tenant_id`-loses Insert ablehnt. Zurueckgedreht,
+  `git diff --stat` zeigt wieder nur die ursprueliche Aenderung.
+- verify vorgaenger: sauber (Commit `12be7c3f`, Iteration 1 — reiner Query-Cast-Fix, kein
+  gRPC-Bypass, kein Proto/Migrations-Drift, kein Guard, kein Wire-Shape-, Routen- oder
+  Tenant-Fund; neue Unit aus Iteration 1 korrekt am Backlog-Ende angelegt und verifiziert)
+- neue-units: keine
+- offen: `UpdateDatevUploadConfig`/`ListDatevUploadLogs` im Gateway-Handler
+  (`internal/server/datev_upload_grpc.go`) validieren weiterhin nur `req.GetTenantId() != ""`
+  ohne den Wert zu nutzen — das ist unveraendert (Ctx-Tenant zaehlt, nicht das Request-Feld),
+  aber falls das Feld in der Response-Semantik je gebraucht wird, gehoert eine Pruefung
+  Request-Tenant == Ctx-Tenant dorthin. Kein Fund dieser Iteration, nur als Beobachtung
+  vermerkt. Produktions-Zeilenzahl in `datev_upload_configs`/`datev_upload_log` (vermutlich 0)
+  wurde nicht geprueft — das ist ein reiner Produktions-Read und nicht Teil dieses Laufs.
