@@ -3305,3 +3305,64 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 50) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:35).
+
+## Iteration 52 — d-cov-gateway-calendar-events-resources — done — 2026-08-11 02:41
+- commit: PENDING
+- gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_events_resources_test.go`
+  (42 Tests) fuer die acht Event-/Ressourcen-Handler in route_calendar.go:
+  HandleListEventsInRange (ServiceUnavailable, MissingStart, MissingEnd,
+  InvalidStartFormat, InvalidEndFormat, InvertedRange_ReachesRPC, ReachesRPC),
+  HandleGetEvent (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleUpdateEvent
+  (ServiceUnavailable, InvalidIDUUID, InvalidJSON, InvalidStartTimeFormat, ReachesRPC),
+  HandleDeleteEvent (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleCreateResource
+  (ServiceUnavailable, InvalidJSON, MissingName, MissingResourceType, InvalidCapacity,
+  ReachesRPC), HandleUpdateResource (ServiceUnavailable, InvalidIDUUID, InvalidJSON,
+  InvalidCapacity, ReachesRPC), HandleBookResource (ServiceUnavailable, InvalidJSON,
+  InvalidResourceIDUUID, InvalidEventIDUUID, MissingStartTime, InvalidStartTimeFormat,
+  ConflictingRange_ReachesRPC, ReachesRPC), HandleCancelBooking (ServiceUnavailable,
+  InvalidIDUUID, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1641 PASS, 3 SKIP (DATABASE_URL nicht gesetzt,
+  vorbestehende RLS-Integrationstests in rls_dashboard_defaults_test.go, unveraendert durch
+  diese Unit), 0 FAIL) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen
+  (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer RequirePermission-Guard,
+  keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 40,8 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleListEventsInRange die Bedingung
+  `if startStr == "" || endStr == ""` zu `if startStr == "" && endStr == ""` geschwaecht
+  (akzeptiert jetzt einen einzelnen fehlenden Parameter) ->
+  TestHandleListEventsInRange_MissingStart UND TestHandleListEventsInRange_MissingEnd
+  beide rot (400 "invalid start/end time format" statt der erwarteten
+  "start and end query parameters are required"-Meldung, weil der jeweils leere String
+  ungeprueft in parseTimestamp lief und dort scheiterte). Per Edit-Tool zurueckgedreht,
+  `git diff --stat backend/internal/gateway/route_calendar.go` danach leer, build/vet/lint/
+  test erneut komplett gruen (1641 PASS, 3 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit 3a0d027d (Iteration 51) sowie der Metadaten-Commit
+  590e792b fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: (1) Das Backlog-`done_when` erwartete, dass HandleListEventsInRange "fehlende oder
+  invertierte Von/Bis-Parameter als Fehlerfall" prueft. Gepruefte Realitaet: der Handler
+  vergleicht start/end nach dem Parsen nie miteinander (route_calendar.go:561-603,
+  parseTimestamp in route_work.go:256 kennt auch keine Reihenfolge) -- eine Anfrage mit
+  start nach end erreicht unveraendert die RPC-Schicht. Kein Fix-Unit-Vorschlag: eine
+  Coverage-Unit aendert kein Verhalten, TestHandleListEventsInRange_InvertedRange_ReachesRPC
+  haelt die tatsaechliche Luecke fest statt sie stillschweigend zu unterstellen. Fuer Lauf 9
+  vormerkbar, aber kein verifizierter Produktionsbug wie die Block-A-Funde -- ob eine
+  Inversionspruefung ueberhaupt Produktwert hat (der Service ignoriert sie ohnehin nicht
+  zwingend falsch), ist eine Produktfrage, keine offensichtliche Luecke. (2) Analog fuer
+  HandleBookResource/HandleCancelBooking: "Buchungskonflikt-Pruefung" existiert im Handler
+  nicht, Konfliktbehandlung ist vollstaendig serverseitig (BookResource/CancelBooking RPCs).
+  TestHandleBookResource_ConflictingRange_ReachesRPC dokumentiert das, kein eigener Befund,
+  da konsistent mit jeder anderen ReachesRPC-Coverage-Unit in diesem Paket. (3) Wie bei allen
+  bisherigen Gateway-Coverage-Units kein bufconn-Stub fuer CalendarServiceClient -- alle
+  ReachesRPC-Tests dokumentieren nur, dass Handler die lokale Validierung passieren und die
+  RPC-Schicht erreichen (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht das
+  tatsaechliche Service-Verhalten.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-51 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 51) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:41).
