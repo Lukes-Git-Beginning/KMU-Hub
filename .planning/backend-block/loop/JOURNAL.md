@@ -656,3 +656,83 @@ Fensters.
 - neue-units: keine
 - offen: keine. Teil B (`scan-on-conflict-target-vs-real-index-b`, Module-Services) ist die
   naechste Haelfte derselben Musterflaeche und noch offen.
+
+## Iteration 13 — scan-on-conflict-target-vs-real-index-b — done — 2026-08-11 17:36
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A (ON-CONFLICT-Ziel vs. tatsaechlicher Unique-Index), Teil B — restliche
+  Haelfte der Flaeche (`internal/{biz,hr,inventar,einkauf,produktion,vertraege,rapporte,
+  schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,plugin,
+  settings,gateway,caldav,idempotency}`) per Subagent geprueft. Ergebnis: 0 neue Funde.
+  41 explizit-getargetete ON-CONFLICT-Klauseln (Spaltenliste oder ON CONSTRAINT) in 29
+  Nicht-Test-Dateien matchen alle exakt einen real existierenden Unique-Index/PK/Constraint
+  gegen die laufende lokale DB (nicht nur Migrationen). Geprueft:
+  - schichten/postgres_repository.go:490 shift_swap_requests(idempotency_key)
+  - biz/datev/postgres_upload_repo.go:79 datev_upload_configs(config_id)
+  - settings/postgres_repository.go: tenant_module_leads(tenant_id,user_id,module_id);
+    user_module_grants(tenant_id,user_id,module_id); tenant_settings(tenant_id,module_id,key);
+    user_settings(tenant_id,user_id,module_id,key); tenant_module_activations(tenant_id,
+    module_id); customization_value_sets(tenant_id,set_key)
+  - plugin/repository/kv_store.go:51 plugin_kv_store(installation_id,key)
+  - inventar/postgres_repository.go: inventur_counts(session_id,item_id);
+    picking_list_items(picking_list_id,item_id)
+  - helpdesk/postgres_repository.go: helpdesk_ticket_counters(tenant_id);
+    ticket_csat_responses(tenant_id,ticket_id) x2; helpdesk_business_hours(tenant_id)
+  - biz/lexware/postgres_repository.go: lexware_sync_configs(config_id);
+    lexware_entity_mappings(config_id,entity_type,kmuhub_id);
+    lexware_field_mappings(config_id,entity_type);
+    lexware_webhook_subscriptions(config_id,event_type)
+  - biz/hr/leave/postgres_repository.go: hr_leave_balances(tenant_id,employee_id,year);
+    hr_company_settings(tenant_id)
+  - biz/bexio/postgres_repository.go: bexio_sync_configs(config_id);
+    bexio_entity_mappings(config_id,entity_type,kmuhub_id);
+    bexio_field_mappings(config_id,entity_type)
+  - automation/workflow/postgres_repository.go:
+    automation_time_trigger_fires(automation_id,entity_key); automation_templates(id)
+  - caldav/push_subscription.go:65
+    caldav_push_subscriptions(user_id,collection_type,collection_id,push_url)
+  - caldav/app_password.go:183 caldav_settings(key)
+  - caldav/sync_token.go:80 caldav_sync_versions(collection_type,collection_id); :46
+    arbiterloses DO NOTHING (sicher, nicht Muster-A-Kandidat)
+  - dialer/postgres_repository.go:177 ON CONSTRAINT uq_campaign_contact ->
+    dialer_campaign_contacts(campaign_id,contact_id), per EXPLAIN real-verifiziert
+  - biz/recurring/postgres_repository.go:172
+    finance_recurring_runs(tenant_id,recurring_id,period_date)
+  - biz/hr/timetracking/postgres_extended_repository.go:256
+    hr_week_approvals(tenant_id,employee_id,week_start)
+  - biz/quote/postgres_repository.go:500 company_settings(tenant_id)
+  - gateway/dashboard_repository.go:67 dashboard_defaults(tenant_id,role); :103 ON CONSTRAINT
+    uq_user_dashboard_layouts_user_id -> user_dashboard_layouts(user_id), per EXPLAIN
+    real-verifiziert
+  - biz/payment/postgres_repository.go:56
+    finance_payments(tenant_id,idempotency_key) WHERE idempotency_key IS NOT NULL, per EXPLAIN
+    real-verifiziert (partieller Index)
+  - biz/invoice/postgres_repository.go:127
+    finance_invoices(tenant_id,source,external_id) WHERE external_id IS NOT NULL, per EXPLAIN
+    real-verifiziert (partieller Index)
+  - berichte/postgres_repository.go:187 report_cache(definition_id,params_hash)
+  - biz/datev/postgres_config_repo.go, biz/bexio/postgres_config_repo.go,
+    biz/lexware/postgres_config_repo.go: alle drei integration_configs(platform,tenant_id)
+  - biz/dunning/postgres_repository.go:313 finance_dunning_config(tenant_id)
+  - idempotency/postgres_repository.go:93 idempotency_keys(tenant_id,key) (= PK)
+  - plugin/repository/permission.go:27 plugin_permissions(installation_id,permission)
+  - plugin/repository/industry_template.go:29 industry_templates(slug)
+  - helpdesk/repository.go:151 reiner Kommentar, kein Code-ON-CONFLICT (nicht gezaehlt)
+  Zusaetzlich per Backlog-Scope angefordert geprueft: `internal/hr` (top-level, getrennt von
+  `internal/biz/hr`) existiert nicht; `internal/video` (top-level, getrennt von
+  `internal/work/video`) existiert nicht; `einkauf`, `produktion`, `vertraege`, `rapporte`,
+  `vermietung`, `fuhrpark`, `wiki`, `formulare` existieren alle, enthalten aber KEIN einziges
+  `ON CONFLICT` (per Grep bestaetigt) -- nichts zu pruefen. Damit sind Teil A + Teil B
+  gemeinsam die vollstaendige Musterflaeche aus scan-on-conflict-target-vs-real-index-a/-b.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Vier riskante Muster
+  (zwei partielle Indizes, zwei ON-CONSTRAINT-Ziele) zusaetzlich per EXPLAIN gegen die echte
+  Query geplant (kein ANALYZE, keine Ausfuehrung, keine Datenaenderung). `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2b99ac09`, Iteration 12 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: keine. Muster A (ON-CONFLICT-Ziel vs. Index) ist mit Teil A + Teil B vollstaendig
+  abgearbeitet, 0 Funde ueber die gesamte Flaeche.
