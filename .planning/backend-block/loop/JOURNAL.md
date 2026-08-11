@@ -5207,6 +5207,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `e-cov-email-sync` (Block E, internal/email/sync worker.go/imap_client.go/engine.go).
 
 ## Iteration 83 — e-cov-email-sync — done — 2026-08-11 06:22
+- commit: a18e1098
 - gebaut: drei neue Testdateien, kein Produktionscode veraendert. `internal/email/sync/
   imap_client_guards_test.go` deckt zwei bisher unangetastete Flaechen aus `imap_client.go` ab:
   erstens `TestIMAPClient_NilClientGuards` (Tabellentest ueber Login/SelectFolder/FetchHeaders/
