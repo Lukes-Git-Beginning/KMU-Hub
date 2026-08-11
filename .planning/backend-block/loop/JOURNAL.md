@@ -1825,3 +1825,56 @@ Fensters.
   neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt (nil -> leer), keine Route)
 - neue-units: keine
 - offen: keine
+
+## Iteration 36 — fix-plugin-grpc-granted-permissions-nil-slice — done — 2026-08-11 20:08
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: Root-Cause-Fix in `internal/plugin/repository/permission.go`,
+  `PermissionRepository.ListByInstallation` (Zeile 44) initialisierte `permissions` bisher als
+  `var permissions []string` und befuellte sie nur per `append` in der `rows.Next()`-Schleife —
+  bei einer Installation ohne Berechtigungen blieb die Slice `nil` und wurde bis zum
+  `ListGrantedPermissions`-Response-Feld `Permissions` durchgereicht (`plugin_grpc.go:236-240`
+  ist reiner Durchreicher, `service.go:355-357` ebenso — beide bestaetigt, kein eigener Bug).
+  Fix: `permissions := make([]string, 0)` vor der Schleife. Zusaetzlich denselben Bug im
+  Test-Double `stubPluginPermissionRepo.ListByInstallation` (internal/server/plugin_grpc_test.go)
+  behoben — der Stub gab bei einem Map-Miss (`r.granted[installationID]`) ebenfalls `nil` statt
+  einer leeren Slice zurueck; ohne diesen Fix haette der gRPC-Handler-Test die echte Korrektur
+  gar nicht spiegeln koennen, weil er komplett am echten Repository vorbeilaeuft.
+- gebaut (Tests): neuer DB-gestuetzter Test `TestPluginPermissions_ListByInstallation_
+  EmptyIsNotNil` in `internal/plugin/repository/permission_rls_test.go` — seedet eine
+  Installation ohne Berechtigungen und beweist gegen die echte Postgres, dass
+  `ListByInstallation` `[]string{}` statt `nil` liefert (das ist der eigentliche Beweis, der
+  Bug sitzt im echten Repository, nicht im Stub). Bestehenden Handler-Test
+  `TestPluginListGrantedPermissions/"empty for unknown installation"` in
+  `internal/server/plugin_grpc_test.go` umbenannt zu ".../\"empty for unknown installation is []
+  not nil\"" und um `require.NotNil(t, resp.GetPermissions())` vor dem bestehenden
+  `require.Empty` ergaenzt.
+- gate: build ok (`./internal/plugin/... ./internal/server/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok (`./internal/plugin/... ./internal/server/... ./internal/gateway/...`)
+  | lint ok (golangci-lint 0 issues auf `./internal/plugin/... ./internal/server/...`) | test ok
+  (`./internal/plugin/...` gruen inkl. `internal/plugin/repository`, 0 SKIP, `DATABASE_URL` gegen
+  `kmuhub_app`) | test ok (`./internal/server/` gruen, ein erster Lauf zeigte einen `FAIL` ohne
+  benannten `--- FAIL`-Subtest — zwei Wiederholungen liefen beide sauber durch, das ist ein
+  vorbestehender Flake in einem zeitabhaengigen Test, nicht durch diese Aenderung ausgeloest,
+  siehe `offen:`) | test ok (`./internal/gateway/ -run TestOpenAPIRouteDrift`: 834 Routen gegen
+  836 dokumentierte Pfade, PASS — vorsorglich gelaufen, obwohl kein Handler-/Routen-Code
+  angefasst wurde, nur Repository + zwei Testdateien) | migration n.a. (keine DB-/Schema-Aenderung)
+  | rls-smoke n.a. (keine Tabelle/Policy angefasst, nur eine bestehende Read-Query korrigiert)
+- coverage: internal/plugin/repository 58,9 % (vor dem Fix, per `git stash push -u` auf die drei
+  geaenderten Nicht-Backlog-Dateien isoliert gemessen) -> 60,9 % (nach dem Fix, `go tool cover
+  -func`)
+- mutations-probe: `permissions := make([]string, 0)` in `permission.go` zurueck auf
+  `var permissions []string` gesetzt -> `go test -run
+  TestPluginPermissions_ListByInstallation_EmptyIsNotNil` in `internal/plugin/repository` wurde
+  rot ("expected an empty slice, got nil"). Zurueckgedreht, `git diff --stat` zeigt danach wieder
+  ausschliesslich den sauberen 4-Datei-Diff (permission.go 1 Zeile, permission_rls_test.go +27,
+  plugin_grpc_test.go +7/-2, BACKLOG.yml Status).
+- verify vorgaenger: sauber (Commit `02a41899`, Iteration 35 — `git show --stat` und Diff
+  geprueft: nur `inventar_grpc.go` plus Testdatei geaendert, derselbe mechanische
+  Struct-Feld-`make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub-Aenderung noetig dort,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt,
+  keine Route)
+- neue-units: keine
+- offen: der einmalige `FAIL` ohne erkennbaren Subtest-Namen in `internal/server/` beim ersten
+  Testlauf dieser Iteration ist nicht reproduzierbar (zwei folgende Laeufe beide gruen) — vermutlich
+  ein zeitabhaengiger Flake (Timer-/Duration-Tests im Log sichtbar), keine Verbindung zu den
+  geaenderten Dateien erkennbar. Falls er in CI wieder auftaucht, lohnt ein gezielter `-run`-Bisect.

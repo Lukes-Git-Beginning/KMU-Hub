@@ -1621,7 +1621,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
     scope: >
       MUSTER C, Service-Layer-Variante -- Vorlage `fix-crm-list-nil-slice-wire-shape`

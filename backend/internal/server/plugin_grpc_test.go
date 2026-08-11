@@ -192,7 +192,11 @@ func (r *stubPluginPermissionRepo) ListByInstallation(_ context.Context, install
 	if r.listErr != nil {
 		return nil, r.listErr
 	}
-	return r.granted[installationID], nil
+	perms := r.granted[installationID]
+	if perms == nil {
+		perms = make([]string, 0)
+	}
+	return perms, nil
 }
 
 func (r *stubPluginPermissionRepo) HasPermission(_ context.Context, installationID uuid.UUID, permission string) (bool, error) {
@@ -1083,12 +1087,13 @@ func TestPluginListGrantedPermissions(t *testing.T) {
 		require.Equal(t, []string{"crm:read"}, resp.GetPermissions())
 	})
 
-	t.Run("empty for unknown installation", func(t *testing.T) {
+	t.Run("empty for unknown installation is [] not nil", func(t *testing.T) {
 		repos := newPluginTestRepos()
 		srv := newPluginTestServer(repos)
 
 		resp, err := srv.ListGrantedPermissions(context.Background(), &pluginv1.ListGrantedPermissionsRequest{InstallationId: uuid.New().String()})
 		requireGRPCOK(t, err)
+		require.NotNil(t, resp.GetPermissions())
 		require.Empty(t, resp.GetPermissions())
 	})
 
