@@ -1303,3 +1303,45 @@ Fensters.
 - offen: `go test ./internal/gateway/` nicht gelaufen, da keine Route/kein Handler angefasst wurde
   (keine Pflicht laut Schritt 5). Der Fund wurde 2026-08-11 in Iteration 6 vorab angelegt (siehe
   dortige `notes:`) und in dieser Iteration ohne weitere offene Fragen umgesetzt.
+
+## Iteration 26 — fix-security-ip-access-rules-cidr-scan — done — 2026-08-11 18:52
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `SecurityGRPCServer.ListIPRules` (internal/server/security_grpc.go:711) castet `ip_cidr`
+  jetzt als `ip_cidr::text` in der SELECT-Liste statt es roh in `models.IPAccessRule.IPCIDR`
+  (Typ `string`) zu scannen -- identisches Muster zu fix-audit-list-verifychain-ip-address-scan.
+  ABWEICHUNG von der Unit-Note: `host()` (dort als Alternative genannt) haette bei CIDR die
+  Praefixlaenge STILL gekappt (verifiziert per psql: `host('10.0.0.0/8'::cidr)` -> `10.0.0.0`,
+  waehrend `'10.0.0.0/8'::cidr::text` -> `10.0.0.0/8` erhaelt) -- das haette eine Netzwerk-Regel
+  unbemerkt in eine Einzel-Host-Regel verwandelt. `::text` ist die einzig korrekte Wahl fuer eine
+  CIDR-Spalte (im Unterschied zu INET-Spalten wie `ip_address`, wo `host()` legitim ist, weil dort
+  keine Netzmaske gemeint ist). Neue Datei `security_grpc_ip_rules_db_test.go` mit zwei
+  DB-gestuetzten Tests: `TestSecurityGRPCServer_ListIPRules_ReturnsSeededCIDR` (Netzwerk-Regel
+  `10.0.0.0/8` ueber `CreateIPRule` angelegt, `ListIPRules` liefert IpCidr/RuleType/Description
+  korrekt) und `TestSecurityGRPCServer_ListIPRules_PreservesHostBit` (Einzel-Host `192.168.1.1/32`
+  bleibt mit Praefix erhalten -- deckt genau die host()-Falle ab). Veralteten Kommentar in
+  `security_grpc_test.go` (behauptete, ListIPRules sei "nicht ohne echten DB-Pool erreichbar und
+  bleibt hier bewusst ungedeckt") auf den neuen Stand korrigiert.
+- gate: build ok (`./internal/server/... ./internal/security/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/server/` komplett gruen, 0 SKIP in `-v`-Lauf) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung, reiner SELECT-Cast)
+- coverage: internal/server 70,0 % (Iteration-21-Referenzwert aus dem Backlog-Kopf) -> 70,1 %
+  (lokal gemessen, `go tool cover -func`). Unit ist ein Fund aus einer Scan-Unit (`coverage_start:
+  n.a.`), diese Zahl ist Zusatzkontext, kein Pflichtvergleich.
+- mutations-probe: SELECT-Liste zurueck auf rohes `ip_cidr` (ohne `::text`) gesetzt -> beide neuen
+  Tests wurden rot mit exakt dem erwarteten Fehler (`rpc error: code = Internal desc = failed to
+  scan IP rule`, Ursache dahinter It's der pgx-CIDR-Scan-Fehler aus dem Unit-Scope), Cast
+  zurueckgedreht, `git diff` zeigt wieder ausschliesslich den Ein-Zeilen-Fix.
+- verify vorgaenger: sauber (Commit `986591e5`, Iteration 25 — Produktionsdiff ist ausschliesslich
+  `erasure.go` (Work-Erasure-Handler auf ein CASE-UPDATE zusammengezogen, identisches Muster zu
+  fix-crm-erasure-double-count) plus neue Testdatei `erasure_work_test.go`; kein gRPC-Bypass (kein
+  Handler beruehrt), kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` zur Sicherheit trotzdem mitgelaufen (`TestOpenAPIRouteDrift`
+  gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde, nur
+  eine SELECT-Spalte. `CreateIPRule`/`DeleteIPRule` scopen ihre Queries nicht explizit auf
+  `tenant_id` (verlassen sich auf RLS via `app.tenant_id`-Session-Variable) -- das ist der
+  bestehende Zugriffsschutz in diesem Repo und ausserhalb des Unit-Scopes, aber falls RLS je auf
+  dieser Tabelle deaktiviert wuerde, waere das ein Cross-Tenant-Leck. Keine neue Unit dafuer
+  angelegt, da rein hypothetisch und ausserhalb des Musters dieses Laufs.

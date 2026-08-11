@@ -708,7 +708,7 @@ func (s *SecurityGRPCServer) ValidatePassword(ctx context.Context, req *security
 // ============================================================================
 
 func (s *SecurityGRPCServer) ListIPRules(ctx context.Context, req *securityv1.ListIPRulesRequest) (*securityv1.ListIPRulesResponse, error) {
-	query := `SELECT id, ip_cidr, rule_type, description, created_by, created_at FROM ip_access_rules`
+	query := `SELECT id, ip_cidr::text, rule_type, description, created_by, created_at FROM ip_access_rules`
 	var args []interface{}
 
 	if req.RuleType != "" {

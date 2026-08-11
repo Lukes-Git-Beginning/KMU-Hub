@@ -15,9 +15,10 @@ package server
 // A nil-service server would panic on those, so this file wires all five
 // sub-services against small in-memory stub repositories instead of using a
 // nil-service server. ListIPRules and ListRetentionPolicies query s.pool
-// directly with zero validation beforehand -- those two are not reachable at
-// all without a real DB pool and are intentionally left uncovered here (see
-// JOURNAL.md for iteration 46).
+// directly with zero validation beforehand -- ListRetentionPolicies is not
+// reachable at all without a real DB pool and is intentionally left
+// uncovered here (see JOURNAL.md for iteration 46); ListIPRules now has its
+// own DB-backed test in security_grpc_ip_rules_db_test.go.
 
 import (
 	"context"
