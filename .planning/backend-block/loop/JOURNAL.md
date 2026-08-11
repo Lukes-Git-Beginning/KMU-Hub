@@ -4753,3 +4753,56 @@ Frühere Läufe liegen vollständig im Archiv:
   `e-cov-fuhrpark-service-worker` (Block E, deckt den Rest des
   fuhrpark-Pakets: GPS-Ingestion und Fuel-/Trip-/Document-Methoden, die
   diese Unit bewusst ausgelassen hat).
+
+## Iteration 76 — e-cov-fuhrpark-service-worker — done — 2026-08-11 05:16
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: neue Datei `service_extended_test.go` in `internal/fuhrpark`. Deckt die
+  Service-Validierungs- und Delegationspfade fuer FuelLog (CreateFuelLog: VehicleID/
+  Liters<=0/CostCents<0/MileageKm<0, UpdateFuelLog: zero ID, ListFuelLogs-Passthrough),
+  TripLog (CreateTripLog: VehicleID/Start-/EndLocation leer plus EndKm<StartKm,
+  UpdateTripLog: zero ID, ListTripLogs-Passthrough), VehicleDocument (CreateVehicleDocument:
+  VehicleID/ObjectKey/Name, ListVehicleDocuments-Passthrough), DriverLicense
+  (CreateDriverLicense: DriverID/NextCheckDueDate plus CheckedAt-Default, UpdateDriverLicense:
+  ID/NextCheckDueDate, ListDriverLicenses-Passthrough) und GPS (IngestGpsPositions:
+  VehicleID/leere positions plus Happy-Path-Zaehlung) ab — je mit einem Fehlerpfad und
+  mindestens einem Happy-Path pro Methode. Zusaetzlich `fakeEventEmitter` (Payload-Recorder
+  mit optionalem Fehler) an `TuevWorker.WithEventEmitter` gehaengt:
+  `buildTuevEventPayload` mit Prioritaet Urgent fuer "1_day" und Normal fuer "7_days" direkt
+  geprueft, sowie zwei End-to-End-Tests ueber `ProcessTuevReminders` — Emit-Erfolg (Payload
+  aufgezeichnet, Prioritaet korrekt, MarkTuevReminderSent gesetzt) und Emit-Fehler
+  (non-fatal: Scan laeuft weiter, MarkTuevReminderSent wird trotzdem aufgerufen).
+- gate: build ok (go build -p 2 ./internal/fuhrpark/... ./cmd/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/fuhrpark/... — 0 issues) | test ok
+  (go test -count=1 ./internal/fuhrpark/..., 75 Subtests PASS, 0 Fails, 0 Skips —
+  DATABASE_URL gesetzt, docker-postgres-1 healthy) | migration n.a. (keine neue
+  Tabelle/Route/Policy) | rls-smoke n.a. (keine Policy angefasst, reine Service-Unit-Tests
+  gegen einen In-Memory-Mock, keine DB involviert) | gateway-Tests nicht gelaufen (keine
+  Route angefasst)
+- coverage: internal/fuhrpark 50,0 % -> 54,5 % (go test -coverprofile ./internal/fuhrpark/
+  ohne `...`, go tool cover -func Summe)
+- mutations-probe: zwei Proben, beide gefangen. (1) `CreateFuelLog`-Guard von
+  `req.Liters <= 0` auf `req.Liters < 0` gelockert -> sofort
+  TestService_CreateFuelLog_InvalidInput/non-positive_liters rot (erwarteter
+  ErrInvalidInput blieb aus). (2) in `buildTuevEventPayload` die Fensterprüfung von
+  `window == "1_day"` auf `window == "7_days"` vertauscht -> sofort
+  TestBuildTuevEventPayload_PriorityByWindow UND
+  TestTuevWorker_WithEventEmitter_EmitsOnDueVehicle rot (beide erwarteten "urgent",
+  bekamen "normal"). Beide Male zurueckgedreht, `git diff` auf service.go und worker.go
+  leer.
+- verify vorgaenger: sauber. Commit c35205e8 (Iteration 75) fuegt ausschliesslich eine
+  neue Testdatei (`postgres_repository_core_test.go`) in fuhrpark hinzu, plus Journal-/
+  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-75 vermerkt — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt
+  nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 75) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:16). Damit ist der gesamte fuhrpark-Servicecluster (Repository-Core aus
+  Iteration 75 + Service/Worker aus dieser Iteration) aus Block E abgearbeitet — GPS-
+  Aggregation (`GetVehicleRoutes`/`GetGpsPositions`, reine Passthroughs ohne eigene Logik)
+  und die restlichen Repository-DB-Pfade fuer FuelLog/TripLog/VehicleDocument/
+  DriverLicense (bereits in tenant_write_test.go/driver_license_test.go/
+  triplog_export_test.go abgedeckt) blieben bewusst aussen vor. Naechste Backlog-Unit
+  laut Reihenfolge: `e-cov-chat-message-repo-reads` (Block E, chat/message-Repository).
