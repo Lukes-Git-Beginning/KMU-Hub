@@ -4194,3 +4194,73 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 65) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-11 04:12).
+
+## Iteration 67 — d-cov-gateway-wiki-versioning — done — 2026-08-11 04:18
+- commit: (folgt im naechsten Commit dieser Iteration)
+- gebaut: `backend/internal/gateway/route_wiki_versions_test.go` neu, 19 Tests
+  fuer die bisher ungetesteten Artikel-/Versions-Handler in route_wiki.go:
+  HandleGetArticle (ServiceUnavailable, InvalidUUID, ReachesRPC),
+  HandleUpdateArticle (ServiceUnavailable, InvalidUUID, InvalidJSON,
+  ReachesRPC), HandleDeleteArticle (ServiceUnavailable, InvalidUUID,
+  ReachesRPC), HandleListVersions (ServiceUnavailable, InvalidUUID,
+  ReachesRPC), HandleRestoreVersion (ServiceUnavailable,
+  InvalidArticleUUID, InvalidVersionUUID, MissingVersionID, ReachesRPC) und
+  HandleGetVersion (ServiceUnavailable, InvalidUUID, ReachesRPC). Alle sechs
+  Handler sind reine Passthroughs ohne eigene Business-Logik
+  (route_wiki.go:257-454, 844-870); wie in jeder vorigen Coverage-Unit
+  dieses Laufs gibt es keinen bufconn-Stub fuer den wiki-Service in diesem
+  Paket, daher belegen die *_ReachesRPC-Tests (registryWithService zeigt auf
+  localhost:0) nur, dass der Handler nach erfolgreicher lokaler Validierung
+  die RPC-Schicht erreicht (503 durch Connection-refused, nicht durch die
+  ServiceUnavailable-Kurzschluss-Pruefung). Bemerkenswert:
+  HandleGetVersion validiert unter dem Parameternamen "id" tatsaechlich eine
+  Versions-ID (eigenstaendige Route GET /wiki/versions/{id}, baut
+  GetVersionRequest{VersionId: id}) und nicht wie alle anderen Handler in
+  dieser Datei eine Artikel-ID — im Test kommentiert, damit das nicht als
+  Fehler missverstanden wird. HandleRestoreVersion validiert Artikel-ID vor
+  Versions-ID (route_wiki.go:432-439 in dieser Reihenfolge); MissingVersionID
+  deckt den Fall ab, dass der versionId-URL-Param gar nicht gesetzt ist
+  (chi.URLParam liefert "", uuid.Parse("") schlaegt fehl -> "invalid
+  versionId"), zusaetzlich zum expliziten InvalidVersionUUID-Fall.
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test: 8 von 9
+  Wiederholungen von `go test -count=1 ./internal/gateway/` gruen; EIN
+  isolierter FAIL in einer Wiederholung, danach 5 weitere Wiederholungen
+  (davon 2 mit -v) durchgehend gruen, kein Zusammenhang mit den neuen Tests
+  (dieselbe Flake-Beobachtung wie in Iteration 66 dokumentiert, kein Diff
+  zum Zeitpunkt des Flakes) | migration n.a. (keine neue Tabelle/Route) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift
+  separat gelaufen, gruen (834 Routen gegen 836 dokumentierte Pfade,
+  unveraendert — keine neue Route) | kein neuer RequirePermission-Guard,
+  keine neue config.RequireX-Assertion
+- coverage: internal/gateway 45,4 % -> 45,7 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleGetVersion den
+  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
+  sowohl TestHandleGetVersion_InvalidUUID (Testabbruch beim Decodieren der
+  Fehlerantwort: "invalid character '{' after top-level value" statt eines
+  400-JSON-Bodys) als auch TestHandleGetVersion_ReachesRPC (status = 200,
+  want 503) rot. Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_wiki.go` danach leer, build/vet/lint/test
+  erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 4385469c (Iteration 66) fuegt
+  ausschliesslich Journal-/Backlog-Metadaten hinzu (Commit-Hash-Nachtrag
+  fuer Iteration 66 selbst) — kein Produktionscode, kein Proto, keine
+  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: route_wiki.go ist nach dieser Unit bei Artikel-CRUD und Versionen
+  vollstaendig abgedeckt (Fehlerpfad je Handler); HandleListArticles,
+  HandleSearchArticles, HandleListAttachments, HandleDeleteAttachment,
+  HandleListCategories, HandleDeleteCategory, HandleUpdateCategory,
+  HandleCreateShareToken, HandleListShareTokens und
+  HandleRevokeShareToken bleiben ungetestet — kleinere Restflaeche,
+  gehoert nicht zur Versions-Unit, keine eigene Folge-Unit fuer Lauf 9
+  vorgemerkt (der Block-D-Rest ist bereits im Backlog erfasst, naechste
+  offene Unit ist d-cov-gateway-plugin-installation-lifecycle).
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-66 vermerkt —
+  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
+  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der
+  letzten Journal-Ueberschrift (Iteration 66) fortgezaehlt, Zeitstempel per
+  `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:18).
