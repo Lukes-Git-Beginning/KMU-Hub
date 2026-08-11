@@ -120,7 +120,10 @@ services:
       SYSTEM_SMTP_USER: ${SYSTEM_SMTP_USER:-}
       SYSTEM_SMTP_PASSWORD: ${SYSTEM_SMTP_PASSWORD:-}
       SYSTEM_SMTP_FROM: ${SYSTEM_SMTP_FROM:-noreply@zentria.tech}
-      PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-https://zentria.tech/reset-password}
+      # Points at the hardened, server-rendered page in the gateway (no-store, noindex,
+      # strict CSP, same origin as the API). Do NOT default this to the marketing site:
+      # that page runs on external infrastructure and carries the reset token through it.
+      PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-https://app.zentria.tech/reset-password}
     ports:
       - "50051:50051"
       - "9091:9091"

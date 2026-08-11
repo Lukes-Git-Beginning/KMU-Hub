@@ -45,8 +45,9 @@ SYSTEM_SMTP_PORT=587
 SYSTEM_SMTP_USER=CHANGE_ME
 SYSTEM_SMTP_PASSWORD=CHANGE_ME
 SYSTEM_SMTP_FROM=noreply@zentria.tech
-# Frontend origin for password-reset links — must match the reset page route.
-PASSWORD_RESET_BASE_URL=https://zentria.tech/reset-password
+# Origin for password-reset links. Use the gateway's own hardened page — it sets
+# no-store, noindex and a strict CSP, and keeps the reset token on our infrastructure.
+PASSWORD_RESET_BASE_URL=https://app.zentria.tech/reset-password
 
 # ===== GATEWAY =====
 GATEWAY_HTTP_PORT=:8080
