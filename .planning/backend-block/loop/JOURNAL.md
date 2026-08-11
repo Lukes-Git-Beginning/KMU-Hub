@@ -491,3 +491,53 @@ Fensters.
   als "keine Zeilen"-Signal bleibt `"[]"` (nicht NULL) — konsistent mit dem bereits
   bestehenden `GetTemplate`/`ListTemplates`-Lesepfad, der `default_lines::text` direkt in
   `sql.NullString` liest.
+
+## Iteration 10 — fix-crm-list-nil-slice-wire-shape — done — 2026-08-11 17:17
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Fuenf Stellen in zwei Dateien auf das Wire-Shape-Muster "leere Liste = [] statt
+  null" umgestellt. `crm_grpc.go`: `ListCustomFields` (`infos := make([]*crmv1.CustomFieldInfo,
+  0, len(fields))`), `ListTags` (analog fuer `TagInfo`), `ListContacts` in BEIDEN Zweigen
+  (visibility-aware ueber `ListWithVisibility` und der Fallback ueber `.List`) statt jeweils
+  eines nackten `var infos []*T`. Root Cause fuer `ListContacts` sass eine Ebene tiefer:
+  `contact.Service.enrichWithRelationsBatch` (internal/crm/contact/service.go:400-403) gab bei
+  `len(contacts) == 0` explizit `nil, nil` zurueck, bevor der Handler ueberhaupt eine Slice zum
+  Iterieren bekam -- jetzt `[]*models.ContactWithRelations{}, nil`. Diese Funktion ist der
+  gemeinsame Pfad fuer BEIDE Aufrufer (`Service.List` Zeile 214 und `Service.ListWithVisibility`
+  Zeile 642), ein Fix an dieser einen Stelle deckt beide `ListContacts`-Zweige des Handlers ab.
+- gebaut (Tests): die drei bestehenden Pin-Tests `TestListCustomFields_EmptyIsNilNotEmptySlice`,
+  `TestListTags_EmptyIsNilNotEmptySlice`, `TestListContacts_EmptyIsNilNotEmptySlice`
+  (crm_grpc_fields_tags_contacts_test.go) von `require.Nil` auf `require.NotNil` + Laengenpruefung
+  umgedreht, Kommentare auf den jetzt korrekten Zustand aktualisiert. Neuer Test
+  `TestListContacts_WithVisibility_EmptyIsNilNotEmptySlice` deckt den zweiten, bisher
+  ungetesteten Zweig (UserId gesetzt -> ListWithVisibility) ab. In
+  `internal/crm/contact/service_test.go` `TestService_List_Empty` um `assert.NotNil(t, contacts)`
+  ergaenzt -- die vorherige `assert.Empty` allein unterscheidet nicht zwischen nil und leerer
+  Slice und haette die Root-Cause-Aenderung nicht bewiesen.
+- gate: build ok (`./internal/server/... ./internal/crm/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok (0 Skips, `DATABASE_URL` gegen
+  `kmuhub_app`; `./internal/server/` gruen, `./internal/crm/...` gruen bei `-p 1` -- bei
+  paralleler Ausfuehrung schlugen mehrere `internal/crm/deal`-DB-Tests mit SQLSTATE 53300
+  "remaining connection slots"/"too many clients already" fehl, reproduzierbar unabhaengig
+  von diesem Diff (unberuehrtes Paket) und bei `-p 1` durchgehend gruen -- Verbindungspool-
+  Erschoepfung des lokalen Postgres, kein Befund dieser Unit; `./internal/gateway/` inkl.
+  TestOpenAPIRouteDrift gruen -- keine Route/Spec angefasst, reine Wire-Shape-Aenderung)
+  | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,0 % -> 70,0 % (unveraendert, Fix beruehrt bereits durchlaufene
+  Zeilen) | internal/crm/contact 80,6 % -> 80,6 % (unveraendert) -- beide selbst gemessen per
+  `go tool cover -func`, deckt sich mit `coverage_start:`
+- mutations-probe: `return []*models.ContactWithRelations{}, nil` in
+  `enrichWithRelationsBatch` (service.go:402) zurueck auf `return nil, nil` gesetzt ->
+  `TestService_List_Empty` wurde rot ("Expected value not to be nil"). Zurueckgedreht,
+  `git diff --stat internal/crm/contact/service.go` zeigt wieder nur den urspruenglichen
+  Ein-Zeilen-Fix (1 insertion, 1 deletion).
+- verify vorgaenger: sauber (Commit `152fa892`, Iteration 9 — reiner Repository-Fix in
+  `internal/rapporte/postgres_repository.go`, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder
+  Routen-Aenderung; Diff deckt sich mit dem Journal-Eintrag aus Iteration 9)
+- neue-units: keine
+- offen: keine. Alle fuenf Fundstellen aus der Unit-Beschreibung abgedeckt (drei Handler-Stellen
+  plus beide `ListContacts`-Zweige plus der eine Root-Cause-Ort in `enrichWithRelationsBatch`).
+  Die connection-slot-Fehler in `internal/crm/deal` bei paralleler Testausfuehrung sind ein
+  Lokal-DB-Kapazitaetsthema (Postgres `max_connections` bzw. viele parallele Test-Pools), kein
+  Code-Befund -- falls das oefter auftritt, waere ein `max_connections`-Bump auf der lokalen
+  Docker-Postgres oder ein niedrigeres `-p` als Default im Gate sinnvoll.

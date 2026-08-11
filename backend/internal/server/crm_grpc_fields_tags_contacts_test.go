@@ -497,16 +497,12 @@ func TestListCustomFields_HappyPath(t *testing.T) {
 	}
 }
 
-// TestListCustomFields_EmptyIsNilNotEmptySlice documents the current
-// wire-shape of ListCustomFields for a tenant with zero fields: the handler
-// (crm_grpc.go) declares `var infos []*crmv1.CustomFieldInfo` and only
-// appends inside the loop, so an empty result leaves the field a nil slice
-// rather than an allocated empty one — the same class of drift that was
-// fixed for document_grpc.go's toProtoFile (see that file's
-// TestToProtoFile_EmptyTagsIsNotNil). This unit is coverage-only per the
-// Lauf-8 backlog rule ("Coverage-Units bauen keine Verhaltensaenderungen"),
-// so the fix itself is intentionally NOT made here — see the Journal finding
-// for this iteration and the follow-up fix-unit it names.
+// TestListCustomFields_EmptyIsNilNotEmptySlice documents the wire-shape of
+// ListCustomFields for a tenant with zero fields: the handler (crm_grpc.go)
+// pre-allocates `infos` with make(..., 0, ...), so an empty result serializes
+// to `[]` rather than `null` — the same class of fix that was made for
+// document_grpc.go's toProtoFile (see that file's
+// TestToProtoFile_EmptyTagsIsNotNil).
 func TestListCustomFields_EmptyIsNilNotEmptySlice(t *testing.T) {
 	repo := newStubCustomFieldRepo()
 	srv := newCRMServerWithCustomFieldRepo(repo)
@@ -516,8 +512,11 @@ func TestListCustomFields_EmptyIsNilNotEmptySlice(t *testing.T) {
 	if resp.Total != 0 {
 		t.Errorf("expected total=0, got %d", resp.Total)
 	}
-	if resp.CustomFields != nil {
-		t.Error("wire-shape drift fixed upstream of expectation: CustomFields is no longer nil for an empty list - update this test's comment and assert NotNil instead")
+	if resp.CustomFields == nil {
+		t.Error("CustomFields should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.CustomFields) != 0 {
+		t.Errorf("expected 0 custom fields, got %d", len(resp.CustomFields))
 	}
 }
 
@@ -690,7 +689,7 @@ func TestListTags_HappyPath(t *testing.T) {
 	}
 }
 
-// TestListTags_EmptyIsNilNotEmptySlice — same wire-shape finding as
+// TestListTags_EmptyIsNilNotEmptySlice — same wire-shape fix as
 // TestListCustomFields_EmptyIsNilNotEmptySlice, for the Tags field. See that
 // test's comment.
 func TestListTags_EmptyIsNilNotEmptySlice(t *testing.T) {
@@ -699,8 +698,11 @@ func TestListTags_EmptyIsNilNotEmptySlice(t *testing.T) {
 
 	resp, err := srv.ListTags(ctxWithTenant(uuid.New()), &crmv1.ListTagsRequest{})
 	requireGRPCOK(t, err)
-	if resp.Tags != nil {
-		t.Error("wire-shape drift fixed upstream of expectation: Tags is no longer nil for an empty list - update this test's comment and assert NotNil instead")
+	if resp.Tags == nil {
+		t.Error("Tags should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Tags) != 0 {
+		t.Errorf("expected 0 tags, got %d", len(resp.Tags))
 	}
 }
 
@@ -893,20 +895,43 @@ func TestListContacts_HappyPath(t *testing.T) {
 	}
 }
 
-// TestListContacts_EmptyIsNilNotEmptySlice — same wire-shape finding as
+// TestListContacts_EmptyIsNilNotEmptySlice — same wire-shape fix as
 // TestListCustomFields_EmptyIsNilNotEmptySlice, for the Contacts field. Here
-// the nil traces one layer further back than the other two: contact.Service.
-// List calls enrichWithRelationsBatch, which itself returns `nil, nil` for
+// the nil traced one layer further back than the other two: contact.Service.
+// List calls enrichWithRelationsBatch, which used to return `nil, nil` for
 // zero input contacts (internal/crm/contact/service.go:401-403) before
-// crm_grpc.go ever gets a slice to range over.
+// crm_grpc.go ever got a slice to range over.
 func TestListContacts_EmptyIsNilNotEmptySlice(t *testing.T) {
 	repo := newStubContactRepo()
 	srv := newCRMServerWithContactRepo(repo)
 
 	resp, err := srv.ListContacts(ctxWithTenant(uuid.New()), &crmv1.ListContactsRequest{})
 	requireGRPCOK(t, err)
-	if resp.Contacts != nil {
-		t.Error("wire-shape drift fixed upstream of expectation: Contacts is no longer nil for an empty list - update this test's comment and assert NotNil instead")
+	if resp.Contacts == nil {
+		t.Error("Contacts should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Contacts) != 0 {
+		t.Errorf("expected 0 contacts, got %d", len(resp.Contacts))
+	}
+}
+
+// TestListContacts_WithVisibility_EmptyIsNilNotEmptySlice covers the same
+// fix on the visibility-aware branch (UserId set), which goes through
+// contact.Service.ListWithVisibility instead of .List but shares the same
+// enrichWithRelationsBatch root cause.
+func TestListContacts_WithVisibility_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubContactRepo()
+	srv := newCRMServerWithContactRepo(repo)
+
+	resp, err := srv.ListContacts(ctxWithTenant(uuid.New()), &crmv1.ListContactsRequest{
+		UserId: uuid.New().String(),
+	})
+	requireGRPCOK(t, err)
+	if resp.Contacts == nil {
+		t.Error("Contacts should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Contacts) != 0 {
+		t.Errorf("expected 0 contacts, got %d", len(resp.Contacts))
 	}
 }
 

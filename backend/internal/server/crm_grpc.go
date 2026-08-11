@@ -180,7 +180,7 @@ func (s *CRMGRPCServer) ListCustomFields(ctx context.Context, req *crmv1.ListCus
 		return nil, status.Error(codes.Internal, "failed to list custom fields")
 	}
 
-	var infos []*crmv1.CustomFieldInfo
+	infos := make([]*crmv1.CustomFieldInfo, 0, len(fields))
 	for _, f := range fields {
 		infos = append(infos, toCustomFieldInfo(f))
 	}
@@ -319,7 +319,7 @@ func (s *CRMGRPCServer) ListTags(ctx context.Context, req *crmv1.ListTagsRequest
 		return nil, status.Error(codes.Internal, "failed to list tags")
 	}
 
-	var infos []*crmv1.TagInfo
+	infos := make([]*crmv1.TagInfo, 0, len(tags))
 	for _, t := range tags {
 		infos = append(infos, toTagInfo(t))
 	}
@@ -520,7 +520,7 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 			return nil, status.Error(codes.Internal, "failed to list contacts")
 		}
 
-		var infos []*crmv1.ContactInfo
+		infos := make([]*crmv1.ContactInfo, 0, len(contacts))
 		for _, c := range contacts {
 			infos = append(infos, toContactInfo(c))
 		}
@@ -537,7 +537,7 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 		return nil, status.Error(codes.Internal, "failed to list contacts")
 	}
 
-	var infos []*crmv1.ContactInfo
+	infos := make([]*crmv1.ContactInfo, 0, len(contacts))
 	for _, c := range contacts {
 		infos = append(infos, toContactInfo(c))
 	}
