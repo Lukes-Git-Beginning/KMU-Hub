@@ -3659,3 +3659,54 @@ Frühere Läufe liegen vollständig im Archiv:
   committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
   Nummer aus der letzten Journal-Ueberschrift (Iteration 56) fortgezaehlt, Zeitstempel
   per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:16).
+
+## Iteration 58 — d-cov-gateway-helpdesk-csat-lifecycle — done — 2026-08-11 03:22
+- commit: -
+- gebaut: `backend/internal/gateway/route_helpdesk_test.go` um 26 neue Tests fuer
+  Ticket-Statusuebergaenge und den oeffentlichen CSAT-Pfad in route_helpdesk.go
+  erweitert: HandleListTickets (ServiceUnavailable, MissingTenant, ReachesRPC,
+  OwnScopeWithoutUserIsRejected), HandleGetTicket (InvalidIDUUID, ServiceUnavailable,
+  ReachesRPC), HandleCloseTicket (InvalidIDUUID, ServiceUnavailable, ReachesRPC),
+  HandleReopenTicket (InvalidIDUUID, ServiceUnavailable, ReachesRPC), HandleSubmitCsat
+  (ServiceUnavailable, InvalidIDUUID, InvalidJSON, RatingOutOfRange, ReachesRPC),
+  HandleSubmitCsatByToken (ServiceUnavailable, EmptyToken, TokenTooLong, InvalidJSON,
+  RatingOutOfRange, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok |
+  lint ok (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0
+  issues) | test ok (go test -count=1 ./internal/gateway/ -v: 1789 PASS, 0 SKIP, 0
+  FAIL) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/
+  Policy angefasst) | TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836
+  Spec-Pfade, unveraendert) | keine neue Route, kein neuer RequirePermission-Guard,
+  keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 42,7 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleCloseTicket `if !ok { return }` nach
+  validateUUIDParam auf `if ok { return }` invertiert -> TestHandleCloseTicket_
+  ReachesRPC rot (Status 200 statt 503, leerer Body: bei validem Ticket-ID kehrt der
+  Handler jetzt sofort zurueck, ohne die RPC je zu erreichen, kein ResponseWriter-
+  Write). TestHandleCloseTicket_InvalidIDUUID blieb dabei gruen (die 400 aus
+  validateUUIDParam ist bereits geschrieben, bevor der mutierte Zweig greift — kein
+  falsches Gruen, derselbe dokumentierte Doppel-Write-Effekt wie in Iteration 57).
+  Per Edit-Tool zurueckgedreht, `git diff --stat backend/internal/gateway/
+  route_helpdesk.go` danach leer, build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 9bb0cae6 (Iteration 57) fuegt ausschliesslich
+  eine Testdatei plus Journal-/Backlog-Metadaten hinzu (Metadaten-Commit db34d1eb nur
+  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: HandleSubmitCsatByToken deckt nur den lokal aufloesbaren Token-Fehlerfall ab
+  (leer/zu lang -> 404 vor der RPC); unbekannt/abgelaufen/widerrufen/bereits eingeloest
+  sind laut Handler-Kommentar derselbe 404, aber RPC-seitig entschieden und ohne
+  bufconn-Stub fuer HelpdeskServiceClient in diesem Paket lokal nicht scriptbar —
+  dieselbe dokumentierte Grenze wie beim Statusuebergang in route_rapporte_test.go
+  (Iteration 57). Kein Wire-Shape-Test fuer HandleListTickets moeglich: der Handler
+  reicht die RPC-Response unveraendert ueber response.Proto durch, kein
+  gateway-eigenes Marshaling. HandleUpdateTicket, HandleAssignTicket (Happy Path),
+  HandleMergeTickets (Happy Path), HandleAddMessage/HandleListMessages, Queues,
+  SLA-Policies, Routing-Rules, Business-Hours und HandleGetHelpdeskStats bleiben
+  ungetestet — nicht im Scope dieser Unit, Kandidat fuer Lauf 9 falls internal/gateway
+  weiter gehoben werden soll. `.planning/backend-block/loop/run-loop.ps1` traegt
+  weiterhin denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-57
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
+  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 57) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt (2026-08-11 03:22).
