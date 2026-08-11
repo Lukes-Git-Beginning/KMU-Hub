@@ -543,6 +543,24 @@ func TestListActivities_HappyPath(t *testing.T) {
 	}
 }
 
+// TestListActivities_EmptyIsNilNotEmptySlice documents the wire-shape fix
+// applied alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so an empty
+// result serializes to `[]` rather than `null`.
+func TestListActivities_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubActivityRepo()
+	srv := newCRMServerWithActivityRepo(repo)
+
+	resp, err := srv.ListActivities(ctxWithTenant(uuid.New()), &crmv1.ListActivitiesRequest{Page: 1, PageSize: 10})
+	requireGRPCOK(t, err)
+	if resp.Activities == nil {
+		t.Error("Activities should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Activities) != 0 {
+		t.Errorf("expected 0 activities, got %d", len(resp.Activities))
+	}
+}
+
 // ============================================================================
 // UpdateActivity
 // ============================================================================
@@ -710,6 +728,24 @@ func TestSearch_HappyPath(t *testing.T) {
 	}
 }
 
+// TestSearch_EmptyIsNilNotEmptySlice documents the wire-shape fix applied
+// alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so a query
+// with zero matches serializes to `[]` rather than `null`.
+func TestSearch_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := &stubSearchRepo{}
+	srv := newCRMServerWithSearchRepo(repo)
+
+	resp, err := srv.Search(ctxWithTenant(uuid.New()), &crmv1.SearchRequest{Query: "acme"})
+	requireGRPCOK(t, err)
+	if resp.Results == nil {
+		t.Error("Results should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Results) != 0 {
+		t.Errorf("expected 0 results, got %d", len(resp.Results))
+	}
+}
+
 // ============================================================================
 // CreateSavedFilter
 // ============================================================================
@@ -842,6 +878,24 @@ func TestListSavedFilters_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	if len(resp.Filters) != 2 {
 		t.Fatalf("expected 2 filters, got %d", len(resp.Filters))
+	}
+}
+
+// TestListSavedFilters_EmptyIsNilNotEmptySlice documents the wire-shape fix
+// applied alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so an empty
+// result serializes to `[]` rather than `null`.
+func TestListSavedFilters_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubSavedFilterRepo()
+	srv := newCRMServerWithSavedFilterRepo(repo)
+
+	resp, err := srv.ListSavedFilters(ctxWithTenant(uuid.New()), &crmv1.ListSavedFiltersRequest{})
+	requireGRPCOK(t, err)
+	if resp.Filters == nil {
+		t.Error("Filters should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Filters) != 0 {
+		t.Errorf("expected 0 filters, got %d", len(resp.Filters))
 	}
 }
 

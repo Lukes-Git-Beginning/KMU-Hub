@@ -488,6 +488,24 @@ func TestListPipelineStages_HappyPath(t *testing.T) {
 	}
 }
 
+// TestListPipelineStages_EmptyIsNilNotEmptySlice documents the wire-shape fix
+// applied alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so an empty
+// result serializes to `[]` rather than `null`.
+func TestListPipelineStages_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubPipelineStageRepo()
+	srv := newCRMServerWithPipelineStageRepo(repo)
+
+	resp, err := srv.ListPipelineStages(ctxWithTenant(uuid.New()), &crmv1.ListPipelineStagesRequest{})
+	requireGRPCOK(t, err)
+	if resp.Stages == nil {
+		t.Error("Stages should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Stages) != 0 {
+		t.Errorf("expected 0 stages, got %d", len(resp.Stages))
+	}
+}
+
 // ============================================================================
 // UpdatePipelineStage
 // ============================================================================
@@ -634,6 +652,24 @@ func TestReorderPipelineStages_HappyPath(t *testing.T) {
 	}
 }
 
+// TestReorderPipelineStages_EmptyIsNilNotEmptySlice covers the tenant with
+// zero pipeline stages: an empty stage_ids list matches the zero CountStages,
+// so Reorder succeeds and the subsequent ListWithStats must still come back
+// as [] rather than null.
+func TestReorderPipelineStages_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubPipelineStageRepo()
+	srv := newCRMServerWithPipelineStageRepo(repo)
+
+	resp, err := srv.ReorderPipelineStages(ctxWithTenant(uuid.New()), &crmv1.ReorderPipelineStagesRequest{})
+	requireGRPCOK(t, err)
+	if resp.Stages == nil {
+		t.Error("Stages should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Stages) != 0 {
+		t.Errorf("expected 0 stages, got %d", len(resp.Stages))
+	}
+}
+
 // ============================================================================
 // CreateDeal
 // ============================================================================
@@ -765,6 +801,24 @@ func TestListDeals_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	if resp.Total != 2 || len(resp.Deals) != 2 {
 		t.Fatalf("expected 2 deals for tenant, got total=%d len=%d", resp.Total, len(resp.Deals))
+	}
+}
+
+// TestListDeals_EmptyIsNilNotEmptySlice documents the wire-shape fix applied
+// alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so an empty
+// result serializes to `[]` rather than `null`.
+func TestListDeals_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubDealRepo()
+	srv := newCRMServerWithDealRepo(repo)
+
+	resp, err := srv.ListDeals(ctxWithTenant(uuid.New()), &crmv1.ListDealsRequest{})
+	requireGRPCOK(t, err)
+	if resp.Deals == nil {
+		t.Error("Deals should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Deals) != 0 {
+		t.Errorf("expected 0 deals, got %d", len(resp.Deals))
 	}
 }
 
