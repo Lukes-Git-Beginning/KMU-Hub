@@ -5966,3 +5966,48 @@ Frühere Läufe liegen vollständig im Archiv:
   traegt weiterhin denselben unstaged Diff wie in allen Vorgaenger-Iterationen vermerkt
   (`-StartNotBefore`-Startsperre-Parameter) -- nicht meine Datei, nicht angefasst, nicht
   committet.
+
+## Iteration 94 — (keine Unit gezogen) — blocked — 2026-08-11 08:24
+- commit: -
+- gebaut: nichts. Vor dem Ziehen einer Unit (Schritt 2) geprueft: die sieben verbleibenden
+  `status: todo`-Eintraege in `BACKLOG.yml` (`fix-email-send-missing-tenant-id`,
+  `fix-email-attachment-download-metadata-wrong-message-id`, `fix-crm-erasure-double-count`,
+  `fix-document-virtual-users-display-name`,
+  `fix-rapporte-template-empty-default-lines-crashes`,
+  `fix-datev-upload-repo-missing-tenant-id`,
+  `fix-schichten-swap-assignments-unique-violation`) tragen alle direkt darueber den Kommentar
+  "Fuer Lauf 9" und wurden erst waehrend Lauf 8 als Nebenfunde in Coverage-Units angelegt, nicht
+  als Teil der in `ITERATION.md` unter "Unverhandelbare Grenzen" fuer diesen Lauf freigegebenen
+  acht Block-A-Units. Die dortige Regel ist eindeutig: "Was freigegeben ist, steht als Unit im
+  Backlog — was nicht drinsteht, ist nicht freigegeben." und die sieben Units tragen explizit die
+  Gegenmarkierung "Fuer Lauf 9", nicht Lauf 8. Schritt 2 woertlich befolgt ("nimm die erste Unit
+  mit status: todo, deren deps alle done sind") wuerde eine davon ziehen und damit gegen die
+  Scope-Grenze verstossen — genau die Luecke, die Iteration 93 bereits unter "offen:" notiert
+  hat, ohne sie selbst aufzuloesen (das war korrekt, ihre eigene Unit war zu dem Zeitpunkt schon
+  fertig). Diese Iteration ist die erste, die die Luecke tatsaechlich vor sich hat, und loest sie
+  konservativ auf: keine der sieben Units gezogen, kein Produktionscode angefasst.
+- gate: n.a. (keine Unit bearbeitet, kein Code angefasst)
+- coverage: n.a. (keine Unit bearbeitet)
+- mutations-probe: n.a. (keine Unit bearbeitet)
+- verify vorgaenger: sauber. Commit a6ba9c37 (Iteration 93) geprueft: fuegt ausschliesslich
+  `internal/vertraege/postgres_repository_db_test.go` plus Journal-/Backlog-Metadaten hinzu —
+  kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
+  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: **Menschliche Entscheidung noetig — der Lauf ist an dieser Stelle absichtlich
+  gestoppt, `STOP`-Datei angelegt.** Die sieben Units bleiben unveraendert auf `status: todo`
+  (ich habe den Status bewusst NICHT auf `deferred` o.ae. umgestellt — das waere selbst schon
+  die Scope-Entscheidung, die Luke gehoert, nicht nur eine mechanische Korrektur). Zwei Wege
+  stehen offen, exakt wie in Iteration 93 skizziert: (a) die sieben Fix-Units per
+  Backlog-Header-Update explizit fuer Lauf 8 freigeben, dann zieht die naechste Iteration die
+  erste davon regulaer, oder (b) ihren Status von `todo` auf einen Nicht-Open-Wert wie
+  `deferred` umstellen, damit `Get-OpenUnitCount` im Treiber (zaehlt `todo`/`in_progress`
+  unabhaengig vom "Fuer Lauf 9"-Kommentar) den Lauf korrekt als beendet erkennt — ohne die
+  `STOP`-Datei wuerde der Treiber sonst mit offenem Count weiterhin neue Iterationen anwerfen,
+  die alle auf dieselbe Grenze laufen. `.planning/backend-block/loop/run-loop.ps1` traegt
+  weiterhin denselben unstaged Diff wie in allen Vorgaenger-Iterationen vermerkt
+  (`-StartNotBefore`-Startsperre-Parameter) — nicht meine Datei, nicht angefasst, nicht
+  committet. Ebenso weiterhin ein reiner Zeilenenden-Artefakt (kein inhaltlicher Diff) auf
+  `backend/internal/rapporte/postgres_repository.go` — ebenfalls nicht angefasst.
+  Laufkontext-Block war in diesem Prompt erneut nicht sichtbar mitgeliefert (wie bereits in
+  Iteration 91-93 vermerkt) — Nummer aus der letzten Journal-Ueberschrift fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt.
