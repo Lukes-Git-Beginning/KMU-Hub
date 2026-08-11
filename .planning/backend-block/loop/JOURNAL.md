@@ -1672,3 +1672,70 @@ Fensters.
 - neue-units: keine
 - offen: keine — alle 14 im Backlog genannten Stellen (12 List-RPCs + 2 Randfunde) sind in
   diesem einen Commit abgedeckt, kein Rest fuer eine Folge-Iteration.
+
+## Iteration 33 — fix-chat-grpc-nil-slice-wire-shape — done — 2026-08-11 19:56
+- commit: dd0cefa9
+- gebaut: Alle 5 im Backlog genannten Fundstellen in `backend/internal/server/chat_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `x := make([]*T, 0, len(<quelle>))`
+  statt einer nil-`var`-Deklaration: ListChannels (152), ListDMs (590), ListChannelFiles (808),
+  SearchChat (867), ListReactions (926) — plus den im Backlog genannten Randfund ToggleReaction
+  (898, teilt dieselbe Variable/dasselbe Feld im selben File). Root-Cause-Check (Grep auf
+  `var infos \[\]\*chatv1\.` und `var reactions \[\]\*chatv1\.` im gesamten File) fand zwei
+  weitere Schwesterfunktionen mit identischem Muster, die NICHT im Backlog standen:
+  GetChannelMembers (312) und GetMessages (475) — beide bauen ihr Response-Slice exakt nach
+  demselben `var infos []*T` + `append`-Muster und liefern ihre Antwort direkt ohne
+  Service-Layer-Zwischenschritt. Per harter Regel 2 dieses Laufs ("Sitzt derselbe Bug in einer
+  Schwesterfunktion, gehoert er in dieselbe Unit") in denselben Commit mitgefixt, statt eine
+  weitere Scan-Unit-Runde abzuwarten. Alle 8 Stellen per
+  `grep -n "var infos \[\]\*chatv1\.\|var protos \[\]\*chatv1\.\|var reactions \[\]\*chatv1\."`
+  vorher (8 Treffer) und nachher (0 Treffer) verifiziert.
+- gebaut (Tests): 8 neue/gestaerkte Tests nach dem Vorlage-Pattern
+  (`resp.Field == nil` -> Error, dann `require.Empty`), alle gegen die bereits bestehenden
+  Fixtures `chatChannelsMessagesFixture`/`chatFilesSearchReactionsFixture`:
+  `TestChatListChannels/success_wraps_empty_list` (bestehender Test war zu schwach, `require.
+  Empty` allein haette nil nicht von [] unterschieden — um `require.NotNil` ergaenzt),
+  `TestChatGetChannelMembers/empty_is_not_nil` (neuer Kanal ohne Mitgliedschaft direkt im
+  Stub-Repo angelegt), `TestChatGetMessages/empty_is_not_nil` (bestehender Kanal ohne gesendete
+  Nachricht), `TestChatListDMs/empty_is_not_nil`, `TestChatListChannelFiles/empty_list_is_not_
+  null` (bestehender Test ebenfalls zu schwach, ergaenzt), `TestChatSearchChat/no_matches_is_
+  not_nil`, `TestChatToggleReaction/adds_then_removes_on_repeat_toggle` (bestehender Subtest
+  ergaenzt, deckt jetzt auch den Nach-Entfernen-Leerfall), `TestChatListReactions/empty_is_not_
+  nil`.
+- root-cause-check: `search.Service.Search` gibt bei `len(channelIDs)==0` bereits `nil, 0, nil`
+  zurueck (Zeile 68f., service.go) -- identische Nil-Quelle-eine-Ebene-tiefer-Bugklasse wie die
+  bereits gefixte `contact.Service.enrichWithRelationsBatch`. NICHT zusaetzlich gefixt, bewusst:
+  der Handler-seitige `make(..., 0, len(quelle))`-Fix macht die Wire-Shape fuer SearchChat schon
+  vollstaendig korrekt (Ranging ueber ein nil-Ergebnis ist ein No-Op), und `searchService.
+  Search` hat im gesamten `internal/server`-Paket keinen anderen Aufrufer als den hier gefixten
+  Handler (per `grep -rn "searchService.Search" internal/server/*.go` verifiziert). `reaction.
+  Service.ToggleReaction` schuetzt sein `summaries == nil`-Ergebnis bereits explizit
+  (service.go:64-66) -- kein Fund dort.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app` -- alle 8 neuen/gestaerkten Subtests zusaetzlich einzeln mit `-v`
+  verifiziert, alle PASS) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift`
+  gelaufen da `internal/server` ein Handler-File angefasst hat, auch ohne Routen-/
+  Signaturaenderung) | migration n.a. (keine DB-Aenderung, reiner Handler-Text-Fix) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die drei
+  geaenderten Dateien isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie
+  bei den vorangegangenen Nil-Slice-Fixes (Iterationen 30/31/32) bewegt sich die Prozentzahl
+  bei einer reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar -- Beleg ist die
+  Mutations-Probe.
+- mutations-probe: Zeile 152 (`infos := make([]*chatv1.ChannelInfo, 0, len(channels))` in
+  `ListChannels`) zurueck auf `var infos []*chatv1.ChannelInfo` gesetzt -> `go test -run
+  TestChatListChannels -v` wurde rot ("Expected value not to be nil... Channels should be an
+  empty slice, not nil..."). Zurueckgedreht, `git diff --stat` zeigt danach wieder
+  ausschliesslich den sauberen 8-Stellen-Diff in chat_grpc.go (16 geaenderte Zeilen = 8 ×
+  var/make-Paar) plus die drei Testdateien.
+- verify vorgaenger: sauber (Commit `e38beedb`, Iteration 32 — reiner `git show --stat`- und
+  Diff-Check: nur `work_grpc.go` plus eine neue Testdatei geaendert, alle 14 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie hier, kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine. GetChannelMembers und GetMessages waren keine im Backlog genannten Fundstellen
+  dieser Unit, teilen aber den identischen Bug im selben File — nach Regel 2 dieses Laufs
+  mitgefixt statt fuer eine weitere Scan-Iteration zurueckgestellt.
