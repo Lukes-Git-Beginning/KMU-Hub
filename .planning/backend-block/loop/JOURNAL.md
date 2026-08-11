@@ -3431,3 +3431,65 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 52) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:51).
+
+## Iteration 54 — d-cov-gateway-inventar-inventur — done — 2026-08-11 02:53
+- commit: (siehe naechster Metadaten-Commit)
+- gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 31 Tests fuer die
+  sieben Inventur-Workflow-Handler in route_inventar.go erweitert: HandleCreateInventurSession
+  (MissingName, InvalidLocationIDUUID, InvalidDateFormat als lokal geprueften Parse-Fehler,
+  ServiceUnavailable, ReachesRPC), HandleUpdateInventurSessionStatus (InvalidIDUUID,
+  InvalidStatusValue als dokumentierter Befund -- siehe offen --, ServiceUnavailable,
+  ReachesRPC), HandleUpsertInventurCount (InvalidIDUUID, InvalidJSON, MissingItemID,
+  ServiceUnavailable, ReachesRPC), HandleBookInventurDifferences (InvalidIDUUID wie im
+  done_when gefordert vor dem Buchen, InvalidBookedByUUID, ServiceUnavailable, ReachesRPC),
+  HandleListWarnings (ServiceUnavailable, MissingTenant, ReachesRPC mit status-Query),
+  HandleUpdateWarning (InvalidIDUUID, InvalidJSON als einziger lokal geprueften Fehlerpfad,
+  ServiceUnavailable, ReachesRPC), HandleAcknowledgeWarning (InvalidIDUUID, InvalidJSON,
+  InvalidAcknowledgedByUUID via assertValidationError, ServiceUnavailable,
+  ReachesRPC_FallsBackToAuthenticatedUser fuer den User-ID-Fallback-Zweig).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1700 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) | keine
+  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 41,6 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleBookInventurDifferences
+  `id, ok := validateUUIDParam(...); if !ok { return }` zu `if ok { return }` invertiert
+  (bricht bei gueltiger UUID fruehzeitig ohne Response ab, laesst eine ungueltige durch) ->
+  TestHandleBookInventurDifferences_InvalidIDUUID, _InvalidBookedByUUID UND _ReachesRPC alle
+  drei rot (_ServiceUnavailable blieb gruen, da der Client-Check davor greift). Per Edit-Tool
+  zurueckgedreht, `git diff --stat backend/internal/gateway/route_inventar.go` danach leer,
+  build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit ed7e9b1c (Iteration 53) fuegt ausschliesslich eine
+  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 14dd7809 nur
+  BACKLOG.yml/JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: (1) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensaenderungen): `updateInventurSessionStatusRequest.Status` (route_inventar.go,
+  Zeile ~818) validiert nur Mitgliedschaft in der festen oneof-Liste
+  (open/counting/review/completed) -- der Handler prueft NIE, ob der Uebergang VOM aktuellen
+  Sitzungsstatus aus zulaessig ist (z. B. von "completed" zurueck auf "open"). Das
+  done_when dieser Unit erwartete, dass "einen ungueltigen Statusuebergang als Fehlerfall"
+  geprueft wird -- gepruefte Realitaet: es gibt im Gateway-Handler keine
+  Uebergangspruefung, nur eine Werte-Pruefung. TestHandleUpdateInventurSessionStatus_
+  InvalidStatusValue dokumentiert die tatsaechlich vorhandene Werte-Pruefung (Wert
+  "cancelled" nicht im oneof), nicht die im done_when unterstellte
+  Uebergangs-Zustandsmaschine. Ob eine echte Uebergangspruefung serverseitig existiert
+  (internal/inventar/service.go, nicht Teil dieser Coverage-Unit) oder Produktwert haette,
+  ist eine Produktfrage; vorgemerkt fuer Lauf 9, falls Luke das als echte Luecke einstuft.
+  (2) Analog `updateWarningRequest.Status` (Zeile ~216) traegt gar keinen validate-Tag --
+  jeder String erreicht HandleUpdateWarning unveraendert die RPC-Schicht, nur malformed JSON
+  wird lokal abgelehnt. Kein eigener Fix-Unit-Vorschlag, konsistent mit dem
+  MissingDelta-Befund aus Iteration 53 (Inkonsistenz gegenueber Nachbar-Handlern mit
+  strengerem Tag, kein verifizierter Produktionsbug). (3) Wie bei allen bisherigen
+  Gateway-Coverage-Units kein bufconn-Stub fuer InventarServiceClient -- alle ReachesRPC-Tests
+  dokumentieren nur, dass der Handler die lokale Validierung passiert und die RPC-Schicht
+  erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht das tatsaechliche
+  Service-Verhalten.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-53 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 53) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:53).

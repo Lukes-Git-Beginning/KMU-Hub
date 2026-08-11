@@ -467,3 +467,396 @@ func TestProtoListMovements_WireShape(t *testing.T) {
 		t.Errorf("movements serialised as null, want [] or omitted; body: %s", rec.Body.String())
 	}
 }
+
+// --- HandleCreateInventurSession ---
+
+func TestHandleCreateInventurSession_MissingName(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions", jsonBody(t, map[string]interface{}{
+		"item_ids": []string{"550e8400-e29b-41d4-a716-446655440000"},
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInventurSession(rec, req)
+	assertValidationError(t, rec, "name")
+}
+
+func TestHandleCreateInventurSession_InvalidLocationIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions", jsonBody(t, map[string]interface{}{
+		"name":        "Q3 Inventur",
+		"location_id": "not-a-uuid",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInventurSession(rec, req)
+	assertValidationError(t, rec, "location_id")
+}
+
+func TestHandleCreateInventurSession_InvalidDateFormat(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions", jsonBody(t, map[string]interface{}{
+		"name": "Q3 Inventur",
+		"date": "not-a-date",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid date format")
+}
+
+func TestHandleCreateInventurSession_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions", jsonBody(t, map[string]interface{}{
+		"name": "Q3 Inventur",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateInventurSession_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions", jsonBody(t, map[string]interface{}{
+		"name":        "Q3 Inventur",
+		"date":        "2026-09-01",
+		"location_id": "550e8400-e29b-41d4-a716-446655440000",
+		"item_ids":    []string{"550e8400-e29b-41d4-a716-446655440001"},
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateInventurSessionStatus ---
+
+func TestHandleUpdateInventurSessionStatus_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/inventur/sessions/not-a-uuid/status", jsonBody(t, map[string]interface{}{
+		"status": "counting",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateInventurSessionStatus(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// TestHandleUpdateInventurSessionStatus_InvalidStatusValue covers the one
+// locally-checked error path for the session status transition: the
+// updateInventurSessionStatusRequest.Status field only validates membership in
+// the fixed oneof list (open/counting/review/completed, route_inventar.go).
+// It does not check that the transition FROM the session's current status is
+// legal -- that state-machine logic, if any, lives server-side.
+func TestHandleUpdateInventurSessionStatus_InvalidStatusValue(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/inventur/sessions/"+id+"/status", jsonBody(t, map[string]interface{}{
+		"status": "cancelled",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateInventurSessionStatus(rec, req)
+	assertValidationError(t, rec, "status")
+}
+
+func TestHandleUpdateInventurSessionStatus_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/inventur/sessions/"+id+"/status", jsonBody(t, map[string]interface{}{
+		"status": "counting",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateInventurSessionStatus(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateInventurSessionStatus_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/inventur/sessions/"+id+"/status", jsonBody(t, map[string]interface{}{
+		"status": "completed",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateInventurSessionStatus(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpsertInventurCount ---
+
+func TestHandleUpsertInventurCount_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/not-a-uuid/counts", jsonBody(t, map[string]interface{}{
+		"item_id": "550e8400-e29b-41d4-a716-446655440000",
+		"counted": 3,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpsertInventurCount(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpsertInventurCount_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/counts", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertInventurCount(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpsertInventurCount_MissingItemID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/counts", jsonBody(t, map[string]interface{}{
+		"counted": 3,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertInventurCount(rec, req)
+	assertValidationError(t, rec, "item_id")
+}
+
+func TestHandleUpsertInventurCount_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/counts", jsonBody(t, map[string]interface{}{
+		"item_id": "550e8400-e29b-41d4-a716-446655440001",
+		"counted": 3,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertInventurCount(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpsertInventurCount_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/counts", jsonBody(t, map[string]interface{}{
+		"item_id": "550e8400-e29b-41d4-a716-446655440001",
+		"counted": 0,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertInventurCount(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleBookInventurDifferences ---
+
+// TestHandleBookInventurDifferences_InvalidIDUUID covers the done_when
+// requirement that an invalid/missing session ID is rejected before the
+// booking RPC is ever attempted.
+func TestHandleBookInventurDifferences_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/not-a-uuid/book", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleBookInventurDifferences(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleBookInventurDifferences_InvalidBookedByUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/book", jsonBody(t, map[string]interface{}{
+		"booked_by": "not-a-uuid",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookInventurDifferences(rec, req)
+	assertValidationError(t, rec, "booked_by")
+}
+
+func TestHandleBookInventurDifferences_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/book", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookInventurDifferences(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleBookInventurDifferences_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/inventur/sessions/"+id+"/book", jsonBody(t, map[string]interface{}{
+		"booked_by": "550e8400-e29b-41d4-a716-446655440001",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookInventurDifferences(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListWarnings ---
+
+func TestHandleListWarnings_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/warnings", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListWarnings(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListWarnings_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/warnings", nil)
+	routes.HandleListWarnings(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListWarnings_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/warnings?status=open&page=2&page_size=10", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListWarnings(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateWarning ---
+
+func TestHandleUpdateWarning_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/warnings/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"status": "resolved",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateWarning(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// TestHandleUpdateWarning_InvalidJSON documents that updateWarningRequest.Status
+// (route_inventar.go) carries no validate tag -- malformed JSON is the only
+// error path decodeAndValidate can reject locally for this handler; any string
+// value for status reaches the RPC layer unchecked.
+func TestHandleUpdateWarning_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/warnings/"+id, invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateWarning(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateWarning_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/warnings/"+id, jsonBody(t, map[string]interface{}{
+		"status": "resolved",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateWarning(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateWarning_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/warnings/"+id, jsonBody(t, map[string]interface{}{
+		"status": "resolved",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateWarning(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleAcknowledgeWarning ---
+
+func TestHandleAcknowledgeWarning_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/warnings/not-a-uuid/acknowledge", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleAcknowledgeWarning(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleAcknowledgeWarning_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/warnings/"+id+"/acknowledge", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleAcknowledgeWarning(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleAcknowledgeWarning_InvalidAcknowledgedByUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/warnings/"+id+"/acknowledge", jsonBody(t, map[string]interface{}{
+		"acknowledged_by": "not-a-uuid",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleAcknowledgeWarning(rec, req)
+	assertValidationError(t, rec, "acknowledged_by")
+}
+
+func TestHandleAcknowledgeWarning_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/warnings/"+id+"/acknowledge", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleAcknowledgeWarning(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleAcknowledgeWarning_ReachesRPC_FallsBackToAuthenticatedUser covers
+// the omitted-acknowledged_by branch (route_inventar.go): the handler falls
+// back to middleware.GetUserID(ctx) rather than leaving the field empty.
+func TestHandleAcknowledgeWarning_ReachesRPC_FallsBackToAuthenticatedUser(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/warnings/"+id+"/acknowledge", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-1", testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleAcknowledgeWarning(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
