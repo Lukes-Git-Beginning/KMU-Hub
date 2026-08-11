@@ -5068,3 +5068,67 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 05:53). Naechste Backlog-Unit laut Reihenfolge:
   `e-cov-automation-action-grpc` (Block E, internal/automation/action
   calendar/biz/crm Actions).
+
+## Iteration 81 — e-cov-automation-action-grpc — done — 2026-08-11 05:59
+- commit: <wird im naechsten Meta-Commit nachgetragen>
+- gebaut: eine neue Testdatei `internal/automation/action/grpc_actions_test.go` deckt
+  calendar_actions.go, biz_actions.go und crm_actions.go ab, die trotz vorhandenem
+  http_actions_test.go im selben Verzeichnis bei 0,0 % lagen. Fuenf Fake-Clients per
+  Interface-Embedding (`fakeCalendarClient`/`fakeFinanceClient`/`fakeCRMClient` embedden
+  die generierten `*ServiceClient`-Interfaces, ueberschreiben nur die im Actionfile
+  aufgerufene Methode als Funktionsfeld — jede nicht ueberschriebene Methode wuerde bei
+  Aufruf auf nil-Interface panicen, es wird also nichts versehentlich echt aufgerufen).
+  Abgedeckt: Type() fuer alle fuenf Actions (Tabellentest), nil-Client-Guard fuer alle
+  fuenf (Tabellentest), der gemeinsame invalid-JSON-Codepfad einmal stellvertretend,
+  je ein Erfolgspfad mit Templating- und Output-Mapping-Beweis fuer
+  CreateCalendarEventAction (inkl. optionaler description als Pointer-Feld, das bei
+  leerem String unset bleiben muss), CreateInvoiceDraftAction, CreateDunningAction
+  (plus expliziter Test fuer den strconv.Atoi-Fallback auf Default-Level 1 bei
+  unparsbarem String), UpdateDealFieldAction (beide Zweige: "stage" ueber
+  MoveDealToStage, "assignee" ueber UpdateDeal mit OwnerId-Pointer, sowie der
+  default-Zweig fuer ein unbekanntes Feld — dieser liefert bewusst Success:false OHNE
+  Go-error, weil es ein Konfigurationsfehler des Automation-Autors ist, kein
+  Systemfehler) und CreateContactAction. Je ein Client-Fehlerpfad (gRPC-Aufruf liefert
+  error) fuer Calendar/Invoice/Dunning/Deal-Stage/Contact beweist 1:1-Durchreichen in
+  ActionResult.Error und den zurueckgegebenen error. parseTimeOrRelative bekommt einen
+  eigenen Table-Test: RFC3339, +1h/+30m/+7d relative Offsets, und der Now()-Fallback bei
+  ungueltigem Format (mit WithinDuration-Toleranz gegen Testflakiness). Ein
+  TestGRPCActionDefinitions-Tabellentest spiegelt das Catalog-Agreement-Muster aus
+  TestHTTPRequestDefinition fuer alle fuenf neuen Definitions.
+- gate: build ok (go build -p 2 ./internal/automation/... ./internal/gateway/...
+  ./cmd/gateway/...) | vet ok (go vet ./internal/automation/...) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/automation/action/... —
+  0 issues) | test ok (go test -count=1 ./internal/automation/... — alle fuenf
+  Unterpakete mit Tests gruen, template hat weiterhin keine Testdatei — ausserhalb
+  dieser Unit) | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke n.a.
+  (kein DB-Zugriff in diesem Paket, reine gRPC-Client-Fakes) | gateway-Tests nicht
+  gelaufen (keine Route angefasst)
+- coverage: internal/automation/action 32,5 % -> 68,9 % (go test -coverprofile
+  ./internal/automation/action/, go tool cover -func; Vorher-Wert per temporaerem
+  Wegverschieben der neuen Testdatei gemessen, nicht der Backlog-coverage_start-Wert
+  "internal/automation 51,9 %", der sich auf das gesamte automation-Paket zu einem
+  frueheren Zeitpunkt bezieht). work_actions.go im selben Verzeichnis bleibt bei 0,0 %
+  (NewCreateTaskAction/Type/Execute/CreateTaskDefinition) — ausserhalb des Scopes
+  dieser Unit (sources listete nur calendar/biz/crm_actions.go), fuer Lauf 9 vormerken.
+- mutations-probe: zwei Proben, beide gefangen. (1) in `biz_actions.go` in
+  `CreateDunningAction.Execute` den `if n, err := strconv.Atoi(levelStr); err == nil`-Guard
+  entfernt und `level` unbedingt auf `int32(n)` gesetzt (bei Parse-Fehler ist n dann 0
+  statt des Default-Werts 1) -> TestCreateDunningAction_UnparsableLevelDefaultsToOne
+  sofort rot ("expected: 1, actual: 0"). (2) in `crm_actions.go` in
+  `UpdateDealFieldAction.Execute` im "assignee"-Zweig `OwnerId: &value` aus dem
+  UpdateDealRequest entfernt -> TestUpdateDealFieldAction_AssigneeBranch sofort rot
+  ("Expected value not to be nil"). Beide Male zurueckgedreht, `git diff` auf
+  `biz_actions.go` und `crm_actions.go` leer.
+- verify vorgaenger: sauber. Commit 00b388e9 (Iteration 80) fuegt ausschliesslich eine
+  neue Testdatei (`internal/automation/workflow/postgres_repository_db_test.go`) plus
+  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route,
+  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem
+  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 80) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:59). Naechste Backlog-Unit laut Reihenfolge:
+  `e-cov-automation-engine-internals` (Block E, engine.go/logger.go Circuit-Breaker,
+  Condition-Fehlerpfade, Action-Schleife).

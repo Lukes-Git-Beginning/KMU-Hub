@@ -2768,7 +2768,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/automation 51,9 %"
     scope: >
       Die drei Dateien calendar_actions.go, biz_actions.go und crm_actions.go liegen trotz
