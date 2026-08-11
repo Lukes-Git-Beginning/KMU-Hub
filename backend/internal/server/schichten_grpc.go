@@ -161,7 +161,7 @@ func (s *SchichtenGRPCServer) ListShifts(ctx context.Context, req *schichtenv1.L
 		return nil, mapSchichtenError(err)
 	}
 
-	var pbShifts []*schichtenv1.Shift
+	pbShifts := make([]*schichtenv1.Shift, 0, len(shifts))
 	for _, sh := range shifts {
 		pbShifts = append(pbShifts, shiftToProto(sh))
 	}
@@ -254,7 +254,7 @@ func (s *SchichtenGRPCServer) ListAssignments(ctx context.Context, req *schichte
 		return nil, mapSchichtenError(err)
 	}
 
-	var pbAssignments []*schichtenv1.ShiftAssignment
+	pbAssignments := make([]*schichtenv1.ShiftAssignment, 0, len(assignments))
 	for _, a := range assignments {
 		pbAssignments = append(pbAssignments, assignmentToProto(a))
 	}
@@ -369,7 +369,7 @@ func (s *SchichtenGRPCServer) ListTemplates(ctx context.Context, req *schichtenv
 		return nil, mapSchichtenError(err)
 	}
 
-	var pbTemplates []*schichtenv1.ShiftTemplate
+	pbTemplates := make([]*schichtenv1.ShiftTemplate, 0, len(templates))
 	for _, t := range templates {
 		pbTemplates = append(pbTemplates, shiftTemplateToProto(t))
 	}
@@ -405,7 +405,7 @@ func (s *SchichtenGRPCServer) ApplyTemplate(ctx context.Context, req *schichtenv
 		return nil, mapSchichtenError(err)
 	}
 
-	var pbShifts []*schichtenv1.Shift
+	pbShifts := make([]*schichtenv1.Shift, 0, len(shifts))
 	for _, sh := range shifts {
 		pbShifts = append(pbShifts, shiftToProto(sh))
 	}
@@ -539,7 +539,7 @@ func (s *SchichtenGRPCServer) ListSwapRequests(ctx context.Context, req *schicht
 		return nil, mapSchichtenError(err)
 	}
 
-	var pbReqs []*schichtenv1.SwapRequest
+	pbReqs := make([]*schichtenv1.SwapRequest, 0, len(results))
 	for _, sr := range results {
 		pbReqs = append(pbReqs, swapRequestToProto(sr))
 	}

@@ -710,6 +710,7 @@ func TestSchichten_ListShifts_EmptyIsEmptySliceNotNull(t *testing.T) {
 	resp, err := srv.ListShifts(context.Background(), &schichtenv1.ListShiftsRequest{TenantId: uuid.New().String()})
 	require.NoError(t, err)
 	assert.Equal(t, int32(0), resp.Total)
+	require.NotNil(t, resp.Shifts)
 	assert.Empty(t, resp.Shifts)
 }
 
@@ -781,6 +782,7 @@ func TestSchichten_AssignUnassignListAssignments(t *testing.T) {
 
 	listResp, err = srv.ListAssignments(ctx, &schichtenv1.ListAssignmentsRequest{TenantId: tenantID, ShiftId: shiftID})
 	require.NoError(t, err)
+	require.NotNil(t, listResp.Assignments)
 	assert.Empty(t, listResp.Assignments)
 }
 
@@ -857,6 +859,17 @@ func TestSchichten_TemplateCRUDAndList(t *testing.T) {
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
+func TestSchichten_ListTemplates_EmptyIsEmptySliceNotNull(t *testing.T) {
+	repo := newStubSchichtenRepo()
+	srv := newSchichtenServerWithRepo(repo)
+
+	resp, err := srv.ListTemplates(context.Background(), &schichtenv1.ListTemplatesRequest{TenantId: uuid.New().String()})
+	require.NoError(t, err)
+	assert.Equal(t, int32(0), resp.Total)
+	require.NotNil(t, resp.Templates)
+	assert.Empty(t, resp.Templates)
+}
+
 func TestSchichten_CreateTemplate_InvalidDayOfWeek(t *testing.T) {
 	srv := newSchichtenServerWithRepo(newStubSchichtenRepo())
 
@@ -892,6 +905,35 @@ func TestSchichten_ApplyTemplate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), applyResp.CreatedCount)
 	assert.Len(t, applyResp.Shifts, 1)
+}
+
+func TestSchichten_ApplyTemplate_NoMatchingDayIsEmptySliceNotNull(t *testing.T) {
+	repo := newStubSchichtenRepo()
+	srv := newSchichtenServerWithRepo(repo)
+	ctx := context.Background()
+	tenantID := uuid.New().String()
+
+	// Find the next Tuesday so the range covers a day the Monday template never matches.
+	rangeStart := time.Now()
+	for rangeStart.Weekday() != time.Tuesday {
+		rangeStart = rangeStart.AddDate(0, 0, 1)
+	}
+	rangeStart = time.Date(rangeStart.Year(), rangeStart.Month(), rangeStart.Day(), 0, 0, 0, 0, time.UTC)
+	rangeEnd := rangeStart.Add(12 * time.Hour)
+
+	createResp, err := srv.CreateTemplate(ctx, &schichtenv1.CreateTemplateRequest{
+		TenantId: tenantID, Name: "Montags", DayOfWeek: 1, StartHour: 8, DurationMinutes: 60,
+	})
+	require.NoError(t, err)
+
+	applyResp, err := srv.ApplyTemplate(ctx, &schichtenv1.ApplyTemplateRequest{
+		TenantId: tenantID, TemplateId: createResp.Template.Id,
+		RangeStart: timestamppb.New(rangeStart), RangeEnd: timestamppb.New(rangeEnd),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int32(0), applyResp.CreatedCount)
+	require.NotNil(t, applyResp.Shifts)
+	assert.Empty(t, applyResp.Shifts)
 }
 
 func TestSchichten_ApplyTemplate_InvalidRange(t *testing.T) {
@@ -1062,6 +1104,7 @@ func TestSchichten_ListSwapRequests_FiltersAndPagination(t *testing.T) {
 	emptyResp, err := srv.ListSwapRequests(ctx, &schichtenv1.ListSwapRequestsRequest{TenantId: tenantID, ShiftId: &otherShift})
 	require.NoError(t, err)
 	assert.Equal(t, int32(0), emptyResp.Total)
+	require.NotNil(t, emptyResp.SwapRequests)
 	assert.Empty(t, emptyResp.SwapRequests)
 }
 

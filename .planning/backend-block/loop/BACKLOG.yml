@@ -1654,7 +1654,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
     scope: >
       MUSTER C — `schichten_grpc.go` hat 4 von 4 geprueften List-RPCs mit demselben
