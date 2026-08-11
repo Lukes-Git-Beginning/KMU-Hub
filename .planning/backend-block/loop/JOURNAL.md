@@ -3068,3 +3068,55 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 46) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:02).
+
+## Iteration 48 — d-cov-gateway-video-meeting-lifecycle — done — 2026-08-11 02:09
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Neue Testdatei `backend/internal/gateway/route_video_meeting_lifecycle_test.go`
+  (37 Tests) fuer die zehn in der Unit genannten Meeting-Lebenszyklus-Handler in
+  route_video.go: HandleGetMeeting (ServiceUnavailable, InvalidIDUUID, ReachesRPC),
+  HandleUpdateMeeting (ServiceUnavailable, InvalidIDUUID, InvalidJSON,
+  InvalidScheduledStartFormat, InvalidScheduledEndFormat, ReachesRPC), HandleDeleteMeeting
+  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleListMeetings (ServiceUnavailable,
+  ReachesRPC, UnknownStatusIgnored) plus TestProtoListMeetings_WireShape, HandleStartMeeting
+  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleJoinMeeting (ServiceUnavailable,
+  InvalidIDUUID, ReachesRPC), HandleEndMeeting (ServiceUnavailable, InvalidIDUUID,
+  ReachesRPC), HandleSetMeetingLock (ServiceUnavailable, InvalidIDUUID, InvalidLockedType,
+  ReachesRPC), HandleMuteAllMeetingParticipants (ServiceUnavailable, InvalidIDUUID,
+  ReachesRPC) und HandleRemoveMeetingParticipant (ServiceUnavailable, InvalidIDUUID,
+  MissingTargetUserID, InvalidTargetUserID, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1511 PASS, 0 SKIP, 0 FAIL) | migration
+  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 39,1 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: drei Proben, alle gefangen. (1) In HandleGetMeeting
+  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
+  TestHandleGetMeeting_InvalidIDUUID rot (503 statt 400, "connection error" statt "invalid
+  id"). (2) In `removeMeetingParticipantHTTPRequest.TargetUserID` das
+  `validate:"required,uuid"`-Tag entfernt -> TestHandleRemoveMeetingParticipant_
+  {MissingTargetUserID,InvalidTargetUserID} beide rot (503 statt 400, kein
+  validation_failed mehr, Feld "target_user_id" fehlt in den Details). (3) In
+  HandleUpdateMeeting die scheduled_start-Formatpruefung mit `if false {}` stillgelegt ->
+  TestHandleUpdateMeeting_InvalidScheduledStartFormat rot (Fehlermeldung ist der
+  RPC-Verbindungsfehler statt "invalid scheduled_start format"). Alle drei per Edit-Tool
+  gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_video.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (1511 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit 7e2838a3 (Iteration 47) sowie der Metadaten-Commit
+  84c2d077 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: Wie bei den Recording-Handlern in Iteration 47 gibt es fuer VideoServiceClient kein
+  bufconn-Stub in diesem Paket — die eigentliche Meeting-Status-Zustandsmaschine (z. B.
+  "kein zweiter Start auf einem laufenden Meeting", "Join nach End abgelehnt") wird
+  ausschliesslich vom Video-Service durchgesetzt und war lokal nicht simulierbar. Die
+  ReachesRPC-Tests dokumentieren stattdessen, dass jeder Handler die lokale Validierung
+  passiert und die RPC-Schicht erreicht (503 ueber die unerreichbare Dummy-Adresse) — der
+  naechstliegende Fehlerpfad ohne Produktionscode-Aenderung. Kein neuer Befund: dieselbe
+  Grenze wie in jeder bisherigen Gateway-Coverage-Unit fuer route_video.go dieses Laufs.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-47 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 47) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:09).
