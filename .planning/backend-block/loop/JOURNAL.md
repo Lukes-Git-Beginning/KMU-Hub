@@ -3605,3 +3605,57 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 55) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:09).
+
+## Iteration 57 — d-cov-gateway-rapporte-lifecycle — done — 2026-08-11 03:16
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_rapporte_test.go` um 20 neue Tests fuer den
+  Bericht-Lebenszyklus in route_rapporte.go erweitert: HandleListReports (MissingTenant,
+  ServiceUnavailable, ReachesRPC, OwnScopeWithoutUserIsRejected), HandleGetReport
+  (InvalidIDUUID, MissingTenant, ReachesRPC), HandleUpdateReport (InvalidIDUUID,
+  InvalidJSON, MissingTenant, ReachesRPC), HandleDeleteReport (InvalidIDUUID,
+  MissingTenant, ServiceUnavailable), HandleSubmitReport (InvalidIDUUID, MissingTenant,
+  ReachesRPCWithInvalidStatusTransition), HandleRejectReport (InvalidIDUUID,
+  MissingReviewerID, MissingTenant, ReachesRPCWithInvalidStatusTransition).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1765 PASS, 0 SKIP, 0 FAIL) | migration n.a.
+  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 42,4 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleSubmitReport `if !ok { return }` nach
+  validateUUIDParam auf `if ok { return }` invertiert -> TestHandleSubmitReport_
+  ReachesRPCWithInvalidStatusTransition rot (Status 200 statt 503: bei validem Report-ID
+  kehrt der Handler jetzt sofort zurueck, ohne die RPC je zu erreichen, kein
+  ResponseWriter-Write). TestHandleSubmitReport_InvalidIDUUID blieb dabei gruen (die 400
+  aus validateUUIDParam ist bereits geschrieben, bevor der mutierte Zweig greift — kein
+  falsches Gruen, sondern derselbe doppelte-WriteHeader-Effekt wie in Iteration 56
+  dokumentiert). Per Edit-Tool zurueckgedreht, `git diff --stat
+  backend/internal/gateway/route_rapporte.go` danach leer, build/vet/lint/test erneut
+  komplett gruen.
+- verify vorgaenger: sauber. Commit 6f1f3b31 (Iteration 56) fuegt ausschliesslich eine
+  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit db34d1eb nur
+  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: Kein Wire-Shape-Test fuer HandleListReports moeglich (Backlog-Wunsch
+  "gewrappte Liste pruefen") — der Handler reicht `ListReportsResponse` unveraendert
+  ueber `response.Proto` durch (route_rapporte.go:224-229), keine gateway-eigene
+  Marshaling-Logik und kein bufconn-Stub fuer RapporteServiceClient in diesem Paket,
+  dieselbe dokumentierte Grenze wie in jeder bisherigen Gateway-Coverage-Unit dieses
+  Laufs (zuletzt Iteration 55/document, Iteration ~52/fuhrpark). Ebenso kein lokal
+  testbarer "ungueltiger Statusuebergang" fuer HandleSubmitReport/HandleRejectReport:
+  die draft->submitted->approved/rejected-Maschine lebt in der rapporte-RPC-Schicht,
+  nicht im Handler — stattdessen ReachesRPC-Tests, die belegen, dass eine gueltige
+  ID/Payload lokal durchlaeuft und die RPC-Schicht unveraendert erreicht (503 ueber die
+  unerreichbare Dummy-Adresse). `HandleSaveReportSignature`, `HandleListLines`,
+  `HandleUpdateLine`, `HandleDeleteLine`, `HandleDeleteAttachment`,
+  `HandleGetReportStats`, `HandleListPendingApprovals`, `HandleExportPDF` sowie alle
+  Measurement-/Template-Handler bleiben ungetestet — nicht im Scope dieser Unit, ggf.
+  Kandidat fuer Lauf 9, falls internal/gateway noch weiter gehoben werden soll.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff
+  wie in frueheren Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 56) fortgezaehlt, Zeitstempel
+  per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:16).
