@@ -1606,3 +1606,69 @@ Fensters.
   korrekt (nil -> leer), keine Route)
 - neue-units: keine
 - offen: keine
+
+## Iteration 32 — fix-work-grpc-nil-slice-wire-shape — done — 2026-08-11 19:33
+- commit: e38beedb
+- gebaut: Alle 14 im Backlog genannten Fundstellen in `backend/internal/server/work_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `protos := make([]*workv1.XxxProto,
+  0, len(<quelle>))` statt einer nil-`var`-Deklaration: ListProjects (131), ListProjectMembers
+  (294), ReorderProjectStatuses (494, Randfund), ListProjectStatuses (515), ListTasks (732),
+  ListSubtasks (908), ListTaskDependencies (982), ListTaskComments (1094), ListTaskEntityLinks
+  (1178), ListEntityTasks (1199), ListTaskActivities (1234), ListTaskFiles (1312), SearchTasks
+  (1523, Randfund), ListTimeEntries (1966) — per `grep -n "var protos \[\]\*workv1\."` vorher
+  UND nachher verifiziert (vorher 14 Treffer, nachher 0). Rein mechanischer Zwei-Wort-Diff pro
+  Stelle (`var` -> `:= make(...)`), keine sonstige Verhaltensänderung. `gofmt -w` hat zusätzlich
+  eine reine Whitespace-Realignment im `WorkGRPCServer`-Struct-Feld-Block ausgelöst (Folge der
+  geänderten Feldnamen-Spaltenbreite durch keine inhaltliche Änderung).
+- gebaut (Tests): neue Datei `work_grpc_nil_slice_test.go` mit 14 Tests (ein
+  `TestXxx_EmptyIsNilNotEmptySlice` je RPC), alle nach dem Vorlage-Pattern
+  (`resp.Field == nil` -> Error, `len(resp.Field) != 0` -> Error). Da `WorkGRPCServer` seine
+  Services als konkrete `*project.Service`/`*wstatus.Service`/`*comment.Service`/
+  `*timeentry.Service` haelt (kein Interface-Feld) und `taskRepo task.Repository` direkt als
+  Interface, mussten fuenf neue Stub-Repositories gebaut werden (`stubWorkProjectRepo`,
+  `stubWorkStatusRepo`, `stubWorkTaskRepo`, `stubWorkCommentRepo`, `stubWorkTimeEntryRepo`),
+  je mit vollstaendiger Interface-Implementierung (ungenutzte Methoden geben Zero-Values
+  zurueck) plus `newWorkServerWith<X>Repo`-Konstruktoren nach dem Muster aus
+  `crm_grpc_pipelines_deals_test.go`. `stubWorkTaskRepo` deckt allein 7 der 14 RPCs ab
+  (ListSubtasks/TaskDependencies/TaskEntityLinks/EntityTasks/TaskActivities/TaskFiles/
+  SearchTasks laufen alle direkt ueber `s.taskRepo`, kein Service-Layer dazwischen).
+  `stubWorkProjectRepo.GetByID` gibt bewusst immer ein Projekt zurueck (kein Not-Found), weil
+  `ListProjectMembers` intern erst `GetByID` fuer den Existenz-Check aufruft, bevor es die
+  (leere) Mitgliederliste liest. `comment.NewService`/`task.NewService` erhalten `nil` als
+  zweiten Parameter (`taskRepo`/`projectRepo`) — beide werden laut Quellcode nur in
+  Create/Update/Delete-Pfaden verwendet, nicht in `List`, und wurden fuer die Leerfall-Pruefung
+  nicht gebraucht.
+- root-cause-check: keine Service-Methode dieser 14 Aufrufer gibt selbst `nil` als
+  Erfolgsergebnis zurueck ausser durch die hier bereits abgedeckten direkten Repo-Aufrufe —
+  anders als bei `fix-crm-grpc-nil-slice-wire-shape-remaining` (Iteration 31) gab es hier keine
+  zusaetzliche Nil-Quelle eine Ebene tiefer zu fixen, weil die betroffenen Service-Methoden
+  (`project.Service.List`, `wstatus.Service.ListByProject`, `task.Service.List`,
+  `comment.Service.List`, `timeentry.Service.ListByTask`) allesamt reine Pass-Throughs auf
+  `s.repo.<Method>` sind — der Handler-seitige Fix macht die Wire-Shape fuer alle 14 RPCs
+  bereits vollstaendig korrekt.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP — alle 14 neuen
+  Tests zusaetzlich einzeln mit `-v` verifiziert, alle PASS) | test ok (`./internal/gateway/`
+  gruen, `TestOpenAPIRouteDrift` gelaufen da `internal/server` ein Handler-File angefasst hat,
+  auch ohne Routen-/Signaturaenderung) | migration n.a. (keine DB-Aenderung, reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` auf `work_grpc.go` isoliert
+  gemessen, Testdatei waehrenddessen ausgelagert) -> 70,1 % (nach dem Fix). Wie bei den
+  vorangegangenen Nil-Slice-Fixes (Iterationen 30/31) bewegt sich die Prozentzahl bei einer
+  reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar — Beleg ist die Mutations-Probe.
+- mutations-probe: Zeile 131 (`protos := make([]*workv1.ProjectProto, 0, len(projects))`)
+  zurueck auf `var protos []*workv1.ProjectProto` gesetzt -> `go test -run
+  TestListProjects_EmptyIsNilNotEmptySlice -v` wurde rot ("Projects should be an empty slice,
+  not nil..."). Zurueckgedreht, `git diff` zeigt danach wieder ausschliesslich den sauberen
+  14-Stellen-Diff in work_grpc.go (plus die harmlose gofmt-Struct-Realignment) und die neue
+  Testdatei.
+- verify vorgaenger: sauber (Commit `8b7053e3`, Iteration 31 — reiner `git show --stat`- und
+  Diff-Check: nur `crm_grpc.go` plus drei Testdateien geaendert, alle 8 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt
+  (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine — alle 14 im Backlog genannten Stellen (12 List-RPCs + 2 Randfunde) sind in
+  diesem einen Commit abgedeckt, kein Rest fuer eine Folge-Iteration.
