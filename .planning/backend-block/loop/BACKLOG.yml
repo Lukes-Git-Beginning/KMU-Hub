@@ -826,7 +826,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER B — INSERT setzt `tenant_id` nicht, obwohl die Spalte `NOT NULL` ohne Default
@@ -1325,3 +1325,51 @@ units:
       - Ein DB-gestuetzter Test beweist: ein Nutzer mit Admin/Manager-Rolle darf einen
         Firmenkontakt anlegen/aendern/loeschen, ein Nutzer ohne diese Rolle bekommt 403
       - go test -count=1 ./internal/caldav/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
+
+  - id: fix-work-recording-consent-missing-tenant-id
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-insert-missing-tenant-id-a, Lauf 9 Iteration 18)"
+    scope: >
+      `PostgresRepository.SetConsent` (backend/internal/work/recording/postgres_repository.go:154)
+      inserted in `recording_consents` OHNE die Spalte `tenant_id` zu setzen:
+      `INSERT INTO recording_consents (recording_id, user_id, consented, responded_at)
+      VALUES ($1, $2, $3, $4) ON CONFLICT (recording_id, user_id) DO UPDATE SET ...`.
+      `recording_consents` traegt `tenant_id UUID NOT NULL` OHNE Spalten-Default und FORCE ROW
+      LEVEL SECURITY mit `WITH CHECK (tenant_id = current_tenant_id() OR is_system_context())`
+      -- verifiziert per `\d recording_consents` gegen die laufende lokale DB (Kopf 312). Das
+      Modell `RecordingConsent` (backend/internal/work/recording/models.go:56-61) hat kein
+      `TenantID`-Feld, und `Service.SetConsent` (service.go:273) bekommt gar keine `tenantID`
+      als Parameter -- der Aufrufer (`VideoGRPCServer.SetRecordingConsent`,
+      internal/server/video_grpc.go:341) hat sie also nicht einmal zur Hand. Jeder Aufruf
+      schlaegt am NOT-NULL-Constraint fehl: die Teilnehmer-Zustimmung zu einer Aufzeichnung
+      (DSGVO-relevant, Recording-Consent-Feature) laesst sich ueber diesen Pfad nie speichern.
+      Kontrollfund (kein Bug): `CreateRecording` (postgres_repository.go:32) setzt `tenant_id`
+      auf derselben Datei korrekt aus `rec.TenantID`.
+    sources:
+      - backend/internal/work/recording/postgres_repository.go
+      - backend/internal/work/recording/service.go
+      - backend/internal/work/recording/models.go
+      - backend/internal/server/video_grpc.go
+    notes: >
+      Gefunden bei `scan-insert-missing-tenant-id-a` (Lauf 9, Iteration 18). Schlankster Fix
+      vermutlich ohne Signatur-Aenderung an `Service.SetConsent`: `tenant_id` per Subquery aus
+      der Elterntabelle ergaenzen, analog zum bereits im selben Paket verwendeten Muster
+      (`event_exceptions`, `meeting_breakout_rooms`, `task_dependencies` in Nachbarpaketen) --
+      `INSERT INTO recording_consents (recording_id, user_id, consented, responded_at,
+      tenant_id) VALUES ($1, $2, $3, $4, (SELECT tenant_id FROM recordings WHERE id = $1))`.
+      Alternative: `TenantID` durchs Modell/Service/Handler plumben (mehr Diff, dafuer expliziter
+      und ohne Subquery pro Schreibzugriff) -- vor dem Bauen entscheiden, welches Muster im Paket
+      ueberwiegt. `MarkInitiatorConsent` im selben Repository (Zeile 338) bekommt bereits eine
+      `tenantID` durchgereicht und nutzt sie in der WHERE-Klausel -- als Vergleichsmuster fuer
+      "Variante B" nutzbar, ist selbst aber kein Fund (UPDATE, keine fehlende Spalte).
+    done_when:
+      - SetConsent schreibt tenant_id korrekt (Subquery oder durchgereichter Parameter), das
+        INSERT/ON-CONFLICT-UPDATE schlaegt nicht mehr am NOT-NULL-Constraint fehl
+      - Ein DB-gestuetzter Test beweist: SetConsent legt fuer den richtigen Tenant eine Zeile an,
+        ein zweiter Tenant sieht sie nicht (Muster AssertWriteCarriesTenant aus internal/testutil)
+      - go test -count=1 ./internal/work/recording/ ./internal/server/ gruen, DATABASE_URL gegen
+        kmuhub_app gesetzt

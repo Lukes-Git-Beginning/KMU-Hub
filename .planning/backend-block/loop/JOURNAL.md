@@ -888,3 +888,52 @@ Fensters.
 - offen: Muster A2 (phantom columns) ist damit ueber alle drei Teile abgeschlossen. Block B hat
   noch offene Scan-Units (scan-insert-missing-tenant-id-a/b/c, scan-nil-slice-wire-shape-large-
   services, weitere) fuer die naechste Iteration.
+
+## Iteration 18 — scan-insert-missing-tenant-id-a — done — 2026-08-11 18:26
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil A von 3 —
+  Repositories unter `internal/biz` (inkl. banking, bexio, creditnote, datev, dunning, einvoice,
+  expense, gobdarchive, hr/{changerequest,employee,leave,timetracking}, invoice, lexware,
+  payment, quote, recurring), `internal/crm` (activity, advisoryprotocol, company, consent,
+  contact, customfield, deal, pipelinestage, savedfilter, tag) und `internal/work` (calendar,
+  comment, customfield, event, holiday, label, meeting, presence, project, reaction, recording,
+  resource, status, task, timeentry, video) per drei parallelen Subagenten geprueft (max. 3
+  gleichzeitig).
+  Vorgehen pro Agent: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien gefunden, Zieltabelle
+  bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`, Kopf 312) per `\d
+  <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist, System-Global-Liste (ADR-006:
+  schema_migrations, caldav_settings, industry_templates, permissions, automation_templates,
+  event_types, public_holidays) ausgenommen, dann Spaltenliste + Werteherkunft (Struct-Feld aus
+  Kontext vs. hartkodiert/uuid.Nil/fehlend) verifiziert.
+  Insgesamt 116 INSERT-Statements in 48 Nicht-Test-Dateien geprueft:
+  - biz (21 Dateien, 46 INSERTs, Referenzdatei postgres_upload_repo.go bereits gefixt und nicht
+    erneut gezaehlt) — 0 Funde, alle tenant_id aus *.TenantID-Feld bzw. tenantID-Parameter.
+    Einzige Ausnahme: `hr_employee_profiles` hat einen Zero-UUID-Default (kein NOT-NULL-Problem,
+    kein Fund).
+  - crm (10 Dateien, 23 INSERTs) — 0 Funde. *_custom_field_values-Junction-Tabellen haben gar
+    keine tenant_id-Spalte (RLS via EXISTS-Policy auf Elterntabelle), alle uebrigen setzen
+    tenant_id korrekt aus Struct-Feld oder Subquery gegen die tenant-tragende Elterntabelle.
+  - work (17 Dateien, 47 INSERTs) — 1 FUND (siehe unten), Rest sauber (Feld, tenantID-Parameter
+    oder Subquery gegen Elterntabelle; `task_labels` hat wie die CRM-Junction-Tabellen keine
+    eigene tenant_id-Spalte).
+  FUND: `backend/internal/work/recording/postgres_repository.go:154 SetConsent` inserted in
+  `recording_consents` (tenant_id NOT NULL ohne Default, FORCE RLS, verifiziert per `\d
+  recording_consents`) ohne tenant_id in der Spaltenliste. `RecordingConsent`-Modell hat kein
+  TenantID-Feld, `Service.SetConsent` bekommt keine tenantID uebergeben — der Aufrufer
+  (`VideoGRPCServer.SetRecordingConsent`) hat sie nicht zur Hand. Jeder Aufruf schlaegt am
+  NOT-NULL-Constraint fehl: DSGVO-relevante Recording-Consent-Zustimmung laesst sich nie
+  speichern. Selbst gegen die DB verifiziert (`\d recording_consents`, Kopf 312) und Modell/
+  Service/Caller-Kette gegengelesen, bevor die Unit angelegt wurde. Als neue Fix-Unit angelegt:
+  `fix-work-recording-consent-missing-tenant-id`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2d6017a2`, Iteration 17 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-work-recording-consent-missing-tenant-id
+- offen: Teil B (`scan-insert-missing-tenant-id-b`, auth/security/document/chat/calendar/email/
+  notification/inbox/hr) und Teil C (`scan-insert-missing-tenant-id-c`, Modul-Services) stehen
+  noch aus und sind bereits als todo im Backlog.
