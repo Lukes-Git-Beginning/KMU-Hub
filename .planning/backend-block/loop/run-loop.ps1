@@ -20,6 +20,7 @@ param(
     [int]    $MaxIterations = 100,
     [int]    $StartAt       = 1,         # Iterationsnummer, bei der die Zaehlung beginnt
     [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
+    [string] $StartNotBefore = "",       # "HH:mm" - vor der ERSTEN Iteration bis dahin warten
     [string] $PauseFrom     = "",        # "HH:mm" - einmaliges Pausenfenster, Beginn
     [string] $PauseTo       = "",        # "HH:mm" - Ende (naechstes Auftreten nach PauseFrom)
     [int]    $PauseGuard    = 15,        # Minuten vor PauseFrom, ab denen keine Iteration mehr startet
@@ -266,6 +267,42 @@ Pflichtwert: uebernimm exakt die Zeichenkette oben. Ersatzangaben wie "(Lauf 8)"
 "(siehe Commit-Zeit)" sind ein Fehler - der Treiber prueft die Ueberschrift danach und meldet
 eine Abweichung.
 '@
+
+# --- Startsperre (optional) --------------------------------------------------
+# Damit der Lauf abends im Voraus angeworfen werden kann, ohne dass jemand zur
+# Startzeit am Rechner sitzt. BEWUSST NICHT ueber -PauseFrom geloest: es gibt nur
+# EIN Pausenfenster, und das wird fuer die Sperrzeit MITTEN im Lauf gebraucht.
+#
+# Die Vorflug-Checks (Guard-Test, Branch) sind oben schon gelaufen - ein kaputtes
+# Setup faellt also sofort auf und nicht erst Stunden spaeter. Waehrend des
+# Wartens gilt die Schlafsperre bereits, und die STOP-Datei wirkt im
+# Minutentakt.
+if ($StartNotBefore -ne "") {
+    $startPoint = [DateTime]::ParseExact($StartNotBefore, "HH:mm", $null)
+    if ($startPoint -le (Get-Date)) { $startPoint = $startPoint.AddDays(1) }
+    if ($startPoint -ge $Deadline) {
+        Write-Line "ABBRUCH: -StartNotBefore liegt auf oder hinter der Deadline - es bliebe keine Arbeitszeit." "Red"
+        exit 1
+    }
+    if ($startPoint -ge $PauseStart) {
+        Write-Line "ABBRUCH: -StartNotBefore liegt hinter dem Pausenbeginn - das Fenster waere sinnlos." "Red"
+        exit 1
+    }
+    if ($DryRun) {
+        Write-Line ("DryRun: wuerde bis {0} warten." -f $startPoint.ToString("yyyy-MM-dd HH:mm")) "Yellow"
+    } else {
+        Write-Line ("Warte bis {0} - erste Iteration startet dann." -f $startPoint.ToString("yyyy-MM-dd HH:mm")) "Cyan"
+        while (((Get-Date) -lt $startPoint) -and (-not (Test-Path $StopFile))) {
+            Start-Sleep -Seconds 60
+        }
+        if (Test-Path $StopFile) {
+            Write-Line "STOP-Datei waehrend der Wartezeit gefunden - Lauf beendet." "Yellow"
+            [Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null
+            exit 0
+        }
+        Write-Line "Wartezeit vorbei." "Green"
+    }
+}
 
 Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Effort" "Green"
 
