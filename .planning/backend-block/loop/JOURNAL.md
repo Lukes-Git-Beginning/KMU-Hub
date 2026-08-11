@@ -832,3 +832,59 @@ Fensters.
 - neue-units: keine
 - offen: Teil 3 von 3 (`scan-phantom-columns-module-services`) steht noch aus und ist bereits
   als todo im Backlog.
+
+## Iteration 17 — scan-phantom-columns-module-services — done — 2026-08-11 17:57
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 3 von 3 —
+  Repositories unter `internal/{plugin,inventar,einkauf,produktion,caldav,vertraege,rapporte,
+  schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,settings}`
+  per drei parallelen Subagenten geprueft (max. 3 gleichzeitig). `internal/video` existiert
+  nicht als Top-Level-Paket -- die tatsaechliche Video-Funktionalitaet liegt unter
+  `internal/work/video` und wurde bereits in Iteration 15 (Teil 1, Paketliste `work`) geprueft,
+  hier also korrekt ausgelassen statt doppelt bearbeitet.
+  Vorgehen pro Agent: alle Nicht-Test-Go-Dateien mit echtem Roh-SQL (SELECT/INSERT/UPDATE/
+  RETURNING) identifiziert, Aliase aus JOIN-Klauseln aufgeloest, jede referenzierte Spalte/
+  Tabelle gegen `information_schema.columns` bzw. `\d` der laufenden lokalen DB (Container
+  `docker-postgres-1`, Migrationskopf 312) geprueft, bei Unsicherheit zusaetzlich per `EXPLAIN`
+  gegen die DB verifiziert.
+  Insgesamt 37 SQL-tragende Nicht-Test-Dateien geprueft:
+  - Gruppe 1 (13 Dateien): plugin/repository/{execution_log,industry_template,installation,
+    kv_store,manifest,permission,validation_rule,workflow_rule}.go (8),
+    inventar/postgres_repository.go (1), einkauf/{postgres_repository,
+    postgres_repository_extended}.go (2), produktion/{postgres_repository,
+    postgres_repository_ext}.go (2) — 0 Funde.
+  - Gruppe 2 (12 Dateien): caldav/{push_subscription,app_password,caldav_backend,sync_token,
+    postgres_app_password,carddav_backend,user_preferences}.go (7),
+    vertraege/postgres_repository.go (1), rapporte/{postgres_repository,service}.go (2, service.go
+    ohne Roh-SQL, trotzdem geprueft), schichten/postgres_repository.go (1),
+    vermietung/postgres_repository.go (1) — 1 FUND (siehe unten).
+  - Gruppe 3 (12 Dateien): fuhrpark/postgres_repository.go (1),
+    helpdesk/postgres_repository.go (1), wiki/postgres_repository.go (1),
+    formulare/postgres_repository.go (1), berichte/{postgres_repository,downstream/
+    kpi_postgres}.go (2), dialer/postgres_repository.go (1),
+    automation/{trigger/due_postgres,workflow/postgres_repository}.go (2),
+    settings/postgres_repository.go (1) — 0 Funde (erste Grep-Treffer auf weitere Dateien in
+    diesen Paketen waren Fehlalarme: Go-`select{}`-Statements bzw. das Wort "returning" in
+    Kommentaren, verifiziert und ausgeschlossen).
+  FUND: `backend/internal/caldav/carddav_backend.go:400-407`,
+  `checkCompanyContactPermission` selektiert `SELECT role FROM users WHERE id = $1` roh in
+  eine `role string`-Variable. `users` hat keine `role`-Spalte (verifiziert per `\d users`
+  gegen Kopf 312 und per `EXPLAIN` -> `ERROR: column "role" does not exist`, SQLSTATE 42703).
+  Rollen liegen ausschliesslich in `user_roles`/`roles` (RBAC-Modell, vgl.
+  `internal/auth/postgres_repository.go:191 GetUserRoles`). Wirkung: der `err != nil`-Zweig
+  faengt den SQL-Fehler ab und liefert HTTP 403 -- fail-closed, aber das Feature (CardDAV-Schreib-
+  zugriff auf das geteilte `company`-Adressbuch) ist fuer JEDEN Nutzer, auch echte Admins/
+  Manager, vollstaendig unbenutzbar. Als neue Fix-Unit angelegt:
+  `fix-caldav-carddav-company-permission-role-column`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2c2c0a01`, Iteration 16 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-caldav-carddav-company-permission-role-column
+- offen: Muster A2 (phantom columns) ist damit ueber alle drei Teile abgeschlossen. Block B hat
+  noch offene Scan-Units (scan-insert-missing-tenant-id-a/b/c, scan-nil-slice-wire-shape-large-
+  services, weitere) fuer die naechste Iteration.

@@ -797,7 +797,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER A2, TEIL 3 von 3 — gleiches Vorgehen wie
@@ -1277,3 +1277,51 @@ units:
       - Ein neuer DB-gestuetzter Test pro betroffener Methode (oder ein gemeinsamer, alle drei
         abdeckender Test) beweist den korrekten Read bei gesetzter IP
       - go test -count=1 ./internal/chat/guest/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
+
+  - id: fix-caldav-carddav-company-permission-role-column
+    phase: 4
+    service: caldav
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-phantom-columns-module-services, Lauf 9 Iteration 17)"
+    scope: >
+      `CardDAVBackend.checkCompanyContactPermission`
+      (backend/internal/caldav/carddav_backend.go:400-407) selektiert roh
+      `SELECT role FROM users WHERE id = $1` und scannt das Ergebnis in eine lokale
+      `role string`-Variable. Die Spalte `role` existiert nicht auf `users` (verifiziert per
+      `\d users` gegen die laufende lokale DB, Kopf 312: Spalten sind u. a. `id, email,
+      password_hash, first_name, last_name, is_active, ..., tenant_id`, kein `role`). Rollen
+      liegen ausschliesslich in den RBAC-Tabellen `user_roles`/`roles`
+      (vgl. `internal/auth/postgres_repository.go:191`,
+      `func (r *PostgresRepository) GetUserRoles(ctx, userID) ([]string, error)`).
+      Jeder Aufruf von `checkCompanyContactPermission` schlaegt daher mit SQLSTATE 42703 fehl;
+      der `err != nil`-Zweig (Zeile 405-407) faengt das ab und gibt HTTP 403 Forbidden zurueck
+      -- der Fehler ist damit fail-closed (kein Zugriff statt falscher Zugriff), aber das
+      Feature ist fuer JEDEN Nutzer, auch echte Admins/Manager, vollstaendig unbenutzbar: kein
+      CardDAV-`PUT`/`DELETE` gegen das geteilte `company`-Adressbuch funktioniert je.
+      Verifiziert direkt gegen die lokale DB:
+      `EXPLAIN SELECT role FROM users WHERE id='00000000-...'` -> `ERROR: column "role" does
+      not exist`.
+    sources:
+      - backend/internal/caldav/carddav_backend.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/middleware/rbac.go
+    notes: >
+      Gefunden bei `scan-phantom-columns-module-services` (Lauf 9, Iteration 17). Sauberster
+      Fix: `checkCompanyContactPermission` auf den bestehenden RBAC-Pfad umstellen statt einer
+      eigenen Roh-SQL-Query -- entweder `authRepo.GetUserRoles(ctx, userID)` injizieren (falls
+      `CardDAVBackend` bereits Zugriff auf ein `auth`-Repository/-Service hat oder leicht
+      bekommen kann) und gegen `"admin"`/`"manager"` pruefen, oder direkt gegen
+      `user_roles JOIN roles` selektieren, falls die alten String-Rollennamen "admin"/"manager"
+      im RBAC-Modell so nicht mehr 1:1 existieren -- vorher pruefen, welche Rollen-Keys nach der
+      RBAC-Phase-1-Migration (Lauf 4) tatsaechlich das Recht tragen, Firmenkontakte zu
+      bearbeiten (`RequirePermission`-Konvention in `internal/middleware/rbac.go` als Vorlage).
+      `checkPersonalContactOwnership` (Zeile 415 ff.) ist NICHT betroffen (prueft Eigentuemerschaft,
+      keine Rolle) -- nicht anfassen.
+    done_when:
+      - checkCompanyContactPermission prueft die Rolle ueber die echten RBAC-Tabellen statt
+        einer nichtexistenten users.role-Spalte
+      - Ein DB-gestuetzter Test beweist: ein Nutzer mit Admin/Manager-Rolle darf einen
+        Firmenkontakt anlegen/aendern/loeschen, ein Nutzer ohne diese Rolle bekommt 403
+      - go test -count=1 ./internal/caldav/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
