@@ -4702,7 +4702,7 @@ Frühere Läufe liegen vollständig im Archiv:
   BACKLOG.yml in Reihenfolge.
 
 ## Iteration 75 — e-cov-fuhrpark-repo-core — done — 2026-08-11 05:10
-- commit: -
+- commit: c35205e8
 - gebaut: neue Datei `postgres_repository_core_test.go` in
   `internal/fuhrpark`. SoftDeleteVehicle (setzt deleted_at, zweiter Aufruf
   und GetVehicle danach liefern ErrVehicleNotFound), ListVehicles (Status-
